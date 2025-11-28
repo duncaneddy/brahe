@@ -119,7 +119,7 @@ def test_state_eci_to_ecef_circular(eop):
     epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
 
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
-    eci = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+    eci = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
 
     # Perform circular transformations
     ecef = brahe.state_eci_to_ecef(epc, eci)
@@ -214,7 +214,7 @@ def test_state_gcrf_to_itrf(eop):
     epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
 
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
-    gcrf = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+    gcrf = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
 
     # Transform to ITRF
     itrf = brahe.state_gcrf_to_itrf(epc, gcrf)
@@ -230,7 +230,7 @@ def test_state_itrf_to_gcrf_circular(eop):
     epc = brahe.Epoch.from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, brahe.UTC)
 
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
-    gcrf = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+    gcrf = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
 
     # Perform circular transformations
     itrf = brahe.state_gcrf_to_itrf(epc, gcrf)
@@ -280,7 +280,7 @@ def test_gcrf_itrf_eci_ecef_equivalence(eop):
 
     # Test state transformations
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
-    state = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+    state = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
 
     state_itrf_gcrf = brahe.state_gcrf_to_itrf(epc, state)
     state_ecef_eci = brahe.state_eci_to_ecef(epc, state)
@@ -370,7 +370,7 @@ def test_position_eme2000_to_gcrf():
 def test_state_gcrf_to_eme2000():
     """Test state transformation from GCRF to EME2000"""
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
-    gcrf = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+    gcrf = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
     eme2000 = brahe.state_gcrf_to_eme2000(gcrf)
     r_e2g = brahe.rotation_gcrf_to_eme2000()
 
@@ -392,7 +392,7 @@ def test_state_gcrf_to_eme2000():
 def test_state_eme2000_to_gcrf():
     """Test state transformation from EME2000 to GCRF"""
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
-    eme2000 = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+    eme2000 = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
     gcrf = brahe.state_eme2000_to_gcrf(eme2000)
     r_g2e = brahe.rotation_eme2000_to_gcrf()
 
@@ -414,7 +414,7 @@ def test_state_eme2000_to_gcrf():
 def test_eme2000_gcrf_roundtrip():
     """Test round-trip state transformation EME2000 -> GCRF -> EME2000"""
     oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
-    eme2000 = brahe.state_osculating_to_cartesian(oe, brahe.AngleFormat.DEGREES)
+    eme2000 = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
 
     # Perform circular transformations
     gcrf = brahe.state_eme2000_to_gcrf(eme2000)

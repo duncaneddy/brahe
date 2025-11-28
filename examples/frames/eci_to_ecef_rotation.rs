@@ -34,7 +34,7 @@ fn main() {
     );
 
     // Convert to ECI Cartesian state and extract position
-    let state_eci = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let state_eci = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
     let pos_eci = na::Vector3::new(state_eci[0], state_eci[1], state_eci[2]);
 
     println!("Position in ECI:");

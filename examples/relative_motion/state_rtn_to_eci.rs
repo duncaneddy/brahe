@@ -19,7 +19,7 @@ fn main() {
     );
 
     // Convert to Cartesian ECI state
-    let x_chief = bh::state_osculating_to_cartesian(oe_chief, bh::AngleFormat::Degrees);
+    let x_chief = bh::state_koe_to_eci(oe_chief, bh::AngleFormat::Degrees);
 
     println!("Chief ECI state:");
     println!("Position:  [{:.3}, {:.3}, {:.3}] km",

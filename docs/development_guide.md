@@ -35,22 +35,17 @@ uv run pre-commit install
 
 The package includes Rust tests, Python tests, and documentation example tests.
 
-**Run all tests:**
 ```bash
-make test
+# Run Rust tests
+cargo test
+# Run Python tests
+uv pip install -e ".[all]" && uv run pytest
+# Run documentation examples
+uv run make.py test-examples
+# Test specific example
+uv run make.py test-example <example_name> # Can just be the file name without extension, e.g. impulsive_maneuver or impulsive_maneuver.py
 ```
 
-**Individual test suites:**
-```bash
-make test-rust          # Rust tests only
-make test-python        # Python tests only
-make test-examples      # Documentation examples (warn on parity issues)
-```
-
-**Pre-ship validation** (runs all tests, formatters, linters, and doc builds):
-```bash
-make ship-tests
-```
 
 ### Development Workflow: Implementing a New Feature
 
@@ -58,12 +53,11 @@ When adding new functionality to Brahe, follow this sequence:
 
 **1. Rust Implementation**
 - Implement functionality in the appropriate module under `src/`
-- Use SI base units (meters, radians, seconds) in all public APIs
+- Use SI base units (meters, seconds) in all public APIs
 - Follow existing patterns and naming conventions
 
 **2. Rust Tests**
-- Write comprehensive unit tests in the same file (in `#[cfg(test)]
-#[cfg_attr(coverage_nightly, coverage(off))] mod tests`)
+- Write comprehensive unit tests in the same file (in a `#[cfg(test)] mod tests {}` module)
 - Test edge cases and typical use cases
 - Run: `cargo test`
 - Ensure all tests pass before proceeding
@@ -84,19 +78,27 @@ When adding new functionality to Brahe, follow this sequence:
 **5. Documentation Examples**
 - Create standalone example files in `examples/<module>/`
 - Create both Python and Rust versions (see templates below)
-- Test: `make test-examples`
+- Test: `uv run make.py test-examples`
 
 **6. Documentation**
 - Update or create documentation in `docs/`
 - Reference examples using snippet includes (see template below)
-- Build: `make build-docs`
-- Preview: `make serve-docs`
+- Build Locally: `uv run mkdocs serve`
 
-**7. Quality Checks**
+**7. Final Checks**
 ```bash
-make format      # Auto-format code
-make lint        # Check for issues
-make ship-tests  # Full validation
+# Formatting
+cargo fmt
+ruff check --fix
+ruff format
+# Tests
+cargo test
+uv pip install -e ".[all]" && ./scripts/generate_stubs.sh && uv run pytest
+# Documentation
+uv run test-examples
+uv run make-plots
+uv run mkdocs build --strict
+uv run mkdocs serve
 ```
 
 ## Rust Standards and Guidelines

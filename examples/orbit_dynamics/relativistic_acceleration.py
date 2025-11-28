@@ -20,7 +20,7 @@ nu = np.radians(90.0)  # True anomaly (rad)
 
 # Convert to Cartesian state
 oe = np.array([a, e, i, raan, argp, nu])
-state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
 print("GPS Satellite state (ECI):")
 print(

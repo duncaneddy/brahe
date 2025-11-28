@@ -30,7 +30,7 @@ epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 
 # Satellite 1: Sun-synchronous orbit (polar, high inclination)
 oe1 = np.array([bh.R_EARTH + 700e3, 0.001, 98.0, 0.0, 0.0, 0.0])
-state1 = bh.state_osculating_to_cartesian(oe1, bh.AngleFormat.DEGREES)
+state1 = bh.state_koe_to_eci(oe1, bh.AngleFormat.DEGREES)
 prop1 = bh.KeplerianPropagator.from_eci(epoch, state1, 60.0).with_name("Sun-Sync")
 
 # Satellite 2: Medium inclination orbit
@@ -44,7 +44,7 @@ oe2 = np.array(
         90.0,
     ]
 )
-state2 = bh.state_osculating_to_cartesian(oe2, bh.AngleFormat.DEGREES)
+state2 = bh.state_koe_to_eci(oe2, bh.AngleFormat.DEGREES)
 prop2 = bh.KeplerianPropagator.from_eci(epoch, state2, 60.0).with_name("Mid-Inc")
 
 # Satellite 3: Equatorial orbit
@@ -58,7 +58,7 @@ oe3 = np.array(
         180.0,
     ]
 )
-state3 = bh.state_osculating_to_cartesian(oe3, bh.AngleFormat.DEGREES)
+state3 = bh.state_koe_to_eci(oe3, bh.AngleFormat.DEGREES)
 prop3 = bh.KeplerianPropagator.from_eci(epoch, state3, 60.0).with_name("Equatorial")
 
 # Propagate all satellites for 2 orbits

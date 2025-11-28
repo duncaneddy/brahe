@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::traits::{OrbitPropagator, Trajectory};
+use brahe::traits::{SStatePropagator, Trajectory};
 
 fn main() {
     bh::initialize_eop().unwrap();

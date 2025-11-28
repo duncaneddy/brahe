@@ -51,7 +51,7 @@ fn main() {
     let epoch = bh::Epoch::from_datetime(2024, 1, 1, 17, 5, 0.0, 0.0, bh::TimeSystem::UTC);
 
     // Convert orbital elements to ECI state
-    let sat_state_eci = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let sat_state_eci = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
     // Convert ECI state to ECEF at the given epoch
     let sat_state_ecef = bh::state_eci_to_ecef(epoch, sat_state_eci);

@@ -227,10 +227,10 @@ def test_location_accesses_multiple():
 
 def test_elevation_boundary_precision():
     """
-    Test that validates elevation at access window boundaries matches the constraint threshold.
+    Test that validates elevation at access window boundaries matches the constraint value.
 
     This test documents Issue: Elevation values at window open/close should match the constraint
-    threshold within a tight tolerance (0.001°).
+    value within a tight tolerance (0.001°).
     """
     # Create NYC ground station (lon, lat, alt)
     location = bh.PointLocation(-74.0060, 40.7128, 0.0)

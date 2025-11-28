@@ -57,7 +57,7 @@ impl PyEllipsoidalConversionType {
 
 #[pyfunction]
 #[pyo3(text_signature = "(x_oe, angle_format)")]
-#[pyo3(name = "state_osculating_to_cartesian")]
+#[pyo3(name = "state_koe_to_eci")]
 /// Convert osculating orbital elements to Cartesian state.
 ///
 /// Transforms a state vector from osculating Keplerian orbital elements to Cartesian
@@ -82,23 +82,23 @@ impl PyEllipsoidalConversionType {
 ///
 ///     # Orbital elements for a circular orbit
 ///     oe = np.array([7000000.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # a, e, i, RAAN, omega, M
-///     x_cart = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+///     x_cart = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 ///     print(f"Cartesian state: {x_cart}")
 ///     ```
-fn py_state_osculating_to_cartesian<'py>(
+fn py_state_koe_to_eci<'py>(
     py: Python<'py>,
     x_oe: Bound<'py, PyAny>,
     angle_format: &PyAngleFormat,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let vec =
-        coordinates::state_osculating_to_cartesian(pyany_to_svector::<6>(&x_oe)?, angle_format.value);
+        coordinates::state_koe_to_eci(pyany_to_svector::<6>(&x_oe)?, angle_format.value);
 
     Ok(vector_to_numpy!(py, vec, 6, f64))
 }
 
 #[pyfunction]
 #[pyo3(text_signature = "(x_cart, angle_format)")]
-#[pyo3(name = "state_cartesian_to_osculating")]
+#[pyo3(name = "state_eci_to_koe")]
 /// Convert Cartesian state to osculating orbital elements.
 ///
 /// Transforms a state vector from Cartesian position and velocity coordinates to
@@ -123,16 +123,16 @@ fn py_state_osculating_to_cartesian<'py>(
 ///
 ///     # Cartesian state vector
 ///     x_cart = np.array([7000000.0, 0.0, 0.0, 0.0, 7546.0, 0.0])  # [x, y, z, vx, vy, vz]
-///     oe = bh.state_cartesian_to_osculating(x_cart, bh.AngleFormat.RADIANS)
+///     oe = bh.state_eci_to_koe(x_cart, bh.AngleFormat.RADIANS)
 ///     print(f"Orbital elements: a={oe[0]:.0f}m, e={oe[1]:.6f}, i={oe[2]:.6f} rad")
 ///     ```
-fn py_state_cartesian_to_osculating<'py>(
+fn py_state_eci_to_koe<'py>(
     py: Python<'py>,
     x_cart: Bound<'py, PyAny>,
     angle_format: &PyAngleFormat,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let vec =
-        coordinates::state_cartesian_to_osculating(pyany_to_svector::<6>(&x_cart)?, angle_format.value);
+        coordinates::state_eci_to_koe(pyany_to_svector::<6>(&x_cart)?, angle_format.value);
 
     Ok(vector_to_numpy!(py, vec, 6, f64))
 }

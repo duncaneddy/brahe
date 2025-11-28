@@ -100,15 +100,15 @@ pub fn rotation_eci_to_rtn(x_eci: SVector6) -> SMatrix3 {
 /// ```
 /// use brahe::SVector6;
 /// use brahe::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_osculating_to_cartesian;
+/// use brahe::coordinates::state_koe_to_eci;
 /// use brahe::relative_motion::*;
 ///
 /// // Define chief and deputy satellite positions
 /// let oe_chief = SVector6::new(R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0);
 /// let oe_deputy = SVector6::new(R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05);
 ///
-/// let x_chief = state_osculating_to_cartesian(oe_chief, AngleFormat::Degrees);
-/// let x_deputy = state_osculating_to_cartesian(oe_deputy, AngleFormat::Degrees);
+/// let x_chief = state_koe_to_eci(oe_chief, AngleFormat::Degrees);
+/// let x_deputy = state_koe_to_eci(oe_deputy, AngleFormat::Degrees);
 ///
 /// let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
 /// ```
@@ -159,15 +159,15 @@ pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 /// ```
 /// use brahe::SVector6;
 /// use brahe::{R_EARTH, AngleFormat};
-/// use brahe::coordinates::state_osculating_to_cartesian;
+/// use brahe::coordinates::state_koe_to_eci;
 /// use brahe::relative_motion::*;
 ///
 /// // Define chief and deputy satellite positions
 /// let oe_chief = SVector6::new(R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0);
 /// let oe_deputy = SVector6::new(R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05);
 ///
-/// let x_chief = state_osculating_to_cartesian(oe_chief, AngleFormat::Degrees);
-/// let x_deputy = state_osculating_to_cartesian(oe_deputy, AngleFormat::Degrees);
+/// let x_chief = state_koe_to_eci(oe_chief, AngleFormat::Degrees);
+/// let x_deputy = state_koe_to_eci(oe_deputy, AngleFormat::Degrees);
 ///
 /// let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
 /// let x_deputy_reconstructed = state_rtn_to_eci(x_chief, x_rel_rtn);

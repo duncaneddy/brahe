@@ -36,8 +36,8 @@ oe_deputy = np.array(
 )
 
 # Convert to Cartesian ECI states
-x_chief = bh.state_osculating_to_cartesian(oe_chief, bh.AngleFormat.DEGREES)
-x_deputy = bh.state_osculating_to_cartesian(oe_deputy, bh.AngleFormat.DEGREES)
+x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+x_deputy = bh.state_koe_to_eci(oe_deputy, bh.AngleFormat.DEGREES)
 
 # Transform to relative RTN state
 x_rel_rtn = bh.state_eci_to_rtn(x_chief, x_deputy)

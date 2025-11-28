@@ -114,14 +114,14 @@ class TestHarrisPriester:
         """Test Harris-Priester model boundary conditions."""
         r_sun = np.array([24622331959.580, -133060326832.922, -57688711921.833])
 
-        # Test below 100 km threshold
+        # Test below 100 km value
         r_low = bh.position_geodetic_to_ecef(
             np.array([0.0, 0.0, 50.0e3]), bh.AngleFormat.DEGREES
         )
         rho_low = bh.density_harris_priester(r_low, r_sun)
         assert rho_low == 0.0
 
-        # Test above 1000 km threshold
+        # Test above 1000 km value
         r_high = bh.position_geodetic_to_ecef(
             np.array([0.0, 0.0, 1100.0e3]), bh.AngleFormat.DEGREES
         )

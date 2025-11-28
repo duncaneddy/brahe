@@ -83,7 +83,7 @@ mod tests {
     fn test_accel_drag() {
         let oe = Vector6::new(R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0);
 
-        let x_object = state_osculating_to_cartesian(oe, DEGREES);
+        let x_object = state_koe_to_eci(oe, DEGREES);
 
         let a = accel_drag(x_object, 1.0e-12, 1000.0, 1.0, 2.0, SMatrix3::identity());
 

@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::traits::OrbitPropagator;
+use brahe::traits::SStatePropagator;
 
 fn main() {
     bh::initialize_eop().unwrap();  // Required for accurate frame transformations

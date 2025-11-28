@@ -50,7 +50,7 @@ oe = np.array(
 )
 
 # Convert to GCRF Cartesian state and extract position
-state_gcrf = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_gcrf = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Transform to ITRF
 pos_itrf = bh.position_gcrf_to_itrf(epc, state_gcrf[0:3])

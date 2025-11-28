@@ -7,7 +7,7 @@ use brahe::constants::{GM_EARTH, R_EARTH};
 use brahe::math::sensitivity::{
     DAnalyticSensitivity, DNumericalSensitivity, DSensitivityProvider,
 };
-use brahe::state_osculating_to_cartesian;
+use brahe::state_koe_to_eci;
 use brahe::AngleFormat;
 use nalgebra::{DMatrix, DVector, SVector};
 
@@ -75,7 +75,7 @@ fn main() {
 
     // Initial state (400 km LEO circular orbit)
     let oe = SVector::<f64, 6>::from_row_slice(&[R_EARTH + 250e3, 0.001, 51.6, 0.0, 0.0, 0.0]);
-    let state_vec = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+    let state_vec = state_koe_to_eci(oe, AngleFormat::Degrees);
     let state = DVector::from_iterator(6, state_vec.iter().copied());
 
     // Consider parameters

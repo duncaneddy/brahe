@@ -82,7 +82,7 @@ M = 0.0  # Mean anomaly (degrees)
 
 # Convert orbital elements to Cartesian state vector
 oe = np.array([a, e, i, raan, argp, M])
-state0 = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Calculate reference values
 orbital_period = bh.orbital_period(a)

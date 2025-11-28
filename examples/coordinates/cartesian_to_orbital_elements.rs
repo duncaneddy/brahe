@@ -18,7 +18,7 @@ fn main() {
     );
 
     // Convert Cartesian state to orbital elements using degrees
-    let oe_deg = bh::state_cartesian_to_osculating(state, bh::AngleFormat::Degrees);
+    let oe_deg = bh::state_eci_to_koe(state, bh::AngleFormat::Degrees);
 
     println!("Osculating state [a, e, i, Ω, ω, M] (deg):");
     println!("Semi-major axis (m): {:.3}", oe_deg[0]);
@@ -36,7 +36,7 @@ fn main() {
     // Mean anomaly (deg): 45.000000
 
     // You can also convert using radians
-    let oe_rad = bh::state_cartesian_to_osculating(state, bh::AngleFormat::Radians);
+    let oe_rad = bh::state_eci_to_koe(state, bh::AngleFormat::Radians);
 
     println!("\nOsculating state [a, e, i, Ω, ω, M] (rad):");
     println!("Semi-major axis (m): {:.3}", oe_rad[0]);

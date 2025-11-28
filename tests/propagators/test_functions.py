@@ -12,7 +12,7 @@ from brahe import (
     KeplerianPropagator,
     SGPPropagator,
     AngleFormat,
-    state_osculating_to_cartesian,
+    state_koe_to_eci,
     par_propagate_to,
 )
 
@@ -26,17 +26,17 @@ def test_par_propagate_to_keplerian():
     propagators = []
 
     oe1 = np.array([7000e3, 0.001, 98.0, 0.0, 0.0, 0.0])
-    state1 = state_osculating_to_cartesian(oe1, AngleFormat.DEGREES)
+    state1 = state_koe_to_eci(oe1, AngleFormat.DEGREES)
     prop1 = KeplerianPropagator.from_eci(epoch, state1, 60.0)
     propagators.append(prop1)
 
     oe2 = np.array([7200e3, 0.002, 97.0, 10.0, 20.0, 30.0])
-    state2 = state_osculating_to_cartesian(oe2, AngleFormat.DEGREES)
+    state2 = state_koe_to_eci(oe2, AngleFormat.DEGREES)
     prop2 = KeplerianPropagator.from_eci(epoch, state2, 60.0)
     propagators.append(prop2)
 
     oe3 = np.array([6800e3, 0.0005, 51.6, 45.0, 90.0, 120.0])
-    state3 = state_osculating_to_cartesian(oe3, AngleFormat.DEGREES)
+    state3 = state_koe_to_eci(oe3, AngleFormat.DEGREES)
     prop3 = KeplerianPropagator.from_eci(epoch, state3, 60.0)
     propagators.append(prop3)
 
@@ -97,10 +97,10 @@ def test_par_propagate_to_matches_sequential():
 
     # Create identical propagators for parallel test
     oe1 = np.array([7000e3, 0.001, 98.0, 0.0, 0.0, 0.0])
-    state1 = state_osculating_to_cartesian(oe1, AngleFormat.DEGREES)
+    state1 = state_koe_to_eci(oe1, AngleFormat.DEGREES)
 
     oe2 = np.array([7200e3, 0.002, 97.0, 10.0, 20.0, 30.0])
-    state2 = state_osculating_to_cartesian(oe2, AngleFormat.DEGREES)
+    state2 = state_koe_to_eci(oe2, AngleFormat.DEGREES)
 
     parallel_props = [
         KeplerianPropagator.from_eci(epoch, state1, 60.0),
@@ -147,7 +147,7 @@ def test_par_propagate_to_single_propagator():
     target = epoch + 3600.0
 
     oe = np.array([7000e3, 0.001, 98.0, 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.DEGREES)
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
 
     propagators = [KeplerianPropagator.from_eci(epoch, state, 60.0)]
 
@@ -162,7 +162,7 @@ def test_par_propagate_to_mixed_types_raises_error():
     target = epoch + 3600.0
 
     oe = np.array([7000e3, 0.001, 98.0, 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.DEGREES)
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
     kep_prop = KeplerianPropagator.from_eci(epoch, state, 60.0)
 
     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
@@ -183,7 +183,7 @@ def test_par_propagate_to_not_a_list_raises_error():
     target = epoch + 3600.0
 
     oe = np.array([7000e3, 0.001, 98.0, 0.0, 0.0, 0.0])
-    state = state_osculating_to_cartesian(oe, AngleFormat.DEGREES)
+    state = state_koe_to_eci(oe, AngleFormat.DEGREES)
     prop = KeplerianPropagator.from_eci(epoch, state, 60.0)
 
     # Pass a single propagator instead of a list

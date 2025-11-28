@@ -151,6 +151,7 @@ nav:
                 - about/design.md
                 - about/versioning.md
                 - about/alternatives.md
+                - about/benchmarks.md
             - Contributing To Brahe:
                 - contributing.md
                 - development_guide.md
@@ -190,8 +191,7 @@ nav:
                 - learn/attitude_representations/euler_axis.md
             - Trajectories:
                 - learn/trajectories/index.md
-                - learn/trajectories/dtrajectory.md
-                - learn/trajectories/strajectory6.md
+                - learn/trajectories/trajectory.md
                 - learn/trajectories/orbit_trajectory.md
             - Orbital Dynamics:
                 - learn/orbital_dynamics/index.md
@@ -205,6 +205,18 @@ nav:
                 - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
                 - SGP Propagation: learn/orbit_propagation/sgp_propagation.md
                 - Parallel Propagation: learn/orbit_propagation/parallel_propagation.md
+                - Numerical Propagation:
+                    - learn/orbit_propagation/numerical_propagation/index.md
+                    - Numerical Orbit Propagator: learn/orbit_propagation/numerical_propagation/numerical_orbit_propagator.md
+                    - Force Models: learn/orbit_propagation/numerical_propagation/force_models.md
+                    - Integrator Configuration: learn/orbit_propagation/numerical_propagation/integrator_configuration.md
+                    - Event Detection: learn/orbit_propagation/numerical_propagation/event_detection.md
+                    - Premade Events: learn/orbit_propagation/numerical_propagation/premade_events.md
+                    - Event Callbacks: learn/orbit_propagation/numerical_propagation/event_callbacks.md
+                    - Impulsive and Continuous Control: learn/orbit_propagation/numerical_propagation/maneuvers.md
+                    - Covariance and Sensitivity: learn/orbit_propagation/numerical_propagation/covariance_sensitivity.md
+                    - Extending Spacecraft State: learn/orbit_propagation/numerical_propagation/extending_state.md
+                    - General Dynamics Propagation: learn/orbit_propagation/numerical_propagation/generic_dynamics.md
             - Relative Motion:
                 - learn/relative_motion/index.md
                 - learn/relative_motion/rtn_transformations.md
@@ -263,6 +275,8 @@ nav:
             - examples/max_communications_gap.md
             - examples/imaging_opportunities.md
             - examples/using_different_integrators.md
+            - examples/geo_hohmann_transfer.md
+            - examples/low_thrust_orbit_raising.md
     -   Python API Reference:
             - library_api/index.md
             - Constants:
@@ -308,8 +322,7 @@ nav:
                 - EulerAngleOrder: library_api/attitude/euler_angle_order.md
             - Trajectories:
                 - library_api/trajectories/index.md
-                - DTrajectory: library_api/trajectories/dtrajectory.md
-                - STrajectory6: library_api/trajectories/strajectory6.md
+                - Trajectory: library_api/trajectories/trajectory.md
                 - OrbitTrajectory: library_api/trajectories/orbit_trajectory.md
             - Orbital Dynamics:
                 - library_api/orbit_dynamics/index.md
@@ -322,9 +335,19 @@ nav:
                 - Ephemerides: library_api/orbit_dynamics/ephemerides.md
             - Propagators:
                 - library_api/propagators/index.md
-                - KeplerianPropagator: library_api/propagators/keplerian_propagator.md
-                - SGPPropagator: library_api/propagators/sgp_propagator.md
+                - Keplerian Propagator: library_api/propagators/keplerian_propagator.md
+                - SGP Propagator: library_api/propagators/sgp_propagator.md
+                - Numerical Orbit Propagator: library_api/propagators/numerical_orbit_propagator.md
+                - Numerical Propagator: library_api/propagators/numerical_propagator.md
+                - Numerical Propagation Config: library_api/propagators/numerical_propagation_config.md
+                - Force Model Config: library_api/propagators/force_model_config.md
                 - Functions: library_api/propagators/functions.md
+            - Event Detection:
+                - library_api/events/index.md
+                - Event Detectors: library_api/events/detectors.md
+                - Pre-made Events: library_api/events/premade.md
+                - Event Results: library_api/events/results.md
+                - Enumerations: library_api/events/enums.md
             - Relative Motion:
                 - library_api/relative_motion/index.md
                 - RTN Transformations: library_api/relative_motion/rtn_transformations.md

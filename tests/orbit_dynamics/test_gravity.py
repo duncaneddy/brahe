@@ -82,11 +82,11 @@ class TestGravity:
 class TestSphericalHarmonicGravity:
     """Tests for spherical harmonic gravity models."""
 
-    def test_default_gravity_model_enum(self):
-        """Test DefaultGravityModel enum creation and comparison."""
-        model1 = bh.DefaultGravityModel.JGM3
-        model2 = bh.DefaultGravityModel.JGM3
-        model3 = bh.DefaultGravityModel.EGM2008_360
+    def test_gravity_model_type_enum(self):
+        """Test GravityModelType enum creation and comparison."""
+        model1 = bh.GravityModelType.JGM3
+        model2 = bh.GravityModelType.JGM3
+        model3 = bh.GravityModelType.EGM2008_360
 
         # Test equality
         assert model1 == model2
@@ -94,7 +94,24 @@ class TestSphericalHarmonicGravity:
 
         # Test string representation
         assert "JGM3" in str(model1)
-        assert "DefaultGravityModel" in repr(model1)
+        assert "GravityModelType" in repr(model1)
+
+    def test_gravity_model_type_from_file_valid_path(self):
+        """Test GravityModelType.from_file with a valid path."""
+        model_type = bh.GravityModelType.from_file(
+            "data/gravity_models/EGM2008_360.gfc"
+        )
+        assert "FromFile" in repr(model_type)
+
+    def test_gravity_model_type_from_file_nonexistent_path(self):
+        """Test GravityModelType.from_file with a nonexistent path."""
+        with pytest.raises(FileNotFoundError, match="not found"):
+            bh.GravityModelType.from_file("/nonexistent/path/to/model.gfc")
+
+    def test_gravity_model_type_from_file_directory_path(self):
+        """Test GravityModelType.from_file with a directory path."""
+        with pytest.raises(IsADirectoryError, match="not a file"):
+            bh.GravityModelType.from_file("data/gravity_models")
 
     def test_gravity_model_tide_system_enum(self):
         """Test GravityModelTideSystem enum."""
@@ -120,9 +137,9 @@ class TestSphericalHarmonicGravity:
         assert norm1 != norm2
         assert "FullyNormalized" in str(norm1)
 
-    def test_gravity_model_from_default_jgm3(self):
+    def test_gravity_model_from_model_type_jgm3(self):
         """Test loading JGM3 gravity model."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         assert model.n_max == 70
         assert model.m_max == 70
@@ -135,17 +152,17 @@ class TestSphericalHarmonicGravity:
         assert "70x70" in str(model)
         assert "GravityModel" in repr(model)
 
-    def test_gravity_model_from_default_ggm05s(self):
+    def test_gravity_model_from_model_type_ggm05s(self):
         """Test loading GGM05S gravity model."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.GGM05S)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
 
         assert model.n_max == 180
         assert model.m_max == 180
         assert "GGM05S" in model.model_name
 
-    def test_gravity_model_from_default_egm2008(self):
+    def test_gravity_model_from_model_type_egm2008(self):
         """Test loading EGM2008 gravity model."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.EGM2008_360)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
 
         assert model.n_max == 360
         assert model.m_max == 360
@@ -153,7 +170,7 @@ class TestSphericalHarmonicGravity:
 
     def test_gravity_model_get_coefficients(self):
         """Test retrieving spherical harmonic coefficients."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         # Get J2 coefficient (C20)
         c20, s20 = model.get(2, 0)
@@ -169,7 +186,7 @@ class TestSphericalHarmonicGravity:
 
     def test_gravity_model_get_invalid_degree(self):
         """Test error handling for invalid degree."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         # Request degree beyond model limits
         with pytest.raises(Exception):
@@ -177,7 +194,7 @@ class TestSphericalHarmonicGravity:
 
     def test_gravity_model_compute_spherical_harmonics(self):
         """Test computing spherical harmonics in body-fixed frame."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         # Test position from Rust tests
         r_body = np.array([6525.919e3, 1710.416e3, 2508.886e3])
@@ -192,7 +209,7 @@ class TestSphericalHarmonicGravity:
 
     def test_gravity_model_compute_spherical_harmonics_low_order(self):
         """Test spherical harmonics with low degree/order."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 
@@ -208,7 +225,7 @@ class TestSphericalHarmonicGravity:
 
     def test_gravity_model_compute_invalid_n_max(self):
         """Test error handling for n_max exceeding model limits."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 
@@ -218,7 +235,7 @@ class TestSphericalHarmonicGravity:
 
     def test_gravity_model_compute_invalid_m_max(self):
         """Test error handling for m_max > n_max."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 
@@ -228,7 +245,7 @@ class TestSphericalHarmonicGravity:
 
     def test_accel_gravity_spherical_harmonics(self):
         """Test spherical harmonic acceleration in ECI frame."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         # Test position
         r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
@@ -246,7 +263,7 @@ class TestSphericalHarmonicGravity:
 
     def test_accel_gravity_spherical_harmonics_rotation(self):
         """Test spherical harmonic acceleration with rotation."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         r_eci = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 
@@ -263,7 +280,7 @@ class TestSphericalHarmonicGravity:
 
     def test_accel_gravity_spherical_harmonics_egm2008(self):
         """Test spherical harmonics with high-fidelity EGM2008 model."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.EGM2008_360)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
 
         r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
         R = np.eye(3)
@@ -279,7 +296,7 @@ class TestSphericalHarmonicGravity:
 
     def test_accel_gravity_spherical_harmonics_with_state_vector(self):
         """Test spherical harmonics with 6D state vector input."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         # Define state vector [position; velocity]
         x_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3, 7500.0, 1000.0, -500.0])
@@ -295,7 +312,7 @@ class TestSphericalHarmonicGravity:
 
     def test_accel_gravity_spherical_harmonics_state_matches_position(self):
         """Test that state and position inputs produce identical results."""
-        model = bh.GravityModel.from_default(bh.DefaultGravityModel.JGM3)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
 
         r_pos = np.array([bh.R_EARTH + 500e3, 1000e3, 2000e3])
         x_state = np.array([bh.R_EARTH + 500e3, 1000e3, 2000e3, 7500.0, 1000.0, -500.0])
@@ -307,3 +324,71 @@ class TestSphericalHarmonicGravity:
 
         # Results should be identical
         assert np.allclose(a_from_pos, a_from_state, atol=1e-15)
+
+    def test_set_max_degree_order_basic(self):
+        """Test truncating gravity model to smaller degree/order."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+
+        # Original size
+        assert model.n_max == 70
+        assert model.m_max == 70
+
+        # Truncate to 20x20
+        model.set_max_degree_order(20, 20)
+
+        # Verify new limits
+        assert model.n_max == 20
+        assert model.m_max == 20
+
+    def test_set_max_degree_order_coefficient_preservation(self):
+        """Test coefficients are preserved after truncation."""
+        model1 = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        model2 = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+
+        # Get coefficients before truncation
+        c_2_0_orig, s_2_0_orig = model1.get(2, 0)
+        c_10_5_orig, s_10_5_orig = model1.get(10, 5)
+
+        # Truncate model2
+        model2.set_max_degree_order(20, 20)
+
+        # Verify coefficients are preserved
+        c_2_0, s_2_0 = model2.get(2, 0)
+        c_10_5, s_10_5 = model2.get(10, 5)
+
+        assert c_2_0 == pytest.approx(c_2_0_orig, abs=1e-15)
+        assert s_2_0 == pytest.approx(s_2_0_orig, abs=1e-15)
+        assert c_10_5 == pytest.approx(c_10_5_orig, abs=1e-15)
+        assert s_10_5 == pytest.approx(s_10_5_orig, abs=1e-15)
+
+    def test_set_max_degree_order_computation_after_truncation(self):
+        """Test spherical harmonics work correctly after truncation."""
+        model1 = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        model2 = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+
+        # Truncate model2
+        model2.set_max_degree_order(20, 20)
+
+        r_body = np.array([6525.919e3, 1710.416e3, 2508.886e3])
+
+        # Compute with both models using 20x20
+        a1 = model1.compute_spherical_harmonics(r_body, 20, 20)
+        a2 = model2.compute_spherical_harmonics(r_body, 20, 20)
+
+        # Results should be identical
+        assert np.allclose(a1, a2, atol=1e-15)
+
+    def test_set_max_degree_order_validation_m_greater_than_n(self):
+        """Test error when m > n."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+
+        with pytest.raises(ValueError):
+            model.set_max_degree_order(10, 15)
+
+    def test_set_max_degree_order_validation_exceeds_max(self):
+        """Test error when n exceeds model limits."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+
+        # JGM3 is 70x70, requesting 100 should fail
+        with pytest.raises(ValueError):
+            model.set_max_degree_order(100, 100)

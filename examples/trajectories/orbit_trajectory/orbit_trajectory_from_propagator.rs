@@ -1,9 +1,9 @@
-//! Create OrbitTrajectory through orbit propagation
+//! Create SOrbitTrajectory through orbit propagation
 
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::time::Epoch;
-use bh::traits::{Trajectory, OrbitPropagator};
+use bh::traits::{Trajectory, SStatePropagator};
 use bh::{KeplerianPropagator, R_EARTH, AngleFormat};
 use nalgebra as na;
 

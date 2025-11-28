@@ -89,7 +89,7 @@ def augmented_dynamics(t, aug_state):
 
 # Initial state (200 km LEO for significant drag effects)
 oe = np.array([bh.R_EARTH + 200e3, 0.001, 51.6, 0.0, 0.0, 0.0])
-state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Initial sensitivity matrix (identity would mean we start with unit sensitivity,
 # but we start with zero since we're interested in how sensitivity develops)

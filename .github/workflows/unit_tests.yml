@@ -27,8 +27,13 @@ concurrency:
 jobs:
     test-rust:
         uses: ./.github/workflows/test_rust.yml
+    delay-python:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Wait for Rust tests to claim runners
+              run: sleep 15
     test-python:
-        # needs: [ test-rust ]
+        needs: [delay-python]
         uses: ./.github/workflows/test_python.yml
     test-examples:
         # needs: [ test-rust ] # Remove this dependency for optimistic parallel execution

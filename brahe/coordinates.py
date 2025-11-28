@@ -28,8 +28,8 @@ from brahe._brahe import (
     # Coordinate types
     EllipsoidalConversionType,
     # Cartesian conversions
-    state_osculating_to_cartesian,
-    state_cartesian_to_osculating,
+    state_koe_to_eci,
+    state_eci_to_koe,
     # Geocentric conversions
     position_geocentric_to_ecef,
     position_ecef_to_geocentric,
@@ -55,8 +55,8 @@ __all__ = [
     # Coordinate types
     "EllipsoidalConversionType",
     # Cartesian conversions
-    "state_osculating_to_cartesian",
-    "state_cartesian_to_osculating",
+    "state_koe_to_eci",
+    "state_eci_to_koe",
     # Geocentric conversions
     "position_geocentric_to_ecef",
     "position_ecef_to_geocentric",

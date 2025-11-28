@@ -11,7 +11,7 @@ fn main() {
 
     // Get state in ECI, then convert to ECEF for demonstration
     let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
-    let state_eci = bh::state_osculating_to_cartesian(elements, bh::AngleFormat::Degrees);
+    let state_eci = bh::state_koe_to_eci(elements, bh::AngleFormat::Degrees);
     let state_ecef = bh::state_eci_to_ecef(epoch, state_eci);
 
     // Create propagator from ECEF state

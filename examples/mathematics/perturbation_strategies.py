@@ -51,7 +51,7 @@ print(f"   Error: {error_pct:.2e}\n")
 # Strategy 3: Adaptive perturbation (recommended)
 print("3. Adaptive Perturbation (scale=1.0, min=1.0)")
 jacobian_adaptive = bh.NumericalJacobian.central(dynamics).with_adaptive(
-    scale_factor=1.0, min_threshold=1.0
+    scale_factor=1.0, min_value=1.0
 )
 J_adaptive = jacobian_adaptive.compute(t, state)
 error_adaptive = np.linalg.norm(J_adaptive - J_analytical)

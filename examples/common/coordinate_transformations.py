@@ -25,7 +25,7 @@ mean_anomaly = 45.0  # Mean Anomaly
 state_kep = np.array([a, e, i, raan, arg_periapsis, mean_anomaly])
 
 # Convert Keplerian state to ECI coordinates
-state_eci = bh.state_osculating_to_cartesian(state_kep, bh.AngleFormat.DEGREES)
+state_eci = bh.state_koe_to_eci(state_kep, bh.AngleFormat.DEGREES)
 print(f"ECI Coordinates: {state_eci}")
 # Outputs:
 # ECI Coordinates: [ 2.02651406e+06 -5.27290081e+05  6.75606709e+06 -6.93198095e+03 -2.16097991e+03  1.91618569e+03]
@@ -46,7 +46,7 @@ print(f"Recovered ECI Coordinates: {state_eci_2}")
 # Recovered ECI Coordinates: [ 2.02651406e+06 -5.27290081e+05  6.75606709e+06 -6.93198095e+03 -2.16097991e+03  1.91618569e+03]
 
 # Convert back from ECI to Keplerian elements
-state_kep_2 = bh.state_cartesian_to_osculating(state_eci_2, bh.AngleFormat.DEGREES)
+state_kep_2 = bh.state_eci_to_koe(state_eci_2, bh.AngleFormat.DEGREES)
 print(f"Recovered Keplerian Elements: {state_kep_2}")
 # Outputs:
 # Recovered Keplerian Elements: [7.0781363e+06 1.0000000e-03 9.8700000e+01 1.5000000e+01 3.0000000e+01 4.5000000e+01]

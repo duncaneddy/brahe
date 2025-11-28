@@ -12,13 +12,32 @@
  * # Available Traits
  *
  * ## Orbital Propagation
- * - `OrbitPropagator` - Core trait for orbit propagators with clean interface
- * - `StateProvider` - Trait for analytic orbital propagators (SGP4, TLE)
- * - `IdentifiableStateProvider` - Combined trait for state providers with identity tracking
+ * - `SStatePropagator` - Core trait for static-sized (6D) state propagators
+ * - `DStatePropagator` - Core trait for dynamic-sized state propagators
+ * - `SOrbitPropagator` - Orbit-specific propagator trait with orbital initialization (extends `SStatePropagator`)
+ * - `DOrbitPropagator` - Orbit-specific propagator trait with orbital initialization (extends `DStatePropagator`)
+ *
+ * ## State Providers
+ * - `SStateProvider` - Base trait for static-sized state access (frame-agnostic)
+ * - `DStateProvider` - Base trait for dynamic-sized state access (frame-agnostic)
+ * - `SOrbitStateProvider` - Trait for static-sized state with orbital frame conversions (extends `SStateProvider`)
+ * - `DOrbitStateProvider` - Trait for dynamic-sized state with orbital capabilities (extends `DStateProvider`)
+ * - `SIdentifiableStateProvider` - Combined trait for static-sized state providers with identity tracking
+ * - `DIdentifiableStateProvider` - Combined trait for dynamic-sized state providers with identity tracking
+ *
+ * ## Covariance Providers
+ * - `SCovarianceProvider` - Base trait for static-sized covariance access (frame-agnostic)
+ * - `DCovarianceProvider` - Base trait for dynamic-sized covariance access (frame-agnostic)
+ * - `SOrbitCovarianceProvider` - Trait for static-sized covariance with frame conversions (extends `SCovarianceProvider`)
+ * - `DOrbitCovarianceProvider` - Trait for dynamic-sized covariance with frame conversions (extends `DCovarianceProvider`)
+ *
+ * ## Interpolation
+ * - `InterpolationConfig` - Configuration trait for interpolation method selection
+ * - `CovarianceInterpolationConfig` - Configuration trait for covariance interpolation method selection
  *
  * ## Trajectories
  * - `Trajectory` - Core trajectory functionality for storing and managing state data
- * - `Interpolatable` - Trajectory interpolation functionality
+ * - `InterpolatableTrajectory` - Trajectory interpolation functionality (requires Trajectory + InterpolationConfig)
  * - `OrbitalTrajectory` - Orbital-specific trajectory functionality
  *
  * ## Attitude Representations
@@ -38,19 +57,25 @@
 
 // Orbit propagator traits
 pub use crate::propagators::traits::{
-    CovarianceProvider, IdentifiableStateProvider, OrbitPropagator, StateProvider,
+    DOrbitPropagator, DStatePropagator, SOrbitPropagator, SStatePropagator,
+};
+
+// State and covariance provider traits
+pub use crate::utils::state_providers::{
+    DCovarianceProvider, DIdentifiableStateProvider, DOrbitCovarianceProvider, DOrbitStateProvider,
+    DStateProvider, SCovarianceProvider, SIdentifiableStateProvider, SOrbitCovarianceProvider,
+    SOrbitStateProvider, SStateProvider,
+};
+
+// Interpolation configuration traits (from math module)
+pub use crate::math::interpolation::{
+    CovarianceInterpolationConfig, CovarianceInterpolationMethod, InterpolationConfig,
+    InterpolationMethod,
 };
 
 // Trajectory traits and types
 pub use crate::trajectories::traits::{
-    // Traits
-    Interpolatable,
-    // Types and Enums
-    InterpolationMethod,
-    OrbitFrame,
-    OrbitRepresentation,
-    OrbitalTrajectory,
-    Trajectory,
+    InterpolatableTrajectory, OrbitFrame, OrbitRepresentation, OrbitalTrajectory, Trajectory,
     TrajectoryEvictionPolicy,
 };
 
@@ -61,9 +86,7 @@ pub use crate::attitude::traits::{FromAttitude, ToAttitude};
 pub use crate::eop::EarthOrientationProvider;
 
 // Numerical integration traits
-pub use crate::integrators::traits::{
-    AdaptiveStepDIntegrator, AdaptiveStepSIntegrator, FixedStepDIntegrator, FixedStepSIntegrator,
-};
+pub use crate::integrators::traits::{DIntegrator, SIntegrator};
 
 // Identification trait
 pub use crate::utils::identifiable::Identifiable;

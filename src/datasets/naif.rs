@@ -227,7 +227,7 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
     #[serial]
-    fn test_download_de440s_network() {
+    fn test_download_de_network() {
         setup_test_kernel();
 
         // Test downloading de440s kernel (smaller file)
@@ -251,7 +251,7 @@ mod tests {
 
         // Create temporary output path
         let temp_dir = std::env::temp_dir();
-        let output_path = temp_dir.join("test_de440s_output.bsp");
+        let output_path = temp_dir.join("test_de_output.bsp");
 
         // Clean up any existing file
         let _ = fs::remove_file(&output_path);

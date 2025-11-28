@@ -37,7 +37,7 @@ print(f"  M    = {oe[5]:.4f}°\n")
 #   M    = 45.0000°
 
 # Convert to EME2000 state, transform to GCRF, and extract position
-state_eme2000 = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_eme2000 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 state_gcrf = bh.state_eme2000_to_gcrf(state_eme2000)
 pos_gcrf = state_gcrf[0:3]
 

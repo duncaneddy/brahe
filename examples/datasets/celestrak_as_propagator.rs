@@ -7,7 +7,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::traits::OrbitPropagator;
+use bh::traits::SStatePropagator;
 use bh::utils::Identifiable;
 
 fn main() {

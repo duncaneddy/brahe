@@ -14,7 +14,7 @@ class TestDrag:
         """Test drag acceleration calculation."""
         # Create orbital elements for 500 km altitude orbit
         oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0])
-        x_object = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+        x_object = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
         density = 1.0e-12  # kg/m³
         mass = 1000.0  # kg

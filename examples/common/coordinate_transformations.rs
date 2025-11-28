@@ -4,8 +4,8 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::{Epoch, TimeSystem, R_EARTH, state_osculating_to_cartesian,
-            state_eci_to_ecef, state_ecef_to_eci, state_cartesian_to_osculating, AngleFormat};
+use brahe::{Epoch, TimeSystem, R_EARTH, state_koe_to_eci,
+            state_eci_to_ecef, state_ecef_to_eci, state_eci_to_koe, AngleFormat};
 use nalgebra::Vector6;
 
 fn main() {
@@ -24,7 +24,7 @@ fn main() {
     let state_kep = Vector6::new(a, e, i, raan, arg_periapsis, mean_anomaly);
 
     // Convert Keplerian state to ECI coordinates
-    let state_eci = state_osculating_to_cartesian(state_kep, AngleFormat::Degrees);
+    let state_eci = state_koe_to_eci(state_kep, AngleFormat::Degrees);
     println!("ECI Coordinates: {:?}", state_eci);
     // Outputs:
     // ECI Coordinates: [2026514.0589990876, -527290.0808564089, 6756067.089961103, -6931.980949848838, -2160.9799111629056, 1916.1856855691967]
@@ -45,7 +45,7 @@ fn main() {
     // Recovered ECI Coordinates: [2026514.0589990876, -527290.0808564089, 6756067.089961103, -6931.980949848838, -2160.9799111629056, 1916.1856855691967]
 
     // Convert back from ECI to Keplerian elements
-    let state_kep_2 = state_cartesian_to_osculating(state_eci_2, AngleFormat::Degrees);
+    let state_kep_2 = state_eci_to_koe(state_eci_2, AngleFormat::Degrees);
     println!("Recovered Keplerian Elements: {:?}", state_kep_2);
     // Outputs:
     // Recovered Keplerian Elements: [7078136.3, 0.001, 98.7, 15.0, 30.0, 45.0]

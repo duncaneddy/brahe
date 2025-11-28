@@ -2,8 +2,7 @@
 
 `OrbitTrajectory` is a specialized trajectory container for orbital mechanics that stores states in a specific reference frame (ECI or ECEF) and can automatically transform between frames when querying.
 
-OrbitTrajectory has the same API as [STrajectory6](strajectory6.md) and [DTrajectory](dtrajectory.md), plus frame awareness.
-
+OrbitTrajectory has the same API as [Trajectory](trajectory.md), plus frame awareness.
 
 ::: brahe.OrbitTrajectory
     options:
@@ -14,6 +13,5 @@ OrbitTrajectory has the same API as [STrajectory6](strajectory6.md) and [DTrajec
 
 ## See Also
 
-- [STrajectory6](strajectory6.md) - Non-frame-aware 6D trajectory
-- [DTrajectory](dtrajectory.md) - Dynamic-dimension trajectory
+- [Trajectory](trajectory.md) - Dynamic-dimension trajectory
 - [OrbitFrame](../orbits/enums.md#orbitframe) - Frame specifications

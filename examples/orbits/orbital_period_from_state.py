@@ -24,7 +24,7 @@ nu = 45.0  # True anomaly (degrees)
 
 # Convert to Cartesian state
 oe = np.array([a, e, i, raan, argp, nu])
-state_eci = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 print("ECI State (position in km, velocity in km/s):")
 print(

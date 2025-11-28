@@ -31,14 +31,14 @@
 
 use crate::attitude::RotationMatrix;
 use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH, RAD2DEG};
-use crate::coordinates::state_cartesian_to_osculating;
+use crate::coordinates::state_eci_to_koe;
 use crate::frames::{polar_motion, state_ecef_to_eci, state_gcrf_to_eme2000, state_itrf_to_gcrf};
 use crate::orbits::tle::{
     TleFormat, calculate_tle_line_checksum, epoch_from_tle, parse_norad_id, validate_tle_lines,
 };
-use crate::propagators::traits::{OrbitPropagator, StateProvider};
+use crate::propagators::traits::{SOrbitStateProvider, SStatePropagator, SStateProvider};
 use crate::time::{Epoch, TimeSystem};
-use crate::trajectories::OrbitTrajectory;
+use crate::trajectories::SOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::{BraheError, Identifiable};
 use nalgebra::{Vector3, Vector6};
@@ -121,7 +121,7 @@ fn convert_state_from_spg4_frame(
             }
 
             if let Some(format) = angle_format {
-                state_cartesian_to_osculating(state_ecef_to_eci(epoch, ecef_state), format)
+                state_eci_to_koe(state_ecef_to_eci(epoch, ecef_state), format)
             } else {
                 panic!("Angle format must be specified for Keplerian elements");
             }
@@ -161,7 +161,7 @@ pub struct SGPPropagator {
     initial_state: Vector6<f64>,
 
     /// Accumulated trajectory with configurable management
-    pub trajectory: OrbitTrajectory,
+    pub trajectory: SOrbitTrajectory,
 
     /// Step size in seconds for stepping operations
     pub step_size: f64,
@@ -309,7 +309,7 @@ impl SGPPropagator {
 
         // Create trajectory with initial state
         let mut trajectory =
-            OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         // Set trajectory identity from propagator identity
         if let Some(n) = name {
@@ -380,8 +380,16 @@ impl SGPPropagator {
         self.representation = representation;
         self.angle_format = angle_format;
 
-        // Reset trajectory to initial state only
-        self.trajectory = OrbitTrajectory::new(frame, representation, angle_format);
+        // Reset trajectory to initial state only, preserving identity
+        let name = self.trajectory.get_name().map(|s| s.to_string());
+        let uuid = self.trajectory.get_uuid();
+        let id = self.trajectory.get_id();
+
+        self.trajectory = SOrbitTrajectory::new(frame, representation, angle_format).with_identity(
+            name.as_deref(),
+            uuid,
+            id,
+        );
 
         // Propagate to initial epoch and add to trajectory
         let prediction = self
@@ -679,7 +687,7 @@ impl SGPPropagator {
     }
 }
 
-impl OrbitPropagator for SGPPropagator {
+impl SStatePropagator for SGPPropagator {
     fn step_by(&mut self, step_size: f64) {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size; // step_size is in seconds
@@ -730,20 +738,6 @@ impl OrbitPropagator for SGPPropagator {
         self.trajectory.add(self.epoch, self.initial_state);
     }
 
-    fn set_initial_conditions(
-        &mut self,
-        _epoch: Epoch,
-        _state: Vector6<f64>,
-        _frame: OrbitFrame,
-        _representation: OrbitRepresentation,
-        _angle_format: Option<AngleFormat>,
-    ) {
-        // For SGP propagator, initial conditions come from TLE and cannot be changed
-        panic!(
-            "Cannot change initial conditions for SGP propagator - state is determined by TLE data"
-        );
-    }
-
     fn set_eviction_policy_max_size(&mut self, max_size: usize) -> Result<(), BraheError> {
         self.trajectory.set_eviction_policy_max_size(max_size)
     }
@@ -753,23 +747,25 @@ impl OrbitPropagator for SGPPropagator {
     }
 }
 
-impl StateProvider for SGPPropagator {
-    fn state(&self, epoch: Epoch) -> Vector6<f64> {
-        self.propagate_internal(epoch)
+impl SStateProvider for SGPPropagator {
+    fn state(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        Ok(self.propagate_internal(epoch))
     }
+}
 
-    fn state_eci(&self, epoch: Epoch) -> Vector6<f64> {
-        let state_ecef = self.state_ecef(epoch);
+impl SOrbitStateProvider for SGPPropagator {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let state_ecef = self.state_ecef(epoch)?;
 
         // Step 3: ECEF to ECI
-        state_ecef_to_eci(epoch, state_ecef)
+        Ok(state_ecef_to_eci(epoch, state_ecef))
     }
 
-    fn state_ecef(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         self.state_itrf(epoch)
     }
 
-    fn state_itrf(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let state_pef = self.state_pef(epoch);
 
         // Step 2: PEF to ECEF
@@ -779,38 +775,93 @@ impl StateProvider for SGPPropagator {
         let r_itrf = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(0));
         let v_itrf = PM * Vector3::<f64>::from(state_pef.fixed_rows::<3>(3));
 
-        Vector6::new(
+        Ok(Vector6::new(
             r_itrf[0], r_itrf[1], r_itrf[2], v_itrf[0], v_itrf[1], v_itrf[2],
-        )
+        ))
     }
 
-    fn state_gcrf(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get ECEF state and convert to GCRF/ECI
-        let state_itrf = self.state_itrf(epoch);
-        state_itrf_to_gcrf(epoch, state_itrf)
+        let state_itrf = self.state_itrf(epoch)?;
+        Ok(state_itrf_to_gcrf(epoch, state_itrf))
     }
 
-    fn state_eme2000(&self, epoch: Epoch) -> Vector6<f64> {
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get GCRF state and convert to EME2000
-        let gcrf_state = self.state_gcrf(epoch);
-        state_gcrf_to_eme2000(gcrf_state)
+        let gcrf_state = self.state_gcrf(epoch)?;
+        Ok(state_gcrf_to_eme2000(gcrf_state))
     }
 
-    fn state_as_osculating_elements(
+    fn state_koe(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
-    ) -> Vector6<f64> {
-        let state_eci = self.state_eci(epoch);
+    ) -> Result<Vector6<f64>, BraheError> {
+        let state_eci = self.state_eci(epoch)?;
 
-        state_cartesian_to_osculating(state_eci, angle_format)
+        Ok(state_eci_to_koe(state_eci, angle_format))
     }
 
     // Default implementations from trait are used for:
     // - states()
     // - states_eci()
     // - states_ecef()
-    // - states_as_osculating_elements()
+    // - states_koe()
+}
+
+// Implement DStateProvider for SGPPropagator
+impl crate::utils::DStateProvider for SGPPropagator {
+    fn state(&self, epoch: Epoch) -> Result<nalgebra::DVector<f64>, BraheError> {
+        let state_vec6 = <Self as SStateProvider>::state(self, epoch)?;
+        Ok(nalgebra::DVector::from_column_slice(state_vec6.as_slice()))
+    }
+
+    fn state_dim(&self) -> usize {
+        6
+    }
+
+    fn states(&self, epochs: &[Epoch]) -> Result<Vec<nalgebra::DVector<f64>>, BraheError> {
+        epochs
+            .iter()
+            .map(|&epoch| <Self as crate::utils::DStateProvider>::state(self, epoch))
+            .collect()
+    }
+}
+
+// Implement DOrbitStateProvider for SGPPropagator
+impl crate::utils::DOrbitStateProvider for SGPPropagator {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_eci(self, epoch)
+    }
+
+    fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_ecef(self, epoch)
+    }
+
+    fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_itrf(self, epoch)
+    }
+
+    fn state_gcrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_gcrf(self, epoch)
+    }
+
+    fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_eme2000(self, epoch)
+    }
+
+    fn state_koe(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_koe(self, epoch, angle_format)
+    }
+
+    // Default batch implementations from trait are used for:
+    // - states_eci()
+    // - states_ecef()
+    // - states_koe()
 }
 
 impl Identifiable for SGPPropagator {
@@ -889,7 +940,6 @@ impl Identifiable for SGPPropagator {
 mod tests {
     use super::*;
     use crate::RADIANS;
-    use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_eop_original_brahe};
     use approx::assert_abs_diff_eq;
 
@@ -1113,25 +1163,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Cannot change initial conditions for SGP propagator")]
-    fn test_sgppropagator_orbitpropagator_set_initial_conditions() {
-        setup_global_test_eop();
-        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        let epoch = Epoch::from_datetime(2023, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
-
-        // Should panic - SGP propagator doesn't allow changing initial conditions
-        prop.set_initial_conditions(
-            epoch,
-            state,
-            OrbitFrame::ECI,
-            OrbitRepresentation::Cartesian,
-            None, // None for Cartesian
-        );
-    }
-
-    #[test]
-    fn test_sgppropagator_orbitpropagator_set_eviction_policy_max_size() {
+    fn test_sgppropagator_statepropagator_set_eviction_policy_max_size() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         prop.set_eviction_policy_max_size(5).unwrap();
@@ -1419,12 +1451,12 @@ mod tests {
     // StateProvider Trait Tests
 
     #[test]
-    fn test_sgppropagator_analyticpropagator_state_as_osculating_elements() {
+    fn test_sgppropagator_analyticpropagator_state_koe() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let elements = prop.state_as_osculating_elements(epoch, RADIANS);
+        let elements = prop.state_koe(epoch, RADIANS).unwrap();
 
         // Verify we got keplerian elements (all finite)
         assert!(elements.iter().all(|&x| x.is_finite()));
@@ -1447,7 +1479,7 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01, initial_epoch + 0.02];
 
-        let states = prop.states(&epochs);
+        let states = prop.states(&epochs).unwrap();
         assert_eq!(states.len(), 3);
     }
 
@@ -1459,7 +1491,7 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let states = prop.states_eci(&epochs);
+        let states = prop.states_eci(&epochs).unwrap();
         assert_eq!(states.len(), 2);
         // Verify states are valid Cartesian vectors
         for state in &states {
@@ -1475,7 +1507,7 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let states = prop.states_ecef(&epochs);
+        let states = prop.states_ecef(&epochs).unwrap();
         assert_eq!(states.len(), 2);
         // Verify states are valid Cartesian vectors
         for state in &states {
@@ -1484,14 +1516,14 @@ mod tests {
     }
 
     #[test]
-    fn test_sgppropagator_analyticpropagator_states_as_osculating_elements() {
+    fn test_sgppropagator_analyticpropagator_states_koe() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let elements = prop.states_as_osculating_elements(&epochs, RADIANS);
+        let elements = prop.states_koe(&epochs, RADIANS).unwrap();
         assert_eq!(elements.len(), 2);
         // Verify elements are valid Keplerian elements
         for elem in &elements {
@@ -1509,7 +1541,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in TEME frame (native SGP4 output)
-        let state = prop.state(epoch);
+        let state = prop.state(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // TEME is the native SGP4 output frame
@@ -1559,7 +1591,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in ECEF/ITRF frame
-        let state = prop.state_ecef(epoch);
+        let state = prop.state_ecef(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // ECEF/ITRF frame
@@ -1579,7 +1611,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in ECEF/ITRF frame
-        let state = prop.state_itrf(epoch);
+        let state = prop.state_itrf(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // ECEF/ITRF frame
@@ -1599,7 +1631,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in ECI/GCRF frame
-        let state = prop.state_eci(epoch);
+        let state = prop.state_eci(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // ECI/GCRF frame (after TEME -> PEF -> ECEF -> ECI conversion)
@@ -1619,7 +1651,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in ECI/GCRF frame
-        let state = prop.state_gcrf(epoch);
+        let state = prop.state_gcrf(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // ECI/GCRF frame (after TEME -> PEF -> ECEF -> ECI conversion)
@@ -1639,7 +1671,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in EME2000 frame
-        let state = prop.state_eme2000(epoch);
+        let state = prop.state_eme2000(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // EME2000 frame (GCRF with bias transformation applied)
@@ -1848,7 +1880,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let state = prop.state_gcrf(epoch);
+        let state = prop.state_gcrf(epoch).unwrap();
 
         // State should be a valid 6D vector
         assert_eq!(state.len(), 6);
@@ -1869,8 +1901,8 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
-        let state1 = prop.state_gcrf(initial_epoch);
-        let state2 = prop.state_gcrf(initial_epoch + 60.0);
+        let state1 = prop.state_gcrf(initial_epoch).unwrap();
+        let state2 = prop.state_gcrf(initial_epoch + 60.0).unwrap();
 
         // States should be different after propagation
         assert_ne!(state1, state2);
@@ -1887,7 +1919,7 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let state = prop.state_eme2000(epoch);
+        let state = prop.state_eme2000(epoch).unwrap();
 
         // State should be a valid 6D vector
         assert_eq!(state.len(), 6);
@@ -1908,8 +1940,8 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let initial_epoch = prop.initial_epoch();
 
-        let state1 = prop.state_eme2000(initial_epoch);
-        let state2 = prop.state_eme2000(initial_epoch + 60.0);
+        let state1 = prop.state_eme2000(initial_epoch).unwrap();
+        let state2 = prop.state_eme2000(initial_epoch + 60.0).unwrap();
 
         // States should be different after propagation
         assert_ne!(state1, state2);
@@ -1926,8 +1958,8 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let gcrf_state = prop.state_gcrf(epoch);
-        let eme2000_state = prop.state_eme2000(epoch);
+        let gcrf_state = prop.state_gcrf(epoch).unwrap();
+        let eme2000_state = prop.state_eme2000(epoch).unwrap();
 
         // GCRF and EME2000 should be very close (frame bias is small)
         // Difference should be less than 100 meters in position
@@ -1951,8 +1983,8 @@ mod tests {
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let gcrf_state = prop.state_gcrf(epoch);
-        let eci_state = prop.state_eci(epoch);
+        let gcrf_state = prop.state_gcrf(epoch).unwrap();
+        let eci_state = prop.state_eci(epoch).unwrap();
 
         // GCRF and ECI should be identical (ECI is implemented as GCRF)
         assert_abs_diff_eq!(gcrf_state[0], eci_state[0], epsilon = 1.0);

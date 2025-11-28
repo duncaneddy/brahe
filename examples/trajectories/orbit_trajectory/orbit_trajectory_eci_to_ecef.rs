@@ -3,7 +3,7 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::time::Epoch;
-use bh::trajectories::OrbitTrajectory;
+use bh::trajectories::SOrbitTrajectory;
 use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation, OrbitalTrajectory};
 use bh::traits::Trajectory;
 use bh::constants::R_EARTH;
@@ -13,7 +13,7 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Create trajectory in ECI frame
-    let mut traj_eci = OrbitTrajectory::new(
+    let mut traj_eci = SOrbitTrajectory::new(
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None

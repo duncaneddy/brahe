@@ -18,7 +18,7 @@ use crate::constants::physical::R_EARTH;
 use crate::eop::*;
 use crate::math::angles::oe_to_radians;
 use crate::orbit_dynamics::ephemerides::set_global_almanac;
-use crate::orbit_dynamics::gravity::{DefaultGravityModel, GravityModel, set_global_gravity_model};
+use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType, set_global_gravity_model};
 use crate::orbits::keplerian::{geo_sma, perigee_velocity, sun_synchronous_inclination};
 use crate::space_weather::{
     FileSpaceWeatherProvider, SpaceWeatherExtrapolation, set_global_space_weather_provider,
@@ -323,7 +323,7 @@ pub(crate) fn setup_global_test_eop_original_brahe() {
 /// Sets up EGM2008 (degree/order 360) as the global gravity model. Use at the start
 /// of tests requiring high-fidelity gravity for orbit propagation or perturbation analysis.
 pub(crate) fn setup_global_test_gravity_model() {
-    let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+    let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
     set_global_gravity_model(gravity_model);
 }
 
@@ -333,8 +333,8 @@ pub(crate) fn setup_global_test_gravity_model() {
 /// global Almanac. This avoids network downloads during CI tests while providing
 /// the same DE440s ephemeris data for testing high-precision sun/moon positions.
 ///
-/// Use at the start of tests requiring DE440s ephemeris (`sun_position_de440s()`,
-/// `moon_position_de440s()`). If the test asset doesn't exist, this function does
+/// Use at the start of tests requiring DE440s ephemeris (`sun_position_de()`,
+/// `moon_position_de()`). If the test asset doesn't exist, this function does
 /// nothing (allows running tests without the large kernel file).
 ///
 /// # Panics

@@ -50,7 +50,7 @@ oe = np.array(
 )
 
 # Convert to ECI Cartesian state and extract position
-state_eci = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Transform to ECEF
 pos_ecef = bh.position_eci_to_ecef(epc, state_eci[0:3])

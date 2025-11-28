@@ -7,7 +7,7 @@ use nalgebra::DVector;
 fn main() {
     // Define dynamics: Van der Pol oscillator (stiff for large mu)
     let mu = 1.0;
-    let dynamics = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let x = state[0];
         let v = state[1];
         DVector::from_vec(vec![v, mu * (1.0 - x.powi(2)) * v - x])
@@ -40,14 +40,15 @@ fn main() {
     println!("{}", "-".repeat(65));
 
     while t < t_end {
-        let result = integrator.step(t, state, dt.min(t_end - t));
+        let result = integrator.step(t, state, None, Some(dt.min(t_end - t)));
 
         // Track step size statistics
-        min_dt = min_dt.min(result.dt_used);
-        max_dt = max_dt.max(result.dt_used);
+        let dt_used = result.dt_used;
+        min_dt = min_dt.min(dt_used);
+        max_dt = max_dt.max(dt_used);
 
         // Update state
-        t += result.dt_used;
+        t += dt_used;
         state = result.state;
         dt = result.dt_next;
         steps += 1;
@@ -55,7 +56,7 @@ fn main() {
         // Print progress
         if steps % 10 == 1 {
             println!("{:7.3}    [{:6.3}, {:6.3}]    {:7.4}     {:.2e}",
-                     t, state[0], state[1], result.dt_used, result.error_estimate);
+                     t, state[0], state[1], dt_used, result.error_estimate.unwrap());
         }
     }
 

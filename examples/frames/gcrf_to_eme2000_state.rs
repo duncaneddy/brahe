@@ -32,7 +32,7 @@ fn main() {
 
     // Convert to EME2000 state, then transform to GCRF
     // (Starting in EME2000 to get GCRF representation)
-    let state_eme2000_orig = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let state_eme2000_orig = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
     let state_gcrf = bh::state_eme2000_to_gcrf(state_eme2000_orig);
 
     println!("GCRF state vector:");

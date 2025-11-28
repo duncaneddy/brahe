@@ -17,7 +17,7 @@ Configuration structures for numerical integrators.
 ///     ..Default::default()
 /// };
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IntegratorConfig {
     /// Absolute error tolerance for adaptive stepping
     pub abs_tol: f64,
@@ -136,26 +136,6 @@ impl IntegratorConfig {
             ..Default::default()
         }
     }
-}
-
-/// Result from an adaptive integration step.
-///
-/// Contains the new state, the timestep actually used, the estimated error,
-/// and a suggested step size for the next iteration.
-/// Used by adaptive static integrators to report step information.
-#[derive(Debug, Clone, PartialEq)]
-pub struct AdaptiveStepSResult<const S: usize> {
-    /// State vector after the integration step
-    pub state: nalgebra::SVector<f64, S>,
-
-    /// Timestep actually used (may differ from requested dt)
-    pub dt_used: f64,
-
-    /// Estimated local truncation error (normalized by tolerance)
-    pub error_estimate: f64,
-
-    /// Suggested step size for next iteration (based on error estimate)
-    pub dt_next: f64,
 }
 
 #[cfg(test)]

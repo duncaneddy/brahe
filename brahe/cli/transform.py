@@ -164,7 +164,7 @@ def coordinates(
 
     # === Conversions FROM Keplerian ===
     if from_system == StateRepresentation.keplerian:
-        x_eci = brahe.state_osculating_to_cartesian(x, angle_format)
+        x_eci = brahe.state_koe_to_eci(x, angle_format)
 
         if to_system == StateRepresentation.cartesian:
             if to_frame == OrbitFrame.ECEF:
@@ -196,7 +196,7 @@ def coordinates(
                 if from_frame == OrbitFrame.ECI
                 else brahe.state_ecef_to_eci(brahe.Epoch(epoch), x)
             )
-            x = brahe.state_cartesian_to_osculating(x_eci, angle_format)
+            x = brahe.state_eci_to_koe(x_eci, angle_format)
         elif to_system == StateRepresentation.cartesian:
             # Frame conversion
             epc = brahe.Epoch(epoch)

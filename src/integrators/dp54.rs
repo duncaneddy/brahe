@@ -3,16 +3,16 @@ Implementation of the Dormand-Prince 5(4) adaptive integration method.
  */
 
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
-use std::cell::RefCell;
+use std::sync::RwLock;
 
 use crate::integrators::butcher_tableau::{EmbeddedButcherTableau, dp54_tableau};
-use crate::integrators::config::{AdaptiveStepSResult, IntegratorConfig};
+use crate::integrators::config::IntegratorConfig;
 use crate::integrators::traits::{
-    AdaptiveStepDIntegrator, AdaptiveStepDResult, AdaptiveStepInternalResultD,
-    AdaptiveStepInternalResultS, AdaptiveStepSIntegrator, ControlInput, ControlInputD, DIntegrator,
-    SensitivityD, SensitivityS, StateDynamics, StateDynamicsD, VariationalMatrix,
-    VariationalMatrixD, compute_next_step_size, compute_normalized_error,
-    compute_normalized_error_s, compute_reduced_step_size,
+    DControlInput, DIntegrator, DIntegratorConstructor, DIntegratorStepResult, DSensitivity,
+    DStateDynamics, DVariationalMatrix, SControlInput, SIntegrator, SIntegratorConstructor,
+    SIntegratorStepResult, SSensitivity, SStateDynamics, SVariationalMatrix,
+    compute_next_step_size, compute_normalized_error, compute_normalized_error_s,
+    compute_reduced_step_size,
 };
 
 /// Dormand-Prince 5(4) adaptive integrator.
@@ -27,51 +27,17 @@ use crate::integrators::traits::{
 /// - `S`: State vector dimension
 /// - `P`: Parameter vector dimension (for sensitivity matrix propagation)
 pub struct DormandPrince54SIntegrator<const S: usize, const P: usize> {
-    f: StateDynamics<S>,
-    varmat: VariationalMatrix<S>,
-    sensmat: SensitivityS<S, P>,
-    control: ControlInput<S>,
+    f: SStateDynamics<S, P>,
+    varmat: SVariationalMatrix<S, P>,
+    sensmat: SSensitivity<S, P>,
+    control: SControlInput<S, P>,
     bt: EmbeddedButcherTableau<7>,
     config: IntegratorConfig,
     /// Cached last stage evaluation for FSAL optimization
-    last_f: RefCell<Option<SVector<f64, S>>>,
+    last_f: RwLock<Option<SVector<f64, S>>>,
 }
 
 impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
-    /// Create a new DP54 integrator with default configuration.
-    pub fn new(
-        f: StateDynamics<S>,
-        varmat: VariationalMatrix<S>,
-        sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
-    ) -> Self {
-        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
-    }
-
-    /// Create a new DP54 integrator with custom configuration.
-    pub fn with_config(
-        f: StateDynamics<S>,
-        varmat: VariationalMatrix<S>,
-        sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
-        config: IntegratorConfig,
-    ) -> Self {
-        Self {
-            f,
-            varmat,
-            sensmat,
-            control,
-            bt: dp54_tableau(),
-            config,
-            last_f: RefCell::new(None),
-        }
-    }
-
-    /// Get a reference to the integrator configuration.
-    pub fn config(&self) -> &IntegratorConfig {
-        &self.config
-    }
-
     /// Consolidated internal step method that handles all step variants.
     ///
     /// This method performs the core DP54 integration with adaptive step control and FSAL,
@@ -84,7 +50,7 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
         sens: Option<SMatrix<f64, S, P>>,
         params: Option<&SVector<f64, P>>,
         dt: f64,
-    ) -> AdaptiveStepInternalResultS<S, P> {
+    ) -> SIntegratorStepResult<S, P> {
         let compute_phi = phi.is_some();
         let compute_sens = sens.is_some();
 
@@ -103,18 +69,18 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
             let mut k_sens = [SMatrix::<f64, S, P>::zeros(); 7];
 
             // Stage 0: Use cached FSAL value if available
-            let mut k0 = if let Some(cached_f) = self.last_f.borrow().as_ref() {
+            let mut k0 = if let Some(cached_f) = self.last_f.read().unwrap().as_ref() {
                 *cached_f
             } else {
-                (self.f)(t, state)
+                (self.f)(t, &state, params)
             };
             if let Some(ref ctrl) = self.control {
-                k0 += ctrl(t, state);
+                k0 += ctrl(t, &state, params);
             }
             k.set_column(0, &k0);
 
             if compute_phi || compute_sens {
-                let a0 = self.varmat.as_ref().unwrap().compute(t, state);
+                let a0 = self.varmat.as_ref().unwrap().compute(t, &state, params);
                 if compute_phi {
                     k_phi[0] = a0 * phi.unwrap();
                 }
@@ -146,14 +112,14 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
 
                 let state_i = state + h * ksum;
                 let t_i = t + self.bt.c[i] * h;
-                let mut k_i = (self.f)(t_i, state_i);
+                let mut k_i = (self.f)(t_i, &state_i, params);
                 if let Some(ref ctrl) = self.control {
-                    k_i += ctrl(t_i, state_i);
+                    k_i += ctrl(t_i, &state_i, params);
                 }
                 k.set_column(i, &k_i);
 
                 if compute_phi || compute_sens {
-                    let a_i = self.varmat.as_ref().unwrap().compute(t_i, state_i);
+                    let a_i = self.varmat.as_ref().unwrap().compute(t_i, &state_i, params);
                     if compute_phi {
                         k_phi[i] = a_i * (phi.unwrap() + h * k_phi_sum);
                     }
@@ -169,7 +135,7 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
             }
 
             // Cache last stage for FSAL
-            *self.last_f.borrow_mut() = Some(k.column(6).clone_owned());
+            *self.last_f.write().unwrap() = Some(k.column(6).clone_owned());
 
             // Compute solutions
             let mut state_high = SVector::<f64, S>::zeros();
@@ -200,18 +166,18 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
             if error <= 1.0 || min_step_reached {
                 let dt_next = compute_next_step_size(error, h, 0.2, &self.config);
 
-                return AdaptiveStepInternalResultS {
+                return SIntegratorStepResult {
                     state: state_high,
                     phi: phi.map(|p| p + phi_update),
                     sens: sens.map(|s| s + sens_update),
                     dt_used: h,
-                    error_estimate: error,
+                    error_estimate: Some(error),
                     dt_next,
                 };
             }
 
             // Step rejected - reduce step size and clear FSAL cache
-            *self.last_f.borrow_mut() = None;
+            *self.last_f.write().unwrap() = None;
             h = compute_reduced_step_size(error, h, 0.25, &self.config);
         }
 
@@ -219,34 +185,32 @@ impl<const S: usize, const P: usize> DormandPrince54SIntegrator<S, P> {
     }
 }
 
-impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P>
-    for DormandPrince54SIntegrator<S, P>
-{
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> AdaptiveStepSResult<S> {
-        let result = self.step_internal(t, state, None, None, None, dt);
-        AdaptiveStepSResult {
-            state: result.state,
-            dt_used: result.dt_used,
-            error_estimate: result.error_estimate,
-            dt_next: result.dt_next,
-        }
+impl<const S: usize, const P: usize> SIntegrator<S, P> for DormandPrince54SIntegrator<S, P> {
+    fn config(&self) -> &IntegratorConfig {
+        &self.config
+    }
+
+    fn step(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P> {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, None, None, params, dt)
     }
 
     fn step_with_varmat(
         &self,
         t: f64,
         state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
         phi: SMatrix<f64, S, S>,
-        dt: f64,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64) {
-        let result = self.step_internal(t, state, Some(phi), None, None, dt);
-        (
-            result.state,
-            result.phi.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P> {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, Some(phi), None, params, dt)
     }
 
     fn step_with_sensmat(
@@ -255,16 +219,10 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P>
         state: SVector<f64, S>,
         sens: SMatrix<f64, S, P>,
         params: &SVector<f64, P>,
-        dt: f64,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, P>, f64, f64, f64) {
-        let result = self.step_internal(t, state, None, Some(sens), Some(params), dt);
-        (
-            result.state,
-            result.sens.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P> {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, None, Some(sens), Some(params), dt)
     }
 
     fn step_with_varmat_sensmat(
@@ -274,84 +232,75 @@ impl<const S: usize, const P: usize> AdaptiveStepSIntegrator<S, P>
         phi: SMatrix<f64, S, S>,
         sens: SMatrix<f64, S, P>,
         params: &SVector<f64, P>,
-        dt: f64,
-    ) -> (
-        SVector<f64, S>,
-        SMatrix<f64, S, S>,
-        SMatrix<f64, S, P>,
-        f64,
-        f64,
-        f64,
-    ) {
-        let result = self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt);
-        (
-            result.state,
-            result.phi.unwrap(),
-            result.sens.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P> {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
     }
 }
+
+impl<const S: usize, const P: usize> SIntegratorConstructor<S, P>
+    for DormandPrince54SIntegrator<S, P>
+{
+    fn new(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+    ) -> Self {
+        Self::with_config(f, varmat, sensmat, control, IntegratorConfig::default())
+    }
+
+    fn with_config(
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: dp54_tableau(),
+            config,
+            last_f: RwLock::new(None),
+        }
+    }
+}
+
 /// Dormand-Prince 5(4) adaptive integrator with runtime-sized state vectors.
 ///
 /// This is the dynamic-sized counterpart to `DormandPrince54SIntegrator<S>`.
 /// More efficient than RKF45D due to FSAL property (reuses last stage evaluation).
 pub struct DormandPrince54DIntegrator {
     dimension: usize,
-    f: StateDynamicsD,
-    varmat: VariationalMatrixD,
-    sensmat: SensitivityD,
-    control: ControlInputD,
+    f: DStateDynamics,
+    varmat: DVariationalMatrix,
+    sensmat: DSensitivity,
+    control: DControlInput,
     bt: EmbeddedButcherTableau<7>,
     config: IntegratorConfig,
     /// Cached last stage evaluation for FSAL optimization
-    last_f: RefCell<Option<DVector<f64>>>,
+    last_f: RwLock<Option<DVector<f64>>>,
 }
 
 impl DormandPrince54DIntegrator {
-    /// Create a new DP54 integrator with default configuration.
+    /// Create a new Dormand-Prince 5(4) integrator with default configuration.
+    ///
+    /// # Arguments
+    /// - `dimension`: State vector dimension
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
     pub fn new(
         dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
-    ) -> Self {
-        <Self as DIntegrator>::new(dimension, f, varmat, sensmat, control)
-    }
-
-    /// Create a new DP54 integrator with custom configuration.
-    pub fn with_config(
-        dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
-        config: IntegratorConfig,
-    ) -> Self {
-        <Self as DIntegrator>::with_config(dimension, f, varmat, sensmat, control, config)
-    }
-
-    /// Get the state vector dimension for this integrator.
-    pub fn dimension(&self) -> usize {
-        self.dimension
-    }
-
-    /// Get a reference to the integrator configuration.
-    pub fn config(&self) -> &IntegratorConfig {
-        &self.config
-    }
-}
-
-impl DIntegrator for DormandPrince54DIntegrator {
-    fn new(
-        dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
     ) -> Self {
         Self::with_config(
             dimension,
@@ -363,12 +312,21 @@ impl DIntegrator for DormandPrince54DIntegrator {
         )
     }
 
-    fn with_config(
+    /// Create a new Dormand-Prince 5(4) integrator with custom configuration.
+    ///
+    /// # Arguments
+    /// - `dimension`: State vector dimension
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    /// - `config`: Integrator configuration
+    pub fn with_config(
         dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
         config: IntegratorConfig,
     ) -> Self {
         Self {
@@ -379,16 +337,88 @@ impl DIntegrator for DormandPrince54DIntegrator {
             control,
             bt: dp54_tableau(),
             config,
-            last_f: RefCell::new(None),
+            last_f: RwLock::new(None),
         }
     }
+}
 
+impl DIntegrator for DormandPrince54DIntegrator {
     fn dimension(&self) -> usize {
         self.dimension
     }
 
     fn config(&self) -> &IntegratorConfig {
         &self.config
+    }
+
+    fn step(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        params: Option<&DVector<f64>>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, None, None, params, dt)
+    }
+
+    fn step_with_varmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        params: Option<&DVector<f64>>,
+        phi: DMatrix<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, Some(phi), None, params, dt)
+    }
+
+    fn step_with_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, None, Some(sens), Some(params), dt)
+    }
+
+    fn step_with_varmat_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        phi: DMatrix<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult {
+        let dt = dt.expect("Adaptive integrators require dt");
+        self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt)
+    }
+}
+
+impl DIntegratorConstructor for DormandPrince54DIntegrator {
+    fn with_config(
+        dimension: usize,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
+        config: IntegratorConfig,
+    ) -> Self {
+        Self {
+            dimension,
+            f,
+            varmat,
+            sensmat,
+            control,
+            bt: dp54_tableau(),
+            config,
+            last_f: RwLock::new(None),
+        }
     }
 }
 
@@ -405,7 +435,7 @@ impl DormandPrince54DIntegrator {
         sens: Option<DMatrix<f64>>,
         params: Option<&DVector<f64>>,
         dt: f64,
-    ) -> AdaptiveStepInternalResultD {
+    ) -> DIntegratorStepResult {
         let compute_phi = phi.is_some();
         let compute_sens = sens.is_some();
         let num_params = sens.as_ref().map(|s| s.ncols()).unwrap_or(0);
@@ -436,19 +466,19 @@ impl DormandPrince54DIntegrator {
             };
 
             // Stage 0: Use cached FSAL value if available
-            let mut k0 = if let Some(cached_f) = self.last_f.borrow().as_ref() {
+            let mut k0 = if let Some(cached_f) = self.last_f.read().unwrap().as_ref() {
                 cached_f.clone()
             } else {
-                (self.f)(t, state.clone(), params)
+                (self.f)(t, &state, params)
             };
             // Apply control input if present
             if let Some(ref ctrl) = self.control {
-                k0 += ctrl(t, state.clone());
+                k0 += ctrl(t, &state, params);
             }
             k.set_column(0, &k0);
 
             if compute_phi || compute_sens {
-                let a0 = self.varmat.as_ref().unwrap().compute(t, state.clone());
+                let a0 = self.varmat.as_ref().unwrap().compute(t, &state, params);
                 if compute_phi {
                     k_phi[0] = &a0 * &current_phi;
                 }
@@ -489,15 +519,15 @@ impl DormandPrince54DIntegrator {
 
                 let state_i = &state + h * &ksum;
                 let t_i = t + self.bt.c[i] * h;
-                let mut k_i = (self.f)(t_i, state_i.clone(), params);
+                let mut k_i = (self.f)(t_i, &state_i, params);
                 // Apply control input if present
                 if let Some(ref ctrl) = self.control {
-                    k_i += ctrl(t_i, state_i.clone());
+                    k_i += ctrl(t_i, &state_i, params);
                 }
                 k.set_column(i, &k_i);
 
                 if compute_phi || compute_sens {
-                    let a_i = self.varmat.as_ref().unwrap().compute(t_i, state_i.clone());
+                    let a_i = self.varmat.as_ref().unwrap().compute(t_i, &state_i, params);
                     if compute_phi {
                         k_phi[i] = &a_i * (&current_phi + h * k_phi_sum);
                     }
@@ -513,7 +543,7 @@ impl DormandPrince54DIntegrator {
             }
 
             // Cache last stage for FSAL
-            *self.last_f.borrow_mut() = Some(k.column(6).clone_owned());
+            *self.last_f.write().unwrap() = Some(k.column(6).clone_owned());
 
             // Compute solutions
             let mut state_high = DVector::<f64>::zeros(self.dimension);
@@ -565,101 +595,24 @@ impl DormandPrince54DIntegrator {
                     None
                 };
 
-                return AdaptiveStepInternalResultD {
+                return DIntegratorStepResult {
                     state: state_high,
                     phi: phi_new,
                     sens: sens_new,
                     dt_used: h,
-                    error_estimate: error,
+                    error_estimate: Some(error),
                     dt_next,
                 };
             }
 
             // Step rejected - invalidate FSAL cache since we'll retry with different h
-            *self.last_f.borrow_mut() = None;
+            *self.last_f.write().unwrap() = None;
 
             // Reduce step size
             h = compute_reduced_step_size(error, h, 0.25, &self.config);
         }
 
         panic!("DormandPrince54D integrator exceeded maximum step attempts");
-    }
-}
-
-impl AdaptiveStepDIntegrator for DormandPrince54DIntegrator {
-    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> AdaptiveStepDResult {
-        assert_eq!(state.len(), self.dimension);
-        let result = self.step_internal(t, state, None, None, None, dt);
-        AdaptiveStepDResult {
-            state: result.state,
-            dt_used: result.dt_used,
-            error_estimate: result.error_estimate,
-            dt_next: result.dt_next,
-        }
-    }
-
-    fn step_with_varmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        dt: f64,
-    ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64) {
-        assert_eq!(state.len(), self.dimension);
-        assert_eq!(phi.nrows(), self.dimension);
-        assert_eq!(phi.ncols(), self.dimension);
-        let result = self.step_internal(t, state, Some(phi), None, None, dt);
-        (
-            result.state,
-            result.phi.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
-    }
-
-    fn step_with_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: f64,
-    ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64) {
-        assert_eq!(state.len(), self.dimension);
-        assert_eq!(sens.nrows(), self.dimension);
-        let result = self.step_internal(t, state, None, Some(sens), Some(params), dt);
-        (
-            result.state,
-            result.sens.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
-    }
-
-    fn step_with_varmat_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: f64,
-    ) -> (DVector<f64>, DMatrix<f64>, DMatrix<f64>, f64, f64, f64) {
-        assert_eq!(state.len(), self.dimension);
-        assert_eq!(phi.nrows(), self.dimension);
-        assert_eq!(phi.ncols(), self.dimension);
-        assert_eq!(sens.nrows(), self.dimension);
-        let result = self.step_internal(t, state, Some(phi), Some(sens), Some(params), dt);
-        (
-            result.state,
-            result.phi.unwrap(),
-            result.sens.unwrap(),
-            result.dt_used,
-            result.error_estimate,
-            result.dt_next,
-        )
     }
 }
 
@@ -673,13 +626,17 @@ mod tests {
     use crate::integrators::IntegratorConfig;
     use crate::integrators::dp54::{DormandPrince54DIntegrator, DormandPrince54SIntegrator};
     use crate::integrators::rkf45::{RKF45DIntegrator, RKF45SIntegrator};
-    use crate::integrators::traits::{AdaptiveStepDIntegrator, AdaptiveStepSIntegrator};
+    use crate::integrators::traits::{DIntegrator, SIntegrator, SIntegratorConstructor};
     use crate::math::jacobian::{DNumericalJacobian, SNumericalJacobian};
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
-    use crate::{GM_EARTH, R_EARTH, orbital_period, state_osculating_to_cartesian};
+    use crate::{GM_EARTH, R_EARTH, orbital_period, state_koe_to_eci};
 
-    fn point_earth(_: f64, x: SVector<f64, 6>) -> SVector<f64, 6> {
+    fn point_earth(
+        _: f64,
+        x: &SVector<f64, 6>,
+        _params: Option<&SVector<f64, 0>>,
+    ) -> SVector<f64, 6> {
         let r = x.fixed_rows::<3>(0);
         let v = x.fixed_rows::<3>(3);
 
@@ -700,7 +657,10 @@ mod tests {
     #[test]
     fn test_dp54_integrator_parabola() {
         // Test DP54 on simple parabola x' = 2t
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let dp54: DormandPrince54SIntegrator<1, 0> =
@@ -711,7 +671,7 @@ mod tests {
         let dt = 0.01;
 
         for _ in 0..100 {
-            let result = dp54.step(t, state, dt);
+            let result = dp54.step(t, state, None, Some(dt));
             state = result.state;
             t += result.dt_used;
         }
@@ -723,7 +683,10 @@ mod tests {
     #[test]
     fn test_dp54_integrator_adaptive() {
         // Test adaptive stepping on parabola
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let dp54: DormandPrince54SIntegrator<1, 0> =
@@ -735,12 +698,12 @@ mod tests {
 
         while t < t_end {
             let dt = f64::min(t_end - t, 0.1);
-            let result = dp54.step(t, state, dt);
+            let result = dp54.step(t, state, None, Some(dt));
             state = result.state;
             t += result.dt_used;
 
             // Verify that error estimate is reasonable
-            assert!(result.error_estimate >= 0.0);
+            assert!(result.error_estimate.unwrap() >= 0.0);
         }
 
         // Should still get accurate result
@@ -761,7 +724,7 @@ mod tests {
 
         // Get start state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, RADIANS);
+        let state0 = state_koe_to_eci(oe0, RADIANS);
         let mut state = state0;
 
         // Get start and end times of propagation (1 orbit)
@@ -772,7 +735,7 @@ mod tests {
 
         while epc < epcf {
             dt = (epcf - epc).min(10.0);
-            let result = dp54.step(epc - epc0, state, dt);
+            let result = dp54.step(epc - epc0, state, None, Some(dt));
             state = result.state;
             epc += result.dt_used;
         }
@@ -787,8 +750,10 @@ mod tests {
     #[test]
     fn test_dp54_accuracy() {
         // Verify DP54 achieves expected 5th order accuracy
-        let f =
-            |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(3.0 * t * t) };
+        let f = |t: f64,
+                 _: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(3.0 * t * t) };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let dp54: DormandPrince54SIntegrator<1, 0> =
@@ -800,7 +765,7 @@ mod tests {
 
         for i in 0..100 {
             let t = i as f64 * dt;
-            let result = dp54.step(t, state, dt);
+            let result = dp54.step(t, state, None, Some(dt));
             state = result.state;
         }
 
@@ -814,7 +779,10 @@ mod tests {
     #[test]
     fn test_dp54_step_size_increases() {
         // Verify that adaptive stepping increases step size when error is small
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let config = IntegratorConfig::adaptive(1e-6, 1e-4);
         let dp54: DormandPrince54SIntegrator<1, 0> =
@@ -824,7 +792,7 @@ mod tests {
         let dt_initial = 0.01;
 
         // Take a step with loose tolerance - error should be small
-        let result = dp54.step(0.0, state, dt_initial);
+        let result = dp54.step(0.0, state, None, Some(dt_initial));
 
         // For this simple problem with loose tolerance, suggested step should be larger
         assert!(
@@ -835,13 +803,16 @@ mod tests {
         );
 
         // Error should be very small for this simple problem
-        assert!(result.error_estimate < 0.1);
+        assert!(result.error_estimate.unwrap() < 0.1);
     }
 
     #[test]
     fn test_dp54_step_size_decreases() {
         // Verify that adaptive stepping decreases step size when error is large
-        let f = |_t: f64, state: SVector<f64, 1>| -> SVector<f64, 1> {
+        let f = |_t: f64,
+                 state: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> {
             // Stiff problem: y' = -1000 * y
             SVector::<f64, 1>::new(-1000.0 * state[0])
         };
@@ -854,7 +825,7 @@ mod tests {
         let dt_initial = 0.1; // Too large for this stiff problem
 
         // This should trigger step rejection and reduction
-        let result = dp54.step(0.0, state, dt_initial);
+        let result = dp54.step(0.0, state, None, Some(dt_initial));
 
         // Step should have been reduced from initial
         assert!(result.dt_used <= dt_initial);
@@ -863,7 +834,10 @@ mod tests {
     #[test]
     fn test_dp54_config_parameters() {
         // Verify that config parameters are actually used
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let mut config = IntegratorConfig::adaptive(1e-8, 1e-6);
         config.step_safety_factor = Some(0.5); // Very conservative
@@ -873,7 +847,7 @@ mod tests {
             DormandPrince54SIntegrator::with_config(Box::new(f), None, None, None, config);
 
         let state = SVector::<f64, 1>::new(0.0);
-        let result = dp54.step(0.0, state, 0.01);
+        let result = dp54.step(0.0, state, None, Some(0.01));
 
         // With safety factor 0.5, growth should be limited
         assert!(result.dt_next <= 2.0 * result.dt_used);
@@ -882,7 +856,10 @@ mod tests {
     #[test]
     fn test_dp54_fsal_cache() {
         // Verify that FSAL optimization works - second step should reuse cached value
-        let f = |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
+        let f = |t: f64,
+                 _: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(2.0 * t) };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let dp54: DormandPrince54SIntegrator<1, 0> =
@@ -891,11 +868,11 @@ mod tests {
         let state0 = SVector::<f64, 1>::new(0.0);
 
         // First step - no cached value
-        let result1 = dp54.step(0.0, state0, 0.1);
+        let result1 = dp54.step(0.0, state0, None, Some(0.1));
         let state1 = result1.state;
 
         // Second step - should use cached f value from first step
-        let result2 = dp54.step(result1.dt_used, state1, 0.1);
+        let result2 = dp54.step(result1.dt_used, state1, None, Some(0.1));
         let state2 = result2.state;
 
         // Verify we get correct result (integral of 2t from 0 to ~0.2 is ~0.04)
@@ -905,8 +882,10 @@ mod tests {
     #[test]
     fn test_dp54_vs_rkf45_accuracy() {
         // Compare DP54 and RKF45 accuracy on same problem
-        let f =
-            |t: f64, _: SVector<f64, 1>| -> SVector<f64, 1> { SVector::<f64, 1>::new(3.0 * t * t) };
+        let f = |t: f64,
+                 _: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 1> { SVector::<f64, 1>::new(3.0 * t * t) };
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let dp54: DormandPrince54SIntegrator<1, 0> =
@@ -920,8 +899,8 @@ mod tests {
 
         for i in 0..100 {
             let t = i as f64 * dt;
-            let result_dp54 = dp54.step(t, state_dp54, dt);
-            let result_rkf45 = rkf45.step(t, state_rkf45, dt);
+            let result_dp54 = dp54.step(t, state_dp54, None, Some(dt));
+            let result_rkf45 = rkf45.step(t, state_rkf45, None, Some(dt));
             state_dp54 = result_dp54.state;
             state_rkf45 = result_rkf45.state;
         }
@@ -956,12 +935,19 @@ mod tests {
 
         // Circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
 
         // Propagate single step
         let dt = 10.0; // 10 seconds
-        let (state_new, phi, _dt_used, _error, _dt_next) =
-            dp54_nominal.step_with_varmat(0.0, state0, SMatrix::<f64, 6, 6>::identity(), dt);
+        let result = dp54_nominal.step_with_varmat(
+            0.0,
+            state0,
+            None,
+            SMatrix::<f64, 6, 6>::identity(),
+            Some(dt),
+        );
+        let state_new = result.state;
+        let phi = result.phi.unwrap();
 
         // Test STM accuracy by comparing with direct perturbation
         for i in 0..6 {
@@ -980,7 +966,7 @@ mod tests {
 
             // Propagate perturbed state
             let state0_pert = state0 + perturbation;
-            let result_pert = dp54_pert.step(0.0, state0_pert, dt);
+            let result_pert = dp54_pert.step(0.0, state0_pert, None, Some(dt));
 
             // Predict perturbed state using STM
             let state_pert_predicted = state_new + phi * perturbation;
@@ -1046,7 +1032,7 @@ mod tests {
 
         // Circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0 = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0 = state_koe_to_eci(oe0, DEGREES);
 
         // Small perturbation in position
         let perturbation = SVector::<f64, 6>::new(10.0, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -1063,14 +1049,16 @@ mod tests {
 
         for step in 0..num_steps {
             // Propagate with STM
-            let (state_new, phi_new, dt_used, _, _) =
-                dp54_nominal.step_with_varmat(t, state, phi, dt);
+            let result = dp54_nominal.step_with_varmat(t, state, None, phi, Some(dt));
+            let state_new = result.state;
+            let phi_new = result.phi;
+            let dt_used = result.dt_used;
 
             // Propagate perturbed state directly
-            let result_pert = dp54_pert.step(t, state_pert, dt);
+            let result_pert = dp54_pert.step(t, state_pert, None, Some(dt));
 
             // Predict perturbed state using STM
-            let state_pert_predicted = state_new + phi_new * perturbation;
+            let state_pert_predicted = state_new + phi_new.unwrap() * perturbation;
 
             // Compare
             let error = (result_pert.state - state_pert_predicted).norm();
@@ -1090,7 +1078,7 @@ mod tests {
 
             // Update for next step
             state = state_new;
-            phi = phi_new;
+            phi = phi_new.unwrap();
             state_pert = result_pert.state;
             t += dt_used;
         }
@@ -1102,7 +1090,7 @@ mod tests {
 
     fn point_earth_dynamic(
         _: f64,
-        x: DVector<f64>,
+        x: &DVector<f64>,
         _params: Option<&DVector<f64>>,
     ) -> DVector<f64> {
         assert_eq!(x.len(), 6);
@@ -1120,14 +1108,18 @@ mod tests {
     }
 
     // Wrapper for Jacobian computation which expects a 2-argument function
-    fn point_earth_dynamic_for_jacobian(t: f64, x: DVector<f64>) -> DVector<f64> {
+    fn point_earth_dynamic_for_jacobian(
+        t: f64,
+        x: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> DVector<f64> {
         point_earth_dynamic(t, x, None)
     }
 
     #[test]
     fn test_dp54d_integrator_parabola() {
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let dp54 =
@@ -1138,7 +1130,7 @@ mod tests {
 
         while t < 1.0 {
             let dt = f64::min(1.0 - t, 0.1);
-            let result = dp54.step(t, state, dt);
+            let result = dp54.step(t, state, None, Some(dt));
             state = result.state;
             t += result.dt_used;
         }
@@ -1149,7 +1141,7 @@ mod tests {
     #[test]
     fn test_dp54d_integrator_adaptive() {
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
 
         let config = IntegratorConfig::adaptive(1e-10, 1e-8);
         let dp54 =
@@ -1160,10 +1152,10 @@ mod tests {
 
         while t < 1.0 {
             let dt = f64::min(1.0 - t, 0.1);
-            let result = dp54.step(t, state, dt);
+            let result = dp54.step(t, state, None, Some(dt));
             state = result.state;
             t += result.dt_used;
-            assert!(result.error_estimate >= 0.0);
+            assert!(result.error_estimate.unwrap() >= 0.0);
         }
 
         assert_abs_diff_eq!(state[0], 1.0, epsilon = 1.0e-8);
@@ -1184,7 +1176,7 @@ mod tests {
 
         // Setup initial state
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, RADIANS);
+        let state0_static = state_koe_to_eci(oe0, RADIANS);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
 
         // Propagate for one orbital period
@@ -1195,7 +1187,7 @@ mod tests {
         let mut epc = epc0;
         while epc < epcf {
             let dt = (epcf - epc).min(10.0);
-            let result = dp54.step(epc - epc0, state, dt);
+            let result = dp54.step(epc - epc0, state, None, Some(dt));
             state = result.state;
             epc += result.dt_used;
         }
@@ -1209,7 +1201,7 @@ mod tests {
 
     #[test]
     fn test_dp54d_accuracy() {
-        let f = |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| {
+        let f = |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| {
             DVector::from_vec(vec![3.0 * t * t])
         };
 
@@ -1222,7 +1214,7 @@ mod tests {
 
         while t < 10.0 {
             let dt = f64::min(10.0 - t, 0.1);
-            let result = dp54.step(t, state, dt);
+            let result = dp54.step(t, state, None, Some(dt));
             state = result.state;
             t += result.dt_used;
         }
@@ -1235,7 +1227,7 @@ mod tests {
     #[test]
     fn test_dp54d_step_size_increases() {
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
 
         let config = IntegratorConfig::adaptive(1e-6, 1e-4);
         let dp54 =
@@ -1244,15 +1236,15 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
         let dt_initial = 0.01;
 
-        let result = dp54.step(0.0, state, dt_initial);
+        let result = dp54.step(0.0, state, None, Some(dt_initial));
 
         assert!(result.dt_next > dt_initial);
-        assert!(result.error_estimate < 0.1);
+        assert!(result.error_estimate.unwrap() < 0.1);
     }
 
     #[test]
     fn test_dp54d_step_size_decreases() {
-        let f = |_t: f64, state: DVector<f64>, _: Option<&DVector<f64>>| {
+        let f = |_t: f64, state: &DVector<f64>, _: Option<&DVector<f64>>| {
             DVector::from_vec(vec![-1000.0 * state[0]])
         };
 
@@ -1263,7 +1255,7 @@ mod tests {
         let state = DVector::from_vec(vec![1.0]);
         let dt_initial = 0.1;
 
-        let result = dp54.step(0.0, state, dt_initial);
+        let result = dp54.step(0.0, state, None, Some(dt_initial));
 
         assert!(result.dt_used <= dt_initial);
     }
@@ -1272,7 +1264,7 @@ mod tests {
     fn test_dp54d_config_parameters() {
         // Setup with custom configuration
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
         let mut config = IntegratorConfig::adaptive(1e-8, 1e-6);
         config.step_safety_factor = Some(0.5);
         config.max_step_scale_factor = Some(2.0);
@@ -1282,7 +1274,7 @@ mod tests {
         let state = DVector::from_vec(vec![0.0]);
 
         // Take step
-        let result = dp54.step(0.0, state, 0.01);
+        let result = dp54.step(0.0, state, None, Some(0.01));
 
         // Verify config parameters limit step size growth
         assert!(result.dt_next <= 2.0 * result.dt_used);
@@ -1292,15 +1284,15 @@ mod tests {
     fn test_dp54d_fsal_cache() {
         // Setup integrator
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let dp54 =
             DormandPrince54DIntegrator::with_config(1, Box::new(f), None, None, None, config);
 
         // Take two consecutive steps to verify FSAL cache works
         let state = DVector::from_vec(vec![0.0]);
-        let result1 = dp54.step(0.0, state, 0.1);
-        let result2 = dp54.step(result1.dt_used, result1.state, 0.1);
+        let result1 = dp54.step(0.0, state, None, Some(0.1));
+        let result2 = dp54.step(result1.dt_used, result1.state, None, Some(0.1));
 
         // Second step should succeed (verifying FSAL cache doesn't cause errors)
         assert!(result2.dt_used > 0.0);
@@ -1310,7 +1302,7 @@ mod tests {
     fn test_dp54d_vs_rkf45_accuracy() {
         // Setup both integrators
         let f =
-            |t: f64, _: DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
+            |t: f64, _: &DVector<f64>, _: Option<&DVector<f64>>| DVector::from_vec(vec![2.0 * t]);
         let config = IntegratorConfig::adaptive(1e-8, 1e-6);
         let dp54 = DormandPrince54DIntegrator::with_config(
             1,
@@ -1324,8 +1316,8 @@ mod tests {
 
         // Take same step with both
         let state = DVector::from_vec(vec![0.0]);
-        let result_dp54 = dp54.step(0.0, state.clone(), 0.1);
-        let result_rkf45 = rkf45.step(0.0, state, 0.1);
+        let result_dp54 = dp54.step(0.0, state.clone(), None, Some(0.1));
+        let result_rkf45 = rkf45.step(0.0, state, None, Some(0.1));
 
         // Both should produce similar results
         assert!((result_dp54.state[0] - result_rkf45.state[0]).abs() < 1.0e-10);
@@ -1350,13 +1342,15 @@ mod tests {
 
         // Setup circular orbit
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
 
         // Propagate with STM
         let dt = 10.0;
-        let (state_new, phi, _, _, _) =
-            dp54.step_with_varmat(0.0, state0.clone(), DMatrix::identity(6, 6), dt);
+        let result =
+            dp54.step_with_varmat(0.0, state0.clone(), None, DMatrix::identity(6, 6), Some(dt));
+        let state_new = result.state;
+        let phi = result.phi.unwrap();
 
         // Test STM accuracy by comparing with direct perturbation
         for i in 0..6 {
@@ -1375,7 +1369,7 @@ mod tests {
             );
 
             // Propagate perturbed state
-            let result_pert = dp54_pert.step(0.0, state0_pert, dt);
+            let result_pert = dp54_pert.step(0.0, state0_pert, None, Some(dt));
 
             // Predict perturbed state using STM
             let state_pert_predicted = &state_new + &phi * &perturbation;
@@ -1422,7 +1416,7 @@ mod tests {
 
         // Setup initial state and perturbation
         let oe0 = SVector::<f64, 6>::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let state0_static = state_osculating_to_cartesian(oe0, DEGREES);
+        let state0_static = state_koe_to_eci(oe0, DEGREES);
         let state0 = DVector::from_vec(state0_static.as_slice().to_vec());
         let perturbation = DVector::from_vec(vec![10.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
@@ -1439,11 +1433,14 @@ mod tests {
         // Propagate both trajectories and verify STM prediction at each step
         for step in 0..num_steps {
             // Propagate nominal state with STM
-            let (state_new, phi_new, dt_used, _, _) =
-                dp54_nominal.step_with_varmat(t, state.clone(), phi.clone(), dt);
+            let result =
+                dp54_nominal.step_with_varmat(t, state.clone(), None, phi.clone(), Some(dt));
+            let state_new = result.state;
+            let phi_new = result.phi.unwrap();
+            let dt_used = result.dt_used;
 
             // Propagate perturbed state directly
-            let result_pert = dp54_pert.step(t, state_pert.clone(), dt);
+            let result_pert = dp54_pert.step(t, state_pert.clone(), None, Some(dt));
 
             // Predict perturbed state using STM
             let state_pert_predicted = &state_new + &phi_new * &perturbation;
@@ -1464,10 +1461,11 @@ mod tests {
     #[test]
     fn test_dp54_s_vs_d_consistency() {
         // Verify DormandPrince54SIntegrator and DormandPrince54DIntegrator produce identical results
-        let f_static = |_t: f64, x: SVector<f64, 2>| -> SVector<f64, 2> {
-            SVector::<f64, 2>::new(x[1], -x[0])
-        };
-        let f_dynamic = |_t: f64, x: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
+        let f_static = |_t: f64,
+                        x: &SVector<f64, 2>,
+                        _params: Option<&SVector<f64, 0>>|
+         -> SVector<f64, 2> { SVector::<f64, 2>::new(x[1], -x[0]) };
+        let f_dynamic = |_t: f64, x: &DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
             DVector::from_vec(vec![x[1], -x[0]])
         };
 
@@ -1492,8 +1490,8 @@ mod tests {
         let state_d = DVector::from_vec(vec![1.0, 0.0]);
         let dt = 0.1;
 
-        let result_s = dp54_s.step(0.0, state_s, dt);
-        let result_d = dp54_d.step(0.0, state_d, dt);
+        let result_s = dp54_s.step(0.0, state_s, None, Some(dt));
+        let result_d = dp54_d.step(0.0, state_d, None, Some(dt));
 
         // State results should be identical to machine precision
         assert_abs_diff_eq!(result_s.state[0], result_d.state[0], epsilon = 1.0e-15);
@@ -1501,8 +1499,8 @@ mod tests {
 
         // Error estimates and step suggestions should also match
         assert_abs_diff_eq!(
-            result_s.error_estimate,
-            result_d.error_estimate,
+            result_s.error_estimate.unwrap(),
+            result_d.error_estimate.unwrap(),
             epsilon = 1.0e-15
         );
         assert_abs_diff_eq!(result_s.dt_used, result_d.dt_used, epsilon = 1.0e-15);
@@ -1523,7 +1521,7 @@ mod tests {
 
         // Dynamics: dx/dt = -k*x where k = params[0] if provided, else k=1.0
         let dynamics =
-            |_t: f64, state: DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            |_t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
                 let k = params.map_or(1.0, |p| p[0]);
                 DVector::from_vec(vec![-k * state[0]])
             };
@@ -1531,7 +1529,12 @@ mod tests {
         // Jacobian provider: ∂f/∂x = -k
         struct DecayJacobian;
         impl crate::math::jacobian::DJacobianProvider for DecayJacobian {
-            fn compute(&self, _t: f64, _state: DVector<f64>) -> DMatrix<f64> {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> DMatrix<f64> {
                 // For simplicity, use k=1.0 for the Jacobian (this is approximate but works for testing)
                 // In a real application, you'd pass k through or use numerical differentiation
                 DMatrix::from_vec(1, 1, vec![-1.0])
@@ -1570,15 +1573,18 @@ mod tests {
         let dt = 0.1;
 
         // Take a step with combined method
-        let (state_combined, phi_combined, sens_combined, dt_used, _, _) = dp54
-            .step_with_varmat_sensmat(
-                0.0,
-                state0.clone(),
-                phi0.clone(),
-                sens0.clone(),
-                &params,
-                dt,
-            );
+        let result_combined = dp54.step_with_varmat_sensmat(
+            0.0,
+            state0.clone(),
+            phi0.clone(),
+            sens0.clone(),
+            &params,
+            Some(dt),
+        );
+        let state_combined = result_combined.state;
+        let phi_combined = result_combined.phi.unwrap();
+        let sens_combined = result_combined.sens.unwrap();
+        let dt_used = result_combined.dt_used;
 
         // Create separate integrator for comparison (to avoid FSAL cache issues)
         let dp54_sensmat = DormandPrince54DIntegrator::with_config(
@@ -1592,8 +1598,11 @@ mod tests {
 
         // Test 1: Compare with step_with_sensmat - states and sensitivity should match
         // Both use params, so the dynamics are identical
-        let (state_sensmat, sens_sensmat, dt_sensmat, _, _) =
-            dp54_sensmat.step_with_sensmat(0.0, state0.clone(), sens0.clone(), &params, dt);
+        let result_sensmat =
+            dp54_sensmat.step_with_sensmat(0.0, state0.clone(), sens0.clone(), &params, Some(dt));
+        let state_sensmat = result_sensmat.state;
+        let sens_sensmat = result_sensmat.sens.unwrap();
+        let dt_sensmat = result_sensmat.dt_used;
 
         // The dt_used should be the same since both methods have identical dynamics
         assert_abs_diff_eq!(dt_used, dt_sensmat, epsilon = 1e-14);
@@ -1614,7 +1623,7 @@ mod tests {
         // Perturb initial state
         let delta = 1e-6;
         let state0_pert = DVector::from_vec(vec![x0 + delta]);
-        let result_pert = dp54_pert.step(0.0, state0_pert, dt);
+        let result_pert = dp54_pert.step(0.0, state0_pert, None, Some(dt));
 
         // STM should predict the perturbed state
         let state_pert_predicted = state_combined[0] + phi_combined[(0, 0)] * delta;
@@ -1662,11 +1671,15 @@ mod tests {
         );
 
         for _ in 0..10 {
-            let (new_state, new_phi, new_sens, dt_used, _, _) =
-                dp54_multi.step_with_varmat_sensmat(t, state, phi, sens, &params, 0.1);
+            let result =
+                dp54_multi.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(0.1));
+            let new_state = result.state;
+            let new_phi = result.phi;
+            let new_sens = result.sens;
+            let dt_used = result.dt_used;
             state = new_state;
-            phi = new_phi;
-            sens = new_sens;
+            phi = new_phi.unwrap();
+            sens = new_sens.unwrap();
             t += dt_used;
         }
 
@@ -1690,8 +1703,13 @@ mod tests {
         use crate::math::sensitivity::SSensitivityProvider;
 
         struct DecayJacobian;
-        impl SJacobianProvider<1> for DecayJacobian {
-            fn compute(&self, _t: f64, _state: SVector<f64, 1>) -> SMatrix<f64, 1, 1> {
+        impl SJacobianProvider<1, 1> for DecayJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 1>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
             }
         }
@@ -1708,7 +1726,10 @@ mod tests {
             }
         }
 
-        let f = |_t: f64, x: SVector<f64, 1>| -> SVector<f64, 1> { -x };
+        let f = |_t: f64,
+                 x: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 1>>|
+         -> SVector<f64, 1> { -x };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let dp54: DormandPrince54SIntegrator<1, 1> = DormandPrince54SIntegrator::with_config(
@@ -1730,10 +1751,12 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let (new_state, new_sens, dt_used, _, _) =
-                dp54.step_with_sensmat(t, state, sens, &params, dt);
+            let result = dp54.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_sens = result.sens;
+            let dt_used = result.dt_used;
             state = new_state;
-            sens = new_sens;
+            sens = new_sens.unwrap();
             t += dt_used;
         }
 
@@ -1753,7 +1776,12 @@ mod tests {
 
         struct DecayJacobian;
         impl crate::math::jacobian::DJacobianProvider for DecayJacobian {
-            fn compute(&self, _t: f64, _state: DVector<f64>) -> DMatrix<f64> {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                _params: Option<&DVector<f64>>,
+            ) -> DMatrix<f64> {
                 DMatrix::from_vec(1, 1, vec![-1.0])
             }
         }
@@ -1771,7 +1799,7 @@ mod tests {
         }
 
         let dynamics =
-            |_t: f64, x: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> { -x };
+            |_t: f64, x: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> { -x };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let dp54 = DormandPrince54DIntegrator::with_config(
@@ -1794,10 +1822,12 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let (new_state, new_sens, dt_used, _, _) =
-                dp54.step_with_sensmat(t, state, sens, &params, dt);
+            let result = dp54.step_with_sensmat(t, state, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_sens = result.sens;
+            let dt_used = result.dt_used;
             state = new_state;
-            sens = new_sens;
+            sens = new_sens.unwrap();
             t += dt_used;
         }
 
@@ -1817,8 +1847,13 @@ mod tests {
         use crate::math::sensitivity::SSensitivityProvider;
 
         struct DecayJacobian;
-        impl SJacobianProvider<1> for DecayJacobian {
-            fn compute(&self, _t: f64, _state: SVector<f64, 1>) -> SMatrix<f64, 1, 1> {
+        impl SJacobianProvider<1, 1> for DecayJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 1>,
+                _params: Option<&SVector<f64, 1>>,
+            ) -> SMatrix<f64, 1, 1> {
                 SMatrix::<f64, 1, 1>::new(-1.0)
             }
         }
@@ -1835,7 +1870,10 @@ mod tests {
             }
         }
 
-        let f = |_t: f64, x: SVector<f64, 1>| -> SVector<f64, 1> { -x };
+        let f = |_t: f64,
+                 x: &SVector<f64, 1>,
+                 _params: Option<&SVector<f64, 1>>|
+         -> SVector<f64, 1> { -x };
 
         let config = IntegratorConfig::adaptive(1e-12, 1e-10);
         let dp54: DormandPrince54SIntegrator<1, 1> = DormandPrince54SIntegrator::with_config(
@@ -1859,11 +1897,14 @@ mod tests {
 
         while t < 1.0 {
             let dt = (1.0_f64 - t).min(0.1);
-            let (new_state, new_phi, new_sens, dt_used, _, _) =
-                dp54.step_with_varmat_sensmat(t, state, phi, sens, &params, dt);
+            let result = dp54.step_with_varmat_sensmat(t, state, phi, sens, &params, Some(dt));
+            let new_state = result.state;
+            let new_phi = result.phi;
+            let new_sens = result.sens;
+            let dt_used = result.dt_used;
             state = new_state;
-            phi = new_phi;
-            sens = new_sens;
+            phi = new_phi.unwrap();
+            sens = new_sens.unwrap();
             t += dt_used;
         }
 
@@ -1891,7 +1932,7 @@ mod tests {
         let mut t_pert = 0.0_f64;
         while t_pert < 1.0 {
             let dt = (1.0_f64 - t_pert).min(0.1);
-            let result = dp54_pert.step(t_pert, state_pert, dt);
+            let result = dp54_pert.step(t_pert, state_pert, None, Some(dt));
             state_pert = result.state;
             t_pert += result.dt_used;
         }
@@ -1911,8 +1952,12 @@ mod tests {
 
     #[test]
     fn test_dp54s_new_uses_default_config() {
-        fn dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
-            state
+        fn dynamics(
+            _t: f64,
+            state: &SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
+            *state
         }
 
         let integrator: DormandPrince54SIntegrator<1, 0> =
@@ -1929,8 +1974,12 @@ mod tests {
 
     #[test]
     fn test_dp54s_with_config_stores_config() {
-        fn dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
-            state
+        fn dynamics(
+            _t: f64,
+            state: &SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
+            *state
         }
 
         let custom_config = IntegratorConfig {
@@ -1964,8 +2013,12 @@ mod tests {
 
     #[test]
     fn test_dp54s_config_returns_reference() {
-        fn dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
-            state
+        fn dynamics(
+            _t: f64,
+            state: &SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
+            *state
         }
 
         let integrator: DormandPrince54SIntegrator<1, 0> =
@@ -1981,8 +2034,8 @@ mod tests {
 
     #[test]
     fn test_dp54d_new_uses_default_config() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let integrator = DormandPrince54DIntegrator::new(1, Box::new(dynamics), None, None, None);
@@ -1998,8 +2051,8 @@ mod tests {
 
     #[test]
     fn test_dp54d_with_config_stores_config() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let custom_config = IntegratorConfig {
@@ -2034,8 +2087,8 @@ mod tests {
 
     #[test]
     fn test_dp54d_config_returns_reference() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let integrator = DormandPrince54DIntegrator::new(1, Box::new(dynamics), None, None, None);
@@ -2050,8 +2103,8 @@ mod tests {
 
     #[test]
     fn test_dp54d_dimension_method() {
-        fn dynamics(_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
-            state
+        fn dynamics(_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>) -> DVector<f64> {
+            state.clone()
         }
 
         let integrator = DormandPrince54DIntegrator::new(6, Box::new(dynamics), None, None, None);
@@ -2068,7 +2121,11 @@ mod tests {
     #[test]
     #[should_panic(expected = "exceeded maximum step attempts")]
     fn test_dp54s_panics_on_max_attempts_exceeded() {
-        fn stiff_dynamics(_t: f64, state: SVector<f64, 1>) -> SVector<f64, 1> {
+        fn stiff_dynamics(
+            _t: f64,
+            state: &SVector<f64, 1>,
+            _params: Option<&SVector<f64, 0>>,
+        ) -> SVector<f64, 1> {
             SVector::<f64, 1>::new(1e10 * state[0])
         }
 
@@ -2094,7 +2151,7 @@ mod tests {
         );
 
         let state = SVector::<f64, 1>::new(1.0);
-        let _ = integrator.step(0.0, state, 1.0);
+        let _ = integrator.step(0.0, state, None, Some(1.0));
     }
 
     #[test]
@@ -2102,7 +2159,7 @@ mod tests {
     fn test_dp54d_panics_on_max_attempts_exceeded() {
         fn stiff_dynamics(
             _t: f64,
-            state: DVector<f64>,
+            state: &DVector<f64>,
             _params: Option<&DVector<f64>>,
         ) -> DVector<f64> {
             DVector::from_vec(vec![1e10 * state[0]])
@@ -2131,6 +2188,285 @@ mod tests {
         );
 
         let state = DVector::from_vec(vec![1.0]);
-        let _ = integrator.step(0.0, state, 1.0);
+        let _ = integrator.step(0.0, state, None, Some(1.0));
+    }
+
+    // =========================================================================
+    // Parameter-Dependent Dynamics Tests
+    // =========================================================================
+    // These tests verify that the params argument to step() actually affects
+    // propagation output, ensuring parameters flow through to dynamics correctly.
+
+    #[test]
+    fn test_dp54s_params_affect_step_output() {
+        // Test exponential decay where the decay rate comes from params:
+        // dx/dt = -k * x, where k = params[0]
+        //
+        // Analytical solution: x(t) = x0 * exp(-k * t)
+        // Different k values should give different results.
+
+        let f =
+            |_t: f64, x: &SVector<f64, 1>, params: Option<&SVector<f64, 1>>| -> SVector<f64, 1> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                SVector::<f64, 1>::new(-k * x[0])
+            };
+
+        let dp54: DormandPrince54SIntegrator<1, 1> =
+            DormandPrince54SIntegrator::new(Box::new(f), None, None, None);
+
+        let x0 = SVector::<f64, 1>::new(1.0);
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = SVector::<f64, 1>::new(1.0);
+        let result_slow = dp54.step(t, x0, Some(&params_slow), Some(dt));
+
+        // Step with k=5.0 (faster decay)
+        let params_fast = SVector::<f64, 1>::new(5.0);
+        let result_fast = dp54.step(t, x0, Some(&params_fast), Some(dt));
+
+        // Verify different params give different results
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.1,
+            "Different params should produce different states: slow={}, fast={}",
+            result_slow.state[0],
+            result_fast.state[0]
+        );
+
+        // Verify results approximately match analytical solutions
+        // x(dt) = x0 * exp(-k * dt)
+        let x_slow_analytical = 1.0_f64 * (-dt).exp();
+        let x_fast_analytical = 1.0_f64 * (-5.0 * dt).exp();
+
+        // DP54 is adaptive and may take smaller steps; use relaxed tolerance
+        assert_abs_diff_eq!(result_slow.state[0], x_slow_analytical, epsilon = 0.1);
+        assert_abs_diff_eq!(result_fast.state[0], x_fast_analytical, epsilon = 0.1);
+    }
+
+    #[test]
+    fn test_dp54d_params_affect_step_output() {
+        // Same test for dynamic-sized integrator
+        // dx/dt = -k * x, where k = params[0]
+
+        let f = |_t: f64, x: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            let k = params.map(|p| p[0]).unwrap_or(1.0);
+            DVector::from_element(1, -k * x[0])
+        };
+
+        let dp54 = DormandPrince54DIntegrator::new(1, Box::new(f), None, None, None);
+
+        let x0 = DVector::from_element(1, 1.0);
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = DVector::from_element(1, 1.0);
+        let result_slow = dp54.step(t, x0.clone(), Some(&params_slow), Some(dt));
+
+        // Step with k=5.0 (faster decay)
+        let params_fast = DVector::from_element(1, 5.0);
+        let result_fast = dp54.step(t, x0, Some(&params_fast), Some(dt));
+
+        // Verify different params give different results
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.1,
+            "Different params should produce different states: slow={}, fast={}",
+            result_slow.state[0],
+            result_fast.state[0]
+        );
+
+        // Verify results approximately match analytical solutions
+        let x_slow_analytical = 1.0_f64 * (-dt).exp();
+        let x_fast_analytical = 1.0_f64 * (-5.0 * dt).exp();
+
+        // DP54 is adaptive and may take smaller steps; use relaxed tolerance
+        assert_abs_diff_eq!(result_slow.state[0], x_slow_analytical, epsilon = 0.1);
+        assert_abs_diff_eq!(result_fast.state[0], x_fast_analytical, epsilon = 0.1);
+    }
+
+    #[test]
+    fn test_dp54s_params_multi_step_propagation() {
+        // Verify params affect output over multiple adaptive steps
+        // dx/dt = -k * x, where k = params[0]
+
+        let f =
+            |_t: f64, x: &SVector<f64, 1>, params: Option<&SVector<f64, 1>>| -> SVector<f64, 1> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                SVector::<f64, 1>::new(-k * x[0])
+            };
+
+        let dp54: DormandPrince54SIntegrator<1, 1> =
+            DormandPrince54SIntegrator::new(Box::new(f), None, None, None);
+
+        let x0 = SVector::<f64, 1>::new(1.0);
+        let t_final = 1.0;
+
+        // Propagate with k=0.5
+        let params_slow = SVector::<f64, 1>::new(0.5);
+        let mut state_slow = x0;
+        let mut t_slow = 0.0;
+        let mut dt: f64 = 0.1; // Initial step size for adaptive integrator
+        while t_slow < t_final - 1e-10 {
+            // Limit step to not overshoot target
+            let dt_use = dt.min(t_final - t_slow);
+            let result = dp54.step(t_slow, state_slow, Some(&params_slow), Some(dt_use));
+            state_slow = result.state;
+            t_slow += result.dt_used;
+            dt = result.dt_next;
+        }
+
+        // Propagate with k=2.0
+        let params_fast = SVector::<f64, 1>::new(2.0);
+        let mut state_fast = x0;
+        let mut t_fast = 0.0;
+        let mut dt: f64 = 0.1;
+        while t_fast < t_final - 1e-10 {
+            let dt_use = dt.min(t_final - t_fast);
+            let result = dp54.step(t_fast, state_fast, Some(&params_fast), Some(dt_use));
+            state_fast = result.state;
+            t_fast += result.dt_used;
+            dt = result.dt_next;
+        }
+
+        // Verify analytical solutions at actual final times
+        let x_slow_analytical = 1.0_f64 * (-0.5 * t_slow).exp();
+        let x_fast_analytical = 1.0_f64 * (-2.0 * t_fast).exp();
+
+        // Adaptive stepping should achieve reasonable accuracy
+        // Note: Error slightly larger for fast decay due to step size capping
+        assert_abs_diff_eq!(state_slow[0], x_slow_analytical, epsilon = 1e-3);
+        assert_abs_diff_eq!(state_fast[0], x_fast_analytical, epsilon = 5e-3);
+
+        // Verify they are significantly different
+        assert!(
+            (state_slow[0] - state_fast[0]).abs() > 0.4,
+            "Multi-step propagation with different params should differ: slow={}, fast={}",
+            state_slow[0],
+            state_fast[0]
+        );
+    }
+
+    #[test]
+    fn test_dp54s_params_with_varmat() {
+        // Verify params affect step_with_varmat output
+        // dx/dt = -k * x, where k = params[0]
+
+        use crate::math::jacobian::SJacobianProvider;
+
+        struct ParamDependentJacobian;
+        impl SJacobianProvider<1, 1> for ParamDependentJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &SVector<f64, 1>,
+                params: Option<&SVector<f64, 1>>,
+            ) -> SMatrix<f64, 1, 1> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                SMatrix::<f64, 1, 1>::new(-k)
+            }
+        }
+
+        let f =
+            |_t: f64, x: &SVector<f64, 1>, params: Option<&SVector<f64, 1>>| -> SVector<f64, 1> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                SVector::<f64, 1>::new(-k * x[0])
+            };
+
+        let dp54: DormandPrince54SIntegrator<1, 1> = DormandPrince54SIntegrator::new(
+            Box::new(f),
+            Some(Box::new(ParamDependentJacobian)),
+            None,
+            None,
+        );
+
+        let x0 = SVector::<f64, 1>::new(1.0);
+        let phi0 = SMatrix::<f64, 1, 1>::identity();
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = SVector::<f64, 1>::new(1.0);
+        let result_slow = dp54.step_with_varmat(t, x0, Some(&params_slow), phi0, Some(dt));
+
+        // Step with k=5.0
+        let params_fast = SVector::<f64, 1>::new(5.0);
+        let result_fast = dp54.step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt));
+
+        // Verify states differ
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.1,
+            "Different params should produce different states in step_with_varmat"
+        );
+
+        // Verify STMs differ (STM = exp(-k*dt) for this system)
+        let phi_slow = result_slow.phi.unwrap();
+        let phi_fast = result_fast.phi.unwrap();
+        assert!(
+            (phi_slow[(0, 0)] - phi_fast[(0, 0)]).abs() > 0.1,
+            "Different params should produce different STMs: slow={}, fast={}",
+            phi_slow[(0, 0)],
+            phi_fast[(0, 0)]
+        );
+    }
+
+    #[test]
+    fn test_dp54d_params_with_varmat() {
+        // Same test for dynamic-sized integrator with variational matrix
+
+        use crate::math::jacobian::DJacobianProvider;
+
+        struct ParamDependentJacobian;
+        impl DJacobianProvider for ParamDependentJacobian {
+            fn compute(
+                &self,
+                _t: f64,
+                _state: &DVector<f64>,
+                params: Option<&DVector<f64>>,
+            ) -> DMatrix<f64> {
+                let k = params.map(|p| p[0]).unwrap_or(1.0);
+                DMatrix::from_element(1, 1, -k)
+            }
+        }
+
+        let f = |_t: f64, x: &DVector<f64>, params: Option<&DVector<f64>>| -> DVector<f64> {
+            let k = params.map(|p| p[0]).unwrap_or(1.0);
+            DVector::from_element(1, -k * x[0])
+        };
+
+        let dp54 = DormandPrince54DIntegrator::new(
+            1,
+            Box::new(f),
+            Some(Box::new(ParamDependentJacobian)),
+            None,
+            None,
+        );
+
+        let x0 = DVector::from_element(1, 1.0);
+        let phi0 = DMatrix::identity(1, 1);
+        let dt = 0.1;
+        let t = 0.0;
+
+        // Step with k=1.0
+        let params_slow = DVector::from_element(1, 1.0);
+        let result_slow =
+            dp54.step_with_varmat(t, x0.clone(), Some(&params_slow), phi0.clone(), Some(dt));
+
+        // Step with k=5.0
+        let params_fast = DVector::from_element(1, 5.0);
+        let result_fast = dp54.step_with_varmat(t, x0, Some(&params_fast), phi0, Some(dt));
+
+        // Verify states and STMs differ
+        assert!(
+            (result_slow.state[0] - result_fast.state[0]).abs() > 0.1,
+            "Different params should produce different states in step_with_varmat"
+        );
+
+        let phi_slow = result_slow.phi.unwrap();
+        let phi_fast = result_fast.phi.unwrap();
+        assert!(
+            (phi_slow[(0, 0)] - phi_fast[(0, 0)]).abs() > 0.1,
+            "Different params should produce different STMs"
+        );
     }
 }

@@ -37,8 +37,8 @@ print(f"  M    = {oe[5]:.4f}°\n")
 #   M    = 45.0000°
 
 # Convert to EME2000 Cartesian state
-# Note: state_osculating_to_cartesian produces EME2000 states by default
-state_eme2000 = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+# Note: state_koe_to_eci produces EME2000 states by default
+state_eme2000 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 print("EME2000 state vector:")
 print(

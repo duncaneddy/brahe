@@ -1054,6 +1054,9 @@ def make_plots(
     serial: bool = typer.Option(
         False, "--serial", help="Run sequentially instead of in parallel"
     ),
+    ci_only: bool = typer.Option(False, "--ci-only", help="Include CI-ONLY plots"),
+    slow: bool = typer.Option(False, "--slow", help="Include SLOW plots"),
+    ignore: bool = typer.Option(False, "--ignore", help="Include IGNORE plots"),
 ):
     """
     Generate all documentation plots and figures.
@@ -1088,10 +1091,20 @@ def make_plots(
     failed_plots = []
     all_outputs = []  # Store all outputs to print at the end
 
-    # Prepare tasks with timeouts
+    # Prepare tasks with timeouts, respecting FLAGS
     tasks = []
+    skipped_count = 0
     for plot_file in plot_files:
-        _, _, file_timeout = check_flags(plot_file)
+        should_skip, reason, file_timeout = check_flags(
+            plot_file, ci_only, slow, ignore
+        )
+
+        if should_skip:
+            skipped_count += 1
+            if verbose:
+                console.print(f"  {plot_file.name}...[yellow]SKIP ({reason})[/yellow]")
+            continue
+
         effective_timeout = timeout if timeout is not None else (file_timeout or 180)
         tasks.append((plot_file, effective_timeout))
 
@@ -1177,8 +1190,9 @@ def make_plots(
         console.print()
         raise typer.Exit(1)
     else:
+        skip_msg = f" ({skipped_count} skipped)" if skipped_count > 0 else ""
         console.print(
-            f"\n[green]✓ All figures generated in {FIGURE_OUTPUT_DIR.relative_to(REPO_ROOT)}[/green]\n"
+            f"\n[green]✓ All figures generated in {FIGURE_OUTPUT_DIR.relative_to(REPO_ROOT)}{skip_msg}[/green]\n"
         )
 
 

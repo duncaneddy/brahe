@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::traits::StateProvider;
+use brahe::traits::SOrbitStateProvider;
 
 fn main() {
     bh::initialize_eop().unwrap();
@@ -14,9 +14,9 @@ fn main() {
     // Query state 1 orbit later (doesn't add to trajectory)
     let query_epoch = prop.epoch + 5400.0;  // ~90 minutes
 
-    let state_eci = prop.state_eci(query_epoch);          // ECI Cartesian
-    let _state_ecef = prop.state_ecef(query_epoch);        // ECEF Cartesian
-    let state_kep = prop.state_as_osculating_elements(query_epoch, bh::AngleFormat::Degrees);    // Osculating Keplerian
+    let state_eci = prop.state_eci(query_epoch).unwrap();          // ECI Cartesian
+    let _state_ecef = prop.state_ecef(query_epoch).unwrap();        // ECEF Cartesian
+    let state_kep = prop.state_koe(query_epoch, bh::AngleFormat::Degrees).unwrap();    // Osculating Keplerian
 
     println!("ECI position: [{:.1}, {:.1}, {:.1}] km",
              state_eci[0]/1e3, state_eci[1]/1e3, state_eci[2]/1e3);

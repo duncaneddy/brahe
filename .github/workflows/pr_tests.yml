@@ -33,13 +33,21 @@ jobs:
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_rust.yml
 
-  test-python:
-    needs: [check-skip, test-rust]
+  delay-python:
+    needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Rust tests to claim runners
+        run: sleep 15
+
+  test-python:
+    needs: [delay-python]
+    if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
 
   test-examples:
-    needs: [check-skip, test-rust]
+    needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_examples.yml
 
@@ -108,7 +116,7 @@ jobs:
   # Build docs to verify no breakage, but don't deploy
   build-docs:
     runs-on: ubuntu-latest
-    needs: [check-skip, test-python, test-examples]
+    needs: [check-skip, test-rust, test-python, test-examples]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
       RUST_TOOLCHAIN: nightly

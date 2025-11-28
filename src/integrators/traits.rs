@@ -5,7 +5,7 @@ for numerical integration routines.
 
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
-use crate::integrators::config::{AdaptiveStepSResult, IntegratorConfig};
+use crate::integrators::config::IntegratorConfig;
 use crate::math::jacobian::{DJacobianProvider, SJacobianProvider};
 use crate::math::sensitivity::{DSensitivityProvider, SSensitivityProvider};
 
@@ -14,15 +14,41 @@ use crate::math::sensitivity::{DSensitivityProvider, SSensitivityProvider};
 // ============================================================================
 
 /// Dynamics function type for static-sized state vectors.
-pub type StateDynamics<const S: usize> = Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>;
+///
+/// The third parameter is optional parameter vector that the dynamics may depend on.
+/// This enables sensitivity matrix propagation for parameter estimation and matches
+/// the signature of `DStateDynamics`.
+///
+/// # Thread Safety
+///
+/// Requires `Send + Sync` for thread-safe integrator usage.
+///
+/// # Type Parameters
+/// - `S`: State vector dimension
+/// - `P`: Parameter vector dimension
+pub type SStateDynamics<const S: usize, const P: usize> =
+    Box<dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync>;
 
 /// Jacobian provider type for static-sized variational matrix propagation.
-pub type VariationalMatrix<const S: usize> = Option<Box<dyn SJacobianProvider<S>>>;
+///
+/// # Type Parameters
+/// - `S`: State vector dimension
+/// - `P`: Parameter vector dimension
+pub type SVariationalMatrix<const S: usize, const P: usize> =
+    Option<Box<dyn SJacobianProvider<S, P> + Send + Sync>>;
 
 /// Control input function type for static-sized state vectors.
 /// Returns perturbation to be added to dynamics output.
-pub type ControlInput<const S: usize> =
-    Option<Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S>>>;
+///
+/// The third parameter is an optional parameter vector that the control law may depend on.
+/// This enables control laws that vary based on physical parameters (e.g., mass, area).
+///
+/// # Thread Safety
+///
+/// Requires `Send + Sync` for thread-safe integrator usage.
+pub type SControlInput<const S: usize, const P: usize> = Option<
+    Box<dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync>,
+>;
 
 // ============================================================================
 // Type Aliases for Dynamic-Sized Integrators
@@ -32,14 +58,41 @@ pub type ControlInput<const S: usize> =
 ///
 /// The third parameter is optional consider parameters that the dynamics may depend on.
 /// This enables sensitivity matrix propagation for parameter estimation.
-pub type StateDynamicsD = Box<dyn Fn(f64, DVector<f64>, Option<&DVector<f64>>) -> DVector<f64>>;
+pub type DStateDynamics =
+    Box<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
 
 /// Jacobian provider type for dynamic-sized variational matrix propagation.
-pub type VariationalMatrixD = Option<Box<dyn DJacobianProvider>>;
+pub type DVariationalMatrix = Option<Box<dyn DJacobianProvider>>;
 
 /// Control input function type for dynamic-sized state vectors.
 /// Returns perturbation to be added to dynamics output.
-pub type ControlInputD = Option<Box<dyn Fn(f64, DVector<f64>) -> DVector<f64>>>;
+///
+/// The third parameter is an optional parameter vector that the control law may depend on.
+/// This enables control laws that vary based on physical parameters (e.g., mass, area).
+pub type DControlInput =
+    Option<Box<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>>;
+
+// ============================================================================
+// Sensitivity Dynamics Types (Required Parameters)
+// ============================================================================
+
+/// Dynamics function for sensitivity computation (static-sized).
+///
+/// Unlike `SStateDynamics`, the parameters are required (not optional) since
+/// sensitivity analysis inherently involves computing derivatives with respect to parameters.
+///
+/// # Type Parameters
+/// - `S`: State vector dimension
+/// - `P`: Parameter vector dimension
+pub type SSensitivityDynamics<const S: usize, const P: usize> =
+    Box<dyn Fn(f64, &SVector<f64, S>, &SVector<f64, P>) -> SVector<f64, S> + Send + Sync>;
+
+/// Dynamics function for sensitivity computation (dynamic-sized).
+///
+/// Unlike `DStateDynamics`, the parameters are required (not optional) since
+/// sensitivity analysis inherently involves computing derivatives with respect to parameters.
+pub type DSensitivityDynamics =
+    Box<dyn Fn(f64, &DVector<f64>, &DVector<f64>) -> DVector<f64> + Send + Sync>;
 
 // ============================================================================
 // Sensitivity Matrix Support
@@ -51,10 +104,11 @@ pub use crate::math::sensitivity::{
 };
 
 /// Sensitivity provider type for static-sized sensitivity matrix propagation.
-pub type SensitivityS<const S: usize, const P: usize> = Option<Box<dyn SSensitivityProvider<S, P>>>;
+pub type SSensitivity<const S: usize, const P: usize> =
+    Option<Box<dyn SSensitivityProvider<S, P> + Send + Sync>>;
 
 /// Sensitivity provider type for dynamic-sized sensitivity matrix propagation.
-pub type SensitivityD = Option<Box<dyn DSensitivityProvider>>;
+pub type DSensitivity = Option<Box<dyn DSensitivityProvider>>;
 
 // ============================================================================
 // Base Integrator Traits
@@ -62,59 +116,272 @@ pub type SensitivityD = Option<Box<dyn DSensitivityProvider>>;
 
 /// Base trait for dynamic-sized integrators.
 ///
-/// Defines the common constructor and accessor interface that all dynamic-sized
-/// integrators must implement.
-pub trait DIntegrator: Sized {
-    /// Create a new integrator with default configuration.
-    ///
-    /// # Arguments
-    /// - `dimension`: State vector dimension
-    /// - `f`: Dynamics function
-    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
-    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
-    /// - `control`: Optional control input function
-    fn new(
-        dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
-    ) -> Self;
-
-    /// Create a new integrator with custom configuration.
-    ///
-    /// # Arguments
-    /// - `dimension`: State vector dimension
-    /// - `f`: Dynamics function
-    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
-    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
-    /// - `control`: Optional control input function
-    /// - `config`: Integration configuration (tolerances, step sizes, etc.)
-    fn with_config(
-        dimension: usize,
-        f: StateDynamicsD,
-        varmat: VariationalMatrixD,
-        sensmat: SensitivityD,
-        control: ControlInputD,
-        config: IntegratorConfig,
-    ) -> Self;
-
+/// This trait is object-safe, enabling runtime integrator selection via `Box<dyn DIntegrator>`.
+/// Constructors (`new()`, `with_config()`) are implemented as inherent methods on each
+/// integrator type rather than trait methods, since methods returning `Self` are not
+/// object-safe.
+///
+/// # Thread Safety
+///
+/// This trait requires `Send + Sync` to allow integrators to be used across threads
+/// and shared safely.
+pub trait DIntegrator: Send + Sync {
     /// Get the state vector dimension.
     fn dimension(&self) -> usize;
 
     /// Get the integrator configuration.
     fn config(&self) -> &IntegratorConfig;
+
+    /// Advance the state by one timestep using this integration method.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
+    /// - `dt`: Integration timestep (can be negative for backward integration).
+    ///   For fixed-step integrators, can be None to use config's step size.
+    ///   For adaptive-step integrators, this is the requested timestep.
+    ///
+    /// # Returns
+    /// Integration result with state and optional adaptive step information
+    fn step(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        params: Option<&DVector<f64>>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult;
+
+    /// Advance both state and state transition matrix by one timestep.
+    ///
+    /// Integrates state and its variational equations simultaneously for uncertainty propagation.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
+    /// - `phi`: State transition matrix at time t
+    /// - `dt`: Integration timestep (None for fixed-step to use config)
+    ///
+    /// # Returns
+    /// Integration result with state, STM, and optional adaptive step information
+    fn step_with_varmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        params: Option<&DVector<f64>>,
+        phi: DMatrix<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult;
+
+    /// Advance state and sensitivity matrix by one timestep.
+    ///
+    /// Propagates the sensitivity matrix S that maps parameter uncertainties to state uncertainties.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `sens`: Sensitivity matrix at time t
+    /// - `params`: Parameter vector
+    /// - `dt`: Integration timestep (None for fixed-step to use config)
+    ///
+    /// # Returns
+    /// Integration result with state, sensitivity matrix, and optional adaptive step information
+    fn step_with_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult;
+
+    /// Advance state, variational matrix (STM), and sensitivity matrix by one timestep.
+    ///
+    /// Propagates both matrices simultaneously for complete uncertainty quantification.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `phi`: State transition matrix at time t
+    /// - `sens`: Sensitivity matrix at time t
+    /// - `params`: Parameter vector
+    /// - `dt`: Integration timestep (None for fixed-step to use config)
+    ///
+    /// # Returns
+    /// Integration result with state, STM, sensitivity, and optional adaptive step information
+    fn step_with_varmat_sensmat(
+        &self,
+        t: f64,
+        state: DVector<f64>,
+        phi: DMatrix<f64>,
+        sens: DMatrix<f64>,
+        params: &DVector<f64>,
+        dt: Option<f64>,
+    ) -> DIntegratorStepResult;
+}
+
+/// Constructor trait for dynamic-sized integrators.
+///
+/// This trait provides the constructor interface that is not object-safe
+/// and therefore cannot be part of `DIntegrator`. Use this trait bound
+/// when you need to construct an integrator with a known type.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// fn create_propagator<I: DIntegrator + DIntegratorConstructor>(config: IntegratorConfig) -> I {
+///     I::with_config(6, dynamics, None, None, None, config)
+/// }
+/// ```
+pub trait DIntegratorConstructor: DIntegrator + Sized {
+    /// Create a new integrator with custom configuration.
+    ///
+    /// # Arguments
+    /// - `dimension`: State vector dimension
+    /// - `f`: Dynamics function
+    /// - `varmat`: Optional Jacobian provider for variational matrix propagation
+    /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
+    /// - `control`: Optional control input function
+    /// - `config`: Integration configuration (tolerances, step sizes, etc.)
+    fn with_config(
+        dimension: usize,
+        f: DStateDynamics,
+        varmat: DVariationalMatrix,
+        sensmat: DSensitivity,
+        control: DControlInput,
+        config: IntegratorConfig,
+    ) -> Self;
 }
 
 /// Base trait for static-sized integrators.
 ///
-/// Defines the common constructor and accessor interface that all static-sized
-/// integrators must implement.
+/// This trait is designed to mirror `DIntegrator` for consistency.
+/// Constructors (`new()`, `with_config()`) are in the separate
+/// `SIntegratorConstructor` trait.
+///
+/// # Thread Safety
+///
+/// This trait requires `Send + Sync` to match `DIntegrator`.
 ///
 /// # Type Parameters
 /// - `S`: State vector dimension
 /// - `P`: Parameter vector dimension (for sensitivity matrix)
-pub trait SIntegrator<const S: usize, const P: usize>: Sized {
+pub trait SIntegrator<const S: usize, const P: usize>: Send + Sync {
+    /// Get the integrator configuration.
+    fn config(&self) -> &IntegratorConfig;
+
+    /// Advance the state by one timestep using this integration method.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
+    /// - `dt`: Integration timestep (can be negative for backward integration).
+    ///   For fixed-step integrators, can be None to use config's step size.
+    ///   For adaptive-step integrators, this is the requested timestep.
+    ///
+    /// # Returns
+    /// Integration result with state and optional adaptive step information
+    fn step(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P>;
+
+    /// Advance both state and state transition matrix by one timestep.
+    ///
+    /// Integrates state and its variational equations simultaneously for uncertainty propagation.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
+    /// - `phi`: State transition matrix at time t
+    /// - `dt`: Integration timestep (None for fixed-step to use config)
+    ///
+    /// # Returns
+    /// Integration result with state, STM, and optional adaptive step information
+    fn step_with_varmat(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+        phi: SMatrix<f64, S, S>,
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P>;
+
+    /// Advance state and sensitivity matrix by one timestep.
+    ///
+    /// Propagates the sensitivity matrix S that maps parameter uncertainties to state uncertainties.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `sens`: Sensitivity matrix at time t (S × P)
+    /// - `params`: Parameter vector
+    /// - `dt`: Integration timestep (None for fixed-step to use config)
+    ///
+    /// # Returns
+    /// Integration result with state, sensitivity matrix, and optional adaptive step information
+    fn step_with_sensmat(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        sens: SMatrix<f64, S, P>,
+        params: &SVector<f64, P>,
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P>;
+
+    /// Advance state, variational matrix (STM), and sensitivity matrix by one timestep.
+    ///
+    /// Propagates both matrices simultaneously for complete uncertainty quantification.
+    ///
+    /// # Arguments
+    /// - `t`: Current time
+    /// - `state`: State vector at time t
+    /// - `phi`: State transition matrix at time t (S × S)
+    /// - `sens`: Sensitivity matrix at time t (S × P)
+    /// - `params`: Parameter vector
+    /// - `dt`: Integration timestep (None for fixed-step to use config)
+    ///
+    /// # Returns
+    /// Integration result with state, STM, sensitivity, and optional adaptive step information
+    fn step_with_varmat_sensmat(
+        &self,
+        t: f64,
+        state: SVector<f64, S>,
+        phi: SMatrix<f64, S, S>,
+        sens: SMatrix<f64, S, P>,
+        params: &SVector<f64, P>,
+        dt: Option<f64>,
+    ) -> SIntegratorStepResult<S, P>;
+}
+
+/// Constructor trait for static-sized integrators.
+///
+/// This trait provides the constructor interface that requires `Sized`,
+/// mirroring `DIntegratorConstructor`. Use this trait bound when you need
+/// to construct an integrator with a known type.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// fn create_integrator<I: SIntegrator<6, 0> + SIntegratorConstructor<6, 0>>(
+///     config: IntegratorConfig
+/// ) -> I {
+///     I::with_config(dynamics, None, None, None, config)
+/// }
+/// ```
+///
+/// # Type Parameters
+/// - `S`: State vector dimension
+/// - `P`: Parameter vector dimension
+pub trait SIntegratorConstructor<const S: usize, const P: usize>:
+    SIntegrator<S, P> + Sized
+{
     /// Create a new integrator with default configuration.
     ///
     /// # Arguments
@@ -123,10 +390,10 @@ pub trait SIntegrator<const S: usize, const P: usize>: Sized {
     /// - `sensmat`: Optional sensitivity provider for parameter uncertainty propagation
     /// - `control`: Optional control input function
     fn new(
-        f: StateDynamics<S>,
-        varmat: VariationalMatrix<S>,
-        sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
     ) -> Self;
 
     /// Create a new integrator with custom configuration.
@@ -138,47 +405,30 @@ pub trait SIntegrator<const S: usize, const P: usize>: Sized {
     /// - `control`: Optional control input function
     /// - `config`: Integration configuration (tolerances, step sizes, etc.)
     fn with_config(
-        f: StateDynamics<S>,
-        varmat: VariationalMatrix<S>,
-        sensmat: SensitivityS<S, P>,
-        control: ControlInput<S>,
+        f: SStateDynamics<S, P>,
+        varmat: SVariationalMatrix<S, P>,
+        sensmat: SSensitivity<S, P>,
+        control: SControlInput<S, P>,
         config: IntegratorConfig,
     ) -> Self;
-
-    /// Get the integrator configuration.
-    fn config(&self) -> &IntegratorConfig;
 }
 
 // ============================================================================
-// Internal Step Result Types (for consolidation)
+// Unified Result Types
 // ============================================================================
 
-/// Internal result type for consolidated fixed-step integration (dynamic-sized).
+/// Unified result type for numerical integration steps (static-sized).
 ///
-/// This struct holds all possible outputs from a single integration step,
-/// allowing a single internal implementation to handle all step variants.
-#[derive(Debug, Clone)]
-pub(crate) struct FixedStepInternalResultD {
-    /// New state vector at time t + dt
-    pub state: DVector<f64>,
-
-    /// State transition matrix at time t + dt (if computed)
-    pub phi: Option<DMatrix<f64>>,
-
-    /// Sensitivity matrix at time t + dt (if computed)
-    pub sens: Option<DMatrix<f64>>,
-}
-
-/// Internal result type for consolidated fixed-step integration (static-sized).
-///
-/// This struct holds all possible outputs from a single integration step,
-/// allowing a single internal implementation to handle all step variants.
+/// This type supports both fixed-step and adaptive-step integrators.
+/// For fixed-step integrators, dt_used and dt_next will equal the fixed step size,
+/// and error_estimate will be None. For adaptive-step integrators, dt_used and dt_next
+/// will reflect the actual used and recommended step sizes, and error_estimate will be Some.
 ///
 /// # Type Parameters
 /// - `S`: State vector dimension
 /// - `P`: Parameter vector dimension (for sensitivity matrix)
 #[derive(Debug, Clone)]
-pub(crate) struct FixedStepInternalResultS<const S: usize, const P: usize> {
+pub struct SIntegratorStepResult<const S: usize, const P: usize> {
     /// New state vector at time t + dt
     pub state: SVector<f64, S>,
 
@@ -187,59 +437,41 @@ pub(crate) struct FixedStepInternalResultS<const S: usize, const P: usize> {
 
     /// Sensitivity matrix at time t + dt (if computed)
     pub sens: Option<SMatrix<f64, S, P>>,
-}
 
-/// Internal result type for consolidated adaptive-step integration (dynamic-sized).
-///
-/// This struct holds all possible outputs from a single adaptive integration step,
-/// including error estimation and step size recommendations.
-#[derive(Debug, Clone)]
-pub(crate) struct AdaptiveStepInternalResultD {
-    /// New state vector at time t + dt_used
-    pub state: DVector<f64>,
-
-    /// State transition matrix at time t + dt_used (if computed)
-    pub phi: Option<DMatrix<f64>>,
-
-    /// Sensitivity matrix at time t + dt_used (if computed)
-    pub sens: Option<DMatrix<f64>>,
-
-    /// Actual timestep used (may be smaller than requested)
+    /// Actual timestep used (equals requested dt for fixed-step integrators)
     pub dt_used: f64,
 
-    /// Estimated truncation error
-    pub error_estimate: f64,
+    /// Estimated truncation error (Some for adaptive integrators, None for fixed-step)
+    pub error_estimate: Option<f64>,
 
-    /// Suggested next timestep based on error control
+    /// Suggested next timestep (equals dt for fixed-step integrators)
     pub dt_next: f64,
 }
 
-/// Internal result type for consolidated adaptive-step integration (static-sized).
+/// Unified result type for numerical integration steps (dynamic-sized).
 ///
-/// This struct holds all possible outputs from a single adaptive integration step,
-/// including error estimation and step size recommendations.
-///
-/// # Type Parameters
-/// - `S`: State vector dimension
-/// - `P`: Parameter vector dimension (for sensitivity matrix)
+/// This type supports both fixed-step and adaptive-step integrators.
+/// For fixed-step integrators, dt_used and dt_next will equal the fixed step size,
+/// and error_estimate will be None. For adaptive-step integrators, dt_used and dt_next
+/// will reflect the actual used and recommended step sizes, and error_estimate will be Some.
 #[derive(Debug, Clone)]
-pub(crate) struct AdaptiveStepInternalResultS<const S: usize, const P: usize> {
-    /// New state vector at time t + dt_used
-    pub state: SVector<f64, S>,
+pub struct DIntegratorStepResult {
+    /// New state vector at time t + dt
+    pub state: DVector<f64>,
 
-    /// State transition matrix at time t + dt_used (if computed)
-    pub phi: Option<SMatrix<f64, S, S>>,
+    /// State transition matrix at time t + dt (if computed)
+    pub phi: Option<DMatrix<f64>>,
 
-    /// Sensitivity matrix at time t + dt_used (if computed)
-    pub sens: Option<SMatrix<f64, S, P>>,
+    /// Sensitivity matrix at time t + dt (if computed)
+    pub sens: Option<DMatrix<f64>>,
 
-    /// Actual timestep used (may be smaller than requested)
+    /// Actual timestep used (equals requested dt for fixed-step integrators)
     pub dt_used: f64,
 
-    /// Estimated truncation error
-    pub error_estimate: f64,
+    /// Estimated truncation error (Some for adaptive integrators, None for fixed-step)
+    pub error_estimate: Option<f64>,
 
-    /// Suggested next timestep based on error control
+    /// Suggested next timestep (equals dt for fixed-step integrators)
     pub dt_next: f64,
 }
 
@@ -393,6 +625,75 @@ pub(crate) fn compute_normalized_error_s<const S: usize>(
     error
 }
 
+// ============================================================================
+// Integrator Factory Function
+// ============================================================================
+
+use crate::propagators::IntegratorMethod;
+
+/// Create a boxed dynamic integrator based on the specified method.
+///
+/// This factory function enables runtime integrator selection by returning
+/// a trait object (`Box<dyn DIntegrator>`). Use this when the integrator
+/// type needs to be determined at runtime based on configuration.
+///
+/// # Arguments
+/// * `method` - The integration method to use (RK4, RKF45, DP54, or RKN1210)
+/// * `dimension` - State vector dimension
+/// * `dynamics` - Dynamics function computing state derivatives
+/// * `varmat` - Optional Jacobian provider for STM propagation
+/// * `sensmat` - Optional sensitivity provider for parameter sensitivity
+/// * `control` - Optional control input function
+/// * `config` - Integrator configuration (tolerances, step sizes, etc.)
+///
+/// # Returns
+/// Boxed integrator implementing `DIntegrator` trait
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use brahe::integrators::{create_dintegrator, IntegratorConfig};
+/// use brahe::propagators::IntegratorMethod;
+///
+/// let integrator = create_dintegrator(
+///     IntegratorMethod::DP54,
+///     6,
+///     dynamics_fn,
+///     None,
+///     None,
+///     None,
+///     IntegratorConfig::default(),
+/// );
+/// ```
+pub fn create_dintegrator(
+    method: IntegratorMethod,
+    dimension: usize,
+    dynamics: DStateDynamics,
+    varmat: DVariationalMatrix,
+    sensmat: DSensitivity,
+    control: DControlInput,
+    config: IntegratorConfig,
+) -> Box<dyn DIntegrator> {
+    use crate::integrators::{
+        DormandPrince54DIntegrator, RK4DIntegrator, RKF45DIntegrator, RKN1210DIntegrator,
+    };
+
+    match method {
+        IntegratorMethod::RK4 => Box::new(RK4DIntegrator::with_config(
+            dimension, dynamics, varmat, sensmat, control, config,
+        )),
+        IntegratorMethod::RKF45 => Box::new(RKF45DIntegrator::with_config(
+            dimension, dynamics, varmat, sensmat, control, config,
+        )),
+        IntegratorMethod::DP54 => Box::new(DormandPrince54DIntegrator::with_config(
+            dimension, dynamics, varmat, sensmat, control, config,
+        )),
+        IntegratorMethod::RKN1210 => Box::new(RKN1210DIntegrator::with_config(
+            dimension, dynamics, varmat, sensmat, control, config,
+        )),
+    }
+}
+
 /// Determines the step size to use for fixed-step integration.
 ///
 /// # Arguments
@@ -431,490 +732,4 @@ pub fn get_step_size(dt: Option<f64>, config: &IntegratorConfig) -> f64 {
             )
         }),
     }
-}
-
-/// Trait defining interface for fixed-step numerical integration methods (static-sized).
-///
-/// Provides basic integration functionality with fixed timesteps for compile-time sized state vectors.
-/// All static numerical integrators must implement this trait.
-///
-/// # Type Parameters
-/// - `S`: State vector dimension
-/// - `P`: Parameter vector dimension (for sensitivity matrix propagation)
-pub trait FixedStepSIntegrator<const S: usize, const P: usize> {
-    /// Advance the state by one timestep using this integration method.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `dt`: Optional integration timestep (can be negative for backward integration).
-    ///   If None, uses the step size from the integrator's configuration.
-    ///
-    /// # Returns
-    /// State vector at time t + dt
-    ///
-    /// # Panics
-    /// Panics if `dt` is None and the integrator's configuration doesn't have a fixed_step_size set.
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: Option<f64>) -> SVector<f64, S>;
-
-    /// Advance both state and state transition matrix by one timestep.
-    ///
-    /// Integrates state and its variational equations simultaneously for uncertainty propagation.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `phi`: State transition matrix at time t
-    /// - `dt`: Optional integration timestep. If None, uses the step size from the integrator's configuration.
-    ///
-    /// # Returns
-    /// Tuple of (state at t+dt, state transition matrix at t+dt)
-    ///
-    /// # Panics
-    /// Panics if `dt` is None and the integrator's configuration doesn't have a fixed_step_size set.
-    fn step_with_varmat(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        phi: SMatrix<f64, S, S>,
-        dt: Option<f64>,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, S>);
-
-    /// Advance state and sensitivity matrix by one timestep.
-    ///
-    /// Propagates the sensitivity matrix S that maps parameter uncertainties to state uncertainties.
-    /// The sensitivity evolves according to dS/dt = A*S + B where A = ∂f/∂x and B = ∂f/∂p.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `sens`: Sensitivity matrix at time t (S × P)
-    /// - `params`: Parameter vector
-    /// - `dt`: Optional integration timestep. If None, uses the step size from configuration.
-    ///
-    /// # Returns
-    /// Tuple of (state at t+dt, sensitivity matrix at t+dt)
-    ///
-    /// # Panics
-    /// May panic if sensitivity provider is not configured.
-    fn step_with_sensmat(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        sens: SMatrix<f64, S, P>,
-        params: &SVector<f64, P>,
-        dt: Option<f64>,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, P>);
-
-    /// Advance state, variational matrix (STM), and sensitivity matrix by one timestep.
-    ///
-    /// Propagates both matrices simultaneously for complete uncertainty quantification.
-    /// - STM (Φ): Maps initial state uncertainties to current state uncertainties
-    /// - Sensitivity (S): Maps parameter uncertainties to state uncertainties
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `phi`: State transition matrix at time t (S × S)
-    /// - `sens`: Sensitivity matrix at time t (S × P)
-    /// - `params`: Parameter vector
-    /// - `dt`: Optional integration timestep. If None, uses the step size from configuration.
-    ///
-    /// # Returns
-    /// Tuple of (state at t+dt, STM at t+dt, sensitivity at t+dt)
-    ///
-    /// # Panics
-    /// May panic if Jacobian/sensitivity providers are not configured.
-    fn step_with_varmat_sensmat(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        phi: SMatrix<f64, S, S>,
-        sens: SMatrix<f64, S, P>,
-        params: &SVector<f64, P>,
-        dt: Option<f64>,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, S>, SMatrix<f64, S, P>);
-}
-
-/// Trait defining interface for adaptive-step numerical integration methods (static-sized).
-///
-/// Provides automatic step size control based on embedded error estimation for compile-time sized state vectors.
-/// Typically implemented by embedded Runge-Kutta methods (RKF45, DP54, etc.).
-///
-/// # Type Parameters
-/// - `S`: State vector dimension
-/// - `P`: Parameter vector dimension (for sensitivity matrix propagation)
-pub trait AdaptiveStepSIntegrator<const S: usize, const P: usize> {
-    /// Advance the state with adaptive step control.
-    ///
-    /// Automatically adjusts the timestep to meet specified tolerances using
-    /// embedded error estimation. Tolerances are read from the integrator's
-    /// configuration.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `dt`: Requested integration timestep
-    ///
-    /// # Returns
-    /// AdaptiveStepSResult containing new state, actual dt used, error estimate, and suggested next dt
-    fn step(&self, t: f64, state: SVector<f64, S>, dt: f64) -> AdaptiveStepSResult<S>;
-
-    /// Advance state and STM with adaptive step control.
-    ///
-    /// Combines adaptive stepping with variational matrix propagation for uncertainty
-    /// quantification with automatic step size control. Tolerances are read from the
-    /// integrator's configuration.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `phi`: State transition matrix at time t
-    /// - `dt`: Requested integration timestep
-    ///
-    /// # Returns
-    /// Tuple of (new state, new STM, actual dt used, error estimate, suggested next dt)
-    fn step_with_varmat(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        phi: SMatrix<f64, S, S>,
-        dt: f64,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, S>, f64, f64, f64);
-
-    /// Advance state and sensitivity matrix with adaptive step control.
-    ///
-    /// Propagates the sensitivity matrix S that maps parameter uncertainties to state uncertainties.
-    /// The sensitivity evolves according to dS/dt = A*S + B where A = ∂f/∂x and B = ∂f/∂p.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `sens`: Sensitivity matrix at time t (S × P)
-    /// - `params`: Parameter vector
-    /// - `dt`: Requested integration timestep
-    ///
-    /// # Returns
-    /// Tuple of (new state, new sensitivity, actual dt used, error estimate, suggested next dt)
-    ///
-    /// # Panics
-    /// May panic if sensitivity provider is not configured.
-    fn step_with_sensmat(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        sens: SMatrix<f64, S, P>,
-        params: &SVector<f64, P>,
-        dt: f64,
-    ) -> (SVector<f64, S>, SMatrix<f64, S, P>, f64, f64, f64);
-
-    /// Advance state, variational matrix (STM), and sensitivity matrix with adaptive step control.
-    ///
-    /// Propagates both matrices simultaneously for complete uncertainty quantification.
-    /// - STM (Φ): Maps initial state uncertainties to current state uncertainties
-    /// - Sensitivity (S): Maps parameter uncertainties to state uncertainties
-    ///
-    /// The matrices evolve according to:
-    /// - dΦ/dt = A*Φ where A = ∂f/∂x
-    /// - dS/dt = A*S + B where B = ∂f/∂p
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `phi`: State transition matrix at time t (S × S)
-    /// - `sens`: Sensitivity matrix at time t (S × P)
-    /// - `params`: Parameter vector
-    /// - `dt`: Requested integration timestep
-    ///
-    /// # Returns
-    /// Tuple of (new state, new STM, new sensitivity, actual dt used, error estimate, suggested next dt)
-    ///
-    /// # Panics
-    /// May panic if Jacobian/sensitivity providers are not configured.
-    fn step_with_varmat_sensmat(
-        &self,
-        t: f64,
-        state: SVector<f64, S>,
-        phi: SMatrix<f64, S, S>,
-        sens: SMatrix<f64, S, P>,
-        params: &SVector<f64, P>,
-        dt: f64,
-    ) -> (
-        SVector<f64, S>,
-        SMatrix<f64, S, S>,
-        SMatrix<f64, S, P>,
-        f64,
-        f64,
-        f64,
-    );
-}
-
-// ============================================================================
-// Dynamic Integrator Traits (Runtime-sized vectors)
-// ============================================================================
-
-/// Result type for adaptive-step integration with dynamic-sized state vectors.
-///
-/// Contains the new state vector, actual timestep used, error estimate, and suggested next timestep.
-/// This is the dynamic counterpart to `AdaptiveStepResult<S>` for use with `DVector`.
-#[derive(Debug, Clone)]
-pub struct AdaptiveStepDResult {
-    /// New state vector at time t + dt_used
-    pub state: DVector<f64>,
-
-    /// Actual timestep used (may be smaller than requested)
-    pub dt_used: f64,
-
-    /// Estimated truncation error
-    pub error_estimate: f64,
-
-    /// Suggested next timestep based on error control
-    pub dt_next: f64,
-}
-
-/// Trait defining interface for fixed-step numerical integration with dynamic-sized state vectors.
-///
-/// This is the dynamic-sized counterpart to `FixedStepIntegrator<S>`. It uses `DVector` instead
-/// of `SVector`, allowing state dimension to be determined at runtime rather than compile time.
-/// This makes it ideal for Python bindings and scenarios where flexibility is more important
-/// than compile-time optimization.
-///
-/// # Examples
-///
-/// ```rust
-/// use brahe::integrators::{FixedStepDIntegrator, RK4DIntegrator};
-/// use nalgebra::DVector;
-///
-/// let dynamics = |t: f64, state: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
-///     // Simple exponential decay: dy/dt = -y
-///     state.map(|y| -y)
-/// };
-///
-/// let integrator = RK4DIntegrator::new(2, Box::new(dynamics), None, None, None);
-/// let state = DVector::from_vec(vec![1.0, 2.0]);
-/// let new_state = integrator.step(0.0, state, Some(0.1));
-/// ```
-pub trait FixedStepDIntegrator {
-    /// Advance the state by one timestep using this integration method.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t (dimension must match integrator)
-    /// - `dt`: Optional integration timestep (can be negative for backward integration).
-    ///   If None, uses the step size from the integrator's configuration.
-    ///
-    /// # Returns
-    /// State vector at time t + dt
-    ///
-    /// # Panics
-    /// - May panic if `state` dimension doesn't match the integrator's expected dimension.
-    /// - Panics if `dt` is None and the integrator's configuration doesn't have a fixed_step_size set.
-    fn step(&self, t: f64, state: DVector<f64>, dt: Option<f64>) -> DVector<f64>;
-
-    /// Advance both state and state transition matrix by one timestep.
-    ///
-    /// Integrates state and its variational equations simultaneously for uncertainty propagation.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `phi`: State transition matrix at time t (must be dimension × dimension)
-    /// - `dt`: Optional integration timestep. If None, uses the step size from the integrator's configuration.
-    ///
-    /// # Returns
-    /// Tuple of (state at t+dt, state transition matrix at t+dt)
-    ///
-    /// # Panics
-    /// - May panic if dimensions don't match the integrator's expected dimension.
-    /// - Panics if `dt` is None and the integrator's configuration doesn't have a fixed_step_size set.
-    fn step_with_varmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        dt: Option<f64>,
-    ) -> (DVector<f64>, DMatrix<f64>);
-
-    /// Advance state and sensitivity matrix by one timestep.
-    ///
-    /// Propagates the sensitivity matrix S that maps parameter uncertainties to state uncertainties.
-    /// The sensitivity evolves according to dS/dt = A*S + B where A = ∂f/∂x and B = ∂f/∂p.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `sens`: Sensitivity matrix at time t (state_dim × param_dim)
-    /// - `params`: Consider parameters
-    /// - `dt`: Optional integration timestep. If None, uses the step size from configuration.
-    ///
-    /// # Returns
-    /// Tuple of (state at t+dt, sensitivity matrix at t+dt)
-    ///
-    /// # Panics
-    /// May panic if dimensions don't match or if sensitivity provider is not configured.
-    fn step_with_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: Option<f64>,
-    ) -> (DVector<f64>, DMatrix<f64>);
-
-    /// Advance state, variational matrix (STM), and sensitivity matrix by one timestep.
-    ///
-    /// Propagates both matrices simultaneously for complete uncertainty quantification.
-    /// - STM (Φ): Maps initial state uncertainties to current state uncertainties
-    /// - Sensitivity (S): Maps parameter uncertainties to state uncertainties
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `phi`: State transition matrix at time t (state_dim × state_dim)
-    /// - `sens`: Sensitivity matrix at time t (state_dim × param_dim)
-    /// - `params`: Consider parameters
-    /// - `dt`: Optional integration timestep. If None, uses the step size from configuration.
-    ///
-    /// # Returns
-    /// Tuple of (state at t+dt, STM at t+dt, sensitivity at t+dt)
-    ///
-    /// # Panics
-    /// May panic if dimensions don't match or if Jacobian/sensitivity providers are not configured.
-    fn step_with_varmat_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: Option<f64>,
-    ) -> (DVector<f64>, DMatrix<f64>, DMatrix<f64>);
-}
-
-/// Trait defining interface for adaptive-step numerical integration with dynamic-sized state vectors.
-///
-/// This is the dynamic-sized counterpart to `AdaptiveStepIntegrator<S>`. It provides automatic
-/// step size control with runtime-determined state dimensions, making it ideal for Python bindings
-/// and applications requiring flexibility.
-///
-/// # Examples
-///
-/// ```rust
-/// use brahe::integrators::{AdaptiveStepDIntegrator, RKF45DIntegrator, IntegratorConfig};
-/// use nalgebra::DVector;
-///
-/// let dynamics = |t: f64, state: DVector<f64>, _: Option<&DVector<f64>>| -> DVector<f64> {
-///     state.map(|y| -y)  // Exponential decay
-/// };
-///
-/// let config = IntegratorConfig::adaptive(1e-9, 1e-6);
-/// let integrator = RKF45DIntegrator::with_config(2, Box::new(dynamics), None, None, None, config);
-/// let state = DVector::from_vec(vec![1.0, 2.0]);
-/// let result = integrator.step(0.0, state, 0.1);
-///
-/// println!("New state: {:?}", result.state);
-/// println!("Used dt: {}, Suggested next: {}", result.dt_used, result.dt_next);
-/// ```
-pub trait AdaptiveStepDIntegrator {
-    /// Advance the state with adaptive step control.
-    ///
-    /// Automatically adjusts the timestep to meet specified tolerances using
-    /// embedded error estimation. Tolerances are read from the integrator's
-    /// configuration.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `dt`: Requested integration timestep
-    ///
-    /// # Returns
-    /// `AdaptiveStepDResult` containing new state, actual dt used, error estimate, and suggested next dt
-    ///
-    /// # Panics
-    /// May panic if `state` dimension doesn't match the integrator's expected dimension.
-    fn step(&self, t: f64, state: DVector<f64>, dt: f64) -> AdaptiveStepDResult;
-
-    /// Advance state and STM with adaptive step control.
-    ///
-    /// Combines adaptive stepping with variational matrix propagation for uncertainty
-    /// quantification with automatic step size control. Tolerances are read from the
-    /// integrator's configuration.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `phi`: State transition matrix at time t
-    /// - `dt`: Requested integration timestep
-    ///
-    /// # Returns
-    /// Tuple of (new state, new STM, actual dt used, error estimate, suggested next dt)
-    ///
-    /// # Panics
-    /// May panic if dimensions don't match the integrator's expected dimension.
-    fn step_with_varmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        dt: f64,
-    ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64);
-
-    /// Advance state and sensitivity matrix with adaptive step control.
-    ///
-    /// Propagates the sensitivity matrix S that maps parameter uncertainties to state uncertainties.
-    /// The sensitivity evolves according to dS/dt = A*S + B where A = ∂f/∂x and B = ∂f/∂p.
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `sens`: Sensitivity matrix at time t (state_dim × param_dim)
-    /// - `params`: Consider parameters
-    /// - `dt`: Requested integration timestep
-    ///
-    /// # Returns
-    /// Tuple of (new state, new sensitivity, actual dt used, error estimate, suggested next dt)
-    ///
-    /// # Panics
-    /// May panic if dimensions don't match or if sensitivity provider is not configured.
-    fn step_with_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: f64,
-    ) -> (DVector<f64>, DMatrix<f64>, f64, f64, f64);
-
-    /// Advance state, variational matrix (STM), and sensitivity matrix with adaptive step control.
-    ///
-    /// Propagates both matrices simultaneously for complete uncertainty quantification.
-    /// - STM (Φ): Maps initial state uncertainties to current state uncertainties
-    /// - Sensitivity (S): Maps parameter uncertainties to state uncertainties
-    ///
-    /// The matrices evolve according to:
-    /// - dΦ/dt = A*Φ where A = ∂f/∂x
-    /// - dS/dt = A*S + B where B = ∂f/∂p
-    ///
-    /// # Arguments
-    /// - `t`: Current time
-    /// - `state`: State vector at time t
-    /// - `phi`: State transition matrix at time t (state_dim × state_dim)
-    /// - `sens`: Sensitivity matrix at time t (state_dim × param_dim)
-    /// - `params`: Consider parameters
-    /// - `dt`: Requested integration timestep
-    ///
-    /// # Returns
-    /// Tuple of (new state, new STM, new sensitivity, actual dt used, error estimate, suggested next dt)
-    ///
-    /// # Panics
-    /// May panic if dimensions don't match or if Jacobian/sensitivity providers are not configured.
-    fn step_with_varmat_sensmat(
-        &self,
-        t: f64,
-        state: DVector<f64>,
-        phi: DMatrix<f64>,
-        sens: DMatrix<f64>,
-        params: &DVector<f64>,
-        dt: f64,
-    ) -> (DVector<f64>, DMatrix<f64>, DMatrix<f64>, f64, f64, f64);
 }

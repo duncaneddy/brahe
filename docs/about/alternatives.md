@@ -32,9 +32,6 @@ Pydantic uses a Rust core for performance with Python bindings which influenced 
 
 Systems Tool Kit (STK) is likely the most well-known commercial astrodynamics software package. It is extremely well validated and provides built-in visualization capabilities. It also supports a wide variety of use-cases and has workflows for built-in analysis. However, it is expensive and closed-source which limits its accessibility and extensibility.
 
-!!! tip "Inspiration"
-    The ability to quickly perform access computations in Brahe draws inspiration from STK's built-in access analysis capabilities.
-
 ### [FreeFlyer](https://ai-solutions.com/)
 
 FreeFlyer is another commercial astrodynamics software package. It has been used for trajectory design and mission analysis for many high-profile space missions. It is also known for its scripting capabilities. a.i. Solutions generously provides free licenses for academic users. However it is closed-source which can limit its accessibility and extensibility.

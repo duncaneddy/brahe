@@ -85,7 +85,7 @@ To better understand what percentage of gaps fall below a certain duration, we c
   <iframe class="only-dark"  src="../figures/max_communications_gap_cumulative_dark.html"  loading="lazy"></iframe>
 </div>
 
-The cumulative distribution plot includes reference lines at the 25th, 50th, 75th, and 90th percentiles, making it easy to determine what fraction of gaps are below a specific threshold.
+The cumulative distribution plot includes reference lines at the 25th, 50th, 75th, and 90th percentiles, making it easy to determine what fraction of gaps are below a specific value.
 
 ## Contact Gap Visualization
 

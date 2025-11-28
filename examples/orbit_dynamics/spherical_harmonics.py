@@ -23,7 +23,7 @@ nu = 60.0  # True anomaly (deg)
 
 # Convert to Cartesian state
 oe = np.array([a, e, i, raan, argp, nu])
-state_eci = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 r_eci = state_eci[0:3]  # Position vector (m)
 
 print("Satellite position (ECI, m):")
@@ -32,7 +32,7 @@ print(f"  y = {r_eci[1]:.3f}")
 print(f"  z = {r_eci[2]:.3f}")
 
 # Load gravity model (GGM05S - degree/order 180)
-gravity_model = bh.GravityModel.from_default(bh.DefaultGravityModel.GGM05S)
+gravity_model = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
 print(
     f"\nGravity model: GGM05S (max degree {gravity_model.n_max}, max order {gravity_model.m_max})"
 )

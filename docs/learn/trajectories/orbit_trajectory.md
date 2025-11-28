@@ -1,6 +1,6 @@
 # OrbitTrajectory
 
-`OrbitTrajectory` is a specialized trajectory container for orbital mechanics that tracks reference frames (ECI/ECEF) and orbital representations (Cartesian/Keplerian). Unlike `DTrajectory` and `STrajectory6` which store frame-agnostic data, `OrbitTrajectory` understands orbital mechanics and enables automatic conversions between reference frames and representations.
+`OrbitTrajectory` is a specialized trajectory container for orbital mechanics that tracks reference frames (ECI/ECEF) and orbital representations (Cartesian/Keplerian). Unlike `Trajectory` which store frame-agnostic data, `OrbitTrajectory` understands orbital mechanics and enables automatic conversions between reference frames and representations.
 
 Use `OrbitTrajectory` when:
 
@@ -217,6 +217,5 @@ A complete example showing propagation, frame conversion, and analysis:
 ## See Also
 
 - [Trajectories Overview](index.md) - Trait hierarchy and implementation guide
-- [DTrajectory](dtrajectory.md) - Dynamic-dimension trajectory
-- [STrajectory6](strajectory6.md) - Static 6D trajectory
+- [Trajectory](trajectory.md) - Dynamic-dimension trajectory
 - [OrbitTrajectory API Reference](../../library_api/trajectories/orbit_trajectory.md)

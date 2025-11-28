@@ -27,7 +27,7 @@
  * ```
  */
 
-use nalgebra::SVector;
+use nalgebra::{SMatrix, SVector};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::ops::Index;
@@ -35,7 +35,15 @@ use std::ops::Index;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::traits::{Interpolatable, InterpolationMethod, Trajectory, TrajectoryEvictionPolicy};
+use crate::math::{
+    CovarianceInterpolationConfig, interpolate_covariance_sqrt_smatrix,
+    interpolate_covariance_two_wasserstein_smatrix,
+};
+
+use super::traits::{
+    CovarianceInterpolationMethod, InterpolatableTrajectory, InterpolationConfig,
+    InterpolationMethod, Trajectory, TrajectoryEvictionPolicy,
+};
 
 /// Type alias for a 3-dimensional static trajectory (e.g., position only)
 pub type STrajectory3 = STrajectory<3>;
@@ -56,7 +64,7 @@ pub type STrajectory6 = STrajectory<6>;
 /// # Memory Management
 /// The trajectory supports automatic memory management through configurable policies:
 /// - Maximum state count (oldest states evicted first)
-/// - Maximum age (states older than threshold evicted)
+/// - Maximum age (states older than value evicted)
 /// - Custom eviction policies for specialized use cases
 ///
 /// # Performance Characteristics
@@ -75,9 +83,18 @@ pub struct STrajectory<const R: usize> {
     /// R-dimensional state vectors corresponding to epochs.
     pub states: Vec<SVector<f64, R>>,
 
+    /// Optional covariance matrices corresponding to each state.
+    /// If present, must have the same length as `states` and each matrix
+    /// must be RxR square matrix.
+    pub covariances: Option<Vec<SMatrix<f64, R, R>>>,
+
     /// Interpolation method for state retrieval at arbitrary epochs.
     /// Default is linear interpolation for optimal performance/accuracy balance.
     pub interpolation_method: InterpolationMethod,
+
+    /// Interpolation method for covariance retrieval at arbitrary epochs.
+    /// Default is TwoWasserstein for proper positive semi-definiteness preservation.
+    pub covariance_interpolation_method: CovarianceInterpolationMethod,
 
     /// Memory management policy for automatic state eviction.
     /// Controls how states are removed when limits are exceeded.
@@ -119,7 +136,9 @@ impl<const R: usize> STrajectory<R> {
         Self {
             epochs: Vec::new(),
             states: Vec::new(),
+            covariances: None,
             interpolation_method: InterpolationMethod::Linear,
+            covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
@@ -225,6 +244,9 @@ impl<const R: usize> STrajectory<R> {
                     let to_remove = self.epochs.len() - max_size;
                     self.epochs.drain(0..to_remove);
                     self.states.drain(0..to_remove);
+                    if let Some(ref mut covs) = self.covariances {
+                        covs.drain(0..to_remove);
+                    }
                 }
             }
             TrajectoryEvictionPolicy::KeepWithinDuration => {
@@ -245,6 +267,13 @@ impl<const R: usize> STrajectory<R> {
 
                     self.epochs = new_epochs;
                     self.states = new_states;
+
+                    // Also evict covariances if enabled
+                    if let Some(ref mut covs) = self.covariances {
+                        let new_covs: Vec<SMatrix<f64, R, R>> =
+                            indices_to_keep.iter().map(|&i| covs[i]).collect();
+                        *covs = new_covs;
+                    }
                 }
             }
         }
@@ -278,6 +307,169 @@ impl<const R: usize> STrajectory<R> {
         }
 
         Ok(matrix)
+    }
+
+    /// Enable covariance storage
+    ///
+    /// Initializes the covariance vector with zero matrices for all existing states.
+    /// After calling this, covariances can be added using `add_with_covariance()` or
+    /// `set_covariance_at()`.
+    pub fn enable_covariance_storage(&mut self) {
+        if self.covariances.is_none() {
+            // Initialize with zero matrices for all existing states
+            self.covariances = Some(vec![SMatrix::<f64, R, R>::zeros(); self.states.len()]);
+        }
+    }
+
+    /// Add a state with its corresponding covariance matrix
+    ///
+    /// This automatically enables covariance storage if not already enabled.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch
+    /// * `state` - State vector
+    /// * `covariance` - Covariance matrix (must be RxR square matrix)
+    pub fn add_with_covariance(
+        &mut self,
+        epoch: Epoch,
+        state: SVector<f64, R>,
+        covariance: SMatrix<f64, R, R>,
+    ) {
+        // Enable covariance storage if not already enabled
+        if self.covariances.is_none() {
+            self.enable_covariance_storage();
+        }
+
+        // Find the correct position to insert based on epoch
+        let mut insert_idx = self.epochs.len();
+        for (i, existing_epoch) in self.epochs.iter().enumerate() {
+            if epoch < *existing_epoch {
+                insert_idx = i;
+                break;
+            }
+        }
+
+        // Insert at the correct position
+        self.epochs.insert(insert_idx, epoch);
+        self.states.insert(insert_idx, state);
+        if let Some(ref mut covs) = self.covariances {
+            covs.insert(insert_idx, covariance);
+        }
+
+        // Apply eviction policy after adding state
+        self.apply_eviction_policy();
+    }
+
+    /// Set covariance matrix at a specific index
+    ///
+    /// Enables covariance storage if not already enabled.
+    ///
+    /// # Arguments
+    /// * `index` - Index in the trajectory
+    /// * `covariance` - Covariance matrix
+    ///
+    /// # Panics
+    /// Panics if index is out of bounds
+    pub fn set_covariance_at(&mut self, index: usize, covariance: SMatrix<f64, R, R>) {
+        if index >= self.states.len() {
+            panic!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.states.len()
+            );
+        }
+
+        // Enable covariance storage if not already enabled
+        if self.covariances.is_none() {
+            self.enable_covariance_storage();
+        }
+
+        // Set the covariance at the specified index
+        if let Some(ref mut covs) = self.covariances {
+            covs[index] = covariance;
+        }
+    }
+
+    /// Get covariance matrix at a specific epoch (with interpolation)
+    ///
+    /// Returns None if covariance storage is not enabled or epoch is out of range.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch to query
+    ///
+    /// # Returns
+    /// Covariance matrix at the requested epoch (interpolated if necessary)
+    pub fn covariance_at(&self, epoch: Epoch) -> Option<SMatrix<f64, R, R>> {
+        // Check if covariance storage is enabled
+        let covs = self.covariances.as_ref()?;
+
+        // Check if trajectory has data
+        if self.epochs.is_empty() {
+            return None;
+        }
+
+        // Handle exact match
+        if let Some((idx, _)) = self.epochs.iter().enumerate().find(|(_, e)| **e == epoch) {
+            return Some(covs[idx]);
+        }
+
+        // Find surrounding indices for interpolation
+        let (idx_before, idx_after) = self.find_surrounding_indices(epoch)?;
+
+        // Handle exact matches
+        if self.epochs[idx_before] == epoch {
+            return Some(covs[idx_before]);
+        }
+        if self.epochs[idx_after] == epoch {
+            return Some(covs[idx_after]);
+        }
+
+        // Interpolation parameter
+        let t0 = self.epochs[idx_before] - self.epoch_initial()?;
+        let t1 = self.epochs[idx_after] - self.epoch_initial()?;
+        let t = epoch - self.epoch_initial()?;
+        let alpha = (t - t0) / (t1 - t0);
+
+        let cov0 = covs[idx_before];
+        let cov1 = covs[idx_after];
+
+        // Dispatch based on covariance interpolation method
+        let cov = match self.covariance_interpolation_method {
+            CovarianceInterpolationMethod::MatrixSquareRoot => {
+                interpolate_covariance_sqrt_smatrix(cov0, cov1, alpha)
+            }
+            CovarianceInterpolationMethod::TwoWasserstein => {
+                interpolate_covariance_two_wasserstein_smatrix(cov0, cov1, alpha)
+            }
+        };
+
+        Some(cov)
+    }
+
+    /// Helper to find initial epoch for interpolation
+    fn epoch_initial(&self) -> Option<Epoch> {
+        self.epochs.first().copied()
+    }
+
+    /// Helper to find surrounding indices for interpolation
+    fn find_surrounding_indices(&self, epoch: Epoch) -> Option<(usize, usize)> {
+        if self.epochs.is_empty() {
+            return None;
+        }
+
+        // Check bounds
+        if epoch < self.epochs[0] || epoch > *self.epochs.last()? {
+            return None;
+        }
+
+        // Binary search to find the interval
+        for i in 0..self.epochs.len() - 1 {
+            if self.epochs[i] <= epoch && epoch <= self.epochs[i + 1] {
+                return Some((i, i + 1));
+            }
+        }
+
+        None
     }
 }
 
@@ -373,7 +565,9 @@ impl<const R: usize> Trajectory for STrajectory<R> {
         Ok(Self {
             epochs: sorted_epochs,
             states: sorted_states,
+            covariances: None,
             interpolation_method: InterpolationMethod::Linear, // Default to Linear
+            covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             eviction_policy: TrajectoryEvictionPolicy::None,
             max_size: None,
             max_age: None,
@@ -383,22 +577,25 @@ impl<const R: usize> Trajectory for STrajectory<R> {
 
     fn add(&mut self, epoch: Epoch, state: Self::StateVector) {
         // Find the correct position to insert based on epoch
+        // Insert after any existing states at the same epoch to support
+        // impulsive maneuvers where we want both pre- and post-maneuver states
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
             if epoch < *existing_epoch {
                 insert_idx = i;
                 break;
-            } else if epoch == *existing_epoch {
-                // Replace state if epochs are equal
-                self.states[i] = state;
-                self.apply_eviction_policy();
-                return;
             }
+            // If epochs are equal, continue to find the position after all equal epochs
         }
 
         // Insert at the correct position
         self.epochs.insert(insert_idx, epoch);
         self.states.insert(insert_idx, state);
+
+        // If covariances are being tracked, insert zero matrix placeholder
+        if let Some(ref mut covs) = self.covariances {
+            covs.insert(insert_idx, SMatrix::<f64, R, R>::zeros());
+        }
 
         // Apply eviction policy after adding state
         self.apply_eviction_policy();
@@ -621,7 +818,12 @@ impl<const R: usize> Trajectory for STrajectory<R> {
     }
 }
 
-impl<const R: usize> Interpolatable for STrajectory<R> {
+impl<const R: usize> InterpolationConfig for STrajectory<R> {
+    fn with_interpolation_method(mut self, method: InterpolationMethod) -> Self {
+        self.interpolation_method = method;
+        self
+    }
+
     fn set_interpolation_method(&mut self, method: InterpolationMethod) {
         self.interpolation_method = method;
     }
@@ -630,6 +832,27 @@ impl<const R: usize> Interpolatable for STrajectory<R> {
         self.interpolation_method
     }
 }
+
+impl<const R: usize> CovarianceInterpolationConfig for STrajectory<R> {
+    fn with_covariance_interpolation_method(
+        mut self,
+        method: CovarianceInterpolationMethod,
+    ) -> Self {
+        self.covariance_interpolation_method = method;
+        self
+    }
+
+    fn set_covariance_interpolation_method(&mut self, method: CovarianceInterpolationMethod) {
+        self.covariance_interpolation_method = method;
+    }
+
+    fn get_covariance_interpolation_method(&self) -> CovarianceInterpolationMethod {
+        self.covariance_interpolation_method
+    }
+}
+
+// InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
+impl<const R: usize> InterpolatableTrajectory for STrajectory<R> {}
 
 // Iterator implementation will be added later once trait bounds are resolved
 
@@ -640,6 +863,7 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
+    use nalgebra as na;
     use nalgebra::Vector6;
 
     fn create_test_trajectory() -> STrajectory6 {
@@ -912,6 +1136,23 @@ mod tests {
         assert_eq!(trajectory.epochs[0].jd(), 2451545.0);
         assert_eq!(trajectory.epochs[1].jd(), 2451545.1);
         assert_eq!(trajectory.epochs[2].jd(), 2451545.2);
+    }
+
+    #[test]
+    fn test_strajectory_trajectory_add_append() {
+        let mut trajectory = STrajectory6::new();
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        trajectory.add(epoch, state1);
+        assert_eq!(trajectory.len(), 1);
+        assert_eq!(trajectory.states[0][0], 7000e3);
+
+        let state2 = Vector6::new(7100e3, 100e3, 50e3, 10.0, 7.6e3, 5.0);
+        trajectory.add(epoch, state2);
+        assert_eq!(trajectory.len(), 2); // Length should increase (append, not replace)
+        assert_eq!(trajectory.states[0][0], 7000e3); // First state unchanged
+        assert_eq!(trajectory.states[1][0], 7100e3); // Second state appended
     }
 
     #[test]
@@ -1707,5 +1948,135 @@ mod tests {
         // Also test with interpolate() method
         let result = traj.interpolate(&t_different);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_strajectory_covariance_interpolation_config() {
+        // Test the CovarianceInterpolationConfig trait implementation
+        setup_global_test_eop();
+
+        // Test default is TwoWasserstein
+        let traj = STrajectory6::new();
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::TwoWasserstein
+        );
+
+        // Test with_covariance_interpolation_method builder
+        let traj = STrajectory6::new()
+            .with_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::MatrixSquareRoot
+        );
+
+        // Test set_covariance_interpolation_method
+        let mut traj = STrajectory6::new();
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::MatrixSquareRoot
+        );
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::TwoWasserstein
+        );
+    }
+
+    #[test]
+    fn test_strajectory_covariance_interpolation_methods() {
+        // Test that covariance interpolation produces correct results
+        setup_global_test_eop();
+
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
+
+        // Create diagonal covariance matrices
+        let cov1 = na::SMatrix::<f64, 6, 6>::from_diagonal(&na::Vector6::new(
+            100.0, 100.0, 100.0, 1.0, 1.0, 1.0,
+        ));
+        let cov2 = na::SMatrix::<f64, 6, 6>::from_diagonal(&na::Vector6::new(
+            200.0, 200.0, 200.0, 2.0, 2.0, 2.0,
+        ));
+
+        // Create trajectory with covariances
+        let mut traj = STrajectory6::new();
+        traj.enable_covariance_storage();
+        traj.add(t0, state1);
+        traj.add(t1, state2);
+        traj.set_covariance_at(0, cov1);
+        traj.set_covariance_at(1, cov2);
+
+        // Test matrix square root interpolation at midpoint
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        let t_mid = t0 + 30.0;
+        let cov_sqrt = traj.covariance_at(t_mid).unwrap();
+
+        // Check symmetry and positive semi-definiteness
+        for i in 0..6 {
+            assert!(cov_sqrt[(i, i)] > 0.0);
+            for j in 0..6 {
+                assert_abs_diff_eq!(cov_sqrt[(i, j)], cov_sqrt[(j, i)], epsilon = 1e-10);
+            }
+        }
+
+        // Check values are between endpoints
+        assert!(cov_sqrt[(0, 0)] > 100.0 && cov_sqrt[(0, 0)] < 200.0);
+
+        // Test two-Wasserstein interpolation at midpoint
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+        let cov_wasserstein = traj.covariance_at(t_mid).unwrap();
+
+        // Check symmetry and positive semi-definiteness
+        for i in 0..6 {
+            assert!(cov_wasserstein[(i, i)] > 0.0);
+            for j in 0..6 {
+                assert_abs_diff_eq!(
+                    cov_wasserstein[(i, j)],
+                    cov_wasserstein[(j, i)],
+                    epsilon = 1e-10
+                );
+            }
+        }
+
+        // Check values are between endpoints
+        assert!(cov_wasserstein[(0, 0)] > 100.0 && cov_wasserstein[(0, 0)] < 200.0);
+
+        // For diagonal matrices, both methods should give similar results
+        assert_abs_diff_eq!(cov_sqrt[(0, 0)], cov_wasserstein[(0, 0)], epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_strajectory_covariance_at_exact_epochs() {
+        // Test that covariance_at returns exact values at data points
+        setup_global_test_eop();
+
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.6e3, 0.0);
+
+        let cov1 = na::SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let cov2 = na::SMatrix::<f64, 6, 6>::identity() * 200.0;
+
+        let mut traj = STrajectory6::new();
+        traj.enable_covariance_storage();
+        traj.add(t0, state1);
+        traj.add(t1, state2);
+        traj.set_covariance_at(0, cov1);
+        traj.set_covariance_at(1, cov2);
+
+        // At exact t0, should return cov1
+        let result = traj.covariance_at(t0).unwrap();
+        assert_abs_diff_eq!(result[(0, 0)], 100.0, epsilon = 1e-10);
+
+        // At exact t1, should return cov2
+        let result = traj.covariance_at(t1).unwrap();
+        assert_abs_diff_eq!(result[(0, 0)], 200.0, epsilon = 1e-10);
     }
 }

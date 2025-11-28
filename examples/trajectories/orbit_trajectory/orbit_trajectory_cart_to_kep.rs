@@ -3,17 +3,17 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use bh::time::Epoch;
-use bh::trajectories::OrbitTrajectory;
+use bh::trajectories::SOrbitTrajectory;
 use bh::trajectories::traits::{OrbitFrame, OrbitRepresentation, OrbitalTrajectory};
 use bh::traits::Trajectory;
-use bh::{state_osculating_to_cartesian, R_EARTH, AngleFormat};
+use bh::{state_koe_to_eci, R_EARTH, AngleFormat};
 use nalgebra as na;
 
 fn main() {
     bh::initialize_eop().unwrap();
 
     // Create trajectory in ECI Cartesian
-    let mut traj_cart = OrbitTrajectory::new(
+    let mut traj_cart = SOrbitTrajectory::new(
         OrbitFrame::ECI,
         OrbitRepresentation::Cartesian,
         None
@@ -27,7 +27,7 @@ fn main() {
         let oe = na::SVector::<f64, 6>::new(
             R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, (i as f64) * 10.0
         );
-        let state_cart = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+        let state_cart = state_koe_to_eci(oe, AngleFormat::Degrees);
         traj_cart.add(epoch, state_cart);
     }
 

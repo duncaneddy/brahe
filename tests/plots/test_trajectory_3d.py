@@ -16,7 +16,7 @@ def test_trajectory():
     # Create simple LEO orbit
     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
-    state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
     prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
     duration = bh.orbital_period(oe[0])
@@ -158,7 +158,7 @@ def test_plot_trajectory_3d_multiple_trajectories(test_trajectory):
     # Create second trajectory at different altitude
     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     oe2 = np.array([bh.R_EARTH + 800e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
-    state2 = bh.state_osculating_to_cartesian(oe2, bh.AngleFormat.RADIANS)
+    state2 = bh.state_koe_to_eci(oe2, bh.AngleFormat.RADIANS)
     prop2 = bh.KeplerianPropagator.from_eci(epoch, state2, 60.0)
     duration2 = bh.orbital_period(oe2[0])
     prop2.propagate_to(epoch + duration2)

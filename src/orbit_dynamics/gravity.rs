@@ -37,9 +37,9 @@ static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> =
 /// # Examples
 ///
 /// ```
-/// use brahe::gravity::{GravityModel, set_global_gravity_model, DefaultGravityModel};
+/// use brahe::gravity::{GravityModel, set_global_gravity_model, GravityModelType};
 ///
-/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 /// set_global_gravity_model(gravity_model);
 /// ```
 pub fn set_global_gravity_model(gravity_model: GravityModel) {
@@ -55,9 +55,9 @@ pub fn set_global_gravity_model(gravity_model: GravityModel) {
 /// # Examples
 ///
 /// ```
-/// use brahe::gravity::{GravityModel, set_global_gravity_model, get_global_gravity_model, DefaultGravityModel};
+/// use brahe::gravity::{GravityModel, set_global_gravity_model, get_global_gravity_model, GravityModelType};
 ///
-/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 /// set_global_gravity_model(gravity_model);
 ///
 /// let model = get_global_gravity_model();
@@ -195,9 +195,12 @@ pub enum GravityModelNormalization {
     Unnormalized,
 }
 
-/// Enumeration of the default gravity models available in Brahe.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum DefaultGravityModel {
+/// Type of spherical harmonic gravity model
+///
+/// Specifies which gravity model to load and use for orbit propagation.
+/// Models can either be packaged with Brahe or loaded from external files.
+#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+pub enum GravityModelType {
     /// Earth Gravitational Model 2008, truncated to degree/order 360. High-accuracy
     /// global model developed by NGA. Best for precision orbit determination.
     EGM2008_360,
@@ -207,6 +210,41 @@ pub enum DefaultGravityModel {
     /// Joint Gravity Model 3, degree/order 70. Legacy model from 1990s. Included
     /// for compatibility and applications not requiring modern accuracy.
     JGM3,
+    /// Load gravity model from custom file
+    ///
+    /// Allows using custom gravity models. File must be in standard GFC format.
+    FromFile(String),
+}
+
+impl GravityModelType {
+    /// Create a GravityModelType from a file path, validating the file exists.
+    ///
+    /// # Arguments
+    ///
+    /// * `filepath` - Path to the gravity model file in GFC format
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(GravityModelType)` - If the file exists
+    /// * `Err(BraheError)` - If the file does not exist or is not a file
+    pub fn from_file<P: AsRef<Path>>(filepath: P) -> Result<Self, BraheError> {
+        let path = filepath.as_ref();
+        if !path.exists() {
+            return Err(BraheError::IoError(format!(
+                "Gravity model file not found: {}",
+                path.display()
+            )));
+        }
+        if !path.is_file() {
+            return Err(BraheError::IoError(format!(
+                "Gravity model path is not a file: {}",
+                path.display()
+            )));
+        }
+        Ok(GravityModelType::FromFile(
+            path.to_string_lossy().to_string(),
+        ))
+    }
 }
 
 /// The `GravityModel` struct is for storing spherical harmonic gravity models.
@@ -407,30 +445,37 @@ impl GravityModel {
         Self::from_bufreader(reader)
     }
 
-    /// Load a gravity model from default models included with Brahe. The available default models
-    /// are defined by the `DefaultGravityModel` enum. Currently, the available default models are:
+    /// Load a gravity model from packaged models or file.
     ///
-    /// - `EGM2008_360` - a truncated 360x360 version of the full 2190x2190 EGM2008_360 model.
+    /// The available packaged models are:
+    /// - `EGM2008_360` - a truncated 360x360 version of the full 2190x2190 EGM2008 model.
     /// - `GGM05S` - The full 180x180 GGM05S model.
     /// - `JGM3` - The full 70x70 JGM3 model.
     ///
+    /// Or load a custom model from file using `FromFile(path)`.
+    ///
     /// # Arguments
     ///
-    /// - `model` : Default gravity model to load. This is a `DefaultGravityModel` enum.
-    pub fn from_default(model: DefaultGravityModel) -> Self {
+    /// - `model` : Gravity model type to load. This is a `GravityModelType` enum.
+    ///
+    /// # Returns
+    ///
+    /// - `Result<Self, BraheError>` : Loaded gravity model, or error if file loading fails.
+    pub fn from_model_type(model: &GravityModelType) -> Result<Self, BraheError> {
         match model {
-            DefaultGravityModel::EGM2008_360 => {
+            GravityModelType::EGM2008_360 => {
                 let reader = BufReader::new(PACKAGED_EGM2008_360);
-                Self::from_bufreader(reader).unwrap()
+                Self::from_bufreader(reader)
             }
-            DefaultGravityModel::GGM05S => {
+            GravityModelType::GGM05S => {
                 let reader = BufReader::new(PACKAGED_GGM05S);
-                Self::from_bufreader(reader).unwrap()
+                Self::from_bufreader(reader)
             }
-            DefaultGravityModel::JGM3 => {
+            GravityModelType::JGM3 => {
                 let reader = BufReader::new(PACKAGED_JGM3);
-                Self::from_bufreader(reader).unwrap()
+                Self::from_bufreader(reader)
             }
+            GravityModelType::FromFile(path) => Self::from_file(Path::new(path)),
         }
     }
 
@@ -458,6 +503,81 @@ impl GravityModel {
         } else {
             Ok((self.data[(n, m)], self.data[(m - 1, n)]))
         }
+    }
+
+    /// Truncate the gravity model to a smaller degree and order.
+    ///
+    /// This reduces memory usage by discarding higher-degree/order coefficients
+    /// that won't be used. The operation is irreversible - coefficients beyond
+    /// the new limits are permanently removed.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - New maximum degree (must be <= current n_max)
+    /// * `m` - New maximum order (must be <= n and <= current m_max)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if truncation succeeded
+    /// * `Err(BraheError)` if validation fails
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType};
+    ///
+    /// let mut model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    /// assert_eq!(model.n_max, 360);
+    ///
+    /// // Reduce from 360×360 to 70×70 to save memory
+    /// model.set_max_degree_order(70, 70).unwrap();
+    /// assert_eq!(model.n_max, 70);
+    /// assert_eq!(model.m_max, 70);
+    /// ```
+    pub fn set_max_degree_order(&mut self, n: usize, m: usize) -> Result<(), BraheError> {
+        // Validate: m <= n
+        if m > n {
+            return Err(BraheError::Error(format!(
+                "Maximum order (m={}) cannot exceed maximum degree (n={})",
+                m, n
+            )));
+        }
+
+        // Validate: new limits don't exceed current model
+        if n > self.n_max {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Requested degree (n={}) exceeds model's maximum degree (n_max={})",
+                n, self.n_max
+            )));
+        }
+        if m > self.m_max {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Requested order (m={}) exceeds model's maximum order (m_max={})",
+                m, self.m_max
+            )));
+        }
+
+        // Skip if no resize needed
+        if n == self.n_max && m == self.m_max {
+            return Ok(());
+        }
+
+        // Resize matrix in-place using nalgebra's resize_mut
+        // The data matrix stores:
+        //   - C coefficients at data[(n, m)] for the lower triangle
+        //   - S coefficients at data[(m-1, n)] for m > 0 (upper triangle shifted)
+        // Both fit within the (n+1) x (n+1) square when n == m (typical case)
+        let new_size = n + 1;
+
+        // resize_mut preserves existing values at their (row, col) positions
+        // and fills new cells with the provided value (0.0 here, but we're shrinking)
+        self.data.resize_mut(new_size, new_size, 0.0);
+
+        // Update model limits
+        self.n_max = n;
+        self.m_max = m;
+
+        Ok(())
     }
 
     /// Compute gravitational acceleration from spherical harmonic expansion.
@@ -644,11 +764,11 @@ impl std::fmt::Debug for GravityModel {
 /// Using a position vector:
 /// ```
 /// use nalgebra::{Vector3, Vector6};
-/// use brahe::gravity::{GravityModel, DefaultGravityModel};
+/// use brahe::gravity::{GravityModel, GravityModelType};
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
-/// use brahe::{R_EARTH, state_osculating_to_cartesian, TimeSystem, AngleFormat};
+/// use brahe::{R_EARTH, state_koe_to_eci, TimeSystem, AngleFormat};
 ///
 /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
 /// set_global_eop_provider(eop);
@@ -658,11 +778,11 @@ impl std::fmt::Debug for GravityModel {
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
-/// let x_eci = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+/// let x_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
@@ -672,11 +792,11 @@ impl std::fmt::Debug for GravityModel {
 /// Using a state vector:
 /// ```
 /// use nalgebra::Vector6;
-/// use brahe::gravity::{GravityModel, DefaultGravityModel};
+/// use brahe::gravity::{GravityModel, GravityModelType};
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
-/// use brahe::{R_EARTH, state_osculating_to_cartesian, TimeSystem, AngleFormat};
+/// use brahe::{R_EARTH, state_koe_to_eci, TimeSystem, AngleFormat};
 ///
 /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
 /// set_global_eop_provider(eop);
@@ -686,11 +806,11 @@ impl std::fmt::Debug for GravityModel {
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 ///
 /// // Compute the acceleration due to gravity using state vector directly
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
-/// let x_eci = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+/// let x_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
 ///
 /// // Pass state vector directly - no need to extract position
 /// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(x_eci, R_i2b, &gravity_model, 20, 20);
@@ -746,8 +866,8 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_from_default_egm2008_360() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+    fn test_gravity_model_from_model_type_egm2008_360() {
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 
         assert_eq!(gravity_model.model_name, "EGM2008");
         assert_eq!(gravity_model.gm, GM_EARTH);
@@ -763,8 +883,8 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_from_default_ggm05s() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::GGM05S);
+    fn test_gravity_model_from_model_type_ggm05s() {
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
 
         assert_eq!(gravity_model.model_name, "GGM05S");
         assert_eq!(gravity_model.gm, GM_EARTH);
@@ -780,8 +900,8 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_from_default_jgm3() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
+    fn test_gravity_model_from_model_type_jgm3() {
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
 
         assert_eq!(gravity_model.model_name, "JGM3");
         assert_eq!(gravity_model.gm, GM_EARTH);
@@ -798,7 +918,7 @@ mod tests {
 
     #[test]
     fn test_gravity_model_get() {
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 
         let (c, s) = gravity_model.get(2, 0).unwrap();
         assert_abs_diff_eq!(c, -0.484165143790815e-03, epsilon = 1e-12);
@@ -855,7 +975,7 @@ mod tests {
     fn test_gravity_model_compute_spherical_harmonics() {
         setup_global_test_eop();
 
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::EGM2008_360);
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
 
@@ -905,7 +1025,7 @@ mod tests {
     ) {
         let rot = SMatrix3::identity();
 
-        let gravity_model = GravityModel::from_default(DefaultGravityModel::JGM3);
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
 
         let a_grav = accel_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m);
@@ -918,5 +1038,185 @@ mod tests {
         assert_abs_diff_eq!(a_grav[0], ax, epsilon = tol);
         assert_abs_diff_eq!(a_grav[1], ay, epsilon = tol);
         assert_abs_diff_eq!(a_grav[2], az, epsilon = tol);
+    }
+
+    #[test]
+    fn test_set_max_degree_order_basic() {
+        // Load JGM3 (70x70) and truncate to 20x20
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        assert_eq!(model.n_max, 70);
+        assert_eq!(model.m_max, 70);
+
+        model.set_max_degree_order(20, 20).unwrap();
+
+        assert_eq!(model.n_max, 20);
+        assert_eq!(model.m_max, 20);
+        // Matrix should be resized to (21, 21)
+        assert_eq!(model.data.nrows(), 21);
+        assert_eq!(model.data.ncols(), 21);
+    }
+
+    #[test]
+    fn test_set_max_degree_order_coefficient_preservation() {
+        // Load JGM3 and verify coefficients are preserved after truncation
+        let original_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let mut truncated_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        // Get some coefficients before truncation
+        let (c_2_0_orig, s_2_0_orig) = original_model.get(2, 0).unwrap();
+        let (c_3_3_orig, s_3_3_orig) = original_model.get(3, 3).unwrap();
+        let (c_10_5_orig, s_10_5_orig) = original_model.get(10, 5).unwrap();
+        let (c_20_20_orig, s_20_20_orig) = original_model.get(20, 20).unwrap();
+
+        // Truncate to 20x20
+        truncated_model.set_max_degree_order(20, 20).unwrap();
+
+        // Verify coefficients are preserved
+        let (c_2_0, s_2_0) = truncated_model.get(2, 0).unwrap();
+        assert_abs_diff_eq!(c_2_0, c_2_0_orig, epsilon = 1e-15);
+        assert_abs_diff_eq!(s_2_0, s_2_0_orig, epsilon = 1e-15);
+
+        let (c_3_3, s_3_3) = truncated_model.get(3, 3).unwrap();
+        assert_abs_diff_eq!(c_3_3, c_3_3_orig, epsilon = 1e-15);
+        assert_abs_diff_eq!(s_3_3, s_3_3_orig, epsilon = 1e-15);
+
+        let (c_10_5, s_10_5) = truncated_model.get(10, 5).unwrap();
+        assert_abs_diff_eq!(c_10_5, c_10_5_orig, epsilon = 1e-15);
+        assert_abs_diff_eq!(s_10_5, s_10_5_orig, epsilon = 1e-15);
+
+        let (c_20_20, s_20_20) = truncated_model.get(20, 20).unwrap();
+        assert_abs_diff_eq!(c_20_20, c_20_20_orig, epsilon = 1e-15);
+        assert_abs_diff_eq!(s_20_20, s_20_20_orig, epsilon = 1e-15);
+
+        // Verify coefficients beyond truncation limit are now inaccessible
+        assert!(truncated_model.get(21, 0).is_err());
+        assert!(truncated_model.get(70, 70).is_err());
+    }
+
+    #[test]
+    fn test_set_max_degree_order_validation_m_greater_than_n() {
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        // m > n should error
+        let result = model.set_max_degree_order(10, 15);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), BraheError::Error(_)));
+    }
+
+    #[test]
+    fn test_set_max_degree_order_validation_n_exceeds_max() {
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        // n > n_max (70 for JGM3) should error
+        let result = model.set_max_degree_order(100, 100);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            BraheError::OutOfBoundsError(_)
+        ));
+    }
+
+    #[test]
+    fn test_set_max_degree_order_validation_m_exceeds_max() {
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        // First truncate to (50, 40) - n_max=50, m_max=40
+        model.set_max_degree_order(50, 40).unwrap();
+        assert_eq!(model.n_max, 50);
+        assert_eq!(model.m_max, 40);
+
+        // Now try to set m > m_max (40) but m <= n (valid m <= n)
+        let result = model.set_max_degree_order(50, 45);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            BraheError::OutOfBoundsError(_)
+        ));
+    }
+
+    #[test]
+    fn test_set_max_degree_order_no_change() {
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let original_size = model.data.nrows();
+
+        // Setting same values should succeed without error
+        model.set_max_degree_order(70, 70).unwrap();
+
+        // Size should be unchanged
+        assert_eq!(model.data.nrows(), original_size);
+        assert_eq!(model.n_max, 70);
+        assert_eq!(model.m_max, 70);
+    }
+
+    #[test]
+    fn test_set_max_degree_order_asymmetric() {
+        // Test with m < n (less common but valid)
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        model.set_max_degree_order(30, 20).unwrap();
+
+        assert_eq!(model.n_max, 30);
+        assert_eq!(model.m_max, 20);
+        // Matrix is sized based on n
+        assert_eq!(model.data.nrows(), 31);
+        assert_eq!(model.data.ncols(), 31);
+
+        // Can still access coefficients within the truncated range
+        let (c, s) = model.get(20, 20).unwrap();
+        assert!(c.is_finite());
+        assert!(s.is_finite());
+
+        // Can access coefficients with n > m_max but m <= m_max
+        let (c, s) = model.get(30, 15).unwrap();
+        assert!(c.is_finite());
+        assert!(s.is_finite());
+    }
+
+    #[test]
+    fn test_set_max_degree_order_computation_after_truncation() {
+        setup_global_test_eop();
+
+        // Load full model and truncate
+        let mut truncated_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        truncated_model.set_max_degree_order(20, 20).unwrap();
+
+        // Load fresh model for comparison
+        let full_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
+
+        // Compute spherical harmonics up to 20x20 on both
+        let a_truncated = truncated_model
+            .compute_spherical_harmonics(r_body, 20, 20)
+            .unwrap();
+        let a_full = full_model
+            .compute_spherical_harmonics(r_body, 20, 20)
+            .unwrap();
+
+        // Results should be identical
+        assert_abs_diff_eq!(a_truncated[0], a_full[0], epsilon = 1e-15);
+        assert_abs_diff_eq!(a_truncated[1], a_full[1], epsilon = 1e-15);
+        assert_abs_diff_eq!(a_truncated[2], a_full[2], epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_gravity_model_type_from_file_valid_path() {
+        let model_type =
+            GravityModelType::from_file("data/gravity_models/EGM2008_360.gfc").unwrap();
+        assert!(matches!(model_type, GravityModelType::FromFile(_)));
+    }
+
+    #[test]
+    fn test_gravity_model_type_from_file_nonexistent_path() {
+        let result = GravityModelType::from_file("/nonexistent/path/to/model.gfc");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_gravity_model_type_from_file_directory_path() {
+        let result = GravityModelType::from_file("data/gravity_models");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not a file"));
     }
 }

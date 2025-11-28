@@ -2,7 +2,6 @@
 Tests comparing behavior of different adaptive integrators on same problems.
 """
 
-import pytest
 import numpy as np
 import brahe as bh
 
@@ -60,7 +59,7 @@ class TestAdaptiveIntegratorComparison:
 
         # Setup orbit
         oe0 = np.array([bh.R_EARTH + 500e3, 0.01, 90.0, 0.0, 0.0, 0.0])
-        state0 = bh.state_osculating_to_cartesian(oe0, bh.AngleFormat.RADIANS)
+        state0 = bh.state_koe_to_eci(oe0, bh.AngleFormat.RADIANS)
 
         # Propagate half an orbit with each
         t_end = bh.orbital_period(oe0[0]) / 2.0

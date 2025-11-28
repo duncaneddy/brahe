@@ -41,7 +41,7 @@ M0 = 0.0  # mean anomaly
 
 # Convert to Cartesian state
 oe = np.array([a, e, i, Omega, omega, M0])
-initial_state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+initial_state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
 # Orbital period
 period = 2 * np.pi * np.sqrt(a**3 / bh.GM_EARTH)
@@ -67,7 +67,7 @@ def analytical_solution(t):
     M = M0 + n * t
     # Convert back to Cartesian
     oe_t = np.array([a, e, i, Omega, omega, M])
-    return bh.state_osculating_to_cartesian(oe_t, bh.AngleFormat.RADIANS)
+    return bh.state_koe_to_eci(oe_t, bh.AngleFormat.RADIANS)
 
 
 # Integration parameters

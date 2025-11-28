@@ -6,7 +6,7 @@ use nalgebra::{DMatrix, DVector};
 
 fn main() {
     // Define dynamics function
-    let dynamics = |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         DVector::from_vec(vec![state[1], -state[0]])
     };
 
@@ -16,7 +16,7 @@ fn main() {
     // Compute Jacobian at a specific state
     let t = 0.0;
     let state = DVector::from_vec(vec![1.0, 0.0]);
-    let jac_numerical = jacobian.compute(t, state.clone());
+    let jac_numerical = jacobian.compute(t, &state, None);
 
     println!("Numerical Jacobian (central differences):");
     println!("{}", jac_numerical);
@@ -36,7 +36,7 @@ fn main() {
 
     // Verify accuracy at different state
     let state2 = DVector::from_vec(vec![0.5, 0.866]);
-    let jac_numerical2 = jacobian.compute(t, state2);
+    let jac_numerical2 = jacobian.compute(t, &state2, None);
 
     println!("\nNumerical Jacobian at different state:");
     println!("{}", jac_numerical2);

@@ -13,7 +13,7 @@ class TestRelativity:
         """Test relativistic acceleration for LEO satellite."""
         # Create orbital elements for 500 km altitude orbit
         oe = np.array([bh.R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0])
-        x_object = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+        x_object = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
         a = bh.accel_relativity(x_object)
 

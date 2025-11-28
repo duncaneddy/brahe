@@ -948,7 +948,7 @@ impl PyEpoch {
     ///     import numpy as np
     ///     current_epoch = bh.Epoch.now()
     ///     oe = np.array([bh.R_EARTH + 500e3, 0.01, np.radians(97.8), 0.0, 0.0, 0.0])
-    ///     state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+    ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     propagator = bh.KeplerianPropagator.from_eci(current_epoch, state, 60.0)
     ///     ```
     #[classmethod]

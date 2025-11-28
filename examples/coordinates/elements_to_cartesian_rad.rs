@@ -20,7 +20,7 @@ fn main() {
     );
 
     // Convert orbital elements to Cartesian state using radians
-    let state = bh::state_osculating_to_cartesian(oe_rad, bh::AngleFormat::Radians);
+    let state = bh::state_koe_to_eci(oe_rad, bh::AngleFormat::Radians);
 
     println!("Cartesian state [x, y, z, vx, vy, vz] (m, m/s):");
     println!("Position: [{:.3}, {:.3}, {:.3}]", state[0], state[1], state[2]);

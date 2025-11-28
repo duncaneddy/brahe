@@ -13,10 +13,10 @@ use crate::access::properties::{AccessProperties, AccessPropertyComputer};
 use crate::constants::{AngleFormat, GM_EARTH};
 use crate::coordinates::position_ecef_to_geodetic;
 use crate::orbits::keplerian::orbital_period_from_state;
-use crate::propagators::traits::IdentifiableStateProvider;
 use crate::time::Epoch;
 use crate::traits::Identifiable;
 use crate::utils::BraheError;
+use crate::utils::state_providers::DIdentifiableStateProvider;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use uuid::Uuid;
 
@@ -370,20 +370,20 @@ impl Default for AccessSearchConfig {
 /// };
 /// let windows = find_access_candidates(&location, &prop, start, end, &constraint, &config);
 /// ```
-pub fn find_access_candidates<L: AccessibleLocation, P: IdentifiableStateProvider>(
+pub fn find_access_candidates<L: AccessibleLocation, P: DIdentifiableStateProvider>(
     location: &L,
     propagator: &P,
     search_start: Epoch,
     search_end: Epoch,
     constraint: &dyn AccessConstraint,
     config: &AccessSearchConfig,
-) -> Vec<(Epoch, Epoch)> {
+) -> Result<Vec<(Epoch, Epoch)>, BraheError> {
     let mut candidates = Vec::new();
     let location_ecef = location.center_ecef();
 
     // Compute orbital period once at start if adaptive stepping is enabled
     let orbital_period = if config.adaptive_step {
-        let state_eci = propagator.state_eci(search_start);
+        let state_eci = propagator.state_eci(search_start)?;
         Some(orbital_period_from_state(&state_eci, GM_EARTH))
     } else {
         None
@@ -396,7 +396,7 @@ pub fn find_access_candidates<L: AccessibleLocation, P: IdentifiableStateProvide
 
     while current_time <= search_end {
         // Propagate satellite to current time
-        let sat_state_ecef = propagator.state_ecef(current_time);
+        let sat_state_ecef = propagator.state_ecef(current_time)?;
 
         // Evaluate constraints
         let is_satisfied = constraint.evaluate(&current_time, &sat_state_ecef, &location_ecef);
@@ -429,7 +429,7 @@ pub fn find_access_candidates<L: AccessibleLocation, P: IdentifiableStateProvide
         candidates.push((window_start, search_end));
     }
 
-    candidates
+    Ok(candidates)
 }
 
 /// Direction for stepping during boundary search
@@ -461,7 +461,7 @@ pub enum StepDirection {
 /// # Returns
 /// Refined boundary time where constraint transitions
 #[allow(clippy::too_many_arguments)]
-pub fn bisection_search<L: AccessibleLocation, P: IdentifiableStateProvider>(
+pub fn bisection_search<L: AccessibleLocation, P: DIdentifiableStateProvider>(
     location: &L,
     propagator: &P,
     time: Epoch,
@@ -472,7 +472,7 @@ pub fn bisection_search<L: AccessibleLocation, P: IdentifiableStateProvider>(
     tolerance: f64,
     min_bound: Epoch,
     max_bound: Epoch,
-) -> Epoch {
+) -> Result<Epoch, BraheError> {
     let location_ecef = location.center_ecef();
 
     // Step in given direction until condition changes or we hit bounds
@@ -490,21 +490,21 @@ pub fn bisection_search<L: AccessibleLocation, P: IdentifiableStateProvider>(
         // Check bounds
         if next_time < min_bound || next_time > max_bound || steps_taken >= MAX_STEPS {
             // Hit boundary without finding transition - return current best estimate
-            return current_time;
+            return Ok(current_time);
         }
 
         current_time = next_time;
         steps_taken += 1;
 
         // Evaluate constraint at new time
-        let sat_state_ecef = propagator.state_ecef(current_time);
+        let sat_state_ecef = propagator.state_ecef(current_time)?;
         let current_condition = constraint.evaluate(&current_time, &sat_state_ecef, &location_ecef);
 
         // Check if condition changed
         if current_condition != condition {
             // Found transition - check if we should recurse or stop
             if step < tolerance {
-                return current_time;
+                return Ok(current_time);
             } else {
                 // Recurse with opposite direction and half step size
                 let new_direction = match direction {
@@ -542,7 +542,7 @@ pub fn bisection_search<L: AccessibleLocation, P: IdentifiableStateProvider>(
 ///
 /// # Returns
 /// Complete AccessProperties or error
-pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProvider>(
+pub fn compute_window_properties<L: AccessibleLocation, P: DIdentifiableStateProvider>(
     window_open: Epoch,
     window_close: Epoch,
     location: &L,
@@ -556,11 +556,11 @@ pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProv
     let midtime = window_open + (window_close - window_open) / 2.0;
 
     // Compute states at key times
-    let state_open_ecef = propagator.state_ecef(window_open);
+    let state_open_ecef = propagator.state_ecef(window_open)?;
 
-    let state_close_ecef = propagator.state_ecef(window_close);
+    let state_close_ecef = propagator.state_ecef(window_close)?;
 
-    let state_mid_ecef = propagator.state_ecef(midtime);
+    let state_mid_ecef = propagator.state_ecef(midtime)?;
 
     let sat_pos_open = state_open_ecef.fixed_rows::<3>(0).into_owned();
     let sat_pos_close = state_close_ecef.fixed_rows::<3>(0).into_owned();
@@ -578,7 +578,7 @@ pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProv
     let mut elevation_samples = vec![elevation_open, elevation_close, elevation_mid];
     for i in 1..4 {
         let t = window_open + (window_close - window_open) * (i as f64 / 4.0);
-        let state_ecef = propagator.state_ecef(t);
+        let state_ecef = propagator.state_ecef(t)?;
 
         let pos = state_ecef.fixed_rows::<3>(0).into_owned();
         elevation_samples.push(compute_elevation(&pos, &location_ecef));
@@ -659,7 +659,7 @@ pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProv
             let sample_states: Vec<nalgebra::SVector<f64, 6>> = sample_epochs
                 .iter()
                 .map(|&epoch| propagator.state_ecef(epoch))
-                .collect();
+                .collect::<Result<Vec<_>, _>>()?;
 
             // Convert epochs to MJD for property computer interface
             let sample_epochs_mjd: Vec<f64> = sample_epochs.iter().map(|e| e.mjd()).collect();
@@ -683,7 +683,7 @@ pub fn compute_window_properties<L: AccessibleLocation, P: IdentifiableStateProv
 }
 
 /// Wrapper for compute_window_properties that propagates errors
-fn compute_window_properties_internal<L: AccessibleLocation, P: IdentifiableStateProvider>(
+fn compute_window_properties_internal<L: AccessibleLocation, P: DIdentifiableStateProvider>(
     window_open: Epoch,
     window_close: Epoch,
     location: &L,
@@ -717,7 +717,7 @@ fn compute_window_properties_internal<L: AccessibleLocation, P: IdentifiableStat
 /// # Returns
 /// Result containing list of complete AccessWindow objects, or error if property computation fails
 #[allow(clippy::too_many_arguments)]
-pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
+pub fn find_access_windows<L: AccessibleLocation, P: DIdentifiableStateProvider>(
     location: &L,
     propagator: &P,
     search_start: Epoch,
@@ -746,7 +746,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
         search_end,
         constraint,
         &config,
-    );
+    )?;
 
     // Refine each candidate
     let mut windows = Vec::new();
@@ -759,7 +759,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
         // Start at coarse_start (condition=true) and search backward
         let refined_start = if coarse_start > search_start {
             // Evaluate condition at coarse_start to confirm
-            let sat_state = propagator.state_ecef(coarse_start);
+            let sat_state = propagator.state_ecef(coarse_start)?;
             let start_condition = constraint.evaluate(&coarse_start, &sat_state, &location_ecef);
 
             bisection_search(
@@ -773,7 +773,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
                 time_tolerance,
                 search_start, // min_bound
                 coarse_start, // max_bound
-            )
+            )?
         } else {
             coarse_start
         };
@@ -782,7 +782,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
         // Start at coarse_end (last point where condition=true) and search forward
         let refined_end = if coarse_end < search_end {
             // Evaluate condition at coarse_end to confirm
-            let sat_state = propagator.state_ecef(coarse_end);
+            let sat_state = propagator.state_ecef(coarse_end)?;
             let end_condition = constraint.evaluate(&coarse_end, &sat_state, &location_ecef);
 
             bisection_search(
@@ -796,7 +796,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: IdentifiableStateProvider>(
                 time_tolerance,
                 coarse_end, // min_bound (starting point)
                 search_end, // max_bound (allow stepping forward to search end)
-            )
+            )?
         } else {
             coarse_end
         };
@@ -831,8 +831,8 @@ mod tests {
     use crate::access::location::PointLocation;
     use crate::constants::{AngleFormat, R_EARTH};
     use crate::propagators::keplerian_propagator::KeplerianPropagator;
-    use crate::propagators::traits::StateProvider;
     use crate::time::TimeSystem;
+    use crate::utils::state_providers::DOrbitStateProvider;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra::Vector6;
     use serial_test::serial;
@@ -880,7 +880,8 @@ mod tests {
             search_end,
             &constraint,
             &config,
-        );
+        )
+        .unwrap();
 
         // Should find at least one access window
         assert!(
@@ -920,7 +921,7 @@ mod tests {
 
         // Evaluate initial condition
         let location_ecef = location.center_ecef();
-        let sat_state = propagator.state_ecef(t_start);
+        let sat_state = propagator.state_ecef(t_start).unwrap();
         let initial_condition = constraint.evaluate(&t_start, &sat_state, &location_ecef);
 
         // Search backward from t_start with initial step of 60 seconds
@@ -936,7 +937,8 @@ mod tests {
             0.01,
             epoch,   // min_bound - don't search before epoch
             t_start, // max_bound
-        );
+        )
+        .unwrap();
 
         // Refined time should be within bounds
         assert!(refined <= t_start);
@@ -1211,9 +1213,9 @@ mod tests {
         assert!(name3.starts_with("Access-"));
     }
 
-    /// Test that validates elevation at access window boundaries matches the constraint threshold.
+    /// Test that validates elevation at access window boundaries matches the constraint value.
     /// This test documents Issue: Elevation values at window open/close should match the constraint
-    /// threshold within a tight tolerance (0.001°).
+    /// value within a tight tolerance (0.001°).
     #[test]
     #[serial]
     fn test_elevation_boundary_precision() {
@@ -1302,6 +1304,456 @@ mod tests {
             windows.len(),
             tolerance,
             constraint_elevation
+        );
+    }
+
+    #[test]
+    fn test_access_window_with_uuid() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+        let properties =
+            compute_window_properties(window_open, window_close, &location, &propagator, None)
+                .unwrap();
+
+        let window = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties,
+        );
+
+        // Initially should have no UUID
+        assert!(window.get_uuid().is_none());
+
+        // Create a specific UUID and set it
+        let test_uuid = Uuid::new_v4();
+        let window_with_uuid = window.with_uuid(test_uuid);
+
+        // Should have the exact UUID we set
+        assert_eq!(window_with_uuid.get_uuid(), Some(test_uuid));
+    }
+
+    #[test]
+    fn test_access_window_with_identity() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+        let properties =
+            compute_window_properties(window_open, window_close, &location, &propagator, None)
+                .unwrap();
+
+        let window = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties,
+        );
+
+        // Set complete identity (name, UUID, ID)
+        let test_uuid = Uuid::new_v4();
+        let window_with_identity =
+            window
+                .clone()
+                .with_identity(Some("TestAccess"), Some(test_uuid), Some(42));
+
+        // Verify all identity fields are set correctly
+        assert_eq!(window_with_identity.get_name(), Some("TestAccess"));
+        assert_eq!(window_with_identity.get_uuid(), Some(test_uuid));
+        assert_eq!(window_with_identity.get_id(), Some(42));
+
+        // Test partial identity (only name and ID, no UUID)
+        let window_partial = window.with_identity(Some("PartialAccess"), None, Some(99));
+        assert_eq!(window_partial.get_name(), Some("PartialAccess"));
+        assert_eq!(window_partial.get_uuid(), None);
+        assert_eq!(window_partial.get_id(), Some(99));
+    }
+
+    #[test]
+    fn test_access_window_set_identity() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+        let properties =
+            compute_window_properties(window_open, window_close, &location, &propagator, None)
+                .unwrap();
+
+        let mut window = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties,
+        );
+
+        // Initially has auto-generated name, no UUID or ID
+        assert!(window.get_name().is_some());
+        assert!(window.get_uuid().is_none());
+        assert!(window.get_id().is_none());
+
+        // Set complete identity using mutable method
+        let test_uuid = Uuid::new_v4();
+        window.set_identity(Some("MutableAccess"), Some(test_uuid), Some(123));
+
+        // Verify all fields updated
+        assert_eq!(window.get_name(), Some("MutableAccess"));
+        assert_eq!(window.get_uuid(), Some(test_uuid));
+        assert_eq!(window.get_id(), Some(123));
+
+        // Test clearing name by passing None
+        window.set_identity(None, Some(test_uuid), Some(456));
+        assert_eq!(window.get_name(), None);
+        assert_eq!(window.get_uuid(), Some(test_uuid));
+        assert_eq!(window.get_id(), Some(456));
+    }
+
+    #[test]
+    fn test_access_window_generate_uuid() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+        let properties =
+            compute_window_properties(window_open, window_close, &location, &propagator, None)
+                .unwrap();
+
+        let mut window = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties,
+        );
+
+        // Initially should have no UUID
+        assert!(window.get_uuid().is_none());
+
+        // Generate a UUID
+        window.generate_uuid();
+
+        // Should now have a UUID
+        assert!(window.get_uuid().is_some());
+
+        // Verify it's a valid UUID (has correct version and variant)
+        let uuid = window.get_uuid().unwrap();
+        assert_eq!(uuid.get_version_num(), 4); // UUIDv4
+
+        // Generate another UUID and verify it's different
+        let first_uuid = uuid;
+        window.generate_uuid();
+        let second_uuid = window.get_uuid().unwrap();
+        assert_ne!(first_uuid, second_uuid);
+    }
+
+    #[test]
+    fn test_access_window_time_methods() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(0.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+        let properties =
+            compute_window_properties(window_open, window_close, &location, &propagator, None)
+                .unwrap();
+
+        let window = AccessWindow::new(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            properties,
+        );
+
+        // Test start() and t_start() are equivalent
+        assert_eq!(window.start(), window_open);
+        assert_eq!(window.t_start(), window_open);
+        assert_eq!(window.start(), window.t_start());
+
+        // Test end() and t_end() are equivalent
+        assert_eq!(window.end(), window_close);
+        assert_eq!(window.t_end(), window_close);
+        assert_eq!(window.end(), window.t_end());
+
+        // Test midtime() calculation
+        let expected_midtime = window_open + 150.0; // 300s / 2 = 150s
+        assert_eq!(window.midtime(), expected_midtime);
+    }
+
+    #[test]
+    fn test_compute_window_properties_with_property_computer() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(0.0, 45.0, 0.0);
+
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let window_open = epoch;
+        let window_close = epoch + 300.0;
+
+        // Create property computers
+        use crate::access::properties::{DopplerComputer, RangeComputer, SamplingConfig};
+
+        let doppler_computer = DopplerComputer::new(
+            Some(2.2e9), // Uplink frequency: 2.2 GHz
+            Some(8.4e9), // Downlink frequency: 8.4 GHz
+            SamplingConfig::Midpoint,
+        );
+
+        let range_computer = RangeComputer::new(SamplingConfig::FixedCount(5));
+
+        // Create slice of property computer references
+        let computers: [&dyn AccessPropertyComputer; 2] = [&doppler_computer, &range_computer];
+
+        // Compute properties with custom property computers
+        let properties = compute_window_properties(
+            window_open,
+            window_close,
+            &location,
+            &propagator,
+            Some(&computers),
+        )
+        .unwrap();
+
+        // Verify standard geometric properties are computed
+        assert!((0.0..=360.0).contains(&properties.azimuth_open));
+        assert!((0.0..=360.0).contains(&properties.azimuth_close));
+        assert!((-90.0..=90.0).contains(&properties.elevation_min));
+        assert!((-90.0..=90.0).contains(&properties.elevation_max));
+
+        // Verify custom properties were computed
+        assert!(
+            properties.get_property("doppler_uplink").is_some(),
+            "Uplink Doppler property should be computed"
+        );
+        assert!(
+            properties.get_property("doppler_downlink").is_some(),
+            "Downlink Doppler property should be computed"
+        );
+        assert!(
+            properties.get_property("range").is_some(),
+            "Range property should be computed"
+        );
+
+        // Verify Doppler values are reasonable (should be scalar at midpoint)
+        if let Some(doppler_uplink) = properties.get_property("doppler_uplink") {
+            match doppler_uplink {
+                crate::access::properties::PropertyValue::Scalar(value) => {
+                    // Doppler shift for LEO should be in the range of ±10 kHz typically
+                    assert!(
+                        value.abs() < 20000.0,
+                        "Uplink Doppler should be reasonable: {}",
+                        value
+                    );
+                }
+                _ => panic!("Expected Scalar property for doppler_uplink"),
+            }
+        }
+
+        // Verify range values are time series (FixedCount(5))
+        if let Some(range) = properties.get_property("range") {
+            match range {
+                crate::access::properties::PropertyValue::TimeSeries { times, values } => {
+                    assert_eq!(times.len(), 5, "Should have 5 time samples");
+                    assert_eq!(values.len(), 5, "Should have 5 range values");
+                    // All ranges should be positive and reasonable for LEO
+                    // (can be much larger than altitude due to slant angle)
+                    for value in values {
+                        assert!(*value > 0.0, "Range should be positive");
+                        assert!(
+                            *value < 10000e3,
+                            "Range should be less than 10000 km for visible LEO satellite"
+                        );
+                    }
+                }
+                _ => panic!("Expected TimeSeries property for range"),
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_find_access_candidates_with_adaptive_stepping() {
+        setup_global_test_eop();
+
+        // Create a location at 45° latitude
+        let location = PointLocation::new(45.0, 0.0, 0.0);
+
+        // Create a LEO satellite (500 km altitude, 45° inclination)
+        let oe = Vector6::new(
+            R_EARTH + 500e3,       // a
+            0.0,                   // e
+            45.0_f64.to_radians(), // i (radians)
+            0.0,                   // RAAN
+            0.0,                   // argp
+            0.0,                   // M
+        );
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        // Search for several orbital periods
+        let period = 5674.0; // ~94 minutes for 500 km LEO
+        let search_end = epoch + (period * 5.0); // Search for 5 orbits
+
+        // Low elevation constraint to ensure we find access
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+
+        // Find candidates WITHOUT adaptive stepping
+        let config_no_adaptive = AccessSearchConfig {
+            initial_time_step: 60.0,
+            adaptive_step: false,
+            adaptive_fraction: 0.5,
+            parallel: false,
+            num_threads: Some(1),
+        };
+        let candidates_no_adaptive = find_access_candidates(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            &config_no_adaptive,
+        )
+        .unwrap();
+
+        // Find candidates WITH adaptive stepping
+        let config_adaptive = AccessSearchConfig {
+            initial_time_step: 60.0,
+            adaptive_step: true,
+            adaptive_fraction: 0.5, // Jump forward by 50% of orbital period after window closes
+            parallel: false,
+            num_threads: Some(1),
+        };
+        let candidates_adaptive = find_access_candidates(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            &config_adaptive,
+        )
+        .unwrap();
+
+        // Both methods should find windows
+        assert!(
+            !candidates_no_adaptive.is_empty(),
+            "Expected to find access windows without adaptive stepping"
+        );
+        assert!(
+            !candidates_adaptive.is_empty(),
+            "Expected to find access windows with adaptive stepping"
+        );
+
+        // Adaptive stepping should find similar number of windows
+        // (might differ slightly due to grid alignment)
+        let count_diff =
+            (candidates_no_adaptive.len() as i32 - candidates_adaptive.len() as i32).abs();
+        assert!(
+            count_diff <= 2,
+            "Window counts should be similar: no_adaptive={}, adaptive={}, diff={}",
+            candidates_no_adaptive.len(),
+            candidates_adaptive.len(),
+            count_diff
+        );
+
+        // Verify windows have reasonable overlap
+        // For each window from adaptive search, there should be a corresponding window
+        // in the non-adaptive search that overlaps
+        for (adaptive_start, adaptive_end) in &candidates_adaptive {
+            let has_overlap = candidates_no_adaptive.iter().any(|(start, end)| {
+                // Check if windows overlap
+                !(adaptive_end < start || adaptive_start > end)
+            });
+            assert!(
+                has_overlap,
+                "Adaptive window ({} to {}) should overlap with at least one non-adaptive window",
+                adaptive_start, adaptive_end
+            );
+        }
+
+        println!(
+            "Adaptive stepping test: found {} windows without adaptive, {} windows with adaptive",
+            candidates_no_adaptive.len(),
+            candidates_adaptive.len()
         );
     }
 }

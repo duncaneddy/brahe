@@ -96,8 +96,8 @@ unsafe fn py_rotation_eci_to_rtn<'py>(
 ///     oe_deputy = np.array([bh.R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05])
 ///
 ///     # Convert to Cartesian states
-///     x_chief = bh.state_osculating_to_cartesian(oe_chief, bh.AngleFormat.DEGREES)
-///     x_deputy = bh.state_osculating_to_cartesian(oe_deputy, bh.AngleFormat.DEGREES)
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///     x_deputy = bh.state_koe_to_eci(oe_deputy, bh.AngleFormat.DEGREES)
 ///
 ///     # Transform to relative RTN state
 ///     x_rel_rtn = bh.state_eci_to_rtn(x_chief, x_deputy)
@@ -138,7 +138,7 @@ unsafe fn py_state_eci_to_rtn<'py>(
 ///
 ///     # Define chief state and relative RTN state
 ///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
-///     x_chief = bh.state_osculating_to_cartesian(oe_chief, bh.AngleFormat.DEGREES)
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
 ///
 ///     # Relative state: 1km radial, 0.5km along-track, -0.3km cross-track
 ///     x_rel_rtn = np.array([1000.0, 500.0, -300.0, 0.0, 0.0, 0.0])

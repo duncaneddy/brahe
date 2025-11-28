@@ -450,14 +450,14 @@ fn get_tle_by_id_from_group(
 /// ```no_run
 /// use brahe::datasets::celestrak::get_tle_by_id_as_propagator;
 /// use brahe::time::{Epoch, TimeSystem};
-/// use brahe::propagators::traits::StateProvider;
+/// use brahe::propagators::traits::SOrbitStateProvider;
 ///
 /// // Get ISS as propagator with 60-second step size
 /// let propagator = get_tle_by_id_as_propagator(25544, None, 60.0).unwrap();
 ///
 /// // Compute state at a specific epoch
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let state = propagator.state_eci(epoch);
+/// let state = propagator.state_eci(epoch).unwrap();
 /// println!("ISS position: x={}, y={}, z={}", state[0], state[1], state[2]);
 /// ```
 ///
@@ -587,14 +587,14 @@ pub fn get_tle_by_name(
 /// ```no_run
 /// use brahe::datasets::celestrak::get_tle_by_name_as_propagator;
 /// use brahe::time::{Epoch, TimeSystem};
-/// use brahe::propagators::traits::StateProvider;
+/// use brahe::propagators::traits::SOrbitStateProvider;
 ///
 /// // Get ISS as propagator with 60-second step size
 /// let propagator = get_tle_by_name_as_propagator("ISS", Some("stations"), 60.0).unwrap();
 ///
 /// // Propagate to a specific epoch
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-/// let state = propagator.state_eci(epoch);
+/// let state = propagator.state_eci(epoch).unwrap();
 /// println!("Position: x={}, y={}, z={}", state[0], state[1], state[2]);
 /// ```
 pub fn get_tle_by_name_as_propagator(
@@ -1419,5 +1419,433 @@ mod tests {
         // Test behavior when metadata cannot be read
         // This is hard to test without platform-specific file manipulation
         // or filesystem mocking, but documents the edge case
+    }
+
+    // ========================================
+    // Tests for get_tle_by_name()
+    // ========================================
+
+    #[test]
+    fn test_get_tle_by_name_name_api_success() {
+        // Test the NAME API path (fallback when not in group cache)
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET)
+                .query_param("NAME", "ISS")
+                .query_param("FORMAT", "3le");
+            then.status(200).body(get_test_3le_data());
+        });
+
+        // Create temporary cache directory
+        let dir = tempdir().unwrap();
+        let cache_path = dir.path().join("name_ISS.txt");
+
+        // Test fetch and cache behavior directly
+        let result = fetch_and_cache(&cache_path, 3600.0, || {
+            fetch_celestrak_data_with_url("?NAME=ISS&FORMAT=3le", &server.url("/"))
+        });
+
+        assert!(result.is_ok());
+        let text = result.unwrap();
+
+        // Parse and verify the TLE
+        let tles = parse_3le_text(&text).unwrap();
+        assert!(!tles.is_empty());
+        assert_eq!(tles[0].0, "ISS (ZARYA)");
+        assert!(tles[0].1.starts_with("1 25544"));
+    }
+
+    #[test]
+    fn test_get_tle_by_name_name_api_not_found() {
+        // Test NAME API when satellite doesn't exist
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET)
+                .query_param("NAME", "NONEXISTENT")
+                .query_param("FORMAT", "3le");
+            then.status(200).body("");
+        });
+
+        let dir = tempdir().unwrap();
+        let cache_path = dir.path().join("name_NONEXISTENT.txt");
+
+        let result = fetch_and_cache(&cache_path, 3600.0, || {
+            fetch_celestrak_data_with_url("?NAME=NONEXISTENT&FORMAT=3le", &server.url("/"))
+        });
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("No data returned"));
+    }
+
+    #[test]
+    fn test_get_tle_by_name_name_api_network_error() {
+        // Test NAME API with HTTP error
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET)
+                .query_param("NAME", "ISS")
+                .query_param("FORMAT", "3le");
+            then.status(500);
+        });
+
+        let dir = tempdir().unwrap();
+        let cache_path = dir.path().join("name_ISS_error.txt");
+
+        let result = fetch_and_cache(&cache_path, 3600.0, || {
+            fetch_celestrak_data_with_url("?NAME=ISS&FORMAT=3le", &server.url("/"))
+        });
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to download")
+        );
+    }
+
+    #[test]
+    fn test_get_tle_by_name_caching_behavior() {
+        // Test that NAME API results are cached
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .query_param("NAME", "ISS")
+                .query_param("FORMAT", "3le");
+            then.status(200).body(get_test_3le_data());
+        });
+
+        let dir = tempdir().unwrap();
+        let cache_path = dir.path().join("name_ISS_cache.txt");
+
+        // First call should hit the server
+        let result1 = fetch_and_cache(&cache_path, 3600.0, || {
+            fetch_celestrak_data_with_url("?NAME=ISS&FORMAT=3le", &server.url("/"))
+        });
+        assert!(result1.is_ok());
+        assert!(cache_path.exists());
+
+        // Mock should have been called once
+        mock.assert_calls(1);
+
+        // Second call should use cache (mock shouldn't be called again)
+        let result2 = fetch_and_cache(&cache_path, 3600.0, || {
+            fetch_celestrak_data_with_url("?NAME=ISS&FORMAT=3le", &server.url("/"))
+        });
+        assert!(result2.is_ok());
+
+        // Mock should still have been called only once
+        mock.assert_calls(1);
+
+        // Results should be identical
+        assert_eq!(result1.unwrap(), result2.unwrap());
+    }
+
+    #[test]
+    fn test_get_tle_by_name_cache_with_spaces_in_name() {
+        // Test that satellite names with spaces are cached correctly
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET)
+                .query_param("NAME", "ISS (ZARYA)")
+                .query_param("FORMAT", "3le");
+            then.status(200).body(get_test_3le_data());
+        });
+
+        let dir = tempdir().unwrap();
+        // Spaces should be replaced with underscores in cache filename
+        let cache_path = dir.path().join("name_ISS_(ZARYA).txt");
+
+        let result = fetch_and_cache(&cache_path, 3600.0, || {
+            fetch_celestrak_data_with_url("?NAME=ISS%20(ZARYA)&FORMAT=3le", &server.url("/"))
+        });
+
+        assert!(result.is_ok());
+        assert!(cache_path.exists());
+    }
+
+    #[test]
+    fn test_get_tle_by_name_partial_match_logic() {
+        // Test partial name matching using test assets
+        let test_file = get_test_asset_path("celestrak_stations_3le.txt");
+        let contents = fs::read_to_string(test_file).unwrap();
+        let ephemeris = parse_3le_text(&contents).unwrap();
+
+        // Test case-insensitive partial matching
+        let name_upper = "ISS".to_uppercase();
+        let mut found = false;
+        for (sat_name, _line1, _line2) in &ephemeris {
+            if sat_name.to_uppercase().contains(&name_upper) {
+                assert!(sat_name.contains("ISS") || sat_name.contains("ZARYA"));
+                found = true;
+                break;
+            }
+        }
+        assert!(found, "Should find ISS with partial match");
+
+        // Test lowercase partial match
+        let name_lower = "iss".to_uppercase();
+        let mut found_lower = false;
+        for (sat_name, _line1, _line2) in &ephemeris {
+            if sat_name.to_uppercase().contains(&name_lower) {
+                found_lower = true;
+                break;
+            }
+        }
+        assert!(found_lower, "Should find ISS with lowercase input");
+    }
+
+    #[test]
+    fn test_get_tle_by_name_empty_result_handling() {
+        // Test handling of empty TLE list from NAME API
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET)
+                .query_param("NAME", "TEST")
+                .query_param("FORMAT", "3le");
+            // Return valid HTTP response but with invalid 3LE data
+            then.status(200).body("Invalid data");
+        });
+
+        let dir = tempdir().unwrap();
+        let cache_path = dir.path().join("name_TEST.txt");
+
+        // Fetch and cache
+        let result = fetch_and_cache(&cache_path, 3600.0, || {
+            fetch_celestrak_data_with_url("?NAME=TEST&FORMAT=3le", &server.url("/"))
+        });
+
+        // Should succeed in fetching
+        assert!(result.is_ok());
+
+        // But parsing should fail
+        let text = result.unwrap();
+        let parse_result = parse_3le_text(&text);
+        assert!(parse_result.is_err());
+    }
+
+    // ========================================
+    // Tests for get_tle_by_name_as_propagator()
+    // ========================================
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_name_as_propagator_success() {
+        use crate::utils::testing::setup_global_test_eop;
+        setup_global_test_eop();
+
+        // Test creating propagator from cached test data
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET)
+                .query_param("NAME", "ISS")
+                .query_param("FORMAT", "3le");
+            then.status(200).body(get_test_3le_data());
+        });
+
+        let dir = tempdir().unwrap();
+        let cache_path = dir.path().join("name_ISS_prop.txt");
+
+        // Fetch TLE data
+        let result = fetch_and_cache(&cache_path, 3600.0, || {
+            fetch_celestrak_data_with_url("?NAME=ISS&FORMAT=3le", &server.url("/"))
+        });
+        assert!(result.is_ok());
+
+        let text = result.unwrap();
+        let tles = parse_3le_text(&text).unwrap();
+        let (sat_name, line1, line2) = &tles[0];
+
+        // Create propagator
+        let prop_result = SGPPropagator::from_3le(Some(sat_name), line1, line2, 60.0);
+        assert!(prop_result.is_ok());
+
+        let propagator = prop_result.unwrap();
+        assert!(propagator.satellite_name.is_some());
+        assert_eq!(propagator.satellite_name.unwrap(), "ISS (ZARYA)");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_name_as_propagator_invalid_tle() {
+        use crate::utils::testing::setup_global_test_eop;
+        setup_global_test_eop();
+
+        // Test with invalid TLE format
+        let invalid_line1 = "INVALID TLE LINE";
+        let invalid_line2 = "ALSO INVALID";
+
+        let result = SGPPropagator::from_3le(Some("TEST SAT"), invalid_line1, invalid_line2, 60.0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_name_as_propagator_propagation() {
+        use crate::propagators::traits::SOrbitStateProvider;
+        use crate::time::{Epoch, TimeSystem};
+        use crate::utils::testing::setup_global_test_eop;
+
+        setup_global_test_eop();
+
+        // Use test data to create propagator
+        let test_data = get_test_3le_data();
+        let tles = parse_3le_text(&test_data).unwrap();
+        let (sat_name, line1, line2) = &tles[0];
+
+        let propagator = SGPPropagator::from_3le(Some(sat_name), line1, line2, 60.0).unwrap();
+
+        // Propagate to a specific epoch
+        let epoch = Epoch::from_datetime(2021, 1, 2, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = propagator.state_eci(epoch).unwrap();
+
+        // Verify state vector has correct dimensions
+        assert_eq!(state.len(), 6);
+
+        // Verify position is reasonable for LEO (ISS altitude ~400km)
+        let r = (state[0].powi(2) + state[1].powi(2) + state[2].powi(2)).sqrt();
+        assert!(r > 6_000_000.0, "Position magnitude too small: {}", r);
+        assert!(r < 8_000_000.0, "Position magnitude too large: {}", r);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_tle_by_name_as_propagator_with_different_step_sizes() {
+        use crate::utils::testing::setup_global_test_eop;
+        setup_global_test_eop();
+
+        let test_data = get_test_3le_data();
+        let tles = parse_3le_text(&test_data).unwrap();
+        let (sat_name, line1, line2) = &tles[0];
+
+        // Test with different step sizes
+        let step_sizes = vec![1.0, 10.0, 60.0, 300.0];
+        for step_size in step_sizes {
+            let result = SGPPropagator::from_3le(Some(sat_name), line1, line2, step_size);
+            assert!(
+                result.is_ok(),
+                "Failed to create propagator with step_size={}",
+                step_size
+            );
+        }
+    }
+
+    // ========================================
+    // Network tests for get_tle_by_name()
+    // ========================================
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_get_tle_by_name_network() {
+        // Test with ISS (well-known satellite)
+        let result = get_tle_by_name("ISS", None);
+        assert!(result.is_ok());
+
+        let (name, line1, line2) = result.unwrap();
+        assert!(name.to_uppercase().contains("ISS"));
+        assert!(line1.starts_with("1 25544"));
+        assert!(line2.starts_with("2 25544"));
+        assert_eq!(line1.len(), 69);
+        assert_eq!(line2.len(), 69);
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_get_tle_by_name_with_group_network() {
+        // Test with ISS using group hint
+        let result = get_tle_by_name("ISS", Some("stations"));
+        assert!(result.is_ok());
+
+        let (name, line1, line2) = result.unwrap();
+        assert!(name.to_uppercase().contains("ISS"));
+        assert!(line1.starts_with("1 25544"));
+        assert!(line2.starts_with("2 25544"));
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_get_tle_by_name_case_insensitive_network() {
+        // Test case insensitivity with different cases
+        let result_upper = get_tle_by_name("ISS", None);
+        let result_lower = get_tle_by_name("iss", None);
+        let result_mixed = get_tle_by_name("IsS", None);
+
+        assert!(result_upper.is_ok());
+        assert!(result_lower.is_ok());
+        assert!(result_mixed.is_ok());
+
+        // All should return the same satellite
+        let (name_upper, _, _) = result_upper.unwrap();
+        let (name_lower, _, _) = result_lower.unwrap();
+        let (name_mixed, _, _) = result_mixed.unwrap();
+
+        assert_eq!(name_upper, name_lower);
+        assert_eq!(name_upper, name_mixed);
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_get_tle_by_name_partial_match_network() {
+        // Test partial name matching (ISS is part of "ISS (ZARYA)")
+        let result = get_tle_by_name("ZARYA", None);
+        assert!(result.is_ok());
+
+        let (name, line1, _) = result.unwrap();
+        assert!(name.to_uppercase().contains("ZARYA"));
+        assert!(line1.starts_with("1 25544")); // Should still be ISS
+    }
+
+    // ========================================
+    // Network tests for get_tle_by_name_as_propagator()
+    // ========================================
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial]
+    fn test_get_tle_by_name_as_propagator_with_group_network() {
+        use crate::utils::testing::setup_global_test_eop;
+
+        setup_global_test_eop();
+
+        // Test with group hint
+        let result = get_tle_by_name_as_propagator("ISS", Some("stations"), 60.0);
+        assert!(result.is_ok());
+
+        let propagator = result.unwrap();
+        assert!(propagator.satellite_name.is_some());
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial]
+    fn test_get_tle_by_name_as_propagator_network() {
+        use crate::propagators::traits::SOrbitStateProvider;
+        use crate::time::{Epoch, TimeSystem};
+        use crate::utils::testing::setup_global_test_eop;
+
+        setup_global_test_eop();
+
+        // Test with ISS
+        let result = get_tle_by_name_as_propagator("ISS", None, 60.0);
+        assert!(result.is_ok());
+
+        let propagator = result.unwrap();
+        assert!(propagator.satellite_name.is_some());
+        let name = propagator.satellite_name.as_ref().unwrap();
+        assert!(name.to_uppercase().contains("ISS"));
+
+        // Test propagation
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = propagator.state_eci(epoch).unwrap();
+        assert_eq!(state.len(), 6);
+
+        // Verify ISS altitude is reasonable (300-500 km)
+        let r = (state[0].powi(2) + state[1].powi(2) + state[2].powi(2)).sqrt();
+        let altitude = r - 6_371_000.0; // Earth radius
+        assert!(
+            altitude > 300_000.0 && altitude < 500_000.0,
+            "ISS altitude {} km is outside expected range",
+            altitude / 1000.0
+        );
     }
 }

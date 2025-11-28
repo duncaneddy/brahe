@@ -12,13 +12,13 @@ bh.initialize_eop()
 
 # Start with ECI Cartesian trajectory
 traj_eci_cart = bh.OrbitTrajectory(
-    bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
+    6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None
 )
 
 # Add states
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 oe = np.array([bh.R_EARTH + 500e3, 0.001, 0.9, 1.0, 0.5, 0.0])
-state_cart = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.RADIANS)
+state_cart = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 traj_eci_cart.add(epoch, state_cart)
 
 print("Original:")

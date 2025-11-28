@@ -27,11 +27,12 @@ The control input function must follow specific signatures depending on the lang
 === "Python"
 
     ```python
-    def control_function(t: float, state: np.ndarray) -> np.ndarray:
+    def control_function(t: float, state: np.ndarray, params: np.ndarray) -> np.ndarray:
         """
         Args:
             t: Current time
             state: Current state vector
+            params: Additional parameters
             
         Returns:
             Control vector of same dimension as state
@@ -44,20 +45,21 @@ The control input function must follow specific signatures depending on the lang
     Must be a closure or function with the signature, that either uses dynamic or static sized vectors:
 
     ```rust
-    Fn(f64, DVector<f64>) -> DVector<f64>
+    Fn(f64, DVector<f64>, DVector<f64>) -> DVector<f64>
     ```
 
     or
 
     ```rust
-    Fn(f64, SVector<f64, S>) -> SVector<f64, S>
+    Fn(f64, SVector<f64, S>, SVector<f64, P>) -> SVector<f64, S>
     ```
 
 The function receives:
 - Current time as a scalar
 - Current state vector
+- Additional parameters as a vector
 
-And returns a control vector of the same dimension as the state, which is added to the derivative computed by the dynamics function.
+And returns a control vector of the same dimension as the state, which is added to the derivative computed by the dynamics function. The additional parameters can be ignored if not needed, but the signature must be maintained.
 
 ## Using Control Inputs
 

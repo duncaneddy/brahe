@@ -26,7 +26,7 @@ fn main() {
 
     // Convert to Cartesian state
     let oe = na::SVector::<f64, 6>::new(a, e, i, raan, argp, nu);
-    let state_eci = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let state_eci = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
     println!("Satellite state (ECI):");
     println!("  Position: [{:.1}, {:.1}, {:.1}] km",

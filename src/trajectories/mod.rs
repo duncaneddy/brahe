@@ -6,12 +6,13 @@
  * - `Trajectory` trait: Core trajectory interface implemented by all trajectory types
  * - `STrajectory<R>`: Static, compile-time sized trajectories for high performance
  * - `DTrajectory`: Dynamic, runtime sized trajectories for flexibility
- * - `OrbitTrajectory`: Specialized orbital trajectory with frame/representation conversions
+ * - `SOrbitTrajectory`: Static orbital trajectory with frame/representation conversions
+ * - `DOrbitTrajectory`: Dynamic orbital trajectory with frame/representation conversions
  * - `OrbitalTrajectory` trait: Orbital-specific functionality trait
  *
  * # Examples
  * ```rust
- * use brahe::trajectories::{DTrajectory, STrajectory6, OrbitTrajectory};
+ * use brahe::trajectories::{DTrajectory, STrajectory6, SOrbitTrajectory, DOrbitTrajectory};
  * use brahe::traits::{Trajectory, OrbitFrame, OrbitRepresentation};
  *
  * // Dynamic trajectory - any dimension
@@ -20,8 +21,16 @@
  * // Static trajectory - compile-time sized
  * let mut static_traj = STrajectory6::new(); // 6-dimensional
  *
- * // Orbital trajectory - 6D with orbital-specific features
- * let mut orbit_traj = OrbitTrajectory::new(
+ * // Static orbital trajectory - 6D with orbital-specific features
+ * let mut sorbit_traj = SOrbitTrajectory::new(
+ *     OrbitFrame::ECI,
+ *     OrbitRepresentation::Cartesian,
+ *     None,
+ * );
+ *
+ * // Dynamic orbital trajectory - 6D with orbital-specific features
+ * let mut dorbit_traj = DOrbitTrajectory::new(
+ *     6,  // dimension
  *     OrbitFrame::ECI,
  *     OrbitRepresentation::Cartesian,
  *     None,
@@ -29,8 +38,9 @@
  * ```
  */
 
+pub mod dorbit_trajectory;
 pub mod dtrajectory;
-pub mod orbit_trajectory;
+pub mod sorbit_trajectory;
 pub mod strajectory;
 pub mod traits;
 
@@ -43,5 +53,8 @@ pub use strajectory::*;
 // Re-export everything from dtrajectory
 pub use dtrajectory::*;
 
-// Re-export everything from orbit_trajectory
-pub use orbit_trajectory::*;
+// Re-export everything from sorbit_trajectory
+pub use sorbit_trajectory::*;
+
+// Re-export everything from dorbit_trajectory
+pub use dorbit_trajectory::*;

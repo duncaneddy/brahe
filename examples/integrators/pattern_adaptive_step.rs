@@ -15,7 +15,7 @@ use nalgebra::DVector;
 fn main() {
     // Dynamics function: Exponential decay dx/dt = -k*x
     let k = 0.1;
-    let dynamics = move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         DVector::from_vec(vec![-k * state[0]])
     };
 
@@ -35,11 +35,11 @@ fn main() {
     let initial_state = DVector::from_vec(vec![1.0]);
     let dt = 60.0; // Initial guess
 
-    let result = integrator.step(t, initial_state.clone(), dt);
+    let result = integrator.step(t, initial_state.clone(), None, Some(dt));
 
     println!("Initial state: {:.6}", initial_state[0]);
     println!("State after step: {:.6}", result.state[0]);
     println!("Step used: {:.2}s", result.dt_used);
     println!("Recommended next step: {:.2}s", result.dt_next);
-    println!("Error estimate: {:.2e}", result.error_estimate);
+    println!("Error estimate: {:.2e}", result.error_estimate.unwrap());
 }

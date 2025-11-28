@@ -5,15 +5,17 @@
  * with implementations for both analytical and numerical (finite difference) methods.
  */
 
+#![allow(clippy::type_complexity)]
+
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
 /// Finite difference method for numerical Jacobian approximation.
 ///
 /// Different methods trade off accuracy vs computational cost:
 /// - **Forward**: O(h) error, S+1 function evaluations
-/// - **Central**: O(h²) error, 2S function evaluations (more accurate)
+/// - **Central**: O(h^2) error, 2S function evaluations (more accurate)
 /// - **Backward**: O(h) error, S+1 function evaluations
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum DifferenceMethod {
     /// Forward finite difference: df/dx ≈ (f(x+h) - f(x)) / h
     ///
@@ -39,7 +41,7 @@ pub enum DifferenceMethod {
 /// vs roundoff error (wants small h). Different strategies suit different problems.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PerturbationStrategy {
-    /// Automatic perturbation sizing: h_i = scale_factor * sqrt(ε) * max(|x_i|, min_threshold)
+    /// Automatic perturbation sizing: h_i = scale_factor * sqrt(ε) * max(|x_i|, min_value)
     ///
     /// Industry standard approach that adapts to state magnitude. The sqrt(ε) scaling
     /// (where ε is machine epsilon) optimally balances truncation vs roundoff error.
@@ -47,7 +49,7 @@ pub enum PerturbationStrategy {
         /// Multiplier on sqrt(ε), typically 1.0
         scale_factor: f64,
         /// Minimum reference value (prevents tiny perturbations near zero)
-        min_threshold: f64,
+        min_value: f64,
     },
 
     /// Fixed absolute perturbation for all state components.
@@ -65,32 +67,47 @@ pub enum PerturbationStrategy {
 ///
 /// Implementors of this trait can compute Jacobian matrices for systems with
 /// compile-time known dimensionality.
-pub trait SJacobianProvider<const S: usize>: Send {
+///
+/// # Thread Safety
+///
+/// Requires `Send + Sync` for thread-safe integrator usage.
+///
+/// # Type Parameters
+/// - `S`: State vector dimension
+/// - `P`: Parameter vector dimension
+pub trait SJacobianProvider<const S: usize, const P: usize>: Send + Sync {
     /// Compute the Jacobian matrix at the given time and state.
     ///
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
     ///
     /// # Returns
     /// Jacobian matrix ∂f/∂x
-    fn compute(&self, t: f64, state: SVector<f64, S>) -> SMatrix<f64, S, S>;
+    fn compute(
+        &self,
+        t: f64,
+        state: &SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+    ) -> SMatrix<f64, S, S>;
 }
 
 /// Trait for dynamic-sized (runtime-known) Jacobian providers.
 ///
 /// Implementors of this trait can compute Jacobian matrices for systems with
 /// runtime-determined dimensionality.
-pub trait DJacobianProvider: Send {
+pub trait DJacobianProvider: Send + Sync {
     /// Compute the Jacobian matrix at the given time and state.
     ///
     /// # Arguments
     /// - `t`: Current time
     /// - `state`: State vector at time t
+    /// - `params`: Optional parameter vector for parameter-dependent dynamics
     ///
     /// # Returns
     /// Jacobian matrix ∂f/∂x
-    fn compute(&self, t: f64, state: DVector<f64>) -> DMatrix<f64>;
+    fn compute(&self, t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>) -> DMatrix<f64>;
 }
 
 /// Analytical Jacobian provider for static-sized systems.
@@ -106,7 +123,7 @@ pub trait DJacobianProvider: Send {
 ///
 /// // Simple harmonic oscillator: dx/dt = v, dv/dt = -x
 /// // Jacobian is [[0, 1], [-1, 0]]
-/// let jacobian_fn = |_t: f64, _state: SVector<f64, 2>| {
+/// let jacobian_fn = |_t: f64, _state: &SVector<f64, 2>, _params: Option<&SVector<f64, 0>>| {
 ///     SMatrix::<f64, 2, 2>::new(
 ///         0.0,  1.0,
 ///        -1.0,  0.0
@@ -115,27 +132,38 @@ pub trait DJacobianProvider: Send {
 ///
 /// let provider = SAnalyticJacobian::new(Box::new(jacobian_fn));
 /// let state = SVector::<f64, 2>::new(1.0, 0.0);
-/// let jacobian = provider.compute(0.0, state);
+/// let jacobian = provider.compute(0.0, &state, None);
 /// ```
-pub struct SAnalyticJacobian<const S: usize> {
-    jacobian_fn: Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S> + Send>,
+pub struct SAnalyticJacobian<const S: usize, const P: usize> {
+    jacobian_fn: Box<
+        dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SMatrix<f64, S, S> + Send + Sync,
+    >,
 }
 
-impl<const S: usize> SAnalyticJacobian<S> {
+impl<const S: usize, const P: usize> SAnalyticJacobian<S, P> {
     /// Create a new analytical Jacobian provider.
     ///
     /// # Arguments
     /// - `jacobian_fn`: Function that computes the analytical Jacobian
     pub fn new(
-        jacobian_fn: Box<dyn Fn(f64, SVector<f64, S>) -> SMatrix<f64, S, S> + Send>,
+        jacobian_fn: Box<
+            dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SMatrix<f64, S, S>
+                + Send
+                + Sync,
+        >,
     ) -> Self {
         Self { jacobian_fn }
     }
 }
 
-impl<const S: usize> SJacobianProvider<S> for SAnalyticJacobian<S> {
-    fn compute(&self, t: f64, state: SVector<f64, S>) -> SMatrix<f64, S, S> {
-        (self.jacobian_fn)(t, state)
+impl<const S: usize, const P: usize> SJacobianProvider<S, P> for SAnalyticJacobian<S, P> {
+    fn compute(
+        &self,
+        t: f64,
+        state: &SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+    ) -> SMatrix<f64, S, S> {
+        (self.jacobian_fn)(t, state, params)
     }
 }
 
@@ -152,7 +180,7 @@ impl<const S: usize> SJacobianProvider<S> for SAnalyticJacobian<S> {
 ///
 /// // Simple harmonic oscillator: dx/dt = v, dv/dt = -x
 /// // Jacobian is [[0, 1], [-1, 0]]
-/// let jacobian_fn = |_t: f64, _state: DVector<f64>| {
+/// let jacobian_fn = |_t: f64, _state: &DVector<f64>, _params: Option<&DVector<f64>>| {
 ///     DMatrix::<f64>::from_row_slice(2, 2, &[
 ///         0.0,  1.0,
 ///        -1.0,  0.0
@@ -161,10 +189,11 @@ impl<const S: usize> SJacobianProvider<S> for SAnalyticJacobian<S> {
 ///
 /// let provider = DAnalyticJacobian::new(Box::new(jacobian_fn));
 /// let state = DVector::from_vec(vec![1.0, 0.0]);
-/// let jacobian = provider.compute(0.0, state);
+/// let jacobian = provider.compute(0.0, &state, None);
 /// ```
 pub struct DAnalyticJacobian {
-    jacobian_fn: Box<dyn Fn(f64, DVector<f64>) -> DMatrix<f64> + Send>,
+    jacobian_fn:
+        Box<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DMatrix<f64> + Send + Sync>,
 }
 
 impl DAnalyticJacobian {
@@ -172,14 +201,18 @@ impl DAnalyticJacobian {
     ///
     /// # Arguments
     /// - `jacobian_fn`: Function that computes the analytical Jacobian
-    pub fn new(jacobian_fn: Box<dyn Fn(f64, DVector<f64>) -> DMatrix<f64> + Send>) -> Self {
+    pub fn new(
+        jacobian_fn: Box<
+            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DMatrix<f64> + Send + Sync,
+        >,
+    ) -> Self {
         Self { jacobian_fn }
     }
 }
 
 impl DJacobianProvider for DAnalyticJacobian {
-    fn compute(&self, t: f64, state: DVector<f64>) -> DMatrix<f64> {
-        (self.jacobian_fn)(t, state)
+    fn compute(&self, t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>) -> DMatrix<f64> {
+        (self.jacobian_fn)(t, state, params)
     }
 }
 
@@ -196,7 +229,7 @@ impl DJacobianProvider for DAnalyticJacobian {
 /// use nalgebra::SVector;
 ///
 /// // Simple harmonic oscillator dynamics
-/// let dynamics = |_t: f64, state: SVector<f64, 2>| {
+/// let dynamics = |_t: f64, state: &SVector<f64, 2>, _params: Option<&SVector<f64, 0>>| {
 ///     SVector::<f64, 2>::new(state[1], -state[0])
 /// };
 ///
@@ -208,60 +241,80 @@ impl DJacobianProvider for DAnalyticJacobian {
 ///     .with_fixed_offset(1e-6);
 ///
 /// let state = SVector::<f64, 2>::new(1.0, 0.0);
-/// let jacobian = provider.compute(0.0, state);
+/// let jacobian = provider.compute(0.0, &state, None);
 /// ```
-pub struct SNumericalJacobian<const S: usize> {
-    dynamics_fn: Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S> + Send>,
+pub struct SNumericalJacobian<const S: usize, const P: usize> {
+    dynamics_fn: Box<
+        dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S> + Send + Sync,
+    >,
     method: DifferenceMethod,
     perturbation: PerturbationStrategy,
 }
 
-impl<const S: usize> SNumericalJacobian<S> {
+impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
     /// Create a numerical Jacobian provider with default settings.
     ///
     /// Default: central differences with adaptive perturbations.
-    pub fn new(dynamics_fn: Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S> + Send>) -> Self {
+    pub fn new(
+        dynamics_fn: Box<
+            dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S>
+                + Send
+                + Sync,
+        >,
+    ) -> Self {
         Self {
             dynamics_fn,
             method: DifferenceMethod::Central,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
 
     /// Create with forward finite differences.
     pub fn forward(
-        dynamics_fn: Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S> + Send>,
+        dynamics_fn: Box<
+            dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S>
+                + Send
+                + Sync,
+        >,
     ) -> Self {
         Self {
             dynamics_fn,
             method: DifferenceMethod::Forward,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
 
     /// Create with central finite differences.
     pub fn central(
-        dynamics_fn: Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S> + Send>,
+        dynamics_fn: Box<
+            dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S>
+                + Send
+                + Sync,
+        >,
     ) -> Self {
         Self::new(dynamics_fn)
     }
 
     /// Create with backward finite differences.
     pub fn backward(
-        dynamics_fn: Box<dyn Fn(f64, SVector<f64, S>) -> SVector<f64, S> + Send>,
+        dynamics_fn: Box<
+            dyn Fn(f64, &SVector<f64, S>, Option<&SVector<f64, P>>) -> SVector<f64, S>
+                + Send
+                + Sync,
+        >,
     ) -> Self {
         Self {
             dynamics_fn,
             method: DifferenceMethod::Backward,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -279,10 +332,10 @@ impl<const S: usize> SNumericalJacobian<S> {
     }
 
     /// Set adaptive perturbation with custom parameters.
-    pub fn with_adaptive(mut self, scale_factor: f64, min_threshold: f64) -> Self {
+    pub fn with_adaptive(mut self, scale_factor: f64, min_value: f64) -> Self {
         self.perturbation = PerturbationStrategy::Adaptive {
             scale_factor,
-            min_threshold,
+            min_value,
         };
         self
     }
@@ -298,14 +351,14 @@ impl<const S: usize> SNumericalJacobian<S> {
         match self.perturbation {
             PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             } => {
-                // Industry standard: h = sqrt(eps) * max(|x|, threshold)
+                // Industry standard: h = sqrt(eps) * max(|x|, value)
                 #[allow(non_snake_case)]
                 let SQRT_EPS: f64 = f64::EPSILON.sqrt();
                 let base_offset = scale_factor * SQRT_EPS;
 
-                state.map(|x| base_offset * x.abs().max(min_threshold))
+                state.map(|x| base_offset * x.abs().max(min_value))
             }
             PerturbationStrategy::Fixed(offset) => SVector::from_element(offset),
             PerturbationStrategy::Percentage(pct) => state.map(|x| x.abs() * pct),
@@ -315,21 +368,26 @@ impl<const S: usize> SNumericalJacobian<S> {
     /// Compute Jacobian using forward finite differences.
     ///
     /// Cost: S + 1 function evaluations
-    fn compute_forward(&self, t: f64, state: SVector<f64, S>) -> SMatrix<f64, S, S> {
-        let offsets = self.compute_offsets(&state);
+    fn compute_forward(
+        &self,
+        t: f64,
+        state: &SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+    ) -> SMatrix<f64, S, S> {
+        let offsets = self.compute_offsets(state);
 
         // Evaluate unperturbed dynamics
-        let f0 = (self.dynamics_fn)(t, state);
+        let f0 = (self.dynamics_fn)(t, state, params);
 
         // Initialize Jacobian matrix
         let mut jacobian = SMatrix::<f64, S, S>::zeros();
 
         // Compute each column: ∂f/∂x_i ≈ (f(x + h*e_i) - f(x)) / h
         for i in 0..S {
-            let mut perturbed = state;
+            let mut perturbed = *state;
             perturbed[i] += offsets[i];
 
-            let fp = (self.dynamics_fn)(t, perturbed);
+            let fp = (self.dynamics_fn)(t, &perturbed, params);
             jacobian.set_column(i, &((fp - f0) / offsets[i]));
         }
 
@@ -339,21 +397,26 @@ impl<const S: usize> SNumericalJacobian<S> {
     /// Compute Jacobian using central finite differences.
     ///
     /// Cost: 2S function evaluations (more accurate than forward differences)
-    fn compute_central(&self, t: f64, state: SVector<f64, S>) -> SMatrix<f64, S, S> {
-        let offsets = self.compute_offsets(&state);
+    fn compute_central(
+        &self,
+        t: f64,
+        state: &SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+    ) -> SMatrix<f64, S, S> {
+        let offsets = self.compute_offsets(state);
 
         // Initialize Jacobian matrix
         let mut jacobian = SMatrix::<f64, S, S>::zeros();
 
         // Compute each column: ∂f/∂x_i ≈ (f(x + h*e_i) - f(x - h*e_i)) / (2h)
         for i in 0..S {
-            let mut perturbed_plus = state;
-            let mut perturbed_minus = state;
+            let mut perturbed_plus = *state;
+            let mut perturbed_minus = *state;
             perturbed_plus[i] += offsets[i];
             perturbed_minus[i] -= offsets[i];
 
-            let fp = (self.dynamics_fn)(t, perturbed_plus);
-            let fm = (self.dynamics_fn)(t, perturbed_minus);
+            let fp = (self.dynamics_fn)(t, &perturbed_plus, params);
+            let fm = (self.dynamics_fn)(t, &perturbed_minus, params);
             jacobian.set_column(i, &((fp - fm) / (2.0 * offsets[i])));
         }
 
@@ -363,21 +426,26 @@ impl<const S: usize> SNumericalJacobian<S> {
     /// Compute Jacobian using backward finite differences.
     ///
     /// Cost: S + 1 function evaluations
-    fn compute_backward(&self, t: f64, state: SVector<f64, S>) -> SMatrix<f64, S, S> {
-        let offsets = self.compute_offsets(&state);
+    fn compute_backward(
+        &self,
+        t: f64,
+        state: &SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+    ) -> SMatrix<f64, S, S> {
+        let offsets = self.compute_offsets(state);
 
         // Evaluate unperturbed dynamics
-        let f0 = (self.dynamics_fn)(t, state);
+        let f0 = (self.dynamics_fn)(t, state, params);
 
         // Initialize Jacobian matrix
         let mut jacobian = SMatrix::<f64, S, S>::zeros();
 
         // Compute each column: ∂f/∂x_i ≈ (f(x) - f(x - h*e_i)) / h
         for i in 0..S {
-            let mut perturbed = state;
+            let mut perturbed = *state;
             perturbed[i] -= offsets[i];
 
-            let fm = (self.dynamics_fn)(t, perturbed);
+            let fm = (self.dynamics_fn)(t, &perturbed, params);
             jacobian.set_column(i, &((f0 - fm) / offsets[i]));
         }
 
@@ -385,12 +453,17 @@ impl<const S: usize> SNumericalJacobian<S> {
     }
 }
 
-impl<const S: usize> SJacobianProvider<S> for SNumericalJacobian<S> {
-    fn compute(&self, t: f64, state: SVector<f64, S>) -> SMatrix<f64, S, S> {
+impl<const S: usize, const P: usize> SJacobianProvider<S, P> for SNumericalJacobian<S, P> {
+    fn compute(
+        &self,
+        t: f64,
+        state: &SVector<f64, S>,
+        params: Option<&SVector<f64, P>>,
+    ) -> SMatrix<f64, S, S> {
         match self.method {
-            DifferenceMethod::Forward => self.compute_forward(t, state),
-            DifferenceMethod::Central => self.compute_central(t, state),
-            DifferenceMethod::Backward => self.compute_backward(t, state),
+            DifferenceMethod::Forward => self.compute_forward(t, state, params),
+            DifferenceMethod::Central => self.compute_central(t, state, params),
+            DifferenceMethod::Backward => self.compute_backward(t, state, params),
         }
     }
 }
@@ -408,7 +481,7 @@ impl<const S: usize> SJacobianProvider<S> for SNumericalJacobian<S> {
 /// use nalgebra::DVector;
 ///
 /// // Simple harmonic oscillator dynamics
-/// let dynamics = |_t: f64, state: DVector<f64>| {
+/// let dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
 ///     DVector::from_vec(vec![state[1], -state[0]])
 /// };
 ///
@@ -420,10 +493,11 @@ impl<const S: usize> SJacobianProvider<S> for SNumericalJacobian<S> {
 ///     .with_fixed_offset(1e-6);
 ///
 /// let state = DVector::from_vec(vec![1.0, 0.0]);
-/// let jacobian = provider.compute(0.0, state);
+/// let jacobian = provider.compute(0.0, &state, None);
 /// ```
 pub struct DNumericalJacobian {
-    dynamics_fn: Box<dyn Fn(f64, DVector<f64>) -> DVector<f64> + Send>,
+    dynamics_fn:
+        Box<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>,
     method: DifferenceMethod,
     perturbation: PerturbationStrategy,
 }
@@ -432,42 +506,58 @@ impl DNumericalJacobian {
     /// Create a numerical Jacobian provider with default settings.
     ///
     /// Default: central differences with adaptive perturbations.
-    pub fn new(dynamics_fn: Box<dyn Fn(f64, DVector<f64>) -> DVector<f64> + Send>) -> Self {
+    pub fn new(
+        dynamics_fn: Box<
+            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
+        >,
+    ) -> Self {
         Self {
             dynamics_fn,
             method: DifferenceMethod::Central,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
 
     /// Create with forward finite differences.
-    pub fn forward(dynamics_fn: Box<dyn Fn(f64, DVector<f64>) -> DVector<f64> + Send>) -> Self {
+    pub fn forward(
+        dynamics_fn: Box<
+            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
+        >,
+    ) -> Self {
         Self {
             dynamics_fn,
             method: DifferenceMethod::Forward,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
 
     /// Create with central finite differences.
-    pub fn central(dynamics_fn: Box<dyn Fn(f64, DVector<f64>) -> DVector<f64> + Send>) -> Self {
+    pub fn central(
+        dynamics_fn: Box<
+            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
+        >,
+    ) -> Self {
         Self::new(dynamics_fn)
     }
 
     /// Create with backward finite differences.
-    pub fn backward(dynamics_fn: Box<dyn Fn(f64, DVector<f64>) -> DVector<f64> + Send>) -> Self {
+    pub fn backward(
+        dynamics_fn: Box<
+            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
+        >,
+    ) -> Self {
         Self {
             dynamics_fn,
             method: DifferenceMethod::Backward,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -485,10 +575,10 @@ impl DNumericalJacobian {
     }
 
     /// Set adaptive perturbation with custom parameters.
-    pub fn with_adaptive(mut self, scale_factor: f64, min_threshold: f64) -> Self {
+    pub fn with_adaptive(mut self, scale_factor: f64, min_value: f64) -> Self {
         self.perturbation = PerturbationStrategy::Adaptive {
             scale_factor,
-            min_threshold,
+            min_value,
         };
         self
     }
@@ -504,14 +594,14 @@ impl DNumericalJacobian {
         match self.perturbation {
             PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             } => {
-                // Industry standard: h = sqrt(eps) * max(|x|, threshold)
+                // Industry standard: h = sqrt(eps) * max(|x|, value)
                 #[allow(non_snake_case)]
                 let SQRT_EPS: f64 = f64::EPSILON.sqrt();
                 let base_offset = scale_factor * SQRT_EPS;
 
-                state.map(|x| base_offset * x.abs().max(min_threshold))
+                state.map(|x| base_offset * x.abs().max(min_value))
             }
             PerturbationStrategy::Fixed(offset) => DVector::from_element(state.len(), offset),
             PerturbationStrategy::Percentage(pct) => state.map(|x| x.abs() * pct),
@@ -521,12 +611,17 @@ impl DNumericalJacobian {
     /// Compute Jacobian using forward finite differences.
     ///
     /// Cost: dimension + 1 function evaluations
-    fn compute_forward(&self, t: f64, state: DVector<f64>) -> DMatrix<f64> {
-        let offsets = self.compute_offsets(&state);
+    fn compute_forward(
+        &self,
+        t: f64,
+        state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
+    ) -> DMatrix<f64> {
+        let offsets = self.compute_offsets(state);
         let dimension = state.len();
 
         // Evaluate unperturbed dynamics
-        let f0 = (self.dynamics_fn)(t, state.clone());
+        let f0 = (self.dynamics_fn)(t, state, params);
 
         // Initialize Jacobian matrix
         let mut jacobian = DMatrix::<f64>::zeros(dimension, dimension);
@@ -536,7 +631,7 @@ impl DNumericalJacobian {
             let mut perturbed = state.clone();
             perturbed[i] += offsets[i];
 
-            let fp = (self.dynamics_fn)(t, perturbed);
+            let fp = (self.dynamics_fn)(t, &perturbed, params);
             jacobian.set_column(i, &((fp - &f0) / offsets[i]));
         }
 
@@ -546,8 +641,13 @@ impl DNumericalJacobian {
     /// Compute Jacobian using central finite differences.
     ///
     /// Cost: 2*dimension function evaluations (more accurate than forward differences)
-    fn compute_central(&self, t: f64, state: DVector<f64>) -> DMatrix<f64> {
-        let offsets = self.compute_offsets(&state);
+    fn compute_central(
+        &self,
+        t: f64,
+        state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
+    ) -> DMatrix<f64> {
+        let offsets = self.compute_offsets(state);
         let dimension = state.len();
 
         // Initialize Jacobian matrix
@@ -560,8 +660,8 @@ impl DNumericalJacobian {
             perturbed_plus[i] += offsets[i];
             perturbed_minus[i] -= offsets[i];
 
-            let fp = (self.dynamics_fn)(t, perturbed_plus);
-            let fm = (self.dynamics_fn)(t, perturbed_minus);
+            let fp = (self.dynamics_fn)(t, &perturbed_plus, params);
+            let fm = (self.dynamics_fn)(t, &perturbed_minus, params);
             jacobian.set_column(i, &((fp - fm) / (2.0 * offsets[i])));
         }
 
@@ -571,12 +671,17 @@ impl DNumericalJacobian {
     /// Compute Jacobian using backward finite differences.
     ///
     /// Cost: dimension + 1 function evaluations
-    fn compute_backward(&self, t: f64, state: DVector<f64>) -> DMatrix<f64> {
-        let offsets = self.compute_offsets(&state);
+    fn compute_backward(
+        &self,
+        t: f64,
+        state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
+    ) -> DMatrix<f64> {
+        let offsets = self.compute_offsets(state);
         let dimension = state.len();
 
         // Evaluate unperturbed dynamics
-        let f0 = (self.dynamics_fn)(t, state.clone());
+        let f0 = (self.dynamics_fn)(t, state, params);
 
         // Initialize Jacobian matrix
         let mut jacobian = DMatrix::<f64>::zeros(dimension, dimension);
@@ -586,7 +691,7 @@ impl DNumericalJacobian {
             let mut perturbed = state.clone();
             perturbed[i] -= offsets[i];
 
-            let fm = (self.dynamics_fn)(t, perturbed);
+            let fm = (self.dynamics_fn)(t, &perturbed, params);
             jacobian.set_column(i, &((f0.clone() - fm) / offsets[i]));
         }
 
@@ -595,11 +700,11 @@ impl DNumericalJacobian {
 }
 
 impl DJacobianProvider for DNumericalJacobian {
-    fn compute(&self, t: f64, state: DVector<f64>) -> DMatrix<f64> {
+    fn compute(&self, t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>) -> DMatrix<f64> {
         match self.method {
-            DifferenceMethod::Forward => self.compute_forward(t, state),
-            DifferenceMethod::Central => self.compute_central(t, state),
-            DifferenceMethod::Backward => self.compute_backward(t, state),
+            DifferenceMethod::Forward => self.compute_forward(t, state, params),
+            DifferenceMethod::Central => self.compute_central(t, state, params),
+            DifferenceMethod::Backward => self.compute_backward(t, state, params),
         }
     }
 }
@@ -612,19 +717,35 @@ mod tests {
 
     // Simple linear system: dx/dt = Ax where A = [[0, 1], [-1, 0]]
     // Analytical Jacobian is constant: A
-    fn linear_dynamics_static(_t: f64, state: SVector<f64, 2>) -> SVector<f64, 2> {
+    fn linear_dynamics_static(
+        _t: f64,
+        state: &SVector<f64, 2>,
+        _params: Option<&SVector<f64, 0>>,
+    ) -> SVector<f64, 2> {
         SVector::<f64, 2>::new(state[1], -state[0])
     }
 
-    fn linear_dynamics_dynamic(_t: f64, state: DVector<f64>) -> DVector<f64> {
+    fn linear_dynamics_dynamic(
+        _t: f64,
+        state: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> DVector<f64> {
         DVector::from_vec(vec![state[1], -state[0]])
     }
 
-    fn analytical_jacobian_static(_t: f64, _state: SVector<f64, 2>) -> SMatrix<f64, 2, 2> {
+    fn analytical_jacobian_static(
+        _t: f64,
+        _state: &SVector<f64, 2>,
+        _params: Option<&SVector<f64, 0>>,
+    ) -> SMatrix<f64, 2, 2> {
         SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0)
     }
 
-    fn analytical_jacobian_dynamic(_t: f64, _state: DVector<f64>) -> DMatrix<f64> {
+    fn analytical_jacobian_dynamic(
+        _t: f64,
+        _state: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> DMatrix<f64> {
         DMatrix::<f64>::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0])
     }
 
@@ -632,7 +753,7 @@ mod tests {
     fn test_sanalytic_jacobian() {
         let provider = SAnalyticJacobian::new(Box::new(analytical_jacobian_static));
         let state = SVector::<f64, 2>::new(1.0, 0.5);
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
 
         let expected = SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0);
 
@@ -643,7 +764,7 @@ mod tests {
     fn test_danalytic_jacobian() {
         let provider = DAnalyticJacobian::new(Box::new(analytical_jacobian_dynamic));
         let state = DVector::from_vec(vec![1.0, 0.5]);
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
 
         let expected = DMatrix::<f64>::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0]);
 
@@ -656,7 +777,7 @@ mod tests {
             SNumericalJacobian::central(Box::new(linear_dynamics_static)).with_fixed_offset(1e-6);
 
         let state = SVector::<f64, 2>::new(1.0, 0.5);
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
 
         let expected = SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0);
 
@@ -669,7 +790,7 @@ mod tests {
             SNumericalJacobian::forward(Box::new(linear_dynamics_static)).with_fixed_offset(1e-6);
 
         let state = SVector::<f64, 2>::new(1.0, 0.5);
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
 
         let expected = SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0);
 
@@ -683,7 +804,7 @@ mod tests {
             SNumericalJacobian::backward(Box::new(linear_dynamics_static)).with_fixed_offset(1e-6);
 
         let state = SVector::<f64, 2>::new(1.0, 0.5);
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
 
         let expected = SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0);
 
@@ -697,7 +818,7 @@ mod tests {
             DNumericalJacobian::central(Box::new(linear_dynamics_dynamic)).with_fixed_offset(1e-6);
 
         let state = DVector::from_vec(vec![1.0, 0.5]);
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
 
         let expected = DMatrix::<f64>::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0]);
 
@@ -710,7 +831,7 @@ mod tests {
             DNumericalJacobian::forward(Box::new(linear_dynamics_dynamic)).with_fixed_offset(1e-6);
 
         let state = DVector::from_vec(vec![1.0, 0.5]);
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
 
         let expected = DMatrix::<f64>::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0]);
 
@@ -724,7 +845,7 @@ mod tests {
             DNumericalJacobian::backward(Box::new(linear_dynamics_dynamic)).with_fixed_offset(1e-6);
 
         let state = DVector::from_vec(vec![1.0, 0.5]);
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
 
         let expected = DMatrix::<f64>::from_row_slice(2, 2, &[0.0, 1.0, -1.0, 0.0]);
 
@@ -739,7 +860,7 @@ mod tests {
             SNumericalJacobian::central(Box::new(linear_dynamics_static)).with_adaptive(1.0, 1.0);
 
         let state = SVector::<f64, 2>::new(1.0, 0.5);
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
 
         let expected = SMatrix::<f64, 2, 2>::new(0.0, 1.0, -1.0, 0.0);
         assert_abs_diff_eq!(jacobian, expected, epsilon = 1e-6);
@@ -748,7 +869,7 @@ mod tests {
         let provider =
             SNumericalJacobian::central(Box::new(linear_dynamics_static)).with_percentage(1e-6);
 
-        let jacobian = provider.compute(0.0, state);
+        let jacobian = provider.compute(0.0, &state, None);
         assert_abs_diff_eq!(jacobian, expected, epsilon = 1e-5);
     }
 }

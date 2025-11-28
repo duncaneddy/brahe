@@ -443,7 +443,7 @@ mod tests {
     use serial_test::serial;
 
     use crate::constants::{AS2RAD, DEGREES, R_EARTH};
-    use crate::coordinates::state_osculating_to_cartesian;
+    use crate::coordinates::state_koe_to_eci;
     use crate::eop::{StaticEOPProvider, set_global_eop_provider};
     use crate::frames::*;
     use crate::math::vector6_from_array;
@@ -610,7 +610,7 @@ mod tests {
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let gcrf = state_osculating_to_cartesian(oe, DEGREES);
+        let gcrf = state_koe_to_eci(oe, DEGREES);
 
         // Transform to ITRF
         let itrf = state_gcrf_to_itrf(epc, gcrf);
@@ -628,7 +628,7 @@ mod tests {
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let gcrf = state_osculating_to_cartesian(oe, DEGREES);
+        let gcrf = state_koe_to_eci(oe, DEGREES);
 
         // Perform circular transformations
         let itrf = state_gcrf_to_itrf(epc, gcrf);

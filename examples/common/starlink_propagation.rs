@@ -9,7 +9,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::traits::OrbitPropagator;
+use brahe::traits::SStatePropagator;
 use rayon::prelude::*;
 use rayon::iter::IntoParallelRefMutIterator;
 use std::time::Instant;

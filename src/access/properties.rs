@@ -923,8 +923,9 @@ mod tests {
     use crate::constants::AngleFormat;
     use crate::coordinates::position_geodetic_to_ecef;
     use crate::propagators::KeplerianPropagator;
-    use crate::propagators::traits::StateProvider;
+    use crate::propagators::traits::SOrbitStateProvider;
     use crate::time::{Epoch, TimeSystem};
+    use crate::utils::state_providers::DOrbitStateProvider;
     use crate::utils::testing::setup_global_test_eop;
 
     use super::super::geometry::{
@@ -995,7 +996,7 @@ mod tests {
         );
 
         // Use StateProvider trait directly
-        let state = prop.state_ecef(epoch);
+        let state = prop.state_ecef(epoch).unwrap();
         assert_eq!(state.len(), 6);
 
         // State should be non-zero
@@ -1004,7 +1005,7 @@ mod tests {
 
     #[test]
     fn test_state_provider_orbit_trajectory() {
-        use crate::trajectories::orbit_trajectory::OrbitTrajectory;
+        use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
         use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 
         // Initialize EOP for frame conversions
@@ -1017,13 +1018,13 @@ mod tests {
         let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0);
         let state2 = Vector6::new(7000e3, 100e3, 10e3, 10.0, 7500.0, 100.0);
 
-        let mut traj = OrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
         traj.add(epoch1, state1);
         traj.add(epoch2, state2);
 
-        // Use StateProvider trait directly (now implemented by OrbitTrajectory)
+        // Use StateProvider trait directly (now implemented by SOrbitTrajectory)
         let mid_epoch = epoch1 + 30.0;
-        let state = traj.state_ecef(mid_epoch);
+        let state = traj.state_ecef(mid_epoch).unwrap();
         assert_eq!(state.len(), 6);
     }
 
@@ -1293,7 +1294,7 @@ mod tests {
         // Get states at sample epochs using StateProvider trait
         let sample_states: Vec<nalgebra::SVector<f64, 6>> = sample_epochs
             .iter()
-            .map(|&epoch| prop.state_ecef(epoch))
+            .map(|&epoch| prop.state_ecef(epoch).unwrap())
             .collect();
 
         // Convert epochs to MJD for property computer interface

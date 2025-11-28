@@ -8,39 +8,14 @@
 use crate::constants::AngleFormat;
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use nalgebra::SMatrix;
+use nalgebra::{DMatrix, SMatrix};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Interpolation methods for retrieving trajectory states at arbitrary epochs.
-///
-/// Different methods provide varying trade-offs between computational cost and accuracy.
-/// For most applications, linear interpolation provides sufficient accuracy with minimal
-/// computational overhead.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum InterpolationMethod {
-    /// Linear interpolation between adjacent states.
-    /// Good balance of speed and accuracy for smooth trajectories.
-    #[default]
-    Linear,
-}
-
-/// Interpolation methods for retrieving covariance matrices at arbitrary epochs.
-///
-/// Covariance matrices live on the manifold of positive semi-definite matrices,
-/// requiring specialized interpolation methods to maintain mathematical properties.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum CovarianceInterpolationMethod {
-    /// Matrix square root interpolation of covariance matrices.
-    /// Preserves positive-definiteness by interpolating on the manifold of
-    /// positive semi-definite matrices.
-    MatrixSquareRoot,
-    /// Entropy-regularized 2-Wasserstein interpolation for interpolation between
-    /// Gaussian covariance measures. See [Mallasto et al. 2021, "Entropy-Regularized 2-Wasserstein Distance Between Gaussian Measures"](https://link.springer.com/article/10.1007/s41884-021-00052-8)
-    /// for details.
-    #[default]
-    TwoWasserstein,
-}
+// Re-export interpolation types from math module for backward compatibility
+pub use crate::math::interpolation::{
+    CovarianceInterpolationMethod, InterpolationConfig, InterpolationMethod,
+};
 
 /// Enumeration of trajectory eviction policies for memory management
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -334,8 +309,13 @@ pub trait Trajectory {
 
 /// Trait for trajectory interpolation functionality.
 ///
-/// This trait provides interpolation methods for retrieving trajectory states at arbitrary epochs.
-/// It requires the implementing type to also implement `Trajectory` to access the underlying state data.
+/// This trait combines `Trajectory` (for data storage) with `InterpolationConfig`
+/// (for interpolation method selection) and provides default implementations for
+/// actual interpolation operations.
+///
+/// # Supertraits
+/// - [`Trajectory`] - Provides access to the underlying state data
+/// - [`InterpolationConfig`] - Provides get/set methods for interpolation method
 ///
 /// # Default Implementations
 /// The trait provides default implementations for `interpolate_linear` and `interpolate` methods
@@ -344,7 +324,7 @@ pub trait Trajectory {
 /// # Examples
 /// ```rust
 /// use brahe::trajectories::STrajectory6;
-/// use brahe::traits::{Trajectory, Interpolatable, InterpolationMethod};
+/// use brahe::traits::{Trajectory, InterpolatableTrajectory, InterpolationMethod};
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///
@@ -362,19 +342,7 @@ pub trait Trajectory {
 /// let epoch = Epoch::from_datetime(2023, 1, 1, 12, 30, 0.0, 0.0, TimeSystem::UTC);
 /// let state = traj.interpolate(&epoch).unwrap();
 /// ```
-pub trait Interpolatable: Trajectory {
-    /// Set the interpolation method for the trajectory
-    ///
-    /// # Arguments
-    /// * `method` - The interpolation method to use
-    fn set_interpolation_method(&mut self, method: InterpolationMethod);
-
-    /// Get the current interpolation method
-    ///
-    /// # Returns
-    /// The current interpolation method (defaults to Linear if not set)
-    fn get_interpolation_method(&self) -> InterpolationMethod;
-
+pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
     /// Interpolate state at a given epoch using linear interpolation
     ///
     /// This is a default implementation that uses the `Trajectory` methods to
@@ -490,51 +458,6 @@ pub trait Interpolatable: Trajectory {
     }
 }
 
-/// Trait for covariance interpolation functionality.
-///
-/// This trait provides methods for configuring and managing covariance interpolation
-/// in trajectories that store covariance matrices. Since covariance matrices are
-/// positive semi-definite matrices living on a manifold, specialized interpolation
-/// methods may be needed to preserve mathematical properties.
-///
-/// # Examples
-/// ```rust
-/// use brahe::trajectories::OrbitTrajectory;
-/// use brahe::trajectories::traits::{CovarianceInterpolatable, CovarianceInterpolationMethod, OrbitFrame, OrbitRepresentation};
-/// use brahe::time::{Epoch, TimeSystem};
-/// use nalgebra::SMatrix;
-///
-/// let mut traj = OrbitTrajectory::new(
-///     OrbitFrame::ECI,
-///     OrbitRepresentation::Cartesian,
-///     None,
-/// ).with_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
-/// ```
-pub trait CovarianceInterpolatable {
-    /// Set the covariance interpolation method using a builder pattern
-    ///
-    /// # Arguments
-    /// * `method` - The covariance interpolation method to use
-    ///
-    /// # Returns
-    /// Self with the interpolation method set
-    fn with_covariance_interpolation_method(self, method: CovarianceInterpolationMethod) -> Self
-    where
-        Self: Sized;
-
-    /// Set the covariance interpolation method
-    ///
-    /// # Arguments
-    /// * `method` - The covariance interpolation method to use
-    fn set_covariance_interpolation_method(&mut self, method: CovarianceInterpolationMethod);
-
-    /// Get the current covariance interpolation method
-    ///
-    /// # Returns
-    /// The current covariance interpolation method (defaults to TwoWasserstein if not set)
-    fn get_covariance_interpolation_method(&self) -> CovarianceInterpolationMethod;
-}
-
 /// Trait for orbital-specific functionality on 6-dimensional trajectories.
 ///
 /// This trait provides methods for working with orbital state trajectories, including
@@ -542,8 +465,9 @@ pub trait CovarianceInterpolatable {
 /// and angle formats (radians/degrees). It also provides convenient accessors for position
 /// and velocity components.
 ///
-/// This trait requires both `Trajectory` and `Interpolatable` to be implemented, enabling
-/// both basic trajectory operations and state interpolation.
+/// This trait requires `InterpolatableTrajectory` to be implemented, which in turn
+/// requires both `Trajectory` and `InterpolationConfig`, enabling trajectory storage,
+/// interpolation configuration, and state interpolation.
 ///
 /// # Reference Frames
 /// - **ECI (Earth-Centered Inertial)**: GCRF inertial reference frame
@@ -560,14 +484,14 @@ pub trait CovarianceInterpolatable {
 ///
 /// # Examples
 /// ```rust
-/// use brahe::trajectories::OrbitTrajectory;
+/// use brahe::trajectories::SOrbitTrajectory;
 /// use brahe::traits::{OrbitalTrajectory, OrbitFrame, OrbitRepresentation, Trajectory};
 /// use brahe::AngleFormat;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector6;
 ///
 /// // Create orbital trajectory in ECI Cartesian coordinates
-/// let mut traj = OrbitTrajectory::new(
+/// let mut traj = SOrbitTrajectory::new(
 ///     OrbitFrame::ECI,
 ///     OrbitRepresentation::Cartesian,
 ///     None,
@@ -581,7 +505,7 @@ pub trait CovarianceInterpolatable {
 /// // Convert to Keplerian in degrees
 /// let kep_traj = traj.to_keplerian(AngleFormat::Degrees);
 /// ```
-pub trait OrbitalTrajectory: Interpolatable {
+pub trait OrbitalTrajectory: InterpolatableTrajectory {
     /// Create orbital trajectory from data with specified orbital properties.
     ///
     /// # Arguments
@@ -677,36 +601,130 @@ pub trait OrbitalTrajectory: Interpolatable {
         Self: Sized;
 }
 
+/// Trait for trajectories that support State Transition Matrix (STM) storage and retrieval.
+///
+/// The STM relates how state perturbations propagate: Φ(t,t₀) = ∂x(t)/∂x(t₀).
+/// Implementations must provide storage accessors and dimension info; the `stm_at()`
+/// method has a default implementation using linear interpolation.
+pub trait STMStorage: Trajectory {
+    /// Enable STM storage, initializing with identity matrices for existing states
+    fn enable_stm_storage(&mut self);
+
+    /// Get STM at a specific index (returns None if storage disabled or out of bounds)
+    fn stm_at_idx(&self, index: usize) -> Option<&DMatrix<f64>>;
+
+    /// Set STM at a specific index (auto-enables storage if needed)
+    fn set_stm_at(&mut self, index: usize, stm: DMatrix<f64>);
+
+    /// Get STM dimensions as (rows, cols)
+    fn stm_dimensions(&self) -> (usize, usize);
+
+    /// Get STM at epoch with linear interpolation (default implementation provided)
+    fn stm_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        let stms = self.stm_storage()?;
+
+        if self.len() == 0 {
+            return None;
+        }
+
+        // Handle exact match
+        for i in 0..self.len() {
+            if self.epoch_at_idx(i).ok()? == epoch {
+                return Some(stms.get(i)?.clone());
+            }
+        }
+
+        // Find surrounding indices for interpolation
+        let idx_before = self.index_before_epoch(&epoch).ok()?;
+        let idx_after = self.index_after_epoch(&epoch).ok()?;
+
+        if idx_before == idx_after {
+            return Some(stms.get(idx_before)?.clone());
+        }
+
+        // Linear interpolation parameter
+        let t0 = self.epoch_at_idx(idx_before).ok()? - self.start_epoch()?;
+        let t1 = self.epoch_at_idx(idx_after).ok()? - self.start_epoch()?;
+        let t = epoch - self.start_epoch()?;
+        let alpha = (t - t0) / (t1 - t0);
+
+        // Φ(t) = (1-α)*Φ₀ + α*Φ₁
+        let stm = &stms[idx_before] * (1.0 - alpha) + &stms[idx_after] * alpha;
+        Some(stm)
+    }
+
+    // Internal accessor methods (must be implemented)
+    #[doc(hidden)]
+    fn stm_storage(&self) -> Option<&Vec<DMatrix<f64>>>;
+
+    #[doc(hidden)]
+    fn stm_storage_mut(&mut self) -> Option<&mut Vec<DMatrix<f64>>>;
+}
+
+/// Trait for trajectories that support sensitivity matrix storage and retrieval.
+///
+/// Sensitivity matrices capture how states depend on parameters: S = ∂x/∂p.
+/// Implementations must provide storage accessors and dimension info; the `sensitivity_at()`
+/// method has a default implementation using linear interpolation.
+pub trait SensitivityStorage: Trajectory {
+    /// Enable sensitivity storage with specified parameter dimension
+    fn enable_sensitivity_storage(&mut self, param_dim: usize);
+
+    /// Get sensitivity matrix at a specific index (returns None if storage disabled)
+    fn sensitivity_at_idx(&self, index: usize) -> Option<&DMatrix<f64>>;
+
+    /// Set sensitivity matrix at a specific index (auto-enables storage if needed)
+    fn set_sensitivity_at(&mut self, index: usize, sensitivity: DMatrix<f64>);
+
+    /// Get sensitivity dimensions as (state_dim, param_dim), or None if not enabled
+    fn sensitivity_dimensions(&self) -> Option<(usize, usize)>;
+
+    /// Get sensitivity at epoch with linear interpolation (default implementation provided)
+    fn sensitivity_at(&self, epoch: Epoch) -> Option<DMatrix<f64>> {
+        let sens = self.sensitivity_storage()?;
+
+        if self.len() == 0 {
+            return None;
+        }
+
+        // Handle exact match
+        for i in 0..self.len() {
+            if self.epoch_at_idx(i).ok()? == epoch {
+                return Some(sens.get(i)?.clone());
+            }
+        }
+
+        // Find surrounding indices for interpolation
+        let idx_before = self.index_before_epoch(&epoch).ok()?;
+        let idx_after = self.index_after_epoch(&epoch).ok()?;
+
+        if idx_before == idx_after {
+            return Some(sens.get(idx_before)?.clone());
+        }
+
+        // Linear interpolation parameter
+        let t0 = self.epoch_at_idx(idx_before).ok()? - self.start_epoch()?;
+        let t1 = self.epoch_at_idx(idx_after).ok()? - self.start_epoch()?;
+        let t = epoch - self.start_epoch()?;
+        let alpha = (t - t0) / (t1 - t0);
+
+        // S(t) = (1-α)*S₀ + α*S₁
+        let sensitivity = &sens[idx_before] * (1.0 - alpha) + &sens[idx_after] * alpha;
+        Some(sensitivity)
+    }
+
+    // Internal accessor methods (must be implemented)
+    #[doc(hidden)]
+    fn sensitivity_storage(&self) -> Option<&Vec<DMatrix<f64>>>;
+
+    #[doc(hidden)]
+    fn sensitivity_storage_mut(&mut self) -> Option<&mut Vec<DMatrix<f64>>>;
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-
-    // =========================================================================
-    // InterpolationMethod Display/Debug Tests
-    // =========================================================================
-
-    #[test]
-    fn test_interpolation_method_debug_linear() {
-        let method = InterpolationMethod::Linear;
-        assert_eq!(format!("{:?}", method), "Linear");
-    }
-
-    // =========================================================================
-    // CovarianceInterpolationMethod Display/Debug Tests
-    // =========================================================================
-
-    #[test]
-    fn test_covariance_interpolation_method_debug_matrix_square_root() {
-        let method = CovarianceInterpolationMethod::MatrixSquareRoot;
-        assert_eq!(format!("{:?}", method), "MatrixSquareRoot");
-    }
-
-    #[test]
-    fn test_covariance_interpolation_method_debug_two_wasserstein() {
-        let method = CovarianceInterpolationMethod::TwoWasserstein;
-        assert_eq!(format!("{:?}", method), "TwoWasserstein");
-    }
 
     // =========================================================================
     // TrajectoryEvictionPolicy Display/Debug Tests

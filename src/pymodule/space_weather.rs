@@ -1,7 +1,3 @@
-// Python bindings for space weather module
-
-use crate::space_weather::SpaceWeatherProvider;
-
 // Helper functions for type conversions
 
 /// Helper function to parse strings into appropriate SpaceWeatherExtrapolation enumerations
@@ -1298,7 +1294,7 @@ impl PyFileSpaceWeatherProvider {
 ///
 /// This provider wraps a FileSpaceWeatherProvider and adds automatic cache management.
 /// It checks the age of the space weather file and downloads updated versions when the file
-/// exceeds the maximum age threshold. If the file doesn't exist, it will be downloaded
+/// exceeds the maximum age value. If the file doesn't exist, it will be downloaded
 /// on initialization from CelesTrak.
 ///
 /// Args:

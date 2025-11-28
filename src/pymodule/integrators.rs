@@ -8,14 +8,6 @@
 
 // NOTE: Imports are handled by mod.rs since this file is included via include! macro
 
-use std::sync::Arc;
-
-use crate::integrators::{
-    AdaptiveStepDIntegrator, AdaptiveStepDResult, DormandPrince54DIntegrator, FixedStepDIntegrator,
-    IntegratorConfig, RK4DIntegrator, RKF45DIntegrator, RKN1210DIntegrator,
-};
-use crate::math::jacobian::DJacobianProvider;
-use crate::math::sensitivity::DSensitivityProvider;
 
 // ============================================================================
 // Configuration Types
@@ -237,7 +229,7 @@ impl PyIntegratorConfig {
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "AdaptiveStepResult")]
 pub struct PyAdaptiveStepDResult {
-    inner: AdaptiveStepDResult,
+    inner: DIntegratorStepResult,
 }
 
 #[pymethods]
@@ -263,9 +255,9 @@ impl PyAdaptiveStepDResult {
     /// Get the estimated truncation error.
     ///
     /// Returns:
-    ///     float: Estimated local truncation error
+    ///     float | None: Estimated local truncation error (None for fixed-step integrators)
     #[getter]
-    fn error_estimate(&self) -> f64 {
+    fn error_estimate(&self) -> Option<f64> {
         self.inner.error_estimate
     }
 
@@ -279,9 +271,13 @@ impl PyAdaptiveStepDResult {
     }
 
     fn __repr__(&self) -> String {
+        let error_str = match self.inner.error_estimate {
+            Some(err) => format!("{}", err),
+            None => "None".to_string(),
+        };
         format!(
             "AdaptiveStepResult(dt_used={}, error={}, dt_next={})",
-            self.inner.dt_used, self.inner.error_estimate, self.inner.dt_next
+            self.inner.dt_used, error_str, self.inner.dt_next
         )
     }
 }
@@ -353,7 +349,7 @@ impl PyRK4DIntegrator {
         // Note: Uses 3-argument closure (t, state, params) for sensitivity support
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
-            move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
@@ -367,9 +363,9 @@ impl PyRK4DIntegrator {
         };
 
         // Create Rust closure for control input if provided
-        let control: crate::integrators::traits::ControlInputD = if let Some(ctrl_fn) = control_fn {
+        let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
-            Some(Box::new(move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+            Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
@@ -396,7 +392,7 @@ impl PyRK4DIntegrator {
                     let jac_method = num_jac.method;
                     let jac_pert = num_jac.perturbation;
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -423,8 +419,8 @@ impl PyRK4DIntegrator {
                     provider = match jac_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
-                        } => provider.with_adaptive(scale_factor, min_threshold),
+                            min_value,
+                        } => provider.with_adaptive(scale_factor, min_value),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
@@ -437,7 +433,7 @@ impl PyRK4DIntegrator {
                 } else if let Ok(ana_jac) = jac.extract::<PyRef<PyDAnalyticJacobian>>() {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>| -> na::DMatrix<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -509,10 +505,10 @@ impl PyRK4DIntegrator {
                     provider = match sens_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         }),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
@@ -602,9 +598,9 @@ impl PyRK4DIntegrator {
         let state_vec = pyany_to_f64_array1(state, Some(self.dimension))?;
         let state_dvec = na::DVector::from_vec(state_vec);
 
-        let new_state = self.inner.step(t, state_dvec, dt);
+        let result = self.inner.step(t, state_dvec, None, dt);
 
-        Ok(new_state.as_slice().to_pyarray(py))
+        Ok(result.state.as_slice().to_pyarray(py))
     }
 
     /// Perform one integration step with variational matrix propagation.
@@ -648,11 +644,12 @@ impl PyRK4DIntegrator {
             }
         }
 
-        let (new_state, new_phi) = self.inner.step_with_varmat(t, state_dvec, phi_dmat, dt);
+        let result = self.inner.step_with_varmat(t, state_dvec, None, phi_dmat, dt);
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_phi = result.phi.expect("Variational matrix should be present");
         let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
         for i in 0..self.dimension {
             for j in 0..self.dimension {
@@ -725,13 +722,14 @@ impl PyRK4DIntegrator {
         let params_dvec = na::DVector::from_vec(params_vec.to_vec());
 
         // Perform step
-        let (new_state, new_sens) = self.inner.step_with_sensmat(
+        let result = self.inner.step_with_sensmat(
             t, state_dvec, sens_dmat, &params_dvec, dt
         );
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
         let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
         for i in 0..self.dimension {
             for j in 0..num_params {
@@ -824,13 +822,14 @@ impl PyRK4DIntegrator {
         let params_dvec = na::DVector::from_vec(params_vec.to_vec());
 
         // Perform step
-        let (new_state, new_phi, new_sens) = self.inner.step_with_varmat_sensmat(
+        let result = self.inner.step_with_varmat_sensmat(
             t, state_dvec, phi_dmat, sens_dmat, &params_dvec, dt
         );
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_phi = result.phi.expect("Variational matrix should be present");
         let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
         for i in 0..self.dimension {
             for j in 0..self.dimension {
@@ -841,6 +840,7 @@ impl PyRK4DIntegrator {
             .into_pyarray(py)
             .reshape([self.dimension, self.dimension])?;
 
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
         let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
         for i in 0..self.dimension {
             for j in 0..num_params {
@@ -924,7 +924,7 @@ impl PyRKF45DIntegrator {
         // Note: Uses 3-argument closure (t, state, params) for sensitivity support
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
-            move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
@@ -938,9 +938,9 @@ impl PyRKF45DIntegrator {
         };
 
         // Create Rust closure for control input if provided
-        let control: crate::integrators::traits::ControlInputD = if let Some(ctrl_fn) = control_fn {
+        let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
-            Some(Box::new(move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+            Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
@@ -965,7 +965,7 @@ impl PyRKF45DIntegrator {
                     let jac_method = num_jac.method;
                     let jac_pert = num_jac.perturbation;
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -992,8 +992,8 @@ impl PyRKF45DIntegrator {
                     provider = match jac_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
-                        } => provider.with_adaptive(scale_factor, min_threshold),
+                            min_value,
+                        } => provider.with_adaptive(scale_factor, min_value),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
@@ -1006,7 +1006,7 @@ impl PyRKF45DIntegrator {
                 } else if let Ok(ana_jac) = jac.extract::<PyRef<PyDAnalyticJacobian>>() {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>| -> na::DMatrix<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -1077,10 +1077,10 @@ impl PyRKF45DIntegrator {
                     provider = match sens_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         }),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
@@ -1162,7 +1162,7 @@ impl PyRKF45DIntegrator {
         let state_dvec = na::DVector::from_vec(state_vec.to_vec());
 
         // Perform step
-        let result = self.inner.step(t, state_dvec, dt);
+        let result = self.inner.step(t, state_dvec, None, Some(dt));
 
         Ok(PyAdaptiveStepDResult { inner: result })
     }
@@ -1207,19 +1207,21 @@ impl PyRKF45DIntegrator {
         }
 
         // Perform step
-        let (new_state, new_phi, dt_used, error_est, dt_next) =
-            self.inner
-                .step_with_varmat(t, state_dvec, phi_dmat, dt);
+        let result = self.inner.step_with_varmat(t, state_dvec, None, phi_dmat, Some(dt));
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_phi = result.phi.expect("Variational matrix should be present");
         let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
         for i in 0..self.dimension {
             for j in 0..self.dimension {
                 phi_flat.push(new_phi[(i, j)]);
             }
         }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
         let phi_np = phi_flat
             .into_pyarray(py)
             .reshape([self.dimension, self.dimension])?;
@@ -1294,19 +1296,23 @@ impl PyRKF45DIntegrator {
         let params_dvec = na::DVector::from_vec(params_vec.to_vec());
 
         // Perform step
-        let (new_state, new_sens, dt_used, error_est, dt_next) = self.inner.step_with_sensmat(
-            t, state_dvec, sens_dmat, &params_dvec, dt
+        let result = self.inner.step_with_sensmat(
+            t, state_dvec, sens_dmat, &params_dvec, Some(dt)
         );
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
         let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
         for i in 0..self.dimension {
             for j in 0..num_params {
                 sens_flat.push(new_sens[(i, j)]);
             }
         }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
         let sens_np = sens_flat
             .into_pyarray(py)
             .reshape([self.dimension, num_params])?;
@@ -1396,13 +1402,14 @@ impl PyRKF45DIntegrator {
         let params_dvec = na::DVector::from_vec(params_vec.to_vec());
 
         // Perform step
-        let (new_state, new_phi, new_sens, dt_used, error_est, dt_next) = self.inner.step_with_varmat_sensmat(
-            t, state_dvec, phi_dmat, sens_dmat, &params_dvec, dt
+        let result = self.inner.step_with_varmat_sensmat(
+            t, state_dvec, phi_dmat, sens_dmat, &params_dvec, Some(dt)
         );
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_phi = result.phi.expect("Variational matrix should be present");
         let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
         for i in 0..self.dimension {
             for j in 0..self.dimension {
@@ -1413,12 +1420,16 @@ impl PyRKF45DIntegrator {
             .into_pyarray(py)
             .reshape([self.dimension, self.dimension])?;
 
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
         let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
         for i in 0..self.dimension {
             for j in 0..num_params {
                 sens_flat.push(new_sens[(i, j)]);
             }
         }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
         let sens_np = sens_flat
             .into_pyarray(py)
             .reshape([self.dimension, num_params])?;
@@ -1488,7 +1499,7 @@ impl PyDP54DIntegrator {
         // Note: DP54 uses 3-argument closure (t, state, params) for sensitivity support
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
-            move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
@@ -1502,9 +1513,9 @@ impl PyDP54DIntegrator {
         };
 
         // Create Rust closure for control input if provided
-        let control: crate::integrators::traits::ControlInputD = if let Some(ctrl_fn) = control_fn {
+        let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
-            Some(Box::new(move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+            Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
@@ -1529,7 +1540,7 @@ impl PyDP54DIntegrator {
                     let jac_method = num_jac.method;
                     let jac_pert = num_jac.perturbation;
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -1556,8 +1567,8 @@ impl PyDP54DIntegrator {
                     provider = match jac_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
-                        } => provider.with_adaptive(scale_factor, min_threshold),
+                            min_value,
+                        } => provider.with_adaptive(scale_factor, min_value),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
@@ -1570,7 +1581,7 @@ impl PyDP54DIntegrator {
                 } else if let Ok(ana_jac) = jac.extract::<PyRef<PyDAnalyticJacobian>>() {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>| -> na::DMatrix<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -1640,10 +1651,10 @@ impl PyDP54DIntegrator {
                     provider = match sens_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         }),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
@@ -1723,7 +1734,7 @@ impl PyDP54DIntegrator {
         let state_vec = state.as_slice()?;
         let state_dvec = na::DVector::from_vec(state_vec.to_vec());
 
-        let result = self.inner.step(t, state_dvec, dt);
+        let result = self.inner.step(t, state_dvec, None, Some(dt));
 
         Ok(PyAdaptiveStepDResult { inner: result })
     }
@@ -1766,18 +1777,20 @@ impl PyDP54DIntegrator {
             }
         }
 
-        let (new_state, new_phi, dt_used, error_est, dt_next) =
-            self.inner
-                .step_with_varmat(t, state_dvec, phi_dmat, dt);
+        let result = self.inner.step_with_varmat(t, state_dvec, None, phi_dmat, Some(dt));
 
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_phi = result.phi.expect("Variational matrix should be present");
         let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
         for i in 0..self.dimension {
             for j in 0..self.dimension {
                 phi_flat.push(new_phi[(i, j)]);
             }
         }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
         let phi_np = phi_flat
             .into_pyarray(py)
             .reshape([self.dimension, self.dimension])?;
@@ -1852,19 +1865,23 @@ impl PyDP54DIntegrator {
         let params_dvec = na::DVector::from_vec(params_vec.to_vec());
 
         // Perform step
-        let (new_state, new_sens, dt_used, error_est, dt_next) = self.inner.step_with_sensmat(
-            t, state_dvec, sens_dmat, &params_dvec, dt
+        let result = self.inner.step_with_sensmat(
+            t, state_dvec, sens_dmat, &params_dvec, Some(dt)
         );
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
         let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
         for i in 0..self.dimension {
             for j in 0..num_params {
                 sens_flat.push(new_sens[(i, j)]);
             }
         }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
         let sens_np = sens_flat
             .into_pyarray(py)
             .reshape([self.dimension, num_params])?;
@@ -1954,13 +1971,14 @@ impl PyDP54DIntegrator {
         let params_dvec = na::DVector::from_vec(params_vec.to_vec());
 
         // Perform step
-        let (new_state, new_phi, new_sens, dt_used, error_est, dt_next) = self.inner.step_with_varmat_sensmat(
-            t, state_dvec, phi_dmat, sens_dmat, &params_dvec, dt
+        let result = self.inner.step_with_varmat_sensmat(
+            t, state_dvec, phi_dmat, sens_dmat, &params_dvec, Some(dt)
         );
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_phi = result.phi.expect("Variational matrix should be present");
         let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
         for i in 0..self.dimension {
             for j in 0..self.dimension {
@@ -1971,12 +1989,16 @@ impl PyDP54DIntegrator {
             .into_pyarray(py)
             .reshape([self.dimension, self.dimension])?;
 
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
         let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
         for i in 0..self.dimension {
             for j in 0..num_params {
                 sens_flat.push(new_sens[(i, j)]);
             }
         }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
         let sens_np = sens_flat
             .into_pyarray(py)
             .reshape([self.dimension, num_params])?;
@@ -2060,7 +2082,7 @@ impl PyRKN1210DIntegrator {
         // Create Rust closure for dynamics
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
-            move |t: f64, state: na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+            move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::with_gil(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
@@ -2083,7 +2105,7 @@ impl PyRKN1210DIntegrator {
                     let jac_method = num_jac.method;
                     let jac_pert = num_jac.perturbation;
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>| -> na::DVector<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -2110,8 +2132,8 @@ impl PyRKN1210DIntegrator {
                     provider = match jac_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
-                        } => provider.with_adaptive(scale_factor, min_threshold),
+                            min_value,
+                        } => provider.with_adaptive(scale_factor, min_value),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
@@ -2124,7 +2146,7 @@ impl PyRKN1210DIntegrator {
                 } else if let Ok(ana_jac) = jac.extract::<PyRef<PyDAnalyticJacobian>>() {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
-                    let jac_closure = move |t: f64, state: na::DVector<f64>| -> na::DMatrix<f64> {
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
                         Python::with_gil(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
@@ -2194,10 +2216,10 @@ impl PyRKN1210DIntegrator {
                     provider = match sens_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         }),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
@@ -2277,7 +2299,7 @@ impl PyRKN1210DIntegrator {
         let state_vec = state.as_slice()?;
         let state_dvec = na::DVector::from_vec(state_vec.to_vec());
 
-        let result = self.inner.step(t, state_dvec, dt);
+        let result = self.inner.step(t, state_dvec, None, Some(dt));
 
         Ok(PyAdaptiveStepDResult { inner: result })
     }
@@ -2320,18 +2342,20 @@ impl PyRKN1210DIntegrator {
             }
         }
 
-        let (new_state, new_phi, dt_used, error_est, dt_next) =
-            self.inner
-                .step_with_varmat(t, state_dvec, phi_dmat, dt);
+        let result = self.inner.step_with_varmat(t, state_dvec, None, phi_dmat, Some(dt));
 
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_phi = result.phi.expect("Variational matrix should be present");
         let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
         for i in 0..self.dimension {
             for j in 0..self.dimension {
                 phi_flat.push(new_phi[(i, j)]);
             }
         }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
         let phi_np = phi_flat
             .into_pyarray(py)
             .reshape([self.dimension, self.dimension])?;
@@ -2406,19 +2430,23 @@ impl PyRKN1210DIntegrator {
         let params_dvec = na::DVector::from_vec(params_vec.to_vec());
 
         // Perform step
-        let (new_state, new_sens, dt_used, error_est, dt_next) = self.inner.step_with_sensmat(
-            t, state_dvec, sens_dmat, &params_dvec, dt
+        let result = self.inner.step_with_sensmat(
+            t, state_dvec, sens_dmat, &params_dvec, Some(dt)
         );
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
         let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
         for i in 0..self.dimension {
             for j in 0..num_params {
                 sens_flat.push(new_sens[(i, j)]);
             }
         }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
         let sens_np = sens_flat
             .into_pyarray(py)
             .reshape([self.dimension, num_params])?;
@@ -2508,13 +2536,14 @@ impl PyRKN1210DIntegrator {
         let params_dvec = na::DVector::from_vec(params_vec.to_vec());
 
         // Perform step
-        let (new_state, new_phi, new_sens, dt_used, error_est, dt_next) = self.inner.step_with_varmat_sensmat(
-            t, state_dvec, phi_dmat, sens_dmat, &params_dvec, dt
+        let result = self.inner.step_with_varmat_sensmat(
+            t, state_dvec, phi_dmat, sens_dmat, &params_dvec, Some(dt)
         );
 
         // Convert results to NumPy
-        let state_np = new_state.as_slice().to_pyarray(py);
+        let state_np = result.state.as_slice().to_pyarray(py);
 
+        let new_phi = result.phi.expect("Variational matrix should be present");
         let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
         for i in 0..self.dimension {
             for j in 0..self.dimension {
@@ -2525,12 +2554,16 @@ impl PyRKN1210DIntegrator {
             .into_pyarray(py)
             .reshape([self.dimension, self.dimension])?;
 
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
         let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
         for i in 0..self.dimension {
             for j in 0..num_params {
                 sens_flat.push(new_sens[(i, j)]);
             }
         }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
         let sens_np = sens_flat
             .into_pyarray(py)
             .reshape([self.dimension, num_params])?;

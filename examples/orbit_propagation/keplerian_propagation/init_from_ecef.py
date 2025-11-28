@@ -14,7 +14,7 @@ epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 
 # Get state in ECI, then convert to ECEF for demonstration
 elements = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
-state_eci = bh.state_osculating_to_cartesian(elements, bh.AngleFormat.DEGREES)
+state_eci = bh.state_koe_to_eci(elements, bh.AngleFormat.DEGREES)
 state_ecef = bh.state_eci_to_ecef(epoch, state_eci)
 
 # Create propagator from ECEF state

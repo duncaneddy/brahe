@@ -42,7 +42,7 @@ epoch = all_debris[0].epoch
 # Get ISS ephemeris for reference altitude line
 iss = bh.celestrak.get_tle_by_id_as_propagator(25544, 60.0, "active")
 iss_state = iss.state_eci(epoch)
-iss_oe = bh.state_cartesian_to_osculating(iss_state, bh.AngleFormat.RADIANS)
+iss_oe = bh.state_eci_to_koe(iss_state, bh.AngleFormat.RADIANS)
 iss_altitude_km = (iss_oe[0] - bh.R_EARTH) / 1e3  # Convert to km
 
 print(f"ISS altitude at epoch: {iss_altitude_km:.1f} km")

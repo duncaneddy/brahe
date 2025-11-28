@@ -1211,8 +1211,8 @@ class TestEpochFloatMJD:
         assert epc.mjd() == pytest.approx(mjd)
 
     def test_mjd_boundary_high(self):
-        """Test MJD at high boundary near threshold."""
-        # Test MJD just below threshold (999999.9)
+        """Test MJD at high boundary near value."""
+        # Test MJD just below value (999999.9)
         mjd = 999999.9
         epc1 = bh.Epoch(mjd)
         epc2 = bh.Epoch.from_mjd(mjd, bh.TimeSystem.UTC)
@@ -1259,9 +1259,9 @@ class TestEpochFloatJD:
         assert epc_utc != epc_tai
         assert epc_utc != epc_gps
 
-    def test_jd_boundary_threshold(self):
-        """Test JD exactly at threshold value."""
-        # Test JD exactly at threshold (1000000.0)
+    def test_jd_boundary_value(self):
+        """Test JD exactly at value value."""
+        # Test JD exactly at value (1000000.0)
         jd = 1000000.0
         epc1 = bh.Epoch(jd)
         epc2 = bh.Epoch.from_jd(jd, bh.TimeSystem.UTC)

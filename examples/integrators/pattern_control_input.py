@@ -55,8 +55,8 @@ def control_input(t, state):
 
 
 # Initial LEO state
-oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 0.0, 0.0, 0.0])
-state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 15.0, 30.0, 45.0])
+state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Create integrator with control input
 # The control function is passed as a separate parameter
@@ -80,7 +80,7 @@ while t < period:
     dt = result.dt_next
 
 # Check final state
-final_oe = bh.state_cartesian_to_osculating(state, bh.AngleFormat.DEGREES)
+final_oe = bh.state_eci_to_koe(state, bh.AngleFormat.DEGREES)
 print(f"Final semi-major axis: {final_oe[0] / 1000:.3f} km")
 print(f"Change in SMA: {(final_oe[0] - oe[0]) / 1000:.3f} km")
 # Initial semi-major axis: 6878.136 km

@@ -255,7 +255,7 @@ mod tests {
     use serial_test::serial;
 
     use crate::constants::{DEGREES, R_EARTH};
-    use crate::coordinates::state_osculating_to_cartesian;
+    use crate::coordinates::state_koe_to_eci;
     use crate::frames::*;
     use crate::math::vector6_from_array;
     use crate::time::{Epoch, TimeSystem};
@@ -374,7 +374,7 @@ mod tests {
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let eci = state_osculating_to_cartesian(oe, DEGREES);
+        let eci = state_koe_to_eci(oe, DEGREES);
 
         // Perform circular transformations
         let ecef = state_eci_to_ecef(epc, eci);
@@ -405,7 +405,7 @@ mod tests {
         let epc = Epoch::from_datetime(2022, 4, 5, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let eci = state_osculating_to_cartesian(oe, DEGREES);
+        let eci = state_koe_to_eci(oe, DEGREES);
 
         // ECI -> ECEF
         let ecef = state_eci_to_ecef(epc, eci);

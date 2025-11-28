@@ -153,9 +153,9 @@ The `STrajectory<R>` implementation uses compile-time sized state vectors, provi
 
     Rust users can create `STrajectory` instances with any dimension using the generic type.
 
-### OrbitTrajectory - Orbital Mechanics
+### SOrbitTrajectory - Orbital Mechanics
 
-The `OrbitTrajectory` implementation is specialized for orbital mechanics applications. It always 6-dimensional state vectors (position + velocity or orbital elements) and tracks the reference frame (ECI/ECEF) and representation (Cartesian/Keplerian). It provides built-in methods for converting between frames and representations. The `OrbitTrajectory` is ideal for satellite orbit propagation and analysis where you expect to need frame conversions.
+The `SOrbitTrajectory` implementation is specialized for orbital mechanics applications. It always 6-dimensional state vectors (position + velocity or orbital elements) and tracks the reference frame (ECI/ECEF) and representation (Cartesian/Keplerian). It provides built-in methods for converting between frames and representations. The `SOrbitTrajectory` is ideal for satellite orbit propagation and analysis where you expect to need frame conversions.
 
 **Features**:
 
@@ -170,7 +170,6 @@ The `OrbitTrajectory` implementation is specialized for orbital mechanics applic
 
 ## See Also
 
-- [DTrajectory](dtrajectory.md) - Dynamic-dimension trajectory implementation
-- [STrajectory6](strajectory6.md) - Static 6D trajectory implementation
+- [Trajectory](trajectory.md) - Dynamic-dimension trajectory implementation
 - [OrbitTrajectory](orbit_trajectory.md) - Orbital mechanics trajectory with frame conversions
 - [API Reference](../../library_api/trajectories/index.md)

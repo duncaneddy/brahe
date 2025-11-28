@@ -75,7 +75,7 @@ You can create a file-based Earth orientation provider by specifying the file pa
 
 ### CachingEOPProvider
 
-The `CachingEOPProvider` is a `FileEOPProvider` that automatically downloads and caches the latest Earth orientation data files from the IERS website as needed. It checks the age of the cached data and if the data is older than a specified threshold, it downloads the latest files, then loads them for use. This provider can also be configured to check for a stale cache on use and update the data if needed, which is useful for long-running applications.
+The `CachingEOPProvider` is a `FileEOPProvider` that automatically downloads and caches the latest Earth orientation data files from the IERS website as needed. It checks the age of the cached data and if the data is older than a specified value, it downloads the latest files, then loads them for use. This provider can also be configured to check for a stale cache on use and update the data if needed, which is useful for long-running applications.
 
 The `CachingEOPProvider` is the recommended provider for most applications as it provides high-accuracy Earth orientation data without requiring manual management of data files. `initialize_eop()` uses this provider by default.
 

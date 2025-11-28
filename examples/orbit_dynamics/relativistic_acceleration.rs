@@ -23,7 +23,7 @@ fn main() {
 
     // Convert to Cartesian state
     let oe = na::SVector::<f64, 6>::new(a, e, i, raan, argp, nu);
-    let state = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Radians);
+    let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Radians);
 
     println!("GPS Satellite state (ECI):");
     println!("  Position: [{:.1}, {:.1}, {:.1}] km",

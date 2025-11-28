@@ -12,7 +12,7 @@ fn main() {
     // Define Cartesian state in ECI frame [x, y, z, vx, vy, vz]
     // Convert from Keplerian elements for this example
     let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
-    let state_eci = bh::state_osculating_to_cartesian(elements, bh::AngleFormat::Degrees);
+    let state_eci = bh::state_koe_to_eci(elements, bh::AngleFormat::Degrees);
 
     // Create propagator from ECI state
     let _prop = bh::KeplerianPropagator::from_eci(epoch, state_eci, 60.0);

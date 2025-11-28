@@ -44,7 +44,7 @@ print(f"Epoch: {epc}")
 # Epoch: 2024-01-01 12:00:00.000 UTC
 
 # Convert to ECI Cartesian state
-state_eci = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 print("ECI state vector:")
 print(f"  Position: [{state_eci[0]:.3f}, {state_eci[1]:.3f}, {state_eci[2]:.3f}] m")

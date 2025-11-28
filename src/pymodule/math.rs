@@ -4,11 +4,6 @@
  * Provides numerical and analytical Jacobian providers for dynamic-sized systems.
  */
 
-// NOTE: Imports are handled by mod.rs since this file is included via include! macro
-// We need to import DVector explicitly since it's not in mod.rs prelude
-use na::DVector;
-
-use crate::math::jacobian;
 
 // ============================================================================
 // Enums
@@ -125,21 +120,21 @@ impl PyPerturbationStrategy {
     ///
     /// Args:
     ///     scale_factor (float): Multiplier on sqrt(ε), typically 1.0
-    ///     min_threshold (float): Minimum reference value (prevents tiny perturbations near zero)
+    ///     min_value (float): Minimum reference value (prevents tiny perturbations near zero)
     ///
     /// Returns:
     ///     PerturbationStrategy: Adaptive perturbation strategy
     #[classmethod]
-    #[pyo3(signature = (scale_factor=1.0, min_threshold=1.0))]
+    #[pyo3(signature = (scale_factor=1.0, min_value=1.0))]
     fn adaptive(
         _cls: &Bound<'_, pyo3::types::PyType>,
         scale_factor: f64,
-        min_threshold: f64,
+        min_value: f64,
     ) -> Self {
         PyPerturbationStrategy {
             value: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             },
         }
     }
@@ -176,8 +171,8 @@ impl PyPerturbationStrategy {
         match self.value {
             jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
-            } => format!("Adaptive({}, {})", scale_factor, min_threshold),
+                min_value,
+            } => format!("Adaptive({}, {})", scale_factor, min_value),
             jacobian::PerturbationStrategy::Fixed(offset) => format!("Fixed({})", offset),
             jacobian::PerturbationStrategy::Percentage(pct) => format!("Percentage({})", pct),
         }
@@ -255,7 +250,7 @@ impl PyDNumericalJacobian {
             method: jacobian::DifferenceMethod::Central,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -274,7 +269,7 @@ impl PyDNumericalJacobian {
             method: jacobian::DifferenceMethod::Forward,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -305,7 +300,7 @@ impl PyDNumericalJacobian {
             method: jacobian::DifferenceMethod::Backward,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -338,18 +333,18 @@ impl PyDNumericalJacobian {
     ///
     /// Args:
     ///     scale_factor (float): Multiplier on sqrt(ε), typically 1.0
-    ///     min_threshold (float): Minimum reference value
+    ///     min_value (float): Minimum reference value
     ///
     /// Returns:
     ///     NumericalJacobian: Self for method chaining
     pub fn with_adaptive(
         mut slf: PyRefMut<'_, Self>,
         scale_factor: f64,
-        min_threshold: f64,
+        min_value: f64,
     ) -> PyRefMut<'_, Self> {
         slf.perturbation = jacobian::PerturbationStrategy::Adaptive {
             scale_factor,
-            min_threshold,
+            min_value,
         };
         slf
     }
@@ -406,7 +401,7 @@ impl PyDNumericalJacobian {
         // Create a Rust closure that calls the Python function
         let dynamics_closure = {
             let dynamics_fn_clone = self.dynamics_fn.clone_ref(py);
-            move |t: f64, state: DVector<f64>| -> DVector<f64> {
+            move |t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
                 Python::with_gil(|py| {
                     // Convert state to NumPy array
                     let state_py = state.as_slice().to_pyarray(py);
@@ -441,14 +436,14 @@ impl PyDNumericalJacobian {
         provider = match self.perturbation {
             jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
-            } => provider.with_adaptive(scale_factor, min_threshold),
+                min_value,
+            } => provider.with_adaptive(scale_factor, min_value),
             jacobian::PerturbationStrategy::Fixed(offset) => provider.with_fixed_offset(offset),
             jacobian::PerturbationStrategy::Percentage(pct) => provider.with_percentage(pct),
         };
 
         // Compute Jacobian
-        let jac_matrix = provider.compute(t, state_dvec);
+        let jac_matrix = provider.compute(t, &state_dvec, None);
 
         // Convert DMatrix to NumPy 2D array (row-major order)
         let rows = jac_matrix.nrows();
@@ -620,7 +615,7 @@ impl PyDNumericalSensitivity {
             method: jacobian::DifferenceMethod::Central,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -639,7 +634,7 @@ impl PyDNumericalSensitivity {
             method: jacobian::DifferenceMethod::Forward,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -670,7 +665,7 @@ impl PyDNumericalSensitivity {
             method: jacobian::DifferenceMethod::Backward,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -703,18 +698,18 @@ impl PyDNumericalSensitivity {
     ///
     /// Args:
     ///     scale_factor (float): Multiplier on sqrt(ε), typically 1.0
-    ///     min_threshold (float): Minimum reference value
+    ///     min_value (float): Minimum reference value
     ///
     /// Returns:
     ///     NumericalSensitivity: Self for method chaining
     pub fn with_adaptive(
         mut slf: PyRefMut<'_, Self>,
         scale_factor: f64,
-        min_threshold: f64,
+        min_value: f64,
     ) -> PyRefMut<'_, Self> {
         slf.perturbation = jacobian::PerturbationStrategy::Adaptive {
             scale_factor,
-            min_threshold,
+            min_value,
         };
         slf
     }
@@ -795,10 +790,10 @@ impl PyDNumericalSensitivity {
         provider = match self.perturbation {
             jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             } => provider.with_strategy(jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             }),
             jacobian::PerturbationStrategy::Fixed(offset) => {
                 provider.with_strategy(jacobian::PerturbationStrategy::Fixed(offset))

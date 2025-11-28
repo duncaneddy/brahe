@@ -240,7 +240,7 @@ mod tests {
     use nalgebra::Vector3;
 
     use crate::constants::{AS2RAD, DEGREES, R_EARTH};
-    use crate::coordinates::state_osculating_to_cartesian;
+    use crate::coordinates::state_koe_to_eci;
     use crate::frames::*;
     use crate::math::vector6_from_array;
 
@@ -339,7 +339,7 @@ mod tests {
     #[test]
     fn test_state_gcrf_to_eme2000() {
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let gcrf = state_osculating_to_cartesian(oe, DEGREES);
+        let gcrf = state_koe_to_eci(oe, DEGREES);
         let eme2000 = state_gcrf_to_eme2000(gcrf);
         let r_e2g = rotation_gcrf_to_eme2000();
 
@@ -361,7 +361,7 @@ mod tests {
     #[test]
     fn test_state_eme2000_to_gcrf() {
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let eme2000 = state_osculating_to_cartesian(oe, DEGREES);
+        let eme2000 = state_koe_to_eci(oe, DEGREES);
         let gcrf = state_eme2000_to_gcrf(eme2000);
         let r_g2e = rotation_eme2000_to_gcrf();
 
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn test_eme2000_gcrf_roundtrip() {
         let oe = vector6_from_array([R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0]);
-        let eme2000 = state_osculating_to_cartesian(oe, DEGREES);
+        let eme2000 = state_koe_to_eci(oe, DEGREES);
 
         // Perform circular transformations
         let gcrf = state_eme2000_to_gcrf(eme2000);

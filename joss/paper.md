@@ -118,7 +118,7 @@ mean_anomaly = 45.0               # Mean Anomaly
 state_kep = np.array([a, e, i, raan, arg_periapsis, mean_anomaly])
 
 # Convert Keplerian state to ECI coordinates
-state_eci = bh.state_osculating_to_cartesian(state_kep, bh.AngleFormat.DEGREES)
+state_eci = bh.state_koe_to_eci(state_kep, bh.AngleFormat.DEGREES)
 
 # Define a time epoch
 epoch = bh.Epoch(2024, 6, 1, 12, 0, 0.0, time_system=bh.TimeSystem.UTC)
@@ -130,7 +130,7 @@ state_ecef = bh.state_eci_to_ecef(epoch, state_eci)
 state_eci_2 = bh.state_ecef_to_eci(epoch, state_ecef)
 
 # Convert back from ECI to Keplerian elements
-state_kep_2 = bh.state_cartesian_to_osculating(state_eci_2, bh.AngleFormat.DEGREES)
+state_kep_2 = bh.state_eci_to_koe(state_eci_2, bh.AngleFormat.DEGREES)
 \end{lstlisting}
 
 Another example application of `brahe` is predicting and visualizing GPS satellite orbits. The package provides built-in functions for generating 2D and 3D visualizations of satellite constellations using Plotly [@plotly] and matplotlib [@Hunter2007].

@@ -27,7 +27,7 @@ fn main() {
     println!("  M    = {:.4}°\n", oe[5]);
 
     // Convert to GCRF Cartesian state
-    let state_gcrf = bh::state_osculating_to_cartesian(oe, bh::AngleFormat::Degrees);
+    let state_gcrf = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
     // Define epoch
     let epc = bh::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh::TimeSystem::UTC);

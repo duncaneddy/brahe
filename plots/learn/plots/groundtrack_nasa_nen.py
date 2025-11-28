@@ -31,7 +31,7 @@ print(f"Loaded {len(nen_stations)} NASA NEN stations")
 # Create a LEO satellite at 550km altitude
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 oe = np.array([bh.R_EARTH + 550e3, 0.001, 51.6, 0.0, 0.0, 0.0])
-state = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0).with_name("LEO Sat")
 
 # Propagate for 2 orbits

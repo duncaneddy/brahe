@@ -68,7 +68,7 @@ Higher degree/order models provide more accuracy but require more computation. F
 - **Medium/Geostationary Orbit**: Degree/order 4-8 usually adequate
 - **High-precision applications**: Degree/order 50+ may be needed
 
-Additional gravity models (`.gfz` files) can be downloaded from the [International Centre for Global Earth Models (ICGEM)](https://icgem.gfz-potsdam.de/tom_longtime) repository and used with Brahe.
+Additional gravity models (`.gfc` files) can be downloaded from the [International Centre for Global Earth Models (ICGEM)](https://icgem.gfz-potsdam.de/tom_longtime) repository and used with Brahe.
 
 ## Computational Considerations
 

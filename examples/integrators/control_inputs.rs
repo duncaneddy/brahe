@@ -11,7 +11,7 @@ use nalgebra::DVector;
 fn main() {
     // Orbital dynamics (gravity only)
     let dynamics =
-        move |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+        move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
             let r = state.fixed_rows::<3>(0);
             let v = state.fixed_rows::<3>(3);
             let r_norm = r.norm();
@@ -26,7 +26,7 @@ fn main() {
         };
 
     // Control input: constant low thrust in velocity direction
-    let control_input = move |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let control_input = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let v = state.fixed_rows::<3>(3);
         let v_norm = v.norm();
 
@@ -70,7 +70,7 @@ fn main() {
     );
 
     while t < period {
-        let result = integrator.step(t, current_state, dt);
+        let result = integrator.step(t, current_state, None, Some(dt));
         current_state = result.state;
         t += result.dt_used;
         dt = result.dt_next;

@@ -169,7 +169,7 @@ jacobian = bh.NumericalJacobian.central(dynamics) \\
 
 ### Adaptive Perturbation
 
-The adaptive perturbation strategy combines both absolute and relative scaling to choose an appropriate perturbation size for each state component. It multiples the component scale factor $s$ by $\sqrt(\epsilon)$ where $\espilon$ is machine epsilon for double precision ($\approx 2.22e-16$) and enforces a minimum threshold $h_{min}$ to avoid excessively small perturbations.
+The adaptive perturbation strategy combines both absolute and relative scaling to choose an appropriate perturbation size for each state component. It multiples the component scale factor $s$ by $\sqrt(\epsilon)$ where $\espilon$ is machine epsilon for double precision ($\approx 2.22e-16$) and enforces a minimum value $h_{min}$ to avoid excessively small perturbations.
 
 $$
 h_j = s \times \sqrt(\epsilon) \times \max(|x_j|, h_{min})
@@ -177,7 +177,7 @@ $$
 
 ```python
 jacobian = bh.NumericalJacobian.central(dynamics) \\
-    .with_adaptive(scale_factor=1e-8, min_threshold=1e-6)
+    .with_adaptive(scale_factor=1e-8, min_value=1e-6)
 ```
 
 !!! tip "Recommendation"

@@ -16,14 +16,14 @@ fn main() {
 
     // Convert to Cartesian state
     let oe = [a, e, i, 0.0, 0.0, 0.0];
-    let state0 = bh::state_osculating_to_cartesian(oe.into(), bh::AngleFormat::Degrees);
+    let state0 = bh::state_koe_to_eci(oe.into(), bh::AngleFormat::Degrees);
     let state0_dv = DVector::from_vec(state0.as_slice().to_vec());
 
     // Orbital period
     let period = bh::orbital_period(a);
 
     // Two-body dynamics
-    let dynamics = |_t: f64, state: DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
+    let dynamics = |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
         let v = nalgebra::Vector3::new(state[3], state[4], state[5]);
         let r_norm = r.norm();
@@ -53,20 +53,21 @@ fn main() {
     let mut total_error = 0.0;
 
     while t < period {
-        let result = integrator.step(t, state, dt.min(period - t));
+        let result = integrator.step(t, state, None, Some(dt.min(period - t)));
 
-        t += result.dt_used;
+        let dt_used = result.dt_used;
+        t += dt_used;
         state = result.state;
         dt = result.dt_next;
         steps += 1;
-        total_error += result.error_estimate;
+        total_error += result.error_estimate.unwrap();
 
         // Print at intervals
         if steps % 10 == 1 {
             let r = nalgebra::Vector3::new(state[0], state[1], state[2]);
             let r_norm = r.norm();
             println!("t={:6.2}h  r={:8.1}km  dt={:6.1}s  err={:.2e}",
-                     t / 3600.0, r_norm / 1e3, result.dt_used, result.error_estimate);
+                     t / 3600.0, r_norm / 1e3, dt_used, result.error_estimate.unwrap());
         }
     }
 
@@ -77,8 +78,8 @@ fn main() {
 
     // Verify orbit closure
     let final_state = [state[0], state[1], state[2], state[3], state[4], state[5]];
-    let final_oe = bh::state_cartesian_to_osculating(final_state.into(), bh::AngleFormat::Degrees);
-    let initial_oe = bh::state_cartesian_to_osculating(state0, bh::AngleFormat::Degrees);
+    let final_oe = bh::state_eci_to_koe(final_state.into(), bh::AngleFormat::Degrees);
+    let initial_oe = bh::state_eci_to_koe(state0, bh::AngleFormat::Degrees);
 
     println!("\nOrbit element errors after one period:");
     println!("  Semi-major axis: {:.3e} m", (final_oe[0] - initial_oe[0]).abs());

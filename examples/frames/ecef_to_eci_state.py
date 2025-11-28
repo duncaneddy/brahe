@@ -32,7 +32,7 @@ print(f"  ω    = {oe[4]:.4f}°")
 print(f"  M    = {oe[5]:.4f}°\n")
 
 # Convert to ECI Cartesian state
-state_eci = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+state_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Define epoch
 epc = bh.Epoch(2024, 1, 1, 12, 0, 0.0, time_system=bh.UTC)

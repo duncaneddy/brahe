@@ -18,7 +18,7 @@ use brahe::constants::{GM_EARTH, R_EARTH};
 use brahe::integrators::*;
 use brahe::math::jacobian::{DJacobianProvider, DNumericalJacobian};
 use brahe::math::sensitivity::{DNumericalSensitivity, DSensitivityProvider};
-use brahe::{state_osculating_to_cartesian, AngleFormat};
+use brahe::{state_koe_to_eci, AngleFormat};
 use nalgebra::{DVector, SVector};
 
 fn main() {
@@ -68,7 +68,7 @@ fn main() {
 
     // Create Jacobian provider (dynamics without explicit params for Jacobian)
     let params_clone = params.clone();
-    let dynamics_for_jacobian = move |_t: f64, state: DVector<f64>| -> DVector<f64> {
+    let dynamics_for_jacobian = move |_t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
         let cd_area_m = params_clone[0];
 
         let r = state.fixed_rows::<3>(0);
@@ -104,7 +104,7 @@ fn main() {
     // Augmented dynamics for state + sensitivity matrix propagation
     let params_for_aug = params.clone();
     let augmented_dynamics = move |t: f64,
-                                   aug_state: DVector<f64>,
+                                   aug_state: &DVector<f64>,
                                    _params: Option<&DVector<f64>>|
           -> DVector<f64> {
         // Extract state and sensitivity matrix
@@ -123,7 +123,7 @@ fn main() {
         let state_dot = dynamics_with_params(t, &state, &params_for_aug);
 
         // Compute Jacobian ∂f/∂x
-        let jacobian = jacobian_provider.compute(t, state.clone());
+        let jacobian = jacobian_provider.compute(t, &state, None);
 
         // Compute sensitivity ∂f/∂p
         let sensitivity = sensitivity_provider.compute(t, &state, &params_for_aug);
@@ -148,7 +148,7 @@ fn main() {
 
     // Initial state (200 km LEO for significant drag effects)
     let oe = SVector::<f64, 6>::from_row_slice(&[R_EARTH + 200e3, 0.001, 51.6, 0.0, 0.0, 0.0]);
-    let state_vec = state_osculating_to_cartesian(oe, AngleFormat::Degrees);
+    let state_vec = state_koe_to_eci(oe, AngleFormat::Degrees);
     let state = DVector::from_iterator(6, state_vec.iter().copied());
 
     // Initial sensitivity matrix (zeros - we're interested in how it develops)
@@ -178,7 +178,7 @@ fn main() {
     let dt = 1.0;
 
     while t < t_final {
-        aug_state = integrator.step(t, aug_state, Some(dt));
+        aug_state = integrator.step(t, aug_state, None, None).state;
         t += dt;
     }
 

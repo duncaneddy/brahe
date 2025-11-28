@@ -3,10 +3,12 @@
  * all the Python bindings for the core library into a single module.
  */
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use nalgebra as na;
-use nalgebra::{SMatrix, SVector};
+use nalgebra::{DMatrix, DVector, SVector, Vector3, Vector6};
 use numpy::{
     IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
     PyReadonlyArray3, PyUntypedArrayMethods, ToPyArray, ndarray,
@@ -15,10 +17,17 @@ use numpy::{
 use pyo3::panic::PanicException;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
-use pyo3::types::{PyDateAccess, PyDateTime, PyString, PyTimeAccess, PyTuple, PyType};
+use pyo3::types::{
+    PyDateAccess, PyDateTime, PyDict, PyList, PyString, PyTimeAccess, PyTuple, PyType,
+};
 use pyo3::{IntoPyObjectExt, exceptions, wrap_pyfunction};
 
+use crate::math::interpolation::CovarianceInterpolationConfig;
 use crate::traits::*;
+use crate::utils::{
+    BraheError, format_time_string, get_brahe_cache_dir, get_brahe_cache_dir_with_subdir,
+    get_celestrak_cache_dir, get_eop_cache_dir, get_max_threads, set_max_threads, set_num_threads,
+};
 use crate::*;
 
 // NOTE: While it would be better if all bindings were in separate files,
@@ -517,15 +526,16 @@ include!("time.rs");
 include!("frames.rs");
 include!("coordinates.rs");
 include!("orbits.rs");
+include!("orbit_dynamics.rs"); // Must come before propagators.rs (uses PyEphemerisSource)
+include!("integrators.rs"); // Must come before propagators.rs (uses PyIntegratorConfig)
+include!("events.rs"); // Must come before propagators.rs (premade events used in add_event_detector)
 include!("propagators.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
 include!("access.rs");
 include!("relative_motion.rs");
 include!("math.rs");
-include!("integrators.rs");
 include!("utils.rs");
-include!("orbit_dynamics.rs");
 include!("earth_models.rs");
 
 // Define Module
@@ -753,8 +763,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEllipsoidalConversionType>()?;
 
     // Cartesian
-    module.add_function(wrap_pyfunction!(py_state_osculating_to_cartesian, module)?)?;
-    module.add_function(wrap_pyfunction!(py_state_cartesian_to_osculating, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_koe_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_koe, module)?)?;
 
     // Geocentric
     module.add_function(wrap_pyfunction!(py_position_geocentric_to_ecef, module)?)?;
@@ -814,6 +824,21 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Propagator Support
     module.add_class::<PySGPPropagator>()?;
     module.add_class::<PyKeplerianPropagator>()?;
+    module.add_class::<PyIntegrationMethod>()?;
+    module.add_class::<PyAtmosphericModel>()?;
+    module.add_class::<PyEclipseModel>()?;
+    module.add_class::<PyNumericalPropagationConfig>()?;
+    module.add_class::<PyVariationalConfig>()?;
+    module.add_class::<PyParameterSource>()?;
+    module.add_class::<PyGravityConfiguration>()?;
+    module.add_class::<PyDragConfiguration>()?;
+    module.add_class::<PySolarRadiationPressureConfiguration>()?;
+    module.add_class::<PyThirdBody>()?;
+    module.add_class::<PyThirdBodyConfiguration>()?;
+    module.add_class::<PyForceModelConfig>()?;
+    module.add_class::<PyNumericalOrbitPropagator>()?;
+    module.add_class::<PyNumericalPropagator>()?;
+    module.add_class::<PyTrajectoryMode>()?;
     module.add_function(wrap_pyfunction!(py_par_propagate_to, module)?)?;
 
     // TLE Support
@@ -846,7 +871,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCovarianceInterpolationMethod>()?;
     module.add_class::<PyOrbitalTrajectory>()?;
     module.add_class::<PyTrajectory>()?;
-    module.add_class::<PySTrajectory6>()?;
 
     //* Attitude *//
     module.add_class::<PyQuaternion>()?;
@@ -879,22 +903,23 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_naif_download_de_kernel, module)?)?;
 
     //* Orbit Dynamics - Ephemerides *//
+    module.add_class::<PyEphemerisSource>()?;
     module.add_function(wrap_pyfunction!(py_sun_position, module)?)?;
     module.add_function(wrap_pyfunction!(py_moon_position, module)?)?;
-    module.add_function(wrap_pyfunction!(py_sun_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_moon_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mercury_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_venus_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mars_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jupiter_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_saturn_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_uranus_position_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_neptune_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_position_de, module)?)?;
     module.add_function(wrap_pyfunction!(
-        py_solar_system_barycenter_position_de440s,
+        py_solar_system_barycenter_position_de,
         module
     )?)?;
-    module.add_function(wrap_pyfunction!(py_ssb_position_de440s, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_position_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_initialize_ephemeris, module)?)?;
 
     //* Orbit Dynamics - Acceleration Models *//
@@ -902,28 +927,19 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Third-Body Accelerations
     module.add_function(wrap_pyfunction!(py_accel_third_body_sun, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_third_body_moon, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_accel_third_body_mercury_de440s,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_accel_third_body_jupiter_de440s,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_de440s, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_accel_third_body_neptune_de440s,
-        module
-    )?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mercury_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_jupiter_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_neptune_de, module)?)?;
 
     // Gravity Accelerations
     module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;
-    module.add_class::<PyDefaultGravityModel>()?;
+    module.add_class::<PyGravityModelType>()?;
     module.add_class::<PyGravityModelTideSystem>()?;
     module.add_class::<PyGravityModelErrors>()?;
     module.add_class::<PyGravityModelNormalization>()?;
@@ -983,6 +999,40 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Access Computation
     module.add_function(wrap_pyfunction!(py_location_accesses, module)?)?;
+
+    //* Event Detection *//
+    module.add_class::<PyEventDirection>()?;
+    module.add_class::<PyEdgeType>()?;
+    module.add_class::<PyEventAction>()?;
+    module.add_class::<PyEventType>()?;
+    module.add_class::<PyDetectedEvent>()?;
+    module.add_class::<PyEventQuery>()?;
+    module.add_class::<PyEventQueryIterator>()?;
+    module.add_class::<PyTimeEvent>()?;
+    module.add_class::<PyValueEvent>()?;
+    module.add_class::<PyBinaryEvent>()?;
+    module.add_class::<PyAltitudeEvent>()?;
+    // Orbital element events
+    module.add_class::<PySemiMajorAxisEvent>()?;
+    module.add_class::<PyEccentricityEvent>()?;
+    module.add_class::<PyInclinationEvent>()?;
+    module.add_class::<PyArgumentOfPerigeeEvent>()?;
+    module.add_class::<PyMeanAnomalyEvent>()?;
+    module.add_class::<PyEccentricAnomalyEvent>()?;
+    module.add_class::<PyTrueAnomalyEvent>()?;
+    module.add_class::<PyArgumentOfLatitudeEvent>()?;
+    // Node crossing events
+    module.add_class::<PyAscendingNodeEvent>()?;
+    module.add_class::<PyDescendingNodeEvent>()?;
+    // State-derived events
+    module.add_class::<PySpeedEvent>()?;
+    module.add_class::<PyLongitudeEvent>()?;
+    module.add_class::<PyLatitudeEvent>()?;
+    // Eclipse/shadow events
+    module.add_class::<PyUmbraEvent>()?;
+    module.add_class::<PyPenumbraEvent>()?;
+    module.add_class::<PyEclipseEvent>()?;
+    module.add_class::<PySunlitEvent>()?;
 
     //* Utils *//
     // Cache Management

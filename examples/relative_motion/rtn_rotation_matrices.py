@@ -24,7 +24,7 @@ oe = np.array(
 )
 
 # Convert to Cartesian ECI state
-x_eci = bh.state_osculating_to_cartesian(oe, bh.AngleFormat.DEGREES)
+x_eci = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Compute rotation matrices
 R_rtn_to_eci = bh.rotation_rtn_to_eci(x_eci)

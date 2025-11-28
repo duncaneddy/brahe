@@ -36,15 +36,13 @@
 
 # Brahe
 
-Brahe is a modern satellite dynamics library for research and engineering applications. It is designed to be easy-to-learn, quick-to-deploy, and easy to build on. The north-star of the development is enabling users to solve meaningful problems quickly and correctly.
+Brahe is a modern satellite dynamics library for research and engineering applications. It is designed to be quick-to-deploy, composable, extensible, and easy-to-learn. The north-star of the development is enabling users to solve meaningful problems quickly and correctly.
 
-Brahe is permissively licensed under an [MIT License](https://github.com/duncaneddy/brahe/blob/main/LICENSE) to encourage enable people to use and build on the work without worrying about licensing restrictions. We want people to be able to stop reinventing the astrodynamics wheel because commercial licenses are expensive, or open-source options are hard to use or incomplete.
+Brahe is permissively licensed under an [MIT License](https://github.com/duncaneddy/brahe/blob/main/LICENSE) to enable people to use and build on the work without worrying about licensing restrictions. We want people to be able to stop reinventing the astrodynamics "wheel" because commercial licenses are expensive and open-source options are hard to use.
 
-Finally, we also try to make the software library easy to understand and extend. Many astrodynamics libraries are written in a way that makes them hard to read, understand, or modify. Brahe is written in a modern style with an emphasis on code clarity and modularity to make it easier to understand how algorithms are implemented and to make it easier to extend the library to support new use-cases. This also has the added benefit of making it easier to verify and validate the correctness of the implementation.
+We try to prioritize making the software library easy to understand and extend. Many astrodynamics libraries are written in a way that makes them hard to read, understand, or modify. Brahe is written in a modern style with an emphasis on code clarity and modularity to make it easier to understand how algorithms are implemented and to make it easier to extend the library to support new use-cases. This approach has the added benefit of making it easier to verify and validate the correctness of the implementation.
 
-If you do find this useful, please consider starring the repository on GitHub to help increase its visibility. If you're using Brahe for school, research, a commercial endeavour, or flying a mission. I'd love to know about it!
-
-If you find a bug, have a feature request, want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it. We are building software to help everyone on this planet explore the universe. We encourage you to bring your unique perspective to help make us stronger. We appreciate contributions from everyone, no prior space experience is needed to participate.
+If you do find this useful, please consider starring the repository on GitHub to help increase its visibility. If you're using Brahe for school, research, a commercial endeavour, or flying a mission. I'd love to know about it.
 
 We hope you find Brahe useful for your work!
 
@@ -117,3 +115,7 @@ If you want to see more examples of how to use brahe, you can find even more wit
 The project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 We want to make it easy for people to use and build on the work without worrying about licensing restrictions!
+
+## Contributing
+
+If you find a bug, have a feature request, want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it. We are building software to help everyone on this planet explore the universe. We encourage you to bring your unique perspective to help make us stronger. We appreciate contributions from everyone, no prior space experience is needed to participate.

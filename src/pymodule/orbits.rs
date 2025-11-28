@@ -1346,3 +1346,115 @@ fn py_epoch_from_tle(line1: String) -> PyResult<PyEpoch> {
         Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
     }
 }
+
+/// Convert osculating Keplerian elements to mean Keplerian elements.
+///
+/// Applies the first-order Brouwer-Lyddane transformation to convert osculating
+/// (instantaneous) orbital elements to mean (orbit-averaged) elements. The
+/// transformation accounts for short-period and long-period J2 perturbations.
+///
+/// Args:
+///     osc (numpy.ndarray): Osculating Keplerian elements as a 6-element array:
+///         [a, e, i, Ω, ω, M] where:
+///         - a: Semi-major axis (meters)
+///         - e: Eccentricity (dimensionless)
+///         - i: Inclination (radians or degrees, per angle_format)
+///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
+///         - ω: Argument of perigee (radians or degrees, per angle_format)
+///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees)
+///
+/// Returns:
+///     numpy.ndarray: Mean Keplerian elements in the same format as input.
+///
+/// Note:
+///     The forward and inverse transformations are not perfectly inverse due to
+///     first-order truncation of the infinite series. Small errors of order J2²
+///     are expected.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Define osculating elements for a LEO satellite (angles in degrees)
+///     osc = np.array([
+///         bh.R_EARTH + 500e3,  # a = 6878 km
+///         0.001,               # e = 0.001 (near-circular)
+///         45.0,                # i = 45 degrees
+///         0.0,                 # Ω = 0
+///         0.0,                 # ω = 0
+///         0.0,                 # M = 0
+///     ])
+///
+///     mean = bh.state_koe_osc_to_mean(osc, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(osc, angle_format)")]
+#[pyo3(name = "state_koe_osc_to_mean")]
+fn py_state_koe_osc_to_mean<'py>(
+    py: Python<'py>,
+    osc: &Bound<'_, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let osc_vec = pyany_to_f64_array1(osc, Some(6))?;
+    let osc_svec = SVector::<f64, 6>::from_row_slice(&osc_vec);
+    let mean = orbits::state_koe_osc_to_mean(&osc_svec, angle_format.value);
+    Ok(mean.as_slice().to_pyarray(py))
+}
+
+/// Convert mean Keplerian elements to osculating Keplerian elements.
+///
+/// Applies the first-order Brouwer-Lyddane transformation to convert mean
+/// (orbit-averaged) orbital elements to osculating (instantaneous) elements.
+/// The transformation accounts for short-period and long-period J2 perturbations.
+///
+/// Args:
+///     mean (numpy.ndarray): Mean Keplerian elements as a 6-element array:
+///         [a, e, i, Ω, ω, M] where:
+///         - a: Semi-major axis (meters)
+///         - e: Eccentricity (dimensionless)
+///         - i: Inclination (radians or degrees, per angle_format)
+///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
+///         - ω: Argument of perigee (radians or degrees, per angle_format)
+///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees)
+///
+/// Returns:
+///     numpy.ndarray: Osculating Keplerian elements in the same format as input.
+///
+/// Note:
+///     The forward and inverse transformations are not perfectly inverse due to
+///     first-order truncation of the infinite series. Small errors of order J2²
+///     are expected.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Define mean elements for a LEO satellite (angles in degrees)
+///     mean = np.array([
+///         bh.R_EARTH + 500e3,  # a = 6878 km
+///         0.001,               # e = 0.001 (near-circular)
+///         45.0,                # i = 45 degrees
+///         0.0,                 # Ω = 0
+///         0.0,                 # ω = 0
+///         0.0,                 # M = 0
+///     ])
+///
+///     osc = bh.state_koe_mean_to_osc(mean, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(mean, angle_format)")]
+#[pyo3(name = "state_koe_mean_to_osc")]
+fn py_state_koe_mean_to_osc<'py>(
+    py: Python<'py>,
+    mean: &Bound<'_, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let mean_vec = pyany_to_f64_array1(mean, Some(6))?;
+    let mean_svec = SVector::<f64, 6>::from_row_slice(&mean_vec);
+    let osc = orbits::state_koe_mean_to_osc(&mean_svec, angle_format.value);
+    Ok(osc.as_slice().to_pyarray(py))
+}

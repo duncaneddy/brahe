@@ -69,6 +69,9 @@ from brahe._brahe import (
     keplerian_elements_to_tle,
     create_tle_lines,
     epoch_from_tle,
+    # Mean-osculating Keplerian element conversions
+    state_koe_osc_to_mean,
+    state_koe_mean_to_osc,
 )
 
 __all__ = [
@@ -116,4 +119,7 @@ __all__ = [
     "keplerian_elements_to_tle",
     "create_tle_lines",
     "epoch_from_tle",
+    # Mean-osculating Keplerian element conversions
+    "state_koe_osc_to_mean",
+    "state_koe_mean_to_osc",
 ]

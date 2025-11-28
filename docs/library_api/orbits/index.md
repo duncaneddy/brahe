@@ -7,6 +7,7 @@ Comprehensive tools for orbital mechanics computations and TLE handling.
 ## Sub-modules
 
 - **[Keplerian Elements](keplerian.md)** - Functions for computing orbital properties and converting between anomaly types
+- **[Mean Elements](mean_elements.md)** - Mean-osculating Keplerian element conversions
 - **[Two-Line Elements (TLE)](tle.md)** - TLE parsing, validation, and conversion utilities
 - **[Enumerations](enums.md)** - Orbit-related enumerations (OrbitRepresentation, OrbitFrame, etc.)
 

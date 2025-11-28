@@ -310,6 +310,7 @@ nav:
             - Orbits:
                 - library_api/orbits/index.md
                 - Keplerian Elements: library_api/orbits/keplerian.md
+                - Mean Elements: library_api/orbits/mean_elements.md
                 - Two-Line Elements: library_api/orbits/tle.md
                 - Altitude Functions: library_api/orbits/altitude_functions.md
                 - Enumerations: library_api/orbits/enums.md

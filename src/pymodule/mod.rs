@@ -855,6 +855,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_create_tle_lines, module)?)?;
     module.add_function(wrap_pyfunction!(py_epoch_from_tle, module)?)?;
 
+    // Mean-osculating Keplerian element conversions
+    module.add_function(wrap_pyfunction!(py_state_koe_osc_to_mean, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_koe_mean_to_osc, module)?)?;
+
     //* Relative Motion *//
     module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_rtn, module)?)?;

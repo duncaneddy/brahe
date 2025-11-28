@@ -2367,6 +2367,12 @@ impl PyEclipseModel {
         PyEclipseModel { model: propagators::EclipseModel::Cylindrical }
     }
 
+    /// Cylindrical eclipse model (simpler, faster)
+    #[classattr]
+    fn NONE() -> Self {
+        PyEclipseModel { model: propagators::EclipseModel::None }
+    }
+
     fn __repr__(&self) -> String {
         format!("EclipseModel.{:?}", self.model)
     }
@@ -2481,8 +2487,10 @@ impl PyParameterSource {
 ///         If None, uses point mass gravity.
 ///     order (int, optional): Maximum order of spherical harmonic expansion.
 ///         If None, uses point mass gravity.
-///     use_global (bool): If True, use global gravity model. Otherwise load EGM2008.
-///         Default is False.
+///     model_type (GravityModelType, optional): Gravity model to use.
+///         Defaults to EGM2008_360.
+///     use_global (bool, optional): If True, use global gravity model.
+///         Defaults to False.
 ///
 /// Example:
 ///     ```python
@@ -2493,6 +2501,11 @@ impl PyParameterSource {
 ///
 ///     # Spherical harmonic with 20x20 degree/order
 ///     gravity = bh.GravityConfiguration(degree=20, order=20)
+///
+///     # Spherical harmonic with specific model
+///     gravity = bh.GravityConfiguration(
+///         degree=20, order=20, model_type=bh.GravityModelType.GGM05S
+///     )
 ///
 ///     # Alternative: use class methods
 ///     gravity = bh.GravityConfiguration.point_mass()
@@ -2514,7 +2527,10 @@ impl PyGravityConfiguration {
     ///         If None, uses point mass gravity.
     ///     order (int, optional): Maximum order of spherical harmonic expansion.
     ///         If None, uses point mass gravity.
-    ///     use_global (bool): If True, use global gravity model. Otherwise load EGM2008.
+    ///     model_type (GravityModelType, optional): Gravity model to use.
+    ///         Defaults to EGM2008_360.
+    ///     use_global (bool, optional): If True, use global gravity model.
+    ///         Defaults to False.
     ///
     /// Returns:
     ///     GravityConfiguration: Gravity configuration (point mass or spherical harmonic).
@@ -2528,16 +2544,24 @@ impl PyGravityConfiguration {
     ///
     ///     # Spherical harmonic
     ///     gravity = bh.GravityConfiguration(degree=20, order=20)
+    ///
+    ///     # Spherical harmonic with specific model
+    ///     gravity = bh.GravityConfiguration(
+    ///         degree=20, order=20, model_type=bh.GravityModelType.GGM05S
+    ///     )
     ///     ```
     #[new]
-    #[pyo3(signature = (degree=None, order=None, use_global=false))]
-    fn new(degree: Option<usize>, order: Option<usize>, use_global: bool) -> Self {
+    #[pyo3(signature = (degree=None, order=None, model_type=None, use_global=false))]
+    fn new(degree: Option<usize>, order: Option<usize>, model_type: Option<&PyGravityModelType>, use_global: bool) -> Self {
         match (degree, order) {
             (Some(d), Some(o)) => {
                 let source = if use_global {
                     propagators::GravityModelSource::Global
                 } else {
-                    propagators::GravityModelSource::ModelType(crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360)
+                    let model = model_type
+                        .map(|mt| mt.model.clone())
+                        .unwrap_or(crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
+                    propagators::GravityModelSource::ModelType(model)
                 };
                 PyGravityConfiguration {
                     config: propagators::GravityConfiguration::SphericalHarmonic { source, degree: d, order: o },
@@ -2565,17 +2589,36 @@ impl PyGravityConfiguration {
     /// Args:
     ///     degree (int): Maximum degree of expansion.
     ///     order (int): Maximum order of expansion.
-    ///     use_global (bool): If True, use global gravity model. Otherwise load EGM2008.
+    ///     model_type (GravityModelType, optional): Gravity model to use.
+    ///         Defaults to EGM2008_360.
+    ///     use_global (bool, optional): If True, use global gravity model.
+    ///         Defaults to False.
     ///
     /// Returns:
     ///     GravityConfiguration: Spherical harmonic gravity.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # Default (EGM2008)
+    ///     gravity = bh.GravityConfiguration.spherical_harmonic(degree=20, order=20)
+    ///
+    ///     # With specific model
+    ///     gravity = bh.GravityConfiguration.spherical_harmonic(
+    ///         degree=20, order=20, model_type=bh.GravityModelType.GGM05S
+    ///     )
+    ///     ```
     #[classmethod]
-    #[pyo3(signature = (degree, order, use_global=false))]
-    fn spherical_harmonic(_cls: &Bound<'_, PyType>, degree: usize, order: usize, use_global: bool) -> Self {
+    #[pyo3(signature = (degree, order, model_type=None, use_global=false))]
+    fn spherical_harmonic(_cls: &Bound<'_, PyType>, degree: usize, order: usize, model_type: Option<&PyGravityModelType>, use_global: bool) -> Self {
         let source = if use_global {
             propagators::GravityModelSource::Global
         } else {
-            propagators::GravityModelSource::ModelType(crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360)
+            let model = model_type
+                .map(|mt| mt.model.clone())
+                .unwrap_or(crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
+            propagators::GravityModelSource::ModelType(model)
         };
         PyGravityConfiguration {
             config: propagators::GravityConfiguration::SphericalHarmonic { source, degree, order },

@@ -16,7 +16,3 @@ gravity = bh.GravityConfiguration.point_mass()
 
 # Use two_body() preset which includes point mass gravity
 force_config = bh.ForceModelConfig.two_body()
-
-print("Point Mass Gravity Configuration:")
-print(f"  Gravity is point mass: {gravity.is_point_mass()}")
-print(f"  Gravity is spherical harmonic: {gravity.is_spherical_harmonic()}")

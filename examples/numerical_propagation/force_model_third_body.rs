@@ -50,7 +50,7 @@ fn main() {
     };
 
     // Create force model with Sun/Moon perturbations (common case)
-    let force_config = bh::ForceModelConfiguration {
+    let _force_config = bh::ForceModelConfig {
         gravity: bh::GravityConfiguration::SphericalHarmonic {
             source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
             degree: 20,
@@ -62,27 +62,4 @@ fn main() {
         relativity: false,
         mass: None,
     };
-
-    println!("Third-Body Perturbations Configuration:");
-    println!("  Requires params: {}", force_config.requires_params());
-
-    println!("\nEphemeris Sources:");
-    println!("  LowPrecision: Fast, ~km accuracy, Sun/Moon only");
-    println!("  DE440s: High precision (~m), 1550-2650 CE, ~17 MB");
-    println!("  DE440: Highest precision (~mm), 13200 BCE-17191 CE, ~114 MB");
-
-    println!("\nAvailable Third Bodies:");
-    println!("  Sun, Moon, Mercury, Venus, Mars");
-    println!("  Jupiter, Saturn, Uranus, Neptune");
-
-    println!("\nWhen third-body effects are significant:");
-    println!("  - All orbits: Sun perturbations affect eccentricity/inclination");
-    println!("  - High-altitude orbits: Moon becomes important");
-    println!("  - GEO: Sun and Moon are dominant perturbations");
-    println!("  - Interplanetary: Include relevant planets");
-
-    // Note: Third-body only configs don't require spacecraft parameters
-    assert!(!force_config.requires_params());
-
-    println!("\nExample validated successfully!");
 }

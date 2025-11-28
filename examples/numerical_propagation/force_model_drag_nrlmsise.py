@@ -8,6 +8,9 @@ High-fidelity atmospheric model for precision applications.
 
 import brahe as bh
 
+# Initialize space weather data provider
+bh.initialize_sw()
+
 # NRLMSISE-00 atmospheric drag configuration
 # - Naval Research Laboratory Mass Spectrometer and Incoherent Scatter Radar
 # - High-fidelity empirical model

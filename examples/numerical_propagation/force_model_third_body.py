@@ -51,31 +51,3 @@ third_body_all_planets = bh.ThirdBodyConfiguration(
         bh.ThirdBody.NEPTUNE,
     ],
 )
-
-# Apply to force model - start from conservative preset
-force_config = bh.ForceModelConfig.conservative_forces()
-
-print("Third-Body Perturbations Configuration:")
-print(f"  Requires params: {force_config.requires_params()}")
-
-print("\nEphemeris Sources:")
-print("  LowPrecision: Fast, ~km accuracy, Sun/Moon only")
-print("  DE440s: High precision (~m), 1550-2650 CE, ~17 MB")
-print("  DE440: Highest precision (~mm), 13200 BCE-17191 CE, ~114 MB")
-
-print("\nAvailable Third Bodies:")
-print("  Sun, Moon, Mercury, Venus, Mars")
-print("  Jupiter, Saturn, Uranus, Neptune")
-
-print("\nWhen third-body effects are significant:")
-print("  - All orbits: Sun perturbations affect eccentricity/inclination")
-print("  - High-altitude orbits: Moon becomes important")
-print("  - GEO: Sun and Moon are dominant perturbations")
-print("  - Interplanetary: Include relevant planets")
-
-# Show third-body configuration details
-print("\nThird-body configuration details:")
-print(f"  Ephemeris source: {third_body_de440s.ephemeris_source}")
-print(f"  Bodies: {third_body_de440s.bodies}")
-
-print("\nExample validated successfully!")

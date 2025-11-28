@@ -1058,24 +1058,43 @@ impl PyGravityModelType {
 
     /// Load a custom gravity model from a file.
     ///
+    /// Validates that the file exists before returning the model type.
+    ///
     /// Args:
-    ///     filepath (str): Path to the gravity model file in GFC format
+    ///     filepath (str): Path to the gravity model file in GFC format.
     ///
     /// Returns:
-    ///     GravityModelType: Gravity model type for loading from file
+    ///     GravityModelType: Gravity model type for loading from file.
+    ///
+    /// Raises:
+    ///     FileNotFoundError: If the file does not exist.
+    ///     IsADirectoryError: If the path is a directory, not a file.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     model_type = bh.GravityModelType.from_file("/path/to/custom_model.gfc")
+    ///     model_type = bh.GravityModelType.from_file("path/to/custom_model.gfc")
     ///     model = bh.GravityModel.from_model_type(model_type)
     ///     ```
     #[staticmethod]
-    fn from_file(filepath: String) -> Self {
-        PyGravityModelType {
-            model: orbit_dynamics::GravityModelType::FromFile(filepath),
+    fn from_file(filepath: String) -> PyResult<Self> {
+        let path = std::path::Path::new(&filepath);
+        if !path.exists() {
+            return Err(exceptions::PyFileNotFoundError::new_err(format!(
+                "Gravity model file not found: {}",
+                filepath
+            )));
         }
+        if !path.is_file() {
+            return Err(exceptions::PyIsADirectoryError::new_err(format!(
+                "Gravity model path is not a file: {}",
+                filepath
+            )));
+        }
+        Ok(PyGravityModelType {
+            model: orbit_dynamics::GravityModelType::FromFile(filepath),
+        })
     }
 
     fn __str__(&self) -> String {

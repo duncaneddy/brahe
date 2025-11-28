@@ -1,94 +1,68 @@
 # Integrator Configuration
 
-The `NumericalPropagationConfig` controls the numerical integration method, step sizes, and error tolerances. Choosing appropriate settings balances accuracy against computational cost.
+The `NumericalPropagationConfig` controls the numerical integration method, step sizes, and error tolerances. Brahe provides preset configurations for common scenarios and allows custom configurations for specific requirements.
 
 For API details, see the [NumericalPropagationConfig API Reference](../../../library_api/propagators/numerical_propagation_config.md). For detailed information about integrator theory and low-level usage, see the [Numerical Integration](../../integrators/index.md) guide.
 
-## NumericalPropagationConfig
+## Full Example
 
-The `NumericalPropagationConfig` class contains three components:
-
-- **method**: The integration method to use (`IntegratorMethod`)
-- **integrator**: Tolerances and step size settings (`IntegratorConfig`)
-- **variational**: STM and sensitivity matrix settings (`VariationalConfig`)
-
-### Constructor
-
-=== "Python"
-
-    ```python
-    config = bh.NumericalPropagationConfig(
-        method=bh.IntegratorMethod.DP54,
-        integrator=bh.IntegratorConfig.adaptive(1e-9, 1e-6),
-        variational=bh.VariationalConfig.default(),
-    )
-    ```
-
-=== "Rust"
-
-    ```rust
-    let config = NumericalPropagationConfig {
-        method: IntegratorMethod::DP54,
-        integrator: IntegratorConfig::adaptive(1e-9, 1e-6),
-        variational: VariationalConfig::default(),
-    };
-    ```
-
-## IntegratorConfig
-
-The `IntegratorConfig` struct contains settings for error control and step size limits.
-
-### Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `abs_tol` | f64 | 1e-6 | Absolute error tolerance |
-| `rel_tol` | f64 | 1e-3 | Relative error tolerance |
-| `initial_step` | Option | None | Initial step size (auto if None) |
-| `min_step` | Option | 1e-12 | Minimum allowed step size |
-| `max_step` | Option | 900.0 | Maximum allowed step size (15 min) |
-| `step_safety_factor` | Option | 0.9 | Safety factor for step control |
-| `min_step_scale_factor` | Option | 0.2 | Minimum step reduction factor |
-| `max_step_scale_factor` | Option | 10.0 | Maximum step growth factor |
-| `max_step_attempts` | usize | 10 | Max attempts per step |
-| `fixed_step_size` | Option | None | Fixed step for non-adaptive methods |
-
-For comprehensive discussion of these parameters and how they affect integration, see the [Numerical Integration](../../integrators/index.md) guide.
-
-### Factory Methods
-
-**default()**: Standard settings for general use.
-
-**fixed_step(step_size)**: Configure for fixed-step integration.
-
-**adaptive(abs_tol, rel_tol)**: Configure with custom tolerances.
+Here is a complete example creating a `NumericalPropagationConfig` exercising all available configuration options:
 
 === "Python"
 
     ``` python
-    --8<-- "./examples/numerical_propagation/integrator_tolerances.py:8"
+    --8<-- "./examples/numerical_propagation/integrator_overview.py:8"
     ```
 
 === "Rust"
 
     ``` rust
-    --8<-- "./examples/numerical_propagation/integrator_tolerances.rs:4"
+    --8<-- "./examples/numerical_propagation/integrator_overview.rs:4"
     ```
 
-## IntegratorMethod
+## Architecture Overview
+
+### Configuration Hierarchy
+
+`NumericalPropagationConfig` is the top-level container that aggregates all integrator settings. Each component has its own configuration struct:
+
+``` .no-linenums
+NumericalPropagationConfig
+├── method: IntegratorMethod
+│   ├── RK4 (fixed step)
+│   ├── RKF45 (adaptive)
+│   ├── DP54 (adaptive, default)
+│   └── RKN1210 (adaptive, high precision)
+├── integrator: IntegratorConfig
+│   ├── abs_tol, rel_tol
+│   ├── initial_step, min_step, max_step
+│   ├── step_safety_factor
+│   ├── min/max_step_scale_factor
+│   └── fixed_step_size (for RK4)
+└── variational: VariationalConfig
+    ├── enable_stm, enable_sensitivity
+    ├── store_stm_history, store_sensitivity_history
+    └── jacobian_method, sensitivity_method
+```
+
+The configuration is captured at propagator construction time and remains immutable during propagation.
+
+## Integration Methods
 
 Four integration methods are available:
 
+<div class="center-table" markdown="1">
 | Method | Order | Adaptive | Function Evals | Description |
-|--------|-------|----------|----------------|-------------|
+|------|-----|--------|--------------|-----------|
 | RK4 | 4 | No | 4 | Classic fixed-step Runge-Kutta |
 | RKF45 | 4(5) | Yes | 6 | Runge-Kutta-Fehlberg adaptive |
 | DP54 | 5(4) | Yes | 6-7 | Dormand-Prince (MATLAB ode45) |
 | RKN1210 | 12(10) | Yes | 17 | High-precision Runge-Kutta-Nystrom |
+</div>
 
 ### RK4 (Fixed Step)
 
-Classic 4th-order Runge-Kutta with fixed step size. No error control.
+Classic 4th-order Runge-Kutta with fixed step size. No error control - requires careful step size selection.
 
 === "Python"
 
@@ -104,7 +78,7 @@ Classic 4th-order Runge-Kutta with fixed step size. No error control.
 
 ### DP54 (Default)
 
-Dormand-Prince 5(4) adaptive method. The default choice for most applications.
+Dormand-Prince 5(4) adaptive method. Uses FSAL (First-Same-As-Last) optimization for efficiency. MATLAB's `ode45` uses this method.
 
 === "Python"
 
@@ -120,7 +94,7 @@ Dormand-Prince 5(4) adaptive method. The default choice for most applications.
 
 ### RKN1210 (High Precision)
 
-12th-order Runge-Kutta-Nystrom for maximum accuracy.
+12th-order Runge-Kutta-Nystrom optimized for second-order ODEs like orbital mechanics. Achieves extreme accuracy with tight tolerances.
 
 === "Python"
 
@@ -134,15 +108,44 @@ Dormand-Prince 5(4) adaptive method. The default choice for most applications.
     --8<-- "./examples/numerical_propagation/integrator_method_rkn1210.rs:4"
     ```
 
-## Builder Pattern
+## Error Tolerances
 
-The Python API supports method chaining to customize configuration:
+Adaptive integrators adjust step size to keep error within:
+
+$$
+\text{error} < \text{abs\_tol} + \text{rel\_tol} \times |\text{state}|
+$$
+
+- **`abs_tol`**: Bounds error when state components are small (default: 1e-6)
+- **`rel_tol`**: Bounds error proportional to state magnitude (default: 1e-3)
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/integrator_tolerances.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/integrator_tolerances.rs:4"
+    ```
+
+## Customizing Configuration
+
+### Python Builder Pattern
+
+Python supports method chaining to customize from a preset:
 
 === "Python"
 
     ``` python
     --8<-- "./examples/numerical_propagation/integrator_builder_pattern.py:8"
     ```
+
+### Rust Struct Syntax
+
+In Rust, use struct update syntax (`..`) to customize from defaults:
 
 === "Rust"
 
@@ -154,11 +157,13 @@ The Python API supports method chaining to customize configuration:
 
 Brahe provides preset configurations for common use cases:
 
+<div class="center-table" markdown="1">
 | Preset | Method | abs_tol | rel_tol | Description |
-|--------|--------|---------|---------|-------------|
+|------|------|-------|-------|-----------|
 | `default()` | DP54 | 1e-6 | 1e-3 | General purpose |
 | `high_precision()` | RKN1210 | 1e-10 | 1e-8 | Maximum accuracy |
 | `with_method(M)` | M | 1e-6 | 1e-3 | Custom method with defaults |
+</div>
 
 === "Python"
 
@@ -174,39 +179,16 @@ Brahe provides preset configurations for common use cases:
 
 ## Variational Equations
 
-The propagator can optionally integrate variational equations to compute the State Transition Matrix (STM). This is enabled via `VariationalConfig`:
+The propagator can optionally integrate variational equations to compute the State Transition Matrix (STM) and sensitivity matrices. This is enabled via `VariationalConfig`:
 
-```python
-var_config = bh.VariationalConfig(
-    enable_stm=True,
-    enable_sensitivity=False,
-    store_stm_history=True,
-    store_sensitivity_history=False,
-    jacobian_method=bh.DifferenceMethod.CENTRAL,
-    sensitivity_method=bh.DifferenceMethod.CENTRAL,
-)
-```
+- **`enable_stm`**: Compute the State Transition Matrix
+- **`enable_sensitivity`**: Compute parameter sensitivity matrix
+- **`store_*_history`**: Store matrices at output times in trajectory
+- **`jacobian_method`/`sensitivity_method`**: Finite difference method (Forward, Backward, Central)
 
-The STM is useful for:
+The STM maps initial state perturbations to final state perturbations: $\delta\mathbf{x}(t) = \Phi(t, t_0) \cdot \delta\mathbf{x}(t_0)$
 
-- Covariance propagation
-- Sensitivity analysis
-- Orbit determination
-- Maneuver optimization
-
-See [Covariance and Sensitivity](covariance_sensitivity.md) for details.
-
-## Performance Impact
-
-Integration method choice significantly affects performance:
-
-| Method | Relative Speed | Relative Accuracy |
-|--------|----------------|-------------------|
-| RK4 (60s step) | Fastest | Lowest |
-| DP54 (default) | Medium | Good |
-| RKN1210 (high precision) | Slowest | Highest |
-
-For most applications, DP54 with default tolerances provides the best balance. Use RKN1210 only when sub-millimeter precision is required over extended periods.
+See [Covariance and Sensitivity](covariance_sensitivity.md) for detailed usage.
 
 ---
 

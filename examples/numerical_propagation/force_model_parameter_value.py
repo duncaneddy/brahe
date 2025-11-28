@@ -37,29 +37,3 @@ force_config.third_body = bh.ThirdBodyConfiguration(
     bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
 )
 force_config.mass = bh.ParameterSource.value(500.0)  # Fixed 500 kg mass
-
-print("Using ParameterSource.value() for Fixed Parameters:")
-print("  Mass: 500.0 kg (fixed)")
-print("  Drag area: 10.0 m^2 (fixed)")
-print("  Cd: 2.2 (fixed)")
-print("  SRP area: 15.0 m^2 (fixed)")
-print("  Cr: 1.3 (fixed)")
-
-# With all fixed values, no parameter vector is required
-print(f"\nRequires parameter vector: {force_config.requires_params()}")
-
-print("\nWhen to use ParameterSource.value():")
-print("  - Parameter is well-known and constant")
-print("  - Not performing parameter estimation")
-print("  - Simpler propagator setup (no params array needed)")
-
-print("\nWhen to use ParameterSource.parameter_index() instead:")
-print("  - Parameter may be varied or estimated")
-print("  - Running batch studies with different values")
-print("  - Performing orbit determination")
-print("  - Need to update parameters during simulation")
-
-# Validate - all fixed values means no params required
-assert not force_config.requires_params()
-
-print("\nExample validated successfully!")

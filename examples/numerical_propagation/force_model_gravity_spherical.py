@@ -2,46 +2,38 @@
 # dependencies = ["brahe"]
 # ///
 """
-Configuring spherical harmonic gravity with custom degree and order.
-Shows how to use different gravity model resolutions.
+Configuring spherical harmonic gravity with different model sources.
+Shows packaged models (EGM2008, GGM05S, JGM3) and custom file loading.
 """
 
 import brahe as bh
 
-# Spherical harmonic gravity uses EGM2008 geopotential model
-# Higher degree/order = more accurate but computationally expensive
+# ==============================================================================
+# Packaged Gravity Models
+# ==============================================================================
 
-# Low-resolution for fast computation (e.g., GEO)
-gravity_low = bh.GravityConfiguration.spherical_harmonic(degree=8, order=8)
+# EGM2008 - High-fidelity NGA model (360x360 max)
+gravity_egm2008 = bh.GravityConfiguration.spherical_harmonic(
+    degree=20, order=20, model_type=bh.GravityModelType.EGM2008_360
+)
 
-# Medium resolution for general use (e.g., default)
-gravity_medium = bh.GravityConfiguration.spherical_harmonic(degree=20, order=20)
+# GGM05S - GRACE mission model (180x180 max)
+gravity_ggm05s = bh.GravityConfiguration.spherical_harmonic(
+    degree=20, order=20, model_type=bh.GravityModelType.GGM05S
+)
 
-# High resolution for precision applications (e.g., LEO POD)
-gravity_high = bh.GravityConfiguration.spherical_harmonic(degree=70, order=70)
+# JGM3 - Legacy model, fast computation (70x70 max)
+gravity_jgm3 = bh.GravityConfiguration.spherical_harmonic(
+    degree=20, order=20, model_type=bh.GravityModelType.JGM3
+)
 
-print("Spherical Harmonic Gravity Configurations:")
-print("\n  Low resolution (8x8):")
-print(f"    Is spherical harmonic: {gravity_low.is_spherical_harmonic()}")
-print(f"    Degree: {gravity_low.get_degree()}, Order: {gravity_low.get_order()}")
+# ==============================================================================
+# Custom Model from File
+# ==============================================================================
 
-print("\n  Medium resolution (20x20):")
-print(f"    Degree: {gravity_medium.get_degree()}, Order: {gravity_medium.get_order()}")
-
-print("\n  High resolution (70x70):")
-print(f"    Degree: {gravity_high.get_degree()}, Order: {gravity_high.get_order()}")
-
-# Apply to force model - start with preset and modify
-force_config = bh.ForceModelConfig.earth_gravity()
-print(f"\nearth_gravity() preset gravity degree: {force_config.gravity.get_degree()}")
-
-# Modify to use high-resolution gravity
-force_config.gravity = gravity_high
-print(f"After modification, degree: {force_config.gravity.get_degree()}")
-
-print("\nRecommended degree/order by orbit type:")
-print("  - High altitude (GEO): 4x4 to 8x8")
-print("  - General mission analysis: 20x20 to 36x36")
-print("  - LEO precision/POD: 70x70+")
-
-print("\nExample validated successfully!")
+# Load custom gravity model from GFC format file
+# GravityModelType.from_file validates the path exists
+custom_model_type = bh.GravityModelType.from_file("data/gravity_models/EGM2008_360.gfc")
+gravity_custom = bh.GravityConfiguration.spherical_harmonic(
+    degree=20, order=20, model_type=custom_model_type
+)

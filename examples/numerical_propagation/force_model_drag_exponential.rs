@@ -5,18 +5,6 @@ use brahe as bh;
 use bh::GravityModelType;
 
 fn main() {
-    // Exponential atmosphere model
-    // Density varies as: rho(h) = rho0 * exp(-(h - h0) / H)
-    // - Very fast computation
-    // - Good for rough estimates and educational purposes
-    // - Does not account for latitude, solar activity, or time variations
-
-    // Typical scale heights for different altitude regimes:
-    // 150 km: ~22 km
-    // 200 km: ~37 km
-    // 300 km: ~53 km
-    // 400 km: ~59 km
-    // 500 km: ~70 km
 
     let drag_config = bh::DragConfiguration {
         model: bh::AtmosphericModel::Exponential {
@@ -29,7 +17,7 @@ fn main() {
     };
 
     // Create force model with exponential drag
-    let force_config = bh::ForceModelConfiguration {
+    let _force_config = bh::ForceModelConfig {
         gravity: bh::GravityConfiguration::SphericalHarmonic {
             source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
             degree: 20,
@@ -41,29 +29,4 @@ fn main() {
         relativity: false,
         mass: Some(bh::ParameterSource::ParameterIndex(0)),
     };
-
-    println!("Exponential Atmosphere Model:");
-    println!("  Formula: rho(h) = rho0 * exp(-(h - h0) / H)");
-    println!("  Scale height (H): 53,000 m");
-    println!("  Reference density (rho0): 1.225e-11 kg/m^3");
-    println!("  Reference altitude (h0): 300,000 m");
-    println!("  Requires params: {}", force_config.requires_params());
-
-    println!("\nTypical scale heights by altitude:");
-    println!("  150 km: ~22 km");
-    println!("  200 km: ~37 km");
-    println!("  300 km: ~53 km");
-    println!("  400 km: ~59 km");
-    println!("  500 km: ~70 km");
-
-    println!("\nWhen to use exponential model:");
-    println!("  - Quick analytical estimates");
-    println!("  - Educational/teaching purposes");
-    println!("  - When computation speed is critical");
-    println!("  - Not recommended for precision applications");
-
-    // Validate - drag config requires parameters
-    assert!(force_config.requires_params());
-
-    println!("\nExample validated successfully!");
 }

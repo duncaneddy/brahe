@@ -4,6 +4,22 @@ The `ForceModelConfig` (Python) / `ForceModelConfig` (Rust) defines which physic
 
 For API details, see the [ForceModelConfig API Reference](../../../library_api/propagators/force_model_config.md).
 
+## Full Example
+
+here is a complete example creating a `ForceModelConfig` exercising all available configuration options:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/force_model_overview.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/force_model_overview.rs:4"
+    ```
+
 ## Architecture Overview
 
 ### Configuration Hierarchy
@@ -48,7 +64,11 @@ The [Parameter Configuration](#parameter-configuration) section below provides d
 
 Gravity is the primary force in orbital mechanics. Brahe supports two gravity models:
 
-**Point Mass**: Simple two-body central gravity ($\mu/r^2$). Fast but ignores Earth's non-spherical shape.
+**Point Mass**: Simple two-body central gravity. Fast but ignores Earth's non-spherical shape.
+
+$$
+\mathbf{a} = -\frac{GM}{r^3} \mathbf{r}
+$$
 
 === "Python"
 
@@ -64,6 +84,10 @@ Gravity is the primary force in orbital mechanics. Brahe supports two gravity mo
 
 **Spherical Harmonics**: High-fidelity gravity using EGM2008, GGM05S, or user-defined `.gfz` model. Degree and order control accuracy vs computation time.
 
+$$
+\mathbf{a} = -\nabla V, \quad V(r, \phi, \lambda) = \frac{GM}{r} \sum_{n=0}^{N} \sum_{m=0}^{n} \left(\frac{R_E}{r}\right)^n \bar{P}_{nm}(\sin\phi) \left(\bar{C}_{nm}\cos(m\lambda) + \bar{S}_{nm}\sin(m\lambda)\right)
+$$
+
 === "Python"
 
     ``` python
@@ -78,7 +102,15 @@ Gravity is the primary force in orbital mechanics. Brahe supports two gravity mo
 
 ### Atmospheric Drag
 
-Atmospheric drag is significant for LEO satellites. Three atmospheric models are available:
+Atmospheric drag is significant for LEO satellites.
+
+$$
+\mathbf{a}_D = -\frac{1}{2} C_D \frac{A}{m} \rho v_{rel}^2 \mathbf{\hat{v}}_{rel}
+$$
+
+where $\rho$ is atmospheric density, $v_{rel}$ is velocity relative to the atmosphere, $C_D$ is drag coefficient, and $A/m$ is area-to-mass ratio.
+
+Three atmospheric models are available:
 
 **Harris-Priester**: Fast model with diurnal density variations. Valid 100-1000 km altitude. No space weather data required.
 
@@ -108,7 +140,13 @@ Atmospheric drag is significant for LEO satellites. Three atmospheric models are
     --8<-- "./examples/numerical_propagation/force_model_drag_nrlmsise.rs:4"
     ```
 
-**Exponential**: Simple analytical model: $\rho(h) = \rho_0 \exp(-(h-h_0)/H)$. Fast for rough estimates.
+**Exponential**: An expontential atmospheric density model defined by which provides a simple approximation that is fast for rough calculations:
+
+$$
+\rho(h) = \rho_0 e^{-\frac{h-h_0}{H}}
+$$
+
+$\rho_0$ is reference density at altitude $h_0$ and $H$ is scale height.
 
 === "Python"
 
@@ -124,7 +162,15 @@ Atmospheric drag is significant for LEO satellites. Three atmospheric models are
 
 ### Solar Radiation Pressure
 
-SRP is significant for high-altitude orbits and high area-to-mass ratio spacecraft. Eclipse models determine shadow effects:
+SRP is significant for high-altitude orbits and high area-to-mass ratio spacecraft.
+
+$$
+\mathbf{a}_{SRP} = -P_{\odot} C_R \frac{A}{m} \nu \frac{\mathbf{r}_{\odot}}{|\mathbf{r}_{\odot}|}
+$$
+
+where $P_{\odot} \approx 4.56 \times 10^{-6}$ N/m² is solar pressure at 1 AU, $C_R$ is reflectivity coefficient, $\nu$ is shadow function (0-1), and $\mathbf{r}_{\odot}$ is the Sun position vector.
+
+Eclipse models determine shadow effects:
 
 - **None**: Always illuminated (fast, inaccurate in shadow)
 - **Cylindrical**: Sharp shadow boundary (simple, fast)
@@ -146,11 +192,17 @@ SRP is significant for high-altitude orbits and high area-to-mass ratio spacecra
 
 Gravitational attraction from Sun, Moon, and planets causes long-period variations in orbital elements.
 
+$$
+\mathbf{a}_{TB} = GM_{b} \left(\frac{\mathbf{r}_b - \mathbf{r}}{|\mathbf{r}_b - \mathbf{r}|^3} - \frac{\mathbf{r}_b}{|\mathbf{r}_b|^3}\right)
+$$
+
+where $GM_b$ is the gravitational parameter of the third body, $\mathbf{r}_b$ is its position, and $\mathbf{r}$ is the satellite position.
+
 Ephemeris sources:
 
-- **LowPrecision**: Fast analytical (~km accuracy), Sun/Moon only
-- **DE440s**: JPL high precision (~m accuracy), all planets, 1550-2650 CE
-- **DE440**: JPL highest precision (~mm accuracy), all planets, 13200 BCE-17191 CE
+- **LowPrecision**: Fast analytical, Sun/Moon only
+- **DE440s**: JPL high precision, all planets, 1550-2650 CE
+- **DE440**: JPL high precision, all planets, 13200 BCE-17191 CE
 
 === "Python"
 
@@ -167,6 +219,12 @@ Ephemeris sources:
 ### Relativistic Effects
 
 General relativistic corrections can be enabled via the `relativity` boolean flag. These effects are typically small but can be significant for precision orbit determination.
+
+$$
+\mathbf{a} = -\frac{GM}{r^2} \left( \left( 4\frac{GM}{c^2r} - \frac{v^2}{c^2} \right)\mathbf{e}_r + 4\frac{v^2}{c^2}\left(\mathbf{e}_r \cdot \mathbf{e}_v\right)\mathbf{e}_v\right)
+$$
+
+where $c$ is the speed of light, $\mathbf{e}_r$ is the radial unit vector, and $\mathbf{e}_v$ is the velocity unit vector.
 
 ## Parameter Configuration
 
@@ -210,7 +268,7 @@ When using parameter indices, the default layout is:
 
 <div class="center-table" markdown="1">
 | Index | Parameter | Units | Typical Value |
-|-------|-----------|-------|---------------|
+|-----|---------|-----|-------------|
 | 0 | mass | kg | 1000.0 |
 | 1 | drag_area | m² | 10.0 |
 | 2 | Cd | - | 2.2 |
@@ -218,31 +276,13 @@ When using parameter indices, the default layout is:
 | 4 | Cr | - | 1.3 |
 </div>
 
-Custom indices can be used by specifying different values in the configuration.
-
-### Building Custom Configurations
-
-Combine components for specific mission requirements:
-
-=== "Python"
-
-    ``` python
-    --8<-- "./examples/numerical_propagation/force_model_custom.py:8"
-    ```
-
-=== "Rust"
-
-    ``` rust
-    --8<-- "./examples/numerical_propagation/force_model_custom.rs:4"
-    ```
-
 ## Preset Configurations
 
 Brahe provides preset configurations for common scenarios:
 
 <div class="center-table" markdown="1">
 | Preset | Gravity | Drag | SRP | Third-Body | Relativity | Requires Params |
-|--------|---------|------|-----|------------|------------|-----------------|
+|------|-------|----|---|----------|----------|---------------|
 | `two_body()` | PointMass | None | None | None | No | No |
 | `earth_gravity()` | 20×20 | None | None | None | No | No |
 | `conservative_forces()` | 80×80 | None | None | Sun/Moon (DE440s) | Yes | No |

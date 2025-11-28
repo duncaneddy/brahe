@@ -16,7 +16,7 @@ State Vector (6+ elements)
 ├── [3] vx - Velocity X (m/s, ECI)
 ├── [4] vy - Velocity Y (m/s, ECI)
 ├── [5] vz - Velocity Z (m/s, ECI)
-└── [6+]   - Extended state (user-defined)
+└── [6+]   - Extended state (optional, if user-defined additional_dynamics set)
 ```
 
 All force models read from the first 6 elements and contribute accelerations to indices 3-5. Extended state elements (index 6+) are available for user-defined dynamics such as mass depletion, battery state, attitude dynamics, or other user-defined states.

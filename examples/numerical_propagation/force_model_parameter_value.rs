@@ -39,33 +39,4 @@ fn main() {
         relativity: false,
         mass: Some(bh::ParameterSource::Value(500.0)), // Fixed 500 kg mass
     };
-
-    println!("Using ParameterSource::Value for Fixed Parameters:");
-    println!("  Mass: 500.0 kg (fixed)");
-    println!("  Drag area: 10.0 m^2 (fixed)");
-    println!("  Cd: 2.2 (fixed)");
-    println!("  SRP area: 15.0 m^2 (fixed)");
-    println!("  Cr: 1.3 (fixed)");
-
-    // With all fixed values, no parameter vector is required
-    println!(
-        "\nRequires parameter vector: {}",
-        force_config.requires_params()
-    );
-
-    println!("\nWhen to use ParameterSource::Value:");
-    println!("  - Parameter is well-known and constant");
-    println!("  - Not performing parameter estimation");
-    println!("  - Simpler propagator setup (no params array needed)");
-
-    println!("\nWhen to use ParameterSource::ParameterIndex instead:");
-    println!("  - Parameter may be varied or estimated");
-    println!("  - Running batch studies with different values");
-    println!("  - Performing orbit determination");
-    println!("  - Need to update parameters during simulation");
-
-    // Validate - all fixed values means no params required
-    assert!(!force_config.requires_params());
-
-    println!("\nExample validated successfully!");
 }

@@ -96,6 +96,23 @@ class TestSphericalHarmonicGravity:
         assert "JGM3" in str(model1)
         assert "GravityModelType" in repr(model1)
 
+    def test_gravity_model_type_from_file_valid_path(self):
+        """Test GravityModelType.from_file with a valid path."""
+        model_type = bh.GravityModelType.from_file(
+            "data/gravity_models/EGM2008_360.gfc"
+        )
+        assert "FromFile" in repr(model_type)
+
+    def test_gravity_model_type_from_file_nonexistent_path(self):
+        """Test GravityModelType.from_file with a nonexistent path."""
+        with pytest.raises(FileNotFoundError, match="not found"):
+            bh.GravityModelType.from_file("/nonexistent/path/to/model.gfc")
+
+    def test_gravity_model_type_from_file_directory_path(self):
+        """Test GravityModelType.from_file with a directory path."""
+        with pytest.raises(IsADirectoryError, match="not a file"):
+            bh.GravityModelType.from_file("data/gravity_models")
+
     def test_gravity_model_tide_system_enum(self):
         """Test GravityModelTideSystem enum."""
         tide1 = bh.GravityModelTideSystem.TideFree

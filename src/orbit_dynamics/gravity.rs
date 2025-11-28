@@ -216,6 +216,37 @@ pub enum GravityModelType {
     FromFile(String),
 }
 
+impl GravityModelType {
+    /// Create a GravityModelType from a file path, validating the file exists.
+    ///
+    /// # Arguments
+    ///
+    /// * `filepath` - Path to the gravity model file in GFC format
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(GravityModelType)` - If the file exists
+    /// * `Err(BraheError)` - If the file does not exist or is not a file
+    pub fn from_file<P: AsRef<Path>>(filepath: P) -> Result<Self, BraheError> {
+        let path = filepath.as_ref();
+        if !path.exists() {
+            return Err(BraheError::IoError(format!(
+                "Gravity model file not found: {}",
+                path.display()
+            )));
+        }
+        if !path.is_file() {
+            return Err(BraheError::IoError(format!(
+                "Gravity model path is not a file: {}",
+                path.display()
+            )));
+        }
+        Ok(GravityModelType::FromFile(
+            path.to_string_lossy().to_string(),
+        ))
+    }
+}
+
 /// The `GravityModel` struct is for storing spherical harmonic gravity models.
 ///
 /// # Fields
@@ -1166,5 +1197,26 @@ mod tests {
         assert_abs_diff_eq!(a_truncated[0], a_full[0], epsilon = 1e-15);
         assert_abs_diff_eq!(a_truncated[1], a_full[1], epsilon = 1e-15);
         assert_abs_diff_eq!(a_truncated[2], a_full[2], epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_gravity_model_type_from_file_valid_path() {
+        let model_type =
+            GravityModelType::from_file("data/gravity_models/EGM2008_360.gfc").unwrap();
+        assert!(matches!(model_type, GravityModelType::FromFile(_)));
+    }
+
+    #[test]
+    fn test_gravity_model_type_from_file_nonexistent_path() {
+        let result = GravityModelType::from_file("/nonexistent/path/to/model.gfc");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_gravity_model_type_from_file_directory_path() {
+        let result = GravityModelType::from_file("data/gravity_models");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not a file"));
     }
 }

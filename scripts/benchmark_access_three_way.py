@@ -9,10 +9,12 @@
 # ]
 # ///
 """
-Three-way benchmark comparing access computation between:
-1. Skyfield (Python)
-2. Brahe Python bindings
-3. Brahe Rust native (via rust-script)
+Five-way benchmark comparing access computation between:
+1. Skyfield (Python) - baseline
+2. Brahe Python bindings (serial) - one location per call
+3. Brahe Python bindings (parallel) - all locations in single call
+4. Brahe Rust native (serial) - one location per call (via rust-script)
+5. Brahe Rust native (parallel) - all locations in single call (via rust-script)
 
 Usage:
     uv run scripts/benchmark_access_three_way.py --n-locations 10 --seed 42
@@ -112,6 +114,19 @@ class BenchmarkResult:
     mean_time: float
     std_time: float
     num_windows: int
+    accesses: list[Access]
+
+
+@dataclass
+class ParallelBenchmarkResult:
+    """Parallel benchmark timing result (all locations computed at once)."""
+
+    total_mean_time: float  # Time for entire batch
+    total_std_time: float
+    per_location_mean_time: float  # total_mean_time / num_locations
+    per_location_std_time: float
+    num_locations: int
+    total_windows: int
     accesses: list[Access]
 
 
@@ -246,6 +261,90 @@ def compute_brahe_python_accesses(
     return accesses
 
 
+def compute_brahe_python_parallel(
+    tle: TLE,
+    targets: list[Target],
+    window_open: datetime,
+    window_close: datetime,
+) -> list[Access]:
+    """Compute access windows for ALL locations in a single call (parallel)."""
+    # Create propagator from TLE
+    propagator = bh.SGPPropagator.from_tle(tle.line1, tle.line2, 60.0).with_name(
+        tle.sat_name
+    )
+
+    # Create all locations
+    locations = [
+        bh.PointLocation(t.longitude, t.latitude, t.altitude).with_name(
+            t.name or f"Loc_{i}"
+        )
+        for i, t in enumerate(targets)
+    ]
+
+    # Create epoch objects
+    epoch_start = bh.Epoch.from_datetime(
+        window_open.year,
+        window_open.month,
+        window_open.day,
+        window_open.hour,
+        window_open.minute,
+        float(window_open.second),
+        0.0,
+        bh.TimeSystem.UTC,
+    )
+    epoch_end = bh.Epoch.from_datetime(
+        window_close.year,
+        window_close.month,
+        window_close.day,
+        window_close.hour,
+        window_close.minute,
+        float(window_close.second),
+        0.0,
+        bh.TimeSystem.UTC,
+    )
+
+    # Define constraint
+    constraint = bh.ElevationConstraint(min_elevation_deg=MIN_ELEVATION_DEG)
+
+    # Compute access windows for all locations at once
+    windows = bh.location_accesses(
+        locations, propagator, epoch_start, epoch_end, constraint
+    )
+
+    # Convert to Access objects
+    accesses = []
+    for window in windows:
+        aos_tuple = window.window_open.to_datetime()
+        los_tuple = window.window_close.to_datetime()
+
+        aos_dt = datetime(
+            int(aos_tuple[0]),
+            int(aos_tuple[1]),
+            int(aos_tuple[2]),
+            int(aos_tuple[3]),
+            int(aos_tuple[4]),
+            int(aos_tuple[5]),
+            int(aos_tuple[6] / 1000),
+            tzinfo=UTC,
+        )
+        los_dt = datetime(
+            int(los_tuple[0]),
+            int(los_tuple[1]),
+            int(los_tuple[2]),
+            int(los_tuple[3]),
+            int(los_tuple[4]),
+            int(los_tuple[5]),
+            int(los_tuple[6] / 1000),
+            tzinfo=UTC,
+        )
+        # Find matching target by location name
+        loc_name = window.location_name
+        target = next((t for t in targets if t.name == loc_name), None)
+        accesses.append(Access(aos=aos_dt, los=los_dt, target=target))
+
+    return accesses
+
+
 # =============================================================================
 # Brahe Rust Native Implementation
 # =============================================================================
@@ -257,11 +356,17 @@ def compute_brahe_rust_accesses(
     window_open: datetime,
     window_close: datetime,
     iterations: int = 5,
-) -> dict[str, BenchmarkResult]:
+    parallel: bool = False,
+) -> dict[str, BenchmarkResult] | tuple[dict[str, BenchmarkResult], dict]:
     """
     Compute access windows using Brahe Rust native via rust-script.
 
-    Returns a dict mapping location name to BenchmarkResult.
+    Args:
+        parallel: If True, compute all locations in a single call. Otherwise, compute serially.
+
+    Returns:
+        If parallel=False: dict mapping location name to BenchmarkResult
+        If parallel=True: tuple of (dict mapping location name to BenchmarkResult, parallel_timing dict)
     """
     # Build JSON input
     input_data = {
@@ -280,6 +385,7 @@ def compute_brahe_rust_accesses(
         "window_close": window_close.isoformat(),
         "min_elevation_deg": MIN_ELEVATION_DEG,
         "iterations": iterations,
+        "parallel": parallel,
     }
 
     # Run rust-script
@@ -341,6 +447,11 @@ def compute_brahe_rust_accesses(
             num_windows=timing["num_windows"],
             accesses=accesses,
         )
+
+    # Return parallel timing if in parallel mode
+    if parallel:
+        parallel_timing = output.get("parallel_timing", {})
+        return results, parallel_timing
 
     return results
 
@@ -433,11 +544,15 @@ def create_comparison_chart(
     brahe_rust_results: list[BenchmarkResult],
     output_file: str,
     plot_style: str = "bar",
+    brahe_py_parallel: ParallelBenchmarkResult | None = None,
+    brahe_rust_parallel: ParallelBenchmarkResult | None = None,
 ) -> None:
     """Create a plotly chart comparing execution times.
 
     Args:
         plot_style: Either "bar" for grouped bar chart or "scatter" for scatter plot with points
+        brahe_py_parallel: Optional parallel Python benchmark result
+        brahe_rust_parallel: Optional parallel Rust benchmark result
     """
     location_names = [loc.name or f"Loc {i + 1}" for i, loc in enumerate(locations)]
 
@@ -446,6 +561,8 @@ def create_comparison_chart(
         "skyfield": "rgb(26, 118, 255)",  # Blue
         "brahe_py": "rgb(255, 127, 14)",  # Orange
         "brahe_rust": "rgb(44, 160, 44)",  # Green
+        "brahe_py_parallel": "rgb(255, 187, 120)",  # Light orange
+        "brahe_rust_parallel": "rgb(152, 223, 138)",  # Light green
     }
 
     fig = go.Figure()
@@ -471,7 +588,7 @@ def create_comparison_chart(
 
         fig.add_trace(
             go.Scatter(
-                name="Brahe-Python",
+                name="Brahe-Python (serial)",
                 x=location_names,
                 y=[r.mean_time * 1000 for r in brahe_py_results],
                 mode="markers",
@@ -488,7 +605,7 @@ def create_comparison_chart(
 
         fig.add_trace(
             go.Scatter(
-                name="Brahe-Rust",
+                name="Brahe-Rust (serial)",
                 x=location_names,
                 y=[r.mean_time * 1000 for r in brahe_rust_results],
                 mode="markers",
@@ -502,6 +619,33 @@ def create_comparison_chart(
                 ),
             )
         )
+
+        # Add parallel results as horizontal lines (same value for all locations)
+        if brahe_py_parallel is not None:
+            fig.add_trace(
+                go.Scatter(
+                    name="Brahe-Python (parallel)",
+                    x=location_names,
+                    y=[brahe_py_parallel.per_location_mean_time * 1000]
+                    * len(locations),
+                    mode="lines",
+                    line=dict(color=colors["brahe_py_parallel"], width=2, dash="dash"),
+                )
+            )
+
+        if brahe_rust_parallel is not None:
+            fig.add_trace(
+                go.Scatter(
+                    name="Brahe-Rust (parallel)",
+                    x=location_names,
+                    y=[brahe_rust_parallel.per_location_mean_time * 1000]
+                    * len(locations),
+                    mode="lines",
+                    line=dict(
+                        color=colors["brahe_rust_parallel"], width=2, dash="dash"
+                    ),
+                )
+            )
     else:
         # Bar chart - default, better for fewer locations
         fig.add_trace(
@@ -520,7 +664,7 @@ def create_comparison_chart(
 
         fig.add_trace(
             go.Bar(
-                name="Brahe-Python",
+                name="Brahe-Python (serial)",
                 x=location_names,
                 y=[r.mean_time * 1000 for r in brahe_py_results],
                 error_y=dict(
@@ -534,7 +678,7 @@ def create_comparison_chart(
 
         fig.add_trace(
             go.Bar(
-                name="Brahe-Rust",
+                name="Brahe-Rust (serial)",
                 x=location_names,
                 y=[r.mean_time * 1000 for r in brahe_rust_results],
                 error_y=dict(
@@ -546,10 +690,45 @@ def create_comparison_chart(
             )
         )
 
+        # Add parallel results as bars (aggregate for all locations)
+        if brahe_py_parallel is not None:
+            fig.add_trace(
+                go.Bar(
+                    name="Brahe-Python (parallel)",
+                    x=["Parallel (per-loc avg)"],
+                    y=[brahe_py_parallel.per_location_mean_time * 1000],
+                    error_y=dict(
+                        type="data",
+                        array=[brahe_py_parallel.per_location_std_time * 1000],
+                        visible=True,
+                    ),
+                    marker_color=colors["brahe_py_parallel"],
+                )
+            )
+
+        if brahe_rust_parallel is not None:
+            fig.add_trace(
+                go.Bar(
+                    name="Brahe-Rust (parallel)",
+                    x=["Parallel (per-loc avg)"],
+                    y=[brahe_rust_parallel.per_location_mean_time * 1000],
+                    error_y=dict(
+                        type="data",
+                        array=[brahe_rust_parallel.per_location_std_time * 1000],
+                        visible=True,
+                    ),
+                    marker_color=colors["brahe_rust_parallel"],
+                )
+            )
+
         fig.update_layout(barmode="group")
 
+    title = "Access Computation Performance Comparison"
+    if brahe_py_parallel or brahe_rust_parallel:
+        title = "Access Computation Performance: Serial vs Parallel"
+
     fig.update_layout(
-        title="Access Computation Performance: Skyfield vs Brahe-Python vs Brahe-Rust",
+        title=title,
         xaxis_title="Location",
         yaxis_title="Execution Time (ms)",
         legend=dict(x=0.01, y=0.99, bgcolor="rgba(255, 255, 255, 0.8)"),
@@ -606,7 +785,7 @@ def export_accesses_to_csv(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Three-way benchmark: Skyfield vs Brahe-Python vs Brahe-Rust"
+        description="Five-way benchmark: Skyfield vs Brahe (serial/parallel, Python/Rust)"
     )
     parser.add_argument(
         "--n-locations",
@@ -640,8 +819,8 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=str,
-        default="benchmark_three_way.html",
-        help="Output HTML file for plot (default: benchmark_three_way.html)",
+        default="benchmark_five_way.html",
+        help="Output HTML file for plot (default: benchmark_five_way.html)",
     )
     parser.add_argument(
         "--plot-style",
@@ -676,8 +855,8 @@ def main() -> None:
     # Print header
     seed_str = str(args.seed) if args.seed is not None else "None"
     print("=" * 70)
-    print("Three-Way Access Computation Benchmark")
-    print("Skyfield vs Brahe-Python vs Brahe-Rust")
+    print("Five-Way Access Computation Benchmark")
+    print("Skyfield vs Brahe (Python/Rust, Serial/Parallel)")
     print("=" * 70)
     print(
         f"Locations: {args.n_locations} | Seed: {seed_str} | "
@@ -685,12 +864,75 @@ def main() -> None:
     )
     print()
 
-    # First, run the Rust benchmark for all locations at once (more efficient)
-    print("Running Brahe-Rust benchmark for all locations...")
+    # First, run the Rust benchmark (serial) for all locations
+    print("Running Brahe-Rust (serial) benchmark...")
     rust_results = compute_brahe_rust_accesses(
-        tle, locations, window_open, window_close, iterations=args.iterations
+        tle,
+        locations,
+        window_open,
+        window_close,
+        iterations=args.iterations,
+        parallel=False,
     )
     print(f"  Completed: {len(rust_results)} locations benchmarked")
+    print()
+
+    # Run Rust benchmark (parallel) - all locations at once
+    print("Running Brahe-Rust (parallel) benchmark...")
+    rust_parallel_results, rust_parallel_timing = compute_brahe_rust_accesses(
+        tle,
+        locations,
+        window_open,
+        window_close,
+        iterations=args.iterations,
+        parallel=True,
+    )
+    brahe_rust_parallel = ParallelBenchmarkResult(
+        total_mean_time=rust_parallel_timing.get("total_mean_seconds", 0),
+        total_std_time=rust_parallel_timing.get("total_std_seconds", 0),
+        per_location_mean_time=rust_parallel_timing.get("per_location_mean_seconds", 0),
+        per_location_std_time=rust_parallel_timing.get("per_location_std_seconds", 0),
+        num_locations=rust_parallel_timing.get("num_locations", len(locations)),
+        total_windows=rust_parallel_timing.get("total_windows", 0),
+        accesses=[
+            acc for res in rust_parallel_results.values() for acc in res.accesses
+        ],
+    )
+    print(
+        f"  Completed: {brahe_rust_parallel.total_windows} windows in "
+        f"{brahe_rust_parallel.total_mean_time * 1000:.2f}ms total "
+        f"({brahe_rust_parallel.per_location_mean_time * 1000:.2f}ms per location)"
+    )
+    print()
+
+    # Run Python benchmark (parallel) - all locations at once
+    print("Running Brahe-Python (parallel) benchmark...")
+    parallel_py_times = []
+    parallel_py_accesses: list[Access] = []
+    for _ in range(args.iterations):
+        start = time.perf_counter()
+        parallel_py_accesses = compute_brahe_python_parallel(
+            tle, locations, window_open, window_close
+        )
+        elapsed = time.perf_counter() - start
+        parallel_py_times.append(elapsed)
+
+    parallel_py_mean = np.mean(parallel_py_times)
+    parallel_py_std = np.std(parallel_py_times)
+    brahe_py_parallel = ParallelBenchmarkResult(
+        total_mean_time=parallel_py_mean,
+        total_std_time=parallel_py_std,
+        per_location_mean_time=parallel_py_mean / len(locations),
+        per_location_std_time=parallel_py_std / len(locations),
+        num_locations=len(locations),
+        total_windows=len(parallel_py_accesses),
+        accesses=parallel_py_accesses,
+    )
+    print(
+        f"  Completed: {brahe_py_parallel.total_windows} windows in "
+        f"{brahe_py_parallel.total_mean_time * 1000:.2f}ms total "
+        f"({brahe_py_parallel.per_location_mean_time * 1000:.2f}ms per location)"
+    )
     print()
 
     # Results storage
@@ -701,7 +943,9 @@ def main() -> None:
     all_passed = 0
     all_warned = 0
 
-    # Run benchmarks for each location
+    # Run serial benchmarks for each location
+    print("Running serial benchmarks per location...")
+    print()
     for i, location in enumerate(locations):
         print(
             f"Location {i + 1}: {location.name} ({location.latitude:.2f}, {location.longitude:.2f})"
@@ -715,7 +959,7 @@ def main() -> None:
         )
         skyfield_results.append(skyfield_bench)
 
-        # Benchmark Brahe Python
+        # Benchmark Brahe Python (serial)
         brahe_py_bench = benchmark_function(
             compute_brahe_python_accesses,
             (tle, location, window_open, window_close),
@@ -732,20 +976,20 @@ def main() -> None:
 
         # Store accesses for CSV export
         all_accesses.append(("skyfield", location, skyfield_bench.accesses))
-        all_accesses.append(("brahe-python", location, brahe_py_bench.accesses))
-        all_accesses.append(("brahe-rust", location, rust_bench.accesses))
+        all_accesses.append(("brahe-python-serial", location, brahe_py_bench.accesses))
+        all_accesses.append(("brahe-rust-serial", location, rust_bench.accesses))
 
         # Print results
         print(
-            f"  Skyfield:      {skyfield_bench.num_windows:3d} windows, "
+            f"  Skyfield:           {skyfield_bench.num_windows:3d} windows, "
             f"{skyfield_bench.mean_time * 1000:7.2f}ms ± {skyfield_bench.std_time * 1000:.2f}ms"
         )
         print(
-            f"  Brahe-Python:  {brahe_py_bench.num_windows:3d} windows, "
+            f"  Brahe-Py (serial):  {brahe_py_bench.num_windows:3d} windows, "
             f"{brahe_py_bench.mean_time * 1000:7.2f}ms ± {brahe_py_bench.std_time * 1000:.2f}ms"
         )
         print(
-            f"  Brahe-Rust:    {rust_bench.num_windows:3d} windows, "
+            f"  Brahe-Rs (serial):  {rust_bench.num_windows:3d} windows, "
             f"{rust_bench.mean_time * 1000:7.2f}ms ± {rust_bench.std_time * 1000:.2f}ms"
         )
 
@@ -796,6 +1040,8 @@ def main() -> None:
     avg_rs = (
         np.mean([r.mean_time for r in brahe_rust_results]) if brahe_rust_results else 0
     )
+    avg_py_par = brahe_py_parallel.per_location_mean_time
+    avg_rs_par = brahe_rust_parallel.per_location_mean_time
 
     print(
         f"Total windows: Skyfield={total_sf}, Brahe-Python={total_py}, Brahe-Rust={total_rs}"
@@ -808,36 +1054,56 @@ def main() -> None:
         """Format a comparison as 'Nx faster/slower' or 'baseline'."""
         if is_baseline:
             return "baseline"
-        ratio = time2 / time1 if time1 > 0 else 0
+        if time1 <= 0:
+            return "N/A"
+        ratio = time2 / time1
         if ratio >= 1:
             return f"{ratio:.1f}x faster"
         else:
             return f"{1 / ratio:.1f}x slower"
 
-    print("Performance Comparison:")
+    print("Performance Comparison (per-location average):")
     print()
-    print("| Implementation | Avg Time  | vs Skyfield    | vs Brahe-Python |")
-    print("|----------------|-----------|----------------|-----------------|")
+    print(
+        "| Implementation         | Avg Time  | vs Skyfield    | vs Brahe-Py-Serial |"
+    )
+    print(
+        "|------------------------|-----------|----------------|---------------------|"
+    )
 
     # Skyfield row
     sf_vs_sf = "baseline"
     sf_vs_py = format_comparison(avg_sf, avg_py)
     print(
-        f"| Skyfield       | {avg_sf * 1000:6.2f}ms  | {sf_vs_sf:<14} | {sf_vs_py:<15} |"
+        f"| Skyfield               | {avg_sf * 1000:6.2f}ms  | {sf_vs_sf:<14} | {sf_vs_py:<19} |"
     )
 
-    # Brahe-Rust row
+    # Brahe-Rust (serial) row
     rs_vs_sf = format_comparison(avg_rs, avg_sf)
     rs_vs_py = format_comparison(avg_rs, avg_py)
     print(
-        f"| Brahe-Rust     | {avg_rs * 1000:6.2f}ms  | {rs_vs_sf:<14} | {rs_vs_py:<15} |"
+        f"| Brahe-Rust (serial)    | {avg_rs * 1000:6.2f}ms  | {rs_vs_sf:<14} | {rs_vs_py:<19} |"
     )
 
-    # Brahe-Python row
+    # Brahe-Rust (parallel) row
+    rs_par_vs_sf = format_comparison(avg_rs_par, avg_sf)
+    rs_par_vs_py = format_comparison(avg_rs_par, avg_py)
+    print(
+        f"| Brahe-Rust (parallel)  | {avg_rs_par * 1000:6.2f}ms  | {rs_par_vs_sf:<14} | {rs_par_vs_py:<19} |"
+    )
+
+    # Brahe-Python (serial) row
     py_vs_sf = format_comparison(avg_py, avg_sf)
     py_vs_py = "baseline"
     print(
-        f"| Brahe-Python   | {avg_py * 1000:6.2f}ms  | {py_vs_sf:<14} | {py_vs_py:<15} |"
+        f"| Brahe-Python (serial)  | {avg_py * 1000:6.2f}ms  | {py_vs_sf:<14} | {py_vs_py:<19} |"
+    )
+
+    # Brahe-Python (parallel) row
+    py_par_vs_sf = format_comparison(avg_py_par, avg_sf)
+    py_par_vs_py = format_comparison(avg_py_par, avg_py)
+    print(
+        f"| Brahe-Python (parallel)| {avg_py_par * 1000:6.2f}ms  | {py_par_vs_sf:<14} | {py_par_vs_py:<19} |"
     )
 
     # Generate chart
@@ -849,6 +1115,8 @@ def main() -> None:
             brahe_rust_results,
             args.output,
             plot_style=args.plot_style,
+            brahe_py_parallel=brahe_py_parallel,
+            brahe_rust_parallel=brahe_rust_parallel,
         )
 
     # Export CSV if requested

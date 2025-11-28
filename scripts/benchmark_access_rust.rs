@@ -46,6 +46,8 @@ struct BenchmarkInput {
     window_close: String,
     min_elevation_deg: f64,
     iterations: usize,
+    #[serde(default)]
+    parallel: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -74,8 +76,21 @@ struct LocationResult {
 }
 
 #[derive(Debug, Serialize)]
+struct ParallelTimingOutput {
+    total_mean_seconds: f64,
+    total_std_seconds: f64,
+    per_location_mean_seconds: f64,
+    per_location_std_seconds: f64,
+    iterations: usize,
+    num_locations: usize,
+    total_windows: usize,
+}
+
+#[derive(Debug, Serialize)]
 struct BenchmarkOutput {
     results: Vec<LocationResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parallel_timing: Option<ParallelTimingOutput>,
 }
 
 fn parse_datetime(s: &str) -> DateTime<Utc> {
@@ -169,6 +184,84 @@ fn benchmark_location(
     }
 }
 
+fn benchmark_parallel(
+    locations: &[InputLocation],
+    propagator: &SGPPropagator,
+    epoch_start: Epoch,
+    epoch_end: Epoch,
+    constraint: &ElevationConstraint,
+    iterations: usize,
+) -> (Vec<LocationResult>, ParallelTimingOutput) {
+    let mut times: Vec<f64> = Vec::with_capacity(iterations);
+    let mut last_results: Vec<LocationResult> = Vec::new();
+
+    // Create all PointLocations
+    let points: Vec<PointLocation> = locations
+        .iter()
+        .map(|loc| {
+            PointLocation::new(loc.lon, loc.lat, loc.alt).with_name(&loc.name)
+        })
+        .collect();
+
+    for _ in 0..iterations {
+        let start = Instant::now();
+        // Pass all locations at once - brahe handles parallelization
+        let windows = location_accesses(&points, propagator, epoch_start, epoch_end, constraint, None, None, None)
+            .expect("Failed to compute accesses");
+        let elapsed = start.elapsed().as_secs_f64();
+        times.push(elapsed);
+
+        // Convert to results (only keep last iteration)
+        last_results = locations
+            .iter()
+            .map(|loc| {
+                let loc_windows: Vec<AccessOutput> = windows
+                    .iter()
+                    .filter(|w| w.location_name.as_deref() == Some(&loc.name))
+                    .map(|w| AccessOutput {
+                        location_name: loc.name.clone(),
+                        aos: epoch_to_iso(&w.window_open),
+                        los: epoch_to_iso(&w.window_close),
+                        duration_s: w.duration(),
+                    })
+                    .collect();
+
+                LocationResult {
+                    location_name: loc.name.clone(),
+                    lat: loc.lat,
+                    lon: loc.lon,
+                    accesses: loc_windows.clone(),
+                    timing: TimingOutput {
+                        mean_seconds: 0.0,  // Not applicable for parallel
+                        std_seconds: 0.0,
+                        iterations: 0,
+                        num_windows: loc_windows.len(),
+                    },
+                }
+            })
+            .collect();
+    }
+
+    let num_locations = locations.len();
+    let total_windows: usize = last_results.iter().map(|r| r.timing.num_windows).sum();
+
+    let total_mean = times.iter().sum::<f64>() / times.len() as f64;
+    let total_variance = times.iter().map(|t| (t - total_mean).powi(2)).sum::<f64>() / times.len() as f64;
+    let total_std = total_variance.sqrt();
+
+    let parallel_timing = ParallelTimingOutput {
+        total_mean_seconds: total_mean,
+        total_std_seconds: total_std,
+        per_location_mean_seconds: total_mean / num_locations as f64,
+        per_location_std_seconds: total_std / num_locations as f64,
+        iterations,
+        num_locations,
+        total_windows,
+    };
+
+    (last_results, parallel_timing)
+}
+
 fn main() {
     // Initialize EOP with static provider (no file I/O needed)
     let eop = StaticEOPProvider::from_zero();
@@ -213,22 +306,41 @@ fn main() {
     let constraint = ElevationConstraint::new(Some(config.min_elevation_deg), None)
         .expect("Failed to create elevation constraint");
 
-    // Benchmark each location
-    let mut results: Vec<LocationResult> = Vec::new();
-    for location in &config.locations {
-        let result = benchmark_location(
-            location,
+    let output = if config.parallel {
+        // Parallel mode: compute all locations at once
+        let (results, parallel_timing) = benchmark_parallel(
+            &config.locations,
             &propagator,
             epoch_start,
             epoch_end,
             &constraint,
             config.iterations,
         );
-        results.push(result);
-    }
+        BenchmarkOutput {
+            results,
+            parallel_timing: Some(parallel_timing),
+        }
+    } else {
+        // Serial mode: benchmark each location separately
+        let mut results: Vec<LocationResult> = Vec::new();
+        for location in &config.locations {
+            let result = benchmark_location(
+                location,
+                &propagator,
+                epoch_start,
+                epoch_end,
+                &constraint,
+                config.iterations,
+            );
+            results.push(result);
+        }
+        BenchmarkOutput {
+            results,
+            parallel_timing: None,
+        }
+    };
 
     // Output JSON to stdout
-    let output = BenchmarkOutput { results };
     let json = serde_json::to_string(&output).expect("Failed to serialize output");
     io::stdout().write_all(json.as_bytes()).unwrap();
     io::stdout().write_all(b"\n").unwrap();

@@ -65,7 +65,7 @@ httpmock = "0.8.2"
 tempfile = "3.13.0"
 cargo-deny = "0.18.5"
 mockall = "0.14.0"
-rv = "0.18"
+rv = "0.19"
 rand = "0.8"
 
 [features]

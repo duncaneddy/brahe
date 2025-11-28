@@ -33,9 +33,17 @@ jobs:
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_rust.yml
 
-  test-python:
+  delay-python:
     needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Rust tests to claim runners
+        run: sleep 15
+
+  test-python:
+    needs: [delay-python]
+    if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
 
   test-examples:

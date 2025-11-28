@@ -32,14 +32,20 @@ fn main() {
     let g0 = 9.80665; // m/s^2
     let mass_flow_rate = thrust_force / (specific_impulse * g0); // kg/s
 
-    // Burn duration
-    let burn_duration = 600.0; // 10 minutes
+    // Timing parameters
+    let pre_burn_coast = 300.0; // 5 minutes coast before burn
+    let burn_duration = 600.0; // 10 minutes burn
+    let post_burn_coast = 600.0; // 10 minutes coast after burn
+    let burn_start = pre_burn_coast;
+    let burn_end = pre_burn_coast + burn_duration;
+    let total_time = pre_burn_coast + burn_duration + post_burn_coast;
 
     println!("Thruster parameters:");
     println!("  Thrust: {} N", thrust_force);
     println!("  Isp: {} s", specific_impulse);
     println!("  Mass flow rate: {:.2} g/s", mass_flow_rate * 1000.0);
     println!("  Burn duration: {} s", burn_duration);
+    println!("  Burn window: {} - {} s", burn_start, burn_end);
     println!(
         "  Expected fuel consumption: {:.2} kg",
         mass_flow_rate * burn_duration
@@ -49,7 +55,7 @@ fn main() {
     // Returns full state-sized vector with mass derivative
     let additional_dynamics: DStateDynamics = Box::new(move |t, state, _params| {
         let mut dx = na::DVector::zeros(state.len());
-        if t < burn_duration {
+        if burn_start <= t && t < burn_end {
             dx[6] = -mass_flow_rate; // dm/dt = -F/(Isp*g0)
         }
         dx
@@ -59,7 +65,7 @@ fn main() {
     // Returns full state-sized vector with acceleration in indices 3-5
     let control_input = Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| {
         let mut dx = na::DVector::zeros(state.len());
-        if t < burn_duration {
+        if burn_start <= t && t < burn_end {
             let mass = state[6];
             let vel = state.fixed_rows::<3>(3);
             let v_hat = vel.normalize();
@@ -88,8 +94,7 @@ fn main() {
     println!("  Mass: {:.1} kg", initial_mass);
     println!("  Semi-major axis: {:.1} km", oe[0] / 1e3);
 
-    // Propagate through burn and coast
-    let total_time = burn_duration + 600.0; // Burn + 10 min coast
+    // Propagate through pre-burn coast, burn, and post-burn coast
     prop.propagate_to(epoch + total_time);
 
     // Check final state

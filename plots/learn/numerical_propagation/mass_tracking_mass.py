@@ -26,7 +26,7 @@ bh.initialize_eop()
 
 # Create initial epoch and state
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 0.0, 0.0, 0.0])
+oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 15.0, 30.0, 45.0])
 orbital_state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Extended state: [x, y, z, vx, vy, vz, mass]
@@ -39,8 +39,13 @@ specific_impulse = 300.0  # s
 g0 = 9.80665  # m/s^2
 mass_flow_rate = thrust_force / (specific_impulse * g0)  # kg/s
 
-# Burn duration
-burn_duration = 600.0  # 10 minutes
+# Timing parameters
+pre_burn_coast = 300.0  # 5 minutes coast before burn
+burn_duration = 600.0  # 10 minutes burn
+post_burn_coast = 600.0  # 10 minutes coast after burn
+burn_start = pre_burn_coast
+burn_end = pre_burn_coast + burn_duration
+total_time = pre_burn_coast + burn_duration + post_burn_coast
 
 # Spacecraft parameters for force model
 params = np.array([initial_mass, 2.0, 2.2, 2.0, 1.3])
@@ -49,7 +54,7 @@ params = np.array([initial_mass, 2.0, 2.2, 2.0, 1.3])
 # Define additional dynamics for mass tracking
 def additional_dynamics(t, state, params):
     dx = np.zeros(len(state))
-    if t < burn_duration:
+    if burn_start <= t < burn_end:
         dx[6] = -mass_flow_rate
     return dx
 
@@ -57,7 +62,7 @@ def additional_dynamics(t, state, params):
 # Define control input for thrust acceleration
 def control_input(t, state, params):
     dx = np.zeros(len(state))
-    if t < burn_duration:
+    if burn_start <= t < burn_end:
         mass = state[6]
         vel = state[3:6]
         v_hat = vel / np.linalg.norm(vel)
@@ -81,7 +86,6 @@ prop = bh.NumericalOrbitPropagator(
 )
 
 # Propagate and collect mass over time
-total_time = burn_duration + 600.0  # Burn + 10 min coast
 prop.propagate_to(epoch + total_time)
 
 # Sample trajectory using trajectory interpolation
@@ -98,7 +102,7 @@ while t <= total_time:
         state = traj.interpolate(current_epoch)
         times.append(t / 60.0)  # Convert to minutes
         mass_vals.append(state[6])
-        thrust_active.append(1 if t < burn_duration else 0)
+        thrust_active.append(1 if burn_start <= t < burn_end else 0)
     except RuntimeError:
         pass  # Skip if interpolation fails
 
@@ -145,9 +149,10 @@ def create_figure(theme):
     )
 
     # Thrust phase shading
-    burn_end_min = burn_duration / 60.0
+    burn_start_min = burn_start / 60.0
+    burn_end_min = burn_end / 60.0
     fig.add_vrect(
-        x0=0,
+        x0=burn_start_min,
         x1=burn_end_min,
         fillcolor=colors["secondary"],
         opacity=0.1,
@@ -157,11 +162,21 @@ def create_figure(theme):
         annotation_position="top left",
     )
 
+    # Burn start indicator
+    fig.add_vline(
+        x=burn_start_min,
+        line_dash="dash",
+        line_color=colors["accent"],
+        line_width=2,
+        annotation_text="Burn Start",
+        annotation_position="top left",
+    )
+
     # Burn end indicator
     fig.add_vline(
         x=burn_end_min,
         line_dash="dash",
-        line_color=colors["secondary"],
+        line_color=colors["error"],
         line_width=2,
         annotation_text="Burn End",
         annotation_position="top right",
@@ -172,7 +187,7 @@ def create_figure(theme):
         xaxis_title="Time (min)",
         yaxis_title="Mass (kg)",
         showlegend=False,
-        height=400,
+        height=500,
         margin=dict(l=60, r=40, t=80, b=60),
     )
 

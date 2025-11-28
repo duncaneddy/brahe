@@ -4881,11 +4881,15 @@ impl PyNumericalPropagator {
     ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
     ///     params (numpy.ndarray or None): Optional parameter vector for the dynamics function.
     ///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
+    ///     control_input (callable or None): Optional control input function.
+    ///                                       Signature: f(t, state, params) -> control_perturbation.
+    ///                                       Should return an N-dimensional array matching state dimension.
     ///
     /// Returns:
     ///     NumericalPropagator: New propagator instance.
     #[new]
-    #[pyo3(signature = (epoch, state, dynamics, propagation_config, params=None, initial_covariance=None))]
+    #[pyo3(signature = (epoch, state, dynamics, propagation_config, params=None, initial_covariance=None, control_input=None))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         py: Python<'_>,
         epoch: &PyEpoch,
@@ -4894,6 +4898,7 @@ impl PyNumericalPropagator {
         propagation_config: &PyNumericalPropagationConfig,
         params: Option<PyReadonlyArray1<f64>>,
         initial_covariance: Option<PyReadonlyArray2<f64>>,
+        control_input: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
         let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
         let state_dim = state_vec.len();
@@ -4945,13 +4950,44 @@ impl PyNumericalPropagator {
             }
         );
 
+        // Wrap control_input Python callable if provided
+        let control_input_fn: crate::integrators::traits::DControlInput =
+            control_input.map(|ctrl_py| {
+                let ctrl_py = ctrl_py.clone_ref(py);
+                Box::new(
+                    move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
+                        Python::attach(|py| {
+                            let x_np = x.as_slice().to_pyarray(py);
+                            let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
+                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+
+                            let result = match p_np {
+                                Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
+                                None => ctrl_py.call1(py, (t, x_np, py.None())),
+                            };
+
+                            match result {
+                                Ok(res) => {
+                                    let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
+                                    nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
+                                }
+                                Err(e) => {
+                                    eprintln!("Error calling control_input function: {}", e);
+                                    nalgebra::DVector::zeros(x.len())
+                                }
+                            }
+                        })
+                    },
+                ) as Box<dyn Fn(f64, &nalgebra::DVector<f64>, Option<&nalgebra::DVector<f64>>) -> nalgebra::DVector<f64> + Send + Sync>
+            });
+
         let prop = propagators::DNumericalPropagator::new(
             epoch.obj,
             state_vec,
             dynamics_fn,
             propagation_config.config.clone(),
             params_vec,
-            None, // control_input
+            control_input_fn,
             cov_matrix,
         ).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 

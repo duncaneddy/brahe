@@ -15,7 +15,7 @@ bh.initialize_eop()
 # Create initial epoch and state - LEO orbit
 epoch = bh.Epoch.from_datetime(2024, 6, 21, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 # LEO orbit with some inclination
-oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 0.0, 0.0, 0.0])
+oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 15.0, 30.0, 45.0])
 state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 params = np.array([500.0, 2.0, 2.2, 2.0, 1.3])
 

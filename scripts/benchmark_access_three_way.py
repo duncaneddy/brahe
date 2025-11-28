@@ -432,62 +432,126 @@ def create_comparison_chart(
     brahe_py_results: list[BenchmarkResult],
     brahe_rust_results: list[BenchmarkResult],
     output_file: str,
+    plot_style: str = "bar",
 ) -> None:
-    """Create a plotly grouped bar chart comparing execution times."""
+    """Create a plotly chart comparing execution times.
+
+    Args:
+        plot_style: Either "bar" for grouped bar chart or "scatter" for scatter plot with points
+    """
     location_names = [loc.name or f"Loc {i + 1}" for i, loc in enumerate(locations)]
+
+    # Define colors for each implementation
+    colors = {
+        "skyfield": "rgb(26, 118, 255)",  # Blue
+        "brahe_py": "rgb(255, 127, 14)",  # Orange
+        "brahe_rust": "rgb(44, 160, 44)",  # Green
+    }
 
     fig = go.Figure()
 
-    # Skyfield bars
-    fig.add_trace(
-        go.Bar(
-            name="Skyfield",
-            x=location_names,
-            y=[r.mean_time * 1000 for r in skyfield_results],  # Convert to ms
-            error_y=dict(
-                type="data",
-                array=[r.std_time * 1000 for r in skyfield_results],
-                visible=True,
-            ),
-            marker_color="rgb(26, 118, 255)",
+    if plot_style == "scatter":
+        # Scatter plot with points - better for many locations
+        fig.add_trace(
+            go.Scatter(
+                name="Skyfield",
+                x=location_names,
+                y=[r.mean_time * 1000 for r in skyfield_results],
+                mode="markers",
+                marker=dict(color=colors["skyfield"], size=8),
+                error_y=dict(
+                    type="data",
+                    array=[r.std_time * 1000 for r in skyfield_results],
+                    visible=True,
+                    color=colors["skyfield"],
+                    thickness=1.5,
+                ),
+            )
         )
-    )
 
-    # Brahe Python bars
-    fig.add_trace(
-        go.Bar(
-            name="Brahe-Python",
-            x=location_names,
-            y=[r.mean_time * 1000 for r in brahe_py_results],  # Convert to ms
-            error_y=dict(
-                type="data",
-                array=[r.std_time * 1000 for r in brahe_py_results],
-                visible=True,
-            ),
-            marker_color="rgb(255, 127, 14)",
+        fig.add_trace(
+            go.Scatter(
+                name="Brahe-Python",
+                x=location_names,
+                y=[r.mean_time * 1000 for r in brahe_py_results],
+                mode="markers",
+                marker=dict(color=colors["brahe_py"], size=8),
+                error_y=dict(
+                    type="data",
+                    array=[r.std_time * 1000 for r in brahe_py_results],
+                    visible=True,
+                    color=colors["brahe_py"],
+                    thickness=1.5,
+                ),
+            )
         )
-    )
 
-    # Brahe Rust bars
-    fig.add_trace(
-        go.Bar(
-            name="Brahe-Rust",
-            x=location_names,
-            y=[r.mean_time * 1000 for r in brahe_rust_results],  # Convert to ms
-            error_y=dict(
-                type="data",
-                array=[r.std_time * 1000 for r in brahe_rust_results],
-                visible=True,
-            ),
-            marker_color="rgb(44, 160, 44)",
+        fig.add_trace(
+            go.Scatter(
+                name="Brahe-Rust",
+                x=location_names,
+                y=[r.mean_time * 1000 for r in brahe_rust_results],
+                mode="markers",
+                marker=dict(color=colors["brahe_rust"], size=8),
+                error_y=dict(
+                    type="data",
+                    array=[r.std_time * 1000 for r in brahe_rust_results],
+                    visible=True,
+                    color=colors["brahe_rust"],
+                    thickness=1.5,
+                ),
+            )
         )
-    )
+    else:
+        # Bar chart - default, better for fewer locations
+        fig.add_trace(
+            go.Bar(
+                name="Skyfield",
+                x=location_names,
+                y=[r.mean_time * 1000 for r in skyfield_results],
+                error_y=dict(
+                    type="data",
+                    array=[r.std_time * 1000 for r in skyfield_results],
+                    visible=True,
+                ),
+                marker_color=colors["skyfield"],
+            )
+        )
+
+        fig.add_trace(
+            go.Bar(
+                name="Brahe-Python",
+                x=location_names,
+                y=[r.mean_time * 1000 for r in brahe_py_results],
+                error_y=dict(
+                    type="data",
+                    array=[r.std_time * 1000 for r in brahe_py_results],
+                    visible=True,
+                ),
+                marker_color=colors["brahe_py"],
+            )
+        )
+
+        fig.add_trace(
+            go.Bar(
+                name="Brahe-Rust",
+                x=location_names,
+                y=[r.mean_time * 1000 for r in brahe_rust_results],
+                error_y=dict(
+                    type="data",
+                    array=[r.std_time * 1000 for r in brahe_rust_results],
+                    visible=True,
+                ),
+                marker_color=colors["brahe_rust"],
+            )
+        )
+
+        fig.update_layout(barmode="group")
 
     fig.update_layout(
         title="Access Computation Performance: Skyfield vs Brahe-Python vs Brahe-Rust",
         xaxis_title="Location",
         yaxis_title="Execution Time (ms)",
-        barmode="group",
         legend=dict(x=0.01, y=0.99, bgcolor="rgba(255, 255, 255, 0.8)"),
         template="plotly_white",
     )
@@ -578,6 +642,13 @@ def main() -> None:
         type=str,
         default="benchmark_three_way.html",
         help="Output HTML file for plot (default: benchmark_three_way.html)",
+    )
+    parser.add_argument(
+        "--plot-style",
+        type=str,
+        choices=["bar", "scatter"],
+        default="bar",
+        help="Plot style: 'bar' for grouped bars, 'scatter' for points (default: bar)",
     )
     parser.add_argument(
         "--csv",
@@ -777,6 +848,7 @@ def main() -> None:
             brahe_py_results,
             brahe_rust_results,
             args.output,
+            plot_style=args.plot_style,
         )
 
     # Export CSV if requested

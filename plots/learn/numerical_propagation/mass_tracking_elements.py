@@ -27,7 +27,7 @@ bh.initialize_eop()
 
 # Create initial epoch and state
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 0.0, 0.0, 0.0])
+oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 15.0, 30.0, 45.0])
 orbital_state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Extended state: [x, y, z, vx, vy, vz, mass]
@@ -40,8 +40,13 @@ specific_impulse = 300.0  # s
 g0 = 9.80665  # m/s^2
 mass_flow_rate = thrust_force / (specific_impulse * g0)  # kg/s
 
-# Burn duration
-burn_duration = 600.0  # 10 minutes
+# Timing parameters
+pre_burn_coast = 300.0  # 5 minutes coast before burn
+burn_duration = 600.0  # 10 minutes burn
+post_burn_coast = 600.0  # 10 minutes coast after burn
+burn_start = pre_burn_coast
+burn_end = pre_burn_coast + burn_duration
+total_time = pre_burn_coast + burn_duration + post_burn_coast
 
 # Spacecraft parameters for force model
 params = np.array([initial_mass, 2.0, 2.2, 2.0, 1.3])
@@ -50,7 +55,7 @@ params = np.array([initial_mass, 2.0, 2.2, 2.0, 1.3])
 # Define additional dynamics for mass tracking
 def additional_dynamics(t, state, params):
     dx = np.zeros(len(state))
-    if t < burn_duration:
+    if burn_start <= t < burn_end:
         dx[6] = -mass_flow_rate
     return dx
 
@@ -58,7 +63,7 @@ def additional_dynamics(t, state, params):
 # Define control input for thrust acceleration
 def control_input(t, state, params):
     dx = np.zeros(len(state))
-    if t < burn_duration:
+    if burn_start <= t < burn_end:
         mass = state[6]
         vel = state[3:6]
         v_hat = vel / np.linalg.norm(vel)
@@ -82,7 +87,6 @@ prop = bh.NumericalOrbitPropagator(
 )
 
 # Propagate and collect orbital elements over time
-total_time = burn_duration + 600.0  # Burn + 10 min coast
 prop.propagate_to(epoch + total_time)
 
 # Sample trajectory using trajectory interpolation
@@ -93,7 +97,7 @@ e_vals = []  # Eccentricity
 i_vals = []  # Inclination (deg)
 raan_vals = []  # RAAN (deg)
 argp_vals = []  # Argument of periapsis (deg)
-ta_vals = []  # True anomaly (deg)
+ma_vals = []  # Mean anomaly (deg)
 
 dt = 10.0  # 10 second samples
 t = 0.0
@@ -111,7 +115,7 @@ while t <= total_time:
         i_vals.append(koe[2])
         raan_vals.append(koe[3])
         argp_vals.append(koe[4])
-        ta_vals.append(koe[5])
+        ma_vals.append(koe[5])  # Mean anomaly (koe[5] is mean anomaly)
     except RuntimeError:
         pass  # Skip if interpolation fails
 
@@ -131,7 +135,7 @@ def create_figure(theme):
             "Inclination",
             "RAAN",
             "Arg. Periapsis",
-            "True Anomaly",
+            "Mean Anomaly",
         ),
         vertical_spacing=0.15,
         horizontal_spacing=0.08,
@@ -158,7 +162,7 @@ def create_figure(theme):
         row=1,
         col=2,
     )
-    fig.update_yaxes(title_text="e", row=1, col=2)
+    fig.update_yaxes(title_text="e", range=[0, 0.1], row=1, col=2)
 
     # Inclination
     fig.add_trace(
@@ -168,7 +172,7 @@ def create_figure(theme):
         row=1,
         col=3,
     )
-    fig.update_yaxes(title_text="i (deg)", row=1, col=3)
+    fig.update_yaxes(title_text="i (deg)", range=[0, 90], row=1, col=3)
 
     # RAAN
     fig.add_trace(
@@ -181,7 +185,7 @@ def create_figure(theme):
         row=2,
         col=1,
     )
-    fig.update_yaxes(title_text="RAAN (deg)", row=2, col=1)
+    fig.update_yaxes(title_text="RAAN (deg)", range=[0, 360], row=2, col=1)
 
     # Argument of periapsis
     fig.add_trace(
@@ -194,29 +198,40 @@ def create_figure(theme):
         row=2,
         col=2,
     )
-    fig.update_yaxes(title_text="\u03c9 (deg)", row=2, col=2)
+    fig.update_yaxes(title_text="\u03c9 (deg)", range=[0, 360], row=2, col=2)
 
-    # True anomaly
+    # Mean anomaly
     fig.add_trace(
         go.Scatter(
             x=times,
-            y=ta_vals,
+            y=ma_vals,
             mode="lines",
             line=dict(color=colors["accent"], width=2),
         ),
         row=2,
         col=3,
     )
-    fig.update_yaxes(title_text="\u03bd (deg)", row=2, col=3)
+    fig.update_yaxes(title_text="M (deg)", range=[0, 360], row=2, col=3)
 
-    # Add burn end indicator to all subplots
-    burn_end_min = burn_duration / 60.0
+    # Add burn start and end indicators to all subplots
+    burn_start_min = burn_start / 60.0
+    burn_end_min = burn_end / 60.0
     for row in [1, 2]:
         for col in [1, 2, 3]:
+            # Burn start indicator
+            fig.add_vline(
+                x=burn_start_min,
+                line_dash="dot",
+                line_color=colors["accent"],
+                line_width=1,
+                row=row,
+                col=col,
+            )
+            # Burn end indicator
             fig.add_vline(
                 x=burn_end_min,
                 line_dash="dot",
-                line_color="gray",
+                line_color=colors["error"],
                 line_width=1,
                 row=row,
                 col=col,

@@ -16,7 +16,7 @@ bh.initialize_eop()
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 
 # Initial orbital elements and state
-oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 0.0, 0.0, 0.0])
+oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 15.0, 30.0, 45.0])
 orbital_state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Extended state: [x, y, z, vx, vy, vz, mass]
@@ -29,8 +29,13 @@ specific_impulse = 300.0  # s
 g0 = 9.80665  # m/s^2
 mass_flow_rate = thrust_force / (specific_impulse * g0)  # kg/s
 
-# Burn duration
-burn_duration = 600.0  # 10 minutes
+# Timing parameters
+pre_burn_coast = 300.0  # 5 minutes coast before burn
+burn_duration = 600.0  # 10 minutes burn
+post_burn_coast = 600.0  # 10 minutes coast after burn
+burn_start = pre_burn_coast
+burn_end = pre_burn_coast + burn_duration
+total_time = pre_burn_coast + burn_duration + post_burn_coast
 
 # Spacecraft parameters for force model [mass, drag_area, Cd, srp_area, Cr]
 params = np.array([initial_mass, 2.0, 2.2, 2.0, 1.3])
@@ -40,6 +45,7 @@ print(f"  Thrust: {thrust_force} N")
 print(f"  Isp: {specific_impulse} s")
 print(f"  Mass flow rate: {mass_flow_rate * 1000:.2f} g/s")
 print(f"  Burn duration: {burn_duration} s")
+print(f"  Burn window: {burn_start} - {burn_end} s")
 print(f"  Expected fuel consumption: {mass_flow_rate * burn_duration:.2f} kg")
 
 
@@ -51,7 +57,7 @@ def additional_dynamics(t, state, params):
     Elements 0-5 should be zero (orbital dynamics handled by force model).
     """
     dx = np.zeros(len(state))
-    if t < burn_duration:
+    if burn_start <= t < burn_end:
         dx[6] = -mass_flow_rate  # dm/dt = -F/(Isp*g0)
     return dx
 
@@ -63,7 +69,7 @@ def control_input(t, state, params):
     Returns state-sized vector with acceleration in indices 3-5.
     """
     dx = np.zeros(len(state))
-    if t < burn_duration:
+    if burn_start <= t < burn_end:
         mass = state[6]  # Access mass from extended state
         vel = state[3:6]
         v_hat = vel / np.linalg.norm(vel)  # Prograde direction
@@ -90,8 +96,7 @@ print("\nInitial state:")
 print(f"  Mass: {initial_mass:.1f} kg")
 print(f"  Semi-major axis: {oe[0] / 1e3:.1f} km")
 
-# Propagate through burn and coast
-total_time = burn_duration + 600.0  # Burn + 10 min coast
+# Propagate through pre-burn coast, burn, and post-burn coast
 prop.propagate_to(epoch + total_time)
 
 # Check final state

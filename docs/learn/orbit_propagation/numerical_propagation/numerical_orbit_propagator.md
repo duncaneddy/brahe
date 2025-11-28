@@ -138,6 +138,18 @@ prop = prop.with_id(25544)
 
 This enables tracking propagators in access computation, conjunction analysis, and other multi-object scenarios.
 
+
+## Performance Considerations
+
+Custom dynamics functions are called at every integration step, so efficiency matters:
+
+1. **Minimize function calls**: Cache expensive computations
+2. **Avoid allocations**: Reuse arrays where possible
+3. **Use NumPy vectorization**: Avoid Python loops for numerical operations
+4. **Profile your dynamics**: The dynamics function dominates runtime
+
+For Rust, ensure the dynamics closure captures minimal state and avoids unnecessary cloning.
+
 ---
 
 ## See Also

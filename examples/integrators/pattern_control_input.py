@@ -55,7 +55,7 @@ def control_input(t, state):
 
 
 # Initial LEO state
-oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 0.0, 0.0, 0.0])
+oe = np.array([bh.R_EARTH + 500e3, 0.01, 45.0, 15.0, 30.0, 45.0])
 state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 
 # Create integrator with control input

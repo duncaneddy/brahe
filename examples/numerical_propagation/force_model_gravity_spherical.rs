@@ -10,21 +10,21 @@ fn main() {
     // ==========================================================================
 
     // EGM2008 - High-fidelity NGA model (360x360 max)
-    let gravity_egm2008 = bh::GravityConfiguration::SphericalHarmonic {
+    let _gravity_egm2008 = bh::GravityConfiguration::SphericalHarmonic {
         source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
         degree: 20,
         order: 20,
     };
 
     // GGM05S - GRACE mission model (180x180 max)
-    let gravity_ggm05s = bh::GravityConfiguration::SphericalHarmonic {
+    let _gravity_ggm05s = bh::GravityConfiguration::SphericalHarmonic {
         source: bh::GravityModelSource::ModelType(GravityModelType::GGM05S),
         degree: 20,
         order: 20,
     };
 
     // JGM3 - Legacy model, fast computation (70x70 max)
-    let gravity_jgm3 = bh::GravityConfiguration::SphericalHarmonic {
+    let _gravity_jgm3 = bh::GravityConfiguration::SphericalHarmonic {
         source: bh::GravityModelSource::ModelType(GravityModelType::JGM3),
         degree: 20,
         order: 20,

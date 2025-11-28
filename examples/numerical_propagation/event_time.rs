@@ -7,8 +7,9 @@ use bh::traits::DStatePropagator;
 use nalgebra as na;
 
 fn main() {
-    // Initialize EOP data
+    // Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
     bh::initialize_eop().unwrap();
+    bh::initialize_sw().unwrap();
 
     // Create initial epoch and state
     let epoch = bh::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh::TimeSystem::UTC);

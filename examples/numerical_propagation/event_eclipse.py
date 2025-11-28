@@ -9,8 +9,9 @@ Demonstrates detecting when a spacecraft enters or exits Earth's shadow.
 import numpy as np
 import brahe as bh
 
-# Initialize EOP data
+# Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
 bh.initialize_eop()
+bh.initialize_sw()
 
 # Create initial epoch and state - LEO orbit
 epoch = bh.Epoch.from_datetime(2024, 6, 21, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)

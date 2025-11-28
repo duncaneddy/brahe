@@ -9,8 +9,9 @@ Includes 20x20 gravity, Harris-Priester drag, SRP, and Sun/Moon third-body.
 import numpy as np
 import brahe as bh
 
-# Initialize EOP data
+# Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
 bh.initialize_eop()
+bh.initialize_sw()
 
 # Create initial epoch and state
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)

@@ -9,8 +9,9 @@ Demonstrates enabling and using all variational features together.
 import numpy as np
 import brahe as bh
 
-# Initialize EOP data
+# Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
 bh.initialize_eop()
+bh.initialize_sw()
 
 # Create initial epoch and state (LEO satellite)
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)

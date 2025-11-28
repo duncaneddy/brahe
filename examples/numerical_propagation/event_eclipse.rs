@@ -8,7 +8,9 @@ use nalgebra as na;
 use std::f64::consts::PI;
 
 fn main() {
+    // Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
     bh::initialize_eop().unwrap();
+    bh::initialize_sw().unwrap();
 
     // Create initial epoch and state - LEO orbit
     let epoch = bh::Epoch::from_datetime(2024, 6, 21, 12, 0, 0.0, 0.0, bh::TimeSystem::UTC);

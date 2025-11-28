@@ -144,7 +144,7 @@ def create_figure(theme):
         yaxis_title="Position Std Dev (m)",
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        height=400,
+        height=500,
         margin=dict(l=60, r=40, t=80, b=60),
     )
 

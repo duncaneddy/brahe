@@ -21,8 +21,10 @@ SCRIPT_NAME = pathlib.Path(__file__).stem
 OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
 os.makedirs(OUTDIR, exist_ok=True)
 
-# Initialize EOP data
+# Initialize EOP and space weather data
+# (Space weather is required for NRLMSISE00 atmospheric model)
 bh.initialize_eop()
+bh.initialize_sw()
 
 # Create initial epoch and state (LEO orbit with significant drag)
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
@@ -39,7 +41,7 @@ prop_config = (
 # Define spacecraft parameters: [mass, drag_area, Cd, srp_area, Cr]
 params = np.array([500.0, 2.0, 2.2, 2.0, 1.3])
 
-# Create propagator with full force model
+# Create propagator with full force model (uses NRLMSISE00 for drag)
 prop = bh.NumericalOrbitPropagator(
     epoch,
     state,
@@ -108,7 +110,7 @@ def create_figure(theme):
         yaxis_type="log",
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        height=400,
+        height=500,
         margin=dict(l=60, r=40, t=80, b=60),
     )
 

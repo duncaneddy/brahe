@@ -247,16 +247,32 @@ impl ForceModelConfig {
     ///
     /// ```rust
     /// use brahe::propagators::ForceModelConfig;
+    /// use brahe::propagators::force_model_config::{
+    ///     DragConfiguration, AtmosphericModel, ParameterSource,
+    ///     GravityConfiguration,
+    /// };
     /// use nalgebra::DVector;
     ///
-    /// let config = ForceModelConfig::default();
+    /// // Create a config with Harris-Priester drag (no space weather needed)
+    /// let config = ForceModelConfig {
+    ///     gravity: GravityConfiguration::PointMass,
+    ///     drag: Some(DragConfiguration {
+    ///         model: AtmosphericModel::HarrisPriester,
+    ///         area: ParameterSource::ParameterIndex(1),
+    ///         cd: ParameterSource::ParameterIndex(2),
+    ///     }),
+    ///     srp: None,
+    ///     third_body: None,
+    ///     relativity: false,
+    ///     mass: Some(ParameterSource::ParameterIndex(0)),
+    /// };
     ///
-    /// // This will fail - default config needs params but none provided
+    /// // This will fail - config needs params but none provided
     /// let result = config.validate_params(None);
     /// assert!(result.is_err());
     ///
     /// // This will succeed - params vector is long enough
-    /// let params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
+    /// let params = DVector::from_vec(vec![1000.0, 10.0, 2.2]);
     /// let result = config.validate_params(Some(&params));
     /// assert!(result.is_ok());
     /// ```
@@ -288,6 +304,22 @@ impl ForceModelConfig {
                 _ => {} // Valid
             }
         }
+
+        // Check if NRLMSISE-00 atmospheric model is configured but space weather is not initialized
+        if let Some(drag_config) = &self.drag
+            && matches!(drag_config.model, AtmosphericModel::NRLMSISE00)
+            && !crate::space_weather::get_global_sw_initialization()
+        {
+            return Err(crate::utils::errors::BraheError::Error(
+                "NRLMSISE-00 atmospheric model requires space weather data. \
+                    Call initialize_sw() before creating a propagator with NRLMSISE-00, \
+                    initialize another space weather data provider, \
+                    or use AtmosphericModel::HarrisPriester which does not require \
+                    space weather data."
+                    .to_string(),
+            ));
+        }
+
         Ok(())
     }
 

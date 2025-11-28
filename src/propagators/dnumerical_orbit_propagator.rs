@@ -152,7 +152,9 @@ type SharedDynamics =
 ///
 /// // Create configurations
 /// let prop_config = NumericalPropagationConfig::default();
-/// let force_config = ForceModelConfig::default();
+/// // Use earth_gravity() for examples (no space weather required)
+/// // For production with drag, use default() after calling initialize_sw()
+/// let force_config = ForceModelConfig::earth_gravity();
 ///
 /// // Create initial state (ECI Cartesian)
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -161,16 +163,13 @@ type SharedDynamics =
 ///     0.0, 7500.0, 0.0,            // velocity
 /// ]);
 ///
-/// // Parameters: [mass, drag_area, Cd, srp_area, Cr]
-/// let params = DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3]);
-///
-/// // Create propagator
+/// // Create propagator (no params needed for earth_gravity() config)
 /// let mut prop = DNumericalOrbitPropagator::new(
 ///     epoch,
 ///     state,
 ///     prop_config,
 ///     force_config,
-///     Some(params),
+///     None,  // no params needed
 ///     None,  // additional_dynamics
 ///     None,  // control_input
 ///     None,  // initial_covariance
@@ -294,12 +293,13 @@ impl DNumericalOrbitPropagator {
     ///     0.0, 7500.0, 0.0,            // velocity
     /// ]);
     ///
+    /// // Use earth_gravity() for examples (no space weather required)
     /// let prop = DNumericalOrbitPropagator::new(
     ///     epoch,
     ///     state,
     ///     NumericalPropagationConfig::default(),
-    ///     ForceModelConfig::default(),
-    ///     Some(DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3])),
+    ///     ForceModelConfig::earth_gravity(),
+    ///     None,  // no params needed for earth_gravity()
     ///     None,
     ///     None,
     ///     None,
@@ -2062,6 +2062,10 @@ mod tests {
         set_global_eop_provider(eop);
     }
 
+    fn setup_global_test_space_weather() {
+        crate::utils::testing::setup_global_test_space_weather();
+    }
+
     /// Create default spacecraft parameters for tests
     fn default_test_params() -> DVector<f64> {
         DVector::from_vec(vec![
@@ -2093,6 +2097,7 @@ mod tests {
     #[test]
     fn test_dnumericalorbitpropagator_construction_default() {
         setup_global_test_eop();
+        setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![
@@ -5683,6 +5688,7 @@ mod tests {
     #[test]
     fn test_dnumericalorbitpropagator_construction_with_custom_params() {
         setup_global_test_eop();
+        setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
@@ -6041,6 +6047,7 @@ mod tests {
     #[test]
     fn test_dnumericalorbitpropagator_current_params() {
         setup_global_test_eop();
+        setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
@@ -6998,6 +7005,7 @@ mod tests {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
         setup_global_test_eop();
+        setup_global_test_space_weather();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 400e3, 0.0, 0.0, 0.0, 7700.0, 0.0]);
@@ -7593,11 +7601,12 @@ mod tests {
     #[test]
     fn test_dnumericalorbitpropagator_force_combined_leo() {
         setup_global_test_eop();
+        setup_global_test_space_weather();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        // Use LEO default configuration
+        // Use LEO default configuration (includes NRLMSISE00 which requires space weather)
         let force_config = ForceModelConfig::leo_default();
 
         // Note: LEO default includes spherical harmonic gravity which requires model data

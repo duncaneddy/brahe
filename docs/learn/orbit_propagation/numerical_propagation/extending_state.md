@@ -1,27 +1,29 @@
 # Extending Spacecraft State
 
-The `NumericalOrbitPropagator` supports extended state vectors beyond the standard 6-element orbital state, enabling you to track additional quantities like propellant mass, battery charge, or temperature alongside orbital dynamics. This is achieved through the `additional_dynamics` function.
+The `NumericalOrbitPropagator` supports extending state vectors beyond the standard 6-element orbital state, enabling modeling of additional state variables and dynamics like propellant mass, battery charge, or attiude alongside orbital dynamics. This is achieved through the `additional_dynamics` function.
 
 ## State Extension Approach
 
 To extend the state vector with `NumericalOrbitPropagator`:
 
-1. Define an extended state vector (e.g., 7 elements: [pos, vel, mass])
-2. Implement an `additional_dynamics` function that returns a full state-sized derivative vector
+1. Define an extended state vector (e.g., 7 elements: `[pos, vel, mass]`)
+2. Implement an `additional_dynamics` function that returns a full state-sized derivative vector, where the first 6 elements are zeros (orbital dynamics handled by the force model) and the remaining elements contain derivatives for the extended state
 3. Optionally provide a `control_input` function for thrust accelerations
 4. Create the propagator with these functions
 
 The key advantage of using `NumericalOrbitPropagator` is that orbital dynamics (gravity, drag, SRP, etc.) are handled automatically by the force model configuration, while your `additional_dynamics` function adds derivatives for the extended state elements.
 
+To showcase how to extend the spacecraft state, we present an example of tracking propellant mass during a thrust maneuver below.
+
 ## Mass Tracking Example
 
-One common extension is tracking propellant mass during powered flight. The state vector grows from 6 to 7 elements:
+One common extension is tracking propellant mass during the mission. To model propelant mass we augment the state vector from 6 to 7 elements, by adding mass $m$ as the 7th element:
 
 $$\mathbf{x} = [x, y, z, v_x, v_y, v_z, m]^T$$
 
 ### Mass Flow Dynamics
 
-The mass flow rate during thrust is:
+We model mass flow rate during thrust as:
 
 $$\dot{m} = -\frac{F}{I_{sp} \cdot g_0}$$
 

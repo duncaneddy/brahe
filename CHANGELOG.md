@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [0.4.0] - 2025-11-28
+### Added
+
+- - Add space weather data management and access modeled on Earth orientation data provider design. [#73](https://github.com/duncaneddy/brahe/pull/73)
+- - Added support for control inputs to numerical integration
+  - Added support for integration of sensitivity matrices to numerical integration functions
+  - Added support for analytical and numerical computation of sensitivity matrix
+  - Added documentation for integration with control inputs and sensitivity matrix integration
+  - Added documentation for computation and handling of sensitivity matrices [#78](https://github.com/duncaneddy/brahe/pull/78)
+- - Add JOSS draft paper [#80](https://github.com/duncaneddy/brahe/pull/80)
+- - Added NRLMSISE-00 atmospheric density model implementation [#82](https://github.com/duncaneddy/brahe/pull/82)
+
+### Changed
+
+- - Consolidates internal implementation of numerical integration
+  - Added additional numerical integration tests to improve coverage
+  - Consolidates duplicate type definitions across integrator files [#78](https://github.com/duncaneddy/brahe/pull/78)
+- - Refactor `celestrak.rs` and `naif.rs` modules to use `HttpClient` structure to enable mocking and mock testing through [mockall](https://github.com/asomers/mockall) to make struct calls
+  - Refactored main package documentation [#84](https://github.com/duncaneddy/brahe/pull/84)
+
+### Fixed
+
+- - Auto-merge of bundled data update wasn't auto-merging [#75](https://github.com/duncaneddy/brahe/pull/75)
+- - Removed erroring cache-check in python test workflow [#78](https://github.com/duncaneddy/brahe/pull/78)
+
 ## [0.3.0] - 2025-11-18
 ### Added
 

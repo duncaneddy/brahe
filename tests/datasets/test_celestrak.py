@@ -7,6 +7,7 @@ import brahe as bh
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tles():
     """Test get_tles with stations group."""
     ephemeris = bh.datasets.celestrak.get_tles("stations")
@@ -25,6 +26,7 @@ def test_get_tles():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tles_as_propagators():
     """Test get_tles_as_propagators with stations group."""
     propagators = bh.datasets.celestrak.get_tles_as_propagators("stations", 60.0)
@@ -39,6 +41,7 @@ def test_get_tles_as_propagators():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_download_tles_txt():
     """Test download_tles to text file."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -58,6 +61,7 @@ def test_download_tles_txt():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_download_tles_json():
     """Test download_tles to JSON file."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -80,6 +84,7 @@ def test_download_tles_json():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_download_tles_csv():
     """Test download_tles to CSV file."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -98,6 +103,7 @@ def test_download_tles_csv():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_id():
     """Test get_tle_by_id for ISS (NORAD ID 25544)."""
     name, line1, line2 = bh.datasets.celestrak.get_tle_by_id(25544)
@@ -111,6 +117,7 @@ def test_get_tle_by_id():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_id_with_group():
     """Test get_tle_by_id with group fallback for ISS."""
     name, line1, line2 = bh.datasets.celestrak.get_tle_by_id(25544, group="stations")
@@ -122,6 +129,7 @@ def test_get_tle_by_id_with_group():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_id_as_propagator():
     """Test get_tle_by_id_as_propagator for ISS."""
     propagator = bh.datasets.celestrak.get_tle_by_id_as_propagator(25544, 60.0)
@@ -143,6 +151,7 @@ def test_get_tle_by_id_as_propagator():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_id_as_propagator_with_group():
     """Test get_tle_by_id_as_propagator with group fallback."""
     propagator = bh.datasets.celestrak.get_tle_by_id_as_propagator(
@@ -154,6 +163,7 @@ def test_get_tle_by_id_as_propagator_with_group():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_caching_behavior():
     """Test that cached files are reused."""
     import time
@@ -186,6 +196,7 @@ def test_caching_behavior():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name():
     """Test get_tle_by_name for ISS."""
     name, line1, line2 = bh.datasets.celestrak.get_tle_by_name("ISS")
@@ -199,6 +210,7 @@ def test_get_tle_by_name():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_with_group():
     """Test get_tle_by_name with group hint for ISS."""
     name, line1, line2 = bh.datasets.celestrak.get_tle_by_name("ISS", group="stations")
@@ -210,6 +222,7 @@ def test_get_tle_by_name_with_group():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_as_propagator():
     """Test get_tle_by_name_as_propagator for ISS."""
     propagator = bh.datasets.celestrak.get_tle_by_name_as_propagator("ISS", 60.0)
@@ -231,6 +244,7 @@ def test_get_tle_by_name_as_propagator():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_as_propagator_with_group():
     """Test get_tle_by_name_as_propagator with group hint."""
     propagator = bh.datasets.celestrak.get_tle_by_name_as_propagator(
@@ -265,6 +279,7 @@ def test_download_tles_invalid_file_format():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_case_insensitive():
     """Test get_tle_by_name with case insensitivity."""
     # Test with different cases
@@ -280,6 +295,7 @@ def test_get_tle_by_name_case_insensitive():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_partial_match():
     """Test get_tle_by_name with partial name matching."""
     # Search for "ZARYA" which is part of "ISS (ZARYA)"
@@ -292,6 +308,7 @@ def test_get_tle_by_name_partial_match():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_not_found():
     """Test get_tle_by_name with non-existent satellite."""
     with pytest.raises(RuntimeError) as exc_info:
@@ -306,6 +323,7 @@ def test_get_tle_by_name_not_found():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_caching():
     """Test that get_tle_by_name results are cached."""
     import time
@@ -343,6 +361,7 @@ def test_get_tle_by_name_caching():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_with_spaces_in_name():
     """Test get_tle_by_name with spaces in satellite name."""
     # "ISS (ZARYA)" has spaces - test that it works correctly
@@ -364,6 +383,7 @@ def test_get_tle_by_name_with_spaces_in_name():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_as_propagator_different_step_sizes():
     """Test get_tle_by_name_as_propagator with different step sizes."""
     import numpy as np
@@ -389,6 +409,7 @@ def test_get_tle_by_name_as_propagator_different_step_sizes():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_as_propagator_case_insensitive():
     """Test get_tle_by_name_as_propagator with case insensitivity."""
     # Test with different cases
@@ -400,6 +421,7 @@ def test_get_tle_by_name_as_propagator_case_insensitive():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_as_propagator_altitude_check():
     """Test get_tle_by_name_as_propagator altitude is reasonable."""
     import numpy as np
@@ -421,6 +443,7 @@ def test_get_tle_by_name_as_propagator_altitude_check():
 
 
 @pytest.mark.ci
+@pytest.mark.xfail(reason="CelesTrak may be unavailable")
 def test_get_tle_by_name_as_propagator_partial_match():
     """Test get_tle_by_name_as_propagator with partial name matching."""
     # Search for "ZARYA" which is part of "ISS (ZARYA)"

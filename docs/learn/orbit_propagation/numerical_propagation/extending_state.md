@@ -218,6 +218,6 @@ The `control_input` function can read the extended state elements to implement t
 
 ## See Also
 
-- [General Dynamics Propagation](../../generic_dynamics.md) - Using `NumericalPropagator` for custom dynamics
+- [General Dynamics Propagation](generic_dynamics.md) - Using `NumericalPropagator` for custom dynamics
 - [Impulsive and Continuous Control](maneuvers.md) - Thrust implementation
-- [Numerical Orbit Propagator](basic_propagation.md) - Standard 6-DOF propagation
+- [Numerical Orbit Propagator](numerical_orbit_propagator.md) - Standard 6-DOF propagation

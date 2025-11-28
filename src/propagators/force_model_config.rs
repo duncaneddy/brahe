@@ -89,21 +89,21 @@ impl ParameterSource {
 /// # Example
 ///
 /// ```rust
-/// use brahe::propagators::ForceModelConfiguration;
+/// use brahe::propagators::ForceModelConfig;
 /// use brahe::GravityConfiguration;
 ///
 /// // Use default configuration
-/// let config = ForceModelConfiguration::default();
+/// let config = ForceModelConfig::default();
 ///
 /// // Or customize
-/// let config = ForceModelConfiguration {
+/// let config = ForceModelConfig {
 ///     gravity: GravityConfiguration::PointMass,
 ///     drag: None,  // Disable drag
 ///     ..Default::default()
 /// };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ForceModelConfiguration {
+pub struct ForceModelConfig {
     /// Gravity model configuration
     pub gravity: GravityConfiguration,
 
@@ -126,7 +126,7 @@ pub struct ForceModelConfiguration {
     pub mass: Option<ParameterSource>,
 }
 
-impl Default for ForceModelConfiguration {
+impl Default for ForceModelConfig {
     fn default() -> Self {
         Self {
             gravity: GravityConfiguration::SphericalHarmonic {
@@ -135,7 +135,7 @@ impl Default for ForceModelConfiguration {
                 order: 20,
             },
             drag: Some(DragConfiguration {
-                model: AtmosphericModel::HarrisPriester,
+                model: AtmosphericModel::NRLMSISE00,
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
             }),
@@ -145,7 +145,7 @@ impl Default for ForceModelConfiguration {
                 eclipse_model: EclipseModel::Conical,
             }),
             third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::LowPrecision,
+                ephemeris_source: EphemerisSource::DE440s,
                 bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
             }),
             relativity: false,
@@ -154,7 +154,7 @@ impl Default for ForceModelConfiguration {
     }
 }
 
-impl ForceModelConfiguration {
+impl ForceModelConfig {
     /// Check if this configuration requires a parameter vector
     ///
     /// Returns true if any force model component (drag, SRP) references
@@ -163,12 +163,12 @@ impl ForceModelConfiguration {
     /// # Example
     ///
     /// ```rust
-    /// use brahe::propagators::ForceModelConfiguration;
+    /// use brahe::propagators::ForceModelConfig;
     ///
-    /// let config = ForceModelConfiguration::default();
+    /// let config = ForceModelConfig::default();
     /// assert!(config.requires_params()); // Default uses parameter indices
     ///
-    /// let earth_gravity = ForceModelConfiguration::earth_gravity();
+    /// let earth_gravity = ForceModelConfig::earth_gravity();
     /// assert!(!earth_gravity.requires_params()); // No drag/SRP
     /// ```
     pub fn requires_params(&self) -> bool {
@@ -246,10 +246,10 @@ impl ForceModelConfiguration {
     /// # Example
     ///
     /// ```rust
-    /// use brahe::propagators::ForceModelConfiguration;
+    /// use brahe::propagators::ForceModelConfig;
     /// use nalgebra::DVector;
     ///
-    /// let config = ForceModelConfiguration::default();
+    /// let config = ForceModelConfig::default();
     ///
     /// // This will fail - default config needs params but none provided
     /// let result = config.validate_params(None);
@@ -269,7 +269,7 @@ impl ForceModelConfiguration {
                 None => {
                     return Err(crate::utils::errors::BraheError::Error(format!(
                         "Force model configuration references parameter index {} but no parameter \
-                         vector was provided. Use ForceModelConfiguration::earth_gravity() for \
+                         vector was provided. Use ForceModelConfig::earth_gravity() for \
                          propagation without parameters, or provide a parameter vector with at \
                          least {} elements.",
                         max_idx,
@@ -788,7 +788,7 @@ mod tests {
 
     #[test]
     fn test_default_configuration() {
-        let config = ForceModelConfiguration::default();
+        let config = ForceModelConfig::default();
 
         // Check gravity
         match config.gravity {
@@ -814,7 +814,7 @@ mod tests {
 
     #[test]
     fn test_high_fidelity_configuration() {
-        let config = ForceModelConfiguration::high_fidelity();
+        let config = ForceModelConfig::high_fidelity();
 
         // Check high-degree gravity
         match config.gravity {
@@ -845,7 +845,7 @@ mod tests {
 
     #[test]
     fn test_gravity_only_configuration() {
-        let config = ForceModelConfiguration::earth_gravity();
+        let config = ForceModelConfig::earth_gravity();
 
         assert!(matches!(
             config.gravity,
@@ -860,7 +860,7 @@ mod tests {
 
     #[test]
     fn test_leo_configuration() {
-        let config = ForceModelConfiguration::leo_default();
+        let config = ForceModelConfig::leo_default();
 
         // LEO should have drag (dominant perturbation)
         assert!(config.drag.is_some());
@@ -880,7 +880,7 @@ mod tests {
 
     #[test]
     fn test_geo_configuration() {
-        let config = ForceModelConfiguration::geo_default();
+        let config = ForceModelConfig::geo_default();
 
         // GEO should not have drag (negligible at GEO altitude)
         assert!(config.drag.is_none());
@@ -917,13 +917,13 @@ mod tests {
 
     #[test]
     fn test_serialization() {
-        let config = ForceModelConfiguration::default();
+        let config = ForceModelConfig::default();
 
         // Serialize to JSON
         let json = serde_json::to_string(&config).unwrap();
 
         // Deserialize back
-        let deserialized: ForceModelConfiguration = serde_json::from_str(&json).unwrap();
+        let deserialized: ForceModelConfig = serde_json::from_str(&json).unwrap();
 
         // Check equality (at least for some fields)
         assert!(matches!(
@@ -936,11 +936,11 @@ mod tests {
     #[test]
     fn test_requires_params_with_mass_param_index() {
         // When mass uses ParameterIndex, requires_params should return true
-        let config = ForceModelConfiguration {
+        let config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(5)),
             drag: None,
             srp: None,
-            ..ForceModelConfiguration::earth_gravity()
+            ..ForceModelConfig::earth_gravity()
         };
 
         assert!(config.requires_params());
@@ -949,11 +949,11 @@ mod tests {
     #[test]
     fn test_requires_params_with_mass_value() {
         // When mass uses Value, requires_params should return false (if no other params needed)
-        let config = ForceModelConfiguration {
+        let config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)),
             drag: None,
             srp: None,
-            ..ForceModelConfiguration::earth_gravity()
+            ..ForceModelConfig::earth_gravity()
         };
 
         assert!(!config.requires_params());

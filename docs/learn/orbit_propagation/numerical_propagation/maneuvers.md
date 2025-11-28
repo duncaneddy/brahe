@@ -184,5 +184,5 @@ The propagator handles step 3, while the optimization loop is typically implemen
 - [Event Detection](event_detection.md) - Event system fundamentals
 - [Event Callbacks](event_callbacks.md) - Callback function details
 - [Extending Spacecraft State](extending_state.md) - Extended state vectors
-- [General Dynamics Propagation](../../generic_dynamics.md) - Extended state vectors
-- [Numerical Orbit Propagator](basic_propagation.md) - Propagator fundamentals
+- [General Dynamics Propagation](generic_dynamics.md) - Extended state vectors
+- [Numerical Orbit Propagator](numerical_orbit_propagator.md) - Propagator fundamentals

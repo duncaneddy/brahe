@@ -1,8 +1,46 @@
 # Force Models
 
-The `ForceModelConfig` (Python) / `ForceModelConfiguration` (Rust) defines which physical forces affect the spacecraft during propagation. Brahe provides preset configurations for common scenarios and allows custom configurations for specific requirements.
+The `ForceModelConfig` (Python) / `ForceModelConfig` (Rust) defines which physical forces affect the spacecraft during propagation. Brahe provides preset configurations for common scenarios and allows custom configurations for specific requirements.
 
 For API details, see the [ForceModelConfig API Reference](../../../library_api/propagators/force_model_config.md).
+
+## Architecture Overview
+
+### Configuration Hierarchy
+
+`ForceModelConfig` is the top-level container that aggregates all force model settings. Each force type has its own configuration struct:
+
+``` .no-linenums
+ForceModelConfig
+├── gravity: GravityConfiguration
+│   ├── PointMass
+│   └── SphericalHarmonic { source, degree, order }
+├── drag: DragConfiguration
+│   ├── model: AtmosphericModel
+│   ├── area: ParameterSource
+│   └── cd: ParameterSource
+├── srp: SolarRadiationPressureConfiguration
+│   ├── area: ParameterSource
+│   ├── cr: ParameterSource
+│   └── eclipse_model: EclipseModel
+├── third_body: ThirdBodyConfiguration
+│   ├── ephemeris_source: EphemerisSource
+│   └── bodies: Vec<ThirdBody>
+├── relativity: bool
+└── mass: ParameterSource
+```
+
+Each sub-configuration is optional (`None` disables that force). The configuration is captured at propagator construction time and remains immutable during propagation.
+
+### Parameter Sources
+
+Spacecraft parameters (mass $m$, drag area $A_d$, coefficient of drag $C_d$, SRP area $A_{SRP}$, coefficient of reflectivity $C_r$) can be specified in two ways via `ParameterSource`:
+
+- **`Value(f64)`** - Fixed constant embedded at construction. The value is baked into the dynamics function and cannot change during propagation.
+
+- **`ParameterIndex(usize)`** - Index into an parameter vector. This allows parameters to be varied or estimated as part of orbit determination or sensitivity analysis.
+
+The [Parameter Configuration](#parameter-configuration) section below provides detailed examples of both approaches.
 
 ## Force Model Components
 
@@ -24,7 +62,7 @@ Gravity is the primary force in orbital mechanics. Brahe supports two gravity mo
     --8<-- "./examples/numerical_propagation/force_model_gravity_pointmass.rs:4"
     ```
 
-**Spherical Harmonics**: High-fidelity gravity using EGM2008 model. Degree and order control accuracy vs computation time.
+**Spherical Harmonics**: High-fidelity gravity using EGM2008, GGM05S, or user-defined `.gfz` model. Degree and order control accuracy vs computation time.
 
 === "Python"
 
@@ -56,7 +94,7 @@ Atmospheric drag is significant for LEO satellites. Three atmospheric models are
     --8<-- "./examples/numerical_propagation/force_model_drag_harris_priester.rs:4"
     ```
 
-**NRLMSISE-00**: High-fidelity empirical model using space weather data. Valid from ground to thermosphere.
+**NRLMSISE-00**: High-fidelity empirical model using space weather data. Valid from ground to thermosphere (~1000 km). More computationally intensive.
 
 === "Python"
 
@@ -170,6 +208,7 @@ Use `ParameterSource.from_index()` (Python) / `ParameterSource::ParameterIndex` 
 
 When using parameter indices, the default layout is:
 
+<div class="center-table" markdown="1">
 | Index | Parameter | Units | Typical Value |
 |-------|-----------|-------|---------------|
 | 0 | mass | kg | 1000.0 |
@@ -177,6 +216,7 @@ When using parameter indices, the default layout is:
 | 2 | Cd | - | 2.2 |
 | 3 | srp_area | m² | 10.0 |
 | 4 | Cr | - | 1.3 |
+</div>
 
 Custom indices can be used by specifying different values in the configuration.
 
@@ -200,6 +240,7 @@ Combine components for specific mission requirements:
 
 Brahe provides preset configurations for common scenarios:
 
+<div class="center-table" markdown="1">
 | Preset | Gravity | Drag | SRP | Third-Body | Relativity | Requires Params |
 |--------|---------|------|-----|------------|------------|-----------------|
 | `two_body()` | PointMass | None | None | None | No | No |
@@ -209,6 +250,7 @@ Brahe provides preset configurations for common scenarios:
 | `leo_default()` | 30×30 | NRLMSISE-00 | Conical | Sun/Moon (DE440s) | No | Yes |
 | `geo_default()` | 8×8 | None | Conical | Sun/Moon (DE440s) | No | Yes |
 | `high_fidelity()` | 120×120 | NRLMSISE-00 | Conical | All planets (DE440s) | Yes | Yes |
+</div>
 
 === "Python"
 
@@ -221,17 +263,6 @@ Brahe provides preset configurations for common scenarios:
     ``` rust
     --8<-- "./examples/numerical_propagation/force_model_presets.rs:4"
     ```
-
-## Performance Considerations
-
-Force model complexity directly affects propagation speed:
-
-1. **Gravity harmonics**: Computation scales with $(n+1)^2$ for degree $n$
-2. **Third-body**: Requires ephemeris lookups for Sun/Moon positions
-3. **Drag**: Requires density model evaluation and velocity-relative calculations
-4. **SRP**: Requires eclipse geometry computation
-
-For time-critical applications, use the minimum fidelity that meets accuracy requirements.
 
 ---
 

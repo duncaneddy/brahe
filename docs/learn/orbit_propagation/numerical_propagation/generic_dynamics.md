@@ -2,7 +2,7 @@
 
 The `NumericalPropagator` provides a general-purpose numerical integrator for arbitrary ordinary differential equations (ODEs). Unlike `NumericalOrbitPropagator` which has built-in orbital force models, the generic propagator accepts user-defined dynamics functions.
 
-For API details, see the [NumericalPropagator API Reference](../library_api/propagators/numerical_propagator.md).
+For API details, see the [NumericalPropagator API Reference](../../../library_api/propagators/numerical_propagator.md).
 
 ## When to Use General Dynamics
 
@@ -13,7 +13,7 @@ Use `NumericalPropagator` when:
 - Extending the state vector beyond position/velocity (mass, attitude, etc.)
 - Integrating coupled systems (orbit + attitude, multiple bodies, etc.)
 
-For mass tracking during thrust maneuvers, see [Extending Spacecraft State](orbit_propagation/numerical_propagation/extending_state.md).
+For mass tracking during thrust maneuvers, see [Extending Spacecraft State](extending_state.md).
 
 ## Dynamics Function
 
@@ -159,8 +159,8 @@ For Rust, ensure the dynamics closure captures minimal state and avoids unnecess
 
 ## See Also
 
-- [Numerical Propagation Overview](orbit_propagation/numerical_propagation/index.md) - Architecture and concepts
-- [Extending Spacecraft State](orbit_propagation/numerical_propagation/extending_state.md) - Extended state vectors
-- [Maneuvers](orbit_propagation/numerical_propagation/maneuvers.md) - Control inputs for thrust
-- [Event Detection](orbit_propagation/numerical_propagation/event_detection.md) - Detecting conditions
-- [NumericalPropagator API Reference](../library_api/propagators/numerical_propagator.md)
+- [Numerical Propagation Overview](index.md) - Architecture and concepts
+- [Extending Spacecraft State](extending_state.md) - Extended state vectors
+- [Maneuvers](maneuvers.md) - Control inputs for thrust
+- [Event Detection](event_detection.md) - Detecting conditions
+- [NumericalPropagator API Reference](../../../library_api/propagators/numerical_propagator.md)

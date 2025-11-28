@@ -156,4 +156,4 @@ The event detection tolerance is controlled by the integrator configuration. Tig
 - [Premade Events](premade_events.md) - Built-in event types
 - [Event Callbacks](event_callbacks.md) - Responding to detected events
 - [Maneuvers](maneuvers.md) - Using events for orbit maneuvers
-- [Numerical Orbit Propagator](basic_propagation.md) - Propagator fundamentals
+- [Numerical Orbit Propagator](numerical_orbit_propagator.md) - Propagator fundamentals

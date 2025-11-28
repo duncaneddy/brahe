@@ -3223,7 +3223,7 @@ impl PyNumericalPropagationConfig {
 #[pyo3(name = "ForceModelConfig")]
 #[derive(Clone)]
 pub struct PyForceModelConfig {
-    pub config: propagators::ForceModelConfiguration,
+    pub config: propagators::ForceModelConfig,
 }
 
 #[pymethods]
@@ -3262,7 +3262,7 @@ impl PyForceModelConfig {
         mass: Option<&PyParameterSource>,
     ) -> Self {
         PyForceModelConfig {
-            config: propagators::ForceModelConfiguration {
+            config: propagators::ForceModelConfig {
                 gravity: gravity.map(|g| g.config.clone()).unwrap_or(propagators::GravityConfiguration::PointMass),
                 drag: drag.map(|d| d.config.clone()),
                 srp: srp.map(|s| s.config.clone()),
@@ -3285,7 +3285,7 @@ impl PyForceModelConfig {
     #[classmethod]
     fn default(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig {
-            config: propagators::ForceModelConfiguration::default(),
+            config: propagators::ForceModelConfig::default(),
         }
     }
 
@@ -3302,7 +3302,7 @@ impl PyForceModelConfig {
     #[classmethod]
     fn high_fidelity(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig {
-            config: propagators::ForceModelConfiguration::high_fidelity(),
+            config: propagators::ForceModelConfig::high_fidelity(),
         }
     }
 
@@ -3312,7 +3312,7 @@ impl PyForceModelConfig {
     #[classmethod]
     fn earth_gravity(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig {
-            config: propagators::ForceModelConfiguration::earth_gravity(),
+            config: propagators::ForceModelConfig::earth_gravity(),
         }
     }
 
@@ -3324,7 +3324,7 @@ impl PyForceModelConfig {
     #[classmethod]
     fn two_body(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig {
-            config: propagators::ForceModelConfiguration::two_body_gravity(),
+            config: propagators::ForceModelConfig::two_body_gravity(),
         }
     }
 
@@ -3332,7 +3332,7 @@ impl PyForceModelConfig {
     #[classmethod]
     fn conservative_forces(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig {
-            config: propagators::ForceModelConfiguration::conservative_forces(),
+            config: propagators::ForceModelConfig::conservative_forces(),
         }
     }
 
@@ -3343,7 +3343,7 @@ impl PyForceModelConfig {
     #[classmethod]
     fn leo_default(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig {
-            config: propagators::ForceModelConfiguration::leo_default(),
+            config: propagators::ForceModelConfig::leo_default(),
         }
     }
 
@@ -3354,7 +3354,7 @@ impl PyForceModelConfig {
     #[classmethod]
     fn geo_default(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig {
-            config: propagators::ForceModelConfiguration::geo_default(),
+            config: propagators::ForceModelConfig::geo_default(),
         }
     }
 

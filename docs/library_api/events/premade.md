@@ -4,12 +4,14 @@ Convenience event detectors for common scenarios. These provide ready-to-use eve
 
 ## Overview
 
+<div class="center-table" markdown="1">
 | Category | Events |
 |----------|--------|
 | State-Derived | `AltitudeEvent`, `SpeedEvent`, `LongitudeEvent`, `LatitudeEvent` |
 | Orbital Elements | `SemiMajorAxisEvent`, `EccentricityEvent`, `InclinationEvent`, `ArgumentOfPerigeeEvent`, `MeanAnomalyEvent`, `EccentricAnomalyEvent`, `TrueAnomalyEvent`, `ArgumentOfLatitudeEvent` |
 | Node Crossings | `AscendingNodeEvent`, `DescendingNodeEvent` |
 | Eclipse/Shadow | `UmbraEvent`, `PenumbraEvent`, `EclipseEvent`, `SunlitEvent` |
+</div>
 
 ## State-Derived Events
 

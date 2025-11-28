@@ -6,7 +6,20 @@ For API details, see the [NumericalOrbitPropagator API Reference](../../../libra
 
 ## Creating a Propagator
 
-The `NumericalOrbitPropagator` requires an initial epoch, state, propagation configuration, force model configuration, and optional parameters.
+The `NumericalOrbitPropagator` requires an initial epoch, state, propagation configuration, force model configuration, and optional parameters. The propagator state vector follows a standard layout with the 6D orbital state in the first elements:
+
+```
+State Vector (6+ elements)
+├── [0] x  - Position X (m, ECI)
+├── [1] y  - Position Y (m, ECI)
+├── [2] z  - Position Z (m, ECI)
+├── [3] vx - Velocity X (m/s, ECI)
+├── [4] vy - Velocity Y (m/s, ECI)
+├── [5] vz - Velocity Z (m/s, ECI)
+└── [6+]   - Extended state (user-defined)
+```
+
+All force models read from the first 6 elements and contribute accelerations to indices 3-5. Extended state elements (index 6+) are available for user-defined dynamics such as mass depletion, battery state, attitude dynamics, or other user-defined states.
 
 ### Minimal Setup
 
@@ -24,21 +37,6 @@ The simplest setup uses default configurations:
     --8<-- "./examples/numerical_propagation/basic_propagation.rs:4"
     ```
 
-### With Trajectory Storage
-
-To store intermediate states during propagation, enable trajectory recording:
-
-=== "Python"
-
-    ``` python
-    --8<-- "./examples/numerical_propagation/propagation_with_trajectory.py:8"
-    ```
-
-=== "Rust"
-
-    ``` rust
-    --8<-- "./examples/numerical_propagation/propagation_with_trajectory.rs:4"
-    ```
 
 ## Stepping Through Time
 
@@ -74,6 +72,9 @@ The `StateProvider` trait enables state queries at any epoch:
 - `state_eci(epoch)` - Cartesian state in ECI frame
 - `state_ecef(epoch)` - Cartesian state in ECEF frame
 - `state_koe(epoch, angle_format)` - Keplerian orbital elements
+
+!!! warning "Propagator Advancement and State Queries"
+    When querying states at epochs beyond the current propagated time, the propagator **MUST** have already been advanced to at least that epoch using one of the propagation methods, such as `propagate_to()` or `step_past()`, before calling the state query methods otherwise an error will be raised.
 
 For epochs within the propagated trajectory, interpolation is used. For epochs beyond the trajectory, the propagator advances to that epoch.
 
@@ -113,6 +114,7 @@ Use `reset()` to return the propagator to its initial conditions, clearing the t
 
 Some force models require additional parameters. These are provided as a parameter vector during construction:
 
+<div class="center-table" markdown="1">
 | Index | Parameter | Units | Description |
 |-------|-----------|-------|-------------|
 | 0 | mass | kg | Spacecraft mass |
@@ -120,12 +122,13 @@ Some force models require additional parameters. These are provided as a paramet
 | 2 | Cd | - | Drag coefficient |
 | 3 | srp_area | m$^2$ | Cross-sectional area for SRP |
 | 4 | Cr | - | Reflectivity coefficient |
+</div>
 
 The `ForceModelConfig.requires_params()` method indicates whether parameters are needed.
 
 ## Identity Tracking
 
-For multi-satellite applications, propagators can be identified by name, ID, or UUID:
+For applications such as [access computation](../../access_computation/index.md) that can identify events based on the satellite, propagators can be identified by name, ID, or UUID:
 
 ```python
 prop = bh.NumericalOrbitPropagator(...)

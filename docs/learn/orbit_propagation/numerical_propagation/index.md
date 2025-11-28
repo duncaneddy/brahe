@@ -1,12 +1,10 @@
 # Numerical Propagation
 
-Numerical propagation solves equations of motion through numerical integration, enabling high-fidelity dynamics modeling with arbitrary force models. Unlike analytical propagators that use closed-form solutions, numerical propagators step through time, computing accelerations at each step and integrating to get the next state. The 
+Numerical propagation solves equations of motion through numerical integration, enabling high-fidelity dynamics modeling with arbitrary force models. Unlike analytical propagators that use closed-form solutions, numerical propagators step through time, computing accelerations at each step and integrating to get the next state. This approach allows for complex perturbations, control input modeling, covariance propagation, sensitivity analysis, and event detection.
 
-Brahe provides two numerical propagator types:
+For orbital mechanics, Brahe provides the [`NumericalOrbitPropagator`](../../../library_api/propagators/numerical_orbit_propagator.md) class built, which provides a fast way to propagate satellite orbits using the force models defined and discussed in [Orbital Dynamics](../../orbital_dynamics/index.md). The NumericalOrbitPropagator supports a variety of integrators, including fixed-step and adaptive methods, and can model perturbations such as atmospheric drag, solar radiation pressure, third-body effects, and relativistic corrections. It also supports covariance propagation and sensitivity analysis for orbit determination and parameter estimation. Finally, it supports event detection for orbital events like eclipses, node crossings, and altitude thresholds. Event detection is covered in more detail in the [Event Detection](event_detection.md) section, and premade event types are documented in [Premade Events](premade_events.md).
 
-- **`NumericalOrbitPropagator`** - Specialized for orbital mechanics with built-in force models (gravity, drag, SRP, third-body)
-
-Both propagators implement the same trait hierarchy as analytical propagators (`OrbitPropagator`, `StateProvider`, `IdentifiableStateProvider`), providing consistent APIs for stepping, state queries, and trajectory management.
+Brahe also includes a more general [`NumericalPropagator`](../../../library_api/propagators/numerical_propagator.md) class for propagating arbitrary dynamical system systems. This class allows users to integrate equations of motion for non-orbital dynamical systems. This capability is discussed in more depth in [General Dynamics Propagation](generic_dynamics.md). 
 
 ## Architecture Overview
 
@@ -14,25 +12,25 @@ The numerical propagation system consists of several configurable components:
 
 ### Force Model Configuration
 
-The `ForceModelConfig` (Python) / `ForceModelConfiguration` (Rust) specifies which physical forces to include:
+The [`ForceModelConfig`](../../../library_api/propagators/force_model_config.md) is a data structure that specifies which physical perturbations to include in the dynamics and their parameters. Supported force include:
 
-- **Gravity**: Point-mass or spherical harmonics (EGM2008 up to degree/order 100)
-- **Atmospheric Drag**: Harris-Priester or exponential models
+- **Gravity**: Point-mass or spherical harmonics (EGMS2008, GGM05S, or user-defined)
+- **Atmospheric Drag**: NRLMSISE-00, Harris-Priester, or exponential atmosphere models
 - **Solar Radiation Pressure**: Cannonball model with conical or cylindrical eclipse
-- **Third-Body**: Sun and Moon gravitational perturbations
-- **Relativistic Effects**: General relativistic corrections
+- **Third-Body**: Sun and Moon gravitational perturbations with analytic or DE440 ephemerides 
+- **Relativistic Effects**: Special and general relativistic corrections
 
 ### Integrator Configuration
 
-The `NumericalPropagationConfig` specifies the integration method and tolerances:
+The [`NumericalPropagationConfig`](../../../library_api/propagators/numerical_propagation_config.md) specifies the integration method, integrator configuration, and variational equations settings:
 
-- **Fixed-Step Methods**: RK4 (4th-order Runge-Kutta)
-- **Adaptive Methods**: DP54, RKF45, RKN1210 with automatic step-size control
-- **Tolerances**: Absolute and relative error tolerances for adaptive methods
+- **Integrator**: Fixed-step (e.g., Runge-Kutta 4) or adaptive (e.g., Dormand-Prince 8(5,3)) methods
+- **Integrator Settings**: Step size, error tolerances, and maximum step constraints
+- **Variational Equations**: Enable/disable covariance and sensitivity propagation, with settings for state transition matrix and sensitivity matrix computation
 
 ### Event Detection
 
-The propagator supports event detection during integration:
+The numerical propagator supports event detection through configurable event detectors. Brahe includes several premade event types (detailed in [Premade Events](premade_events.md)):
 
 - **Time Events**: Trigger at specific epochs
 - **Value Events**: Trigger when a computed quantity crosses a threshold
@@ -43,11 +41,7 @@ Events can be configured to execute callbacks for impulsive maneuvers.
 
 ### Trajectory Storage
 
-All propagators maintain an internal `OrbitTrajectory` storing propagated states. The trajectory supports:
-
-- Hermite interpolation for smooth state queries between steps
-- Eviction policies to limit memory usage
-- Frame and representation conversions
+All propagators maintain an internal [`OrbitTrajectory`](../../../library_api/trajectories/orbit_trajectory.md) storing propagated states, covariances, state transition matricies, and sensitivities.
 
 ## Quick Start
 
@@ -65,22 +59,11 @@ The simplest way to create a numerical propagator uses default configurations:
     --8<-- "./examples/numerical_propagation/basic_propagation.rs:4"
     ```
 
-## When to Use Numerical Propagation
-
-Numerical propagation is appropriate when:
-
-- **Perturbations matter**: LEO satellites experience significant drag and J2 effects
-- **High precision is required**: Conjunction analysis, maneuver planning, state estimation
-- **Custom dynamics are needed**: Continuous thrust, attitude-dependent forces, relative motion
-- **Event detection is required**: Finding specific orbital events like eclipse entry/exit
-
-For rapid trajectory generation where perturbations are negligible, analytical propagators ([Keplerian](../keplerian_propagation.md) or [SGP4](../sgp_propagation.md)) are faster.
-
 ---
 
 ## Section Contents
 
-- [Numerical Orbit Propagator](basic_propagation.md) - Getting started with numerical propagation
+- [Numerical Orbit Propagator](numerical_orbit_propagator.md) - Getting started with numerical propagation
 - [Force Models](force_models.md) - Configuring physical force models
 - [Integrator Configuration](integrator_configuration.md) - Choosing integration methods
 - [Event Detection](event_detection.md) - Detecting orbital events
@@ -89,7 +72,7 @@ For rapid trajectory generation where perturbations are negligible, analytical p
 - [Maneuvers](maneuvers.md) - Impulsive and continuous thrust
 - [Covariance and Sensitivity](covariance_sensitivity.md) - Uncertainty propagation
 - [Extending Spacecraft State](extending_state.md) - Additional state variables
-- [General Dynamics Propagation](../../generic_dynamics.md) - Propagating arbitrary ODEs
+- [General Dynamics Propagation](generic_dynamics.md) - Propagating arbitrary ODEs
 
 ## See Also
 

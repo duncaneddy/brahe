@@ -30,8 +30,7 @@ use crate::orbit_dynamics::{
     eclipse_cylindrical, get_global_gravity_model, sun_position,
 };
 use crate::propagators::{
-    AtmosphericModel, EclipseModel, ForceModelConfiguration, GravityConfiguration,
-    GravityModelSource,
+    AtmosphericModel, EclipseModel, ForceModelConfig, GravityConfiguration, GravityModelSource,
 };
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
@@ -114,7 +113,7 @@ type SharedDynamics =
 /// High-fidelity numerical orbit propagator with built-in force models
 ///
 /// This propagator wraps a dynamic-sized adaptive integrator and automatically builds
-/// the dynamics function from a `ForceModelConfiguration`. It handles:
+/// the dynamics function from a `ForceModelConfig`. It handles:
 /// - Multiple gravity models (point mass or spherical harmonic)
 /// - Atmospheric drag (Harris-Priester, NRLMSISE-00, or exponential)
 /// - Solar radiation pressure with eclipse modeling
@@ -140,7 +139,7 @@ type SharedDynamics =
 /// # Example
 ///
 /// ```rust
-/// use brahe::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, ForceModelConfiguration};
+/// use brahe::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, ForceModelConfig};
 /// use brahe::propagators::traits::DStatePropagator;
 /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
 /// use brahe::time::{Epoch, TimeSystem};
@@ -153,7 +152,7 @@ type SharedDynamics =
 ///
 /// // Create configurations
 /// let prop_config = NumericalPropagationConfig::default();
-/// let force_config = ForceModelConfiguration::default();
+/// let force_config = ForceModelConfig::default();
 ///
 /// // Create initial state (ECI Cartesian)
 /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -284,7 +283,7 @@ impl DNumericalOrbitPropagator {
     /// # Example
     ///
     /// ```rust
-    /// use brahe::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, ForceModelConfiguration};
+    /// use brahe::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, ForceModelConfig};
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::constants::R_EARTH;
     /// use nalgebra::DVector;
@@ -299,7 +298,7 @@ impl DNumericalOrbitPropagator {
     ///     epoch,
     ///     state,
     ///     NumericalPropagationConfig::default(),
-    ///     ForceModelConfiguration::default(),
+    ///     ForceModelConfig::default(),
     ///     Some(DVector::from_vec(vec![1000.0, 10.0, 2.2, 10.0, 1.3])),
     ///     None,
     ///     None,
@@ -311,7 +310,7 @@ impl DNumericalOrbitPropagator {
         epoch: Epoch,
         state: DVector<f64>,
         propagation_config: super::NumericalPropagationConfig,
-        force_config: ForceModelConfiguration,
+        force_config: ForceModelConfig,
         params: Option<DVector<f64>>,
         additional_dynamics: Option<DStateDynamics>,
         control_input: DControlInput,
@@ -687,7 +686,7 @@ impl DNumericalOrbitPropagator {
     /// any `additional_dynamics` that were provided.
     fn build_shared_dynamics(
         epoch_initial: Epoch,
-        force_config: ForceModelConfiguration,
+        force_config: ForceModelConfig,
         params: DVector<f64>,
         additional_dynamics: Option<DStateDynamics>,
         gravity_model: Option<Arc<GravityModel>>,
@@ -808,7 +807,7 @@ impl DNumericalOrbitPropagator {
         t: f64,
         state: DVector<f64>,
         epoch_initial: Epoch,
-        force_config: &ForceModelConfiguration,
+        force_config: &ForceModelConfig,
         params_opt: Option<&DVector<f64>>,
         gravity_model: Option<&Arc<GravityModel>>,
     ) -> DVector<f64> {
@@ -1150,7 +1149,7 @@ impl DNumericalOrbitPropagator {
     /// ```
     /// # use brahe::propagators::DNumericalOrbitPropagator;
     /// # use brahe::time::{Epoch, TimeSystem};
-    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
+    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfig};
     /// # use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// # use nalgebra::DVector;
     /// # use brahe::constants::R_EARTH;
@@ -1160,7 +1159,7 @@ impl DNumericalOrbitPropagator {
     /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
     /// # let mut prop = DNumericalOrbitPropagator::new(
     /// #     epoch, state, NumericalPropagationConfig::default(),
-    /// #     ForceModelConfiguration::earth_gravity(), None, None, None, None
+    /// #     ForceModelConfig::earth_gravity(), None, None, None, None
     /// # ).unwrap();
     /// // Get events from detector 1 in time range
     /// let events: Vec<_> = prop.query_events()
@@ -1191,7 +1190,7 @@ impl DNumericalOrbitPropagator {
     /// ```
     /// # use brahe::propagators::DNumericalOrbitPropagator;
     /// # use brahe::time::{Epoch, TimeSystem};
-    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
+    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfig};
     /// # use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// # use nalgebra::DVector;
     /// # use brahe::constants::R_EARTH;
@@ -1201,7 +1200,7 @@ impl DNumericalOrbitPropagator {
     /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
     /// # let mut prop = DNumericalOrbitPropagator::new(
     /// #     epoch, state, NumericalPropagationConfig::default(),
-    /// #     ForceModelConfiguration::earth_gravity(), None, None, None, None
+    /// #     ForceModelConfig::earth_gravity(), None, None, None, None
     /// # ).unwrap();
     /// // Get all events from detector 0
     /// let events = prop.events_by_detector_index(0);
@@ -1224,7 +1223,7 @@ impl DNumericalOrbitPropagator {
     /// ```
     /// # use brahe::propagators::DNumericalOrbitPropagator;
     /// # use brahe::time::{Epoch, TimeSystem};
-    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
+    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfig};
     /// # use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// # use nalgebra::DVector;
     /// # use brahe::constants::R_EARTH;
@@ -1234,7 +1233,7 @@ impl DNumericalOrbitPropagator {
     /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
     /// # let mut prop = DNumericalOrbitPropagator::new(
     /// #     epoch, state, NumericalPropagationConfig::default(),
-    /// #     ForceModelConfiguration::earth_gravity(), None, None, None, None
+    /// #     ForceModelConfig::earth_gravity(), None, None, None, None
     /// # ).unwrap();
     /// // Get detector 1 events in time range
     /// let events = prop.events_by_detector_index_in_range(1, epoch, epoch + 3600.0);
@@ -1265,7 +1264,7 @@ impl DNumericalOrbitPropagator {
     /// ```
     /// # use brahe::propagators::DNumericalOrbitPropagator;
     /// # use brahe::time::{Epoch, TimeSystem};
-    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfiguration};
+    /// # use brahe::propagators::{NumericalPropagationConfig, ForceModelConfig};
     /// # use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// # use nalgebra::DVector;
     /// # use brahe::constants::R_EARTH;
@@ -1275,7 +1274,7 @@ impl DNumericalOrbitPropagator {
     /// # let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
     /// # let mut prop = DNumericalOrbitPropagator::new(
     /// #     epoch, state, NumericalPropagationConfig::default(),
-    /// #     ForceModelConfiguration::earth_gravity(), None, None, None, None
+    /// #     ForceModelConfig::earth_gravity(), None, None, None, None
     /// # ).unwrap();
     /// // Get altitude events in time range
     /// let events = prop.events_by_name_in_range("Altitude", epoch, epoch + 3600.0);
@@ -2063,8 +2062,8 @@ mod tests {
 
     /// Create a test-friendly force config that uses point mass gravity but has drag
     /// This allows testing parameter-dependent features without loading gravity model
-    fn test_force_config_with_params() -> ForceModelConfiguration {
-        ForceModelConfiguration {
+    fn test_force_config_with_params() -> ForceModelConfig {
+        ForceModelConfig {
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -2097,7 +2096,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::default(),
+            ForceModelConfig::default(),
             Some(default_test_params()),
             None,
             None,
@@ -2109,11 +2108,11 @@ mod tests {
 
     #[test]
     fn test_force_model_configuration_construction_variants() {
-        let _ = ForceModelConfiguration::default();
-        let _ = ForceModelConfiguration::high_fidelity();
-        let _ = ForceModelConfiguration::earth_gravity();
-        let _ = ForceModelConfiguration::leo_default();
-        let _ = ForceModelConfiguration::geo_default();
+        let _ = ForceModelConfig::default();
+        let _ = ForceModelConfig::high_fidelity();
+        let _ = ForceModelConfig::earth_gravity();
+        let _ = ForceModelConfig::leo_default();
+        let _ = ForceModelConfig::geo_default();
     }
 
     #[test]
@@ -2134,7 +2133,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2181,7 +2180,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2229,7 +2228,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2284,7 +2283,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2337,7 +2336,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2395,7 +2394,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2465,7 +2464,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2502,7 +2501,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2537,7 +2536,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2572,7 +2571,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2607,7 +2606,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2642,7 +2641,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2681,7 +2680,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2720,7 +2719,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2764,7 +2763,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2818,7 +2817,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2866,7 +2865,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2920,7 +2919,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -2978,7 +2977,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3017,7 +3016,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3059,7 +3058,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3128,7 +3127,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3201,7 +3200,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3265,7 +3264,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3285,7 +3284,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3319,7 +3318,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3343,7 +3342,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3380,7 +3379,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3409,7 +3408,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3450,7 +3449,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3475,7 +3474,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3502,7 +3501,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3527,7 +3526,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3551,7 +3550,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3595,7 +3594,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3621,7 +3620,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3660,7 +3659,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3708,7 +3707,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3750,7 +3749,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3800,7 +3799,7 @@ mod tests {
             epoch,
             DVector::from_column_slice(state.as_slice()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3850,7 +3849,7 @@ mod tests {
             epoch,
             DVector::from_column_slice(state.as_slice()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3900,7 +3899,7 @@ mod tests {
             epoch,
             DVector::from_column_slice(state.as_slice()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3912,7 +3911,7 @@ mod tests {
             epoch,
             DVector::from_column_slice(state.as_slice()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -3986,7 +3985,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4075,7 +4074,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4129,7 +4128,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4166,7 +4165,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4210,7 +4209,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4249,7 +4248,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4282,7 +4281,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4330,7 +4329,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4378,7 +4377,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4428,7 +4427,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4486,7 +4485,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4574,7 +4573,7 @@ mod tests {
             epoch,
             DVector::from_column_slice(state.as_slice()),
             prop_config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4665,7 +4664,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4769,7 +4768,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None, // No control
@@ -4782,7 +4781,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             control_fn, // With tangential thrust control
@@ -4854,7 +4853,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -4911,7 +4910,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4958,7 +4957,7 @@ mod tests {
             epoch,
             state.clone(),
             config_tight,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -4970,7 +4969,7 @@ mod tests {
             epoch,
             state,
             config_loose,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5012,7 +5011,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -5057,7 +5056,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -5108,7 +5107,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -5155,7 +5154,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -5212,7 +5211,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5260,7 +5259,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5307,7 +5306,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5358,7 +5357,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5414,7 +5413,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -5463,7 +5462,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5502,7 +5501,7 @@ mod tests {
             epoch,
             DVector::from_vec(state.as_slice().to_vec()),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -5537,7 +5536,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5577,7 +5576,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5608,7 +5607,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5645,7 +5644,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5676,7 +5675,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         // Create with custom parameters
-        let force_config = ForceModelConfiguration::default();
+        let force_config = ForceModelConfig::default();
         let params = DVector::from_vec(vec![500.0, 5.0, 2.0, 8.0, 1.5]); // Custom values
 
         let prop = DNumericalOrbitPropagator::new(
@@ -5709,7 +5708,7 @@ mod tests {
             epoch,
             eci_state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5748,7 +5747,7 @@ mod tests {
             epoch,
             extended_state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5795,7 +5794,7 @@ mod tests {
             epoch,
             extended_state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             Some(additional_dynamics),
             None,
@@ -5848,7 +5847,7 @@ mod tests {
             epoch,
             extended_state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             Some(additional_dynamics),
             None,
@@ -5918,7 +5917,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5931,7 +5930,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::with_method(IntegratorMethod::RKF45),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5944,7 +5943,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::with_method(IntegratorMethod::RKN1210),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5957,7 +5956,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::with_method(IntegratorMethod::RK4),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -5981,7 +5980,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6009,7 +6008,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6038,7 +6037,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6056,7 +6055,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::default(),
+            ForceModelConfig::default(),
             Some(custom_params),
             None,
             None,
@@ -6084,7 +6083,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6111,7 +6110,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6147,7 +6146,7 @@ mod tests {
             epoch,
             state_6d,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6173,7 +6172,7 @@ mod tests {
             epoch,
             state_8d,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6195,7 +6194,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6227,7 +6226,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6246,7 +6245,7 @@ mod tests {
             epoch,
             state,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6273,7 +6272,7 @@ mod tests {
             epoch,
             state.clone(),
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6294,7 +6293,7 @@ mod tests {
             epoch,
             state,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             Some(params),
             None,
             None,
@@ -6320,7 +6319,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6354,7 +6353,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         // Use simple point mass gravity only (no third body) to avoid requiring ephemerides
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -6409,7 +6408,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6432,7 +6431,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6460,7 +6459,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6484,7 +6483,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6520,7 +6519,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -6564,7 +6563,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -6618,7 +6617,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         // Test with 4x4 spherical harmonic
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
@@ -6672,7 +6671,7 @@ mod tests {
         let state_initial = state_koe_to_eci(oe, AngleFormat::Degrees);
 
         // Use J2-only gravity model (2x0 spherical harmonic)
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
@@ -6740,7 +6739,7 @@ mod tests {
         let mut final_states = Vec::new();
 
         for (degree, order) in configs {
-            let force_config = ForceModelConfiguration {
+            let force_config = ForceModelConfig {
                 mass: None,
                 gravity: GravityConfiguration::SphericalHarmonic {
                     source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
@@ -6798,7 +6797,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         // Test 1: Using ModelType source
-        let force_config_modeltype = ForceModelConfiguration {
+        let force_config_modeltype = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
@@ -6824,7 +6823,7 @@ mod tests {
         .unwrap();
 
         // Test 2: Using Global source (should use same model if loaded)
-        let force_config_global = ForceModelConfiguration {
+        let force_config_global = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::Global,
@@ -6892,7 +6891,7 @@ mod tests {
             0.0,
         ]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
@@ -6941,7 +6940,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 300e3, 0.0, 0.0, 0.0, 7700.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
@@ -6990,7 +6989,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 400e3, 0.0, 0.0, 0.0, 7700.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
@@ -7051,7 +7050,7 @@ mod tests {
             0.0, // y velocity only
         ]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
@@ -7112,7 +7111,7 @@ mod tests {
         );
         let state = state_koe_to_eci(oe_initial, AngleFormat::Degrees);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
@@ -7182,7 +7181,7 @@ mod tests {
             0.0,
         ]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7225,7 +7224,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7265,7 +7264,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7306,7 +7305,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 3, 20, 0, 0, 0.0, 0.0, TimeSystem::UTC); // Near equinox
         let state = DVector::from_vec(vec![R_EARTH + 800e3, 0.0, 0.0, 0.0, 7450.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7362,7 +7361,7 @@ mod tests {
             0.0,
         ]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7399,7 +7398,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7436,7 +7435,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7473,7 +7472,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7514,7 +7513,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7553,7 +7552,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -7586,7 +7585,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         // Use LEO default configuration
-        let force_config = ForceModelConfiguration::leo_default();
+        let force_config = ForceModelConfig::leo_default();
 
         // Note: LEO default includes spherical harmonic gravity which requires model data
         // This test verifies construction succeeds
@@ -7616,7 +7615,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         // Use GEO default configuration
-        let force_config = ForceModelConfiguration::geo_default();
+        let force_config = ForceModelConfig::geo_default();
 
         // Note: GEO default includes spherical harmonic gravity which requires model data
         // This test verifies construction succeeds
@@ -7651,7 +7650,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 800e3, 0.0, 0.0, 0.0, 7450.0, 0.0]);
 
         // Configure with all force models enabled for high-fidelity propagation
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)), // 1000 kg satellite
             gravity: GravityConfiguration::PointMass,   // Use point mass to avoid data dependency
             drag: Some(DragConfiguration {
@@ -7721,7 +7720,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 300e3, 0.0, 0.0, 0.0, 7700.0, 0.0]);
 
         // Configure with Cd from parameter vector
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
@@ -7797,7 +7796,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -7825,7 +7824,7 @@ mod tests {
             epoch,
             state,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -7950,7 +7949,7 @@ mod tests {
             epoch,
             state,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -7978,7 +7977,7 @@ mod tests {
             epoch,
             state,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             Some(params),
             None,
             None,
@@ -8007,7 +8006,7 @@ mod tests {
             epoch,
             state,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             Some(params),
             None,
             None,
@@ -8044,7 +8043,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8081,7 +8080,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8119,7 +8118,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8159,7 +8158,7 @@ mod tests {
             epoch,
             state_dvec,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8200,7 +8199,7 @@ mod tests {
             epoch,
             state_dvec,
             config,
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -8241,7 +8240,7 @@ mod tests {
             epoch,
             state_dvec.clone(),
             config.clone(),
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -8260,7 +8259,7 @@ mod tests {
             t1,
             state_t1,
             config.clone(),
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -8278,7 +8277,7 @@ mod tests {
             epoch,
             state_dvec,
             config,
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -8325,7 +8324,7 @@ mod tests {
             epoch,
             state_dvec.clone(),
             config.clone(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8346,7 +8345,7 @@ mod tests {
             epoch,
             state_perturbed,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8387,7 +8386,7 @@ mod tests {
             epoch,
             state_dvec,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8450,7 +8449,7 @@ mod tests {
             epoch,
             state_dvec.clone(),
             config_forward,
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -8470,7 +8469,7 @@ mod tests {
             epoch,
             state_dvec.clone(),
             config_central,
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -8490,7 +8489,7 @@ mod tests {
             epoch,
             state_dvec,
             config_backward,
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -8545,7 +8544,7 @@ mod tests {
             epoch,
             state_dvec,
             config,
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -8592,7 +8591,7 @@ mod tests {
             epoch,
             state_dvec.clone(),
             config.clone(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8609,7 +8608,7 @@ mod tests {
 
         // Test with J2 perturbations
         use crate::orbit_dynamics::gravity::GravityModelType;
-        let force_config_j2 = ForceModelConfiguration {
+        let force_config_j2 = ForceModelConfig {
             mass: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
@@ -8663,7 +8662,7 @@ mod tests {
             epoch,
             state_dvec,
             config,
-            ForceModelConfiguration::two_body_gravity(),
+            ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
@@ -8711,7 +8710,7 @@ mod tests {
             epoch,
             state_dvec.clone(),
             config.clone(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8734,7 +8733,7 @@ mod tests {
             epoch,
             state_dvec,
             config,
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -8779,7 +8778,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         // Configure drag to use mass parameter
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -8872,7 +8871,7 @@ mod tests {
         config.variational.enable_sensitivity = true;
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -8930,7 +8929,7 @@ mod tests {
         config.variational.enable_sensitivity = true;
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(500.0)), // Fixed mass
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -8995,7 +8994,7 @@ mod tests {
         config.variational.enable_sensitivity = true;
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)),
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -9052,7 +9051,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         // Gravity only - Cd parameter is not used
-        let force_config = ForceModelConfiguration::earth_gravity();
+        let force_config = ForceModelConfig::earth_gravity();
 
         let mut prop = DNumericalOrbitPropagator::new(
             epoch,
@@ -9094,7 +9093,7 @@ mod tests {
         config.variational.enable_sensitivity = true;
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -9148,7 +9147,7 @@ mod tests {
         config.variational.enable_sensitivity = true;
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
-        let force_config = ForceModelConfiguration {
+        let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -9247,7 +9246,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -9299,7 +9298,7 @@ mod tests {
             epoch,
             state_dvec,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -9336,7 +9335,7 @@ mod tests {
                 epoch,
                 state_dvec_pert,
                 NumericalPropagationConfig::default(),
-                ForceModelConfiguration::earth_gravity(),
+                ForceModelConfig::earth_gravity(),
                 None,
                 None,
                 None,
@@ -9386,7 +9385,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -9433,7 +9432,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -9478,7 +9477,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -9529,7 +9528,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,
@@ -9578,7 +9577,7 @@ mod tests {
             epoch,
             state,
             NumericalPropagationConfig::default(),
-            ForceModelConfiguration::earth_gravity(),
+            ForceModelConfig::earth_gravity(),
             None,
             None,
             None,

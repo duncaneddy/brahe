@@ -206,7 +206,7 @@ nav:
                 - Parallel Propagation: learn/orbit_propagation/parallel_propagation.md
                 - Numerical Propagation:
                     - learn/orbit_propagation/numerical_propagation/index.md
-                    - Numerical Orbit Propagator: learn/orbit_propagation/numerical_propagation/basic_propagation.md
+                    - Numerical Orbit Propagator: learn/orbit_propagation/numerical_propagation/numerical_orbit_propagator.md
                     - Force Models: learn/orbit_propagation/numerical_propagation/force_models.md
                     - Integrator Configuration: learn/orbit_propagation/numerical_propagation/integrator_configuration.md
                     - Event Detection: learn/orbit_propagation/numerical_propagation/event_detection.md
@@ -215,7 +215,7 @@ nav:
                     - Impulsive and Continuous Control: learn/orbit_propagation/numerical_propagation/maneuvers.md
                     - Covariance and Sensitivity: learn/orbit_propagation/numerical_propagation/covariance_sensitivity.md
                     - Extending Spacecraft State: learn/orbit_propagation/numerical_propagation/extending_state.md
-            - General Dynamics Propagation: learn/generic_dynamics.md
+                    - General Dynamics Propagation: learn/orbit_propagation/numerical_propagation/generic_dynamics.md
             - Relative Motion:
                 - learn/relative_motion/index.md
                 - learn/relative_motion/rtn_transformations.md
@@ -339,6 +339,12 @@ nav:
                 - Numerical Propagation Config: library_api/propagators/numerical_propagation_config.md
                 - Force Model Config: library_api/propagators/force_model_config.md
                 - Functions: library_api/propagators/functions.md
+            - Event Detection:
+                - library_api/events/index.md
+                - Event Detectors: library_api/events/detectors.md
+                - Pre-made Events: library_api/events/premade.md
+                - Event Results: library_api/events/results.md
+                - Enumerations: library_api/events/enums.md
             - Relative Motion:
                 - library_api/relative_motion/index.md
                 - RTN Transformations: library_api/relative_motion/rtn_transformations.md
@@ -351,12 +357,6 @@ nav:
                 - Properties: library_api/access/properties.md
                 - Windows: library_api/access/windows.md
                 - Enumerations: library_api/access/enums.md
-            - Event Detection:
-                - library_api/events/index.md
-                - Event Detectors: library_api/events/detectors.md
-                - Pre-made Events: library_api/events/premade.md
-                - Event Results: library_api/events/results.md
-                - Enumerations: library_api/events/enums.md
             - Mathematics:
                 - library_api/mathematics/index.md
                 - Jacobian: library_api/mathematics/jacobian.md

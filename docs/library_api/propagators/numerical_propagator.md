@@ -3,9 +3,7 @@
 Generic numerical propagator for arbitrary dynamical systems. Unlike `NumericalOrbitPropagator` which has built-in orbital force models, `NumericalPropagator` accepts user-defined dynamics functions, making it suitable for attitude propagation, chemical kinetics, population models, or any ODE system.
 
 !!! note
-    For conceptual explanations and usage examples, see [Generic Dynamics](../../learn/generic_dynamics.md) in the User Guide.
-
-## Class Reference
+    For conceptual explanations and usage examples, see [Generic Dynamics](../../learn/orbit_propagation/numerical_propagation/generic_dynamics.md) in the User Guide.
 
 ::: brahe.NumericalPropagator
     options:

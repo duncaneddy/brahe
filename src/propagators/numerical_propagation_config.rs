@@ -274,7 +274,7 @@ impl VariationalConfig {
 /// - Variational equation settings (STM, sensitivity, finite difference methods)
 ///
 /// Note: Force model configuration (gravity, drag, SRP, etc.) is handled
-/// separately via `ForceModelConfiguration`.
+/// separately via `ForceModelConfig`.
 ///
 /// # Example
 ///

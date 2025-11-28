@@ -300,5 +300,5 @@ For long propagations, consider:
 ## See Also
 
 - [Integrator Configuration](integrator_configuration.md) - Variational equation settings
-- [Numerical Orbit Propagator](basic_propagation.md) - Propagator fundamentals
+- [Numerical Orbit Propagator](numerical_orbit_propagator.md) - Propagator fundamentals
 - [Force Models](force_models.md) - Force model configuration

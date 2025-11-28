@@ -5,26 +5,11 @@ Configuration classes for numerical integration settings. `NumericalPropagationC
 !!! note
     For conceptual explanations and usage examples, see [Integrator Configuration](../../learn/orbit_propagation/numerical_propagation/integrator_configuration.md) in the User Guide.
 
-## NumericalPropagationConfig
-
 ::: brahe.NumericalPropagationConfig
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-
-## VariationalConfig
 
 ::: brahe.VariationalConfig
-    options:
-      show_root_heading: true
-      show_root_full_path: false
-
-## Enumerations
 
 ::: brahe.IntegrationMethod
-    options:
-      show_root_heading: true
-      show_root_full_path: false
 
 ---
 

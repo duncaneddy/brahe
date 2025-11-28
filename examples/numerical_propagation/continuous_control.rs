@@ -54,7 +54,7 @@ fn main() {
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
         bh::NumericalPropagationConfig::default(),
-        bh::ForceModelConfiguration::two_body_gravity(), // Two-body + control
+        bh::ForceModelConfig::two_body_gravity(), // Two-body + control
         None,
         None,
         control_fn,
@@ -67,7 +67,7 @@ fn main() {
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
         bh::NumericalPropagationConfig::default(),
-        bh::ForceModelConfiguration::two_body_gravity(),
+        bh::ForceModelConfig::two_body_gravity(),
         None,
         None,
         None,

@@ -51,7 +51,7 @@ burn1_time_s = 1.0  # First burn at t=1s
 burn2_time_s = burn1_time_s + transfer_time  # Second burn after half-transfer
 
 # Calculate total propagation time
-final_orbit_period = 2 * np.pi * np.sqrt(r2**3 / bh.GM_EARTH)
+final_orbit_period = bh.orbital_period(r2)
 total_time = burn2_time_s + final_orbit_period
 
 # Use multi-stage propagation to avoid trajectory interpolation issues with events
@@ -191,7 +191,7 @@ def create_figure(theme):
         yaxis_title="Velocity (km/s)",
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        height=400,
+        height=500,
         margin=dict(l=60, r=40, t=80, b=60),
     )
 

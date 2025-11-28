@@ -1425,8 +1425,9 @@ impl<const S: usize, const P: usize> SAscendingNodeEvent<S, P> {
 
             // True argument of latitude = omega + nu
             // Normalize to [-pi, pi) for proper zero crossing detection
+            // Use rem_euclid to handle negative values correctly
             let u = omega + nu;
-            ((u + std::f64::consts::PI) % (2.0 * std::f64::consts::PI)) - std::f64::consts::PI
+            (u + std::f64::consts::PI).rem_euclid(2.0 * std::f64::consts::PI) - std::f64::consts::PI
         };
 
         Self {
@@ -1484,7 +1485,7 @@ impl DAscendingNodeEvent {
 
             let nu = anomaly_mean_to_true(m, e, AngleFormat::Radians).unwrap_or(m);
             let u = omega + nu;
-            ((u + std::f64::consts::PI) % (2.0 * std::f64::consts::PI)) - std::f64::consts::PI
+            (u + std::f64::consts::PI).rem_euclid(2.0 * std::f64::consts::PI) - std::f64::consts::PI
         };
 
         Self {
@@ -1562,8 +1563,8 @@ impl<const S: usize, const P: usize> SDescendingNodeEvent<S, P> {
             // Shift so that π becomes our zero crossing point
             // u - π gives us zero at descending node
             let u_shifted = u - std::f64::consts::PI;
-            // Normalize to [-pi, pi)
-            ((u_shifted + std::f64::consts::PI) % (2.0 * std::f64::consts::PI))
+            // Normalize to [-pi, pi) using rem_euclid for correct handling of negative values
+            (u_shifted + std::f64::consts::PI).rem_euclid(2.0 * std::f64::consts::PI)
                 - std::f64::consts::PI
         };
 
@@ -1623,7 +1624,7 @@ impl DDescendingNodeEvent {
             let nu = anomaly_mean_to_true(m, e, AngleFormat::Radians).unwrap_or(m);
             let u = omega + nu;
             let u_shifted = u - std::f64::consts::PI;
-            ((u_shifted + std::f64::consts::PI) % (2.0 * std::f64::consts::PI))
+            (u_shifted + std::f64::consts::PI).rem_euclid(2.0 * std::f64::consts::PI)
                 - std::f64::consts::PI
         };
 

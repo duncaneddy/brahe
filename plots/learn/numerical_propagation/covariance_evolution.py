@@ -47,7 +47,7 @@ prop = bh.NumericalOrbitPropagator(
 P0 = np.diag([100.0, 100.0, 100.0, 0.0001, 0.0001, 0.0001])
 
 # Propagate for 3 orbital periods
-orbital_period = 2 * np.pi * np.sqrt(oe[0] ** 3 / bh.GM_EARTH)
+orbital_period = bh.orbital_period(oe[0])
 total_time = 3 * orbital_period
 prop.propagate_to(epoch + total_time)
 

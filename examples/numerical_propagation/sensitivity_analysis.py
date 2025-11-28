@@ -44,7 +44,7 @@ print(f"  SRP area: {params[3]:.1f} m²")
 print(f"  SRP coefficient (Cr): {params[4]:.1f}")
 
 # Propagate for one orbital period
-orbital_period = 2 * np.pi * np.sqrt(oe[0] ** 3 / bh.GM_EARTH)
+orbital_period = bh.orbital_period(oe[0])
 prop.propagate_to(epoch + orbital_period)
 
 # Get the sensitivity matrix (6 x 5)

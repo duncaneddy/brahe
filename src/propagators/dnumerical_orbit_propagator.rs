@@ -87,7 +87,7 @@ enum EventProcessingResult {
     /// Event callback requested state/param update - restart integration from event time
     Restart { epoch: Epoch, state: DVector<f64> },
     /// Terminal event detected - stop propagation
-    Terminal,
+    Terminal { epoch: Epoch, state: DVector<f64> },
 }
 
 // =============================================================================
@@ -591,9 +591,12 @@ impl DNumericalOrbitPropagator {
                     }
                 }
 
-                if let Some(_term_event) = terminal_event {
+                if let Some(term_event) = terminal_event {
                     self.terminated = true;
-                    return EventProcessingResult::Terminal;
+                    return EventProcessingResult::Terminal {
+                        epoch: term_event.window_open,
+                        state: term_event.entry_state.clone(),
+                    };
                 }
 
                 EventProcessingResult::NoEvents // Continue with step
@@ -656,7 +659,10 @@ impl DNumericalOrbitPropagator {
                     // Check terminal
                     if action == EventAction::Stop {
                         self.terminated = true;
-                        return EventProcessingResult::Terminal;
+                        return EventProcessingResult::Terminal {
+                            epoch: callback_event.window_open,
+                            state: y_after,
+                        };
                     }
 
                     // Restart integration from event time with new state/params
@@ -1476,8 +1482,15 @@ impl DNumericalOrbitPropagator {
                     continue; // Take new step from event time
                 }
 
-                EventProcessingResult::Terminal => {
+                EventProcessingResult::Terminal {
+                    epoch: term_epoch,
+                    state: term_state,
+                } => {
                     // Terminal event detected
+                    // Update current state to precise event values
+                    self.epoch_current = term_epoch;
+                    self.x_curr = term_state.clone();
+
                     // Store final state and exit (terminated flag already set)
                     if self.should_store_state() {
                         // Prepare optional matrices for storage
@@ -1496,14 +1509,14 @@ impl DNumericalOrbitPropagator {
                         // Use add_full if any optional data is present, otherwise use add
                         if cov.is_some() || stm_to_store.is_some() || sens_to_store.is_some() {
                             self.trajectory.add_full(
-                                epoch_new,
-                                self.x_curr.clone(),
+                                term_epoch,
+                                term_state,
                                 cov,
                                 stm_to_store,
                                 sens_to_store,
                             );
                         } else {
-                            self.trajectory.add(epoch_new, self.x_curr.clone());
+                            self.trajectory.add(term_epoch, term_state);
                         }
                     }
                     break; // Exit event loop

@@ -65,7 +65,7 @@ event_log2 = bh.TimeEvent(epoch + 2000.0, "Log Event 2").with_callback(logging_c
 prop.add_event_detector(event_log2)
 
 # Propagate for half an orbit
-orbital_period = 2 * np.pi * np.sqrt(oe[0] ** 3 / bh.GM_EARTH)
+orbital_period = bh.orbital_period(oe[0])
 print("Propagating with logging callbacks:")
 prop.propagate_to(epoch + orbital_period / 2)
 
@@ -97,5 +97,3 @@ print(f"  Stopped early: {actual_duration < orbital_period}")
 # Validate
 assert callback_count == 2
 assert actual_duration < orbital_period
-
-print("\nExample validated successfully!")

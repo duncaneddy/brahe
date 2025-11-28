@@ -66,12 +66,14 @@ Non-angle events (`SemiMajorAxisEvent`, `EccentricityEvent`) omit the `angle_for
 
 ### Applications
 
+<div class="center-table" markdown="1">
 | Event | Use Cases |
 |-------|-----------|
 | `TrueAnomalyEvent` | Apoapsis detection ($\nu = 180°$), periapsis detection ($\nu = 0°$) |
 | `SemiMajorAxisEvent` | Orbit decay monitoring, altitude maintenance |
 | `EccentricityEvent` | Circularization detection, orbit stability |
 | `InclinationEvent` | Plane change monitoring, SSO maintenance |
+</div>
 
 ## State-Derived Events
 
@@ -115,12 +117,14 @@ The `AltitudeEvent` is one of the most commonly used premade events. It detects 
 
 ### Applications
 
+<div class="center-table" markdown="1">
 | Use Case | Configuration |
 |----------|---------------|
-| Atmospheric interface detection | `AltitudeEvent(120e3, "Karman line", DECREASING)` |
-| Orbit raising trigger | `AltitudeEvent(target_alt, "Target", INCREASING)` |
-| Perigee passage | `AltitudeEvent(perigee_alt, "Perigee", ANY)` |
+| Atmospheric interface detection | `AltitudeEvent(100e3, "Karman line", DECREASING)` |
 | Re-entry monitoring | `AltitudeEvent(100e3, "Re-entry", DECREASING)` |
+| Orbit raising trigger | `AltitudeEvent(target_alt, "Target", DECREASING)` |
+| Perigee passage | `AltitudeEvent(perigee_alt, "Perigee", ANY)` |
+</div>
 
 ## Eclipse/Shadow Events
 
@@ -164,7 +168,7 @@ Eclipse events take three parameters:
 <div class="center-table" markdown="1">
 | Source | Description |
 |--------|-------------|
-| `None` / `LowPrecision` | Analytical approximation (fastest) |
+| `LowPrecision` | Analytical approximation (fastest) |
 | `DE440s` | JPL DE440s ephemeris (short-term, high precision) |
 | `DE440` | JPL DE440 ephemeris (long-term, high precision) |
 </div>
@@ -179,7 +183,7 @@ Node crossing events detect when a spacecraft passes through the equatorial plan
 | Event | Trigger Condition | Direction |
 |-------|-------------------|-----------|
 | `AscendingNodeEvent` | Argument of latitude = 0 (northward crossing) | Increasing |
-| `DescendingNodeEvent` | Argument of latitude = $\pi$ (southward crossing) | Increasing |
+| `DescendingNodeEvent` | Argument of latitude = $\pi$ or $180$ (southward crossing) | Increasing |
 </div>
 
 ### Configuration

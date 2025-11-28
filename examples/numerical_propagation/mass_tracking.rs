@@ -3,7 +3,7 @@
 
 use brahe as bh;
 use bh::integrators::traits::DStateDynamics;
-use bh::propagators::{DNumericalOrbitPropagator, ForceModelConfiguration, NumericalPropagationConfig};
+use bh::propagators::{DNumericalOrbitPropagator, ForceModelConfig, NumericalPropagationConfig};
 use bh::traits::DStatePropagator;
 use nalgebra as na;
 
@@ -76,7 +76,7 @@ fn main() {
         epoch,
         initial_state.clone(),
         NumericalPropagationConfig::default(),
-        ForceModelConfiguration::earth_gravity(),
+        ForceModelConfig::earth_gravity(),
         None, // params
         Some(additional_dynamics),
         control_input,

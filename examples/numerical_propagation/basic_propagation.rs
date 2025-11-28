@@ -32,7 +32,7 @@ fn main() {
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
         bh::NumericalPropagationConfig::default(),
-        bh::ForceModelConfiguration::default(),
+        bh::ForceModelConfig::default(),
         Some(params),
         None,  // No additional dynamics
         None,  // No control input

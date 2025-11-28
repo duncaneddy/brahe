@@ -23,7 +23,7 @@ fn main() {
     let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
     // Two-body force model - point mass gravity only
-    let force_config = bh::ForceModelConfiguration::two_body_gravity();
+    let force_config = bh::ForceModelConfig::two_body_gravity();
 
     // No parameters required for two-body
     println!("Two-body requires params: {}", force_config.requires_params());

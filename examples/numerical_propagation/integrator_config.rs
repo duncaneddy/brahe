@@ -44,7 +44,7 @@ fn main() {
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
         config_default,
-        bh::ForceModelConfiguration::two_body_gravity(), // Two-body for cleaner comparison
+        bh::ForceModelConfig::two_body_gravity(), // Two-body for cleaner comparison
         None,
         None,
         None,
@@ -56,7 +56,7 @@ fn main() {
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
         config_tight,
-        bh::ForceModelConfiguration::two_body_gravity(),
+        bh::ForceModelConfig::two_body_gravity(),
         None,
         None,
         None,

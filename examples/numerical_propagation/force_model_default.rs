@@ -26,7 +26,7 @@ fn main() {
     // Default force model configuration
     // Includes: 20x20 EGM2008 gravity, Harris-Priester drag, SRP with conical eclipse,
     // Sun and Moon third-body perturbations
-    let force_config = bh::ForceModelConfiguration::default();
+    let force_config = bh::ForceModelConfig::default();
 
     // Check what's enabled
     println!("Default ForceModelConfig:");

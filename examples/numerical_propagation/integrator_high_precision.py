@@ -47,7 +47,7 @@ prop_std = bh.NumericalOrbitPropagator(
 kep_prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
 
 # Propagate for 10 orbits
-orbital_period = 2 * np.pi * np.sqrt(oe[0] ** 3 / bh.GM_EARTH)
+orbital_period = bh.orbital_period(oe[0])
 end_time = epoch + 10 * orbital_period
 
 prop_hp.propagate_to(end_time)

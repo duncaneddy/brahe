@@ -26,13 +26,28 @@ Impulsive maneuvers combine event detection with state modification. For callbac
 
 The following plots show the altitude and velocity changes during the Hohmann transfer example above.
 
+#### Orbit Geometry
+
+A top-down view showing the initial circular orbit, Hohmann transfer ellipse, and final circular orbit:
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../../figures/hohmann_transfer_orbit_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../../figures/hohmann_transfer_orbit_dark.html"  loading="lazy"></iframe>
+</div>
+
+??? "Plot Source"
+
+    ``` python title="hohmann_transfer_orbit.py"
+    --8<-- "./plots/learn/numerical_propagation/hohmann_transfer_orbit.py:12"
+    ```
+
 #### Altitude Profile
 
 The spacecraft altitude increases from 400 km to 800 km through two impulsive burns:
 
 <div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/impulsive_maneuver_altitude_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/impulsive_maneuver_altitude_dark.html"  loading="lazy"></iframe>
+  <iframe class="only-light" src="../../../figures/impulsive_maneuver_altitude_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../../figures/impulsive_maneuver_altitude_dark.html"  loading="lazy"></iframe>
 </div>
 
 ??? "Plot Source"
@@ -46,8 +61,8 @@ The spacecraft altitude increases from 400 km to 800 km through two impulsive bu
 The velocity components show the discrete jumps from each impulsive burn:
 
 <div class="plotly-embed">
-  <iframe class="only-light" src="../../figures/impulsive_maneuver_velocity_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../../figures/impulsive_maneuver_velocity_dark.html"  loading="lazy"></iframe>
+  <iframe class="only-light" src="../../../figures/impulsive_maneuver_velocity_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../../figures/impulsive_maneuver_velocity_dark.html"  loading="lazy"></iframe>
 </div>
 
 ??? "Plot Source"
@@ -58,12 +73,14 @@ The velocity components show the discrete jumps from each impulsive burn:
 
 ### Common Impulsive Maneuvers
 
+<div class="center-table" markdown="1">
 | Maneuver | Implementation |
 |----------|----------------|
 | Hohmann transfer | Two burns at apoapsis/periapsis |
-| Plane change | Burn perpendicular to velocity at node |
-| Orbit raising | Prograde burn at periapsis |
+| Plane change | Burn perpendicular to velocity at ascending/descending node |
+| Orbit raising | Prograde burn at periapsis/apoapsis |
 | Circularization | Burn at target altitude |
+</div>
 
 ## Continuous Thrust
 
@@ -89,19 +106,42 @@ The control input function is called at each integration step and returns a stat
 
 The control function receives the epoch, current state, and optional parameters. It returns a state derivative vector (same dimension as state):
 
-```python
-def control_input(epoch, state, params):
-    # Create derivative vector (zeros for positions, acceleration for velocities)
-    dx = np.zeros(len(state))
+=== "Python"
 
-    # Compute acceleration
-    acceleration = compute_thrust_acceleration(epoch, state, params)
+    ```python
+    def control_input(epoch, state, params):
+        # Create derivative vector (zeros for positions, acceleration for velocities)
+        dx = np.zeros(len(state))
 
-    # Apply to velocity derivatives only
-    dx[3:6] = acceleration
+        # Compute acceleration
+        acceleration = compute_thrust_acceleration(epoch, state, params)
 
-    return dx
-```
+        # Apply to velocity derivatives only
+        dx[3:6] = acceleration
+
+        return dx
+    ```
+
+=== "Rust"
+
+    ```rust
+    let control_fn: bh::DControlInput = Some(Box::new(
+        |t: f64, state: &na::DVector<f64>, params: Option<&na::DVector<f64>>| {
+            // Create derivative vector (zeros for positions, acceleration for velocities)
+            let mut dx = na::DVector::zeros(state.len());
+
+            // Compute acceleration
+            let acceleration = compute_thrust_acceleration(t, state, params);
+
+            // Apply to velocity derivatives only
+            dx[3] = acceleration[0];
+            dx[4] = acceleration[1];
+            dx[5] = acceleration[2];
+
+            dx
+        },
+    ));
+    ```
 
 The returned vector is added to the equations of motion:
 
@@ -109,73 +149,45 @@ $$\dot{\mathbf{x}} = f(\mathbf{x}, t) + \mathbf{u}(t, \mathbf{x})$$
 
 where $f$ is the natural dynamics and $\mathbf{u}$ is the control input.
 
-### Thrust Directions
-
-Common continuous thrust strategies:
-
-| Strategy | Direction | Application |
-|----------|-----------|-------------|
-| Tangential | Along velocity vector | Orbit raising/lowering |
-| Radial | Toward/away from Earth | Eccentricity control |
-| Normal | Perpendicular to orbit plane | Inclination change |
-| Optimal | Computed for objective | Fuel-optimal transfers |
-
 ### Variable Thrust
 
 The control function can implement time-varying or state-dependent thrust:
 
-```python
-def variable_thrust(epoch, state, params):
-    # Time since maneuver start
-    t_maneuver = epoch - maneuver_start
+=== "Python"
 
-    # Thrust magnitude profile (e.g., ramp up/down)
-    if t_maneuver < ramp_time:
-        magnitude = max_thrust * (t_maneuver / ramp_time)
-    elif t_maneuver > burn_duration - ramp_time:
-        magnitude = max_thrust * ((burn_duration - t_maneuver) / ramp_time)
-    else:
-        magnitude = max_thrust
+    ``` python
+    --8<-- "./examples/numerical_propagation/variable_thrust.py:8"
+    ```
 
-    # Direction along velocity
-    v = state[3:6]
-    v_hat = v / np.linalg.norm(v)
+=== "Rust"
 
-    dx = np.zeros(6)
-    dx[3:6] = (magnitude / mass) * v_hat
-    return dx
-```
+    ``` rust
+    --8<-- "./examples/numerical_propagation/variable_thrust.rs:4"
+    ```
 
-## Combining Maneuver Types
+#### Thrust Profile Visualization
 
-Complex missions may combine impulsive and continuous maneuvers:
+The following plot shows the trapezoidal thrust profile with ramp-up and ramp-down phases:
 
-1. **Impulsive insertion burn** using event callback
-2. **Continuous station-keeping** using control input
-3. **Impulsive disposal burn** using another event
+<div class="plotly-embed">
+  <iframe class="only-light" src="../../../figures/variable_thrust_profile_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../../../figures/variable_thrust_profile_dark.html"  loading="lazy"></iframe>
+</div>
 
-The propagator supports both mechanisms simultaneously.
+??? "Plot Source"
+
+    ``` python title="variable_thrust_profile.py"
+    --8<-- "./plots/learn/numerical_propagation/variable_thrust_profile.py:12"
+    ```
 
 ## Fuel Consumption Tracking
 
 Neither maneuver type automatically tracks fuel consumption. To track propellant:
 
 1. Extend the state vector to include mass
-2. Add mass derivative to control function
-3. Use the generic `NumericalPropagator` for variable-dimension states
+2. Add mass derivative to control input or additional dynamics
 
 See [Extending Spacecraft State](extending_state.md) for complete examples.
-
-## Maneuver Planning
-
-Brahe's numerical propagator provides the dynamics engine for maneuver planning, but optimal maneuver computation requires additional analysis:
-
-1. Define the objective (minimum fuel, minimum time, etc.)
-2. Parameterize the maneuver (burn times, directions, magnitudes)
-3. Propagate to evaluate the objective
-4. Use optimization to find optimal parameters
-
-The propagator handles step 3, while the optimization loop is typically implemented externally.
 
 ---
 

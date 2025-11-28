@@ -24,7 +24,7 @@ fn main() {
     let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
     // LEO-optimized force model
-    let force_config = bh::ForceModelConfiguration::leo_default();
+    let force_config = bh::ForceModelConfig::leo_default();
 
     // Parameters for LEO config: [mass, drag_area, Cd, srp_area, Cr]
     // ISS-like parameters

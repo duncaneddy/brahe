@@ -94,7 +94,7 @@ prop.add_event_detector(event1)
 prop.add_event_detector(event2)
 
 # Propagate through both burns plus one orbit of final orbit
-final_orbit_period = 2 * np.pi * np.sqrt(r2**3 / bh.GM_EARTH)
+final_orbit_period = bh.orbital_period(r2)
 prop.propagate_to(epoch + transfer_time + final_orbit_period)
 
 # Check final orbit

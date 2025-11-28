@@ -39,7 +39,7 @@ prop.add_event_detector(asc_event)
 prop.add_event_detector(desc_event)
 
 # Propagate for 3 orbits
-orbital_period = 2 * np.pi * np.sqrt(oe[0] ** 3 / bh.GM_EARTH)
+orbital_period = bh.orbital_period(oe[0])
 prop.propagate_to(epoch + 3 * orbital_period)
 
 # Check detected events
@@ -65,5 +65,3 @@ print(f"Descending node crossings: {len(descending)}")
 # Validate
 assert len(ascending) >= 3  # At least 3 ascending in 3 orbits
 assert len(descending) >= 3  # At least 3 descending in 3 orbits
-
-print("\nExample validated successfully!")

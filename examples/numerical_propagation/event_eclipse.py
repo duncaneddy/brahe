@@ -39,7 +39,7 @@ prop.add_event_detector(eclipse_entry)
 prop.add_event_detector(eclipse_exit)
 
 # Propagate for 5 orbits
-orbital_period = 2 * np.pi * np.sqrt(oe[0] ** 3 / bh.GM_EARTH)
+orbital_period = bh.orbital_period(oe[0])
 prop.propagate_to(epoch + 5 * orbital_period)
 
 # Check detected events

@@ -52,7 +52,7 @@ prop.add_event_detector(enter_north)
 prop.add_event_detector(exit_north)
 
 # Propagate for 2 orbits
-orbital_period = 2 * np.pi * np.sqrt(oe[0] ** 3 / bh.GM_EARTH)
+orbital_period = bh.orbital_period(oe[0])
 prop.propagate_to(epoch + 2 * orbital_period)
 
 # Check detected events

@@ -24,7 +24,7 @@ fn main() {
     };
 
     // Create force model with all fixed parameters
-    let force_config = bh::ForceModelConfiguration {
+    let force_config = bh::ForceModelConfig {
         gravity: bh::GravityConfiguration::SphericalHarmonic {
             source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
             degree: 20,

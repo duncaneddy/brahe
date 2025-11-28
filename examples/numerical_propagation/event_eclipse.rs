@@ -1,19 +1,9 @@
-//! ```cargo
-//! [dependencies]
-//! brahe = { path = "../.." }
-//! nalgebra = "0.33"
-//! ```
-//!
 //! Using eclipse events to detect shadow transitions.
 //! Demonstrates detecting when a spacecraft enters or exits Earth's shadow.
 
 use brahe as bh;
-use bh::AngleFormat;
-use bh::events::{EdgeType, EclipseEvent};
-use bh::propagators::{
-    ForceModelConfig, NumericalOrbitPropagator, NumericalPropagationConfig, Propagator,
-};
-use bh::time::TimeSystem;
+use bh::events::{DEclipseEvent, EdgeType};
+use bh::traits::DStatePropagator;
 use nalgebra as na;
 use std::f64::consts::PI;
 
@@ -21,27 +11,31 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Create initial epoch and state - LEO orbit
-    let epoch = bh::Epoch::from_datetime(2024, 6, 21, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    let epoch = bh::Epoch::from_datetime(2024, 6, 21, 12, 0, 0.0, 0.0, bh::TimeSystem::UTC);
     // LEO orbit with some inclination
     let oe = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.01, 45.0, 0.0, 0.0, 0.0);
-    let state = bh::state_koe_to_eci(&oe, AngleFormat::Degrees);
-    let params = na::SVector::<f64, 5>::new(500.0, 2.0, 2.2, 2.0, 1.3);
+    let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
+    let params = na::DVector::from_vec(vec![500.0, 2.0, 2.2, 2.0, 1.3]);
 
     // Create propagator
-    let mut prop = NumericalOrbitPropagator::new(
+    let mut prop = bh::DNumericalOrbitPropagator::new(
         epoch,
-        state,
-        NumericalPropagationConfig::default(),
-        ForceModelConfig::default(),
-        params,
-    );
+        na::DVector::from_column_slice(state.as_slice()),
+        bh::NumericalPropagationConfig::default(),
+        bh::ForceModelConfig::default(),
+        Some(params),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
 
     // Add eclipse events with different edge types
     // Detect entry into eclipse (any shadow - umbra or penumbra)
-    let eclipse_entry = EclipseEvent::<6, 5>::new("Eclipse Entry", EdgeType::RisingEdge, None);
+    let eclipse_entry = DEclipseEvent::new("Eclipse Entry", EdgeType::RisingEdge, None);
 
     // Detect exit from eclipse
-    let eclipse_exit = EclipseEvent::<6, 5>::new("Eclipse Exit", EdgeType::FallingEdge, None);
+    let eclipse_exit = DEclipseEvent::new("Eclipse Exit", EdgeType::FallingEdge, None);
 
     prop.add_event_detector(Box::new(eclipse_entry));
     prop.add_event_detector(Box::new(eclipse_exit));
@@ -54,7 +48,7 @@ fn main() {
     let events = prop.event_log();
     println!("Detected {} eclipse events:", events.len());
 
-    for event in &events {
+    for event in events {
         let dt = event.window_open - epoch;
         println!("  '{}' at t+{:.1}s", event.name, dt);
     }

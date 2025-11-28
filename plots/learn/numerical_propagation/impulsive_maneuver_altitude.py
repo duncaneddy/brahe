@@ -51,7 +51,7 @@ burn1_time_s = 1.0  # First burn at t=1s
 burn2_time_s = burn1_time_s + transfer_time  # Second burn after half-transfer
 
 # Calculate total propagation time
-final_orbit_period = 2 * np.pi * np.sqrt(r2**3 / bh.GM_EARTH)
+final_orbit_period = bh.orbital_period(r2)
 total_time = burn2_time_s + final_orbit_period
 
 # Use multi-stage propagation to avoid trajectory interpolation issues with events
@@ -186,7 +186,7 @@ def create_figure(theme):
         xaxis_title="Time (minutes)",
         yaxis_title="Altitude (km)",
         showlegend=False,
-        height=400,
+        height=500,
         margin=dict(l=60, r=40, t=60, b=60),
     )
 

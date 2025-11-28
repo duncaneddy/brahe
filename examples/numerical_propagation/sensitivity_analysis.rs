@@ -28,7 +28,7 @@ fn main() {
         epoch,
         na::DVector::from_column_slice(state.as_slice()),
         prop_config,
-        bh::ForceModelConfiguration::default(),
+        bh::ForceModelConfig::default(),
         Some(params.clone()),
         None,
         None,

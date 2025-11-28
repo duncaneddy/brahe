@@ -39,7 +39,7 @@ print(f"  Position std: {np.sqrt(P0[0, 0]):.1f} m")
 print(f"  Velocity std: {np.sqrt(P0[3, 3]) * 1000:.2f} mm/s")
 
 # Propagate for one orbital period
-orbital_period = 2 * np.pi * np.sqrt(oe[0] ** 3 / bh.GM_EARTH)
+orbital_period = bh.orbital_period(oe[0])
 prop.propagate_to(epoch + orbital_period)
 
 # Get the State Transition Matrix

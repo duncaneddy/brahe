@@ -7,7 +7,7 @@ fn main() {
     // Point mass gravity configuration
     // Uses only central body gravity (mu/r^2)
     // No spherical harmonics, J2, or higher-order terms
-    let _force_config = bh::ForceModelConfiguration {
+    let _force_config = bh::ForceModelConfig {
         gravity: bh::GravityConfiguration::PointMass,
         drag: None,
         srp: None,

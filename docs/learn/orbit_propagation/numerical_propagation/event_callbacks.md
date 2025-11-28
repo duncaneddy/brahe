@@ -4,39 +4,72 @@ Event callbacks allow you to respond to detected events during propagation. Call
 
 ## Callback Function Signature
 
-### Python
+To define a callback, create a function matching the following signature:
 
-```python
-def callback(epoch: Epoch, state: np.ndarray) -> tuple[np.ndarray, EventAction]:
-    """
-    Args:
-        epoch: The epoch when the event occurred
-        state: The spacecraft state vector at event time [x, y, z, vx, vy, vz]
+=== "Python"
 
-    Returns:
-        tuple: (new_state, action)
-            - new_state: Modified state vector (or original if unchanged)
-            - action: EventAction.CONTINUE or EventAction.STOP
-    """
-    # Process event...
-    return (state, bh.EventAction.CONTINUE)
-```
+    ```python
+    def callback(epoch: Epoch, state: np.ndarray) -> tuple[np.ndarray, EventAction]:
+        """
+        Args:
+            epoch: The epoch when the event occurred
+            state: The spacecraft state vector at event time [x, y, z, vx, vy, vz]
 
-### Rust
+        Returns:
+            tuple: (new_state, action)
+                - new_state: Modified state vector (or original if unchanged)
+                - action: EventAction.CONTINUE or EventAction.STOP
+        """
+        # Process event...
+        return (state, bh.EventAction.CONTINUE)
+    ```
 
-```rust
-type DEventCallback = Box<
-    dyn Fn(
-        Epoch,                           // Event epoch
-        &DVector<f64>,                   // Current state
-        Option<&DVector<f64>>,           // Optional parameters
-    ) -> (
-        Option<DVector<f64>>,            // New state (None = unchanged)
-        Option<DVector<f64>>,            // New params (None = unchanged)
-        EventAction,                     // Continue or Stop
-    ) + Send + Sync,
->;
-```
+=== "Rust"
+
+    ```rust
+    type DEventCallback = Box<
+        dyn Fn(
+            Epoch,                           // Event epoch
+            &DVector<f64>,                   // Current state
+            Option<&DVector<f64>>,           // Optional parameters
+        ) -> (
+            Option<DVector<f64>>,            // New state (None = unchanged)
+            Option<DVector<f64>>,            // New params (None = unchanged)
+            EventAction,                     // Continue or Stop
+        ) + Send + Sync,
+    >;
+    ```
+
+
+### EventAction Options
+
+The callback return value includes an `EventAction` that controls propagation behavior:
+
+<div class="center-table" markdown="1">
+| Action | Behavior |
+|--------|----------|
+| `CONTINUE` | Continue propagation after processing the event |
+| `STOP` | Halt propagation immediately after the event |
+</div>
+
+#### When to Use STOP
+
+Use `EventAction.STOP` when:
+
+- A terminal condition has been reached (e.g., re-entry)
+- The propagation goal has been achieved
+- An error condition is detected
+- You want to examine state at a specific event before deciding to continue
+
+#### When to Use CONTINUE
+
+Use `EventAction.CONTINUE` for:
+
+- Logging and monitoring events
+- Impulsive maneuvers (state changes but propagation continues)
+- Intermediate waypoints
+- Data collection triggers
+
 
 ## Defining Callbacks
 
@@ -74,33 +107,6 @@ prop.add_event_detector(event_with_callback)
 ```
 
 The `with_callback()` method returns a new event detector with the callback attached, allowing method chaining.
-
-## EventAction Options
-
-The callback return value includes an `EventAction` that controls propagation behavior:
-
-| Action | Behavior |
-|--------|----------|
-| `CONTINUE` | Continue propagation after processing the event |
-| `STOP` | Halt propagation immediately after the event |
-
-### When to Use STOP
-
-Use `EventAction.STOP` when:
-
-- A terminal condition has been reached (e.g., re-entry)
-- The propagation goal has been achieved
-- An error condition is detected
-- You want to examine state at a specific event before deciding to continue
-
-### When to Use CONTINUE
-
-Use `EventAction.CONTINUE` for:
-
-- Logging and monitoring events
-- Impulsive maneuvers (state changes but propagation continues)
-- Intermediate waypoints
-- Data collection triggers
 
 ## State Modification
 

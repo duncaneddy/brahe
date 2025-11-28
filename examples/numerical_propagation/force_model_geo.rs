@@ -18,7 +18,7 @@ fn main() {
     let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
 
     // GEO-optimized force model (SRP dominant, no drag)
-    let force_config = bh::ForceModelConfiguration::geo_default();
+    let force_config = bh::ForceModelConfig::geo_default();
 
     // Parameters for GEO config: [mass, _, _, srp_area, Cr]
     // Note: drag_area and Cd are ignored at GEO (no atmosphere)

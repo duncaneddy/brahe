@@ -6,6 +6,9 @@ For orbital mechanics, Brahe provides the [`NumericalOrbitPropagator`](../../../
 
 Brahe also includes a more general [`NumericalPropagator`](../../../library_api/propagators/numerical_propagator.md) class for propagating arbitrary dynamical system systems. This class allows users to integrate equations of motion for non-orbital dynamical systems. This capability is discussed in more depth in [General Dynamics Propagation](generic_dynamics.md). 
 
+!!! warning "Experimental Feature"
+    The numerical propagation system is one of the newer parts of Brahe and is still considered experimental. While the core functionality has been tested and verified, it is one of the most complex features so the design needs further testing and use before finalization. Users are encouraged to provide feedback and report any issues they encounter.
+
 ## Architecture Overview
 
 The numerical propagation system consists of several configurable components:

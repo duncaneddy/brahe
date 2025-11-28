@@ -18,6 +18,16 @@
     box-sizing: border-box;
 }
 
+/* Medium height iframe for slightly taller plots */
+.plotly-embed.medium iframe {
+    height: 600px;
+}
+
+/* Taller iframe for 2x2 subplot grids */
+.plotly-embed.tall iframe {
+    height: 800px;
+}
+
 /* Increase main column width */
 .md-grid {
   max-width: 1440px; 

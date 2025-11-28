@@ -275,6 +275,8 @@ nav:
             - examples/max_communications_gap.md
             - examples/imaging_opportunities.md
             - examples/using_different_integrators.md
+            - examples/geo_hohmann_transfer.md
+            - examples/low_thrust_orbit_raising.md
     -   Python API Reference:
             - library_api/index.md
             - Constants:

@@ -429,30 +429,7 @@ State vectors can include multiple extensions:
 
 ## Implementation Notes
 
-Another way to implement extended state propagation is to use `NumericalPropagator`, which requires implementing the full dynamics function including orbital and extended state dynamics. However, using `NumericalOrbitPropagator` with `additional_dynamics` is often more convenient for orbital applications, as it handles standard orbital perturbations automatically.
-
-### NumericalOrbitPropagator vs NumericalPropagator
-
-| Feature | NumericalOrbitPropagator | NumericalPropagator |
-|---------|------------------------|---------------------|
-| Orbital dynamics | Built-in (force models) | Must implement manually |
-| Extended state | Via `additional_dynamics` | Full dynamics function |
-| Thrust | Via `control_input` | Include in dynamics |
-| Trajectory | Orbital trajectory with interpolation | Generic state trajectory |
-
-Use `NumericalOrbitPropagator` with `additional_dynamics` when you want:
-
-- Automatic handling of gravity, drag, SRP, and other orbital perturbations
-- To focus only on the extended state dynamics
-- Access to orbital-specific features (STM, covariance, trajectory querying)
-
-Use `NumericalPropagator` when you need:
-
-- Complete control over all dynamics
-- Non-orbital applications (attitude, relative motion, etc.)
-- Custom force models not available in `ForceModelConfig`
-
----
+Another way to implement extended state propagation is to use `NumericalPropagator`, which requires implementing the full dynamics function including orbital and extended state dynamics. However, using `NumericalOrbitPropagator` with `additional_dynamics` is often more convenient for orbital applications, as it handles standard orbital perturbations automatically. See the [Generic Dynamics Propagation](generic_dynamics.md) guide for details on using `NumericalPropagator` which may be preferable for highly customized dynamics.
 
 ## See Also
 

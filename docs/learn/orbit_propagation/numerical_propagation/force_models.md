@@ -82,7 +82,7 @@ $$
     --8<-- "./examples/numerical_propagation/force_model_gravity_pointmass.rs:4"
     ```
 
-**Spherical Harmonics**: High-fidelity gravity using EGM2008, GGM05S, or user-defined `.gfz` model. Degree and order control accuracy vs computation time.
+**Spherical Harmonics**: High-fidelity gravity using EGM2008, GGM05S, or user-defined `.gfc` model. Degree and order control accuracy vs computation time.
 
 $$
 \mathbf{a} = -\nabla V, \quad V(r, \phi, \lambda) = \frac{GM}{r} \sum_{n=0}^{N} \sum_{m=0}^{n} \left(\frac{R_E}{r}\right)^n \bar{P}_{nm}(\sin\phi) \left(\bar{C}_{nm}\cos(m\lambda) + \bar{S}_{nm}\sin(m\lambda)\right)

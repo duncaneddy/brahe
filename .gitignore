@@ -1,5 +1,7 @@
 # Miscellaneous
 ref/
+*.html
+*.csv
 
 # IDE
 .idea/

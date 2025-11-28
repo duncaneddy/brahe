@@ -2,63 +2,104 @@
 
 Brahe provides built-in event detectors for common orbital conditions. These premade events handle the underlying value function implementation, making it easy to detect frequently-needed conditions without writing custom detection logic.
 
-## Available Events
+## Event Categories
 
-The following table summarizes all premade event detectors:
+Premade events fall into four categories based on what they detect:
 
-| Category | Event | Description | Parameters |
-|----------|-------|-------------|------------|
-| **State-Derived** | `AltitudeEvent` | Geodetic altitude threshold | altitude (m), name, direction |
-| | `SpeedEvent` | Velocity magnitude threshold | speed (m/s), name, direction |
-| | `LongitudeEvent` | Geodetic longitude threshold | longitude (rad), name, direction |
-| | `LatitudeEvent` | Geodetic latitude threshold | latitude (rad), name, direction |
-| **Orbital Elements** | `SemiMajorAxisEvent` | Semi-major axis threshold | sma (m), name, direction |
-| | `EccentricityEvent` | Eccentricity threshold | eccentricity, name, direction |
-| | `InclinationEvent` | Inclination threshold | inclination (rad), name, direction |
-| | `ArgumentOfPerigeeEvent` | Argument of perigee threshold | aop (rad), name, direction |
-| | `MeanAnomalyEvent` | Mean anomaly threshold | M (rad), name, direction |
-| | `EccentricAnomalyEvent` | Eccentric anomaly threshold | E (rad), name, direction |
-| | `TrueAnomalyEvent` | True anomaly threshold | $\nu$ (rad), name, direction |
-| | `ArgumentOfLatitudeEvent` | Argument of latitude threshold | u (rad), name, direction |
-| **Node Crossings** | `AscendingNodeEvent` | Ascending node crossing (u = 0) | name |
-| | `DescendingNodeEvent` | Descending node crossing (u = $\pi$) | name |
-| **Eclipse/Shadow** | `UmbraEvent` | Full shadow (umbra) entry/exit | name, edge_type, ephemeris_source |
-| | `PenumbraEvent` | Partial shadow (penumbra) entry/exit | name, edge_type, ephemeris_source |
-| | `EclipseEvent` | Any shadow entry/exit | name, edge_type, ephemeris_source |
-| | `SunlitEvent` | Full sunlight entry/exit | name, edge_type, ephemeris_source |
+<div class="center-table" markdown="1">
+| Category | What They Detect | Event Type |
+|----------|------------------|------------|
+| **Orbital Elements** | Threshold crossings of Keplerian elements | Value |
+| **State-Derived** | Altitude, speed, geodetic position | Value |
+| **Eclipse/Shadow** | Shadow transitions (umbra, penumbra, sunlit) | Binary |
+| **Node Crossings** | Equatorial plane crossings | Value |
+</div>
 
-### Parameter Types
+The distinction between **value events** and **binary events** is important:
 
-**Value Events** (threshold crossing):
+- **Value events** detect when a continuously-varying quantity crosses a threshold (e.g., altitude = 400 km)
+- **Binary events** detect when a boolean condition changes state (e.g., enters shadow)
 
-- `direction`: `EventDirection.INCREASING`, `EventDirection.DECREASING`, or `EventDirection.ANY`
+## Orbital Element Events
 
-**Binary Events** (boolean condition transitions):
+Orbital element events detect when Keplerian elements cross threshold values. These are value events with configurable thresholds and directions.
 
-- `edge_type`: `EdgeType.RISING_EDGE`, `EdgeType.FALLING_EDGE`, or `EdgeType.ANY_EDGE`
-- `ephemeris_source`: `None` (low precision), `EphemerisSource.DE440s`, or `EphemerisSource.DE440`
+### Available Events
 
-## Altitude Event
-
-The `AltitudeEvent` detects when a spacecraft crosses a specified geodetic altitude threshold. This is one of the most commonly needed event types in orbital mechanics.
+<div class="center-table" markdown="1">
+| Event | Element | Units |
+|-------|---------|-------|
+| `SemiMajorAxisEvent` | $a$ | meters |
+| `EccentricityEvent` | $e$ | dimensionless |
+| `InclinationEvent` | $i$ | degrees or radians |
+| `ArgumentOfPerigeeEvent` | $\omega$ | degrees or radians |
+| `MeanAnomalyEvent` | $M$ | degrees or radians |
+| `EccentricAnomalyEvent` | $E$ | degrees or radians |
+| `TrueAnomalyEvent` | $\nu$ | degrees or radians |
+| `ArgumentOfLatitudeEvent` | $u = \omega + \nu$ | degrees or radians |
+</div>
 
 ### Configuration
 
-`AltitudeEvent` accepts three parameters:
+Orbital element events take up to four parameters:
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `altitude` | float | Threshold altitude in meters (above WGS84 ellipsoid) |
-| `name` | str | Identifier for the event in the event log |
-| `direction` | EventDirection | Which crossings to detect |
+- `threshold` - Target value to detect
+- `name` - Identifier for the event in the event log
+- `direction` - Which crossings to detect (`INCREASING`, `DECREASING`, or `ANY`)
+- `angle_format` - For angle-based events: `AngleFormat.DEGREES` or `AngleFormat.RADIANS`
 
-The `EventDirection` options are:
-
-- `INCREASING` - Detect only when ascending through the altitude
-- `DECREASING` - Detect only when descending through the altitude
-- `ANY` - Detect crossings in both directions
+Non-angle events (`SemiMajorAxisEvent`, `EccentricityEvent`) omit the `angle_format` parameter.
 
 ### Example
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/event_orbital_elements.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/event_orbital_elements.rs:4"
+    ```
+
+### Applications
+
+| Event | Use Cases |
+|-------|-----------|
+| `TrueAnomalyEvent` | Apoapsis detection ($\nu = 180°$), periapsis detection ($\nu = 0°$) |
+| `SemiMajorAxisEvent` | Orbit decay monitoring, altitude maintenance |
+| `EccentricityEvent` | Circularization detection, orbit stability |
+| `InclinationEvent` | Plane change monitoring, SSO maintenance |
+
+## State-Derived Events
+
+State-derived events compute quantities from the instantaneous state vector rather than orbital elements.
+
+### Available Events
+
+<div class="center-table" markdown="1">
+| Event | Quantity | Units |
+|-------|----------|-------|
+| `AltitudeEvent` | Geodetic altitude (WGS84) | meters |
+| `SpeedEvent` | Velocity magnitude | m/s |
+| `LongitudeEvent` | Geodetic longitude | degrees or radians |
+| `LatitudeEvent` | Geodetic latitude | degrees or radians |
+</div>
+
+### Configuration
+
+State-derived events follow the same pattern as orbital element events:
+
+- `threshold` - Target value to detect
+- `name` - Identifier for the event in the event log
+- `direction` - Which crossings to detect (`INCREASING`, `DECREASING`, or `ANY`)
+- `angle_format` - For geodetic events: `AngleFormat.DEGREES` or `AngleFormat.RADIANS`
+
+### Example: Altitude Event
+
+The `AltitudeEvent` is one of the most commonly used premade events. It detects when a spacecraft crosses a specified geodetic altitude.
 
 === "Python"
 
@@ -80,80 +121,135 @@ The `EventDirection` options are:
 | Orbit raising trigger | `AltitudeEvent(target_alt, "Target", INCREASING)` |
 | Perigee passage | `AltitudeEvent(perigee_alt, "Perigee", ANY)` |
 | Re-entry monitoring | `AltitudeEvent(100e3, "Re-entry", DECREASING)` |
-| Payload deployment altitude | `AltitudeEvent(deploy_alt, "Deploy", INCREASING)` |
 
-### Implementation Details
+## Eclipse/Shadow Events
 
-The altitude event internally computes geodetic altitude using the WGS84 ellipsoid model. The event value function is:
+Eclipse events detect shadow conditions using the conical shadow model. These are binary events that trigger on state transitions.
 
-$$g(\mathbf{x}) = h_{\text{geodetic}}(\mathbf{r}) - h_{\text{threshold}}$$
+### Available Events
 
-where $h_{\text{geodetic}}$ is the geodetic altitude computed from the position vector $\mathbf{r}$.
+<div class="center-table" markdown="1">
+| Event | Condition | `RISING_EDGE` | `FALLING_EDGE` |
+|-------|-----------|---------------|----------------|
+| `EclipseEvent` | Any shadow (illumination < 1) | Enter eclipse | Exit eclipse |
+| `UmbraEvent` | Full shadow (illumination = 0) | Enter umbra | Exit umbra |
+| `PenumbraEvent` | Partial shadow (0 < illumination < 1) | Enter penumbra | Exit penumbra |
+| `SunlitEvent` | Full sunlight (illumination = 1) | Exit eclipse | Enter eclipse |
+</div>
 
-## Orbital Element Events
+### Configuration
 
-These events detect when orbital elements cross specified threshold values. All orbital element events use the same constructor pattern:
+Eclipse events take three parameters:
 
-```python
-event = ElementEvent(threshold, name, direction)
-```
+- `name` - Identifier for the event in the event log
+- `edge_type` - Which transition to detect (`RISING_EDGE`, `FALLING_EDGE`, or `ANY_EDGE`)
+- `ephemeris_source` - Sun position source (`None` for analytical, or `EphemerisSource.DE440s`/`DE440`)
 
-| Event | Element | Units | Typical Use Cases |
-|-------|---------|-------|-------------------|
-| `SemiMajorAxisEvent` | $a$ | meters | Orbit decay monitoring, altitude maintenance |
-| `EccentricityEvent` | $e$ | dimensionless | Circularization detection, orbit stability |
-| `InclinationEvent` | $i$ | radians | Plane change monitoring, SSO maintenance |
-| `ArgumentOfPerigeeEvent` | $\omega$ | radians | Apsidal rotation, frozen orbit maintenance |
-| `MeanAnomalyEvent` | $M$ | radians | Orbit phasing, synchronization |
-| `EccentricAnomalyEvent` | $E$ | radians | Precise anomaly detection |
-| `TrueAnomalyEvent` | $\nu$ | radians | Apoapsis/periapsis detection ($\nu = 0$ or $\pi$) |
-| `ArgumentOfLatitudeEvent` | $u = \omega + \nu$ | radians | Latitude-based triggers |
+### Example
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/event_eclipse.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/event_eclipse.rs:4"
+    ```
+
+### Ephemeris Sources
+
+<div class="center-table" markdown="1">
+| Source | Description |
+|--------|-------------|
+| `None` / `LowPrecision` | Analytical approximation (fastest) |
+| `DE440s` | JPL DE440s ephemeris (short-term, high precision) |
+| `DE440` | JPL DE440 ephemeris (long-term, high precision) |
+</div>
 
 ## Node Crossing Events
 
-Node crossing events detect when a spacecraft passes through the equatorial plane:
+Node crossing events detect when a spacecraft passes through the equatorial plane. These are specialized value events with fixed thresholds.
+
+### Available Events
+
+<div class="center-table" markdown="1">
+| Event | Trigger Condition | Direction |
+|-------|-------------------|-----------|
+| `AscendingNodeEvent` | Argument of latitude = 0 (northward crossing) | Increasing |
+| `DescendingNodeEvent` | Argument of latitude = $\pi$ (southward crossing) | Increasing |
+</div>
+
+### Configuration
+
+Node events take only a name parameter:
 
 ```python
-# Ascending node: spacecraft crosses equator heading north (u = 0)
 asc_event = bh.AscendingNodeEvent("Ascending Node")
-
-# Descending node: spacecraft crosses equator heading south (u = π)
 desc_event = bh.DescendingNodeEvent("Descending Node")
 ```
 
-These events are useful for:
+### Example
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/event_node_crossing.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/event_node_crossing.rs:4"
+    ```
+
+### Applications
 
 - Ground track analysis
 - Orbit determination campaigns
 - RAAN drift monitoring
 - Conjunction screening at nodes
 
-## Eclipse Events
+## Quick Reference
 
-Eclipse events detect shadow conditions using the conical shadow model. They accept an optional `EphemerisSource` parameter for sun position computation:
+### All Premade Events
 
-```python
-# Using low-precision sun position (default)
-eclipse = bh.EclipseEvent("Eclipse", bh.EdgeType.ANY_EDGE, None)
+<div class="center-table" markdown="1">
+| Category | Event | Parameters |
+|----------|-------|------------|
+| **Eclipse/Shadow** | `EclipseEvent` | name, edge_type, ephemeris_source |
+| | `UmbraEvent` | name, edge_type, ephemeris_source |
+| | `PenumbraEvent` | name, edge_type, ephemeris_source |
+| | `SunlitEvent` | name, edge_type, ephemeris_source |
+| **Node Crossings** | `AscendingNodeEvent` | name |
+| | `DescendingNodeEvent` | name |
+| **Orbital Elements** | `SemiMajorAxisEvent` | threshold (m), name, direction |
+| | `EccentricityEvent` | threshold, name, direction |
+| | `InclinationEvent` | threshold, name, direction, angle_format |
+| | `ArgumentOfPerigeeEvent` | threshold, name, direction, angle_format |
+| | `MeanAnomalyEvent` | threshold, name, direction, angle_format |
+| | `EccentricAnomalyEvent` | threshold, name, direction, angle_format |
+| | `TrueAnomalyEvent` | threshold, name, direction, angle_format |
+| | `ArgumentOfLatitudeEvent` | threshold, name, direction, angle_format |
+| **State-Derived** | `AltitudeEvent` | threshold (m), name, direction |
+| | `SpeedEvent` | threshold (m/s), name, direction |
+| | `LongitudeEvent` | threshold, name, direction, angle_format |
+| | `LatitudeEvent` | threshold, name, direction, angle_format |
+</div>
 
-# Using high-precision DE440s ephemeris
-eclipse = bh.EclipseEvent("Eclipse", bh.EdgeType.RISING_EDGE, bh.EphemerisSource.DE440s)
-```
+### Parameter Types
 
-| Event | Condition | `RISING_EDGE` | `FALLING_EDGE` |
-|-------|-----------|---------------|----------------|
-| `UmbraEvent` | Full shadow (illumination = 0) | Enter umbra | Exit umbra |
-| `PenumbraEvent` | Partial shadow (0 < illumination < 1) | Enter penumbra | Exit penumbra |
-| `EclipseEvent` | Any shadow (illumination < 1) | Enter eclipse | Exit eclipse |
-| `SunlitEvent` | Full sunlight (illumination = 1) | Exit eclipse | Enter eclipse |
+**Value Events** (threshold crossing):
 
-### Ephemeris Sources
+- `direction`: `EventDirection.INCREASING`, `EventDirection.DECREASING`, or `EventDirection.ANY`
+- `angle_format`: `AngleFormat.DEGREES` or `AngleFormat.RADIANS` (angle-based events only)
 
-| Source | Description | Accuracy |
-|--------|-------------|----------|
-| `None` / `LowPrecision` | Analytical approximation | ~0.01° |
-| `DE440s` | JPL DE440s ephemeris (short-term) | ~1 arcsec |
-| `DE440` | JPL DE440 ephemeris (long-term) | ~1 arcsec |
+**Binary Events** (boolean condition transitions):
+
+- `edge_type`: `EdgeType.RISING_EDGE`, `EdgeType.FALLING_EDGE`, or `EdgeType.ANY_EDGE`
+- `ephemeris_source`: `None` (low precision), `EphemerisSource.DE440s`, or `EphemerisSource.DE440`
 
 ---
 

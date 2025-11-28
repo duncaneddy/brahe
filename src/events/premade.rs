@@ -201,8 +201,8 @@ impl<const S: usize, const P: usize> SAltitudeEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -276,8 +276,8 @@ impl DAltitudeEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -354,8 +354,8 @@ impl<const S: usize, const P: usize> SSemiMajorAxisEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -406,8 +406,8 @@ impl DSemiMajorAxisEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -472,8 +472,8 @@ impl<const S: usize, const P: usize> SEccentricityEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -524,8 +524,8 @@ impl DEccentricityEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -539,13 +539,14 @@ impl_devent_detector_delegate!(DEccentricityEvent, inner);
 /// # Examples
 /// ```
 /// use brahe::events::{SInclinationEvent, EventDirection};
-/// use std::f64::consts::PI;
+/// use brahe::AngleFormat;
 ///
-/// // Detect when inclination exceeds 90 degrees (radians)
+/// // Detect when inclination exceeds 90 degrees
 /// let event = SInclinationEvent::<6, 0>::new(
-///     PI / 2.0,
+///     90.0,
 ///     "Retrograde",
-///     EventDirection::Increasing
+///     EventDirection::Increasing,
+///     AngleFormat::Degrees
 /// );
 /// ```
 pub struct SInclinationEvent<const S: usize, const P: usize> {
@@ -556,10 +557,22 @@ impl<const S: usize, const P: usize> SInclinationEvent<S, P> {
     /// Create new inclination event
     ///
     /// # Arguments
-    /// * `threshold` - Inclination threshold in radians
+    /// * `threshold` - Inclination threshold
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        // Convert threshold to radians if needed
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -567,7 +580,7 @@ impl<const S: usize, const P: usize> SInclinationEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -596,8 +609,8 @@ impl<const S: usize, const P: usize> SInclinationEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -610,8 +623,25 @@ pub struct DInclinationEvent {
 }
 
 impl DInclinationEvent {
-    /// Create new inclination event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new inclination event
+    ///
+    /// # Arguments
+    /// * `threshold` - Inclination threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        // Convert threshold to radians if needed
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -619,7 +649,7 @@ impl DInclinationEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -648,8 +678,8 @@ impl DInclinationEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -664,8 +694,24 @@ pub struct SArgumentOfPerigeeEvent<const S: usize, const P: usize> {
 }
 
 impl<const S: usize, const P: usize> SArgumentOfPerigeeEvent<S, P> {
-    /// Create new argument of perigee event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new argument of perigee event
+    ///
+    /// # Arguments
+    /// * `threshold` - Argument of perigee threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -673,7 +719,7 @@ impl<const S: usize, const P: usize> SArgumentOfPerigeeEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -702,8 +748,8 @@ impl<const S: usize, const P: usize> SArgumentOfPerigeeEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -716,8 +762,24 @@ pub struct DArgumentOfPerigeeEvent {
 }
 
 impl DArgumentOfPerigeeEvent {
-    /// Create new argument of perigee event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new argument of perigee event
+    ///
+    /// # Arguments
+    /// * `threshold` - Argument of perigee threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -725,7 +787,7 @@ impl DArgumentOfPerigeeEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -754,8 +816,8 @@ impl DArgumentOfPerigeeEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -770,8 +832,24 @@ pub struct SMeanAnomalyEvent<const S: usize, const P: usize> {
 }
 
 impl<const S: usize, const P: usize> SMeanAnomalyEvent<S, P> {
-    /// Create new mean anomaly event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new mean anomaly event
+    ///
+    /// # Arguments
+    /// * `threshold` - Mean anomaly threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -779,7 +857,7 @@ impl<const S: usize, const P: usize> SMeanAnomalyEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -808,8 +886,8 @@ impl<const S: usize, const P: usize> SMeanAnomalyEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -822,8 +900,24 @@ pub struct DMeanAnomalyEvent {
 }
 
 impl DMeanAnomalyEvent {
-    /// Create new mean anomaly event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new mean anomaly event
+    ///
+    /// # Arguments
+    /// * `threshold` - Mean anomaly threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -831,7 +925,7 @@ impl DMeanAnomalyEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -860,8 +954,8 @@ impl DMeanAnomalyEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -876,8 +970,24 @@ pub struct SEccentricAnomalyEvent<const S: usize, const P: usize> {
 }
 
 impl<const S: usize, const P: usize> SEccentricAnomalyEvent<S, P> {
-    /// Create new eccentric anomaly event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new eccentric anomaly event
+    ///
+    /// # Arguments
+    /// * `threshold` - Eccentric anomaly threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -888,7 +998,7 @@ impl<const S: usize, const P: usize> SEccentricAnomalyEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -917,8 +1027,8 @@ impl<const S: usize, const P: usize> SEccentricAnomalyEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -931,8 +1041,24 @@ pub struct DEccentricAnomalyEvent {
 }
 
 impl DEccentricAnomalyEvent {
-    /// Create new eccentric anomaly event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new eccentric anomaly event
+    ///
+    /// # Arguments
+    /// * `threshold` - Eccentric anomaly threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -942,7 +1068,7 @@ impl DEccentricAnomalyEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -971,8 +1097,8 @@ impl DEccentricAnomalyEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -987,8 +1113,24 @@ pub struct STrueAnomalyEvent<const S: usize, const P: usize> {
 }
 
 impl<const S: usize, const P: usize> STrueAnomalyEvent<S, P> {
-    /// Create new true anomaly event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new true anomaly event
+    ///
+    /// # Arguments
+    /// * `threshold` - True anomaly threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -999,7 +1141,7 @@ impl<const S: usize, const P: usize> STrueAnomalyEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -1028,8 +1170,8 @@ impl<const S: usize, const P: usize> STrueAnomalyEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1042,8 +1184,24 @@ pub struct DTrueAnomalyEvent {
 }
 
 impl DTrueAnomalyEvent {
-    /// Create new true anomaly event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new true anomaly event
+    ///
+    /// # Arguments
+    /// * `threshold` - True anomaly threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -1053,7 +1211,7 @@ impl DTrueAnomalyEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -1082,8 +1240,8 @@ impl DTrueAnomalyEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1099,8 +1257,24 @@ pub struct SArgumentOfLatitudeEvent<const S: usize, const P: usize> {
 }
 
 impl<const S: usize, const P: usize> SArgumentOfLatitudeEvent<S, P> {
-    /// Create new argument of latitude event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new argument of latitude event
+    ///
+    /// # Arguments
+    /// * `threshold` - Argument of latitude threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -1115,7 +1289,7 @@ impl<const S: usize, const P: usize> SArgumentOfLatitudeEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -1144,8 +1318,8 @@ impl<const S: usize, const P: usize> SArgumentOfLatitudeEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1158,8 +1332,24 @@ pub struct DArgumentOfLatitudeEvent {
 }
 
 impl DArgumentOfLatitudeEvent {
-    /// Create new argument of latitude event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new argument of latitude event
+    ///
+    /// # Arguments
+    /// * `threshold` - Argument of latitude threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -1172,7 +1362,7 @@ impl DArgumentOfLatitudeEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -1201,8 +1391,8 @@ impl DArgumentOfLatitudeEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1277,8 +1467,8 @@ impl<const S: usize, const P: usize> SAscendingNodeEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1335,8 +1525,8 @@ impl DAscendingNodeEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1415,8 +1605,8 @@ impl<const S: usize, const P: usize> SDescendingNodeEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1475,8 +1665,8 @@ impl DDescendingNodeEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1550,8 +1740,8 @@ impl<const S: usize, const P: usize> SSpeedEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1601,8 +1791,8 @@ impl DSpeedEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1617,13 +1807,14 @@ impl_devent_detector_delegate!(DSpeedEvent, inner);
 /// # Examples
 /// ```
 /// use brahe::events::{SLongitudeEvent, EventDirection};
-/// use std::f64::consts::PI;
+/// use brahe::AngleFormat;
 ///
 /// // Detect when crossing prime meridian (0 degrees longitude)
 /// let event = SLongitudeEvent::<6, 0>::new(
 ///     0.0,
 ///     "Prime Meridian",
-///     EventDirection::Any
+///     EventDirection::Any,
+///     AngleFormat::Degrees
 /// );
 /// ```
 pub struct SLongitudeEvent<const S: usize, const P: usize> {
@@ -1634,10 +1825,21 @@ impl<const S: usize, const P: usize> SLongitudeEvent<S, P> {
     /// Create new longitude event
     ///
     /// # Arguments
-    /// * `threshold` - Longitude threshold in radians
+    /// * `threshold` - Longitude threshold
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let r_eci = state.fixed_rows::<3>(0).into_owned();
             let r_ecef = position_eci_to_ecef(t, r_eci);
@@ -1646,7 +1848,7 @@ impl<const S: usize, const P: usize> SLongitudeEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -1675,8 +1877,8 @@ impl<const S: usize, const P: usize> SLongitudeEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1689,8 +1891,24 @@ pub struct DLongitudeEvent {
 }
 
 impl DLongitudeEvent {
-    /// Create new longitude event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new longitude event
+    ///
+    /// # Arguments
+    /// * `threshold` - Longitude threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let r_eci = Vector3::new(state[0], state[1], state[2]);
             let r_ecef = position_eci_to_ecef(t, r_eci);
@@ -1699,7 +1917,7 @@ impl DLongitudeEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -1728,8 +1946,8 @@ impl DLongitudeEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1744,13 +1962,14 @@ impl_devent_detector_delegate!(DLongitudeEvent, inner);
 /// # Examples
 /// ```
 /// use brahe::events::{SLatitudeEvent, EventDirection};
-/// use std::f64::consts::PI;
+/// use brahe::AngleFormat;
 ///
 /// // Detect when crossing equator (0 degrees latitude)
 /// let event = SLatitudeEvent::<6, 0>::new(
 ///     0.0,
 ///     "Equator Crossing",
-///     EventDirection::Any
+///     EventDirection::Any,
+///     AngleFormat::Degrees
 /// );
 /// ```
 pub struct SLatitudeEvent<const S: usize, const P: usize> {
@@ -1761,10 +1980,21 @@ impl<const S: usize, const P: usize> SLatitudeEvent<S, P> {
     /// Create new latitude event
     ///
     /// # Arguments
-    /// * `threshold` - Latitude threshold in radians
+    /// * `threshold` - Latitude threshold
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let r_eci = state.fixed_rows::<3>(0).into_owned();
             let r_ecef = position_eci_to_ecef(t, r_eci);
@@ -1773,7 +2003,7 @@ impl<const S: usize, const P: usize> SLatitudeEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -1802,8 +2032,8 @@ impl<const S: usize, const P: usize> SLatitudeEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1816,8 +2046,24 @@ pub struct DLatitudeEvent {
 }
 
 impl DLatitudeEvent {
-    /// Create new latitude event (threshold in radians)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new latitude event
+    ///
+    /// # Arguments
+    /// * `threshold` - Latitude threshold
+    /// * `name` - Event name
+    /// * `direction` - Detection direction
+    /// * `angle_format` - Whether threshold is in degrees or radians
+    pub fn new(
+        threshold: f64,
+        name: impl Into<String>,
+        direction: EventDirection,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let threshold_rad = match angle_format {
+            AngleFormat::Degrees => threshold.to_radians(),
+            AngleFormat::Radians => threshold,
+        };
+
         let value_fn = |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let r_eci = Vector3::new(state[0], state[1], state[2]);
             let r_ecef = position_eci_to_ecef(t, r_eci);
@@ -1826,7 +2072,7 @@ impl DLatitudeEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
         }
     }
 
@@ -1855,8 +2101,8 @@ impl DLatitudeEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -1946,8 +2192,8 @@ impl<const S: usize, const P: usize> SUmbraEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -2008,8 +2254,8 @@ impl DUmbraEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -2087,8 +2333,8 @@ impl<const S: usize, const P: usize> SPenumbraEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -2149,8 +2395,8 @@ impl DPenumbraEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -2228,8 +2474,8 @@ impl<const S: usize, const P: usize> SEclipseEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -2290,8 +2536,8 @@ impl DEclipseEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -2369,8 +2615,8 @@ impl<const S: usize, const P: usize> SSunlitEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -2431,8 +2677,8 @@ impl DSunlitEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
-        self.inner = self.inner.is_terminal();
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
         self
     }
 }
@@ -2611,13 +2857,13 @@ mod tests {
     }
 
     #[test]
-    fn test_SAltitudeEvent_is_terminal() {
+    fn test_SAltitudeEvent_set_terminal() {
         setup_global_test_eop();
 
         let event = SAltitudeEvent::<6, 0>::new(500e3, "Test", EventDirection::Any);
         assert_eq!(event.action(), EventAction::Continue);
 
-        let event = SAltitudeEvent::<6, 0>::new(500e3, "Test", EventDirection::Any).is_terminal();
+        let event = SAltitudeEvent::<6, 0>::new(500e3, "Test", EventDirection::Any).set_terminal();
         assert_eq!(event.action(), EventAction::Stop);
     }
 
@@ -2633,7 +2879,7 @@ mod tests {
     fn test_SAltitudeEvent_action_stop() {
         setup_global_test_eop();
 
-        let event = SAltitudeEvent::<6, 0>::new(500e3, "Test", EventDirection::Any).is_terminal();
+        let event = SAltitudeEvent::<6, 0>::new(500e3, "Test", EventDirection::Any).set_terminal();
         assert_eq!(event.action(), EventAction::Stop);
     }
 
@@ -2689,7 +2935,7 @@ mod tests {
             .with_tolerances(1e-5, 1e-8)
             .with_step_reduction_factor(0.1)
             .with_callback(callback)
-            .is_terminal();
+            .set_terminal();
 
         assert_eq!(event.name(), "Reentry 1");
         assert_eq!(event.time_tolerance(), 1e-5);
@@ -2842,13 +3088,13 @@ mod tests {
     }
 
     #[test]
-    fn test_DAltitudeEvent_is_terminal() {
+    fn test_DAltitudeEvent_set_terminal() {
         setup_global_test_eop();
 
         let event = DAltitudeEvent::new(500e3, "Test", EventDirection::Any);
         assert_eq!(event.action(), EventAction::Continue);
 
-        let event = DAltitudeEvent::new(500e3, "Test", EventDirection::Any).is_terminal();
+        let event = DAltitudeEvent::new(500e3, "Test", EventDirection::Any).set_terminal();
         assert_eq!(event.action(), EventAction::Stop);
     }
 
@@ -2864,7 +3110,7 @@ mod tests {
     fn test_DAltitudeEvent_action_stop() {
         setup_global_test_eop();
 
-        let event = DAltitudeEvent::new(500e3, "Test", EventDirection::Any).is_terminal();
+        let event = DAltitudeEvent::new(500e3, "Test", EventDirection::Any).set_terminal();
         assert_eq!(event.action(), EventAction::Stop);
     }
 
@@ -2904,7 +3150,7 @@ mod tests {
             .with_tolerances(1e-5, 1e-8)
             .with_step_reduction_factor(0.1)
             .with_callback(callback)
-            .is_terminal();
+            .set_terminal();
 
         assert_eq!(event.name(), "Reentry 1");
         assert_eq!(event.time_tolerance(), 1e-5);
@@ -2983,15 +3229,20 @@ mod tests {
     #[test]
     fn test_SInclinationEvent_new() {
         let inc_rad = std::f64::consts::PI / 4.0; // 45 degrees
-        let event =
-            SInclinationEvent::<6, 0>::new(inc_rad, "Inc Threshold", EventDirection::Increasing);
+        let event = SInclinationEvent::<6, 0>::new(
+            inc_rad,
+            "Inc Threshold",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        );
         assert_eq!(event.name(), "Inc Threshold");
         assert_eq!(event.target_value(), inc_rad);
     }
 
     #[test]
     fn test_DInclinationEvent_new() {
-        let event = DInclinationEvent::new(1.0, "Inc Check", EventDirection::Any);
+        let event =
+            DInclinationEvent::new(45.0, "Inc Check", EventDirection::Any, AngleFormat::Degrees);
         assert_eq!(event.name(), "Inc Check");
     }
 
@@ -3001,66 +3252,93 @@ mod tests {
             std::f64::consts::PI / 2.0,
             "AoP",
             EventDirection::Increasing,
+            AngleFormat::Radians,
         );
         assert_eq!(event.name(), "AoP");
     }
 
     #[test]
     fn test_DArgumentOfPerigeeEvent_new() {
-        let event = DArgumentOfPerigeeEvent::new(1.0, "AoP", EventDirection::Any);
+        let event =
+            DArgumentOfPerigeeEvent::new(90.0, "AoP", EventDirection::Any, AngleFormat::Degrees);
         assert_eq!(event.name(), "AoP");
     }
 
     #[test]
     fn test_SMeanAnomalyEvent_new() {
-        let event = SMeanAnomalyEvent::<6, 0>::new(0.0, "Periapsis", EventDirection::Increasing);
+        let event = SMeanAnomalyEvent::<6, 0>::new(
+            0.0,
+            "Periapsis",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        );
         assert_eq!(event.name(), "Periapsis");
         assert_eq!(event.target_value(), 0.0);
     }
 
     #[test]
     fn test_DMeanAnomalyEvent_new() {
-        let event = DMeanAnomalyEvent::new(std::f64::consts::PI, "Apoapsis", EventDirection::Any);
+        let event =
+            DMeanAnomalyEvent::new(180.0, "Apoapsis", EventDirection::Any, AngleFormat::Degrees);
         assert_eq!(event.name(), "Apoapsis");
     }
 
     #[test]
     fn test_SEccentricAnomalyEvent_new() {
-        let event =
-            SEccentricAnomalyEvent::<6, 0>::new(0.0, "Periapsis EA", EventDirection::Increasing);
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "Periapsis EA",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        );
         assert_eq!(event.name(), "Periapsis EA");
     }
 
     #[test]
     fn test_DEccentricAnomalyEvent_new() {
-        let event = DEccentricAnomalyEvent::new(0.0, "EA Check", EventDirection::Any);
+        let event =
+            DEccentricAnomalyEvent::new(0.0, "EA Check", EventDirection::Any, AngleFormat::Degrees);
         assert_eq!(event.name(), "EA Check");
     }
 
     #[test]
     fn test_STrueAnomalyEvent_new() {
-        let event = STrueAnomalyEvent::<6, 0>::new(0.0, "Periapsis TA", EventDirection::Increasing);
+        let event = STrueAnomalyEvent::<6, 0>::new(
+            0.0,
+            "Periapsis TA",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        );
         assert_eq!(event.name(), "Periapsis TA");
     }
 
     #[test]
     fn test_DTrueAnomalyEvent_new() {
-        let event =
-            DTrueAnomalyEvent::new(std::f64::consts::PI, "Apoapsis TA", EventDirection::Any);
+        let event = DTrueAnomalyEvent::new(
+            180.0,
+            "Apoapsis TA",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
         assert_eq!(event.name(), "Apoapsis TA");
     }
 
     #[test]
     fn test_SArgumentOfLatitudeEvent_new() {
-        let event =
-            SArgumentOfLatitudeEvent::<6, 0>::new(0.5, "AoL Check", EventDirection::Increasing);
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "AoL Check",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        );
         assert_eq!(event.name(), "AoL Check");
         assert_eq!(event.target_value(), 0.5);
     }
 
     #[test]
     fn test_DArgumentOfLatitudeEvent_new() {
-        let event = DArgumentOfLatitudeEvent::new(0.5, "AoL", EventDirection::Any);
+        let event =
+            DArgumentOfLatitudeEvent::new(30.0, "AoL", EventDirection::Any, AngleFormat::Degrees);
         assert_eq!(event.name(), "AoL");
     }
 
@@ -3141,7 +3419,12 @@ mod tests {
     #[test]
     fn test_SLongitudeEvent_new() {
         setup_global_test_eop();
-        let event = SLongitudeEvent::<6, 0>::new(0.0, "Prime Meridian", EventDirection::Any);
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Prime Meridian",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
         assert_eq!(event.name(), "Prime Meridian");
         assert_eq!(event.target_value(), 0.0);
     }
@@ -3149,22 +3432,37 @@ mod tests {
     #[test]
     fn test_DLongitudeEvent_new() {
         setup_global_test_eop();
-        let event = DLongitudeEvent::new(1.0, "Lon Check", EventDirection::Increasing);
+        let event = DLongitudeEvent::new(
+            45.0,
+            "Lon Check",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
         assert_eq!(event.name(), "Lon Check");
     }
 
     #[test]
     fn test_SLatitudeEvent_new() {
         setup_global_test_eop();
-        let event = SLatitudeEvent::<6, 0>::new(0.5, "Latitude Check", EventDirection::Any);
+        let event = SLatitudeEvent::<6, 0>::new(
+            30.0,
+            "Latitude Check",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
         assert_eq!(event.name(), "Latitude Check");
-        assert_eq!(event.target_value(), 0.5);
+        assert_eq!(event.target_value(), 30.0_f64.to_radians());
     }
 
     #[test]
     fn test_DLatitudeEvent_new() {
         setup_global_test_eop();
-        let event = DLatitudeEvent::new(0.0, "Equator", EventDirection::Increasing);
+        let event = DLatitudeEvent::new(
+            0.0,
+            "Equator",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
         assert_eq!(event.name(), "Equator");
     }
 
@@ -3262,7 +3560,7 @@ mod tests {
         let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None)
             .with_instance(1)
             .with_tolerances(1e-5, 1e-8)
-            .is_terminal();
+            .set_terminal();
         assert_eq!(event.name(), "Umbra 1");
         assert_eq!(event.time_tolerance(), 1e-5);
         assert_eq!(event.action(), EventAction::Stop);

@@ -898,7 +898,7 @@ def test_numericalorbitpropagator_event_detection_terminal_event():
 
     # Add terminal event at 30 minutes
     terminal_time = epoch + 1800.0
-    terminal_event = TimeEvent(terminal_time, "Terminal").is_terminal()
+    terminal_event = TimeEvent(terminal_time, "Terminal").set_terminal()
     prop.add_event_detector(terminal_event)
 
     # Try to propagate to 1 hour
@@ -1951,7 +1951,7 @@ def test_numericalorbitpropagator_terminated_flag():
     assert not prop.terminated()
 
     # Add terminal event
-    terminal = TimeEvent(epoch + 1800.0, "Terminal").is_terminal()
+    terminal = TimeEvent(epoch + 1800.0, "Terminal").set_terminal()
     prop.add_event_detector(terminal)
 
     prop.propagate_to(epoch + 3600.0)

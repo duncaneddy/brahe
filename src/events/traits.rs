@@ -172,7 +172,7 @@ impl DDetectedEvent {
 /// - Action to take after event
 ///
 /// # Callback vs Terminal Flag Priority
-/// Callbacks can override the terminal flag set by `.is_terminal()`:
+/// Callbacks can override the terminal flag set by `.set_terminal()`:
 /// - If callback returns `EventAction::Stop`, propagation stops regardless of terminal flag
 /// - If callback returns `EventAction::Continue`, propagation continues even if terminal flag is set
 /// - This allows dynamic decisions based on event state

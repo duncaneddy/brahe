@@ -22,7 +22,7 @@ def test_SemiMajorAxisEvent_builder_chaining():
         bh.SemiMajorAxisEvent(7000e3, "SMA", bh.EventDirection.ANY)
         .with_instance(2)
         .with_tolerances(1e-5, 1e-8)
-        .is_terminal()
+        .set_terminal()
     )
     # If we get here without error, the chaining works
     assert event is not None
@@ -35,41 +35,59 @@ def test_EccentricityEvent_new():
 
 
 def test_InclinationEvent_new():
-    """Test InclinationEvent constructor."""
+    """Test InclinationEvent constructor with degrees."""
+    event = bh.InclinationEvent(
+        45.0, "Inc Threshold", bh.EventDirection.ANY, bh.AngleFormat.DEGREES
+    )
+    assert "Inc" in str(event)
+
+
+def test_InclinationEvent_radians():
+    """Test InclinationEvent constructor with radians."""
     inc_rad = np.radians(45.0)
-    event = bh.InclinationEvent(inc_rad, "Inc Threshold", bh.EventDirection.ANY)
+    event = bh.InclinationEvent(
+        inc_rad, "Inc Threshold", bh.EventDirection.ANY, bh.AngleFormat.RADIANS
+    )
     assert "Inc" in str(event)
 
 
 def test_ArgumentOfPerigeeEvent_new():
-    """Test ArgumentOfPerigeeEvent constructor."""
+    """Test ArgumentOfPerigeeEvent constructor with degrees."""
     event = bh.ArgumentOfPerigeeEvent(
-        np.pi / 2.0, "AoP Check", bh.EventDirection.INCREASING
+        90.0, "AoP Check", bh.EventDirection.INCREASING, bh.AngleFormat.DEGREES
     )
     assert event is not None
 
 
 def test_MeanAnomalyEvent_new():
-    """Test MeanAnomalyEvent constructor."""
-    event = bh.MeanAnomalyEvent(0.0, "Periapsis", bh.EventDirection.INCREASING)
+    """Test MeanAnomalyEvent constructor with degrees."""
+    event = bh.MeanAnomalyEvent(
+        0.0, "Periapsis", bh.EventDirection.INCREASING, bh.AngleFormat.DEGREES
+    )
     assert event is not None
 
 
 def test_EccentricAnomalyEvent_new():
-    """Test EccentricAnomalyEvent constructor."""
-    event = bh.EccentricAnomalyEvent(0.0, "Periapsis EA", bh.EventDirection.INCREASING)
+    """Test EccentricAnomalyEvent constructor with degrees."""
+    event = bh.EccentricAnomalyEvent(
+        0.0, "Periapsis EA", bh.EventDirection.INCREASING, bh.AngleFormat.DEGREES
+    )
     assert event is not None
 
 
 def test_TrueAnomalyEvent_new():
-    """Test TrueAnomalyEvent constructor."""
-    event = bh.TrueAnomalyEvent(np.pi, "Apoapsis", bh.EventDirection.ANY)
+    """Test TrueAnomalyEvent constructor with degrees."""
+    event = bh.TrueAnomalyEvent(
+        180.0, "Apoapsis", bh.EventDirection.ANY, bh.AngleFormat.DEGREES
+    )
     assert event is not None
 
 
 def test_ArgumentOfLatitudeEvent_new():
-    """Test ArgumentOfLatitudeEvent constructor."""
-    event = bh.ArgumentOfLatitudeEvent(0.5, "AoL Check", bh.EventDirection.INCREASING)
+    """Test ArgumentOfLatitudeEvent constructor with degrees."""
+    event = bh.ArgumentOfLatitudeEvent(
+        30.0, "AoL Check", bh.EventDirection.INCREASING, bh.AngleFormat.DEGREES
+    )
     assert event is not None
 
 
@@ -115,20 +133,24 @@ def test_SpeedEvent_builder_chaining():
         bh.SpeedEvent(7000.0, "Speed", bh.EventDirection.ANY)
         .with_instance(1)
         .with_tolerances(1e-5, 1e-8)
-        .is_terminal()
+        .set_terminal()
     )
     assert event is not None
 
 
 def test_LongitudeEvent_new():
-    """Test LongitudeEvent constructor."""
-    event = bh.LongitudeEvent(0.0, "Prime Meridian", bh.EventDirection.ANY)
+    """Test LongitudeEvent constructor with degrees."""
+    event = bh.LongitudeEvent(
+        0.0, "Prime Meridian", bh.EventDirection.ANY, bh.AngleFormat.DEGREES
+    )
     assert event is not None
 
 
 def test_LatitudeEvent_new():
-    """Test LatitudeEvent constructor."""
-    event = bh.LatitudeEvent(0.0, "Equator", bh.EventDirection.INCREASING)
+    """Test LatitudeEvent constructor with degrees."""
+    event = bh.LatitudeEvent(
+        0.0, "Equator", bh.EventDirection.INCREASING, bh.AngleFormat.DEGREES
+    )
     assert event is not None
 
 
@@ -157,7 +179,7 @@ def test_UmbraEvent_builder_chaining():
         bh.UmbraEvent("Umbra", bh.EdgeType.RISING_EDGE, None)
         .with_instance(1)
         .with_tolerances(1e-5, 1e-8)
-        .is_terminal()
+        .set_terminal()
     )
     assert event is not None
 

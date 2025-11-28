@@ -4084,7 +4084,7 @@ mod tests {
 
         // Add terminal event at 30 minutes
         let terminal_time = epoch + 1800.0;
-        let terminal_event = DTimeEvent::new(terminal_time, "Terminal").is_terminal();
+        let terminal_event = DTimeEvent::new(terminal_time, "Terminal").set_terminal();
 
         prop.add_event_detector(Box::new(terminal_event));
 
@@ -4436,7 +4436,7 @@ mod tests {
         .unwrap();
 
         // Add terminal event
-        let terminal_event = DTimeEvent::new(epoch + 900.0, "Terminal Event").is_terminal();
+        let terminal_event = DTimeEvent::new(epoch + 900.0, "Terminal Event").set_terminal();
         prop.add_event_detector(Box::new(terminal_event));
 
         // Add non-terminal event after terminal
@@ -6331,7 +6331,7 @@ mod tests {
         assert!(!prop.terminated());
 
         // Add terminal event
-        let terminal_event = DTimeEvent::new(epoch + 100.0, "Terminal").is_terminal();
+        let terminal_event = DTimeEvent::new(epoch + 100.0, "Terminal").set_terminal();
         prop.add_event_detector(Box::new(terminal_event));
 
         // Propagate past event

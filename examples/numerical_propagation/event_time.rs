@@ -42,7 +42,7 @@ fn main() {
 
     // Add a terminal event that stops propagation
     let event_terminal =
-        DTimeEvent::new(epoch + 5400.0, "90-minute stop".to_string()).is_terminal();
+        DTimeEvent::new(epoch + 5400.0, "90-minute stop".to_string()).set_terminal();
 
     prop.add_event_detector(Box::new(event_30min));
     prop.add_event_detector(Box::new(event_1hr));

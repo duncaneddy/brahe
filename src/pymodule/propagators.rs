@@ -4147,8 +4147,135 @@ impl PyNumericalOrbitPropagator {
             ));
         }
 
+        // Premade Orbital Element Events
+        if let Ok(mut e) = event.extract::<PyRefMut<PySemiMajorAxisEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("SemiMajorAxisEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyEccentricityEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("EccentricityEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyInclinationEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("InclinationEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyArgumentOfPerigeeEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("ArgumentOfPerigeeEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyMeanAnomalyEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("MeanAnomalyEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyEccentricAnomalyEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("EccentricAnomalyEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyTrueAnomalyEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("TrueAnomalyEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyArgumentOfLatitudeEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("ArgumentOfLatitudeEvent has already been consumed"));
+        }
+
+        // Premade Node Crossing Events
+        if let Ok(mut e) = event.extract::<PyRefMut<PyAscendingNodeEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("AscendingNodeEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyDescendingNodeEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("DescendingNodeEvent has already been consumed"));
+        }
+
+        // Premade State-Derived Events
+        if let Ok(mut e) = event.extract::<PyRefMut<PySpeedEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("SpeedEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyLongitudeEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("LongitudeEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyLatitudeEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("LatitudeEvent has already been consumed"));
+        }
+
+        // Premade Eclipse/Shadow Events
+        if let Ok(mut e) = event.extract::<PyRefMut<PyUmbraEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("UmbraEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyPenumbraEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("PenumbraEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PyEclipseEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("EclipseEvent has already been consumed"));
+        }
+        if let Ok(mut e) = event.extract::<PyRefMut<PySunlitEvent>>() {
+            if let Some(inner) = e.event.take() {
+                self.propagator.add_event_detector(Box::new(inner));
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("SunlitEvent has already been consumed"));
+        }
+
         Err(exceptions::PyTypeError::new_err(
-            "Expected event detector type (TimeEvent, ValueEvent, BinaryEvent, or AltitudeEvent)"
+            "Expected event detector type (TimeEvent, ValueEvent, BinaryEvent, AltitudeEvent, or premade event)"
         ))
     }
 

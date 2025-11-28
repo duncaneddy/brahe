@@ -153,7 +153,7 @@ impl PyEdgeType {
 /// Action to take when an event is detected.
 ///
 /// Determines whether propagation should stop or continue after an event is detected.
-/// Can be set as the default action via `.is_terminal()` or returned from a callback
+/// Can be set as the default action via `.set_terminal()` or returned from a callback
 /// to override the default.
 ///
 /// Example:
@@ -161,7 +161,7 @@ impl PyEdgeType {
 ///     import brahe as bh
 ///
 ///     # Terminal event (stops propagation)
-///     event = bh.TimeEvent(target_epoch, "Maneuver").is_terminal()
+///     event = bh.TimeEvent(target_epoch, "Maneuver").set_terminal()
 ///
 ///     # Callback can override the action
 ///     def callback(epoch, state):
@@ -467,7 +467,7 @@ impl PyDetectedEvent {
 ///
 ///     target = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 ///     event = bh.TimeEvent(target, "Maneuver Start")
-///     event = event.is_terminal()
+///     event = event.set_terminal()
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "TimeEvent")]
@@ -615,12 +615,12 @@ impl PyTimeEvent {
     ///     import brahe as bh
     ///
     ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-    ///     event = bh.TimeEvent(epoch, "End Condition").is_terminal()
+    ///     event = bh.TimeEvent(epoch, "End Condition").set_terminal()
     ///     # Propagation will stop when this event is detected
     ///     ```
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self {
             event: slf.event.take(),
@@ -651,7 +651,7 @@ impl PyTimeEvent {
     ///     event = (bh.TimeEvent(epoch, "Complex")
     ///              .with_time_tolerance(1e-3)
     ///              .with_instance(1)
-    ///              .is_terminal())
+    ///              .set_terminal())
     ///     ```
     fn with_time_tolerance(mut slf: PyRefMut<'_, Self>, time_tol: f64) -> Self {
         if let Some(event) = slf.event.take() {
@@ -880,9 +880,9 @@ impl PyValueEvent {
     ///
     /// Returns:
     ///     ValueEvent: Self for method chaining
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self {
             event: slf.event.take(),
@@ -1093,9 +1093,9 @@ impl PyBinaryEvent {
     ///
     /// Returns:
     ///     BinaryEvent: Self for method chaining
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self {
             event: slf.event.take(),
@@ -1517,7 +1517,7 @@ impl PyEventQueryIterator {
 ///         "Low Altitude Warning",
 ///         bh.EventDirection.DECREASING
 ///     )
-///     event = event.is_terminal()
+///     event = event.set_terminal()
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "AltitudeEvent")]
@@ -1646,9 +1646,9 @@ impl PyAltitudeEvent {
     ///
     /// Returns:
     ///     AltitudeEvent: Self for method chaining
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -1719,9 +1719,9 @@ impl PySemiMajorAxisEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -1788,9 +1788,9 @@ impl PyEccentricityEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -1801,20 +1801,21 @@ impl PyEccentricityEvent {
 /// Detects when orbital inclination crosses a threshold value.
 ///
 /// Args:
-///     threshold (float): Inclination threshold in radians
+///     threshold (float): Inclination threshold
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
+///     angle_format (AngleFormat): Whether threshold is in degrees or radians
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
-///     import numpy as np
 ///
 ///     # Detect when inclination crosses 90 degrees (polar orbit threshold)
 ///     event = bh.InclinationEvent(
-///         np.radians(90.0),
+///         90.0,
 ///         "Polar threshold",
-///         bh.EventDirection.ANY
+///         bh.EventDirection.ANY,
+///         bh.AngleFormat.DEGREES
 ///     )
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -1828,16 +1829,23 @@ impl PyInclinationEvent {
     /// Create a new inclination event detector.
     ///
     /// Args:
-    ///     threshold (float): Inclination threshold in radians
+    ///     threshold (float): Inclination threshold
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
+    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
     ///
     /// Returns:
     ///     InclinationEvent: New inclination event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DInclinationEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    fn new(
+        threshold: f64,
+        name: String,
+        direction: PyRef<PyEventDirection>,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        let event =
+            events::DInclinationEvent::new(threshold, name, direction.direction, angle_format.value);
         Ok(PyInclinationEvent { event: Some(event) })
     }
 
@@ -1858,9 +1866,9 @@ impl PyInclinationEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -1871,9 +1879,10 @@ impl PyInclinationEvent {
 /// Detects when argument of perigee crosses a threshold value.
 ///
 /// Args:
-///     threshold (float): Argument of perigee threshold in radians
+///     threshold (float): Argument of perigee threshold
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
+///     angle_format (AngleFormat): Whether threshold is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ArgumentOfPerigeeEvent")]
 pub struct PyArgumentOfPerigeeEvent {
@@ -1885,16 +1894,27 @@ impl PyArgumentOfPerigeeEvent {
     /// Create a new argument of perigee event detector.
     ///
     /// Args:
-    ///     threshold (float): Argument of perigee threshold in radians
+    ///     threshold (float): Argument of perigee threshold
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
+    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
     ///
     /// Returns:
     ///     ArgumentOfPerigeeEvent: New argument of perigee event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DArgumentOfPerigeeEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    fn new(
+        threshold: f64,
+        name: String,
+        direction: PyRef<PyEventDirection>,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        let event = events::DArgumentOfPerigeeEvent::new(
+            threshold,
+            name,
+            direction.direction,
+            angle_format.value,
+        );
         Ok(PyArgumentOfPerigeeEvent { event: Some(event) })
     }
 
@@ -1915,9 +1935,9 @@ impl PyArgumentOfPerigeeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -1928,9 +1948,10 @@ impl PyArgumentOfPerigeeEvent {
 /// Detects when mean anomaly crosses a threshold value.
 ///
 /// Args:
-///     threshold (float): Mean anomaly threshold in radians
+///     threshold (float): Mean anomaly threshold
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
+///     angle_format (AngleFormat): Whether threshold is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "MeanAnomalyEvent")]
 pub struct PyMeanAnomalyEvent {
@@ -1942,16 +1963,23 @@ impl PyMeanAnomalyEvent {
     /// Create a new mean anomaly event detector.
     ///
     /// Args:
-    ///     threshold (float): Mean anomaly threshold in radians
+    ///     threshold (float): Mean anomaly threshold
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
+    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
     ///
     /// Returns:
     ///     MeanAnomalyEvent: New mean anomaly event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DMeanAnomalyEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    fn new(
+        threshold: f64,
+        name: String,
+        direction: PyRef<PyEventDirection>,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        let event =
+            events::DMeanAnomalyEvent::new(threshold, name, direction.direction, angle_format.value);
         Ok(PyMeanAnomalyEvent { event: Some(event) })
     }
 
@@ -1972,9 +2000,9 @@ impl PyMeanAnomalyEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -1985,9 +2013,10 @@ impl PyMeanAnomalyEvent {
 /// Detects when eccentric anomaly crosses a threshold value.
 ///
 /// Args:
-///     threshold (float): Eccentric anomaly threshold in radians
+///     threshold (float): Eccentric anomaly threshold
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
+///     angle_format (AngleFormat): Whether threshold is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "EccentricAnomalyEvent")]
 pub struct PyEccentricAnomalyEvent {
@@ -1999,16 +2028,27 @@ impl PyEccentricAnomalyEvent {
     /// Create a new eccentric anomaly event detector.
     ///
     /// Args:
-    ///     threshold (float): Eccentric anomaly threshold in radians
+    ///     threshold (float): Eccentric anomaly threshold
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
+    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
     ///
     /// Returns:
     ///     EccentricAnomalyEvent: New eccentric anomaly event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DEccentricAnomalyEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    fn new(
+        threshold: f64,
+        name: String,
+        direction: PyRef<PyEventDirection>,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        let event = events::DEccentricAnomalyEvent::new(
+            threshold,
+            name,
+            direction.direction,
+            angle_format.value,
+        );
         Ok(PyEccentricAnomalyEvent { event: Some(event) })
     }
 
@@ -2029,9 +2069,9 @@ impl PyEccentricAnomalyEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2042,9 +2082,10 @@ impl PyEccentricAnomalyEvent {
 /// Detects when true anomaly crosses a threshold value.
 ///
 /// Args:
-///     threshold (float): True anomaly threshold in radians
+///     threshold (float): True anomaly threshold
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
+///     angle_format (AngleFormat): Whether threshold is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "TrueAnomalyEvent")]
 pub struct PyTrueAnomalyEvent {
@@ -2056,16 +2097,27 @@ impl PyTrueAnomalyEvent {
     /// Create a new true anomaly event detector.
     ///
     /// Args:
-    ///     threshold (float): True anomaly threshold in radians
+    ///     threshold (float): True anomaly threshold
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
+    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
     ///
     /// Returns:
     ///     TrueAnomalyEvent: New true anomaly event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DTrueAnomalyEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    fn new(
+        threshold: f64,
+        name: String,
+        direction: PyRef<PyEventDirection>,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        let event = events::DTrueAnomalyEvent::new(
+            threshold,
+            name,
+            direction.direction,
+            angle_format.value,
+        );
         Ok(PyTrueAnomalyEvent { event: Some(event) })
     }
 
@@ -2086,9 +2138,9 @@ impl PyTrueAnomalyEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2099,9 +2151,10 @@ impl PyTrueAnomalyEvent {
 /// Detects when argument of latitude (omega + true anomaly) crosses a threshold value.
 ///
 /// Args:
-///     threshold (float): Argument of latitude threshold in radians
+///     threshold (float): Argument of latitude threshold
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
+///     angle_format (AngleFormat): Whether threshold is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ArgumentOfLatitudeEvent")]
 pub struct PyArgumentOfLatitudeEvent {
@@ -2113,16 +2166,27 @@ impl PyArgumentOfLatitudeEvent {
     /// Create a new argument of latitude event detector.
     ///
     /// Args:
-    ///     threshold (float): Argument of latitude threshold in radians
+    ///     threshold (float): Argument of latitude threshold
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
+    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
     ///
     /// Returns:
     ///     ArgumentOfLatitudeEvent: New argument of latitude event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DArgumentOfLatitudeEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    fn new(
+        threshold: f64,
+        name: String,
+        direction: PyRef<PyEventDirection>,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        let event = events::DArgumentOfLatitudeEvent::new(
+            threshold,
+            name,
+            direction.direction,
+            angle_format.value,
+        );
         Ok(PyArgumentOfLatitudeEvent { event: Some(event) })
     }
 
@@ -2143,9 +2207,9 @@ impl PyArgumentOfLatitudeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2208,9 +2272,9 @@ impl PyAscendingNodeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2269,9 +2333,9 @@ impl PyDescendingNodeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2342,9 +2406,9 @@ impl PySpeedEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2356,9 +2420,10 @@ impl PySpeedEvent {
 /// Requires EOP initialization for ECI->ECEF transformation.
 ///
 /// Args:
-///     threshold (float): Longitude threshold in radians
+///     threshold (float): Longitude threshold
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
+///     angle_format (AngleFormat): Whether threshold is in degrees or radians
 ///
 /// Example:
 ///     ```python
@@ -2368,7 +2433,8 @@ impl PySpeedEvent {
 ///     event = bh.LongitudeEvent(
 ///         0.0,
 ///         "Prime Meridian",
-///         bh.EventDirection.ANY
+///         bh.EventDirection.ANY,
+///         bh.AngleFormat.DEGREES
 ///     )
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -2382,16 +2448,23 @@ impl PyLongitudeEvent {
     /// Create a new longitude event detector.
     ///
     /// Args:
-    ///     threshold (float): Longitude threshold in radians
+    ///     threshold (float): Longitude threshold
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
+    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
     ///
     /// Returns:
     ///     LongitudeEvent: New longitude event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DLongitudeEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    fn new(
+        threshold: f64,
+        name: String,
+        direction: PyRef<PyEventDirection>,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        let event =
+            events::DLongitudeEvent::new(threshold, name, direction.direction, angle_format.value);
         Ok(PyLongitudeEvent { event: Some(event) })
     }
 
@@ -2412,9 +2485,9 @@ impl PyLongitudeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2426,9 +2499,10 @@ impl PyLongitudeEvent {
 /// Requires EOP initialization for ECI->ECEF transformation.
 ///
 /// Args:
-///     threshold (float): Latitude threshold in radians
+///     threshold (float): Latitude threshold
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
+///     angle_format (AngleFormat): Whether threshold is in degrees or radians
 ///
 /// Example:
 ///     ```python
@@ -2438,7 +2512,8 @@ impl PyLongitudeEvent {
 ///     event = bh.LatitudeEvent(
 ///         0.0,
 ///         "Equator Crossing",
-///         bh.EventDirection.ANY
+///         bh.EventDirection.ANY,
+///         bh.AngleFormat.DEGREES
 ///     )
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -2452,16 +2527,23 @@ impl PyLatitudeEvent {
     /// Create a new latitude event detector.
     ///
     /// Args:
-    ///     threshold (float): Latitude threshold in radians
+    ///     threshold (float): Latitude threshold
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
+    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
     ///
     /// Returns:
     ///     LatitudeEvent: New latitude event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DLatitudeEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    fn new(
+        threshold: f64,
+        name: String,
+        direction: PyRef<PyEventDirection>,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        let event =
+            events::DLatitudeEvent::new(threshold, name, direction.direction, angle_format.value);
         Ok(PyLatitudeEvent { event: Some(event) })
     }
 
@@ -2482,9 +2564,9 @@ impl PyLatitudeEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2560,9 +2642,9 @@ impl PyUmbraEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2631,9 +2713,9 @@ impl PyPenumbraEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2705,9 +2787,9 @@ impl PyEclipseEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }
@@ -2779,9 +2861,9 @@ impl PySunlitEvent {
     }
 
     /// Mark this event as terminal (stops propagation).
-    fn is_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
         if let Some(event) = slf.event.take() {
-            slf.event = Some(event.is_terminal());
+            slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
     }

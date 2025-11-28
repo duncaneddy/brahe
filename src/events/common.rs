@@ -75,7 +75,7 @@ impl<const S: usize, const P: usize> STimeEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
+    pub fn set_terminal(mut self) -> Self {
         self.action = EventAction::Stop;
         self
     }
@@ -205,7 +205,7 @@ impl DTimeEvent {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
+    pub fn set_terminal(mut self) -> Self {
         self.action = EventAction::Stop;
         self
     }
@@ -378,7 +378,7 @@ impl<const S: usize, const P: usize> SValueEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
+    pub fn set_terminal(mut self) -> Self {
         self.action = EventAction::Stop;
         self
     }
@@ -496,7 +496,7 @@ impl DValueEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
+    pub fn set_terminal(mut self) -> Self {
         self.action = EventAction::Stop;
         self
     }
@@ -631,7 +631,7 @@ impl<const S: usize, const P: usize> SBinaryEvent<S, P> {
     }
 
     /// Mark as terminal event (stops propagation)
-    pub fn is_terminal(mut self) -> Self {
+    pub fn set_terminal(mut self) -> Self {
         self.action = EventAction::Stop;
         self
     }
@@ -751,7 +751,7 @@ impl DBinaryEvent {
     }
 
     /// Mark as terminal event
-    pub fn is_terminal(mut self) -> Self {
+    pub fn set_terminal(mut self) -> Self {
         self.action = EventAction::Stop;
         self
     }
@@ -900,13 +900,13 @@ mod tests {
     }
 
     #[test]
-    fn test_STimeEvent_is_terminal() {
+    fn test_STimeEvent_set_terminal() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
         let event = STimeEvent::<6, 0>::new(target, "Test");
         assert_eq!(event.action(), EventAction::Continue);
 
-        let event = STimeEvent::<6, 0>::new(target, "Test").is_terminal();
+        let event = STimeEvent::<6, 0>::new(target, "Test").set_terminal();
         assert_eq!(event.action(), EventAction::Stop);
     }
 
@@ -1032,13 +1032,13 @@ mod tests {
     }
 
     #[test]
-    fn test_DTimeEvent_is_terminal() {
+    fn test_DTimeEvent_set_terminal() {
         let target = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
         let event = DTimeEvent::new(target, "Test");
         assert_eq!(event.action(), EventAction::Continue);
 
-        let event = DTimeEvent::new(target, "Test").is_terminal();
+        let event = DTimeEvent::new(target, "Test").set_terminal();
         assert_eq!(event.action(), EventAction::Stop);
     }
 
@@ -1213,7 +1213,7 @@ mod tests {
     }
 
     #[test]
-    fn test_SValueEvent_is_terminal() {
+    fn test_SValueEvent_set_terminal() {
         let event = SValueEvent::<6, 0>::new(
             "Test",
             |_t, _state: &Vector6<f64>, _params| 0.0,
@@ -1223,7 +1223,7 @@ mod tests {
 
         assert_eq!(event.action(), EventAction::Continue);
 
-        let event = event.is_terminal();
+        let event = event.set_terminal();
         assert_eq!(event.action(), EventAction::Stop);
     }
 
@@ -1342,14 +1342,14 @@ mod tests {
     }
 
     #[test]
-    fn test_DValueEvent_is_terminal() {
+    fn test_DValueEvent_set_terminal() {
         let event = DValueEvent::new(
             "Test",
             |_t, _state: &DVector<f64>, _params| 0.0,
             0.0,
             EventDirection::Any,
         )
-        .is_terminal();
+        .set_terminal();
 
         assert_eq!(event.action(), EventAction::Stop);
     }
@@ -1485,13 +1485,13 @@ mod tests {
     }
 
     #[test]
-    fn test_SBinaryEvent_is_terminal() {
+    fn test_SBinaryEvent_set_terminal() {
         let event = SBinaryEvent::<6, 0>::new(
             "Test",
             |_t, _state: &Vector6<f64>, _params| true,
             EdgeType::AnyEdge,
         )
-        .is_terminal();
+        .set_terminal();
 
         assert_eq!(event.action(), EventAction::Stop);
     }
@@ -1626,13 +1626,13 @@ mod tests {
     }
 
     #[test]
-    fn test_DBinaryEvent_is_terminal() {
+    fn test_DBinaryEvent_set_terminal() {
         let event = DBinaryEvent::new(
             "Test",
             |_t, _state: &DVector<f64>, _params| true,
             EdgeType::AnyEdge,
         )
-        .is_terminal();
+        .set_terminal();
 
         assert_eq!(event.action(), EventAction::Stop);
     }

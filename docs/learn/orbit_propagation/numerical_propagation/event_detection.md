@@ -1,108 +1,25 @@
 # Event Detection
 
-The numerical propagator includes an event detection system that identifies specific orbital conditions during propagation. Events can trigger callbacks for maneuvers, logging, or other actions.
+The numerical propagator includes an event detection system that identifies specific orbital conditions during propagation. Events are defined by user-configurable detectors that monitor the spacecraft state and trigger when certain criteria are met. They can also be coupled with event callbacks to respond to detected events in real-time.
+
+When an event is detected, the propagator uses a bisection algorithm to precisely locate the event time within a specified tolerance. The detected events are logged and can be accessed after propagation. Users can also configure how an event will affect the propagation, such as stopping propagation or continuing without interruption.
+
+Events provide an extensible mechanism for implementing complex mission scenarios, such as maneuver execution, autonomous operations, and other condition-based actions.
+
+The library also provides a set of premade event detectors for common scenarios, which can be used directly or serve as templates for custom detectors. You can find more details about premade events in the [Premade Events](premade_events.md) documentation with a complete list of available types in the library API docuementation at [Premade Event Detectors](../../../library_api/events/premade.md).
 
 ## Event Types
 
-Brahe provides four event detector types:
+Brahe provides three event fundamental event detector types:
 
+<div class="center-table" markdown="1">
 | Type | Trigger Condition |
 |------|-------------------|
 | `TimeEvent` | Specific epoch reached |
-| `ValueEvent` | Computed quantity crosses threshold |
+| `ValueEvent` | Computed quantity crosses a given value |
 | `BinaryEvent` | Boolean condition changes |
-| `AltitudeEvent` | Spacecraft altitude crosses threshold |
+</div>
 
-## Time Events
-
-Time events trigger at specific epochs. They're useful for scheduled operations like data collection windows, communication passes, or timed maneuvers.
-
-=== "Python"
-
-    ``` python
-    --8<-- "./examples/numerical_propagation/event_time.py:8"
-    ```
-
-=== "Rust"
-
-    ``` rust
-    --8<-- "./examples/numerical_propagation/event_time.rs:4"
-    ```
-
-## Value Events
-
-Value events trigger when a user-defined function crosses a threshold value. This is the most flexible event type, enabling detection of arbitrary orbital conditions.
-
-### Event Direction
-
-Value events can detect:
-
-- `INCREASING` - Value crosses threshold from below
-- `DECREASING` - Value crosses threshold from above
-- `ANY` - Any threshold crossing
-
-### Custom Value Functions
-
-The value function receives the current epoch and state vector, returning a scalar value:
-
-=== "Python"
-
-    ``` python
-    --8<-- "./examples/numerical_propagation/custom_value_event.py:8"
-    ```
-
-=== "Rust"
-
-    ``` rust
-    --8<-- "./examples/numerical_propagation/custom_value_event.rs:4"
-    ```
-
-### Common Value Event Applications
-
-| Event | Value Function | Threshold |
-|-------|----------------|-----------|
-| Equator crossing | ECI Z-coordinate | 0.0 |
-| Apogee/Perigee | Radial velocity | 0.0 |
-| Specific longitude | Geodetic longitude | Target value |
-| Eclipse entry/exit | Sun angle | Shadow boundary |
-
-## Binary Events
-
-Binary events detect when a boolean condition transitions between true and false. They use `EdgeType` to specify which transition to detect:
-
-- `RISING_EDGE` - Condition becomes true (false → true)
-- `FALLING_EDGE` - Condition becomes false (true → false)
-- `ANY_EDGE` - Either transition
-
-=== "Python"
-
-    ``` python
-    --8<-- "./examples/numerical_propagation/event_binary.py:8"
-    ```
-
-=== "Rust"
-
-    ``` rust
-    --8<-- "./examples/numerical_propagation/event_binary.rs:4"
-    ```
-
-## Altitude Events
-
-Altitude events detect when the spacecraft crosses a specified geodetic altitude. They're useful for atmospheric re-entry, orbit raising, and altitude-based operations.
-
-=== "Python"
-
-    ``` python
-    --8<-- "./examples/numerical_propagation/event_altitude.py:8"
-    ```
-
-=== "Rust"
-
-    ``` rust
-    --8<-- "./examples/numerical_propagation/event_altitude.rs:4"
-    ```
-
-For more details on altitude events and other built-in event types, see [Premade Events](premade_events.md).
 
 ## Adding Event Detectors
 
@@ -130,23 +47,83 @@ for event in events:
 
 Each event record contains:
 
+<div class="center-table" markdown="1">
 | Field | Description |
 |-------|-------------|
 | `name` | Event detector name |
 | `window_open` | Epoch when event occurred |
 | `window_close` | Same as window_open for instantaneous events |
 | `entry_state` | State vector at event time |
+</div>
 
-## Event Detection Algorithm
 
-The propagator uses bisection to locate events precisely:
+## Time Events
 
-1. During each integration step, event functions are evaluated
-2. Sign changes indicate an event crossing
-3. Bisection narrows the event time to within the tolerance
-4. The event is recorded with interpolated state
+Time events trigger at specific epochs. They're useful for scheduled operations like data collection windows, communication passes, or timed maneuvers.
 
-The event detection tolerance is controlled by the integrator configuration. Tighter tolerances provide more precise event times but increase computation.
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/event_time.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/event_time.rs:4"
+    ```
+
+## Value Events
+
+Value events trigger when a user-defined function crosses a threshold value. This is the most flexible event type, enabling detection of arbitrary orbital conditions.
+
+Value events are defined with a value function which accepts the current epoch and state vector, returning a scalar value.
+
+### Event Direction
+
+Value events can detect:
+
+- `INCREASING` - Value crosses threshold from below
+- `DECREASING` - Value crosses threshold from above
+- `ANY` - Any threshold crossing
+
+### Custom Value Functions
+
+The value function receives the current epoch and state vector, returning a scalar value:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/custom_value_event.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/custom_value_event.rs:4"
+    ```
+
+## Binary Events
+
+Binary events detect when a boolean condition transitions between true and false. They use `EdgeType` to specify which transition to detect:
+
+- `RISING_EDGE` - Condition becomes true (false → true)
+- `FALLING_EDGE` - Condition becomes false (true → false)
+- `ANY_EDGE` - Either transition
+
+The binary condition function receives the current epoch and state vector, returning a boolean value.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/event_binary.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/event_binary.rs:4"
+    ```
 
 ---
 

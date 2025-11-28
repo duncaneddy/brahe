@@ -15,7 +15,7 @@ def test_time_event_custom_tolerance():
         bh.TimeEvent(epoch, "Chained")
         .with_time_tolerance(5e-4)
         .with_instance(2)
-        .is_terminal()
+        .set_terminal()
     )
 
 
@@ -28,7 +28,7 @@ def test_time_event_builder_pattern():
         bh.TimeEvent(epoch, "Test")
         .with_time_tolerance(1e-4)
         .with_instance(1)
-        .is_terminal()
+        .set_terminal()
     )
 
     # Order 2: instance -> tolerance -> terminal
@@ -36,13 +36,13 @@ def test_time_event_builder_pattern():
         bh.TimeEvent(epoch, "Test")
         .with_instance(1)
         .with_time_tolerance(1e-4)
-        .is_terminal()
+        .set_terminal()
     )
 
     # Order 3: terminal -> tolerance -> instance
     _ = (
         bh.TimeEvent(epoch, "Test")
-        .is_terminal()
+        .set_terminal()
         .with_time_tolerance(1e-4)
         .with_instance(1)
     )

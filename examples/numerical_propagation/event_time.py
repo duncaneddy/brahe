@@ -32,7 +32,7 @@ event_30min = bh.TimeEvent(epoch + 1800.0, "30-minute mark")
 event_1hr = bh.TimeEvent(epoch + 3600.0, "1-hour mark")
 
 # Add a terminal event that stops propagation
-event_terminal = bh.TimeEvent(epoch + 5400.0, "90-minute stop").is_terminal()
+event_terminal = bh.TimeEvent(epoch + 5400.0, "90-minute stop").set_terminal()
 
 prop.add_event_detector(event_30min)
 prop.add_event_detector(event_1hr)

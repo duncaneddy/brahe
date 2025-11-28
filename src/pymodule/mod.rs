@@ -528,6 +528,7 @@ include!("coordinates.rs");
 include!("orbits.rs");
 include!("orbit_dynamics.rs"); // Must come before propagators.rs (uses PyEphemerisSource)
 include!("integrators.rs"); // Must come before propagators.rs (uses PyIntegratorConfig)
+include!("events.rs"); // Must come before propagators.rs (premade events used in add_event_detector)
 include!("propagators.rs");
 include!("attitude.rs");
 include!("trajectories.rs");
@@ -536,7 +537,6 @@ include!("relative_motion.rs");
 include!("math.rs");
 include!("utils.rs");
 include!("earth_models.rs");
-include!("events.rs");
 
 // Define Module
 

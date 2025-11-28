@@ -151,7 +151,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `epoch` - Epoch threshold (inclusive)
+    /// * `epoch` - Epoch value (inclusive)
     ///
     /// # Examples
     ///
@@ -173,7 +173,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `epoch` - Epoch threshold (inclusive)
+    /// * `epoch` - Epoch value (inclusive)
     ///
     /// # Examples
     ///

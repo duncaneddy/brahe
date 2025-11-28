@@ -41,7 +41,7 @@ pub enum DifferenceMethod {
 /// vs roundoff error (wants small h). Different strategies suit different problems.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PerturbationStrategy {
-    /// Automatic perturbation sizing: h_i = scale_factor * sqrt(ε) * max(|x_i|, min_threshold)
+    /// Automatic perturbation sizing: h_i = scale_factor * sqrt(ε) * max(|x_i|, min_value)
     ///
     /// Industry standard approach that adapts to state magnitude. The sqrt(ε) scaling
     /// (where ε is machine epsilon) optimally balances truncation vs roundoff error.
@@ -49,7 +49,7 @@ pub enum PerturbationStrategy {
         /// Multiplier on sqrt(ε), typically 1.0
         scale_factor: f64,
         /// Minimum reference value (prevents tiny perturbations near zero)
-        min_threshold: f64,
+        min_value: f64,
     },
 
     /// Fixed absolute perturbation for all state components.
@@ -267,7 +267,7 @@ impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
             method: DifferenceMethod::Central,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -285,7 +285,7 @@ impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
             method: DifferenceMethod::Forward,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -314,7 +314,7 @@ impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
             method: DifferenceMethod::Backward,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -332,10 +332,10 @@ impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
     }
 
     /// Set adaptive perturbation with custom parameters.
-    pub fn with_adaptive(mut self, scale_factor: f64, min_threshold: f64) -> Self {
+    pub fn with_adaptive(mut self, scale_factor: f64, min_value: f64) -> Self {
         self.perturbation = PerturbationStrategy::Adaptive {
             scale_factor,
-            min_threshold,
+            min_value,
         };
         self
     }
@@ -351,14 +351,14 @@ impl<const S: usize, const P: usize> SNumericalJacobian<S, P> {
         match self.perturbation {
             PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             } => {
-                // Industry standard: h = sqrt(eps) * max(|x|, threshold)
+                // Industry standard: h = sqrt(eps) * max(|x|, value)
                 #[allow(non_snake_case)]
                 let SQRT_EPS: f64 = f64::EPSILON.sqrt();
                 let base_offset = scale_factor * SQRT_EPS;
 
-                state.map(|x| base_offset * x.abs().max(min_threshold))
+                state.map(|x| base_offset * x.abs().max(min_value))
             }
             PerturbationStrategy::Fixed(offset) => SVector::from_element(offset),
             PerturbationStrategy::Percentage(pct) => state.map(|x| x.abs() * pct),
@@ -516,7 +516,7 @@ impl DNumericalJacobian {
             method: DifferenceMethod::Central,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -532,7 +532,7 @@ impl DNumericalJacobian {
             method: DifferenceMethod::Forward,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -557,7 +557,7 @@ impl DNumericalJacobian {
             method: DifferenceMethod::Backward,
             perturbation: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -575,10 +575,10 @@ impl DNumericalJacobian {
     }
 
     /// Set adaptive perturbation with custom parameters.
-    pub fn with_adaptive(mut self, scale_factor: f64, min_threshold: f64) -> Self {
+    pub fn with_adaptive(mut self, scale_factor: f64, min_value: f64) -> Self {
         self.perturbation = PerturbationStrategy::Adaptive {
             scale_factor,
-            min_threshold,
+            min_value,
         };
         self
     }
@@ -594,14 +594,14 @@ impl DNumericalJacobian {
         match self.perturbation {
             PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             } => {
-                // Industry standard: h = sqrt(eps) * max(|x|, threshold)
+                // Industry standard: h = sqrt(eps) * max(|x|, value)
                 #[allow(non_snake_case)]
                 let SQRT_EPS: f64 = f64::EPSILON.sqrt();
                 let base_offset = scale_factor * SQRT_EPS;
 
-                state.map(|x| base_offset * x.abs().max(min_threshold))
+                state.map(|x| base_offset * x.abs().max(min_value))
             }
             PerturbationStrategy::Fixed(offset) => DVector::from_element(state.len(), offset),
             PerturbationStrategy::Percentage(pct) => state.map(|x| x.abs() * pct),

@@ -148,14 +148,10 @@ impl<const S: usize, const P: usize> SAltitudeEvent<S, P> {
     /// Create new altitude event
     ///
     /// # Arguments
-    /// * `threshold_altitude` - Geodetic altitude threshold in meters above WGS84 ellipsoid
+    /// * `value_altitude` - Geodetic altitude value in meters above WGS84 ellipsoid
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    pub fn new(
-        threshold_altitude: f64,
-        name: impl Into<String>,
-        direction: EventDirection,
-    ) -> Self {
+    pub fn new(value_altitude: f64, name: impl Into<String>, direction: EventDirection) -> Self {
         let altitude_fn = |t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             // Extract ECI position (first 3 elements)
             let r_eci = state.fixed_rows::<3>(0).into_owned();
@@ -169,7 +165,7 @@ impl<const S: usize, const P: usize> SAltitudeEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, altitude_fn, threshold_altitude, direction),
+            inner: SValueEvent::new(name, altitude_fn, value_altitude, direction),
         }
     }
 
@@ -222,14 +218,10 @@ impl DAltitudeEvent {
     /// Create new altitude event
     ///
     /// # Arguments
-    /// * `threshold_altitude` - Geodetic altitude threshold in meters above WGS84 ellipsoid
+    /// * `value_altitude` - Geodetic altitude value in meters above WGS84 ellipsoid
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    pub fn new(
-        threshold_altitude: f64,
-        name: impl Into<String>,
-        direction: EventDirection,
-    ) -> Self {
+    pub fn new(value_altitude: f64, name: impl Into<String>, direction: EventDirection) -> Self {
         let altitude_fn = |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             // Extract ECI position (first 3 elements) and convert to Vector3
             use nalgebra::Vector3;
@@ -244,7 +236,7 @@ impl DAltitudeEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, altitude_fn, threshold_altitude, direction),
+            inner: DValueEvent::new(name, altitude_fn, value_altitude, direction),
         }
     }
 
@@ -291,7 +283,7 @@ impl_devent_detector_delegate!(DAltitudeEvent, inner);
 
 /// Semi-major axis event detector (static-sized)
 ///
-/// Detects when semi-major axis crosses a threshold value. Computes orbital
+/// Detects when semi-major axis crosses a value value. Computes orbital
 /// elements from the Cartesian state (assumes first 6 elements are ECI state).
 ///
 /// # Examples
@@ -314,10 +306,10 @@ impl<const S: usize, const P: usize> SSemiMajorAxisEvent<S, P> {
     /// Create new semi-major axis event
     ///
     /// # Arguments
-    /// * `threshold` - Semi-major axis threshold in meters
+    /// * `value` - Semi-major axis value in meters
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    pub fn new(value: f64, name: impl Into<String>, direction: EventDirection) -> Self {
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -325,7 +317,7 @@ impl<const S: usize, const P: usize> SSemiMajorAxisEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, value, direction),
         }
     }
 
@@ -369,7 +361,7 @@ pub struct DSemiMajorAxisEvent {
 
 impl DSemiMajorAxisEvent {
     /// Create new semi-major axis event
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    pub fn new(value: f64, name: impl Into<String>, direction: EventDirection) -> Self {
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -377,7 +369,7 @@ impl DSemiMajorAxisEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, value, direction),
         }
     }
 
@@ -416,7 +408,7 @@ impl_devent_detector_delegate!(DSemiMajorAxisEvent, inner);
 
 /// Eccentricity event detector (static-sized)
 ///
-/// Detects when eccentricity crosses a threshold value.
+/// Detects when eccentricity crosses a value value.
 ///
 /// # Examples
 /// ```
@@ -435,7 +427,7 @@ pub struct SEccentricityEvent<const S: usize, const P: usize> {
 
 impl<const S: usize, const P: usize> SEccentricityEvent<S, P> {
     /// Create new eccentricity event
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    pub fn new(value: f64, name: impl Into<String>, direction: EventDirection) -> Self {
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -443,7 +435,7 @@ impl<const S: usize, const P: usize> SEccentricityEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, value, direction),
         }
     }
 
@@ -487,7 +479,7 @@ pub struct DEccentricityEvent {
 
 impl DEccentricityEvent {
     /// Create new eccentricity event
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    pub fn new(value: f64, name: impl Into<String>, direction: EventDirection) -> Self {
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let state6 = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
             let koe = state_eci_to_koe(state6, AngleFormat::Radians);
@@ -495,7 +487,7 @@ impl DEccentricityEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, value, direction),
         }
     }
 
@@ -534,7 +526,7 @@ impl_devent_detector_delegate!(DEccentricityEvent, inner);
 
 /// Inclination event detector (static-sized)
 ///
-/// Detects when inclination crosses a threshold value. Returns inclination in radians.
+/// Detects when inclination crosses a value value. Returns inclination in radians.
 ///
 /// # Examples
 /// ```
@@ -557,20 +549,20 @@ impl<const S: usize, const P: usize> SInclinationEvent<S, P> {
     /// Create new inclination event
     ///
     /// # Arguments
-    /// * `threshold` - Inclination threshold
+    /// * `value` - Inclination value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        // Convert threshold to radians if needed
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        // Convert value to radians if needed
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
@@ -580,7 +572,7 @@ impl<const S: usize, const P: usize> SInclinationEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: SValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -626,20 +618,20 @@ impl DInclinationEvent {
     /// Create new inclination event
     ///
     /// # Arguments
-    /// * `threshold` - Inclination threshold
+    /// * `value` - Inclination value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        // Convert threshold to radians if needed
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        // Convert value to radians if needed
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
@@ -649,7 +641,7 @@ impl DInclinationEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: DValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -688,7 +680,7 @@ impl_devent_detector_delegate!(DInclinationEvent, inner);
 
 /// Argument of perigee event detector (static-sized)
 ///
-/// Detects when argument of perigee crosses a threshold value. Returns in radians.
+/// Detects when argument of perigee crosses a value value. Returns in radians.
 pub struct SArgumentOfPerigeeEvent<const S: usize, const P: usize> {
     inner: SValueEvent<S, P>,
 }
@@ -697,19 +689,19 @@ impl<const S: usize, const P: usize> SArgumentOfPerigeeEvent<S, P> {
     /// Create new argument of perigee event
     ///
     /// # Arguments
-    /// * `threshold` - Argument of perigee threshold
+    /// * `value` - Argument of perigee value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
@@ -719,7 +711,7 @@ impl<const S: usize, const P: usize> SArgumentOfPerigeeEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: SValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -765,19 +757,19 @@ impl DArgumentOfPerigeeEvent {
     /// Create new argument of perigee event
     ///
     /// # Arguments
-    /// * `threshold` - Argument of perigee threshold
+    /// * `value` - Argument of perigee value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
@@ -787,7 +779,7 @@ impl DArgumentOfPerigeeEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: DValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -826,7 +818,7 @@ impl_devent_detector_delegate!(DArgumentOfPerigeeEvent, inner);
 
 /// Mean anomaly event detector (static-sized)
 ///
-/// Detects when mean anomaly crosses a threshold value. Returns in radians.
+/// Detects when mean anomaly crosses a value value. Returns in radians.
 pub struct SMeanAnomalyEvent<const S: usize, const P: usize> {
     inner: SValueEvent<S, P>,
 }
@@ -835,19 +827,19 @@ impl<const S: usize, const P: usize> SMeanAnomalyEvent<S, P> {
     /// Create new mean anomaly event
     ///
     /// # Arguments
-    /// * `threshold` - Mean anomaly threshold
+    /// * `value` - Mean anomaly value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
@@ -857,7 +849,7 @@ impl<const S: usize, const P: usize> SMeanAnomalyEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: SValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -903,19 +895,19 @@ impl DMeanAnomalyEvent {
     /// Create new mean anomaly event
     ///
     /// # Arguments
-    /// * `threshold` - Mean anomaly threshold
+    /// * `value` - Mean anomaly value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
@@ -925,7 +917,7 @@ impl DMeanAnomalyEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: DValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -964,7 +956,7 @@ impl_devent_detector_delegate!(DMeanAnomalyEvent, inner);
 
 /// Eccentric anomaly event detector (static-sized)
 ///
-/// Detects when eccentric anomaly crosses a threshold value. Returns in radians.
+/// Detects when eccentric anomaly crosses a value value. Returns in radians.
 pub struct SEccentricAnomalyEvent<const S: usize, const P: usize> {
     inner: SValueEvent<S, P>,
 }
@@ -973,19 +965,19 @@ impl<const S: usize, const P: usize> SEccentricAnomalyEvent<S, P> {
     /// Create new eccentric anomaly event
     ///
     /// # Arguments
-    /// * `threshold` - Eccentric anomaly threshold
+    /// * `value` - Eccentric anomaly value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
@@ -998,7 +990,7 @@ impl<const S: usize, const P: usize> SEccentricAnomalyEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: SValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -1044,19 +1036,19 @@ impl DEccentricAnomalyEvent {
     /// Create new eccentric anomaly event
     ///
     /// # Arguments
-    /// * `threshold` - Eccentric anomaly threshold
+    /// * `value` - Eccentric anomaly value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
@@ -1068,7 +1060,7 @@ impl DEccentricAnomalyEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: DValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -1107,7 +1099,7 @@ impl_devent_detector_delegate!(DEccentricAnomalyEvent, inner);
 
 /// True anomaly event detector (static-sized)
 ///
-/// Detects when true anomaly crosses a threshold value. Returns in radians.
+/// Detects when true anomaly crosses a value value. Returns in radians.
 pub struct STrueAnomalyEvent<const S: usize, const P: usize> {
     inner: SValueEvent<S, P>,
 }
@@ -1116,19 +1108,19 @@ impl<const S: usize, const P: usize> STrueAnomalyEvent<S, P> {
     /// Create new true anomaly event
     ///
     /// # Arguments
-    /// * `threshold` - True anomaly threshold
+    /// * `value` - True anomaly value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
@@ -1141,7 +1133,7 @@ impl<const S: usize, const P: usize> STrueAnomalyEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: SValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -1187,19 +1179,19 @@ impl DTrueAnomalyEvent {
     /// Create new true anomaly event
     ///
     /// # Arguments
-    /// * `threshold` - True anomaly threshold
+    /// * `value` - True anomaly value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
@@ -1211,7 +1203,7 @@ impl DTrueAnomalyEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: DValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -1250,7 +1242,7 @@ impl_devent_detector_delegate!(DTrueAnomalyEvent, inner);
 
 /// Argument of latitude event detector (static-sized)
 ///
-/// Detects when argument of latitude (omega + true_anomaly) crosses a threshold.
+/// Detects when argument of latitude (omega + true_anomaly) crosses a value.
 /// Returns in radians.
 pub struct SArgumentOfLatitudeEvent<const S: usize, const P: usize> {
     inner: SValueEvent<S, P>,
@@ -1260,19 +1252,19 @@ impl<const S: usize, const P: usize> SArgumentOfLatitudeEvent<S, P> {
     /// Create new argument of latitude event
     ///
     /// # Arguments
-    /// * `threshold` - Argument of latitude threshold
+    /// * `value` - Argument of latitude value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
@@ -1289,7 +1281,7 @@ impl<const S: usize, const P: usize> SArgumentOfLatitudeEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: SValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -1335,19 +1327,19 @@ impl DArgumentOfLatitudeEvent {
     /// Create new argument of latitude event
     ///
     /// # Arguments
-    /// * `threshold` - Argument of latitude threshold
+    /// * `value` - Argument of latitude value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
@@ -1362,7 +1354,7 @@ impl DArgumentOfLatitudeEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: DValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -1679,7 +1671,7 @@ impl_devent_detector_delegate!(DDescendingNodeEvent, inner);
 
 /// Speed event detector (static-sized)
 ///
-/// Detects when velocity magnitude crosses a threshold value.
+/// Detects when velocity magnitude crosses a value value.
 ///
 /// # Examples
 /// ```
@@ -1700,10 +1692,10 @@ impl<const S: usize, const P: usize> SSpeedEvent<S, P> {
     /// Create new speed event
     ///
     /// # Arguments
-    /// * `threshold` - Speed threshold in m/s
+    /// * `value` - Speed value in m/s
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    pub fn new(value: f64, name: impl Into<String>, direction: EventDirection) -> Self {
         let value_fn = |_t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
             // Compute velocity magnitude from state[3:6]
             let v = Vector3::new(state[3], state[4], state[5]);
@@ -1711,7 +1703,7 @@ impl<const S: usize, const P: usize> SSpeedEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold, direction),
+            inner: SValueEvent::new(name, value_fn, value, direction),
         }
     }
 
@@ -1754,15 +1746,15 @@ pub struct DSpeedEvent {
 }
 
 impl DSpeedEvent {
-    /// Create new speed event (threshold in m/s)
-    pub fn new(threshold: f64, name: impl Into<String>, direction: EventDirection) -> Self {
+    /// Create new speed event (value in m/s)
+    pub fn new(value: f64, name: impl Into<String>, direction: EventDirection) -> Self {
         let value_fn = |_t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
             let v = Vector3::new(state[3], state[4], state[5]);
             v.norm()
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold, direction),
+            inner: DValueEvent::new(name, value_fn, value, direction),
         }
     }
 
@@ -1801,7 +1793,7 @@ impl_devent_detector_delegate!(DSpeedEvent, inner);
 
 /// Longitude event detector (static-sized)
 ///
-/// Detects when geodetic longitude crosses a threshold value.
+/// Detects when geodetic longitude crosses a value value.
 /// Requires EOP initialization for ECI->ECEF transformation.
 ///
 /// # Examples
@@ -1825,19 +1817,19 @@ impl<const S: usize, const P: usize> SLongitudeEvent<S, P> {
     /// Create new longitude event
     ///
     /// # Arguments
-    /// * `threshold` - Longitude threshold
+    /// * `value` - Longitude value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
@@ -1848,7 +1840,7 @@ impl<const S: usize, const P: usize> SLongitudeEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: SValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -1894,19 +1886,19 @@ impl DLongitudeEvent {
     /// Create new longitude event
     ///
     /// # Arguments
-    /// * `threshold` - Longitude threshold
+    /// * `value` - Longitude value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
@@ -1917,7 +1909,7 @@ impl DLongitudeEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: DValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -1956,7 +1948,7 @@ impl_devent_detector_delegate!(DLongitudeEvent, inner);
 
 /// Latitude event detector (static-sized)
 ///
-/// Detects when geodetic latitude crosses a threshold value.
+/// Detects when geodetic latitude crosses a value value.
 /// Requires EOP initialization for ECI->ECEF transformation.
 ///
 /// # Examples
@@ -1980,19 +1972,19 @@ impl<const S: usize, const P: usize> SLatitudeEvent<S, P> {
     /// Create new latitude event
     ///
     /// # Arguments
-    /// * `threshold` - Latitude threshold
+    /// * `value` - Latitude value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
@@ -2003,7 +1995,7 @@ impl<const S: usize, const P: usize> SLatitudeEvent<S, P> {
         };
 
         Self {
-            inner: SValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: SValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -2049,19 +2041,19 @@ impl DLatitudeEvent {
     /// Create new latitude event
     ///
     /// # Arguments
-    /// * `threshold` - Latitude threshold
+    /// * `value` - Latitude value
     /// * `name` - Event name
     /// * `direction` - Detection direction
-    /// * `angle_format` - Whether threshold is in degrees or radians
+    /// * `angle_format` - Whether value is in degrees or radians
     pub fn new(
-        threshold: f64,
+        value: f64,
         name: impl Into<String>,
         direction: EventDirection,
         angle_format: AngleFormat,
     ) -> Self {
-        let threshold_rad = match angle_format {
-            AngleFormat::Degrees => threshold.to_radians(),
-            AngleFormat::Radians => threshold,
+        let value_rad = match angle_format {
+            AngleFormat::Degrees => value.to_radians(),
+            AngleFormat::Radians => value,
         };
 
         let value_fn = |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
@@ -2072,7 +2064,7 @@ impl DLatitudeEvent {
         };
 
         Self {
-            inner: DValueEvent::new(name, value_fn, threshold_rad, direction),
+            inner: DValueEvent::new(name, value_fn, value_rad, direction),
         }
     }
 
@@ -2716,21 +2708,21 @@ mod tests {
     fn test_SAltitudeEvent_evaluate() {
         setup_global_test_eop();
 
-        let threshold = 500e3;
-        let event = SAltitudeEvent::<6, 0>::new(threshold, "Altitude Test", EventDirection::Any);
+        let value = 500e3;
+        let event = SAltitudeEvent::<6, 0>::new(value, "Altitude Test", EventDirection::Any);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
-        // Low altitude state (below threshold) - ECI position along x-axis
+        // Low altitude state (below value) - ECI position along x-axis
         let state_low = Vector6::new(6000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
         let val_low = event.evaluate(epoch, &state_low, None);
-        // Should be negative (altitude < threshold)
+        // Should be negative (altitude < value)
         assert!(val_low < 0.0);
 
-        // High altitude state (above threshold) - ECI position along x-axis
+        // High altitude state (above value) - ECI position along x-axis
         let state_high = Vector6::new(R_EARTH + 1000e3, 0.0, 0.0, 0.0, 7.0e3, 0.0);
         let val_high = event.evaluate(epoch, &state_high, None);
-        // Should be positive (altitude > threshold)
+        // Should be positive (altitude > value)
         assert!(val_high > 0.0);
     }
 
@@ -2965,17 +2957,17 @@ mod tests {
     fn test_DAltitudeEvent_evaluate() {
         setup_global_test_eop();
 
-        let threshold = 500e3;
-        let event = DAltitudeEvent::new(threshold, "Altitude Test", EventDirection::Any);
+        let value = 500e3;
+        let event = DAltitudeEvent::new(value, "Altitude Test", EventDirection::Any);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
 
-        // Low altitude state (below threshold)
+        // Low altitude state (below value)
         let state_low = DVector::from_vec(vec![6000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
         let val_low = event.evaluate(epoch, &state_low, None);
         assert!(val_low < 0.0);
 
-        // High altitude state (above threshold)
+        // High altitude state (above value)
         let state_high = DVector::from_vec(vec![R_EARTH + 1000e3, 0.0, 0.0, 0.0, 7.0e3, 0.0]);
         let val_high = event.evaluate(epoch, &state_high, None);
         assert!(val_high > 0.0);
@@ -3198,9 +3190,8 @@ mod tests {
 
     #[test]
     fn test_SEccentricityEvent_new() {
-        let event =
-            SEccentricityEvent::<6, 0>::new(0.1, "Ecc Threshold", EventDirection::Increasing);
-        assert_eq!(event.name(), "Ecc Threshold");
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Ecc value", EventDirection::Increasing);
+        assert_eq!(event.name(), "Ecc value");
         assert_eq!(event.target_value(), 0.1);
         assert_eq!(event.direction(), EventDirection::Increasing);
     }
@@ -3231,11 +3222,11 @@ mod tests {
         let inc_rad = std::f64::consts::PI / 4.0; // 45 degrees
         let event = SInclinationEvent::<6, 0>::new(
             inc_rad,
-            "Inc Threshold",
+            "Inc value",
             EventDirection::Increasing,
             AngleFormat::Radians,
         );
-        assert_eq!(event.name(), "Inc Threshold");
+        assert_eq!(event.name(), "Inc value");
         assert_eq!(event.target_value(), inc_rad);
     }
 
@@ -3392,8 +3383,8 @@ mod tests {
 
     #[test]
     fn test_SSpeedEvent_new() {
-        let event = SSpeedEvent::<6, 0>::new(7500.0, "Speed Threshold", EventDirection::Increasing);
-        assert_eq!(event.name(), "Speed Threshold");
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Speed value", EventDirection::Increasing);
+        assert_eq!(event.name(), "Speed value");
         assert_eq!(event.target_value(), 7500.0);
     }
 
@@ -3405,7 +3396,7 @@ mod tests {
         // State with known velocity: [3000, 4000, 0] => |v| = 5000 m/s
         let state = Vector6::new(7000e3, 0.0, 0.0, 3000.0, 4000.0, 0.0);
         let val = event.evaluate(epoch, &state, None);
-        // evaluate() returns raw speed value (5000), not relative to threshold
+        // evaluate() returns raw speed value (5000), not relative to value
         assert!((val - 5000.0).abs() < 1e-6);
     }
 

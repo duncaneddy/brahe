@@ -133,10 +133,10 @@ prop = bh.NumericalPropagator(
 The generic propagator supports the same event detection system:
 
 ```python
-# Detect when relative distance crosses threshold
+# Detect when relative distance crosses value
 distance_event = bh.ValueEvent(
     "Proximity",
-    lambda t, state, params: np.linalg.norm(state[:3]) - threshold,
+    lambda t, state, params: np.linalg.norm(state[:3]) - value,
     0.0,
     bh.EventDirection.DECREASING
 )

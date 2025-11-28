@@ -35,7 +35,7 @@ pub enum StepDirection {
 /// * `start_time` - Starting time for this search iteration
 /// * `direction` - Step direction (forward/backward)
 /// * `step` - Step size (seconds)
-/// * `start_crossing` - Event function value at starting time (relative to threshold)
+/// * `start_crossing` - Event function value at starting time (relative to value)
 /// * `params` - Optional parameter vector
 /// * `bracket_low` - Lower bound of search bracket (earlier time)
 /// * `bracket_high` - Upper bound of search bracket (later time)

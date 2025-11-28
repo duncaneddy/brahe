@@ -23,9 +23,7 @@ from brahe.plots.backend import validate_backend, is_scienceplots_available
 from shapely.geometry import shape
 
 
-def split_ground_track_at_antimeridian(
-    lons, lats, threshold: float = 180.0
-) -> List[Tuple]:
+def split_ground_track_at_antimeridian(lons, lats, value: float = 180.0) -> List[Tuple]:
     """Split a ground track into segments at antimeridian crossings.
 
     When a satellite ground track crosses the antimeridian (±180° longitude), plotting
@@ -36,7 +34,7 @@ def split_ground_track_at_antimeridian(
     Args:
         lons (list or np.ndarray): Longitude values in degrees
         lats (list or np.ndarray): Latitude values in degrees (same length as lons)
-        threshold (float, optional): Longitude jump threshold in degrees to detect
+        value (float, optional): Longitude jump value in degrees to detect
             wraparound. Default: 180.0
 
     Returns:
@@ -72,7 +70,7 @@ def split_ground_track_at_antimeridian(
 
     # Find where jumps occur
     lon_diff = np.diff(lons)
-    wrap_indices = np.where(np.abs(lon_diff) > threshold)[0]
+    wrap_indices = np.where(np.abs(lon_diff) > value)[0]
 
     if len(wrap_indices) == 0:
         # No wraparound, return single segment

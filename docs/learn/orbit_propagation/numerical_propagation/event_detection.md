@@ -75,7 +75,7 @@ Time events trigger at specific epochs. They're useful for scheduled operations 
 
 ## Value Events
 
-Value events trigger when a user-defined function crosses a threshold value. This is the most flexible event type, enabling detection of arbitrary orbital conditions.
+Value events trigger when a user-defined function crosses a value value. This is the most flexible event type, enabling detection of arbitrary orbital conditions.
 
 Value events are defined with a value function which accepts the current epoch and state vector, returning a scalar value.
 
@@ -83,9 +83,9 @@ Value events are defined with a value function which accepts the current epoch a
 
 Value events can detect:
 
-- `INCREASING` - Value crosses threshold from below
-- `DECREASING` - Value crosses threshold from above
-- `ANY` - Any threshold crossing
+- `INCREASING` - Value crosses value from below
+- `DECREASING` - Value crosses value from above
+- `ANY` - Any value crossing
 
 ### Custom Value Functions
 

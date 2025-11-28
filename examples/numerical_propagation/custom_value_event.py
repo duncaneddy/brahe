@@ -3,7 +3,7 @@
 # ///
 """
 Creating custom ValueEvent detectors.
-Demonstrates detecting when a computed value crosses a threshold.
+Demonstrates detecting when a computed value crosses a value.
 """
 
 import numpy as np

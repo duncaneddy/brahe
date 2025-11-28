@@ -1213,9 +1213,9 @@ mod tests {
         assert!(name3.starts_with("Access-"));
     }
 
-    /// Test that validates elevation at access window boundaries matches the constraint threshold.
+    /// Test that validates elevation at access window boundaries matches the constraint value.
     /// This test documents Issue: Elevation values at window open/close should match the constraint
-    /// threshold within a tight tolerance (0.001°).
+    /// value within a tight tolerance (0.001°).
     #[test]
     #[serial]
     fn test_elevation_boundary_precision() {

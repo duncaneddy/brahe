@@ -139,7 +139,7 @@ impl<const S: usize, const P: usize> SNumericalSensitivity<S, P> {
             method: DifferenceMethod::Central,
             strategy: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -156,7 +156,7 @@ impl<const S: usize, const P: usize> SNumericalSensitivity<S, P> {
             method: DifferenceMethod::Forward,
             strategy: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -168,7 +168,7 @@ impl<const S: usize, const P: usize> SNumericalSensitivity<S, P> {
             method: DifferenceMethod::Backward,
             strategy: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -183,10 +183,10 @@ impl<const S: usize, const P: usize> SNumericalSensitivity<S, P> {
         match self.strategy {
             PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             } => {
                 let eps = f64::EPSILON;
-                scale_factor * eps.sqrt() * value.abs().max(min_threshold)
+                scale_factor * eps.sqrt() * value.abs().max(min_value)
             }
             PerturbationStrategy::Fixed(h) => h,
             PerturbationStrategy::Percentage(pct) => value.abs() * pct,
@@ -259,7 +259,7 @@ impl DNumericalSensitivity {
             method: DifferenceMethod::Central,
             strategy: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -276,7 +276,7 @@ impl DNumericalSensitivity {
             method: DifferenceMethod::Forward,
             strategy: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -288,7 +288,7 @@ impl DNumericalSensitivity {
             method: DifferenceMethod::Backward,
             strategy: PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -303,10 +303,10 @@ impl DNumericalSensitivity {
         match self.strategy {
             PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             } => {
                 let eps = f64::EPSILON;
-                scale_factor * eps.sqrt() * value.abs().max(min_threshold)
+                scale_factor * eps.sqrt() * value.abs().max(min_value)
             }
             PerturbationStrategy::Fixed(h) => h,
             PerturbationStrategy::Percentage(pct) => value.abs() * pct,

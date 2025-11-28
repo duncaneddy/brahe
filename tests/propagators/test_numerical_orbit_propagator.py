@@ -807,7 +807,7 @@ def test_numericalorbitpropagator_event_detection_altitude_event():
 
 
 def test_numericalorbitpropagator_event_detection_no_altitude_events():
-    """Test no altitude events when orbit doesn't cross threshold (mirrors Rust test)"""
+    """Test no altitude events when orbit doesn't cross value (mirrors Rust test)"""
     from brahe import AltitudeEvent, EventDirection
 
     epoch = create_test_epoch()
@@ -2754,7 +2754,7 @@ def test_numericalorbitpropagator_event_multiple_callbacks_same_step():
 
     epoch = create_test_epoch()
 
-    # Create elliptical orbit that crosses multiple altitude thresholds
+    # Create elliptical orbit that crosses multiple altitude values
     # Using same parameters as Rust test
     a = R_EARTH + 500e3  # 500 km semi-major axis
     e = 0.02  # Eccentricity (creates range from ~362 km to ~637 km)
@@ -3037,7 +3037,7 @@ def test_numericalorbitpropagator_eviction_policy_none():
 
 
 def test_numericalorbitpropagator_value_event_altitude():
-    """Test ValueEvent for altitude threshold (mirrors Rust test)"""
+    """Test ValueEvent for altitude value (mirrors Rust test)"""
     from brahe import ValueEvent, EventDirection
 
     epoch = create_test_epoch()
@@ -3071,7 +3071,7 @@ def test_numericalorbitpropagator_value_event_altitude():
 
 
 def test_numericalorbitpropagator_value_event_velocity():
-    """Test ValueEvent for velocity threshold (mirrors Rust test)"""
+    """Test ValueEvent for velocity value (mirrors Rust test)"""
     from brahe import ValueEvent, EventDirection
 
     epoch = create_test_epoch()

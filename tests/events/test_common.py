@@ -1,4 +1,4 @@
-"""Tests for common event detectors (TimeEvent, ThresholdEvent, BinaryEvent)."""
+"""Tests for common event detectors (TimeEvent, valueEvent, BinaryEvent)."""
 
 import brahe as bh
 

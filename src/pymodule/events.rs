@@ -1253,7 +1253,7 @@ impl PyEventQuery {
     /// Returns events that occurred at or after the specified epoch.
     ///
     /// Args:
-    ///     epoch (Epoch): Epoch threshold (inclusive)
+    ///     epoch (Epoch): Epoch value (inclusive)
     ///
     /// Returns:
     ///     EventQuery: New query with filter applied (for chaining)
@@ -1279,7 +1279,7 @@ impl PyEventQuery {
     /// Returns events that occurred at or before the specified epoch.
     ///
     /// Args:
-    ///     epoch (Epoch): Epoch threshold (inclusive)
+    ///     epoch (Epoch): Epoch value (inclusive)
     ///
     /// Returns:
     ///     EventQuery: New query with filter applied (for chaining)
@@ -1493,12 +1493,12 @@ impl PyEventQueryIterator {
 
 /// Altitude-based event detector (convenience wrapper).
 ///
-/// Detects when geodetic altitude crosses a threshold. This is a convenience wrapper
+/// Detects when geodetic altitude crosses a value. This is a convenience wrapper
 /// that automatically handles ECI → ECEF → geodetic transformations to compute altitude
 /// above the WGS84 ellipsoid.
 ///
 /// Args:
-///     threshold_altitude (float): Geodetic altitude threshold in meters above WGS84
+///     value_altitude (float): Geodetic altitude value in meters above WGS84
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction (INCREASING, DECREASING, or ANY)
 ///
@@ -1530,20 +1530,20 @@ impl PyAltitudeEvent {
     /// Create a new altitude event detector.
     ///
     /// Args:
-    ///     threshold_altitude (float): Geodetic altitude threshold in meters above WGS84
+    ///     value_altitude (float): Geodetic altitude value in meters above WGS84
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
     ///
     /// Returns:
     ///     AltitudeEvent: New altitude event detector
     #[new]
-    #[pyo3(signature = (threshold_altitude, name, direction))]
+    #[pyo3(signature = (value_altitude, name, direction))]
     fn new(
-        threshold_altitude: f64,
+        value_altitude: f64,
         name: String,
         direction: PyRef<PyEventDirection>,
     ) -> PyResult<Self> {
-        let event = events::DAltitudeEvent::new(threshold_altitude, name, direction.direction);
+        let event = events::DAltitudeEvent::new(value_altitude, name, direction.direction);
         Ok(PyAltitudeEvent { event: Some(event) })
     }
 
@@ -1660,10 +1660,10 @@ impl PyAltitudeEvent {
 
 /// Semi-major axis event detector.
 ///
-/// Detects when orbital semi-major axis crosses a threshold value.
+/// Detects when orbital semi-major axis crosses a value value.
 ///
 /// Args:
-///     threshold (float): Semi-major axis threshold in meters
+///     value (float): Semi-major axis value in meters
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
 ///
@@ -1674,7 +1674,7 @@ impl PyAltitudeEvent {
 ///     # Detect when semi-major axis drops below GEO altitude
 ///     event = bh.SemiMajorAxisEvent(
 ///         bh.R_EARTH + 35786e3,
-///         "GEO threshold",
+///         "GEO value",
 ///         bh.EventDirection.DECREASING
 ///     )
 ///     ```
@@ -1689,16 +1689,16 @@ impl PySemiMajorAxisEvent {
     /// Create a new semi-major axis event detector.
     ///
     /// Args:
-    ///     threshold (float): Semi-major axis threshold in meters
+    ///     value (float): Semi-major axis value in meters
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
     ///
     /// Returns:
     ///     SemiMajorAxisEvent: New semi-major axis event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DSemiMajorAxisEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (value, name, direction))]
+    fn new(value: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DSemiMajorAxisEvent::new(value, name, direction.direction);
         Ok(PySemiMajorAxisEvent { event: Some(event) })
     }
 
@@ -1729,10 +1729,10 @@ impl PySemiMajorAxisEvent {
 
 /// Eccentricity event detector.
 ///
-/// Detects when orbital eccentricity crosses a threshold value.
+/// Detects when orbital eccentricity crosses a value value.
 ///
 /// Args:
-///     threshold (float): Eccentricity threshold (dimensionless)
+///     value (float): Eccentricity value (dimensionless)
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
 ///
@@ -1758,16 +1758,16 @@ impl PyEccentricityEvent {
     /// Create a new eccentricity event detector.
     ///
     /// Args:
-    ///     threshold (float): Eccentricity threshold (dimensionless)
+    ///     value (float): Eccentricity value (dimensionless)
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
     ///
     /// Returns:
     ///     EccentricityEvent: New eccentricity event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DEccentricityEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (value, name, direction))]
+    fn new(value: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DEccentricityEvent::new(value, name, direction.direction);
         Ok(PyEccentricityEvent { event: Some(event) })
     }
 
@@ -1798,22 +1798,22 @@ impl PyEccentricityEvent {
 
 /// Inclination event detector.
 ///
-/// Detects when orbital inclination crosses a threshold value.
+/// Detects when orbital inclination crosses a value value.
 ///
 /// Args:
-///     threshold (float): Inclination threshold
+///     value (float): Inclination value
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
-///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+///     angle_format (AngleFormat): Whether value is in degrees or radians
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     # Detect when inclination crosses 90 degrees (polar orbit threshold)
+///     # Detect when inclination crosses 90 degrees (polar orbit value)
 ///     event = bh.InclinationEvent(
 ///         90.0,
-///         "Polar threshold",
+///         "Polar value",
 ///         bh.EventDirection.ANY,
 ///         bh.AngleFormat.DEGREES
 ///     )
@@ -1829,23 +1829,23 @@ impl PyInclinationEvent {
     /// Create a new inclination event detector.
     ///
     /// Args:
-    ///     threshold (float): Inclination threshold
+    ///     value (float): Inclination value
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+    ///     angle_format (AngleFormat): Whether value is in degrees or radians
     ///
     /// Returns:
     ///     InclinationEvent: New inclination event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
-        threshold: f64,
+        value: f64,
         name: String,
         direction: PyRef<PyEventDirection>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
         let event =
-            events::DInclinationEvent::new(threshold, name, direction.direction, angle_format.value);
+            events::DInclinationEvent::new(value, name, direction.direction, angle_format.value);
         Ok(PyInclinationEvent { event: Some(event) })
     }
 
@@ -1876,13 +1876,13 @@ impl PyInclinationEvent {
 
 /// Argument of perigee event detector.
 ///
-/// Detects when argument of perigee crosses a threshold value.
+/// Detects when argument of perigee crosses a value value.
 ///
 /// Args:
-///     threshold (float): Argument of perigee threshold
+///     value (float): Argument of perigee value
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
-///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+///     angle_format (AngleFormat): Whether value is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ArgumentOfPerigeeEvent")]
 pub struct PyArgumentOfPerigeeEvent {
@@ -1894,23 +1894,23 @@ impl PyArgumentOfPerigeeEvent {
     /// Create a new argument of perigee event detector.
     ///
     /// Args:
-    ///     threshold (float): Argument of perigee threshold
+    ///     value (float): Argument of perigee value
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+    ///     angle_format (AngleFormat): Whether value is in degrees or radians
     ///
     /// Returns:
     ///     ArgumentOfPerigeeEvent: New argument of perigee event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
-        threshold: f64,
+        value: f64,
         name: String,
         direction: PyRef<PyEventDirection>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
         let event = events::DArgumentOfPerigeeEvent::new(
-            threshold,
+            value,
             name,
             direction.direction,
             angle_format.value,
@@ -1945,13 +1945,13 @@ impl PyArgumentOfPerigeeEvent {
 
 /// Mean anomaly event detector.
 ///
-/// Detects when mean anomaly crosses a threshold value.
+/// Detects when mean anomaly crosses a value value.
 ///
 /// Args:
-///     threshold (float): Mean anomaly threshold
+///     value (float): Mean anomaly value
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
-///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+///     angle_format (AngleFormat): Whether value is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "MeanAnomalyEvent")]
 pub struct PyMeanAnomalyEvent {
@@ -1963,23 +1963,23 @@ impl PyMeanAnomalyEvent {
     /// Create a new mean anomaly event detector.
     ///
     /// Args:
-    ///     threshold (float): Mean anomaly threshold
+    ///     value (float): Mean anomaly value
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+    ///     angle_format (AngleFormat): Whether value is in degrees or radians
     ///
     /// Returns:
     ///     MeanAnomalyEvent: New mean anomaly event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
-        threshold: f64,
+        value: f64,
         name: String,
         direction: PyRef<PyEventDirection>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
         let event =
-            events::DMeanAnomalyEvent::new(threshold, name, direction.direction, angle_format.value);
+            events::DMeanAnomalyEvent::new(value, name, direction.direction, angle_format.value);
         Ok(PyMeanAnomalyEvent { event: Some(event) })
     }
 
@@ -2010,13 +2010,13 @@ impl PyMeanAnomalyEvent {
 
 /// Eccentric anomaly event detector.
 ///
-/// Detects when eccentric anomaly crosses a threshold value.
+/// Detects when eccentric anomaly crosses a value value.
 ///
 /// Args:
-///     threshold (float): Eccentric anomaly threshold
+///     value (float): Eccentric anomaly value
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
-///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+///     angle_format (AngleFormat): Whether value is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "EccentricAnomalyEvent")]
 pub struct PyEccentricAnomalyEvent {
@@ -2028,23 +2028,23 @@ impl PyEccentricAnomalyEvent {
     /// Create a new eccentric anomaly event detector.
     ///
     /// Args:
-    ///     threshold (float): Eccentric anomaly threshold
+    ///     value (float): Eccentric anomaly value
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+    ///     angle_format (AngleFormat): Whether value is in degrees or radians
     ///
     /// Returns:
     ///     EccentricAnomalyEvent: New eccentric anomaly event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
-        threshold: f64,
+        value: f64,
         name: String,
         direction: PyRef<PyEventDirection>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
         let event = events::DEccentricAnomalyEvent::new(
-            threshold,
+            value,
             name,
             direction.direction,
             angle_format.value,
@@ -2079,13 +2079,13 @@ impl PyEccentricAnomalyEvent {
 
 /// True anomaly event detector.
 ///
-/// Detects when true anomaly crosses a threshold value.
+/// Detects when true anomaly crosses a value value.
 ///
 /// Args:
-///     threshold (float): True anomaly threshold
+///     value (float): True anomaly value
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
-///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+///     angle_format (AngleFormat): Whether value is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "TrueAnomalyEvent")]
 pub struct PyTrueAnomalyEvent {
@@ -2097,23 +2097,23 @@ impl PyTrueAnomalyEvent {
     /// Create a new true anomaly event detector.
     ///
     /// Args:
-    ///     threshold (float): True anomaly threshold
+    ///     value (float): True anomaly value
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+    ///     angle_format (AngleFormat): Whether value is in degrees or radians
     ///
     /// Returns:
     ///     TrueAnomalyEvent: New true anomaly event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
-        threshold: f64,
+        value: f64,
         name: String,
         direction: PyRef<PyEventDirection>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
         let event = events::DTrueAnomalyEvent::new(
-            threshold,
+            value,
             name,
             direction.direction,
             angle_format.value,
@@ -2148,13 +2148,13 @@ impl PyTrueAnomalyEvent {
 
 /// Argument of latitude event detector.
 ///
-/// Detects when argument of latitude (omega + true anomaly) crosses a threshold value.
+/// Detects when argument of latitude (omega + true anomaly) crosses a value value.
 ///
 /// Args:
-///     threshold (float): Argument of latitude threshold
+///     value (float): Argument of latitude value
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
-///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+///     angle_format (AngleFormat): Whether value is in degrees or radians
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "ArgumentOfLatitudeEvent")]
 pub struct PyArgumentOfLatitudeEvent {
@@ -2166,23 +2166,23 @@ impl PyArgumentOfLatitudeEvent {
     /// Create a new argument of latitude event detector.
     ///
     /// Args:
-    ///     threshold (float): Argument of latitude threshold
+    ///     value (float): Argument of latitude value
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+    ///     angle_format (AngleFormat): Whether value is in degrees or radians
     ///
     /// Returns:
     ///     ArgumentOfLatitudeEvent: New argument of latitude event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
-        threshold: f64,
+        value: f64,
         name: String,
         direction: PyRef<PyEventDirection>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
         let event = events::DArgumentOfLatitudeEvent::new(
-            threshold,
+            value,
             name,
             direction.direction,
             angle_format.value,
@@ -2347,10 +2347,10 @@ impl PyDescendingNodeEvent {
 
 /// Speed event detector.
 ///
-/// Detects when velocity magnitude crosses a threshold value.
+/// Detects when velocity magnitude crosses a value value.
 ///
 /// Args:
-///     threshold (float): Speed threshold in m/s
+///     value (float): Speed value in m/s
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
 ///
@@ -2376,16 +2376,16 @@ impl PySpeedEvent {
     /// Create a new speed event detector.
     ///
     /// Args:
-    ///     threshold (float): Speed threshold in m/s
+    ///     value (float): Speed value in m/s
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
     ///
     /// Returns:
     ///     SpeedEvent: New speed event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction))]
-    fn new(threshold: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
-        let event = events::DSpeedEvent::new(threshold, name, direction.direction);
+    #[pyo3(signature = (value, name, direction))]
+    fn new(value: f64, name: String, direction: PyRef<PyEventDirection>) -> PyResult<Self> {
+        let event = events::DSpeedEvent::new(value, name, direction.direction);
         Ok(PySpeedEvent { event: Some(event) })
     }
 
@@ -2416,14 +2416,14 @@ impl PySpeedEvent {
 
 /// Longitude event detector.
 ///
-/// Detects when geodetic longitude crosses a threshold value.
+/// Detects when geodetic longitude crosses a value value.
 /// Requires EOP initialization for ECI->ECEF transformation.
 ///
 /// Args:
-///     threshold (float): Longitude threshold
+///     value (float): Longitude value
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
-///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+///     angle_format (AngleFormat): Whether value is in degrees or radians
 ///
 /// Example:
 ///     ```python
@@ -2448,23 +2448,23 @@ impl PyLongitudeEvent {
     /// Create a new longitude event detector.
     ///
     /// Args:
-    ///     threshold (float): Longitude threshold
+    ///     value (float): Longitude value
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+    ///     angle_format (AngleFormat): Whether value is in degrees or radians
     ///
     /// Returns:
     ///     LongitudeEvent: New longitude event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
-        threshold: f64,
+        value: f64,
         name: String,
         direction: PyRef<PyEventDirection>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
         let event =
-            events::DLongitudeEvent::new(threshold, name, direction.direction, angle_format.value);
+            events::DLongitudeEvent::new(value, name, direction.direction, angle_format.value);
         Ok(PyLongitudeEvent { event: Some(event) })
     }
 
@@ -2495,14 +2495,14 @@ impl PyLongitudeEvent {
 
 /// Latitude event detector.
 ///
-/// Detects when geodetic latitude crosses a threshold value.
+/// Detects when geodetic latitude crosses a value value.
 /// Requires EOP initialization for ECI->ECEF transformation.
 ///
 /// Args:
-///     threshold (float): Latitude threshold
+///     value (float): Latitude value
 ///     name (str): Event name for identification
 ///     direction (EventDirection): Detection direction
-///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+///     angle_format (AngleFormat): Whether value is in degrees or radians
 ///
 /// Example:
 ///     ```python
@@ -2527,23 +2527,23 @@ impl PyLatitudeEvent {
     /// Create a new latitude event detector.
     ///
     /// Args:
-    ///     threshold (float): Latitude threshold
+    ///     value (float): Latitude value
     ///     name (str): Event name for identification
     ///     direction (EventDirection): Detection direction
-    ///     angle_format (AngleFormat): Whether threshold is in degrees or radians
+    ///     angle_format (AngleFormat): Whether value is in degrees or radians
     ///
     /// Returns:
     ///     LatitudeEvent: New latitude event detector
     #[new]
-    #[pyo3(signature = (threshold, name, direction, angle_format))]
+    #[pyo3(signature = (value, name, direction, angle_format))]
     fn new(
-        threshold: f64,
+        value: f64,
         name: String,
         direction: PyRef<PyEventDirection>,
         angle_format: PyRef<PyAngleFormat>,
     ) -> PyResult<Self> {
         let event =
-            events::DLatitudeEvent::new(threshold, name, direction.direction, angle_format.value);
+            events::DLatitudeEvent::new(value, name, direction.direction, angle_format.value);
         Ok(PyLatitudeEvent { event: Some(event) })
     }
 

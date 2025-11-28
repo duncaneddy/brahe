@@ -120,21 +120,21 @@ impl PyPerturbationStrategy {
     ///
     /// Args:
     ///     scale_factor (float): Multiplier on sqrt(ε), typically 1.0
-    ///     min_threshold (float): Minimum reference value (prevents tiny perturbations near zero)
+    ///     min_value (float): Minimum reference value (prevents tiny perturbations near zero)
     ///
     /// Returns:
     ///     PerturbationStrategy: Adaptive perturbation strategy
     #[classmethod]
-    #[pyo3(signature = (scale_factor=1.0, min_threshold=1.0))]
+    #[pyo3(signature = (scale_factor=1.0, min_value=1.0))]
     fn adaptive(
         _cls: &Bound<'_, pyo3::types::PyType>,
         scale_factor: f64,
-        min_threshold: f64,
+        min_value: f64,
     ) -> Self {
         PyPerturbationStrategy {
             value: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             },
         }
     }
@@ -171,8 +171,8 @@ impl PyPerturbationStrategy {
         match self.value {
             jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
-            } => format!("Adaptive({}, {})", scale_factor, min_threshold),
+                min_value,
+            } => format!("Adaptive({}, {})", scale_factor, min_value),
             jacobian::PerturbationStrategy::Fixed(offset) => format!("Fixed({})", offset),
             jacobian::PerturbationStrategy::Percentage(pct) => format!("Percentage({})", pct),
         }
@@ -250,7 +250,7 @@ impl PyDNumericalJacobian {
             method: jacobian::DifferenceMethod::Central,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -269,7 +269,7 @@ impl PyDNumericalJacobian {
             method: jacobian::DifferenceMethod::Forward,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -300,7 +300,7 @@ impl PyDNumericalJacobian {
             method: jacobian::DifferenceMethod::Backward,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -333,18 +333,18 @@ impl PyDNumericalJacobian {
     ///
     /// Args:
     ///     scale_factor (float): Multiplier on sqrt(ε), typically 1.0
-    ///     min_threshold (float): Minimum reference value
+    ///     min_value (float): Minimum reference value
     ///
     /// Returns:
     ///     NumericalJacobian: Self for method chaining
     pub fn with_adaptive(
         mut slf: PyRefMut<'_, Self>,
         scale_factor: f64,
-        min_threshold: f64,
+        min_value: f64,
     ) -> PyRefMut<'_, Self> {
         slf.perturbation = jacobian::PerturbationStrategy::Adaptive {
             scale_factor,
-            min_threshold,
+            min_value,
         };
         slf
     }
@@ -436,8 +436,8 @@ impl PyDNumericalJacobian {
         provider = match self.perturbation {
             jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
-            } => provider.with_adaptive(scale_factor, min_threshold),
+                min_value,
+            } => provider.with_adaptive(scale_factor, min_value),
             jacobian::PerturbationStrategy::Fixed(offset) => provider.with_fixed_offset(offset),
             jacobian::PerturbationStrategy::Percentage(pct) => provider.with_percentage(pct),
         };
@@ -615,7 +615,7 @@ impl PyDNumericalSensitivity {
             method: jacobian::DifferenceMethod::Central,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -634,7 +634,7 @@ impl PyDNumericalSensitivity {
             method: jacobian::DifferenceMethod::Forward,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -665,7 +665,7 @@ impl PyDNumericalSensitivity {
             method: jacobian::DifferenceMethod::Backward,
             perturbation: jacobian::PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
-                min_threshold: 1.0,
+                min_value: 1.0,
             },
         }
     }
@@ -698,18 +698,18 @@ impl PyDNumericalSensitivity {
     ///
     /// Args:
     ///     scale_factor (float): Multiplier on sqrt(ε), typically 1.0
-    ///     min_threshold (float): Minimum reference value
+    ///     min_value (float): Minimum reference value
     ///
     /// Returns:
     ///     NumericalSensitivity: Self for method chaining
     pub fn with_adaptive(
         mut slf: PyRefMut<'_, Self>,
         scale_factor: f64,
-        min_threshold: f64,
+        min_value: f64,
     ) -> PyRefMut<'_, Self> {
         slf.perturbation = jacobian::PerturbationStrategy::Adaptive {
             scale_factor,
-            min_threshold,
+            min_value,
         };
         slf
     }
@@ -790,10 +790,10 @@ impl PyDNumericalSensitivity {
         provider = match self.perturbation {
             jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             } => provider.with_strategy(jacobian::PerturbationStrategy::Adaptive {
                 scale_factor,
-                min_threshold,
+                min_value,
             }),
             jacobian::PerturbationStrategy::Fixed(offset) => {
                 provider.with_strategy(jacobian::PerturbationStrategy::Fixed(offset))

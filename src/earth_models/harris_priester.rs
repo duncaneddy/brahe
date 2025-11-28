@@ -168,14 +168,14 @@ mod tests {
     fn test_harris_priester_bounds() {
         let r_sun = Vector3::new(24622331959.580, -133060326832.922, -57688711921.833);
 
-        // Test below 100 km threshold
+        // Test below 100 km value
         let r = position_geodetic_to_ecef(Vector3::new(0.0, 0.0, 50.0e3), AngleFormat::Degrees)
             .unwrap();
         let rho = density_harris_priester(r, r_sun);
 
         assert_eq!(rho, 0.0);
 
-        // Test above 1000 km threshold
+        // Test above 1000 km value
         let r = position_geodetic_to_ecef(Vector3::new(0.0, 0.0, 1100.0e3), AngleFormat::Degrees)
             .unwrap();
         let rho = density_harris_priester(r, r_sun);

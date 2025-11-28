@@ -905,7 +905,7 @@ impl DNumericalPropagator {
     ///
     /// // Count events by name
     /// let count = prop.query_events()
-    ///     .by_name_contains("threshold")
+    ///     .by_name_contains("value")
     ///     .count();
     /// ```
     pub fn query_events(
@@ -1012,8 +1012,8 @@ impl DNumericalPropagator {
     /// #     epoch, state, dynamics, NumericalPropagationConfig::default(),
     /// #     None, None, None
     /// # ).unwrap();
-    /// // Get threshold events in time range
-    /// let events = prop.events_by_name_in_range("threshold", epoch, epoch + 3600.0);
+    /// // Get value events in time range
+    /// let events = prop.events_by_name_in_range("value", epoch, epoch + 3600.0);
     /// ```
     pub fn events_by_name_in_range(
         &self,
@@ -2718,7 +2718,7 @@ mod tests {
     }
 
     #[test]
-    fn test_event_threshold_event() {
+    fn test_event_value_event() {
         let mut prop = create_test_sho_propagator();
         let initial_epoch = prop.initial_epoch();
 

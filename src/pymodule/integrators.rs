@@ -419,8 +419,8 @@ impl PyRK4DIntegrator {
                     provider = match jac_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
-                        } => provider.with_adaptive(scale_factor, min_threshold),
+                            min_value,
+                        } => provider.with_adaptive(scale_factor, min_value),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
@@ -505,10 +505,10 @@ impl PyRK4DIntegrator {
                     provider = match sens_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         }),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
@@ -992,8 +992,8 @@ impl PyRKF45DIntegrator {
                     provider = match jac_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
-                        } => provider.with_adaptive(scale_factor, min_threshold),
+                            min_value,
+                        } => provider.with_adaptive(scale_factor, min_value),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
@@ -1077,10 +1077,10 @@ impl PyRKF45DIntegrator {
                     provider = match sens_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         }),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
@@ -1567,8 +1567,8 @@ impl PyDP54DIntegrator {
                     provider = match jac_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
-                        } => provider.with_adaptive(scale_factor, min_threshold),
+                            min_value,
+                        } => provider.with_adaptive(scale_factor, min_value),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
@@ -1651,10 +1651,10 @@ impl PyDP54DIntegrator {
                     provider = match sens_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         }),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
@@ -2132,8 +2132,8 @@ impl PyRKN1210DIntegrator {
                     provider = match jac_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
-                        } => provider.with_adaptive(scale_factor, min_threshold),
+                            min_value,
+                        } => provider.with_adaptive(scale_factor, min_value),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
@@ -2216,10 +2216,10 @@ impl PyRKN1210DIntegrator {
                     provider = match sens_pert {
                         crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
-                            min_threshold,
+                            min_value,
                         }),
                         crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))

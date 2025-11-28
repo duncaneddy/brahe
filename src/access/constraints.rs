@@ -2223,7 +2223,7 @@ mod tests {
 
         // Create a simple test constraint computer
         struct TestConstraintComputer {
-            threshold: f64,
+            value: f64,
         }
 
         impl AccessConstraintComputer for TestConstraintComputer {
@@ -2233,10 +2233,10 @@ mod tests {
                 sat_state_ecef: &Vector6<f64>,
                 _location_ecef: &Vector3<f64>,
             ) -> bool {
-                // Simple test: check if satellite altitude is above threshold
+                // Simple test: check if satellite altitude is above value
                 let sat_pos = sat_state_ecef.fixed_rows::<3>(0).into_owned();
                 let altitude = sat_pos.norm() - R_EARTH;
-                altitude > self.threshold
+                altitude > self.value
             }
 
             fn name(&self) -> &str {
@@ -2245,7 +2245,7 @@ mod tests {
         }
 
         // Create wrapper using new()
-        let computer = TestConstraintComputer { threshold: 400e3 }; // 400 km threshold
+        let computer = TestConstraintComputer { value: 400e3 }; // 400 km value
         let wrapper = AccessConstraintComputerWrapper::new(computer);
 
         // Test evaluate method

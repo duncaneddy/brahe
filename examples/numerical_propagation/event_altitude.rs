@@ -1,5 +1,5 @@
-//! Using AltitudeEvent for altitude threshold detection.
-//! Demonstrates detecting when altitude crosses a specified threshold.
+//! Using AltitudeEvent for altitude value detection.
+//! Demonstrates detecting when altitude crosses a specified value.
 
 use brahe as bh;
 use bh::events::{DAltitudeEvent, EventDirection};
@@ -41,7 +41,7 @@ fn main() {
     // Add altitude events
     // Detect when crossing 500 km altitude (both directions)
     let event_500km = DAltitudeEvent::new(
-        500e3, // threshold altitude in meters
+        500e3, // value altitude in meters
         "500km crossing".to_string(),
         EventDirection::Any, // Detect both increasing and decreasing
     );

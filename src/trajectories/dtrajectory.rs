@@ -54,7 +54,7 @@ use super::traits::{
 /// # Memory Management
 /// The trajectory supports automatic memory management through configurable policies:
 /// - Maximum state count (oldest states evicted first)
-/// - Maximum age (states older than threshold evicted)
+/// - Maximum age (states older than value evicted)
 /// - Custom eviction policies for specialized use cases
 ///
 /// # Performance Characteristics

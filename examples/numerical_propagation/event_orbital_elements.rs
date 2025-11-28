@@ -1,4 +1,4 @@
-//! Using orbital element events to detect inclination threshold crossings.
+//! Using orbital element events to detect inclination value crossings.
 //! Demonstrates InclinationEvent with the angle_format parameter.
 
 use brahe as bh;
@@ -33,16 +33,16 @@ fn main() {
     // Add orbital element events
     // Detect when inclination crosses 97.79 degrees (monitoring for stability)
     let inc_event = DInclinationEvent::new(
-        97.79, // threshold in degrees
-        "Inc Threshold".to_string(),
+        97.79, // value in degrees
+        "Inc value".to_string(),
         EventDirection::Any,
         bh::AngleFormat::Degrees,
     );
 
-    // Detect semi-major axis threshold (orbit decay monitoring)
+    // Detect semi-major axis value (orbit decay monitoring)
     let sma_event = DSemiMajorAxisEvent::new(
-        bh::R_EARTH + 599.5e3, // threshold in meters
-        "SMA Threshold".to_string(),
+        bh::R_EARTH + 599.5e3, // value in meters
+        "SMA value".to_string(),
         EventDirection::Decreasing,
     );
 
@@ -72,10 +72,10 @@ fn main() {
     let inc_events: Vec<_> = events.iter().filter(|e| e.name.contains("Inc")).collect();
     let sma_events: Vec<_> = events.iter().filter(|e| e.name.contains("SMA")).collect();
 
-    println!("\nInclination threshold crossings: {}", inc_events.len());
-    println!("SMA threshold crossings: {}", sma_events.len());
+    println!("\nInclination value crossings: {}", inc_events.len());
+    println!("SMA value crossings: {}", sma_events.len());
 
-    // The J2 perturbation causes slow variations - we may or may not cross thresholds
+    // The J2 perturbation causes slow variations - we may or may not cross values
     // depending on the exact parameters, so we just validate the events work
     println!("\nExample completed successfully!");
 }

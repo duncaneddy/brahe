@@ -27,7 +27,7 @@ def dynamics(t, state):
 
 # Create numerical Jacobian for variational equations
 jacobian = bh.NumericalJacobian.central(dynamics).with_adaptive(
-    scale_factor=1.0, min_threshold=1e-6
+    scale_factor=1.0, min_value=1e-6
 )
 
 # Initial orbit (LEO)

@@ -1,6 +1,6 @@
 # Event Detection
 
-Event detection system for numerical propagators. Events allow detection of specific conditions during propagation, such as reaching a target time, crossing an altitude threshold, or triggering on custom conditions.
+Event detection system for numerical propagators. Events allow detection of specific conditions during propagation, such as reaching a target time, crossing an altitude value, or triggering on custom conditions.
 
 !!! note
     For conceptual explanations and usage examples, see [Event Detection](../../learn/orbit_propagation/numerical_propagation/event_detection.md) in the User Guide.

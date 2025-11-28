@@ -720,7 +720,7 @@ def test_numericalpropagator_event_time_event():
 
 
 def test_numericalpropagator_event_value_event():
-    """Test value event detection (mirrors Rust test_event_threshold_event)"""
+    """Test value event detection (mirrors Rust test_event_value_event)"""
     from brahe import ValueEvent, EventDirection
 
     epoch = create_test_epoch()

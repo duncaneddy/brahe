@@ -93,7 +93,7 @@ The example above uses a sinusoidal mask: **15° + 10° sin(2×azimuth)**, varyi
 Elevation masks can be specified in three ways:
 
 ```python
-# Constant elevation (simple threshold)
+# Constant elevation (simple value)
 fig = bh.plot_access_elevation_azimuth(
     windows, prop,
     elevation_mask=10.0,  # 10° everywhere

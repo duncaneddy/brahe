@@ -97,11 +97,11 @@ $E_*$ can be iteratively updated using
 $$
 E_{i+1} = \frac{f(E_i)}{f^\prime(E_i)}= E_i - \frac{E_i - e\sin{E_i} - M}{1 - e\cos{E_i}}
 $$
-This update is performed until a coverage threshold of
+This update is performed until a coverage value of
 $$
 |E_{i+1} - E_i| \leq \Delta_{\text{tol}}
 $$
-is reached. The threshold set as 100 times floating-point machine precision `100 * f64::epsilon`.
+is reached. The value set as 100 times floating-point machine precision `100 * f64::epsilon`.
 This conversion is provided by `anomaly_mean_to_eccentric`.
 
 !!! warning

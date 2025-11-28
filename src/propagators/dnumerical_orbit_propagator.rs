@@ -3876,7 +3876,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dnumericalorbitpropagator_threshold_event_matches_altitude_event() {
+    fn test_dnumericalorbitpropagator_value_event_matches_altitude_event() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -3956,7 +3956,7 @@ mod tests {
         assert_eq!(
             events_builtin.len(),
             events_manual.len(),
-            "Built-in and manual threshold events should detect same number of crossings"
+            "Built-in and manual value events should detect same number of crossings"
         );
         assert!(
             !events_builtin.is_empty(),
@@ -4613,7 +4613,7 @@ mod tests {
         prop.add_event_detector(Box::new(event1));
         prop.add_event_detector(Box::new(event2));
 
-        // Propagate for one quarter orbit (from 406 km to ~475 km, crossing both thresholds)
+        // Propagate for one quarter orbit (from 406 km to ~475 km, crossing both values)
         let period = orbital_period(a);
         prop.propagate_to(epoch + period / 4.0);
 

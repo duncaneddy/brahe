@@ -2,7 +2,7 @@
 
 Numerical propagation solves equations of motion through numerical integration, enabling high-fidelity dynamics modeling with arbitrary force models. Unlike analytical propagators that use closed-form solutions, numerical propagators step through time, computing accelerations at each step and integrating to get the next state. This approach allows for complex perturbations, control input modeling, covariance propagation, sensitivity analysis, and event detection.
 
-For orbital mechanics, Brahe provides the [`NumericalOrbitPropagator`](../../../library_api/propagators/numerical_orbit_propagator.md) class built, which provides a fast way to propagate satellite orbits using the force models defined and discussed in [Orbital Dynamics](../../orbital_dynamics/index.md). The NumericalOrbitPropagator supports a variety of integrators, including fixed-step and adaptive methods, and can model perturbations such as atmospheric drag, solar radiation pressure, third-body effects, and relativistic corrections. It also supports covariance propagation and sensitivity analysis for orbit determination and parameter estimation. Finally, it supports event detection for orbital events like eclipses, node crossings, and altitude thresholds. Event detection is covered in more detail in the [Event Detection](event_detection.md) section, and premade event types are documented in [Premade Events](premade_events.md).
+For orbital mechanics, Brahe provides the [`NumericalOrbitPropagator`](../../../library_api/propagators/numerical_orbit_propagator.md) class built, which provides a fast way to propagate satellite orbits using the force models defined and discussed in [Orbital Dynamics](../../orbital_dynamics/index.md). The NumericalOrbitPropagator supports a variety of integrators, including fixed-step and adaptive methods, and can model perturbations such as atmospheric drag, solar radiation pressure, third-body effects, and relativistic corrections. It also supports covariance propagation and sensitivity analysis for orbit determination and parameter estimation. Finally, it supports event detection for orbital events like eclipses, node crossings, and altitude values. Event detection is covered in more detail in the [Event Detection](event_detection.md) section, and premade event types are documented in [Premade Events](premade_events.md).
 
 Brahe also includes a more general [`NumericalPropagator`](../../../library_api/propagators/numerical_propagator.md) class for propagating arbitrary dynamical system systems. This class allows users to integrate equations of motion for non-orbital dynamical systems. This capability is discussed in more depth in [General Dynamics Propagation](generic_dynamics.md). 
 
@@ -33,7 +33,7 @@ The [`NumericalPropagationConfig`](../../../library_api/propagators/numerical_pr
 The numerical propagator supports event detection through configurable event detectors. Brahe includes several premade event types (detailed in [Premade Events](premade_events.md)):
 
 - **Time Events**: Trigger at specific epochs
-- **Value Events**: Trigger when a computed quantity crosses a threshold
+- **Value Events**: Trigger when a computed quantity crosses a value
 - **Binary Events**: Trigger on boolean state changes
 - **Altitude Events**: Trigger at specific altitudes
 

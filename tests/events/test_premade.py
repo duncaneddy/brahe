@@ -30,14 +30,14 @@ def test_SemiMajorAxisEvent_builder_chaining():
 
 def test_EccentricityEvent_new():
     """Test EccentricityEvent constructor."""
-    event = bh.EccentricityEvent(0.1, "Ecc Threshold", bh.EventDirection.INCREASING)
+    event = bh.EccentricityEvent(0.1, "Ecc value", bh.EventDirection.INCREASING)
     assert "Ecc" in str(event)
 
 
 def test_InclinationEvent_new():
     """Test InclinationEvent constructor with degrees."""
     event = bh.InclinationEvent(
-        45.0, "Inc Threshold", bh.EventDirection.ANY, bh.AngleFormat.DEGREES
+        45.0, "Inc value", bh.EventDirection.ANY, bh.AngleFormat.DEGREES
     )
     assert "Inc" in str(event)
 
@@ -46,7 +46,7 @@ def test_InclinationEvent_radians():
     """Test InclinationEvent constructor with radians."""
     inc_rad = np.radians(45.0)
     event = bh.InclinationEvent(
-        inc_rad, "Inc Threshold", bh.EventDirection.ANY, bh.AngleFormat.RADIANS
+        inc_rad, "Inc value", bh.EventDirection.ANY, bh.AngleFormat.RADIANS
     )
     assert "Inc" in str(event)
 
@@ -123,7 +123,7 @@ def test_DescendingNodeEvent_new():
 
 def test_SpeedEvent_new():
     """Test SpeedEvent constructor."""
-    event = bh.SpeedEvent(7500.0, "Speed Threshold", bh.EventDirection.INCREASING)
+    event = bh.SpeedEvent(7500.0, "Speed value", bh.EventDirection.INCREASING)
     assert event is not None
 
 

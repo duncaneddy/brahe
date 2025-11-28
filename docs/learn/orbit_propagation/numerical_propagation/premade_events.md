@@ -9,7 +9,7 @@ Premade events fall into four categories based on what they detect:
 <div class="center-table" markdown="1">
 | Category | What They Detect | Event Type |
 |----------|------------------|------------|
-| **Orbital Elements** | Threshold crossings of Keplerian elements | Value |
+| **Orbital Elements** | value crossings of Keplerian elements | Value |
 | **State-Derived** | Altitude, speed, geodetic position | Value |
 | **Eclipse/Shadow** | Shadow transitions (umbra, penumbra, sunlit) | Binary |
 | **Node Crossings** | Equatorial plane crossings | Value |
@@ -17,12 +17,12 @@ Premade events fall into four categories based on what they detect:
 
 The distinction between **value events** and **binary events** is important:
 
-- **Value events** detect when a continuously-varying quantity crosses a threshold (e.g., altitude = 400 km)
+- **Value events** detect when a continuously-varying quantity crosses a value (e.g., altitude = 400 km)
 - **Binary events** detect when a boolean condition changes state (e.g., enters shadow)
 
 ## Orbital Element Events
 
-Orbital element events detect when Keplerian elements cross threshold values. These are value events with configurable thresholds and directions.
+Orbital element events detect when Keplerian elements cross value values. These are value events with configurable values and directions.
 
 ### Available Events
 
@@ -43,7 +43,7 @@ Orbital element events detect when Keplerian elements cross threshold values. Th
 
 Orbital element events take up to four parameters:
 
-- `threshold` - Target value to detect
+- `value` - Target value to detect
 - `name` - Identifier for the event in the event log
 - `direction` - Which crossings to detect (`INCREASING`, `DECREASING`, or `ANY`)
 - `angle_format` - For angle-based events: `AngleFormat.DEGREES` or `AngleFormat.RADIANS`
@@ -92,7 +92,7 @@ State-derived events compute quantities from the instantaneous state vector rath
 
 State-derived events follow the same pattern as orbital element events:
 
-- `threshold` - Target value to detect
+- `value` - Target value to detect
 - `name` - Identifier for the event in the event log
 - `direction` - Which crossings to detect (`INCREASING`, `DECREASING`, or `ANY`)
 - `angle_format` - For geodetic events: `AngleFormat.DEGREES` or `AngleFormat.RADIANS`
@@ -171,7 +171,7 @@ Eclipse events take three parameters:
 
 ## Node Crossing Events
 
-Node crossing events detect when a spacecraft passes through the equatorial plane. These are specialized value events with fixed thresholds.
+Node crossing events detect when a spacecraft passes through the equatorial plane. These are specialized value events with fixed values.
 
 ### Available Events
 
@@ -225,23 +225,23 @@ desc_event = bh.DescendingNodeEvent("Descending Node")
 | | `SunlitEvent` | name, edge_type, ephemeris_source |
 | **Node Crossings** | `AscendingNodeEvent` | name |
 | | `DescendingNodeEvent` | name |
-| **Orbital Elements** | `SemiMajorAxisEvent` | threshold (m), name, direction |
-| | `EccentricityEvent` | threshold, name, direction |
-| | `InclinationEvent` | threshold, name, direction, angle_format |
-| | `ArgumentOfPerigeeEvent` | threshold, name, direction, angle_format |
-| | `MeanAnomalyEvent` | threshold, name, direction, angle_format |
-| | `EccentricAnomalyEvent` | threshold, name, direction, angle_format |
-| | `TrueAnomalyEvent` | threshold, name, direction, angle_format |
-| | `ArgumentOfLatitudeEvent` | threshold, name, direction, angle_format |
-| **State-Derived** | `AltitudeEvent` | threshold (m), name, direction |
-| | `SpeedEvent` | threshold (m/s), name, direction |
-| | `LongitudeEvent` | threshold, name, direction, angle_format |
-| | `LatitudeEvent` | threshold, name, direction, angle_format |
+| **Orbital Elements** | `SemiMajorAxisEvent` | value (m), name, direction |
+| | `EccentricityEvent` | value, name, direction |
+| | `InclinationEvent` | value, name, direction, angle_format |
+| | `ArgumentOfPerigeeEvent` | value, name, direction, angle_format |
+| | `MeanAnomalyEvent` | value, name, direction, angle_format |
+| | `EccentricAnomalyEvent` | value, name, direction, angle_format |
+| | `TrueAnomalyEvent` | value, name, direction, angle_format |
+| | `ArgumentOfLatitudeEvent` | value, name, direction, angle_format |
+| **State-Derived** | `AltitudeEvent` | value (m), name, direction |
+| | `SpeedEvent` | value (m/s), name, direction |
+| | `LongitudeEvent` | value, name, direction, angle_format |
+| | `LatitudeEvent` | value, name, direction, angle_format |
 </div>
 
 ### Parameter Types
 
-**Value Events** (threshold crossing):
+**Value Events** (value crossing):
 
 - `direction`: `EventDirection.INCREASING`, `EventDirection.DECREASING`, or `EventDirection.ANY`
 - `angle_format`: `AngleFormat.DEGREES` or `AngleFormat.RADIANS` (angle-based events only)

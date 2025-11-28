@@ -18,7 +18,7 @@ def dynamics(t, state):
 
 # Create Jacobian for variational equations
 jacobian = bh.NumericalJacobian.central(dynamics).with_adaptive(
-    scale_factor=1e-8, min_threshold=1e-6
+    scale_factor=1e-8, min_value=1e-6
 )
 
 # Create integrator with Jacobian

@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.0.0] - 2025-11-29
+### Added
+
+- - `{D}NumericalOrbitPropagator` and python bindings
+  - `{D}NumericalPropagator` and python bindings
+  - Event detection system for numerical propagators to find events during propagation [#89](https://github.com/duncaneddy/brahe/pull/89)
+- - Mean to osculating, osculating to mean orbital element transformations
+  - Update OrbitStateProviders to provide `state(s)_koe_mean` and `state(s)_koe_osc`
+  - Implement ECI<>ROE direct transformations
+  - Add `ephemeris_age` to `SGPPropagator`
+  - Implement Largrange, cubic Hermite, and quintic Hermite interpolation methods.
+  - Add `WalkerConstellationGenerator` which enables rapidly generating propagators with walker-geometry configurations. [#96](https://github.com/duncaneddy/brahe/pull/96)
+
+### Changed
+
+- - Make access computation use D-type propagators.
+  - Standardize on
+  - Add support for D-type returns to `KeplerianPropagator` and `SGPPropagator`
+  - Standardized trait traits for `{S|D}StateProvider`, `{S|D}CovarianceProvider`, `{S|D}StatePropagator`
+  - `DTrajectory` and `DOrbitTrajectory` can now store trajectories of arbitrary length
+  - `DTrajectory` and `DOrbitTrajectory` can now store stm and sensitivity matricies alongside state and covariance.
+  - Improved test coverage across modules
+  - Changed how third-body ephemeris sources are defined and loaded. DE source is now a parameter instead of set by function name. Dynamically load BSP files when called.
+  - Changed how Gravity models are defined in terms of enumeration types.
+  - Renamed `state_cartesian_to_osculating` and `state_osculating_to_cartesian` as `state_eci_to_koe` and `state_koe_to_eci` [#89](https://github.com/duncaneddy/brahe/pull/89)
+- - Improve trajectory module test coverage
+  - Improve events module test coverage
+  - Changed CI release workflow to publish documentation updates only after packages have been successfully published [#96](https://github.com/duncaneddy/brahe/pull/96)
+
+### Fixed
+
+- - Numerical integration `step` and `step_with_varmat` now take explicit parameter values. [#89](https://github.com/duncaneddy/brahe/pull/89)
+
+### Removed
+
+- - Removed `STrajectory6` from python bindings. [#89](https://github.com/duncaneddy/brahe/pull/89)
+
 ## [0.4.0] - 2025-11-28
 ### Added
 

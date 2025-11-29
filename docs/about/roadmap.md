@@ -121,10 +121,9 @@ The following features are planned for future releases beyond v1.0.0. These feat
 
 - [ ] Spacetrack Datasets Module
 - [ ] Initialize SGPPropagator from GP Elements
-- [ ] Plotting Improvements
-    - [ ] Access timeline plots
 - [ ] Propagation of relative motion
     - [ ] Hill-Clohessy-Wiltshire (HCW) Equations
+    - [ ] Numerical Relative Orbit Propagation
 - [ ] Plotting Relative Orbits
     - [ ] RTN 3-panel plot
     - [ ] RTN 3D plot
@@ -133,18 +132,9 @@ The following features are planned for future releases beyond v1.0.0. These feat
     - [ ] Extended Kalman Filter
     - [ ] Unscented Kalman Filter
     - [ ] Particle Filter
-- [ ] Improved Atmospheric Models
-    - [ ] NRLMSISE 2.0 Atmospheric Model Integration
-    - [ ] NRLMSISE 2.1 Atmospheric Model Integration
-    - [ ] DTM 2020 Atmospheric Model Integration
 - [ ] TLE Estimation 
     - [ ] From GPS Observations
     - [ ] From Initial OPM State
-- [ ] QoL Improvements
-    - [ ] Improved error messages and handling
-    - [ ] Enhanced logging capabilities
-    - [ ] More comprehensive unit tests and coverage
-    - [ ] Automatically append script outputs to documentation examples & remove fixed outputs
 
 ----
 
@@ -161,18 +151,25 @@ The following features have been considered for future releases but are not curr
 - [ ] OPM File Support
     - [ ] Initialize Trajectory from OPM File
     - [ ] Export Trajectory to OPM File
-- [ ] Tidal Force Models
-    - [ ] Solid Earth Tides
-    - [ ] Ocean Tides
-- [ ] Albedeo Force Models
+- [ ] Additional Force Models
+    - [ ] Tidal Force Models
+        - [ ] Solid Earth Tides
+        - [ ] Ocean Tides
+    - [ ] Albedeo Force Models
 - [ ] Probability of Collision Estimation
 - [ ] Monte Carlo Simulation Framework
-- [ ] Move all rust functions over to generic float types to support f32 and f64
-- [ ] Additional Examples and Tutorials
-    - [ ] Mission Analysis Examples
-    - [ ] Advanced Access Computation Examples
-    - [ ] Custom Perturbation Models
+- [ ] Plotting Improvements
+    - [ ] Access timeline plots
 - [ ] Attitude dynamics module
-- [ ] WASM bindings for web-based applications
-- [ ] Julia bindings for Brahe core library
-- [ ] Datasets module for Jonathan McDowell's Satellite Catalog
+    - [ ] Rigid Body Dynamics
+    - [ ] Attitude Perturbations
+    - [ ] Attitude Actuator Modeling
+- [ ] Additional Examples and Tutorials
+- [ ] Improved Atmospheric Models (EDU-only license)
+    - [ ] NRLMSISE 2.0 Atmospheric Model Integration
+    - [ ] NRLMSISE 2.1 Atmospheric Model Integration
+    - [ ] DTM 2020 Atmospheric Model Integration
+- [ ] Quality of Life Improvements
+    - [ ] Improved error messages and handling
+    - [ ] Enhanced logging capabilities
+    - [ ] Automatically append script outputs to documentation examples & remove fixed outputs

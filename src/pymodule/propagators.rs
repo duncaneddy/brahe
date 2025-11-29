@@ -3188,6 +3188,33 @@ impl PyNumericalPropagationConfig {
         slf
     }
 
+    /// Enable or disable acceleration storage in trajectory.
+    ///
+    /// Args:
+    ///     store (bool): Whether to store accelerations.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with updated setting.
+    fn with_store_accelerations(mut slf: PyRefMut<'_, Self>, store: bool) -> PyRefMut<'_, Self> {
+        slf.config.store_accelerations = store;
+        slf
+    }
+
+    /// Set the interpolation method for trajectory queries.
+    ///
+    /// Args:
+    ///     method (InterpolationMethod): The interpolation method to use.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with updated interpolation method.
+    fn with_interpolation_method(
+        mut slf: PyRefMut<'_, Self>,
+        method: PyInterpolationMethod,
+    ) -> PyRefMut<'_, Self> {
+        slf.config.interpolation_method = method.method;
+        slf
+    }
+
     /// Get the integration method.
     #[getter]
     fn method(&self) -> PyIntegrationMethod {
@@ -3216,6 +3243,30 @@ impl PyNumericalPropagationConfig {
     #[setter]
     fn set_variational(&mut self, value: PyVariationalConfig) {
         self.config.variational = value.config;
+    }
+
+    /// Get whether acceleration storage is enabled.
+    #[getter]
+    fn store_accelerations(&self) -> bool {
+        self.config.store_accelerations
+    }
+
+    /// Set whether acceleration storage is enabled.
+    #[setter]
+    fn set_store_accelerations(&mut self, value: bool) {
+        self.config.store_accelerations = value;
+    }
+
+    /// Get the interpolation method.
+    #[getter]
+    fn interpolation_method(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod { method: self.config.interpolation_method }
+    }
+
+    /// Set the interpolation method.
+    #[setter]
+    fn set_interpolation_method(&mut self, value: PyInterpolationMethod) {
+        self.config.interpolation_method = value.method;
     }
 
     fn __repr__(&self) -> String {

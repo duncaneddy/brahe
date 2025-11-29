@@ -1198,3 +1198,113 @@ def test_trajectory_covariance_at_exact_epochs():
     # At exact t1, should return cov2
     result = traj.covariance_at(t1)
     assert result[0, 0] == pytest.approx(200.0, abs=1e-10)
+
+
+# =========================================================================
+# InterpolationMethod Tests
+# =========================================================================
+
+
+def test_interpolation_method_linear():
+    """Rust: test_interpolation_method_debug_linear"""
+    method = InterpolationMethod.LINEAR
+    assert str(method) == "Linear"
+    assert method.min_points_required == 2
+    assert method.degree is None
+
+
+def test_interpolation_method_hermite_cubic():
+    """Rust: test_interpolation_method_debug_hermite_cubic"""
+    method = InterpolationMethod.HERMITE_CUBIC
+    assert str(method) == "HermiteCubic"
+    assert method.min_points_required == 2
+    assert method.degree is None
+
+
+def test_interpolation_method_hermite_quintic():
+    """Rust: test_interpolation_method_debug_hermite_quintic"""
+    method = InterpolationMethod.HERMITE_QUINTIC
+    assert str(method) == "HermiteQuintic"
+    assert method.min_points_required == 2
+    assert method.degree is None
+
+
+def test_interpolation_method_lagrange():
+    """Rust: test_interpolation_method_min_points_required_lagrange"""
+    # Degree 1 requires 2 points
+    method = InterpolationMethod.lagrange(1)
+    assert method.min_points_required == 2
+    assert method.degree == 1
+    assert "Lagrange" in str(method)
+
+    # Degree 3 requires 4 points
+    method = InterpolationMethod.lagrange(3)
+    assert method.min_points_required == 4
+    assert method.degree == 3
+
+    # Degree 7 requires 8 points
+    method = InterpolationMethod.lagrange(7)
+    assert method.min_points_required == 8
+    assert method.degree == 7
+
+
+def test_interpolation_method_lagrange_invalid_degree():
+    """Test that Lagrange requires degree >= 1"""
+    with pytest.raises(Exception):
+        InterpolationMethod.lagrange(0)
+
+
+def test_interpolation_method_equality():
+    """Test InterpolationMethod equality comparison"""
+    # Same variants should be equal
+    assert InterpolationMethod.LINEAR == InterpolationMethod.LINEAR
+    assert InterpolationMethod.HERMITE_CUBIC == InterpolationMethod.HERMITE_CUBIC
+    assert InterpolationMethod.HERMITE_QUINTIC == InterpolationMethod.HERMITE_QUINTIC
+
+    # Lagrange with same degree should be equal
+    assert InterpolationMethod.lagrange(3) == InterpolationMethod.lagrange(3)
+
+    # Different variants should not be equal
+    assert InterpolationMethod.LINEAR != InterpolationMethod.HERMITE_CUBIC
+    assert InterpolationMethod.lagrange(3) != InterpolationMethod.lagrange(5)
+    assert InterpolationMethod.LINEAR != InterpolationMethod.lagrange(1)
+
+
+def test_trajectory_with_hermite_cubic_method():
+    """Test trajectory with Hermite cubic interpolation method"""
+    traj = Trajectory(6).with_interpolation_method(InterpolationMethod.HERMITE_CUBIC)
+    assert traj.get_interpolation_method() == InterpolationMethod.HERMITE_CUBIC
+
+
+def test_trajectory_with_hermite_quintic_method():
+    """Test trajectory with Hermite quintic interpolation method"""
+    traj = Trajectory(6).with_interpolation_method(InterpolationMethod.HERMITE_QUINTIC)
+    assert traj.get_interpolation_method() == InterpolationMethod.HERMITE_QUINTIC
+
+
+def test_trajectory_with_lagrange_method():
+    """Test trajectory with Lagrange interpolation method"""
+    traj = Trajectory(6).with_interpolation_method(InterpolationMethod.lagrange(5))
+    assert traj.get_interpolation_method() == InterpolationMethod.lagrange(5)
+
+
+def test_trajectory_set_interpolation_method_hermite():
+    """Test setting Hermite interpolation methods on trajectory"""
+    traj = Trajectory(6)
+
+    traj.set_interpolation_method(InterpolationMethod.HERMITE_CUBIC)
+    assert traj.get_interpolation_method() == InterpolationMethod.HERMITE_CUBIC
+
+    traj.set_interpolation_method(InterpolationMethod.HERMITE_QUINTIC)
+    assert traj.get_interpolation_method() == InterpolationMethod.HERMITE_QUINTIC
+
+
+def test_trajectory_set_interpolation_method_lagrange():
+    """Test setting Lagrange interpolation method on trajectory"""
+    traj = Trajectory(6)
+
+    traj.set_interpolation_method(InterpolationMethod.lagrange(3))
+    assert traj.get_interpolation_method() == InterpolationMethod.lagrange(3)
+
+    traj.set_interpolation_method(InterpolationMethod.lagrange(7))
+    assert traj.get_interpolation_method() == InterpolationMethod.lagrange(7)

@@ -20,22 +20,130 @@ impl PyInterpolationMethod {
     #[classattr]
     #[pyo3(name = "LINEAR")]
     fn linear() -> Self {
-        PyInterpolationMethod { method: trajectories::traits::InterpolationMethod::Linear }
+        PyInterpolationMethod {
+            method: trajectories::traits::InterpolationMethod::Linear,
+        }
+    }
+
+    /// Cubic Hermite interpolation method.
+    ///
+    /// Uses position and velocity at two bracketing points for C1 continuous interpolation.
+    /// Requires 6D state vectors with layout [x, y, z, vx, vy, vz].
+    ///
+    /// Returns:
+    ///     InterpolationMethod: Cubic Hermite interpolation constant
+    #[classattr]
+    #[pyo3(name = "HERMITE_CUBIC")]
+    fn hermite_cubic() -> Self {
+        PyInterpolationMethod {
+            method: trajectories::traits::InterpolationMethod::HermiteCubic,
+        }
+    }
+
+    /// Quintic Hermite interpolation method.
+    ///
+    /// Uses position, velocity, and acceleration at two bracketing points for C2
+    /// continuous interpolation. Uses stored accelerations if available, otherwise
+    /// estimates via finite differences.
+    ///
+    /// Returns:
+    ///     InterpolationMethod: Quintic Hermite interpolation constant
+    #[classattr]
+    #[pyo3(name = "HERMITE_QUINTIC")]
+    fn hermite_quintic() -> Self {
+        PyInterpolationMethod {
+            method: trajectories::traits::InterpolationMethod::HermiteQuintic,
+        }
+    }
+
+    /// Create a Lagrange polynomial interpolation method.
+    ///
+    /// Lagrange interpolation requires `degree + 1` data points. Higher degrees provide
+    /// more accuracy but can oscillate (Runge's phenomenon) for poorly distributed points.
+    ///
+    /// Args:
+    ///     degree (int): Polynomial degree for Lagrange interpolation (must be >= 1)
+    ///
+    /// Returns:
+    ///     InterpolationMethod: Lagrange interpolation method with specified degree
+    ///
+    /// Raises:
+    ///     ValueError: If degree is less than 1
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     method = bh.InterpolationMethod.lagrange(3)  # Cubic Lagrange
+    ///     ```
+    #[staticmethod]
+    #[pyo3(name = "lagrange")]
+    fn lagrange(degree: usize) -> PyResult<Self> {
+        if degree < 1 {
+            return Err(exceptions::PyValueError::new_err("degree must be >= 1"));
+        }
+        Ok(PyInterpolationMethod {
+            method: trajectories::traits::InterpolationMethod::Lagrange { degree },
+        })
+    }
+
+    /// Get the polynomial degree for Lagrange interpolation.
+    ///
+    /// Returns:
+    ///     int | None: The degree if this is a Lagrange method, None otherwise
+    #[getter]
+    fn degree(&self) -> Option<usize> {
+        match self.method {
+            trajectories::traits::InterpolationMethod::Lagrange { degree } => Some(degree),
+            _ => None,
+        }
+    }
+
+    /// Get the minimum number of data points required for this interpolation method.
+    ///
+    /// Returns:
+    ///     int: Minimum number of points required
+    #[getter]
+    fn min_points_required(&self) -> usize {
+        self.method.min_points_required()
     }
 
     fn __str__(&self) -> String {
-        format!("{:?}", self.method)
+        match self.method {
+            trajectories::traits::InterpolationMethod::Linear => "Linear".to_string(),
+            trajectories::traits::InterpolationMethod::Lagrange { degree } => {
+                format!("Lagrange(degree={})", degree)
+            }
+            trajectories::traits::InterpolationMethod::HermiteCubic => "HermiteCubic".to_string(),
+            trajectories::traits::InterpolationMethod::HermiteQuintic => {
+                "HermiteQuintic".to_string()
+            }
+        }
     }
 
     fn __repr__(&self) -> String {
-        format!("InterpolationMethod.{:?}", self.method)
+        match self.method {
+            trajectories::traits::InterpolationMethod::Linear => {
+                "InterpolationMethod.LINEAR".to_string()
+            }
+            trajectories::traits::InterpolationMethod::Lagrange { degree } => {
+                format!("InterpolationMethod.lagrange({})", degree)
+            }
+            trajectories::traits::InterpolationMethod::HermiteCubic => {
+                "InterpolationMethod.HERMITE_CUBIC".to_string()
+            }
+            trajectories::traits::InterpolationMethod::HermiteQuintic => {
+                "InterpolationMethod.HERMITE_QUINTIC".to_string()
+            }
+        }
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         match op {
             CompareOp::Eq => Ok(self.method == other.method),
             CompareOp::Ne => Ok(self.method != other.method),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
         }
     }
 }
@@ -2232,6 +2340,191 @@ impl PyOrbitalTrajectory {
             .flat_map(|i| (0..6).map(move |j| cov_ref[(i, j)]))
             .collect();
         Ok(flat_vec.into_pyarray(py).reshape([6, 6]).unwrap().to_owned())
+    }
+
+    // ========================
+    // Acceleration Storage Methods
+    // ========================
+
+    /// Enable storage of acceleration data for this trajectory.
+    ///
+    /// When enabled, accelerations can be stored alongside state data. This is useful
+    /// for HermiteQuintic interpolation which uses acceleration information for
+    /// smoother C2-continuous interpolation.
+    ///
+    /// Args:
+    ///     dimension (int): Dimension of acceleration vectors (typically 3 for 3D acceleration)
+    ///
+    /// Returns:
+    ///     OrbitTrajectory: Self with acceleration storage enabled
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj.enable_acceleration_storage(3)  # Enable 3D acceleration storage
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     acc = np.array([-9.0, 0.0, 0.0])  # Gravity acceleration
+    ///     traj.add_with_acceleration(epoch, state, acc)
+    ///     ```
+    fn enable_acceleration_storage(mut slf: PyRefMut<'_, Self>, dimension: usize) -> PyRefMut<'_, Self> {
+        slf.trajectory.enable_acceleration_storage(dimension);
+        slf
+    }
+
+    /// Check if this trajectory has acceleration storage enabled.
+    ///
+    /// Returns:
+    ///     bool: True if acceleration storage is enabled, False otherwise
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     print(traj.has_accelerations())  # False
+    ///
+    ///     traj.enable_acceleration_storage(3)
+    ///     print(traj.has_accelerations())  # True
+    ///     ```
+    fn has_accelerations(&self) -> bool {
+        self.trajectory.has_accelerations()
+    }
+
+    /// Get the acceleration vector at a specific index.
+    ///
+    /// Args:
+    ///     index (int): Index of the state point
+    ///
+    /// Returns:
+    ///     numpy.ndarray | None: Acceleration vector if stored, None if acceleration
+    ///         storage is not enabled
+    ///
+    /// Raises:
+    ///     IndexError: If index is out of bounds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj.enable_acceleration_storage(3)
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     acc = np.array([-9.0, 0.1, -0.05])
+    ///     traj.add_with_acceleration(epoch, state, acc)
+    ///
+    ///     retrieved_acc = traj.acceleration_at_idx(0)
+    ///     print(retrieved_acc)  # [-9.0, 0.1, -0.05]
+    ///     ```
+    fn acceleration_at_idx<'py>(&self, py: Python<'py>, index: usize) -> PyResult<Option<Bound<'py, PyArray<f64, Ix1>>>> {
+        if index >= self.trajectory.len() {
+            return Err(exceptions::PyIndexError::new_err(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.trajectory.len()
+            )));
+        }
+        match self.trajectory.acceleration_at_idx(index) {
+            Some(acc) => Ok(Some(acc.as_slice().to_pyarray(py).to_owned())),
+            None => Ok(None),
+        }
+    }
+
+    /// Set the acceleration vector at a specific index.
+    ///
+    /// Args:
+    ///     index (int): Index of the state point
+    ///     acceleration (numpy.ndarray): Acceleration vector to set
+    ///
+    /// Raises:
+    ///     IndexError: If index is out of bounds
+    ///     ValueError: If acceleration storage is not enabled or dimension mismatch
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj.enable_acceleration_storage(3)
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     traj.add(epoch, state)  # Add state without acceleration
+    ///
+    ///     # Set acceleration later
+    ///     acc = np.array([-9.0, 0.1, -0.05])
+    ///     traj.set_acceleration_at(0, acc)
+    ///     ```
+    fn set_acceleration_at(&mut self, index: usize, acceleration: PyReadonlyArray1<f64>) -> PyResult<()> {
+        if index >= self.trajectory.len() {
+            return Err(exceptions::PyIndexError::new_err(format!(
+                "Index {} out of bounds for trajectory with {} states",
+                index,
+                self.trajectory.len()
+            )));
+        }
+        if !self.trajectory.has_accelerations() {
+            return Err(exceptions::PyValueError::new_err(
+                "Acceleration storage is not enabled. Call enable_acceleration_storage() first."
+            ));
+        }
+        let acc = DVector::from_vec(acceleration.as_slice()?.to_vec());
+        self.trajectory.set_acceleration_at(index, acc);
+        Ok(())
+    }
+
+    /// Add a state with its corresponding acceleration to the trajectory.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch for the state
+    ///     state (numpy.ndarray): State vector
+    ///     acceleration (numpy.ndarray): Acceleration vector
+    ///
+    /// Raises:
+    ///     ValueError: If acceleration storage is not enabled or dimension mismatch
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     traj = bh.OrbitTrajectory(6, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj.enable_acceleration_storage(3)
+    ///     traj.set_interpolation_method(bh.InterpolationMethod.HERMITE_QUINTIC)
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    ///     acc = np.array([-9.0, 0.0, 0.0])  # Gravity acceleration
+    ///
+    ///     traj.add_with_acceleration(epoch, state, acc)
+    ///     traj.add_with_acceleration(epoch + 60.0, state, acc)
+    ///
+    ///     # Now HermiteQuintic interpolation will use stored accelerations
+    ///     mid_state = traj.interpolate(epoch + 30.0)
+    ///     ```
+    fn add_with_acceleration(
+        &mut self,
+        epoch: PyRef<PyEpoch>,
+        state: PyReadonlyArray1<f64>,
+        acceleration: PyReadonlyArray1<f64>,
+    ) -> PyResult<()> {
+        if !self.trajectory.has_accelerations() {
+            return Err(exceptions::PyValueError::new_err(
+                "Acceleration storage is not enabled. Call enable_acceleration_storage() first."
+            ));
+        }
+        let state_vec = DVector::from_vec(state.as_slice()?.to_vec());
+        let acc_vec = DVector::from_vec(acceleration.as_slice()?.to_vec());
+        self.trajectory.add_with_acceleration(epoch.obj, state_vec, acc_vec);
+        Ok(())
     }
 }
 

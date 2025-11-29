@@ -212,7 +212,6 @@ pub struct DNumericalPropagator {
     interpolation_method: InterpolationMethod,
     /// Covariance interpolation method
     covariance_interpolation_method: CovarianceInterpolationMethod,
-
     // ===== Event Detection =====
     /// Event detectors for monitoring propagation
     event_detectors: Vec<Box<dyn DEventDetector>>,
@@ -355,6 +354,9 @@ impl DNumericalPropagator {
         // Create trajectory storage (internally always ECI Cartesian)
         let mut trajectory = DTrajectory::new(state_dim);
 
+        // Set interpolation method from config
+        trajectory.set_interpolation_method(propagation_config.interpolation_method);
+
         // Enable STM/sensitivity storage in trajectory if configured
         if propagation_config.variational.store_stm_history {
             trajectory.enable_stm_storage();
@@ -362,6 +364,9 @@ impl DNumericalPropagator {
         if propagation_config.variational.store_sensitivity_history && !params.is_empty() {
             trajectory.enable_sensitivity_storage(params.len());
         }
+
+        // Note: DNumericalPropagator does not support acceleration storage
+        // (generic systems don't have a defined "acceleration" portion of the derivative)
 
         // Store initial state in trajectory with identity STM and zero sensitivity if needed
         let initial_stm = if propagation_config.variational.store_stm_history {
@@ -427,7 +432,7 @@ impl DNumericalPropagator {
             current_covariance,
             trajectory,
             trajectory_mode: TrajectoryMode::AllSteps,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: propagation_config.interpolation_method,
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
             event_detectors: Vec::new(),
             event_log: Vec::new(),
@@ -1956,6 +1961,9 @@ mod tests {
         let mut prop = create_test_sho_propagator();
         let initial_epoch = prop.initial_epoch();
 
+        // Use linear interpolation for 2D SHO (Hermite requires 6D orbital states)
+        prop.set_interpolation_method(InterpolationMethod::Linear);
+
         // Propagate to build trajectory
         prop.propagate_to(initial_epoch + 10.0);
 
@@ -1987,6 +1995,8 @@ mod tests {
     #[test]
     fn test_dstateprovider_state_dimension_preservation() {
         let mut prop = create_test_sho_propagator();
+        // Use linear interpolation for 2D SHO (Hermite requires 6D orbital states)
+        prop.set_interpolation_method(InterpolationMethod::Linear);
         prop.propagate_to(prop.initial_epoch() + 5.0);
 
         let mid_epoch = prop.initial_epoch() + 2.5;
@@ -2458,8 +2468,11 @@ mod tests {
 
         let mut prop = create_test_sho_propagator();
 
-        // Default should be Linear
-        assert_eq!(prop.get_interpolation_method(), InterpolationMethod::Linear);
+        // Default should be HermiteCubic
+        assert_eq!(
+            prop.get_interpolation_method(),
+            InterpolationMethod::HermiteCubic
+        );
 
         // Set to Linear explicitly
         prop.set_interpolation_method(InterpolationMethod::Linear);

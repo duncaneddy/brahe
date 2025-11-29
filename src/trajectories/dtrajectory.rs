@@ -34,7 +34,7 @@ use std::collections::HashMap;
 
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_dmatrix,
-    interpolate_covariance_two_wasserstein_dmatrix,
+    interpolate_covariance_two_wasserstein_dmatrix, interpolate_lagrange_dvector,
 };
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -1236,8 +1236,124 @@ impl SensitivityStorage for DTrajectory {
     // sensitivity_at() uses default trait implementation
 }
 
-// InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
-impl InterpolatableTrajectory for DTrajectory {}
+impl InterpolatableTrajectory for DTrajectory {
+    /// Interpolate state at a given epoch using the configured interpolation method.
+    ///
+    /// Overrides the default trait implementation to provide proper support for
+    /// Lagrange interpolation. Hermite methods are not supported for generic DTrajectory
+    /// as they require 6D orbital states with position/velocity structure.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch for interpolation
+    ///
+    /// # Returns
+    /// * `Ok(state)` - Interpolated state vector
+    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
+    ///
+    /// # Panics
+    /// - HermiteCubic/HermiteQuintic panic as they require 6D orbital states
+    fn interpolate(&self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
+        // Bounds checking
+        if let Some(start) = self.start_epoch()
+            && *epoch < start
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is before trajectory start {}",
+                epoch, start
+            )));
+        }
+
+        if let Some(end) = self.end_epoch()
+            && *epoch > end
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is after trajectory end {}",
+                epoch, end
+            )));
+        }
+
+        // Get indices before and after the target epoch
+        let idx1 = self.index_before_epoch(epoch)?;
+        let idx2 = self.index_after_epoch(epoch)?;
+
+        // If indices are the same, we have an exact match
+        if idx1 == idx2 {
+            return self.state_at_idx(idx1);
+        }
+
+        // Validate minimum point count
+        let method = self.get_interpolation_method();
+        let required = method.min_points_required();
+        if self.len() < required {
+            return Err(BraheError::Error(format!(
+                "{:?} requires {} points, trajectory has {}",
+                method,
+                required,
+                self.len()
+            )));
+        }
+
+        // Get reference epoch for time calculations
+        let ref_epoch = self.start_epoch().unwrap();
+
+        match method {
+            InterpolationMethod::Linear => self.interpolate_linear(epoch),
+
+            InterpolationMethod::Lagrange { degree } => {
+                // Collect degree+1 points centered around query epoch
+                let n_points = degree + 1;
+                let (start_idx, end_idx) =
+                    compute_lagrange_window(self.len(), idx1, idx2, n_points)?;
+
+                // Build time and value arrays
+                let times: Vec<f64> = (start_idx..=end_idx)
+                    .map(|i| self.epochs[i] - ref_epoch)
+                    .collect();
+                let values: Vec<DVector<f64>> = (start_idx..=end_idx)
+                    .map(|i| self.states[i].clone())
+                    .collect();
+
+                let t = *epoch - ref_epoch;
+                Ok(interpolate_lagrange_dvector(&times, &values, t))
+            }
+
+            InterpolationMethod::HermiteCubic | InterpolationMethod::HermiteQuintic => {
+                panic!(
+                    "Hermite interpolation methods require 6D orbital states with \
+                     position/velocity structure. Use DOrbitTrajectory for orbital state \
+                     interpolation with Hermite methods."
+                );
+            }
+        }
+    }
+}
+
+/// Helper function to compute the window of indices for Lagrange interpolation.
+fn compute_lagrange_window(
+    len: usize,
+    idx1: usize,
+    idx2: usize,
+    n_points: usize,
+) -> Result<(usize, usize), BraheError> {
+    if len < n_points {
+        return Err(BraheError::Error(format!(
+            "Need {} points for interpolation, trajectory has {}",
+            n_points, len
+        )));
+    }
+
+    let center = (idx1 + idx2) / 2;
+    let half_window = n_points / 2;
+    let mut start_idx = center.saturating_sub(half_window);
+    let mut end_idx = start_idx + n_points - 1;
+
+    if end_idx >= len {
+        end_idx = len - 1;
+        start_idx = end_idx.saturating_sub(n_points - 1);
+    }
+
+    Ok((start_idx, end_idx))
+}
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]

@@ -7,6 +7,7 @@ These tests mirror the Rust tests from src/propagators/numerical_propagation_con
 from brahe import (
     IntegrationMethod,
     IntegratorConfig,
+    InterpolationMethod,
     NumericalPropagationConfig,
     VariationalConfig,
 )
@@ -93,3 +94,83 @@ def test_numericalpropagationconfig_new_with_variational():
     assert config.variational.enable_stm is True
     assert config.variational.store_stm_history is True
     assert config.variational.enable_sensitivity is False
+
+
+# =============================================================================
+# Acceleration Storage and Interpolation Method Tests
+# =============================================================================
+
+
+def test_numericalpropagationconfig_default_accelerations():
+    """Test NumericalPropagationConfig default acceleration settings"""
+    config = NumericalPropagationConfig.default()
+    # store_accelerations defaults to True
+    assert config.store_accelerations is True
+    # interpolation_method defaults to HermiteCubic
+    assert config.interpolation_method == InterpolationMethod.HERMITE_CUBIC
+
+
+def test_numericalpropagationconfig_with_store_accelerations():
+    """Test NumericalPropagationConfig.with_store_accelerations()"""
+    config = NumericalPropagationConfig.default().with_store_accelerations(False)
+    assert config.store_accelerations is False
+
+    config2 = NumericalPropagationConfig.default().with_store_accelerations(True)
+    assert config2.store_accelerations is True
+
+
+def test_numericalpropagationconfig_with_interpolation_method():
+    """Test NumericalPropagationConfig.with_interpolation_method()"""
+    # Lagrange is a method that takes degree
+    lagrange_8 = InterpolationMethod.lagrange(8)
+    config = NumericalPropagationConfig.default().with_interpolation_method(lagrange_8)
+    assert config.interpolation_method.degree == 8
+
+    config2 = NumericalPropagationConfig.default().with_interpolation_method(
+        InterpolationMethod.HERMITE_CUBIC
+    )
+    assert config2.interpolation_method == InterpolationMethod.HERMITE_CUBIC
+
+    config3 = NumericalPropagationConfig.default().with_interpolation_method(
+        InterpolationMethod.HERMITE_QUINTIC
+    )
+    assert config3.interpolation_method == InterpolationMethod.HERMITE_QUINTIC
+
+
+def test_numericalpropagationconfig_high_precision_new_fields():
+    """Test high_precision() sets correct acceleration and interpolation defaults"""
+    config = NumericalPropagationConfig.high_precision()
+    # high_precision should also have store_accelerations=True and interpolation=HermiteCubic
+    assert config.store_accelerations is True
+    assert config.interpolation_method == InterpolationMethod.HERMITE_CUBIC
+
+
+def test_numericalpropagationconfig_builder_chaining():
+    """Test builder pattern chaining with new methods"""
+    config = (
+        NumericalPropagationConfig.default()
+        .with_store_accelerations(True)
+        .with_interpolation_method(InterpolationMethod.HERMITE_CUBIC)
+    )
+
+    assert config.store_accelerations is True
+    assert config.interpolation_method == InterpolationMethod.HERMITE_CUBIC
+
+
+def test_numericalpropagationconfig_store_accelerations_setter():
+    """Test store_accelerations property setter"""
+    config = NumericalPropagationConfig.default()
+    config.store_accelerations = False
+    assert config.store_accelerations is False
+    config.store_accelerations = True
+    assert config.store_accelerations is True
+
+
+def test_numericalpropagationconfig_interpolation_method_setter():
+    """Test interpolation_method property setter"""
+    config = NumericalPropagationConfig.default()
+    lagrange_8 = InterpolationMethod.lagrange(8)
+    config.interpolation_method = lagrange_8
+    assert config.interpolation_method.degree == 8
+    config.interpolation_method = InterpolationMethod.LINEAR
+    assert config.interpolation_method == InterpolationMethod.LINEAR

@@ -94,7 +94,9 @@ use crate::frames::{
 };
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_dmatrix,
-    interpolate_covariance_two_wasserstein_dmatrix,
+    interpolate_covariance_two_wasserstein_dmatrix, interpolate_hermite_cubic_dvector6,
+    interpolate_hermite_quintic_dvector6, interpolate_hermite_quintic_fd_dvector6,
+    interpolate_lagrange_dvector,
 };
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
@@ -232,6 +234,16 @@ pub struct DOrbitTrajectory {
     /// Can store any JSON-serializable data including strings, numbers, booleans,
     /// arrays, and nested objects. For orbital trajectories, use ORBITAL_*_KEY constants.
     pub metadata: HashMap<String, Value>,
+
+    /// Optional acceleration vectors corresponding to each state.
+    /// If present, must have the same length as `states`.
+    /// Used for quintic Hermite interpolation. Accelerations are dynamic vectors
+    /// with dimension specified by `acceleration_dimension`.
+    pub accelerations: Option<Vec<DVector<f64>>>,
+
+    /// Dimension of acceleration vectors.
+    /// Set when acceleration storage is enabled.
+    acceleration_dimension: Option<usize>,
 }
 
 impl fmt::Display for DOrbitTrajectory {
@@ -334,6 +346,8 @@ impl DOrbitTrajectory {
             id: None,
             uuid: None,
             metadata: HashMap::new(),
+            accelerations: None,
+            acceleration_dimension: None,
         }
     }
 
@@ -644,15 +658,16 @@ impl DOrbitTrajectory {
     /// Add a complete state record with all optional data
     ///
     /// This is the most flexible method, allowing any combination of
-    /// covariance, STM, and sensitivity to be provided or omitted.
+    /// covariance, STM, sensitivity, and acceleration to be provided or omitted.
     /// Automatically enables storage for any provided data.
     ///
     /// # Arguments
     /// * `epoch` - Time epoch
-    /// * `state` - State vector (must be 6 elements)
+    /// * `state` - State vector (must match trajectory dimension)
     /// * `covariance` - Optional covariance matrix (6x6)
     /// * `stm` - Optional state transition matrix (6x6)
     /// * `sensitivity` - Optional sensitivity matrix (6 x param_dim)
+    /// * `acceleration` - Optional acceleration vector (must match acceleration_dimension if set)
     ///
     /// # Panics
     /// Panics if dimensions don't match
@@ -663,6 +678,7 @@ impl DOrbitTrajectory {
         covariance: Option<DMatrix<f64>>,
         stm: Option<DMatrix<f64>>,
         sensitivity: Option<DMatrix<f64>>,
+        acceleration: Option<DVector<f64>>,
     ) {
         // Validate state dimension
         if state.len() != self.dimension {
@@ -706,6 +722,23 @@ impl DOrbitTrajectory {
             }
         }
 
+        if let Some(ref acc) = acceleration {
+            if let Some(acc_dim) = self.acceleration_dimension
+                && acc.len() != acc_dim
+            {
+                panic!(
+                    "Acceleration dimension {} does not match trajectory acceleration dimension {}",
+                    acc.len(),
+                    acc_dim
+                );
+            }
+            if self.accelerations.is_none() {
+                let acc_dim = acc.len();
+                self.acceleration_dimension = Some(acc_dim);
+                self.accelerations = Some(vec![DVector::zeros(acc_dim); self.states.len()]);
+            }
+        }
+
         // Find insert position
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
@@ -734,6 +767,12 @@ impl DOrbitTrajectory {
             let (_, param_dim) = self.sensitivity_dimension.unwrap();
             let sens_val = sensitivity.unwrap_or_else(|| DMatrix::zeros(6, param_dim));
             sens.insert(insert_idx, sens_val);
+        }
+
+        if let Some(ref mut accs) = self.accelerations {
+            let acc_dim = self.acceleration_dimension.unwrap();
+            let acc_val = acceleration.unwrap_or_else(|| DVector::zeros(acc_dim));
+            accs.insert(insert_idx, acc_val);
         }
 
         self.apply_eviction_policy();
@@ -786,6 +825,9 @@ impl DOrbitTrajectory {
                     if let Some(ref mut sens) = self.sensitivities {
                         sens.drain(0..to_remove);
                     }
+                    if let Some(ref mut accs) = self.accelerations {
+                        accs.drain(0..to_remove);
+                    }
                 }
             }
             TrajectoryEvictionPolicy::KeepWithinDuration => {
@@ -817,15 +859,112 @@ impl DOrbitTrajectory {
                         .sensitivities
                         .as_ref()
                         .map(|sens| indices_to_keep.iter().map(|&i| sens[i].clone()).collect());
+                    let new_accelerations = self
+                        .accelerations
+                        .as_ref()
+                        .map(|accs| indices_to_keep.iter().map(|&i| accs[i].clone()).collect());
 
                     self.epochs = new_epochs;
                     self.states = new_states;
                     self.covariances = new_covariances;
                     self.stms = new_stms;
                     self.sensitivities = new_sensitivities;
+                    self.accelerations = new_accelerations;
                 }
             }
         }
+    }
+
+    // ==================== Acceleration Helper Methods ====================
+
+    /// Enables acceleration storage with the specified dimension.
+    ///
+    /// If acceleration storage is not yet enabled, this initializes the storage
+    /// with zero vectors for all existing states. If already enabled, validates
+    /// the dimension matches.
+    ///
+    /// # Arguments
+    /// * `dimension` - Dimension of acceleration vectors (typically 3 for [ax, ay, az])
+    ///
+    /// # Panics
+    /// Panics if already enabled with a different dimension.
+    pub fn enable_acceleration_storage(&mut self, dimension: usize) {
+        if let Some(existing_dim) = self.acceleration_dimension {
+            if existing_dim != dimension {
+                panic!(
+                    "Cannot change acceleration dimension from {} to {}",
+                    existing_dim, dimension
+                );
+            }
+            return;
+        }
+        self.acceleration_dimension = Some(dimension);
+        self.accelerations = Some(vec![DVector::zeros(dimension); self.states.len()]);
+    }
+
+    /// Returns whether acceleration storage is enabled.
+    pub fn has_accelerations(&self) -> bool {
+        self.accelerations.is_some()
+    }
+
+    /// Returns the dimension of acceleration vectors if storage is enabled.
+    pub fn acceleration_dim(&self) -> Option<usize> {
+        self.acceleration_dimension
+    }
+
+    /// Returns a reference to the acceleration at the given index.
+    ///
+    /// # Arguments
+    /// * `index` - Index into the trajectory
+    ///
+    /// # Returns
+    /// Reference to the acceleration vector, or None if not stored
+    pub fn acceleration_at_idx(&self, index: usize) -> Option<&DVector<f64>> {
+        self.accelerations.as_ref()?.get(index)
+    }
+
+    /// Sets the acceleration at the given index.
+    ///
+    /// # Arguments
+    /// * `index` - Index into the trajectory
+    /// * `acceleration` - The acceleration vector to set
+    ///
+    /// # Panics
+    /// * If acceleration storage is not enabled
+    /// * If index is out of bounds
+    /// * If acceleration dimension doesn't match
+    pub fn set_acceleration_at(&mut self, index: usize, acceleration: DVector<f64>) {
+        let accs = self
+            .accelerations
+            .as_mut()
+            .expect("Acceleration storage not enabled");
+        let acc_dim = self.acceleration_dimension.unwrap();
+        if acceleration.len() != acc_dim {
+            panic!(
+                "Acceleration dimension {} does not match trajectory acceleration dimension {}",
+                acceleration.len(),
+                acc_dim
+            );
+        }
+        accs[index] = acceleration;
+    }
+
+    /// Adds a state with acceleration to the trajectory.
+    ///
+    /// If acceleration storage is not yet enabled, enables it with the dimension
+    /// of the provided acceleration vector.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch
+    /// * `state` - State vector
+    /// * `acceleration` - Acceleration vector
+    pub fn add_with_acceleration(
+        &mut self,
+        epoch: Epoch,
+        state: DVector<f64>,
+        acceleration: DVector<f64>,
+    ) {
+        self.add_full(epoch, state, None, None, None, Some(acceleration));
     }
 }
 
@@ -963,6 +1102,8 @@ impl Trajectory for DOrbitTrajectory {
             id: None,
             uuid: None,
             metadata: HashMap::new(),
+            accelerations: None,
+            acceleration_dimension: None,
         })
     }
 
@@ -991,6 +1132,28 @@ impl Trajectory for DOrbitTrajectory {
         // Insert at the correct position
         self.epochs.insert(insert_idx, epoch);
         self.states.insert(insert_idx, state);
+
+        // Insert placeholder covariance if storage is enabled
+        if let Some(ref mut covs) = self.covariances {
+            covs.insert(insert_idx, DMatrix::zeros(6, 6));
+        }
+
+        // Insert placeholder STM if storage is enabled
+        if let Some(ref mut stms) = self.stms {
+            stms.insert(insert_idx, DMatrix::identity(6, 6));
+        }
+
+        // Insert placeholder sensitivity if storage is enabled
+        if let Some(ref mut sens) = self.sensitivities {
+            let (_, param_dim) = self.sensitivity_dimension.unwrap();
+            sens.insert(insert_idx, DMatrix::zeros(6, param_dim));
+        }
+
+        // Insert placeholder acceleration if storage is enabled
+        if let Some(ref mut accs) = self.accelerations {
+            let acc_dim = self.acceleration_dimension.unwrap();
+            accs.insert(insert_idx, DVector::zeros(acc_dim));
+        }
 
         // Apply eviction policy after adding state
         self.apply_eviction_policy();
@@ -1090,6 +1253,18 @@ impl Trajectory for DOrbitTrajectory {
     fn clear(&mut self) {
         self.epochs.clear();
         self.states.clear();
+        if let Some(ref mut covs) = self.covariances {
+            covs.clear();
+        }
+        if let Some(ref mut stms) = self.stms {
+            stms.clear();
+        }
+        if let Some(ref mut sens) = self.sensitivities {
+            sens.clear();
+        }
+        if let Some(ref mut accs) = self.accelerations {
+            accs.clear();
+        }
     }
 
     fn remove_epoch(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError> {
@@ -1097,6 +1272,18 @@ impl Trajectory for DOrbitTrajectory {
         if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
             let removed_state = self.states.remove(index);
             self.epochs.remove(index);
+            if let Some(ref mut covs) = self.covariances {
+                covs.remove(index);
+            }
+            if let Some(ref mut stms) = self.stms {
+                stms.remove(index);
+            }
+            if let Some(ref mut sens) = self.sensitivities {
+                sens.remove(index);
+            }
+            if let Some(ref mut accs) = self.accelerations {
+                accs.remove(index);
+            }
             Ok(removed_state)
         } else {
             Err(BraheError::Error(
@@ -1116,6 +1303,18 @@ impl Trajectory for DOrbitTrajectory {
 
         let removed_epoch = self.epochs.remove(index);
         let removed_state = self.states.remove(index);
+        if let Some(ref mut covs) = self.covariances {
+            covs.remove(index);
+        }
+        if let Some(ref mut stms) = self.stms {
+            stms.remove(index);
+        }
+        if let Some(ref mut sens) = self.sensitivities {
+            sens.remove(index);
+        }
+        if let Some(ref mut accs) = self.accelerations {
+            accs.remove(index);
+        }
         Ok((removed_epoch, removed_state))
     }
 
@@ -1228,8 +1427,211 @@ impl InterpolationConfig for DOrbitTrajectory {
     }
 }
 
-// InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
-impl InterpolatableTrajectory for DOrbitTrajectory {}
+impl InterpolatableTrajectory for DOrbitTrajectory {
+    /// Interpolate state at a given epoch using the configured interpolation method.
+    ///
+    /// Overrides the default trait implementation to provide proper support for
+    /// Lagrange and Hermite interpolation methods.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch for interpolation
+    ///
+    /// # Returns
+    /// * `Ok(state)` - Interpolated state vector
+    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
+    ///
+    /// # Panics
+    /// - HermiteCubic/HermiteQuintic panic if state dimension is not 6
+    /// - HermiteQuintic panics if no accelerations stored AND fewer than 3 points
+    fn interpolate(&self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
+        // Bounds checking
+        if let Some(start) = self.start_epoch()
+            && *epoch < start
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is before trajectory start {}",
+                epoch, start
+            )));
+        }
+
+        if let Some(end) = self.end_epoch()
+            && *epoch > end
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is after trajectory end {}",
+                epoch, end
+            )));
+        }
+
+        // Get indices before and after the target epoch
+        let idx1 = self.index_before_epoch(epoch)?;
+        let idx2 = self.index_after_epoch(epoch)?;
+
+        // If indices are the same, we have an exact match
+        if idx1 == idx2 {
+            return self.state_at_idx(idx1);
+        }
+
+        // Validate minimum point count
+        let method = self.get_interpolation_method();
+        let required = method.min_points_required();
+        if self.len() < required {
+            return Err(BraheError::Error(format!(
+                "{:?} requires {} points, trajectory has {}",
+                method,
+                required,
+                self.len()
+            )));
+        }
+
+        // Get reference epoch for time calculations
+        let ref_epoch = self.start_epoch().unwrap();
+
+        match method {
+            InterpolationMethod::Linear => self.interpolate_linear(epoch),
+
+            InterpolationMethod::Lagrange { degree } => {
+                // Collect degree+1 points centered around query epoch
+                let n_points = degree + 1;
+                let (start_idx, end_idx) =
+                    self.compute_interpolation_window(idx1, idx2, n_points)?;
+
+                // Build time and value arrays
+                let times: Vec<f64> = (start_idx..=end_idx)
+                    .map(|i| self.epochs[i] - ref_epoch)
+                    .collect();
+                let values: Vec<DVector<f64>> = (start_idx..=end_idx)
+                    .map(|i| self.states[i].clone())
+                    .collect();
+
+                let t = *epoch - ref_epoch;
+                Ok(interpolate_lagrange_dvector(&times, &values, t))
+            }
+
+            InterpolationMethod::HermiteCubic => {
+                // Validate 6D state
+                if self.dimension != 6 {
+                    panic!(
+                        "HermiteCubic interpolation requires 6D states, trajectory has {}D",
+                        self.dimension
+                    );
+                }
+
+                // Get bracketing states
+                let t0 = self.epochs[idx1] - ref_epoch;
+                let t1 = self.epochs[idx2] - ref_epoch;
+                let t = *epoch - ref_epoch;
+
+                Ok(interpolate_hermite_cubic_dvector6(
+                    t0,
+                    t1,
+                    &self.states[idx1],
+                    &self.states[idx2],
+                    t,
+                ))
+            }
+
+            InterpolationMethod::HermiteQuintic => {
+                // Validate 6D state
+                if self.dimension != 6 {
+                    panic!(
+                        "HermiteQuintic interpolation requires 6D states, trajectory has {}D",
+                        self.dimension
+                    );
+                }
+
+                // Check if we have stored accelerations
+                if let Some(ref accs) = self.accelerations {
+                    // Use explicit accelerations
+                    let t0 = self.epochs[idx1] - ref_epoch;
+                    let t1 = self.epochs[idx2] - ref_epoch;
+                    let t = *epoch - ref_epoch;
+
+                    Ok(interpolate_hermite_quintic_dvector6(
+                        t0,
+                        t1,
+                        &self.states[idx1],
+                        &self.states[idx2],
+                        &accs[idx1],
+                        &accs[idx2],
+                        t,
+                    ))
+                } else if self.len() >= 3 {
+                    // Use finite difference approximation
+                    let (i0, i1, i2) = self.compute_fd_window(idx1, idx2)?;
+
+                    let times = [
+                        self.epochs[i0] - ref_epoch,
+                        self.epochs[i1] - ref_epoch,
+                        self.epochs[i2] - ref_epoch,
+                    ];
+                    let states = [
+                        self.states[i0].clone(),
+                        self.states[i1].clone(),
+                        self.states[i2].clone(),
+                    ];
+                    let t = *epoch - ref_epoch;
+
+                    Ok(interpolate_hermite_quintic_fd_dvector6(&times, &states, t))
+                } else {
+                    panic!(
+                        "HermiteQuintic interpolation requires either stored accelerations \
+                         or at least 3 trajectory points. This trajectory has {} points \
+                         and no stored accelerations.",
+                        self.len()
+                    );
+                }
+            }
+        }
+    }
+}
+
+impl DOrbitTrajectory {
+    /// Compute the window of indices to use for Lagrange interpolation.
+    fn compute_interpolation_window(
+        &self,
+        idx1: usize,
+        idx2: usize,
+        n_points: usize,
+    ) -> Result<(usize, usize), BraheError> {
+        if self.len() < n_points {
+            return Err(BraheError::Error(format!(
+                "Need {} points for interpolation, trajectory has {}",
+                n_points,
+                self.len()
+            )));
+        }
+
+        let center = (idx1 + idx2) / 2;
+        let half_window = n_points / 2;
+        let mut start_idx = center.saturating_sub(half_window);
+        let mut end_idx = start_idx + n_points - 1;
+
+        if end_idx >= self.len() {
+            end_idx = self.len() - 1;
+            start_idx = end_idx.saturating_sub(n_points - 1);
+        }
+
+        Ok((start_idx, end_idx))
+    }
+
+    /// Compute the 3-point window for finite difference acceleration estimation.
+    fn compute_fd_window(
+        &self,
+        idx1: usize,
+        idx2: usize,
+    ) -> Result<(usize, usize, usize), BraheError> {
+        if idx1 > 0 {
+            Ok((idx1 - 1, idx1, idx2))
+        } else if idx2 + 1 < self.len() {
+            Ok((idx1, idx2, idx2 + 1))
+        } else {
+            Err(BraheError::Error(
+                "Cannot compute finite difference window with available points".to_string(),
+            ))
+        }
+    }
+}
 
 impl STMStorage for DOrbitTrajectory {
     fn enable_stm_storage(&mut self) {
@@ -1474,6 +1876,8 @@ impl DOrbitTrajectory {
             id: None,
             uuid: None,
             metadata: HashMap::new(),
+            accelerations: None,
+            acceleration_dimension: None,
         }
     }
 
@@ -1558,6 +1962,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -1642,6 +2048,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -1728,6 +2136,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -1814,6 +2224,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -1900,6 +2312,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -2022,6 +2436,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during representation conversions
+            acceleration_dimension: None,
         }
     }
 }

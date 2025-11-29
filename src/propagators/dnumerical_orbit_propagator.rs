@@ -232,6 +232,11 @@ pub struct DNumericalOrbitPropagator {
     interpolation_method: InterpolationMethod,
     /// Covariance interpolation method
     covariance_interpolation_method: CovarianceInterpolationMethod,
+    /// Whether to store accelerations in trajectory
+    store_accelerations: bool,
+
+    /// Shared dynamics function (for computing accelerations when needed)
+    shared_dynamics: SharedDynamics,
 
     // ===== Event Detection =====
     /// Event detectors for monitoring propagation
@@ -283,9 +288,14 @@ impl DNumericalOrbitPropagator {
     ///
     /// ```rust
     /// use brahe::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, ForceModelConfig};
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
     /// use brahe::time::{Epoch, TimeSystem};
     /// use brahe::constants::R_EARTH;
     /// use nalgebra::DVector;
+    ///
+    /// // Initialize EOP provider (required for frame transformations)
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
     ///
     /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
     /// let state = DVector::from_vec(vec![
@@ -410,12 +420,19 @@ impl DNumericalOrbitPropagator {
             None,
         );
 
+        // Set interpolation method from config
+        trajectory.set_interpolation_method(propagation_config.interpolation_method);
+
         // Enable STM/sensitivity storage in trajectory if configured
         if propagation_config.variational.store_stm_history {
             trajectory.enable_stm_storage();
         }
         if propagation_config.variational.store_sensitivity_history && !params.is_empty() {
             trajectory.enable_sensitivity_storage(params.len());
+        }
+        // Enable acceleration storage if configured
+        if propagation_config.store_accelerations {
+            trajectory.enable_acceleration_storage(3); // 3D acceleration for orbit propagator
         }
 
         // Store initial state in trajectory with identity STM and zero sensitivity if needed
@@ -430,12 +447,24 @@ impl DNumericalOrbitPropagator {
             } else {
                 None
             };
+
+        // Compute initial acceleration if storing accelerations
+        let initial_acceleration = if propagation_config.store_accelerations {
+            // Use shared_dynamics to get the state derivative
+            // Elements [3], [4], [5] are the accelerations (derivative of velocity)
+            let dx = shared_dynamics(0.0, &state_eci, Some(&params));
+            Some(DVector::from_vec(vec![dx[3], dx[4], dx[5]]))
+        } else {
+            None
+        };
+
         trajectory.add_full(
             epoch,
             state_eci.clone(),
             initial_covariance.clone(),
             initial_stm,
             initial_sensitivity,
+            initial_acceleration,
         );
 
         // Determine propagation mode based on what's enabled
@@ -482,8 +511,10 @@ impl DNumericalOrbitPropagator {
             current_covariance,
             trajectory,
             trajectory_mode: TrajectoryMode::AllSteps,
-            interpolation_method: InterpolationMethod::Linear,
+            interpolation_method: propagation_config.interpolation_method,
             covariance_interpolation_method: CovarianceInterpolationMethod::TwoWasserstein,
+            store_accelerations: propagation_config.store_accelerations,
+            shared_dynamics,
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
@@ -491,6 +522,36 @@ impl DNumericalOrbitPropagator {
             id: None,
             uuid: None,
         })
+    }
+
+    // =========================================================================
+    // Acceleration Computation
+    // =========================================================================
+
+    /// Compute acceleration for the current state
+    ///
+    /// This uses the stored dynamics function to compute the acceleration
+    /// at the given epoch and state. Returns None if acceleration storage is disabled.
+    ///
+    /// # Arguments
+    /// * `epoch` - Epoch at which to compute acceleration
+    /// * `state` - State vector (position and velocity)
+    ///
+    /// # Returns
+    /// 3D acceleration vector if store_accelerations is true, None otherwise
+    fn compute_acceleration(&self, epoch: Epoch, state: &DVector<f64>) -> Option<DVector<f64>> {
+        if !self.store_accelerations {
+            return None;
+        }
+
+        // Convert absolute epoch to relative time for shared_dynamics
+        let t_rel = epoch - self.epoch_initial;
+
+        // Use shared_dynamics to get the state derivative
+        // Elements [3], [4], [5] are the accelerations
+        let dx = (self.shared_dynamics)(t_rel, state, Some(&self.params));
+
+        Some(DVector::from_vec(vec![dx[3], dx[4], dx[5]]))
     }
 
     // =========================================================================
@@ -622,9 +683,17 @@ impl DNumericalOrbitPropagator {
 
                 // Add pre-callback state to trajectory
                 if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
-                    self.trajectory.add(
+                    let acc = self.compute_acceleration(
+                        callback_event.window_open,
+                        &callback_event.entry_state,
+                    );
+                    self.trajectory.add_full(
                         callback_event.window_open,
                         callback_event.entry_state.clone(),
+                        None,
+                        None,
+                        None,
+                        acc,
                     );
                 }
 
@@ -640,8 +709,15 @@ impl DNumericalOrbitPropagator {
                     let y_after = if let Some(y_new) = new_state {
                         // Add post-callback state to trajectory (same time, different state)
                         if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
-                            self.trajectory
-                                .add(callback_event.window_open, y_new.clone());
+                            let acc = self.compute_acceleration(callback_event.window_open, &y_new);
+                            self.trajectory.add_full(
+                                callback_event.window_open,
+                                y_new.clone(),
+                                None,
+                                None,
+                                None,
+                                acc,
+                            );
                         }
                         y_new
                     } else {
@@ -1455,19 +1531,16 @@ impl DNumericalOrbitPropagator {
                         } else {
                             None
                         };
+                        let acc = self.compute_acceleration(epoch_new, &self.x_curr);
 
-                        // Use add_full if any optional data is present, otherwise use add
-                        if cov.is_some() || stm_to_store.is_some() || sens_to_store.is_some() {
-                            self.trajectory.add_full(
-                                epoch_new,
-                                self.x_curr.clone(),
-                                cov,
-                                stm_to_store,
-                                sens_to_store,
-                            );
-                        } else {
-                            self.trajectory.add(epoch_new, self.x_curr.clone());
-                        }
+                        self.trajectory.add_full(
+                            epoch_new,
+                            self.x_curr.clone(),
+                            cov,
+                            stm_to_store,
+                            sens_to_store,
+                            acc,
+                        );
                     }
                     break; // Exit event loop
                 }
@@ -1505,19 +1578,16 @@ impl DNumericalOrbitPropagator {
                         } else {
                             None
                         };
+                        let acc = self.compute_acceleration(term_epoch, &term_state);
 
-                        // Use add_full if any optional data is present, otherwise use add
-                        if cov.is_some() || stm_to_store.is_some() || sens_to_store.is_some() {
-                            self.trajectory.add_full(
-                                term_epoch,
-                                term_state,
-                                cov,
-                                stm_to_store,
-                                sens_to_store,
-                            );
-                        } else {
-                            self.trajectory.add(term_epoch, term_state);
-                        }
+                        self.trajectory.add_full(
+                            term_epoch,
+                            term_state,
+                            cov,
+                            stm_to_store,
+                            sens_to_store,
+                            acc,
+                        );
                     }
                     break; // Exit event loop
                 }
@@ -3370,12 +3440,12 @@ mod tests {
 
         // Verify default method
         let initial_method = prop.get_interpolation_method();
-        assert_eq!(initial_method, InterpolationMethod::Linear); // Default
+        assert_eq!(initial_method, InterpolationMethod::HermiteCubic); // Default
 
-        // Since there's only one variant, test that we can still set it
+        // Test that we can set a different method
         prop.set_interpolation_method(InterpolationMethod::Linear);
 
-        // Verify the method remains unchanged
+        // Verify the method was changed
         assert_eq!(prop.get_interpolation_method(), InterpolationMethod::Linear);
     }
 
@@ -5862,10 +5932,16 @@ mod tests {
             dx
         });
 
+        // Use Linear interpolation for extended states (Hermite requires exactly 6D)
+        let config = NumericalPropagationConfig {
+            interpolation_method: InterpolationMethod::Linear,
+            ..Default::default()
+        };
+
         let prop = DNumericalOrbitPropagator::new(
             epoch,
             extended_state.clone(),
-            NumericalPropagationConfig::default(),
+            config,
             ForceModelConfig::earth_gravity(),
             None,
             Some(additional_dynamics),
@@ -6810,8 +6886,10 @@ mod tests {
     #[test]
     fn test_dnumericalorbitpropagator_force_gravity_global_vs_modeltype() {
         use crate::orbit_dynamics::gravity::GravityModelType;
+        use crate::utils::testing::setup_global_test_gravity_model;
 
         setup_global_test_eop();
+        setup_global_test_gravity_model();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);

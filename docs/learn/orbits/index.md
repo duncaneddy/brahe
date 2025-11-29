@@ -69,6 +69,15 @@ Work with the TLE format for distributing satellite orbital information:
 - Creating TLEs from Keplerian elements
 - NORAD satellite catalog number conversions
 
+### [Walker Constellations](walker.md)
+
+Generate and analyze Walker constellation patterns:
+
+- Walker Delta and Walker Star patterns
+- T:P:F notation for constellation design
+- Generating Keplerian, SGP, and numerical propagators
+- Real-world examples (GPS, Galileo, Iridium)
+
 ---
 
 ## See Also

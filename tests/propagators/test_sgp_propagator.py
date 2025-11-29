@@ -427,13 +427,13 @@ class TestSGPPropagatorStateProviderTrait:
             assert len(state) == 6
             assert all(np.isfinite(state))
 
-    def test_sgppropagator_state_koe(self, iss_tle):
+    def test_sgppropagator_state_koe_osc(self, iss_tle):
         """Test state_koe method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
         epoch = prop.epoch
 
         # Test with radians
-        elements_rad = prop.state_koe(epoch, brahe.AngleFormat.RADIANS)
+        elements_rad = prop.state_koe_osc(epoch, brahe.AngleFormat.RADIANS)
 
         # Verify we got keplerian elements (all finite)
         assert len(elements_rad) == 6
@@ -451,7 +451,7 @@ class TestSGPPropagatorStateProviderTrait:
         assert elements_rad[2] == pytest.approx(np.radians(51.6), abs=0.1)
 
         # Test with degrees
-        elements_deg = prop.state_koe(epoch, brahe.AngleFormat.DEGREES)
+        elements_deg = prop.state_koe_osc(epoch, brahe.AngleFormat.DEGREES)
 
         # Verify degree conversion
         assert len(elements_deg) == 6
@@ -470,8 +470,8 @@ class TestSGPPropagatorStateProviderTrait:
         # Inclination should be around 51.6 degrees
         assert elements_deg[2] == pytest.approx(51.6, abs=0.1)
 
-    def test_sgppropagator_states_koe(self, iss_tle):
-        """Test states_koe method."""
+    def test_sgppropagator_states_koe_osc(self, iss_tle):
+        """Test states_koe_osc method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
         initial_epoch = prop.epoch
         epochs = [
@@ -479,7 +479,7 @@ class TestSGPPropagatorStateProviderTrait:
         ]  # Every hour for 5 hours
 
         # Test with degrees
-        elements_list = prop.states_koe(epochs, brahe.AngleFormat.DEGREES)
+        elements_list = prop.states_koe_osc(epochs, brahe.AngleFormat.DEGREES)
 
         # Verify we got the right number of element sets
         assert len(elements_list) == 5
@@ -505,7 +505,7 @@ class TestSGPPropagatorStateProviderTrait:
                 assert -360.0 <= elements[j] <= 360.0
 
         # Test with radians
-        elements_list_rad = prop.states_koe(epochs, brahe.AngleFormat.RADIANS)
+        elements_list_rad = prop.states_koe_osc(epochs, brahe.AngleFormat.RADIANS)
 
         # Verify conversion consistency
         assert len(elements_list_rad) == 5
@@ -729,6 +729,17 @@ class TestOldBraheTLEFunctions:
 
         # Should return degrees
         assert ma == pytest.approx(325.0288, abs=1e-10)
+
+    def test_sgppropagator_ephemeris_age(self, iss_tle):
+        """Test ephemeris_age property."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        age = prop.ephemeris_age
+
+        # TLE epoch is 2008-09-20, age should be positive and large
+        assert age > 0.0
+        # Should be at least 15 years worth of seconds
+        assert age > 15.0 * 365.25 * 86400.0
 
     def test_sgppropagator_states_gcrf(self, iss_tle):
         """Test SGPPropagator states_gcrf() batch method."""

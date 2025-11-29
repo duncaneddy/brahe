@@ -49,7 +49,7 @@ The `StateProvider` trait extends propagators with methods to get the state at a
 - `state(epoch)` - Get state in propagator's native format
 - `state_eci(epoch)` - Get Cartesian state in ECI frame
 - `state_ecef(epoch)` - Get Cartesian state in ECEF frame
-- `state_koe(epoch, angle_format)` - Get Keplerian elements
+- `state_koe_osc(epoch, angle_format)` - Get Keplerian elements
 
 **Multi-Epoch Queries** (Batch Operations):
 

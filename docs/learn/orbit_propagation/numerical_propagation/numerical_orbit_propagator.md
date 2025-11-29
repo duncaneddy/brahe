@@ -71,7 +71,7 @@ The `StateProvider` trait enables state queries at any epoch:
 - `state(epoch)` - State in the propagator's native format
 - `state_eci(epoch)` - Cartesian state in ECI frame
 - `state_ecef(epoch)` - Cartesian state in ECEF frame
-- `state_koe(epoch, angle_format)` - Keplerian orbital elements
+- `state_koe_osc(epoch, angle_format)` - Keplerian orbital elements
 
 !!! warning "Propagator Advancement and State Queries"
     When querying states at epochs beyond the current propagated time, the propagator **MUST** have already been advanced to at least that epoch using one of the propagation methods, such as `propagate_to()` or `step_past()`, before calling the state query methods otherwise an error will be raised.

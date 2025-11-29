@@ -60,7 +60,7 @@ It also contains many new features, improvements to core functionality, and bett
 - [x] State Transition Matrix (STM) propagation support
 - [x] Package Maintenance
     - [x] Add `towncrier` for automated PR-request changelogs
-- [ ] Documentation for Numerical Integration Module
+- [x] Documentation for Numerical Integration Module
 
 ## v0.3.0 - Orbital Perturbations
 
@@ -81,6 +81,8 @@ It also contains many new features, improvements to core functionality, and bett
         - [x] Impulsive Maneuvers
         - [x] Continuous Thrust
     - [x] Event Detection during Propagation
+    - [x] Premade event detectors
+- [x] General Numerical Propagation
 - [x] Documentation for Orbital Perturbations and Numerical Propagation
 - [x] Space Weather Data Management
     - [x] Data provider classes
@@ -89,14 +91,27 @@ It also contains many new features, improvements to core functionality, and bett
         - [x] Caching provider
 - [x] NRLMSISE-00 Atmospheric Model Integration
 
+
 ----
 
 ## v1.0.0 - Stable Release with Foundational Features
 
-- [ ] Numerical Propagators
-    - [ ] User-defined Force Models
-    - [ ] Configurable Numerical propagator with default force models
-- [ ] Align with JOSS paper required release
+- [x] Numerical Propagators
+    - [x] User-defined Force Models
+    - [x] Configurable Numerical propagator with default force models
+- [x] Align with JOSS paper required release
+- [x] Improved Interpolation Methods for Trajectories
+    - [x] Lagrange Interpolation
+    - [x] Hermite Interpolation
+- [x] Mean Orbital Elements Support
+    - [x] Conversion between Mean and Osculating elements
+- [x] Relative Orbits
+    - [x] Relative Orbit Representations
+        - [x] RTN Cartesian States
+        - [x] Relative Orbital Elements
+    - [x] Cartesian to ROE Conversions
+- [x] Walker Constellation Generator
+
 
 ----
 
@@ -106,40 +121,20 @@ The following features are planned for future releases beyond v1.0.0. These feat
 
 - [ ] Spacetrack Datasets Module
 - [ ] Initialize SGPPropagator from GP Elements
-- [ ] Plotting Improvements
-    - [ ] Access timeline plots
-- [ ] Improved Interpolation Methods for Trajectories
-    - [ ] Lagrange Interpolation
-    - [ ] Hermite Interpolation
-- [ ] Mean Orbital Elements Support
-    - [ ] Conversion between Mean and Osculating elements
-- [ ] Relative Orbits
-    - [x] Relative Orbit Representations
-        - [x] RTN Cartesian States
-        - [x] Relative Orbital Elements
-    - [ ] Cartesian to ROE Conversions
-    - [ ] Propagation of relative motion
-        - [ ] Hill-Clohessy-Wiltshire (HCW) Equations
-    - [ ] Plotting Relative Orbits
-        - [ ] RTN 3-panel plot
-        - [ ] RTN 3D plot
+- [ ] Propagation of relative motion
+    - [ ] Hill-Clohessy-Wiltshire (HCW) Equations
+    - [ ] Numerical Relative Orbit Propagation
+- [ ] Plotting Relative Orbits
+    - [ ] RTN 3-panel plot
+    - [ ] RTN 3D plot
 - [ ] Estimation
     - [ ] Batch Least Squares Estimator
     - [ ] Extended Kalman Filter
     - [ ] Unscented Kalman Filter
     - [ ] Particle Filter
-- [ ] Improved Atmospheric Models
-    - [ ] NRLMSISE 2.0 Atmospheric Model Integration
-    - [ ] NRLMSISE 2.1 Atmospheric Model Integration
-    - [ ] DTM 2020 Atmospheric Model Integration
 - [ ] TLE Estimation 
     - [ ] From GPS Observations
     - [ ] From Initial OPM State
-- [ ] QoL Improvements
-    - [ ] Improved error messages and handling
-    - [ ] Enhanced logging capabilities
-    - [ ] More comprehensive unit tests and coverage
-    - [ ] Automatically append script outputs to documentation examples & remove fixed outputs
 
 ----
 
@@ -156,18 +151,25 @@ The following features have been considered for future releases but are not curr
 - [ ] OPM File Support
     - [ ] Initialize Trajectory from OPM File
     - [ ] Export Trajectory to OPM File
-- [ ] Tidal Force Models
-    - [ ] Solid Earth Tides
-    - [ ] Ocean Tides
-- [ ] Albedeo Force Models
+- [ ] Additional Force Models
+    - [ ] Tidal Force Models
+        - [ ] Solid Earth Tides
+        - [ ] Ocean Tides
+    - [ ] Albedeo Force Models
 - [ ] Probability of Collision Estimation
 - [ ] Monte Carlo Simulation Framework
-- [ ] Move all rust functions over to generic float types to support f32 and f64
-- [ ] Additional Examples and Tutorials
-    - [ ] Mission Analysis Examples
-    - [ ] Advanced Access Computation Examples
-    - [ ] Custom Perturbation Models
+- [ ] Plotting Improvements
+    - [ ] Access timeline plots
 - [ ] Attitude dynamics module
-- [ ] WASM bindings for web-based applications
-- [ ] Julia bindings for Brahe core library
-- [ ] Datasets module for Jonathan McDowell's Satellite Catalog
+    - [ ] Rigid Body Dynamics
+    - [ ] Attitude Perturbations
+    - [ ] Attitude Actuator Modeling
+- [ ] Additional Examples and Tutorials
+- [ ] Improved Atmospheric Models (EDU-only license)
+    - [ ] NRLMSISE 2.0 Atmospheric Model Integration
+    - [ ] NRLMSISE 2.1 Atmospheric Model Integration
+    - [ ] DTM 2020 Atmospheric Model Integration
+- [ ] Quality of Life Improvements
+    - [ ] Improved error messages and handling
+    - [ ] Enhanced logging capabilities
+    - [ ] Automatically append script outputs to documentation examples & remove fixed outputs

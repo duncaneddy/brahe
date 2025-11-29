@@ -71,6 +71,38 @@ The `state_roe_to_oe` function performs the inverse operation: given the chief's
     --8<-- "./examples/relative_motion/state_roe_to_oe.rs:4"
     ```
 
+## Direct ECI State to ROE Conversion
+
+In many practical applications, satellite states are available as Cartesian ECI vectors rather than orbital elements. The `state_eci_to_roe` function provides a convenient way to compute ROE directly from the ECI states of the chief and deputy satellites, internally handling the conversion to orbital elements.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/relative_motion/state_eci_to_roe.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/relative_motion/state_eci_to_roe.rs:4"
+    ```
+
+## Converting ROE to Deputy ECI State
+
+The inverse operation, `state_roe_to_eci`, computes the deputy satellite's ECI state from the chief's ECI state and the ROE.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/relative_motion/state_roe_to_eci.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/relative_motion/state_roe_to_eci.rs:4"
+    ```
+
 ## References
 
 1. [Sullivan, J. (2020). "Nonlinear Angles-Only Orbit Estimation for Autonomous Distributed Space Systems"](https://searchworks.stanford.edu/view/13680835)

@@ -37,7 +37,7 @@ use crate::utils::BraheError;
 
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_smatrix,
-    interpolate_covariance_two_wasserstein_smatrix,
+    interpolate_covariance_two_wasserstein_smatrix, interpolate_lagrange_svector,
 };
 
 use super::traits::{
@@ -851,8 +851,125 @@ impl<const R: usize> CovarianceInterpolationConfig for STrajectory<R> {
     }
 }
 
-// InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
-impl<const R: usize> InterpolatableTrajectory for STrajectory<R> {}
+impl<const R: usize> InterpolatableTrajectory for STrajectory<R> {
+    /// Interpolate state at a given epoch using the configured interpolation method.
+    ///
+    /// Overrides the default trait implementation to provide proper support for
+    /// Lagrange interpolation. Hermite methods are not supported for generic STrajectory
+    /// as they require 6D orbital states with position/velocity structure.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch for interpolation
+    ///
+    /// # Returns
+    /// * `Ok(state)` - Interpolated state vector
+    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
+    ///
+    /// # Panics
+    /// - HermiteCubic/HermiteQuintic panic as they require 6D orbital states
+    fn interpolate(&self, epoch: &Epoch) -> Result<SVector<f64, R>, BraheError> {
+        // Bounds checking
+        if let Some(start) = self.start_epoch()
+            && *epoch < start
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is before trajectory start {}",
+                epoch, start
+            )));
+        }
+
+        if let Some(end) = self.end_epoch()
+            && *epoch > end
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is after trajectory end {}",
+                epoch, end
+            )));
+        }
+
+        // Get indices before and after the target epoch
+        let idx1 = self.index_before_epoch(epoch)?;
+        let idx2 = self.index_after_epoch(epoch)?;
+
+        // If indices are the same, we have an exact match
+        if idx1 == idx2 {
+            return self.state_at_idx(idx1);
+        }
+
+        // Validate minimum point count
+        let method = self.get_interpolation_method();
+        let required = method.min_points_required();
+        if self.len() < required {
+            return Err(BraheError::Error(format!(
+                "{:?} requires {} points, trajectory has {}",
+                method,
+                required,
+                self.len()
+            )));
+        }
+
+        // Get reference epoch for time calculations
+        let ref_epoch = self.start_epoch().unwrap();
+
+        match method {
+            InterpolationMethod::Linear => self.interpolate_linear(epoch),
+
+            InterpolationMethod::Lagrange { degree } => {
+                // Collect degree+1 points centered around query epoch
+                let n_points = degree + 1;
+                let (start_idx, end_idx) =
+                    compute_interpolation_window(self.len(), idx1, idx2, n_points)?;
+
+                // Build time and value arrays
+                let times: Vec<f64> = (start_idx..=end_idx)
+                    .map(|i| self.epochs[i] - ref_epoch)
+                    .collect();
+                let values: Vec<SVector<f64, R>> =
+                    (start_idx..=end_idx).map(|i| self.states[i]).collect();
+
+                let t = *epoch - ref_epoch;
+                Ok(interpolate_lagrange_svector(&times, &values, t))
+            }
+
+            InterpolationMethod::HermiteCubic | InterpolationMethod::HermiteQuintic => {
+                Err(BraheError::Error(format!(
+                    "{:?} interpolation requires 6D orbital states with position/velocity \
+                     structure. STrajectory<{}> cannot use Hermite methods. Use \
+                     SOrbitTrajectory or DOrbitTrajectory for orbital states, or use \
+                     Linear/Lagrange interpolation for generic systems.",
+                    self.interpolation_method, R
+                )))
+            }
+        }
+    }
+}
+
+/// Helper function to compute the window of indices for Lagrange interpolation.
+fn compute_interpolation_window(
+    len: usize,
+    idx1: usize,
+    idx2: usize,
+    n_points: usize,
+) -> Result<(usize, usize), BraheError> {
+    if len < n_points {
+        return Err(BraheError::Error(format!(
+            "Need {} points for interpolation, trajectory has {}",
+            n_points, len
+        )));
+    }
+
+    let center = (idx1 + idx2) / 2;
+    let half_window = n_points / 2;
+    let mut start_idx = center.saturating_sub(half_window);
+    let mut end_idx = start_idx + n_points - 1;
+
+    if end_idx >= len {
+        end_idx = len - 1;
+        start_idx = end_idx.saturating_sub(n_points - 1);
+    }
+
+    Ok((start_idx, end_idx))
+}
 
 // Iterator implementation will be added later once trait bounds are resolved
 

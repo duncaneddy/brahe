@@ -150,12 +150,6 @@ jobs:
           name: changelog
           path: CHANGELOG.md
 
-  update-docs:
-    uses: ./.github/workflows/update_docs.yml
-    needs: [generate-release-notes]
-    with:
-      version: ${{ github.ref_name }}
-
   python-build-source:
     needs: [generate-release-notes]
     runs-on: ubuntu-latest
@@ -301,6 +295,12 @@ jobs:
           rustup default ${{ env.RUST_TOOLCHAIN }}
       - name: Publish to crates.io
         run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  update-docs:
+    uses: ./.github/workflows/update_docs.yml
+    needs: [generate-release-notes, release-python, release-rust]
+    with:
+      version: ${{ github.ref_name }}
 
   # Create GitHub Release as draft with all artifacts
   create-github-release:

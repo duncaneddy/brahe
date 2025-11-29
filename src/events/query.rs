@@ -253,3 +253,450 @@ where
         self.iter.size_hint()
     }
 }
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use super::*;
+    use crate::time::TimeSystem;
+    use nalgebra::DVector;
+
+    /// Helper function to create test events
+    fn create_test_event(
+        name: &str,
+        detector_index: usize,
+        event_type: EventType,
+        action: EventAction,
+        time_offset_seconds: f64,
+    ) -> DDetectedEvent {
+        let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let event_epoch = base_epoch + time_offset_seconds;
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+
+        DDetectedEvent {
+            window_open: event_epoch,
+            window_close: event_epoch + 10.0,
+            entry_state: state.clone(),
+            exit_state: state,
+            value: 0.0,
+            name: name.to_string(),
+            action,
+            event_type,
+            detector_index,
+        }
+    }
+
+    // =========================================================================
+    // by_name_exact Tests
+    // =========================================================================
+
+    #[test]
+    fn test_EventQuery_by_name_exact_matches() {
+        let events = [
+            create_test_event(
+                "Altitude Event",
+                0,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                0.0,
+            ),
+            create_test_event(
+                "Perigee Event",
+                1,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                100.0,
+            ),
+        ];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_name_exact("Altitude Event")
+            .collect();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Altitude Event");
+    }
+
+    #[test]
+    fn test_EventQuery_by_name_exact_no_match() {
+        let events = [create_test_event(
+            "Altitude Event",
+            0,
+            EventType::Instantaneous,
+            EventAction::Continue,
+            0.0,
+        )];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_name_exact("Nonexistent Event")
+            .collect();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_EventQuery_by_name_exact_partial_no_match() {
+        let events = [create_test_event(
+            "Altitude Event",
+            0,
+            EventType::Instantaneous,
+            EventAction::Continue,
+            0.0,
+        )];
+
+        // Partial match should NOT work with by_name_exact
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_name_exact("Altitude")
+            .collect();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    // =========================================================================
+    // after Tests
+    // =========================================================================
+
+    #[test]
+    fn test_EventQuery_after_includes_matching_epoch() {
+        let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let events = [create_test_event(
+            "Event",
+            0,
+            EventType::Instantaneous,
+            EventAction::Continue,
+            0.0,
+        )];
+
+        // Filter at exactly the event epoch (should be inclusive)
+        let result: Vec<_> = EventQuery::new(events.iter()).after(base_epoch).collect();
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_EventQuery_after_includes_later_events() {
+        let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let events = [
+            create_test_event(
+                "Early",
+                0,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                0.0,
+            ),
+            create_test_event(
+                "Late",
+                1,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                200.0,
+            ),
+        ];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .after(base_epoch + 100.0)
+            .collect();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Late");
+    }
+
+    #[test]
+    fn test_EventQuery_after_excludes_earlier_events() {
+        let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let events = [
+            create_test_event(
+                "Early",
+                0,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                0.0,
+            ),
+            create_test_event(
+                "Late",
+                1,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                200.0,
+            ),
+        ];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .after(base_epoch + 300.0)
+            .collect();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    // =========================================================================
+    // before Tests
+    // =========================================================================
+
+    #[test]
+    fn test_EventQuery_before_includes_matching_epoch() {
+        let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let events = [create_test_event(
+            "Event",
+            0,
+            EventType::Instantaneous,
+            EventAction::Continue,
+            0.0,
+        )];
+
+        // Filter at exactly the event epoch (should be inclusive)
+        let result: Vec<_> = EventQuery::new(events.iter()).before(base_epoch).collect();
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_EventQuery_before_includes_earlier_events() {
+        let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let events = [
+            create_test_event(
+                "Early",
+                0,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                0.0,
+            ),
+            create_test_event(
+                "Late",
+                1,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                200.0,
+            ),
+        ];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .before(base_epoch + 100.0)
+            .collect();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Early");
+    }
+
+    #[test]
+    fn test_EventQuery_before_excludes_later_events() {
+        let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let events = [
+            create_test_event(
+                "Early",
+                0,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                0.0,
+            ),
+            create_test_event(
+                "Late",
+                1,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                200.0,
+            ),
+        ];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .before(base_epoch - 100.0)
+            .collect();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    // =========================================================================
+    // by_event_type Tests
+    // =========================================================================
+
+    #[test]
+    fn test_EventQuery_by_event_type_instantaneous() {
+        let events = [
+            create_test_event(
+                "Instant",
+                0,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                0.0,
+            ),
+            create_test_event("Window", 1, EventType::Window, EventAction::Continue, 100.0),
+        ];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_event_type(EventType::Instantaneous)
+            .collect();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Instant");
+        assert_eq!(result[0].event_type, EventType::Instantaneous);
+    }
+
+    #[test]
+    fn test_EventQuery_by_event_type_window() {
+        let events = [
+            create_test_event(
+                "Instant",
+                0,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                0.0,
+            ),
+            create_test_event("Window", 1, EventType::Window, EventAction::Continue, 100.0),
+        ];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_event_type(EventType::Window)
+            .collect();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Window");
+        assert_eq!(result[0].event_type, EventType::Window);
+    }
+
+    #[test]
+    fn test_EventQuery_by_event_type_no_match() {
+        let events = [create_test_event(
+            "Instant",
+            0,
+            EventType::Instantaneous,
+            EventAction::Continue,
+            0.0,
+        )];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_event_type(EventType::Window)
+            .collect();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    // =========================================================================
+    // by_action Tests
+    // =========================================================================
+
+    #[test]
+    fn test_EventQuery_by_action_stop() {
+        let events = [
+            create_test_event(
+                "Continue Event",
+                0,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                0.0,
+            ),
+            create_test_event(
+                "Stop Event",
+                1,
+                EventType::Instantaneous,
+                EventAction::Stop,
+                100.0,
+            ),
+        ];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_action(EventAction::Stop)
+            .collect();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Stop Event");
+        assert_eq!(result[0].action, EventAction::Stop);
+    }
+
+    #[test]
+    fn test_EventQuery_by_action_continue() {
+        let events = [
+            create_test_event(
+                "Continue Event",
+                0,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                0.0,
+            ),
+            create_test_event(
+                "Stop Event",
+                1,
+                EventType::Instantaneous,
+                EventAction::Stop,
+                100.0,
+            ),
+        ];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_action(EventAction::Continue)
+            .collect();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Continue Event");
+        assert_eq!(result[0].action, EventAction::Continue);
+    }
+
+    #[test]
+    fn test_EventQuery_by_action_no_match() {
+        let events = [create_test_event(
+            "Continue Event",
+            0,
+            EventType::Instantaneous,
+            EventAction::Continue,
+            0.0,
+        )];
+
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_action(EventAction::Stop)
+            .collect();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    // =========================================================================
+    // Combined Filter Tests
+    // =========================================================================
+
+    #[test]
+    fn test_EventQuery_combined_filters() {
+        let base_epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let events = [
+            create_test_event(
+                "Target Event",
+                0,
+                EventType::Window,
+                EventAction::Stop,
+                100.0,
+            ),
+            create_test_event(
+                "Target Event",
+                1,
+                EventType::Instantaneous,
+                EventAction::Continue,
+                200.0,
+            ),
+            create_test_event(
+                "Other Event",
+                2,
+                EventType::Window,
+                EventAction::Stop,
+                150.0,
+            ),
+            create_test_event(
+                "Target Event",
+                3,
+                EventType::Window,
+                EventAction::Continue,
+                50.0,
+            ),
+        ];
+
+        // Chain multiple filters: name + event_type + action + time
+        let result: Vec<_> = EventQuery::new(events.iter())
+            .by_name_exact("Target Event")
+            .by_event_type(EventType::Window)
+            .by_action(EventAction::Stop)
+            .after(base_epoch + 75.0)
+            .collect();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "Target Event");
+        assert_eq!(result[0].detector_index, 0);
+        assert_eq!(result[0].event_type, EventType::Window);
+        assert_eq!(result[0].action, EventAction::Stop);
+    }
+}

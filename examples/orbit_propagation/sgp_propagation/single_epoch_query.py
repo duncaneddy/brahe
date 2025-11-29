@@ -18,7 +18,9 @@ query_epoch = prop.epoch + 5400.0  # ~90 minutes
 
 state_eci = prop.state_eci(query_epoch)  # ECI Cartesian
 state_ecef = prop.state_ecef(query_epoch)  # ECEF Cartesian
-state_kep = prop.state_koe(query_epoch, bh.AngleFormat.DEGREES)  # Osculating Keplerian
+state_kep = prop.state_koe_osc(
+    query_epoch, bh.AngleFormat.DEGREES
+)  # Osculating Keplerian
 
 print(
     f"ECI position: [{state_eci[0] / 1e3:.1f}, {state_eci[1] / 1e3:.1f}, "

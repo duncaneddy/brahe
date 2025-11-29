@@ -1346,3 +1346,451 @@ fn py_epoch_from_tle(line1: String) -> PyResult<PyEpoch> {
         Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
     }
 }
+
+/// Convert osculating Keplerian elements to mean Keplerian elements.
+///
+/// Applies the first-order Brouwer-Lyddane transformation to convert osculating
+/// (instantaneous) orbital elements to mean (orbit-averaged) elements. The
+/// transformation accounts for short-period and long-period J2 perturbations.
+///
+/// Args:
+///     osc (numpy.ndarray): Osculating Keplerian elements as a 6-element array:
+///         [a, e, i, Ω, ω, M] where:
+///         - a: Semi-major axis (meters)
+///         - e: Eccentricity (dimensionless)
+///         - i: Inclination (radians or degrees, per angle_format)
+///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
+///         - ω: Argument of perigee (radians or degrees, per angle_format)
+///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees)
+///
+/// Returns:
+///     numpy.ndarray: Mean Keplerian elements in the same format as input.
+///
+/// Note:
+///     The forward and inverse transformations are not perfectly inverse due to
+///     first-order truncation of the infinite series. Small errors of order J2²
+///     are expected.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Define osculating elements for a LEO satellite (angles in degrees)
+///     osc = np.array([
+///         bh.R_EARTH + 500e3,  # a = 6878 km
+///         0.001,               # e = 0.001 (near-circular)
+///         45.0,                # i = 45 degrees
+///         0.0,                 # Ω = 0
+///         0.0,                 # ω = 0
+///         0.0,                 # M = 0
+///     ])
+///
+///     mean = bh.state_koe_osc_to_mean(osc, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(osc, angle_format)")]
+#[pyo3(name = "state_koe_osc_to_mean")]
+fn py_state_koe_osc_to_mean<'py>(
+    py: Python<'py>,
+    osc: &Bound<'_, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let osc_vec = pyany_to_f64_array1(osc, Some(6))?;
+    let osc_svec = SVector::<f64, 6>::from_row_slice(&osc_vec);
+    let mean = orbits::state_koe_osc_to_mean(&osc_svec, angle_format.value);
+    Ok(mean.as_slice().to_pyarray(py))
+}
+
+/// Convert mean Keplerian elements to osculating Keplerian elements.
+///
+/// Applies the first-order Brouwer-Lyddane transformation to convert mean
+/// (orbit-averaged) orbital elements to osculating (instantaneous) elements.
+/// The transformation accounts for short-period and long-period J2 perturbations.
+///
+/// Args:
+///     mean (numpy.ndarray): Mean Keplerian elements as a 6-element array:
+///         [a, e, i, Ω, ω, M] where:
+///         - a: Semi-major axis (meters)
+///         - e: Eccentricity (dimensionless)
+///         - i: Inclination (radians or degrees, per angle_format)
+///         - Ω: Right ascension of ascending node (radians or degrees, per angle_format)
+///         - ω: Argument of perigee (radians or degrees, per angle_format)
+///         - M: Mean anomaly (radians or degrees, per angle_format)
+///     angle_format (AngleFormat): Format of angular elements (Radians or Degrees)
+///
+/// Returns:
+///     numpy.ndarray: Osculating Keplerian elements in the same format as input.
+///
+/// Note:
+///     The forward and inverse transformations are not perfectly inverse due to
+///     first-order truncation of the infinite series. Small errors of order J2²
+///     are expected.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Define mean elements for a LEO satellite (angles in degrees)
+///     mean = np.array([
+///         bh.R_EARTH + 500e3,  # a = 6878 km
+///         0.001,               # e = 0.001 (near-circular)
+///         45.0,                # i = 45 degrees
+///         0.0,                 # Ω = 0
+///         0.0,                 # ω = 0
+///         0.0,                 # M = 0
+///     ])
+///
+///     osc = bh.state_koe_mean_to_osc(mean, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(mean, angle_format)")]
+#[pyo3(name = "state_koe_mean_to_osc")]
+fn py_state_koe_mean_to_osc<'py>(
+    py: Python<'py>,
+    mean: &Bound<'_, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let mean_vec = pyany_to_f64_array1(mean, Some(6))?;
+    let mean_svec = SVector::<f64, 6>::from_row_slice(&mean_vec);
+    let osc = orbits::state_koe_mean_to_osc(&mean_svec, angle_format.value);
+    Ok(osc.as_slice().to_pyarray(py))
+}
+
+// ============================================================================
+// Walker Constellation Generator
+// ============================================================================
+
+/// Walker constellation pattern type.
+///
+/// Defines whether the constellation uses a Delta (360°) or Star (180°) RAAN spread.
+///
+/// Attributes:
+///     DELTA: Walker Delta pattern with 360° RAAN spread (global coverage).
+///         Used by GPS, Galileo, and similar navigation constellations.
+///     STAR: Walker Star pattern with 180° RAAN spread (polar coverage).
+///         Used by Iridium and similar communications constellations.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     delta = bh.WalkerPattern.DELTA  # 360° RAAN spread
+///     star = bh.WalkerPattern.STAR    # 180° RAAN spread
+///     ```
+#[pyclass(name = "WalkerPattern", module = "brahe._brahe", eq, eq_int)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms)] // Python convention: enum variants are UPPERCASE
+pub enum PyWalkerPattern {
+    /// Walker Delta pattern with 360° RAAN spread (global coverage)
+    DELTA = 0,
+    /// Walker Star pattern with 180° RAAN spread (polar coverage)
+    STAR = 1,
+}
+
+impl From<PyWalkerPattern> for orbits::WalkerPattern {
+    fn from(pattern: PyWalkerPattern) -> Self {
+        match pattern {
+            PyWalkerPattern::DELTA => orbits::WalkerPattern::Delta,
+            PyWalkerPattern::STAR => orbits::WalkerPattern::Star,
+        }
+    }
+}
+
+impl From<orbits::WalkerPattern> for PyWalkerPattern {
+    fn from(pattern: orbits::WalkerPattern) -> Self {
+        match pattern {
+            orbits::WalkerPattern::Delta => PyWalkerPattern::DELTA,
+            orbits::WalkerPattern::Star => PyWalkerPattern::STAR,
+        }
+    }
+}
+
+/// Generator for Walker constellation patterns using T:P:F notation.
+///
+/// Walker constellations place satellites in circular or near-circular orbits with:
+/// - T total satellites distributed across P planes
+/// - Each plane inclined at the same angle
+/// - Planes evenly spaced in RAAN (spread depends on pattern type)
+/// - Satellites within each plane evenly spaced in mean anomaly
+/// - Phase offset F controls inter-plane phasing
+///
+/// Two pattern types are supported via `pattern`:
+/// - `WalkerPattern.DELTA`: 360° RAAN spread (global coverage, e.g., GPS, Galileo)
+/// - `WalkerPattern.STAR`: 180° RAAN spread (polar coverage, e.g., Iridium)
+///
+/// All satellites in the constellation share the same semi-major axis, eccentricity,
+/// inclination, and argument of perigee. They differ only in RAAN and mean anomaly.
+///
+/// Args:
+///     t (int): Total number of satellites (must be divisible by p)
+///     p (int): Number of orbital planes
+///     f (int): Phasing factor (0 to p-1)
+///     semi_major_axis (float): Semi-major axis in meters
+///     eccentricity (float): Eccentricity (dimensionless)
+///     inclination (float): Inclination in degrees or radians (based on angle_format)
+///     argument_of_perigee (float): Argument of perigee
+///     reference_raan (float): RAAN for plane 0
+///     reference_mean_anomaly (float): Mean anomaly for first satellite
+///     epoch (Epoch): Reference epoch for ephemeris generation
+///     angle_format (AngleFormat): Format for angular inputs
+///     pattern (WalkerPattern): Pattern type (DELTA for 360° RAAN, STAR for 180° RAAN)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+///     # Walker Delta constellation (GPS-like)
+///     gen = bh.WalkerConstellationGenerator(
+///         t=24,                       # 24 total satellites
+///         p=3,                        # 3 orbital planes
+///         f=1,                        # phasing factor 1
+///         semi_major_axis=bh.R_EARTH + 20200e3,  # GPS altitude
+///         eccentricity=0.0,
+///         inclination=55.0,
+///         argument_of_perigee=0.0,
+///         reference_raan=0.0,
+///         reference_mean_anomaly=0.0,
+///         epoch=epoch,
+///         angle_format=bh.AngleFormat.DEGREES,
+///         pattern=bh.WalkerPattern.DELTA,  # 360° RAAN spread
+///     )
+///
+///     # Generate Keplerian propagators
+///     propagators = gen.as_keplerian_propagators(60.0)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "WalkerConstellationGenerator")]
+#[derive(Clone)]
+pub struct PyWalkerConstellationGenerator {
+    pub(crate) generator: orbits::WalkerConstellationGenerator,
+}
+
+#[pymethods]
+impl PyWalkerConstellationGenerator {
+    #[new]
+    #[pyo3(signature = (t, p, f, semi_major_axis, eccentricity, inclination, argument_of_perigee, reference_raan, reference_mean_anomaly, epoch, angle_format, pattern))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        t: usize,
+        p: usize,
+        f: usize,
+        semi_major_axis: f64,
+        eccentricity: f64,
+        inclination: f64,
+        argument_of_perigee: f64,
+        reference_raan: f64,
+        reference_mean_anomaly: f64,
+        epoch: &PyEpoch,
+        angle_format: &PyAngleFormat,
+        pattern: &PyWalkerPattern,
+    ) -> Self {
+        Self {
+            generator: orbits::WalkerConstellationGenerator::new(
+                t,
+                p,
+                f,
+                semi_major_axis,
+                eccentricity,
+                inclination,
+                argument_of_perigee,
+                reference_raan,
+                reference_mean_anomaly,
+                epoch.obj,
+                angle_format.value,
+                orbits::WalkerPattern::from(*pattern),
+            ),
+        }
+    }
+
+    /// Set a base name for satellite naming.
+    ///
+    /// When set, satellites will be named as "{base_name}-P{plane}-S{sat}"
+    /// (e.g., "GPS-P0-S0", "GPS-P0-S1", "GPS-P1-S0", etc.)
+    ///
+    /// Args:
+    ///     name (str): Base name for the constellation satellites
+    ///
+    /// Returns:
+    ///     WalkerConstellationGenerator: Self with the base name set
+    fn with_base_name(&self, name: &str) -> Self {
+        Self {
+            generator: self.generator.clone().with_base_name(name),
+        }
+    }
+
+    /// Total number of satellites in the constellation.
+    #[getter]
+    fn total_satellites(&self) -> usize {
+        self.generator.total_satellites
+    }
+
+    /// Number of orbital planes.
+    #[getter]
+    fn num_planes(&self) -> usize {
+        self.generator.num_planes
+    }
+
+    /// Phasing factor.
+    #[getter]
+    fn phasing(&self) -> usize {
+        self.generator.phasing
+    }
+
+    /// Number of satellites per plane (T/P).
+    #[getter]
+    fn satellites_per_plane(&self) -> usize {
+        self.generator.satellites_per_plane()
+    }
+
+    /// Semi-major axis in meters.
+    #[getter]
+    fn semi_major_axis(&self) -> f64 {
+        self.generator.semi_major_axis
+    }
+
+    /// Eccentricity.
+    #[getter]
+    fn eccentricity(&self) -> f64 {
+        self.generator.eccentricity
+    }
+
+    /// Reference epoch.
+    #[getter]
+    fn epoch(&self) -> PyEpoch {
+        PyEpoch {
+            obj: self.generator.epoch,
+        }
+    }
+
+    /// Walker pattern (Delta or Star).
+    #[getter]
+    fn pattern(&self) -> PyWalkerPattern {
+        PyWalkerPattern::from(self.generator.pattern)
+    }
+
+    /// Get Keplerian elements for a specific satellite.
+    ///
+    /// Args:
+    ///     plane_index (int): Plane index (0 to P-1)
+    ///     sat_index (int): Satellite index within plane (0 to T/P - 1)
+    ///     angle_format (AngleFormat): Output angle format
+    ///
+    /// Returns:
+    ///     np.ndarray: Keplerian elements [a, e, i, raan, argp, M]
+    #[pyo3(signature = (plane_index, sat_index, angle_format))]
+    fn satellite_elements<'py>(
+        &self,
+        py: Python<'py>,
+        plane_index: usize,
+        sat_index: usize,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let elements = self.generator.satellite_elements(plane_index, sat_index);
+
+        // Convert angles if needed
+        let output = match angle_format.value {
+            constants::AngleFormat::Degrees => Vector6::new(
+                elements[0],
+                elements[1],
+                elements[2] * constants::RAD2DEG,
+                elements[3] * constants::RAD2DEG,
+                elements[4] * constants::RAD2DEG,
+                elements[5] * constants::RAD2DEG,
+            ),
+            constants::AngleFormat::Radians => elements,
+        };
+
+        Ok(output.as_slice().to_pyarray(py))
+    }
+
+    /// Generate Keplerian propagators for all satellites in the constellation.
+    ///
+    /// Args:
+    ///     step_size (float): Step size in seconds for propagation
+    ///
+    /// Returns:
+    ///     list[KeplerianPropagator]: List of propagators, one per satellite
+    #[pyo3(signature = (step_size))]
+    fn as_keplerian_propagators(&self, step_size: f64) -> Vec<PyKeplerianPropagator> {
+        self.generator
+            .as_keplerian_propagators(step_size)
+            .into_iter()
+            .map(|p| PyKeplerianPropagator { propagator: p })
+            .collect()
+    }
+
+    /// Generate SGP propagators for all satellites in the constellation.
+    ///
+    /// This method creates TLE data for each satellite using the provided
+    /// drag and mean motion derivative parameters.
+    ///
+    /// Args:
+    ///     step_size (float): Step size in seconds for propagation
+    ///     bstar (float): B* drag term (Earth radii^-1)
+    ///     ndt2 (float): First derivative of mean motion divided by 2 (rev/day²)
+    ///     nddt6 (float): Second derivative of mean motion divided by 6 (rev/day³)
+    ///
+    /// Returns:
+    ///     list[SGPPropagator]: List of propagators, one per satellite
+    #[pyo3(signature = (step_size, bstar, ndt2, nddt6))]
+    fn as_sgp_propagators(
+        &self,
+        step_size: f64,
+        bstar: f64,
+        ndt2: f64,
+        nddt6: f64,
+    ) -> PyResult<Vec<PySGPPropagator>> {
+        self.generator
+            .as_sgp_propagators(step_size, bstar, ndt2, nddt6)
+            .map(|props| {
+                props
+                    .into_iter()
+                    .map(|p| PySGPPropagator { propagator: p })
+                    .collect()
+            })
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    }
+
+    /// Generate numerical orbit propagators for all satellites in the constellation.
+    ///
+    /// Args:
+    ///     propagation_config (NumericalPropagationConfig): Propagation configuration
+    ///     force_config (ForceModelConfig): Force model configuration
+    ///     params (np.ndarray, optional): Parameter vector [mass, drag_area, Cd, srp_area, Cr]
+    ///
+    /// Returns:
+    ///     list[DNumericalOrbitPropagator]: List of propagators, one per satellite
+    #[pyo3(signature = (propagation_config, force_config, params=None))]
+    fn as_numerical_propagators(
+        &self,
+        propagation_config: &PyNumericalPropagationConfig,
+        force_config: &PyForceModelConfig,
+        params: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Vec<PyNumericalOrbitPropagator>> {
+        let params_dvec = match params {
+            Some(p) => {
+                let vec = pyany_to_f64_array1(p, None)?;
+                Some(DVector::from_vec(vec))
+            }
+            None => None,
+        };
+
+        self.generator
+            .as_numerical_propagators(
+                propagation_config.config.clone(),
+                force_config.config.clone(),
+                params_dvec,
+            )
+            .map(|props| {
+                props
+                    .into_iter()
+                    .map(|p| PyNumericalOrbitPropagator { propagator: p })
+                    .collect()
+            })
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    }
+}

@@ -23,6 +23,8 @@ from brahe._brahe import (
     state_eci_to_rtn,
     state_oe_to_roe,
     state_roe_to_oe,
+    state_eci_to_roe,
+    state_roe_to_eci,
 )
 
 __all__ = [
@@ -32,4 +34,6 @@ __all__ = [
     "state_eci_to_rtn",
     "state_oe_to_roe",
     "state_roe_to_oe",
+    "state_eci_to_roe",
+    "state_roe_to_eci",
 ]

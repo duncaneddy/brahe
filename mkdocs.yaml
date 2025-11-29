@@ -183,6 +183,7 @@ nav:
                 - Anomaly Conversions: learn/orbits/anomalies.md
                 - Orbital Properties: learn/orbits/properties.md
                 - learn/orbits/two_line_elements.md
+                - Walker Constellations: learn/orbits/walker.md
             - Attitude Representation: 
                 - learn/attitude_representations/index.md
                 - learn/attitude_representations/quaternions.md
@@ -310,7 +311,9 @@ nav:
             - Orbits:
                 - library_api/orbits/index.md
                 - Keplerian Elements: library_api/orbits/keplerian.md
+                - Mean Elements: library_api/orbits/mean_elements.md
                 - Two-Line Elements: library_api/orbits/tle.md
+                - Walker Constellations: library_api/orbits/walker.md
                 - Altitude Functions: library_api/orbits/altitude_functions.md
                 - Enumerations: library_api/orbits/enums.md
             - Attitude:
@@ -352,6 +355,7 @@ nav:
                 - library_api/relative_motion/index.md
                 - RTN Transformations: library_api/relative_motion/rtn_transformations.md
                 - ROE Transformations: library_api/relative_motion/roe_transformations.md
+                - ECI-ROE Transformations: library_api/relative_motion/eci_roe_transformations.md
             - Access:
                 - library_api/access/index.md
                 - Locations: library_api/access/locations.md

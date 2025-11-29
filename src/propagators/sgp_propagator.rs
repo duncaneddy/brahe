@@ -685,6 +685,34 @@ impl SGPPropagator {
     pub fn mean_anomaly(&self) -> f64 {
         self.elements()[5]
     }
+
+    /// Get age of ephemeris data (time since TLE epoch).
+    ///
+    /// Returns the difference between the current system time and the TLE epoch.
+    /// A positive value indicates the TLE is in the past; a negative value indicates
+    /// a future TLE epoch.
+    ///
+    /// # Returns
+    ///
+    /// * Time since TLE epoch. Units: (s)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    ///
+    /// brahe::initialize_eop().unwrap();
+    ///
+    /// let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    /// let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+    ///
+    /// let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+    /// let age = prop.ephemeris_age();
+    ///
+    /// println!("Ephemeris age: {:.1} s", age);
+    /// ```
+    pub fn ephemeris_age(&self) -> f64 {
+        Epoch::now() - self.epoch
+    }
 }
 
 impl SStatePropagator for SGPPropagator {
@@ -792,7 +820,7 @@ impl SOrbitStateProvider for SGPPropagator {
         Ok(state_gcrf_to_eme2000(gcrf_state))
     }
 
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -850,12 +878,12 @@ impl crate::utils::DOrbitStateProvider for SGPPropagator {
         <Self as SOrbitStateProvider>::state_eme2000(self, epoch)
     }
 
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
-        <Self as SOrbitStateProvider>::state_koe(self, epoch, angle_format)
+        <Self as SOrbitStateProvider>::state_koe_osc(self, epoch, angle_format)
     }
 
     // Default batch implementations from trait are used for:
@@ -1305,6 +1333,19 @@ mod tests {
         assert_abs_diff_eq!(ma, 325.0288, epsilon = 1e-10);
     }
 
+    #[test]
+    fn test_sgppropagator_ephemeris_age() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let age = prop.ephemeris_age();
+
+        // TLE epoch is 2008-09-20, so age should be positive and large (years worth of seconds)
+        assert!(age > 0.0);
+        // Should be at least 15 years worth of seconds (from 2008 to 2023+)
+        assert!(age > 15.0 * 365.25 * 86400.0);
+    }
+
     // Identifiable Trait Tests
 
     #[test]
@@ -1451,12 +1492,12 @@ mod tests {
     // StateProvider Trait Tests
 
     #[test]
-    fn test_sgppropagator_analyticpropagator_state_koe() {
+    fn test_sgppropagator_analyticpropagator_state_koe_osc() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let elements = prop.state_koe(epoch, RADIANS).unwrap();
+        let elements = prop.state_koe_osc(epoch, RADIANS).unwrap();
 
         // Verify we got keplerian elements (all finite)
         assert!(elements.iter().all(|&x| x.is_finite()));
@@ -1523,7 +1564,7 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let elements = prop.states_koe(&epochs, RADIANS).unwrap();
+        let elements = prop.states_koe_osc(&epochs, RADIANS).unwrap();
         assert_eq!(elements.len(), 2);
         // Verify elements are valid Keplerian elements
         for elem in &elements {

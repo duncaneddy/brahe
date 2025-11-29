@@ -94,7 +94,9 @@ use crate::frames::{
 };
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_dmatrix,
-    interpolate_covariance_two_wasserstein_dmatrix,
+    interpolate_covariance_two_wasserstein_dmatrix, interpolate_hermite_cubic_dvector6,
+    interpolate_hermite_quintic_dvector6, interpolate_hermite_quintic_fd_dvector6,
+    interpolate_lagrange_dvector,
 };
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
@@ -232,6 +234,16 @@ pub struct DOrbitTrajectory {
     /// Can store any JSON-serializable data including strings, numbers, booleans,
     /// arrays, and nested objects. For orbital trajectories, use ORBITAL_*_KEY constants.
     pub metadata: HashMap<String, Value>,
+
+    /// Optional acceleration vectors corresponding to each state.
+    /// If present, must have the same length as `states`.
+    /// Used for quintic Hermite interpolation. Accelerations are dynamic vectors
+    /// with dimension specified by `acceleration_dimension`.
+    pub accelerations: Option<Vec<DVector<f64>>>,
+
+    /// Dimension of acceleration vectors.
+    /// Set when acceleration storage is enabled.
+    acceleration_dimension: Option<usize>,
 }
 
 impl fmt::Display for DOrbitTrajectory {
@@ -334,6 +346,8 @@ impl DOrbitTrajectory {
             id: None,
             uuid: None,
             metadata: HashMap::new(),
+            accelerations: None,
+            acceleration_dimension: None,
         }
     }
 
@@ -644,15 +658,16 @@ impl DOrbitTrajectory {
     /// Add a complete state record with all optional data
     ///
     /// This is the most flexible method, allowing any combination of
-    /// covariance, STM, and sensitivity to be provided or omitted.
+    /// covariance, STM, sensitivity, and acceleration to be provided or omitted.
     /// Automatically enables storage for any provided data.
     ///
     /// # Arguments
     /// * `epoch` - Time epoch
-    /// * `state` - State vector (must be 6 elements)
+    /// * `state` - State vector (must match trajectory dimension)
     /// * `covariance` - Optional covariance matrix (6x6)
     /// * `stm` - Optional state transition matrix (6x6)
     /// * `sensitivity` - Optional sensitivity matrix (6 x param_dim)
+    /// * `acceleration` - Optional acceleration vector (must match acceleration_dimension if set)
     ///
     /// # Panics
     /// Panics if dimensions don't match
@@ -663,6 +678,7 @@ impl DOrbitTrajectory {
         covariance: Option<DMatrix<f64>>,
         stm: Option<DMatrix<f64>>,
         sensitivity: Option<DMatrix<f64>>,
+        acceleration: Option<DVector<f64>>,
     ) {
         // Validate state dimension
         if state.len() != self.dimension {
@@ -706,6 +722,23 @@ impl DOrbitTrajectory {
             }
         }
 
+        if let Some(ref acc) = acceleration {
+            if let Some(acc_dim) = self.acceleration_dimension
+                && acc.len() != acc_dim
+            {
+                panic!(
+                    "Acceleration dimension {} does not match trajectory acceleration dimension {}",
+                    acc.len(),
+                    acc_dim
+                );
+            }
+            if self.accelerations.is_none() {
+                let acc_dim = acc.len();
+                self.acceleration_dimension = Some(acc_dim);
+                self.accelerations = Some(vec![DVector::zeros(acc_dim); self.states.len()]);
+            }
+        }
+
         // Find insert position
         let mut insert_idx = self.epochs.len();
         for (i, existing_epoch) in self.epochs.iter().enumerate() {
@@ -734,6 +767,12 @@ impl DOrbitTrajectory {
             let (_, param_dim) = self.sensitivity_dimension.unwrap();
             let sens_val = sensitivity.unwrap_or_else(|| DMatrix::zeros(6, param_dim));
             sens.insert(insert_idx, sens_val);
+        }
+
+        if let Some(ref mut accs) = self.accelerations {
+            let acc_dim = self.acceleration_dimension.unwrap();
+            let acc_val = acceleration.unwrap_or_else(|| DVector::zeros(acc_dim));
+            accs.insert(insert_idx, acc_val);
         }
 
         self.apply_eviction_policy();
@@ -786,6 +825,9 @@ impl DOrbitTrajectory {
                     if let Some(ref mut sens) = self.sensitivities {
                         sens.drain(0..to_remove);
                     }
+                    if let Some(ref mut accs) = self.accelerations {
+                        accs.drain(0..to_remove);
+                    }
                 }
             }
             TrajectoryEvictionPolicy::KeepWithinDuration => {
@@ -817,15 +859,112 @@ impl DOrbitTrajectory {
                         .sensitivities
                         .as_ref()
                         .map(|sens| indices_to_keep.iter().map(|&i| sens[i].clone()).collect());
+                    let new_accelerations = self
+                        .accelerations
+                        .as_ref()
+                        .map(|accs| indices_to_keep.iter().map(|&i| accs[i].clone()).collect());
 
                     self.epochs = new_epochs;
                     self.states = new_states;
                     self.covariances = new_covariances;
                     self.stms = new_stms;
                     self.sensitivities = new_sensitivities;
+                    self.accelerations = new_accelerations;
                 }
             }
         }
+    }
+
+    // ==================== Acceleration Helper Methods ====================
+
+    /// Enables acceleration storage with the specified dimension.
+    ///
+    /// If acceleration storage is not yet enabled, this initializes the storage
+    /// with zero vectors for all existing states. If already enabled, validates
+    /// the dimension matches.
+    ///
+    /// # Arguments
+    /// * `dimension` - Dimension of acceleration vectors (typically 3 for [ax, ay, az])
+    ///
+    /// # Panics
+    /// Panics if already enabled with a different dimension.
+    pub fn enable_acceleration_storage(&mut self, dimension: usize) {
+        if let Some(existing_dim) = self.acceleration_dimension {
+            if existing_dim != dimension {
+                panic!(
+                    "Cannot change acceleration dimension from {} to {}",
+                    existing_dim, dimension
+                );
+            }
+            return;
+        }
+        self.acceleration_dimension = Some(dimension);
+        self.accelerations = Some(vec![DVector::zeros(dimension); self.states.len()]);
+    }
+
+    /// Returns whether acceleration storage is enabled.
+    pub fn has_accelerations(&self) -> bool {
+        self.accelerations.is_some()
+    }
+
+    /// Returns the dimension of acceleration vectors if storage is enabled.
+    pub fn acceleration_dim(&self) -> Option<usize> {
+        self.acceleration_dimension
+    }
+
+    /// Returns a reference to the acceleration at the given index.
+    ///
+    /// # Arguments
+    /// * `index` - Index into the trajectory
+    ///
+    /// # Returns
+    /// Reference to the acceleration vector, or None if not stored
+    pub fn acceleration_at_idx(&self, index: usize) -> Option<&DVector<f64>> {
+        self.accelerations.as_ref()?.get(index)
+    }
+
+    /// Sets the acceleration at the given index.
+    ///
+    /// # Arguments
+    /// * `index` - Index into the trajectory
+    /// * `acceleration` - The acceleration vector to set
+    ///
+    /// # Panics
+    /// * If acceleration storage is not enabled
+    /// * If index is out of bounds
+    /// * If acceleration dimension doesn't match
+    pub fn set_acceleration_at(&mut self, index: usize, acceleration: DVector<f64>) {
+        let accs = self
+            .accelerations
+            .as_mut()
+            .expect("Acceleration storage not enabled");
+        let acc_dim = self.acceleration_dimension.unwrap();
+        if acceleration.len() != acc_dim {
+            panic!(
+                "Acceleration dimension {} does not match trajectory acceleration dimension {}",
+                acceleration.len(),
+                acc_dim
+            );
+        }
+        accs[index] = acceleration;
+    }
+
+    /// Adds a state with acceleration to the trajectory.
+    ///
+    /// If acceleration storage is not yet enabled, enables it with the dimension
+    /// of the provided acceleration vector.
+    ///
+    /// # Arguments
+    /// * `epoch` - Time epoch
+    /// * `state` - State vector
+    /// * `acceleration` - Acceleration vector
+    pub fn add_with_acceleration(
+        &mut self,
+        epoch: Epoch,
+        state: DVector<f64>,
+        acceleration: DVector<f64>,
+    ) {
+        self.add_full(epoch, state, None, None, None, Some(acceleration));
     }
 }
 
@@ -963,6 +1102,8 @@ impl Trajectory for DOrbitTrajectory {
             id: None,
             uuid: None,
             metadata: HashMap::new(),
+            accelerations: None,
+            acceleration_dimension: None,
         })
     }
 
@@ -991,6 +1132,28 @@ impl Trajectory for DOrbitTrajectory {
         // Insert at the correct position
         self.epochs.insert(insert_idx, epoch);
         self.states.insert(insert_idx, state);
+
+        // Insert placeholder covariance if storage is enabled
+        if let Some(ref mut covs) = self.covariances {
+            covs.insert(insert_idx, DMatrix::zeros(6, 6));
+        }
+
+        // Insert placeholder STM if storage is enabled
+        if let Some(ref mut stms) = self.stms {
+            stms.insert(insert_idx, DMatrix::identity(6, 6));
+        }
+
+        // Insert placeholder sensitivity if storage is enabled
+        if let Some(ref mut sens) = self.sensitivities {
+            let (_, param_dim) = self.sensitivity_dimension.unwrap();
+            sens.insert(insert_idx, DMatrix::zeros(6, param_dim));
+        }
+
+        // Insert placeholder acceleration if storage is enabled
+        if let Some(ref mut accs) = self.accelerations {
+            let acc_dim = self.acceleration_dimension.unwrap();
+            accs.insert(insert_idx, DVector::zeros(acc_dim));
+        }
 
         // Apply eviction policy after adding state
         self.apply_eviction_policy();
@@ -1090,6 +1253,18 @@ impl Trajectory for DOrbitTrajectory {
     fn clear(&mut self) {
         self.epochs.clear();
         self.states.clear();
+        if let Some(ref mut covs) = self.covariances {
+            covs.clear();
+        }
+        if let Some(ref mut stms) = self.stms {
+            stms.clear();
+        }
+        if let Some(ref mut sens) = self.sensitivities {
+            sens.clear();
+        }
+        if let Some(ref mut accs) = self.accelerations {
+            accs.clear();
+        }
     }
 
     fn remove_epoch(&mut self, epoch: &Epoch) -> Result<Self::StateVector, BraheError> {
@@ -1097,6 +1272,18 @@ impl Trajectory for DOrbitTrajectory {
         if let Some(index) = self.epochs.iter().position(|e| e == epoch) {
             let removed_state = self.states.remove(index);
             self.epochs.remove(index);
+            if let Some(ref mut covs) = self.covariances {
+                covs.remove(index);
+            }
+            if let Some(ref mut stms) = self.stms {
+                stms.remove(index);
+            }
+            if let Some(ref mut sens) = self.sensitivities {
+                sens.remove(index);
+            }
+            if let Some(ref mut accs) = self.accelerations {
+                accs.remove(index);
+            }
             Ok(removed_state)
         } else {
             Err(BraheError::Error(
@@ -1116,6 +1303,18 @@ impl Trajectory for DOrbitTrajectory {
 
         let removed_epoch = self.epochs.remove(index);
         let removed_state = self.states.remove(index);
+        if let Some(ref mut covs) = self.covariances {
+            covs.remove(index);
+        }
+        if let Some(ref mut stms) = self.stms {
+            stms.remove(index);
+        }
+        if let Some(ref mut sens) = self.sensitivities {
+            sens.remove(index);
+        }
+        if let Some(ref mut accs) = self.accelerations {
+            accs.remove(index);
+        }
         Ok((removed_epoch, removed_state))
     }
 
@@ -1228,8 +1427,213 @@ impl InterpolationConfig for DOrbitTrajectory {
     }
 }
 
-// InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
-impl InterpolatableTrajectory for DOrbitTrajectory {}
+impl InterpolatableTrajectory for DOrbitTrajectory {
+    /// Interpolate state at a given epoch using the configured interpolation method.
+    ///
+    /// Overrides the default trait implementation to provide proper support for
+    /// Lagrange and Hermite interpolation methods.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch for interpolation
+    ///
+    /// # Returns
+    /// * `Ok(state)` - Interpolated state vector
+    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
+    ///
+    /// # Panics
+    /// - HermiteCubic/HermiteQuintic panic if state dimension is not 6
+    /// - HermiteQuintic panics if no accelerations stored AND fewer than 3 points
+    fn interpolate(&self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
+        // Bounds checking
+        if let Some(start) = self.start_epoch()
+            && *epoch < start
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is before trajectory start {}",
+                epoch, start
+            )));
+        }
+
+        if let Some(end) = self.end_epoch()
+            && *epoch > end
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is after trajectory end {}",
+                epoch, end
+            )));
+        }
+
+        // Get indices before and after the target epoch
+        let idx1 = self.index_before_epoch(epoch)?;
+        let idx2 = self.index_after_epoch(epoch)?;
+
+        // If indices are the same, we have an exact match
+        if idx1 == idx2 {
+            return self.state_at_idx(idx1);
+        }
+
+        // Validate minimum point count
+        let method = self.get_interpolation_method();
+        let required = method.min_points_required();
+        if self.len() < required {
+            return Err(BraheError::Error(format!(
+                "{:?} requires {} points, trajectory has {}",
+                method,
+                required,
+                self.len()
+            )));
+        }
+
+        // Get reference epoch for time calculations
+        let ref_epoch = self.start_epoch().unwrap();
+
+        match method {
+            InterpolationMethod::Linear => self.interpolate_linear(epoch),
+
+            InterpolationMethod::Lagrange { degree } => {
+                // Collect degree+1 points centered around query epoch
+                let n_points = degree + 1;
+                let (start_idx, end_idx) =
+                    self.compute_interpolation_window(idx1, idx2, n_points)?;
+
+                // Build time and value arrays
+                let times: Vec<f64> = (start_idx..=end_idx)
+                    .map(|i| self.epochs[i] - ref_epoch)
+                    .collect();
+                let values: Vec<DVector<f64>> = (start_idx..=end_idx)
+                    .map(|i| self.states[i].clone())
+                    .collect();
+
+                let t = *epoch - ref_epoch;
+                Ok(interpolate_lagrange_dvector(&times, &values, t))
+            }
+
+            InterpolationMethod::HermiteCubic => {
+                // Validate 6D state
+                if self.dimension != 6 {
+                    return Err(BraheError::Error(format!(
+                        "HermiteCubic interpolation requires 6D states, trajectory has {}D. \
+                         Use Linear/Lagrange interpolation for non-6D states.",
+                        self.dimension
+                    )));
+                }
+
+                // Get bracketing states
+                let t0 = self.epochs[idx1] - ref_epoch;
+                let t1 = self.epochs[idx2] - ref_epoch;
+                let t = *epoch - ref_epoch;
+
+                Ok(interpolate_hermite_cubic_dvector6(
+                    t0,
+                    t1,
+                    &self.states[idx1],
+                    &self.states[idx2],
+                    t,
+                ))
+            }
+
+            InterpolationMethod::HermiteQuintic => {
+                // Validate 6D state
+                if self.dimension != 6 {
+                    return Err(BraheError::Error(format!(
+                        "HermiteQuintic interpolation requires 6D states, trajectory has {}D. \
+                         Use Linear/Lagrange interpolation for non-6D states.",
+                        self.dimension
+                    )));
+                }
+
+                // Check if we have stored accelerations
+                if let Some(ref accs) = self.accelerations {
+                    // Use explicit accelerations
+                    let t0 = self.epochs[idx1] - ref_epoch;
+                    let t1 = self.epochs[idx2] - ref_epoch;
+                    let t = *epoch - ref_epoch;
+
+                    Ok(interpolate_hermite_quintic_dvector6(
+                        t0,
+                        t1,
+                        &self.states[idx1],
+                        &self.states[idx2],
+                        &accs[idx1],
+                        &accs[idx2],
+                        t,
+                    ))
+                } else if self.len() >= 3 {
+                    // Use finite difference approximation
+                    let (i0, i1, i2) = self.compute_fd_window(idx1, idx2)?;
+
+                    let times = [
+                        self.epochs[i0] - ref_epoch,
+                        self.epochs[i1] - ref_epoch,
+                        self.epochs[i2] - ref_epoch,
+                    ];
+                    let states = [
+                        self.states[i0].clone(),
+                        self.states[i1].clone(),
+                        self.states[i2].clone(),
+                    ];
+                    let t = *epoch - ref_epoch;
+
+                    Ok(interpolate_hermite_quintic_fd_dvector6(&times, &states, t))
+                } else {
+                    Err(BraheError::Error(format!(
+                        "HermiteQuintic interpolation requires either stored accelerations \
+                         or at least 3 trajectory points. This trajectory has {} points \
+                         and no stored accelerations.",
+                        self.len()
+                    )))
+                }
+            }
+        }
+    }
+}
+
+impl DOrbitTrajectory {
+    /// Compute the window of indices to use for Lagrange interpolation.
+    fn compute_interpolation_window(
+        &self,
+        idx1: usize,
+        idx2: usize,
+        n_points: usize,
+    ) -> Result<(usize, usize), BraheError> {
+        if self.len() < n_points {
+            return Err(BraheError::Error(format!(
+                "Need {} points for interpolation, trajectory has {}",
+                n_points,
+                self.len()
+            )));
+        }
+
+        let center = (idx1 + idx2) / 2;
+        let half_window = n_points / 2;
+        let mut start_idx = center.saturating_sub(half_window);
+        let mut end_idx = start_idx + n_points - 1;
+
+        if end_idx >= self.len() {
+            end_idx = self.len() - 1;
+            start_idx = end_idx.saturating_sub(n_points - 1);
+        }
+
+        Ok((start_idx, end_idx))
+    }
+
+    /// Compute the 3-point window for finite difference acceleration estimation.
+    fn compute_fd_window(
+        &self,
+        idx1: usize,
+        idx2: usize,
+    ) -> Result<(usize, usize, usize), BraheError> {
+        if idx1 > 0 {
+            Ok((idx1 - 1, idx1, idx2))
+        } else if idx2 + 1 < self.len() {
+            Ok((idx1, idx2, idx2 + 1))
+        } else {
+            Err(BraheError::Error(
+                "Cannot compute finite difference window with available points".to_string(),
+            ))
+        }
+    }
+}
 
 impl STMStorage for DOrbitTrajectory {
     fn enable_stm_storage(&mut self) {
@@ -1474,6 +1878,8 @@ impl DOrbitTrajectory {
             id: None,
             uuid: None,
             metadata: HashMap::new(),
+            accelerations: None,
+            acceleration_dimension: None,
         }
     }
 
@@ -1558,6 +1964,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -1642,6 +2050,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -1728,6 +2138,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -1814,6 +2226,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -1900,6 +2314,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during frame conversions
+            acceleration_dimension: None,
         }
     }
 
@@ -2022,6 +2438,8 @@ impl DOrbitTrajectory {
             id: self.id,
             uuid: self.uuid,
             metadata: self.metadata.clone(),
+            accelerations: None, // Accelerations are dropped during representation conversions
+            acceleration_dimension: None,
         }
     }
 }
@@ -2404,7 +2822,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         })
     }
 
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -2896,5 +3314,2850 @@ mod tests {
         let retrieved_cov = traj.covariance_at(epoch).unwrap();
         assert_eq!(retrieved_cov.nrows(), 6);
         assert_eq!(retrieved_cov.ncols(), 6);
+    }
+
+    // ========== Helper Function Tests ==========
+
+    #[test]
+    fn test_smat66_to_dmat_basic() {
+        use nalgebra::SMatrix;
+
+        let sm = SMatrix::<f64, 6, 6>::identity();
+        let dm = smat66_to_dmat(sm);
+        assert_eq!(dm.nrows(), 6);
+        assert_eq!(dm.ncols(), 6);
+        for i in 0..6 {
+            for j in 0..6 {
+                if i == j {
+                    assert_abs_diff_eq!(dm[(i, j)], 1.0, epsilon = 1e-10);
+                } else {
+                    assert_abs_diff_eq!(dm[(i, j)], 0.0, epsilon = 1e-10);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_dmat_to_smat66_basic() {
+        let dm = DMatrix::identity(6, 6);
+        let sm = dmat_to_smat66(dm);
+        assert_eq!(sm.nrows(), 6);
+        assert_eq!(sm.ncols(), 6);
+        for i in 0..6 {
+            for j in 0..6 {
+                if i == j {
+                    assert_abs_diff_eq!(sm[(i, j)], 1.0, epsilon = 1e-10);
+                } else {
+                    assert_abs_diff_eq!(sm[(i, j)], 0.0, epsilon = 1e-10);
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "DMatrix must have 6 rows")]
+    fn test_dmat_to_smat66_panic_wrong_rows() {
+        let dm = DMatrix::identity(5, 6);
+        let _ = dmat_to_smat66(dm);
+    }
+
+    #[test]
+    #[should_panic(expected = "DMatrix must have 6 columns")]
+    fn test_dmat_to_smat66_panic_wrong_cols() {
+        let dm = DMatrix::identity(6, 5);
+        let _ = dmat_to_smat66(dm);
+    }
+
+    // ========== Constructor Panic Tests ==========
+
+    #[test]
+    #[should_panic(expected = "Angle format must be specified for Keplerian")]
+    fn test_dorbittrajectory_new_panic_keplerian_no_angle_format() {
+        DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Keplerian, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Angle format should be None for Cartesian")]
+    fn test_dorbittrajectory_new_panic_cartesian_with_angle_format() {
+        DOrbitTrajectory::new(
+            6,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            Some(AngleFormat::Degrees),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Keplerian elements should be in ECI frame")]
+    fn test_dorbittrajectory_new_panic_ecef_keplerian() {
+        DOrbitTrajectory::new(
+            6,
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        );
+    }
+
+    // ========== Builder Method Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_with_interpolation_method_linear() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_interpolation_method(InterpolationMethod::Linear);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_with_interpolation_method_lagrange() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
+        assert!(matches!(
+            traj.interpolation_method,
+            InterpolationMethod::Lagrange { degree: 5 }
+        ));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_with_interpolation_method_hermite() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_interpolation_method(InterpolationMethod::HermiteCubic);
+        assert_eq!(traj.interpolation_method, InterpolationMethod::HermiteCubic);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_with_eviction_policy_max_size() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_size(100);
+        assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepCount);
+        assert_eq!(traj.max_size, Some(100));
+        assert_eq!(traj.max_age, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Maximum size must be >= 1")]
+    fn test_dorbittrajectory_with_eviction_policy_max_size_panic_zero() {
+        let _ = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_size(0);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_with_eviction_policy_max_age() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_age(3600.0);
+        assert_eq!(
+            traj.eviction_policy,
+            TrajectoryEvictionPolicy::KeepWithinDuration
+        );
+        assert_eq!(traj.max_age, Some(3600.0));
+        assert_eq!(traj.max_size, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Maximum age must be > 0.0")]
+    fn test_dorbittrajectory_with_eviction_policy_max_age_panic_zero() {
+        let _ = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_age(0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Maximum age must be > 0.0")]
+    fn test_dorbittrajectory_with_eviction_policy_max_age_panic_negative() {
+        let _ = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_eviction_policy_max_age(-1.0);
+    }
+
+    // ========== add_state_and_covariance Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_add_state_and_covariance_basic() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+
+        traj.add_state_and_covariance(epoch, state.clone(), cov.clone());
+
+        assert_eq!(traj.len(), 1);
+        let retrieved_cov = traj.covariances.as_ref().unwrap()[0].clone();
+        assert_abs_diff_eq!(retrieved_cov[(0, 0)], 100.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_add_state_and_covariance_ordering() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
+        let epoch3 = Epoch::from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6);
+
+        traj.add_state_and_covariance(epoch1, state.clone(), cov.clone());
+        traj.add_state_and_covariance(epoch2, state.clone(), cov.clone());
+        traj.add_state_and_covariance(epoch3, state.clone(), cov.clone());
+
+        assert_eq!(traj.len(), 3);
+        // Should be sorted: epoch3 < epoch1 < epoch2
+        assert_eq!(traj.epochs[0], epoch3);
+        assert_eq!(traj.epochs[1], epoch1);
+        assert_eq!(traj.epochs[2], epoch2);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Cannot add state with covariance to trajectory without covariances initialized"
+    )]
+    fn test_dorbittrajectory_add_state_and_covariance_panic_no_init() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6);
+
+        traj.add_state_and_covariance(epoch, state, cov);
+    }
+
+    // ========== to_matrix Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_to_matrix_basic() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 1000.0, 2000.0, 100.0, 7.5e3, 50.0]);
+        traj.add(epoch, state.clone());
+
+        let matrix = traj.to_matrix().unwrap();
+        assert_eq!(matrix.nrows(), 1);
+        assert_eq!(matrix.ncols(), 6);
+        for i in 0..6 {
+            assert_abs_diff_eq!(matrix[(0, i)], state[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_matrix_multiple_states() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state2 = DVector::from_vec(vec![7100e3, 100.0, 50.0, 10.0, 7.4e3, 5.0]);
+        traj.add(epoch1, state1.clone());
+        traj.add(epoch2, state2.clone());
+
+        let matrix = traj.to_matrix().unwrap();
+        assert_eq!(matrix.nrows(), 2);
+        assert_eq!(matrix.ncols(), 6);
+        for i in 0..6 {
+            assert_abs_diff_eq!(matrix[(0, i)], state1[i], epsilon = 1e-10);
+            assert_abs_diff_eq!(matrix[(1, i)], state2[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_matrix_error_empty() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let result = traj.to_matrix();
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Cannot convert empty trajectory")
+        );
+    }
+
+    // ========== covariance_at Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_covariance_at_exact_match() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 42.0;
+
+        let traj = DOrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov.clone()]),
+        );
+
+        let retrieved = traj.covariance_at(epoch).unwrap();
+        assert_abs_diff_eq!(retrieved[(0, 0)], 42.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_at_interpolation() {
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov1 = DMatrix::identity(6, 6) * 100.0;
+        let cov2 = DMatrix::identity(6, 6) * 200.0;
+
+        let traj = DOrbitTrajectory::from_orbital_data(
+            vec![epoch1, epoch2],
+            vec![state.clone(), state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov1, cov2]),
+        );
+
+        // Query at midpoint
+        let mid_epoch = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
+        let retrieved = traj.covariance_at(mid_epoch).unwrap();
+        // TwoWasserstein interpolation should give approximately midpoint for symmetric matrices
+        assert!(retrieved[(0, 0)] > 100.0 && retrieved[(0, 0)] < 200.0);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_at_none_disabled() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let result = traj.covariance_at(epoch);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_at_none_empty() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.covariance_at(epoch);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_at_none_out_of_range() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6);
+
+        let traj = DOrbitTrajectory::from_orbital_data(
+            vec![epoch],
+            vec![state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![cov]),
+        );
+
+        let before = Epoch::from_datetime(2024, 1, 1, 11, 0, 0.0, 0.0, TimeSystem::UTC);
+        let after = Epoch::from_datetime(2024, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(traj.covariance_at(before).is_none());
+        assert!(traj.covariance_at(after).is_none());
+    }
+
+    // ========== add_full Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_add_full_all_optional_provided() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 10.0;
+        let stm = DMatrix::identity(6, 6) * 2.0;
+        let sens = DMatrix::zeros(6, 3);
+        let accel = DVector::from_vec(vec![0.0, 0.0, -9.8]);
+
+        traj.add_full(
+            epoch,
+            state,
+            Some(cov.clone()),
+            Some(stm.clone()),
+            Some(sens.clone()),
+            Some(accel.clone()),
+        );
+
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_some());
+        assert!(traj.stms.is_some());
+        assert!(traj.sensitivities.is_some());
+        assert!(traj.accelerations.is_some());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_add_full_only_state() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+
+        traj.add_full(epoch, state, None, None, None, None);
+
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.stms.is_none());
+        assert!(traj.sensitivities.is_none());
+        assert!(traj.accelerations.is_none());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_add_full_with_covariance() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 50.0;
+
+        traj.add_full(epoch, state, Some(cov), None, None, None);
+
+        assert!(traj.covariances.is_some());
+        assert_abs_diff_eq!(
+            traj.covariances.as_ref().unwrap()[0][(0, 0)],
+            50.0,
+            epsilon = 1e-10
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_add_full_with_stm() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let stm = DMatrix::identity(6, 6) * 3.0;
+
+        traj.add_full(epoch, state, None, Some(stm), None, None);
+
+        assert!(traj.stms.is_some());
+        assert_abs_diff_eq!(traj.stms.as_ref().unwrap()[0][(0, 0)], 3.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_add_full_with_sensitivity() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let mut sens = DMatrix::zeros(6, 4);
+        sens[(0, 0)] = 1.5;
+
+        traj.add_full(epoch, state, None, None, Some(sens), None);
+
+        assert!(traj.sensitivities.is_some());
+        assert_abs_diff_eq!(
+            traj.sensitivities.as_ref().unwrap()[0][(0, 0)],
+            1.5,
+            epsilon = 1e-10
+        );
+        assert_eq!(traj.sensitivity_dimension, Some((6, 4)));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_add_full_with_acceleration() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let accel = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+
+        traj.add_full(epoch, state, None, None, None, Some(accel));
+
+        assert!(traj.accelerations.is_some());
+        assert_eq!(traj.acceleration_dimension, Some(3));
+        assert_abs_diff_eq!(
+            traj.accelerations.as_ref().unwrap()[0][2],
+            3.0,
+            epsilon = 1e-10
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "State vector dimension")]
+    fn test_dorbittrajectory_add_full_panic_state_dimension() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3]); // 5D instead of 6D
+
+        traj.add_full(epoch, state, None, None, None, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Covariance dimension mismatch")]
+    fn test_dorbittrajectory_add_full_panic_cov_dimension() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(5, 5); // Wrong dimensions
+
+        traj.add_full(epoch, state, Some(cov), None, None, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "STM dimension mismatch")]
+    fn test_dorbittrajectory_add_full_panic_stm_dimension() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let stm = DMatrix::identity(5, 6); // Wrong dimensions
+
+        traj.add_full(epoch, state, None, Some(stm), None, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Sensitivity row dimension mismatch")]
+    fn test_dorbittrajectory_add_full_panic_sens_rows() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let sens = DMatrix::zeros(5, 3); // Wrong row count
+
+        traj.add_full(epoch, state, None, None, Some(sens), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Sensitivity column dimension mismatch")]
+    fn test_dorbittrajectory_add_full_panic_sens_cols() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let sens1 = DMatrix::zeros(6, 3);
+        let sens2 = DMatrix::zeros(6, 4); // Different column count
+
+        traj.add_full(epoch1, state.clone(), None, None, Some(sens1), None);
+        traj.add_full(epoch2, state, None, None, Some(sens2), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Acceleration dimension")]
+    fn test_dorbittrajectory_add_full_panic_accel_dimension() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let accel1 = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let accel2 = DVector::from_vec(vec![1.0, 2.0]); // Different dimension
+
+        traj.add_full(epoch1, state.clone(), None, None, None, Some(accel1));
+        traj.add_full(epoch2, state, None, None, None, Some(accel2));
+    }
+
+    // ========== Trajectory Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_from_data_basic() {
+        let epochs = vec![
+            Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
+            Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+            DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]),
+        ];
+
+        let traj = DOrbitTrajectory::from_data(epochs, states).unwrap();
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.dimension(), 6);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_from_data_sorts_epochs() {
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
+        let epoch3 = Epoch::from_datetime(2024, 1, 1, 11, 59, 0.0, 0.0, TimeSystem::UTC);
+        let epochs = vec![epoch1, epoch2, epoch3]; // Out of order
+        let states = vec![
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+            DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]),
+            DVector::from_vec(vec![6900e3, 0.0, 0.0, 0.0, 7.6e3, 0.0]),
+        ];
+
+        let traj = DOrbitTrajectory::from_data(epochs, states).unwrap();
+        assert_eq!(traj.epochs[0], epoch3);
+        assert_eq!(traj.epochs[1], epoch1);
+        assert_eq!(traj.epochs[2], epoch2);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_from_data_error_empty() {
+        let epochs: Vec<Epoch> = vec![];
+        let states: Vec<DVector<f64>> = vec![];
+        let result = DOrbitTrajectory::from_data(epochs, states);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Cannot create trajectory from empty data")
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_from_data_error_length_mismatch() {
+        let epochs = vec![
+            Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
+            Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC),
+        ];
+        let states = vec![DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])];
+
+        let result = DOrbitTrajectory::from_data(epochs, states);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("same length"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_from_data_error_dimension_too_small() {
+        let epochs = vec![Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            12,
+            0,
+            0.0,
+            0.0,
+            TimeSystem::UTC,
+        )];
+        let states = vec![DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3])]; // 5D
+
+        let result = DOrbitTrajectory::from_data(epochs, states);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("must be at least 6")
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_epoch_at_idx_valid() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let retrieved = traj.epoch_at_idx(0).unwrap();
+        assert_eq!(retrieved, epoch);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_epoch_at_idx_error_out_of_bounds() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let result = traj.epoch_at_idx(0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("out of bounds"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_at_idx_valid() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
+        traj.add(epoch, state.clone());
+
+        let retrieved = traj.state_at_idx(0).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_at_idx_error_out_of_bounds() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let result = traj.state_at_idx(0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("out of bounds"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_nearest_state_exact() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let (found_epoch, found_state) = traj.nearest_state(&epoch).unwrap();
+        assert_eq!(found_epoch, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(found_state[i], state[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_nearest_state_closest() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state2 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]);
+        traj.add(epoch1, state1.clone());
+        traj.add(epoch2, state2);
+
+        // Query closer to epoch1
+        let query = Epoch::from_datetime(2024, 1, 1, 12, 2, 0.0, 0.0, TimeSystem::UTC);
+        let (found_epoch, _) = traj.nearest_state(&query).unwrap();
+        assert_eq!(found_epoch, epoch1);
+
+        // Query closer to epoch2
+        let query = Epoch::from_datetime(2024, 1, 1, 12, 8, 0.0, 0.0, TimeSystem::UTC);
+        let (found_epoch, _) = traj.nearest_state(&query).unwrap();
+        assert_eq!(found_epoch, epoch2);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_nearest_state_error_empty() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.nearest_state(&epoch);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty trajectory"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_len_and_is_empty() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.is_empty());
+        assert_eq!(traj.len(), 0);
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        assert!(!traj.is_empty());
+        assert_eq!(traj.len(), 1);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_start_end_epoch() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch1, state.clone());
+        traj.add(epoch2, state);
+
+        assert_eq!(traj.start_epoch(), Some(epoch1));
+        assert_eq!(traj.end_epoch(), Some(epoch2));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_start_end_epoch_empty() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert_eq!(traj.start_epoch(), None);
+        assert_eq!(traj.end_epoch(), None);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_timespan_multiple() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch1, state.clone());
+        traj.add(epoch2, state);
+
+        let timespan = traj.timespan().unwrap();
+        assert_abs_diff_eq!(timespan, 600.0, epsilon = 1e-10); // 10 minutes = 600 seconds
+    }
+
+    #[test]
+    fn test_dorbittrajectory_timespan_single_none() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        assert!(traj.timespan().is_none());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_timespan_empty_none() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.timespan().is_none());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_first_last() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state2 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]);
+        traj.add(epoch1, state1.clone());
+        traj.add(epoch2, state2.clone());
+
+        let (first_e, first_s) = traj.first().unwrap();
+        assert_eq!(first_e, epoch1);
+        assert_abs_diff_eq!(first_s[0], state1[0], epsilon = 1e-10);
+
+        let (last_e, last_s) = traj.last().unwrap();
+        assert_eq!(last_e, epoch2);
+        assert_abs_diff_eq!(last_s[0], state2[0], epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_first_last_empty() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.first().is_none());
+        assert!(traj.last().is_none());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_clear_all_storage_types() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6);
+        let stm = DMatrix::identity(6, 6);
+        let sens = DMatrix::zeros(6, 3);
+        let accel = DVector::from_vec(vec![0.0, 0.0, -9.8]);
+
+        traj.add_full(epoch, state, Some(cov), Some(stm), Some(sens), Some(accel));
+        assert_eq!(traj.len(), 1);
+
+        traj.clear();
+        assert_eq!(traj.len(), 0);
+        assert!(
+            traj.covariances
+                .as_ref()
+                .map(|v| v.is_empty())
+                .unwrap_or(true)
+        );
+        assert!(traj.stms.as_ref().map(|v| v.is_empty()).unwrap_or(true));
+        assert!(
+            traj.sensitivities
+                .as_ref()
+                .map(|v| v.is_empty())
+                .unwrap_or(true)
+        );
+        assert!(
+            traj.accelerations
+                .as_ref()
+                .map(|v| v.is_empty())
+                .unwrap_or(true)
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_remove_epoch_found() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state2 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]);
+        traj.add(epoch1, state1.clone());
+        traj.add(epoch2, state2);
+
+        let removed = traj.remove_epoch(&epoch1).unwrap();
+        assert_abs_diff_eq!(removed[0], state1[0], epsilon = 1e-10);
+        assert_eq!(traj.len(), 1);
+        assert_eq!(traj.epochs[0], epoch2);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_remove_epoch_not_found() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch1, state);
+
+        let result = traj.remove_epoch(&epoch2);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_remove_by_index() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch1, state.clone());
+        traj.add(epoch2, state);
+
+        let (removed_epoch, _) = traj.remove(0).unwrap();
+        assert_eq!(removed_epoch, epoch1);
+        assert_eq!(traj.len(), 1);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_remove_by_index_error_out_of_bounds() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let result = traj.remove(0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("out of bounds"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_get_valid() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let (got_epoch, got_state) = traj.get(0).unwrap();
+        assert_eq!(got_epoch, epoch);
+        for i in 0..6 {
+            assert_abs_diff_eq!(got_state[i], state[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_get_error_out_of_bounds() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let result = traj.get(0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("out of bounds"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_index_before_epoch_valid() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch1, state.clone());
+        traj.add(epoch2, state);
+
+        // Query between epochs
+        let query = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
+        let idx = traj.index_before_epoch(&query).unwrap();
+        assert_eq!(idx, 0);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_index_before_epoch_exact_match() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let idx = traj.index_before_epoch(&epoch).unwrap();
+        assert_eq!(idx, 0);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_index_before_epoch_error_empty() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.index_before_epoch(&epoch);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty trajectory"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_index_before_epoch_error_before_all() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let before = Epoch::from_datetime(2024, 1, 1, 11, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.index_before_epoch(&before);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("before all states")
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_index_after_epoch_valid() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch1, state.clone());
+        traj.add(epoch2, state);
+
+        // Query between epochs
+        let query = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
+        let idx = traj.index_after_epoch(&query).unwrap();
+        assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_index_after_epoch_exact_match() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let idx = traj.index_after_epoch(&epoch).unwrap();
+        assert_eq!(idx, 0);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_index_after_epoch_error_empty() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.index_after_epoch(&epoch);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty trajectory"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_index_after_epoch_error_after_all() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let after = Epoch::from_datetime(2024, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.index_after_epoch(&after);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("after all states"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_eviction_policy_max_size() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.set_eviction_policy_max_size(50).unwrap();
+        assert_eq!(traj.eviction_policy, TrajectoryEvictionPolicy::KeepCount);
+        assert_eq!(traj.max_size, Some(50));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_eviction_policy_max_size_error_zero() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let result = traj.set_eviction_policy_max_size(0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must be >= 1"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_eviction_policy_max_age() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.set_eviction_policy_max_age(1800.0).unwrap();
+        assert_eq!(
+            traj.eviction_policy,
+            TrajectoryEvictionPolicy::KeepWithinDuration
+        );
+        assert_eq!(traj.max_age, Some(1800.0));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_eviction_policy_max_age_error_negative() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let result = traj.set_eviction_policy_max_age(-100.0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("must be > 0.0"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_get_eviction_policy() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert_eq!(traj.get_eviction_policy(), TrajectoryEvictionPolicy::None);
+
+        let traj2 = traj.with_eviction_policy_max_size(10);
+        assert_eq!(
+            traj2.get_eviction_policy(),
+            TrajectoryEvictionPolicy::KeepCount
+        );
+    }
+
+    // ========== InterpolationConfig Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_interpolation_config_set_get() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        // Default is Linear
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+
+        // Set to Lagrange
+        traj.set_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
+        assert_eq!(
+            traj.get_interpolation_method(),
+            InterpolationMethod::Lagrange { degree: 5 }
+        );
+
+        // Set to HermiteCubic
+        traj.set_interpolation_method(InterpolationMethod::HermiteCubic);
+        assert_eq!(
+            traj.get_interpolation_method(),
+            InterpolationMethod::HermiteCubic
+        );
+
+        // Set to HermiteQuintic
+        traj.set_interpolation_method(InterpolationMethod::HermiteQuintic);
+        assert_eq!(
+            traj.get_interpolation_method(),
+            InterpolationMethod::HermiteQuintic
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolation_config_with_builder() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_interpolation_method(InterpolationMethod::Lagrange { degree: 7 });
+
+        assert_eq!(
+            traj.get_interpolation_method(),
+            InterpolationMethod::Lagrange { degree: 7 }
+        );
+    }
+
+    // ========== InterpolatableTrajectory Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_linear_basic() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state2 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]);
+        traj.add(epoch1, state1);
+        traj.add(epoch2, state2);
+
+        // Interpolate at midpoint
+        let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&mid).unwrap();
+
+        // Should be average of the two states
+        assert_abs_diff_eq!(result[0], 7050e3, epsilon = 1.0);
+        assert_abs_diff_eq!(result[4], 7.45e3, epsilon = 0.1);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_exact_match() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
+        traj.add(epoch, state.clone());
+
+        let result = traj.interpolate(&epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(result[i], state[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_error_before_start() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let before = Epoch::from_datetime(2024, 1, 1, 11, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&before);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("before trajectory start")
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_error_after_end() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let after = Epoch::from_datetime(2024, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&after);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("after trajectory end")
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_lagrange() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .with_interpolation_method(InterpolationMethod::Lagrange { degree: 3 });
+
+        // Add 4 points for degree 3 Lagrange
+        for i in 0..4 {
+            let epoch = Epoch::from_datetime(2024, 1, 1, 12, i * 10, 0.0, 0.0, TimeSystem::UTC);
+            let state = DVector::from_vec(vec![
+                7000e3 + (i as f64) * 100e3,
+                0.0,
+                0.0,
+                0.0,
+                7.5e3 - (i as f64) * 0.1e3,
+                0.0,
+            ]);
+            traj.add(epoch, state);
+        }
+
+        // Interpolate at midpoint
+        let mid = Epoch::from_datetime(2024, 1, 1, 12, 15, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&mid);
+        assert!(result.is_ok());
+        // Result should be somewhere between the states
+        assert!(result.as_ref().unwrap()[0] > 7000e3);
+        assert!(result.as_ref().unwrap()[0] < 7300e3);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_lagrange_error_insufficient_points() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .with_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
+
+        // Add only 3 points, but degree 5 requires 6 points
+        for i in 0..3 {
+            let epoch = Epoch::from_datetime(2024, 1, 1, 12, i * 10, 0.0, 0.0, TimeSystem::UTC);
+            let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add(epoch, state);
+        }
+
+        let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&mid);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("requires"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_hermite_cubic() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .with_interpolation_method(InterpolationMethod::HermiteCubic);
+
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state2 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]);
+        traj.add(epoch1, state1);
+        traj.add(epoch2, state2);
+
+        let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&mid);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_hermite_cubic_error_non_6d() {
+        let mut traj =
+            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .with_interpolation_method(InterpolationMethod::HermiteCubic);
+
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 1.0, 2.0, 3.0]);
+        let state2 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0, 4.0, 5.0, 6.0]);
+        traj.add(epoch1, state1);
+        traj.add(epoch2, state2);
+
+        let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&mid);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("HermiteCubic interpolation requires 6D states"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_hermite_quintic_with_accelerations() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .with_interpolation_method(InterpolationMethod::HermiteQuintic);
+        traj.enable_acceleration_storage(3);
+
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state2 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]);
+        let accel1 = DVector::from_vec(vec![-9.8, 0.0, 0.0]);
+        let accel2 = DVector::from_vec(vec![-9.7, 0.0, 0.0]);
+
+        traj.add_with_acceleration(epoch1, state1, accel1);
+        traj.add_with_acceleration(epoch2, state2, accel2);
+
+        let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&mid);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_hermite_quintic_fd_fallback() {
+        // Without accelerations, uses finite difference with 3+ points
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .with_interpolation_method(InterpolationMethod::HermiteQuintic);
+
+        // Add 3 points for FD fallback
+        for i in 0..3 {
+            let epoch = Epoch::from_datetime(2024, 1, 1, 12, i * 10, 0.0, 0.0, TimeSystem::UTC);
+            let state =
+                DVector::from_vec(vec![7000e3 + (i as f64) * 100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add(epoch, state);
+        }
+
+        let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&mid);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_interpolate_hermite_quintic_error_insufficient() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+                .with_interpolation_method(InterpolationMethod::HermiteQuintic);
+
+        // Only 2 points and no accelerations
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
+        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state2 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]);
+        traj.add(epoch1, state1);
+        traj.add(epoch2, state2);
+
+        let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.interpolate(&mid);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("HermiteQuintic interpolation requires either stored accelerations")
+        );
+    }
+
+    // ========== STMStorage Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_enable_stm_storage() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        assert!(traj.stms.is_none());
+        traj.enable_stm_storage();
+        assert!(traj.stms.is_some());
+
+        // Should have identity matrix for existing state
+        let stm = traj.stm_at_idx(0).unwrap();
+        for i in 0..6 {
+            for j in 0..6 {
+                if i == j {
+                    assert_abs_diff_eq!(stm[(i, j)], 1.0, epsilon = 1e-10);
+                } else {
+                    assert_abs_diff_eq!(stm[(i, j)], 0.0, epsilon = 1e-10);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_stm_at_idx_valid() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+        traj.enable_stm_storage();
+
+        let stm = traj.stm_at_idx(0);
+        assert!(stm.is_some());
+        assert_eq!(stm.unwrap().nrows(), 6);
+        assert_eq!(stm.unwrap().ncols(), 6);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_stm_at_idx_none_disabled() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        // Without enabling STM storage
+        let stm = traj.stm_at_idx(0);
+        assert!(stm.is_none());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_stm_at() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let mut custom_stm = DMatrix::zeros(6, 6);
+        custom_stm[(0, 0)] = 2.5;
+        custom_stm[(1, 1)] = 3.0;
+
+        traj.set_stm_at(0, custom_stm.clone());
+
+        let retrieved = traj.stm_at_idx(0).unwrap();
+        assert_abs_diff_eq!(retrieved[(0, 0)], 2.5, epsilon = 1e-10);
+        assert_abs_diff_eq!(retrieved[(1, 1)], 3.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[should_panic(expected = "out of bounds")]
+    fn test_dorbittrajectory_set_stm_at_panic_out_of_bounds() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let stm = DMatrix::identity(6, 6);
+        traj.set_stm_at(0, stm); // No states added yet
+    }
+
+    #[test]
+    #[should_panic(expected = "do not match expected 6x6")]
+    fn test_dorbittrajectory_set_stm_at_panic_wrong_dimensions() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let wrong_stm = DMatrix::identity(5, 5);
+        traj.set_stm_at(0, wrong_stm);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_stm_dimensions() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert_eq!(traj.stm_dimensions(), (6, 6));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_stm_storage_mut() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        // Before enabling, should be None
+        assert!(traj.stm_storage_mut().is_none());
+
+        traj.enable_stm_storage();
+
+        // After enabling, should be Some
+        let storage = traj.stm_storage_mut();
+        assert!(storage.is_some());
+        assert_eq!(storage.unwrap().len(), 1);
+    }
+
+    // ========== SensitivityStorage Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_enable_sensitivity_storage() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        assert!(traj.sensitivities.is_none());
+        traj.enable_sensitivity_storage(4);
+        assert!(traj.sensitivities.is_some());
+        assert_eq!(traj.sensitivity_dimension, Some((6, 4)));
+
+        // Should have zero matrix for existing state
+        let sens = traj.sensitivity_at_idx(0).unwrap();
+        assert_eq!(sens.nrows(), 6);
+        assert_eq!(sens.ncols(), 4);
+    }
+
+    #[test]
+    #[should_panic(expected = "Parameter dimension must be > 0")]
+    fn test_dorbittrajectory_enable_sensitivity_storage_panic_zero() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.enable_sensitivity_storage(0);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_sensitivity_at_idx_valid() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+        traj.enable_sensitivity_storage(3);
+
+        let sens = traj.sensitivity_at_idx(0);
+        assert!(sens.is_some());
+        assert_eq!(sens.unwrap().nrows(), 6);
+        assert_eq!(sens.unwrap().ncols(), 3);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_sensitivity_at_idx_none_disabled() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        // Without enabling sensitivity storage
+        let sens = traj.sensitivity_at_idx(0);
+        assert!(sens.is_none());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_sensitivity_at() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let mut custom_sens = DMatrix::zeros(6, 3);
+        custom_sens[(0, 0)] = 1.5;
+        custom_sens[(2, 1)] = 2.5;
+
+        traj.set_sensitivity_at(0, custom_sens.clone());
+
+        let retrieved = traj.sensitivity_at_idx(0).unwrap();
+        assert_abs_diff_eq!(retrieved[(0, 0)], 1.5, epsilon = 1e-10);
+        assert_abs_diff_eq!(retrieved[(2, 1)], 2.5, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[should_panic(expected = "out of bounds")]
+    fn test_dorbittrajectory_set_sensitivity_at_panic_out_of_bounds() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let sens = DMatrix::zeros(6, 3);
+        traj.set_sensitivity_at(0, sens); // No states added yet
+    }
+
+    #[test]
+    #[should_panic(expected = "does not match state dimension 6")]
+    fn test_dorbittrajectory_set_sensitivity_at_panic_wrong_rows() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let wrong_sens = DMatrix::zeros(5, 3); // Wrong row count
+        traj.set_sensitivity_at(0, wrong_sens);
+    }
+
+    #[test]
+    #[should_panic(expected = "does not match existing")]
+    fn test_dorbittrajectory_set_sensitivity_at_panic_wrong_cols() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch1, state.clone());
+        traj.add(epoch2, state);
+
+        // Set first with 3 columns
+        traj.set_sensitivity_at(0, DMatrix::zeros(6, 3));
+        // Try to set second with 4 columns - should panic
+        traj.set_sensitivity_at(1, DMatrix::zeros(6, 4));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_sensitivity_dimensions() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        // Before enabling, should be None
+        assert_eq!(traj.sensitivity_dimensions(), None);
+
+        traj.enable_sensitivity_storage(5);
+        assert_eq!(traj.sensitivity_dimensions(), Some((6, 5)));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_sensitivity_storage_mut() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        // Before enabling, should be None
+        assert!(traj.sensitivity_storage_mut().is_none());
+
+        traj.enable_sensitivity_storage(2);
+
+        // After enabling, should be Some
+        let storage = traj.sensitivity_storage_mut();
+        assert!(storage.is_some());
+        assert_eq!(storage.unwrap().len(), 1);
+    }
+
+    // ========== CovarianceInterpolationConfig Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_covariance_interpolation_with_builder() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::MatrixSquareRoot
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_interpolation_set_get() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        // Default is TwoWasserstein
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::TwoWasserstein
+        );
+
+        traj.set_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::MatrixSquareRoot
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_interpolation_sqrt_method() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_covariance_interpolation_method(CovarianceInterpolationMethod::MatrixSquareRoot);
+
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::MatrixSquareRoot
+        );
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_interpolation_wasserstein_method() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_covariance_interpolation_method(CovarianceInterpolationMethod::TwoWasserstein);
+
+        assert_eq!(
+            traj.get_covariance_interpolation_method(),
+            CovarianceInterpolationMethod::TwoWasserstein
+        );
+    }
+
+    // ========== from_orbital_data Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_from_orbital_data_basic() {
+        let epochs = vec![
+            Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
+            Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+            DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]),
+        ];
+
+        let traj = DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            None,
+        );
+
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.dimension(), 6);
+        assert_eq!(traj.frame, OrbitFrame::ECI);
+        assert_eq!(traj.representation, OrbitRepresentation::Cartesian);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_from_orbital_data_with_covariances() {
+        let epochs = vec![
+            Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
+            Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+            DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]),
+        ];
+        let covariances = vec![
+            DMatrix::identity(6, 6) * 100.0,
+            DMatrix::identity(6, 6) * 200.0,
+        ];
+
+        let traj = DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(covariances),
+        );
+
+        assert!(traj.covariances.is_some());
+        assert_eq!(traj.covariances.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot create trajectory from empty states")]
+    fn test_dorbittrajectory_from_orbital_data_panic_empty_states() {
+        let epochs: Vec<Epoch> = vec![];
+        let states: Vec<DVector<f64>> = vec![];
+
+        DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "State dimension must be at least 6")]
+    fn test_dorbittrajectory_from_orbital_data_panic_dimension_too_small() {
+        let epochs = vec![Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            12,
+            0,
+            0.0,
+            0.0,
+            TimeSystem::UTC,
+        )];
+        let states = vec![DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3])]; // 5D
+
+        DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "has dimension")]
+    fn test_dorbittrajectory_from_orbital_data_panic_inconsistent_dimension() {
+        let epochs = vec![
+            Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
+            Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]), // 6D
+            DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0, 1.0]), // 7D
+        ];
+
+        DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Keplerian elements should be in ECI frame")]
+    fn test_dorbittrajectory_from_orbital_data_panic_ecef_keplerian() {
+        let epochs = vec![Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            12,
+            0,
+            0.0,
+            0.0,
+            TimeSystem::UTC,
+        )];
+        let states = vec![DVector::from_vec(vec![7000e3, 0.01, 0.5, 0.0, 0.0, 0.0])];
+
+        DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Covariances length")]
+    fn test_dorbittrajectory_from_orbital_data_panic_cov_length_mismatch() {
+        let epochs = vec![
+            Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC),
+            Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC),
+        ];
+        let states = vec![
+            DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]),
+            DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]),
+        ];
+        let covariances = vec![DMatrix::identity(6, 6)]; // Only 1 covariance for 2 states
+
+        DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(covariances),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Covariances are only supported for")]
+    fn test_dorbittrajectory_from_orbital_data_panic_cov_invalid_frame() {
+        let epochs = vec![Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            12,
+            0,
+            0.0,
+            0.0,
+            TimeSystem::UTC,
+        )];
+        let states = vec![DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])];
+        let covariances = vec![DMatrix::identity(6, 6)];
+
+        DOrbitTrajectory::from_orbital_data(
+            epochs,
+            states,
+            OrbitFrame::ECEF,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(covariances),
+        );
+    }
+
+    // ========== Frame Conversion Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_to_eci_already_eci() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let converted = traj.to_eci();
+
+        assert_eq!(converted.frame, OrbitFrame::ECI);
+        assert_eq!(converted.representation, OrbitRepresentation::Cartesian);
+        for i in 0..6 {
+            assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_eci_already_gcrf() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let converted = traj.to_eci();
+
+        // GCRF and ECI are equivalent, so states should be the same
+        assert_eq!(converted.frame, OrbitFrame::ECI);
+        for i in 0..6 {
+            assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_eci_from_keplerian() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        );
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        // a, e, i, raan, argp, M
+        let state = DVector::from_vec(vec![7000e3, 0.01, 0.5, 0.0, 0.0, 0.0]);
+        traj.add(epoch, state);
+
+        let converted = traj.to_eci();
+
+        assert_eq!(converted.frame, OrbitFrame::ECI);
+        assert_eq!(converted.representation, OrbitRepresentation::Cartesian);
+        // Cartesian state should have reasonable orbital values
+        assert!(converted.states[0][0].abs() > 1e6); // Position should be in meters
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_eci_from_ecef() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let converted = traj.to_eci();
+
+        assert_eq!(converted.frame, OrbitFrame::ECI);
+        assert_eq!(converted.representation, OrbitRepresentation::Cartesian);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_gcrf_already_gcrf() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let converted = traj.to_gcrf();
+
+        assert_eq!(converted.frame, OrbitFrame::GCRF);
+        for i in 0..6 {
+            assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_gcrf_from_eci() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let converted = traj.to_gcrf();
+
+        assert_eq!(converted.frame, OrbitFrame::GCRF);
+        // ECI and GCRF are equivalent
+        for i in 0..6 {
+            assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_ecef_already_ecef() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let converted = traj.to_ecef();
+
+        assert_eq!(converted.frame, OrbitFrame::ECEF);
+        for i in 0..6 {
+            assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_ecef_from_eci() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let converted = traj.to_ecef();
+
+        assert_eq!(converted.frame, OrbitFrame::ECEF);
+        assert_eq!(converted.representation, OrbitRepresentation::Cartesian);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_itrf_already_itrf() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let converted = traj.to_itrf();
+
+        assert_eq!(converted.frame, OrbitFrame::ITRF);
+        for i in 0..6 {
+            assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_itrf_from_eci() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let converted = traj.to_itrf();
+
+        assert_eq!(converted.frame, OrbitFrame::ITRF);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_eme2000_already_eme2000() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let converted = traj.to_eme2000();
+
+        assert_eq!(converted.frame, OrbitFrame::EME2000);
+        for i in 0..6 {
+            assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_eme2000_from_eci() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let converted = traj.to_eme2000();
+
+        assert_eq!(converted.frame, OrbitFrame::EME2000);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_keplerian_from_cartesian_eci() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let converted = traj.to_keplerian(AngleFormat::Radians);
+
+        assert_eq!(converted.representation, OrbitRepresentation::Keplerian);
+        assert_eq!(converted.angle_format, Some(AngleFormat::Radians));
+        // Semi-major axis should be positive
+        assert!(converted.states[0][0] > 0.0);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_keplerian_already_keplerian_same_format() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        );
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.01, 0.5, 0.0, 0.0, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let converted = traj.to_keplerian(AngleFormat::Radians);
+
+        assert_eq!(converted.representation, OrbitRepresentation::Keplerian);
+        for i in 0..6 {
+            assert_abs_diff_eq!(converted.states[0][i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_to_keplerian_angle_format_conversion() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        );
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        // a, e, i, raan, argp, M (radians)
+        let state = DVector::from_vec(vec![
+            7000e3,
+            0.01,
+            std::f64::consts::PI / 4.0,
+            0.0,
+            0.0,
+            0.0,
+        ]);
+        traj.add(epoch, state);
+
+        let converted = traj.to_keplerian(AngleFormat::Degrees);
+
+        assert_eq!(converted.angle_format, Some(AngleFormat::Degrees));
+        // Inclination in degrees should be 45
+        assert_abs_diff_eq!(converted.states[0][2], 45.0, epsilon = 1e-6);
+    }
+
+    // ========== Identifiable Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_with_name() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_name("TestTrajectory");
+
+        assert_eq!(traj.get_name(), Some("TestTrajectory"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_with_uuid() {
+        let test_uuid = uuid::Uuid::new_v4();
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_uuid(test_uuid);
+
+        assert_eq!(traj.get_uuid(), Some(test_uuid));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_with_new_uuid() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_new_uuid();
+
+        assert!(traj.get_uuid().is_some());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_with_id() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_id(42);
+
+        assert_eq!(traj.get_id(), Some(42));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_with_identity() {
+        let test_uuid = uuid::Uuid::new_v4();
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_identity(Some("Name"), Some(test_uuid), Some(1));
+
+        assert_eq!(traj.get_id(), Some(1));
+        assert_eq!(traj.get_name(), Some("Name"));
+        assert_eq!(traj.get_uuid(), Some(test_uuid));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_identity() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let test_uuid = uuid::Uuid::new_v4();
+        traj.set_identity(Some("NewName"), Some(test_uuid), Some(10));
+
+        assert_eq!(traj.get_id(), Some(10));
+        assert_eq!(traj.get_name(), Some("NewName"));
+        assert_eq!(traj.get_uuid(), Some(test_uuid));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_id() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.set_id(Some(99));
+        assert_eq!(traj.get_id(), Some(99));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_name() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.set_name(Some("SetName"));
+        assert_eq!(traj.get_name(), Some("SetName"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_generate_uuid() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.get_uuid().is_none());
+        traj.generate_uuid();
+        assert!(traj.get_uuid().is_some());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_get_id_name_uuid() {
+        let test_uuid = uuid::Uuid::new_v4();
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
+            .with_id(5)
+            .with_name("GetTest")
+            .with_uuid(test_uuid);
+
+        assert_eq!(traj.get_id(), Some(5));
+        assert_eq!(traj.get_name(), Some("GetTest"));
+        assert_eq!(traj.get_uuid(), Some(test_uuid));
+    }
+
+    // ========== DStateProvider Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_state_provider_state() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
+        traj.add(epoch, state.clone());
+
+        let retrieved = traj.state(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_provider_state_dim() {
+        // state_dim returns dimension from first state, or 6 if empty
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert_eq!(traj.state_dim(), 6); // default for empty
+
+        // Add a 9D state to verify dimension is correctly detected
+        let mut traj9 =
+            DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0, 0.1, 0.2, 0.3]);
+        traj9.add(epoch, state);
+        assert_eq!(traj9.state_dim(), 9);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_provider_state_error() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        // Query epoch before trajectory
+        let before = Epoch::from_datetime(2024, 1, 1, 11, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.state(before);
+        assert!(result.is_err());
+    }
+
+    // ========== DCovarianceProvider Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_covariance_provider_basic() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        let retrieved = traj.covariance(epoch).unwrap();
+        assert_abs_diff_eq!(retrieved[(0, 0)], 100.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_provider_error_not_enabled() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        // Covariance storage not enabled
+        let result = traj.covariance(epoch);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not enabled"));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_provider_error_before_start() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6);
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        let before = Epoch::from_datetime(2024, 1, 1, 11, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.covariance(before);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_provider_error_after_end() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6);
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        let after = Epoch::from_datetime(2024, 1, 1, 13, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = traj.covariance(after);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_provider_dim() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert_eq!(traj.covariance_dim(), 6);
+    }
+
+    // ========== DOrbitStateProvider Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_state_eci_from_eci_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
+        traj.add(epoch, state.clone());
+
+        let retrieved = traj.state_eci(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_eci_from_gcrf_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let retrieved = traj.state_eci(epoch).unwrap();
+        // GCRF is equivalent to ECI
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_eci_from_eci_keplerian() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        );
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.01, 0.5, 0.0, 0.0, 0.0]);
+        traj.add(epoch, state);
+
+        let retrieved = traj.state_eci(epoch);
+        assert!(retrieved.is_ok());
+        // Should be Cartesian
+        assert!(retrieved.unwrap()[0].abs() > 1e6);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_eci_from_ecef_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let retrieved = traj.state_eci(epoch);
+        assert!(retrieved.is_ok());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_gcrf_from_gcrf_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let retrieved = traj.state_gcrf(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_gcrf_from_eci_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let retrieved = traj.state_gcrf(epoch).unwrap();
+        // ECI is equivalent to GCRF
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_ecef_from_ecef_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let retrieved = traj.state_ecef(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_ecef_from_eci_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let retrieved = traj.state_ecef(epoch);
+        assert!(retrieved.is_ok());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_itrf_from_itrf_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ITRF, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let retrieved = traj.state_itrf(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_eme2000_from_eme2000_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::EME2000, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let retrieved = traj.state_eme2000(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(retrieved[i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_koe_osc_from_eci_cartesian() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let koe = traj.state_koe_osc(epoch, AngleFormat::Radians).unwrap();
+        // Semi-major axis should be positive
+        assert!(koe[0] > 0.0);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_state_koe_osc_from_eci_keplerian_same_format() {
+        setup_global_test_eop();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+        );
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.01, 0.5, 0.0, 0.0, 0.0]);
+        traj.add(epoch, state.clone());
+
+        let koe = traj.state_koe_osc(epoch, AngleFormat::Radians).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(koe[i], state[i], epsilon = 1e-6);
+        }
+    }
+
+    // ========== DOrbitCovarianceProvider Trait Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_covariance_eci_from_eci() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        let retrieved = traj.covariance_eci(epoch).unwrap();
+        assert_abs_diff_eq!(retrieved[(0, 0)], 100.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_eci_from_gcrf() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        let retrieved = traj.covariance_eci(epoch).unwrap();
+        // GCRF = ECI
+        assert_abs_diff_eq!(retrieved[(0, 0)], 100.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_eci_error_ecef() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6);
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        // ECEF covariances cannot be transformed to ECI
+        let result = traj.covariance_eci(epoch);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_gcrf() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        let retrieved = traj.covariance_gcrf(epoch).unwrap();
+        assert_abs_diff_eq!(retrieved[(0, 0)], 100.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_covariance_rtn() {
+        setup_global_test_eop();
+
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(Vec::new());
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        let retrieved = traj.covariance_rtn(epoch);
+        assert!(retrieved.is_ok());
+    }
+
+    // ========== Iterator and Index Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_index_valid() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 100.0, 200.0, 10.0, 7.5e3, 5.0]);
+        traj.add(epoch, state.clone());
+
+        // Index returns &DVector<f64> (state only, not epoch)
+        let idx_state = &traj[0];
+        for i in 0..6 {
+            assert_abs_diff_eq!(idx_state[i], state[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_dorbittrajectory_index_panic_out_of_bounds() {
+        let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let _ = &traj[0]; // Empty trajectory
+    }
+
+    #[test]
+    fn test_dorbittrajectory_into_iter() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 1, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch1, state.clone());
+        traj.add(epoch2, state);
+
+        let mut count = 0;
+        for (e, _s) in &traj {
+            count += 1;
+            assert!(e == epoch1 || e == epoch2);
+        }
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_iterator_size_hint() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        for i in 0..5 {
+            let epoch = Epoch::from_datetime(2024, 1, 1, 12, i, 0.0, 0.0, TimeSystem::UTC);
+            let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add(epoch, state);
+        }
+
+        let iter = traj.into_iter();
+        assert_eq!(iter.size_hint(), (5, Some(5)));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_iterator_len() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        for i in 0..3 {
+            let epoch = Epoch::from_datetime(2024, 1, 1, 12, i, 0.0, 0.0, TimeSystem::UTC);
+            let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add(epoch, state);
+        }
+
+        let iter = traj.into_iter();
+        assert_eq!(iter.len(), 3);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_iterator_next() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        let mut iter = traj.into_iter();
+        let first = iter.next();
+        assert!(first.is_some());
+
+        let (e, _s) = first.unwrap();
+        assert_eq!(e, epoch);
+
+        let second = iter.next();
+        assert!(second.is_none());
+    }
+
+    // ========== Acceleration Storage Tests ==========
+
+    #[test]
+    fn test_dorbittrajectory_enable_acceleration_storage() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        assert!(traj.accelerations.is_none());
+        traj.enable_acceleration_storage(3);
+        assert!(traj.accelerations.is_some());
+        assert_eq!(traj.acceleration_dimension, Some(3));
+    }
+
+    #[test]
+    #[should_panic(expected = "does not match")]
+    fn test_dorbittrajectory_enable_acceleration_storage_panic_mismatch() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.enable_acceleration_storage(3);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let accel = DVector::from_vec(vec![1.0, 2.0]); // 2D instead of 3D
+        traj.add_with_acceleration(epoch, state, accel);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_has_accelerations() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(!traj.has_accelerations());
+
+        traj.enable_acceleration_storage(3);
+        assert!(traj.has_accelerations());
+    }
+
+    #[test]
+    fn test_dorbittrajectory_acceleration_dim() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert_eq!(traj.acceleration_dim(), None);
+
+        traj.enable_acceleration_storage(4);
+        assert_eq!(traj.acceleration_dim(), Some(4));
+    }
+
+    #[test]
+    fn test_dorbittrajectory_acceleration_at_idx() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.enable_acceleration_storage(3);
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let accel = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        traj.add_with_acceleration(epoch, state, accel);
+
+        let retrieved = traj.acceleration_at_idx(0);
+        assert!(retrieved.is_some());
+        assert_abs_diff_eq!(retrieved.unwrap()[0], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(retrieved.unwrap()[2], 3.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_set_acceleration_at() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        // Enable and set acceleration
+        traj.enable_acceleration_storage(3);
+        let accel = DVector::from_vec(vec![5.0, 6.0, 7.0]);
+        traj.set_acceleration_at(0, accel);
+
+        let retrieved = traj.acceleration_at_idx(0).unwrap();
+        assert_abs_diff_eq!(retrieved[0], 5.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(retrieved[2], 7.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[should_panic(expected = "Acceleration dimension")]
+    fn test_dorbittrajectory_set_acceleration_at_panic_dimension() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        traj.add(epoch, state);
+
+        traj.enable_acceleration_storage(3);
+        let wrong_accel = DVector::from_vec(vec![1.0, 2.0]); // Wrong dimension
+        traj.set_acceleration_at(0, wrong_accel);
+    }
+
+    #[test]
+    fn test_dorbittrajectory_add_with_acceleration() {
+        let mut traj =
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.enable_acceleration_storage(3);
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let accel = DVector::from_vec(vec![-9.8, 0.0, 0.0]);
+
+        traj.add_with_acceleration(epoch, state.clone(), accel.clone());
+
+        assert_eq!(traj.len(), 1);
+        let retrieved_accel = traj.acceleration_at_idx(0).unwrap();
+        assert_abs_diff_eq!(retrieved_accel[0], -9.8, epsilon = 1e-10);
     }
 }

@@ -2237,7 +2237,7 @@ def test_orbittrajectory_stateprovider_state_eme2000_from_itrf():
 
 
 def test_orbittrajectory_stateprovider_state_koe_from_cartesian():
-    """Test state_koe() for ECI Cartesian trajectory"""
+    """Test state_koe_osc() for ECI Cartesian trajectory"""
     traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
 
     epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
@@ -2245,7 +2245,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_cartesian():
     traj.add(epoch, state_cart)
 
     # Query osculating elements in degrees
-    result_deg = traj.state_koe(epoch, AngleFormat.DEGREES)
+    result_deg = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
 
     # Convert Cartesian to Keplerian manually for comparison
     expected_deg = state_eci_to_koe(state_cart, AngleFormat.DEGREES)
@@ -2254,7 +2254,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_cartesian():
         assert result_deg[i] == pytest.approx(expected_deg[i], abs=1e-3)
 
     # Query osculating elements in radians
-    result_rad = traj.state_koe(epoch, AngleFormat.RADIANS)
+    result_rad = traj.state_koe_osc(epoch, AngleFormat.RADIANS)
     expected_rad = state_eci_to_koe(state_cart, AngleFormat.RADIANS)
 
     for i in range(6):
@@ -2262,7 +2262,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_cartesian():
 
 
 def test_orbittrajectory_stateprovider_state_koe_from_keplerian():
-    """Test state_koe() for Keplerian trajectory"""
+    """Test state_koe_osc() for Keplerian trajectory"""
     traj = OrbitTrajectory(
         6, OrbitFrame.ECI, OrbitRepresentation.KEPLERIAN, AngleFormat.DEGREES
     )
@@ -2272,13 +2272,13 @@ def test_orbittrajectory_stateprovider_state_koe_from_keplerian():
     traj.add(epoch, state_kep_deg)
 
     # Query osculating elements in degrees (same as native format)
-    result_deg = traj.state_koe(epoch, AngleFormat.DEGREES)
+    result_deg = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
 
     for i in range(6):
         assert result_deg[i] == pytest.approx(state_kep_deg[i], abs=1e-6)
 
     # Query osculating elements in radians (requires conversion)
-    result_rad = traj.state_koe(epoch, AngleFormat.RADIANS)
+    result_rad = traj.state_koe_osc(epoch, AngleFormat.RADIANS)
 
     # First two elements unchanged (a, e)
     assert result_rad[0] == pytest.approx(state_kep_deg[0], abs=1e-6)
@@ -2292,7 +2292,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_keplerian():
 
 
 def test_orbittrajectory_stateprovider_state_koe_from_ecef():
-    """Test state_koe() for ECEF Cartesian trajectory"""
+    """Test state_koe_osc() for ECEF Cartesian trajectory"""
     traj = OrbitTrajectory(6, OrbitFrame.ECEF, OrbitRepresentation.CARTESIAN, None)
 
     epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
@@ -2300,7 +2300,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_ecef():
     traj.add(epoch, state_ecef)
 
     # Query osculating elements
-    result = traj.state_koe(epoch, AngleFormat.DEGREES)
+    result = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
 
     # Convert ECEF -> ECI -> Keplerian manually for comparison
     state_eci = state_ecef_to_eci(epoch, state_ecef)
@@ -3352,3 +3352,282 @@ def test_covariance_rtn_elliptical_orbit(eop):
         abs(cov_rtn[i, i] - 100.0) > 1e-6 for i in range(6)
     ) or any(abs(cov_rtn[i, j]) > 1e-6 for i in range(6) for j in range(6) if i != j)
     assert differs_from_identity
+
+
+# ========================
+# Interpolation Method Tests
+# ========================
+
+
+def test_orbittrajectory_interpolation_linear():
+    """Test linear interpolation on OrbitTrajectory."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    t1 = t0 + 60.0
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj.set_interpolation_method(InterpolationMethod.LINEAR)
+    traj.add(t0, np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+    traj.add(t1, np.array([7060e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+
+    # Interpolate at midpoint
+    t_mid = t0 + 30.0
+    result = traj.interpolate(t_mid)
+
+    # Linear interpolation should give exact midpoint
+    assert result[0] == pytest.approx(7030e3, abs=1.0)
+
+
+def test_orbittrajectory_interpolation_lagrange_degree2():
+    """Test Lagrange degree 2 interpolation on OrbitTrajectory."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj.set_interpolation_method(InterpolationMethod.lagrange(2))
+
+    # Add 3 points with quadratic position profile: x = 7000e3 + 1000*t + 0.5*t^2
+    for i in range(3):
+        dt = i * 30.0
+        x = 7000e3 + 1000.0 * dt + 0.5 * dt * dt
+        traj.add(t0 + dt, np.array([x, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+
+    # Interpolate at t = 45s
+    t_query = t0 + 45.0
+    result = traj.interpolate(t_query)
+
+    # Expected: 7000e3 + 1000*45 + 0.5*45^2 = 7046012.5
+    expected_x = 7000e3 + 1000.0 * 45.0 + 0.5 * 45.0 * 45.0
+    assert result[0] == pytest.approx(expected_x, abs=1.0)
+
+
+def test_orbittrajectory_interpolation_lagrange_degree3():
+    """Test Lagrange degree 3 interpolation on OrbitTrajectory."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj.set_interpolation_method(InterpolationMethod.lagrange(3))
+
+    # Add 4 points with cubic profile
+    for i in range(4):
+        dt = i * 30.0
+        x = 7000e3 + 100.0 * dt + 0.1 * dt * dt + 0.001 * dt * dt * dt
+        traj.add(t0 + dt, np.array([x, 0.0, 0.0, 0.0, 7.5e3, 0.0]))
+
+    # Interpolate at t = 45s
+    t_query = t0 + 45.0
+    result = traj.interpolate(t_query)
+
+    expected_x = 7000e3 + 100.0 * 45.0 + 0.1 * 45.0 * 45.0 + 0.001 * 45.0**3
+    assert result[0] == pytest.approx(expected_x, abs=1.0)
+
+
+def test_orbittrajectory_interpolation_hermite_cubic():
+    """Test Hermite cubic interpolation on OrbitTrajectory."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    t1 = t0 + 60.0
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj.set_interpolation_method(InterpolationMethod.HERMITE_CUBIC)
+
+    # State 0: position = (7000e3, 0, 0), velocity = (100, 7500, 0)
+    traj.add(t0, np.array([7000e3, 0.0, 0.0, 100.0, 7500.0, 0.0]))
+    # State 1: position = (7006e3, 450e3, 0), velocity = (100, 7500, 0)
+    traj.add(t1, np.array([7006e3, 450e3, 0.0, 100.0, 7500.0, 0.0]))
+
+    # Interpolate at midpoint
+    t_mid = t0 + 30.0
+    result = traj.interpolate(t_mid)
+
+    # Hermite cubic should give smooth interpolation
+    assert result[0] == pytest.approx(7003e3, abs=100.0)
+    assert result[1] == pytest.approx(225e3, abs=100.0)
+
+
+def test_orbittrajectory_interpolation_lagrange_vs_linear_different():
+    """Test that Lagrange interpolation gives different (better) results than linear for nonlinear data."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    # Create two trajectories with the same quadratic data
+    traj_linear = OrbitTrajectory(
+        6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None
+    )
+    traj_lagrange = OrbitTrajectory(
+        6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None
+    )
+
+    traj_linear.set_interpolation_method(InterpolationMethod.LINEAR)
+    traj_lagrange.set_interpolation_method(InterpolationMethod.lagrange(2))
+
+    # Add 3 points with quadratic profile
+    for i in range(3):
+        dt = i * 60.0
+        x = 7000e3 + dt * dt  # Quadratic, not linear
+        state = np.array([x, 0.0, 0.0, 0.0, 7500.0, 0.0])
+        traj_linear.add(t0 + dt, state)
+        traj_lagrange.add(t0 + dt, state)
+
+    # Interpolate at t = 90s
+    t_query = t0 + 90.0
+    result_linear = traj_linear.interpolate(t_query)
+    result_lagrange = traj_lagrange.interpolate(t_query)
+
+    expected_exact = 7000e3 + 90.0 * 90.0
+
+    # Lagrange should be closer to exact value
+    linear_error = abs(result_linear[0] - expected_exact)
+    lagrange_error = abs(result_lagrange[0] - expected_exact)
+
+    assert lagrange_error < linear_error, (
+        f"Lagrange error ({lagrange_error}) should be less than linear error ({linear_error})"
+    )
+
+
+# ========================
+# Acceleration Storage Tests
+# ========================
+
+
+def test_orbittrajectory_acceleration_storage_disabled_by_default():
+    """Test that acceleration storage is disabled by default."""
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    assert not traj.has_accelerations()
+
+
+def test_orbittrajectory_enable_acceleration_storage():
+    """Test enabling acceleration storage."""
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj.enable_acceleration_storage(3)
+    assert traj.has_accelerations()
+
+
+def test_orbittrajectory_add_with_acceleration():
+    """Test adding states with accelerations."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj.enable_acceleration_storage(3)
+
+    state = np.array([7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    acc = np.array([-9.0, 0.0, 0.0])
+    traj.add_with_acceleration(t0, state, acc)
+
+    assert len(traj) == 1
+
+    retrieved_acc = traj.acceleration_at_idx(0)
+    assert retrieved_acc[0] == pytest.approx(-9.0, abs=1e-10)
+    assert retrieved_acc[1] == pytest.approx(0.0, abs=1e-10)
+    assert retrieved_acc[2] == pytest.approx(0.0, abs=1e-10)
+
+
+def test_orbittrajectory_set_acceleration_at():
+    """Test setting acceleration at a specific index."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj.enable_acceleration_storage(3)
+
+    state = np.array([7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    traj.add(t0, state)
+
+    # Initially acceleration should be zero
+    acc_before = traj.acceleration_at_idx(0)
+    assert acc_before[0] == pytest.approx(0.0, abs=1e-10)
+
+    # Set acceleration
+    new_acc = np.array([-8.5, 0.1, -0.05])
+    traj.set_acceleration_at(0, new_acc)
+
+    acc_after = traj.acceleration_at_idx(0)
+    assert acc_after[0] == pytest.approx(-8.5, abs=1e-10)
+    assert acc_after[1] == pytest.approx(0.1, abs=1e-10)
+    assert acc_after[2] == pytest.approx(-0.05, abs=1e-10)
+
+
+def test_orbittrajectory_acceleration_at_idx_no_storage():
+    """Test that acceleration_at_idx returns None when storage is not enabled."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    # Acceleration storage NOT enabled
+    traj.add(t0, np.array([7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0]))
+
+    result = traj.acceleration_at_idx(0)
+    assert result is None
+
+
+def test_orbittrajectory_hermite_quintic_with_accelerations():
+    """Test HermiteQuintic interpolation with stored accelerations."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+    t1 = t0 + 60.0
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    traj.enable_acceleration_storage(3)
+    traj.set_interpolation_method(InterpolationMethod.HERMITE_QUINTIC)
+
+    # Add states with accelerations
+    state0 = np.array([7000e3, 0.0, 0.0, 100.0, 7500.0, 0.0])
+    acc0 = np.array([1.0, 0.0, 0.0])
+    traj.add_with_acceleration(t0, state0, acc0)
+
+    state1 = np.array([7006e3 + 1800.0, 450e3, 0.0, 160.0, 7500.0, 0.0])
+    acc1 = np.array([1.0, 0.0, 0.0])
+    traj.add_with_acceleration(t1, state1, acc1)
+
+    # Interpolate at midpoint
+    t_mid = t0 + 30.0
+    result = traj.interpolate(t_mid)
+
+    # Quintic Hermite should give smooth result
+    assert result[0] > 7000e3 and result[0] < 7008e3
+
+
+def test_orbittrajectory_hermite_quintic_finite_difference():
+    """Test HermiteQuintic interpolation with finite difference fallback."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    # No acceleration storage - will use finite differences
+    traj.set_interpolation_method(InterpolationMethod.HERMITE_QUINTIC)
+
+    # Add 3 points for finite difference approximation
+    # Use parabolic motion in x: x = 7000e3 + 100*t + 0.5*t^2
+    for i in range(3):
+        dt = i * 30.0
+        x = 7000e3 + 100.0 * dt + 0.5 * dt * dt
+        vx = 100.0 + dt  # velocity = derivative = 100 + t
+        traj.add(t0 + dt, np.array([x, 0.0, 0.0, vx, 7500.0, 0.0]))
+
+    # Interpolate at t = 45s
+    t_query = t0 + 45.0
+    result = traj.interpolate(t_query)
+
+    # Expected position: 7000e3 + 100*45 + 0.5*45^2 = 7005512.5
+    expected_x = 7000e3 + 100.0 * 45.0 + 0.5 * 45.0 * 45.0
+    assert result[0] == pytest.approx(expected_x, abs=100.0)
+
+
+def test_orbittrajectory_add_with_acceleration_requires_enabled():
+    """Test that add_with_acceleration raises error if storage not enabled."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    # Storage NOT enabled
+
+    state = np.array([7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    acc = np.array([-9.0, 0.0, 0.0])
+
+    with pytest.raises(ValueError, match="Acceleration storage is not enabled"):
+        traj.add_with_acceleration(t0, state, acc)
+
+
+def test_orbittrajectory_set_acceleration_requires_enabled():
+    """Test that set_acceleration_at raises error if storage not enabled."""
+    t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
+
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    # Storage NOT enabled
+    traj.add(t0, np.array([7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0]))
+
+    acc = np.array([-9.0, 0.0, 0.0])
+
+    with pytest.raises(ValueError, match="Acceleration storage is not enabled"):
+        traj.set_acceleration_at(0, acc)

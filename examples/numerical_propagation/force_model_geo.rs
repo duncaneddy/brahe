@@ -48,7 +48,7 @@ fn main() {
 
     // Check orbit evolution (mainly from SRP and third-body)
     let final_koe = prop
-        .state_koe(prop.current_epoch(), bh::AngleFormat::Degrees)
+        .state_koe_osc(prop.current_epoch(), bh::AngleFormat::Degrees)
         .unwrap();
     println!("GEO Force Model (after 7 days):");
     println!("  Initial eccentricity: {:.6}", oe[1]);

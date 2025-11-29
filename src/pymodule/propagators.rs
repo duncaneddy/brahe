@@ -756,6 +756,27 @@ impl PySGPPropagator {
         self.propagator.mean_anomaly()
     }
 
+    /// Get age of ephemeris data (time since TLE epoch).
+    ///
+    /// Returns:
+    ///     float: Time since TLE epoch in seconds.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     age = prop.ephemeris_age
+    ///     print(f"Ephemeris age: {age:.1f} s")
+    ///     ```
+    #[getter]
+    pub fn ephemeris_age(&self) -> f64 {
+        self.propagator.ephemeris_age()
+    }
+
     // Identity methods
 
     /// Set the name and return self (consuming constructor pattern).
@@ -962,22 +983,22 @@ impl PySGPPropagator {
     ///
     ///     # Get osculating elements at initial epoch
     ///     epoch = prop.epoch
-    ///     elements_deg = prop.state_koe(epoch, bh.AngleFormat.DEGREES)
+    ///     elements_deg = prop.state_koe_osc(epoch, bh.AngleFormat.DEGREES)
     ///     print(f"Semi-major axis: {elements_deg[0]/1000:.3f} km")
     ///     print(f"Inclination: {elements_deg[2]:.4f} degrees")
     ///
     ///     # Get elements in radians
-    ///     elements_rad = prop.state_koe(epoch, bh.AngleFormat.RADIANS)
+    ///     elements_rad = prop.state_koe_osc(epoch, bh.AngleFormat.RADIANS)
     ///     print(f"Inclination: {elements_rad[2]:.4f} radians")
     ///     ```
     #[pyo3(text_signature = "(epoch, angle_format)")]
-    pub fn state_koe<'a>(
+    pub fn state_koe_osc<'a>(
         &self,
         py: Python<'a>,
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = SOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)?;
+        let state = SOrbitStateProvider::state_koe_osc(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1001,20 +1022,98 @@ impl PySGPPropagator {
     ///     # Get elements at multiple epochs
     ///     epoch0 = prop.epoch
     ///     epochs = [epoch0 + i*3600.0 for i in range(10)]  # Every hour for 10 hours
-    ///     elements_list = prop.states_koe(epochs, bh.AngleFormat.DEGREES)
+    ///     elements_list = prop.states_koe_osc(epochs, bh.AngleFormat.DEGREES)
     ///
     ///     for i, elements in enumerate(elements_list):
     ///         print(f"Hour {i}: a={elements[0]/1000:.3f} km, e={elements[1]:.6f}")
     ///     ```
     #[pyo3(text_signature = "(epochs, angle_format)")]
-    pub fn states_koe<'a>(
+    pub fn states_koe_osc<'a>(
         &self,
         py: Python<'a>,
         epochs: Vec<PyRef<PyEpoch>>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = SOrbitStateProvider::states_koe(&self.propagator, &epoch_vec, angle_format.value)?;
+        let states = SOrbitStateProvider::states_koe_osc(&self.propagator, &epoch_vec, angle_format.value)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
+    /// Compute state as mean Keplerian elements at the given epoch.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Epoch for state computation.
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Mean Keplerian elements [a, e, i, raan, argp, mean_anomaly].
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     # Get mean elements at initial epoch
+    ///     epoch = prop.epoch
+    ///     mean_deg = prop.state_koe_mean(epoch, bh.AngleFormat.DEGREES)
+    ///     osc_deg = prop.state_koe_osc(epoch, bh.AngleFormat.DEGREES)
+    ///     print(f"Mean semi-major axis: {mean_deg[0]/1000:.3f} km")
+    ///     print(f"Osc semi-major axis: {osc_deg[0]/1000:.3f} km")
+    ///     ```
+    #[pyo3(text_signature = "(epoch, angle_format)")]
+    pub fn state_koe_mean<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: PyRef<PyEpoch>,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_koe_mean(&self.propagator, epoch.obj, angle_format.value)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute states as mean Keplerian elements at multiple epochs.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of mean Keplerian element vectors [a, e, i, raan, argp, mean_anomaly].
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    ///     line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     # Get mean elements at multiple epochs
+    ///     epoch0 = prop.epoch
+    ///     epochs = [epoch0 + i*3600.0 for i in range(10)]  # Every hour for 10 hours
+    ///     mean_list = prop.states_koe_mean(epochs, bh.AngleFormat.DEGREES)
+    ///
+    ///     for i, elements in enumerate(mean_list):
+    ///         print(f"Hour {i}: mean a={elements[0]/1000:.3f} km")
+    ///     ```
+    #[pyo3(text_signature = "(epochs, angle_format)")]
+    pub fn states_koe_mean<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = SOrbitStateProvider::states_koe_mean(&self.propagator, &epoch_vec, angle_format.value)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
@@ -1640,13 +1739,13 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     numpy.ndarray: Osculating elements [a, e, i, raan, argp, mean_anomaly].
     #[pyo3(text_signature = "(epoch, angle_format)")]
-    pub fn state_koe<'a>(
+    pub fn state_koe_osc<'a>(
         &self,
         py: Python<'a>,
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = DOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)?;
+        let state = DOrbitStateProvider::state_koe_osc(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1729,14 +1828,59 @@ impl PyKeplerianPropagator {
     /// Returns:
     ///     list[numpy.ndarray]: List of osculating element vectors.
     #[pyo3(text_signature = "(epochs, angle_format)")]
-    pub fn states_koe<'a>(
+    pub fn states_koe_osc<'a>(
         &self,
         py: Python<'a>,
         epochs: Vec<PyRef<PyEpoch>>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
-        let states = DOrbitStateProvider::states_koe(&self.propagator, &epoch_vec, angle_format.value)?;
+        let states = DOrbitStateProvider::states_koe_osc(&self.propagator, &epoch_vec, angle_format.value)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
+    /// Compute state as mean Keplerian elements at a specific epoch.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Mean Keplerian elements [a, e, i, raan, argp, mean_anomaly].
+    #[pyo3(text_signature = "(epoch, angle_format)")]
+    pub fn state_koe_mean<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: PyRef<PyEpoch>,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_koe_mean(&self.propagator, epoch.obj, angle_format.value)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute states as mean Keplerian elements at multiple epochs.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///     angle_format (AngleFormat): If AngleFormat.DEGREES, angular elements are returned in degrees, otherwise in radians.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of mean Keplerian element vectors [a, e, i, raan, argp, mean_anomaly].
+    #[pyo3(text_signature = "(epochs, angle_format)")]
+    pub fn states_koe_mean<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_koe_mean(&self.propagator, &epoch_vec, angle_format.value)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
@@ -3188,6 +3332,33 @@ impl PyNumericalPropagationConfig {
         slf
     }
 
+    /// Enable or disable acceleration storage in trajectory.
+    ///
+    /// Args:
+    ///     store (bool): Whether to store accelerations.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with updated setting.
+    fn with_store_accelerations(mut slf: PyRefMut<'_, Self>, store: bool) -> PyRefMut<'_, Self> {
+        slf.config.store_accelerations = store;
+        slf
+    }
+
+    /// Set the interpolation method for trajectory queries.
+    ///
+    /// Args:
+    ///     method (InterpolationMethod): The interpolation method to use.
+    ///
+    /// Returns:
+    ///     NumericalPropagationConfig: Self with updated interpolation method.
+    fn with_interpolation_method(
+        mut slf: PyRefMut<'_, Self>,
+        method: PyInterpolationMethod,
+    ) -> PyRefMut<'_, Self> {
+        slf.config.interpolation_method = method.method;
+        slf
+    }
+
     /// Get the integration method.
     #[getter]
     fn method(&self) -> PyIntegrationMethod {
@@ -3216,6 +3387,30 @@ impl PyNumericalPropagationConfig {
     #[setter]
     fn set_variational(&mut self, value: PyVariationalConfig) {
         self.config.variational = value.config;
+    }
+
+    /// Get whether acceleration storage is enabled.
+    #[getter]
+    fn store_accelerations(&self) -> bool {
+        self.config.store_accelerations
+    }
+
+    /// Set whether acceleration storage is enabled.
+    #[setter]
+    fn set_store_accelerations(&mut self, value: bool) {
+        self.config.store_accelerations = value;
+    }
+
+    /// Get the interpolation method.
+    #[getter]
+    fn interpolation_method(&self) -> PyInterpolationMethod {
+        PyInterpolationMethod { method: self.config.interpolation_method }
+    }
+
+    /// Set the interpolation method.
+    #[setter]
+    fn set_interpolation_method(&mut self, value: PyInterpolationMethod) {
+        self.config.interpolation_method = value.method;
     }
 
     fn __repr__(&self) -> String {
@@ -3927,24 +4122,92 @@ impl PyNumericalOrbitPropagator {
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
-    /// Compute state as Keplerian elements at a specific epoch.
+    /// Compute state as osculating Keplerian elements at a specific epoch.
     ///
     /// Args:
     ///     epoch (Epoch): Target epoch.
     ///     angle_format (AngleFormat): Format for angular elements.
     ///
     /// Returns:
-    ///     numpy.ndarray: Keplerian elements [a, e, i, Ω, ω, M].
+    ///     numpy.ndarray: Osculating Keplerian elements [a, e, i, Ω, ω, M].
     #[pyo3(text_signature = "(epoch, angle_format)")]
-    pub fn state_koe<'a>(
+    pub fn state_koe_osc<'a>(
         &self,
         py: Python<'a>,
         epoch: &PyEpoch,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = DOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)
+        let state = DOrbitStateProvider::state_koe_osc(&self.propagator, epoch.obj, angle_format.value)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute state as mean Keplerian elements at a specific epoch.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch.
+    ///     angle_format (AngleFormat): Format for angular elements.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Mean Keplerian elements [a, e, i, Ω, ω, M].
+    #[pyo3(text_signature = "(epoch, angle_format)")]
+    pub fn state_koe_mean<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_koe_mean(&self.propagator, epoch.obj, angle_format.value)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute states as osculating Keplerian elements at multiple epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of target epochs.
+    ///     angle_format (AngleFormat): Format for angular elements.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of osculating Keplerian elements [a, e, i, Ω, ω, M].
+    #[pyo3(text_signature = "(epochs, angle_format)")]
+    pub fn states_koe_osc<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_koe_osc(&self.propagator, &epoch_vec, angle_format.value)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
+    /// Compute states as mean Keplerian elements at multiple epochs.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of target epochs.
+    ///     angle_format (AngleFormat): Format for angular elements.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of mean Keplerian elements [a, e, i, Ω, ω, M].
+    #[pyo3(text_signature = "(epochs, angle_format)")]
+    pub fn states_koe_mean<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+        angle_format: &PyAngleFormat,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_koe_mean(&self.propagator, &epoch_vec, angle_format.value)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     // =========================================================================

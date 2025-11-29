@@ -25,6 +25,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::integrators::IntegratorConfig;
+use crate::math::interpolation::InterpolationMethod;
 use crate::math::jacobian::DifferenceMethod;
 
 // =============================================================================
@@ -299,6 +300,28 @@ pub struct NumericalPropagationConfig {
 
     /// STM and sensitivity propagation configuration
     pub variational: VariationalConfig,
+
+    /// Whether to store accelerations in trajectory
+    ///
+    /// When enabled, the propagator computes and stores acceleration vectors
+    /// at each trajectory point. This enables higher-order interpolation
+    /// methods like Hermite quintic that use acceleration data.
+    ///
+    /// Default: `true`
+    pub store_accelerations: bool,
+
+    /// Interpolation method for trajectory queries
+    ///
+    /// Controls how states are interpolated between stored trajectory points.
+    /// Higher-order methods (Lagrange, Hermite) provide better accuracy but
+    /// may require more stored points or acceleration data.
+    ///
+    /// **Note**: Hermite interpolation methods (`HermiteCubic`, `HermiteQuintic`)
+    /// require 6D state vectors with position/velocity structure `[x, y, z, vx, vy, vz]`.
+    /// For non-6D systems, use `Linear` or `Lagrange` interpolation.
+    ///
+    /// Default: `InterpolationMethod::Linear`
+    pub interpolation_method: InterpolationMethod,
 }
 
 impl Default for NumericalPropagationConfig {
@@ -308,11 +331,15 @@ impl Default for NumericalPropagationConfig {
     /// - Dormand-Prince 5(4) integrator
     /// - Default tolerances (abs=1e-6, rel=1e-3)
     /// - No variational matrix propagation (central differences when enabled)
+    /// - Acceleration storage enabled
+    /// - Linear interpolation (safe for any state dimension)
     fn default() -> Self {
         Self {
             method: IntegratorMethod::default(),
             integrator: IntegratorConfig::default(),
             variational: VariationalConfig::default(),
+            store_accelerations: true,
+            interpolation_method: InterpolationMethod::Linear,
         }
     }
 }
@@ -375,15 +402,19 @@ impl NumericalPropagationConfig {
             method,
             integrator,
             variational,
+            store_accelerations: true,
+            interpolation_method: InterpolationMethod::Linear,
         }
     }
 
     /// Create high-precision configuration with tight tolerances
     ///
     /// Uses:
-    /// - Dormand-Prince 5(4) integrator
+    /// - RKN1210 integrator
     /// - Tight tolerances (abs=1e-10, rel=1e-8)
     /// - No variational matrix propagation (central differences when enabled)
+    /// - Acceleration storage enabled
+    /// - Linear interpolation (safe for any state dimension)
     ///
     /// # Example
     ///
@@ -397,7 +428,33 @@ impl NumericalPropagationConfig {
             method: IntegratorMethod::RKN1210,
             integrator: IntegratorConfig::adaptive(1e-10, 1e-8),
             variational: VariationalConfig::default(),
+            store_accelerations: true,
+            interpolation_method: InterpolationMethod::Linear,
         }
+    }
+
+    /// Set whether to store accelerations in trajectory
+    ///
+    /// # Arguments
+    /// * `store` - Whether to store accelerations
+    ///
+    /// # Returns
+    /// Self for method chaining
+    pub fn with_store_accelerations(mut self, store: bool) -> Self {
+        self.store_accelerations = store;
+        self
+    }
+
+    /// Set the interpolation method for trajectory queries
+    ///
+    /// # Arguments
+    /// * `method` - The interpolation method to use
+    ///
+    /// # Returns
+    /// Self for method chaining
+    pub fn with_interpolation_method(mut self, method: InterpolationMethod) -> Self {
+        self.interpolation_method = method;
+        self
     }
 }
 
@@ -525,5 +582,74 @@ mod tests {
         assert_eq!(config.integrator.rel_tol, 1e-10);
         assert!(config.variational.enable_stm);
         assert!(!config.variational.enable_sensitivity);
+        // New fields should have defaults
+        assert!(config.store_accelerations);
+        assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_default_accelerations() {
+        let config = NumericalPropagationConfig::default();
+
+        // Acceleration storage should be enabled by default
+        assert!(config.store_accelerations);
+        // Default interpolation is Linear (safe for any state dimension)
+        assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_with_store_accelerations() {
+        let config = NumericalPropagationConfig::default().with_store_accelerations(false);
+        assert!(!config.store_accelerations);
+
+        let config = NumericalPropagationConfig::default().with_store_accelerations(true);
+        assert!(config.store_accelerations);
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_with_interpolation_method() {
+        let config = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
+        assert_eq!(
+            config.interpolation_method,
+            InterpolationMethod::Lagrange { degree: 5 }
+        );
+
+        let config = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::HermiteCubic);
+        assert_eq!(
+            config.interpolation_method,
+            InterpolationMethod::HermiteCubic
+        );
+
+        let config = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::HermiteQuintic);
+        assert_eq!(
+            config.interpolation_method,
+            InterpolationMethod::HermiteQuintic
+        );
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_builder_chaining() {
+        let config = NumericalPropagationConfig::default()
+            .with_store_accelerations(false)
+            .with_interpolation_method(InterpolationMethod::Lagrange { degree: 7 });
+
+        assert!(!config.store_accelerations);
+        assert_eq!(
+            config.interpolation_method,
+            InterpolationMethod::Lagrange { degree: 7 }
+        );
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_high_precision_new_fields() {
+        let config = NumericalPropagationConfig::high_precision();
+
+        // High precision should also have defaults for new fields
+        assert!(config.store_accelerations);
+        // Default interpolation is Linear (safe for any state dimension)
+        assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
     }
 }

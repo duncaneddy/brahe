@@ -722,8 +722,8 @@ def test_keplerianpropagator_analyticpropagator_state_eme2000():
         assert abs(computed_elements[i] - elements[i]) < 1e-6
 
 
-def test_keplerianpropagator_analyticpropagator_state_koe():
-    """Test state_koe() method"""
+def test_keplerianpropagator_analyticpropagator_state_koe_osc():
+    """Test state_koe_osc() method"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
     elements = create_test_elements()
 
@@ -734,7 +734,7 @@ def test_keplerianpropagator_analyticpropagator_state_koe():
         60.0,
     )
 
-    osc_elements = propagator.state_koe(
+    osc_elements = propagator.state_koe_osc(
         epoch + orbital_period(elements[0]), angle_format=AngleFormat.DEGREES
     )
 
@@ -743,7 +743,7 @@ def test_keplerianpropagator_analyticpropagator_state_koe():
         assert abs(osc_elements[i] - elements[i]) < 1e-6
 
     # Now test with radians to degrees conversion
-    osc_elements_rad = propagator.state_koe(
+    osc_elements_rad = propagator.state_koe_osc(
         epoch + orbital_period(elements[0]), angle_format=AngleFormat.RADIANS
     )
     for i in range(2):
@@ -836,8 +836,8 @@ def test_keplerianpropagator_analyticpropagator_states_ecef():
             assert abs(computed_elements[j] - elements[j]) < 1e-6
 
 
-def test_keplerianpropagator_analyticpropagator_states_koe():
-    """Test states_koe() method"""
+def test_keplerianpropagator_analyticpropagator_states_koe_osc():
+    """Test states_koe_osc() method"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
     elements = create_test_elements()
 
@@ -854,7 +854,7 @@ def test_keplerianpropagator_analyticpropagator_states_koe():
         epoch + 2.0 * orbital_period(elements[0]),
     ]
 
-    traj = propagator.states_koe(epochs, angle_format=AngleFormat.DEGREES)
+    traj = propagator.states_koe_osc(epochs, angle_format=AngleFormat.DEGREES)
     assert len(traj) == 3
 
     # Confirm all elements remain unchanged within small tolerance
@@ -863,7 +863,7 @@ def test_keplerianpropagator_analyticpropagator_states_koe():
             assert abs(state[i] - elements[i]) < 1e-6
 
     # Repeat with radians output
-    traj_rad = propagator.states_koe(epochs, angle_format=AngleFormat.RADIANS)
+    traj_rad = propagator.states_koe_osc(epochs, angle_format=AngleFormat.RADIANS)
     assert len(traj_rad) == 3
 
     for state in traj_rad:

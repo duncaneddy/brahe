@@ -256,3 +256,111 @@ unsafe fn py_state_roe_to_oe<'py>(
     );
     Ok(vector_to_numpy!(py, result, 6, f64))
 }
+
+/// Converts chief and deputy satellite ECI state vectors to quasi-nonsingular Relative Orbital Elements (ROE).
+///
+/// This function converts both ECI states to Keplerian orbital elements, then computes
+/// the quasi-nonsingular Relative Orbital Elements between them.
+///
+/// The ROE formulation provides a mean description of relative motion that is nonsingular for
+/// circular and near-circular orbits. The ROE vector contains:
+/// - da: Relative semi-major axis (dimensionless)
+/// - dλ: Relative mean longitude (degrees or radians)
+/// - dex: x-component of relative eccentricity vector (dimensionless)
+/// - dey: y-component of relative eccentricity vector (dimensionless)
+/// - dix: x-component of relative inclination vector (degrees or radians)
+/// - diy: y-component of relative inclination vector (degrees or radians)
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D ECI state vector of the chief satellite [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     x_deputy (numpy.ndarray or list): 6D ECI state vector of the deputy satellite [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     angle_format (AngleFormat): Format of angular elements in output (DEGREES or RADIANS)
+///
+/// Returns:
+///     numpy.ndarray: Relative orbital elements [da, dλ, dex, dey, dix, diy] shape (6,)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     # Define chief and deputy orbital elements (degrees)
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     oe_deputy = np.array([bh.R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05])
+///
+///     # Convert to ECI states
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///     x_deputy = bh.state_koe_to_eci(oe_deputy, bh.AngleFormat.DEGREES)
+///
+///     # Compute ROE directly from ECI states
+///     roe = bh.state_eci_to_roe(x_chief, x_deputy, bh.AngleFormat.DEGREES)
+///     print(f"Relative orbital elements: {roe}")
+///     # Relative orbital elements: [1.413e-4, 9.321e-2, 4.324e-4, 2.511e-4, 5.0e-2, 4.954e-2]
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x_chief, x_deputy, angle_format)")]
+#[pyo3(name = "state_eci_to_roe")]
+unsafe fn py_state_eci_to_roe<'py>(
+    py: Python<'py>,
+    x_chief: Bound<'py, PyAny>,
+    x_deputy: Bound<'py, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let result = relative_motion::state_eci_to_roe(
+        pyany_to_svector::<6>(&x_chief)?,
+        pyany_to_svector::<6>(&x_deputy)?,
+        angle_format.value,
+    );
+    Ok(vector_to_numpy!(py, result, 6, f64))
+}
+
+/// Converts chief satellite ECI state and quasi-nonsingular Relative Orbital Elements (ROE)
+/// to deputy satellite ECI state.
+///
+/// This function converts the chief ECI state to Keplerian orbital elements, applies
+/// the ROE to obtain deputy orbital elements, then converts back to ECI state.
+///
+/// Args:
+///     x_chief (numpy.ndarray or list): 6D ECI state vector of the chief satellite [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///     roe (numpy.ndarray or list): Relative orbital elements [da, dλ, dex, dey, dix, diy] shape (6,)
+///     angle_format (AngleFormat): Format of angular elements in input ROE (DEGREES or RADIANS)
+///
+/// Returns:
+///     numpy.ndarray: 6D ECI state vector of the deputy satellite [x, y, z, vx, vy, vz] (m, m/s), shape (6,)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     # Define chief orbital elements and convert to ECI
+///     oe_chief = np.array([bh.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+///     x_chief = bh.state_koe_to_eci(oe_chief, bh.AngleFormat.DEGREES)
+///
+///     # Define ROE (small relative orbit)
+///     roe = np.array([1.413e-4, 9.321e-2, 4.324e-4, 2.511e-4, 5.0e-2, 4.954e-2])
+///
+///     # Compute deputy ECI state from chief and ROE
+///     x_deputy = bh.state_roe_to_eci(x_chief, roe, bh.AngleFormat.DEGREES)
+///     print(f"Deputy ECI state: {x_deputy}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x_chief, roe, angle_format)")]
+#[pyo3(name = "state_roe_to_eci")]
+unsafe fn py_state_roe_to_eci<'py>(
+    py: Python<'py>,
+    x_chief: Bound<'py, PyAny>,
+    roe: Bound<'py, PyAny>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let result = relative_motion::state_roe_to_eci(
+        pyany_to_svector::<6>(&x_chief)?,
+        pyany_to_svector::<6>(&roe)?,
+        angle_format.value,
+    );
+    Ok(vector_to_numpy!(py, result, 6, f64))
+}

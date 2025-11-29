@@ -48,7 +48,7 @@ prop = bh.NumericalOrbitPropagator(
 prop.propagate_to(epoch + 86400.0)
 
 # Check orbit decay due to drag
-final_koe = prop.state_koe(prop.current_epoch, bh.AngleFormat.DEGREES)
+final_koe = prop.state_koe_osc(prop.current_epoch, bh.AngleFormat.DEGREES)
 print("LEO Force Model (ISS-like orbit after 1 day):")
 print(f"  Initial altitude: {(oe[0] - bh.R_EARTH) / 1e3:.3f} km")
 print(f"  Final altitude:   {(final_koe[0] - bh.R_EARTH) / 1e3:.3f} km")

@@ -11,6 +11,7 @@ from brahe import (
     NumericalPropagator,
     NumericalPropagationConfig,
     IntegrationMethod,
+    InterpolationMethod,
 )
 
 
@@ -300,9 +301,11 @@ def test_dstateprovider_state_interpolation():
     epoch = create_test_epoch()
     state = np.array([1.0, 0.0])
 
-    prop = NumericalPropagator(
-        epoch, state, sho_dynamics, NumericalPropagationConfig.default()
-    )
+    # Use Linear interpolation for non-6D states (SHO is 2D)
+    config = NumericalPropagationConfig.default()
+    config.interpolation_method = InterpolationMethod.LINEAR
+
+    prop = NumericalPropagator(epoch, state, sho_dynamics, config)
 
     # Build trajectory
     prop.propagate_to(epoch + 2.0)
@@ -1098,11 +1101,15 @@ def create_sho_with_stm():
     # Enable STM by providing initial covariance (this enables variational equations)
     initial_cov = np.eye(2)
 
+    # Use Linear interpolation for non-6D states (SHO is 2D)
+    config = NumericalPropagationConfig.default()
+    config.interpolation_method = InterpolationMethod.LINEAR
+
     return NumericalPropagator(
         epoch,
         state,
         sho_dynamics,
-        NumericalPropagationConfig.default(),
+        config,
         params=None,
         initial_covariance=initial_cov,
     )
@@ -1209,11 +1216,15 @@ def create_damped_sho_with_sensitivity():
     # Initial covariance enables variational equations
     initial_cov = np.eye(2)
 
+    # Use Linear interpolation for non-6D states (damped SHO is 2D)
+    config = NumericalPropagationConfig.default()
+    config.interpolation_method = InterpolationMethod.LINEAR
+
     return NumericalPropagator(
         epoch,
         state,
         damped_oscillator_dynamics,
-        NumericalPropagationConfig.default(),
+        config,
         params=params,
         initial_covariance=initial_cov,
     )

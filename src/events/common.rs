@@ -805,6 +805,7 @@ impl DEventDetector for DBinaryEvent {
 
 #[cfg(test)]
 #[allow(non_snake_case)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::time::TimeSystem;

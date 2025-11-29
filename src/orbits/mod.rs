@@ -4,8 +4,14 @@
  */
 
 pub mod keplerian;
+/// Mean-Osculating Keplerian element conversions using Brouwer-Lyddane theory.
+pub mod mean_elements;
 /// Two-Line Element (TLE) format parsing and handling.
 pub mod tle;
+/// Walker Delta constellation generator.
+pub mod walker;
 
 pub use keplerian::*;
+pub use mean_elements::*;
 pub use tle::*;
+pub use walker::*;

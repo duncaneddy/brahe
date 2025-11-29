@@ -171,7 +171,7 @@ prop.propagate_to(epoch + total_time)
 print("  Complete!")
 
 # Verify final orbit
-final_koe = prop.state_koe(prop.current_epoch, bh.AngleFormat.DEGREES)
+final_koe = prop.state_koe_osc(prop.current_epoch, bh.AngleFormat.DEGREES)
 final_altitude = final_koe[0] - bh.R_EARTH
 print("\nFinal GEO Orbit:")
 print(f"  Semi-major axis: {final_koe[0] / 1e3:.1f} km")

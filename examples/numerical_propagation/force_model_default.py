@@ -52,7 +52,7 @@ orbital_period = 2 * np.pi * np.sqrt((bh.R_EARTH + 500e3) ** 3 / bh.GM_EARTH)
 prop.propagate_to(epoch + orbital_period)
 
 # Check orbit evolution
-final_koe = prop.state_koe(prop.current_epoch, bh.AngleFormat.DEGREES)
+final_koe = prop.state_koe_osc(prop.current_epoch, bh.AngleFormat.DEGREES)
 print(f"\nAfter 1 orbit ({orbital_period / 60:.1f} min):")
 print(f"  Semi-major axis change: {(final_koe[0] - oe[0]):.3f} m")
 print(f"  Eccentricity change: {(final_koe[1] - oe[1]):.9f}")

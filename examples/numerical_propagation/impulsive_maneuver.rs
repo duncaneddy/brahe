@@ -134,7 +134,7 @@ fn main() {
 
     // Check final orbit
     let final_koe = prop
-        .state_koe(prop.current_epoch(), bh::AngleFormat::Degrees)
+        .state_koe_osc(prop.current_epoch(), bh::AngleFormat::Degrees)
         .unwrap();
     let final_altitude = final_koe[0] - bh::R_EARTH;
 

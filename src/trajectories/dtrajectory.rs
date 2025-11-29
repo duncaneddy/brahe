@@ -34,7 +34,7 @@ use std::collections::HashMap;
 
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_dmatrix,
-    interpolate_covariance_two_wasserstein_dmatrix,
+    interpolate_covariance_two_wasserstein_dmatrix, interpolate_lagrange_dvector,
 };
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -1236,8 +1236,125 @@ impl SensitivityStorage for DTrajectory {
     // sensitivity_at() uses default trait implementation
 }
 
-// InterpolatableTrajectory uses default implementations for interpolate and interpolate_linear
-impl InterpolatableTrajectory for DTrajectory {}
+impl InterpolatableTrajectory for DTrajectory {
+    /// Interpolate state at a given epoch using the configured interpolation method.
+    ///
+    /// Overrides the default trait implementation to provide proper support for
+    /// Lagrange interpolation. Hermite methods are not supported for generic DTrajectory
+    /// as they require 6D orbital states with position/velocity structure.
+    ///
+    /// # Arguments
+    /// * `epoch` - Target epoch for interpolation
+    ///
+    /// # Returns
+    /// * `Ok(state)` - Interpolated state vector
+    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
+    ///
+    /// # Panics
+    /// - HermiteCubic/HermiteQuintic panic as they require 6D orbital states
+    fn interpolate(&self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
+        // Bounds checking
+        if let Some(start) = self.start_epoch()
+            && *epoch < start
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is before trajectory start {}",
+                epoch, start
+            )));
+        }
+
+        if let Some(end) = self.end_epoch()
+            && *epoch > end
+        {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "Cannot interpolate: epoch {} is after trajectory end {}",
+                epoch, end
+            )));
+        }
+
+        // Get indices before and after the target epoch
+        let idx1 = self.index_before_epoch(epoch)?;
+        let idx2 = self.index_after_epoch(epoch)?;
+
+        // If indices are the same, we have an exact match
+        if idx1 == idx2 {
+            return self.state_at_idx(idx1);
+        }
+
+        // Validate minimum point count
+        let method = self.get_interpolation_method();
+        let required = method.min_points_required();
+        if self.len() < required {
+            return Err(BraheError::Error(format!(
+                "{:?} requires {} points, trajectory has {}",
+                method,
+                required,
+                self.len()
+            )));
+        }
+
+        // Get reference epoch for time calculations
+        let ref_epoch = self.start_epoch().unwrap();
+
+        match method {
+            InterpolationMethod::Linear => self.interpolate_linear(epoch),
+
+            InterpolationMethod::Lagrange { degree } => {
+                // Collect degree+1 points centered around query epoch
+                let n_points = degree + 1;
+                let (start_idx, end_idx) =
+                    compute_lagrange_window(self.len(), idx1, idx2, n_points)?;
+
+                // Build time and value arrays
+                let times: Vec<f64> = (start_idx..=end_idx)
+                    .map(|i| self.epochs[i] - ref_epoch)
+                    .collect();
+                let values: Vec<DVector<f64>> = (start_idx..=end_idx)
+                    .map(|i| self.states[i].clone())
+                    .collect();
+
+                let t = *epoch - ref_epoch;
+                Ok(interpolate_lagrange_dvector(&times, &values, t))
+            }
+
+            InterpolationMethod::HermiteCubic | InterpolationMethod::HermiteQuintic => {
+                Err(BraheError::Error(format!(
+                    "{:?} interpolation requires 6D orbital states with position/velocity \
+                     structure. Use DOrbitTrajectory for orbital states with Hermite methods, \
+                     or use Linear/Lagrange interpolation for generic N-dimensional systems.",
+                    self.interpolation_method
+                )))
+            }
+        }
+    }
+}
+
+/// Helper function to compute the window of indices for Lagrange interpolation.
+fn compute_lagrange_window(
+    len: usize,
+    idx1: usize,
+    idx2: usize,
+    n_points: usize,
+) -> Result<(usize, usize), BraheError> {
+    if len < n_points {
+        return Err(BraheError::Error(format!(
+            "Need {} points for interpolation, trajectory has {}",
+            n_points, len
+        )));
+    }
+
+    let center = (idx1 + idx2) / 2;
+    let half_window = n_points / 2;
+    let mut start_idx = center.saturating_sub(half_window);
+    let mut end_idx = start_idx + n_points - 1;
+
+    if end_idx >= len {
+        end_idx = len - 1;
+        start_idx = end_idx.saturating_sub(n_points - 1);
+    }
+
+    Ok((start_idx, end_idx))
+}
 
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -2350,5 +2467,724 @@ mod tests {
         // At exact t1, should return cov2
         let result = traj.covariance_at(t1).unwrap();
         assert_abs_diff_eq!(result[(0, 0)], 200.0, epsilon = 1e-10);
+    }
+
+    // ============================================================================
+    // STM Storage Trait Tests
+    // ============================================================================
+
+    #[test]
+    fn test_dtrajectory_enable_stm_storage() {
+        let mut traj = create_test_trajectory();
+        assert!(traj.stms.is_none());
+
+        traj.enable_stm_storage();
+
+        // Should now have STM storage with identity matrices
+        assert!(traj.stms.is_some());
+        let stms = traj.stms.as_ref().unwrap();
+        assert_eq!(stms.len(), 3);
+
+        // Each STM should be identity
+        for stm in stms {
+            assert_eq!(stm.nrows(), 6);
+            assert_eq!(stm.ncols(), 6);
+            for i in 0..6 {
+                for j in 0..6 {
+                    if i == j {
+                        assert_abs_diff_eq!(stm[(i, j)], 1.0, epsilon = 1e-10);
+                    } else {
+                        assert_abs_diff_eq!(stm[(i, j)], 0.0, epsilon = 1e-10);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_dtrajectory_enable_stm_storage_idempotent() {
+        let mut traj = create_test_trajectory();
+
+        traj.enable_stm_storage();
+
+        // Modify one STM
+        traj.set_stm_at(0, DMatrix::from_element(6, 6, 2.0));
+
+        // Enable again should be idempotent (no change)
+        traj.enable_stm_storage();
+
+        // The modified STM should still be there
+        let stm = traj.stm_at_idx(0).unwrap();
+        assert_abs_diff_eq!(stm[(0, 0)], 2.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_set_stm_at() {
+        let mut traj = create_test_trajectory();
+        traj.enable_stm_storage();
+
+        let custom_stm = DMatrix::from_element(6, 6, 5.0);
+        traj.set_stm_at(1, custom_stm.clone());
+
+        let result = traj.stm_at_idx(1).unwrap();
+        assert_abs_diff_eq!(result[(0, 0)], 5.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(3, 3)], 5.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_set_stm_at_auto_enables() {
+        let mut traj = create_test_trajectory();
+        assert!(traj.stms.is_none());
+
+        // Setting STM without enabling first should auto-enable
+        let custom_stm = DMatrix::from_element(6, 6, 3.0);
+        traj.set_stm_at(0, custom_stm);
+
+        assert!(traj.stms.is_some());
+        let stm = traj.stm_at_idx(0).unwrap();
+        assert_abs_diff_eq!(stm[(0, 0)], 3.0, epsilon = 1e-10);
+
+        // Other indices should be identity (auto-enabled)
+        let stm1 = traj.stm_at_idx(1).unwrap();
+        assert_abs_diff_eq!(stm1[(0, 0)], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(stm1[(0, 1)], 0.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[should_panic(expected = "STM dimensions")]
+    fn test_dtrajectory_set_stm_at_dimension_mismatch() {
+        let mut traj = create_test_trajectory();
+        traj.enable_stm_storage();
+
+        // Wrong dimension STM (3x3 instead of 6x6)
+        let wrong_stm = DMatrix::identity(3, 3);
+        traj.set_stm_at(0, wrong_stm);
+    }
+
+    #[test]
+    #[should_panic(expected = "out of bounds")]
+    fn test_dtrajectory_set_stm_at_out_of_bounds() {
+        let mut traj = create_test_trajectory();
+        traj.enable_stm_storage();
+
+        let stm = DMatrix::identity(6, 6);
+        traj.set_stm_at(10, stm); // Only 3 states, index 10 is invalid
+    }
+
+    #[test]
+    fn test_dtrajectory_stm_at_idx() {
+        let mut traj = create_test_trajectory();
+        traj.enable_stm_storage();
+
+        let custom_stm = DMatrix::from_fn(6, 6, |i, j| (i * 6 + j) as f64);
+        traj.set_stm_at(2, custom_stm);
+
+        let result = traj.stm_at_idx(2).unwrap();
+        assert_abs_diff_eq!(result[(0, 0)], 0.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(0, 1)], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(1, 0)], 6.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(5, 5)], 35.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_stm_at_idx_no_storage() {
+        let traj = create_test_trajectory();
+        // No STM storage enabled
+        assert!(traj.stm_at_idx(0).is_none());
+        assert!(traj.stm_at_idx(1).is_none());
+    }
+
+    #[test]
+    fn test_dtrajectory_stm_at_interpolation() {
+        let mut traj = create_test_trajectory();
+        traj.enable_stm_storage();
+
+        // Set STMs at indices 0 and 1
+        let stm0 = DMatrix::from_element(6, 6, 10.0);
+        let stm1 = DMatrix::from_element(6, 6, 20.0);
+        traj.set_stm_at(0, stm0);
+        traj.set_stm_at(1, stm1);
+
+        // Interpolate at midpoint
+        let t0 = traj.epochs[0];
+        let t1 = traj.epochs[1];
+        let mid = t0 + (t1 - t0) / 2.0;
+
+        let result = traj.stm_at(mid).unwrap();
+        // Linear interpolation should give 15.0 at midpoint
+        assert_abs_diff_eq!(result[(0, 0)], 15.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(3, 3)], 15.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_stm_dimensions() {
+        let traj = DTrajectory::new(6);
+        let dims = traj.stm_dimensions();
+        assert_eq!(dims, (6, 6));
+
+        let traj = DTrajectory::new(9);
+        let dims = traj.stm_dimensions();
+        assert_eq!(dims, (9, 9));
+    }
+
+    // ============================================================================
+    // Sensitivity Storage Trait Tests
+    // ============================================================================
+
+    #[test]
+    fn test_dtrajectory_enable_sensitivity_storage() {
+        let mut traj = create_test_trajectory();
+        assert!(traj.sensitivities.is_none());
+        assert!(traj.sensitivity_dimension.is_none());
+
+        traj.enable_sensitivity_storage(3); // 3 parameters
+
+        // Should now have sensitivity storage with zero matrices
+        assert!(traj.sensitivities.is_some());
+        assert_eq!(traj.sensitivity_dimension, Some((6, 3)));
+
+        let sensitivities = traj.sensitivities.as_ref().unwrap();
+        assert_eq!(sensitivities.len(), 3);
+
+        // Each sensitivity should be zero
+        for sens in sensitivities {
+            assert_eq!(sens.nrows(), 6);
+            assert_eq!(sens.ncols(), 3);
+            for i in 0..6 {
+                for j in 0..3 {
+                    assert_abs_diff_eq!(sens[(i, j)], 0.0, epsilon = 1e-10);
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Parameter dimension must be > 0")]
+    fn test_dtrajectory_enable_sensitivity_storage_zero_param() {
+        let mut traj = create_test_trajectory();
+        traj.enable_sensitivity_storage(0); // Should panic
+    }
+
+    #[test]
+    fn test_dtrajectory_set_sensitivity_at() {
+        let mut traj = create_test_trajectory();
+        traj.enable_sensitivity_storage(2);
+
+        let custom_sens = DMatrix::from_element(6, 2, 7.0);
+        traj.set_sensitivity_at(1, custom_sens);
+
+        let result = traj.sensitivity_at_idx(1).unwrap();
+        assert_abs_diff_eq!(result[(0, 0)], 7.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(5, 1)], 7.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_set_sensitivity_at_auto_enables() {
+        let mut traj = create_test_trajectory();
+        assert!(traj.sensitivities.is_none());
+
+        // Setting sensitivity without enabling first should auto-enable
+        let custom_sens = DMatrix::from_element(6, 4, 9.0);
+        traj.set_sensitivity_at(0, custom_sens);
+
+        assert!(traj.sensitivities.is_some());
+        assert_eq!(traj.sensitivity_dimensions(), Some((6, 4)));
+
+        let sens = traj.sensitivity_at_idx(0).unwrap();
+        assert_abs_diff_eq!(sens[(0, 0)], 9.0, epsilon = 1e-10);
+
+        // Other indices should be zero (auto-enabled)
+        let sens1 = traj.sensitivity_at_idx(1).unwrap();
+        assert_abs_diff_eq!(sens1[(0, 0)], 0.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[should_panic(expected = "row count")]
+    fn test_dtrajectory_set_sensitivity_at_row_mismatch() {
+        let mut traj = create_test_trajectory();
+        traj.enable_sensitivity_storage(2);
+
+        // Wrong row count (3 instead of 6)
+        let wrong_sens = DMatrix::from_element(3, 2, 1.0);
+        traj.set_sensitivity_at(0, wrong_sens);
+    }
+
+    #[test]
+    #[should_panic(expected = "column count")]
+    fn test_dtrajectory_set_sensitivity_at_col_mismatch() {
+        let mut traj = create_test_trajectory();
+        traj.enable_sensitivity_storage(2);
+
+        // Wrong column count (5 instead of 2)
+        let wrong_sens = DMatrix::from_element(6, 5, 1.0);
+        traj.set_sensitivity_at(0, wrong_sens);
+    }
+
+    #[test]
+    fn test_dtrajectory_sensitivity_at_idx() {
+        let mut traj = create_test_trajectory();
+        traj.enable_sensitivity_storage(2);
+
+        let custom_sens = DMatrix::from_fn(6, 2, |i, j| (i * 2 + j) as f64);
+        traj.set_sensitivity_at(2, custom_sens);
+
+        let result = traj.sensitivity_at_idx(2).unwrap();
+        assert_abs_diff_eq!(result[(0, 0)], 0.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(0, 1)], 1.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(1, 0)], 2.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(5, 1)], 11.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_sensitivity_at_idx_no_storage() {
+        let traj = create_test_trajectory();
+        // No sensitivity storage enabled
+        assert!(traj.sensitivity_at_idx(0).is_none());
+        assert!(traj.sensitivity_at_idx(1).is_none());
+    }
+
+    #[test]
+    fn test_dtrajectory_sensitivity_at_interpolation() {
+        let mut traj = create_test_trajectory();
+        traj.enable_sensitivity_storage(2);
+
+        // Set sensitivities at indices 0 and 1
+        let sens0 = DMatrix::from_element(6, 2, 100.0);
+        let sens1 = DMatrix::from_element(6, 2, 200.0);
+        traj.set_sensitivity_at(0, sens0);
+        traj.set_sensitivity_at(1, sens1);
+
+        // Interpolate at midpoint
+        let t0 = traj.epochs[0];
+        let t1 = traj.epochs[1];
+        let mid = t0 + (t1 - t0) / 2.0;
+
+        let result = traj.sensitivity_at(mid).unwrap();
+        // Linear interpolation should give 150.0 at midpoint
+        assert_abs_diff_eq!(result[(0, 0)], 150.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(result[(5, 1)], 150.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_sensitivity_dimensions() {
+        let traj = DTrajectory::new(6);
+        assert_eq!(traj.sensitivity_dimensions(), None);
+
+        let mut traj = DTrajectory::new(6);
+        traj.enable_sensitivity_storage(4);
+        assert_eq!(traj.sensitivity_dimensions(), Some((6, 4)));
+
+        let mut traj = DTrajectory::new(9);
+        traj.enable_sensitivity_storage(2);
+        assert_eq!(traj.sensitivity_dimensions(), Some((9, 2)));
+    }
+
+    // ============================================================================
+    // add_full Method Tests
+    // ============================================================================
+
+    #[test]
+    fn test_dtrajectory_add_full_state_only() {
+        let mut traj = DTrajectory::new(6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+
+        traj.add_full(epoch, state.clone(), None, None, None);
+
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.stms.is_none());
+        assert!(traj.sensitivities.is_none());
+
+        let (e, s) = traj.get(0).unwrap();
+        assert_eq!(e, epoch);
+        assert_abs_diff_eq!(s[0], 7000e3, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_dtrajectory_add_full_with_covariance() {
+        let mut traj = DTrajectory::new(6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+
+        traj.add_full(epoch, state, Some(cov), None, None);
+
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_some());
+        assert!(traj.stms.is_none());
+        assert!(traj.sensitivities.is_none());
+
+        let result_cov = traj.covariances.as_ref().unwrap()[0].clone();
+        assert_abs_diff_eq!(result_cov[(0, 0)], 100.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_add_full_with_stm() {
+        let mut traj = DTrajectory::new(6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let stm = DMatrix::from_element(6, 6, 2.0);
+
+        traj.add_full(epoch, state, None, Some(stm), None);
+
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.stms.is_some());
+        assert!(traj.sensitivities.is_none());
+
+        let result_stm = traj.stms.as_ref().unwrap()[0].clone();
+        assert_abs_diff_eq!(result_stm[(0, 0)], 2.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_add_full_with_sensitivity() {
+        let mut traj = DTrajectory::new(6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let sens = DMatrix::from_element(6, 3, 5.0);
+
+        traj.add_full(epoch, state, None, None, Some(sens));
+
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.stms.is_none());
+        assert!(traj.sensitivities.is_some());
+
+        assert_eq!(traj.sensitivity_dimensions(), Some((6, 3)));
+        let result_sens = traj.sensitivities.as_ref().unwrap()[0].clone();
+        assert_abs_diff_eq!(result_sens[(0, 0)], 5.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_add_full_all_matrices() {
+        let mut traj = DTrajectory::new(6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let cov = DMatrix::identity(6, 6) * 100.0;
+        let stm = DMatrix::from_element(6, 6, 2.0);
+        let sens = DMatrix::from_element(6, 3, 5.0);
+
+        traj.add_full(epoch, state, Some(cov), Some(stm), Some(sens));
+
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_some());
+        assert!(traj.stms.is_some());
+        assert!(traj.sensitivities.is_some());
+    }
+
+    #[test]
+    fn test_dtrajectory_add_full_maintains_order() {
+        let mut traj = DTrajectory::new(6);
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 120.0;
+
+        let state1 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state0 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let state2 = DVector::from_vec(vec![7200e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+
+        // Add out of order
+        traj.add_full(t1, state1, None, None, None);
+        traj.add_full(t0, state0, None, None, None);
+        traj.add_full(t2, state2, None, None, None);
+
+        // Should be in chronological order
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.epochs[0], t0);
+        assert_eq!(traj.epochs[1], t1);
+        assert_eq!(traj.epochs[2], t2);
+
+        assert_abs_diff_eq!(traj.states[0][0], 7000e3, epsilon = 1.0);
+        assert_abs_diff_eq!(traj.states[1][0], 7100e3, epsilon = 1.0);
+        assert_abs_diff_eq!(traj.states[2][0], 7200e3, epsilon = 1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "State vector dimension")]
+    fn test_dtrajectory_add_full_state_dimension_mismatch() {
+        let mut traj = DTrajectory::new(6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let wrong_state = DVector::from_vec(vec![7000e3, 0.0, 0.0]); // Only 3 elements
+
+        traj.add_full(epoch, wrong_state, None, None, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "STM dimensions")]
+    fn test_dtrajectory_add_full_stm_dimension_mismatch() {
+        let mut traj = DTrajectory::new(6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let wrong_stm = DMatrix::identity(3, 3); // 3x3 instead of 6x6
+
+        traj.add_full(epoch, state, None, Some(wrong_stm), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Sensitivity row count")]
+    fn test_dtrajectory_add_full_sensitivity_row_mismatch() {
+        let mut traj = DTrajectory::new(6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let wrong_sens = DMatrix::from_element(3, 2, 1.0); // 3 rows instead of 6
+
+        traj.add_full(epoch, state, None, None, Some(wrong_sens));
+    }
+
+    #[test]
+    #[should_panic(expected = "Sensitivity column count")]
+    fn test_dtrajectory_add_full_sensitivity_col_mismatch() {
+        let mut traj = DTrajectory::new(6);
+        let t0 = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+
+        // First add with 2 columns
+        let sens1 = DMatrix::from_element(6, 2, 1.0);
+        traj.add_full(t0, state.clone(), None, None, Some(sens1));
+
+        // Second add with 5 columns (inconsistent)
+        let sens2 = DMatrix::from_element(6, 5, 1.0);
+        traj.add_full(t1, state, None, None, Some(sens2));
+    }
+
+    // ============================================================================
+    // epoch_initial and find_surrounding_indices Tests
+    // ============================================================================
+
+    #[test]
+    fn test_dtrajectory_epoch_initial() {
+        let traj = create_test_trajectory();
+        let initial = traj.epoch_initial();
+        assert!(initial.is_some());
+        assert_eq!(initial.unwrap(), traj.epochs[0]);
+    }
+
+    #[test]
+    fn test_dtrajectory_epoch_initial_empty() {
+        let traj = DTrajectory::new(6);
+        assert!(traj.epoch_initial().is_none());
+    }
+
+    #[test]
+    fn test_dtrajectory_find_surrounding_indices() {
+        let traj = create_test_trajectory();
+        let t0 = traj.epochs[0];
+        let t1 = traj.epochs[1];
+        let mid = t0 + (t1 - t0) / 2.0;
+
+        let result = traj.find_surrounding_indices(mid);
+        assert!(result.is_some());
+        let (idx0, idx1) = result.unwrap();
+        assert_eq!(idx0, 0);
+        assert_eq!(idx1, 1);
+    }
+
+    #[test]
+    fn test_dtrajectory_find_surrounding_indices_empty() {
+        let traj = DTrajectory::new(6);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        assert!(traj.find_surrounding_indices(epoch).is_none());
+    }
+
+    #[test]
+    fn test_dtrajectory_find_surrounding_indices_before_start() {
+        let traj = create_test_trajectory();
+        let before = traj.epochs[0] - 100.0;
+        assert!(traj.find_surrounding_indices(before).is_none());
+    }
+
+    #[test]
+    fn test_dtrajectory_find_surrounding_indices_after_end() {
+        let traj = create_test_trajectory();
+        let after = traj.epochs[2] + 100.0;
+        assert!(traj.find_surrounding_indices(after).is_none());
+    }
+
+    // ============================================================================
+    // Eviction Policy with Extended Data Tests
+    // ============================================================================
+
+    #[test]
+    fn test_dtrajectory_eviction_keep_count_with_covariances() {
+        let mut traj = DTrajectory::new(6).with_eviction_policy_max_size(3);
+        traj.enable_covariance_storage();
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..5 {
+            let epoch = t0 + (i as f64 * 60.0);
+            let state =
+                DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            let cov = DMatrix::identity(6, 6) * (i as f64 * 10.0);
+            traj.add_with_covariance(epoch, state, cov);
+        }
+
+        // Should only have 3 states and 3 covariances
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.covariances.as_ref().unwrap().len(), 3);
+
+        // First covariance should be from the third state (i=2)
+        let cov = traj.covariances.as_ref().unwrap()[0].clone();
+        assert_abs_diff_eq!(cov[(0, 0)], 20.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_eviction_keep_count_with_stms() {
+        let mut traj = DTrajectory::new(6).with_eviction_policy_max_size(3);
+        traj.enable_stm_storage();
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..5 {
+            let epoch = t0 + (i as f64 * 60.0);
+            let state =
+                DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add(epoch, state);
+            let stm = DMatrix::from_element(6, 6, i as f64);
+            traj.set_stm_at(traj.len() - 1, stm);
+        }
+
+        // Should only have 3 states and 3 STMs
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.stms.as_ref().unwrap().len(), 3);
+
+        // First STM should be from the third state (i=2)
+        let stm = traj.stms.as_ref().unwrap()[0].clone();
+        assert_abs_diff_eq!(stm[(0, 0)], 2.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_eviction_keep_count_with_sensitivities() {
+        let mut traj = DTrajectory::new(6).with_eviction_policy_max_size(3);
+        traj.enable_sensitivity_storage(2);
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..5 {
+            let epoch = t0 + (i as f64 * 60.0);
+            let state =
+                DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            traj.add(epoch, state);
+            let sens = DMatrix::from_element(6, 2, i as f64 * 10.0);
+            traj.set_sensitivity_at(traj.len() - 1, sens);
+        }
+
+        // Should only have 3 states and 3 sensitivities
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.sensitivities.as_ref().unwrap().len(), 3);
+
+        // First sensitivity should be from the third state (i=2)
+        let sens = traj.sensitivities.as_ref().unwrap()[0].clone();
+        assert_abs_diff_eq!(sens[(0, 0)], 20.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dtrajectory_eviction_keep_count_all_data() {
+        let mut traj = DTrajectory::new(6).with_eviction_policy_max_size(2);
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..4 {
+            let epoch = t0 + (i as f64 * 60.0);
+            let state =
+                DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            let cov = DMatrix::identity(6, 6) * (i as f64);
+            let stm = DMatrix::from_element(6, 6, i as f64 * 2.0);
+            let sens = DMatrix::from_element(6, 3, i as f64 * 3.0);
+            traj.add_full(epoch, state, Some(cov), Some(stm), Some(sens));
+        }
+
+        // Should only have 2 of each
+        assert_eq!(traj.len(), 2);
+        assert_eq!(traj.covariances.as_ref().unwrap().len(), 2);
+        assert_eq!(traj.stms.as_ref().unwrap().len(), 2);
+        assert_eq!(traj.sensitivities.as_ref().unwrap().len(), 2);
+
+        // First values should be from i=2
+        assert_abs_diff_eq!(
+            traj.covariances.as_ref().unwrap()[0][(0, 0)],
+            2.0,
+            epsilon = 1e-10
+        );
+        assert_abs_diff_eq!(traj.stms.as_ref().unwrap()[0][(0, 0)], 4.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(
+            traj.sensitivities.as_ref().unwrap()[0][(0, 0)],
+            6.0,
+            epsilon = 1e-10
+        );
+    }
+
+    #[test]
+    fn test_dtrajectory_eviction_keep_within_duration_with_covariances() {
+        let mut traj = DTrajectory::new(6).with_eviction_policy_max_age(150.0); // 150 seconds
+
+        traj.enable_covariance_storage();
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..5 {
+            let epoch = t0 + (i as f64 * 60.0); // 60 seconds apart
+            let state =
+                DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            let cov = DMatrix::identity(6, 6) * (i as f64 * 10.0);
+            traj.add_with_covariance(epoch, state, cov);
+        }
+
+        // With 150s max age and 60s intervals, should keep 3 states (t4, t3, t2)
+        // t4-t2 = 120s <= 150s, t4-t1 = 180s > 150s
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.covariances.as_ref().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn test_dtrajectory_eviction_keep_within_duration_with_stms() {
+        let mut traj = DTrajectory::new(6).with_eviction_policy_max_age(150.0); // 150 seconds
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..5 {
+            let epoch = t0 + (i as f64 * 60.0); // 60 seconds apart
+            let state =
+                DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            let stm = DMatrix::from_element(6, 6, i as f64);
+            traj.add_full(epoch, state, None, Some(stm), None);
+        }
+
+        // With 150s max age and 60s intervals, should keep 3 states
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.stms.as_ref().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn test_dtrajectory_eviction_keep_within_duration_with_sensitivities() {
+        let mut traj = DTrajectory::new(6).with_eviction_policy_max_age(150.0); // 150 seconds
+
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        for i in 0..5 {
+            let epoch = t0 + (i as f64 * 60.0); // 60 seconds apart
+            let state =
+                DVector::from_vec(vec![7000e3 + i as f64 * 1000.0, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+            let sens = DMatrix::from_element(6, 2, i as f64);
+            traj.add_full(epoch, state, None, None, Some(sens));
+        }
+
+        // With 150s max age and 60s intervals, should keep 3 states
+        assert_eq!(traj.len(), 3);
+        assert_eq!(traj.sensitivities.as_ref().unwrap().len(), 3);
+    }
+
+    // ============================================================================
+    // with_interpolation_method Tests
+    // ============================================================================
+
+    #[test]
+    fn test_dtrajectory_with_interpolation_method_builder_pattern() {
+        let traj = DTrajectory::new(6).with_interpolation_method(InterpolationMethod::Linear);
+        assert_eq!(traj.get_interpolation_method(), InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_dtrajectory_with_interpolation_method_lagrange() {
+        let traj = DTrajectory::new(6)
+            .with_interpolation_method(InterpolationMethod::Lagrange { degree: 5 });
+        match traj.get_interpolation_method() {
+            InterpolationMethod::Lagrange { degree } => assert_eq!(degree, 5),
+            _ => panic!("Expected Lagrange interpolation method"),
+        }
     }
 }

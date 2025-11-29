@@ -454,7 +454,43 @@ pub trait InterpolatableTrajectory: Trajectory + InterpolationConfig {
             )));
         }
 
-        self.interpolate_linear(epoch)
+        // Get indices before and after the target epoch
+        let idx1 = self.index_before_epoch(epoch)?;
+        let idx2 = self.index_after_epoch(epoch)?;
+
+        // If indices are the same, we have an exact match - return directly
+        // without needing the minimum points for interpolation
+        if idx1 == idx2 {
+            return self.state_at_idx(idx1);
+        }
+
+        // Validate minimum point count for the interpolation method
+        let method = self.get_interpolation_method();
+        let required = method.min_points_required();
+        if self.len() < required {
+            return Err(BraheError::Error(format!(
+                "{:?} requires {} points, trajectory has {}",
+                method,
+                required,
+                self.len()
+            )));
+        }
+
+        // Dispatch based on interpolation method
+        // Note: Lagrange, HermiteCubic, and HermiteQuintic require specialized
+        // implementations in concrete trajectory types. The default trait implementation
+        // only supports Linear interpolation.
+        match method {
+            InterpolationMethod::Linear => self.interpolate_linear(epoch),
+            InterpolationMethod::Lagrange { .. }
+            | InterpolationMethod::HermiteCubic
+            | InterpolationMethod::HermiteQuintic => {
+                // For non-linear methods, use linear interpolation as fallback
+                // Concrete trajectory types (STrajectory, DTrajectory, etc.) should
+                // override this method to provide proper Lagrange/Hermite interpolation
+                self.interpolate_linear(epoch)
+            }
+        }
     }
 }
 

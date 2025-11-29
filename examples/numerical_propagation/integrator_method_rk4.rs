@@ -8,6 +8,8 @@ fn main() {
         method: bh::IntegratorMethod::RK4,
         integrator: bh::IntegratorConfig::fixed_step(60.0), // 60 second fixed steps
         variational: bh::VariationalConfig::default(),
+        store_accelerations: true,
+        interpolation_method: bh::InterpolationMethod::Linear,
     };
 
     println!("Method: {:?}", config.method);

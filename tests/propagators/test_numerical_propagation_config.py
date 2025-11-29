@@ -106,8 +106,8 @@ def test_numericalpropagationconfig_default_accelerations():
     config = NumericalPropagationConfig.default()
     # store_accelerations defaults to True
     assert config.store_accelerations is True
-    # interpolation_method defaults to HermiteCubic
-    assert config.interpolation_method == InterpolationMethod.HERMITE_CUBIC
+    # interpolation_method defaults to Linear (safe for any state dimension)
+    assert config.interpolation_method == InterpolationMethod.LINEAR
 
 
 def test_numericalpropagationconfig_with_store_accelerations():
@@ -140,9 +140,9 @@ def test_numericalpropagationconfig_with_interpolation_method():
 def test_numericalpropagationconfig_high_precision_new_fields():
     """Test high_precision() sets correct acceleration and interpolation defaults"""
     config = NumericalPropagationConfig.high_precision()
-    # high_precision should also have store_accelerations=True and interpolation=HermiteCubic
+    # high_precision should also have store_accelerations=True and interpolation=Linear
     assert config.store_accelerations is True
-    assert config.interpolation_method == InterpolationMethod.HERMITE_CUBIC
+    assert config.interpolation_method == InterpolationMethod.LINEAR
 
 
 def test_numericalpropagationconfig_builder_chaining():

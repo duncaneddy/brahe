@@ -6,8 +6,10 @@
  * reference frames such as RTN (Radial-Tangential-Normal).
  */
 
+pub mod eci_roe;
 pub mod eci_rtn;
 pub mod oe_roe;
 
+pub use eci_roe::*;
 pub use eci_rtn::*;
 pub use oe_roe::*;

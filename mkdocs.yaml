@@ -353,6 +353,7 @@ nav:
                 - library_api/relative_motion/index.md
                 - RTN Transformations: library_api/relative_motion/rtn_transformations.md
                 - ROE Transformations: library_api/relative_motion/roe_transformations.md
+                - ECI-ROE Transformations: library_api/relative_motion/eci_roe_transformations.md
             - Access:
                 - library_api/access/index.md
                 - Locations: library_api/access/locations.md

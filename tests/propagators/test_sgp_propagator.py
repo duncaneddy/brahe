@@ -470,8 +470,8 @@ class TestSGPPropagatorStateProviderTrait:
         # Inclination should be around 51.6 degrees
         assert elements_deg[2] == pytest.approx(51.6, abs=0.1)
 
-    def test_sgppropagator_states_koe(self, iss_tle):
-        """Test states_koe method."""
+    def test_sgppropagator_states_koe_osc(self, iss_tle):
+        """Test states_koe_osc method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
         initial_epoch = prop.epoch
         epochs = [
@@ -479,7 +479,7 @@ class TestSGPPropagatorStateProviderTrait:
         ]  # Every hour for 5 hours
 
         # Test with degrees
-        elements_list = prop.states_koe(epochs, brahe.AngleFormat.DEGREES)
+        elements_list = prop.states_koe_osc(epochs, brahe.AngleFormat.DEGREES)
 
         # Verify we got the right number of element sets
         assert len(elements_list) == 5
@@ -505,7 +505,7 @@ class TestSGPPropagatorStateProviderTrait:
                 assert -360.0 <= elements[j] <= 360.0
 
         # Test with radians
-        elements_list_rad = prop.states_koe(epochs, brahe.AngleFormat.RADIANS)
+        elements_list_rad = prop.states_koe_osc(epochs, brahe.AngleFormat.RADIANS)
 
         # Verify conversion consistency
         assert len(elements_list_rad) == 5

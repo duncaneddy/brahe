@@ -1417,7 +1417,7 @@ mod tests {
         ];
 
         let traj = propagator
-            .states_koe(&epochs, AngleFormat::Degrees)
+            .states_koe_osc(&epochs, AngleFormat::Degrees)
             .unwrap();
         assert_eq!(traj.len(), 3);
 
@@ -1430,7 +1430,7 @@ mod tests {
 
         // Repeat with radians output
         let traj_rad = propagator
-            .states_koe(&epochs, AngleFormat::Radians)
+            .states_koe_osc(&epochs, AngleFormat::Radians)
             .unwrap();
         assert_eq!(traj_rad.len(), 3);
 

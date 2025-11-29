@@ -323,3 +323,119 @@ class TestMeanOsculatingConversions:
         assert osc_deg[3] >= 7.0 and osc_deg[3] < 360.0  # RAAN should be in degrees
         assert osc_deg[4] >= 7.0 and osc_deg[4] < 360.0  # AoP should be in degrees
         assert osc_deg[5] >= 7.0 and osc_deg[5] < 360.0  # M should be in degrees
+
+
+class TestStateKoeMeanOnProviders:
+    """Tests for state_koe_mean methods on propagators and trajectories."""
+
+    def test_sgp_propagator_state_koe_mean(self):
+        """Test SGPPropagator.state_koe_mean returns different values from osculating."""
+        # ISS TLE
+        line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+        line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+        prop = brahe.SGPPropagator.from_tle(line1, line2)
+
+        epoch = prop.epoch
+        # state_koe_osc returns osculating elements
+        osc = prop.state_koe_osc(epoch, brahe.AngleFormat.DEGREES)
+        mean = prop.state_koe_mean(epoch, brahe.AngleFormat.DEGREES)
+
+        # Mean and osculating should differ due to J2 effects
+        assert len(osc) == 6
+        assert len(mean) == 6
+        # Semi-major axis should differ (J2 effect)
+        assert osc[0] != pytest.approx(mean[0], abs=0.1)
+
+    def test_sgp_propagator_states_koe_mean(self):
+        """Test SGPPropagator.states_koe_mean returns list of mean elements."""
+        line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+        line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+        prop = brahe.SGPPropagator.from_tle(line1, line2)
+
+        epoch0 = prop.epoch
+        epochs = [epoch0 + i * 3600.0 for i in range(3)]
+        mean_list = prop.states_koe_mean(epochs, brahe.AngleFormat.DEGREES)
+
+        assert len(mean_list) == 3
+        for mean in mean_list:
+            assert len(mean) == 6
+
+    def test_keplerian_propagator_state_koe_mean(self):
+        """Test KeplerianPropagator.state_koe_mean returns different values from osculating."""
+        epc = brahe.Epoch.from_datetime(
+            2024, 1, 1, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC
+        )
+        oe = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+        state = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+        prop = brahe.KeplerianPropagator.from_eci(epc, state, 60.0)
+
+        # state_koe_osc returns osculating elements
+        osc = prop.state_koe_osc(epc, brahe.AngleFormat.DEGREES)
+        mean = prop.state_koe_mean(epc, brahe.AngleFormat.DEGREES)
+
+        # Mean and osculating should differ due to J2 effects
+        assert len(osc) == 6
+        assert len(mean) == 6
+        # Semi-major axis should differ (J2 effect)
+        assert osc[0] != pytest.approx(mean[0], abs=0.1)
+
+    def test_keplerian_propagator_states_koe_mean(self):
+        """Test KeplerianPropagator.states_koe_mean returns list of mean elements."""
+        epc = brahe.Epoch.from_datetime(
+            2024, 1, 1, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC
+        )
+        oe = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+        state = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+        prop = brahe.KeplerianPropagator.from_eci(epc, state, 60.0)
+
+        epochs = [epc + i * 3600.0 for i in range(3)]
+        mean_list = prop.states_koe_mean(epochs, brahe.AngleFormat.DEGREES)
+
+        assert len(mean_list) == 3
+        for mean in mean_list:
+            assert len(mean) == 6
+
+    def test_orbit_trajectory_state_koe_mean(self):
+        """Test OrbitTrajectory.state_koe_mean returns different values from osculating."""
+        traj = brahe.OrbitTrajectory(
+            6,
+            brahe.OrbitFrame.ECI,
+            brahe.OrbitRepresentation.CARTESIAN,
+            None,
+        )
+        epc = brahe.Epoch.from_datetime(
+            2024, 1, 1, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC
+        )
+        oe = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+        state = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+        traj.add(epc, state)
+
+        # state_koe_osc returns osculating elements
+        osc = traj.state_koe_osc(epc, brahe.AngleFormat.DEGREES)
+        mean = traj.state_koe_mean(epc, brahe.AngleFormat.DEGREES)
+
+        # Mean and osculating should differ due to J2 effects
+        assert len(osc) == 6
+        assert len(mean) == 6
+        # Semi-major axis should differ (J2 effect)
+        assert osc[0] != pytest.approx(mean[0], abs=0.1)
+
+    def test_mean_elements_consistent_with_standalone_function(self):
+        """Test that state_koe_mean produces same results as standalone conversion."""
+        epc = brahe.Epoch.from_datetime(
+            2024, 1, 1, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC
+        )
+        oe = np.array([brahe.R_EARTH + 500e3, 0.01, 45.0, 30.0, 60.0, 90.0])
+        state = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+        prop = brahe.KeplerianPropagator.from_eci(epc, state, 60.0)
+
+        # Get mean elements via propagator method
+        mean_via_prop = prop.state_koe_mean(epc, brahe.AngleFormat.DEGREES)
+
+        # Get mean elements via standalone function (osc -> mean conversion)
+        # state_koe_osc returns osculating elements
+        osc = prop.state_koe_osc(epc, brahe.AngleFormat.DEGREES)
+        mean_via_func = brahe.state_koe_osc_to_mean(osc, brahe.AngleFormat.DEGREES)
+
+        # Should be identical
+        np.testing.assert_array_almost_equal(mean_via_prop, mean_via_func, decimal=10)

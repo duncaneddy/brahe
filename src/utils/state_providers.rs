@@ -24,6 +24,7 @@
 use nalgebra::{DMatrix, DVector, SMatrix, Vector6};
 
 use crate::constants::AngleFormat;
+use crate::orbits::state_koe_osc_to_mean;
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 use crate::utils::identifiable::Identifiable;
@@ -242,6 +243,27 @@ pub trait SOrbitStateProvider: SStateProvider {
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError>;
 
+    /// Returns the state at the given epoch as mean orbital elements.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing mean Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_koe_mean(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let osc = self.state_koe_osc(epoch, angle_format)?;
+        Ok(state_koe_osc_to_mean(&osc, angle_format))
+    }
+
     /// Returns states at multiple epochs in Earth-Centered Inertial (ECI)
     /// Cartesian coordinates.
     ///
@@ -315,7 +337,7 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// # Returns
     /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing osculating Keplerian elements
     /// * `Err(BraheError)` - If any state cannot be computed
-    fn states_koe(
+    fn states_koe_osc(
         &self,
         epochs: &[Epoch],
         angle_format: AngleFormat,
@@ -323,6 +345,29 @@ pub trait SOrbitStateProvider: SStateProvider {
         epochs
             .iter()
             .map(|&epoch| self.state_koe_osc(epoch, angle_format))
+            .collect()
+    }
+
+    /// Returns states at multiple epochs as mean orbital elements.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing mean Keplerian elements
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_koe_mean(
+        &self,
+        epochs: &[Epoch],
+        angle_format: AngleFormat,
+    ) -> Result<Vec<Vector6<f64>>, BraheError> {
+        epochs
+            .iter()
+            .map(|&epoch| self.state_koe_mean(epoch, angle_format))
             .collect()
     }
 }
@@ -405,6 +450,27 @@ pub trait DOrbitStateProvider: DStateProvider {
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError>;
 
+    /// Returns the state at the given epoch as mean orbital elements.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing mean Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_koe_mean(
+        &self,
+        epoch: Epoch,
+        angle_format: AngleFormat,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let osc = self.state_koe_osc(epoch, angle_format)?;
+        Ok(state_koe_osc_to_mean(&osc, angle_format))
+    }
+
     /// Returns states at multiple epochs in Earth-Centered Inertial (ECI)
     /// Cartesian coordinates.
     ///
@@ -478,7 +544,7 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// # Returns
     /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing osculating Keplerian elements
     /// * `Err(BraheError)` - If any state cannot be computed
-    fn states_koe(
+    fn states_koe_osc(
         &self,
         epochs: &[Epoch],
         angle_format: AngleFormat,
@@ -486,6 +552,29 @@ pub trait DOrbitStateProvider: DStateProvider {
         epochs
             .iter()
             .map(|&epoch| self.state_koe_osc(epoch, angle_format))
+            .collect()
+    }
+
+    /// Returns states at multiple epochs as mean orbital elements.
+    ///
+    /// Mean elements are orbit-averaged elements that remove short-period and
+    /// long-period J2 perturbations using first-order Brouwer-Lyddane theory.
+    ///
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing mean Keplerian elements
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_koe_mean(
+        &self,
+        epochs: &[Epoch],
+        angle_format: AngleFormat,
+    ) -> Result<Vec<Vector6<f64>>, BraheError> {
+        epochs
+            .iter()
+            .map(|&epoch| self.state_koe_mean(epoch, angle_format))
             .collect()
     }
 }

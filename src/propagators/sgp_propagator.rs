@@ -1523,7 +1523,7 @@ mod tests {
 
         let epochs = vec![initial_epoch, initial_epoch + 0.01];
 
-        let elements = prop.states_koe(&epochs, RADIANS).unwrap();
+        let elements = prop.states_koe_osc(&epochs, RADIANS).unwrap();
         assert_eq!(elements.len(), 2);
         // Verify elements are valid Keplerian elements
         for elem in &elements {

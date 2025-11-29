@@ -96,8 +96,8 @@ prop.propagate_to(end_time)
 prop_ref.propagate_to(end_time)
 
 # Compare final orbits
-koe_thrust = prop.state_koe(end_time, bh.AngleFormat.DEGREES)
-koe_ref = prop_ref.state_koe(end_time, bh.AngleFormat.DEGREES)
+koe_thrust = prop.state_koe_osc(end_time, bh.AngleFormat.DEGREES)
+koe_ref = prop_ref.state_koe_osc(end_time, bh.AngleFormat.DEGREES)
 
 alt_thrust = koe_thrust[0] - bh.R_EARTH
 alt_ref = koe_ref[0] - bh.R_EARTH

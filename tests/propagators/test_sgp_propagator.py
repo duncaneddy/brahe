@@ -427,13 +427,13 @@ class TestSGPPropagatorStateProviderTrait:
             assert len(state) == 6
             assert all(np.isfinite(state))
 
-    def test_sgppropagator_state_koe(self, iss_tle):
+    def test_sgppropagator_state_koe_osc(self, iss_tle):
         """Test state_koe method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
         epoch = prop.epoch
 
         # Test with radians
-        elements_rad = prop.state_koe(epoch, brahe.AngleFormat.RADIANS)
+        elements_rad = prop.state_koe_osc(epoch, brahe.AngleFormat.RADIANS)
 
         # Verify we got keplerian elements (all finite)
         assert len(elements_rad) == 6
@@ -451,7 +451,7 @@ class TestSGPPropagatorStateProviderTrait:
         assert elements_rad[2] == pytest.approx(np.radians(51.6), abs=0.1)
 
         # Test with degrees
-        elements_deg = prop.state_koe(epoch, brahe.AngleFormat.DEGREES)
+        elements_deg = prop.state_koe_osc(epoch, brahe.AngleFormat.DEGREES)
 
         # Verify degree conversion
         assert len(elements_deg) == 6

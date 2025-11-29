@@ -1914,7 +1914,7 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
         Ok(crate::frames::state_gcrf_to_eme2000(gcrf_state))
     }
 
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -2742,7 +2742,9 @@ mod tests {
 
         // Get osculating elements in radians
         let query_epoch = epoch + 900.0;
-        let elements = prop.state_koe(query_epoch, AngleFormat::Degrees).unwrap();
+        let elements = prop
+            .state_koe_osc(query_epoch, AngleFormat::Degrees)
+            .unwrap();
 
         // Verify we get 6 elements [a, e, i, RAAN, arg_p, M]
         assert_eq!(elements.len(), 6);
@@ -2781,7 +2783,9 @@ mod tests {
 
         // Get osculating elements in degrees
         let query_epoch = epoch + 900.0;
-        let elements = prop.state_koe(query_epoch, AngleFormat::Degrees).unwrap();
+        let elements = prop
+            .state_koe_osc(query_epoch, AngleFormat::Degrees)
+            .unwrap();
 
         // Verify we get 6 elements
         assert_eq!(elements.len(), 6);
@@ -2868,7 +2872,9 @@ mod tests {
         let cartesian = prop.state_eci(query_epoch).unwrap();
 
         // Convert to Keplerian and back
-        let keplerian = prop.state_koe(query_epoch, AngleFormat::Degrees).unwrap();
+        let keplerian = prop
+            .state_koe_osc(query_epoch, AngleFormat::Degrees)
+            .unwrap();
         let cartesian_from_keplerian = state_koe_to_eci(keplerian, AngleFormat::Degrees);
 
         // Verify round-trip accuracy
@@ -2967,8 +2973,12 @@ mod tests {
         let query_epoch = epoch + 900.0;
 
         // Get elements in both formats
-        let elements_rad = prop.state_koe(query_epoch, AngleFormat::Radians).unwrap();
-        let elements_deg = prop.state_koe(query_epoch, AngleFormat::Degrees).unwrap();
+        let elements_rad = prop
+            .state_koe_osc(query_epoch, AngleFormat::Radians)
+            .unwrap();
+        let elements_deg = prop
+            .state_koe_osc(query_epoch, AngleFormat::Degrees)
+            .unwrap();
 
         // Verify semi-major axis and eccentricity are the same (not angles)
         assert!(

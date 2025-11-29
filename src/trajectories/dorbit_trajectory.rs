@@ -2820,7 +2820,7 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         })
     }
 
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,

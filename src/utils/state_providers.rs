@@ -236,7 +236,7 @@ pub trait SOrbitStateProvider: SStateProvider {
     /// # Returns
     /// * `Ok(Vector6<f64>)` - 6-element vector containing osculating Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
     /// * `Err(BraheError)` - If the state cannot be computed
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -322,7 +322,7 @@ pub trait SOrbitStateProvider: SStateProvider {
     ) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs
             .iter()
-            .map(|&epoch| self.state_koe(epoch, angle_format))
+            .map(|&epoch| self.state_koe_osc(epoch, angle_format))
             .collect()
     }
 }
@@ -399,7 +399,7 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// # Returns
     /// * `Ok(Vector6<f64>)` - 6-element vector containing osculating Keplerian elements [a, e, i, RAAN, arg_periapsis, mean_anomaly]
     /// * `Err(BraheError)` - If the state cannot be computed
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -485,7 +485,7 @@ pub trait DOrbitStateProvider: DStateProvider {
     ) -> Result<Vec<Vector6<f64>>, BraheError> {
         epochs
             .iter()
-            .map(|&epoch| self.state_koe(epoch, angle_format))
+            .map(|&epoch| self.state_koe_osc(epoch, angle_format))
             .collect()
     }
 }

@@ -2237,7 +2237,7 @@ def test_orbittrajectory_stateprovider_state_eme2000_from_itrf():
 
 
 def test_orbittrajectory_stateprovider_state_koe_from_cartesian():
-    """Test state_koe() for ECI Cartesian trajectory"""
+    """Test state_koe_osc() for ECI Cartesian trajectory"""
     traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
 
     epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
@@ -2245,7 +2245,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_cartesian():
     traj.add(epoch, state_cart)
 
     # Query osculating elements in degrees
-    result_deg = traj.state_koe(epoch, AngleFormat.DEGREES)
+    result_deg = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
 
     # Convert Cartesian to Keplerian manually for comparison
     expected_deg = state_eci_to_koe(state_cart, AngleFormat.DEGREES)
@@ -2254,7 +2254,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_cartesian():
         assert result_deg[i] == pytest.approx(expected_deg[i], abs=1e-3)
 
     # Query osculating elements in radians
-    result_rad = traj.state_koe(epoch, AngleFormat.RADIANS)
+    result_rad = traj.state_koe_osc(epoch, AngleFormat.RADIANS)
     expected_rad = state_eci_to_koe(state_cart, AngleFormat.RADIANS)
 
     for i in range(6):
@@ -2262,7 +2262,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_cartesian():
 
 
 def test_orbittrajectory_stateprovider_state_koe_from_keplerian():
-    """Test state_koe() for Keplerian trajectory"""
+    """Test state_koe_osc() for Keplerian trajectory"""
     traj = OrbitTrajectory(
         6, OrbitFrame.ECI, OrbitRepresentation.KEPLERIAN, AngleFormat.DEGREES
     )
@@ -2272,13 +2272,13 @@ def test_orbittrajectory_stateprovider_state_koe_from_keplerian():
     traj.add(epoch, state_kep_deg)
 
     # Query osculating elements in degrees (same as native format)
-    result_deg = traj.state_koe(epoch, AngleFormat.DEGREES)
+    result_deg = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
 
     for i in range(6):
         assert result_deg[i] == pytest.approx(state_kep_deg[i], abs=1e-6)
 
     # Query osculating elements in radians (requires conversion)
-    result_rad = traj.state_koe(epoch, AngleFormat.RADIANS)
+    result_rad = traj.state_koe_osc(epoch, AngleFormat.RADIANS)
 
     # First two elements unchanged (a, e)
     assert result_rad[0] == pytest.approx(state_kep_deg[0], abs=1e-6)
@@ -2292,7 +2292,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_keplerian():
 
 
 def test_orbittrajectory_stateprovider_state_koe_from_ecef():
-    """Test state_koe() for ECEF Cartesian trajectory"""
+    """Test state_koe_osc() for ECEF Cartesian trajectory"""
     traj = OrbitTrajectory(6, OrbitFrame.ECEF, OrbitRepresentation.CARTESIAN, None)
 
     epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
@@ -2300,7 +2300,7 @@ def test_orbittrajectory_stateprovider_state_koe_from_ecef():
     traj.add(epoch, state_ecef)
 
     # Query osculating elements
-    result = traj.state_koe(epoch, AngleFormat.DEGREES)
+    result = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
 
     # Convert ECEF -> ECI -> Keplerian manually for comparison
     state_eci = state_ecef_to_eci(epoch, state_ecef)

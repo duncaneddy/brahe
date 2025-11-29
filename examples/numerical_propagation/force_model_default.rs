@@ -62,7 +62,7 @@ fn main() {
 
     // Check orbit evolution
     let final_koe = prop
-        .state_koe(prop.current_epoch(), bh::AngleFormat::Degrees)
+        .state_koe_osc(prop.current_epoch(), bh::AngleFormat::Degrees)
         .unwrap();
     println!("\nAfter 1 orbit ({:.1} min):", orbital_period / 60.0);
     println!("  Semi-major axis change: {:.3} m", final_koe[0] - oe[0]);

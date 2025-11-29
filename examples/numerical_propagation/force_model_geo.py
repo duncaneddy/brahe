@@ -48,7 +48,7 @@ prop = bh.NumericalOrbitPropagator(
 prop.propagate_to(epoch + 7 * 86400.0)
 
 # Check orbit evolution (mainly from SRP and third-body)
-final_koe = prop.state_koe(prop.current_epoch, bh.AngleFormat.DEGREES)
+final_koe = prop.state_koe_osc(prop.current_epoch, bh.AngleFormat.DEGREES)
 print("GEO Force Model (after 7 days):")
 print(f"  Initial eccentricity: {oe[1]:.6f}")
 print(f"  Final eccentricity:   {final_koe[1]:.6f}")

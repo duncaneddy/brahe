@@ -962,12 +962,12 @@ impl PySGPPropagator {
     ///
     ///     # Get osculating elements at initial epoch
     ///     epoch = prop.epoch
-    ///     elements_deg = prop.state_koe(epoch, bh.AngleFormat.DEGREES)
+    ///     elements_deg = prop.state_koe_osc(epoch, bh.AngleFormat.DEGREES)
     ///     print(f"Semi-major axis: {elements_deg[0]/1000:.3f} km")
     ///     print(f"Inclination: {elements_deg[2]:.4f} degrees")
     ///
     ///     # Get elements in radians
-    ///     elements_rad = prop.state_koe(epoch, bh.AngleFormat.RADIANS)
+    ///     elements_rad = prop.state_koe_osc(epoch, bh.AngleFormat.RADIANS)
     ///     print(f"Inclination: {elements_rad[2]:.4f} radians")
     ///     ```
     #[pyo3(text_signature = "(epoch, angle_format)")]
@@ -977,7 +977,7 @@ impl PySGPPropagator {
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = SOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)?;
+        let state = SOrbitStateProvider::state_koe_osc(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1646,7 +1646,7 @@ impl PyKeplerianPropagator {
         epoch: PyRef<PyEpoch>,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = DOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)?;
+        let state = DOrbitStateProvider::state_koe_osc(&self.propagator, epoch.obj, angle_format.value)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -3993,7 +3993,7 @@ impl PyNumericalOrbitPropagator {
         epoch: &PyEpoch,
         angle_format: &PyAngleFormat,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = DOrbitStateProvider::state_koe(&self.propagator, epoch.obj, angle_format.value)
+        let state = DOrbitStateProvider::state_koe_osc(&self.propagator, epoch.obj, angle_format.value)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }

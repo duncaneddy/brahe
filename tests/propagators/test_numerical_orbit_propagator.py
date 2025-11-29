@@ -400,8 +400,8 @@ def test_numericalorbitpropagator_dorbitstateprovider_state_itrf():
     assert len(result) == 6
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_state_koe():
-    """Test state_koe() method"""
+def test_numericalorbitpropagator_dorbitstateprovider_state_koe_osc():
+    """Test state_koe_osc() method"""
     epoch = create_test_epoch()
     state = create_leo_state()
 
@@ -416,12 +416,12 @@ def test_numericalorbitpropagator_dorbitstateprovider_state_koe():
     prop.propagate_to(epoch + 600.0)
 
     # Test with degrees
-    oe_deg = prop.state_koe(epoch + 300.0, AngleFormat.DEGREES)
+    oe_deg = prop.state_koe_osc(epoch + 300.0, AngleFormat.DEGREES)
     assert len(oe_deg) == 6
     assert oe_deg[0] > R_EARTH  # Semi-major axis
 
     # Test with radians
-    oe_rad = prop.state_koe(epoch + 300.0, AngleFormat.RADIANS)
+    oe_rad = prop.state_koe_osc(epoch + 300.0, AngleFormat.RADIANS)
     assert len(oe_rad) == 6
 
 
@@ -1137,7 +1137,7 @@ def test_numericalorbitpropagator_dorbitstateprovider_state_eme2000():
 
 
 def test_numericalorbitpropagator_dorbitstateprovider_osculating_elements_radians():
-    """Test state_koe() with radians (mirrors Rust test)"""
+    """Test state_koe_osc() with radians (mirrors Rust test)"""
     epoch = create_test_epoch()
     state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
 
@@ -1152,7 +1152,7 @@ def test_numericalorbitpropagator_dorbitstateprovider_osculating_elements_radian
     prop.step_by(1800.0)
 
     query_epoch = epoch + 900.0
-    elements = prop.state_koe(query_epoch, AngleFormat.RADIANS)
+    elements = prop.state_koe_osc(query_epoch, AngleFormat.RADIANS)
 
     assert len(elements) == 6
     assert elements[0] > R_EARTH + 300e3 and elements[0] < R_EARTH + 700e3  # SMA
@@ -1161,7 +1161,7 @@ def test_numericalorbitpropagator_dorbitstateprovider_osculating_elements_radian
 
 
 def test_numericalorbitpropagator_dorbitstateprovider_osculating_elements_degrees():
-    """Test state_koe() with degrees (mirrors Rust test)"""
+    """Test state_koe_osc() with degrees (mirrors Rust test)"""
     epoch = create_test_epoch()
     state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
 
@@ -1176,7 +1176,7 @@ def test_numericalorbitpropagator_dorbitstateprovider_osculating_elements_degree
     prop.step_by(1800.0)
 
     query_epoch = epoch + 900.0
-    elements = prop.state_koe(query_epoch, AngleFormat.DEGREES)
+    elements = prop.state_koe_osc(query_epoch, AngleFormat.DEGREES)
 
     assert len(elements) == 6
     assert elements[0] > R_EARTH + 300e3 and elements[0] < R_EARTH + 700e3  # SMA
@@ -1232,7 +1232,7 @@ def test_numericalorbitpropagator_dorbitstateprovider_representation_conversion_
 
     query_epoch = epoch + 900.0
     cartesian = prop.state_eci(query_epoch)
-    keplerian = prop.state_koe(query_epoch, AngleFormat.DEGREES)
+    keplerian = prop.state_koe_osc(query_epoch, AngleFormat.DEGREES)
     cartesian_from_keplerian = state_koe_to_eci(keplerian, AngleFormat.DEGREES)
 
     # Verify round-trip accuracy

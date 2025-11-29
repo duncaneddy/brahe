@@ -671,7 +671,7 @@ impl DOrbitStateProvider for KeplerianPropagator {
         Ok(state_gcrf_to_eme2000(state_gcrf))
     }
 
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -1297,7 +1297,7 @@ mod tests {
     }
 
     #[test]
-    fn test_keplerianpropagator_analyticpropagator_state_koe() {
+    fn test_keplerianpropagator_analyticpropagator_state_koe_osc() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
 
@@ -1305,7 +1305,7 @@ mod tests {
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
         let osc_elements = propagator
-            .state_koe(epoch + orbital_period(elements[0]), AngleFormat::Degrees)
+            .state_koe_osc(epoch + orbital_period(elements[0]), AngleFormat::Degrees)
             .unwrap();
 
         // Should match initial elements within small tolerance
@@ -1315,7 +1315,7 @@ mod tests {
 
         // Now test with radians to degrees conversion
         let osc_elements_rad = propagator
-            .state_koe(epoch + orbital_period(elements[0]), AngleFormat::Radians)
+            .state_koe_osc(epoch + orbital_period(elements[0]), AngleFormat::Radians)
             .unwrap();
         for i in 0..2 {
             assert_abs_diff_eq!(osc_elements_rad[i], elements[i], epsilon = 1e-6);

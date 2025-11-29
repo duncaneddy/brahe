@@ -98,7 +98,7 @@ final_orbit_period = bh.orbital_period(r2)
 prop.propagate_to(epoch + transfer_time + final_orbit_period)
 
 # Check final orbit
-final_koe = prop.state_koe(prop.current_epoch, bh.AngleFormat.DEGREES)
+final_koe = prop.state_koe_osc(prop.current_epoch, bh.AngleFormat.DEGREES)
 final_altitude = final_koe[0] - bh.R_EARTH
 
 print("\nFinal orbit:")

@@ -55,7 +55,7 @@ fn main() {
 
     // Check orbit decay due to drag
     let final_koe = prop
-        .state_koe(prop.current_epoch(), bh::AngleFormat::Degrees)
+        .state_koe_osc(prop.current_epoch(), bh::AngleFormat::Degrees)
         .unwrap();
     println!("LEO Force Model (ISS-like orbit after 1 day):");
     println!(

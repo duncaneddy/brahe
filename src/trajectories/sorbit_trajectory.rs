@@ -2375,7 +2375,7 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         })
     }
 
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -4992,7 +4992,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_koe_from_cartesian() {
-        // Test SOrbitStateProvider::state_koe() for ECI Cartesian trajectory
+        // Test SOrbitStateProvider::state_koe_osc() for ECI Cartesian trajectory
         let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
@@ -5000,7 +5000,7 @@ mod tests {
         traj.add(epoch, state_cart);
 
         // Query osculating elements in degrees
-        let result_deg = traj.state_koe(epoch, AngleFormat::Degrees).unwrap();
+        let result_deg = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
 
         // Convert Cartesian to Keplerian manually for comparison
         let expected_deg = state_eci_to_koe(state_cart, AngleFormat::Degrees);
@@ -5010,7 +5010,7 @@ mod tests {
         }
 
         // Query osculating elements in radians
-        let result_rad = traj.state_koe(epoch, AngleFormat::Radians).unwrap();
+        let result_rad = traj.state_koe_osc(epoch, AngleFormat::Radians).unwrap();
         let expected_rad = state_eci_to_koe(state_cart, AngleFormat::Radians);
 
         for i in 0..6 {
@@ -5020,7 +5020,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_stateprovider_state_koe_from_keplerian() {
-        // Test SOrbitStateProvider::state_koe() for Keplerian trajectory
+        // Test SOrbitStateProvider::state_koe_osc() for Keplerian trajectory
         let mut traj = SOrbitTrajectory::new(
             OrbitFrame::ECI,
             OrbitRepresentation::Keplerian,
@@ -5032,14 +5032,14 @@ mod tests {
         traj.add(epoch, state_kep_deg);
 
         // Query osculating elements in degrees (same as native format)
-        let result_deg = traj.state_koe(epoch, AngleFormat::Degrees).unwrap();
+        let result_deg = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
 
         for i in 0..6 {
             assert_abs_diff_eq!(result_deg[i], state_kep_deg[i], epsilon = 1e-6);
         }
 
         // Query osculating elements in radians (requires conversion)
-        let result_rad = traj.state_koe(epoch, AngleFormat::Radians).unwrap();
+        let result_rad = traj.state_koe_osc(epoch, AngleFormat::Radians).unwrap();
 
         // First two elements unchanged (a, e)
         assert_abs_diff_eq!(result_rad[0], state_kep_deg[0], epsilon = 1e-6);
@@ -5062,7 +5062,7 @@ mod tests {
     fn test_orbittrajectory_stateprovider_state_koe_from_ecef() {
         setup_global_test_eop();
 
-        // Test SOrbitStateProvider::state_koe() for ECEF Cartesian trajectory
+        // Test SOrbitStateProvider::state_koe_osc() for ECEF Cartesian trajectory
         let mut traj =
             SOrbitTrajectory::new(OrbitFrame::ECEF, OrbitRepresentation::Cartesian, None);
 
@@ -5071,7 +5071,7 @@ mod tests {
         traj.add(epoch, state_ecef);
 
         // Query osculating elements
-        let result = traj.state_koe(epoch, AngleFormat::Degrees).unwrap();
+        let result = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
 
         // Convert ECEF -> ECI -> Keplerian manually for comparison
         let state_eci = state_ecef_to_eci(epoch, state_ecef);

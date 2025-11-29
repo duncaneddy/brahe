@@ -792,7 +792,7 @@ impl SOrbitStateProvider for SGPPropagator {
         Ok(state_gcrf_to_eme2000(gcrf_state))
     }
 
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
@@ -850,12 +850,12 @@ impl crate::utils::DOrbitStateProvider for SGPPropagator {
         <Self as SOrbitStateProvider>::state_eme2000(self, epoch)
     }
 
-    fn state_koe(
+    fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
-        <Self as SOrbitStateProvider>::state_koe(self, epoch, angle_format)
+        <Self as SOrbitStateProvider>::state_koe_osc(self, epoch, angle_format)
     }
 
     // Default batch implementations from trait are used for:
@@ -1451,12 +1451,12 @@ mod tests {
     // StateProvider Trait Tests
 
     #[test]
-    fn test_sgppropagator_analyticpropagator_state_koe() {
+    fn test_sgppropagator_analyticpropagator_state_koe_osc() {
         setup_global_test_eop();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
         let epoch = prop.initial_epoch();
 
-        let elements = prop.state_koe(epoch, RADIANS).unwrap();
+        let elements = prop.state_koe_osc(epoch, RADIANS).unwrap();
 
         // Verify we got keplerian elements (all finite)
         assert!(elements.iter().all(|&x| x.is_finite()));

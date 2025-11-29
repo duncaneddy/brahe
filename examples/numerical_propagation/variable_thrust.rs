@@ -100,9 +100,9 @@ fn main() {
     prop_ref.propagate_to(end_time);
 
     // Compare final orbits
-    let koe_thrust = prop.state_koe(end_time, bh::AngleFormat::Degrees).unwrap();
+    let koe_thrust = prop.state_koe_osc(end_time, bh::AngleFormat::Degrees).unwrap();
     let koe_ref = prop_ref
-        .state_koe(end_time, bh::AngleFormat::Degrees)
+        .state_koe_osc(end_time, bh::AngleFormat::Degrees)
         .unwrap();
 
     let alt_thrust = koe_thrust[0] - bh::R_EARTH;

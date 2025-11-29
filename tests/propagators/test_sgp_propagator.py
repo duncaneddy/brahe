@@ -730,6 +730,17 @@ class TestOldBraheTLEFunctions:
         # Should return degrees
         assert ma == pytest.approx(325.0288, abs=1e-10)
 
+    def test_sgppropagator_ephemeris_age(self, iss_tle):
+        """Test ephemeris_age property."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        age = prop.ephemeris_age
+
+        # TLE epoch is 2008-09-20, age should be positive and large
+        assert age > 0.0
+        # Should be at least 15 years worth of seconds
+        assert age > 15.0 * 365.25 * 86400.0
+
     def test_sgppropagator_states_gcrf(self, iss_tle):
         """Test SGPPropagator states_gcrf() batch method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)

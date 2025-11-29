@@ -685,6 +685,34 @@ impl SGPPropagator {
     pub fn mean_anomaly(&self) -> f64 {
         self.elements()[5]
     }
+
+    /// Get age of ephemeris data (time since TLE epoch).
+    ///
+    /// Returns the difference between the current system time and the TLE epoch.
+    /// A positive value indicates the TLE is in the past; a negative value indicates
+    /// a future TLE epoch.
+    ///
+    /// # Returns
+    ///
+    /// * Time since TLE epoch. Units: (s)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    ///
+    /// brahe::initialize_eop().unwrap();
+    ///
+    /// let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+    /// let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+    ///
+    /// let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+    /// let age = prop.ephemeris_age();
+    ///
+    /// println!("Ephemeris age: {:.1} s", age);
+    /// ```
+    pub fn ephemeris_age(&self) -> f64 {
+        Epoch::now() - self.epoch
+    }
 }
 
 impl SStatePropagator for SGPPropagator {
@@ -1303,6 +1331,19 @@ mod tests {
 
         // Should return degrees
         assert_abs_diff_eq!(ma, 325.0288, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_sgppropagator_ephemeris_age() {
+        setup_global_test_eop();
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        let age = prop.ephemeris_age();
+
+        // TLE epoch is 2008-09-20, so age should be positive and large (years worth of seconds)
+        assert!(age > 0.0);
+        // Should be at least 15 years worth of seconds (from 2008 to 2023+)
+        assert!(age > 15.0 * 365.25 * 86400.0);
     }
 
     // Identifiable Trait Tests

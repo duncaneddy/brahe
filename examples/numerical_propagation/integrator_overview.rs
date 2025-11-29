@@ -30,6 +30,11 @@ fn main() {
             jacobian_method: bh::DifferenceMethod::Central,
             sensitivity_method: bh::DifferenceMethod::Central,
         },
+        // Acceleration storage for higher-order interpolation
+        store_accelerations: true,
+        // Interpolation method: Linear is safe for any state dimension
+        // Use HermiteCubic or HermiteQuintic for 6D orbital states
+        interpolation_method: bh::InterpolationMethod::Linear,
     };
 
     println!("Method: {:?}", config.method);

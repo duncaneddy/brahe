@@ -3448,15 +3448,18 @@ mod tests {
         )
         .unwrap();
 
-        // Verify default method
+        // Verify default method is Linear (safe for any state dimension)
         let initial_method = prop.get_interpolation_method();
-        assert_eq!(initial_method, InterpolationMethod::HermiteCubic); // Default
+        assert_eq!(initial_method, InterpolationMethod::Linear);
 
-        // Test that we can set a different method
-        prop.set_interpolation_method(InterpolationMethod::Linear);
+        // Test that we can set a different method (HermiteCubic is valid for 6D orbital states)
+        prop.set_interpolation_method(InterpolationMethod::HermiteCubic);
 
         // Verify the method was changed
-        assert_eq!(prop.get_interpolation_method(), InterpolationMethod::Linear);
+        assert_eq!(
+            prop.get_interpolation_method(),
+            InterpolationMethod::HermiteCubic
+        );
     }
 
     // =========================================================================

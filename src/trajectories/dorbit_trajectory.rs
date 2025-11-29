@@ -1511,10 +1511,11 @@ impl InterpolatableTrajectory for DOrbitTrajectory {
             InterpolationMethod::HermiteCubic => {
                 // Validate 6D state
                 if self.dimension != 6 {
-                    panic!(
-                        "HermiteCubic interpolation requires 6D states, trajectory has {}D",
+                    return Err(BraheError::Error(format!(
+                        "HermiteCubic interpolation requires 6D states, trajectory has {}D. \
+                         Use Linear/Lagrange interpolation for non-6D states.",
                         self.dimension
-                    );
+                    )));
                 }
 
                 // Get bracketing states
@@ -1534,10 +1535,11 @@ impl InterpolatableTrajectory for DOrbitTrajectory {
             InterpolationMethod::HermiteQuintic => {
                 // Validate 6D state
                 if self.dimension != 6 {
-                    panic!(
-                        "HermiteQuintic interpolation requires 6D states, trajectory has {}D",
+                    return Err(BraheError::Error(format!(
+                        "HermiteQuintic interpolation requires 6D states, trajectory has {}D. \
+                         Use Linear/Lagrange interpolation for non-6D states.",
                         self.dimension
-                    );
+                    )));
                 }
 
                 // Check if we have stored accelerations
@@ -1574,12 +1576,12 @@ impl InterpolatableTrajectory for DOrbitTrajectory {
 
                     Ok(interpolate_hermite_quintic_fd_dvector6(&times, &states, t))
                 } else {
-                    panic!(
+                    Err(BraheError::Error(format!(
                         "HermiteQuintic interpolation requires either stored accelerations \
                          or at least 3 trajectory points. This trajectory has {} points \
                          and no stored accelerations.",
                         self.len()
-                    );
+                    )))
                 }
             }
         }
@@ -4579,8 +4581,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "HermiteCubic interpolation requires 6D states")]
-    fn test_dorbittrajectory_interpolate_hermite_cubic_panic_non_6d() {
+    fn test_dorbittrajectory_interpolate_hermite_cubic_error_non_6d() {
         let mut traj =
             DOrbitTrajectory::new(9, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .with_interpolation_method(InterpolationMethod::HermiteCubic);
@@ -4593,7 +4594,10 @@ mod tests {
         traj.add(epoch2, state2);
 
         let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
-        let _ = traj.interpolate(&mid);
+        let result = traj.interpolate(&mid);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("HermiteCubic interpolation requires 6D states"));
     }
 
     #[test]
@@ -4639,8 +4643,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "HermiteQuintic interpolation requires either stored accelerations")]
-    fn test_dorbittrajectory_interpolate_hermite_quintic_panic_insufficient() {
+    fn test_dorbittrajectory_interpolate_hermite_quintic_error_insufficient() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .with_interpolation_method(InterpolationMethod::HermiteQuintic);
@@ -4654,7 +4657,12 @@ mod tests {
         traj.add(epoch2, state2);
 
         let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
-        let _ = traj.interpolate(&mid);
+        let result = traj.interpolate(&mid);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("HermiteQuintic interpolation requires either stored accelerations")
+        );
     }
 
     // ========== STMStorage Trait Tests ==========

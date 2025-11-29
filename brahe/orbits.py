@@ -72,6 +72,9 @@ from brahe._brahe import (
     # Mean-osculating Keplerian element conversions
     state_koe_osc_to_mean,
     state_koe_mean_to_osc,
+    # Constellation generators
+    WalkerPattern,
+    WalkerConstellationGenerator,
 )
 
 __all__ = [
@@ -122,4 +125,7 @@ __all__ = [
     # Mean-osculating Keplerian element conversions
     "state_koe_osc_to_mean",
     "state_koe_mean_to_osc",
+    # Constellation generators
+    "WalkerPattern",
+    "WalkerConstellationGenerator",
 ]

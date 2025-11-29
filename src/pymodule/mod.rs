@@ -859,6 +859,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_koe_osc_to_mean, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_koe_mean_to_osc, module)?)?;
 
+    // Walker Constellation Generator
+    module.add_class::<PyWalkerPattern>()?;
+    module.add_class::<PyWalkerConstellationGenerator>()?;
+
     //* Relative Motion *//
     module.add_function(wrap_pyfunction!(py_rotation_rtn_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_rotation_eci_to_rtn, module)?)?;

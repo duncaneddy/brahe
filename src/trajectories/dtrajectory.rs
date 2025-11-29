@@ -1318,11 +1318,12 @@ impl InterpolatableTrajectory for DTrajectory {
             }
 
             InterpolationMethod::HermiteCubic | InterpolationMethod::HermiteQuintic => {
-                panic!(
-                    "Hermite interpolation methods require 6D orbital states with \
-                     position/velocity structure. Use DOrbitTrajectory for orbital state \
-                     interpolation with Hermite methods."
-                );
+                Err(BraheError::Error(format!(
+                    "{:?} interpolation requires 6D orbital states with position/velocity \
+                     structure. Use DOrbitTrajectory for orbital states with Hermite methods, \
+                     or use Linear/Lagrange interpolation for generic N-dimensional systems.",
+                    self.interpolation_method
+                )))
             }
         }
     }

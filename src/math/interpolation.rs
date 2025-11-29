@@ -56,6 +56,17 @@ impl InterpolationMethod {
             Self::HermiteQuintic => 2, // or 3 for finite difference fallback
         }
     }
+
+    /// Returns true if this interpolation method requires 6D state vectors
+    /// with position/velocity structure `[x, y, z, vx, vy, vz]`.
+    ///
+    /// Hermite methods interpret the state as having 3 position components
+    /// followed by 3 velocity components, which is only valid for 6D states.
+    /// For non-6D systems, use [`InterpolationMethod::Linear`] or
+    /// [`InterpolationMethod::Lagrange`] instead.
+    pub fn requires_6d(&self) -> bool {
+        matches!(self, Self::HermiteCubic | Self::HermiteQuintic)
+    }
 }
 
 /// Interpolation methods for retrieving covariance matrices at arbitrary epochs.
@@ -1053,6 +1064,18 @@ mod tests {
     fn test_interpolation_method_default_is_linear() {
         let method = InterpolationMethod::default();
         assert_eq!(method, InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_interpolation_method_requires_6d() {
+        // Linear and Lagrange do NOT require 6D
+        assert!(!InterpolationMethod::Linear.requires_6d());
+        assert!(!InterpolationMethod::Lagrange { degree: 3 }.requires_6d());
+        assert!(!InterpolationMethod::Lagrange { degree: 7 }.requires_6d());
+
+        // Hermite methods DO require 6D
+        assert!(InterpolationMethod::HermiteCubic.requires_6d());
+        assert!(InterpolationMethod::HermiteQuintic.requires_6d());
     }
 
     // =========================================================================

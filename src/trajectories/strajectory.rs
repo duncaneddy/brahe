@@ -932,11 +932,13 @@ impl<const R: usize> InterpolatableTrajectory for STrajectory<R> {
             }
 
             InterpolationMethod::HermiteCubic | InterpolationMethod::HermiteQuintic => {
-                panic!(
-                    "Hermite interpolation methods require 6D orbital states with \
-                     position/velocity structure. Use SOrbitTrajectory or DOrbitTrajectory \
-                     for orbital state interpolation with Hermite methods."
-                );
+                Err(BraheError::Error(format!(
+                    "{:?} interpolation requires 6D orbital states with position/velocity \
+                     structure. STrajectory<{}> cannot use Hermite methods. Use \
+                     SOrbitTrajectory or DOrbitTrajectory for orbital states, or use \
+                     Linear/Lagrange interpolation for generic systems.",
+                    self.interpolation_method, R
+                )))
             }
         }
     }

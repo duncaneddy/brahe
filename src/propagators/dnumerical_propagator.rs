@@ -254,6 +254,7 @@ impl DNumericalPropagator {
     /// # Errors
     /// Returns `BraheError` if:
     /// - Sensitivity propagation is enabled but no parameters are provided
+    /// - Hermite interpolation methods are configured for non-6D states
     ///
     /// # Example
     ///
@@ -310,6 +311,17 @@ impl DNumericalPropagator {
             return Err(BraheError::PropagatorError(
                 "Sensitivity propagation requires params to be provided".to_string(),
             ));
+        }
+
+        // Validate: Hermite interpolation requires 6D states
+        if propagation_config.interpolation_method.requires_6d() && state_dim != 6 {
+            return Err(BraheError::PropagatorError(format!(
+                "{:?} interpolation requires 6D states with position/velocity structure \
+                 [x, y, z, vx, vy, vz], but state dimension is {}. \
+                 Use InterpolationMethod::Linear or InterpolationMethod::Lagrange {{ degree: N }} \
+                 for generic N-dimensional systems.",
+                propagation_config.interpolation_method, state_dim
+            )));
         }
 
         // Wrap for main integrator
@@ -1961,10 +1973,7 @@ mod tests {
         let mut prop = create_test_sho_propagator();
         let initial_epoch = prop.initial_epoch();
 
-        // Use linear interpolation for 2D SHO (Hermite requires 6D orbital states)
-        prop.set_interpolation_method(InterpolationMethod::Linear);
-
-        // Propagate to build trajectory
+        // Propagate to build trajectory (default interpolation is now Linear)
         prop.propagate_to(initial_epoch + 10.0);
 
         // Get state at intermediate epoch
@@ -1995,8 +2004,7 @@ mod tests {
     #[test]
     fn test_dstateprovider_state_dimension_preservation() {
         let mut prop = create_test_sho_propagator();
-        // Use linear interpolation for 2D SHO (Hermite requires 6D orbital states)
-        prop.set_interpolation_method(InterpolationMethod::Linear);
+        // Propagate to build trajectory (default interpolation is now Linear)
         prop.propagate_to(prop.initial_epoch() + 5.0);
 
         let mid_epoch = prop.initial_epoch() + 2.5;
@@ -2468,15 +2476,16 @@ mod tests {
 
         let mut prop = create_test_sho_propagator();
 
-        // Default should be HermiteCubic
+        // Default should be Linear (safe for any state dimension)
+        assert_eq!(prop.get_interpolation_method(), InterpolationMethod::Linear);
+
+        // Set to HermiteCubic explicitly (would fail for 2D SHO if used)
+        // Note: Setting is allowed, error only occurs at interpolation time
+        prop.set_interpolation_method(InterpolationMethod::HermiteCubic);
         assert_eq!(
             prop.get_interpolation_method(),
             InterpolationMethod::HermiteCubic
         );
-
-        // Set to Linear explicitly
-        prop.set_interpolation_method(InterpolationMethod::Linear);
-        assert_eq!(prop.get_interpolation_method(), InterpolationMethod::Linear);
     }
 
     #[test]
@@ -2491,6 +2500,51 @@ mod tests {
 
         // Setting should persist
         assert_eq!(prop.get_interpolation_method(), InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_hermite_interpolation_requires_6d_states() {
+        // Test that Hermite interpolation methods are rejected for non-6D systems
+        use crate::math::interpolation::InterpolationMethod;
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]); // 2D state (SHO)
+
+        // HermiteCubic should fail for 2D state
+        let config_cubic = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::HermiteCubic);
+        let result = DNumericalPropagator::new(
+            epoch,
+            state.clone(),
+            sho_dynamics(1.0),
+            config_cubic,
+            None,
+            None,
+            None,
+        );
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        let err_msg = err.to_string();
+        assert!(err_msg.contains("HermiteCubic"));
+        assert!(err_msg.contains("6D states"));
+
+        // HermiteQuintic should also fail for 2D state
+        let config_quintic = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::HermiteQuintic);
+        let result = DNumericalPropagator::new(
+            epoch,
+            state,
+            sho_dynamics(1.0),
+            config_quintic,
+            None,
+            None,
+            None,
+        );
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        let err_msg = err.to_string();
+        assert!(err_msg.contains("HermiteQuintic"));
+        assert!(err_msg.contains("6D states"));
     }
 
     // =============================================================================

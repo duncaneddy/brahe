@@ -11,6 +11,8 @@ fn main() {
         method: bh::IntegratorMethod::RKN1210,
         integrator: bh::IntegratorConfig::adaptive(1e-12, 1e-10),
         variational: bh::VariationalConfig::default(),
+        store_accelerations: true,
+        interpolation_method: bh::InterpolationMethod::Linear,
     };
 
     println!("Method: {:?}", config.method);

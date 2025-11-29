@@ -316,7 +316,11 @@ pub struct NumericalPropagationConfig {
     /// Higher-order methods (Lagrange, Hermite) provide better accuracy but
     /// may require more stored points or acceleration data.
     ///
-    /// Default: `InterpolationMethod::HermiteCubic`
+    /// **Note**: Hermite interpolation methods (`HermiteCubic`, `HermiteQuintic`)
+    /// require 6D state vectors with position/velocity structure `[x, y, z, vx, vy, vz]`.
+    /// For non-6D systems, use `Linear` or `Lagrange` interpolation.
+    ///
+    /// Default: `InterpolationMethod::Linear`
     pub interpolation_method: InterpolationMethod,
 }
 
@@ -328,14 +332,14 @@ impl Default for NumericalPropagationConfig {
     /// - Default tolerances (abs=1e-6, rel=1e-3)
     /// - No variational matrix propagation (central differences when enabled)
     /// - Acceleration storage enabled
-    /// - Hermite cubic interpolation
+    /// - Linear interpolation (safe for any state dimension)
     fn default() -> Self {
         Self {
             method: IntegratorMethod::default(),
             integrator: IntegratorConfig::default(),
             variational: VariationalConfig::default(),
             store_accelerations: true,
-            interpolation_method: InterpolationMethod::HermiteCubic,
+            interpolation_method: InterpolationMethod::Linear,
         }
     }
 }
@@ -399,7 +403,7 @@ impl NumericalPropagationConfig {
             integrator,
             variational,
             store_accelerations: true,
-            interpolation_method: InterpolationMethod::HermiteCubic,
+            interpolation_method: InterpolationMethod::Linear,
         }
     }
 
@@ -410,7 +414,7 @@ impl NumericalPropagationConfig {
     /// - Tight tolerances (abs=1e-10, rel=1e-8)
     /// - No variational matrix propagation (central differences when enabled)
     /// - Acceleration storage enabled
-    /// - Hermite cubic interpolation
+    /// - Linear interpolation (safe for any state dimension)
     ///
     /// # Example
     ///
@@ -425,7 +429,7 @@ impl NumericalPropagationConfig {
             integrator: IntegratorConfig::adaptive(1e-10, 1e-8),
             variational: VariationalConfig::default(),
             store_accelerations: true,
-            interpolation_method: InterpolationMethod::HermiteCubic,
+            interpolation_method: InterpolationMethod::Linear,
         }
     }
 
@@ -580,10 +584,7 @@ mod tests {
         assert!(!config.variational.enable_sensitivity);
         // New fields should have defaults
         assert!(config.store_accelerations);
-        assert_eq!(
-            config.interpolation_method,
-            InterpolationMethod::HermiteCubic
-        );
+        assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
     }
 
     #[test]
@@ -592,10 +593,8 @@ mod tests {
 
         // Acceleration storage should be enabled by default
         assert!(config.store_accelerations);
-        assert_eq!(
-            config.interpolation_method,
-            InterpolationMethod::HermiteCubic
-        );
+        // Default interpolation is Linear (safe for any state dimension)
+        assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
     }
 
     #[test]
@@ -650,9 +649,7 @@ mod tests {
 
         // High precision should also have defaults for new fields
         assert!(config.store_accelerations);
-        assert_eq!(
-            config.interpolation_method,
-            InterpolationMethod::HermiteCubic
-        );
+        // Default interpolation is Linear (safe for any state dimension)
+        assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
     }
 }

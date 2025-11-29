@@ -6391,4 +6391,890 @@ mod tests {
         let t_mid = t0 + 30.0;
         let _ = traj.interpolate(&t_mid);
     }
+
+    // ========================
+    // STM Storage Tests
+    // ========================
+
+    #[test]
+    fn test_orbittrajectory_stm_enable_stm_storage_empty() {
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.stms.is_none());
+
+        traj.enable_stm_storage();
+
+        assert!(traj.stms.is_some());
+        assert_eq!(traj.stms.as_ref().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_enable_stm_storage_with_existing_states() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t0 + 60.0, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        traj.enable_stm_storage();
+
+        assert!(traj.stms.is_some());
+        let stms = traj.stms.as_ref().unwrap();
+        assert_eq!(stms.len(), 2);
+
+        // Verify initialized with identity matrices
+        let identity = SMatrix::<f64, 6, 6>::identity();
+        for stm in stms {
+            for i in 0..6 {
+                for j in 0..6 {
+                    assert_abs_diff_eq!(stm[(i, j)], identity[(i, j)], epsilon = 1e-10);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_enable_stm_storage_idempotent() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        traj.enable_stm_storage();
+        let first_stms_len = traj.stms.as_ref().unwrap().len();
+
+        // Modify the STM
+        let custom_stm =
+            SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(2.0, 2.0, 2.0, 2.0, 2.0, 2.0));
+        traj.stms.as_mut().unwrap()[0] = custom_stm;
+
+        // Enable again - should not reset
+        traj.enable_stm_storage();
+
+        assert_eq!(traj.stms.as_ref().unwrap().len(), first_stms_len);
+        // Verify custom STM is preserved
+        assert_abs_diff_eq!(traj.stms.as_ref().unwrap()[0][(0, 0)], 2.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_set_stm_at() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_stm_storage();
+
+        let custom_stm =
+            SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(3.0, 3.0, 3.0, 3.0, 3.0, 3.0));
+        traj.set_stm_at(0, custom_stm);
+
+        assert_abs_diff_eq!(traj.stms.as_ref().unwrap()[0][(0, 0)], 3.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_set_stm_at_auto_enable() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        assert!(traj.stms.is_none());
+
+        let custom_stm =
+            SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(4.0, 4.0, 4.0, 4.0, 4.0, 4.0));
+        traj.set_stm_at(0, custom_stm);
+
+        // Storage should be auto-enabled
+        assert!(traj.stms.is_some());
+        assert_abs_diff_eq!(traj.stms.as_ref().unwrap()[0][(0, 0)], 4.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[should_panic(expected = "out of bounds")]
+    fn test_orbittrajectory_stm_set_stm_at_out_of_bounds() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        let stm = SMatrix::<f64, 6, 6>::identity();
+        traj.set_stm_at(10, stm); // Index 10 is out of bounds
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_stm_at_idx_valid() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_stm_storage();
+
+        let custom_stm =
+            SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(5.0, 5.0, 5.0, 5.0, 5.0, 5.0));
+        traj.set_stm_at(0, custom_stm);
+
+        let retrieved = traj.stm_at_idx(0);
+        assert!(retrieved.is_some());
+        assert_abs_diff_eq!(retrieved.unwrap()[(0, 0)], 5.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_stm_at_idx_no_storage() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        // STM storage not enabled
+
+        let retrieved = traj.stm_at_idx(0);
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_stm_at_idx_out_of_bounds() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_stm_storage();
+
+        let retrieved = traj.stm_at_idx(10);
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_stm_at_exact_epoch() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t1, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_stm_storage();
+
+        let stm0 = SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0));
+        let stm1 = SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(2.0, 2.0, 2.0, 2.0, 2.0, 2.0));
+        traj.set_stm_at(0, stm0);
+        traj.set_stm_at(1, stm1);
+
+        // Exact epoch match should return exact STM
+        let result = traj.stm_at(t0);
+        assert!(result.is_some());
+        assert_abs_diff_eq!(result.unwrap()[(0, 0)], 1.0, epsilon = 1e-10);
+
+        let result = traj.stm_at(t1);
+        assert!(result.is_some());
+        assert_abs_diff_eq!(result.unwrap()[(0, 0)], 2.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_stm_at_interpolation() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t1, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_stm_storage();
+
+        let stm0 =
+            SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(10.0, 10.0, 10.0, 10.0, 10.0, 10.0));
+        let stm1 =
+            SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(20.0, 20.0, 20.0, 20.0, 20.0, 20.0));
+        traj.set_stm_at(0, stm0);
+        traj.set_stm_at(1, stm1);
+
+        // Interpolate at midpoint
+        let t_mid = t0 + 30.0;
+        let result = traj.stm_at(t_mid);
+        assert!(result.is_some());
+        // Linear interpolation: 10 + 0.5 * (20 - 10) = 15
+        assert_abs_diff_eq!(result.unwrap()[(0, 0)], 15.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_stm_at_empty_trajectory() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.enable_stm_storage();
+
+        let result = traj.stm_at(t0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_stm_at_no_storage() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        // STM storage not enabled
+
+        let result = traj.stm_at(t0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_stm_stm_at_out_of_bounds() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t1, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_stm_storage();
+
+        // Before range
+        let before = t0 - 10.0;
+        assert!(traj.stm_at(before).is_none());
+
+        // After range
+        let after = t1 + 10.0;
+        assert!(traj.stm_at(after).is_none());
+    }
+
+    // ========================
+    // Sensitivity Storage Tests
+    // ========================
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_enable_sensitivity_storage_empty() {
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.sensitivities.is_none());
+
+        traj.enable_sensitivity_storage(3); // 3 parameters
+
+        assert!(traj.sensitivities.is_some());
+        assert_eq!(traj.sensitivities.as_ref().unwrap().len(), 0);
+        assert_eq!(traj.sensitivity_param_dim, Some(3));
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_enable_sensitivity_storage_with_existing_states() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t0 + 60.0, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        traj.enable_sensitivity_storage(4);
+
+        assert!(traj.sensitivities.is_some());
+        let sens = traj.sensitivities.as_ref().unwrap();
+        assert_eq!(sens.len(), 2);
+
+        // Verify initialized with zero matrices (6 x 4)
+        for s in sens {
+            assert_eq!(s.nrows(), 6);
+            assert_eq!(s.ncols(), 4);
+            for i in 0..6 {
+                for j in 0..4 {
+                    assert_abs_diff_eq!(s[(i, j)], 0.0, epsilon = 1e-10);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_enable_sensitivity_storage_idempotent() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        traj.enable_sensitivity_storage(3);
+        let first_sens_len = traj.sensitivities.as_ref().unwrap().len();
+
+        // Modify the sensitivity
+        let custom_sens = DMatrix::from_element(6, 3, 5.0);
+        traj.sensitivities.as_mut().unwrap()[0] = custom_sens;
+
+        // Enable again - should not reset
+        traj.enable_sensitivity_storage(3);
+
+        assert_eq!(traj.sensitivities.as_ref().unwrap().len(), first_sens_len);
+        // Verify custom sensitivity is preserved
+        assert_abs_diff_eq!(
+            traj.sensitivities.as_ref().unwrap()[0][(0, 0)],
+            5.0,
+            epsilon = 1e-10
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Parameter dimension must be > 0")]
+    fn test_orbittrajectory_sensitivity_enable_sensitivity_storage_zero_param_dim() {
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.enable_sensitivity_storage(0);
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_set_sensitivity_at() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_sensitivity_storage(3);
+
+        let custom_sens = DMatrix::from_element(6, 3, 7.0);
+        traj.set_sensitivity_at(0, custom_sens);
+
+        assert_abs_diff_eq!(
+            traj.sensitivities.as_ref().unwrap()[0][(0, 0)],
+            7.0,
+            epsilon = 1e-10
+        );
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_set_sensitivity_at_auto_enable() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        assert!(traj.sensitivities.is_none());
+
+        let custom_sens = DMatrix::from_element(6, 5, 8.0);
+        traj.set_sensitivity_at(0, custom_sens);
+
+        // Storage should be auto-enabled
+        assert!(traj.sensitivities.is_some());
+        assert_eq!(traj.sensitivity_param_dim, Some(5));
+        assert_abs_diff_eq!(
+            traj.sensitivities.as_ref().unwrap()[0][(0, 0)],
+            8.0,
+            epsilon = 1e-10
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "out of bounds")]
+    fn test_orbittrajectory_sensitivity_set_sensitivity_at_out_of_bounds() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        let sens = DMatrix::from_element(6, 3, 1.0);
+        traj.set_sensitivity_at(10, sens); // Index 10 is out of bounds
+    }
+
+    #[test]
+    #[should_panic(expected = "row count")]
+    fn test_orbittrajectory_sensitivity_set_sensitivity_at_wrong_rows() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        // Sensitivity with wrong number of rows (should be 6)
+        let sens = DMatrix::from_element(5, 3, 1.0);
+        traj.set_sensitivity_at(0, sens);
+    }
+
+    #[test]
+    #[should_panic(expected = "column count")]
+    fn test_orbittrajectory_sensitivity_set_sensitivity_at_wrong_cols() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+
+        // Enable storage with 3 columns
+        traj.enable_sensitivity_storage(3);
+
+        // Try to set sensitivity with different column count
+        let sens = DMatrix::from_element(6, 5, 1.0);
+        traj.set_sensitivity_at(0, sens);
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_sensitivity_at_idx_valid() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_sensitivity_storage(3);
+
+        let custom_sens = DMatrix::from_element(6, 3, 9.0);
+        traj.set_sensitivity_at(0, custom_sens);
+
+        let retrieved = traj.sensitivity_at_idx(0);
+        assert!(retrieved.is_some());
+        assert_abs_diff_eq!(retrieved.unwrap()[(0, 0)], 9.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_sensitivity_at_idx_no_storage() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        // Sensitivity storage not enabled
+
+        let retrieved = traj.sensitivity_at_idx(0);
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_sensitivity_at_idx_out_of_bounds() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_sensitivity_storage(3);
+
+        let retrieved = traj.sensitivity_at_idx(10);
+        assert!(retrieved.is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_sensitivity_at_exact_epoch() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t1, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_sensitivity_storage(2);
+
+        let sens0 = DMatrix::from_element(6, 2, 10.0);
+        let sens1 = DMatrix::from_element(6, 2, 20.0);
+        traj.set_sensitivity_at(0, sens0);
+        traj.set_sensitivity_at(1, sens1);
+
+        // Exact epoch match should return exact sensitivity
+        let result = traj.sensitivity_at(t0);
+        assert!(result.is_some());
+        assert_abs_diff_eq!(result.unwrap()[(0, 0)], 10.0, epsilon = 1e-10);
+
+        let result = traj.sensitivity_at(t1);
+        assert!(result.is_some());
+        assert_abs_diff_eq!(result.unwrap()[(0, 0)], 20.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_sensitivity_at_interpolation() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t1, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_sensitivity_storage(2);
+
+        let sens0 = DMatrix::from_element(6, 2, 100.0);
+        let sens1 = DMatrix::from_element(6, 2, 200.0);
+        traj.set_sensitivity_at(0, sens0);
+        traj.set_sensitivity_at(1, sens1);
+
+        // Interpolate at midpoint
+        let t_mid = t0 + 30.0;
+        let result = traj.sensitivity_at(t_mid);
+        assert!(result.is_some());
+        // Linear interpolation: 100 + 0.5 * (200 - 100) = 150
+        assert_abs_diff_eq!(result.unwrap()[(0, 0)], 150.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_sensitivity_at_empty_trajectory() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.enable_sensitivity_storage(3);
+
+        let result = traj.sensitivity_at(t0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_sensitivity_at_no_storage() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        // Sensitivity storage not enabled
+
+        let result = traj.sensitivity_at(t0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_sensitivity_sensitivity_at_out_of_bounds() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.add(t1, Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        traj.enable_sensitivity_storage(3);
+
+        // Before range
+        let before = t0 - 10.0;
+        assert!(traj.sensitivity_at(before).is_none());
+
+        // After range
+        let after = t1 + 10.0;
+        assert!(traj.sensitivity_at(after).is_none());
+    }
+
+    // ========================
+    // add_full() Tests
+    // ========================
+
+    #[test]
+    fn test_orbittrajectory_add_full_basic() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        // Add with all None options
+        traj.add_full(t0, state, None, None, None);
+
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_none());
+        assert!(traj.stms.is_none());
+        assert!(traj.sensitivities.is_none());
+    }
+
+    #[test]
+    fn test_orbittrajectory_add_full_with_all_options() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity();
+        let stm = SMatrix::<f64, 6, 6>::from_diagonal(&Vector6::new(2.0, 2.0, 2.0, 2.0, 2.0, 2.0));
+        let sens = DMatrix::from_element(6, 3, 5.0);
+
+        traj.add_full(t0, state, Some(cov), Some(stm), Some(sens));
+
+        assert_eq!(traj.len(), 1);
+        assert!(traj.covariances.is_some());
+        assert!(traj.stms.is_some());
+        assert!(traj.sensitivities.is_some());
+        assert_eq!(traj.sensitivity_param_dim, Some(3));
+
+        // Verify values
+        assert_abs_diff_eq!(traj.stms.as_ref().unwrap()[0][(0, 0)], 2.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(
+            traj.sensitivities.as_ref().unwrap()[0][(0, 0)],
+            5.0,
+            epsilon = 1e-10
+        );
+    }
+
+    #[test]
+    fn test_orbittrajectory_add_full_sorted_insertion() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+        let t2 = t0 + 30.0; // Middle epoch
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        // Add out of order
+        traj.add_full(
+            t0,
+            Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            None,
+            None,
+            None,
+        );
+        traj.add_full(
+            t1,
+            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            None,
+            None,
+            None,
+        );
+        traj.add_full(
+            t2,
+            Vector6::new(7050e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            None,
+            None,
+            None,
+        );
+
+        // Verify sorted order
+        assert_eq!(traj.epochs[0], t0);
+        assert_eq!(traj.epochs[1], t2);
+        assert_eq!(traj.epochs[2], t1);
+
+        // Verify states are in corresponding order
+        assert_abs_diff_eq!(traj.states[0][0], 7000e3, epsilon = 1e-10);
+        assert_abs_diff_eq!(traj.states[1][0], 7050e3, epsilon = 1e-10);
+        assert_abs_diff_eq!(traj.states[2][0], 7100e3, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_add_full_auto_enable_covariance() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.covariances.is_none());
+
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity();
+
+        traj.add_full(t0, state, Some(cov), None, None);
+
+        assert!(traj.covariances.is_some());
+    }
+
+    #[test]
+    fn test_orbittrajectory_add_full_auto_enable_stm() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.stms.is_none());
+
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let stm = SMatrix::<f64, 6, 6>::identity();
+
+        traj.add_full(t0, state, None, Some(stm), None);
+
+        assert!(traj.stms.is_some());
+    }
+
+    #[test]
+    fn test_orbittrajectory_add_full_auto_enable_sensitivity() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        assert!(traj.sensitivities.is_none());
+        assert!(traj.sensitivity_param_dim.is_none());
+
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let sens = DMatrix::from_element(6, 4, 1.0);
+
+        traj.add_full(t0, state, None, None, Some(sens));
+
+        assert!(traj.sensitivities.is_some());
+        assert_eq!(traj.sensitivity_param_dim, Some(4));
+    }
+
+    #[test]
+    #[should_panic(expected = "Sensitivity row dimension mismatch")]
+    fn test_orbittrajectory_add_full_sensitivity_wrong_rows() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+
+        // Sensitivity with wrong row count (should be 6)
+        let sens = DMatrix::from_element(5, 3, 1.0);
+
+        traj.add_full(t0, state, None, None, Some(sens));
+    }
+
+    #[test]
+    #[should_panic(expected = "Sensitivity column dimension mismatch")]
+    fn test_orbittrajectory_add_full_sensitivity_wrong_cols() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        // First add with 3 columns to establish param_dim
+        let state1 = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let sens1 = DMatrix::from_element(6, 3, 1.0);
+        traj.add_full(t0, state1, None, None, Some(sens1));
+
+        // Try to add with different column count
+        let t1 = t0 + 60.0;
+        let state2 = Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let sens2 = DMatrix::from_element(6, 5, 1.0); // Different column count
+
+        traj.add_full(t1, state2, None, None, Some(sens2));
+    }
+
+    // ========================
+    // Edge Case Tests
+    // ========================
+
+    #[test]
+    fn test_orbittrajectory_to_matrix_empty() {
+        let traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        let result = traj.to_matrix();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_to_matrix_success() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 100.0, 200.0, 300.0, 7.5e3, 0.5e3));
+        traj.add(
+            t0 + 60.0,
+            Vector6::new(7100e3, 110.0, 210.0, 310.0, 7.6e3, 0.6e3),
+        );
+
+        let result = traj.to_matrix();
+        assert!(result.is_ok());
+
+        let matrix = result.unwrap();
+        assert_eq!(matrix.nrows(), 2);
+        assert_eq!(matrix.ncols(), 6);
+
+        // Verify values
+        assert_abs_diff_eq!(matrix[(0, 0)], 7000e3, epsilon = 1e-10);
+        assert_abs_diff_eq!(matrix[(1, 0)], 7100e3, epsilon = 1e-10);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Cannot add state with covariance to trajectory without covariances initialized"
+    )]
+    fn test_orbittrajectory_add_state_and_covariance_no_covariance_storage() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        // Covariances not initialized
+        assert!(traj.covariances.is_none());
+
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity();
+
+        traj.add_state_and_covariance(t0, state, cov);
+    }
+
+    #[test]
+    fn test_orbittrajectory_add_state_and_covariance_success() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create trajectory with covariances using from_orbital_data
+        let initial_state = Vector6::new(6800e3, 0.0, 0.0, 0.0, 7.4e3, 0.0);
+        let initial_cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let mut traj = SOrbitTrajectory::from_orbital_data(
+            vec![t0 - 60.0],
+            vec![initial_state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![initial_cov]),
+        );
+
+        // Now add another state with covariance
+        let state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 200.0;
+
+        traj.add_state_and_covariance(t0, state, cov);
+
+        assert_eq!(traj.len(), 2);
+        assert!(traj.covariances.is_some());
+
+        let covs = traj.covariances.as_ref().unwrap();
+        assert_abs_diff_eq!(covs[0][(0, 0)], 100.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(covs[1][(0, 0)], 200.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_covariance_no_storage() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0));
+        // Covariances not initialized
+
+        let result = traj.covariance(t0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_covariance_empty_covariances() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Create trajectory with empty covariances storage enabled
+        let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+        traj.covariances = Some(vec![]); // Enabled but empty
+
+        let result = traj.covariance(t0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_covariance_out_of_bounds() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let initial_state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let initial_cov = SMatrix::<f64, 6, 6>::identity();
+        let mut traj = SOrbitTrajectory::from_orbital_data(
+            vec![t0],
+            vec![initial_state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![initial_cov]),
+        );
+        traj.add_state_and_covariance(
+            t1,
+            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            SMatrix::<f64, 6, 6>::identity(),
+        );
+
+        // Before range
+        let before = t0 - 10.0;
+        assert!(traj.covariance(before).is_err());
+
+        // After range
+        let after = t1 + 10.0;
+        assert!(traj.covariance(after).is_err());
+    }
+
+    #[test]
+    fn test_orbittrajectory_covariance_exact_epoch() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let initial_state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let initial_cov = SMatrix::<f64, 6, 6>::identity() * 42.0;
+        let traj = SOrbitTrajectory::from_orbital_data(
+            vec![t0],
+            vec![initial_state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![initial_cov]),
+        );
+
+        let result = traj.covariance(t0);
+        assert!(result.is_ok());
+        assert_abs_diff_eq!(result.unwrap()[(0, 0)], 42.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_orbittrajectory_covariance_interpolation() {
+        let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let t1 = t0 + 60.0;
+
+        let initial_state = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let initial_cov = SMatrix::<f64, 6, 6>::identity() * 100.0;
+        let mut traj = SOrbitTrajectory::from_orbital_data(
+            vec![t0],
+            vec![initial_state],
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+            Some(vec![initial_cov]),
+        );
+        traj.add_state_and_covariance(
+            t1,
+            Vector6::new(7100e3, 0.0, 0.0, 0.0, 7.5e3, 0.0),
+            SMatrix::<f64, 6, 6>::identity() * 200.0,
+        );
+
+        // Interpolate at midpoint
+        let t_mid = t0 + 30.0;
+        let result = traj.covariance(t_mid);
+        assert!(result.is_ok());
+
+        let cov_mid = result.unwrap();
+        // Covariance uses matrix square root interpolation by default, not linear
+        // The interpolated value should be between 100 and 200
+        assert!(cov_mid[(0, 0)] > 100.0);
+        assert!(cov_mid[(0, 0)] < 200.0);
+        // Matrix square root interpolation gives ~145.71 for this case
+        assert_abs_diff_eq!(cov_mid[(0, 0)], 145.71067811865476, epsilon = 1e-6);
+    }
 }

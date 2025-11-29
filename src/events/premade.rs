@@ -2680,6 +2680,7 @@ impl_devent_detector_delegate!(DSunlitEvent, inner);
 
 #[cfg(test)]
 #[allow(non_snake_case)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::R_EARTH;
@@ -3190,6 +3191,309 @@ mod tests {
     }
 
     #[test]
+    fn test_SSemiMajorAxisEvent_target_value() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(8000e3, "SMA", EventDirection::Any);
+        assert_eq!(event.target_value(), 8000e3);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_name() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test SMA Name", EventDirection::Any);
+        assert_eq!(event.name(), "Test SMA Name");
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_with_instance() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "SMA Check", EventDirection::Any)
+            .with_instance(3);
+        assert_eq!(event.name(), "SMA Check 3");
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_with_tolerances() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any)
+            .with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_time_tolerance() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any)
+            .with_tolerances(5e-5, 1e-9);
+        assert_eq!(event.time_tolerance(), 5e-5);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_value_tolerance() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any)
+            .with_tolerances(1e-6, 5e-8);
+        assert_eq!(event.value_tolerance(), 5e-8);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_with_step_reduction_factor() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any)
+            .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_step_reduction_factor() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any)
+            .with_step_reduction_factor(0.1);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_with_callback() {
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let callback: SEventCallback<6, 0> = Box::new(move |_t, _state, _params| {
+            called_clone.store(true, Ordering::SeqCst);
+            (None, None, EventAction::Continue)
+        });
+
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any)
+            .with_callback(callback);
+        assert!(event.callback().is_some());
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = Vector6::zeros();
+        if let Some(cb) = event.callback() {
+            cb(epoch, &state, None);
+        }
+        assert!(called.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_callback_none() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_set_terminal() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any);
+        assert_eq!(event.action(), EventAction::Continue);
+
+        let event =
+            SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_action_continue() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_action_stop() {
+        let event =
+            SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_direction_increasing() {
+        let event =
+            SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Ascending", EventDirection::Increasing);
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_direction_decreasing() {
+        let event =
+            SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Descending", EventDirection::Decreasing);
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_direction_any() {
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "Any", EventDirection::Any);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SSemiMajorAxisEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+
+        let event = SSemiMajorAxisEvent::<6, 0>::new(7000e3, "SMA", EventDirection::Increasing)
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "SMA 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.value_tolerance(), 1e-8);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DSemiMajorAxisEvent additional tests
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_evaluate() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "SMA Test", EventDirection::Any);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7546.05, 0.0]);
+        let val = event.evaluate(epoch, &state, None);
+        assert!((val - 7000e3).abs() < 1000.0);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_target_value() {
+        let event = DSemiMajorAxisEvent::new(8000e3, "SMA", EventDirection::Any);
+        assert_eq!(event.target_value(), 8000e3);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_name() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test SMA Name", EventDirection::Any);
+        assert_eq!(event.name(), "Test SMA Name");
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_with_instance() {
+        let event =
+            DSemiMajorAxisEvent::new(7000e3, "SMA Check", EventDirection::Any).with_instance(2);
+        assert_eq!(event.name(), "SMA Check 2");
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_with_tolerances() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any)
+            .with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_time_tolerance() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any)
+            .with_tolerances(2e-5, 1e-9);
+        assert_eq!(event.time_tolerance(), 2e-5);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_value_tolerance() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any)
+            .with_tolerances(1e-6, 3e-8);
+        assert_eq!(event.value_tolerance(), 3e-8);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_with_step_reduction_factor() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any)
+            .with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_step_reduction_factor() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any)
+            .with_step_reduction_factor(0.12);
+        assert_eq!(event.step_reduction_factor(), 0.12);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_with_callback() {
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let callback: DEventCallback = Box::new(move |_t, _state, _params| {
+            called_clone.store(true, Ordering::SeqCst);
+            (None, None, EventAction::Continue)
+        });
+
+        let event =
+            DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_callback_none() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_set_terminal() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any);
+        assert_eq!(event.action(), EventAction::Continue);
+
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_action_continue() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_action_stop() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_direction_increasing() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Ascending", EventDirection::Increasing);
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_direction_decreasing() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Descending", EventDirection::Decreasing);
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_direction_any() {
+        let event = DSemiMajorAxisEvent::new(7000e3, "Any", EventDirection::Any);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DSemiMajorAxisEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+
+        let event = DSemiMajorAxisEvent::new(7000e3, "SMA", EventDirection::Decreasing)
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "SMA 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.value_tolerance(), 1e-8);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
     fn test_SEccentricityEvent_new() {
         let event = SEccentricityEvent::<6, 0>::new(0.1, "Ecc value", EventDirection::Increasing);
         assert_eq!(event.name(), "Ecc value");
@@ -3219,6 +3523,307 @@ mod tests {
     }
 
     #[test]
+    fn test_SEccentricityEvent_target_value() {
+        let event = SEccentricityEvent::<6, 0>::new(0.25, "Ecc", EventDirection::Any);
+        assert_eq!(event.target_value(), 0.25);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_name() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test Ecc Name", EventDirection::Any);
+        assert_eq!(event.name(), "Test Ecc Name");
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_with_instance() {
+        let event =
+            SEccentricityEvent::<6, 0>::new(0.1, "Ecc Check", EventDirection::Any).with_instance(3);
+        assert_eq!(event.name(), "Ecc Check 3");
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_with_tolerances() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any)
+            .with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_time_tolerance() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any)
+            .with_tolerances(5e-5, 1e-9);
+        assert_eq!(event.time_tolerance(), 5e-5);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_value_tolerance() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any)
+            .with_tolerances(1e-6, 5e-8);
+        assert_eq!(event.value_tolerance(), 5e-8);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_with_step_reduction_factor() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any)
+            .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_step_reduction_factor() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any)
+            .with_step_reduction_factor(0.1);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_with_callback() {
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let callback: SEventCallback<6, 0> = Box::new(move |_t, _state, _params| {
+            called_clone.store(true, Ordering::SeqCst);
+            (None, None, EventAction::Continue)
+        });
+
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any)
+            .with_callback(callback);
+        assert!(event.callback().is_some());
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = Vector6::zeros();
+        if let Some(cb) = event.callback() {
+            cb(epoch, &state, None);
+        }
+        assert!(called.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_callback_none() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_set_terminal() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any);
+        assert_eq!(event.action(), EventAction::Continue);
+
+        let event =
+            SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_action_continue() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_action_stop() {
+        let event =
+            SEccentricityEvent::<6, 0>::new(0.1, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_direction_increasing() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Ascending", EventDirection::Increasing);
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_direction_decreasing() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Descending", EventDirection::Decreasing);
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_direction_any() {
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Any", EventDirection::Any);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SEccentricityEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+
+        let event = SEccentricityEvent::<6, 0>::new(0.1, "Ecc", EventDirection::Increasing)
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Ecc 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.value_tolerance(), 1e-8);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DEccentricityEvent additional tests
+
+    #[test]
+    fn test_DEccentricityEvent_evaluate() {
+        let event = DEccentricityEvent::new(0.1, "Ecc Test", EventDirection::Any);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7546.05, 0.0]);
+        let val = event.evaluate(epoch, &state, None);
+        assert!(val >= 0.0);
+        assert!(val < 0.01);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_target_value() {
+        let event = DEccentricityEvent::new(0.25, "Ecc", EventDirection::Any);
+        assert_eq!(event.target_value(), 0.25);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_name() {
+        let event = DEccentricityEvent::new(0.1, "Test Ecc Name", EventDirection::Any);
+        assert_eq!(event.name(), "Test Ecc Name");
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_with_instance() {
+        let event = DEccentricityEvent::new(0.1, "Ecc Check", EventDirection::Any).with_instance(2);
+        assert_eq!(event.name(), "Ecc Check 2");
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_with_tolerances() {
+        let event =
+            DEccentricityEvent::new(0.1, "Test", EventDirection::Any).with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_time_tolerance() {
+        let event =
+            DEccentricityEvent::new(0.1, "Test", EventDirection::Any).with_tolerances(2e-5, 1e-9);
+        assert_eq!(event.time_tolerance(), 2e-5);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_value_tolerance() {
+        let event =
+            DEccentricityEvent::new(0.1, "Test", EventDirection::Any).with_tolerances(1e-6, 3e-8);
+        assert_eq!(event.value_tolerance(), 3e-8);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_with_step_reduction_factor() {
+        let event = DEccentricityEvent::new(0.1, "Test", EventDirection::Any);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+
+        let event = DEccentricityEvent::new(0.1, "Test", EventDirection::Any)
+            .with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_step_reduction_factor() {
+        let event = DEccentricityEvent::new(0.1, "Test", EventDirection::Any)
+            .with_step_reduction_factor(0.12);
+        assert_eq!(event.step_reduction_factor(), 0.12);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_with_callback() {
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let callback: DEventCallback = Box::new(move |_t, _state, _params| {
+            called_clone.store(true, Ordering::SeqCst);
+            (None, None, EventAction::Continue)
+        });
+
+        let event =
+            DEccentricityEvent::new(0.1, "Test", EventDirection::Any).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_callback_none() {
+        let event = DEccentricityEvent::new(0.1, "Test", EventDirection::Any);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_set_terminal() {
+        let event = DEccentricityEvent::new(0.1, "Test", EventDirection::Any);
+        assert_eq!(event.action(), EventAction::Continue);
+
+        let event = DEccentricityEvent::new(0.1, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_action_continue() {
+        let event = DEccentricityEvent::new(0.1, "Test", EventDirection::Any);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_action_stop() {
+        let event = DEccentricityEvent::new(0.1, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_direction_increasing() {
+        let event = DEccentricityEvent::new(0.1, "Ascending", EventDirection::Increasing);
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_direction_decreasing() {
+        let event = DEccentricityEvent::new(0.1, "Descending", EventDirection::Decreasing);
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_direction_any() {
+        let event = DEccentricityEvent::new(0.1, "Any", EventDirection::Any);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DEccentricityEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+
+        let event = DEccentricityEvent::new(0.1, "Ecc", EventDirection::Decreasing)
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Ecc 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.value_tolerance(), 1e-8);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
     fn test_SInclinationEvent_new() {
         let inc_rad = std::f64::consts::PI / 4.0; // 45 degrees
         let event = SInclinationEvent::<6, 0>::new(
@@ -3239,6 +3844,383 @@ mod tests {
     }
 
     #[test]
+    fn test_SInclinationEvent_new_degrees() {
+        let event = SInclinationEvent::<6, 0>::new(
+            45.0,
+            "Inc Deg",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.name(), "Inc Deg");
+        assert!((event.target_value() - std::f64::consts::PI / 4.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_target_value() {
+        let event =
+            SInclinationEvent::<6, 0>::new(0.5, "Inc", EventDirection::Any, AngleFormat::Radians);
+        assert_eq!(event.target_value(), 0.5);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_name() {
+        let event = SInclinationEvent::<6, 0>::new(
+            45.0,
+            "Test Inc Name",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.name(), "Test Inc Name");
+    }
+
+    #[test]
+    fn test_SInclinationEvent_with_instance() {
+        let event = SInclinationEvent::<6, 0>::new(
+            45.0,
+            "Inc Check",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_instance(3);
+        assert_eq!(event.name(), "Inc Check 3");
+    }
+
+    #[test]
+    fn test_SInclinationEvent_with_tolerances() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_time_tolerance() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(5e-5, 1e-9);
+        assert_eq!(event.time_tolerance(), 5e-5);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_value_tolerance() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(1e-6, 5e-8);
+        assert_eq!(event.value_tolerance(), 5e-8);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_with_step_reduction_factor() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_step_reduction_factor() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_step_reduction_factor(0.1);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_with_callback() {
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let callback: SEventCallback<6, 0> = Box::new(move |_t, _state, _params| {
+            called_clone.store(true, Ordering::SeqCst);
+            (None, None, EventAction::Continue)
+        });
+
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+        let state = Vector6::zeros();
+        if let Some(cb) = event.callback() {
+            cb(epoch, &state, None);
+        }
+        assert!(called.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_SInclinationEvent_callback_none() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SInclinationEvent_set_terminal() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.action(), EventAction::Continue);
+
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_action_continue() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_action_stop() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_direction_increasing() {
+        let event = SInclinationEvent::<6, 0>::new(
+            45.0,
+            "Ascending",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_direction_decreasing() {
+        let event = SInclinationEvent::<6, 0>::new(
+            45.0,
+            "Descending",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_direction_any() {
+        let event =
+            SInclinationEvent::<6, 0>::new(45.0, "Any", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SInclinationEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+
+        let event = SInclinationEvent::<6, 0>::new(
+            45.0,
+            "Inc",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "Inc 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.value_tolerance(), 1e-8);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DInclinationEvent additional tests
+
+    #[test]
+    fn test_DInclinationEvent_new_radians() {
+        let event = DInclinationEvent::new(
+            std::f64::consts::PI / 4.0,
+            "Inc Rad",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.name(), "Inc Rad");
+    }
+
+    #[test]
+    fn test_DInclinationEvent_target_value() {
+        let event = DInclinationEvent::new(0.5, "Inc", EventDirection::Any, AngleFormat::Radians);
+        assert_eq!(event.target_value(), 0.5);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_name() {
+        let event = DInclinationEvent::new(
+            45.0,
+            "Test Inc Name",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.name(), "Test Inc Name");
+    }
+
+    #[test]
+    fn test_DInclinationEvent_with_instance() {
+        let event =
+            DInclinationEvent::new(45.0, "Inc Check", EventDirection::Any, AngleFormat::Degrees)
+                .with_instance(2);
+        assert_eq!(event.name(), "Inc Check 2");
+    }
+
+    #[test]
+    fn test_DInclinationEvent_with_tolerances() {
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+            .with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_time_tolerance() {
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+            .with_tolerances(2e-5, 1e-9);
+        assert_eq!(event.time_tolerance(), 2e-5);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_value_tolerance() {
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+            .with_tolerances(1e-6, 3e-8);
+        assert_eq!(event.value_tolerance(), 3e-8);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_with_step_reduction_factor() {
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+            .with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_step_reduction_factor() {
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+            .with_step_reduction_factor(0.12);
+        assert_eq!(event.step_reduction_factor(), 0.12);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_with_callback() {
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = called.clone();
+
+        let callback: DEventCallback = Box::new(move |_t, _state, _params| {
+            called_clone.store(true, Ordering::SeqCst);
+            (None, None, EventAction::Continue)
+        });
+
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+            .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DInclinationEvent_callback_none() {
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DInclinationEvent_set_terminal() {
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.action(), EventAction::Continue);
+
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+            .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_action_continue() {
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_action_stop() {
+        let event = DInclinationEvent::new(45.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+            .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_direction_increasing() {
+        let event = DInclinationEvent::new(
+            45.0,
+            "Ascending",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_direction_decreasing() {
+        let event = DInclinationEvent::new(
+            45.0,
+            "Descending",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_direction_any() {
+        let event = DInclinationEvent::new(45.0, "Any", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DInclinationEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+
+        let event = DInclinationEvent::new(
+            45.0,
+            "Inc",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "Inc 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.value_tolerance(), 1e-8);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
     fn test_SArgumentOfPerigeeEvent_new() {
         let event = SArgumentOfPerigeeEvent::<6, 0>::new(
             std::f64::consts::PI / 2.0,
@@ -3254,6 +4236,262 @@ mod tests {
         let event =
             DArgumentOfPerigeeEvent::new(90.0, "AoP", EventDirection::Any, AngleFormat::Degrees);
         assert_eq!(event.name(), "AoP");
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_target_value() {
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            0.5,
+            "AoP",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.target_value(), 0.5);
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_with_instance() {
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "AoP Check",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_instance(3);
+        assert_eq!(event.name(), "AoP Check 3");
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_with_tolerances() {
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_with_step_reduction_factor() {
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_callback_none() {
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_set_terminal() {
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_direction_increasing() {
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "AoP",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_direction_decreasing() {
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "AoP",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_direction_any() {
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "AoP",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SArgumentOfPerigeeEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SArgumentOfPerigeeEvent::<6, 0>::new(
+            90.0,
+            "AoP",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "AoP 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DArgumentOfPerigeeEvent additional tests
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_target_value() {
+        let event =
+            DArgumentOfPerigeeEvent::new(0.5, "AoP", EventDirection::Any, AngleFormat::Radians);
+        assert_eq!(event.target_value(), 0.5);
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_with_instance() {
+        let event = DArgumentOfPerigeeEvent::new(
+            90.0,
+            "AoP Check",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_instance(2);
+        assert_eq!(event.name(), "AoP Check 2");
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_with_tolerances() {
+        let event =
+            DArgumentOfPerigeeEvent::new(90.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_with_step_reduction_factor() {
+        let event =
+            DArgumentOfPerigeeEvent::new(90.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            DArgumentOfPerigeeEvent::new(90.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_callback_none() {
+        let event =
+            DArgumentOfPerigeeEvent::new(90.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_set_terminal() {
+        let event =
+            DArgumentOfPerigeeEvent::new(90.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_direction_increasing() {
+        let event = DArgumentOfPerigeeEvent::new(
+            90.0,
+            "AoP",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_direction_decreasing() {
+        let event = DArgumentOfPerigeeEvent::new(
+            90.0,
+            "AoP",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_direction_any() {
+        let event =
+            DArgumentOfPerigeeEvent::new(90.0, "AoP", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DArgumentOfPerigeeEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DArgumentOfPerigeeEvent::new(
+            90.0,
+            "AoP",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "AoP 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
     }
 
     #[test]
@@ -3276,6 +4514,210 @@ mod tests {
     }
 
     #[test]
+    fn test_SMeanAnomalyEvent_with_instance() {
+        let event =
+            SMeanAnomalyEvent::<6, 0>::new(0.0, "MA", EventDirection::Any, AngleFormat::Radians)
+                .with_instance(3);
+        assert_eq!(event.name(), "MA 3");
+    }
+
+    #[test]
+    fn test_SMeanAnomalyEvent_with_tolerances() {
+        let event =
+            SMeanAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians)
+                .with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SMeanAnomalyEvent_with_step_reduction_factor() {
+        let event =
+            SMeanAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians)
+                .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SMeanAnomalyEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            SMeanAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SMeanAnomalyEvent_callback_none() {
+        let event =
+            SMeanAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SMeanAnomalyEvent_set_terminal() {
+        let event =
+            SMeanAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SMeanAnomalyEvent_direction_increasing() {
+        let event = SMeanAnomalyEvent::<6, 0>::new(
+            0.0,
+            "MA",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SMeanAnomalyEvent_direction_decreasing() {
+        let event = SMeanAnomalyEvent::<6, 0>::new(
+            0.0,
+            "MA",
+            EventDirection::Decreasing,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SMeanAnomalyEvent_direction_any() {
+        let event =
+            SMeanAnomalyEvent::<6, 0>::new(0.0, "MA", EventDirection::Any, AngleFormat::Radians);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SMeanAnomalyEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SMeanAnomalyEvent::<6, 0>::new(
+            0.0,
+            "MA",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "MA 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DMeanAnomalyEvent additional tests
+
+    #[test]
+    fn test_DMeanAnomalyEvent_with_instance() {
+        let event = DMeanAnomalyEvent::new(180.0, "MA", EventDirection::Any, AngleFormat::Degrees)
+            .with_instance(2);
+        assert_eq!(event.name(), "MA 2");
+    }
+
+    #[test]
+    fn test_DMeanAnomalyEvent_with_tolerances() {
+        let event =
+            DMeanAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DMeanAnomalyEvent_with_step_reduction_factor() {
+        let event =
+            DMeanAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DMeanAnomalyEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            DMeanAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DMeanAnomalyEvent_callback_none() {
+        let event =
+            DMeanAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DMeanAnomalyEvent_set_terminal() {
+        let event =
+            DMeanAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DMeanAnomalyEvent_direction_increasing() {
+        let event = DMeanAnomalyEvent::new(
+            180.0,
+            "MA",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DMeanAnomalyEvent_direction_decreasing() {
+        let event = DMeanAnomalyEvent::new(
+            180.0,
+            "MA",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DMeanAnomalyEvent_direction_any() {
+        let event = DMeanAnomalyEvent::new(180.0, "MA", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DMeanAnomalyEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DMeanAnomalyEvent::new(
+            180.0,
+            "MA",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "MA 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
     fn test_SEccentricAnomalyEvent_new() {
         let event = SEccentricAnomalyEvent::<6, 0>::new(
             0.0,
@@ -3291,6 +4733,240 @@ mod tests {
         let event =
             DEccentricAnomalyEvent::new(0.0, "EA Check", EventDirection::Any, AngleFormat::Degrees);
         assert_eq!(event.name(), "EA Check");
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_with_instance() {
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "EA",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .with_instance(3);
+        assert_eq!(event.name(), "EA 3");
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_with_tolerances() {
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_with_step_reduction_factor() {
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_callback_none() {
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_set_terminal() {
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_direction_increasing() {
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "EA",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_direction_decreasing() {
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "EA",
+            EventDirection::Decreasing,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_direction_any() {
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "EA",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SEccentricAnomalyEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SEccentricAnomalyEvent::<6, 0>::new(
+            0.0,
+            "EA",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "EA 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DEccentricAnomalyEvent additional tests
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_with_instance() {
+        let event =
+            DEccentricAnomalyEvent::new(0.0, "EA", EventDirection::Any, AngleFormat::Degrees)
+                .with_instance(2);
+        assert_eq!(event.name(), "EA 2");
+    }
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_with_tolerances() {
+        let event =
+            DEccentricAnomalyEvent::new(0.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_with_step_reduction_factor() {
+        let event =
+            DEccentricAnomalyEvent::new(0.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            DEccentricAnomalyEvent::new(0.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_callback_none() {
+        let event =
+            DEccentricAnomalyEvent::new(0.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_set_terminal() {
+        let event =
+            DEccentricAnomalyEvent::new(0.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_direction_increasing() {
+        let event = DEccentricAnomalyEvent::new(
+            0.0,
+            "EA",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_direction_decreasing() {
+        let event = DEccentricAnomalyEvent::new(
+            0.0,
+            "EA",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_direction_any() {
+        let event =
+            DEccentricAnomalyEvent::new(0.0, "EA", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DEccentricAnomalyEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DEccentricAnomalyEvent::new(
+            0.0,
+            "EA",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "EA 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
     }
 
     #[test]
@@ -3316,6 +4992,210 @@ mod tests {
     }
 
     #[test]
+    fn test_STrueAnomalyEvent_with_instance() {
+        let event =
+            STrueAnomalyEvent::<6, 0>::new(0.0, "TA", EventDirection::Any, AngleFormat::Radians)
+                .with_instance(3);
+        assert_eq!(event.name(), "TA 3");
+    }
+
+    #[test]
+    fn test_STrueAnomalyEvent_with_tolerances() {
+        let event =
+            STrueAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians)
+                .with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_STrueAnomalyEvent_with_step_reduction_factor() {
+        let event =
+            STrueAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians)
+                .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_STrueAnomalyEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            STrueAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_STrueAnomalyEvent_callback_none() {
+        let event =
+            STrueAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_STrueAnomalyEvent_set_terminal() {
+        let event =
+            STrueAnomalyEvent::<6, 0>::new(0.0, "Test", EventDirection::Any, AngleFormat::Radians)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_STrueAnomalyEvent_direction_increasing() {
+        let event = STrueAnomalyEvent::<6, 0>::new(
+            0.0,
+            "TA",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_STrueAnomalyEvent_direction_decreasing() {
+        let event = STrueAnomalyEvent::<6, 0>::new(
+            0.0,
+            "TA",
+            EventDirection::Decreasing,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_STrueAnomalyEvent_direction_any() {
+        let event =
+            STrueAnomalyEvent::<6, 0>::new(0.0, "TA", EventDirection::Any, AngleFormat::Radians);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_STrueAnomalyEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = STrueAnomalyEvent::<6, 0>::new(
+            0.0,
+            "TA",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "TA 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DTrueAnomalyEvent additional tests
+
+    #[test]
+    fn test_DTrueAnomalyEvent_with_instance() {
+        let event = DTrueAnomalyEvent::new(180.0, "TA", EventDirection::Any, AngleFormat::Degrees)
+            .with_instance(2);
+        assert_eq!(event.name(), "TA 2");
+    }
+
+    #[test]
+    fn test_DTrueAnomalyEvent_with_tolerances() {
+        let event =
+            DTrueAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DTrueAnomalyEvent_with_step_reduction_factor() {
+        let event =
+            DTrueAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DTrueAnomalyEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            DTrueAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DTrueAnomalyEvent_callback_none() {
+        let event =
+            DTrueAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DTrueAnomalyEvent_set_terminal() {
+        let event =
+            DTrueAnomalyEvent::new(180.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DTrueAnomalyEvent_direction_increasing() {
+        let event = DTrueAnomalyEvent::new(
+            180.0,
+            "TA",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DTrueAnomalyEvent_direction_decreasing() {
+        let event = DTrueAnomalyEvent::new(
+            180.0,
+            "TA",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DTrueAnomalyEvent_direction_any() {
+        let event = DTrueAnomalyEvent::new(180.0, "TA", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DTrueAnomalyEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DTrueAnomalyEvent::new(
+            180.0,
+            "TA",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "TA 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
     fn test_SArgumentOfLatitudeEvent_new() {
         let event = SArgumentOfLatitudeEvent::<6, 0>::new(
             0.5,
@@ -3332,6 +5212,240 @@ mod tests {
         let event =
             DArgumentOfLatitudeEvent::new(30.0, "AoL", EventDirection::Any, AngleFormat::Degrees);
         assert_eq!(event.name(), "AoL");
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_with_instance() {
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "AoL",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .with_instance(3);
+        assert_eq!(event.name(), "AoL 3");
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_with_tolerances() {
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_with_step_reduction_factor() {
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_callback_none() {
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_set_terminal() {
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "Test",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        )
+        .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_direction_increasing() {
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "AoL",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_direction_decreasing() {
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "AoL",
+            EventDirection::Decreasing,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_direction_any() {
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "AoL",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SArgumentOfLatitudeEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SArgumentOfLatitudeEvent::<6, 0>::new(
+            0.5,
+            "AoL",
+            EventDirection::Increasing,
+            AngleFormat::Radians,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "AoL 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DArgumentOfLatitudeEvent additional tests
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_with_instance() {
+        let event =
+            DArgumentOfLatitudeEvent::new(30.0, "AoL", EventDirection::Any, AngleFormat::Degrees)
+                .with_instance(2);
+        assert_eq!(event.name(), "AoL 2");
+    }
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_with_tolerances() {
+        let event =
+            DArgumentOfLatitudeEvent::new(30.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_with_step_reduction_factor() {
+        let event =
+            DArgumentOfLatitudeEvent::new(30.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            DArgumentOfLatitudeEvent::new(30.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_callback_none() {
+        let event =
+            DArgumentOfLatitudeEvent::new(30.0, "Test", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_set_terminal() {
+        let event =
+            DArgumentOfLatitudeEvent::new(30.0, "Test", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_direction_increasing() {
+        let event = DArgumentOfLatitudeEvent::new(
+            30.0,
+            "AoL",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_direction_decreasing() {
+        let event = DArgumentOfLatitudeEvent::new(
+            30.0,
+            "AoL",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_direction_any() {
+        let event =
+            DArgumentOfLatitudeEvent::new(30.0, "AoL", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DArgumentOfLatitudeEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DArgumentOfLatitudeEvent::new(
+            30.0,
+            "AoL",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "AoL 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
     }
 
     // =========================================================================
@@ -3378,6 +5492,224 @@ mod tests {
         assert_eq!(event.name(), "Descending");
     }
 
+    // SAscendingNodeEvent additional tests
+
+    #[test]
+    fn test_SAscendingNodeEvent_with_instance() {
+        let event = SAscendingNodeEvent::<6, 0>::new("Asc Node").with_instance(3);
+        assert_eq!(event.name(), "Asc Node 3");
+    }
+
+    #[test]
+    fn test_SAscendingNodeEvent_with_tolerances() {
+        let event = SAscendingNodeEvent::<6, 0>::new("Test").with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SAscendingNodeEvent_with_step_reduction_factor() {
+        let event = SAscendingNodeEvent::<6, 0>::new("Test").with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SAscendingNodeEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = SAscendingNodeEvent::<6, 0>::new("Test").with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SAscendingNodeEvent_callback_none() {
+        let event = SAscendingNodeEvent::<6, 0>::new("Test");
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SAscendingNodeEvent_set_terminal() {
+        let event = SAscendingNodeEvent::<6, 0>::new("Test").set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DAscendingNodeEvent additional tests
+
+    #[test]
+    fn test_DAscendingNodeEvent_with_instance() {
+        let event = DAscendingNodeEvent::new("Asc Node").with_instance(2);
+        assert_eq!(event.name(), "Asc Node 2");
+    }
+
+    #[test]
+    fn test_DAscendingNodeEvent_with_tolerances() {
+        let event = DAscendingNodeEvent::new("Test").with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DAscendingNodeEvent_with_step_reduction_factor() {
+        let event = DAscendingNodeEvent::new("Test").with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DAscendingNodeEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = DAscendingNodeEvent::new("Test").with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DAscendingNodeEvent_callback_none() {
+        let event = DAscendingNodeEvent::new("Test");
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DAscendingNodeEvent_set_terminal() {
+        let event = DAscendingNodeEvent::new("Test").set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DAscendingNodeEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DAscendingNodeEvent::new("Asc Node")
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Asc Node 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // SDescendingNodeEvent additional tests
+
+    #[test]
+    fn test_SDescendingNodeEvent_with_instance() {
+        let event = SDescendingNodeEvent::<6, 0>::new("Desc Node").with_instance(3);
+        assert_eq!(event.name(), "Desc Node 3");
+    }
+
+    #[test]
+    fn test_SDescendingNodeEvent_with_tolerances() {
+        let event = SDescendingNodeEvent::<6, 0>::new("Test").with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SDescendingNodeEvent_with_step_reduction_factor() {
+        let event = SDescendingNodeEvent::<6, 0>::new("Test").with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SDescendingNodeEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = SDescendingNodeEvent::<6, 0>::new("Test").with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SDescendingNodeEvent_callback_none() {
+        let event = SDescendingNodeEvent::<6, 0>::new("Test");
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SDescendingNodeEvent_set_terminal() {
+        let event = SDescendingNodeEvent::<6, 0>::new("Test").set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SDescendingNodeEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SDescendingNodeEvent::<6, 0>::new("Desc Node")
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Desc Node 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DDescendingNodeEvent additional tests
+
+    #[test]
+    fn test_DDescendingNodeEvent_with_instance() {
+        let event = DDescendingNodeEvent::new("Desc Node").with_instance(2);
+        assert_eq!(event.name(), "Desc Node 2");
+    }
+
+    #[test]
+    fn test_DDescendingNodeEvent_with_tolerances() {
+        let event = DDescendingNodeEvent::new("Test").with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DDescendingNodeEvent_with_step_reduction_factor() {
+        let event = DDescendingNodeEvent::new("Test").with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DDescendingNodeEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = DDescendingNodeEvent::new("Test").with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DDescendingNodeEvent_callback_none() {
+        let event = DDescendingNodeEvent::new("Test");
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DDescendingNodeEvent_set_terminal() {
+        let event = DDescendingNodeEvent::new("Test").set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DDescendingNodeEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DDescendingNodeEvent::new("Desc Node")
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Desc Node 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
     // =========================================================================
     // State-Derived Event Tests
     // =========================================================================
@@ -3408,6 +5740,175 @@ mod tests {
         assert_eq!(event.target_value(), 8000.0);
     }
 
+    // SSpeedEvent additional tests
+
+    #[test]
+    fn test_SSpeedEvent_with_instance() {
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Speed", EventDirection::Any).with_instance(3);
+        assert_eq!(event.name(), "Speed 3");
+    }
+
+    #[test]
+    fn test_SSpeedEvent_with_tolerances() {
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Test", EventDirection::Any)
+            .with_tolerances(1e-4, 1e-6);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-6);
+    }
+
+    #[test]
+    fn test_SSpeedEvent_with_step_reduction_factor() {
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Test", EventDirection::Any)
+            .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_SSpeedEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            SSpeedEvent::<6, 0>::new(7500.0, "Test", EventDirection::Any).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SSpeedEvent_callback_none() {
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Test", EventDirection::Any);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SSpeedEvent_set_terminal() {
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SSpeedEvent_direction_increasing() {
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Speed", EventDirection::Increasing);
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SSpeedEvent_direction_decreasing() {
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Speed", EventDirection::Decreasing);
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SSpeedEvent_direction_any() {
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Speed", EventDirection::Any);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SSpeedEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SSpeedEvent::<6, 0>::new(7500.0, "Speed", EventDirection::Increasing)
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Speed 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DSpeedEvent additional tests
+
+    #[test]
+    fn test_DSpeedEvent_evaluate() {
+        let event = DSpeedEvent::new(7000.0, "Speed", EventDirection::Any);
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        let state = DVector::from_vec(vec![7000e3, 0.0, 0.0, 3000.0, 4000.0, 0.0]);
+        let val = event.evaluate(epoch, &state, None);
+        assert!((val - 5000.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_DSpeedEvent_with_instance() {
+        let event = DSpeedEvent::new(7500.0, "Speed", EventDirection::Any).with_instance(2);
+        assert_eq!(event.name(), "Speed 2");
+    }
+
+    #[test]
+    fn test_DSpeedEvent_with_tolerances() {
+        let event =
+            DSpeedEvent::new(7500.0, "Test", EventDirection::Any).with_tolerances(1e-4, 1e-7);
+        assert_eq!(event.time_tolerance(), 1e-4);
+        assert_eq!(event.value_tolerance(), 1e-7);
+    }
+
+    #[test]
+    fn test_DSpeedEvent_with_step_reduction_factor() {
+        let event =
+            DSpeedEvent::new(7500.0, "Test", EventDirection::Any).with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DSpeedEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = DSpeedEvent::new(7500.0, "Test", EventDirection::Any).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DSpeedEvent_callback_none() {
+        let event = DSpeedEvent::new(7500.0, "Test", EventDirection::Any);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DSpeedEvent_set_terminal() {
+        let event = DSpeedEvent::new(7500.0, "Test", EventDirection::Any).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DSpeedEvent_direction_increasing() {
+        let event = DSpeedEvent::new(7500.0, "Speed", EventDirection::Increasing);
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DSpeedEvent_direction_decreasing() {
+        let event = DSpeedEvent::new(7500.0, "Speed", EventDirection::Decreasing);
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DSpeedEvent_direction_any() {
+        let event = DSpeedEvent::new(7500.0, "Speed", EventDirection::Any);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DSpeedEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DSpeedEvent::new(7500.0, "Speed", EventDirection::Decreasing)
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Speed 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
     #[test]
     fn test_SLongitudeEvent_new() {
         setup_global_test_eop();
@@ -3431,6 +5932,440 @@ mod tests {
             AngleFormat::Degrees,
         );
         assert_eq!(event.name(), "Lon Check");
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_evaluate() {
+        setup_global_test_eop();
+        // State vector: ~500 km altitude orbit
+        let state = Vector6::new(R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0);
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Prime Meridian",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        // Evaluate at a specific time (longitude depends on satellite position and time)
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = event.evaluate(epoch, &state, None);
+        // Result is longitude minus target (0.0 radians)
+        assert!(result.is_finite());
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_target_value() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            45.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.target_value(), 45.0_f64.to_radians());
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_with_instance() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_instance(3);
+        assert_eq!(event.name(), "Longitude 3");
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_with_tolerances() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_time_tolerance() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        // Default time tolerance
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_value_tolerance() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        // Default value tolerance
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_with_step_reduction_factor() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_step_reduction_factor() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        // Default step reduction factor
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_with_callback() {
+        setup_global_test_eop();
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_callback_none() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_set_terminal() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_action_continue() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_action_stop() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        )
+        .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_direction_increasing() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_direction_decreasing() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_direction_any() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            0.0,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_angle_format_radians() {
+        setup_global_test_eop();
+        let event = SLongitudeEvent::<6, 0>::new(
+            std::f64::consts::FRAC_PI_4,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.target_value(), std::f64::consts::FRAC_PI_4);
+    }
+
+    #[test]
+    fn test_SLongitudeEvent_builder_chaining() {
+        setup_global_test_eop();
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SLongitudeEvent::<6, 0>::new(
+            -74.0,
+            "NYC Longitude",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "NYC Longitude 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DLongitudeEvent comprehensive tests
+
+    #[test]
+    fn test_DLongitudeEvent_evaluate() {
+        setup_global_test_eop();
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = event.evaluate(epoch, &state, None);
+        assert!(result.is_finite());
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_target_value() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(90.0, "Longitude", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.target_value(), 90.0_f64.to_radians());
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_with_instance() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees)
+                .with_instance(2);
+        assert_eq!(event.name(), "Longitude 2");
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_with_tolerances() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_time_tolerance() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_value_tolerance() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_with_step_reduction_factor() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees)
+                .with_step_reduction_factor(0.15);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_step_reduction_factor() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_with_callback() {
+        setup_global_test_eop();
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_callback_none() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_set_terminal() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_action_continue() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_action_stop() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_direction_increasing() {
+        setup_global_test_eop();
+        let event = DLongitudeEvent::new(
+            0.0,
+            "Longitude",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_direction_decreasing() {
+        setup_global_test_eop();
+        let event = DLongitudeEvent::new(
+            0.0,
+            "Longitude",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_direction_any() {
+        setup_global_test_eop();
+        let event =
+            DLongitudeEvent::new(0.0, "Longitude", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_angle_format_radians() {
+        setup_global_test_eop();
+        let event = DLongitudeEvent::new(
+            std::f64::consts::PI,
+            "Longitude",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.target_value(), std::f64::consts::PI);
+    }
+
+    #[test]
+    fn test_DLongitudeEvent_builder_chaining() {
+        setup_global_test_eop();
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DLongitudeEvent::new(
+            139.0,
+            "Tokyo Longitude",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(5)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.2)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "Tokyo Longitude 5");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
     }
 
     #[test]
@@ -3458,9 +6393,379 @@ mod tests {
         assert_eq!(event.name(), "Equator");
     }
 
+    #[test]
+    fn test_SLatitudeEvent_evaluate() {
+        setup_global_test_eop();
+        // Inclined orbit state vector
+        let state = Vector6::new(6800e3, 0.0, 500e3, 0.0, 7000.0, 1000.0);
+        let event = SLatitudeEvent::<6, 0>::new(
+            0.0,
+            "Equator Crossing",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = event.evaluate(epoch, &state, None);
+        assert!(result.is_finite());
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_target_value() {
+        setup_global_test_eop();
+        let event = SLatitudeEvent::<6, 0>::new(
+            45.0,
+            "Latitude",
+            EventDirection::Any,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.target_value(), 45.0_f64.to_radians());
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_with_instance() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+                .with_instance(4);
+        assert_eq!(event.name(), "Latitude 4");
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_with_tolerances() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+                .with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_time_tolerance() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_value_tolerance() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_with_step_reduction_factor() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+                .with_step_reduction_factor(0.3);
+        assert_eq!(event.step_reduction_factor(), 0.3);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_step_reduction_factor() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_with_callback() {
+        setup_global_test_eop();
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+                .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_callback_none() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_set_terminal() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_action_continue() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_action_stop() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+                .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_direction_increasing() {
+        setup_global_test_eop();
+        let event = SLatitudeEvent::<6, 0>::new(
+            0.0,
+            "Latitude",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_direction_decreasing() {
+        setup_global_test_eop();
+        let event = SLatitudeEvent::<6, 0>::new(
+            0.0,
+            "Latitude",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_direction_any() {
+        setup_global_test_eop();
+        let event =
+            SLatitudeEvent::<6, 0>::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_angle_format_radians() {
+        setup_global_test_eop();
+        let event = SLatitudeEvent::<6, 0>::new(
+            std::f64::consts::FRAC_PI_6,
+            "Latitude",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.target_value(), std::f64::consts::FRAC_PI_6);
+    }
+
+    #[test]
+    fn test_SLatitudeEvent_builder_chaining() {
+        setup_global_test_eop();
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SLatitudeEvent::<6, 0>::new(
+            40.7,
+            "NYC Latitude",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.1)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "NYC Latitude 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DLatitudeEvent comprehensive tests
+
+    #[test]
+    fn test_DLatitudeEvent_evaluate() {
+        setup_global_test_eop();
+        let state = DVector::from_vec(vec![6800e3, 0.0, 500e3, 0.0, 7000.0, 1000.0]);
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let result = event.evaluate(epoch, &state, None);
+        assert!(result.is_finite());
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_target_value() {
+        setup_global_test_eop();
+        let event =
+            DLatitudeEvent::new(-30.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.target_value(), (-30.0_f64).to_radians());
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_with_instance() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+            .with_instance(7);
+        assert_eq!(event.name(), "Latitude 7");
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_with_tolerances() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+            .with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_time_tolerance() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_value_tolerance() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_with_step_reduction_factor() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+            .with_step_reduction_factor(0.35);
+        assert_eq!(event.step_reduction_factor(), 0.35);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_step_reduction_factor() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_with_callback() {
+        setup_global_test_eop();
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+            .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_callback_none() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_set_terminal() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+            .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_action_continue() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_action_stop() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees)
+            .set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_direction_increasing() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(
+            0.0,
+            "Latitude",
+            EventDirection::Increasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Increasing);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_direction_decreasing() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(
+            0.0,
+            "Latitude",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        );
+        assert_eq!(event.direction(), EventDirection::Decreasing);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_direction_any() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(0.0, "Latitude", EventDirection::Any, AngleFormat::Degrees);
+        assert_eq!(event.direction(), EventDirection::Any);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_angle_format_radians() {
+        setup_global_test_eop();
+        let event = DLatitudeEvent::new(
+            std::f64::consts::FRAC_PI_4,
+            "Latitude",
+            EventDirection::Any,
+            AngleFormat::Radians,
+        );
+        assert_eq!(event.target_value(), std::f64::consts::FRAC_PI_4);
+    }
+
+    #[test]
+    fn test_DLatitudeEvent_builder_chaining() {
+        setup_global_test_eop();
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DLatitudeEvent::new(
+            35.6,
+            "Tokyo Latitude",
+            EventDirection::Decreasing,
+            AngleFormat::Degrees,
+        )
+        .with_instance(3)
+        .with_tolerances(1e-5, 1e-8)
+        .with_step_reduction_factor(0.2)
+        .with_callback(callback)
+        .set_terminal();
+
+        assert_eq!(event.name(), "Tokyo Latitude 3");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
     // =========================================================================
     // Eclipse/Shadow Event Tests
     // =========================================================================
+
+    // SUmbraEvent comprehensive tests
 
     #[test]
     fn test_SUmbraEvent_new_without_source() {
@@ -3479,10 +6784,247 @@ mod tests {
     }
 
     #[test]
+    fn test_SUmbraEvent_with_ephemeris_sources() {
+        use crate::propagators::EphemerisSource;
+
+        let event1 = SUmbraEvent::<6, 0>::new(
+            "Umbra LP",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::LowPrecision),
+        );
+        assert_eq!(event1.name(), "Umbra LP");
+
+        let event2 = SUmbraEvent::<6, 0>::new(
+            "Umbra DE440s",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440s),
+        );
+        assert_eq!(event2.name(), "Umbra DE440s");
+
+        let event3 = SUmbraEvent::<6, 0>::new(
+            "Umbra DE440",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440),
+        );
+        assert_eq!(event3.name(), "Umbra DE440");
+    }
+
+    #[test]
+    fn test_SUmbraEvent_with_instance() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None).with_instance(2);
+        assert_eq!(event.name(), "Umbra 2");
+    }
+
+    #[test]
+    fn test_SUmbraEvent_with_tolerances() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None)
+            .with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_SUmbraEvent_time_tolerance() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SUmbraEvent_value_tolerance() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SUmbraEvent_with_step_reduction_factor() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None)
+            .with_step_reduction_factor(0.2);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+    }
+
+    #[test]
+    fn test_SUmbraEvent_step_reduction_factor() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_SUmbraEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SUmbraEvent_callback_none() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SUmbraEvent_set_terminal() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SUmbraEvent_action_continue() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SUmbraEvent_action_stop() {
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SUmbraEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None)
+            .with_instance(1)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Umbra 1");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DUmbraEvent comprehensive tests
+
+    #[test]
     fn test_DUmbraEvent_new() {
         let event = DUmbraEvent::new("Umbra", EdgeType::AnyEdge, None);
         assert_eq!(event.name(), "Umbra");
     }
+
+    #[test]
+    fn test_DUmbraEvent_with_ephemeris_sources() {
+        use crate::propagators::EphemerisSource;
+
+        let event1 = DUmbraEvent::new(
+            "Umbra LP",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::LowPrecision),
+        );
+        assert_eq!(event1.name(), "Umbra LP");
+
+        let event2 = DUmbraEvent::new(
+            "Umbra DE440s",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440s),
+        );
+        assert_eq!(event2.name(), "Umbra DE440s");
+
+        let event3 = DUmbraEvent::new(
+            "Umbra DE440",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440),
+        );
+        assert_eq!(event3.name(), "Umbra DE440");
+    }
+
+    #[test]
+    fn test_DUmbraEvent_with_instance() {
+        let event = DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None).with_instance(3);
+        assert_eq!(event.name(), "Umbra 3");
+    }
+
+    #[test]
+    fn test_DUmbraEvent_with_tolerances() {
+        let event =
+            DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None).with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_DUmbraEvent_time_tolerance() {
+        let event = DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DUmbraEvent_value_tolerance() {
+        let event = DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DUmbraEvent_with_step_reduction_factor() {
+        let event =
+            DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None).with_step_reduction_factor(0.25);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+    }
+
+    #[test]
+    fn test_DUmbraEvent_step_reduction_factor() {
+        let event = DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_DUmbraEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DUmbraEvent_callback_none() {
+        let event = DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DUmbraEvent_set_terminal() {
+        let event = DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DUmbraEvent_action_continue() {
+        let event = DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DUmbraEvent_action_stop() {
+        let event = DUmbraEvent::new("Umbra", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DUmbraEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DUmbraEvent::new("Umbra", EdgeType::FallingEdge, None)
+            .with_instance(2)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.15)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Umbra 2");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.15);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // SPenumbraEvent comprehensive tests
 
     #[test]
     fn test_SPenumbraEvent_new() {
@@ -3491,10 +7033,251 @@ mod tests {
     }
 
     #[test]
+    fn test_SPenumbraEvent_with_ephemeris_sources() {
+        use crate::propagators::EphemerisSource;
+
+        let event1 = SPenumbraEvent::<6, 0>::new(
+            "Penumbra LP",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::LowPrecision),
+        );
+        assert_eq!(event1.name(), "Penumbra LP");
+
+        let event2 = SPenumbraEvent::<6, 0>::new(
+            "Penumbra DE440s",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440s),
+        );
+        assert_eq!(event2.name(), "Penumbra DE440s");
+
+        let event3 = SPenumbraEvent::<6, 0>::new(
+            "Penumbra DE440",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440),
+        );
+        assert_eq!(event3.name(), "Penumbra DE440");
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_with_instance() {
+        let event =
+            SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None).with_instance(1);
+        assert_eq!(event.name(), "Penumbra 1");
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_with_tolerances() {
+        let event = SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None)
+            .with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_time_tolerance() {
+        let event = SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_value_tolerance() {
+        let event = SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_with_step_reduction_factor() {
+        let event = SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None)
+            .with_step_reduction_factor(0.3);
+        assert_eq!(event.step_reduction_factor(), 0.3);
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_step_reduction_factor() {
+        let event = SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None)
+            .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_callback_none() {
+        let event = SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_set_terminal() {
+        let event =
+            SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_action_continue() {
+        let event = SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_action_stop() {
+        let event =
+            SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SPenumbraEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SPenumbraEvent::<6, 0>::new("Penumbra", EdgeType::AnyEdge, None)
+            .with_instance(3)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Penumbra 3");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DPenumbraEvent comprehensive tests
+
+    #[test]
     fn test_DPenumbraEvent_new() {
         let event = DPenumbraEvent::new("Penumbra", EdgeType::FallingEdge, None);
         assert_eq!(event.name(), "Penumbra");
     }
+
+    #[test]
+    fn test_DPenumbraEvent_with_ephemeris_sources() {
+        use crate::propagators::EphemerisSource;
+
+        let event1 = DPenumbraEvent::new(
+            "Penumbra LP",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::LowPrecision),
+        );
+        assert_eq!(event1.name(), "Penumbra LP");
+
+        let event2 = DPenumbraEvent::new(
+            "Penumbra DE440s",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440s),
+        );
+        assert_eq!(event2.name(), "Penumbra DE440s");
+
+        let event3 = DPenumbraEvent::new(
+            "Penumbra DE440",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440),
+        );
+        assert_eq!(event3.name(), "Penumbra DE440");
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_with_instance() {
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None).with_instance(4);
+        assert_eq!(event.name(), "Penumbra 4");
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_with_tolerances() {
+        let event =
+            DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None).with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_time_tolerance() {
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_value_tolerance() {
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_with_step_reduction_factor() {
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None)
+            .with_step_reduction_factor(0.35);
+        assert_eq!(event.step_reduction_factor(), 0.35);
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_step_reduction_factor() {
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_callback_none() {
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_set_terminal() {
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_action_continue() {
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_action_stop() {
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DPenumbraEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DPenumbraEvent::new("Penumbra", EdgeType::FallingEdge, None)
+            .with_instance(5)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.2)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Penumbra 5");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.2);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // SEclipseEvent comprehensive tests
 
     #[test]
     fn test_SEclipseEvent_new() {
@@ -3506,7 +7289,6 @@ mod tests {
     fn test_SEclipseEvent_with_ephemeris_sources() {
         use crate::propagators::EphemerisSource;
 
-        // Test all ephemeris source variants
         let event1 = SEclipseEvent::<6, 0>::new(
             "Eclipse LP",
             EdgeType::RisingEdge,
@@ -3530,10 +7312,225 @@ mod tests {
     }
 
     #[test]
+    fn test_SEclipseEvent_with_instance() {
+        let event =
+            SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None).with_instance(1);
+        assert_eq!(event.name(), "Eclipse 1");
+    }
+
+    #[test]
+    fn test_SEclipseEvent_with_tolerances() {
+        let event = SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None)
+            .with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_SEclipseEvent_time_tolerance() {
+        let event = SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SEclipseEvent_value_tolerance() {
+        let event = SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SEclipseEvent_with_step_reduction_factor() {
+        let event = SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None)
+            .with_step_reduction_factor(0.4);
+        assert_eq!(event.step_reduction_factor(), 0.4);
+    }
+
+    #[test]
+    fn test_SEclipseEvent_step_reduction_factor() {
+        let event = SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_SEclipseEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None)
+            .with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SEclipseEvent_callback_none() {
+        let event = SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SEclipseEvent_set_terminal() {
+        let event =
+            SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SEclipseEvent_action_continue() {
+        let event = SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SEclipseEvent_action_stop() {
+        let event =
+            SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SEclipseEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SEclipseEvent::<6, 0>::new("Eclipse", EdgeType::AnyEdge, None)
+            .with_instance(2)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Eclipse 2");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DEclipseEvent comprehensive tests
+
+    #[test]
     fn test_DEclipseEvent_new() {
         let event = DEclipseEvent::new("Eclipse", EdgeType::FallingEdge, None);
         assert_eq!(event.name(), "Eclipse");
     }
+
+    #[test]
+    fn test_DEclipseEvent_with_ephemeris_sources() {
+        use crate::propagators::EphemerisSource;
+
+        let event1 = DEclipseEvent::new(
+            "Eclipse LP",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::LowPrecision),
+        );
+        assert_eq!(event1.name(), "Eclipse LP");
+
+        let event2 = DEclipseEvent::new(
+            "Eclipse DE440s",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440s),
+        );
+        assert_eq!(event2.name(), "Eclipse DE440s");
+
+        let event3 = DEclipseEvent::new(
+            "Eclipse DE440",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440),
+        );
+        assert_eq!(event3.name(), "Eclipse DE440");
+    }
+
+    #[test]
+    fn test_DEclipseEvent_with_instance() {
+        let event = DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None).with_instance(6);
+        assert_eq!(event.name(), "Eclipse 6");
+    }
+
+    #[test]
+    fn test_DEclipseEvent_with_tolerances() {
+        let event =
+            DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None).with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_DEclipseEvent_time_tolerance() {
+        let event = DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DEclipseEvent_value_tolerance() {
+        let event = DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DEclipseEvent_with_step_reduction_factor() {
+        let event = DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None)
+            .with_step_reduction_factor(0.45);
+        assert_eq!(event.step_reduction_factor(), 0.45);
+    }
+
+    #[test]
+    fn test_DEclipseEvent_step_reduction_factor() {
+        let event = DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_DEclipseEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DEclipseEvent_callback_none() {
+        let event = DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DEclipseEvent_set_terminal() {
+        let event = DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DEclipseEvent_action_continue() {
+        let event = DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DEclipseEvent_action_stop() {
+        let event = DEclipseEvent::new("Eclipse", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DEclipseEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DEclipseEvent::new("Eclipse", EdgeType::FallingEdge, None)
+            .with_instance(7)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.25)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Eclipse 7");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.25);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // SSunlitEvent comprehensive tests
 
     #[test]
     fn test_SSunlitEvent_new() {
@@ -3542,19 +7539,244 @@ mod tests {
     }
 
     #[test]
+    fn test_SSunlitEvent_with_ephemeris_sources() {
+        use crate::propagators::EphemerisSource;
+
+        let event1 = SSunlitEvent::<6, 0>::new(
+            "Sunlit LP",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::LowPrecision),
+        );
+        assert_eq!(event1.name(), "Sunlit LP");
+
+        let event2 = SSunlitEvent::<6, 0>::new(
+            "Sunlit DE440s",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440s),
+        );
+        assert_eq!(event2.name(), "Sunlit DE440s");
+
+        let event3 = SSunlitEvent::<6, 0>::new(
+            "Sunlit DE440",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440),
+        );
+        assert_eq!(event3.name(), "Sunlit DE440");
+    }
+
+    #[test]
+    fn test_SSunlitEvent_with_instance() {
+        let event =
+            SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None).with_instance(1);
+        assert_eq!(event.name(), "Sunlit 1");
+    }
+
+    #[test]
+    fn test_SSunlitEvent_with_tolerances() {
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None)
+            .with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_SSunlitEvent_time_tolerance() {
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SSunlitEvent_value_tolerance() {
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_SSunlitEvent_with_step_reduction_factor() {
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None)
+            .with_step_reduction_factor(0.5);
+        assert_eq!(event.step_reduction_factor(), 0.5);
+    }
+
+    #[test]
+    fn test_SSunlitEvent_step_reduction_factor() {
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_SSunlitEvent_with_callback() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event =
+            SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_SSunlitEvent_callback_none() {
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_SSunlitEvent_set_terminal() {
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SSunlitEvent_action_continue() {
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SSunlitEvent_action_stop() {
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SSunlitEvent_builder_chaining() {
+        let callback: SEventCallback<6, 0> =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = SSunlitEvent::<6, 0>::new("Sunlit", EdgeType::AnyEdge, None)
+            .with_instance(2)
+            .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.1)
+            .with_callback(callback)
+            .set_terminal();
+
+        assert_eq!(event.name(), "Sunlit 2");
+        assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.1);
+        assert!(event.callback().is_some());
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // DSunlitEvent comprehensive tests
+
+    #[test]
     fn test_DSunlitEvent_new() {
         let event = DSunlitEvent::new("Sunlit", EdgeType::AnyEdge, None);
         assert_eq!(event.name(), "Sunlit");
     }
 
     #[test]
-    fn test_SUmbraEvent_builder_chaining() {
-        let event = SUmbraEvent::<6, 0>::new("Umbra", EdgeType::RisingEdge, None)
-            .with_instance(1)
+    fn test_DSunlitEvent_with_ephemeris_sources() {
+        use crate::propagators::EphemerisSource;
+
+        let event1 = DSunlitEvent::new(
+            "Sunlit LP",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::LowPrecision),
+        );
+        assert_eq!(event1.name(), "Sunlit LP");
+
+        let event2 = DSunlitEvent::new(
+            "Sunlit DE440s",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440s),
+        );
+        assert_eq!(event2.name(), "Sunlit DE440s");
+
+        let event3 = DSunlitEvent::new(
+            "Sunlit DE440",
+            EdgeType::RisingEdge,
+            Some(EphemerisSource::DE440),
+        );
+        assert_eq!(event3.name(), "Sunlit DE440");
+    }
+
+    #[test]
+    fn test_DSunlitEvent_with_instance() {
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None).with_instance(8);
+        assert_eq!(event.name(), "Sunlit 8");
+    }
+
+    #[test]
+    fn test_DSunlitEvent_with_tolerances() {
+        let event =
+            DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None).with_tolerances(1e-6, 1e-9);
+        assert_eq!(event.time_tolerance(), 1e-6);
+        assert_eq!(event.value_tolerance(), 1e-9);
+    }
+
+    #[test]
+    fn test_DSunlitEvent_time_tolerance() {
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None);
+        assert!(event.time_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DSunlitEvent_value_tolerance() {
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None);
+        assert!(event.value_tolerance() > 0.0);
+    }
+
+    #[test]
+    fn test_DSunlitEvent_with_step_reduction_factor() {
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None)
+            .with_step_reduction_factor(0.55);
+        assert_eq!(event.step_reduction_factor(), 0.55);
+    }
+
+    #[test]
+    fn test_DSunlitEvent_step_reduction_factor() {
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None);
+        assert!(event.step_reduction_factor() > 0.0);
+        assert!(event.step_reduction_factor() < 1.0);
+    }
+
+    #[test]
+    fn test_DSunlitEvent_with_callback() {
+        let callback: DEventCallback =
+            Box::new(move |_t, _state, _params| (None, None, EventAction::Continue));
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None).with_callback(callback);
+        assert!(event.callback().is_some());
+    }
+
+    #[test]
+    fn test_DSunlitEvent_callback_none() {
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None);
+        assert!(event.callback().is_none());
+    }
+
+    #[test]
+    fn test_DSunlitEvent_set_terminal() {
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DSunlitEvent_action_continue() {
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None);
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DSunlitEvent_action_stop() {
+        let event = DSunlitEvent::new("Sunlit", EdgeType::RisingEdge, None).set_terminal();
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_DSunlitEvent_builder_chaining() {
+        let callback: DEventCallback =
+            Box::new(|_t, _state, _params| (None, None, EventAction::Stop));
+        let event = DSunlitEvent::new("Sunlit", EdgeType::FallingEdge, None)
+            .with_instance(9)
             .with_tolerances(1e-5, 1e-8)
+            .with_step_reduction_factor(0.3)
+            .with_callback(callback)
             .set_terminal();
-        assert_eq!(event.name(), "Umbra 1");
+
+        assert_eq!(event.name(), "Sunlit 9");
         assert_eq!(event.time_tolerance(), 1e-5);
+        assert_eq!(event.step_reduction_factor(), 0.3);
+        assert!(event.callback().is_some());
         assert_eq!(event.action(), EventAction::Stop);
     }
 }

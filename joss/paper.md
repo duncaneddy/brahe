@@ -1,5 +1,5 @@
 ---
-title: 'Brahe: A Modern Astrodynamics Dynamics Library for Research and Engineering Applications'
+title: 'Brahe: A Modern Astrodynamics Library for Research and Engineering Applications'
 tags:
   - Python
   - Rust

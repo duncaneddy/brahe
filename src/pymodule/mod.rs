@@ -537,6 +537,7 @@ include!("relative_motion.rs");
 include!("math.rs");
 include!("utils.rs");
 include!("earth_models.rs");
+include!("spacetrack.rs");
 
 // Define Module
 
@@ -1080,6 +1081,36 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRKF45DIntegrator>()?;
     module.add_class::<PyDP54DIntegrator>()?;
     module.add_class::<PyRKN1210DIntegrator>()?;
+
+    //* SpaceTrack *//
+    module.add_class::<PySpaceTrackClient>()?;
+    // Query Builder Types
+    module.add_class::<PySpaceTrackValue>()?;
+    module.add_class::<PySpaceTrackOrder>()?;
+    module.add_class::<PySpaceTrackPredicate>()?;
+    module.add_class::<PySpaceTrackPredicateBuilder>()?;
+    module.add_class::<PySpaceTrackQuery>()?;
+    // BasicSpaceData Records
+    module.add_class::<PyGPRecord>()?;
+    module.add_class::<PyGPHistoryRecord>()?;
+    module.add_class::<PyOMMRecord>()?;
+    module.add_class::<PyTLERecord>()?;
+    module.add_class::<PySATCATRecord>()?;
+    module.add_class::<PySATCATChangeRecord>()?;
+    module.add_class::<PySATCATDebutRecord>()?;
+    module.add_class::<PyDecayRecord>()?;
+    module.add_class::<PyTIPRecord>()?;
+    module.add_class::<PyCDMPublicRecord>()?;
+    module.add_class::<PyBoxscoreRecord>()?;
+    module.add_class::<PyLaunchSiteRecord>()?;
+    module.add_class::<PyAnnouncementRecord>()?;
+    // ExpandedSpaceData Records
+    module.add_class::<PyCDMRecord>()?;
+    module.add_class::<PyCARRecord>()?;
+    module.add_class::<PyManeuverRecord>()?;
+    module.add_class::<PyManeuverHistoryRecord>()?;
+    module.add_class::<PyOrganizationRecord>()?;
+    module.add_class::<PySatelliteRecord>()?;
 
     Ok(())
 }

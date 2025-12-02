@@ -51,6 +51,9 @@ rayon = "1.10"
 num_cpus = "1.16"
 dirs = "6.0.0"
 anise = "0.8.0"
+reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "rustls-tls"] }
+tokio = { version = "1", features = ["rt", "time", "sync"] }
+urlencoding = "2.1"
 
 [dependencies.pyo3]
 version = "0.27.1"
@@ -67,6 +70,8 @@ cargo-deny = "0.18.5"
 mockall = "0.14.0"
 rv = "0.19"
 rand = "0.9"
+wiremock = "0.6"
+tokio-test = "0.4"
 
 [features]
 ci = []

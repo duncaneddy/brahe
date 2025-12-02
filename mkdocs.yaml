@@ -247,6 +247,11 @@ nav:
                 - CelesTrak: learn/datasets/celestrak.md
                 - NAIF: learn/datasets/naif.md
                 - Groundstations: learn/datasets/groundstations.md
+            - SpaceTrack API:
+                - learn/spacetrack/index.md
+                - Client Usage: learn/spacetrack/client.md
+                - Query Filters: learn/spacetrack/queries.md
+                - Propagator Integration: learn/spacetrack/propagators.md
             - Utilities:
                 - learn/utilities/index.md
                 - Caching: learn/utilities/caching.md
@@ -390,6 +395,10 @@ nav:
                 - CelesTrak: library_api/datasets/celestrak.md
                 - Groundstations: library_api/datasets/groundstations.md
                 - NAIF: library_api/datasets/naif.md
+            - SpaceTrack:
+                - library_api/spacetrack/index.md
+                - Client: library_api/spacetrack/client.md
+                - Records: library_api/spacetrack/records.md
             - Utilities:
                 - library_api/utils/index.md
                 - Caching: library_api/utils/caching.md

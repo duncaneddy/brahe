@@ -88,3 +88,7 @@ Nyx Space is licensed under an AGPLv3 license which requires derivative works to
 Basilisk is an open-source astrodynamics and spacecraft simulation framework developed by the [Autonomous Vehicle Systems (AVS) Lab](https://hanspeterschaub.info/AVSlab.html) at the University of Colorado Boulder. It provides a modular architecture for simulating spacecraft dynamics, control systems, and mission scenarios though a component-based approach.
 
 Basilisk is primarily focused on spacecraft simulation and control system design, making it well-suited for simulating complex spacecraft missions with multiple interacting subsystems. However it is not distributed through common package managers which can make it difficult to integrate into new software projects.
+
+### [Python Spacetrack Client](https://github.com/python-astrodynamics/spacetrack)
+
+The SpaceTrack Client implemented by Brahe is based on the [Python client](https://github.com/python-astrodynamics/spacetrack) by the excellent library Frazer McLean. The rust implementation is pretty much a direct translation of the architecture and approach taken by the Python client, adapted to fit Brahe's design.

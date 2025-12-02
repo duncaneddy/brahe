@@ -120,6 +120,8 @@ pub use space_weather::*;
 pub use time::conversions::*;
 pub use time::*;
 pub use trajectories::*;
+// Note: spacetrack is not re-exported at top level to avoid namespace pollution
+// Use brahe::spacetrack::* for SpaceTrack functionality
 
 // Module declarations
 pub mod access;
@@ -138,6 +140,7 @@ pub mod orbits;
 pub mod propagators;
 pub mod relative_motion;
 pub mod space_weather;
+pub mod spacetrack;
 pub mod time;
 pub mod trajectories;
 pub mod utils;

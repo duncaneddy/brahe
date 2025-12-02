@@ -31,6 +31,39 @@ from brahe import _brahe
 # Re-export PanicException for testing
 from brahe._brahe import PanicException
 
+# SpaceTrack client and records
+from brahe._brahe import SpaceTrackClient
+
+# SpaceTrack query types
+from brahe._brahe import SpaceTrackValue
+from brahe._brahe import SpaceTrackOrder
+from brahe._brahe import SpaceTrackPredicate
+from brahe._brahe import SpaceTrackPredicateBuilder
+from brahe._brahe import SpaceTrackQuery
+
+# BasicSpaceData Records
+from brahe._brahe import GPRecord
+from brahe._brahe import GPHistoryRecord
+from brahe._brahe import OMMRecord
+from brahe._brahe import TLERecord
+from brahe._brahe import SATCATRecord
+from brahe._brahe import SATCATChangeRecord
+from brahe._brahe import SATCATDebutRecord
+from brahe._brahe import DecayRecord
+from brahe._brahe import TIPRecord
+from brahe._brahe import CDMPublicRecord
+from brahe._brahe import BoxscoreRecord
+from brahe._brahe import LaunchSiteRecord
+from brahe._brahe import AnnouncementRecord
+
+# ExpandedSpaceData Records
+from brahe._brahe import CDMRecord
+from brahe._brahe import CARRecord
+from brahe._brahe import ManeuverRecord
+from brahe._brahe import ManeuverHistoryRecord
+from brahe._brahe import OrganizationRecord
+from brahe._brahe import SatelliteRecord
+
 # Import and create submodules
 from brahe import (
     time,
@@ -101,6 +134,35 @@ __all__ = [
     "events",
     # Testing
     "PanicException",
+    # SpaceTrack
+    "SpaceTrackClient",
+    # SpaceTrack Query Types
+    "SpaceTrackValue",
+    "SpaceTrackOrder",
+    "SpaceTrackPredicate",
+    "SpaceTrackPredicateBuilder",
+    "SpaceTrackQuery",
+    # SpaceTrack Records - BasicSpaceData
+    "GPRecord",
+    "GPHistoryRecord",
+    "OMMRecord",
+    "TLERecord",
+    "SATCATRecord",
+    "SATCATChangeRecord",
+    "SATCATDebutRecord",
+    "DecayRecord",
+    "TIPRecord",
+    "CDMPublicRecord",
+    "BoxscoreRecord",
+    "LaunchSiteRecord",
+    "AnnouncementRecord",
+    # SpaceTrack Records - ExpandedSpaceData
+    "CDMRecord",
+    "CARRecord",
+    "ManeuverRecord",
+    "ManeuverHistoryRecord",
+    "OrganizationRecord",
+    "SatelliteRecord",
 ]
 
 # Extend __all__ with exports from submodules

@@ -31,6 +31,139 @@ class TestSGPPropagatorMethods:
         assert prop.step_size == 60.0
         assert prop.epoch.year() == 2008
 
+    def test_sgppropagator_from_omm_elements_basic(self):
+        """Test SGPPropagator creation from OMM elements."""
+        # ISS OMM data from user example
+        prop = brahe.SGPPropagator.from_omm_elements(
+            epoch="2025-11-29T20:01:44.058144",
+            mean_motion=15.49193835,
+            eccentricity=0.0003723,
+            inclination=51.6312,
+            raan=206.3646,
+            arg_of_pericenter=184.1118,
+            mean_anomaly=175.9840,
+            norad_id=25544,
+        )
+
+        assert prop.norad_id == 25544
+        assert prop.step_size == 60.0  # default
+        assert prop.epoch.year() == 2025
+        assert prop.epoch.month() == 11
+        assert prop.epoch.day() == 29
+
+    def test_sgppropagator_from_omm_elements_with_optional_fields(self):
+        """Test SGPPropagator creation from OMM elements with all optional fields."""
+        prop = brahe.SGPPropagator.from_omm_elements(
+            epoch="2025-11-29T20:01:44.058144",
+            mean_motion=15.49193835,
+            eccentricity=0.0003723,
+            inclination=51.6312,
+            raan=206.3646,
+            arg_of_pericenter=184.1118,
+            mean_anomaly=175.9840,
+            norad_id=25544,
+            step_size=120.0,
+            object_name="ISS (ZARYA)",
+            object_id="1998-067A",
+            classification="U",
+            bstar=0.15237e-3,
+            mean_motion_dot=0.801e-4,
+            mean_motion_ddot=0.0,
+            ephemeris_type=0,
+            element_set_no=999,
+            rev_at_epoch=54085,
+        )
+
+        assert prop.norad_id == 25544
+        assert prop.step_size == 120.0
+        assert prop.satellite_name == "ISS (ZARYA)"
+        assert prop.get_name() == "ISS (ZARYA)"
+        assert prop.get_id() == 25544
+
+    def test_sgppropagator_from_omm_elements_propagation(self):
+        """Test that SGPPropagator from OMM elements can propagate."""
+        prop = brahe.SGPPropagator.from_omm_elements(
+            epoch="2025-11-29T20:01:44.058144",
+            mean_motion=15.49193835,
+            eccentricity=0.0003723,
+            inclination=51.6312,
+            raan=206.3646,
+            arg_of_pericenter=184.1118,
+            mean_anomaly=175.9840,
+            norad_id=25544,
+            step_size=60.0,
+        )
+
+        # Get initial state
+        initial_state = prop.state(prop.epoch)
+        assert len(initial_state) == 6
+        assert all(np.isfinite(initial_state))
+
+        # Propagate forward
+        future_epoch = prop.epoch + 3600.0  # 1 hour
+        future_state = prop.state(future_epoch)
+        assert len(future_state) == 6
+        assert all(np.isfinite(future_state))
+
+        # States should be different after propagation
+        assert not np.array_equal(initial_state, future_state)
+
+    def test_sgppropagator_from_omm_elements_tle_generation(self):
+        """Test that from_omm_elements generates valid TLE lines."""
+        prop = brahe.SGPPropagator.from_omm_elements(
+            epoch="2025-11-29T20:01:44.058144",
+            mean_motion=15.49193835,
+            eccentricity=0.0003723,
+            inclination=51.6312,
+            raan=206.3646,
+            arg_of_pericenter=184.1118,
+            mean_anomaly=175.9840,
+            norad_id=25544,
+        )
+
+        # Should have generated TLE lines
+        # line1 and line2 are not directly exposed in Python, but we can verify
+        # the propagator works, which requires valid internal TLE state
+
+        # Verify propagator is functional
+        state = prop.state(prop.epoch)
+        assert len(state) == 6
+        assert all(np.isfinite(state))
+
+    def test_sgppropagator_from_omm_elements_invalid_epoch(self):
+        """Test error handling for invalid epoch format."""
+        with pytest.raises(RuntimeError, match="Invalid epoch format"):
+            brahe.SGPPropagator.from_omm_elements(
+                epoch="not-a-valid-date",
+                mean_motion=15.49193835,
+                eccentricity=0.0003723,
+                inclination=51.6312,
+                raan=206.3646,
+                arg_of_pericenter=184.1118,
+                mean_anomaly=175.9840,
+                norad_id=25544,
+            )
+
+    def test_sgppropagator_from_omm_elements_orbital_elements(self):
+        """Test that orbital elements match input OMM values."""
+        prop = brahe.SGPPropagator.from_omm_elements(
+            epoch="2025-11-29T20:01:44.058144",
+            mean_motion=15.49193835,
+            eccentricity=0.0003723,
+            inclination=51.6312,
+            raan=206.3646,
+            arg_of_pericenter=184.1118,
+            mean_anomaly=175.9840,
+            norad_id=25544,
+        )
+
+        # Check orbital element properties match input
+        assert prop.eccentricity == pytest.approx(0.0003723, abs=1e-7)
+        assert prop.inclination == pytest.approx(51.6312, abs=1e-4)
+        assert prop.right_ascension == pytest.approx(206.3646, abs=1e-4)
+        assert prop.arg_perigee == pytest.approx(184.1118, abs=1e-4)
+        assert prop.mean_anomaly == pytest.approx(175.9840, abs=1e-4)
+
     def test_sgppropagator_from_3le(self):
         """Test SGPPropagator creation from 3-line TLE."""
         line0 = "ISS (ZARYA)"

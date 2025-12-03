@@ -127,7 +127,7 @@ pub use premade::{
     STrueAnomalyEvent,
     SUmbraEvent,
 };
-pub use query::EventQuery;
+pub use query::{EventQuery, SEventQuery};
 pub use traits::{
     DDetectedEvent, DEventCallback, DEventDetector, EdgeType, EventAction, EventDirection,
     EventType, SDetectedEvent, SEventCallback, SEventDetector,

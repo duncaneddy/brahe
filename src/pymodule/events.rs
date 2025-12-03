@@ -473,6 +473,15 @@ impl PyDetectedEvent {
 #[pyo3(name = "TimeEvent")]
 pub struct PyTimeEvent {
     event: Option<events::DTimeEvent>,
+    // Store construction parameters for D→S conversion (SGPPropagator support)
+    target_time: time::Epoch,
+    base_name: String,
+    instance: Option<usize>,
+    is_terminal: bool,
+    time_tol: f64,
+    step_reduction_factor: f64,
+    // Store Python callback separately for S-type event creation
+    py_callback: Option<Py<PyAny>>,
 }
 
 #[pymethods]
@@ -488,8 +497,17 @@ impl PyTimeEvent {
     #[new]
     #[pyo3(signature = (target_epoch, name))]
     fn new(target_epoch: PyRef<PyEpoch>, name: String) -> PyResult<Self> {
-        let event = events::DTimeEvent::new(target_epoch.obj, name);
-        Ok(PyTimeEvent { event: Some(event) })
+        let event = events::DTimeEvent::new(target_epoch.obj, name.clone());
+        Ok(PyTimeEvent {
+            event: Some(event),
+            target_time: target_epoch.obj,
+            base_name: name,
+            instance: None,
+            is_terminal: false,
+            time_tol: 1e-6,
+            step_reduction_factor: 0.2,
+            py_callback: None,
+        })
     }
 
     /// Set instance number for display name.
@@ -516,6 +534,13 @@ impl PyTimeEvent {
         }
         Self {
             event: slf.event.take(),
+            target_time: slf.target_time,
+            base_name: slf.base_name.clone(),
+            instance: Some(instance),
+            is_terminal: slf.is_terminal,
+            time_tol: slf.time_tol,
+            step_reduction_factor: slf.step_reduction_factor,
+            py_callback: slf.py_callback.take(),
         }
     }
 
@@ -596,12 +621,22 @@ impl PyTimeEvent {
             },
         ) as events::DEventCallback;
 
+        // Store the Python callback for S-type event creation
+        let py_callback_stored = callback.clone_ref(slf.py());
+
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_callback(rust_callback));
         }
 
         Self {
             event: slf.event.take(),
+            target_time: slf.target_time,
+            base_name: slf.base_name.clone(),
+            instance: slf.instance,
+            is_terminal: slf.is_terminal,
+            time_tol: slf.time_tol,
+            step_reduction_factor: slf.step_reduction_factor,
+            py_callback: Some(py_callback_stored),
         }
     }
 
@@ -624,6 +659,13 @@ impl PyTimeEvent {
         }
         Self {
             event: slf.event.take(),
+            target_time: slf.target_time,
+            base_name: slf.base_name.clone(),
+            instance: slf.instance,
+            is_terminal: true,
+            time_tol: slf.time_tol,
+            step_reduction_factor: slf.step_reduction_factor,
+            py_callback: slf.py_callback.take(),
         }
     }
 
@@ -659,7 +701,46 @@ impl PyTimeEvent {
         }
         Self {
             event: slf.event.take(),
+            target_time: slf.target_time,
+            base_name: slf.base_name.clone(),
+            instance: slf.instance,
+            is_terminal: slf.is_terminal,
+            time_tol,
+            step_reduction_factor: slf.step_reduction_factor,
+            py_callback: slf.py_callback.take(),
         }
+    }
+}
+
+impl PyTimeEvent {
+    /// Create an S-type event from this Python event (for SGPPropagator)
+    pub fn to_s_event(&self) -> events::STimeEvent<6, 0> {
+        let mut event = events::STimeEvent::<6, 0>::new(self.target_time, self.base_name.clone())
+            .with_time_tolerance(self.time_tol)
+            .with_step_reduction_factor(self.step_reduction_factor);
+
+        if let Some(instance) = self.instance {
+            event = event.with_instance(instance);
+        }
+
+        if self.is_terminal {
+            event = event.set_terminal();
+        }
+
+        // Note: py_callback is handled separately in propagators.rs since it needs
+        // to create an S-type callback wrapper
+
+        event
+    }
+
+    /// Get the stored Python callback, if any
+    pub fn get_py_callback(&self) -> Option<&Py<PyAny>> {
+        self.py_callback.as_ref()
+    }
+
+    /// Check if this event has been consumed (used by add_event_detector)
+    pub fn is_consumed(&self) -> bool {
+        self.event.is_none()
     }
 }
 
@@ -694,9 +775,17 @@ impl PyTimeEvent {
 #[pyo3(name = "ValueEvent")]
 pub struct PyValueEvent {
     event: Option<events::DValueEvent>,
-    // Store Python callable for potential re-wrapping if needed
-    #[allow(dead_code)]
+    // Store construction parameters for D→S conversion (SGPPropagator support)
     value_fn_py: Option<Py<PyAny>>,
+    base_name: String,
+    target_value: f64,
+    direction: events::EventDirection,
+    instance: Option<usize>,
+    is_terminal: bool,
+    time_tol: f64,
+    value_tol: f64,
+    // Store Python callback separately for S-type event creation
+    py_callback: Option<Py<PyAny>>,
 }
 
 #[pymethods]
@@ -756,11 +845,19 @@ impl PyValueEvent {
             };
 
         // Create Rust event with closure
-        let event = events::DValueEvent::new(name, rust_value_fn, target_value, direction.direction);
+        let event = events::DValueEvent::new(name.clone(), rust_value_fn, target_value, direction.direction);
 
         Ok(PyValueEvent {
             event: Some(event),
             value_fn_py: Some(value_fn),
+            base_name: name,
+            target_value,
+            direction: direction.direction,
+            instance: None,
+            is_terminal: false,
+            time_tol: 1e-6,
+            value_tol: 1e-9,
+            py_callback: None,
         })
     }
 
@@ -778,6 +875,14 @@ impl PyValueEvent {
         Self {
             event: slf.event.take(),
             value_fn_py: slf.value_fn_py.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+            base_name: slf.base_name.clone(),
+            target_value: slf.target_value,
+            direction: slf.direction,
+            instance: Some(instance),
+            is_terminal: slf.is_terminal,
+            time_tol: slf.time_tol,
+            value_tol: slf.value_tol,
+            py_callback: slf.py_callback.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
         }
     }
 
@@ -807,6 +912,14 @@ impl PyValueEvent {
         Self {
             event: slf.event.take(),
             value_fn_py: slf.value_fn_py.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+            base_name: slf.base_name.clone(),
+            target_value: slf.target_value,
+            direction: slf.direction,
+            instance: slf.instance,
+            is_terminal: slf.is_terminal,
+            time_tol,
+            value_tol,
+            py_callback: slf.py_callback.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
         }
     }
 
@@ -866,6 +979,9 @@ impl PyValueEvent {
             },
         ) as events::DEventCallback;
 
+        // Store the Python callback for S-type event creation
+        let py_callback_stored = callback.clone_ref(slf.py());
+
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_callback(rust_callback));
         }
@@ -873,6 +989,14 @@ impl PyValueEvent {
         Self {
             event: slf.event.take(),
             value_fn_py: slf.value_fn_py.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+            base_name: slf.base_name.clone(),
+            target_value: slf.target_value,
+            direction: slf.direction,
+            instance: slf.instance,
+            is_terminal: slf.is_terminal,
+            time_tol: slf.time_tol,
+            value_tol: slf.value_tol,
+            py_callback: Some(py_callback_stored),
         }
     }
 
@@ -887,7 +1011,67 @@ impl PyValueEvent {
         Self {
             event: slf.event.take(),
             value_fn_py: slf.value_fn_py.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+            base_name: slf.base_name.clone(),
+            target_value: slf.target_value,
+            direction: slf.direction,
+            instance: slf.instance,
+            is_terminal: true,
+            time_tol: slf.time_tol,
+            value_tol: slf.value_tol,
+            py_callback: slf.py_callback.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
         }
+    }
+}
+
+impl PyValueEvent {
+    /// Get the stored Python value function
+    pub fn get_value_fn_py(&self) -> Option<&Py<PyAny>> {
+        self.value_fn_py.as_ref()
+    }
+
+    /// Get the stored Python callback, if any
+    pub fn get_py_callback(&self) -> Option<&Py<PyAny>> {
+        self.py_callback.as_ref()
+    }
+
+    /// Get the base name for this event
+    pub fn get_base_name(&self) -> &str {
+        &self.base_name
+    }
+
+    /// Get the target value
+    pub fn get_target_value(&self) -> f64 {
+        self.target_value
+    }
+
+    /// Get the detection direction
+    pub fn get_direction(&self) -> events::EventDirection {
+        self.direction
+    }
+
+    /// Get the instance number, if set
+    pub fn get_instance(&self) -> Option<usize> {
+        self.instance
+    }
+
+    /// Check if this event is terminal
+    pub fn is_terminal(&self) -> bool {
+        self.is_terminal
+    }
+
+    /// Get time tolerance
+    pub fn get_time_tolerance(&self) -> f64 {
+        self.time_tol
+    }
+
+    /// Get value tolerance
+    pub fn get_value_tolerance(&self) -> f64 {
+        self.value_tol
+    }
+
+    /// Check if this event has been consumed (used by add_event_detector)
+    pub fn is_consumed(&self) -> bool {
+        self.event.is_none()
     }
 }
 
@@ -920,9 +1104,16 @@ impl PyValueEvent {
 #[pyo3(name = "BinaryEvent")]
 pub struct PyBinaryEvent {
     event: Option<events::DBinaryEvent>,
-    // Store Python callable for potential re-wrapping if needed
-    #[allow(dead_code)]
+    // Store construction parameters for D→S conversion (SGPPropagator support)
     condition_fn_py: Option<Py<PyAny>>,
+    base_name: String,
+    edge: events::EdgeType,
+    instance: Option<usize>,
+    is_terminal: bool,
+    time_tol: f64,
+    value_tol: f64,
+    // Store Python callback separately for S-type event creation
+    py_callback: Option<Py<PyAny>>,
 }
 
 #[pymethods]
@@ -980,11 +1171,18 @@ impl PyBinaryEvent {
             };
 
         // Create Rust event with closure
-        let event = events::DBinaryEvent::new(name, rust_condition_fn, edge.edge);
+        let event = events::DBinaryEvent::new(name.clone(), rust_condition_fn, edge.edge);
 
         Ok(PyBinaryEvent {
             event: Some(event),
             condition_fn_py: Some(condition_fn),
+            base_name: name,
+            edge: edge.edge,
+            instance: None,
+            is_terminal: false,
+            time_tol: 1e-6,
+            value_tol: 1e-9,
+            py_callback: None,
         })
     }
 
@@ -1002,6 +1200,13 @@ impl PyBinaryEvent {
         Self {
             event: slf.event.take(),
             condition_fn_py: slf.condition_fn_py.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+            base_name: slf.base_name.clone(),
+            edge: slf.edge,
+            instance: Some(instance),
+            is_terminal: slf.is_terminal,
+            time_tol: slf.time_tol,
+            value_tol: slf.value_tol,
+            py_callback: slf.py_callback.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
         }
     }
 
@@ -1020,6 +1225,13 @@ impl PyBinaryEvent {
         Self {
             event: slf.event.take(),
             condition_fn_py: slf.condition_fn_py.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+            base_name: slf.base_name.clone(),
+            edge: slf.edge,
+            instance: slf.instance,
+            is_terminal: slf.is_terminal,
+            time_tol,
+            value_tol,
+            py_callback: slf.py_callback.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
         }
     }
 
@@ -1079,6 +1291,9 @@ impl PyBinaryEvent {
             },
         ) as events::DEventCallback;
 
+        // Store the Python callback for S-type event creation
+        let py_callback_stored = callback.clone_ref(slf.py());
+
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_callback(rust_callback));
         }
@@ -1086,6 +1301,13 @@ impl PyBinaryEvent {
         Self {
             event: slf.event.take(),
             condition_fn_py: slf.condition_fn_py.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+            base_name: slf.base_name.clone(),
+            edge: slf.edge,
+            instance: slf.instance,
+            is_terminal: slf.is_terminal,
+            time_tol: slf.time_tol,
+            value_tol: slf.value_tol,
+            py_callback: Some(py_callback_stored),
         }
     }
 
@@ -1100,7 +1322,61 @@ impl PyBinaryEvent {
         Self {
             event: slf.event.take(),
             condition_fn_py: slf.condition_fn_py.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+            base_name: slf.base_name.clone(),
+            edge: slf.edge,
+            instance: slf.instance,
+            is_terminal: true,
+            time_tol: slf.time_tol,
+            value_tol: slf.value_tol,
+            py_callback: slf.py_callback.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
         }
+    }
+}
+
+impl PyBinaryEvent {
+    /// Get the stored Python condition function
+    pub fn get_condition_fn_py(&self) -> Option<&Py<PyAny>> {
+        self.condition_fn_py.as_ref()
+    }
+
+    /// Get the stored Python callback, if any
+    pub fn get_py_callback(&self) -> Option<&Py<PyAny>> {
+        self.py_callback.as_ref()
+    }
+
+    /// Get the base name for this event
+    pub fn get_base_name(&self) -> &str {
+        &self.base_name
+    }
+
+    /// Get the edge type
+    pub fn get_edge(&self) -> events::EdgeType {
+        self.edge
+    }
+
+    /// Get the instance number, if set
+    pub fn get_instance(&self) -> Option<usize> {
+        self.instance
+    }
+
+    /// Check if this event is terminal
+    pub fn is_terminal(&self) -> bool {
+        self.is_terminal
+    }
+
+    /// Get time tolerance
+    pub fn get_time_tolerance(&self) -> f64 {
+        self.time_tol
+    }
+
+    /// Get value tolerance
+    pub fn get_value_tolerance(&self) -> f64 {
+        self.value_tol
+    }
+
+    /// Check if this event has been consumed (used by add_event_detector)
+    pub fn is_consumed(&self) -> bool {
+        self.event.is_none()
     }
 }
 
@@ -1523,6 +1799,16 @@ impl PyEventQueryIterator {
 #[pyo3(name = "AltitudeEvent")]
 pub struct PyAltitudeEvent {
     event: Option<events::DAltitudeEvent>,
+    // Store construction parameters for D→S conversion (SGPPropagator support)
+    target_altitude: f64,
+    base_name: String,
+    direction: events::EventDirection,
+    instance: Option<usize>,
+    is_terminal: bool,
+    time_tol: f64,
+    value_tol: f64,
+    // Store Python callback separately for S-type event creation
+    py_callback: Option<Py<PyAny>>,
 }
 
 #[pymethods]
@@ -1543,8 +1829,18 @@ impl PyAltitudeEvent {
         name: String,
         direction: PyRef<PyEventDirection>,
     ) -> PyResult<Self> {
-        let event = events::DAltitudeEvent::new(value_altitude, name, direction.direction);
-        Ok(PyAltitudeEvent { event: Some(event) })
+        let event = events::DAltitudeEvent::new(value_altitude, name.clone(), direction.direction);
+        Ok(PyAltitudeEvent {
+            event: Some(event),
+            target_altitude: value_altitude,
+            base_name: name,
+            direction: direction.direction,
+            instance: None,
+            is_terminal: false,
+            time_tol: 1e-6,
+            value_tol: 1e-9,
+            py_callback: None,
+        })
     }
 
     /// Set instance number for display name.
@@ -1558,7 +1854,17 @@ impl PyAltitudeEvent {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_instance(instance));
         }
-        Self { event: slf.event.take() }
+        Self {
+            event: slf.event.take(),
+            target_altitude: slf.target_altitude,
+            base_name: slf.base_name.clone(),
+            direction: slf.direction,
+            instance: Some(instance),
+            is_terminal: slf.is_terminal,
+            time_tol: slf.time_tol,
+            value_tol: slf.value_tol,
+            py_callback: slf.py_callback.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+        }
     }
 
     /// Set custom tolerances for event detection.
@@ -1573,7 +1879,17 @@ impl PyAltitudeEvent {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_tolerances(time_tol, value_tol));
         }
-        Self { event: slf.event.take() }
+        Self {
+            event: slf.event.take(),
+            target_altitude: slf.target_altitude,
+            base_name: slf.base_name.clone(),
+            direction: slf.direction,
+            instance: slf.instance,
+            is_terminal: slf.is_terminal,
+            time_tol,
+            value_tol,
+            py_callback: slf.py_callback.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+        }
     }
 
     /// Set event callback.
@@ -1635,11 +1951,24 @@ impl PyAltitudeEvent {
             },
         ) as events::DEventCallback;
 
+        // Store the Python callback for S-type event creation
+        let py_callback_stored = callback.clone_ref(slf.py());
+
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.with_callback(rust_callback));
         }
 
-        Self { event: slf.event.take() }
+        Self {
+            event: slf.event.take(),
+            target_altitude: slf.target_altitude,
+            base_name: slf.base_name.clone(),
+            direction: slf.direction,
+            instance: slf.instance,
+            is_terminal: slf.is_terminal,
+            time_tol: slf.time_tol,
+            value_tol: slf.value_tol,
+            py_callback: Some(py_callback_stored),
+        }
     }
 
     /// Mark this event as terminal (stops propagation).
@@ -1650,7 +1979,64 @@ impl PyAltitudeEvent {
         if let Some(event) = slf.event.take() {
             slf.event = Some(event.set_terminal());
         }
-        Self { event: slf.event.take() }
+        Self {
+            event: slf.event.take(),
+            target_altitude: slf.target_altitude,
+            base_name: slf.base_name.clone(),
+            direction: slf.direction,
+            instance: slf.instance,
+            is_terminal: true,
+            time_tol: slf.time_tol,
+            value_tol: slf.value_tol,
+            py_callback: slf.py_callback.as_ref().map(|py_obj| py_obj.clone_ref(slf.py())),
+        }
+    }
+}
+
+impl PyAltitudeEvent {
+    /// Get the stored Python callback, if any
+    pub fn get_py_callback(&self) -> Option<&Py<PyAny>> {
+        self.py_callback.as_ref()
+    }
+
+    /// Get the base name for this event
+    pub fn get_base_name(&self) -> &str {
+        &self.base_name
+    }
+
+    /// Get the target altitude
+    pub fn get_target_altitude(&self) -> f64 {
+        self.target_altitude
+    }
+
+    /// Get the detection direction
+    pub fn get_direction(&self) -> events::EventDirection {
+        self.direction
+    }
+
+    /// Get the instance number, if set
+    pub fn get_instance(&self) -> Option<usize> {
+        self.instance
+    }
+
+    /// Check if this event is terminal
+    pub fn is_terminal(&self) -> bool {
+        self.is_terminal
+    }
+
+    /// Get time tolerance
+    pub fn get_time_tolerance(&self) -> f64 {
+        self.time_tol
+    }
+
+    /// Get value tolerance
+    pub fn get_value_tolerance(&self) -> f64 {
+        self.value_tol
+    }
+
+    /// Check if this event has been consumed (used by add_event_detector)
+    pub fn is_consumed(&self) -> bool {
+        self.event.is_none()
     }
 }
 

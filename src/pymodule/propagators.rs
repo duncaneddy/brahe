@@ -1117,6 +1117,405 @@ impl PySGPPropagator {
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
+    // =========================================================================
+    // Event Detection Methods
+    // =========================================================================
+
+    /// Add an event detector to the propagator.
+    ///
+    /// Supported event types:
+    /// - TimeEvent: Triggers at a specific epoch
+    /// - AscendingNodeEvent: Triggers at ascending node crossings
+    /// - DescendingNodeEvent: Triggers at descending node crossings
+    /// - AltitudeEvent: Triggers at altitude crossings
+    /// - And other orbital element events (SemiMajorAxis, Eccentricity, etc.)
+    ///
+    /// Note:
+    ///     Custom ValueEvent and BinaryEvent with Python callbacks are not supported
+    ///     for SGPPropagator. Use NumericalOrbitPropagator for custom event functions.
+    ///
+    /// Args:
+    ///     event: Event detector to add (TimeEvent, AscendingNodeEvent, etc.)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///
+    ///     # Add time event
+    ///     epoch = prop.epoch
+    ///     event = bh.TimeEvent(epoch + 1800.0, "30 Min Mark")
+    ///     prop.add_event_detector(event)
+    ///
+    ///     # Add node crossing event
+    ///     asc_node = bh.AscendingNodeEvent("Ascending Node")
+    ///     prop.add_event_detector(asc_node)
+    ///
+    ///     # Propagate and check events
+    ///     prop.propagate_to(epoch + 6000.0)
+    ///     for e in prop.event_log():
+    ///         print(f"{e.name}: {e.window_open}")
+    ///     ```
+    #[pyo3(text_signature = "(event)")]
+    pub fn add_event_detector(&mut self, event: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Try TimeEvent
+        if let Ok(time_event) = event.extract::<PyRef<PyTimeEvent>>() {
+            let s_event = time_event.to_s_event();
+            // Handle callback if present
+            if let Some(py_callback) = time_event.get_py_callback() {
+                let callback_clone = py_callback.clone_ref(event.py());
+                let s_callback = create_s_callback_wrapper_6(callback_clone);
+                self.propagator.add_event_detector(Box::new(s_event.with_callback(s_callback)));
+            } else {
+                self.propagator.add_event_detector(Box::new(s_event));
+            }
+            return Ok(());
+        }
+
+        // Try ValueEvent (custom Python value function)
+        if let Ok(value_event) = event.extract::<PyRef<PyValueEvent>>() {
+            if value_event.is_consumed() {
+                return Err(exceptions::PyValueError::new_err("ValueEvent already consumed"));
+            }
+
+            // Get the Python value function
+            let py_value_fn = value_event.get_value_fn_py()
+                .ok_or_else(|| exceptions::PyValueError::new_err("ValueEvent has no value function"))?
+                .clone_ref(event.py());
+
+            // Create S-type value function wrapper
+            let s_value_fn = create_s_value_fn_wrapper_6(py_value_fn);
+
+            // Build event name
+            let name = match value_event.get_instance() {
+                Some(i) => format!("{} {}", value_event.get_base_name(), i),
+                None => value_event.get_base_name().to_string(),
+            };
+
+            // Create S-type event
+            let mut s_event = events::SValueEvent::<6, 0>::new(
+                name,
+                s_value_fn,
+                value_event.get_target_value(),
+                value_event.get_direction(),
+            )
+            .with_tolerances(value_event.get_time_tolerance(), value_event.get_value_tolerance());
+
+            // Apply terminal if set
+            if value_event.is_terminal() {
+                s_event = s_event.set_terminal();
+            }
+
+            // Apply callback if set
+            if let Some(py_callback) = value_event.get_py_callback() {
+                let callback_clone = py_callback.clone_ref(event.py());
+                let s_callback = create_s_callback_wrapper_6(callback_clone);
+                self.propagator.add_event_detector(Box::new(s_event.with_callback(s_callback)));
+            } else {
+                self.propagator.add_event_detector(Box::new(s_event));
+            }
+            return Ok(());
+        }
+
+        // Try BinaryEvent (custom Python condition function)
+        if let Ok(binary_event) = event.extract::<PyRef<PyBinaryEvent>>() {
+            if binary_event.is_consumed() {
+                return Err(exceptions::PyValueError::new_err("BinaryEvent already consumed"));
+            }
+
+            // Get the Python condition function
+            let py_condition_fn = binary_event.get_condition_fn_py()
+                .ok_or_else(|| exceptions::PyValueError::new_err("BinaryEvent has no condition function"))?
+                .clone_ref(event.py());
+
+            // Create S-type condition function wrapper
+            let s_condition_fn = create_s_condition_fn_wrapper_6(py_condition_fn);
+
+            // Build event name
+            let name = match binary_event.get_instance() {
+                Some(i) => format!("{} {}", binary_event.get_base_name(), i),
+                None => binary_event.get_base_name().to_string(),
+            };
+
+            // Create S-type event
+            let mut s_event = events::SBinaryEvent::<6, 0>::new(
+                name,
+                s_condition_fn,
+                binary_event.get_edge(),
+            )
+            .with_tolerances(binary_event.get_time_tolerance(), binary_event.get_value_tolerance());
+
+            // Apply terminal if set
+            if binary_event.is_terminal() {
+                s_event = s_event.set_terminal();
+            }
+
+            // Apply callback if set
+            if let Some(py_callback) = binary_event.get_py_callback() {
+                let callback_clone = py_callback.clone_ref(event.py());
+                let s_callback = create_s_callback_wrapper_6(callback_clone);
+                self.propagator.add_event_detector(Box::new(s_event.with_callback(s_callback)));
+            } else {
+                self.propagator.add_event_detector(Box::new(s_event));
+            }
+            return Ok(());
+        }
+
+        // Try AltitudeEvent
+        if let Ok(alt_event) = event.extract::<PyRef<PyAltitudeEvent>>() {
+            if alt_event.is_consumed() {
+                return Err(exceptions::PyValueError::new_err("AltitudeEvent already consumed"));
+            }
+
+            // Build event name
+            let name = match alt_event.get_instance() {
+                Some(i) => format!("{} {}", alt_event.get_base_name(), i),
+                None => alt_event.get_base_name().to_string(),
+            };
+
+            // Create S-type event
+            let mut s_event = events::SAltitudeEvent::<6, 0>::new(
+                alt_event.get_target_altitude(),
+                name,
+                alt_event.get_direction(),
+            )
+            .with_tolerances(alt_event.get_time_tolerance(), alt_event.get_value_tolerance());
+
+            // Apply terminal if set
+            if alt_event.is_terminal() {
+                s_event = s_event.set_terminal();
+            }
+
+            // Apply callback if set
+            if let Some(py_callback) = alt_event.get_py_callback() {
+                let callback_clone = py_callback.clone_ref(event.py());
+                let s_callback = create_s_callback_wrapper_6(callback_clone);
+                self.propagator.add_event_detector(Box::new(s_event.with_callback(s_callback)));
+            } else {
+                self.propagator.add_event_detector(Box::new(s_event));
+            }
+            return Ok(());
+        }
+
+        // Try AscendingNodeEvent
+        if let Ok(asc_event) = event.extract::<PyRef<PyAscendingNodeEvent>>() {
+            if let Some(inner) = &asc_event.event {
+                use events::DEventDetector;
+                // Create S-type event from the D-type event's properties
+                let s_event = events::SAscendingNodeEvent::<6, 0>::new(inner.name().to_string());
+                if inner.action() == events::EventAction::Stop {
+                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
+                } else {
+                    self.propagator.add_event_detector(Box::new(s_event));
+                }
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("AscendingNodeEvent already consumed"));
+        }
+
+        // Try DescendingNodeEvent
+        if let Ok(desc_event) = event.extract::<PyRef<PyDescendingNodeEvent>>() {
+            if let Some(inner) = &desc_event.event {
+                use events::DEventDetector;
+                let s_event = events::SDescendingNodeEvent::<6, 0>::new(inner.name().to_string());
+                if inner.action() == events::EventAction::Stop {
+                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
+                } else {
+                    self.propagator.add_event_detector(Box::new(s_event));
+                }
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("DescendingNodeEvent already consumed"));
+        }
+
+        // Try TrueAnomalyEvent
+        if let Ok(ta_event) = event.extract::<PyRef<PyTrueAnomalyEvent>>() {
+            if let Some(inner) = &ta_event.event {
+                use events::DEventDetector;
+                let s_event = events::STrueAnomalyEvent::<6, 0>::new(
+                    inner.target_value(),
+                    inner.name().to_string(),
+                    inner.direction(),
+                    constants::AngleFormat::Radians, // Events internally use radians
+                );
+                if inner.action() == events::EventAction::Stop {
+                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
+                } else {
+                    self.propagator.add_event_detector(Box::new(s_event));
+                }
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("TrueAnomalyEvent already consumed"));
+        }
+
+        // Try MeanAnomalyEvent
+        if let Ok(ma_event) = event.extract::<PyRef<PyMeanAnomalyEvent>>() {
+            if let Some(inner) = &ma_event.event {
+                use events::DEventDetector;
+                let s_event = events::SMeanAnomalyEvent::<6, 0>::new(
+                    inner.target_value(),
+                    inner.name().to_string(),
+                    inner.direction(),
+                    constants::AngleFormat::Radians, // Events internally use radians
+                );
+                if inner.action() == events::EventAction::Stop {
+                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
+                } else {
+                    self.propagator.add_event_detector(Box::new(s_event));
+                }
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("MeanAnomalyEvent already consumed"));
+        }
+
+        // Try EccentricAnomalyEvent
+        if let Ok(ea_event) = event.extract::<PyRef<PyEccentricAnomalyEvent>>() {
+            if let Some(inner) = &ea_event.event {
+                use events::DEventDetector;
+                let s_event = events::SEccentricAnomalyEvent::<6, 0>::new(
+                    inner.target_value(),
+                    inner.name().to_string(),
+                    inner.direction(),
+                    constants::AngleFormat::Radians, // Events internally use radians
+                );
+                if inner.action() == events::EventAction::Stop {
+                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
+                } else {
+                    self.propagator.add_event_detector(Box::new(s_event));
+                }
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("EccentricAnomalyEvent already consumed"));
+        }
+
+        // Try ArgumentOfLatitudeEvent
+        if let Ok(aol_event) = event.extract::<PyRef<PyArgumentOfLatitudeEvent>>() {
+            if let Some(inner) = &aol_event.event {
+                use events::DEventDetector;
+                let s_event = events::SArgumentOfLatitudeEvent::<6, 0>::new(
+                    inner.target_value(),
+                    inner.name().to_string(),
+                    inner.direction(),
+                    constants::AngleFormat::Radians, // Events internally use radians
+                );
+                if inner.action() == events::EventAction::Stop {
+                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
+                } else {
+                    self.propagator.add_event_detector(Box::new(s_event));
+                }
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("ArgumentOfLatitudeEvent already consumed"));
+        }
+
+        Err(exceptions::PyTypeError::new_err(
+            "Unsupported event type. SGPPropagator supports: TimeEvent, ValueEvent, BinaryEvent, \
+             AscendingNodeEvent, DescendingNodeEvent, AltitudeEvent, TrueAnomalyEvent, MeanAnomalyEvent, \
+             EccentricAnomalyEvent, ArgumentOfLatitudeEvent."
+        ))
+    }
+
+    /// Get all detected events from the event log.
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: List of all detected events.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     event = bh.AscendingNodeEvent("Asc Node")
+    ///     prop.add_event_detector(event)
+    ///
+    ///     prop.propagate_to(prop.epoch + 6000.0)
+    ///
+    ///     for e in prop.event_log():
+    ///         print(f"{e.name} at {e.window_open}")
+    ///     ```
+    #[pyo3(text_signature = "()")]
+    pub fn event_log(&self) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .event_log()
+            .iter()
+            .map(|e| PyDetectedEvent {
+                event: (*e).clone().into(),
+            })
+            .collect()
+    }
+
+    /// Get events filtered by name.
+    ///
+    /// Args:
+    ///     name (str): Exact event name to match.
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events matching the name.
+    #[pyo3(text_signature = "(name)")]
+    pub fn events_by_name(&self, name: &str) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_by_name(name)
+            .iter()
+            .map(|e| PyDetectedEvent {
+                event: (*e).clone().into(),
+            })
+            .collect()
+    }
+
+    /// Get the most recent detected event.
+    ///
+    /// Returns:
+    ///     DetectedEvent or None: Most recent event, or None if no events.
+    #[pyo3(text_signature = "()")]
+    pub fn latest_event(&self) -> Option<PyDetectedEvent> {
+        self.propagator.latest_event().map(|e| PyDetectedEvent {
+            event: (*e).clone().into(),
+        })
+    }
+
+    /// Get events within a time range.
+    ///
+    /// Args:
+    ///     start (Epoch): Start of time range.
+    ///     end (Epoch): End of time range.
+    ///
+    /// Returns:
+    ///     list[DetectedEvent]: Events within the range.
+    #[pyo3(text_signature = "(start, end)")]
+    pub fn events_in_range(&self, start: PyRef<PyEpoch>, end: PyRef<PyEpoch>) -> Vec<PyDetectedEvent> {
+        self.propagator
+            .events_in_range(start.obj, end.obj)
+            .iter()
+            .map(|e| PyDetectedEvent {
+                event: (*e).clone().into(),
+            })
+            .collect()
+    }
+
+    /// Check if propagation was terminated by an event.
+    ///
+    /// Returns:
+    ///     bool: True if propagation was stopped by a terminal event.
+    #[getter]
+    pub fn terminated(&self) -> bool {
+        self.propagator.is_terminated()
+    }
+
+    /// Reset the termination flag.
+    ///
+    /// Call this to allow propagation to continue after a terminal event.
+    #[pyo3(text_signature = "()")]
+    pub fn reset_termination(&mut self) {
+        self.propagator.reset_termination();
+    }
+
+    /// Clear all events from the event log.
+    #[pyo3(text_signature = "()")]
+    pub fn clear_events(&mut self) {
+        self.propagator.clear_events();
+    }
+
     /// String representation.
     fn __repr__(&self) -> String {
         format!("SGPPropagator(norad_id={}, name={:?}, epoch={:?})",

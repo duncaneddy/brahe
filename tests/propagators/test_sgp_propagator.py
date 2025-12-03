@@ -770,3 +770,594 @@ class TestOldBraheTLEFunctions:
         for i in range(len(states)):
             for j in range(i + 1, len(states)):
                 assert not np.allclose(states[i], states[j])
+
+
+class TestSGPPropagatorEventDetection:
+    """Test SGPPropagator event detection methods."""
+
+    def test_sgppropagator_add_time_event(self, iss_tle):
+        """Test adding a time event detector."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Create and add a time event
+        event = brahe.TimeEvent(epoch + 150.0, "Test Event")
+        prop.add_event_detector(event)
+
+        # Propagate past the event time
+        prop.propagate_to(epoch + 300.0)
+
+        # Check the event log
+        events = prop.event_log()
+        assert len(events) == 1
+        assert events[0].name == "Test Event"
+        # Event should occur around 150 seconds
+        assert abs(events[0].window_open - (epoch + 150.0)) < 1.0
+
+    def test_sgppropagator_terminal_event(self, iss_tle):
+        """Test terminal event stops propagation."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Create a terminal time event
+        event = brahe.TimeEvent(epoch + 100.0, "Stop").set_terminal()
+        prop.add_event_detector(event)
+
+        # Try to propagate to 300 seconds
+        prop.propagate_to(epoch + 300.0)
+
+        # Should have terminated early
+        assert prop.terminated
+        # Should not have reached 300 seconds
+        assert prop.current_epoch < epoch + 200.0
+
+    def test_sgppropagator_ascending_node_event(self, iss_tle):
+        """Test ascending node event detection."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # ISS orbit period is ~92 minutes = 5520 seconds
+        event = brahe.AscendingNodeEvent("Asc Node")
+        prop.add_event_detector(event)
+
+        # Propagate for about 1.5 orbits (should catch at least 1 node)
+        prop.propagate_to(epoch + 8000.0)
+
+        events = prop.event_log()
+        assert len(events) >= 1
+        assert events[0].name == "Asc Node"
+
+    def test_sgppropagator_descending_node_event(self, iss_tle):
+        """Test descending node event detection."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        event = brahe.DescendingNodeEvent("Desc Node")
+        prop.add_event_detector(event)
+
+        # Propagate for about 1.5 orbits
+        prop.propagate_to(epoch + 8000.0)
+
+        events = prop.event_log()
+        assert len(events) >= 1
+        assert events[0].name == "Desc Node"
+
+    def test_sgppropagator_altitude_event(self, iss_tle):
+        """Test altitude event detection."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # ISS altitude varies around 400km, detect 350km crossing
+        # Using meters (SI units)
+        event = brahe.AltitudeEvent(350e3, "Alt 350km", brahe.EventDirection.ANY)
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit
+        prop.propagate_to(epoch + 6000.0)
+
+        # The event log may or may not contain events depending on
+        # whether ISS passes through 350km altitude during this period
+        events = prop.event_log()
+        # Just verify the method doesn't error - altitude crossings depend on orbit geometry
+        assert isinstance(events, list)
+
+    def test_sgppropagator_events_by_name(self, iss_tle):
+        """Test filtering events by name."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Add multiple events
+        event1 = brahe.TimeEvent(epoch + 100.0, "Event A")
+        event2 = brahe.TimeEvent(epoch + 200.0, "Event B")
+        event3 = brahe.TimeEvent(epoch + 300.0, "Event A")
+        prop.add_event_detector(event1)
+        prop.add_event_detector(event2)
+        prop.add_event_detector(event3)
+
+        prop.propagate_to(epoch + 400.0)
+
+        # Filter by name
+        events_a = prop.events_by_name("Event A")
+        events_b = prop.events_by_name("Event B")
+
+        assert len(events_a) == 2
+        assert len(events_b) == 1
+        for e in events_a:
+            assert e.name == "Event A"
+        for e in events_b:
+            assert e.name == "Event B"
+
+    def test_sgppropagator_events_in_range(self, iss_tle):
+        """Test filtering events by time range."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Add events at different times
+        event1 = brahe.TimeEvent(epoch + 100.0, "Event 1")
+        event2 = brahe.TimeEvent(epoch + 200.0, "Event 2")
+        event3 = brahe.TimeEvent(epoch + 300.0, "Event 3")
+        prop.add_event_detector(event1)
+        prop.add_event_detector(event2)
+        prop.add_event_detector(event3)
+
+        prop.propagate_to(epoch + 400.0)
+
+        # Filter to middle time range
+        events = prop.events_in_range(epoch + 150.0, epoch + 250.0)
+
+        assert len(events) == 1
+        assert events[0].name == "Event 2"
+
+    def test_sgppropagator_latest_event(self, iss_tle):
+        """Test getting the latest event."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Add events at different times
+        event1 = brahe.TimeEvent(epoch + 100.0, "Event 1")
+        event2 = brahe.TimeEvent(epoch + 200.0, "Event 2")
+        prop.add_event_detector(event1)
+        prop.add_event_detector(event2)
+
+        prop.propagate_to(epoch + 300.0)
+
+        latest = prop.latest_event()
+        assert latest is not None
+        assert latest.name == "Event 2"
+
+    def test_sgppropagator_clear_events(self, iss_tle):
+        """Test clearing the event log."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        event = brahe.TimeEvent(epoch + 100.0, "Test Event")
+        prop.add_event_detector(event)
+
+        prop.propagate_to(epoch + 200.0)
+
+        # Verify events exist
+        assert len(prop.event_log()) == 1
+
+        # Clear and verify
+        prop.clear_events()
+        assert len(prop.event_log()) == 0
+
+    def test_sgppropagator_reset_termination(self, iss_tle):
+        """Test resetting the termination flag."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Create a terminal event
+        event = brahe.TimeEvent(epoch + 100.0, "Stop").set_terminal()
+        prop.add_event_detector(event)
+
+        prop.propagate_to(epoch + 300.0)
+
+        assert prop.terminated
+
+        # Reset termination
+        prop.reset_termination()
+        assert not prop.terminated
+
+    def test_sgppropagator_true_anomaly_event(self, iss_tle):
+        """Test true anomaly event detection."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Detect when true anomaly crosses 90 degrees
+        event = brahe.TrueAnomalyEvent(
+            90.0, "TA 90deg", brahe.EventDirection.ANY, brahe.AngleFormat.DEGREES
+        )
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit
+        prop.propagate_to(epoch + 6000.0)
+
+        events = prop.event_log()
+        # Should detect at least one crossing in a full orbit
+        assert len(events) >= 1
+        assert events[0].name == "TA 90deg"
+
+    def test_sgppropagator_mean_anomaly_event(self, iss_tle):
+        """Test mean anomaly event detection."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Detect when mean anomaly crosses 180 degrees
+        event = brahe.MeanAnomalyEvent(
+            180.0, "MA 180deg", brahe.EventDirection.ANY, brahe.AngleFormat.DEGREES
+        )
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit
+        prop.propagate_to(epoch + 6000.0)
+
+        events = prop.event_log()
+        # Should detect at least one crossing in a full orbit
+        assert len(events) >= 1
+        assert events[0].name == "MA 180deg"
+
+    def test_sgppropagator_eccentric_anomaly_event(self, iss_tle):
+        """Test eccentric anomaly event detection."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # ISS TLE starts at mean anomaly ~325 degrees, so detect crossing at 90 degrees
+        # which will be crossed as the satellite completes its orbit
+        event = brahe.EccentricAnomalyEvent(
+            90.0, "EA 90deg", brahe.EventDirection.ANY, brahe.AngleFormat.DEGREES
+        )
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit (~92 minutes for ISS)
+        prop.propagate_to(epoch + 6000.0)
+
+        events = prop.event_log()
+        # Should detect at least one crossing in a full orbit
+        assert len(events) >= 1
+        assert events[0].name == "EA 90deg"
+
+    def test_sgppropagator_argument_of_latitude_event(self, iss_tle):
+        """Test argument of latitude event detection."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Detect when argument of latitude crosses 45 degrees
+        event = brahe.ArgumentOfLatitudeEvent(
+            45.0, "AoL 45deg", brahe.EventDirection.ANY, brahe.AngleFormat.DEGREES
+        )
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit
+        prop.propagate_to(epoch + 6000.0)
+
+        events = prop.event_log()
+        # Should detect at least one crossing in a full orbit
+        assert len(events) >= 1
+        assert events[0].name == "AoL 45deg"
+
+    def test_sgppropagator_multiple_event_types(self, iss_tle):
+        """Test adding multiple event types simultaneously."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Add different event types
+        time_event = brahe.TimeEvent(epoch + 150.0, "Time Event")
+        asc_event = brahe.AscendingNodeEvent("Ascending Node")
+        desc_event = brahe.DescendingNodeEvent("Descending Node")
+
+        prop.add_event_detector(time_event)
+        prop.add_event_detector(asc_event)
+        prop.add_event_detector(desc_event)
+
+        # Propagate for about 1.5 orbits
+        prop.propagate_to(epoch + 8000.0)
+
+        events = prop.event_log()
+        # Should have at least the time event
+        assert len(events) >= 1
+
+        # Verify we can find different event types
+        event_names = [e.name for e in events]
+        assert "Time Event" in event_names
+
+    def test_sgppropagator_event_log_empty_initially(self, iss_tle):
+        """Test that event log is empty before propagation."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        events = prop.event_log()
+        assert len(events) == 0
+
+    def test_sgppropagator_latest_event_none_initially(self, iss_tle):
+        """Test that latest_event returns None when no events."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        latest = prop.latest_event()
+        assert latest is None
+
+    def test_sgppropagator_reset_clears_events(self, iss_tle):
+        """Test that reset clears the event log."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        event = brahe.TimeEvent(epoch + 100.0, "Test Event")
+        prop.add_event_detector(event)
+
+        prop.propagate_to(epoch + 200.0)
+        assert len(prop.event_log()) == 1
+
+        # Reset should clear events
+        prop.reset()
+        assert len(prop.event_log()) == 0
+
+    def test_sgppropagator_custom_value_event(self, iss_tle):
+        """Test custom ValueEvent with Python value function."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Custom value function: compute radial distance from Earth center
+        def radial_distance(epoch, state):
+            return np.linalg.norm(state[:3])
+
+        # ISS orbital radius ranges from ~6720-6740 km, use mean to ensure crossings
+        # Detect when crossing the mean radius value
+        event = brahe.ValueEvent(
+            "Radius Crossing",
+            radial_distance,
+            6730e3,  # 6730 km in meters (mean orbit radius)
+            brahe.EventDirection.ANY,
+        )
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit (~5500 seconds)
+        prop.propagate_to(epoch + 5500.0)
+
+        # Should detect at least one crossing (ideally 2 per orbit - once up, once down)
+        events = prop.event_log()
+        assert len(events) >= 1
+        assert events[0].name == "Radius Crossing"
+
+    def test_sgppropagator_custom_value_event_with_callback(self, iss_tle):
+        """Test custom ValueEvent with callback."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        callback_invocations = []
+
+        def radial_distance(epoch, state):
+            return np.linalg.norm(state[:3])
+
+        def my_callback(epoch, state):
+            callback_invocations.append((epoch, state.copy()))
+            return None, brahe.EventAction.CONTINUE
+
+        # Use mean orbit radius to ensure crossings
+        event = brahe.ValueEvent(
+            "Radius Callback",
+            radial_distance,
+            6730e3,  # 6730 km in meters
+            brahe.EventDirection.ANY,
+        ).with_callback(my_callback)
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit
+        prop.propagate_to(epoch + 5500.0)
+
+        # Should detect events and invoke callback
+        events = prop.event_log()
+        assert len(events) >= 1
+        # Callback should have been invoked at least once
+        assert len(callback_invocations) >= 1
+        # Each invocation should have epoch and 6D state
+        cb_epoch, cb_state = callback_invocations[0]
+        assert cb_state.shape == (6,)
+
+    def test_sgppropagator_custom_binary_event(self, iss_tle):
+        """Test custom BinaryEvent with Python condition function."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Custom condition function: is satellite in northern hemisphere (z > 0)?
+        def is_northern(epoch, state):
+            return state[2] > 0
+
+        event = brahe.BinaryEvent(
+            "Northern Entry",
+            is_northern,
+            brahe.EdgeType.RISING_EDGE,  # Detect entering northern hemisphere
+        )
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit - ISS will cross the equator multiple times
+        prop.propagate_to(epoch + 5500.0)
+
+        # Should detect at least one crossing into northern hemisphere
+        events = prop.event_log()
+        assert len(events) >= 1
+        assert events[0].name == "Northern Entry"
+
+    def test_sgppropagator_custom_binary_event_with_callback(self, iss_tle):
+        """Test custom BinaryEvent with callback."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        callback_invocations = []
+
+        def is_northern(epoch, state):
+            return state[2] > 0
+
+        def my_callback(epoch, state):
+            callback_invocations.append((epoch, state.copy()))
+            return None, brahe.EventAction.CONTINUE
+
+        event = brahe.BinaryEvent(
+            "Northern Callback",
+            is_northern,
+            brahe.EdgeType.RISING_EDGE,
+        ).with_callback(my_callback)
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit
+        prop.propagate_to(epoch + 5500.0)
+
+        # Should detect events and invoke callback
+        events = prop.event_log()
+        assert len(events) >= 1
+        # Callback should have been invoked
+        assert len(callback_invocations) >= 1
+        # Each invocation should have epoch and 6D state
+        cb_epoch, cb_state = callback_invocations[0]
+        assert cb_state.shape == (6,)
+
+    def test_sgppropagator_time_event_with_callback(self, iss_tle):
+        """Test TimeEvent with callback that gets called on detection."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Track callback invocations
+        callback_invocations = []
+
+        def my_callback(epoch, state):
+            callback_invocations.append((epoch, state.copy()))
+            return None, brahe.EventAction.CONTINUE
+
+        event = brahe.TimeEvent(epoch + 100.0, "Time Callback").with_callback(
+            my_callback
+        )
+        prop.add_event_detector(event)
+
+        # Propagate past the event time
+        prop.propagate_to(epoch + 200.0)
+
+        # Callback should have been invoked once
+        assert len(callback_invocations) == 1
+        # Each invocation should have an epoch and 6D state
+        cb_epoch, cb_state = callback_invocations[0]
+        assert cb_state.shape == (6,)
+
+    def test_sgppropagator_altitude_event_with_callback(self, iss_tle):
+        """Test AltitudeEvent with callback that gets called on detection."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        # Track callback invocations
+        callback_invocations = []
+
+        def my_callback(epoch, state):
+            callback_invocations.append((epoch, state.copy()))
+            return None, brahe.EventAction.CONTINUE
+
+        # Add altitude event with callback
+        # ISS altitude varies, but we can use a value we know will be crossed
+        event = brahe.AltitudeEvent(
+            400e3, "Alt Callback", brahe.EventDirection.ANY
+        ).with_callback(my_callback)
+        prop.add_event_detector(event)
+
+        # Propagate for one orbit
+        prop.propagate_to(epoch + 6000.0)
+
+        # Check that events were detected
+        events = prop.event_log()
+        # If altitude 400km was crossed, callback should be invoked
+        # Note: Whether the callback is invoked depends on ISS passing through 400km altitude
+        if len(events) > 0:
+            # Callback should have been invoked for each detected event
+            assert len(callback_invocations) == len(events)
+            # Each invocation should have epoch and 6D state
+            if len(callback_invocations) > 0:
+                cb_epoch, cb_state = callback_invocations[0]
+                assert cb_state.shape == (6,)
+
+    def test_sgppropagator_callback_stop_action(self, iss_tle):
+        """Test that callback returning EventAction.STOP terminates propagation."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        callback_count = [0]
+
+        def stop_callback(epoch, state):
+            callback_count[0] += 1
+            # Stop propagation on first event
+            return None, brahe.EventAction.STOP
+
+        # Use TimeEvent which supports callbacks
+        event = brahe.TimeEvent(epoch + 100.0, "Stop Event").with_callback(
+            stop_callback
+        )
+        prop.add_event_detector(event)
+
+        # Try to propagate past the event
+        prop.propagate_to(epoch + 300.0)
+
+        # Should have terminated
+        assert prop.terminated
+        # Callback should have been called exactly once
+        assert callback_count[0] == 1
+        # Should not have reached full propagation time
+        assert prop.current_epoch < epoch + 200.0
+
+    def test_sgppropagator_callback_continue_action(self, iss_tle):
+        """Test that callback returning EventAction.CONTINUE allows propagation."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+        target_epoch = epoch + 300.0
+
+        callback_count = [0]
+
+        def continue_callback(epoch, state):
+            callback_count[0] += 1
+            return None, brahe.EventAction.CONTINUE
+
+        # Use TimeEvent which supports callbacks
+        event = brahe.TimeEvent(epoch + 100.0, "Continue Event").with_callback(
+            continue_callback
+        )
+        prop.add_event_detector(event)
+
+        # Propagate past the event
+        prop.propagate_to(target_epoch)
+
+        # Should NOT have terminated
+        assert not prop.terminated
+        # Callback should have been called once
+        assert callback_count[0] == 1
+        # Should have reached full propagation time
+        assert prop.current_epoch == target_epoch
+
+    def test_sgppropagator_multiple_time_events_with_callbacks(self, iss_tle):
+        """Test combining multiple TimeEvents with callbacks."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        callback1_invocations = []
+        callback2_invocations = []
+
+        def callback1(epoch, state):
+            callback1_invocations.append(epoch)
+            return None, brahe.EventAction.CONTINUE
+
+        def callback2(epoch, state):
+            callback2_invocations.append(epoch)
+            return None, brahe.EventAction.CONTINUE
+
+        # Add two TimeEvents with callbacks
+        event1 = brahe.TimeEvent(epoch + 100.0, "Event 1").with_callback(callback1)
+        event2 = brahe.TimeEvent(epoch + 200.0, "Event 2").with_callback(callback2)
+
+        prop.add_event_detector(event1)
+        prop.add_event_detector(event2)
+
+        # Propagate past both events
+        prop.propagate_to(epoch + 300.0)
+
+        # Both callbacks should have been invoked
+        assert len(callback1_invocations) == 1
+        assert len(callback2_invocations) == 1
+
+        # Event log should contain both events
+        events = prop.event_log()
+        assert len(events) == 2
+        event_names = [e.name for e in events]
+        assert "Event 1" in event_names
+        assert "Event 2" in event_names

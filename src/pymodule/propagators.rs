@@ -233,6 +233,44 @@ impl PySGPPropagator {
         self.propagator.satellite_name.clone()
     }
 
+    /// Get TLE line 1.
+    ///
+    /// Returns:
+    ///     str: First line of the TLE.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
+    ///     print(propagator.line1)
+    ///     ```
+    #[getter]
+    pub fn line1(&self) -> String {
+        self.propagator.line1.clone()
+    }
+
+    /// Get TLE line 2.
+    ///
+    /// Returns:
+    ///     str: Second line of the TLE.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
+    ///     print(propagator.line2)
+    ///     ```
+    #[getter]
+    pub fn line2(&self) -> String {
+        self.propagator.line2.clone()
+    }
+
     /// Get TLE epoch.
     ///
     /// Returns:

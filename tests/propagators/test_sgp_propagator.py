@@ -31,6 +31,30 @@ class TestSGPPropagatorMethods:
         assert prop.step_size == 60.0
         assert prop.epoch.year() == 2008
 
+    def test_sgppropagator_line1_property(self, iss_tle):
+        """Test SGPPropagator line1 property returns the TLE line 1."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        assert prop.line1 == iss_tle[0]
+
+    def test_sgppropagator_line2_property(self, iss_tle):
+        """Test SGPPropagator line2 property returns the TLE line 2."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        assert prop.line2 == iss_tle[1]
+
+    def test_sgppropagator_tle_lines_from_3le(self):
+        """Test SGPPropagator line1/line2 properties with 3-line TLE."""
+        line0 = "ISS (ZARYA)"
+        line1 = ISS_LINE1
+        line2 = ISS_LINE2
+
+        prop = brahe.SGPPropagator.from_3le(line0, line1, line2, 60.0)
+
+        assert prop.line1 == line1
+        assert prop.line2 == line2
+        assert prop.satellite_name == line0
+
     def test_sgppropagator_from_omm_elements_basic(self):
         """Test SGPPropagator creation from OMM elements."""
         # ISS OMM data from user example
@@ -121,9 +145,14 @@ class TestSGPPropagatorMethods:
             norad_id=25544,
         )
 
-        # Should have generated TLE lines
-        # line1 and line2 are not directly exposed in Python, but we can verify
-        # the propagator works, which requires valid internal TLE state
+        # Verify TLE lines were generated and are accessible
+        assert prop.line1.startswith("1 ")
+        assert prop.line2.startswith("2 ")
+        assert len(prop.line1) == 69
+        assert len(prop.line2) == 69
+
+        # Verify TLE lines are valid
+        assert brahe.validate_tle_lines(prop.line1, prop.line2)
 
         # Verify propagator is functional
         state = prop.state(prop.epoch)

@@ -11,6 +11,7 @@ Convenience event detectors for common scenarios. These provide ready-to-use eve
 | Orbital Elements | `SemiMajorAxisEvent`, `EccentricityEvent`, `InclinationEvent`, `ArgumentOfPerigeeEvent`, `MeanAnomalyEvent`, `EccentricAnomalyEvent`, `TrueAnomalyEvent`, `ArgumentOfLatitudeEvent` |
 | Node Crossings | `AscendingNodeEvent`, `DescendingNodeEvent` |
 | Eclipse/Shadow | `UmbraEvent`, `PenumbraEvent`, `EclipseEvent`, `SunlitEvent` |
+| Area of Interest | `AOIEntryEvent`, `AOIExitEvent` |
 </div>
 
 ## State-Derived Events
@@ -56,6 +57,12 @@ Convenience event detectors for common scenarios. These provide ready-to-use eve
 ::: brahe.EclipseEvent
 
 ::: brahe.SunlitEvent
+
+## Area of Interest Events
+
+::: brahe.AOIEntryEvent
+
+::: brahe.AOIExitEvent
 
 ---
 

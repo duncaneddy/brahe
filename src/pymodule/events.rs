@@ -3254,3 +3254,369 @@ impl PySunlitEvent {
         Self { event: slf.event.take() }
     }
 }
+
+// =============================================================================
+// AOI (Area of Interest) Event Detectors
+// =============================================================================
+
+/// AOI Entry event detector.
+///
+/// Detects when a satellite's sub-satellite point enters a polygonal Area of Interest.
+/// The sub-satellite point is computed by transforming the ECI position to geodetic
+/// coordinates (longitude, latitude).
+///
+/// The polygon can be defined either from a PolygonLocation object or from raw
+/// (longitude, latitude) coordinate pairs.
+///
+/// Args:
+///     polygon (PolygonLocation): Polygon defining the Area of Interest
+///     name (str): Event name for identification
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create from PolygonLocation
+///     vertices = [
+///         [10.0, 50.0, 0.0],  # [lon, lat, alt] in degrees
+///         [20.0, 50.0, 0.0],
+///         [20.0, 55.0, 0.0],
+///         [10.0, 55.0, 0.0],
+///         [10.0, 50.0, 0.0],
+///     ]
+///     polygon = bh.PolygonLocation(vertices)
+///     entry_event = bh.AOIEntryEvent(polygon, "Europe Entry")
+///
+///     # Create from coordinates with angle format
+///     coords = [
+///         (10.0, 50.0),  # (lon, lat) in degrees
+///         (20.0, 50.0),
+///         (20.0, 55.0),
+///         (10.0, 55.0),
+///         (10.0, 50.0),
+///     ]
+///     entry_event = bh.AOIEntryEvent.from_coordinates(coords, "Europe Entry", bh.AngleFormat.DEGREES)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AOIEntryEvent")]
+pub struct PyAOIEntryEvent {
+    pub(crate) event: Option<events::DAOIEntryEvent>,
+    /// Vertices stored in radians (lon, lat) for creating S-type events
+    pub(crate) vertices_rad: Vec<(f64, f64)>,
+    /// Event name for creating S-type events
+    pub(crate) name: String,
+    /// Whether this event is terminal
+    pub(crate) is_terminal: bool,
+}
+
+#[pymethods]
+impl PyAOIEntryEvent {
+    /// Create a new AOI entry event detector from a PolygonLocation.
+    ///
+    /// Args:
+    ///     polygon (PolygonLocation): Polygon defining the Area of Interest
+    ///     name (str): Event name for identification
+    ///
+    /// Returns:
+    ///     AOIEntryEvent: New AOI entry event detector
+    #[new]
+    #[pyo3(signature = (polygon, name))]
+    fn new(polygon: PyRef<PyPolygonLocation>, name: String) -> PyResult<Self> {
+        // Extract vertices in radians from polygon (lon, lat, alt format in degrees)
+        let vertices_rad: Vec<(f64, f64)> = polygon.location.vertices()
+            .iter()
+            .map(|v| (v[0].to_radians(), v[1].to_radians()))
+            .collect();
+        let event = events::DAOIEntryEvent::from_polygon(&polygon.location, name.clone());
+        Ok(PyAOIEntryEvent {
+            event: Some(event),
+            vertices_rad,
+            name,
+            is_terminal: false,
+        })
+    }
+
+    /// Create an AOI entry event from raw coordinate pairs.
+    ///
+    /// Args:
+    ///     vertices (list[tuple[float, float]]): AOI vertices as (longitude, latitude) pairs
+    ///     name (str): Event name for identification
+    ///     angle_format (AngleFormat): Whether coordinates are in DEGREES or RADIANS
+    ///
+    /// Returns:
+    ///     AOIEntryEvent: New AOI entry event detector
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     coords = [(10.0, 50.0), (20.0, 50.0), (20.0, 55.0), (10.0, 55.0), (10.0, 50.0)]
+    ///     event = bh.AOIEntryEvent.from_coordinates(coords, "AOI Entry", bh.AngleFormat.DEGREES)
+    ///     ```
+    #[staticmethod]
+    #[pyo3(signature = (vertices, name, angle_format))]
+    fn from_coordinates(
+        vertices: Vec<(f64, f64)>,
+        name: String,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        // Convert vertices to radians for storage
+        let vertices_rad: Vec<(f64, f64)> = match angle_format.value {
+            constants::AngleFormat::Degrees => vertices.iter()
+                .map(|(lon, lat)| (lon.to_radians(), lat.to_radians()))
+                .collect(),
+            constants::AngleFormat::Radians => vertices.clone(),
+        };
+        let event = events::DAOIEntryEvent::from_coordinates(&vertices, name.clone(), angle_format.value);
+        Ok(PyAOIEntryEvent {
+            event: Some(event),
+            vertices_rad,
+            name,
+            is_terminal: false,
+        })
+    }
+
+    /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number to append
+    ///
+    /// Returns:
+    ///     AOIEntryEvent: Self for method chaining
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        let vertices_rad = std::mem::take(&mut slf.vertices_rad);
+        let name = std::mem::take(&mut slf.name);
+        let is_terminal = slf.is_terminal;
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self {
+            event: slf.event.take(),
+            vertices_rad,
+            name,
+            is_terminal,
+        }
+    }
+
+    /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds
+    ///     value_tol (float): Value tolerance
+    ///
+    /// Returns:
+    ///     AOIEntryEvent: Self for method chaining
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        let vertices_rad = std::mem::take(&mut slf.vertices_rad);
+        let name = std::mem::take(&mut slf.name);
+        let is_terminal = slf.is_terminal;
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self {
+            event: slf.event.take(),
+            vertices_rad,
+            name,
+            is_terminal,
+        }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     AOIEntryEvent: Self for method chaining
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        let vertices_rad = std::mem::take(&mut slf.vertices_rad);
+        let name = std::mem::take(&mut slf.name);
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.set_terminal());
+        }
+        Self {
+            event: slf.event.take(),
+            vertices_rad,
+            name,
+            is_terminal: true,
+        }
+    }
+}
+
+/// AOI Exit event detector.
+///
+/// Detects when a satellite's sub-satellite point exits a polygonal Area of Interest.
+/// The sub-satellite point is computed by transforming the ECI position to geodetic
+/// coordinates (longitude, latitude).
+///
+/// The polygon can be defined either from a PolygonLocation object or from raw
+/// (longitude, latitude) coordinate pairs.
+///
+/// Args:
+///     polygon (PolygonLocation): Polygon defining the Area of Interest
+///     name (str): Event name for identification
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create from PolygonLocation
+///     vertices = [
+///         [10.0, 50.0, 0.0],  # [lon, lat, alt] in degrees
+///         [20.0, 50.0, 0.0],
+///         [20.0, 55.0, 0.0],
+///         [10.0, 55.0, 0.0],
+///         [10.0, 50.0, 0.0],
+///     ]
+///     polygon = bh.PolygonLocation(vertices)
+///     exit_event = bh.AOIExitEvent(polygon, "Europe Exit")
+///
+///     # Create from coordinates with angle format
+///     coords = [
+///         (10.0, 50.0),  # (lon, lat) in degrees
+///         (20.0, 50.0),
+///         (20.0, 55.0),
+///         (10.0, 55.0),
+///         (10.0, 50.0),
+///     ]
+///     exit_event = bh.AOIExitEvent.from_coordinates(coords, "Europe Exit", bh.AngleFormat.DEGREES)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AOIExitEvent")]
+pub struct PyAOIExitEvent {
+    pub(crate) event: Option<events::DAOIExitEvent>,
+    /// Vertices stored in radians (lon, lat) for creating S-type events
+    pub(crate) vertices_rad: Vec<(f64, f64)>,
+    /// Event name for creating S-type events
+    pub(crate) name: String,
+    /// Whether this event is terminal
+    pub(crate) is_terminal: bool,
+}
+
+#[pymethods]
+impl PyAOIExitEvent {
+    /// Create a new AOI exit event detector from a PolygonLocation.
+    ///
+    /// Args:
+    ///     polygon (PolygonLocation): Polygon defining the Area of Interest
+    ///     name (str): Event name for identification
+    ///
+    /// Returns:
+    ///     AOIExitEvent: New AOI exit event detector
+    #[new]
+    #[pyo3(signature = (polygon, name))]
+    fn new(polygon: PyRef<PyPolygonLocation>, name: String) -> PyResult<Self> {
+        // Extract vertices in radians from polygon (lon, lat, alt format in degrees)
+        let vertices_rad: Vec<(f64, f64)> = polygon.location.vertices()
+            .iter()
+            .map(|v| (v[0].to_radians(), v[1].to_radians()))
+            .collect();
+        let event = events::DAOIExitEvent::from_polygon(&polygon.location, name.clone());
+        Ok(PyAOIExitEvent {
+            event: Some(event),
+            vertices_rad,
+            name,
+            is_terminal: false,
+        })
+    }
+
+    /// Create an AOI exit event from raw coordinate pairs.
+    ///
+    /// Args:
+    ///     vertices (list[tuple[float, float]]): AOI vertices as (longitude, latitude) pairs
+    ///     name (str): Event name for identification
+    ///     angle_format (AngleFormat): Whether coordinates are in DEGREES or RADIANS
+    ///
+    /// Returns:
+    ///     AOIExitEvent: New AOI exit event detector
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     coords = [(10.0, 50.0), (20.0, 50.0), (20.0, 55.0), (10.0, 55.0), (10.0, 50.0)]
+    ///     event = bh.AOIExitEvent.from_coordinates(coords, "AOI Exit", bh.AngleFormat.DEGREES)
+    ///     ```
+    #[staticmethod]
+    #[pyo3(signature = (vertices, name, angle_format))]
+    fn from_coordinates(
+        vertices: Vec<(f64, f64)>,
+        name: String,
+        angle_format: PyRef<PyAngleFormat>,
+    ) -> PyResult<Self> {
+        // Convert vertices to radians for storage
+        let vertices_rad: Vec<(f64, f64)> = match angle_format.value {
+            constants::AngleFormat::Degrees => vertices.iter()
+                .map(|(lon, lat)| (lon.to_radians(), lat.to_radians()))
+                .collect(),
+            constants::AngleFormat::Radians => vertices.clone(),
+        };
+        let event = events::DAOIExitEvent::from_coordinates(&vertices, name.clone(), angle_format.value);
+        Ok(PyAOIExitEvent {
+            event: Some(event),
+            vertices_rad,
+            name,
+            is_terminal: false,
+        })
+    }
+
+    /// Set instance number for display name.
+    ///
+    /// Args:
+    ///     instance (int): Instance number to append
+    ///
+    /// Returns:
+    ///     AOIExitEvent: Self for method chaining
+    fn with_instance(mut slf: PyRefMut<'_, Self>, instance: usize) -> Self {
+        let vertices_rad = std::mem::take(&mut slf.vertices_rad);
+        let name = std::mem::take(&mut slf.name);
+        let is_terminal = slf.is_terminal;
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_instance(instance));
+        }
+        Self {
+            event: slf.event.take(),
+            vertices_rad,
+            name,
+            is_terminal,
+        }
+    }
+
+    /// Set custom tolerances for event detection.
+    ///
+    /// Args:
+    ///     time_tol (float): Time tolerance in seconds
+    ///     value_tol (float): Value tolerance
+    ///
+    /// Returns:
+    ///     AOIExitEvent: Self for method chaining
+    fn with_tolerances(mut slf: PyRefMut<'_, Self>, time_tol: f64, value_tol: f64) -> Self {
+        let vertices_rad = std::mem::take(&mut slf.vertices_rad);
+        let name = std::mem::take(&mut slf.name);
+        let is_terminal = slf.is_terminal;
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.with_tolerances(time_tol, value_tol));
+        }
+        Self {
+            event: slf.event.take(),
+            vertices_rad,
+            name,
+            is_terminal,
+        }
+    }
+
+    /// Mark this event as terminal (stops propagation).
+    ///
+    /// Returns:
+    ///     AOIExitEvent: Self for method chaining
+    fn set_terminal(mut slf: PyRefMut<'_, Self>) -> Self {
+        let vertices_rad = std::mem::take(&mut slf.vertices_rad);
+        let name = std::mem::take(&mut slf.name);
+        if let Some(event) = slf.event.take() {
+            slf.event = Some(event.set_terminal());
+        }
+        Self {
+            event: slf.event.take(),
+            vertices_rad,
+            name,
+            is_terminal: true,
+        }
+    }
+}

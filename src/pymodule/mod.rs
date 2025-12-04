@@ -1186,6 +1186,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyPenumbraEvent>()?;
     module.add_class::<PyEclipseEvent>()?;
     module.add_class::<PySunlitEvent>()?;
+    // AOI (Area of Interest) events
+    module.add_class::<PyAOIEntryEvent>()?;
+    module.add_class::<PyAOIExitEvent>()?;
 
     //* Utils *//
     // Cache Management

@@ -274,6 +274,7 @@ nav:
             - examples/ground_contacts.md
             - examples/doppler_compensation.md
             - examples/max_communications_gap.md
+            - examples/imaging_data_latency.md
             - examples/imaging_opportunities.md
             - examples/using_different_integrators.md
             - examples/geo_hohmann_transfer.md

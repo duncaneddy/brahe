@@ -85,6 +85,9 @@ pub mod traits;
 pub use common::{DBinaryEvent, DTimeEvent, DValueEvent, SBinaryEvent, STimeEvent, SValueEvent};
 pub use detection::{dscan_for_event, sscan_for_event};
 pub use premade::{
+    // AOI (Area of Interest) events
+    DAOIEntryEvent,
+    DAOIExitEvent,
     // Altitude events
     DAltitudeEvent,
     // Orbital element events
@@ -108,6 +111,8 @@ pub use premade::{
     DSunlitEvent,
     DTrueAnomalyEvent,
     DUmbraEvent,
+    SAOIEntryEvent,
+    SAOIExitEvent,
     SAltitudeEvent,
     SArgumentOfLatitudeEvent,
     SArgumentOfPerigeeEvent,

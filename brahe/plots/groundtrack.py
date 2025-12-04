@@ -76,19 +76,66 @@ def split_ground_track_at_antimeridian(lons, lats, value: float = 180.0) -> List
         # No wraparound, return single segment
         return [(lons, lats)]
 
-    # Split into segments
+    # Split into segments with interpolation to the antimeridian edge
     segments = []
     start_idx = 0
+    pending_edge_start = None  # (lon, lat) to prepend to next segment
 
-    for wrap_idx in wrap_indices:
-        # Add segment up to (and including) the point before the jump
-        end_idx = wrap_idx + 1
-        segments.append((lons[start_idx:end_idx], lats[start_idx:end_idx]))
-        start_idx = end_idx
+    for i, wrap_idx in enumerate(wrap_indices):
+        # Get the points before and after the crossing
+        lon1, lat1 = lons[wrap_idx], lats[wrap_idx]
+        lon2, lat2 = lons[wrap_idx + 1], lats[wrap_idx + 1]
 
-    # Add final segment
+        # Determine which edge we're crossing to (+180 or -180)
+        # If lon1 > 0 and lon2 < 0, we cross from +180 to -180 (going east)
+        # If lon1 < 0 and lon2 > 0, we cross from -180 to +180 (going west)
+        if lon1 > 0:
+            edge_lon_end = 180.0
+            edge_lon_start = -180.0
+        else:
+            edge_lon_end = -180.0
+            edge_lon_start = 180.0
+
+        # Linear interpolation to find latitude at the edge
+        # Unwrap lon2 to be continuous with lon1 for interpolation
+        if lon1 > 0 and lon2 < 0:
+            lon2_unwrapped = lon2 + 360.0
+        else:
+            lon2_unwrapped = lon2 - 360.0
+
+        # Interpolate: find t where lon = edge_lon_end
+        t = (edge_lon_end - lon1) / (lon2_unwrapped - lon1)
+        lat_at_edge = lat1 + t * (lat2 - lat1)
+
+        # Build segment ending at the edge
+        seg_lons = lons[start_idx : wrap_idx + 1].copy()
+        seg_lats = lats[start_idx : wrap_idx + 1].copy()
+
+        # Prepend pending edge point if exists
+        if pending_edge_start is not None:
+            seg_lons = np.insert(seg_lons, 0, pending_edge_start[0])
+            seg_lats = np.insert(seg_lats, 0, pending_edge_start[1])
+
+        # Append edge point at end
+        seg_lons = np.append(seg_lons, edge_lon_end)
+        seg_lats = np.append(seg_lats, lat_at_edge)
+        segments.append((seg_lons, seg_lats))
+
+        # Store the edge point for the next segment's start
+        start_idx = wrap_idx + 1
+        pending_edge_start = (edge_lon_start, lat_at_edge)
+
+    # Add final segment after last crossing
     if start_idx < len(lons):
-        segments.append((lons[start_idx:], lats[start_idx:]))
+        seg_lons = lons[start_idx:].copy()
+        seg_lats = lats[start_idx:].copy()
+
+        # Prepend pending edge point
+        if pending_edge_start is not None:
+            seg_lons = np.insert(seg_lons, 0, pending_edge_start[0])
+            seg_lats = np.insert(seg_lats, 0, pending_edge_start[1])
+
+        segments.append((seg_lons, seg_lats))
 
     return segments
 

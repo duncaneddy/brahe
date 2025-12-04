@@ -1135,7 +1135,7 @@ impl PySGPPropagator {
     ///     for SGPPropagator. Use NumericalOrbitPropagator for custom event functions.
     ///
     /// Args:
-    ///     event: Event detector to add (TimeEvent, AscendingNodeEvent, etc.)
+    ///     event (TimeEvent | AscendingNodeEvent | DescendingNodeEvent | AltitudeEvent | AOIEntryEvent | AOIExitEvent): Event detector to add
     ///
     /// Example:
     ///     ```python
@@ -1409,10 +1409,48 @@ impl PySGPPropagator {
             return Err(exceptions::PyValueError::new_err("ArgumentOfLatitudeEvent already consumed"));
         }
 
+        // Try AOIEntryEvent - create S-type event from stored vertices
+        if let Ok(aoi_entry_event) = event.extract::<PyRef<PyAOIEntryEvent>>() {
+            if aoi_entry_event.event.is_some() {
+                // Create S-type event from stored vertices (already in radians)
+                let s_event = events::SAOIEntryEvent::<6, 0>::from_coordinates(
+                    &aoi_entry_event.vertices_rad,
+                    aoi_entry_event.name.clone(),
+                    constants::AngleFormat::Radians,
+                );
+                if aoi_entry_event.is_terminal {
+                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
+                } else {
+                    self.propagator.add_event_detector(Box::new(s_event));
+                }
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("AOIEntryEvent already consumed"));
+        }
+
+        // Try AOIExitEvent - create S-type event from stored vertices
+        if let Ok(aoi_exit_event) = event.extract::<PyRef<PyAOIExitEvent>>() {
+            if aoi_exit_event.event.is_some() {
+                // Create S-type event from stored vertices (already in radians)
+                let s_event = events::SAOIExitEvent::<6, 0>::from_coordinates(
+                    &aoi_exit_event.vertices_rad,
+                    aoi_exit_event.name.clone(),
+                    constants::AngleFormat::Radians,
+                );
+                if aoi_exit_event.is_terminal {
+                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
+                } else {
+                    self.propagator.add_event_detector(Box::new(s_event));
+                }
+                return Ok(());
+            }
+            return Err(exceptions::PyValueError::new_err("AOIExitEvent already consumed"));
+        }
+
         Err(exceptions::PyTypeError::new_err(
             "Unsupported event type. SGPPropagator supports: TimeEvent, ValueEvent, BinaryEvent, \
              AscendingNodeEvent, DescendingNodeEvent, AltitudeEvent, TrueAnomalyEvent, MeanAnomalyEvent, \
-             EccentricAnomalyEvent, ArgumentOfLatitudeEvent."
+             EccentricAnomalyEvent, ArgumentOfLatitudeEvent, AOIEntryEvent, AOIExitEvent."
         ))
     }
 

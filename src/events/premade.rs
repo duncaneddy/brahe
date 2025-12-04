@@ -9,14 +9,16 @@ use super::traits::{
     DEventCallback, DEventDetector, EdgeType, EventAction, EventDirection, SEventCallback,
     SEventDetector,
 };
+use crate::access::PolygonLocation;
 use crate::constants::AngleFormat;
-use crate::coordinates::{position_ecef_to_geodetic, state_eci_to_koe};
+use crate::coordinates::{point_in_polygon, position_ecef_to_geodetic, state_eci_to_koe};
 use crate::frames::position_eci_to_ecef;
 use crate::orbit_dynamics::{eclipse_conical, sun_position, sun_position_de};
 use crate::orbits::{anomaly_mean_to_eccentric, anomaly_mean_to_true};
 use crate::propagators::EphemerisSource;
 use crate::time::Epoch;
 use nalgebra::{DVector, SVector, Vector3, Vector6};
+use std::sync::Arc;
 
 /// Macro to implement SEventDetector trait delegation for wrapper types (static-sized)
 macro_rules! impl_sevent_detector_delegate {
@@ -2678,6 +2680,514 @@ impl DSunlitEvent {
 
 impl_devent_detector_delegate!(DSunlitEvent, inner);
 
+// =============================================================================
+// AOI (Area of Interest) Event Detectors
+// =============================================================================
+
+/// Prepare AOI vertices for point-in-polygon testing.
+///
+/// Converts polygon vertices to (lon, lat) pairs in radians and pre-processes
+/// for efficient point-in-polygon testing. This function is called once during
+/// event detector construction.
+fn prepare_aoi_vertices(
+    vertices: &[(f64, f64)],
+    angle_format: AngleFormat,
+) -> Arc<Vec<(f64, f64)>> {
+    let radians_vertices: Vec<(f64, f64)> = match angle_format {
+        AngleFormat::Degrees => vertices
+            .iter()
+            .map(|(lon, lat)| (lon.to_radians(), lat.to_radians()))
+            .collect(),
+        AngleFormat::Radians => vertices.to_vec(),
+    };
+
+    Arc::new(radians_vertices)
+}
+
+/// Extract polygon vertices from PolygonLocation as (lon, lat) tuples in radians.
+fn polygon_location_to_vertices(polygon: &PolygonLocation) -> Vec<(f64, f64)> {
+    polygon
+        .vertices()
+        .iter()
+        .map(|v| {
+            // PolygonLocation stores vertices as [lon, lat, alt] in degrees
+            (v.x.to_radians(), v.y.to_radians())
+        })
+        .collect()
+}
+
+/// AOI Entry event detector (static-sized).
+///
+/// Detects when a satellite's sub-satellite point enters a polygonal Area of Interest.
+/// The sub-satellite point is computed by transforming the ECI position to geodetic
+/// coordinates.
+///
+/// # Coordinate Handling
+/// - Input coordinates can be in degrees or radians (specified via `AngleFormat`)
+/// - Polygons crossing the anti-meridian (±180° longitude) are automatically handled
+/// - Polygon should be closed (first vertex == last vertex), but auto-closes if not
+///
+/// # Event Triggering
+/// - Triggers on `RisingEdge`: when point transitions from outside to inside the AOI
+/// - Returns `true` when satellite is inside the AOI
+///
+/// # Examples
+/// ```
+/// use brahe::events::SAOIEntryEvent;
+/// use brahe::constants::AngleFormat;
+///
+/// // Define AOI as [(lon, lat)] pairs in degrees
+/// let aoi_vertices = vec![
+///     (10.0, 50.0),
+///     (20.0, 50.0),
+///     (20.0, 55.0),
+///     (10.0, 55.0),
+///     (10.0, 50.0),  // Closed polygon
+/// ];
+///
+/// let event = SAOIEntryEvent::<6, 0>::from_coordinates(
+///     &aoi_vertices,
+///     "Europe AOI Entry",
+///     AngleFormat::Degrees,
+/// );
+/// ```
+pub struct SAOIEntryEvent<const S: usize, const P: usize> {
+    inner: SBinaryEvent<S, P>,
+}
+
+impl<const S: usize, const P: usize> SAOIEntryEvent<S, P> {
+    /// Create an AOI entry event from a PolygonLocation.
+    ///
+    /// # Arguments
+    /// * `polygon` - PolygonLocation defining the Area of Interest
+    /// * `name` - Event name for identification
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::events::SAOIEntryEvent;
+    /// use brahe::access::PolygonLocation;
+    /// use nalgebra::Vector3;
+    ///
+    /// let vertices = vec![
+    ///     Vector3::new(10.0, 50.0, 0.0),
+    ///     Vector3::new(20.0, 50.0, 0.0),
+    ///     Vector3::new(20.0, 55.0, 0.0),
+    ///     Vector3::new(10.0, 55.0, 0.0),
+    ///     Vector3::new(10.0, 50.0, 0.0),
+    /// ];
+    /// let polygon = PolygonLocation::new(vertices).unwrap();
+    ///
+    /// let event = SAOIEntryEvent::<6, 0>::from_polygon(&polygon, "AOI Entry");
+    /// ```
+    pub fn from_polygon(polygon: &PolygonLocation, name: impl Into<String>) -> Self {
+        let vertices = polygon_location_to_vertices(polygon);
+        let vertices_arc = Arc::new(vertices);
+
+        let condition_fn =
+            move |t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
+                // Extract ECI position from state
+                let r_eci = Vector3::new(state[0], state[1], state[2]);
+
+                // Transform ECI -> ECEF -> Geodetic
+                let r_ecef = position_eci_to_ecef(t, r_eci);
+                let geodetic = position_ecef_to_geodetic(r_ecef, AngleFormat::Radians);
+
+                // geodetic is [lon, lat, alt] in radians
+                let lon = geodetic[0];
+                let lat = geodetic[1];
+
+                // Test if sub-satellite point is inside AOI
+                point_in_polygon(lon, lat, &vertices_arc)
+            };
+
+        Self {
+            inner: SBinaryEvent::new(name, condition_fn, EdgeType::RisingEdge),
+        }
+    }
+
+    /// Create an AOI entry event from raw coordinate pairs.
+    ///
+    /// # Arguments
+    /// * `vertices` - AOI vertices as (longitude, latitude) pairs
+    /// * `name` - Event name for identification
+    /// * `angle_format` - Whether coordinates are in degrees or radians
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::events::SAOIEntryEvent;
+    /// use brahe::constants::AngleFormat;
+    ///
+    /// let vertices = vec![
+    ///     (10.0, 50.0),
+    ///     (20.0, 50.0),
+    ///     (20.0, 55.0),
+    ///     (10.0, 55.0),
+    ///     (10.0, 50.0),
+    /// ];
+    ///
+    /// let event = SAOIEntryEvent::<6, 0>::from_coordinates(
+    ///     &vertices,
+    ///     "AOI Entry",
+    ///     AngleFormat::Degrees,
+    /// );
+    /// ```
+    pub fn from_coordinates(
+        vertices: &[(f64, f64)],
+        name: impl Into<String>,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let vertices_arc = prepare_aoi_vertices(vertices, angle_format);
+
+        let condition_fn =
+            move |t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
+                let r_eci = Vector3::new(state[0], state[1], state[2]);
+                let r_ecef = position_eci_to_ecef(t, r_eci);
+                let geodetic = position_ecef_to_geodetic(r_ecef, AngleFormat::Radians);
+
+                let lon = geodetic[0];
+                let lat = geodetic[1];
+
+                point_in_polygon(lon, lat, &vertices_arc)
+            };
+
+        Self {
+            inner: SBinaryEvent::new(name, condition_fn, EdgeType::RisingEdge),
+        }
+    }
+
+    /// Set instance number for display name.
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.inner = self.inner.with_instance(instance);
+        self
+    }
+
+    /// Set custom tolerances for event detection.
+    pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
+        self.inner = self.inner.with_tolerances(time_tol, value_tol);
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search.
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.inner = self.inner.with_step_reduction_factor(factor);
+        self
+    }
+
+    /// Set event callback.
+    pub fn with_callback(mut self, callback: SEventCallback<S, P>) -> Self {
+        self.inner = self.inner.with_callback(callback);
+        self
+    }
+
+    /// Mark as terminal event (stops propagation).
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
+        self
+    }
+}
+
+impl_sevent_detector_delegate!(SAOIEntryEvent<S, P>, inner, S, P);
+
+/// Dynamic-sized AOI Entry event detector.
+///
+/// See [`SAOIEntryEvent`] for detailed documentation.
+pub struct DAOIEntryEvent {
+    inner: DBinaryEvent,
+}
+
+impl DAOIEntryEvent {
+    /// Create an AOI entry event from a PolygonLocation.
+    pub fn from_polygon(polygon: &PolygonLocation, name: impl Into<String>) -> Self {
+        let vertices = polygon_location_to_vertices(polygon);
+        let vertices_arc = Arc::new(vertices);
+
+        let condition_fn = move |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
+            let r_eci = Vector3::new(state[0], state[1], state[2]);
+            let r_ecef = position_eci_to_ecef(t, r_eci);
+            let geodetic = position_ecef_to_geodetic(r_ecef, AngleFormat::Radians);
+
+            let lon = geodetic[0];
+            let lat = geodetic[1];
+
+            point_in_polygon(lon, lat, &vertices_arc)
+        };
+
+        Self {
+            inner: DBinaryEvent::new(name, condition_fn, EdgeType::RisingEdge),
+        }
+    }
+
+    /// Create an AOI entry event from raw coordinate pairs.
+    pub fn from_coordinates(
+        vertices: &[(f64, f64)],
+        name: impl Into<String>,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let vertices_arc = prepare_aoi_vertices(vertices, angle_format);
+
+        let condition_fn = move |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
+            let r_eci = Vector3::new(state[0], state[1], state[2]);
+            let r_ecef = position_eci_to_ecef(t, r_eci);
+            let geodetic = position_ecef_to_geodetic(r_ecef, AngleFormat::Radians);
+
+            let lon = geodetic[0];
+            let lat = geodetic[1];
+
+            point_in_polygon(lon, lat, &vertices_arc)
+        };
+
+        Self {
+            inner: DBinaryEvent::new(name, condition_fn, EdgeType::RisingEdge),
+        }
+    }
+
+    /// Set instance number for display name.
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.inner = self.inner.with_instance(instance);
+        self
+    }
+
+    /// Set custom tolerances for event detection.
+    pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
+        self.inner = self.inner.with_tolerances(time_tol, value_tol);
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search.
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.inner = self.inner.with_step_reduction_factor(factor);
+        self
+    }
+
+    /// Set event callback.
+    pub fn with_callback(mut self, callback: DEventCallback) -> Self {
+        self.inner = self.inner.with_callback(callback);
+        self
+    }
+
+    /// Mark as terminal event.
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
+        self
+    }
+}
+
+impl_devent_detector_delegate!(DAOIEntryEvent, inner);
+
+/// AOI Exit event detector (static-sized).
+///
+/// Detects when a satellite's sub-satellite point exits a polygonal Area of Interest.
+/// The sub-satellite point is computed by transforming the ECI position to geodetic
+/// coordinates.
+///
+/// # Coordinate Handling
+/// - Input coordinates can be in degrees or radians (specified via `AngleFormat`)
+/// - Polygons crossing the anti-meridian (±180° longitude) are automatically handled
+/// - Polygon should be closed (first vertex == last vertex), but auto-closes if not
+///
+/// # Event Triggering
+/// - Triggers on `FallingEdge`: when point transitions from inside to outside the AOI
+/// - Returns `true` when satellite is inside the AOI
+///
+/// # Examples
+/// ```
+/// use brahe::events::SAOIExitEvent;
+/// use brahe::constants::AngleFormat;
+///
+/// let aoi_vertices = vec![
+///     (10.0, 50.0),
+///     (20.0, 50.0),
+///     (20.0, 55.0),
+///     (10.0, 55.0),
+///     (10.0, 50.0),
+/// ];
+///
+/// let event = SAOIExitEvent::<6, 0>::from_coordinates(
+///     &aoi_vertices,
+///     "Europe AOI Exit",
+///     AngleFormat::Degrees,
+/// );
+/// ```
+pub struct SAOIExitEvent<const S: usize, const P: usize> {
+    inner: SBinaryEvent<S, P>,
+}
+
+impl<const S: usize, const P: usize> SAOIExitEvent<S, P> {
+    /// Create an AOI exit event from a PolygonLocation.
+    ///
+    /// # Arguments
+    /// * `polygon` - PolygonLocation defining the Area of Interest
+    /// * `name` - Event name for identification
+    pub fn from_polygon(polygon: &PolygonLocation, name: impl Into<String>) -> Self {
+        let vertices = polygon_location_to_vertices(polygon);
+        let vertices_arc = Arc::new(vertices);
+
+        let condition_fn =
+            move |t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
+                let r_eci = Vector3::new(state[0], state[1], state[2]);
+                let r_ecef = position_eci_to_ecef(t, r_eci);
+                let geodetic = position_ecef_to_geodetic(r_ecef, AngleFormat::Radians);
+
+                let lon = geodetic[0];
+                let lat = geodetic[1];
+
+                point_in_polygon(lon, lat, &vertices_arc)
+            };
+
+        Self {
+            inner: SBinaryEvent::new(name, condition_fn, EdgeType::FallingEdge),
+        }
+    }
+
+    /// Create an AOI exit event from raw coordinate pairs.
+    ///
+    /// # Arguments
+    /// * `vertices` - AOI vertices as (longitude, latitude) pairs
+    /// * `name` - Event name for identification
+    /// * `angle_format` - Whether coordinates are in degrees or radians
+    pub fn from_coordinates(
+        vertices: &[(f64, f64)],
+        name: impl Into<String>,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let vertices_arc = prepare_aoi_vertices(vertices, angle_format);
+
+        let condition_fn =
+            move |t: Epoch, state: &SVector<f64, S>, _params: Option<&SVector<f64, P>>| {
+                let r_eci = Vector3::new(state[0], state[1], state[2]);
+                let r_ecef = position_eci_to_ecef(t, r_eci);
+                let geodetic = position_ecef_to_geodetic(r_ecef, AngleFormat::Radians);
+
+                let lon = geodetic[0];
+                let lat = geodetic[1];
+
+                point_in_polygon(lon, lat, &vertices_arc)
+            };
+
+        Self {
+            inner: SBinaryEvent::new(name, condition_fn, EdgeType::FallingEdge),
+        }
+    }
+
+    /// Set instance number for display name.
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.inner = self.inner.with_instance(instance);
+        self
+    }
+
+    /// Set custom tolerances for event detection.
+    pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
+        self.inner = self.inner.with_tolerances(time_tol, value_tol);
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search.
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.inner = self.inner.with_step_reduction_factor(factor);
+        self
+    }
+
+    /// Set event callback.
+    pub fn with_callback(mut self, callback: SEventCallback<S, P>) -> Self {
+        self.inner = self.inner.with_callback(callback);
+        self
+    }
+
+    /// Mark as terminal event (stops propagation).
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
+        self
+    }
+}
+
+impl_sevent_detector_delegate!(SAOIExitEvent<S, P>, inner, S, P);
+
+/// Dynamic-sized AOI Exit event detector.
+///
+/// See [`SAOIExitEvent`] for detailed documentation.
+pub struct DAOIExitEvent {
+    inner: DBinaryEvent,
+}
+
+impl DAOIExitEvent {
+    /// Create an AOI exit event from a PolygonLocation.
+    pub fn from_polygon(polygon: &PolygonLocation, name: impl Into<String>) -> Self {
+        let vertices = polygon_location_to_vertices(polygon);
+        let vertices_arc = Arc::new(vertices);
+
+        let condition_fn = move |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
+            let r_eci = Vector3::new(state[0], state[1], state[2]);
+            let r_ecef = position_eci_to_ecef(t, r_eci);
+            let geodetic = position_ecef_to_geodetic(r_ecef, AngleFormat::Radians);
+
+            let lon = geodetic[0];
+            let lat = geodetic[1];
+
+            point_in_polygon(lon, lat, &vertices_arc)
+        };
+
+        Self {
+            inner: DBinaryEvent::new(name, condition_fn, EdgeType::FallingEdge),
+        }
+    }
+
+    /// Create an AOI exit event from raw coordinate pairs.
+    pub fn from_coordinates(
+        vertices: &[(f64, f64)],
+        name: impl Into<String>,
+        angle_format: AngleFormat,
+    ) -> Self {
+        let vertices_arc = prepare_aoi_vertices(vertices, angle_format);
+
+        let condition_fn = move |t: Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| {
+            let r_eci = Vector3::new(state[0], state[1], state[2]);
+            let r_ecef = position_eci_to_ecef(t, r_eci);
+            let geodetic = position_ecef_to_geodetic(r_ecef, AngleFormat::Radians);
+
+            let lon = geodetic[0];
+            let lat = geodetic[1];
+
+            point_in_polygon(lon, lat, &vertices_arc)
+        };
+
+        Self {
+            inner: DBinaryEvent::new(name, condition_fn, EdgeType::FallingEdge),
+        }
+    }
+
+    /// Set instance number for display name.
+    pub fn with_instance(mut self, instance: usize) -> Self {
+        self.inner = self.inner.with_instance(instance);
+        self
+    }
+
+    /// Set custom tolerances for event detection.
+    pub fn with_tolerances(mut self, time_tol: f64, value_tol: f64) -> Self {
+        self.inner = self.inner.with_tolerances(time_tol, value_tol);
+        self
+    }
+
+    /// Set custom step reduction factor for bisection search.
+    pub fn with_step_reduction_factor(mut self, factor: f64) -> Self {
+        self.inner = self.inner.with_step_reduction_factor(factor);
+        self
+    }
+
+    /// Set event callback.
+    pub fn with_callback(mut self, callback: DEventCallback) -> Self {
+        self.inner = self.inner.with_callback(callback);
+        self
+    }
+
+    /// Mark as terminal event.
+    pub fn set_terminal(mut self) -> Self {
+        self.inner = self.inner.set_terminal();
+        self
+    }
+}
+
+impl_devent_detector_delegate!(DAOIExitEvent, inner);
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -2686,7 +3196,7 @@ mod tests {
     use crate::constants::R_EARTH;
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
-    use nalgebra::{DVector, Vector6};
+    use nalgebra::{DVector, Vector3, Vector6};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -7778,5 +8288,578 @@ mod tests {
         assert_eq!(event.step_reduction_factor(), 0.3);
         assert!(event.callback().is_some());
         assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // =========================================================================
+    // SAOIEntryEvent Tests
+    // =========================================================================
+
+    #[test]
+    fn test_SAOIEntryEvent_from_coordinates() {
+        setup_global_test_eop();
+
+        // Simple square polygon around (0, 0)
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0), // closed
+        ];
+
+        let event =
+            SAOIEntryEvent::<6, 0>::from_coordinates(&vertices, "AOI Entry", AngleFormat::Degrees);
+
+        assert_eq!(event.name(), "AOI Entry");
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SAOIEntryEvent_from_polygon() {
+        setup_global_test_eop();
+
+        // Create polygon location - vertices are (lon, lat, alt) in degrees
+        let polygon = PolygonLocation::new(vec![
+            Vector3::new(-10.0, -10.0, 0.0),
+            Vector3::new(10.0, -10.0, 0.0),
+            Vector3::new(10.0, 10.0, 0.0),
+            Vector3::new(-10.0, 10.0, 0.0),
+            Vector3::new(-10.0, -10.0, 0.0),
+        ])
+        .unwrap();
+
+        let event = SAOIEntryEvent::<6, 0>::from_polygon(&polygon, "AOI Entry");
+
+        assert_eq!(event.name(), "AOI Entry");
+    }
+
+    #[test]
+    fn test_SAOIEntryEvent_evaluate_inside() {
+        setup_global_test_eop();
+
+        // At J2000 epoch, ECI x-axis position maps to approximately lon=79.54°, lat=0°
+        // Create a polygon that covers this region (60-100° lon, ±30° lat)
+        let vertices = vec![
+            (60.0, -30.0),
+            (100.0, -30.0),
+            (100.0, 30.0),
+            (60.0, 30.0),
+            (60.0, -30.0),
+        ];
+
+        let event =
+            SAOIEntryEvent::<6, 0>::from_coordinates(&vertices, "AOI Entry", AngleFormat::Degrees);
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // ECI position along x-axis at altitude 500 km
+        // At this epoch, this maps to approximately lon=79.54°, lat=0°
+        let r = R_EARTH + 500e3;
+        let state_inside = Vector6::new(r, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let val = event.evaluate(epoch, &state_inside, None);
+        // Inside polygon -> binary returns true -> should be positive
+        assert!(
+            val > 0.0,
+            "Expected positive value for inside AOI, got {}",
+            val
+        );
+    }
+
+    #[test]
+    fn test_SAOIEntryEvent_evaluate_outside() {
+        setup_global_test_eop();
+
+        // Small polygon around (0, 0)
+        let vertices = vec![
+            (-5.0, -5.0),
+            (5.0, -5.0),
+            (5.0, 5.0),
+            (-5.0, 5.0),
+            (-5.0, -5.0),
+        ];
+
+        let event =
+            SAOIEntryEvent::<6, 0>::from_coordinates(&vertices, "AOI Entry", AngleFormat::Degrees);
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // State at lon=90, lat=0 - directly over Indian Ocean
+        // ECI position along y-axis at this epoch
+        let r = R_EARTH + 500e3;
+        let state_outside = Vector6::new(0.0, r, 0.0, 0.0, -7.5e3, 0.0);
+        let val = event.evaluate(epoch, &state_outside, None);
+        // Outside polygon -> binary returns false -> should be negative
+        assert!(
+            val < 0.0,
+            "Expected negative value for outside AOI, got {}",
+            val
+        );
+    }
+
+    #[test]
+    fn test_SAOIEntryEvent_with_instance() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            SAOIEntryEvent::<6, 0>::from_coordinates(&vertices, "AOI Entry", AngleFormat::Degrees)
+                .with_instance(3);
+
+        assert_eq!(event.name(), "AOI Entry 3");
+    }
+
+    #[test]
+    fn test_SAOIEntryEvent_set_terminal() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            SAOIEntryEvent::<6, 0>::from_coordinates(&vertices, "AOI Entry", AngleFormat::Degrees)
+                .set_terminal();
+
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    #[test]
+    fn test_SAOIEntryEvent_with_tolerances() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            SAOIEntryEvent::<6, 0>::from_coordinates(&vertices, "AOI Entry", AngleFormat::Degrees)
+                .with_tolerances(1e-4, 1e-6);
+
+        assert_eq!(event.time_tolerance(), 1e-4);
+    }
+
+    #[test]
+    fn test_SAOIEntryEvent_radians_input() {
+        setup_global_test_eop();
+
+        use std::f64::consts::PI;
+
+        // Same polygon but in radians
+        let vertices = vec![
+            (-10.0 * PI / 180.0, -10.0 * PI / 180.0),
+            (10.0 * PI / 180.0, -10.0 * PI / 180.0),
+            (10.0 * PI / 180.0, 10.0 * PI / 180.0),
+            (-10.0 * PI / 180.0, 10.0 * PI / 180.0),
+            (-10.0 * PI / 180.0, -10.0 * PI / 180.0),
+        ];
+
+        let event = SAOIEntryEvent::<6, 0>::from_coordinates(
+            &vertices,
+            "AOI Entry Radians",
+            AngleFormat::Radians,
+        );
+
+        assert_eq!(event.name(), "AOI Entry Radians");
+    }
+
+    // =========================================================================
+    // SAOIExitEvent Tests
+    // =========================================================================
+
+    #[test]
+    fn test_SAOIExitEvent_from_coordinates() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            SAOIExitEvent::<6, 0>::from_coordinates(&vertices, "AOI Exit", AngleFormat::Degrees);
+
+        assert_eq!(event.name(), "AOI Exit");
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_SAOIExitEvent_from_polygon() {
+        setup_global_test_eop();
+
+        let polygon = PolygonLocation::new(vec![
+            Vector3::new(-10.0, -10.0, 0.0),
+            Vector3::new(10.0, -10.0, 0.0),
+            Vector3::new(10.0, 10.0, 0.0),
+            Vector3::new(-10.0, 10.0, 0.0),
+            Vector3::new(-10.0, -10.0, 0.0),
+        ])
+        .unwrap();
+
+        let event = SAOIExitEvent::<6, 0>::from_polygon(&polygon, "AOI Exit");
+
+        assert_eq!(event.name(), "AOI Exit");
+    }
+
+    #[test]
+    fn test_SAOIExitEvent_evaluate_inside() {
+        setup_global_test_eop();
+
+        // At J2000 epoch, ECI x-axis position maps to approximately lon=79.54°, lat=0°
+        // Create a polygon that covers this region (60-100° lon, ±30° lat)
+        let vertices = vec![
+            (60.0, -30.0),
+            (100.0, -30.0),
+            (100.0, 30.0),
+            (60.0, 30.0),
+            (60.0, -30.0),
+        ];
+
+        let event =
+            SAOIExitEvent::<6, 0>::from_coordinates(&vertices, "AOI Exit", AngleFormat::Degrees);
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // State inside the AOI (equatorial position, maps to ~lon=79.54°)
+        let r = R_EARTH + 500e3;
+        let state_inside = Vector6::new(r, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        let val = event.evaluate(epoch, &state_inside, None);
+        // Inside polygon -> binary returns true -> should be positive
+        assert!(
+            val > 0.0,
+            "Expected positive value for inside AOI, got {}",
+            val
+        );
+    }
+
+    #[test]
+    fn test_SAOIExitEvent_evaluate_outside() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-5.0, -5.0),
+            (5.0, -5.0),
+            (5.0, 5.0),
+            (-5.0, 5.0),
+            (-5.0, -5.0),
+        ];
+
+        let event =
+            SAOIExitEvent::<6, 0>::from_coordinates(&vertices, "AOI Exit", AngleFormat::Degrees);
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // State outside the AOI (at lon=90)
+        let r = R_EARTH + 500e3;
+        let state_outside = Vector6::new(0.0, r, 0.0, 0.0, -7.5e3, 0.0);
+        let val = event.evaluate(epoch, &state_outside, None);
+        // Outside polygon -> binary returns false -> should be negative
+        assert!(
+            val < 0.0,
+            "Expected negative value for outside AOI, got {}",
+            val
+        );
+    }
+
+    #[test]
+    fn test_SAOIExitEvent_with_instance() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            SAOIExitEvent::<6, 0>::from_coordinates(&vertices, "AOI Exit", AngleFormat::Degrees)
+                .with_instance(5);
+
+        assert_eq!(event.name(), "AOI Exit 5");
+    }
+
+    #[test]
+    fn test_SAOIExitEvent_set_terminal() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            SAOIExitEvent::<6, 0>::from_coordinates(&vertices, "AOI Exit", AngleFormat::Degrees)
+                .set_terminal();
+
+        assert_eq!(event.action(), EventAction::Stop);
+    }
+
+    // =========================================================================
+    // DAOIEntryEvent Tests
+    // =========================================================================
+
+    #[test]
+    fn test_DAOIEntryEvent_from_coordinates() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            DAOIEntryEvent::from_coordinates(&vertices, "Dynamic AOI Entry", AngleFormat::Degrees);
+
+        assert_eq!(event.name(), "Dynamic AOI Entry");
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DAOIEntryEvent_from_polygon() {
+        setup_global_test_eop();
+
+        let polygon = PolygonLocation::new(vec![
+            Vector3::new(-10.0, -10.0, 0.0),
+            Vector3::new(10.0, -10.0, 0.0),
+            Vector3::new(10.0, 10.0, 0.0),
+            Vector3::new(-10.0, 10.0, 0.0),
+            Vector3::new(-10.0, -10.0, 0.0),
+        ])
+        .unwrap();
+
+        let event = DAOIEntryEvent::from_polygon(&polygon, "Dynamic AOI Entry");
+
+        assert_eq!(event.name(), "Dynamic AOI Entry");
+    }
+
+    #[test]
+    fn test_DAOIEntryEvent_evaluate() {
+        setup_global_test_eop();
+
+        // At J2000 epoch, ECI x-axis position maps to approximately lon=79.54°, lat=0°
+        // Create a polygon that covers this region (60-100° lon, ±30° lat)
+        let vertices = vec![
+            (60.0, -30.0),
+            (100.0, -30.0),
+            (100.0, 30.0),
+            (60.0, 30.0),
+            (60.0, -30.0),
+        ];
+
+        let event =
+            DAOIEntryEvent::from_coordinates(&vertices, "Dynamic AOI Entry", AngleFormat::Degrees);
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // State inside the AOI (equatorial position, maps to ~lon=79.54°)
+        let r = R_EARTH + 500e3;
+        let state_inside = DVector::from_vec(vec![r, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let val = event.evaluate(epoch, &state_inside, None);
+        assert!(
+            val > 0.0,
+            "Expected positive value for inside AOI, got {}",
+            val
+        );
+
+        // State outside the AOI (polar position at z-axis, maps to ~lat=90°)
+        let state_outside = DVector::from_vec(vec![0.0, 0.0, r, 0.0, 7.5e3, 0.0]);
+        let val = event.evaluate(epoch, &state_outside, None);
+        assert!(
+            val < 0.0,
+            "Expected negative value for outside AOI, got {}",
+            val
+        );
+    }
+
+    #[test]
+    fn test_DAOIEntryEvent_with_instance() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            DAOIEntryEvent::from_coordinates(&vertices, "Dynamic AOI Entry", AngleFormat::Degrees)
+                .with_instance(2);
+
+        assert_eq!(event.name(), "Dynamic AOI Entry 2");
+    }
+
+    // =========================================================================
+    // DAOIExitEvent Tests
+    // =========================================================================
+
+    #[test]
+    fn test_DAOIExitEvent_from_coordinates() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            DAOIExitEvent::from_coordinates(&vertices, "Dynamic AOI Exit", AngleFormat::Degrees);
+
+        assert_eq!(event.name(), "Dynamic AOI Exit");
+        assert_eq!(event.action(), EventAction::Continue);
+    }
+
+    #[test]
+    fn test_DAOIExitEvent_from_polygon() {
+        setup_global_test_eop();
+
+        let polygon = PolygonLocation::new(vec![
+            Vector3::new(-10.0, -10.0, 0.0),
+            Vector3::new(10.0, -10.0, 0.0),
+            Vector3::new(10.0, 10.0, 0.0),
+            Vector3::new(-10.0, 10.0, 0.0),
+            Vector3::new(-10.0, -10.0, 0.0),
+        ])
+        .unwrap();
+
+        let event = DAOIExitEvent::from_polygon(&polygon, "Dynamic AOI Exit");
+
+        assert_eq!(event.name(), "Dynamic AOI Exit");
+    }
+
+    #[test]
+    fn test_DAOIExitEvent_evaluate() {
+        setup_global_test_eop();
+
+        // At J2000 epoch, ECI x-axis position maps to approximately lon=79.54°, lat=0°
+        // Create a polygon that covers this region (60-100° lon, ±30° lat)
+        let vertices = vec![
+            (60.0, -30.0),
+            (100.0, -30.0),
+            (100.0, 30.0),
+            (60.0, 30.0),
+            (60.0, -30.0),
+        ];
+
+        let event =
+            DAOIExitEvent::from_coordinates(&vertices, "Dynamic AOI Exit", AngleFormat::Degrees);
+
+        let epoch = Epoch::from_jd(2451545.0, TimeSystem::UTC);
+
+        // State inside the AOI (equatorial position, maps to ~lon=79.54°)
+        let r = R_EARTH + 500e3;
+        let state_inside = DVector::from_vec(vec![r, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
+        let val = event.evaluate(epoch, &state_inside, None);
+        assert!(
+            val > 0.0,
+            "Expected positive value for inside AOI, got {}",
+            val
+        );
+
+        // State outside the AOI (polar position at z-axis, maps to ~lat=90°)
+        let state_outside = DVector::from_vec(vec![0.0, 0.0, r, 0.0, 7.5e3, 0.0]);
+        let val = event.evaluate(epoch, &state_outside, None);
+        assert!(
+            val < 0.0,
+            "Expected negative value for outside AOI, got {}",
+            val
+        );
+    }
+
+    #[test]
+    fn test_DAOIExitEvent_with_instance() {
+        setup_global_test_eop();
+
+        let vertices = vec![
+            (-10.0, -10.0),
+            (10.0, -10.0),
+            (10.0, 10.0),
+            (-10.0, 10.0),
+            (-10.0, -10.0),
+        ];
+
+        let event =
+            DAOIExitEvent::from_coordinates(&vertices, "Dynamic AOI Exit", AngleFormat::Degrees)
+                .with_instance(4);
+
+        assert_eq!(event.name(), "Dynamic AOI Exit 4");
+    }
+
+    // =========================================================================
+    // AOI Event Anti-Meridian Tests
+    // =========================================================================
+
+    #[test]
+    fn test_SAOIEntryEvent_antimeridian() {
+        setup_global_test_eop();
+
+        // Polygon crossing anti-meridian (e.g., Pacific region)
+        let vertices = vec![
+            (170.0, -10.0),
+            (-170.0, -10.0), // crosses anti-meridian
+            (-170.0, 10.0),
+            (170.0, 10.0),
+            (170.0, -10.0),
+        ];
+
+        let event = SAOIEntryEvent::<6, 0>::from_coordinates(
+            &vertices,
+            "Pacific AOI",
+            AngleFormat::Degrees,
+        );
+
+        assert_eq!(event.name(), "Pacific AOI");
+        // Event should be created successfully even for anti-meridian crossing polygons
+    }
+
+    #[test]
+    fn test_SAOIExitEvent_antimeridian() {
+        setup_global_test_eop();
+
+        // Polygon crossing anti-meridian
+        let vertices = vec![
+            (170.0, -10.0),
+            (-170.0, -10.0),
+            (-170.0, 10.0),
+            (170.0, 10.0),
+            (170.0, -10.0),
+        ];
+
+        let event = SAOIExitEvent::<6, 0>::from_coordinates(
+            &vertices,
+            "Pacific AOI Exit",
+            AngleFormat::Degrees,
+        );
+
+        assert_eq!(event.name(), "Pacific AOI Exit");
     }
 }

@@ -269,3 +269,137 @@ def test_all_event_directions():
     ]:
         event = bh.SemiMajorAxisEvent(7000e3, "Test", direction)
         assert event is not None
+
+
+# =============================================================================
+# AOI (Area of Interest) Events
+# =============================================================================
+
+
+def test_AOIEntryEvent_from_coordinates():
+    """Test AOIEntryEvent construction from coordinate pairs."""
+    vertices = [
+        (10.0, 50.0),
+        (20.0, 50.0),
+        (20.0, 55.0),
+        (10.0, 55.0),
+        (10.0, 50.0),  # closed polygon
+    ]
+    event = bh.AOIEntryEvent.from_coordinates(
+        vertices, "Europe AOI Entry", bh.AngleFormat.DEGREES
+    )
+    assert event is not None
+
+
+def test_AOIEntryEvent_from_polygon():
+    """Test AOIEntryEvent construction from PolygonLocation."""
+    vertices = [
+        np.array([10.0, 50.0, 0.0]),
+        np.array([20.0, 50.0, 0.0]),
+        np.array([20.0, 55.0, 0.0]),
+        np.array([10.0, 55.0, 0.0]),
+        np.array([10.0, 50.0, 0.0]),
+    ]
+    polygon = bh.PolygonLocation(vertices)
+    event = bh.AOIEntryEvent(polygon, "Polygon AOI Entry")
+    assert event is not None
+
+
+def test_AOIEntryEvent_builder_chaining():
+    """Test AOIEntryEvent builder pattern."""
+    vertices = [
+        (10.0, 50.0),
+        (20.0, 50.0),
+        (20.0, 55.0),
+        (10.0, 55.0),
+        (10.0, 50.0),
+    ]
+    event = (
+        bh.AOIEntryEvent.from_coordinates(vertices, "AOI", bh.AngleFormat.DEGREES)
+        .with_instance(2)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_AOIEntryEvent_radians():
+    """Test AOIEntryEvent with radians input."""
+    vertices_rad = [
+        (np.radians(10.0), np.radians(50.0)),
+        (np.radians(20.0), np.radians(50.0)),
+        (np.radians(20.0), np.radians(55.0)),
+        (np.radians(10.0), np.radians(55.0)),
+        (np.radians(10.0), np.radians(50.0)),
+    ]
+    event = bh.AOIEntryEvent.from_coordinates(
+        vertices_rad, "Radians AOI", bh.AngleFormat.RADIANS
+    )
+    assert event is not None
+
+
+def test_AOIExitEvent_from_coordinates():
+    """Test AOIExitEvent construction from coordinate pairs."""
+    vertices = [
+        (10.0, 50.0),
+        (20.0, 50.0),
+        (20.0, 55.0),
+        (10.0, 55.0),
+        (10.0, 50.0),
+    ]
+    event = bh.AOIExitEvent.from_coordinates(
+        vertices, "Europe AOI Exit", bh.AngleFormat.DEGREES
+    )
+    assert event is not None
+
+
+def test_AOIExitEvent_from_polygon():
+    """Test AOIExitEvent construction from PolygonLocation."""
+    vertices = [
+        np.array([10.0, 50.0, 0.0]),
+        np.array([20.0, 50.0, 0.0]),
+        np.array([20.0, 55.0, 0.0]),
+        np.array([10.0, 55.0, 0.0]),
+        np.array([10.0, 50.0, 0.0]),
+    ]
+    polygon = bh.PolygonLocation(vertices)
+    event = bh.AOIExitEvent(polygon, "Polygon AOI Exit")
+    assert event is not None
+
+
+def test_AOIExitEvent_builder_chaining():
+    """Test AOIExitEvent builder pattern."""
+    vertices = [
+        (10.0, 50.0),
+        (20.0, 50.0),
+        (20.0, 55.0),
+        (10.0, 55.0),
+        (10.0, 50.0),
+    ]
+    event = (
+        bh.AOIExitEvent.from_coordinates(vertices, "AOI", bh.AngleFormat.DEGREES)
+        .with_instance(3)
+        .with_tolerances(1e-4, 1e-7)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_AOI_antimeridian_polygon():
+    """Test AOI events with polygon crossing the anti-meridian."""
+    # Polygon in the Pacific crossing the anti-meridian
+    vertices = [
+        (170.0, -10.0),
+        (-170.0, -10.0),  # crosses anti-meridian
+        (-170.0, 10.0),
+        (170.0, 10.0),
+        (170.0, -10.0),
+    ]
+    entry_event = bh.AOIEntryEvent.from_coordinates(
+        vertices, "Pacific Entry", bh.AngleFormat.DEGREES
+    )
+    exit_event = bh.AOIExitEvent.from_coordinates(
+        vertices, "Pacific Exit", bh.AngleFormat.DEGREES
+    )
+    assert entry_event is not None
+    assert exit_event is not None

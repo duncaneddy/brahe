@@ -2,7 +2,7 @@
 //!
 //! Provides chainable filtering for detected events with an idiomatic Rust iterator interface.
 
-use crate::events::{DDetectedEvent, EventAction, EventType};
+use crate::events::{DDetectedEvent, EventAction, EventType, SDetectedEvent};
 use crate::time::Epoch;
 
 /// Iterator adapter for filtering detected events
@@ -244,6 +244,182 @@ where
     I: Iterator<Item = &'a DDetectedEvent>,
 {
     type Item = &'a DDetectedEvent;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+// =============================================================================
+// Static-sized Event Query
+// =============================================================================
+
+/// Iterator adapter for filtering static-sized detected events
+///
+/// Provides chainable filter methods that compose naturally with
+/// standard iterator operations. This is the static-sized variant
+/// for use with `SDetectedEvent<S>`.
+///
+/// # Type Parameters
+/// * `S` - State dimension (typically 6 for orbital mechanics)
+///
+/// # Examples
+///
+/// ```ignore
+/// use brahe::propagators::SGPPropagator;
+/// use brahe::time::Epoch;
+///
+/// // Get events from detector 0
+/// let events: Vec<_> = propagator.query_events()
+///     .by_detector_index(0)
+///     .collect();
+///
+/// // Combined filters
+/// let events: Vec<_> = propagator.query_events()
+///     .by_detector_index(1)
+///     .in_time_range(start, end)
+///     .collect();
+/// ```
+pub struct SEventQuery<'a, const S: usize, I>
+where
+    I: Iterator<Item = &'a SDetectedEvent<S>>,
+{
+    iter: I,
+}
+
+impl<'a, const S: usize, I> SEventQuery<'a, S, I>
+where
+    I: Iterator<Item = &'a SDetectedEvent<S>> + 'a,
+{
+    /// Create a new SEventQuery from an iterator
+    ///
+    /// This is typically called by propagator methods, not directly by users.
+    pub fn new(iter: I) -> Self {
+        Self { iter }
+    }
+
+    /// Filter by detector index
+    ///
+    /// Returns events detected by the specified detector.
+    ///
+    /// # Arguments
+    /// * `index` - Detector index (0-based, corresponding to add order)
+    pub fn by_detector_index(
+        self,
+        index: usize,
+    ) -> SEventQuery<'a, S, impl Iterator<Item = &'a SDetectedEvent<S>> + 'a> {
+        SEventQuery::new(self.iter.filter(move |e| e.detector_index == index))
+    }
+
+    /// Filter by exact detector name
+    ///
+    /// Returns events where the detector name exactly matches the given string.
+    ///
+    /// # Arguments
+    /// * `name` - Exact name to match
+    pub fn by_name_exact(
+        self,
+        name: &str,
+    ) -> SEventQuery<'a, S, impl Iterator<Item = &'a SDetectedEvent<S>> + 'a> {
+        let name = name.to_string();
+        SEventQuery::new(self.iter.filter(move |e| e.name == name))
+    }
+
+    /// Filter by detector name substring
+    ///
+    /// Returns events where the detector name contains the given substring.
+    ///
+    /// # Arguments
+    /// * `substring` - Substring to search for in event names
+    pub fn by_name_contains(
+        self,
+        substring: &str,
+    ) -> SEventQuery<'a, S, impl Iterator<Item = &'a SDetectedEvent<S>> + 'a> {
+        let substring = substring.to_string();
+        SEventQuery::new(self.iter.filter(move |e| e.name.contains(&substring)))
+    }
+
+    /// Filter by time range (inclusive)
+    ///
+    /// Returns events that occurred within the specified time range.
+    ///
+    /// # Arguments
+    /// * `start` - Start of time range (inclusive)
+    /// * `end` - End of time range (inclusive)
+    pub fn in_time_range(
+        self,
+        start: Epoch,
+        end: Epoch,
+    ) -> SEventQuery<'a, S, impl Iterator<Item = &'a SDetectedEvent<S>> + 'a> {
+        SEventQuery::new(
+            self.iter
+                .filter(move |e| e.window_open >= start && e.window_open <= end),
+        )
+    }
+
+    /// Filter events after epoch (inclusive)
+    ///
+    /// Returns events that occurred at or after the specified epoch.
+    ///
+    /// # Arguments
+    /// * `epoch` - Epoch value (inclusive)
+    pub fn after(
+        self,
+        epoch: Epoch,
+    ) -> SEventQuery<'a, S, impl Iterator<Item = &'a SDetectedEvent<S>> + 'a> {
+        SEventQuery::new(self.iter.filter(move |e| e.window_open >= epoch))
+    }
+
+    /// Filter events before epoch (inclusive)
+    ///
+    /// Returns events that occurred at or before the specified epoch.
+    ///
+    /// # Arguments
+    /// * `epoch` - Epoch value (inclusive)
+    pub fn before(
+        self,
+        epoch: Epoch,
+    ) -> SEventQuery<'a, S, impl Iterator<Item = &'a SDetectedEvent<S>> + 'a> {
+        SEventQuery::new(self.iter.filter(move |e| e.window_open <= epoch))
+    }
+
+    /// Filter by event type
+    ///
+    /// Returns events of the specified type.
+    ///
+    /// # Arguments
+    /// * `event_type` - Event type to filter by (Instantaneous or Window)
+    pub fn by_event_type(
+        self,
+        event_type: EventType,
+    ) -> SEventQuery<'a, S, impl Iterator<Item = &'a SDetectedEvent<S>> + 'a> {
+        SEventQuery::new(self.iter.filter(move |e| e.event_type == event_type))
+    }
+
+    /// Filter by event action
+    ///
+    /// Returns events with the specified action.
+    ///
+    /// # Arguments
+    /// * `action` - Event action to filter by (Stop or Continue)
+    pub fn by_action(
+        self,
+        action: EventAction,
+    ) -> SEventQuery<'a, S, impl Iterator<Item = &'a SDetectedEvent<S>> + 'a> {
+        SEventQuery::new(self.iter.filter(move |e| e.action == action))
+    }
+}
+
+// Implement Iterator to enable .collect(), .count(), etc.
+impl<'a, const S: usize, I> Iterator for SEventQuery<'a, S, I>
+where
+    I: Iterator<Item = &'a SDetectedEvent<S>>,
+{
+    type Item = &'a SDetectedEvent<S>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()

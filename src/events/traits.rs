@@ -164,6 +164,26 @@ impl DDetectedEvent {
     }
 }
 
+/// Convert static-sized detected event to dynamic-sized
+///
+/// This enables SGPPropagator (which uses SDetectedEvent<6>) to return
+/// events compatible with Python bindings (which use DDetectedEvent).
+impl<const S: usize> From<SDetectedEvent<S>> for DDetectedEvent {
+    fn from(event: SDetectedEvent<S>) -> Self {
+        DDetectedEvent {
+            window_open: event.window_open,
+            window_close: event.window_close,
+            entry_state: DVector::from_iterator(S, event.entry_state.iter().cloned()),
+            exit_state: DVector::from_iterator(S, event.exit_state.iter().cloned()),
+            value: event.value,
+            name: event.name,
+            action: event.action,
+            event_type: event.event_type,
+            detector_index: event.detector_index,
+        }
+    }
+}
+
 /// Event callback function signature (static-sized)
 ///
 /// Takes current time, state, and parameters. Returns optional updates:

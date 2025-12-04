@@ -44,6 +44,9 @@ from brahe._brahe import (
     BinaryEvent,
     # Premade event detectors
     AltitudeEvent,
+    # AOI (Area of Interest) events
+    AOIEntryEvent,
+    AOIExitEvent,
     # Orbital element events
     SemiMajorAxisEvent,
     EccentricityEvent,
@@ -79,6 +82,9 @@ __all__ = [
     "BinaryEvent",
     # Premade event detectors
     "AltitudeEvent",
+    # AOI (Area of Interest) events
+    "AOIEntryEvent",
+    "AOIExitEvent",
     # Orbital element events
     "SemiMajorAxisEvent",
     "EccentricityEvent",

@@ -160,35 +160,6 @@ for prop in capella_props:
                 {"satellite": sat_name, "exit_time": event.window_open, "event": event}
             )
 
-# # Add event detectors to detect AOI exits
-# for prop in capella_props:
-#     sat_name = prop.get_name()
-
-#     # Create AOI exit event detector
-#     exit_event = bh.AOIExitEvent.from_coordinates(
-#         aoi_vertices,
-#         f"{sat_name}_AOI_Exit",
-#         bh.AngleFormat.DEGREES
-#     )
-
-#     # Add event detector to propagator
-#     prop.add_event_detector(exit_event)
-
-
-# # Propagate for the analysis period
-# bh.par_propagate_to(capella_props, epoch_end)
-
-# # Collect exit events from the event log
-# aoi_exits = []
-# for prop in capella_props:
-#     for event in prop.event_log():
-#         if "AOI_Exit" in event.name:
-#             aoi_exits.append({
-#                 "satellite": sat_name,
-#                 "exit_time": event.window_open,
-#                 "event": event
-#             })
-
 
 elapsed = time.time() - start_time
 print(f"Found {len(aoi_exits)} AOI exit events in {elapsed:.2f} seconds")

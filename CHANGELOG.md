@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.0.1] - 2025-12-04
+### Added
+
+- - Added `from_omm_elements` to `SGPPropagator`. Supports direct initialization of propagator from OMM elements without needing to go through TLE lines. This is both more accurate as well as more robust to TLE ID depletion. [#102](https://github.com/duncaneddy/brahe/pull/102)
+- - Add support for event detection to `SGPPropagator`
+  - Add `AOIEntryEvent` and `AOIExitEvent` as premade event detectors. [#104](https://github.com/duncaneddy/brahe/pull/104)
+
+### Fixed
+
+- - Fix typo in JOSS paper title [#99](https://github.com/duncaneddy/brahe/pull/99)
+
 ## [1.0.0] - 2025-11-29
 ### Added
 

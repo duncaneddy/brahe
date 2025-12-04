@@ -84,6 +84,126 @@ impl PySGPPropagator {
         }
     }
 
+    /// Create a new SGP propagator from CCSDS OMM (Orbit Mean-elements Message) fields.
+    ///
+    /// This method directly constructs an SGP4 propagator from OMM orbital elements,
+    /// bypassing TLE parsing. It creates synthetic TLE lines for API consistency.
+    ///
+    /// Args:
+    ///     epoch (str): ISO 8601 datetime string (e.g., "2025-11-29T20:01:44.058144").
+    ///     mean_motion (float): Mean motion in revolutions per day.
+    ///     eccentricity (float): Orbital eccentricity (dimensionless).
+    ///     inclination (float): Orbital inclination in degrees.
+    ///     raan (float): Right ascension of ascending node in degrees.
+    ///     arg_of_pericenter (float): Argument of pericenter in degrees.
+    ///     mean_anomaly (float): Mean anomaly in degrees.
+    ///     norad_id (int): NORAD catalog ID.
+    ///     step_size (float): Step size in seconds for propagation. Defaults to 60.0.
+    ///     object_name (str or None): Satellite name (OBJECT_NAME). Defaults to None.
+    ///     object_id (str or None): International designator (OBJECT_ID). Defaults to None.
+    ///     classification (str or None): Classification character ('U', 'C', or 'S'). Defaults to 'U'.
+    ///     bstar (float or None): B* drag term. Defaults to 0.0.
+    ///     mean_motion_dot (float or None): First derivative of mean motion / 2. Defaults to 0.0.
+    ///     mean_motion_ddot (float or None): Second derivative of mean motion / 6. Defaults to 0.0.
+    ///     ephemeris_type (int or None): Ephemeris type (usually 0). Defaults to 0.
+    ///     element_set_no (int or None): Element set number. Defaults to 999.
+    ///     rev_at_epoch (int or None): Revolution number at epoch. Defaults to 0.
+    ///
+    /// Returns:
+    ///     SGPPropagator: New SGP propagator instance.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     # ISS OMM data
+    ///     prop = bh.SGPPropagator.from_omm_elements(
+    ///         epoch="2025-11-29T20:01:44.058144",
+    ///         mean_motion=15.49193835,
+    ///         eccentricity=0.0003723,
+    ///         inclination=51.6312,
+    ///         raan=206.3646,
+    ///         arg_of_pericenter=184.1118,
+    ///         mean_anomaly=175.9840,
+    ///         norad_id=25544,
+    ///         object_name="ISS (ZARYA)",
+    ///         object_id="1998-067A",
+    ///         bstar=0.15237e-3,
+    ///         mean_motion_dot=0.801e-4,
+    ///         rev_at_epoch=54085,
+    ///     )
+    ///     state = prop.state(prop.epoch)
+    ///     print(f"Position: {state[:3]}")
+    ///     ```
+    #[classmethod]
+    #[pyo3(signature = (
+        epoch,
+        mean_motion,
+        eccentricity,
+        inclination,
+        raan,
+        arg_of_pericenter,
+        mean_anomaly,
+        norad_id,
+        step_size=60.0,
+        object_name=None,
+        object_id=None,
+        classification=None,
+        bstar=None,
+        mean_motion_dot=None,
+        mean_motion_ddot=None,
+        ephemeris_type=None,
+        element_set_no=None,
+        rev_at_epoch=None
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_omm_elements(
+        _cls: &Bound<'_, PyType>,
+        epoch: &str,
+        mean_motion: f64,
+        eccentricity: f64,
+        inclination: f64,
+        raan: f64,
+        arg_of_pericenter: f64,
+        mean_anomaly: f64,
+        norad_id: u64,
+        step_size: Option<f64>,
+        object_name: Option<String>,
+        object_id: Option<String>,
+        classification: Option<char>,
+        bstar: Option<f64>,
+        mean_motion_dot: Option<f64>,
+        mean_motion_ddot: Option<f64>,
+        ephemeris_type: Option<u8>,
+        element_set_no: Option<u64>,
+        rev_at_epoch: Option<u64>,
+    ) -> PyResult<Self> {
+        let step_size = step_size.unwrap_or(60.0);
+        match propagators::SGPPropagator::from_omm_elements(
+            epoch,
+            mean_motion,
+            eccentricity,
+            inclination,
+            raan,
+            arg_of_pericenter,
+            mean_anomaly,
+            norad_id,
+            step_size,
+            object_name.as_deref(),
+            object_id.as_deref(),
+            classification,
+            bstar,
+            mean_motion_dot,
+            mean_motion_ddot,
+            ephemeris_type,
+            element_set_no,
+            rev_at_epoch,
+        ) {
+            Ok(propagator) => Ok(PySGPPropagator { propagator }),
+            Err(e) => Err(exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
+    }
+
     /// Get NORAD ID.
     ///
     /// Returns:
@@ -111,6 +231,44 @@ impl PySGPPropagator {
     #[getter]
     pub fn satellite_name(&self) -> Option<String> {
         self.propagator.satellite_name.clone()
+    }
+
+    /// Get TLE line 1.
+    ///
+    /// Returns:
+    ///     str: First line of the TLE.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
+    ///     print(propagator.line1)
+    ///     ```
+    #[getter]
+    pub fn line1(&self) -> String {
+        self.propagator.line1.clone()
+    }
+
+    /// Get TLE line 2.
+    ///
+    /// Returns:
+    ///     str: Second line of the TLE.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
+    ///     print(propagator.line2)
+    ///     ```
+    #[getter]
+    pub fn line2(&self) -> String {
+        self.propagator.line2.clone()
     }
 
     /// Get TLE epoch.

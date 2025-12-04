@@ -94,10 +94,6 @@ Summary statistics for all imaging data latencies over the 7-day period:
 
 The ground track plot below shows the satellite paths during the top 3 worst-case latency periods. The green dashed line indicates the US AOI boundary, and the blue circles show the ground station communication cones:
 
-``` python
---8<-- "./examples/examples/imaging_data_latency.py:visualization"
-```
-
 <figure markdown="span">
     ![Imaging Data Latency Ground Tracks](../figures/imaging_data_latency_groundtrack_light.svg#only-light)
     ![Imaging Data Latency Ground Tracks](../figures/imaging_data_latency_groundtrack_dark.svg#only-dark)
@@ -110,6 +106,11 @@ The colored tracks show the satellite ground paths from the moment of AOI exit u
 - **Yellow**: Third longest latency
 
 This visualization helps identify geographic regions where additional ground stations might reduce data latency.
+
+``` python
+--8<-- "./examples/examples/imaging_data_latency.py:visualization"
+```
+
 
 ## Full Code Example
 

@@ -71,29 +71,29 @@ print(f"Loaded {len(ksat_stations)} KSAT ground stations")
 # Using a simplified polygon that captures the main landmass
 print("\nDefining continental US AOI polygon...")
 aoi_vertices = [
-    (-117.1, 32.5),  # San Diego area
-    (-114.6, 32.7),  # Arizona border
-    (-111.0, 31.3),  # Southern Arizona
-    (-108.2, 31.3),  # New Mexico border
-    (-106.5, 31.8),  # El Paso area
-    (-103.0, 29.0),  # Big Bend, Texas
-    (-97.1, 25.9),  # Southern Texas
-    (-90.1, 30.9),  # Gulf coast Louisiana
-    (-80.0, 24.5),  # Florida Keys
-    (-80.1, 31.0),  # Florida/Georgia coast
-    (-75.5, 35.2),  # Cape Hatteras
-    (-73.9, 40.5),  # New York area
-    (-70.0, 41.5),  # Cape Cod
-    (-66.9, 44.8),  # Maine coast
-    (-67.0, 47.5),  # Northern Maine
-    (-82.5, 41.7),  # Lake Erie
-    (-83.5, 46.0),  # Lake Superior
-    (-92.0, 48.6),  # Minnesota/Canada border
-    (-104.0, 49.0),  # Montana/Canada border
-    (-117.0, 49.0),  # Washington/Canada border
-    (-124.7, 48.4),  # Washington coast
-    (-125.0, 42.0),  # Oregon coast
-    (-124.0, 39.0),  # Northern California coast
+    (-117.1, 32.5),
+    (-114.6, 32.7),
+    (-111.0, 31.3),
+    (-108.2, 31.3),
+    (-106.5, 31.8),
+    (-103.0, 29.0),
+    (-97.1, 25.9),
+    (-90.1, 30.9),
+    (-80.0, 24.5),
+    (-80.1, 31.0),
+    (-75.5, 35.2),
+    (-73.9, 40.5),
+    (-70.0, 41.5),
+    (-66.9, 44.8),
+    (-67.0, 47.5),
+    (-82.5, 41.7),
+    (-83.5, 46.0),
+    (-92.0, 48.6),
+    (-104.0, 49.0),
+    (-117.0, 49.0),
+    (-124.7, 48.4),
+    (-125.0, 42.0),
+    (-124.0, 39.0),
     (-117.1, 32.5),  # Close polygon
 ]
 

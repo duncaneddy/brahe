@@ -34,7 +34,8 @@ use crate::constants::{AngleFormat, DEG2RAD, OMEGA_EARTH, RAD2DEG};
 use crate::coordinates::state_eci_to_koe;
 use crate::frames::{polar_motion, state_ecef_to_eci, state_gcrf_to_eme2000, state_itrf_to_gcrf};
 use crate::orbits::tle::{
-    TleFormat, calculate_tle_line_checksum, epoch_from_tle, parse_norad_id, validate_tle_lines,
+    TleFormat, calculate_tle_line_checksum, create_tle_lines, epoch_from_tle,
+    norad_id_numeric_to_alpha5, parse_norad_id, validate_tle_lines,
 };
 use crate::propagators::traits::{SOrbitStateProvider, SStatePropagator, SStateProvider};
 use crate::time::{Epoch, TimeSystem};
@@ -42,6 +43,7 @@ use crate::trajectories::SOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::{BraheError, Identifiable};
 use nalgebra::{Vector3, Vector6};
+use sgp4::chrono::{Datelike, NaiveDateTime, Timelike};
 
 /// Helper functions
 /// Compute Greenwich Mean Sidereal Time 1982 Model. Formulae taken from
@@ -337,6 +339,251 @@ impl SGPPropagator {
             angle_format: None, // angle_format is not meaningful for Cartesian
             name: name.map(|s| s.to_string()),
             id: Some(norad_id as u64),
+            uuid: None,
+        })
+    }
+
+    /// Create a new SGP propagator from CCSDS OMM (Orbit Mean-elements Message) fields.
+    ///
+    /// This method directly constructs an SGP4 propagator from OMM orbital elements,
+    /// bypassing TLE parsing. It creates synthetic TLE lines for API consistency.
+    ///
+    /// # Arguments
+    /// * `epoch` - ISO 8601 datetime string (e.g., "2025-11-29T20:01:44.058144")
+    /// * `mean_motion` - Mean motion in revolutions per day
+    /// * `eccentricity` - Orbital eccentricity (dimensionless)
+    /// * `inclination` - Orbital inclination in degrees
+    /// * `raan` - Right ascension of ascending node in degrees
+    /// * `arg_of_pericenter` - Argument of pericenter in degrees
+    /// * `mean_anomaly` - Mean anomaly in degrees
+    /// * `norad_id` - NORAD catalog ID
+    /// * `step_size` - Default step size in seconds
+    /// * `object_name` - Optional satellite name (OBJECT_NAME)
+    /// * `object_id` - Optional international designator (OBJECT_ID, e.g., "1998-067A")
+    /// * `classification` - Classification character ('U', 'C', or 'S'), defaults to 'U'
+    /// * `bstar` - B* drag term, defaults to 0.0
+    /// * `mean_motion_dot` - First derivative of mean motion / 2, defaults to 0.0
+    /// * `mean_motion_ddot` - Second derivative of mean motion / 6, defaults to 0.0
+    /// * `ephemeris_type` - Ephemeris type (usually 0), defaults to 0
+    /// * `element_set_no` - Element set number, defaults to 999
+    /// * `rev_at_epoch` - Revolution number at epoch, defaults to 0
+    ///
+    /// # Returns
+    /// * `Result<SGPPropagator, BraheError>` - New SGP propagator instance or error
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::SGPPropagator;
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    ///
+    /// // Initialize EOP provider
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// // ISS OMM data
+    /// let prop = SGPPropagator::from_omm_elements(
+    ///     "2025-11-29T20:01:44.058144",  // EPOCH
+    ///     15.49193835,                    // MEAN_MOTION (rev/day)
+    ///     0.0003723,                      // ECCENTRICITY
+    ///     51.6312,                        // INCLINATION (degrees)
+    ///     206.3646,                       // RA_OF_ASC_NODE (degrees)
+    ///     184.1118,                       // ARG_OF_PERICENTER (degrees)
+    ///     175.9840,                       // MEAN_ANOMALY (degrees)
+    ///     25544,                          // NORAD_CAT_ID
+    ///     60.0,                           // step_size (seconds)
+    ///     Some("ISS (ZARYA)"),            // OBJECT_NAME
+    ///     Some("1998-067A"),              // OBJECT_ID
+    ///     Some('U'),                      // CLASSIFICATION_TYPE
+    ///     Some(0.15237e-3),               // BSTAR
+    ///     Some(0.801e-4),                 // MEAN_MOTION_DOT
+    ///     Some(0.0),                      // MEAN_MOTION_DDOT
+    ///     Some(0),                        // EPHEMERIS_TYPE
+    ///     Some(999),                      // ELEMENT_SET_NO
+    ///     Some(54085),                    // REV_AT_EPOCH
+    /// ).unwrap();
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_omm_elements(
+        epoch: &str,
+        mean_motion: f64,
+        eccentricity: f64,
+        inclination: f64,
+        raan: f64,
+        arg_of_pericenter: f64,
+        mean_anomaly: f64,
+        norad_id: u64,
+        step_size: f64,
+        object_name: Option<&str>,
+        object_id: Option<&str>,
+        classification: Option<char>,
+        bstar: Option<f64>,
+        mean_motion_dot: Option<f64>,
+        mean_motion_ddot: Option<f64>,
+        ephemeris_type: Option<u8>,
+        element_set_no: Option<u64>,
+        rev_at_epoch: Option<u64>,
+    ) -> Result<Self, BraheError> {
+        // Parse epoch (OMM format: "2025-11-29T20:01:44.058144")
+        let datetime = NaiveDateTime::parse_from_str(epoch, "%Y-%m-%dT%H:%M:%S%.f")
+            .or_else(|_| NaiveDateTime::parse_from_str(epoch, "%Y-%m-%dT%H:%M:%S"))
+            .map_err(|e| BraheError::Error(format!("Invalid epoch format '{}': {}", epoch, e)))?;
+
+        // Map classification character to sgp4::Classification
+        let classification_char = classification.unwrap_or('U');
+        let sgp4_classification = match classification_char {
+            'U' | ' ' => sgp4::Classification::Unclassified,
+            'C' => sgp4::Classification::Classified,
+            'S' => sgp4::Classification::Secret,
+            c => {
+                return Err(BraheError::Error(format!(
+                    "Invalid classification character: '{}'. Must be 'U', 'C', or 'S'",
+                    c
+                )));
+            }
+        };
+
+        // Apply defaults for optional fields
+        let bstar_val = bstar.unwrap_or(0.0);
+        let mean_motion_dot_val = mean_motion_dot.unwrap_or(0.0);
+        let mean_motion_ddot_val = mean_motion_ddot.unwrap_or(0.0);
+        let ephemeris_type_val = ephemeris_type.unwrap_or(0);
+        let element_set_no_val = element_set_no.unwrap_or(999);
+        let rev_at_epoch_val = rev_at_epoch.unwrap_or(0);
+
+        // Directly construct sgp4::Elements
+        let elements = sgp4::Elements {
+            object_name: object_name.map(|s| s.to_string()),
+            international_designator: object_id.map(|s| s.to_string()),
+            norad_id,
+            classification: sgp4_classification,
+            datetime,
+            mean_motion_dot: mean_motion_dot_val,
+            mean_motion_ddot: mean_motion_ddot_val,
+            drag_term: bstar_val,
+            element_set_number: element_set_no_val,
+            inclination,
+            right_ascension: raan,
+            eccentricity,
+            argument_of_perigee: arg_of_pericenter,
+            mean_anomaly,
+            mean_motion,
+            revolution_number: rev_at_epoch_val,
+            ephemeris_type: ephemeris_type_val,
+        };
+
+        // Create SGP4 constants from elements
+        let constants = sgp4::Constants::from_elements(&elements)
+            .map_err(|e| BraheError::Error(format!("SGP4 constants error: {:?}", e)))?;
+
+        // Convert chrono::NaiveDateTime to brahe Epoch
+        let brahe_epoch = Epoch::from_datetime(
+            datetime.year() as u32,
+            datetime.month() as u8,
+            datetime.day() as u8,
+            datetime.hour() as u8,
+            datetime.minute() as u8,
+            datetime.second() as f64 + datetime.nanosecond() as f64 / 1e9,
+            0.0, // nanoseconds already included in seconds
+            TimeSystem::UTC,
+        );
+
+        // Generate synthetic TLE lines for API consistency
+        // Convert OBJECT_ID from OMM format (e.g., "1998-067A") to TLE format (e.g., "98067A")
+        let intl_designator = object_id.map(|id| {
+            // OMM format: YYYY-NNNP (year-number-piece)
+            // TLE format: YYNNNP (2-digit year, no hyphen)
+            if id.len() >= 5 && id.chars().nth(4) == Some('-') {
+                // Has a hyphen at position 4, convert 4-digit year to 2-digit
+                let year_2digit = &id[2..4]; // Take last 2 digits of year
+                let rest = &id[5..]; // Everything after the hyphen
+                format!("{}{}", year_2digit, rest)
+            } else {
+                // Already in TLE format or unknown format, use as-is
+                id.to_string()
+            }
+        });
+        let intl_designator_ref = intl_designator.as_deref().unwrap_or("");
+
+        let norad_id_str = norad_id_numeric_to_alpha5(norad_id as u32)?;
+        let (line1, line2) = create_tle_lines(
+            &brahe_epoch,
+            &norad_id_str,
+            classification_char,
+            intl_designator_ref,
+            mean_motion,
+            eccentricity,
+            inclination,
+            raan,
+            arg_of_pericenter,
+            mean_anomaly,
+            mean_motion_dot_val / 2.0,
+            mean_motion_ddot_val / 6.0,
+            bstar_val,
+            ephemeris_type_val,
+            element_set_no_val as u16,
+            rev_at_epoch_val as u32,
+        )?;
+
+        // Determine TLE format based on NORAD ID
+        let format = if norad_id >= 100000 {
+            TleFormat::Alpha5
+        } else {
+            TleFormat::Classic
+        };
+
+        // Compute initial state at epoch
+        let prediction = constants
+            .propagate(sgp4::MinutesSinceEpoch(0.0))
+            .map_err(|e| BraheError::Error(format!("SGP4 propagation error: {:?}", e)))?;
+
+        // Convert from km to m and km/s to m/s
+        let tle_state = Vector6::new(
+            prediction.position[0] * 1000.0,
+            prediction.position[1] * 1000.0,
+            prediction.position[2] * 1000.0,
+            prediction.velocity[0] * 1000.0,
+            prediction.velocity[1] * 1000.0,
+            prediction.velocity[2] * 1000.0,
+        );
+
+        // Convert initial state to ECI Cartesian
+        let initial_state = convert_state_from_spg4_frame(
+            brahe_epoch,
+            tle_state,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+
+        // Create trajectory with initial state
+        let mut trajectory =
+            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+
+        // Set trajectory identity from propagator identity
+        if let Some(n) = object_name {
+            trajectory = trajectory.with_name(n);
+        }
+        trajectory = trajectory.with_id(norad_id);
+
+        trajectory.add(brahe_epoch, initial_state);
+
+        Ok(SGPPropagator {
+            line1,
+            line2,
+            satellite_name: object_name.map(|s| s.to_string()),
+            format,
+            norad_id_string: norad_id_str,
+            norad_id: norad_id as u32,
+            constants,
+            epoch: brahe_epoch,
+            initial_state,
+            trajectory,
+            step_size,
+            frame: OrbitFrame::ECI,
+            representation: OrbitRepresentation::Cartesian,
+            angle_format: None,
+            name: object_name.map(|s| s.to_string()),
+            id: Some(norad_id),
             uuid: None,
         })
     }
@@ -1002,6 +1249,154 @@ mod tests {
         // Verify identity fields are automatically set
         assert_eq!(prop.get_name(), Some(name));
         assert_eq!(prop.get_id(), Some(25544));
+    }
+
+    #[test]
+    fn test_sgppropagator_from_omm_elements() {
+        setup_global_test_eop();
+
+        // ISS OMM data
+        let propagator = SGPPropagator::from_omm_elements(
+            "2025-11-29T20:01:44.058144",
+            15.49193835, // mean_motion (rev/day)
+            0.0003723,   // eccentricity
+            51.6312,     // inclination (degrees)
+            206.3646,    // raan (degrees)
+            184.1118,    // arg_of_pericenter (degrees)
+            175.9840,    // mean_anomaly (degrees)
+            25544,       // norad_id
+            60.0,        // step_size
+            Some("ISS (ZARYA)"),
+            Some("1998-067A"),
+            Some('U'),
+            Some(0.15237e-3),
+            Some(0.801e-4),
+            Some(0.0),
+            Some(0),
+            Some(999),
+            Some(54085),
+        );
+
+        assert!(
+            propagator.is_ok(),
+            "Failed to create propagator: {:?}",
+            propagator.as_ref().err()
+        );
+        let prop = propagator.unwrap();
+
+        // Verify basic properties
+        assert_eq!(prop.norad_id, 25544);
+        assert_eq!(prop.step_size, 60.0);
+        assert_eq!(prop.satellite_name, Some("ISS (ZARYA)".to_string()));
+        assert_eq!(prop.epoch.year(), 2025);
+        assert_eq!(prop.epoch.month(), 11);
+        assert_eq!(prop.epoch.day(), 29);
+
+        // Verify orbital elements (all angles returned in degrees)
+        assert_abs_diff_eq!(prop.eccentricity(), 0.0003723, epsilon = 1e-7);
+        assert_abs_diff_eq!(prop.inclination(), 51.6312, epsilon = 1e-4);
+        assert_abs_diff_eq!(prop.right_ascension(), 206.3646, epsilon = 1e-4);
+        assert_abs_diff_eq!(prop.arg_perigee(), 184.1118, epsilon = 1e-4);
+        assert_abs_diff_eq!(prop.mean_anomaly(), 175.9840, epsilon = 1e-4);
+    }
+
+    #[test]
+    fn test_sgppropagator_from_omm_elements_minimal() {
+        setup_global_test_eop();
+
+        // Test with minimal required parameters (all optionals as None)
+        let propagator = SGPPropagator::from_omm_elements(
+            "2025-11-29T20:01:44.058144",
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+            60.0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        assert!(propagator.is_ok());
+        let prop = propagator.unwrap();
+        assert_eq!(prop.norad_id, 25544);
+        assert_eq!(prop.satellite_name, None);
+    }
+
+    #[test]
+    fn test_sgppropagator_from_omm_elements_propagation() {
+        setup_global_test_eop();
+
+        let mut prop = SGPPropagator::from_omm_elements(
+            "2025-11-29T20:01:44.058144",
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+            60.0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Verify initial state is valid
+        let initial_state = prop.current_state();
+        assert!(initial_state.iter().all(|x| x.is_finite()));
+
+        // Propagate forward
+        prop.step();
+        let new_state = prop.current_state();
+        assert!(new_state.iter().all(|x| x.is_finite()));
+        assert_ne!(new_state, initial_state);
+    }
+
+    #[test]
+    fn test_sgppropagator_from_omm_elements_invalid_epoch() {
+        setup_global_test_eop();
+
+        let propagator = SGPPropagator::from_omm_elements(
+            "not-a-valid-date",
+            15.49193835,
+            0.0003723,
+            51.6312,
+            206.3646,
+            184.1118,
+            175.9840,
+            25544,
+            60.0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        assert!(propagator.is_err());
+        let err = propagator.unwrap_err();
+        assert!(err.to_string().contains("Invalid epoch format"));
     }
 
     #[test]

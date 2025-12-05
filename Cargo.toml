@@ -1,6 +1,6 @@
 [package]
 name = "brahe"
-version = "1.0.1"
+version = "1.0.2"
 authors = ["Duncan Eddy <duncan.eddy@gmail.com>"]
 edition = "2024"
 description = "Brahe is a modern satellite dynamics library for research and engineering applications designed to be easy-to-learn, high-performance, and quick-to-deploy. The north-star of the development is enabling users to solve meaningful problems and answer questions quickly, easily, and correctly."

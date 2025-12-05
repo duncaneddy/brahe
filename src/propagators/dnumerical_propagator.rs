@@ -863,6 +863,57 @@ impl DNumericalPropagator {
         self.event_detectors.push(detector);
     }
 
+    /// Take ownership of all event detectors, leaving the propagator with none.
+    ///
+    /// This is useful for transferring event detectors to another propagator
+    /// or for parallel propagation where detectors need to be moved.
+    ///
+    /// # Returns
+    /// The vector of event detectors that were attached to this propagator.
+    pub fn take_event_detectors(&mut self) -> Vec<Box<dyn DEventDetector>> {
+        std::mem::take(&mut self.event_detectors)
+    }
+
+    /// Set the event detectors (replaces any existing detectors).
+    ///
+    /// # Arguments
+    /// * `detectors` - Vector of event detectors to set
+    pub fn set_event_detectors(&mut self, detectors: Vec<Box<dyn DEventDetector>>) {
+        self.event_detectors = detectors;
+    }
+
+    /// Take ownership of the event log, leaving an empty log.
+    ///
+    /// # Returns
+    /// The vector of detected events.
+    pub fn take_event_log(&mut self) -> Vec<DDetectedEvent> {
+        std::mem::take(&mut self.event_log)
+    }
+
+    /// Set the event log (replaces any existing log).
+    ///
+    /// # Arguments
+    /// * `log` - Vector of detected events to set
+    pub fn set_event_log(&mut self, log: Vec<DDetectedEvent>) {
+        self.event_log = log;
+    }
+
+    /// Set the terminated flag.
+    ///
+    /// # Arguments
+    /// * `terminated` - Whether propagation was terminated
+    pub fn set_terminated(&mut self, terminated: bool) {
+        self.terminated = terminated;
+    }
+
+    /// Check if propagation was terminated by an event.
+    ///
+    /// # Returns
+    /// `true` if propagation was terminated by an event callback
+    pub fn is_terminated(&self) -> bool {
+        self.terminated
+    }
+
     /// Get all detected events
     ///
     /// Returns a slice of all events that have been detected during propagation.

@@ -189,3 +189,58 @@ def test_par_propagate_to_not_a_list_raises_error():
     # Pass a single propagator instead of a list
     with pytest.raises(TypeError):
         par_propagate_to(prop, target)
+
+
+def test_par_propagate_to_sgp_with_events():
+    """Test that parallel propagation detects events correctly for SGP propagators"""
+    import brahe as bh
+
+    line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+
+    # Create multiple SGP propagators from the same TLE
+    propagators = [SGPPropagator.from_tle(line1, line2, 60.0) for _ in range(3)]
+    epoch = propagators[0].epoch
+
+    # Add time events to each propagator at different times
+    for i, prop in enumerate(propagators):
+        event = bh.TimeEvent(epoch + 100.0 * (i + 1), f"Event_{i}")
+        prop.add_event_detector(event)
+
+    # Propagate in parallel
+    target = epoch + 400.0
+    par_propagate_to(propagators, target)
+
+    # Verify all events were detected
+    for i, prop in enumerate(propagators):
+        event_log = prop.event_log()
+        assert len(event_log) == 1, (
+            f"Propagator {i} should have 1 event, got {len(event_log)}"
+        )
+        assert f"Event_{i}" in event_log[0].name, f"Event name should contain Event_{i}"
+
+
+def test_par_propagate_to_numerical_propagator_raises_error():
+    """Test that NumericalPropagator raises a clear error due to GIL limitations"""
+    import brahe as bh
+
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = epoch + 6.0
+    state = np.array([1.0, 0.0])
+
+    # Simple harmonic oscillator dynamics
+    omega = 1.0
+
+    def sho_dynamics(t, state, params):
+        return np.array([state[1], -(omega**2) * state[0]])
+
+    config = bh.NumericalPropagationConfig.default()
+
+    propagators = [
+        bh.NumericalPropagator(epoch, state.copy(), sho_dynamics, config),
+        bh.NumericalPropagator(epoch, state.copy(), sho_dynamics, config),
+    ]
+
+    # Should raise TypeError with helpful message about GIL
+    with pytest.raises(TypeError, match="GIL"):
+        par_propagate_to(propagators, target)

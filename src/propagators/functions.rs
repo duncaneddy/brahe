@@ -31,7 +31,7 @@ use crate::utils::threading::get_thread_pool;
 /// # Examples
 ///
 /// ```
-/// use brahe::propagators::{KeplerianPropagator, par_propagate_to};
+/// use brahe::propagators::{KeplerianPropagator, par_propagate_to_s};
 /// use brahe::traits::SStatePropagator;
 /// use brahe::constants::AngleFormat;
 /// use brahe::Epoch;
@@ -59,13 +59,39 @@ use crate::utils::threading::get_thread_pool;
 ///
 /// // Propagate all to target epoch in parallel
 /// let target = epoch + 3600.0; // 1 hour later
-/// par_propagate_to(&mut propagators, target);
+/// par_propagate_to_s(&mut propagators, target);
 ///
 /// // All propagators are now at target epoch
 /// assert_eq!(propagators[0].current_epoch(), target);
 /// assert_eq!(propagators[1].current_epoch(), target);
 /// ```
-pub fn par_propagate_to<P: SStatePropagator + Send>(propagators: &mut [P], target_epoch: Epoch) {
+pub fn par_propagate_to_s<P: SStatePropagator + Send>(propagators: &mut [P], target_epoch: Epoch) {
+    get_thread_pool().install(|| {
+        propagators
+            .par_iter_mut()
+            .for_each(|prop| prop.propagate_to(target_epoch));
+    });
+}
+
+/// Propagate multiple dynamic-state propagators to a target epoch in parallel.
+///
+/// This function is similar to `par_propagate_to_s` but works with propagators
+/// that implement `DStatePropagator` (dynamic state vectors) instead of
+/// `SStatePropagator` (static 6D vectors).
+///
+/// This is useful for:
+/// - Numerical orbit propagators with STM/sensitivity matrices
+/// - Monte Carlo simulations with numerical propagation
+/// - Batch processing of high-fidelity orbital predictions
+///
+/// # Arguments
+///
+/// * `propagators` - Mutable slice of propagators to update
+/// * `target_epoch` - The epoch to propagate all propagators to
+pub fn par_propagate_to_d<P: super::traits::DStatePropagator + Send>(
+    propagators: &mut [P],
+    target_epoch: Epoch,
+) {
     get_thread_pool().install(|| {
         propagators
             .par_iter_mut()
@@ -85,7 +111,7 @@ mod tests {
     use nalgebra as na;
 
     #[test]
-    fn test_par_propagate_to_keplerian() {
+    fn test_par_propagate_to_s_keplerian() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
@@ -114,7 +140,7 @@ mod tests {
         ];
 
         // Propagate in parallel
-        par_propagate_to(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target);
 
         // Verify all propagators reached target epoch
         for prop in &propagators {
@@ -132,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn test_par_propagate_to_sgp() {
+    fn test_par_propagate_to_s_sgp() {
         setup_global_test_eop();
 
         // ISS TLE data (using same TLE multiple times to test parallel execution)
@@ -152,7 +178,7 @@ mod tests {
 
         // Propagate all forward 1 hour from TLE epoch
         let target = epoch_iss + 3600.0;
-        par_propagate_to(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target);
 
         // Verify all reached target epoch
         for prop in &propagators {
@@ -171,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn test_par_propagate_to_matches_sequential() {
+    fn test_par_propagate_to_s_matches_sequential() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
@@ -210,7 +236,7 @@ mod tests {
         ];
 
         // Propagate in parallel
-        par_propagate_to(&mut parallel_props, target);
+        par_propagate_to_s(&mut parallel_props, target);
 
         // Propagate sequentially
         for prop in &mut sequential_props {
@@ -234,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_par_propagate_to_empty_slice() {
+    fn test_par_propagate_to_s_empty_slice() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
@@ -243,11 +269,11 @@ mod tests {
         let mut propagators: Vec<KeplerianPropagator> = vec![];
 
         // Should not panic with empty slice
-        par_propagate_to(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target);
     }
 
     #[test]
-    fn test_par_propagate_to_single_propagator() {
+    fn test_par_propagate_to_s_single_propagator() {
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
@@ -260,8 +286,54 @@ mod tests {
             60.0,
         )];
 
-        par_propagate_to(&mut propagators, target);
+        par_propagate_to_s(&mut propagators, target);
 
         assert_eq!(propagators[0].current_epoch(), target);
+    }
+
+    #[test]
+    fn test_par_propagate_to_s_sgp_with_events() {
+        use crate::events::DTimeEvent;
+
+        setup_global_test_eop();
+
+        let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+        let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+
+        let mut propagators: Vec<SGPPropagator> = (0..3)
+            .map(|_| SGPPropagator::from_tle(line1, line2, 60.0).unwrap())
+            .collect();
+
+        let epoch = propagators[0].epoch;
+
+        // Add event detector to each propagator
+        for (i, prop) in propagators.iter_mut().enumerate() {
+            let event = DTimeEvent::new(epoch + 100.0 * (i + 1) as f64, format!("Event_{}", i));
+            prop.add_event_detector(Box::new(event));
+        }
+
+        // Propagate in parallel
+        let target = epoch + 400.0;
+        par_propagate_to_s(&mut propagators, target);
+
+        // Verify events were detected
+        for (i, prop) in propagators.iter().enumerate() {
+            assert!(
+                !prop.event_log().is_empty(),
+                "Propagator {} should have detected events",
+                i
+            );
+            assert_eq!(
+                prop.event_log().len(),
+                1,
+                "Propagator {} should have exactly 1 event",
+                i
+            );
+            assert!(
+                prop.event_log()[0].name.contains(&format!("Event_{}", i)),
+                "Event name should contain Event_{}",
+                i
+            );
+        }
     }
 }

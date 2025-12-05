@@ -1154,6 +1154,56 @@ impl SGPPropagator {
         self.event_detectors.push(detector);
     }
 
+    /// Take ownership of all event detectors, leaving the propagator with none.
+    ///
+    /// This is useful for transferring event detectors to/from cloned propagators,
+    /// since event detectors (trait objects) cannot be cloned.
+    ///
+    /// # Returns
+    ///
+    /// The event detectors that were attached to this propagator.
+    pub fn take_event_detectors(&mut self) -> Vec<Box<dyn DEventDetector>> {
+        std::mem::take(&mut self.event_detectors)
+    }
+
+    /// Set event detectors, replacing any existing detectors.
+    ///
+    /// # Arguments
+    ///
+    /// * `detectors` - The event detectors to attach to this propagator.
+    pub fn set_event_detectors(&mut self, detectors: Vec<Box<dyn DEventDetector>>) {
+        self.event_detectors = detectors;
+    }
+
+    /// Take ownership of the event log, leaving an empty log.
+    ///
+    /// This is useful for transferring detected events from cloned propagators.
+    ///
+    /// # Returns
+    ///
+    /// The detected events from this propagator.
+    pub fn take_event_log(&mut self) -> Vec<DDetectedEvent> {
+        std::mem::take(&mut self.event_log)
+    }
+
+    /// Set the event log, replacing any existing log.
+    ///
+    /// # Arguments
+    ///
+    /// * `log` - The event log to set.
+    pub fn set_event_log(&mut self, log: Vec<DDetectedEvent>) {
+        self.event_log = log;
+    }
+
+    /// Set the terminated flag.
+    ///
+    /// # Arguments
+    ///
+    /// * `terminated` - Whether propagation has been terminated by an event.
+    pub fn set_terminated(&mut self, terminated: bool) {
+        self.terminated = terminated;
+    }
+
     /// Get all detected events
     ///
     /// Returns a slice of all events that have been detected during propagation.

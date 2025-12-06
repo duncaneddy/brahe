@@ -9777,4 +9777,189 @@ mod tests {
         assert!(latest.is_some());
         assert_eq!(latest.unwrap().name, "Altitude Check");
     }
+
+    // =========================================================================
+    // Event Detector Management Tests
+    // =========================================================================
+
+    #[test]
+    fn test_dnumericalorbitpropagator_take_event_detectors() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Add two event detectors
+        let detector1 = DTimeEvent::new(epoch + 1000.0, "Event1");
+        let detector2 = DTimeEvent::new(epoch + 2000.0, "Event2");
+        prop.add_event_detector(Box::new(detector1));
+        prop.add_event_detector(Box::new(detector2));
+
+        // Take the detectors
+        let taken = prop.take_event_detectors();
+
+        // Verify we got the right number
+        assert_eq!(taken.len(), 2);
+
+        // Verify propagator now has empty detectors
+        // (propagating should not detect events)
+        prop.propagate_to(epoch + 3000.0);
+        assert!(prop.event_log().is_empty());
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_set_event_detectors() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Create detectors in a vector
+        let detectors: Vec<Box<dyn crate::events::DEventDetector>> = vec![
+            Box::new(DTimeEvent::new(epoch + 1000.0, "Event1")),
+            Box::new(DTimeEvent::new(epoch + 2000.0, "Event2")),
+        ];
+
+        // Set the detectors
+        prop.set_event_detectors(detectors);
+
+        // Propagate and verify events are detected
+        prop.propagate_to(epoch + 3000.0);
+        assert_eq!(prop.event_log().len(), 2);
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_take_event_log() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Add detector and propagate to trigger event
+        let detector = DTimeEvent::new(epoch + 1000.0, "TestEvent");
+        prop.add_event_detector(Box::new(detector));
+        prop.propagate_to(epoch + 1500.0);
+
+        // Verify event was detected
+        assert_eq!(prop.event_log().len(), 1);
+
+        // Take the event log
+        let taken_log = prop.take_event_log();
+
+        // Verify we got the events
+        assert_eq!(taken_log.len(), 1);
+        assert_eq!(taken_log[0].name, "TestEvent");
+
+        // Verify propagator now has empty log
+        assert!(prop.event_log().is_empty());
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_set_terminated_is_terminated() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Initial state should be false
+        assert!(!prop.is_terminated());
+
+        // Set to true
+        prop.set_terminated(true);
+        assert!(prop.is_terminated());
+
+        // Set back to false
+        prop.set_terminated(false);
+        assert!(!prop.is_terminated());
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_event_detector_roundtrip() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Add detector for 1500s
+        let detector = DTimeEvent::new(epoch + 1500.0, "RoundtripEvent");
+        prop.add_event_detector(Box::new(detector));
+
+        // Take detectors
+        let taken = prop.take_event_detectors();
+        assert_eq!(taken.len(), 1);
+
+        // Propagate to 1000s - should not detect (no detectors)
+        prop.propagate_to(epoch + 1000.0);
+        assert!(prop.event_log().is_empty());
+
+        // Set detectors back
+        prop.set_event_detectors(taken);
+
+        // Continue propagation past event time
+        prop.propagate_to(epoch + 2000.0);
+
+        // Now event should be detected
+        assert_eq!(prop.event_log().len(), 1);
+        assert!(prop.event_log()[0].name.contains("RoundtripEvent"));
+    }
 }

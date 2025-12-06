@@ -3225,4 +3225,118 @@ mod tests {
         // Should still work
         assert!(prop.current_epoch() > initial_epoch);
     }
+
+    // =============================================================================
+    // Event Detector Management Tests
+    // =============================================================================
+
+    #[test]
+    fn test_dnumericalpropagator_take_event_detectors() {
+        let mut prop = create_test_sho_propagator();
+        let initial_epoch = prop.initial_epoch();
+
+        // Add two event detectors
+        let detector1 = DTimeEvent::new(initial_epoch + 2.0, "Event1");
+        let detector2 = DTimeEvent::new(initial_epoch + 4.0, "Event2");
+        prop.add_event_detector(Box::new(detector1));
+        prop.add_event_detector(Box::new(detector2));
+
+        // Take the detectors
+        let taken = prop.take_event_detectors();
+
+        // Verify we got the right number
+        assert_eq!(taken.len(), 2);
+
+        // Verify propagator now has empty detectors
+        // (propagating should not detect events)
+        prop.propagate_to(initial_epoch + 5.0);
+        assert!(prop.event_log().is_empty());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_set_event_detectors() {
+        let mut prop = create_test_sho_propagator();
+        let initial_epoch = prop.initial_epoch();
+
+        // Create detectors in a vector
+        let detectors: Vec<Box<dyn crate::events::DEventDetector>> = vec![
+            Box::new(DTimeEvent::new(initial_epoch + 2.0, "Event1")),
+            Box::new(DTimeEvent::new(initial_epoch + 4.0, "Event2")),
+        ];
+
+        // Set the detectors
+        prop.set_event_detectors(detectors);
+
+        // Propagate and verify events are detected
+        prop.propagate_to(initial_epoch + 5.0);
+        assert_eq!(prop.event_log().len(), 2);
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_take_event_log() {
+        let mut prop = create_test_sho_propagator();
+        let initial_epoch = prop.initial_epoch();
+
+        // Add detector and propagate to trigger event
+        let detector = DTimeEvent::new(initial_epoch + 2.0, "TestEvent");
+        prop.add_event_detector(Box::new(detector));
+        prop.propagate_to(initial_epoch + 3.0);
+
+        // Verify event was detected
+        assert_eq!(prop.event_log().len(), 1);
+
+        // Take the event log
+        let taken_log = prop.take_event_log();
+
+        // Verify we got the events
+        assert_eq!(taken_log.len(), 1);
+        assert_eq!(taken_log[0].name, "TestEvent");
+
+        // Verify propagator now has empty log
+        assert!(prop.event_log().is_empty());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_set_terminated_is_terminated() {
+        let mut prop = create_test_sho_propagator();
+
+        // Initial state should be false
+        assert!(!prop.is_terminated());
+
+        // Set to true
+        prop.set_terminated(true);
+        assert!(prop.is_terminated());
+
+        // Set back to false
+        prop.set_terminated(false);
+        assert!(!prop.is_terminated());
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_event_detector_roundtrip() {
+        let mut prop = create_test_sho_propagator();
+        let initial_epoch = prop.initial_epoch();
+
+        // Add detector
+        let detector = DTimeEvent::new(initial_epoch + 3.0, "RoundtripEvent");
+        prop.add_event_detector(Box::new(detector));
+
+        // Take detectors
+        let taken = prop.take_event_detectors();
+        assert_eq!(taken.len(), 1);
+
+        // Propagate - should not detect (no detectors)
+        prop.propagate_to(initial_epoch + 2.0);
+        assert!(prop.event_log().is_empty());
+
+        // Set detectors back
+        prop.set_event_detectors(taken);
+
+        // Continue propagation past event time
+        prop.propagate_to(initial_epoch + 4.0);
+
+        // Now event should be detected
+        assert_eq!(prop.event_log().len(), 1);
+        assert!(prop.event_log()[0].name.contains("RoundtripEvent"));
+    }
 }

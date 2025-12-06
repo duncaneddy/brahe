@@ -2668,9 +2668,9 @@ fn py_par_propagate_to(
             .collect();
 
         // Use rayon scoped parallelism with wrapped raw pointers
-        // SAFETY: We hold the GIL, ensuring no Python code runs concurrently,
-        // and each propagator is accessed by exactly one thread.
-        // The borrow_guards are kept alive throughout this scope.
+        // SAFETY: No Python objects are involved in the parallel execution.
+        // Each propagator (DNumericalOrbitPropagator) is accessed by exactly one thread,
+        // and the borrow_guards are kept alive throughout this scope to ensure validity.
         let target = target_epoch.obj;
         crate::utils::threading::get_thread_pool().install(|| {
             prop_ptrs.par_iter().for_each(|SendPtr(ptr)| {

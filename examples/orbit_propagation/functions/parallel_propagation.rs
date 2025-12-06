@@ -40,7 +40,7 @@ fn main() {
 
     // Propagate all satellites in parallel
     let start = std::time::Instant::now();
-    bh::par_propagate_to(&mut propagators, target);
+    bh::par_propagate_to_s(&mut propagators, target);
     let parallel_time = start.elapsed();
 
     println!(

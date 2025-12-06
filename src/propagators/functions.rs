@@ -336,4 +336,240 @@ mod tests {
             );
         }
     }
+
+    // =========================================================================
+    // par_propagate_to_d Tests (Dynamic State Propagators)
+    // =========================================================================
+
+    use crate::propagators::force_model_config::ForceModelConfig;
+    use crate::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig};
+    use crate::traits::DStatePropagator;
+    use nalgebra::DVector;
+
+    #[test]
+    fn test_par_propagate_to_d_numerical_orbit() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
+        let target = epoch + 3600.0; // 1 hour later
+
+        // Create multiple DNumericalOrbitPropagators with different initial conditions
+        let states = vec![
+            DVector::from_vec(vec![crate::R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]),
+            DVector::from_vec(vec![crate::R_EARTH + 600e3, 0.0, 0.0, 0.0, 7400.0, 0.0]),
+            DVector::from_vec(vec![crate::R_EARTH + 400e3, 0.0, 0.0, 0.0, 7800.0, 0.0]),
+        ];
+
+        let mut propagators: Vec<DNumericalOrbitPropagator> = states
+            .into_iter()
+            .map(|state| {
+                DNumericalOrbitPropagator::new(
+                    epoch,
+                    state,
+                    NumericalPropagationConfig::default(),
+                    ForceModelConfig::earth_gravity(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap()
+            })
+            .collect();
+
+        // Propagate in parallel
+        par_propagate_to_d(&mut propagators, target);
+
+        // Verify all propagators reached target epoch
+        for prop in &propagators {
+            assert_eq!(prop.current_epoch(), target);
+        }
+
+        // Verify states are different (they had different initial conditions)
+        let state0 = propagators[0].current_state();
+        let state1 = propagators[1].current_state();
+        let state2 = propagators[2].current_state();
+
+        assert!((state0[0] - state1[0]).abs() > 1e-3);
+        assert!((state0[0] - state2[0]).abs() > 1e-3);
+        assert!((state1[0] - state2[0]).abs() > 1e-3);
+    }
+
+    #[test]
+    fn test_par_propagate_to_d_matches_sequential() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
+        let target = epoch + 1800.0; // 30 minutes
+
+        let states = [
+            DVector::from_vec(vec![crate::R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]),
+            DVector::from_vec(vec![crate::R_EARTH + 600e3, 0.0, 0.0, 0.0, 7400.0, 0.0]),
+        ];
+
+        // Create identical propagators for parallel test
+        let mut parallel_props: Vec<DNumericalOrbitPropagator> = states
+            .iter()
+            .map(|state| {
+                DNumericalOrbitPropagator::new(
+                    epoch,
+                    state.clone(),
+                    NumericalPropagationConfig::default(),
+                    ForceModelConfig::earth_gravity(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap()
+            })
+            .collect();
+
+        // Create identical propagators for sequential test
+        let mut sequential_props: Vec<DNumericalOrbitPropagator> = states
+            .iter()
+            .map(|state| {
+                DNumericalOrbitPropagator::new(
+                    epoch,
+                    state.clone(),
+                    NumericalPropagationConfig::default(),
+                    ForceModelConfig::earth_gravity(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap()
+            })
+            .collect();
+
+        // Propagate in parallel
+        par_propagate_to_d(&mut parallel_props, target);
+
+        // Propagate sequentially
+        for prop in &mut sequential_props {
+            prop.propagate_to(target);
+        }
+
+        // Results should be identical
+        for i in 0..parallel_props.len() {
+            assert_eq!(
+                parallel_props[i].current_epoch(),
+                sequential_props[i].current_epoch()
+            );
+
+            let parallel_state = parallel_props[i].current_state();
+            let sequential_state = sequential_props[i].current_state();
+
+            for j in 0..6 {
+                assert!(
+                    (parallel_state[j] - sequential_state[j]).abs() < 1e-6,
+                    "State element {} differs: parallel={}, sequential={}",
+                    j,
+                    parallel_state[j],
+                    sequential_state[j]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_par_propagate_to_d_empty_slice() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
+        let target = epoch + 3600.0;
+
+        let mut propagators: Vec<DNumericalOrbitPropagator> = vec![];
+
+        // Should not panic with empty slice
+        par_propagate_to_d(&mut propagators, target);
+    }
+
+    #[test]
+    fn test_par_propagate_to_d_single_propagator() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
+        let target = epoch + 3600.0;
+
+        let state = DVector::from_vec(vec![crate::R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+
+        let mut propagators = vec![
+            DNumericalOrbitPropagator::new(
+                epoch,
+                state,
+                NumericalPropagationConfig::default(),
+                ForceModelConfig::earth_gravity(),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap(),
+        ];
+
+        par_propagate_to_d(&mut propagators, target);
+
+        assert_eq!(propagators[0].current_epoch(), target);
+    }
+
+    #[test]
+    fn test_par_propagate_to_d_with_events() {
+        use crate::events::DTimeEvent;
+
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, crate::TimeSystem::UTC);
+        let state = DVector::from_vec(vec![crate::R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]);
+
+        let mut propagators: Vec<DNumericalOrbitPropagator> = (0..3)
+            .map(|_| {
+                DNumericalOrbitPropagator::new(
+                    epoch,
+                    state.clone(),
+                    NumericalPropagationConfig::default(),
+                    ForceModelConfig::earth_gravity(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap()
+            })
+            .collect();
+
+        // Add event detector to each propagator at different times
+        for (i, prop) in propagators.iter_mut().enumerate() {
+            let event =
+                DTimeEvent::new(epoch + 600.0 * (i + 1) as f64, format!("OrbitEvent_{}", i));
+            prop.add_event_detector(Box::new(event));
+        }
+
+        // Propagate in parallel
+        let target = epoch + 2400.0;
+        par_propagate_to_d(&mut propagators, target);
+
+        // Verify events were detected
+        for (i, prop) in propagators.iter().enumerate() {
+            assert!(
+                !prop.event_log().is_empty(),
+                "Propagator {} should have detected events",
+                i
+            );
+            assert_eq!(
+                prop.event_log().len(),
+                1,
+                "Propagator {} should have exactly 1 event",
+                i
+            );
+            assert!(
+                prop.event_log()[0]
+                    .name
+                    .contains(&format!("OrbitEvent_{}", i)),
+                "Event name should contain OrbitEvent_{}",
+                i
+            );
+        }
+    }
 }

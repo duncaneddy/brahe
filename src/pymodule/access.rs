@@ -2067,8 +2067,6 @@ impl PyPropertyValue {
     /// Returns:
     ///     The value as a Python object (int, float, list, bool, or str)
     fn to_python(&self, py: Python) -> PyResult<Py<PyAny>> {
-        use pyo3::types::{PyFloat, PyList, PyString};
-
         match &self.value {
             PropertyValue::Scalar(v) => {
                 let float_obj = PyFloat::new(py, *v);
@@ -2708,8 +2706,6 @@ impl PyAccessProperties {
 
     // Internal methods for AdditionalPropertiesDict to call back into
     fn _get_additional_properties_dict(&self, py: Python) -> PyResult<Py<PyDict>> {
-        use pyo3::types::{PyFloat, PyList, PyString};
-
         let dict = PyDict::new(py);
         for (key, value) in &self.properties.additional {
             let py_value: Py<PyAny> = match value {

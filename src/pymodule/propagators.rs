@@ -714,37 +714,9 @@ impl PySGPPropagator {
     ///     ```
     #[getter]
     pub fn trajectory(&self) -> PyOrbitalTrajectory {
-        let traj = &self.propagator.trajectory;
-
-        // Convert states from SVector to DVector
-        let states: Vec<DVector<f64>> = traj.states.iter()
-            .map(|s| DVector::from_column_slice(s.as_slice()))
-            .collect();
-
-        // Convert covariances from SMatrix to DMatrix if present
-        let covariances = traj.covariances.as_ref().map(|covs| {
-            covs.iter()
-                .map(|c| DMatrix::from_row_slice(6, 6, c.as_slice()))
-                .collect()
-        });
-
-        let mut d_traj = trajectories::DOrbitTrajectory::from_orbital_data(
-            traj.epochs.clone(),
-            states,
-            traj.frame,
-            traj.representation,
-            traj.angle_format,
-            covariances,
-        );
-
-        // Copy identity from original trajectory
-        d_traj.set_identity(
-            traj.get_name(),
-            traj.get_uuid(),
-            traj.get_id()
-        );
-
-        PyOrbitalTrajectory { trajectory: d_traj }
+        PyOrbitalTrajectory {
+            trajectory: self.propagator.trajectory.clone(),
+        }
     }
 
     /// Get Keplerian orbital elements from TLE data.
@@ -1317,289 +1289,109 @@ impl PySGPPropagator {
     ///     ```
     #[pyo3(text_signature = "(event)")]
     pub fn add_event_detector(&mut self, event: &Bound<'_, PyAny>) -> PyResult<()> {
-        // Try TimeEvent
-        if let Ok(time_event) = event.extract::<PyRef<PyTimeEvent>>() {
-            let s_event = time_event.to_s_event();
-            // Handle callback if present
-            if let Some(py_callback) = time_event.get_py_callback() {
-                let callback_clone = py_callback.clone_ref(event.py());
-                let s_callback = create_s_callback_wrapper_6(callback_clone);
-                self.propagator.add_event_detector(Box::new(s_event.with_callback(s_callback)));
-            } else {
-                self.propagator.add_event_detector(Box::new(s_event));
+        // Try TimeEvent - extract and directly use D-type event
+        if let Ok(mut time_event) = event.extract::<PyRefMut<PyTimeEvent>>() {
+            if let Some(d_event) = time_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
+                return Ok(());
             }
-            return Ok(());
+            return Err(exceptions::PyValueError::new_err("TimeEvent already consumed"));
         }
 
-        // Try ValueEvent (custom Python value function)
-        if let Ok(value_event) = event.extract::<PyRef<PyValueEvent>>() {
-            if value_event.is_consumed() {
-                return Err(exceptions::PyValueError::new_err("ValueEvent already consumed"));
+        // Try ValueEvent - extract and directly use D-type event
+        if let Ok(mut value_event) = event.extract::<PyRefMut<PyValueEvent>>() {
+            if let Some(d_event) = value_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
+                return Ok(());
             }
-
-            // Get the Python value function
-            let py_value_fn = value_event.get_value_fn_py()
-                .ok_or_else(|| exceptions::PyValueError::new_err("ValueEvent has no value function"))?
-                .clone_ref(event.py());
-
-            // Create S-type value function wrapper
-            let s_value_fn = create_s_value_fn_wrapper_6(py_value_fn);
-
-            // Build event name
-            let name = match value_event.get_instance() {
-                Some(i) => format!("{} {}", value_event.get_base_name(), i),
-                None => value_event.get_base_name().to_string(),
-            };
-
-            // Create S-type event
-            let mut s_event = events::SValueEvent::<6, 0>::new(
-                name,
-                s_value_fn,
-                value_event.get_target_value(),
-                value_event.get_direction(),
-            )
-            .with_tolerances(value_event.get_time_tolerance(), value_event.get_value_tolerance());
-
-            // Apply terminal if set
-            if value_event.is_terminal() {
-                s_event = s_event.set_terminal();
-            }
-
-            // Apply callback if set
-            if let Some(py_callback) = value_event.get_py_callback() {
-                let callback_clone = py_callback.clone_ref(event.py());
-                let s_callback = create_s_callback_wrapper_6(callback_clone);
-                self.propagator.add_event_detector(Box::new(s_event.with_callback(s_callback)));
-            } else {
-                self.propagator.add_event_detector(Box::new(s_event));
-            }
-            return Ok(());
+            return Err(exceptions::PyValueError::new_err("ValueEvent already consumed"));
         }
 
-        // Try BinaryEvent (custom Python condition function)
-        if let Ok(binary_event) = event.extract::<PyRef<PyBinaryEvent>>() {
-            if binary_event.is_consumed() {
-                return Err(exceptions::PyValueError::new_err("BinaryEvent already consumed"));
+        // Try BinaryEvent - extract and directly use D-type event
+        if let Ok(mut binary_event) = event.extract::<PyRefMut<PyBinaryEvent>>() {
+            if let Some(d_event) = binary_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
+                return Ok(());
             }
-
-            // Get the Python condition function
-            let py_condition_fn = binary_event.get_condition_fn_py()
-                .ok_or_else(|| exceptions::PyValueError::new_err("BinaryEvent has no condition function"))?
-                .clone_ref(event.py());
-
-            // Create S-type condition function wrapper
-            let s_condition_fn = create_s_condition_fn_wrapper_6(py_condition_fn);
-
-            // Build event name
-            let name = match binary_event.get_instance() {
-                Some(i) => format!("{} {}", binary_event.get_base_name(), i),
-                None => binary_event.get_base_name().to_string(),
-            };
-
-            // Create S-type event
-            let mut s_event = events::SBinaryEvent::<6, 0>::new(
-                name,
-                s_condition_fn,
-                binary_event.get_edge(),
-            )
-            .with_tolerances(binary_event.get_time_tolerance(), binary_event.get_value_tolerance());
-
-            // Apply terminal if set
-            if binary_event.is_terminal() {
-                s_event = s_event.set_terminal();
-            }
-
-            // Apply callback if set
-            if let Some(py_callback) = binary_event.get_py_callback() {
-                let callback_clone = py_callback.clone_ref(event.py());
-                let s_callback = create_s_callback_wrapper_6(callback_clone);
-                self.propagator.add_event_detector(Box::new(s_event.with_callback(s_callback)));
-            } else {
-                self.propagator.add_event_detector(Box::new(s_event));
-            }
-            return Ok(());
+            return Err(exceptions::PyValueError::new_err("BinaryEvent already consumed"));
         }
 
-        // Try AltitudeEvent
-        if let Ok(alt_event) = event.extract::<PyRef<PyAltitudeEvent>>() {
-            if alt_event.is_consumed() {
-                return Err(exceptions::PyValueError::new_err("AltitudeEvent already consumed"));
+        // Try AltitudeEvent - extract and directly use D-type event
+        if let Ok(mut alt_event) = event.extract::<PyRefMut<PyAltitudeEvent>>() {
+            if let Some(d_event) = alt_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
+                return Ok(());
             }
-
-            // Build event name
-            let name = match alt_event.get_instance() {
-                Some(i) => format!("{} {}", alt_event.get_base_name(), i),
-                None => alt_event.get_base_name().to_string(),
-            };
-
-            // Create S-type event
-            let mut s_event = events::SAltitudeEvent::<6, 0>::new(
-                alt_event.get_target_altitude(),
-                name,
-                alt_event.get_direction(),
-            )
-            .with_tolerances(alt_event.get_time_tolerance(), alt_event.get_value_tolerance());
-
-            // Apply terminal if set
-            if alt_event.is_terminal() {
-                s_event = s_event.set_terminal();
-            }
-
-            // Apply callback if set
-            if let Some(py_callback) = alt_event.get_py_callback() {
-                let callback_clone = py_callback.clone_ref(event.py());
-                let s_callback = create_s_callback_wrapper_6(callback_clone);
-                self.propagator.add_event_detector(Box::new(s_event.with_callback(s_callback)));
-            } else {
-                self.propagator.add_event_detector(Box::new(s_event));
-            }
-            return Ok(());
+            return Err(exceptions::PyValueError::new_err("AltitudeEvent already consumed"));
         }
 
-        // Try AscendingNodeEvent
-        if let Ok(asc_event) = event.extract::<PyRef<PyAscendingNodeEvent>>() {
-            if let Some(inner) = &asc_event.event {
-                use events::DEventDetector;
-                // Create S-type event from the D-type event's properties
-                let s_event = events::SAscendingNodeEvent::<6, 0>::new(inner.name().to_string());
-                if inner.action() == events::EventAction::Stop {
-                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
-                } else {
-                    self.propagator.add_event_detector(Box::new(s_event));
-                }
+        // Try AscendingNodeEvent - extract and directly use D-type event
+        if let Ok(mut asc_event) = event.extract::<PyRefMut<PyAscendingNodeEvent>>() {
+            if let Some(d_event) = asc_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
             return Err(exceptions::PyValueError::new_err("AscendingNodeEvent already consumed"));
         }
 
-        // Try DescendingNodeEvent
-        if let Ok(desc_event) = event.extract::<PyRef<PyDescendingNodeEvent>>() {
-            if let Some(inner) = &desc_event.event {
-                use events::DEventDetector;
-                let s_event = events::SDescendingNodeEvent::<6, 0>::new(inner.name().to_string());
-                if inner.action() == events::EventAction::Stop {
-                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
-                } else {
-                    self.propagator.add_event_detector(Box::new(s_event));
-                }
+        // Try DescendingNodeEvent - extract and directly use D-type event
+        if let Ok(mut desc_event) = event.extract::<PyRefMut<PyDescendingNodeEvent>>() {
+            if let Some(d_event) = desc_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
             return Err(exceptions::PyValueError::new_err("DescendingNodeEvent already consumed"));
         }
 
-        // Try TrueAnomalyEvent
-        if let Ok(ta_event) = event.extract::<PyRef<PyTrueAnomalyEvent>>() {
-            if let Some(inner) = &ta_event.event {
-                use events::DEventDetector;
-                let s_event = events::STrueAnomalyEvent::<6, 0>::new(
-                    inner.target_value(),
-                    inner.name().to_string(),
-                    inner.direction(),
-                    constants::AngleFormat::Radians, // Events internally use radians
-                );
-                if inner.action() == events::EventAction::Stop {
-                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
-                } else {
-                    self.propagator.add_event_detector(Box::new(s_event));
-                }
+        // Try TrueAnomalyEvent - extract and directly use D-type event
+        if let Ok(mut ta_event) = event.extract::<PyRefMut<PyTrueAnomalyEvent>>() {
+            if let Some(d_event) = ta_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
             return Err(exceptions::PyValueError::new_err("TrueAnomalyEvent already consumed"));
         }
 
-        // Try MeanAnomalyEvent
-        if let Ok(ma_event) = event.extract::<PyRef<PyMeanAnomalyEvent>>() {
-            if let Some(inner) = &ma_event.event {
-                use events::DEventDetector;
-                let s_event = events::SMeanAnomalyEvent::<6, 0>::new(
-                    inner.target_value(),
-                    inner.name().to_string(),
-                    inner.direction(),
-                    constants::AngleFormat::Radians, // Events internally use radians
-                );
-                if inner.action() == events::EventAction::Stop {
-                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
-                } else {
-                    self.propagator.add_event_detector(Box::new(s_event));
-                }
+        // Try MeanAnomalyEvent - extract and directly use D-type event
+        if let Ok(mut ma_event) = event.extract::<PyRefMut<PyMeanAnomalyEvent>>() {
+            if let Some(d_event) = ma_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
             return Err(exceptions::PyValueError::new_err("MeanAnomalyEvent already consumed"));
         }
 
-        // Try EccentricAnomalyEvent
-        if let Ok(ea_event) = event.extract::<PyRef<PyEccentricAnomalyEvent>>() {
-            if let Some(inner) = &ea_event.event {
-                use events::DEventDetector;
-                let s_event = events::SEccentricAnomalyEvent::<6, 0>::new(
-                    inner.target_value(),
-                    inner.name().to_string(),
-                    inner.direction(),
-                    constants::AngleFormat::Radians, // Events internally use radians
-                );
-                if inner.action() == events::EventAction::Stop {
-                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
-                } else {
-                    self.propagator.add_event_detector(Box::new(s_event));
-                }
+        // Try EccentricAnomalyEvent - extract and directly use D-type event
+        if let Ok(mut ea_event) = event.extract::<PyRefMut<PyEccentricAnomalyEvent>>() {
+            if let Some(d_event) = ea_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
             return Err(exceptions::PyValueError::new_err("EccentricAnomalyEvent already consumed"));
         }
 
-        // Try ArgumentOfLatitudeEvent
-        if let Ok(aol_event) = event.extract::<PyRef<PyArgumentOfLatitudeEvent>>() {
-            if let Some(inner) = &aol_event.event {
-                use events::DEventDetector;
-                let s_event = events::SArgumentOfLatitudeEvent::<6, 0>::new(
-                    inner.target_value(),
-                    inner.name().to_string(),
-                    inner.direction(),
-                    constants::AngleFormat::Radians, // Events internally use radians
-                );
-                if inner.action() == events::EventAction::Stop {
-                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
-                } else {
-                    self.propagator.add_event_detector(Box::new(s_event));
-                }
+        // Try ArgumentOfLatitudeEvent - extract and directly use D-type event
+        if let Ok(mut aol_event) = event.extract::<PyRefMut<PyArgumentOfLatitudeEvent>>() {
+            if let Some(d_event) = aol_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
             return Err(exceptions::PyValueError::new_err("ArgumentOfLatitudeEvent already consumed"));
         }
 
-        // Try AOIEntryEvent - create S-type event from stored vertices
-        if let Ok(aoi_entry_event) = event.extract::<PyRef<PyAOIEntryEvent>>() {
-            if aoi_entry_event.event.is_some() {
-                // Create S-type event from stored vertices (already in radians)
-                let s_event = events::SAOIEntryEvent::<6, 0>::from_coordinates(
-                    &aoi_entry_event.vertices_rad,
-                    aoi_entry_event.name.clone(),
-                    constants::AngleFormat::Radians,
-                );
-                if aoi_entry_event.is_terminal {
-                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
-                } else {
-                    self.propagator.add_event_detector(Box::new(s_event));
-                }
+        // Try AOIEntryEvent - extract and directly use D-type event
+        if let Ok(mut aoi_entry_event) = event.extract::<PyRefMut<PyAOIEntryEvent>>() {
+            if let Some(d_event) = aoi_entry_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
             return Err(exceptions::PyValueError::new_err("AOIEntryEvent already consumed"));
         }
 
-        // Try AOIExitEvent - create S-type event from stored vertices
-        if let Ok(aoi_exit_event) = event.extract::<PyRef<PyAOIExitEvent>>() {
-            if aoi_exit_event.event.is_some() {
-                // Create S-type event from stored vertices (already in radians)
-                let s_event = events::SAOIExitEvent::<6, 0>::from_coordinates(
-                    &aoi_exit_event.vertices_rad,
-                    aoi_exit_event.name.clone(),
-                    constants::AngleFormat::Radians,
-                );
-                if aoi_exit_event.is_terminal {
-                    self.propagator.add_event_detector(Box::new(s_event.set_terminal()));
-                } else {
-                    self.propagator.add_event_detector(Box::new(s_event));
-                }
+        // Try AOIExitEvent - extract and directly use D-type event
+        if let Ok(mut aoi_exit_event) = event.extract::<PyRefMut<PyAOIExitEvent>>() {
+            if let Some(d_event) = aoi_exit_event.take_d_event() {
+                self.propagator.add_event_detector(Box::new(d_event));
                 return Ok(());
             }
             return Err(exceptions::PyValueError::new_err("AOIExitEvent already consumed"));
@@ -1635,9 +1427,7 @@ impl PySGPPropagator {
         self.propagator
             .event_log()
             .iter()
-            .map(|e| PyDetectedEvent {
-                event: (*e).clone().into(),
-            })
+            .map(|e| PyDetectedEvent { event: e.clone() })
             .collect()
     }
 
@@ -1653,9 +1443,7 @@ impl PySGPPropagator {
         self.propagator
             .events_by_name(name)
             .iter()
-            .map(|e| PyDetectedEvent {
-                event: (*e).clone().into(),
-            })
+            .map(|e| PyDetectedEvent { event: (*e).clone() })
             .collect()
     }
 
@@ -1665,9 +1453,9 @@ impl PySGPPropagator {
     ///     DetectedEvent or None: Most recent event, or None if no events.
     #[pyo3(text_signature = "()")]
     pub fn latest_event(&self) -> Option<PyDetectedEvent> {
-        self.propagator.latest_event().map(|e| PyDetectedEvent {
-            event: (*e).clone().into(),
-        })
+        self.propagator
+            .latest_event()
+            .map(|e| PyDetectedEvent { event: e.clone() })
     }
 
     /// Get events within a time range.
@@ -1683,9 +1471,7 @@ impl PySGPPropagator {
         self.propagator
             .events_in_range(start.obj, end.obj)
             .iter()
-            .map(|e| PyDetectedEvent {
-                event: (*e).clone().into(),
-            })
+            .map(|e| PyDetectedEvent { event: (*e).clone() })
             .collect()
     }
 
@@ -2733,11 +2519,19 @@ impl PyKeplerianPropagator {
 /// in parallel using the global thread pool. Each propagator's internal state is updated
 /// to reflect the new epoch.
 ///
-/// All propagators in the list must be of the same type (either all `KeplerianPropagator`
-/// or all `SGPPropagator`). Mixing propagator types is not supported.
+/// All propagators in the list must be of the same type (either all `KeplerianPropagator`,
+/// all `SGPPropagator`, or all `NumericalOrbitPropagator`). Mixing propagator types is not supported.
+///
+/// Note: `NumericalPropagator` (with user-defined Python dynamics) is NOT supported because
+/// Python callbacks cannot safely execute in parallel due to the GIL. Use `NumericalOrbitPropagator`
+/// for parallel propagation of orbital dynamics.
+///
+/// Note: For SGPPropagator and NumericalOrbitPropagator, event detectors and event logs are
+/// properly preserved during parallel propagation. Events detected during propagation will be
+/// available in each propagator's `event_log()` after the call completes.
 ///
 /// Args:
-///     propagators (List[KeplerianPropagator] or List[SGPPropagator]): List of propagators to update.
+///     propagators (List[KeplerianPropagator] or List[SGPPropagator] or List[NumericalOrbitPropagator]): List of propagators to update.
 ///     target_epoch (Epoch): The epoch to propagate all propagators to.
 ///
 /// Returns:
@@ -2773,12 +2567,10 @@ fn py_par_propagate_to(
     propagators: &Bound<'_, PyAny>,
     target_epoch: &PyEpoch,
 ) -> PyResult<()> {
-    use pyo3::types::PyList;
-
     // Check if propagators is a list
     if !propagators.is_instance_of::<PyList>() {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "propagators must be a list of KeplerianPropagator or SGPPropagator"
+            "propagators must be a list of KeplerianPropagator, SGPPropagator, or NumericalOrbitPropagator"
         ));
     }
 
@@ -2800,7 +2592,7 @@ fn py_par_propagate_to(
         }
 
         // Call Rust parallel propagation function
-        propagators::par_propagate_to(&mut props, target_epoch.obj);
+        propagators::par_propagate_to_s(&mut props, target_epoch.obj);
 
         // Update Python objects with new state
         for (i, item) in prop_list.iter().enumerate() {
@@ -2811,26 +2603,99 @@ fn py_par_propagate_to(
         Ok(())
     } else if first.is_instance_of::<PySGPPropagator>() {
         // Process as SGP propagators
+        // Note: SGPPropagator::Clone does NOT clone event_detectors (trait objects can't be cloned)
+        // We must extract them before cloning and reattach after parallel propagation
         let mut props: Vec<propagators::SGPPropagator> = Vec::new();
+        let mut extracted_detectors: Vec<Vec<Box<dyn events::DEventDetector>>> = Vec::new();
 
         for item in prop_list.iter() {
-            let py_prop = item.cast::<PySGPPropagator>()?;
-            props.push(py_prop.borrow().propagator.clone());
+            let mut py_prop = item.cast::<PySGPPropagator>()?.borrow_mut();
+            // Take ownership of event detectors BEFORE cloning (they would be lost on clone)
+            extracted_detectors.push(py_prop.propagator.take_event_detectors());
+            props.push(py_prop.propagator.clone());
+        }
+
+        // Reattach event detectors to the cloned propagators
+        for (i, detectors) in extracted_detectors.into_iter().enumerate() {
+            props[i].set_event_detectors(detectors);
         }
 
         // Call Rust parallel propagation function
-        propagators::par_propagate_to(&mut props, target_epoch.obj);
+        propagators::par_propagate_to_s(&mut props, target_epoch.obj);
 
-        // Update Python objects with new state
+        // Transfer results back to Python objects
         for (i, item) in prop_list.iter().enumerate() {
             let mut py_prop = item.cast::<PySGPPropagator>()?.borrow_mut();
-            py_prop.propagator = props[i].clone();
+
+            // Transfer event_detectors back (for potential reuse)
+            let detectors = props[i].take_event_detectors();
+            py_prop.propagator.set_event_detectors(detectors);
+
+            // Transfer event_log (the detected events)
+            let event_log = props[i].take_event_log();
+            py_prop.propagator.set_event_log(event_log);
+
+            // Transfer terminated flag
+            py_prop.propagator.set_terminated(props[i].is_terminated());
+
+            // Update trajectory
+            py_prop.propagator.trajectory = props[i].trajectory.clone();
         }
 
         Ok(())
+    } else if first.is_instance_of::<PyNumericalOrbitPropagator>() {
+        // Process as NumericalOrbitPropagator
+        // Note: DNumericalOrbitPropagator cannot be cloned (has Box<dyn DIntegrator>),
+        // so we work directly with mutable references using raw pointers
+
+        // Wrapper for raw pointer that implements Send
+        // SAFETY: We ensure that each pointer is accessed by only one thread
+        struct SendPtr(*mut propagators::DNumericalOrbitPropagator);
+        unsafe impl Send for SendPtr {}
+        unsafe impl Sync for SendPtr {}
+
+        // Collect borrow guards (must stay alive while we use raw pointers)
+        let mut borrow_guards: Vec<PyRefMut<'_, PyNumericalOrbitPropagator>> = Vec::new();
+
+        for item in prop_list.iter() {
+            borrow_guards.push(item.cast::<PyNumericalOrbitPropagator>()?.borrow_mut());
+        }
+
+        // Create wrapped raw pointers from the borrow guards
+        let prop_ptrs: Vec<SendPtr> = borrow_guards
+            .iter_mut()
+            .map(|guard| SendPtr(&mut guard.propagator as *mut _))
+            .collect();
+
+        // Use rayon scoped parallelism with wrapped raw pointers
+        // SAFETY: No Python objects are involved in the parallel execution.
+        // Each propagator (DNumericalOrbitPropagator) is accessed by exactly one thread,
+        // and the borrow_guards are kept alive throughout this scope to ensure validity.
+        let target = target_epoch.obj;
+        crate::utils::threading::get_thread_pool().install(|| {
+            prop_ptrs.par_iter().for_each(|SendPtr(ptr)| {
+                // SAFETY: ptr is valid because it points to data owned by borrow_guards
+                // which are still alive in the outer scope
+                unsafe {
+                    (*(*ptr)).propagate_to(target);
+                }
+            });
+        });
+
+        // borrow_guards are dropped here, releasing the borrows
+        Ok(())
+    } else if first.is_instance_of::<PyNumericalPropagator>() {
+        // NumericalPropagator uses Python callbacks for dynamics, which cannot safely
+        // execute in parallel due to the GIL. Provide a helpful error message.
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "NumericalPropagator cannot be used with par_propagate_to because its Python \
+             dynamics callback cannot safely execute in parallel due to the GIL. \
+             Use NumericalOrbitPropagator for parallel propagation of orbital dynamics, \
+             or call propagate_to() sequentially on each NumericalPropagator."
+        ))
     } else {
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "propagators must be a list of KeplerianPropagator or SGPPropagator"
+            "propagators must be a list of KeplerianPropagator, SGPPropagator, or NumericalOrbitPropagator"
         ))
     }
 }

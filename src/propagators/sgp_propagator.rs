@@ -39,14 +39,14 @@ use crate::orbits::tle::{
 };
 use crate::propagators::traits::{SOrbitStateProvider, SStatePropagator, SStateProvider};
 use crate::time::{Epoch, TimeSystem};
-use crate::trajectories::SOrbitTrajectory;
+use crate::trajectories::DOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::utils::{BraheError, Identifiable};
-use nalgebra::{SVector, Vector3, Vector6};
+use nalgebra::{DVector, Vector3, Vector6};
 use sgp4::chrono::{Datelike, NaiveDateTime, Timelike};
 
 // Event detection imports
-use crate::events::{EventAction, SDetectedEvent, SEventDetector, SEventQuery, sscan_for_event};
+use crate::events::{DDetectedEvent, DEventDetector, EventAction, EventQuery, dscan_for_event};
 
 /// Helper functions
 /// Compute Greenwich Mean Sidereal Time 1982 Model. Formulae taken from
@@ -134,6 +134,18 @@ fn convert_state_from_spg4_frame(
     }
 }
 
+/// Convert Vector6 to DVector for trajectory storage
+#[inline]
+fn svec6_to_dvec(sv: &Vector6<f64>) -> DVector<f64> {
+    DVector::from_column_slice(sv.as_slice())
+}
+
+/// Convert DVector to Vector6 for internal SGP4 usage
+#[inline]
+fn dvec_to_svec6(dv: &DVector<f64>) -> Vector6<f64> {
+    Vector6::from_column_slice(&dv.as_slice()[0..6])
+}
+
 /// SGP4 propagator
 #[allow(non_camel_case_types)]
 pub struct SGPPropagator {
@@ -165,7 +177,7 @@ pub struct SGPPropagator {
     initial_state: Vector6<f64>,
 
     /// Accumulated trajectory with configurable management
-    pub trajectory: SOrbitTrajectory,
+    pub trajectory: DOrbitTrajectory,
 
     /// Step size in seconds for stepping operations
     pub step_size: f64,
@@ -190,10 +202,10 @@ pub struct SGPPropagator {
 
     // ===== Event Detection =====
     /// Event detectors for monitoring propagation
-    event_detectors: Vec<Box<dyn SEventDetector<6, 0>>>,
+    event_detectors: Vec<Box<dyn DEventDetector>>,
 
     /// Log of detected events
-    event_log: Vec<SDetectedEvent<6>>,
+    event_log: Vec<DDetectedEvent>,
 
     /// Termination flag (set by terminal events)
     terminated: bool,
@@ -385,7 +397,7 @@ impl SGPPropagator {
 
         // Create trajectory with initial state
         let mut trajectory =
-            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         // Set trajectory identity from propagator identity
         if let Some(n) = name {
@@ -394,7 +406,7 @@ impl SGPPropagator {
         // NORAD ID is always available (norad_id: u32)
         trajectory = trajectory.with_id(norad_id as u64);
 
-        trajectory.add(epoch, initial_state);
+        trajectory.add(epoch, svec6_to_dvec(&initial_state));
 
         Ok(SGPPropagator {
             line1: line1.to_string(),
@@ -635,7 +647,7 @@ impl SGPPropagator {
 
         // Create trajectory with initial state
         let mut trajectory =
-            SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
+            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
 
         // Set trajectory identity from propagator identity
         if let Some(n) = object_name {
@@ -643,7 +655,7 @@ impl SGPPropagator {
         }
         trajectory = trajectory.with_id(norad_id);
 
-        trajectory.add(brahe_epoch, initial_state);
+        trajectory.add(brahe_epoch, svec6_to_dvec(&initial_state));
 
         Ok(SGPPropagator {
             line1,
@@ -713,11 +725,8 @@ impl SGPPropagator {
         let uuid = self.trajectory.get_uuid();
         let id = self.trajectory.get_id();
 
-        self.trajectory = SOrbitTrajectory::new(frame, representation, angle_format).with_identity(
-            name.as_deref(),
-            uuid,
-            id,
-        );
+        self.trajectory = DOrbitTrajectory::new(6, frame, representation, angle_format)
+            .with_identity(name.as_deref(), uuid, id);
 
         // Propagate to initial epoch and add to trajectory
         let prediction = self
@@ -742,7 +751,8 @@ impl SGPPropagator {
             representation,
             angle_format,
         );
-        self.trajectory.add(self.epoch, initial_state);
+        self.trajectory
+            .add(self.epoch, svec6_to_dvec(&initial_state));
 
         self
     }
@@ -1069,17 +1079,18 @@ impl SGPPropagator {
         &self,
         epoch_prev: Epoch,
         epoch_curr: Epoch,
-        state_prev: &Vector6<f64>,
-        state_curr: &Vector6<f64>,
-    ) -> Vec<SDetectedEvent<6>> {
+        state_prev: &DVector<f64>,
+        state_curr: &DVector<f64>,
+    ) -> Vec<DDetectedEvent> {
         let mut events = Vec::new();
 
         // Create state function for bisection - uses exact SGP4 propagation
         // (no interpolation needed since SGP4 is analytical)
-        let state_fn = |epoch: Epoch| -> Vector6<f64> { self.state_eci_cartesian(epoch) };
+        let state_fn =
+            |epoch: Epoch| -> DVector<f64> { svec6_to_dvec(&self.state_eci_cartesian(epoch)) };
 
         // No parameters for SGP4
-        let params: Option<&SVector<f64, 0>> = None;
+        let params: Option<&DVector<f64>> = None;
 
         // Scan each detector
         for (idx, detector) in self.event_detectors.iter().enumerate() {
@@ -1088,7 +1099,7 @@ impl SGPPropagator {
                 continue;
             }
 
-            if let Some(event) = sscan_for_event(
+            if let Some(event) = dscan_for_event(
                 detector.as_ref(),
                 idx,
                 &state_fn,
@@ -1119,13 +1130,13 @@ impl SGPPropagator {
     /// callback state mutations are ignored since SGP4 is an analytical propagator.
     ///
     /// # Arguments
-    /// * `detector` - Event detector implementing the `SEventDetector<6, 0>` trait
+    /// * `detector` - Event detector implementing the `DEventDetector` trait
     ///
     /// # Example
     /// ```
     /// use brahe::propagators::SGPPropagator;
     /// use brahe::propagators::traits::SStatePropagator;  // for initial_epoch()
-    /// use brahe::events::STimeEvent;
+    /// use brahe::events::DTimeEvent;
     ///
     /// brahe::initialize_eop().unwrap();
     ///
@@ -1136,17 +1147,67 @@ impl SGPPropagator {
     /// let epoch = prop.initial_epoch();
     ///
     /// // Add a time event detector
-    /// let detector = STimeEvent::<6, 0>::new(epoch + 300.0, "5 minute mark");
+    /// let detector = DTimeEvent::new(epoch + 300.0, "5 minute mark");
     /// prop.add_event_detector(Box::new(detector));
     /// ```
-    pub fn add_event_detector(&mut self, detector: Box<dyn SEventDetector<6, 0>>) {
+    pub fn add_event_detector(&mut self, detector: Box<dyn DEventDetector>) {
         self.event_detectors.push(detector);
+    }
+
+    /// Take ownership of all event detectors, leaving the propagator with none.
+    ///
+    /// This is useful for transferring event detectors to/from cloned propagators,
+    /// since event detectors (trait objects) cannot be cloned.
+    ///
+    /// # Returns
+    ///
+    /// The event detectors that were attached to this propagator.
+    pub fn take_event_detectors(&mut self) -> Vec<Box<dyn DEventDetector>> {
+        std::mem::take(&mut self.event_detectors)
+    }
+
+    /// Set event detectors, replacing any existing detectors.
+    ///
+    /// # Arguments
+    ///
+    /// * `detectors` - The event detectors to attach to this propagator.
+    pub fn set_event_detectors(&mut self, detectors: Vec<Box<dyn DEventDetector>>) {
+        self.event_detectors = detectors;
+    }
+
+    /// Take ownership of the event log, leaving an empty log.
+    ///
+    /// This is useful for transferring detected events from cloned propagators.
+    ///
+    /// # Returns
+    ///
+    /// The detected events from this propagator.
+    pub fn take_event_log(&mut self) -> Vec<DDetectedEvent> {
+        std::mem::take(&mut self.event_log)
+    }
+
+    /// Set the event log, replacing any existing log.
+    ///
+    /// # Arguments
+    ///
+    /// * `log` - The event log to set.
+    pub fn set_event_log(&mut self, log: Vec<DDetectedEvent>) {
+        self.event_log = log;
+    }
+
+    /// Set the terminated flag.
+    ///
+    /// # Arguments
+    ///
+    /// * `terminated` - Whether propagation has been terminated by an event.
+    pub fn set_terminated(&mut self, terminated: bool) {
+        self.terminated = terminated;
     }
 
     /// Get all detected events
     ///
     /// Returns a slice of all events that have been detected during propagation.
-    pub fn event_log(&self) -> &[SDetectedEvent<6>] {
+    pub fn event_log(&self) -> &[DDetectedEvent] {
         &self.event_log
     }
 
@@ -1156,7 +1217,7 @@ impl SGPPropagator {
     ///
     /// # Arguments
     /// * `name` - Substring to search for in event names
-    pub fn events_by_name(&self, name: &str) -> Vec<&SDetectedEvent<6>> {
+    pub fn events_by_name(&self, name: &str) -> Vec<&DDetectedEvent> {
         self.event_log
             .iter()
             .filter(|e| e.name.contains(name))
@@ -1166,7 +1227,7 @@ impl SGPPropagator {
     /// Get the most recently detected event
     ///
     /// Returns `None` if no events have been detected.
-    pub fn latest_event(&self) -> Option<&SDetectedEvent<6>> {
+    pub fn latest_event(&self) -> Option<&DDetectedEvent> {
         self.event_log.last()
     }
 
@@ -1177,7 +1238,7 @@ impl SGPPropagator {
     /// # Arguments
     /// * `start` - Start of time range
     /// * `end` - End of time range
-    pub fn events_in_range(&self, start: Epoch, end: Epoch) -> Vec<&SDetectedEvent<6>> {
+    pub fn events_in_range(&self, start: Epoch, end: Epoch) -> Vec<&DDetectedEvent> {
         self.event_log
             .iter()
             .filter(|e| e.window_open >= start && e.window_open <= end)
@@ -1186,7 +1247,7 @@ impl SGPPropagator {
 
     /// Query events with flexible filtering
     ///
-    /// Returns an SEventQuery that supports chainable filters and
+    /// Returns an EventQuery that supports chainable filters and
     /// standard iterator methods.
     ///
     /// # Examples
@@ -1206,8 +1267,8 @@ impl SGPPropagator {
     ///     .by_name_contains("Altitude")
     ///     .count();
     /// ```
-    pub fn query_events(&self) -> SEventQuery<'_, 6, std::slice::Iter<'_, SDetectedEvent<6>>> {
-        SEventQuery::new(self.event_log.iter())
+    pub fn query_events(&self) -> EventQuery<'_, std::slice::Iter<'_, DDetectedEvent>> {
+        EventQuery::new(self.event_log.iter())
     }
 
     /// Get events by detector index
@@ -1216,7 +1277,7 @@ impl SGPPropagator {
     ///
     /// # Arguments
     /// * `index` - Detector index (0-based, order detectors were added)
-    pub fn events_by_detector_index(&self, index: usize) -> Vec<&SDetectedEvent<6>> {
+    pub fn events_by_detector_index(&self, index: usize) -> Vec<&DDetectedEvent> {
         self.event_log
             .iter()
             .filter(|e| e.detector_index == index)
@@ -1236,7 +1297,7 @@ impl SGPPropagator {
         index: usize,
         start: Epoch,
         end: Epoch,
-    ) -> Vec<&SDetectedEvent<6>> {
+    ) -> Vec<&DDetectedEvent> {
         self.event_log
             .iter()
             .filter(|e| e.detector_index == index && e.window_open >= start && e.window_open <= end)
@@ -1256,7 +1317,7 @@ impl SGPPropagator {
         name: &str,
         start: Epoch,
         end: Epoch,
-    ) -> Vec<&SDetectedEvent<6>> {
+    ) -> Vec<&DDetectedEvent> {
         self.event_log
             .iter()
             .filter(|e| e.name.contains(name) && e.window_open >= start && e.window_open <= end)
@@ -1294,9 +1355,9 @@ impl SStatePropagator for SGPPropagator {
         let current_epoch = self.current_epoch();
         let target_epoch = current_epoch + step_size; // step_size is in seconds
 
-        // Get ECI Cartesian states for event detection
-        let state_prev_eci = self.state_eci_cartesian(current_epoch);
-        let state_curr_eci = self.state_eci_cartesian(target_epoch);
+        // Get ECI Cartesian states as DVector for event detection
+        let state_prev_eci = svec6_to_dvec(&self.state_eci_cartesian(current_epoch));
+        let state_curr_eci = svec6_to_dvec(&self.state_eci_cartesian(target_epoch));
 
         // Scan for events if we have any detectors
         if !self.event_detectors.is_empty() {
@@ -1342,7 +1403,8 @@ impl SStatePropagator for SGPPropagator {
                     self.representation,
                     self.angle_format,
                 );
-                self.trajectory.add(event.window_open, event_state_output);
+                self.trajectory
+                    .add(event.window_open, svec6_to_dvec(&event_state_output));
 
                 // Check for terminal action
                 if action == EventAction::Stop {
@@ -1361,7 +1423,7 @@ impl SStatePropagator for SGPPropagator {
             self.representation,
             self.angle_format,
         );
-        self.trajectory.add(target_epoch, new_state)
+        self.trajectory.add(target_epoch, svec6_to_dvec(&new_state))
     }
 
     // Default implementation from trait is used for:
@@ -1383,7 +1445,8 @@ impl SStatePropagator for SGPPropagator {
     }
 
     fn current_state(&self) -> Vector6<f64> {
-        self.trajectory.last().unwrap().1
+        let (_, dstate) = self.trajectory.last().unwrap();
+        dvec_to_svec6(&dstate)
     }
 
     fn step_size(&self) -> f64 {
@@ -1396,7 +1459,8 @@ impl SStatePropagator for SGPPropagator {
 
     fn reset(&mut self) {
         self.trajectory.clear();
-        self.trajectory.add(self.epoch, self.initial_state);
+        self.trajectory
+            .add(self.epoch, svec6_to_dvec(&self.initial_state));
 
         // Clear event detection state
         self.event_log.clear();
@@ -2866,7 +2930,7 @@ mod tests {
 
     // ===== Event Detection Tests =====
 
-    use crate::events::{SAscendingNodeEvent, STimeEvent};
+    use crate::events::{DAscendingNodeEvent, DTimeEvent};
 
     #[test]
     fn test_sgppropagator_add_event_detector() {
@@ -2875,7 +2939,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add a time event
-        let detector = STimeEvent::<6, 0>::new(epoch + 300.0, "5 minute mark");
+        let detector = DTimeEvent::new(epoch + 300.0, "5 minute mark");
         prop.add_event_detector(Box::new(detector));
 
         // Initial state: no events detected yet
@@ -2891,7 +2955,7 @@ mod tests {
 
         // Add a time event at 150 seconds
         let target_time = epoch + 150.0;
-        let detector = STimeEvent::<6, 0>::new(target_time, "Time Target");
+        let detector = DTimeEvent::new(target_time, "Time Target");
         prop.add_event_detector(Box::new(detector));
 
         // Propagate past the event
@@ -2913,9 +2977,9 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add multiple time events
-        let detector1 = STimeEvent::<6, 0>::new(epoch + 100.0, "Event 1");
-        let detector2 = STimeEvent::<6, 0>::new(epoch + 200.0, "Event 2");
-        let detector3 = STimeEvent::<6, 0>::new(epoch + 300.0, "Event 3");
+        let detector1 = DTimeEvent::new(epoch + 100.0, "Event 1");
+        let detector2 = DTimeEvent::new(epoch + 200.0, "Event 2");
+        let detector3 = DTimeEvent::new(epoch + 300.0, "Event 3");
 
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
@@ -2936,9 +3000,9 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add events with different names
-        let detector1 = STimeEvent::<6, 0>::new(epoch + 100.0, "Alpha Event");
-        let detector2 = STimeEvent::<6, 0>::new(epoch + 200.0, "Beta Event");
-        let detector3 = STimeEvent::<6, 0>::new(epoch + 300.0, "Alpha Prime");
+        let detector1 = DTimeEvent::new(epoch + 100.0, "Alpha Event");
+        let detector2 = DTimeEvent::new(epoch + 200.0, "Beta Event");
+        let detector3 = DTimeEvent::new(epoch + 300.0, "Alpha Prime");
 
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
@@ -2965,8 +3029,8 @@ mod tests {
         assert!(prop.latest_event().is_none());
 
         // Add events
-        let detector1 = STimeEvent::<6, 0>::new(epoch + 100.0, "First");
-        let detector2 = STimeEvent::<6, 0>::new(epoch + 200.0, "Second");
+        let detector1 = DTimeEvent::new(epoch + 100.0, "First");
+        let detector2 = DTimeEvent::new(epoch + 200.0, "Second");
 
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
@@ -2985,9 +3049,9 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add events at 100, 200, 300 seconds
-        let detector1 = STimeEvent::<6, 0>::new(epoch + 100.0, "Event 1");
-        let detector2 = STimeEvent::<6, 0>::new(epoch + 200.0, "Event 2");
-        let detector3 = STimeEvent::<6, 0>::new(epoch + 300.0, "Event 3");
+        let detector1 = DTimeEvent::new(epoch + 100.0, "Event 1");
+        let detector2 = DTimeEvent::new(epoch + 200.0, "Event 2");
+        let detector3 = DTimeEvent::new(epoch + 300.0, "Event 3");
 
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
@@ -3008,8 +3072,8 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add two detectors
-        let detector1 = STimeEvent::<6, 0>::new(epoch + 100.0, "Detector 0 Event");
-        let detector2 = STimeEvent::<6, 0>::new(epoch + 200.0, "Detector 1 Event");
+        let detector1 = DTimeEvent::new(epoch + 100.0, "Detector 0 Event");
+        let detector2 = DTimeEvent::new(epoch + 200.0, "Detector 1 Event");
 
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
@@ -3033,7 +3097,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add a terminal event at 150 seconds
-        let detector = STimeEvent::<6, 0>::new(epoch + 150.0, "Stop Here").set_terminal();
+        let detector = DTimeEvent::new(epoch + 150.0, "Stop Here").set_terminal();
 
         prop.add_event_detector(Box::new(detector));
 
@@ -3058,7 +3122,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add and trigger an event
-        let detector = STimeEvent::<6, 0>::new(epoch + 100.0, "Test Event");
+        let detector = DTimeEvent::new(epoch + 100.0, "Test Event");
         prop.add_event_detector(Box::new(detector));
         prop.propagate_to(epoch + 200.0);
 
@@ -3079,7 +3143,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add and trigger events
-        let detector = STimeEvent::<6, 0>::new(epoch + 100.0, "Test Event");
+        let detector = DTimeEvent::new(epoch + 100.0, "Test Event");
         prop.add_event_detector(Box::new(detector));
         prop.propagate_to(epoch + 200.0);
 
@@ -3100,7 +3164,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add a terminal event
-        let detector = STimeEvent::<6, 0>::new(epoch + 100.0, "Terminal").set_terminal();
+        let detector = DTimeEvent::new(epoch + 100.0, "Terminal").set_terminal();
         prop.add_event_detector(Box::new(detector));
 
         prop.propagate_to(epoch + 200.0);
@@ -3122,7 +3186,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add ascending node detector
-        let detector = SAscendingNodeEvent::<6, 0>::new("Ascending Node");
+        let detector = DAscendingNodeEvent::new("Ascending Node");
         prop.add_event_detector(Box::new(detector));
 
         // Propagate for one full orbit (~92 minutes for ISS)
@@ -3140,7 +3204,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add an event
-        let detector = STimeEvent::<6, 0>::new(epoch + 100.0, "Test Event");
+        let detector = DTimeEvent::new(epoch + 100.0, "Test Event");
         prop.add_event_detector(Box::new(detector));
         prop.propagate_to(epoch + 200.0);
 
@@ -3161,9 +3225,9 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // Add events
-        let detector1 = STimeEvent::<6, 0>::new(epoch + 100.0, "First");
-        let detector2 = STimeEvent::<6, 0>::new(epoch + 200.0, "Second");
-        let detector3 = STimeEvent::<6, 0>::new(epoch + 300.0, "Third");
+        let detector1 = DTimeEvent::new(epoch + 100.0, "First");
+        let detector2 = DTimeEvent::new(epoch + 200.0, "Second");
+        let detector3 = DTimeEvent::new(epoch + 300.0, "Third");
 
         prop.add_event_detector(Box::new(detector1));
         prop.add_event_detector(Box::new(detector2));
@@ -3179,5 +3243,122 @@ mod tests {
             .collect();
 
         assert_eq!(filtered.len(), 2);
+    }
+
+    // ===== Event Detector Management Tests =====
+
+    #[test]
+    fn test_sgppropagator_take_event_detectors() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        // Add two event detectors
+        let detector1 = DTimeEvent::new(epoch + 100.0, "Event1");
+        let detector2 = DTimeEvent::new(epoch + 200.0, "Event2");
+        prop.add_event_detector(Box::new(detector1));
+        prop.add_event_detector(Box::new(detector2));
+
+        // Take the detectors
+        let taken = prop.take_event_detectors();
+
+        // Verify we got the right number
+        assert_eq!(taken.len(), 2);
+
+        // Verify propagator now has empty detectors
+        // (can't directly access, but propagating should not detect events)
+        prop.propagate_to(epoch + 300.0);
+        assert!(prop.event_log().is_empty());
+    }
+
+    #[test]
+    fn test_sgppropagator_set_event_detectors() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        // Create detectors in a vector
+        let detectors: Vec<Box<dyn crate::events::DEventDetector>> = vec![
+            Box::new(DTimeEvent::new(epoch + 100.0, "Event1")),
+            Box::new(DTimeEvent::new(epoch + 200.0, "Event2")),
+        ];
+
+        // Set the detectors
+        prop.set_event_detectors(detectors);
+
+        // Propagate and verify events are detected
+        prop.propagate_to(epoch + 300.0);
+        assert_eq!(prop.event_log().len(), 2);
+    }
+
+    #[test]
+    fn test_sgppropagator_take_event_log() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        // Add detector and propagate to trigger event
+        let detector = DTimeEvent::new(epoch + 100.0, "TestEvent");
+        prop.add_event_detector(Box::new(detector));
+        prop.propagate_to(epoch + 200.0);
+
+        // Verify event was detected
+        assert_eq!(prop.event_log().len(), 1);
+
+        // Take the event log
+        let taken_log = prop.take_event_log();
+
+        // Verify we got the events
+        assert_eq!(taken_log.len(), 1);
+        assert_eq!(taken_log[0].name, "TestEvent");
+
+        // Verify propagator now has empty log
+        assert!(prop.event_log().is_empty());
+    }
+
+    #[test]
+    fn test_sgppropagator_set_terminated_is_terminated() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+
+        // Initial state should be false
+        assert!(!prop.is_terminated());
+
+        // Set to true
+        prop.set_terminated(true);
+        assert!(prop.is_terminated());
+
+        // Set back to false
+        prop.set_terminated(false);
+        assert!(!prop.is_terminated());
+    }
+
+    #[test]
+    fn test_sgppropagator_event_detector_roundtrip() {
+        setup_global_test_eop();
+        let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        // Add detector
+        let detector = DTimeEvent::new(epoch + 150.0, "RoundtripEvent");
+        prop.add_event_detector(Box::new(detector));
+
+        // Take detectors
+        let taken = prop.take_event_detectors();
+        assert_eq!(taken.len(), 1);
+
+        // Propagate - should not detect (no detectors)
+        prop.propagate_to(epoch + 100.0);
+        assert!(prop.event_log().is_empty());
+
+        // Set detectors back
+        prop.set_event_detectors(taken);
+
+        // Continue propagation past event time
+        prop.propagate_to(epoch + 200.0);
+
+        // Now event should be detected
+        assert_eq!(prop.event_log().len(), 1);
+        assert!(prop.event_log()[0].name.contains("RoundtripEvent"));
     }
 }

@@ -742,6 +742,11 @@ impl PyTimeEvent {
     pub fn is_consumed(&self) -> bool {
         self.event.is_none()
     }
+
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DTimeEvent> {
+        self.event.take()
+    }
 }
 
 /// Value event detector with custom value function.
@@ -1073,6 +1078,11 @@ impl PyValueEvent {
     pub fn is_consumed(&self) -> bool {
         self.event.is_none()
     }
+
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DValueEvent> {
+        self.event.take()
+    }
 }
 
 /// Binary event detector with custom condition function.
@@ -1377,6 +1387,11 @@ impl PyBinaryEvent {
     /// Check if this event has been consumed (used by add_event_detector)
     pub fn is_consumed(&self) -> bool {
         self.event.is_none()
+    }
+
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DBinaryEvent> {
+        self.event.take()
     }
 }
 
@@ -2038,6 +2053,11 @@ impl PyAltitudeEvent {
     pub fn is_consumed(&self) -> bool {
         self.event.is_none()
     }
+
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DAltitudeEvent> {
+        self.event.take()
+    }
 }
 
 // ================================
@@ -2394,6 +2414,13 @@ impl PyMeanAnomalyEvent {
     }
 }
 
+impl PyMeanAnomalyEvent {
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DMeanAnomalyEvent> {
+        self.event.take()
+    }
+}
+
 /// Eccentric anomaly event detector.
 ///
 /// Detects when eccentric anomaly crosses a value value.
@@ -2460,6 +2487,13 @@ impl PyEccentricAnomalyEvent {
             slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
+    }
+}
+
+impl PyEccentricAnomalyEvent {
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DEccentricAnomalyEvent> {
+        self.event.take()
     }
 }
 
@@ -2532,6 +2566,13 @@ impl PyTrueAnomalyEvent {
     }
 }
 
+impl PyTrueAnomalyEvent {
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DTrueAnomalyEvent> {
+        self.event.take()
+    }
+}
+
 /// Argument of latitude event detector.
 ///
 /// Detects when argument of latitude (omega + true anomaly) crosses a value value.
@@ -2601,6 +2642,13 @@ impl PyArgumentOfLatitudeEvent {
     }
 }
 
+impl PyArgumentOfLatitudeEvent {
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DArgumentOfLatitudeEvent> {
+        self.event.take()
+    }
+}
+
 // ================================
 // Node Crossing Events
 // ================================
@@ -2666,6 +2714,13 @@ impl PyAscendingNodeEvent {
     }
 }
 
+impl PyAscendingNodeEvent {
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DAscendingNodeEvent> {
+        self.event.take()
+    }
+}
+
 /// Descending node event detector.
 ///
 /// Detects when spacecraft crosses the descending node (equator from north to south).
@@ -2724,6 +2779,13 @@ impl PyDescendingNodeEvent {
             slf.event = Some(event.set_terminal());
         }
         Self { event: slf.event.take() }
+    }
+}
+
+impl PyDescendingNodeEvent {
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DDescendingNodeEvent> {
+        self.event.take()
     }
 }
 
@@ -3440,6 +3502,13 @@ impl PyAOIEntryEvent {
     }
 }
 
+impl PyAOIEntryEvent {
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DAOIEntryEvent> {
+        self.event.take()
+    }
+}
+
 /// AOI Exit event detector.
 ///
 /// Detects when a satellite's sub-satellite point exits a polygonal Area of Interest.
@@ -3618,5 +3687,12 @@ impl PyAOIExitEvent {
             name,
             is_terminal: true,
         }
+    }
+}
+
+impl PyAOIExitEvent {
+    /// Take the D-type event for direct use in propagators
+    pub fn take_d_event(&mut self) -> Option<events::DAOIExitEvent> {
+        self.event.take()
     }
 }

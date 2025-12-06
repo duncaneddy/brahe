@@ -14,6 +14,12 @@ from brahe import (
     AngleFormat,
     state_koe_to_eci,
     par_propagate_to,
+    NumericalPropagationConfig,
+    NumericalPropagator,
+    NumericalOrbitPropagator,
+    ForceModelConfig,
+    TimeEvent,
+    R_EARTH,
 )
 
 
@@ -189,3 +195,189 @@ def test_par_propagate_to_not_a_list_raises_error():
     # Pass a single propagator instead of a list
     with pytest.raises(TypeError):
         par_propagate_to(prop, target)
+
+
+def test_par_propagate_to_sgp_with_events():
+    """Test that parallel propagation detects events correctly for SGP propagators"""
+
+    line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+
+    # Create multiple SGP propagators from the same TLE
+    propagators = [SGPPropagator.from_tle(line1, line2, 60.0) for _ in range(3)]
+    epoch = propagators[0].epoch
+
+    # Add time events to each propagator at different times
+    for i, prop in enumerate(propagators):
+        event = TimeEvent(epoch + 100.0 * (i + 1), f"Event_{i}")
+        prop.add_event_detector(event)
+
+    # Propagate in parallel
+    target = epoch + 400.0
+    par_propagate_to(propagators, target)
+
+    # Verify all events were detected
+    for i, prop in enumerate(propagators):
+        event_log = prop.event_log()
+        assert len(event_log) == 1, (
+            f"Propagator {i} should have 1 event, got {len(event_log)}"
+        )
+        assert f"Event_{i}" in event_log[0].name, f"Event name should contain Event_{i}"
+
+
+def test_par_propagate_to_numerical_propagator_raises_error():
+    """Test that NumericalPropagator raises a clear error due to GIL limitations"""
+
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = epoch + 6.0
+    state = np.array([1.0, 0.0])
+
+    # Simple harmonic oscillator dynamics
+    omega = 1.0
+
+    def sho_dynamics(t, state, params):
+        return np.array([state[1], -(omega**2) * state[0]])
+
+    config = NumericalPropagationConfig.default()
+
+    propagators = [
+        NumericalPropagator(epoch, state.copy(), sho_dynamics, config),
+        NumericalPropagator(epoch, state.copy(), sho_dynamics, config),
+    ]
+
+    # Should raise TypeError with helpful message about GIL
+    with pytest.raises(TypeError, match="GIL"):
+        par_propagate_to(propagators, target)
+
+
+# =============================================================================
+# NumericalOrbitPropagator Parallel Propagation Tests
+# =============================================================================
+
+
+def test_par_propagate_to_numerical_orbit():
+    """Test parallel propagation of NumericalOrbitPropagator"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = epoch + 3600.0  # 1 hour later
+
+    # Create multiple orbit propagators with different initial conditions
+    states = [
+        np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]),
+        np.array([R_EARTH + 600e3, 0.0, 0.0, 0.0, 7400.0, 0.0]),
+        np.array([R_EARTH + 400e3, 0.0, 0.0, 0.0, 7800.0, 0.0]),
+    ]
+
+    propagators = [
+        NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.earth_gravity(),
+        )
+        for state in states
+    ]
+
+    # Propagate in parallel
+    par_propagate_to(propagators, target)
+
+    # Verify all propagators reached target epoch
+    for prop in propagators:
+        assert prop.current_epoch == target
+
+    # Verify states are different (they had different initial conditions)
+    state0 = propagators[0].current_state()
+    state1 = propagators[1].current_state()
+    state2 = propagators[2].current_state()
+
+    assert abs(state0[0] - state1[0]) > 1e-3
+    assert abs(state0[0] - state2[0]) > 1e-3
+    assert abs(state1[0] - state2[0]) > 1e-3
+
+
+def test_par_propagate_to_numerical_orbit_matches_sequential():
+    """Test that parallel propagation gives same results as sequential for orbit propagators"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    target = epoch + 1800.0  # 30 minutes
+
+    states = [
+        np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0]),
+        np.array([R_EARTH + 600e3, 0.0, 0.0, 0.0, 7400.0, 0.0]),
+    ]
+
+    # Create propagators for parallel test
+    parallel_props = [
+        NumericalOrbitPropagator(
+            epoch,
+            state.copy(),
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.earth_gravity(),
+        )
+        for state in states
+    ]
+
+    # Create propagators for sequential test
+    sequential_props = [
+        NumericalOrbitPropagator(
+            epoch,
+            state.copy(),
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.earth_gravity(),
+        )
+        for state in states
+    ]
+
+    # Propagate in parallel
+    par_propagate_to(parallel_props, target)
+
+    # Propagate sequentially
+    for prop in sequential_props:
+        prop.propagate_to(target)
+
+    # Results should be identical
+    for i in range(len(parallel_props)):
+        assert parallel_props[i].current_epoch == sequential_props[i].current_epoch
+
+        parallel_state = parallel_props[i].current_state()
+        sequential_state = sequential_props[i].current_state()
+
+        for j in range(6):
+            assert abs(parallel_state[j] - sequential_state[j]) < 1e-6, (
+                f"State element {j} differs: parallel={parallel_state[j]}, "
+                f"sequential={sequential_state[j]}"
+            )
+
+
+def test_par_propagate_to_numerical_orbit_with_events():
+    """Test event detection in parallel NumericalOrbitPropagator propagation"""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7600.0, 0.0])
+
+    # Create multiple orbit propagators
+    propagators = [
+        NumericalOrbitPropagator(
+            epoch,
+            state.copy(),
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.earth_gravity(),
+        )
+        for _ in range(3)
+    ]
+
+    # Add time events to each propagator at different times
+    for i, prop in enumerate(propagators):
+        event = TimeEvent(epoch + 600.0 * (i + 1), f"OrbitEvent_{i}")
+        prop.add_event_detector(event)
+
+    # Propagate in parallel
+    target = epoch + 2400.0
+    par_propagate_to(propagators, target)
+
+    # Verify all events were detected
+    for i, prop in enumerate(propagators):
+        event_log = prop.event_log()
+        assert len(event_log) == 1, (
+            f"Propagator {i} should have 1 event, got {len(event_log)}"
+        )
+        assert f"OrbitEvent_{i}" in event_log[0].name, (
+            f"Event name should contain OrbitEvent_{i}"
+        )

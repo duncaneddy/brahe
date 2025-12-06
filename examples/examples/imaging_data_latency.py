@@ -136,9 +136,7 @@ start_time = time.time()
 epoch_start = min(prop.epoch for prop in capella_props)
 epoch_end = epoch_start + 7 * 86400.0  # 7 days
 
-# Collect all AOI exit events
-aoi_exits = []
-
+# Add AOI exit event detector to each propagator
 for prop in capella_props:
     sat_name = prop.get_name()
 
@@ -150,16 +148,18 @@ for prop in capella_props:
     # Add event detector to propagator
     prop.add_event_detector(exit_event)
 
-    # Propagate for the analysis period
-    prop.propagate_to(epoch_end)
+# Propagate all satellites in parallel
+bh.par_propagate_to(capella_props, epoch_end)
 
-    # Collect exit events from the event log
+# Collect all AOI exit events from all propagators
+aoi_exits = []
+for prop in capella_props:
+    sat_name = prop.get_name()
     for event in prop.event_log():
         if "AOI_Exit" in event.name:
             aoi_exits.append(
                 {"satellite": sat_name, "exit_time": event.window_open, "event": event}
             )
-
 
 elapsed = time.time() - start_time
 print(f"Found {len(aoi_exits)} AOI exit events in {elapsed:.2f} seconds")
@@ -174,9 +174,8 @@ start_time = time.time()
 for prop in capella_props:
     prop.reset()
 
-# Propagate all satellites for 7 days
-for prop in capella_props:
-    prop.propagate_to(epoch_end)
+# Propagate all satellites in parallel for 7 days
+bh.par_propagate_to(capella_props, epoch_end)
 
 # Compute access windows with 5 degree minimum elevation
 constraint = bh.ElevationConstraint(min_elevation_deg=5.0)

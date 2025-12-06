@@ -1,7 +1,7 @@
 Metric,Value
-Worst (Maximum),54m 29s
-Average,12m 7s
-Median,5m 21s
-Best (Minimum),4s
-Total AOI Exits,222
+Worst (Maximum),54m 28s
+Average,12m 21s
+Median,5m 31s
+Best (Minimum),3s
+Total AOI Exits,220
 Matched Latencies,220

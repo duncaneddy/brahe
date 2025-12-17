@@ -1,0 +1,121 @@
+name: Bug Report
+description: Report a bug to help improve Brahe
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this bug! Please fill out the form below.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched existing issues to ensure this bug hasn't already been reported
+          required: true
+        - label: I have checked the [documentation](https://duncaneddy.github.io/brahe/) for relevant guidance
+          required: true
+        - label: I can reproduce this bug with the latest version of Brahe
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear, concise description of the bug
+      placeholder: What went wrong?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      description: Which language binding are you using?
+      options:
+        - Python
+        - Rust
+        - Both
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-python
+    attributes:
+      label: Python Reproduction Code
+      description: Minimal Python code that reproduces the issue (if applicable)
+      placeholder: |
+        import brahe as bh
+
+        # Your code here
+      render: python
+
+  - type: textarea
+    id: reproduction-rust
+    attributes:
+      label: Rust Reproduction Code
+      description: Minimal Rust code that reproduces the issue (if applicable)
+      placeholder: |
+        use brahe as bh;
+
+        fn main() {
+            // Your code here
+        }
+      render: rust
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include error messages if any.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Brahe Version
+      description: For Python, run `python -c "import brahe; print(brahe.__version__)"`. For Rust, check your Cargo.toml.
+      placeholder: "e.g., 1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python Version (if applicable)
+      placeholder: "e.g., 3.11"
+
+  - type: input
+    id: rust
+    attributes:
+      label: Rust Version (if applicable)
+      placeholder: "e.g., 1.75.0"
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - macOS
+        - Linux (Ubuntu/Debian)
+        - Linux (Other)
+        - Windows
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other relevant information (logs, screenshots, etc.)

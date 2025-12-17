@@ -1,0 +1,70 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please fill out the form below.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched existing issues to ensure this feature hasn't already been requested
+          required: true
+        - label: I have checked the [documentation](https://duncaneddy.github.io/brahe/) to confirm this feature doesn't already exist
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What feature would you like to see?
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: What problem does this solve? How would you use it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: If you have ideas on how this could be implemented, describe them here
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact on Existing API
+      description: Would this feature affect existing Brahe functions or APIs?
+      options:
+        - No impact (new functionality only)
+        - Minor changes to existing functions
+        - Significant changes to existing API
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact-details
+    attributes:
+      label: Impact Details
+      description: If this would affect existing functionality, please describe how
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: How can you help with this feature?
+      options:
+        - label: I can provide test data or validation cases
+        - label: I am willing to contribute to the implementation
+        - label: I can provide reference material (papers, algorithms, existing implementations)

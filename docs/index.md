@@ -22,6 +22,9 @@
 <a href="https://github.com/duncaneddy/brahe/blob/main/LICENSE" target="_blank">
     <img src="https://img.shields.io/badge/License-MIT-green.svg", alt="License">
 </a>
+<a href="https://joss.theoj.org/papers/a7ec6268a42c9fada797a3cb213c1d17">
+    <img src="https://joss.theoj.org/papers/a7ec6268a42c9fada797a3cb213c1d17/status.svg">
+</a>
 </p>
 
 ----

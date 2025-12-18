@@ -88,7 +88,7 @@ jobs:
           PYTHON_SCRIPT
 
       - name: Create Pull Request with fragments
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
           commit-message: "Add changelog fragments for PR #${{ github.event.pull_request.number }}"

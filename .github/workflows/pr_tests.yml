@@ -152,7 +152,7 @@ jobs:
 
       # Download artifacts from test-examples
       - name: Download test-examples artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: doc-figures
           path: docs/figures/

@@ -59,7 +59,7 @@ jobs:
           args: --release -i python${{ matrix.python-version }}
 
       - name: Upload wheel artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: wheel-${{ runner.os }}-py${{ matrix.python-version }}
           path: target/wheels/*.whl
@@ -106,7 +106,7 @@ jobs:
         run: uv run python -m build --sdist
 
       - name: Upload sdist artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: sdist
           path: dist/*.tar.gz

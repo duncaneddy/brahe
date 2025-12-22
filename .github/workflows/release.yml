@@ -139,13 +139,13 @@ jobs:
           cat release_notes.md
 
       - name: Upload release notes artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: release-notes
           path: release_notes.md
 
       - name: Upload CHANGELOG artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: changelog
           path: CHANGELOG.md
@@ -200,7 +200,7 @@ jobs:
       run: uv run python -m build --sdist
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         path: dist/*.tar.gz
         name: brahe-${{ github.ref_name }}-${{ runner.os }}-source
@@ -245,7 +245,7 @@ jobs:
         args: --release -i python${{ matrix.python-version }}
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         path: target/wheels/*.whl
         name: brahe-${{ github.ref_name }}-python${{ matrix.python-version }}-${{ runner.os }}-wheel

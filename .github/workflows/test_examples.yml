@@ -96,7 +96,7 @@ jobs:
         run: uv run python make.py make-plots
 
       - name: Upload figures as artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: doc-figures
           path: docs/figures/

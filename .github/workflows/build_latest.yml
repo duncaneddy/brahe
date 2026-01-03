@@ -160,14 +160,14 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download all wheel artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: wheel-*
           path: dist-wheels
           merge-multiple: true
 
       - name: Download sdist artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: sdist
           path: dist-sdist

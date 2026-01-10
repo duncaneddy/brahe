@@ -16,7 +16,7 @@ jobs:
       - name: Update package data
         run: ./scripts/update-data.sh
       - name: Create Pull Request with updated data
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
           commit-message: "Update bundled EOP and space weather data"

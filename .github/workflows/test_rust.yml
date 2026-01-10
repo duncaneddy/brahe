@@ -23,7 +23,7 @@ jobs:
             -   name: Build Rust package
                 run: cargo build
             -   name: Upload Rust build artifacts
-                uses: actions/upload-artifact@v5
+                uses: actions/upload-artifact@v6
                 with:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: |
@@ -57,7 +57,7 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Download Rust build artifacts
-                uses: actions/download-artifact@v6
+                uses: actions/download-artifact@v7
                 with:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/
@@ -67,7 +67,7 @@ jobs:
                 run: cargo llvm-cov --workspace --lcov --output-path lcov.info --features ci
             -   name: Upload coverage to Codecov
                 if: matrix.os == 'ubuntu-latest'
-                uses: codecov/codecov-action@v5.5.1
+                uses: codecov/codecov-action@v5.5.2
                 env:
                     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
                 with:
@@ -77,7 +77,7 @@ jobs:
                     
             -   name: Upload Brahe cache directory (Unix)
                 if: runner.os != 'Windows'
-                uses: actions/upload-artifact@v5
+                uses: actions/upload-artifact@v6
                 with:
                     name: brahe-cache-${{ runner.os }}
                     path: ~/.cache/brahe/
@@ -85,7 +85,7 @@ jobs:
                     if-no-files-found: ignore
             -   name: Upload Brahe cache directory (Windows)
                 if: runner.os == 'Windows'
-                uses: actions/upload-artifact@v5
+                uses: actions/upload-artifact@v6
                 with:
                     name: brahe-cache-${{ runner.os }}
                     path: ~\\.cache\\brahe\\
@@ -110,7 +110,7 @@ jobs:
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Download Rust build artifacts
-                uses: actions/download-artifact@v6
+                uses: actions/download-artifact@v7
                 with:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/

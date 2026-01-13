@@ -25,6 +25,9 @@
 <a href="https://joss.theoj.org/papers/a7ec6268a42c9fada797a3cb213c1d17">
     <img src="https://joss.theoj.org/papers/a7ec6268a42c9fada797a3cb213c1d17/status.svg">
 </a>
+<a href="https://arxiv.org/abs/2601.06452">
+    <img src="https://img.shields.io/badge/arXiv-2601.06452-b31b1b.svg" alt="arXiv">
+</a>
 </p>
 
 ----
@@ -57,6 +60,22 @@ If you want to learn more about how to use the package the documentation is stru
 - **[Examples](https://duncaneddy.github.io/brahe/examples/)**: Provides longer-form examples of how-to examples of accomplish common tasks.
 - **[Python API Reference](https://duncaneddy.github.io/brahe/library_api/)**: Provides detailed reference documentation of the Python API.
 - **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API.
+
+## Citing Brahe
+
+If you use Brahe in your work, please cite the following paper:
+
+```bibtex
+@article{eddy2026brahe,
+      title={{Brahe: A Modern Astrodynamics Library for Research and Engineering Applications}}, 
+      author={Duncan Eddy and Mykel J. Kochenderfer},
+      year={2026},
+      eprint={2601.06452},
+      archivePrefix={arXiv},
+      primaryClass={astro-ph.IM},
+      url={https://arxiv.org/abs/2601.06452}, 
+}
+```
 
 ## License
 

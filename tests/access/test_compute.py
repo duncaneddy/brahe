@@ -411,3 +411,153 @@ def test_location_accesses_sequential_vs_parallel():
     for ws, wp in zip(windows_seq, windows_par):
         assert abs(ws.window_open - wp.window_open) < 1.0  # Within 1 second
         assert abs(ws.window_close - wp.window_close) < 1.0
+
+
+# =============================================================================
+# NumericalOrbitPropagator Tests
+# =============================================================================
+
+
+def create_numerical_propagator(epoch):
+    """Create a test NumericalOrbitPropagator with two-body forces."""
+    # Create LEO orbital elements
+    oe = np.array([bh.R_EARTH + 500e3, 0.0, 45.0, 0.0, 0.0, 0.0])
+    state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+    # Create propagator with two-body force model (simplest case)
+    prop = bh.NumericalOrbitPropagator(
+        epoch,
+        state,
+        bh.NumericalPropagationConfig.default(),
+        bh.ForceModelConfig.two_body(),
+        None,  # No params needed for two-body
+    )
+    return prop
+
+
+def test_location_accesses_numerical_single():
+    """Test access computation with single NumericalOrbitPropagator."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)  # lon, lat, alt
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+
+    # Create and propagate the numerical propagator
+    propagator = create_numerical_propagator(epoch)
+
+    # Propagate over the search window to populate trajectory
+    period = 5674.0  # ~90 minutes for LEO
+    search_end = epoch + (period * 2.0)
+    propagator.propagate_to(search_end)
+
+    constraint = bh.ElevationConstraint(5.0)
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        adaptive_step=False,
+        adaptive_fraction=0.75,
+    )
+
+    windows = bh.location_accesses(
+        location,
+        propagator,
+        epoch,
+        search_end,
+        constraint,
+        config=config,
+        time_tolerance=0.1,
+    )
+
+    # Should find at least one window
+    assert len(windows) > 0, f"Expected at least 1 window, found {len(windows)}"
+
+    # Verify windows are sorted
+    for i in range(1, len(windows)):
+        assert windows[i - 1].start <= windows[i].start
+
+
+def test_location_accesses_numerical_list():
+    """Test access computation with list of NumericalOrbitPropagators."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)  # lon, lat, alt
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+
+    # Create propagators with different RAANs
+    propagators = []
+    for raan in [0.0, 60.0, 120.0]:
+        oe = np.array([bh.R_EARTH + 500e3, 0.0, 45.0, raan, 0.0, 0.0])
+        state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+        prop = bh.NumericalOrbitPropagator(
+            epoch,
+            state,
+            bh.NumericalPropagationConfig.default(),
+            bh.ForceModelConfig.two_body(),
+            None,
+        )
+        propagators.append(prop)
+
+    # Propagate all over the search window
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+    for prop in propagators:
+        prop.propagate_to(search_end)
+
+    constraint = bh.ElevationConstraint(5.0)
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        adaptive_step=False,
+        adaptive_fraction=0.75,
+    )
+
+    windows = bh.location_accesses(
+        location,
+        propagators,
+        epoch,
+        search_end,
+        constraint,
+        config=config,
+        time_tolerance=0.1,
+    )
+
+    # Should find windows from multiple satellites
+    assert len(windows) > 0, f"Expected at least 1 window, found {len(windows)}"
+
+    # Verify windows are sorted
+    for i in range(1, len(windows)):
+        assert windows[i - 1].start <= windows[i].start
+
+
+def test_location_accesses_numerical_multiple_locations():
+    """Test access computation with multiple locations and single NumericalOrbitPropagator."""
+    locations = [
+        bh.PointLocation(0.0, 45.0, 0.0),  # 0°E, 45°N
+        bh.PointLocation(-120.0, 30.0, 0.0),  # 120°W, 30°N
+    ]
+
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_numerical_propagator(epoch)
+
+    # Propagate over the search window
+    period = 5674.0
+    search_end = epoch + (period * 3.0)  # More time for multiple locations
+    propagator.propagate_to(search_end)
+
+    constraint = bh.ElevationConstraint(5.0)
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        adaptive_step=False,
+        adaptive_fraction=0.75,
+    )
+
+    windows = bh.location_accesses(
+        locations,
+        propagator,
+        epoch,
+        search_end,
+        constraint,
+        config=config,
+        time_tolerance=0.1,
+    )
+
+    # Should find windows for multiple locations
+    assert len(windows) > 0, f"Expected at least 1 window, found {len(windows)}"
+
+    # Verify windows are sorted
+    for i in range(1, len(windows)):
+        assert windows[i - 1].start <= windows[i].start

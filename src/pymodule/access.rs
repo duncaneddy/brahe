@@ -4214,7 +4214,102 @@ fn py_location_accesses(
         ));
     };
 
-    // Extract propagators as vectors
+    // Check for NumericalOrbitPropagator first (cannot be cloned, so handled separately)
+    // NumericalOrbitPropagator uses borrow guards with references instead of cloning
+    let is_numerical = if prop_is_list {
+        let list = propagators.cast::<PyList>()?;
+        !list.is_empty() && list.get_item(0)?.is_instance_of::<PyNumericalOrbitPropagator>()
+    } else {
+        propagators.is_instance_of::<PyNumericalOrbitPropagator>()
+    };
+
+    if is_numerical {
+        // Handle NumericalOrbitPropagator separately using borrow guards
+        // (DNumericalOrbitPropagator doesn't implement Clone due to Box<dyn DIntegrator>)
+        let borrow_guards: Vec<pyo3::PyRef<'_, PyNumericalOrbitPropagator>> = if prop_is_list {
+            let list = propagators.cast::<PyList>()?;
+            let mut guards = Vec::new();
+            for item in list.iter() {
+                if let Ok(prop) = item.cast::<PyNumericalOrbitPropagator>() {
+                    guards.push(prop.borrow());
+                } else {
+                    return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                        "propagators list must contain only NumericalOrbitPropagator objects (cannot mix propagator types)"
+                    ));
+                }
+            }
+            guards
+        } else {
+            vec![propagators.cast::<PyNumericalOrbitPropagator>()?.borrow()]
+        };
+
+        // Create references from borrow guards
+        let prop_refs: Vec<&propagators::DNumericalOrbitPropagator> =
+            borrow_guards.iter().map(|g| &g.propagator).collect();
+
+        // Process property computers
+        let rust_property_computers: Vec<PropertyComputerHolder> = if let Some(computers) = property_computers {
+            computers
+                .into_iter()
+                .map(|py_computer| {
+                    Python::attach(|py| {
+                        let obj = py_computer.bind(py);
+                        if let Ok(doppler) = obj.cast::<PyDopplerComputer>() {
+                            PropertyComputerHolder::RustNative(Box::new(doppler.borrow().computer.clone()))
+                        } else if let Ok(range) = obj.cast::<PyRangeComputer>() {
+                            PropertyComputerHolder::RustNative(Box::new(range.borrow().computer.clone()))
+                        } else if let Ok(range_rate) = obj.cast::<PyRangeRateComputer>() {
+                            PropertyComputerHolder::RustNative(Box::new(range_rate.borrow().computer.clone()))
+                        } else {
+                            PropertyComputerHolder::PythonWrapper(RustAccessPropertyComputerWrapper::new(py_computer))
+                        }
+                    })
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let property_computer_refs: Vec<&dyn AccessPropertyComputer> = rust_property_computers
+            .iter()
+            .map(|c| c as &dyn AccessPropertyComputer)
+            .collect();
+
+        let property_computers_option = if property_computer_refs.is_empty() {
+            None
+        } else {
+            Some(property_computer_refs.as_slice())
+        };
+
+        // Call location_accesses with the reference slice
+        #[allow(deprecated)]
+        let windows = py.allow_threads(|| match &locations_vec {
+            LocationVec::Point(locs) => location_accesses(
+                locs,
+                prop_refs.as_slice(),
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                property_computers_option,
+                Some(&search_config),
+                time_tolerance,
+            ),
+            LocationVec::Polygon(locs) => location_accesses(
+                locs,
+                prop_refs.as_slice(),
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                property_computers_option,
+                Some(&search_config),
+                time_tolerance,
+            ),
+        })?;
+
+        return Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect());
+    }
+
+    // Extract propagators as vectors (for cloneable propagators: SGP, Keplerian)
     enum PropagatorVec {
         Sgp(Vec<crate::propagators::sgp_propagator::SGPPropagator>),
         Keplerian(Vec<crate::propagators::keplerian_propagator::KeplerianPropagator>),
@@ -4250,7 +4345,7 @@ fn py_location_accesses(
         PropagatorVec::Keplerian(vec![prop.borrow().propagator.clone()])
     } else {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "propagators must be SGPPropagator, KeplerianPropagator, or a list of these types"
+            "propagators must be SGPPropagator, KeplerianPropagator, NumericalOrbitPropagator, or a list of these types"
         ));
     };
 

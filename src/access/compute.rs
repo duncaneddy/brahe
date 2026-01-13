@@ -79,6 +79,13 @@ impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for Vec<P> {
     }
 }
 
+// Slice of propagator references (for non-cloneable propagators like NumericalOrbitPropagator)
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for [&P] {
+    fn to_refs(&self) -> Vec<&P> {
+        self.to_vec()
+    }
+}
+
 // ================================
 // Internal Computation Functions
 // ================================

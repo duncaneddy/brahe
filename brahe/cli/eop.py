@@ -81,7 +81,7 @@ def get_utc_ut1(
     epc = brahe.Epoch(epoch)
     try:
         typer.echo(brahe.get_global_ut1_utc(epc.mjd()))
-    except OSError:
+    except brahe.BraheError:
         typer.echo(f"Error: Input epoch {epoch} is out of range for EOP data.")
         raise typer.Exit(code=1)
 
@@ -107,7 +107,7 @@ def get_polar_motion(
     try:
         pm_x, pm_y = brahe.get_global_pm(epc.mjd())
         typer.echo(f"{pm_x}, {pm_y}")
-    except OSError:
+    except brahe.BraheError:
         typer.echo(f"Error: Input epoch {epoch} is out of range for EOP data.")
         raise typer.Exit(code=1)
 
@@ -133,7 +133,7 @@ def get_cip_offset(
     try:
         dX, dY = brahe.get_global_dxdy(epc.mjd())
         typer.echo(f"{dX}, {dY}")
-    except OSError:
+    except brahe.BraheError:
         typer.echo(f"Error: Input epoch {epoch} is out of range for EOP data.")
         raise typer.Exit(code=1)
 
@@ -158,6 +158,6 @@ def get_lod(
     epc = brahe.Epoch(epoch)
     try:
         typer.echo(brahe.get_global_lod(epc.mjd()))
-    except OSError:
+    except brahe.BraheError:
         typer.echo(f"Error: Input epoch {epoch} is out of range for EOP data.")
         raise typer.Exit(code=1)

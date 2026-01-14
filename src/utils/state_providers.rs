@@ -757,3 +757,138 @@ pub trait DIdentifiableStateProvider: DOrbitStateProvider + Identifiable {}
 
 // Blanket implementation for any type implementing both traits
 impl<T: DOrbitStateProvider + Identifiable> DIdentifiableStateProvider for T {}
+
+/// Trait to convert various propagator inputs into a slice of references.
+///
+/// This trait enables unified functions to accept either single propagators
+/// or slices/vectors of propagators.
+pub trait ToPropagatorRefs<P: DIdentifiableStateProvider> {
+    /// Converts the input into a vector of references to propagators.
+    fn to_refs(&self) -> Vec<&P>;
+}
+
+// Single propagator reference
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for P {
+    fn to_refs(&self) -> Vec<&P> {
+        vec![self]
+    }
+}
+
+// Slice of propagators
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for [P] {
+    fn to_refs(&self) -> Vec<&P> {
+        self.iter().collect()
+    }
+}
+
+// Vec of propagators
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for Vec<P> {
+    fn to_refs(&self) -> Vec<&P> {
+        self.iter().collect()
+    }
+}
+
+// Slice of propagator references (for non-cloneable propagators like NumericalOrbitPropagator)
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for [&P] {
+    fn to_refs(&self) -> Vec<&P> {
+        self.to_vec()
+    }
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use super::*;
+    use crate::constants::DEGREES;
+    use crate::propagators::KeplerianPropagator;
+    use crate::propagators::traits::SStatePropagator;
+    use crate::time::{Epoch, TimeSystem};
+    use crate::traits::{OrbitFrame, OrbitRepresentation};
+    use nalgebra::Vector6;
+
+    const TEST_EPOCH_JD: f64 = 2451545.0;
+
+    fn create_test_propagator() -> KeplerianPropagator {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = Vector6::new(7000e3, 0.01, 45.0, 0.0, 0.0, 0.0);
+        KeplerianPropagator::new(
+            epoch,
+            elements,
+            OrbitFrame::ECI,
+            OrbitRepresentation::Keplerian,
+            Some(DEGREES),
+            60.0,
+        )
+    }
+
+    #[test]
+    fn test_to_propagator_refs_single_propagator() {
+        let prop = create_test_propagator();
+        let refs = prop.to_refs();
+        assert_eq!(refs.len(), 1);
+        // Verify the reference points to the original propagator
+        assert_eq!(refs[0].initial_epoch(), prop.initial_epoch());
+    }
+
+    #[test]
+    fn test_to_propagator_refs_slice_of_propagators() {
+        let props = [
+            create_test_propagator(),
+            create_test_propagator(),
+            create_test_propagator(),
+        ];
+        let slice: &[KeplerianPropagator] = &props;
+        let refs = slice.to_refs();
+        assert_eq!(refs.len(), 3);
+        // Verify each reference points to the correct propagator
+        for (i, prop_ref) in refs.iter().enumerate() {
+            assert_eq!(prop_ref.initial_epoch(), props[i].initial_epoch());
+        }
+    }
+
+    #[test]
+    fn test_to_propagator_refs_vec_of_propagators() {
+        let props = vec![create_test_propagator(), create_test_propagator()];
+        let refs = props.to_refs();
+        assert_eq!(refs.len(), 2);
+        // Verify each reference points to the correct propagator
+        for (i, prop_ref) in refs.iter().enumerate() {
+            assert_eq!(prop_ref.initial_epoch(), props[i].initial_epoch());
+        }
+    }
+
+    #[test]
+    fn test_to_propagator_refs_slice_of_refs() {
+        let props = [
+            create_test_propagator(),
+            create_test_propagator(),
+            create_test_propagator(),
+            create_test_propagator(),
+        ];
+        // Create a slice of references
+        let prop_refs: Vec<&KeplerianPropagator> = props.iter().collect();
+        let slice_of_refs: &[&KeplerianPropagator] = &prop_refs;
+
+        let refs = slice_of_refs.to_refs();
+        assert_eq!(refs.len(), 4);
+        // Verify each reference points to the correct propagator
+        for (i, prop_ref) in refs.iter().enumerate() {
+            assert_eq!(prop_ref.initial_epoch(), props[i].initial_epoch());
+        }
+    }
+
+    #[test]
+    fn test_to_propagator_refs_empty_vec() {
+        let props: Vec<KeplerianPropagator> = vec![];
+        let refs = props.to_refs();
+        assert_eq!(refs.len(), 0);
+    }
+
+    #[test]
+    fn test_to_propagator_refs_empty_slice() {
+        let props: Vec<KeplerianPropagator> = vec![];
+        let slice: &[KeplerianPropagator] = &props;
+        let refs = slice.to_refs();
+        assert_eq!(refs.len(), 0);
+    }
+}

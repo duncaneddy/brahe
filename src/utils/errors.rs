@@ -6,11 +6,6 @@ use std::fmt;
 use std::io;
 use std::num::{ParseFloatError, ParseIntError};
 
-#[cfg(feature = "python")]
-use pyo3::exceptions::PyOSError;
-#[cfg(feature = "python")]
-use pyo3::prelude::*;
-
 /// Brahe library error types for consistent error handling across modules.
 #[derive(Debug, PartialEq)]
 pub enum BraheError {
@@ -82,13 +77,6 @@ impl From<ParseIntError> for BraheError {
 impl From<String> for BraheError {
     fn from(msg: String) -> Self {
         BraheError::Error(msg)
-    }
-}
-
-#[cfg(feature = "python")]
-impl From<BraheError> for PyErr {
-    fn from(error: BraheError) -> PyErr {
-        PyOSError::new_err(error.to_string())
     }
 }
 

@@ -1,12 +1,12 @@
 // Helper functions for type conversions
 
 /// Helper function to parse strings into appropriate SpaceWeatherExtrapolation enumerations
-fn string_to_sw_extrapolation(s: &str) -> Result<space_weather::SpaceWeatherExtrapolation, BraheError> {
+fn string_to_sw_extrapolation(s: &str) -> Result<space_weather::SpaceWeatherExtrapolation, RustBraheError> {
     match s {
         "Hold" => Ok(space_weather::SpaceWeatherExtrapolation::Hold),
         "Zero" => Ok(space_weather::SpaceWeatherExtrapolation::Zero),
         "Error" => Ok(space_weather::SpaceWeatherExtrapolation::Error),
-        _ => Err(BraheError::Error(format!(
+        _ => Err(RustBraheError::Error(format!(
             "Unknown Space Weather Extrapolation string \"{}\". Valid values: Hold, Zero, Error",
             s
         ))),
@@ -303,7 +303,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     kp = sw.get_kp(60000.0)
     ///     print(f"Kp: {kp}")  # 3.0
     ///     ```
-    pub fn get_kp(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_kp(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_kp(mjd)
     }
 
@@ -323,7 +323,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     kp_all = sw.get_kp_all(60000.0)
     ///     print(f"8 Kp indices: {kp_all}")
     ///     ```
-    pub fn get_kp_all(&self, mjd: f64) -> Result<[f64; 8], BraheError> {
+    pub fn get_kp_all(&self, mjd: f64) -> Result<[f64; 8], RustBraheError> {
         self.obj.get_kp_all(mjd)
     }
 
@@ -343,7 +343,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     kp_daily = sw.get_kp_daily(60000.0)
     ///     print(f"Daily Kp: {kp_daily}")
     ///     ```
-    pub fn get_kp_daily(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_kp_daily(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_kp_daily(mjd)
     }
 
@@ -363,7 +363,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     ap = sw.get_ap(60000.0)
     ///     print(f"Ap: {ap}")  # 15.0
     ///     ```
-    pub fn get_ap(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_ap(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_ap(mjd)
     }
 
@@ -383,7 +383,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     ap_all = sw.get_ap_all(60000.0)
     ///     print(f"8 Ap indices: {ap_all}")
     ///     ```
-    pub fn get_ap_all(&self, mjd: f64) -> Result<[f64; 8], BraheError> {
+    pub fn get_ap_all(&self, mjd: f64) -> Result<[f64; 8], RustBraheError> {
         self.obj.get_ap_all(mjd)
     }
 
@@ -403,7 +403,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     ap_daily = sw.get_ap_daily(60000.0)
     ///     print(f"Daily Ap: {ap_daily}")
     ///     ```
-    pub fn get_ap_daily(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_ap_daily(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_ap_daily(mjd)
     }
 
@@ -423,7 +423,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     f107 = sw.get_f107_observed(60000.0)
     ///     print(f"F10.7: {f107} sfu")  # 150.0 sfu
     ///     ```
-    pub fn get_f107_observed(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_observed(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_observed(mjd)
     }
 
@@ -443,7 +443,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     f107_adj = sw.get_f107_adjusted(60000.0)
     ///     print(f"F10.7 adjusted: {f107_adj} sfu")
     ///     ```
-    pub fn get_f107_adjusted(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_adjusted(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_adjusted(mjd)
     }
 
@@ -463,7 +463,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     f107_avg = sw.get_f107_obs_avg81(60000.0)
     ///     print(f"F10.7 81-day avg: {f107_avg} sfu")  # 145.0 sfu
     ///     ```
-    pub fn get_f107_obs_avg81(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_obs_avg81(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_obs_avg81(mjd)
     }
 
@@ -483,7 +483,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     f107_adj_avg = sw.get_f107_adj_avg81(60000.0)
     ///     print(f"F10.7 adj 81-day avg: {f107_adj_avg} sfu")
     ///     ```
-    pub fn get_f107_adj_avg81(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_adj_avg81(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_adj_avg81(mjd)
     }
 
@@ -503,7 +503,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     ssn = sw.get_sunspot_number(60000.0)
     ///     print(f"Sunspot number: {ssn}")  # 100
     ///     ```
-    pub fn get_sunspot_number(&self, mjd: f64) -> Result<u32, BraheError> {
+    pub fn get_sunspot_number(&self, mjd: f64) -> Result<u32, RustBraheError> {
         self.obj.get_sunspot_number(mjd)
     }
 
@@ -524,7 +524,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     kp_last = sw.get_last_kp(60000.0, 8)
     ///     print(f"Last 8 Kp values: {kp_last}")
     ///     ```
-    pub fn get_last_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_kp(mjd, n)
     }
 
@@ -545,7 +545,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     ap_last = sw.get_last_ap(60000.0, 8)
     ///     print(f"Last 8 Ap values: {ap_last}")
     ///     ```
-    pub fn get_last_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_ap(mjd, n)
     }
 
@@ -566,7 +566,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     kp_daily_last = sw.get_last_daily_kp(60000.0, 7)
     ///     print(f"Last 7 daily Kp: {kp_daily_last}")
     ///     ```
-    pub fn get_last_daily_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_daily_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_daily_kp(mjd, n)
     }
 
@@ -587,7 +587,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     ap_daily_last = sw.get_last_daily_ap(60000.0, 7)
     ///     print(f"Last 7 daily Ap: {ap_daily_last}")
     ///     ```
-    pub fn get_last_daily_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_daily_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_daily_ap(mjd, n)
     }
 
@@ -608,7 +608,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     f107_last = sw.get_last_f107(60000.0, 7)
     ///     print(f"Last 7 F10.7 values: {f107_last}")
     ///     ```
-    pub fn get_last_f107(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_f107(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_f107(mjd, n)
     }
 
@@ -630,7 +630,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     for epoch in epochs:
     ///         print(f"Epoch: {epoch}")
     ///     ```
-    pub fn get_last_kpap_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, BraheError> {
+    pub fn get_last_kpap_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, RustBraheError> {
         self.obj.get_last_kpap_epochs(mjd, n).map(|epochs| {
             epochs.into_iter().map(|e| PyEpoch { obj: e }).collect()
         })
@@ -654,7 +654,7 @@ impl PyStaticSpaceWeatherProvider {
     ///     for epoch in epochs:
     ///         print(f"Epoch: {epoch}")
     ///     ```
-    pub fn get_last_daily_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, BraheError> {
+    pub fn get_last_daily_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, RustBraheError> {
         self.obj.get_last_daily_epochs(mjd, n).map(|epochs| {
             epochs.into_iter().map(|e| PyEpoch { obj: e }).collect()
         })
@@ -744,7 +744,7 @@ impl PyFileSpaceWeatherProvider {
         _cls: &Bound<'_, PyType>,
         filepath: &str,
         extrapolate: &str,
-    ) -> Result<Self, BraheError> {
+    ) -> Result<Self, RustBraheError> {
         Ok(PyFileSpaceWeatherProvider {
             obj: space_weather::FileSpaceWeatherProvider::from_file(
                 Path::new(filepath),
@@ -766,7 +766,7 @@ impl PyFileSpaceWeatherProvider {
     ///     bh.set_global_space_weather_provider(sw)
     ///     ```
     #[classmethod]
-    pub fn from_default_file(_cls: &Bound<'_, PyType>) -> Result<Self, BraheError> {
+    pub fn from_default_file(_cls: &Bound<'_, PyType>) -> Result<Self, RustBraheError> {
         Ok(PyFileSpaceWeatherProvider {
             obj: space_weather::FileSpaceWeatherProvider::from_default_file()?,
         })
@@ -932,7 +932,7 @@ impl PyFileSpaceWeatherProvider {
     ///     kp = sw.get_kp(60000.0)
     ///     print(f"Kp: {kp}")
     ///     ```
-    pub fn get_kp(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_kp(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_kp(mjd)
     }
 
@@ -952,7 +952,7 @@ impl PyFileSpaceWeatherProvider {
     ///     kp_all = sw.get_kp_all(60000.0)
     ///     print(f"8 Kp indices: {kp_all}")
     ///     ```
-    pub fn get_kp_all(&self, mjd: f64) -> Result<[f64; 8], BraheError> {
+    pub fn get_kp_all(&self, mjd: f64) -> Result<[f64; 8], RustBraheError> {
         self.obj.get_kp_all(mjd)
     }
 
@@ -972,7 +972,7 @@ impl PyFileSpaceWeatherProvider {
     ///     kp_daily = sw.get_kp_daily(60000.0)
     ///     print(f"Daily Kp: {kp_daily}")
     ///     ```
-    pub fn get_kp_daily(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_kp_daily(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_kp_daily(mjd)
     }
 
@@ -992,7 +992,7 @@ impl PyFileSpaceWeatherProvider {
     ///     ap = sw.get_ap(60000.0)
     ///     print(f"Ap: {ap}")
     ///     ```
-    pub fn get_ap(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_ap(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_ap(mjd)
     }
 
@@ -1012,7 +1012,7 @@ impl PyFileSpaceWeatherProvider {
     ///     ap_all = sw.get_ap_all(60000.0)
     ///     print(f"8 Ap indices: {ap_all}")
     ///     ```
-    pub fn get_ap_all(&self, mjd: f64) -> Result<[f64; 8], BraheError> {
+    pub fn get_ap_all(&self, mjd: f64) -> Result<[f64; 8], RustBraheError> {
         self.obj.get_ap_all(mjd)
     }
 
@@ -1032,7 +1032,7 @@ impl PyFileSpaceWeatherProvider {
     ///     ap_daily = sw.get_ap_daily(60000.0)
     ///     print(f"Daily Ap: {ap_daily}")
     ///     ```
-    pub fn get_ap_daily(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_ap_daily(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_ap_daily(mjd)
     }
 
@@ -1052,7 +1052,7 @@ impl PyFileSpaceWeatherProvider {
     ///     f107 = sw.get_f107_observed(60000.0)
     ///     print(f"F10.7: {f107} sfu")
     ///     ```
-    pub fn get_f107_observed(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_observed(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_observed(mjd)
     }
 
@@ -1072,7 +1072,7 @@ impl PyFileSpaceWeatherProvider {
     ///     f107_adj = sw.get_f107_adjusted(60000.0)
     ///     print(f"F10.7 adjusted: {f107_adj} sfu")
     ///     ```
-    pub fn get_f107_adjusted(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_adjusted(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_adjusted(mjd)
     }
 
@@ -1092,7 +1092,7 @@ impl PyFileSpaceWeatherProvider {
     ///     f107_avg = sw.get_f107_obs_avg81(60000.0)
     ///     print(f"F10.7 81-day avg: {f107_avg} sfu")
     ///     ```
-    pub fn get_f107_obs_avg81(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_obs_avg81(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_obs_avg81(mjd)
     }
 
@@ -1112,7 +1112,7 @@ impl PyFileSpaceWeatherProvider {
     ///     f107_adj_avg = sw.get_f107_adj_avg81(60000.0)
     ///     print(f"F10.7 adj 81-day avg: {f107_adj_avg} sfu")
     ///     ```
-    pub fn get_f107_adj_avg81(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_adj_avg81(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_adj_avg81(mjd)
     }
 
@@ -1132,7 +1132,7 @@ impl PyFileSpaceWeatherProvider {
     ///     ssn = sw.get_sunspot_number(60000.0)
     ///     print(f"Sunspot number: {ssn}")
     ///     ```
-    pub fn get_sunspot_number(&self, mjd: f64) -> Result<u32, BraheError> {
+    pub fn get_sunspot_number(&self, mjd: f64) -> Result<u32, RustBraheError> {
         self.obj.get_sunspot_number(mjd)
     }
 
@@ -1153,7 +1153,7 @@ impl PyFileSpaceWeatherProvider {
     ///     kp_last = sw.get_last_kp(60000.0, 8)
     ///     print(f"Last 8 Kp values: {kp_last}")
     ///     ```
-    pub fn get_last_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_kp(mjd, n)
     }
 
@@ -1174,7 +1174,7 @@ impl PyFileSpaceWeatherProvider {
     ///     ap_last = sw.get_last_ap(60000.0, 8)
     ///     print(f"Last 8 Ap values: {ap_last}")
     ///     ```
-    pub fn get_last_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_ap(mjd, n)
     }
 
@@ -1195,7 +1195,7 @@ impl PyFileSpaceWeatherProvider {
     ///     kp_daily_last = sw.get_last_daily_kp(60000.0, 7)
     ///     print(f"Last 7 daily Kp: {kp_daily_last}")
     ///     ```
-    pub fn get_last_daily_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_daily_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_daily_kp(mjd, n)
     }
 
@@ -1216,7 +1216,7 @@ impl PyFileSpaceWeatherProvider {
     ///     ap_daily_last = sw.get_last_daily_ap(60000.0, 7)
     ///     print(f"Last 7 daily Ap: {ap_daily_last}")
     ///     ```
-    pub fn get_last_daily_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_daily_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_daily_ap(mjd, n)
     }
 
@@ -1237,7 +1237,7 @@ impl PyFileSpaceWeatherProvider {
     ///     f107_last = sw.get_last_f107(60000.0, 7)
     ///     print(f"Last 7 F10.7 values: {f107_last}")
     ///     ```
-    pub fn get_last_f107(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_f107(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_f107(mjd, n)
     }
 
@@ -1259,7 +1259,7 @@ impl PyFileSpaceWeatherProvider {
     ///     for epoch in epochs:
     ///         print(f"Epoch: {epoch}")
     ///     ```
-    pub fn get_last_kpap_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, BraheError> {
+    pub fn get_last_kpap_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, RustBraheError> {
         self.obj.get_last_kpap_epochs(mjd, n).map(|epochs| {
             epochs.into_iter().map(|e| PyEpoch { obj: e }).collect()
         })
@@ -1283,7 +1283,7 @@ impl PyFileSpaceWeatherProvider {
     ///     for epoch in epochs:
     ///         print(f"Epoch: {epoch}")
     ///     ```
-    pub fn get_last_daily_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, BraheError> {
+    pub fn get_last_daily_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, RustBraheError> {
         self.obj.get_last_daily_epochs(mjd, n).map(|epochs| {
             epochs.into_iter().map(|e| PyEpoch { obj: e }).collect()
         })
@@ -1376,7 +1376,7 @@ impl PyCachingSpaceWeatherProvider {
         auto_refresh: bool,
         extrapolate: &str,
         cache_dir: Option<&str>,
-    ) -> Result<Self, BraheError> {
+    ) -> Result<Self, RustBraheError> {
         Ok(PyCachingSpaceWeatherProvider {
             obj: space_weather::CachingSpaceWeatherProvider::new(
                 cache_dir.map(PathBuf::from),
@@ -1420,7 +1420,7 @@ impl PyCachingSpaceWeatherProvider {
         auto_refresh: bool,
         extrapolate: &str,
         cache_dir: Option<&str>,
-    ) -> Result<Self, BraheError> {
+    ) -> Result<Self, RustBraheError> {
         Ok(PyCachingSpaceWeatherProvider {
             obj: space_weather::CachingSpaceWeatherProvider::with_url(
                 url,
@@ -1443,7 +1443,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     provider = bh.CachingSpaceWeatherProvider(7 * 86400, False, "Hold")
     ///     provider.refresh()
     ///     ```
-    pub fn refresh(&self) -> Result<(), BraheError> {
+    pub fn refresh(&self) -> Result<(), RustBraheError> {
         self.obj.refresh()
     }
 
@@ -1643,7 +1643,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     kp = provider.get_kp(60000.0)
     ///     print(f"Kp: {kp}")
     ///     ```
-    pub fn get_kp(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_kp(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_kp(mjd)
     }
 
@@ -1663,7 +1663,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     kp_all = provider.get_kp_all(60000.0)
     ///     print(f"8 Kp indices: {kp_all}")
     ///     ```
-    pub fn get_kp_all(&self, mjd: f64) -> Result<[f64; 8], BraheError> {
+    pub fn get_kp_all(&self, mjd: f64) -> Result<[f64; 8], RustBraheError> {
         self.obj.get_kp_all(mjd)
     }
 
@@ -1683,7 +1683,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     kp_daily = provider.get_kp_daily(60000.0)
     ///     print(f"Daily Kp: {kp_daily}")
     ///     ```
-    pub fn get_kp_daily(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_kp_daily(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_kp_daily(mjd)
     }
 
@@ -1703,7 +1703,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     ap = provider.get_ap(60000.0)
     ///     print(f"Ap: {ap}")
     ///     ```
-    pub fn get_ap(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_ap(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_ap(mjd)
     }
 
@@ -1723,7 +1723,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     ap_all = provider.get_ap_all(60000.0)
     ///     print(f"8 Ap indices: {ap_all}")
     ///     ```
-    pub fn get_ap_all(&self, mjd: f64) -> Result<[f64; 8], BraheError> {
+    pub fn get_ap_all(&self, mjd: f64) -> Result<[f64; 8], RustBraheError> {
         self.obj.get_ap_all(mjd)
     }
 
@@ -1743,7 +1743,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     ap_daily = provider.get_ap_daily(60000.0)
     ///     print(f"Daily Ap: {ap_daily}")
     ///     ```
-    pub fn get_ap_daily(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_ap_daily(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_ap_daily(mjd)
     }
 
@@ -1763,7 +1763,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     f107 = provider.get_f107_observed(60000.0)
     ///     print(f"F10.7: {f107} sfu")
     ///     ```
-    pub fn get_f107_observed(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_observed(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_observed(mjd)
     }
 
@@ -1783,7 +1783,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     f107_adj = provider.get_f107_adjusted(60000.0)
     ///     print(f"F10.7 adjusted: {f107_adj} sfu")
     ///     ```
-    pub fn get_f107_adjusted(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_adjusted(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_adjusted(mjd)
     }
 
@@ -1803,7 +1803,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     f107_avg = provider.get_f107_obs_avg81(60000.0)
     ///     print(f"F10.7 81-day avg: {f107_avg} sfu")
     ///     ```
-    pub fn get_f107_obs_avg81(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_obs_avg81(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_obs_avg81(mjd)
     }
 
@@ -1823,7 +1823,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     f107_adj_avg = provider.get_f107_adj_avg81(60000.0)
     ///     print(f"F10.7 adj 81-day avg: {f107_adj_avg} sfu")
     ///     ```
-    pub fn get_f107_adj_avg81(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_f107_adj_avg81(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_f107_adj_avg81(mjd)
     }
 
@@ -1843,7 +1843,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     ssn = provider.get_sunspot_number(60000.0)
     ///     print(f"Sunspot number: {ssn}")
     ///     ```
-    pub fn get_sunspot_number(&self, mjd: f64) -> Result<u32, BraheError> {
+    pub fn get_sunspot_number(&self, mjd: f64) -> Result<u32, RustBraheError> {
         self.obj.get_sunspot_number(mjd)
     }
 
@@ -1864,7 +1864,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     kp_last = provider.get_last_kp(60000.0, 8)
     ///     print(f"Last 8 Kp values: {kp_last}")
     ///     ```
-    pub fn get_last_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_kp(mjd, n)
     }
 
@@ -1885,7 +1885,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     ap_last = provider.get_last_ap(60000.0, 8)
     ///     print(f"Last 8 Ap values: {ap_last}")
     ///     ```
-    pub fn get_last_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_ap(mjd, n)
     }
 
@@ -1906,7 +1906,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     kp_daily_last = provider.get_last_daily_kp(60000.0, 7)
     ///     print(f"Last 7 daily Kp: {kp_daily_last}")
     ///     ```
-    pub fn get_last_daily_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_daily_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_daily_kp(mjd, n)
     }
 
@@ -1927,7 +1927,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     ap_daily_last = provider.get_last_daily_ap(60000.0, 7)
     ///     print(f"Last 7 daily Ap: {ap_daily_last}")
     ///     ```
-    pub fn get_last_daily_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_daily_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_daily_ap(mjd, n)
     }
 
@@ -1948,7 +1948,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     f107_last = provider.get_last_f107(60000.0, 7)
     ///     print(f"Last 7 F10.7 values: {f107_last}")
     ///     ```
-    pub fn get_last_f107(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+    pub fn get_last_f107(&self, mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
         self.obj.get_last_f107(mjd, n)
     }
 
@@ -1970,7 +1970,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     for epoch in epochs:
     ///         print(f"Epoch: {epoch}")
     ///     ```
-    pub fn get_last_kpap_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, BraheError> {
+    pub fn get_last_kpap_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, RustBraheError> {
         self.obj.get_last_kpap_epochs(mjd, n).map(|epochs| {
             epochs.into_iter().map(|e| PyEpoch { obj: e }).collect()
         })
@@ -1994,7 +1994,7 @@ impl PyCachingSpaceWeatherProvider {
     ///     for epoch in epochs:
     ///         print(f"Epoch: {epoch}")
     ///     ```
-    pub fn get_last_daily_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, BraheError> {
+    pub fn get_last_daily_epochs(&self, mjd: f64, n: usize) -> Result<Vec<PyEpoch>, RustBraheError> {
         self.obj.get_last_daily_epochs(mjd, n).map(|epochs| {
             epochs.into_iter().map(|e| PyEpoch { obj: e }).collect()
         })
@@ -2063,7 +2063,7 @@ pub fn py_set_global_space_weather_provider(provider: &Bound<'_, PyAny>) -> PyRe
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_kp")]
-pub fn py_get_global_kp(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_kp(mjd: f64) -> Result<f64, RustBraheError> {
     space_weather::get_global_kp(mjd)
 }
 
@@ -2086,7 +2086,7 @@ pub fn py_get_global_kp(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_kp_all")]
-pub fn py_get_global_kp_all(mjd: f64) -> Result<[f64; 8], BraheError> {
+pub fn py_get_global_kp_all(mjd: f64) -> Result<[f64; 8], RustBraheError> {
     space_weather::get_global_kp_all(mjd)
 }
 
@@ -2109,7 +2109,7 @@ pub fn py_get_global_kp_all(mjd: f64) -> Result<[f64; 8], BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_kp_daily")]
-pub fn py_get_global_kp_daily(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_kp_daily(mjd: f64) -> Result<f64, RustBraheError> {
     space_weather::get_global_kp_daily(mjd)
 }
 
@@ -2132,7 +2132,7 @@ pub fn py_get_global_kp_daily(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_ap")]
-pub fn py_get_global_ap(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_ap(mjd: f64) -> Result<f64, RustBraheError> {
     space_weather::get_global_ap(mjd)
 }
 
@@ -2155,7 +2155,7 @@ pub fn py_get_global_ap(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_ap_all")]
-pub fn py_get_global_ap_all(mjd: f64) -> Result<[f64; 8], BraheError> {
+pub fn py_get_global_ap_all(mjd: f64) -> Result<[f64; 8], RustBraheError> {
     space_weather::get_global_ap_all(mjd)
 }
 
@@ -2178,7 +2178,7 @@ pub fn py_get_global_ap_all(mjd: f64) -> Result<[f64; 8], BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_ap_daily")]
-pub fn py_get_global_ap_daily(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_ap_daily(mjd: f64) -> Result<f64, RustBraheError> {
     space_weather::get_global_ap_daily(mjd)
 }
 
@@ -2201,7 +2201,7 @@ pub fn py_get_global_ap_daily(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_f107_observed")]
-pub fn py_get_global_f107_observed(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_f107_observed(mjd: f64) -> Result<f64, RustBraheError> {
     space_weather::get_global_f107_observed(mjd)
 }
 
@@ -2224,7 +2224,7 @@ pub fn py_get_global_f107_observed(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_f107_adjusted")]
-pub fn py_get_global_f107_adjusted(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_f107_adjusted(mjd: f64) -> Result<f64, RustBraheError> {
     space_weather::get_global_f107_adjusted(mjd)
 }
 
@@ -2247,7 +2247,7 @@ pub fn py_get_global_f107_adjusted(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_f107_obs_avg81")]
-pub fn py_get_global_f107_obs_avg81(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_f107_obs_avg81(mjd: f64) -> Result<f64, RustBraheError> {
     space_weather::get_global_f107_obs_avg81(mjd)
 }
 
@@ -2270,7 +2270,7 @@ pub fn py_get_global_f107_obs_avg81(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_f107_adj_avg81")]
-pub fn py_get_global_f107_adj_avg81(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_f107_adj_avg81(mjd: f64) -> Result<f64, RustBraheError> {
     space_weather::get_global_f107_adj_avg81(mjd)
 }
 
@@ -2293,7 +2293,7 @@ pub fn py_get_global_f107_adj_avg81(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_sunspot_number")]
-pub fn py_get_global_sunspot_number(mjd: f64) -> Result<u32, BraheError> {
+pub fn py_get_global_sunspot_number(mjd: f64) -> Result<u32, RustBraheError> {
     space_weather::get_global_sunspot_number(mjd)
 }
 
@@ -2317,7 +2317,7 @@ pub fn py_get_global_sunspot_number(mjd: f64) -> Result<u32, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd, n)")]
 #[pyo3(name = "get_global_last_kp")]
-pub fn py_get_global_last_kp(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+pub fn py_get_global_last_kp(mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
     space_weather::get_global_last_kp(mjd, n)
 }
 
@@ -2341,7 +2341,7 @@ pub fn py_get_global_last_kp(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError>
 #[pyfunction]
 #[pyo3(text_signature = "(mjd, n)")]
 #[pyo3(name = "get_global_last_ap")]
-pub fn py_get_global_last_ap(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+pub fn py_get_global_last_ap(mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
     space_weather::get_global_last_ap(mjd, n)
 }
 
@@ -2365,7 +2365,7 @@ pub fn py_get_global_last_ap(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError>
 #[pyfunction]
 #[pyo3(text_signature = "(mjd, n)")]
 #[pyo3(name = "get_global_last_daily_kp")]
-pub fn py_get_global_last_daily_kp(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+pub fn py_get_global_last_daily_kp(mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
     space_weather::get_global_last_daily_kp(mjd, n)
 }
 
@@ -2389,7 +2389,7 @@ pub fn py_get_global_last_daily_kp(mjd: f64, n: usize) -> Result<Vec<f64>, Brahe
 #[pyfunction]
 #[pyo3(text_signature = "(mjd, n)")]
 #[pyo3(name = "get_global_last_daily_ap")]
-pub fn py_get_global_last_daily_ap(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+pub fn py_get_global_last_daily_ap(mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
     space_weather::get_global_last_daily_ap(mjd, n)
 }
 
@@ -2413,7 +2413,7 @@ pub fn py_get_global_last_daily_ap(mjd: f64, n: usize) -> Result<Vec<f64>, Brahe
 #[pyfunction]
 #[pyo3(text_signature = "(mjd, n)")]
 #[pyo3(name = "get_global_last_f107")]
-pub fn py_get_global_last_f107(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+pub fn py_get_global_last_f107(mjd: f64, n: usize) -> Result<Vec<f64>, RustBraheError> {
     space_weather::get_global_last_f107(mjd, n)
 }
 
@@ -2438,7 +2438,7 @@ pub fn py_get_global_last_f107(mjd: f64, n: usize) -> Result<Vec<f64>, BraheErro
 #[pyfunction]
 #[pyo3(text_signature = "(mjd, n)")]
 #[pyo3(name = "get_global_last_kpap_epochs")]
-pub fn py_get_global_last_kpap_epochs(mjd: f64, n: usize) -> Result<Vec<PyEpoch>, BraheError> {
+pub fn py_get_global_last_kpap_epochs(mjd: f64, n: usize) -> Result<Vec<PyEpoch>, RustBraheError> {
     space_weather::get_global_last_kpap_epochs(mjd, n).map(|epochs| {
         epochs.into_iter().map(|e| PyEpoch { obj: e }).collect()
     })
@@ -2465,7 +2465,7 @@ pub fn py_get_global_last_kpap_epochs(mjd: f64, n: usize) -> Result<Vec<PyEpoch>
 #[pyfunction]
 #[pyo3(text_signature = "(mjd, n)")]
 #[pyo3(name = "get_global_last_daily_epochs")]
-pub fn py_get_global_last_daily_epochs(mjd: f64, n: usize) -> Result<Vec<PyEpoch>, BraheError> {
+pub fn py_get_global_last_daily_epochs(mjd: f64, n: usize) -> Result<Vec<PyEpoch>, RustBraheError> {
     space_weather::get_global_last_daily_epochs(mjd, n).map(|epochs| {
         epochs.into_iter().map(|e| PyEpoch { obj: e }).collect()
     })
@@ -2682,6 +2682,6 @@ pub fn py_get_global_sw_mjd_last_monthly_predicted() -> f64 {
 #[pyfunction]
 #[pyo3(text_signature = "()")]
 #[pyo3(name = "initialize_sw")]
-pub fn py_initialize_sw() -> Result<(), BraheError> {
+pub fn py_initialize_sw() -> Result<(), RustBraheError> {
     space_weather::initialize_sw()
 }

@@ -13,7 +13,7 @@ use crate::access::properties::AccessPropertyComputer;
 use crate::access::windows::{AccessSearchConfig, AccessWindow, find_access_windows};
 use crate::time::Epoch;
 use crate::utils::BraheError;
-use crate::utils::state_providers::DIdentifiableStateProvider;
+use crate::utils::state_providers::{DIdentifiableStateProvider, ToPropagatorRefs};
 use crate::utils::threading::get_thread_pool;
 use rayon::prelude::*;
 
@@ -46,35 +46,6 @@ impl<L: AccessibleLocation> ToLocationRefs<L> for [L] {
 // Vec of locations
 impl<L: AccessibleLocation> ToLocationRefs<L> for Vec<L> {
     fn to_refs(&self) -> Vec<&L> {
-        self.iter().collect()
-    }
-}
-
-/// Trait to convert various propagator inputs into a slice of references.
-///
-/// This trait enables the unified `location_accesses` function to accept
-/// either single propagators or slices/vectors of propagators.
-pub(crate) trait ToPropagatorRefs<P: DIdentifiableStateProvider> {
-    fn to_refs(&self) -> Vec<&P>;
-}
-
-// Single propagator reference
-impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for P {
-    fn to_refs(&self) -> Vec<&P> {
-        vec![self]
-    }
-}
-
-// Slice of propagators
-impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for [P] {
-    fn to_refs(&self) -> Vec<&P> {
-        self.iter().collect()
-    }
-}
-
-// Vec of propagators
-impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for Vec<P> {
-    fn to_refs(&self) -> Vec<&P> {
         self.iter().collect()
     }
 }

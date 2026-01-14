@@ -2,6 +2,7 @@ from math import sqrt
 import numpy as np
 import pytest
 from brahe import (
+    BraheError,
     Quaternion,
     EulerAngle,
     EulerAngleOrder,
@@ -25,11 +26,11 @@ def test_new():
     )
 
     # Determinant is not 1
-    with pytest.raises(OSError):
+    with pytest.raises(BraheError):
         RotationMatrix(1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0)
 
     # Not a square matrix
-    with pytest.raises(OSError):
+    with pytest.raises(BraheError):
         RotationMatrix(1.0, 0.0, 0.0, 0.0, 2.0, 3.0, 0.0, 0.0, 1.0)
 
 

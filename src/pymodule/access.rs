@@ -3527,7 +3527,7 @@ impl AccessPropertyComputer for PropertyComputerHolder {
         sample_states_ecef: &[nalgebra::SVector<f64, 6>],
         location_ecef: &nalgebra::Vector3<f64>,
         location_geodetic: &nalgebra::Vector3<f64>,
-    ) -> Result<HashMap<String, PropertyValue>, BraheError> {
+    ) -> Result<HashMap<String, PropertyValue>, RustBraheError> {
         match self {
             PropertyComputerHolder::RustNative(computer) => {
                 computer.compute(window, sample_epochs, sample_states_ecef, location_ecef, location_geodetic)
@@ -3588,7 +3588,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
         sample_states_ecef: &[nalgebra::SVector<f64, 6>],
         location_ecef: &nalgebra::Vector3<f64>,
         location_geodetic: &nalgebra::Vector3<f64>,
-    ) -> Result<HashMap<String, PropertyValue>, BraheError> {
+    ) -> Result<HashMap<String, PropertyValue>, RustBraheError> {
         Python::attach(|py| {
             // Convert sample_epochs to numpy array (1D)
             let epochs_array = sample_epochs.to_pyarray(py).to_owned();
@@ -3601,7 +3601,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
                     .map(|state| state.as_slice().to_vec())
                     .collect::<Vec<_>>(),
             )
-            .map_err(|e| BraheError::Error(format!("Failed to create states array: {}", e)))?
+            .map_err(|e| RustBraheError::Error(format!("Failed to create states array: {}", e)))?
             .to_owned();
 
             // Convert location_ecef to numpy array
@@ -3617,7 +3617,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
                     window: window.clone(),
                 },
             )
-            .map_err(|e| BraheError::Error(format!("Failed to create PyAccessWindow: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to create PyAccessWindow: {}", e)))?;
 
             // Call Python compute method
             let py_obj = self.py_computer.bind(py);
@@ -3627,18 +3627,18 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
                     (py_window, epochs_array, states_array, loc_array, loc_geodetic_array),
                 )
                 .map_err(|e| {
-                    BraheError::Error(format!("Python compute() method failed: {}", e))
+                    RustBraheError::Error(format!("Python compute() method failed: {}", e))
                 })?;
 
             // Convert Python dict to Rust HashMap<String, PropertyValue>
             let dict: &Bound<'_, PyDict> = result_dict
                 .cast()
-                .map_err(|e| BraheError::Error(format!("compute() must return a dict: {}", e)))?;
+                .map_err(|e| RustBraheError::Error(format!("compute() must return a dict: {}", e)))?;
 
             let mut props = HashMap::new();
             for (key, value) in dict.iter() {
                 let key_str: String = key.extract().map_err(|e| {
-                    BraheError::Error(format!("Property keys must be strings: {}", e))
+                    RustBraheError::Error(format!("Property keys must be strings: {}", e))
                 })?;
 
                 // Convert Python value to PropertyValue
@@ -3663,7 +3663,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
 
 // Helper function to convert Python values to PropertyValue
 #[allow(dead_code)]
-fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyValue, BraheError> {
+fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyValue, RustBraheError> {
     // Try bool first (before int/float, since bool is a subclass of int in Python)
     if let Ok(b) = value.extract::<bool>() {
         return Ok(PropertyValue::Boolean(b));
@@ -3688,42 +3688,42 @@ fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyVa
     if let Ok(dict) = value.cast::<PyDict>() {
         // Check if it's a time series format
         let has_times = dict.contains("times").map_err(|e| {
-            BraheError::Error(format!("Failed to check for 'times' key: {}", e))
+            RustBraheError::Error(format!("Failed to check for 'times' key: {}", e))
         })?;
         let has_values = dict.contains("values").map_err(|e| {
-            BraheError::Error(format!("Failed to check for 'values' key: {}", e))
+            RustBraheError::Error(format!("Failed to check for 'values' key: {}", e))
         })?;
 
         if has_times && has_values {
             let times: Vec<f64> = dict
                 .get_item("times")
-                .map_err(|e| BraheError::Error(format!("Failed to get 'times': {}", e)))?
-                .ok_or_else(|| BraheError::Error("Missing 'times' key".to_string()))?
+                .map_err(|e| RustBraheError::Error(format!("Failed to get 'times': {}", e)))?
+                .ok_or_else(|| RustBraheError::Error("Missing 'times' key".to_string()))?
                 .extract()
-                .map_err(|e| BraheError::Error(format!("Failed to extract 'times': {}", e)))?;
+                .map_err(|e| RustBraheError::Error(format!("Failed to extract 'times': {}", e)))?;
             let values: Vec<f64> = dict
                 .get_item("values")
-                .map_err(|e| BraheError::Error(format!("Failed to get 'values': {}", e)))?
-                .ok_or_else(|| BraheError::Error("Missing 'values' key".to_string()))?
+                .map_err(|e| RustBraheError::Error(format!("Failed to get 'values': {}", e)))?
+                .ok_or_else(|| RustBraheError::Error("Missing 'values' key".to_string()))?
                 .extract()
-                .map_err(|e| BraheError::Error(format!("Failed to extract 'values': {}", e)))?;
+                .map_err(|e| RustBraheError::Error(format!("Failed to extract 'values': {}", e)))?;
             return Ok(PropertyValue::TimeSeries { times, values });
         }
 
         // Otherwise, convert to JSON
         let json_module = value.py().import("json").map_err(|e| {
-            BraheError::Error(format!("Failed to import json module: {}", e))
+            RustBraheError::Error(format!("Failed to import json module: {}", e))
         })?;
         let dumps = json_module.getattr("dumps").map_err(|e| {
-            BraheError::Error(format!("Failed to get json.dumps: {}", e))
+            RustBraheError::Error(format!("Failed to get json.dumps: {}", e))
         })?;
         let json_str: String = dumps
             .call1((value,))
             .and_then(|s| s.extract::<String>())
-            .map_err(|e| BraheError::Error(format!("Failed to serialize to JSON: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to serialize to JSON: {}", e)))?;
 
         let json_value: serde_json::Value = serde_json::from_str(&json_str)
-            .map_err(|e| BraheError::ParseError(format!("Invalid JSON: {}", e)))?;
+            .map_err(|e| RustBraheError::ParseError(format!("Invalid JSON: {}", e)))?;
 
         return Ok(PropertyValue::Json(json_value));
     }
@@ -3732,17 +3732,17 @@ fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyVa
     Python::attach(|py| {
         let json_module = py
             .import("json")
-            .map_err(|e| BraheError::Error(format!("Failed to import json: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to import json: {}", e)))?;
         let dumps = json_module
             .getattr("dumps")
-            .map_err(|e| BraheError::Error(format!("Failed to get json.dumps: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to get json.dumps: {}", e)))?;
         let json_str: String = dumps
             .call1((value,))
             .and_then(|s| s.extract::<String>())
-            .map_err(|e| BraheError::Error(format!("Failed to serialize value: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to serialize value: {}", e)))?;
 
         let json_value: serde_json::Value = serde_json::from_str(&json_str)
-            .map_err(|e| BraheError::ParseError(format!("Invalid JSON: {}", e)))?;
+            .map_err(|e| RustBraheError::ParseError(format!("Invalid JSON: {}", e)))?;
 
         Ok(PropertyValue::Json(json_value))
     })
@@ -4069,6 +4069,44 @@ impl PyAccessSearchConfig {
     }
 }
 
+/// Process property computers from Python objects to Rust holders.
+///
+/// This helper function extracts property computers from Python objects and wraps them
+/// in the appropriate Rust holder type. Built-in property computers (Doppler, Range, RangeRate)
+/// are extracted directly for zero-overhead execution, while custom Python-defined
+/// computers are wrapped in the Python-Rust bridge.
+fn process_property_computers(
+    property_computers: Option<Vec<Py<PyAny>>>,
+) -> Vec<PropertyComputerHolder> {
+    if let Some(computers) = property_computers {
+        computers
+            .into_iter()
+            .map(|py_computer| {
+                Python::attach(|py| {
+                    let obj = py_computer.bind(py);
+                    if let Ok(doppler) = obj.cast::<PyDopplerComputer>() {
+                        PropertyComputerHolder::RustNative(Box::new(
+                            doppler.borrow().computer.clone(),
+                        ))
+                    } else if let Ok(range) = obj.cast::<PyRangeComputer>() {
+                        PropertyComputerHolder::RustNative(Box::new(range.borrow().computer.clone()))
+                    } else if let Ok(range_rate) = obj.cast::<PyRangeRateComputer>() {
+                        PropertyComputerHolder::RustNative(Box::new(
+                            range_rate.borrow().computer.clone(),
+                        ))
+                    } else {
+                        PropertyComputerHolder::PythonWrapper(
+                            RustAccessPropertyComputerWrapper::new(py_computer),
+                        )
+                    }
+                })
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+}
+
 /// Compute access windows for locations and satellites.
 ///
 /// This function accepts either single items or lists for both locations and propagators,
@@ -4214,7 +4252,87 @@ fn py_location_accesses(
         ));
     };
 
-    // Extract propagators as vectors
+    // Check for NumericalOrbitPropagator first (cannot be cloned, so handled separately)
+    // NumericalOrbitPropagator uses borrow guards with references instead of cloning
+    let is_numerical = if prop_is_list {
+        let list = propagators.cast::<PyList>()?;
+        !list.is_empty() && list.get_item(0)?.is_instance_of::<PyNumericalOrbitPropagator>()
+    } else {
+        propagators.is_instance_of::<PyNumericalOrbitPropagator>()
+    };
+
+    if is_numerical {
+        // Handle NumericalOrbitPropagator separately using borrow guards
+        // (DNumericalOrbitPropagator doesn't implement Clone due to Box<dyn DIntegrator>)
+        let borrow_guards: Vec<pyo3::PyRef<'_, PyNumericalOrbitPropagator>> = if prop_is_list {
+            let list = propagators.cast::<PyList>()?;
+            let mut guards = Vec::new();
+            for item in list.iter() {
+                if let Ok(prop) = item.cast::<PyNumericalOrbitPropagator>() {
+                    guards.push(prop.borrow());
+                } else {
+                    return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                        "propagators list must contain only NumericalOrbitPropagator objects (cannot mix propagator types)"
+                    ));
+                }
+            }
+            guards
+        } else {
+            vec![propagators.cast::<PyNumericalOrbitPropagator>()?.borrow()]
+        };
+
+        // Create references from borrow guards
+        let prop_refs: Vec<&propagators::DNumericalOrbitPropagator> =
+            borrow_guards.iter().map(|g| &g.propagator).collect();
+
+        // Process property computers using shared helper
+        let rust_property_computers = process_property_computers(property_computers);
+
+        let property_computer_refs: Vec<&dyn AccessPropertyComputer> = rust_property_computers
+            .iter()
+            .map(|c| c as &dyn AccessPropertyComputer)
+            .collect();
+
+        let property_computers_option = if property_computer_refs.is_empty() {
+            None
+        } else {
+            Some(property_computer_refs.as_slice())
+        };
+
+        // Call location_accesses with the reference slice
+        // NOTE: We do NOT release the GIL here (no py.allow_threads) because we hold
+        // references into Python-owned NumericalOrbitPropagator objects. If another Python
+        // thread mutated the propagator (e.g., via propagate_to()) while we're computing
+        // access, we'd have a data race. The cloneable propagators path (SGP, Keplerian)
+        // safely releases the GIL because it clones the propagators first.
+        #[allow(deprecated)]
+        let windows = match &locations_vec {
+            LocationVec::Point(locs) => location_accesses(
+                locs,
+                prop_refs.as_slice(),
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                property_computers_option,
+                Some(&search_config),
+                time_tolerance,
+            ),
+            LocationVec::Polygon(locs) => location_accesses(
+                locs,
+                prop_refs.as_slice(),
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                property_computers_option,
+                Some(&search_config),
+                time_tolerance,
+            ),
+        }?;
+
+        return Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect());
+    }
+
+    // Extract propagators as vectors (for cloneable propagators: SGP, Keplerian)
     enum PropagatorVec {
         Sgp(Vec<crate::propagators::sgp_propagator::SGPPropagator>),
         Keplerian(Vec<crate::propagators::keplerian_propagator::KeplerianPropagator>),
@@ -4250,38 +4368,12 @@ fn py_location_accesses(
         PropagatorVec::Keplerian(vec![prop.borrow().propagator.clone()])
     } else {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "propagators must be SGPPropagator, KeplerianPropagator, or a list of these types"
+            "propagators must be SGPPropagator, KeplerianPropagator, NumericalOrbitPropagator, or a list of these types"
         ));
     };
 
-    // Process property computers if provided
-    // Try to extract built-in Rust computers directly for zero-overhead execution,
-    // otherwise wrap Python-defined computers
-    let rust_property_computers: Vec<PropertyComputerHolder> = if let Some(computers) = property_computers {
-        computers
-            .into_iter()
-            .map(|py_computer| {
-                Python::attach(|py| {
-                    let obj = py_computer.bind(py);
-
-                    // Try to extract as built-in property computers
-                    // If successful, use the underlying Rust implementation directly
-                    if let Ok(doppler) = obj.cast::<PyDopplerComputer>() {
-                        PropertyComputerHolder::RustNative(Box::new(doppler.borrow().computer.clone()))
-                    } else if let Ok(range) = obj.cast::<PyRangeComputer>() {
-                        PropertyComputerHolder::RustNative(Box::new(range.borrow().computer.clone()))
-                    } else if let Ok(range_rate) = obj.cast::<PyRangeRateComputer>() {
-                        PropertyComputerHolder::RustNative(Box::new(range_rate.borrow().computer.clone()))
-                    } else {
-                        // Custom Python property computer - use wrapper
-                        PropertyComputerHolder::PythonWrapper(RustAccessPropertyComputerWrapper::new(py_computer))
-                    }
-                })
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
+    // Process property computers using shared helper
+    let rust_property_computers = process_property_computers(property_computers);
 
     // Create vector of trait object references
     let property_computer_refs: Vec<&dyn AccessPropertyComputer> = rust_property_computers

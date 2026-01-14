@@ -2,12 +2,12 @@
 // Help functions for type conversions
 
 /// Helper function to parse strings into appropriate EOPExtrapolation enumerations
-fn string_to_eop_extrapolation(s: &str) -> Result<eop::EOPExtrapolation, BraheError> {
+fn string_to_eop_extrapolation(s: &str) -> Result<eop::EOPExtrapolation, RustBraheError> {
     match s {
         "Hold" => Ok(eop::EOPExtrapolation::Hold),
         "Zero" => Ok(eop::EOPExtrapolation::Zero),
         "Error" => Ok(eop::EOPExtrapolation::Error),
-        _ => Err(BraheError::Error(format!(
+        _ => Err(RustBraheError::Error(format!(
             "Unknown EOP Extrapolation string \"{}\"",
             s
         ))),
@@ -24,13 +24,13 @@ fn eop_extrapolation_to_string(extrapolation: eop::EOPExtrapolation) -> String {
 }
 
 /// Helper function to parse strings into appropriate EOPType enumerations
-fn string_to_eop_type(s: &str) -> Result<eop::EOPType, BraheError> {
+fn string_to_eop_type(s: &str) -> Result<eop::EOPType, RustBraheError> {
     match s {
         "C04" => Ok(eop::EOPType::C04),
         "StandardBulletinA" => Ok(eop::EOPType::StandardBulletinA),
         "Unknown" => Ok(eop::EOPType::Unknown),
         "Static" => Ok(eop::EOPType::Static),
-        _ => Err(BraheError::Error(format!(
+        _ => Err(RustBraheError::Error(format!(
             "Unknown EOP Type string \"{}\"",
             s
         ))),
@@ -368,7 +368,7 @@ impl PyStaticEOPProvider {
     ///     ut1_utc = eop.get_ut1_utc(58849.0)
     ///     print(f"UT1-UTC: {ut1_utc} seconds")
     ///     ```
-    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_ut1_utc(mjd)
     }
 
@@ -388,7 +388,7 @@ impl PyStaticEOPProvider {
     ///     pm_x, pm_y = eop.get_pm(58849.0)
     ///     print(f"Polar motion: x={pm_x} rad, y={pm_y} rad")
     ///     ```
-    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), RustBraheError> {
         self.obj.get_pm(mjd)
     }
 
@@ -408,7 +408,7 @@ impl PyStaticEOPProvider {
     ///     dx, dy = eop.get_dxdy(58849.0)
     ///     print(f"Celestial pole offsets: dx={dx} rad, dy={dy} rad")
     ///     ```
-    pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+    pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), RustBraheError> {
         self.obj.get_dxdy(mjd)
     }
 
@@ -428,7 +428,7 @@ impl PyStaticEOPProvider {
     ///     lod = eop.get_lod(58849.0)
     ///     print(f"Length of day offset: {lod} seconds")
     ///     ```
-    pub fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_lod(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_lod(mjd)
     }
 
@@ -448,7 +448,7 @@ impl PyStaticEOPProvider {
     ///     ut1_utc, pm_x, pm_y, dx, dy, lod = eop.get_eop(58849.0)
     ///     print(f"EOP: UT1-UTC={ut1_utc}s, PM=({pm_x},{pm_y})rad")
     ///     ```
-    pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+    pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), RustBraheError> {
         self.obj.get_eop(mjd)
     }
 
@@ -533,7 +533,7 @@ impl PyFileEOPProvider {
     ///     bh.set_global_eop_provider_from_file_provider(eop)
     ///     ```
     #[classmethod]
-    pub fn from_c04_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_c04_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, RustBraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_c04_file(Path::new(filepath), interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
@@ -557,7 +557,7 @@ impl PyFileEOPProvider {
     ///     bh.set_global_eop_provider_from_file_provider(eop)
     ///     ```
     #[classmethod]
-    pub fn from_standard_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_standard_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, RustBraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_standard_file(Path::new(filepath), interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
@@ -581,7 +581,7 @@ impl PyFileEOPProvider {
     ///     bh.set_global_eop_provider_from_file_provider(eop)
     ///     ```
     #[classmethod]
-    pub fn from_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_file(_cls: &Bound<'_, PyType>, filepath: &str, interpolate: bool, extrapolate: &str) -> Result<Self, RustBraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_file(Path::new(filepath), interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
@@ -604,7 +604,7 @@ impl PyFileEOPProvider {
     ///     bh.set_global_eop_provider_from_file_provider(eop)
     ///     ```
     #[classmethod]
-    pub fn from_default_c04(_cls: &Bound<'_, PyType>, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_default_c04(_cls: &Bound<'_, PyType>, interpolate: bool, extrapolate: &str) -> Result<Self, RustBraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_default_c04(interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
@@ -627,7 +627,7 @@ impl PyFileEOPProvider {
     ///     bh.set_global_eop_provider_from_file_provider(eop)
     ///     ```
     #[classmethod]
-    pub fn from_default_standard(_cls: &Bound<'_, PyType>, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_default_standard(_cls: &Bound<'_, PyType>, interpolate: bool, extrapolate: &str) -> Result<Self, RustBraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_default_standard(interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
@@ -651,7 +651,7 @@ impl PyFileEOPProvider {
     ///     bh.set_global_eop_provider_from_file_provider(eop)
     ///     ```
     #[classmethod]
-    pub fn from_default_file(_cls: &Bound<'_, PyType>, eop_type: &str, interpolate: bool, extrapolate: &str) -> Result<Self, BraheError> {
+    pub fn from_default_file(_cls: &Bound<'_, PyType>, eop_type: &str, interpolate: bool, extrapolate: &str) -> Result<Self, RustBraheError> {
         Ok(PyFileEOPProvider {
             obj: eop::FileEOPProvider::from_default_file(string_to_eop_type(eop_type)?, interpolate, string_to_eop_extrapolation(extrapolate)?)?,
         })
@@ -817,7 +817,7 @@ impl PyFileEOPProvider {
     ///     ut1_utc = eop.get_ut1_utc(58849.0)
     ///     print(f"UT1-UTC: {ut1_utc} seconds")
     ///     ```
-    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_ut1_utc(mjd)
     }
 
@@ -837,7 +837,7 @@ impl PyFileEOPProvider {
     ///     pm_x, pm_y = eop.get_pm(58849.0)
     ///     print(f"Polar motion: x={pm_x} rad, y={pm_y} rad")
     ///     ```
-    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), RustBraheError> {
         self.obj.get_pm(mjd)
     }
 
@@ -857,7 +857,7 @@ impl PyFileEOPProvider {
     ///     dx, dy = eop.get_dxdy(58849.0)
     ///     print(f"Celestial pole offsets: dx={dx} rad, dy={dy} rad")
     ///     ```
-    pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+    pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), RustBraheError> {
         self.obj.get_dxdy(mjd)
     }
 
@@ -877,7 +877,7 @@ impl PyFileEOPProvider {
     ///     lod = eop.get_lod(58849.0)
     ///     print(f"Length of day offset: {lod} seconds")
     ///     ```
-    pub fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_lod(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_lod(mjd)
     }
 
@@ -897,7 +897,7 @@ impl PyFileEOPProvider {
     ///     ut1_utc, pm_x, pm_y, dx, dy, lod = eop.get_eop(58849.0)
     ///     print(f"EOP: UT1-UTC={ut1_utc}s, PM=({pm_x},{pm_y})rad")
     ///     ```
-    pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+    pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), RustBraheError> {
         self.obj.get_eop(mjd)
     }
 
@@ -1077,7 +1077,7 @@ impl PyCachingEOPProvider {
         interpolate: bool,
         extrapolate: &str,
         filepath: Option<&str>,
-    ) -> Result<Self, BraheError> {
+    ) -> Result<Self, RustBraheError> {
         Ok(PyCachingEOPProvider {
             obj: eop::CachingEOPProvider::new(
                 filepath.map(Path::new),
@@ -1109,7 +1109,7 @@ impl PyCachingEOPProvider {
     ///     # Later, manually force a refresh check
     ///     provider.refresh()
     ///     ```
-    pub fn refresh(&self) -> Result<(), BraheError> {
+    pub fn refresh(&self) -> Result<(), RustBraheError> {
         self.obj.refresh()
     }
 
@@ -1242,7 +1242,7 @@ impl PyCachingEOPProvider {
     ///
     /// Returns:
     ///     float: UT1-UTC time difference in seconds
-    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_ut1_utc(mjd)
     }
 
@@ -1253,7 +1253,7 @@ impl PyCachingEOPProvider {
     ///
     /// Returns:
     ///     tuple[float, float]: Polar motion x and y components in radians
-    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), RustBraheError> {
         self.obj.get_pm(mjd)
     }
 
@@ -1264,7 +1264,7 @@ impl PyCachingEOPProvider {
     ///
     /// Returns:
     ///     tuple[float, float]: Celestial pole offsets dx and dy in radians
-    pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+    pub fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), RustBraheError> {
         self.obj.get_dxdy(mjd)
     }
 
@@ -1275,7 +1275,7 @@ impl PyCachingEOPProvider {
     ///
     /// Returns:
     ///     float: Length of day offset in seconds
-    pub fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
+    pub fn get_lod(&self, mjd: f64) -> Result<f64, RustBraheError> {
         self.obj.get_lod(mjd)
     }
 
@@ -1286,7 +1286,7 @@ impl PyCachingEOPProvider {
     ///
     /// Returns:
     ///     tuple: (pm_x, pm_y, ut1_utc, dx, dy, lod)
-    pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+    pub fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), RustBraheError> {
         self.obj.get_eop(mjd)
     }
 }
@@ -1423,7 +1423,7 @@ pub fn py_set_global_eop_provider(provider: &Bound<'_, PyAny>) -> PyResult<()> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_ut1_utc")]
-pub fn py_get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_ut1_utc(mjd: f64) -> Result<f64, RustBraheError> {
     eop::get_global_ut1_utc(mjd)
 }
 
@@ -1437,7 +1437,7 @@ pub fn py_get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_pm")]
-pub fn py_get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
+pub fn py_get_global_pm(mjd: f64) -> Result<(f64, f64), RustBraheError> {
     eop::get_global_pm(mjd)
 }
 
@@ -1451,7 +1451,7 @@ pub fn py_get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_dxdy")]
-pub fn py_get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
+pub fn py_get_global_dxdy(mjd: f64) -> Result<(f64, f64), RustBraheError> {
     eop::get_global_dxdy(mjd)
 }
 
@@ -1465,7 +1465,7 @@ pub fn py_get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_lod")]
-pub fn py_get_global_lod(mjd: f64) -> Result<f64, BraheError> {
+pub fn py_get_global_lod(mjd: f64) -> Result<f64, RustBraheError> {
     eop::get_global_lod(mjd)
 }
 
@@ -1479,7 +1479,7 @@ pub fn py_get_global_lod(mjd: f64) -> Result<f64, BraheError> {
 #[pyfunction]
 #[pyo3(text_signature = "(mjd)")]
 #[pyo3(name = "get_global_eop")]
-pub fn py_get_global_eop(mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+pub fn py_get_global_eop(mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), RustBraheError> {
     eop::get_global_eop(mjd)
 }
 
@@ -1630,6 +1630,6 @@ pub fn py_get_global_eop_mjd_last_dxdy() -> f64 {
 #[pyfunction]
 #[pyo3(text_signature = "()")]
 #[pyo3(name = "initialize_eop")]
-pub fn py_initialize_eop() -> Result<(), BraheError> {
+pub fn py_initialize_eop() -> Result<(), RustBraheError> {
     eop::initialize_eop()
 }

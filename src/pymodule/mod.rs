@@ -14,6 +14,7 @@ use numpy::{
     PyReadonlyArray3, PyUntypedArrayMethods, ToPyArray, ndarray,
 };
 
+use pyo3::create_exception;
 use pyo3::panic::PanicException;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
@@ -27,10 +28,23 @@ use rayon::prelude::*;
 use crate::math::interpolation::CovarianceInterpolationConfig;
 use crate::traits::*;
 use crate::utils::{
-    BraheError, format_time_string, get_brahe_cache_dir, get_brahe_cache_dir_with_subdir,
-    get_celestrak_cache_dir, get_eop_cache_dir, get_max_threads, set_max_threads, set_num_threads,
+    BraheError as RustBraheError, format_time_string, get_brahe_cache_dir,
+    get_brahe_cache_dir_with_subdir, get_celestrak_cache_dir, get_eop_cache_dir, get_max_threads,
+    set_max_threads, set_num_threads,
 };
 use crate::*;
+
+// Custom Python exception for Brahe library errors.
+// Named BraheError in Python for clean tracebacks. The Rust BraheError enum
+// is imported as RustBraheError to avoid naming conflicts.
+create_exception!(brahe._brahe, BraheError, pyo3::exceptions::PyException);
+
+// Convert Rust BraheError to Python BraheError exception
+impl From<RustBraheError> for pyo3::PyErr {
+    fn from(error: RustBraheError) -> pyo3::PyErr {
+        BraheError::new_err(error.to_string())
+    }
+}
 
 // NOTE: While it would be better if all bindings were in separate files,
 // currently pyo3 does not support this easily. This is a known issue where
@@ -547,6 +561,9 @@ include!("earth_models.rs");
 pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Re-export PanicException so Python tests can catch Rust panics
     module.add("PanicException", py.get_type::<PanicException>())?;
+
+    // Export custom BraheError exception
+    module.add("BraheError", py.get_type::<BraheError>())?;
 
     // Add version from Cargo.toml
     module.add("__version__", env!("CARGO_PKG_VERSION"))?;

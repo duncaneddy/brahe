@@ -4069,6 +4069,44 @@ impl PyAccessSearchConfig {
     }
 }
 
+/// Process property computers from Python objects to Rust holders.
+///
+/// This helper function extracts property computers from Python objects and wraps them
+/// in the appropriate Rust holder type. Built-in property computers (Doppler, Range, RangeRate)
+/// are extracted directly for zero-overhead execution, while custom Python-defined
+/// computers are wrapped in the Python-Rust bridge.
+fn process_property_computers(
+    property_computers: Option<Vec<Py<PyAny>>>,
+) -> Vec<PropertyComputerHolder> {
+    if let Some(computers) = property_computers {
+        computers
+            .into_iter()
+            .map(|py_computer| {
+                Python::attach(|py| {
+                    let obj = py_computer.bind(py);
+                    if let Ok(doppler) = obj.cast::<PyDopplerComputer>() {
+                        PropertyComputerHolder::RustNative(Box::new(
+                            doppler.borrow().computer.clone(),
+                        ))
+                    } else if let Ok(range) = obj.cast::<PyRangeComputer>() {
+                        PropertyComputerHolder::RustNative(Box::new(range.borrow().computer.clone()))
+                    } else if let Ok(range_rate) = obj.cast::<PyRangeRateComputer>() {
+                        PropertyComputerHolder::RustNative(Box::new(
+                            range_rate.borrow().computer.clone(),
+                        ))
+                    } else {
+                        PropertyComputerHolder::PythonWrapper(
+                            RustAccessPropertyComputerWrapper::new(py_computer),
+                        )
+                    }
+                })
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+}
+
 /// Compute access windows for locations and satellites.
 ///
 /// This function accepts either single items or lists for both locations and propagators,
@@ -4247,28 +4285,8 @@ fn py_location_accesses(
         let prop_refs: Vec<&propagators::DNumericalOrbitPropagator> =
             borrow_guards.iter().map(|g| &g.propagator).collect();
 
-        // Process property computers
-        let rust_property_computers: Vec<PropertyComputerHolder> = if let Some(computers) = property_computers {
-            computers
-                .into_iter()
-                .map(|py_computer| {
-                    Python::attach(|py| {
-                        let obj = py_computer.bind(py);
-                        if let Ok(doppler) = obj.cast::<PyDopplerComputer>() {
-                            PropertyComputerHolder::RustNative(Box::new(doppler.borrow().computer.clone()))
-                        } else if let Ok(range) = obj.cast::<PyRangeComputer>() {
-                            PropertyComputerHolder::RustNative(Box::new(range.borrow().computer.clone()))
-                        } else if let Ok(range_rate) = obj.cast::<PyRangeRateComputer>() {
-                            PropertyComputerHolder::RustNative(Box::new(range_rate.borrow().computer.clone()))
-                        } else {
-                            PropertyComputerHolder::PythonWrapper(RustAccessPropertyComputerWrapper::new(py_computer))
-                        }
-                    })
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
+        // Process property computers using shared helper
+        let rust_property_computers = process_property_computers(property_computers);
 
         let property_computer_refs: Vec<&dyn AccessPropertyComputer> = rust_property_computers
             .iter()
@@ -4282,8 +4300,13 @@ fn py_location_accesses(
         };
 
         // Call location_accesses with the reference slice
+        // NOTE: We do NOT release the GIL here (no py.allow_threads) because we hold
+        // references into Python-owned NumericalOrbitPropagator objects. If another Python
+        // thread mutated the propagator (e.g., via propagate_to()) while we're computing
+        // access, we'd have a data race. The cloneable propagators path (SGP, Keplerian)
+        // safely releases the GIL because it clones the propagators first.
         #[allow(deprecated)]
-        let windows = py.allow_threads(|| match &locations_vec {
+        let windows = match &locations_vec {
             LocationVec::Point(locs) => location_accesses(
                 locs,
                 prop_refs.as_slice(),
@@ -4304,7 +4327,7 @@ fn py_location_accesses(
                 Some(&search_config),
                 time_tolerance,
             ),
-        })?;
+        }?;
 
         return Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect());
     }
@@ -4349,34 +4372,8 @@ fn py_location_accesses(
         ));
     };
 
-    // Process property computers if provided
-    // Try to extract built-in Rust computers directly for zero-overhead execution,
-    // otherwise wrap Python-defined computers
-    let rust_property_computers: Vec<PropertyComputerHolder> = if let Some(computers) = property_computers {
-        computers
-            .into_iter()
-            .map(|py_computer| {
-                Python::attach(|py| {
-                    let obj = py_computer.bind(py);
-
-                    // Try to extract as built-in property computers
-                    // If successful, use the underlying Rust implementation directly
-                    if let Ok(doppler) = obj.cast::<PyDopplerComputer>() {
-                        PropertyComputerHolder::RustNative(Box::new(doppler.borrow().computer.clone()))
-                    } else if let Ok(range) = obj.cast::<PyRangeComputer>() {
-                        PropertyComputerHolder::RustNative(Box::new(range.borrow().computer.clone()))
-                    } else if let Ok(range_rate) = obj.cast::<PyRangeRateComputer>() {
-                        PropertyComputerHolder::RustNative(Box::new(range_rate.borrow().computer.clone()))
-                    } else {
-                        // Custom Python property computer - use wrapper
-                        PropertyComputerHolder::PythonWrapper(RustAccessPropertyComputerWrapper::new(py_computer))
-                    }
-                })
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
+    // Process property computers using shared helper
+    let rust_property_computers = process_property_computers(property_computers);
 
     // Create vector of trait object references
     let property_computer_refs: Vec<&dyn AccessPropertyComputer> = rust_property_computers

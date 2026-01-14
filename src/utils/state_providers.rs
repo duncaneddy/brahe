@@ -757,3 +757,40 @@ pub trait DIdentifiableStateProvider: DOrbitStateProvider + Identifiable {}
 
 // Blanket implementation for any type implementing both traits
 impl<T: DOrbitStateProvider + Identifiable> DIdentifiableStateProvider for T {}
+
+/// Trait to convert various propagator inputs into a slice of references.
+///
+/// This trait enables unified functions to accept either single propagators
+/// or slices/vectors of propagators.
+pub trait ToPropagatorRefs<P: DIdentifiableStateProvider> {
+    /// Converts the input into a vector of references to propagators.
+    fn to_refs(&self) -> Vec<&P>;
+}
+
+// Single propagator reference
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for P {
+    fn to_refs(&self) -> Vec<&P> {
+        vec![self]
+    }
+}
+
+// Slice of propagators
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for [P] {
+    fn to_refs(&self) -> Vec<&P> {
+        self.iter().collect()
+    }
+}
+
+// Vec of propagators
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for Vec<P> {
+    fn to_refs(&self) -> Vec<&P> {
+        self.iter().collect()
+    }
+}
+
+// Slice of propagator references (for non-cloneable propagators like NumericalOrbitPropagator)
+impl<P: DIdentifiableStateProvider> ToPropagatorRefs<P> for [&P] {
+    fn to_refs(&self) -> Vec<&P> {
+        self.to_vec()
+    }
+}

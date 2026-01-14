@@ -567,7 +567,7 @@ def test_location_accesses_numerical_insufficient_propagation():
     """Test that access computation raises error when propagator hasn't been propagated far enough.
 
     When access computation is invoked with a search window that extends beyond
-    what a numerical propagator has been propagated to, an OSError should be raised
+    what a numerical propagator has been propagated to, a BraheError should be raised
     with a message indicating the epoch is outside the propagator time range.
     """
     location = bh.PointLocation(0.0, 45.0, 0.0)  # lon, lat, alt
@@ -586,8 +586,8 @@ def test_location_accesses_numerical_insufficient_propagation():
         adaptive_fraction=0.75,
     )
 
-    # Should raise OSError because propagator hasn't been propagated far enough
-    with pytest.raises(OSError, match="outside propagator time range"):
+    # Should raise BraheError because propagator hasn't been propagated far enough
+    with pytest.raises(bh.BraheError, match="outside propagator time range"):
         bh.location_accesses(
             location,
             propagator,

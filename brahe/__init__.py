@@ -28,8 +28,8 @@ All functionality is re-exported at the top level for convenience, so you can us
 # Import core native module
 from brahe import _brahe
 
-# Re-export PanicException for testing
-from brahe._brahe import PanicException
+# Re-export PanicException for testing and BraheError for error handling
+from brahe._brahe import BraheError, PanicException
 
 # Import and create submodules
 from brahe import (
@@ -99,7 +99,8 @@ __all__ = [
     "logging",
     "orbit_dynamics",
     "events",
-    # Testing
+    # Exceptions
+    "BraheError",
     "PanicException",
 ]
 

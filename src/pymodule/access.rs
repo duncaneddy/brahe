@@ -3527,7 +3527,7 @@ impl AccessPropertyComputer for PropertyComputerHolder {
         sample_states_ecef: &[nalgebra::SVector<f64, 6>],
         location_ecef: &nalgebra::Vector3<f64>,
         location_geodetic: &nalgebra::Vector3<f64>,
-    ) -> Result<HashMap<String, PropertyValue>, BraheError> {
+    ) -> Result<HashMap<String, PropertyValue>, RustBraheError> {
         match self {
             PropertyComputerHolder::RustNative(computer) => {
                 computer.compute(window, sample_epochs, sample_states_ecef, location_ecef, location_geodetic)
@@ -3588,7 +3588,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
         sample_states_ecef: &[nalgebra::SVector<f64, 6>],
         location_ecef: &nalgebra::Vector3<f64>,
         location_geodetic: &nalgebra::Vector3<f64>,
-    ) -> Result<HashMap<String, PropertyValue>, BraheError> {
+    ) -> Result<HashMap<String, PropertyValue>, RustBraheError> {
         Python::attach(|py| {
             // Convert sample_epochs to numpy array (1D)
             let epochs_array = sample_epochs.to_pyarray(py).to_owned();
@@ -3601,7 +3601,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
                     .map(|state| state.as_slice().to_vec())
                     .collect::<Vec<_>>(),
             )
-            .map_err(|e| BraheError::Error(format!("Failed to create states array: {}", e)))?
+            .map_err(|e| RustBraheError::Error(format!("Failed to create states array: {}", e)))?
             .to_owned();
 
             // Convert location_ecef to numpy array
@@ -3617,7 +3617,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
                     window: window.clone(),
                 },
             )
-            .map_err(|e| BraheError::Error(format!("Failed to create PyAccessWindow: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to create PyAccessWindow: {}", e)))?;
 
             // Call Python compute method
             let py_obj = self.py_computer.bind(py);
@@ -3627,18 +3627,18 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
                     (py_window, epochs_array, states_array, loc_array, loc_geodetic_array),
                 )
                 .map_err(|e| {
-                    BraheError::Error(format!("Python compute() method failed: {}", e))
+                    RustBraheError::Error(format!("Python compute() method failed: {}", e))
                 })?;
 
             // Convert Python dict to Rust HashMap<String, PropertyValue>
             let dict: &Bound<'_, PyDict> = result_dict
                 .cast()
-                .map_err(|e| BraheError::Error(format!("compute() must return a dict: {}", e)))?;
+                .map_err(|e| RustBraheError::Error(format!("compute() must return a dict: {}", e)))?;
 
             let mut props = HashMap::new();
             for (key, value) in dict.iter() {
                 let key_str: String = key.extract().map_err(|e| {
-                    BraheError::Error(format!("Property keys must be strings: {}", e))
+                    RustBraheError::Error(format!("Property keys must be strings: {}", e))
                 })?;
 
                 // Convert Python value to PropertyValue
@@ -3663,7 +3663,7 @@ impl AccessPropertyComputer for RustAccessPropertyComputerWrapper {
 
 // Helper function to convert Python values to PropertyValue
 #[allow(dead_code)]
-fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyValue, BraheError> {
+fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyValue, RustBraheError> {
     // Try bool first (before int/float, since bool is a subclass of int in Python)
     if let Ok(b) = value.extract::<bool>() {
         return Ok(PropertyValue::Boolean(b));
@@ -3688,42 +3688,42 @@ fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyVa
     if let Ok(dict) = value.cast::<PyDict>() {
         // Check if it's a time series format
         let has_times = dict.contains("times").map_err(|e| {
-            BraheError::Error(format!("Failed to check for 'times' key: {}", e))
+            RustBraheError::Error(format!("Failed to check for 'times' key: {}", e))
         })?;
         let has_values = dict.contains("values").map_err(|e| {
-            BraheError::Error(format!("Failed to check for 'values' key: {}", e))
+            RustBraheError::Error(format!("Failed to check for 'values' key: {}", e))
         })?;
 
         if has_times && has_values {
             let times: Vec<f64> = dict
                 .get_item("times")
-                .map_err(|e| BraheError::Error(format!("Failed to get 'times': {}", e)))?
-                .ok_or_else(|| BraheError::Error("Missing 'times' key".to_string()))?
+                .map_err(|e| RustBraheError::Error(format!("Failed to get 'times': {}", e)))?
+                .ok_or_else(|| RustBraheError::Error("Missing 'times' key".to_string()))?
                 .extract()
-                .map_err(|e| BraheError::Error(format!("Failed to extract 'times': {}", e)))?;
+                .map_err(|e| RustBraheError::Error(format!("Failed to extract 'times': {}", e)))?;
             let values: Vec<f64> = dict
                 .get_item("values")
-                .map_err(|e| BraheError::Error(format!("Failed to get 'values': {}", e)))?
-                .ok_or_else(|| BraheError::Error("Missing 'values' key".to_string()))?
+                .map_err(|e| RustBraheError::Error(format!("Failed to get 'values': {}", e)))?
+                .ok_or_else(|| RustBraheError::Error("Missing 'values' key".to_string()))?
                 .extract()
-                .map_err(|e| BraheError::Error(format!("Failed to extract 'values': {}", e)))?;
+                .map_err(|e| RustBraheError::Error(format!("Failed to extract 'values': {}", e)))?;
             return Ok(PropertyValue::TimeSeries { times, values });
         }
 
         // Otherwise, convert to JSON
         let json_module = value.py().import("json").map_err(|e| {
-            BraheError::Error(format!("Failed to import json module: {}", e))
+            RustBraheError::Error(format!("Failed to import json module: {}", e))
         })?;
         let dumps = json_module.getattr("dumps").map_err(|e| {
-            BraheError::Error(format!("Failed to get json.dumps: {}", e))
+            RustBraheError::Error(format!("Failed to get json.dumps: {}", e))
         })?;
         let json_str: String = dumps
             .call1((value,))
             .and_then(|s| s.extract::<String>())
-            .map_err(|e| BraheError::Error(format!("Failed to serialize to JSON: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to serialize to JSON: {}", e)))?;
 
         let json_value: serde_json::Value = serde_json::from_str(&json_str)
-            .map_err(|e| BraheError::ParseError(format!("Invalid JSON: {}", e)))?;
+            .map_err(|e| RustBraheError::ParseError(format!("Invalid JSON: {}", e)))?;
 
         return Ok(PropertyValue::Json(json_value));
     }
@@ -3732,17 +3732,17 @@ fn python_value_to_property_value(value: &Bound<'_, PyAny>) -> Result<PropertyVa
     Python::attach(|py| {
         let json_module = py
             .import("json")
-            .map_err(|e| BraheError::Error(format!("Failed to import json: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to import json: {}", e)))?;
         let dumps = json_module
             .getattr("dumps")
-            .map_err(|e| BraheError::Error(format!("Failed to get json.dumps: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to get json.dumps: {}", e)))?;
         let json_str: String = dumps
             .call1((value,))
             .and_then(|s| s.extract::<String>())
-            .map_err(|e| BraheError::Error(format!("Failed to serialize value: {}", e)))?;
+            .map_err(|e| RustBraheError::Error(format!("Failed to serialize value: {}", e)))?;
 
         let json_value: serde_json::Value = serde_json::from_str(&json_str)
-            .map_err(|e| BraheError::ParseError(format!("Invalid JSON: {}", e)))?;
+            .map_err(|e| RustBraheError::ParseError(format!("Invalid JSON: {}", e)))?;
 
         Ok(PropertyValue::Json(json_value))
     })

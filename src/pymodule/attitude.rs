@@ -1303,7 +1303,7 @@ impl PyEulerAxis {
 ///     r33 (float): Element at row 3, column 3
 ///
 /// Raises:
-///     BraheError: If the matrix is not a valid rotation matrix
+///     RustBraheError: If the matrix is not a valid rotation matrix
 ///
 /// Example:
 ///     ```python
@@ -1363,7 +1363,7 @@ impl PyRotationMatrix {
     #[new]
     #[pyo3(text_signature = "(r11, r12, r13, r21, r22, r23, r31, r32, r33)")]
     #[allow(clippy::too_many_arguments)]
-    pub fn new(r11: f64, r12: f64, r13: f64, r21: f64, r22: f64, r23: f64, r31: f64, r32: f64, r33: f64) -> Result<PyRotationMatrix, BraheError> {
+    pub fn new(r11: f64, r12: f64, r13: f64, r21: f64, r22: f64, r23: f64, r31: f64, r32: f64, r33: f64) -> Result<PyRotationMatrix, RustBraheError> {
         Ok(PyRotationMatrix {
             obj: attitude::RotationMatrix::new(r11, r12, r13, r21, r22, r23, r31, r32, r33)?,
         })
@@ -1380,7 +1380,7 @@ impl PyRotationMatrix {
     ///     RotationMatrix: New rotation matrix instance
     ///
     /// Raises:
-    ///     BraheError: If the matrix is not a valid rotation matrix
+    ///     RustBraheError: If the matrix is not a valid rotation matrix
     ///
     /// Example:
     ///     ```python
@@ -1390,9 +1390,9 @@ impl PyRotationMatrix {
     ///     mat = np.eye(3)
     ///     r = bh.RotationMatrix.from_matrix(mat)
     ///     ```
-    pub fn from_matrix(_cls: &Bound<'_, PyType>, m: &Bound<'_, PyAny>) -> Result<PyRotationMatrix, BraheError> {
+    pub fn from_matrix(_cls: &Bound<'_, PyType>, m: &Bound<'_, PyAny>) -> Result<PyRotationMatrix, RustBraheError> {
         let mat_vec = pyany_to_f64_array2(m, Some((3, 3)))
-            .map_err(|e| BraheError::ParseError(format!("Invalid matrix input: {}", e)))?;
+            .map_err(|e| RustBraheError::ParseError(format!("Invalid matrix input: {}", e)))?;
 
         // Convert Vec<Vec<f64>> (row-major) to flat Vec<f64> (column-major) for nalgebra
         // Iterate over columns, then for each column iterate over rows to get row[col]

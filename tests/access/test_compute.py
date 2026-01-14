@@ -561,3 +561,39 @@ def test_location_accesses_numerical_multiple_locations():
     # Verify windows are sorted
     for i in range(1, len(windows)):
         assert windows[i - 1].start <= windows[i].start
+
+
+def test_location_accesses_numerical_insufficient_propagation():
+    """Test that access computation raises error when propagator hasn't been propagated far enough.
+
+    When access computation is invoked with a search window that extends beyond
+    what a numerical propagator has been propagated to, an OSError should be raised
+    with a message indicating the epoch is outside the propagator time range.
+    """
+    location = bh.PointLocation(0.0, 45.0, 0.0)  # lon, lat, alt
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+
+    # Create propagator but DO NOT propagate - leave at initial epoch only
+    propagator = create_numerical_propagator(epoch)
+
+    # Search window extends 1 hour beyond the initial epoch
+    search_end = epoch + 3600.0
+
+    constraint = bh.ElevationConstraint(5.0)
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        adaptive_step=False,
+        adaptive_fraction=0.75,
+    )
+
+    # Should raise OSError because propagator hasn't been propagated far enough
+    with pytest.raises(OSError, match="outside propagator time range"):
+        bh.location_accesses(
+            location,
+            propagator,
+            epoch,
+            search_end,
+            constraint,
+            config=config,
+            time_tolerance=0.1,
+        )

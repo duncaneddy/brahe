@@ -58,9 +58,9 @@ We hope you find Brahe useful for your work!
 
 If you want to learn more about how to use the package the documentation is structured in the following way:
 
-- **[Learn](https://duncaneddy.github.io/brahe/learn/)**: Provides short-form documentation of major concepts of the package.
-- **[Examples](https://duncaneddy.github.io/brahe/examples/)**: Provides longer-form examples of how-to examples of accomplish common tasks.
-- **[Python API Reference](https://duncaneddy.github.io/brahe/library_api/)**: Provides detailed reference documentation of the Python API.
+- **[Learn](https://duncaneddy.github.io/brahe/latest/learn/)**: Provides short-form documentation of major concepts of the package.
+- **[Examples](https://duncaneddy.github.io/brahe/latest/examples/)**: Provides longer-form examples of how-to examples of accomplish common tasks.
+- **[Python API Reference](https://duncaneddy.github.io/brahe/latest/library_api/)**: Provides detailed reference documentation of the Python API.
 - **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API.
 
 ## Quick Start

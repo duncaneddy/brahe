@@ -779,3 +779,312 @@ fn py_state_eme2000_to_gcrf<'py>(
 
     Ok(vector_to_numpy!(py, vec, 6, f64))
 }
+
+// ================== Lunar Frames ==================
+
+/// Computes the frame bias matrix transforming LCRF (Lunar Celestial Reference Frame)
+/// to MOON_J2000 (Lunar Mean Equator and Equinox of J2000.0).
+///
+/// The bias matrix accounts for the small offset between the LCRF (ICRF-aligned) and
+/// the J2000.0 mean equator and equinox. This is a constant transformation that does
+/// not vary with time.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `LCRF` -> `MOON_J2000`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get the bias matrix
+///     B = bh.bias_moon_j2000()
+///     print(f"Bias matrix shape: {B.shape}")
+///     # Output: Bias matrix shape: (3, 3)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "bias_moon_j2000")]
+unsafe fn py_bias_moon_j2000<'py>(py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::bias_moon_j2000();
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the rotation matrix from LCRF (Lunar Celestial Reference Frame)
+/// to MOON_J2000 (Lunar Mean Equator and Equinox of J2000.0).
+///
+/// This transformation applies the frame bias correction to account for the difference
+/// between LCRF (ICRF-aligned) and MOON_J2000 (J2000.0 mean equator/equinox). The
+/// transformation is constant and does not depend on time.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `LCRF` -> `MOON_J2000`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get rotation matrix
+///     R = bh.rotation_lcrf_to_moon_j2000()
+///     print(f"Rotation matrix shape: {R.shape}")
+///     # Output: Rotation matrix shape: (3, 3)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "rotation_lcrf_to_moon_j2000")]
+unsafe fn py_rotation_lcrf_to_moon_j2000<'py>(py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_lcrf_to_moon_j2000();
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the rotation matrix from MOON_J2000 (Lunar Mean Equator and Equinox of J2000.0)
+/// to LCRF (Lunar Celestial Reference Frame).
+///
+/// This transformation applies the inverse frame bias correction to account for the
+/// difference between MOON_J2000 (J2000.0 mean equator/equinox) and LCRF (ICRF-aligned).
+/// The transformation is constant and does not depend on time.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `MOON_J2000` -> `LCRF`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Get rotation matrix
+///     R = bh.rotation_moon_j2000_to_lcrf()
+///     print(f"Rotation matrix shape: {R.shape}")
+///     # Output: Rotation matrix shape: (3, 3)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "rotation_moon_j2000_to_lcrf")]
+unsafe fn py_rotation_moon_j2000_to_lcrf<'py>(py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_moon_j2000_to_lcrf();
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Transforms a position vector from LCRF (Lunar Celestial Reference Frame)
+/// to MOON_J2000 (Lunar Mean Equator and Equinox of J2000.0).
+///
+/// Applies the frame bias correction to account for the small offset between LCRF
+/// and the J2000.0 mean equator and equinox. This is a constant transformation
+/// that does not vary with time.
+///
+/// Args:
+///     x (numpy.ndarray or list): Position vector in `LCRF` frame (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Position vector in `MOON_J2000` frame (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Position vector in LCRF (meters)
+///     r_lcrf = np.array([bh.R_MOON + 100e3, 0.0, 0.0])
+///
+///     # Transform to MOON_J2000
+///     r_moon_j2000 = bh.position_lcrf_to_moon_j2000(r_lcrf)
+///     print(f"MOON_J2000 position: {r_moon_j2000}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x)")]
+#[pyo3(name = "position_lcrf_to_moon_j2000")]
+fn py_position_lcrf_to_moon_j2000<'py>(
+    py: Python<'py>,
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_lcrf_to_moon_j2000(pyany_to_svector::<3>(&x)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a position vector from MOON_J2000 (Lunar Mean Equator and Equinox of J2000.0)
+/// to LCRF (Lunar Celestial Reference Frame).
+///
+/// Applies the inverse frame bias correction to account for the small offset between
+/// the J2000.0 mean equator and equinox and LCRF. This is a constant transformation
+/// that does not vary with time.
+///
+/// Args:
+///     x (numpy.ndarray or list): Position vector in `MOON_J2000` frame (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Position vector in `LCRF` frame (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Position vector in MOON_J2000 (meters)
+///     r_moon_j2000 = np.array([bh.R_MOON + 100e3, 0.0, 0.0])
+///
+///     # Transform to LCRF
+///     r_lcrf = bh.position_moon_j2000_to_lcrf(r_moon_j2000)
+///     print(f"LCRF position: {r_lcrf}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x)")]
+#[pyo3(name = "position_moon_j2000_to_lcrf")]
+fn py_position_moon_j2000_to_lcrf<'py>(
+    py: Python<'py>,
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_moon_j2000_to_lcrf(pyany_to_svector::<3>(&x)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a state vector (position and velocity) from LCRF (Lunar Celestial
+/// Reference Frame) to MOON_J2000 (Lunar Mean Equator and Equinox of J2000.0).
+///
+/// Applies the frame bias correction to both position and velocity. Because the
+/// transformation does not vary with time, the velocity is directly rotated without
+/// additional correction terms.
+///
+/// Args:
+///     x_lcrf (numpy.ndarray or list): State vector in `LCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: State vector in `MOON_J2000` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # State vector in LCRF [x, y, z, vx, vy, vz] (meters, m/s)
+///     state_lcrf = np.array([bh.R_MOON + 100e3, 0.0, 0.0, 0.0, 1700.0, 0.0])
+///
+///     # Transform to MOON_J2000
+///     state_moon_j2000 = bh.state_lcrf_to_moon_j2000(state_lcrf)
+///     print(f"MOON_J2000 state: {state_moon_j2000}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x_lcrf)")]
+#[pyo3(name = "state_lcrf_to_moon_j2000")]
+fn py_state_lcrf_to_moon_j2000<'py>(
+    py: Python<'py>,
+    x_lcrf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_lcrf_to_moon_j2000(pyany_to_svector::<6>(&x_lcrf)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a state vector (position and velocity) from MOON_J2000 (Lunar Mean Equator
+/// and Equinox of J2000.0) to LCRF (Lunar Celestial Reference Frame).
+///
+/// Applies the inverse frame bias correction to both position and velocity. Because
+/// the transformation does not vary with time, the velocity is directly rotated without
+/// additional correction terms.
+///
+/// Args:
+///     x_moon_j2000 (numpy.ndarray or list): State vector in `MOON_J2000` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: State vector in `LCRF` frame `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # State vector in MOON_J2000 [x, y, z, vx, vy, vz] (meters, m/s)
+///     state_moon_j2000 = np.array([bh.R_MOON + 100e3, 0.0, 0.0, 0.0, 1700.0, 0.0])
+///
+///     # Transform to LCRF
+///     state_lcrf = bh.state_moon_j2000_to_lcrf(state_moon_j2000)
+///     print(f"LCRF state: {state_lcrf}")
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(x_moon_j2000)")]
+#[pyo3(name = "state_moon_j2000_to_lcrf")]
+fn py_state_moon_j2000_to_lcrf<'py>(
+    py: Python<'py>,
+    x_moon_j2000: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_moon_j2000_to_lcrf(pyany_to_svector::<6>(&x_moon_j2000)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+// LCI aliases (Lunar-Centered Inertial is an alias for LCRF)
+
+/// Alias for `rotation_lcrf_to_moon_j2000`. LCI (Lunar-Centered Inertial) is an
+/// alternative name for LCRF (Lunar Celestial Reference Frame).
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "rotation_lci_to_moon_j2000")]
+unsafe fn py_rotation_lci_to_moon_j2000<'py>(py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_lci_to_moon_j2000();
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Alias for `rotation_moon_j2000_to_lcrf`. LCI (Lunar-Centered Inertial) is an
+/// alternative name for LCRF (Lunar Celestial Reference Frame).
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "rotation_moon_j2000_to_lci")]
+unsafe fn py_rotation_moon_j2000_to_lci<'py>(py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_moon_j2000_to_lci();
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Alias for `position_lcrf_to_moon_j2000`. LCI (Lunar-Centered Inertial) is an
+/// alternative name for LCRF (Lunar Celestial Reference Frame).
+#[pyfunction]
+#[pyo3(text_signature = "(x)")]
+#[pyo3(name = "position_lci_to_moon_j2000")]
+fn py_position_lci_to_moon_j2000<'py>(
+    py: Python<'py>,
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_lci_to_moon_j2000(pyany_to_svector::<3>(&x)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Alias for `position_moon_j2000_to_lcrf`. LCI (Lunar-Centered Inertial) is an
+/// alternative name for LCRF (Lunar Celestial Reference Frame).
+#[pyfunction]
+#[pyo3(text_signature = "(x)")]
+#[pyo3(name = "position_moon_j2000_to_lci")]
+fn py_position_moon_j2000_to_lci<'py>(
+    py: Python<'py>,
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_moon_j2000_to_lci(pyany_to_svector::<3>(&x)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Alias for `state_lcrf_to_moon_j2000`. LCI (Lunar-Centered Inertial) is an
+/// alternative name for LCRF (Lunar Celestial Reference Frame).
+#[pyfunction]
+#[pyo3(text_signature = "(x_lci)")]
+#[pyo3(name = "state_lci_to_moon_j2000")]
+fn py_state_lci_to_moon_j2000<'py>(
+    py: Python<'py>,
+    x_lci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_lci_to_moon_j2000(pyany_to_svector::<6>(&x_lci)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Alias for `state_moon_j2000_to_lcrf`. LCI (Lunar-Centered Inertial) is an
+/// alternative name for LCRF (Lunar Celestial Reference Frame).
+#[pyfunction]
+#[pyo3(text_signature = "(x_moon_j2000)")]
+#[pyo3(name = "state_moon_j2000_to_lci")]
+fn py_state_moon_j2000_to_lci<'py>(
+    py: Python<'py>,
+    x_moon_j2000: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_moon_j2000_to_lci(pyany_to_svector::<6>(&x_moon_j2000)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}

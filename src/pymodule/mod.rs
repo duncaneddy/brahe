@@ -775,6 +775,22 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_position_eme2000_to_gcrf, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_gcrf_to_eme2000, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eme2000_to_gcrf, module)?)?;
+    
+    // Lunar frames
+    module.add_function(wrap_pyfunction!(py_bias_moon_j2000, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lcrf_to_moon_j2000, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_moon_j2000_to_lcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lcrf_to_moon_j2000, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_moon_j2000_to_lcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lcrf_to_moon_j2000, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_moon_j2000_to_lcrf, module)?)?;
+    // LCI aliases
+    module.add_function(wrap_pyfunction!(py_rotation_lci_to_moon_j2000, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_moon_j2000_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lci_to_moon_j2000, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_moon_j2000_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lci_to_moon_j2000, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_moon_j2000_to_lci, module)?)?;
 
     //* Coordinates *//
 

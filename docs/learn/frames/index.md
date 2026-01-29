@@ -12,8 +12,15 @@ Inertial reference frames are fixed with respect to distant stars and do not rot
 
 Inertial reference frames currently supported in Brahe are:
 
+**Earth Inertial Frames:**
+
 - **GCRF (Geocentric Celestial Reference Frame)**: The standard modern inertial reference frame for Earth-orbiting satellites, aligned with the International Celestial Reference Frame (ICRF)
 - **EME2000 (Earth Mean Equator and Equinox of J2000.0)**: Classical J2000.0 mean equator and mean equinox inertial frame. Derived from the FK5 catalog and widely used in older systems
+
+**Lunar Inertial Frames:**
+
+- **LCRF (Lunar Celestial Reference Frame)**: The lunar equivalent of GCRF, ICRF-aligned inertial frame centered at the Moon. Also available as **LCI** (Lunar-Centered Inertial)
+- **MOON_J2000 (Lunar Mean Equator and Equinox of J2000.0)**: The lunar equivalent of EME2000, J2000.0-aligned inertial frame centered at the Moon
 
 ### Earth-Fixed Frames (Rotating)
 
@@ -63,3 +70,12 @@ Learn more in [GCRF ↔ ITRF Transformations](gcrf_itrf.md)
 A constant frame bias transformation between the classical J2000.0 frame (Earth Equator and Mean Equinox) and the modern ICRS-aligned GCRF. The transformation is accomplished using the second-order frame bias rotation matrix as described in [Astrodynamics Convention and Modeling Reference for Lunar, Cislunar, and Libration Point Orbits by Folta et al.](https://ntrs.nasa.gov/api/citations/20220014814/downloads/NASA%20TP%2020220014814%20final.pdf), section 4.3.5.
 
 Learn more in [EME2000 ↔ GCRF Transformations](eme2000_gcrf.md)
+
+### LCRF ↔ MOON_J2000 (Lunar Frames)
+
+Constant frame bias transformation between lunar inertial frames, parallel to the Earth EME2000 ↔ GCRF transformation. Enables coordinate transformations for Moon-orbiting spacecraft analysis.
+
+- **LCRF** (or **LCI**): Lunar Celestial Reference Frame, ICRF-aligned
+- **MOON_J2000**: Lunar Mean Equator and Equinox of J2000.0
+
+Learn more in [Lunar Reference Frames](lunar.md)

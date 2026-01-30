@@ -426,4 +426,45 @@ mod tests {
             assert_abs_diff_eq!(x_lcrf[i], x_lci[i], epsilon = tol);
         }
     }
+
+    #[test]
+    fn test_lci_alias_rotation_reverse() {
+        // Since LCI is just an alias for LCRF, this is straightforward. 
+        // rotation_moon_j2000_to_lci should match rotation_moon_j2000_to_lcrf
+        let r_lcrf = rotation_moon_j2000_to_lcrf();
+        let r_lci = rotation_moon_j2000_to_lci();
+
+        let tol = 1.0e-15;
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_abs_diff_eq!(r_lcrf[(i, j)], r_lci[(i, j)], epsilon = tol);
+            }
+        }
+    }
+
+    #[test]
+    fn test_lci_alias_position_reverse() {
+        let p = Vector3::new(R_MOON+100e3, 50e3, 25e3);
+
+        let p_lcrf = position_moon_j2000_to_lcrf(p);
+        let p_lci = position_moon_j2000_to_lci(p);
+
+        let tol = 1.0e-15;
+        assert_abs_diff_eq!(p_lcrf[0], p_lci[0], epsilon = tol);
+        assert_abs_diff_eq!(p_lcrf[1], p_lci[1], epsilon = tol);
+        assert_abs_diff_eq!(p_lcrf[2], p_lci[2], epsilon = tol);
+    }
+
+    #[test]
+    fn test_lci_alias_state_reverse() {
+        let x = vector6_from_array([R_MOON + 100e3, 50e3, 25e3, 100.0, 1633.0, 50.0]);
+
+        let x_lcrf = state_moon_j2000_to_lcrf(x);
+        let x_lci = state_moon_j2000_to_lci(x);
+
+        let tol = 1.0e-15;
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_lcrf[i], x_lci[i], epsilon = tol);
+        }
+    }
 }

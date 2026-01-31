@@ -30,62 +30,49 @@ The transformation between LCRF and MOON_J2000 is a **constant frame bias** (doe
 
 ### Rotation Matrices
 
-```python
-import brahe as bh
-import numpy as np
+=== "Python"
 
-# Get constant bias matrix
-B = bh.bias_moon_j2000()
+    ```python
+    --8<-- "./examples/frames/lunar_rotation_matrices.py:8"
+    ```
 
-# Get rotation matrices (LCRF ↔ MOON_J2000)
-R_lcrf_to_j2000 = bh.rotation_lcrf_to_moon_j2000()
-R_j2000_to_lcrf = bh.rotation_moon_j2000_to_lcrf()
+=== "Rust"
 
-# Using LCI alias
-R_lci_to_j2000 = bh.rotation_lci_to_moon_j2000()  # Same as LCRF version
-```
+    ```rust
+    --8<-- "./examples/frames/lunar_rotation_matrices.rs:4"
+    ```
 
 ### Position Transformations
 
 Transform 3D position vectors between lunar frames:
 
-```python
-import brahe as bh
-import numpy as np
+=== "Python"
 
-# Position 100 km above lunar surface in LCRF
-r_lcrf = np.array([bh.R_MOON + 100e3, 0.0, 0.0])
+    ```python
+    --8<-- "./examples/frames/lunar_position_transform.py:8"
+    ```
 
-# Transform to MOON_J2000
-r_j2000 = bh.position_lcrf_to_moon_j2000(r_lcrf)
+=== "Rust"
 
-# Transform back
-r_lcrf_back = bh.position_moon_j2000_to_lcrf(r_j2000)
-
-# Using LCI alias
-r_j2000_alt = bh.position_lci_to_moon_j2000(r_lcrf)
-```
+    ```rust
+    --8<-- "./examples/frames/lunar_position_transform.rs:4"
+    ```
 
 ### State Transformations
 
 Transform 6D state vectors (position + velocity) between lunar frames:
 
-```python
-import brahe as bh
-import numpy as np
+=== "Python"
 
-# Circular orbit state in LCRF [x, y, z, vx, vy, vz] (m, m/s)
-state_lcrf = np.array([
-    bh.R_MOON + 100e3, 0.0, 0.0,  # Position
-    0.0, 1700.0, 0.0               # Velocity (~1.7 km/s orbital speed)
-])
+    ```python
+    --8<-- "./examples/frames/lunar_state_transform.py:8"
+    ```
 
-# Transform to MOON_J2000
-state_j2000 = bh.state_lcrf_to_moon_j2000(state_lcrf)
+=== "Rust"
 
-# Transform back
-state_lcrf_back = bh.state_moon_j2000_to_lcrf(state_j2000)
-```
+    ```rust
+    --8<-- "./examples/frames/lunar_state_transform.rs:4"
+    ```
 
 ## Naming Conventions
 
@@ -112,27 +99,17 @@ The **LCI** (Lunar-Centered Inertial) alias follows the same pattern as the ECI/
 
 ### Example: Coordinate Transformation
 
-```python
-import brahe as bh
-import numpy as np
+=== "Python"
 
-# Define a lunar orbit state in LCRF
-# 100 km circular equatorial orbit
-r_orbit = bh.R_MOON + 100e3
-v_orbit = np.sqrt(bh.GM_MOON / r_orbit)  # Circular orbit velocity
+    ```python
+    --8<-- "./examples/frames/lunar_orbit_conversion.py:8"
+    ```
 
-state_lcrf = np.array([r_orbit, 0.0, 0.0, 0.0, v_orbit, 0.0])
+=== "Rust"
 
-# Convert to MOON_J2000 for comparison with legacy data
-state_j2000 = bh.state_lcrf_to_moon_j2000(state_lcrf)
-
-print(f"State in LCRF: {state_lcrf}")
-print(f"State in MOON_J2000: {state_j2000}")
-
-# The difference is very small (~23 milliarcseconds rotation)
-diff = np.linalg.norm(state_lcrf[:3] - state_j2000[:3])
-print(f"Position difference: {diff:.6f} m")  # Sub-meter difference
-```
+    ```rust
+    --8<-- "./examples/frames/lunar_orbit_conversion.rs:4"
+    ```
 
 ## Technical Details
 

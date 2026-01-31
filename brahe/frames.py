@@ -55,6 +55,21 @@ from brahe._brahe import (
     position_eme2000_to_gcrf,
     state_gcrf_to_eme2000,
     state_eme2000_to_gcrf,
+    # Lunar frames (LCRF <> MOON_J2000)
+    bias_moon_j2000,
+    rotation_lcrf_to_moon_j2000,
+    rotation_moon_j2000_to_lcrf,
+    position_lcrf_to_moon_j2000,
+    position_moon_j2000_to_lcrf,
+    state_lcrf_to_moon_j2000,
+    state_moon_j2000_to_lcrf,
+    # LCI aliases (Lunar-Centered Inertial = LCRF)
+    rotation_lci_to_moon_j2000,
+    rotation_moon_j2000_to_lci,
+    position_lci_to_moon_j2000,
+    position_moon_j2000_to_lci,
+    state_lci_to_moon_j2000,
+    state_moon_j2000_to_lci,
 )
 
 __all__ = [
@@ -82,4 +97,19 @@ __all__ = [
     "position_eme2000_to_gcrf",
     "state_gcrf_to_eme2000",
     "state_eme2000_to_gcrf",
+    # Lunar frames (LCRF <> MOON_J2000)
+    "bias_moon_j2000",
+    "rotation_lcrf_to_moon_j2000",
+    "rotation_moon_j2000_to_lcrf",
+    "position_lcrf_to_moon_j2000",
+    "position_moon_j2000_to_lcrf",
+    "state_lcrf_to_moon_j2000",
+    "state_moon_j2000_to_lcrf",
+    # LCI aliases
+    "rotation_lci_to_moon_j2000",
+    "rotation_moon_j2000_to_lci",
+    "position_lci_to_moon_j2000",
+    "position_moon_j2000_to_lci",
+    "state_lci_to_moon_j2000",
+    "state_moon_j2000_to_lci",
 ]

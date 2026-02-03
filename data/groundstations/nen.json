@@ -117,7 +117,7 @@
       },
       "properties": {
         "name": "Santiago",
-        "provider": "ssc",
+        "provider": "NASA NEN",
         "frequency_bands": ["S"]
       }
     },
@@ -129,7 +129,7 @@
       },
       "properties": {
         "name": "Kiruna",
-        "provider": "ssc",
+        "provider": "NASA NEN",
         "frequency_bands": ["S", "X"]
       }
     },

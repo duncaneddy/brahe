@@ -109,6 +109,7 @@ mod tests {
     use crate::traits::SStatePropagator;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra as na;
+    use serial_test::serial;
 
     #[test]
     fn test_par_propagate_to_s_keplerian() {
@@ -396,6 +397,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_par_propagate_to_d_matches_sequential() {
         setup_global_test_eop();
 

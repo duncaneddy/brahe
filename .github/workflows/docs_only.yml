@@ -90,3 +90,6 @@ jobs:
 
       - name: Deploy documentation (latest from main)
         run: uv run --frozen mike deploy --push --update-aliases latest
+
+      - name: Set default version redirect
+        run: uv run --frozen mike set-default --push latest

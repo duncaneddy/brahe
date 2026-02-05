@@ -95,6 +95,14 @@ jobs:
         if: inputs.version != ''
         run: uv run --frozen mike deploy --push --update-aliases ${{ inputs.version }} stable
 
+      - name: Set default version redirect (versioned release)
+        if: inputs.version != ''
+        run: uv run --frozen mike set-default --push latest
+
       - name: Deploy documentation (latest from main)
         if: inputs.version == ''
         run: uv run --frozen mike deploy --push --update-aliases latest
+
+      - name: Set default version redirect (latest)
+        if: inputs.version == ''
+        run: uv run --frozen mike set-default --push latest

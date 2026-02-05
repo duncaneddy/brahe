@@ -3197,6 +3197,7 @@ mod tests {
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_eop;
     use nalgebra::{DVector, Vector3, Vector6};
+    use serial_test::serial;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -3217,6 +3218,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_SAltitudeEvent_evaluate() {
         setup_global_test_eop();
 
@@ -3412,6 +3414,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_SAltitudeEvent_7d_state() {
         setup_global_test_eop();
 
@@ -3466,6 +3469,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_DAltitudeEvent_evaluate() {
         setup_global_test_eop();
 
@@ -6445,6 +6449,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_SLongitudeEvent_evaluate() {
         setup_global_test_eop();
         // State vector: ~500 km altitude orbit
@@ -6694,6 +6699,7 @@ mod tests {
     // DLongitudeEvent comprehensive tests
 
     #[test]
+    #[serial]
     fn test_DLongitudeEvent_evaluate() {
         setup_global_test_eop();
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
@@ -6904,6 +6910,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_SLatitudeEvent_evaluate() {
         setup_global_test_eop();
         // Inclined orbit state vector
@@ -7100,6 +7107,7 @@ mod tests {
     // DLatitudeEvent comprehensive tests
 
     #[test]
+    #[serial]
     fn test_DLatitudeEvent_evaluate() {
         setup_global_test_eop();
         let state = DVector::from_vec(vec![6800e3, 0.0, 500e3, 0.0, 7000.0, 1000.0]);
@@ -8334,6 +8342,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_SAOIEntryEvent_evaluate_inside() {
         setup_global_test_eop();
 
@@ -8366,6 +8375,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_SAOIEntryEvent_evaluate_outside() {
         setup_global_test_eop();
 
@@ -8519,6 +8529,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_SAOIExitEvent_evaluate_inside() {
         setup_global_test_eop();
 
@@ -8550,6 +8561,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_SAOIExitEvent_evaluate_outside() {
         setup_global_test_eop();
 
@@ -8658,6 +8670,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_DAOIEntryEvent_evaluate() {
         setup_global_test_eop();
 
@@ -8757,6 +8770,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_DAOIExitEvent_evaluate() {
         setup_global_test_eop();
 

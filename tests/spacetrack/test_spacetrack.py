@@ -481,8 +481,8 @@ def _get_test_client():
     """Create a SpaceTrack client using test credentials."""
     user = os.environ.get("TEST_SPACETRACK_USER")
     password = os.environ.get("TEST_SPACETRACK_PASS")
-    if not user or not password:
-        pytest.skip("TEST_SPACETRACK_USER/TEST_SPACETRACK_PASS not set")
+    assert user, "TEST_SPACETRACK_USER environment variable must be set"
+    assert password, "TEST_SPACETRACK_PASS environment variable must be set"
     base_url = os.environ.get(
         "TEST_SPACETRACK_BASE_URL", "https://for-testing-only.space-track.org"
     )

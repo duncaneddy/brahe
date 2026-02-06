@@ -1,0 +1,91 @@
+# Space-Track API
+
+[Space-Track.org](https://www.space-track.org) is the public interface to the US Space Command satellite catalog, providing authoritative orbital data, satellite metadata, conjunction assessments, and decay predictions. Brahe's spacetrack module provides a typed client and fluent query builder for accessing this data programmatically.
+
+!!! info "Account Required"
+    Space-Track.org requires a free account. Register at [https://www.space-track.org/auth/createAccount](https://www.space-track.org/auth/createAccount) to obtain credentials.
+
+## Module Overview
+
+The spacetrack module is organized into five components:
+
+### Enumerations
+
+| Type | Purpose |
+|------|---------|
+| `RequestController` | API endpoint namespace (`BasicSpaceData`, `ExpandedSpaceData`, `FileShare`, `PublicFiles`) |
+| `RequestClass` | Data category to query (`GP`, `SATCAT`, `Decay`, `TIP`, `CDMPublic`, etc.) |
+| `SortOrder` | Result ordering direction (`Asc`, `Desc`) |
+| `OutputFormat` | Response format (`JSON`, `TLE`, `CSV`, `XML`, `KVN`, etc.) |
+
+Each `RequestClass` has a default controller. For example, `GP` and `SATCAT` use `BasicSpaceData`, while `CDMPublic` uses `ExpandedSpaceData`. The query builder selects the correct controller automatically.
+
+### Query Builder
+
+`SpaceTrackQuery` constructs API queries using a fluent builder pattern. All builder methods return a new query instance, allowing method chaining:
+
+| Method | Purpose |
+|--------|---------|
+| `filter(field, value)` | Add a field/value filter predicate |
+| `order_by(field, order)` | Sort results by field |
+| `limit(count)` | Limit number of results |
+| `limit_offset(count, offset)` | Paginate with limit and offset |
+| `format(fmt)` | Set output format (default: JSON) |
+| `predicates_filter(fields)` | Select specific fields to return |
+| `metadata(enabled)` | Include query metadata in response |
+| `distinct(enabled)` | Remove duplicate records |
+| `empty_result(enabled)` | Return empty set instead of error when no results |
+| `favorites(id)` | Filter by favorites list |
+| `controller(ctrl)` | Override the default controller |
+| `build()` | Produce the URL path string |
+
+### Client
+
+`SpaceTrackClient` handles authentication and HTTP communication with Space-Track.org:
+
+| Method | Purpose |
+|--------|---------|
+| `authenticate()` | Explicitly authenticate (establishes session) |
+| `query_raw(query)` | Execute query, return raw response string |
+| `query_json(query)` | Execute query, parse response as JSON array |
+| `query_gp(query)` | Execute query, parse response as `GpRecord` list |
+| `query_satcat(query)` | Execute query, parse response as `SatcatRecord` list |
+
+Authentication is lazy by default -- the client authenticates on the first query if `authenticate()` has not been called explicitly.
+
+### Response Types
+
+- **`GpRecord`** -- General Perturbations data record with 40 fields including orbital elements (`mean_motion`, `eccentricity`, `inclination`, `ra_of_asc_node`, `arg_of_pericenter`, `mean_anomaly`), object metadata (`object_name`, `norad_cat_id`, `object_type`), and TLE lines (`tle_line0`, `tle_line1`, `tle_line2`). All fields are `Optional[str]` / `Option<String>`.
+
+- **`SatcatRecord`** -- Satellite Catalog record with 24 fields including object identification (`norad_cat_id`, `satname`, `intldes`), launch information (`launch`, `site`, `launch_year`), and orbital characteristics (`period`, `inclination`, `apogee`, `perigee`). All fields are `Optional[str]` / `Option<String>`.
+
+### Operator Functions
+
+The `operators` module (Python: `brahe.spacetrack.operators`) provides functions that generate operator-prefixed strings for use in query filters:
+
+| Function | Output | Example |
+|----------|--------|---------|
+| `greater_than(v)` | `">v"` | `">25544"` |
+| `less_than(v)` | `"<v"` | `"<0.01"` |
+| `not_equal(v)` | `"<>v"` | `"<>DEBRIS"` |
+| `inclusive_range(a, b)` | `"a--b"` | `"25544--25600"` |
+| `like(v)` | `"~~v"` | `"~~STARLINK"` |
+| `startswith(v)` | `"^v"` | `"^NOAA"` |
+| `now()` | `"now"` | `"now"` |
+| `now_offset(days)` | `"now-N"` / `"now+N"` | `"now-7"` |
+| `null_val()` | `"null-val"` | `"null-val"` |
+| `or_list(vals)` | `"v1,v2,v3"` | `"25544,48274"` |
+
+Operators compose naturally. For example, `greater_than(now_offset(-7))` produces `">now-7"`.
+
+## Subpages
+
+- [Query Builder](query_builder.md) -- Building queries with filters, ordering, and output formats
+- [Client](client.md) -- Authentication, query execution, and response handling
+
+---
+
+## See Also
+
+- [Space-Track API Reference](../../library_api/spacetrack/index.md) -- Complete function documentation
+- [CelesTrak Data Source](../datasets/celestrak.md) -- Alternative TLE data source (no account required)

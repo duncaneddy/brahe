@@ -395,9 +395,6 @@ impl PyOutputFormat {
 /// Args:
 ///     request_class (RequestClass): The type of data to query.
 ///
-/// Returns:
-///     SpaceTrackQuery: A new query builder instance.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh

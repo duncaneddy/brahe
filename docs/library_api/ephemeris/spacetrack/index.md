@@ -15,7 +15,7 @@ The spacetrack module provides a typed client and fluent query builder for acces
 
 ## See Also
 
-- [Space-Track API Overview](../../learn/spacetrack/index.md) -- Conceptual introduction and module architecture
-- [Query Builder Guide](../../learn/spacetrack/query_builder.md) -- Building queries with examples
-- [Client Guide](../../learn/spacetrack/client.md) -- Authentication and query execution patterns
-- [File Operations Guide](../../learn/spacetrack/file_operations.md) -- FileShare, SP Ephemeris, and Public Files
+- [Space-Track API Overview](../../../learn/ephemeris/spacetrack/index.md) -- Conceptual introduction and module architecture
+- [Query Builder Guide](../../../learn/ephemeris/spacetrack/query_builder.md) -- Building queries with examples
+- [Client Guide](../../../learn/ephemeris/spacetrack/client.md) -- Authentication and query execution patterns
+- [File Operations Guide](../../../learn/ephemeris/spacetrack/file_operations.md) -- FileShare, SP Ephemeris, and Public Files

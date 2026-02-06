@@ -221,5 +221,5 @@ Below is a table of sampled Doppler compensation values during the access window
 - [Access Properties](../learn/access_computation/properties.md) - Custom property computers and property types
 - [Access Computation](../learn/access_computation/computation.md) - Access search algorithms and configuration
 - [Predicting Ground Contacts](ground_contacts.md) - Similar example with statistical analysis
-- [CelesTrak Dataset](../learn/datasets/celestrak.md) - Downloading TLE data
+- [CelesTrak Dataset](../learn/ephemeris/celestrak.md) - Downloading TLE data
 - [Ground Station Datasets](../library_api/datasets/groundstations.md) - Loading ground station networks

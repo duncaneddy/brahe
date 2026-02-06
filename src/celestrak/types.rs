@@ -175,6 +175,8 @@ pub enum SupGPSource {
     Amateur,
     /// CelestrakClient special supplemental data.
     CelesTrak,
+    /// Kuiper operator-provided ephemerides.
+    Kuiper,
 }
 
 impl SupGPSource {
@@ -200,6 +202,7 @@ impl SupGPSource {
             SupGPSource::SwarmTechnologies => "swarm",
             SupGPSource::Amateur => "amateur",
             SupGPSource::CelesTrak => "celestrak",
+            SupGPSource::Kuiper => "kuiper",
         }
     }
 }
@@ -311,6 +314,7 @@ mod tests {
         assert_eq!(SupGPSource::SwarmTechnologies.as_str(), "swarm");
         assert_eq!(SupGPSource::Amateur.as_str(), "amateur");
         assert_eq!(SupGPSource::CelesTrak.as_str(), "celestrak");
+        assert_eq!(SupGPSource::Kuiper.as_str(), "kuiper");
     }
 
     #[test]

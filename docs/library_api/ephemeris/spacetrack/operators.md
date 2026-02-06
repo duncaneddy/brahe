@@ -39,5 +39,5 @@ op.greater_than("25544")  # ">25544"
 
 ## See Also
 
-- [Query Builder Guide](../../learn/spacetrack/query_builder.md) -- Using operators in query filters
+- [Query Builder Guide](../../../learn/ephemeris/spacetrack/query_builder.md) -- Using operators in query filters
 - [SpaceTrackQuery](query.md) -- The `filter()` method that accepts operator output

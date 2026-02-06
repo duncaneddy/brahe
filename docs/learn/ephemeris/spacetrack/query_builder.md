@@ -2,7 +2,7 @@
 
 `SpaceTrackQuery` provides a fluent builder API for constructing Space-Track.org API queries. Each builder method returns a new query instance, allowing method chaining. Call `build()` to produce the URL path string that the client appends to the base URL.
 
-For the complete API reference, see the [SpaceTrackQuery Reference](../../library_api/spacetrack/query.md).
+For the complete API reference, see the [SpaceTrackQuery Reference](../../../library_api/ephemeris/spacetrack/query.md).
 
 ## Basic Queries
 
@@ -83,6 +83,6 @@ The default output format is JSON, which works with `query_json()`, `query_gp()`
 
 - [Space-Track API Overview](index.md) -- Module architecture and type catalog
 - [Client Usage](client.md) -- Authentication and query execution
-- [SpaceTrackQuery Reference](../../library_api/spacetrack/query.md) -- Complete method documentation
-- [Operators Reference](../../library_api/spacetrack/operators.md) -- All operator functions
-- [Enumerations Reference](../../library_api/spacetrack/enums.md) -- RequestClass, OutputFormat, etc.
+- [SpaceTrackQuery Reference](../../../library_api/ephemeris/spacetrack/query.md) -- Complete method documentation
+- [Operators Reference](../../../library_api/ephemeris/spacetrack/operators.md) -- All operator functions
+- [Enumerations Reference](../../../library_api/ephemeris/spacetrack/enums.md) -- RequestClass, OutputFormat, etc.

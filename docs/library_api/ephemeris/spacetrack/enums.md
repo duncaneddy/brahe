@@ -32,5 +32,5 @@
 
 ## See Also
 
-- [Space-Track API Overview](../../learn/spacetrack/index.md) -- Purpose and usage of each enumeration
+- [Space-Track API Overview](../../../learn/ephemeris/spacetrack/index.md) -- Purpose and usage of each enumeration
 - [SpaceTrackQuery](query.md) -- Query builder that uses these enumerations

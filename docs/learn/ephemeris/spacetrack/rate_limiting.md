@@ -4,7 +4,7 @@ Space-Track.org enforces rate limits of **30 requests per minute** and **300 req
 
 By default, the client uses conservative limits of **25 requests per minute** and **250 requests per hour** (~83% of the actual limits), providing safety margin for clock drift and shared accounts. Most users do not need to configure rate limiting at all -- the defaults are applied automatically.
 
-For the complete API reference, see the [RateLimitConfig Reference](../../library_api/spacetrack/rate_limiting.md).
+For the complete API reference, see the [RateLimitConfig Reference](../../../library_api/ephemeris/spacetrack/rate_limiting.md).
 
 ## Configuration
 
@@ -35,6 +35,6 @@ The limiter applies to all client operations: authentication, queries, file oper
 
 ## See Also
 
-- [RateLimitConfig Reference](../../library_api/spacetrack/rate_limiting.md) -- Complete API documentation
+- [RateLimitConfig Reference](../../../library_api/ephemeris/spacetrack/rate_limiting.md) -- Complete API documentation
 - [Client](client.md) -- Client creation and query execution
 - [Space-Track API Overview](index.md) -- Module architecture and type catalog

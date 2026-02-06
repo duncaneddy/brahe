@@ -112,6 +112,6 @@ Finally, we'll visualize the 3 longest gaps on a ground track plot to see where 
 
 - [Access Computation](../learn/access_computation/index.md) - Understanding access windows and constraints
 - [KSAT Ground Stations](../learn/datasets/groundstations.md) - Ground station dataset documentation
-- [CelesTrak Dataset](../learn/datasets/celestrak.md) - Downloading TLE data
+- [CelesTrak Dataset](../learn/ephemeris/celestrak.md) - Downloading TLE data
 - [String Formatting](../learn/utilities/string_formatting.md) - Formatting time durations
 - [Predicting Ground Contacts](ground_contacts.md) - Related ground contact analysis example

@@ -9,6 +9,6 @@
 
 ## See Also
 
-- [Query Builder Guide](../../learn/spacetrack/query_builder.md) -- Building queries with examples
+- [Query Builder Guide](../../../learn/ephemeris/spacetrack/query_builder.md) -- Building queries with examples
 - [Operators](operators.md) -- Filter operator functions for query values
 - [Enumerations](enums.md) -- RequestClass, SortOrder, OutputFormat

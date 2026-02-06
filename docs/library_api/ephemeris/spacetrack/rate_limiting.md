@@ -9,5 +9,5 @@
 
 ## See Also
 
-- [Rate Limiting Guide](../../learn/spacetrack/rate_limiting.md) -- Conceptual explanation and configuration examples
+- [Rate Limiting Guide](../../../learn/ephemeris/spacetrack/rate_limiting.md) -- Conceptual explanation and configuration examples
 - [SpaceTrackClient](client.md) -- Client that uses rate limit configuration

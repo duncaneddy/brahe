@@ -72,34 +72,19 @@ Authentication is lazy by default -- the client authenticates on the first query
 
 ### Response Types
 
-- **`GPRecord`** -- General Perturbations data record with 40 fields including orbital elements (`mean_motion`, `eccentricity`, `inclination`, `ra_of_asc_node`, `arg_of_pericenter`, `mean_anomaly`), object metadata (`object_name`, `norad_cat_id`, `object_type`), and TLE lines (`tle_line0`, `tle_line1`, `tle_line2`). All fields are `Optional[str]` / `Option<String>`.
+- **`GPRecord`** -- Shared GP data record. See [Ephemeris Data Sources](../index.md) for field details.
 
-- **`SATCATRecord`** -- Satellite Catalog record with 24 fields including object identification (`norad_cat_id`, `satname`, `intldes`), launch information (`launch`, `site`, `launch_year`), and orbital characteristics (`period`, `inclination`, `apogee`, `perigee`). All fields are `Optional[str]` / `Option<String>`.
+- **`SATCATRecord`** -- Satellite Catalog record with 24 fields including object identification (`norad_cat_id`, `satname`, `intldes`), launch information (`launch`, `site`, `launch_year`), and orbital characteristics (`period`, `inclination`, `apogee`, `perigee`). `norad_cat_id` is `Optional[int]` / `Option<u32>`; remaining fields are `Optional[str]` / `Option<String>`.
 
-- **`FileShareFileRecord`** -- File share file metadata with 7 fields: `file_id`, `file_name`, `file_link`, `file_size`, `file_conttype`, `folder_id`, and `created`. All fields are `Optional[str]` / `Option<String>`.
+- **`FileShareFileRecord`** -- File share file metadata (7 fields). All `Optional[str]` / `Option<String>`.
 
-- **`FolderRecord`** -- File share folder metadata with 4 fields: `folder_id`, `folder_name`, `parent_folder_id`, and `created`. All fields are `Optional[str]` / `Option<String>`.
+- **`FolderRecord`** -- File share folder metadata (4 fields). All `Optional[str]` / `Option<String>`.
 
-- **`SPEphemerisFileRecord`** -- SP ephemeris file metadata with 8 fields: `file_id`, `norad_cat_id`, `file_name`, `file_link`, `file_size`, `created`, `epoch_start`, and `epoch_stop`. All fields are `Optional[str]` / `Option<String>`.
+- **`SPEphemerisFileRecord`** -- SP ephemeris file metadata (8 fields). `norad_cat_id` is `Optional[int]` / `Option<u32>`; remaining fields are `Optional[str]` / `Option<String>`.
 
 ### Operator Functions
 
-The `operators` module (Python: `brahe.spacetrack.operators`) provides functions that generate operator-prefixed strings for use in query filters:
-
-| Function | Output | Example |
-|----------|--------|---------|
-| `greater_than(v)` | `">v"` | `">25544"` |
-| `less_than(v)` | `"<v"` | `"<0.01"` |
-| `not_equal(v)` | `"<>v"` | `"<>DEBRIS"` |
-| `inclusive_range(a, b)` | `"a--b"` | `"25544--25600"` |
-| `like(v)` | `"~~v"` | `"~~STARLINK"` |
-| `startswith(v)` | `"^v"` | `"^NOAA"` |
-| `now()` | `"now"` | `"now"` |
-| `now_offset(days)` | `"now-N"` / `"now+N"` | `"now-7"` |
-| `null_val()` | `"null-val"` | `"null-val"` |
-| `or_list(vals)` | `"v1,v2,v3"` | `"25544,48274"` |
-
-Operators compose naturally. For example, `greater_than(now_offset(-7))` produces `">now-7"`.
+Operator functions generate filter value strings for `SpaceTrackQuery.filter()`. See [Ephemeris Data Sources](../index.md) for the full operator table.
 
 ## Subpages
 
@@ -112,5 +97,5 @@ Operators compose naturally. For example, `greater_than(now_offset(-7))` produce
 
 ## See Also
 
-- [Space-Track API Reference](../../library_api/spacetrack/index.md) -- Complete function documentation
-- [CelesTrak Data Source](../datasets/celestrak.md) -- Alternative TLE data source (no account required)
+- [Space-Track API Reference](../../../library_api/ephemeris/spacetrack/index.md) -- Complete function documentation
+- [CelesTrak Data Source](../celestrak.md) -- Alternative TLE data source (no account required)

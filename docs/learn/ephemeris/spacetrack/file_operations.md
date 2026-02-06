@@ -2,7 +2,7 @@
 
 Space-Track provides several file-based endpoints beyond the standard query API. These operations are direct client methods -- they do not use the `SpaceTrackQuery` builder. The three subsystems are **FileShare** (authenticated file storage), **SP Ephemeris** (special perturbations ephemeris files), and **Public Files** (unauthenticated downloads).
 
-For the complete API reference, see the [SpaceTrackClient Reference](../../library_api/spacetrack/client.md).
+For the complete API reference, see the [SpaceTrackClient Reference](../../../library_api/ephemeris/spacetrack/client.md).
 
 ## FileShare
 
@@ -307,5 +307,5 @@ Download a public file by name.
 
 - [Space-Track API Overview](index.md) -- Module architecture and type catalog
 - [Client](client.md) -- Authentication, query execution, and response handling
-- [SpaceTrackClient Reference](../../library_api/spacetrack/client.md) -- Complete method documentation
-- [Response Types Reference](../../library_api/spacetrack/responses.md) -- All response type field definitions
+- [SpaceTrackClient Reference](../../../library_api/ephemeris/spacetrack/client.md) -- Complete method documentation
+- [Response Types Reference](../../../library_api/ephemeris/spacetrack/responses.md) -- All response type field definitions

@@ -222,6 +222,6 @@ CelesTrak organizes satellites into logical groups accessible via simple names. 
 
 ## See Also
 
-- [Datasets Overview](index.md) - Understanding satellite ephemeris datasets
+- [Ephemeris Data Sources](index.md) - Shared types, operators, and source comparison
 - [Two-Line Elements](../orbits/two_line_elements.md) - TLE and 3LE format details
-- [CelesTrak API Reference](../../library_api/datasets/celestrak.md) - Class and method documentation
+- [CelesTrak API Reference](../../library_api/ephemeris/celestrak.md) - Class and method documentation

@@ -207,6 +207,7 @@ impl PyCelestrakOutputFormat {
 ///     SWARM_TECHNOLOGIES: Swarm supplemental data
 ///     AMATEUR: Amateur radio satellites
 ///     CELESTRAK: CelestrakClient special supplemental data
+///     KUIPER: Kuiper operator-provided ephemerides
 ///
 /// Example:
 ///     ```python
@@ -373,6 +374,14 @@ impl PySupGPSource {
     fn CELESTRAK() -> Self {
         PySupGPSource {
             value: celestrak::SupGPSource::CelesTrak,
+        }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn KUIPER() -> Self {
+        PySupGPSource {
+            value: celestrak::SupGPSource::Kuiper,
         }
     }
 

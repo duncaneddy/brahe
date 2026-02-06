@@ -48,5 +48,5 @@ API reference for the CelesTrak client module. All types are available via `brah
 
 ## See Also
 
-- [CelesTrak Data Source](../../learn/datasets/celestrak.md) -- Overview, caching, and satellite groups
-- [SpaceTrack Client](../spacetrack/client.md) -- Alternative GP data source with the same GPRecord type
+- [CelesTrak Data Source](../../learn/ephemeris/celestrak.md) -- Overview, caching, and satellite groups
+- [SpaceTrack Client](spacetrack/client.md) -- Alternative GP data source with the same GPRecord type

@@ -82,6 +82,7 @@ class TestSupGPSource:
         assert str(bh.celestrak.SupGPSource.SWARM_TECHNOLOGIES) == "swarm"
         assert str(bh.celestrak.SupGPSource.AMATEUR) == "amateur"
         assert str(bh.celestrak.SupGPSource.CELESTRAK) == "celestrak"
+        assert str(bh.celestrak.SupGPSource.KUIPER) == "kuiper"
 
     def test_equality(self):
         assert bh.celestrak.SupGPSource.SPACEX == bh.celestrak.SupGPSource.SPACEX

@@ -89,6 +89,8 @@ Operator functions generate filter value strings for `SpaceTrackQuery.filter()`.
 ## Subpages
 
 - [Query Builder](query_builder.md) -- Building queries with filters, ordering, and output formats
+- [Common Queries](common_queries.md) -- Practical query patterns for GP, SATCAT, and Decay data
+- [Conjunction Data Messages](cdm.md) -- Querying CDM collision risk assessments
 - [Client](client.md) -- Authentication, query execution, and response handling
 - [File Operations](file_operations.md) -- FileShare, SP Ephemeris, and Public Files
 - [Rate Limiting](rate_limiting.md) -- Configuring request rate limits

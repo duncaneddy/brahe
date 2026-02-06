@@ -44,10 +44,12 @@ os.makedirs(OUTDIR, exist_ok=True)
 print("Downloading active satellite TLEs from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_umbra]
-all_active_props = bh.datasets.celestrak.get_tles_as_propagators("active", 60.0)
+client = bh.celestrak.CelestrakClient()
+query = bh.celestrak.CelestrakQuery.gp().name_search("UMBRA")
+records = client.query_gp(query)
 
-# Filter for Umbra satellites (name contains "UMBRA")
-umbra_props = [prop for prop in all_active_props if "UMBRA" in prop.get_name().upper()]
+# Convert to propagators
+umbra_props = [r.to_sgp_propagator(60.0) for r in records]
 # --8<-- [end:download_umbra]
 print(f"Found {len(umbra_props)} Umbra satellites")
 elapsed = time.time() - start_time

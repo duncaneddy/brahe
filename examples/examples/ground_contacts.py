@@ -41,7 +41,10 @@ os.makedirs(OUTDIR, exist_ok=True)
 print("Downloading NISAR TLE from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_nisar]
-nisar = bh.datasets.celestrak.get_tle_by_id_as_propagator(65053, 60.0)
+client = bh.celestrak.CelestrakClient()
+query = bh.celestrak.CelestrakQuery.gp().catnr(65053)
+records = client.query_gp(query)
+nisar = records[0].to_sgp_propagator(60.0)
 nisar = nisar.with_name("NISAR")
 # --8<-- [end:download_nisar]
 elapsed = time.time() - start_time

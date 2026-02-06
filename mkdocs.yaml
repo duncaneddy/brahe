@@ -252,6 +252,8 @@ nav:
                 - Space-Track:
                     - learn/ephemeris/spacetrack/index.md
                     - Query Builder: learn/ephemeris/spacetrack/query_builder.md
+                    - Common Queries: learn/ephemeris/spacetrack/common_queries.md
+                    - Conjunction Data: learn/ephemeris/spacetrack/cdm.md
                     - Client: learn/ephemeris/spacetrack/client.md
                     - File Operations: learn/ephemeris/spacetrack/file_operations.md
                     - Rate Limiting: learn/ephemeris/spacetrack/rate_limiting.md

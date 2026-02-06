@@ -40,9 +40,11 @@ print("Downloading ICEYE constellation TLEs from CelesTrak...")
 start_time = time.time()
 
 # --8<-- [start:ephemeris_download]
-# Get all active satellites and filter for ICEYE
-all_sats = bh.datasets.celestrak.get_tles_as_propagators("active", 60.0)
-iceye_sats = [sat for sat in all_sats if "ICEYE" in sat.get_name().upper()]
+# Search for ICEYE satellites on CelesTrak
+client = bh.celestrak.CelestrakClient()
+query = bh.celestrak.CelestrakQuery.gp().name_search("ICEYE")
+records = client.query_gp(query)
+iceye_sats = [r.to_sgp_propagator(60.0) for r in records]
 # --8<-- [end:ephemeris_download]
 
 elapsed = time.time() - start_time

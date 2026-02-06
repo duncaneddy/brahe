@@ -1,345 +1,15 @@
 /*!
  * Typed response structs for SpaceTrack API responses.
  *
- * Provides strongly-typed Rust structs for the most commonly queried
- * SpaceTrack request classes. All fields are `Option<String>` since
- * the API may omit fields or return nulls.
+ * Provides strongly-typed Rust structs for commonly queried
+ * SpaceTrack request classes (SATCAT, FileShare, SP Ephemeris).
+ *
+ * The [`GPRecord`] type is defined in [`crate::types`] and re-exported
+ * from this module's parent for backward compatibility.
  */
 
+use crate::types::serde_flex::*;
 use serde::{Deserialize, Serialize};
-
-/// Custom deserializer that accepts any JSON value and converts it to Option<String>.
-///
-/// This handles the difference between SpaceTrack (returns all values as strings)
-/// and CelestrakClient (returns numbers as JSON numbers, not strings). Both are
-/// normalized to `Option<String>` for a unified API.
-mod string_or_any {
-    use serde::{self, Deserialize, Deserializer};
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value: Option<serde_json::Value> = Option::deserialize(deserializer)?;
-        match value {
-            None => Ok(None),
-            Some(serde_json::Value::Null) => Ok(None),
-            Some(serde_json::Value::String(s)) => Ok(Some(s)),
-            Some(v) => Ok(Some(v.to_string())),
-        }
-    }
-}
-
-/// General Perturbations (OMM) record from the GP request class.
-///
-/// Contains orbital elements and metadata for a single satellite.
-/// All fields are optional strings since Space-Track may omit fields
-/// or return null values. Use the field values by parsing them to the
-/// desired numeric type.
-///
-/// # Examples
-///
-/// ```
-/// use brahe::spacetrack::GPRecord;
-///
-/// let json = r#"[{
-///     "CCSDS_OMM_VERS": "3.0",
-///     "OBJECT_NAME": "ISS (ZARYA)",
-///     "NORAD_CAT_ID": "25544",
-///     "EPOCH": "2024-01-15T12:00:00.000",
-///     "MEAN_MOTION": "15.50000000",
-///     "ECCENTRICITY": "0.00010000",
-///     "INCLINATION": "51.6400"
-/// }]"#;
-///
-/// let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
-/// assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
-/// assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
-/// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(clippy::upper_case_acronyms)]
-pub struct GPRecord {
-    /// CCSDS OMM version
-    #[serde(
-        rename = "CCSDS_OMM_VERS",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub ccsds_omm_vers: Option<String>,
-    /// Comment field
-    #[serde(
-        rename = "COMMENT",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub comment: Option<String>,
-    /// Record creation date
-    #[serde(
-        rename = "CREATION_DATE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub creation_date: Option<String>,
-    /// Data originator
-    #[serde(
-        rename = "ORIGINATOR",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub originator: Option<String>,
-    /// Satellite common name
-    #[serde(
-        rename = "OBJECT_NAME",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub object_name: Option<String>,
-    /// International designator
-    #[serde(
-        rename = "OBJECT_ID",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub object_id: Option<String>,
-    /// Center name (typically "EARTH")
-    #[serde(
-        rename = "CENTER_NAME",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub center_name: Option<String>,
-    /// Reference frame (typically "TEME")
-    #[serde(
-        rename = "REF_FRAME",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub ref_frame: Option<String>,
-    /// Time system (typically "UTC")
-    #[serde(
-        rename = "TIME_SYSTEM",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub time_system: Option<String>,
-    /// Mean element theory (typically "SGP4")
-    #[serde(
-        rename = "MEAN_ELEMENT_THEORY",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub mean_element_theory: Option<String>,
-    /// Epoch of the orbital elements
-    #[serde(
-        rename = "EPOCH",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub epoch: Option<String>,
-    /// Mean motion in revolutions per day
-    #[serde(
-        rename = "MEAN_MOTION",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub mean_motion: Option<String>,
-    /// Orbital eccentricity
-    #[serde(
-        rename = "ECCENTRICITY",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub eccentricity: Option<String>,
-    /// Orbital inclination in degrees
-    #[serde(
-        rename = "INCLINATION",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub inclination: Option<String>,
-    /// Right ascension of ascending node in degrees
-    #[serde(
-        rename = "RA_OF_ASC_NODE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub ra_of_asc_node: Option<String>,
-    /// Argument of pericenter in degrees
-    #[serde(
-        rename = "ARG_OF_PERICENTER",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub arg_of_pericenter: Option<String>,
-    /// Mean anomaly in degrees
-    #[serde(
-        rename = "MEAN_ANOMALY",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub mean_anomaly: Option<String>,
-    /// Ephemeris type
-    #[serde(
-        rename = "EPHEMERIS_TYPE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub ephemeris_type: Option<String>,
-    /// Classification type (U=Unclassified, C=Classified, S=Secret)
-    #[serde(
-        rename = "CLASSIFICATION_TYPE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub classification_type: Option<String>,
-    /// NORAD catalog identifier
-    #[serde(
-        rename = "NORAD_CAT_ID",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub norad_cat_id: Option<String>,
-    /// Element set number
-    #[serde(
-        rename = "ELEMENT_SET_NO",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub element_set_no: Option<String>,
-    /// Revolution number at epoch
-    #[serde(
-        rename = "REV_AT_EPOCH",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub rev_at_epoch: Option<String>,
-    /// BSTAR drag coefficient
-    #[serde(
-        rename = "BSTAR",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub bstar: Option<String>,
-    /// First derivative of mean motion
-    #[serde(
-        rename = "MEAN_MOTION_DOT",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub mean_motion_dot: Option<String>,
-    /// Second derivative of mean motion
-    #[serde(
-        rename = "MEAN_MOTION_DDOT",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub mean_motion_ddot: Option<String>,
-    /// Semi-major axis in kilometers
-    #[serde(
-        rename = "SEMIMAJOR_AXIS",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub semimajor_axis: Option<String>,
-    /// Orbital period in minutes
-    #[serde(
-        rename = "PERIOD",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub period: Option<String>,
-    /// Apoapsis altitude in kilometers
-    #[serde(
-        rename = "APOAPSIS",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub apoapsis: Option<String>,
-    /// Periapsis altitude in kilometers
-    #[serde(
-        rename = "PERIAPSIS",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub periapsis: Option<String>,
-    /// Object type (PAYLOAD, ROCKET BODY, DEBRIS, etc.)
-    #[serde(
-        rename = "OBJECT_TYPE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub object_type: Option<String>,
-    /// Radar cross-section size category (SMALL, MEDIUM, LARGE)
-    #[serde(
-        rename = "RCS_SIZE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub rcs_size: Option<String>,
-    /// Country code of the launching state
-    #[serde(
-        rename = "COUNTRY_CODE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub country_code: Option<String>,
-    /// Launch date
-    #[serde(
-        rename = "LAUNCH_DATE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub launch_date: Option<String>,
-    /// Launch site code
-    #[serde(
-        rename = "SITE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub site: Option<String>,
-    /// Decay date (if decayed)
-    #[serde(
-        rename = "DECAY_DATE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub decay_date: Option<String>,
-    /// File number
-    #[serde(
-        rename = "FILE",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub file: Option<String>,
-    /// GP record identifier
-    #[serde(
-        rename = "GP_ID",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub gp_id: Option<String>,
-    /// TLE line 0 (object name)
-    #[serde(
-        rename = "TLE_LINE0",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub tle_line0: Option<String>,
-    /// TLE line 1
-    #[serde(
-        rename = "TLE_LINE1",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub tle_line1: Option<String>,
-    /// TLE line 2
-    #[serde(
-        rename = "TLE_LINE2",
-        default,
-        deserialize_with = "string_or_any::deserialize"
-    )]
-    pub tle_line2: Option<String>,
-}
 
 /// Satellite Catalog (SATCAT) record.
 ///
@@ -368,8 +38,12 @@ pub struct SATCATRecord {
     #[serde(rename = "INTLDES", default)]
     pub intldes: Option<String>,
     /// NORAD catalog identifier
-    #[serde(rename = "NORAD_CAT_ID", default)]
-    pub norad_cat_id: Option<String>,
+    #[serde(
+        rename = "NORAD_CAT_ID",
+        default,
+        deserialize_with = "flex_u32::deserialize"
+    )]
+    pub norad_cat_id: Option<u32>,
     /// Object type code
     #[serde(rename = "OBJECT_TYPE", default)]
     pub object_type: Option<String>,
@@ -524,24 +198,28 @@ pub struct FolderRecord {
 /// # Examples
 ///
 /// ```
-/// use brahe::spacetrack::SpEphemerisFileRecord;
+/// use brahe::spacetrack::SPEphemerisFileRecord;
 ///
 /// let json = r#"[{
 ///     "FILE_ID": "99999",
 ///     "NORAD_CAT_ID": "25544"
 /// }]"#;
 ///
-/// let records: Vec<SpEphemerisFileRecord> = serde_json::from_str(json).unwrap();
+/// let records: Vec<SPEphemerisFileRecord> = serde_json::from_str(json).unwrap();
 /// assert_eq!(records[0].file_id.as_deref(), Some("99999"));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SpEphemerisFileRecord {
+pub struct SPEphemerisFileRecord {
     /// File identifier
     #[serde(rename = "FILE_ID", default)]
     pub file_id: Option<String>,
     /// NORAD catalog identifier
-    #[serde(rename = "NORAD_CAT_ID", default)]
-    pub norad_cat_id: Option<String>,
+    #[serde(
+        rename = "NORAD_CAT_ID",
+        default,
+        deserialize_with = "flex_u32::deserialize"
+    )]
+    pub norad_cat_id: Option<u32>,
     /// File name
     #[serde(rename = "FILE_NAME", default)]
     pub file_name: Option<String>,
@@ -566,132 +244,6 @@ pub struct SpEphemerisFileRecord {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_gp_record_deserialize_full() {
-        let json = r#"[{
-            "CCSDS_OMM_VERS": "3.0",
-            "COMMENT": "GENERATED VIA SPACE-TRACK.ORG API",
-            "CREATION_DATE": "2024-01-15 12:00:00",
-            "ORIGINATOR": "18 SDS",
-            "OBJECT_NAME": "ISS (ZARYA)",
-            "OBJECT_ID": "1998-067A",
-            "CENTER_NAME": "EARTH",
-            "REF_FRAME": "TEME",
-            "TIME_SYSTEM": "UTC",
-            "MEAN_ELEMENT_THEORY": "SGP4",
-            "EPOCH": "2024-01-15T12:00:00.000000",
-            "MEAN_MOTION": "15.50000000",
-            "ECCENTRICITY": "0.00010000",
-            "INCLINATION": "51.6400",
-            "RA_OF_ASC_NODE": "200.0000",
-            "ARG_OF_PERICENTER": "100.0000",
-            "MEAN_ANOMALY": "260.0000",
-            "EPHEMERIS_TYPE": "0",
-            "CLASSIFICATION_TYPE": "U",
-            "NORAD_CAT_ID": "25544",
-            "ELEMENT_SET_NO": "999",
-            "REV_AT_EPOCH": "45000",
-            "BSTAR": "0.00034100",
-            "MEAN_MOTION_DOT": "0.00001000",
-            "MEAN_MOTION_DDOT": "0.00000000",
-            "SEMIMAJOR_AXIS": "6793.000",
-            "PERIOD": "92.87",
-            "APOAPSIS": "415.000",
-            "PERIAPSIS": "414.000",
-            "OBJECT_TYPE": "PAYLOAD",
-            "RCS_SIZE": "LARGE",
-            "COUNTRY_CODE": "ISS",
-            "LAUNCH_DATE": "1998-11-20",
-            "SITE": "TTMTR",
-            "DECAY_DATE": null,
-            "FILE": "1234",
-            "GP_ID": "567890",
-            "TLE_LINE0": "0 ISS (ZARYA)",
-            "TLE_LINE1": "1 25544U 98067A   24015.50000000  .00001000  00000+0  34100-4 0  9999",
-            "TLE_LINE2": "2 25544  51.6400 200.0000 0001000 100.0000 260.0000 15.50000000450001"
-        }]"#;
-
-        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
-        assert_eq!(records.len(), 1);
-
-        let record = &records[0];
-        assert_eq!(record.object_name.as_deref(), Some("ISS (ZARYA)"));
-        assert_eq!(record.norad_cat_id.as_deref(), Some("25544"));
-        assert_eq!(record.eccentricity.as_deref(), Some("0.00010000"));
-        assert_eq!(record.inclination.as_deref(), Some("51.6400"));
-        assert!(record.decay_date.is_none());
-        assert!(record.tle_line1.is_some());
-    }
-
-    #[test]
-    fn test_gp_record_deserialize_minimal() {
-        let json = r#"[{
-            "OBJECT_NAME": "ISS (ZARYA)",
-            "NORAD_CAT_ID": "25544"
-        }]"#;
-
-        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
-        assert_eq!(records.len(), 1);
-        assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
-        assert!(records[0].epoch.is_none());
-        assert!(records[0].mean_motion.is_none());
-    }
-
-    #[test]
-    fn test_gp_record_unknown_fields_ignored() {
-        let json = r#"[{
-            "OBJECT_NAME": "ISS (ZARYA)",
-            "UNKNOWN_FIELD": "some_value",
-            "ANOTHER_UNKNOWN": 42
-        }]"#;
-
-        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
-        assert_eq!(records.len(), 1);
-        assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
-    }
-
-    #[test]
-    fn test_gp_record_empty_array() {
-        let json = "[]";
-        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
-        assert!(records.is_empty());
-    }
-
-    #[test]
-    fn test_gp_record_deserialize_numeric_values() {
-        // Celestrak returns numeric values as JSON numbers, not strings
-        let json = r#"[{
-            "OBJECT_NAME": "ISS (ZARYA)",
-            "OBJECT_ID": "1998-067A",
-            "EPOCH": "2026-02-06T05:05:23.180640",
-            "MEAN_MOTION": 15.48432747,
-            "ECCENTRICITY": 0.0011199,
-            "INCLINATION": 51.6316,
-            "RA_OF_ASC_NODE": 227.9611,
-            "ARG_OF_PERICENTER": 69.2605,
-            "MEAN_ANOMALY": 290.9582,
-            "EPHEMERIS_TYPE": 0,
-            "CLASSIFICATION_TYPE": "U",
-            "NORAD_CAT_ID": 25544,
-            "ELEMENT_SET_NO": 999,
-            "REV_AT_EPOCH": 55145,
-            "BSTAR": 0.00024775,
-            "MEAN_MOTION_DOT": 0.00012979,
-            "MEAN_MOTION_DDOT": 0
-        }]"#;
-
-        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
-        assert_eq!(records.len(), 1);
-
-        let record = &records[0];
-        assert_eq!(record.object_name.as_deref(), Some("ISS (ZARYA)"));
-        assert_eq!(record.norad_cat_id.as_deref(), Some("25544"));
-        assert_eq!(record.inclination.as_deref(), Some("51.6316"));
-        assert_eq!(record.eccentricity.as_deref(), Some("0.0011199"));
-        assert_eq!(record.ephemeris_type.as_deref(), Some("0"));
-        assert_eq!(record.mean_motion_ddot.as_deref(), Some("0"));
-    }
 
     #[test]
     fn test_satcat_record_deserialize() {
@@ -727,7 +279,7 @@ mod tests {
 
         let record = &records[0];
         assert_eq!(record.satname.as_deref(), Some("ISS (ZARYA)"));
-        assert_eq!(record.norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(record.norad_cat_id, Some(25544));
         assert_eq!(record.object_type.as_deref(), Some("PAY"));
         assert_eq!(record.country.as_deref(), Some("ISS"));
         assert!(record.decay.is_none());
@@ -742,31 +294,6 @@ mod tests {
 
         let records: Vec<SATCATRecord> = serde_json::from_str(json).unwrap();
         assert_eq!(records[0].satname.as_deref(), Some("ISS"));
-    }
-
-    #[test]
-    fn test_gp_record_clone() {
-        let json = r#"[{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": "25544"}]"#;
-        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
-        let cloned = records[0].clone();
-        assert_eq!(cloned.object_name, records[0].object_name);
-    }
-
-    #[test]
-    fn test_gp_record_debug() {
-        let json = r#"[{"OBJECT_NAME": "ISS"}]"#;
-        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
-        let debug = format!("{:?}", records[0]);
-        assert!(debug.contains("ISS"));
-    }
-
-    #[test]
-    fn test_gp_record_serialize() {
-        let json = r#"[{"OBJECT_NAME":"ISS","NORAD_CAT_ID":"25544"}]"#;
-        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
-        let serialized = serde_json::to_string(&records[0]).unwrap();
-        assert!(serialized.contains("OBJECT_NAME"));
-        assert!(serialized.contains("ISS"));
     }
 
     // -- FileShareFileRecord tests --
@@ -831,7 +358,7 @@ mod tests {
         assert!(records[0].folder_name.is_none());
     }
 
-    // -- SpEphemerisFileRecord tests --
+    // -- SPEphemerisFileRecord tests --
 
     #[test]
     fn test_spephemeris_file_record_deserialize() {
@@ -846,10 +373,10 @@ mod tests {
             "EPOCH_STOP": "2024-01-15T00:00:00"
         }]"#;
 
-        let records: Vec<SpEphemerisFileRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<SPEphemerisFileRecord> = serde_json::from_str(json).unwrap();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].file_id.as_deref(), Some("99999"));
-        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(records[0].norad_cat_id, Some(25544));
         assert_eq!(records[0].file_name.as_deref(), Some("iss_sp.e"));
         assert_eq!(
             records[0].epoch_start.as_deref(),
@@ -860,8 +387,22 @@ mod tests {
     #[test]
     fn test_spephemeris_file_record_minimal() {
         let json = r#"[{"FILE_ID": "99999"}]"#;
-        let records: Vec<SpEphemerisFileRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<SPEphemerisFileRecord> = serde_json::from_str(json).unwrap();
         assert_eq!(records[0].file_id.as_deref(), Some("99999"));
         assert!(records[0].norad_cat_id.is_none());
+    }
+
+    #[test]
+    fn test_spephemeris_file_record_numeric_norad_cat_id() {
+        let json = r#"[{"FILE_ID": "99999", "NORAD_CAT_ID": 25544}]"#;
+        let records: Vec<SPEphemerisFileRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records[0].norad_cat_id, Some(25544));
+    }
+
+    #[test]
+    fn test_satcat_record_numeric_norad_cat_id() {
+        let json = r#"[{"SATNAME": "ISS", "NORAD_CAT_ID": 25544}]"#;
+        let records: Vec<SATCATRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records[0].norad_cat_id, Some(25544));
     }
 }

@@ -48,4 +48,4 @@ pub use responses::CelestrakSATCATRecord;
 pub use types::{CelestrakOutputFormat, CelestrakQueryType, SupGPSource};
 
 // Re-export GPRecord for convenience (users can import from either module)
-pub use crate::spacetrack::GPRecord;
+pub use crate::types::GPRecord;

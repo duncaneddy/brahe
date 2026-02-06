@@ -42,10 +42,9 @@ pub mod responses;
 pub mod types;
 
 // Re-export commonly used types for convenience
+pub use crate::types::GPRecord;
 pub use client::SpaceTrackClient;
 pub use query::SpaceTrackQuery;
 pub use rate_limiter::RateLimitConfig;
-pub use responses::{
-    FileShareFileRecord, FolderRecord, GPRecord, SATCATRecord, SpEphemerisFileRecord,
-};
+pub use responses::{FileShareFileRecord, FolderRecord, SATCATRecord, SPEphemerisFileRecord};
 pub use types::{OutputFormat, RequestClass, RequestController, SortOrder};

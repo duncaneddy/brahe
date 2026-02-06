@@ -57,7 +57,7 @@ impl PyRequestController {
     #[allow(non_snake_case)]
     fn SP_EPHEMERIS() -> Self {
         PyRequestController {
-            value: spacetrack::RequestController::SpEphemeris,
+            value: spacetrack::RequestController::SPEphemeris,
         }
     }
 
@@ -627,32 +627,32 @@ impl PySpaceTrackQuery {
 ///     time_system (str | None): Time system
 ///     mean_element_theory (str | None): Mean element theory
 ///     epoch (str | None): Epoch of orbital elements
-///     mean_motion (str | None): Mean motion (rev/day)
-///     eccentricity (str | None): Eccentricity
-///     inclination (str | None): Inclination (degrees)
-///     ra_of_asc_node (str | None): RAAN (degrees)
-///     arg_of_pericenter (str | None): Argument of pericenter (degrees)
-///     mean_anomaly (str | None): Mean anomaly (degrees)
-///     ephemeris_type (str | None): Ephemeris type
+///     mean_motion (float | None): Mean motion (rev/day)
+///     eccentricity (float | None): Eccentricity
+///     inclination (float | None): Inclination (degrees)
+///     ra_of_asc_node (float | None): RAAN (degrees)
+///     arg_of_pericenter (float | None): Argument of pericenter (degrees)
+///     mean_anomaly (float | None): Mean anomaly (degrees)
+///     ephemeris_type (int | None): Ephemeris type
 ///     classification_type (str | None): Classification type
-///     norad_cat_id (str | None): NORAD catalog ID
-///     element_set_no (str | None): Element set number
-///     rev_at_epoch (str | None): Revolution number at epoch
-///     bstar (str | None): BSTAR drag coefficient
-///     mean_motion_dot (str | None): First derivative of mean motion
-///     mean_motion_ddot (str | None): Second derivative of mean motion
-///     semimajor_axis (str | None): Semi-major axis (km)
-///     period (str | None): Orbital period (minutes)
-///     apoapsis (str | None): Apoapsis altitude (km)
-///     periapsis (str | None): Periapsis altitude (km)
+///     norad_cat_id (int | None): NORAD catalog ID
+///     element_set_no (int | None): Element set number
+///     rev_at_epoch (int | None): Revolution number at epoch
+///     bstar (float | None): BSTAR drag coefficient
+///     mean_motion_dot (float | None): First derivative of mean motion
+///     mean_motion_ddot (float | None): Second derivative of mean motion
+///     semimajor_axis (float | None): Semi-major axis (km)
+///     period (float | None): Orbital period (minutes)
+///     apoapsis (float | None): Apoapsis altitude (km)
+///     periapsis (float | None): Periapsis altitude (km)
 ///     object_type (str | None): Object type
 ///     rcs_size (str | None): RCS size category
 ///     country_code (str | None): Country code
 ///     launch_date (str | None): Launch date
 ///     site (str | None): Launch site
 ///     decay_date (str | None): Decay date
-///     file (str | None): File number
-///     gp_id (str | None): GP record ID
+///     file (int | None): File number
+///     gp_id (int | None): GP record ID
 ///     tle_line0 (str | None): TLE line 0
 ///     tle_line1 (str | None): TLE line 1
 ///     tle_line2 (str | None): TLE line 2
@@ -687,32 +687,32 @@ impl PyGPRecord {
     #[getter] fn time_system(&self) -> Option<String> { self.inner.time_system.clone() }
     #[getter] fn mean_element_theory(&self) -> Option<String> { self.inner.mean_element_theory.clone() }
     #[getter] fn epoch(&self) -> Option<String> { self.inner.epoch.clone() }
-    #[getter] fn mean_motion(&self) -> Option<String> { self.inner.mean_motion.clone() }
-    #[getter] fn eccentricity(&self) -> Option<String> { self.inner.eccentricity.clone() }
-    #[getter] fn inclination(&self) -> Option<String> { self.inner.inclination.clone() }
-    #[getter] fn ra_of_asc_node(&self) -> Option<String> { self.inner.ra_of_asc_node.clone() }
-    #[getter] fn arg_of_pericenter(&self) -> Option<String> { self.inner.arg_of_pericenter.clone() }
-    #[getter] fn mean_anomaly(&self) -> Option<String> { self.inner.mean_anomaly.clone() }
-    #[getter] fn ephemeris_type(&self) -> Option<String> { self.inner.ephemeris_type.clone() }
+    #[getter] fn mean_motion(&self) -> Option<f64> { self.inner.mean_motion }
+    #[getter] fn eccentricity(&self) -> Option<f64> { self.inner.eccentricity }
+    #[getter] fn inclination(&self) -> Option<f64> { self.inner.inclination }
+    #[getter] fn ra_of_asc_node(&self) -> Option<f64> { self.inner.ra_of_asc_node }
+    #[getter] fn arg_of_pericenter(&self) -> Option<f64> { self.inner.arg_of_pericenter }
+    #[getter] fn mean_anomaly(&self) -> Option<f64> { self.inner.mean_anomaly }
+    #[getter] fn ephemeris_type(&self) -> Option<u8> { self.inner.ephemeris_type }
     #[getter] fn classification_type(&self) -> Option<String> { self.inner.classification_type.clone() }
-    #[getter] fn norad_cat_id(&self) -> Option<String> { self.inner.norad_cat_id.clone() }
-    #[getter] fn element_set_no(&self) -> Option<String> { self.inner.element_set_no.clone() }
-    #[getter] fn rev_at_epoch(&self) -> Option<String> { self.inner.rev_at_epoch.clone() }
-    #[getter] fn bstar(&self) -> Option<String> { self.inner.bstar.clone() }
-    #[getter] fn mean_motion_dot(&self) -> Option<String> { self.inner.mean_motion_dot.clone() }
-    #[getter] fn mean_motion_ddot(&self) -> Option<String> { self.inner.mean_motion_ddot.clone() }
-    #[getter] fn semimajor_axis(&self) -> Option<String> { self.inner.semimajor_axis.clone() }
-    #[getter] fn period(&self) -> Option<String> { self.inner.period.clone() }
-    #[getter] fn apoapsis(&self) -> Option<String> { self.inner.apoapsis.clone() }
-    #[getter] fn periapsis(&self) -> Option<String> { self.inner.periapsis.clone() }
+    #[getter] fn norad_cat_id(&self) -> Option<u32> { self.inner.norad_cat_id }
+    #[getter] fn element_set_no(&self) -> Option<u16> { self.inner.element_set_no }
+    #[getter] fn rev_at_epoch(&self) -> Option<u32> { self.inner.rev_at_epoch }
+    #[getter] fn bstar(&self) -> Option<f64> { self.inner.bstar }
+    #[getter] fn mean_motion_dot(&self) -> Option<f64> { self.inner.mean_motion_dot }
+    #[getter] fn mean_motion_ddot(&self) -> Option<f64> { self.inner.mean_motion_ddot }
+    #[getter] fn semimajor_axis(&self) -> Option<f64> { self.inner.semimajor_axis }
+    #[getter] fn period(&self) -> Option<f64> { self.inner.period }
+    #[getter] fn apoapsis(&self) -> Option<f64> { self.inner.apoapsis }
+    #[getter] fn periapsis(&self) -> Option<f64> { self.inner.periapsis }
     #[getter] fn object_type(&self) -> Option<String> { self.inner.object_type.clone() }
     #[getter] fn rcs_size(&self) -> Option<String> { self.inner.rcs_size.clone() }
     #[getter] fn country_code(&self) -> Option<String> { self.inner.country_code.clone() }
     #[getter] fn launch_date(&self) -> Option<String> { self.inner.launch_date.clone() }
     #[getter] fn site(&self) -> Option<String> { self.inner.site.clone() }
     #[getter] fn decay_date(&self) -> Option<String> { self.inner.decay_date.clone() }
-    #[getter] fn file(&self) -> Option<String> { self.inner.file.clone() }
-    #[getter] fn gp_id(&self) -> Option<String> { self.inner.gp_id.clone() }
+    #[getter] fn file(&self) -> Option<u64> { self.inner.file }
+    #[getter] fn gp_id(&self) -> Option<u32> { self.inner.gp_id }
     #[getter] fn tle_line0(&self) -> Option<String> { self.inner.tle_line0.clone() }
     #[getter] fn tle_line1(&self) -> Option<String> { self.inner.tle_line1.clone() }
     #[getter] fn tle_line2(&self) -> Option<String> { self.inner.tle_line2.clone() }
@@ -736,7 +736,7 @@ impl PyGPRecord {
 ///
 /// Attributes:
 ///     intldes (str | None): International designator
-///     norad_cat_id (str | None): NORAD catalog ID
+///     norad_cat_id (int | None): NORAD catalog ID
 ///     object_type (str | None): Object type code
 ///     satname (str | None): Satellite name
 ///     country (str | None): Country/organization code
@@ -780,7 +780,7 @@ pub struct PySATCATRecord {
 #[pymethods]
 impl PySATCATRecord {
     #[getter] fn intldes(&self) -> Option<String> { self.inner.intldes.clone() }
-    #[getter] fn norad_cat_id(&self) -> Option<String> { self.inner.norad_cat_id.clone() }
+    #[getter] fn norad_cat_id(&self) -> Option<u32> { self.inner.norad_cat_id }
     #[getter] fn object_type(&self) -> Option<String> { self.inner.object_type.clone() }
     #[getter] fn satname(&self) -> Option<String> { self.inner.satname.clone() }
     #[getter] fn country(&self) -> Option<String> { self.inner.country.clone() }
@@ -921,7 +921,7 @@ impl PyFolderRecord {
 ///
 /// Attributes:
 ///     file_id (str | None): File identifier
-///     norad_cat_id (str | None): NORAD catalog ID
+///     norad_cat_id (int | None): NORAD catalog ID
 ///     file_name (str | None): File name
 ///     file_link (str | None): File download link
 ///     file_size (str | None): File size in bytes
@@ -939,16 +939,16 @@ impl PyFolderRecord {
 ///         print(f.file_name, f.norad_cat_id)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "SpEphemerisFileRecord")]
+#[pyo3(name = "SPEphemerisFileRecord")]
 #[derive(Clone)]
-pub struct PySpEphemerisFileRecord {
-    inner: spacetrack::SpEphemerisFileRecord,
+pub struct PySPEphemerisFileRecord {
+    inner: spacetrack::SPEphemerisFileRecord,
 }
 
 #[pymethods]
-impl PySpEphemerisFileRecord {
+impl PySPEphemerisFileRecord {
     #[getter] fn file_id(&self) -> Option<String> { self.inner.file_id.clone() }
-    #[getter] fn norad_cat_id(&self) -> Option<String> { self.inner.norad_cat_id.clone() }
+    #[getter] fn norad_cat_id(&self) -> Option<u32> { self.inner.norad_cat_id }
     #[getter] fn file_name(&self) -> Option<String> { self.inner.file_name.clone() }
     #[getter] fn file_link(&self) -> Option<String> { self.inner.file_link.clone() }
     #[getter] fn file_size(&self) -> Option<String> { self.inner.file_size.clone() }
@@ -958,7 +958,7 @@ impl PySpEphemerisFileRecord {
 
     fn __str__(&self) -> String {
         format!(
-            "SpEphemerisFileRecord(id={:?}, norad_id={:?}, name={:?})",
+            "SPEphemerisFileRecord(id={:?}, norad_id={:?}, name={:?})",
             self.inner.file_id, self.inner.norad_cat_id, self.inner.file_name
         )
     }
@@ -1440,7 +1440,7 @@ impl PySpaceTrackClient {
     /// List available SP ephemeris files.
     ///
     /// Returns:
-    ///     list[SpEphemerisFileRecord]: Ephemeris file metadata records.
+    ///     list[SPEphemerisFileRecord]: Ephemeris file metadata records.
     ///
     /// Raises:
     ///     BraheError: On network, auth, or parse errors.
@@ -1454,14 +1454,14 @@ impl PySpaceTrackClient {
     ///     for f in files:
     ///         print(f.file_name, f.norad_cat_id)
     ///     ```
-    fn spephemeris_list_files(&self) -> PyResult<Vec<PySpEphemerisFileRecord>> {
+    fn spephemeris_list_files(&self) -> PyResult<Vec<PySPEphemerisFileRecord>> {
         let records = self
             .inner
             .spephemeris_list_files()
             .map_err(|e| BraheError::new_err(e.to_string()))?;
         Ok(records
             .into_iter()
-            .map(|r| PySpEphemerisFileRecord { inner: r })
+            .map(|r| PySPEphemerisFileRecord { inner: r })
             .collect())
     }
 

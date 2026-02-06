@@ -13,7 +13,7 @@ use crate::celestrak::filter::{apply_filters, apply_limit, apply_order_by};
 use crate::celestrak::query::CelestrakQuery;
 use crate::celestrak::responses::CelestrakSATCATRecord;
 use crate::celestrak::types::CelestrakOutputFormat;
-use crate::spacetrack::GPRecord;
+use crate::types::GPRecord;
 use crate::utils::{BraheError, get_celestrak_cache_dir};
 
 /// Default base URL for the CelestrakClient API.
@@ -503,7 +503,7 @@ mod tests {
         let records = result.unwrap();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
-        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(records[0].norad_cat_id, Some(25544));
     }
 
     #[test]
@@ -724,7 +724,7 @@ mod tests {
         let query = CelestrakQuery::gp().catnr(25544);
         let records = client.query_gp(&query).expect("GP query failed");
         assert!(!records.is_empty(), "Expected ISS GP record");
-        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(records[0].norad_cat_id, Some(25544));
     }
 
     #[test]
@@ -746,6 +746,6 @@ mod tests {
         let query = CelestrakQuery::satcat().catnr(25544);
         let records = client.query_satcat(&query).expect("SATCAT query failed");
         assert!(!records.is_empty(), "Expected ISS SATCAT record");
-        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(records[0].norad_cat_id, Some(25544));
     }
 }

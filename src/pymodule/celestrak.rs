@@ -738,7 +738,7 @@ impl PyCelestrakQuery {
 /// Attributes:
 ///     object_name (str | None): Object name
 ///     object_id (str | None): International designator
-///     norad_cat_id (str | None): NORAD catalog number
+///     norad_cat_id (int | None): NORAD catalog number
 ///     object_type (str | None): Object type code
 ///     ops_status_code (str | None): Operational status code
 ///     owner (str | None): Owner/operator
@@ -774,7 +774,7 @@ pub struct PyCelestrakSATCATRecord {
 impl PyCelestrakSATCATRecord {
     #[getter] fn object_name(&self) -> Option<String> { self.inner.object_name.clone() }
     #[getter] fn object_id(&self) -> Option<String> { self.inner.object_id.clone() }
-    #[getter] fn norad_cat_id(&self) -> Option<String> { self.inner.norad_cat_id.clone() }
+    #[getter] fn norad_cat_id(&self) -> Option<u32> { self.inner.norad_cat_id }
     #[getter] fn object_type(&self) -> Option<String> { self.inner.object_type.clone() }
     #[getter] fn ops_status_code(&self) -> Option<String> { self.inner.ops_status_code.clone() }
     #[getter] fn owner(&self) -> Option<String> { self.inner.owner.clone() }

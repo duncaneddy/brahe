@@ -556,7 +556,7 @@ def search(
     # Simple format (default)
     if not table:
         for rec in matches:
-            norad_id = rec.norad_cat_id or "?"
+            norad_id = rec.norad_cat_id if rec.norad_cat_id is not None else "?"
             name = rec.object_name or "UNKNOWN"
             typer.echo(f"{name} (NORAD: {norad_id})")
         typer.echo(f"\n✓ Found {len(matches)} satellite(s)")
@@ -606,18 +606,15 @@ def search(
 
     for rec in matches:
         name = rec.object_name or "UNKNOWN"
-        norad_id = rec.norad_cat_id or "?"
+        norad_id = rec.norad_cat_id if rec.norad_cat_id is not None else "?"
 
-        # Use orbital elements directly from GP JSON fields
-        try:
-            mean_motion_val = float(rec.mean_motion) if rec.mean_motion else None
-            ecc = float(rec.eccentricity) if rec.eccentricity else None
-            inc = float(rec.inclination) if rec.inclination else None
-            raan = float(rec.ra_of_asc_node) if rec.ra_of_asc_node else None
-            argp = float(rec.arg_of_pericenter) if rec.arg_of_pericenter else None
-            ma = float(rec.mean_anomaly) if rec.mean_anomaly else None
-        except (ValueError, TypeError):
-            continue
+        # Use orbital elements directly from GP record (already typed as float)
+        mean_motion_val = rec.mean_motion
+        ecc = rec.eccentricity
+        inc = rec.inclination
+        raan = rec.ra_of_asc_node
+        argp = rec.arg_of_pericenter
+        ma = rec.mean_anomaly
 
         if mean_motion_val is None or ecc is None:
             continue

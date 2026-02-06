@@ -13,7 +13,7 @@ The spacetrack module is organized into five components:
 
 | Type | Purpose |
 |------|---------|
-| `RequestController` | API endpoint namespace (`BasicSpaceData`, `ExpandedSpaceData`, `FileShare`, `SpEphemeris`, `PublicFiles`) |
+| `RequestController` | API endpoint namespace (`BasicSpaceData`, `ExpandedSpaceData`, `FileShare`, `SPEphemeris`, `PublicFiles`) |
 | `RequestClass` | Data category to query (`GP`, `SATCAT`, `Decay`, `TIP`, `CDMPublic`, etc.) |
 | `SortOrder` | Result ordering direction (`Asc`, `Desc`) |
 | `OutputFormat` | Response format (`JSON`, `TLE`, `CSV`, `XML`, `KVN`, etc.) |
@@ -80,7 +80,7 @@ Authentication is lazy by default -- the client authenticates on the first query
 
 - **`FolderRecord`** -- File share folder metadata with 4 fields: `folder_id`, `folder_name`, `parent_folder_id`, and `created`. All fields are `Optional[str]` / `Option<String>`.
 
-- **`SpEphemerisFileRecord`** -- SP ephemeris file metadata with 8 fields: `file_id`, `norad_cat_id`, `file_name`, `file_link`, `file_size`, `created`, `epoch_start`, and `epoch_stop`. All fields are `Optional[str]` / `Option<String>`.
+- **`SPEphemerisFileRecord`** -- SP ephemeris file metadata with 8 fields: `file_id`, `norad_cat_id`, `file_name`, `file_link`, `file_size`, `created`, `epoch_start`, and `epoch_stop`. All fields are `Optional[str]` / `Option<String>`.
 
 ### Operator Functions
 

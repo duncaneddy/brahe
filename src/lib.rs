@@ -144,6 +144,7 @@ pub mod space_weather;
 pub mod spacetrack;
 pub mod time;
 pub mod trajectories;
+pub mod types;
 pub mod utils;
 // Centralized traits module - re-exports all public traits
 pub mod traits;

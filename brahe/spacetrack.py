@@ -44,7 +44,7 @@ from brahe._brahe import (
     SATCATRecord,
     FileShareFileRecord,
     FolderRecord,
-    SpEphemerisFileRecord,
+    SPEphemerisFileRecord,
     # Operator functions
     spacetrack_greater_than,
     spacetrack_less_than,
@@ -108,7 +108,7 @@ __all__ = [
     "SATCATRecord",
     "FileShareFileRecord",
     "FolderRecord",
-    "SpEphemerisFileRecord",
+    "SPEphemerisFileRecord",
     # Operators namespace
     "operators",
 ]

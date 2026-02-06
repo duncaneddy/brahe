@@ -13,6 +13,7 @@ pub mod cache;
 pub mod errors;
 pub mod formatting;
 pub mod identifiable;
+pub mod operators;
 pub mod state_providers;
 pub mod threading;
 

@@ -73,7 +73,7 @@ class TestEnums:
         assert str(bh.RequestController.BASIC_SPACE_DATA) == "BasicSpaceData"
         assert str(bh.RequestController.EXPANDED_SPACE_DATA) == "ExpandedSpaceData"
         assert str(bh.RequestController.FILE_SHARE) == "FileShare"
-        assert str(bh.RequestController.SP_EPHEMERIS) == "SpEphemeris"
+        assert str(bh.RequestController.SP_EPHEMERIS) == "SPEphemeris"
         assert str(bh.RequestController.PUBLIC_FILES) == "PublicFiles"
 
     def test_request_class_variants(self):
@@ -429,10 +429,10 @@ class TestResponseTypes:
         assert FolderRecord is not None
 
     def test_sp_ephemeris_file_record_exists(self):
-        """SpEphemerisFileRecord type should be importable."""
-        from brahe.spacetrack import SpEphemerisFileRecord
+        """SPEphemerisFileRecord type should be importable."""
+        from brahe.spacetrack import SPEphemerisFileRecord
 
-        assert SpEphemerisFileRecord is not None
+        assert SPEphemerisFileRecord is not None
 
 
 class TestSpaceTrackClientMethods:
@@ -464,7 +464,7 @@ class TestSpaceTrackClientMethods:
     def test_sp_ephemeris_controller_variant(self):
         """SP_EPHEMERIS controller variant should be accessible."""
         assert bh.RequestController.SP_EPHEMERIS is not None
-        assert str(bh.RequestController.SP_EPHEMERIS) == "SpEphemeris"
+        assert str(bh.RequestController.SP_EPHEMERIS) == "SPEphemeris"
         assert "RequestController" in repr(bh.RequestController.SP_EPHEMERIS)
 
 

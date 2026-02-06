@@ -16,86 +16,32 @@
  * - `value` - Exact string match
  */
 
+use std::borrow::Cow;
+
 use crate::celestrak::query::{Filter, OrderBy};
 use crate::celestrak::responses::CelestrakSATCATRecord;
-use crate::spacetrack::GPRecord;
-
-/// Trait for accessing record fields by name.
-///
-/// Enables the filter engine to work with any record type that
-/// can provide field values by their API field name.
-pub(crate) trait FieldAccessor {
-    fn get_field(&self, name: &str) -> Option<&str>;
-}
-
-impl FieldAccessor for GPRecord {
-    fn get_field(&self, name: &str) -> Option<&str> {
-        match name {
-            "CCSDS_OMM_VERS" => self.ccsds_omm_vers.as_deref(),
-            "COMMENT" => self.comment.as_deref(),
-            "CREATION_DATE" => self.creation_date.as_deref(),
-            "ORIGINATOR" => self.originator.as_deref(),
-            "OBJECT_NAME" => self.object_name.as_deref(),
-            "OBJECT_ID" => self.object_id.as_deref(),
-            "CENTER_NAME" => self.center_name.as_deref(),
-            "REF_FRAME" => self.ref_frame.as_deref(),
-            "TIME_SYSTEM" => self.time_system.as_deref(),
-            "MEAN_ELEMENT_THEORY" => self.mean_element_theory.as_deref(),
-            "EPOCH" => self.epoch.as_deref(),
-            "MEAN_MOTION" => self.mean_motion.as_deref(),
-            "ECCENTRICITY" => self.eccentricity.as_deref(),
-            "INCLINATION" => self.inclination.as_deref(),
-            "RA_OF_ASC_NODE" => self.ra_of_asc_node.as_deref(),
-            "ARG_OF_PERICENTER" => self.arg_of_pericenter.as_deref(),
-            "MEAN_ANOMALY" => self.mean_anomaly.as_deref(),
-            "EPHEMERIS_TYPE" => self.ephemeris_type.as_deref(),
-            "CLASSIFICATION_TYPE" => self.classification_type.as_deref(),
-            "NORAD_CAT_ID" => self.norad_cat_id.as_deref(),
-            "ELEMENT_SET_NO" => self.element_set_no.as_deref(),
-            "REV_AT_EPOCH" => self.rev_at_epoch.as_deref(),
-            "BSTAR" => self.bstar.as_deref(),
-            "MEAN_MOTION_DOT" => self.mean_motion_dot.as_deref(),
-            "MEAN_MOTION_DDOT" => self.mean_motion_ddot.as_deref(),
-            "SEMIMAJOR_AXIS" => self.semimajor_axis.as_deref(),
-            "PERIOD" => self.period.as_deref(),
-            "APOAPSIS" => self.apoapsis.as_deref(),
-            "PERIAPSIS" => self.periapsis.as_deref(),
-            "OBJECT_TYPE" => self.object_type.as_deref(),
-            "RCS_SIZE" => self.rcs_size.as_deref(),
-            "COUNTRY_CODE" => self.country_code.as_deref(),
-            "LAUNCH_DATE" => self.launch_date.as_deref(),
-            "SITE" => self.site.as_deref(),
-            "DECAY_DATE" => self.decay_date.as_deref(),
-            "FILE" => self.file.as_deref(),
-            "GP_ID" => self.gp_id.as_deref(),
-            "TLE_LINE0" => self.tle_line0.as_deref(),
-            "TLE_LINE1" => self.tle_line1.as_deref(),
-            "TLE_LINE2" => self.tle_line2.as_deref(),
-            _ => None,
-        }
-    }
-}
+use crate::types::gp_record::FieldAccessor;
 
 impl FieldAccessor for CelestrakSATCATRecord {
-    fn get_field(&self, name: &str) -> Option<&str> {
+    fn get_field(&self, name: &str) -> Option<Cow<'_, str>> {
         match name {
-            "OBJECT_NAME" => self.object_name.as_deref(),
-            "OBJECT_ID" => self.object_id.as_deref(),
-            "NORAD_CAT_ID" => self.norad_cat_id.as_deref(),
-            "OBJECT_TYPE" => self.object_type.as_deref(),
-            "OPS_STATUS_CODE" => self.ops_status_code.as_deref(),
-            "OWNER" => self.owner.as_deref(),
-            "LAUNCH_DATE" => self.launch_date.as_deref(),
-            "LAUNCH_SITE" => self.launch_site.as_deref(),
-            "DECAY_DATE" => self.decay_date.as_deref(),
-            "PERIOD" => self.period.as_deref(),
-            "INCLINATION" => self.inclination.as_deref(),
-            "APOGEE" => self.apogee.as_deref(),
-            "PERIGEE" => self.perigee.as_deref(),
-            "RCS" => self.rcs.as_deref(),
-            "DATA_STATUS_CODE" => self.data_status_code.as_deref(),
-            "ORBIT_CENTER" => self.orbit_center.as_deref(),
-            "ORBIT_TYPE" => self.orbit_type.as_deref(),
+            "OBJECT_NAME" => self.object_name.as_deref().map(Cow::Borrowed),
+            "OBJECT_ID" => self.object_id.as_deref().map(Cow::Borrowed),
+            "NORAD_CAT_ID" => self.norad_cat_id.map(|v| Cow::Owned(v.to_string())),
+            "OBJECT_TYPE" => self.object_type.as_deref().map(Cow::Borrowed),
+            "OPS_STATUS_CODE" => self.ops_status_code.as_deref().map(Cow::Borrowed),
+            "OWNER" => self.owner.as_deref().map(Cow::Borrowed),
+            "LAUNCH_DATE" => self.launch_date.as_deref().map(Cow::Borrowed),
+            "LAUNCH_SITE" => self.launch_site.as_deref().map(Cow::Borrowed),
+            "DECAY_DATE" => self.decay_date.as_deref().map(Cow::Borrowed),
+            "PERIOD" => self.period.as_deref().map(Cow::Borrowed),
+            "INCLINATION" => self.inclination.as_deref().map(Cow::Borrowed),
+            "APOGEE" => self.apogee.as_deref().map(Cow::Borrowed),
+            "PERIGEE" => self.perigee.as_deref().map(Cow::Borrowed),
+            "RCS" => self.rcs.as_deref().map(Cow::Borrowed),
+            "DATA_STATUS_CODE" => self.data_status_code.as_deref().map(Cow::Borrowed),
+            "ORBIT_CENTER" => self.orbit_center.as_deref().map(Cow::Borrowed),
+            "ORBIT_TYPE" => self.orbit_type.as_deref().map(Cow::Borrowed),
             _ => None,
         }
     }
@@ -144,15 +90,15 @@ fn matches_filter<T: FieldAccessor>(record: &T, filter: &Filter) -> bool {
 
     match parse_filter_value(&filter.value) {
         FilterOp::GreaterThan(threshold) => {
-            compare_values(field_value, threshold) == Some(std::cmp::Ordering::Greater)
+            compare_values(&field_value, threshold) == Some(std::cmp::Ordering::Greater)
         }
         FilterOp::LessThan(threshold) => {
-            compare_values(field_value, threshold) == Some(std::cmp::Ordering::Less)
+            compare_values(&field_value, threshold) == Some(std::cmp::Ordering::Less)
         }
         FilterOp::NotEqual(other) => !field_value.eq_ignore_ascii_case(other),
         FilterOp::Range(min, max) => {
-            let cmp_min = compare_values(field_value, min);
-            let cmp_max = compare_values(field_value, max);
+            let cmp_min = compare_values(&field_value, min);
+            let cmp_max = compare_values(&field_value, max);
             matches!(
                 (cmp_min, cmp_max),
                 (
@@ -167,7 +113,7 @@ fn matches_filter<T: FieldAccessor>(record: &T, filter: &Filter) -> bool {
         FilterOp::StartsWith(prefix) => field_value
             .to_ascii_lowercase()
             .starts_with(&prefix.to_ascii_lowercase()),
-        FilterOp::Exact(expected) => field_value == expected,
+        FilterOp::Exact(expected) => *field_value == *expected,
     }
 }
 
@@ -206,7 +152,7 @@ pub(crate) fn apply_order_by<T: FieldAccessor>(records: &mut [T], order_by: &[Or
         for clause in order_by {
             let a_val = a.get_field(&clause.field);
             let b_val = b.get_field(&clause.field);
-            let cmp = match (a_val, b_val) {
+            let cmp = match (&a_val, &b_val) {
                 (Some(av), Some(bv)) => compare_values(av, bv).unwrap_or(std::cmp::Ordering::Equal),
                 (Some(_), None) => std::cmp::Ordering::Less,
                 (None, Some(_)) => std::cmp::Ordering::Greater,
@@ -233,6 +179,7 @@ pub(crate) fn apply_limit<T>(records: Vec<T>, limit: Option<u32>) -> Vec<T> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::types::GPRecord;
 
     fn make_gp_record(
         name: &str,
@@ -518,9 +465,9 @@ mod tests {
             ascending: true,
         }];
         apply_order_by(&mut records, &order_by);
-        assert_eq!(records[0].norad_cat_id.as_deref(), Some("22675"));
-        assert_eq!(records[1].norad_cat_id.as_deref(), Some("25544"));
-        assert_eq!(records[2].norad_cat_id.as_deref(), Some("28654"));
+        assert_eq!(records[0].norad_cat_id, Some(22675));
+        assert_eq!(records[1].norad_cat_id, Some(25544));
+        assert_eq!(records[2].norad_cat_id, Some(28654));
     }
 
     // -- Edge cases --

@@ -12,8 +12,9 @@ use std::time::Duration;
 use crate::spacetrack::query::SpaceTrackQuery;
 use crate::spacetrack::rate_limiter::{RateLimitConfig, RateLimiter};
 use crate::spacetrack::responses::{
-    FileShareFileRecord, FolderRecord, GPRecord, SATCATRecord, SpEphemerisFileRecord,
+    FileShareFileRecord, FolderRecord, SATCATRecord, SPEphemerisFileRecord,
 };
+use crate::types::GPRecord;
 use crate::utils::BraheError;
 
 /// Default base URL for the Space-Track.org API.
@@ -480,9 +481,9 @@ impl SpaceTrackClient {
     ///
     /// # Returns
     ///
-    /// * `Ok(Vec<SpEphemerisFileRecord>)` - Ephemeris file metadata records
+    /// * `Ok(Vec<SPEphemerisFileRecord>)` - Ephemeris file metadata records
     /// * `Err(BraheError)` - On network, auth, or parse errors
-    pub fn spephemeris_list_files(&self) -> Result<Vec<SpEphemerisFileRecord>, BraheError> {
+    pub fn spephemeris_list_files(&self) -> Result<Vec<SPEphemerisFileRecord>, BraheError> {
         let url = format!("{}/spephemeris/query/class/file", self.base_url);
         let body = self.authenticated_get_string(&url)?;
         serde_json::from_str(&body).map_err(|e| {
@@ -992,7 +993,7 @@ mod tests {
         let records = result.unwrap();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
-        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(records[0].norad_cat_id, Some(25544));
     }
 
     #[test]
@@ -1202,7 +1203,7 @@ mod tests {
 
         let records = client.query_gp(&query).expect("GP query failed");
         assert!(!records.is_empty(), "Expected at least one GP record");
-        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(records[0].norad_cat_id, Some(25544));
     }
 
     #[test]
@@ -1221,7 +1222,7 @@ mod tests {
 
         let records = client.query_satcat(&query).expect("SATCAT query failed");
         assert!(!records.is_empty(), "Expected at least one SATCAT record");
-        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(records[0].norad_cat_id, Some(25544));
     }
 
     #[test]
@@ -1467,7 +1468,7 @@ mod tests {
         let files = result.unwrap();
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].file_id.as_deref(), Some("99999"));
-        assert_eq!(files[0].norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(files[0].norad_cat_id, Some(25544));
     }
 
     #[test]

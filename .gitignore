@@ -18,6 +18,7 @@ lcov.info
 Cargo.lock
 
 # Build Artifacts - Python
+uv.lock
 brahe/build/*
 __pycache__/
 *.py[cod]

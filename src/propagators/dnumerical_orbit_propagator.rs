@@ -524,6 +524,53 @@ impl DNumericalOrbitPropagator {
         })
     }
 
+    /// Create a numerical orbit propagator from a GPRecord (OMM data).
+    ///
+    /// Internally creates an SGP4 propagator from the OMM elements, extracts the
+    /// ECI state at epoch, then initializes a numerical propagator with the
+    /// specified force model.
+    ///
+    /// # Arguments
+    ///
+    /// * `record` - GP record containing OMM orbital elements.
+    /// * `force_config` - Force model configuration.
+    /// * `propagation_config` - Integrator configuration. Uses default if `None`.
+    /// * `params` - Parameter vector (mass, drag_area, Cd, srp_area, Cr, ...).
+    ///   Required when `force_config` includes drag or SRP.
+    ///
+    /// # Returns
+    ///
+    /// * `DNumericalOrbitPropagator` - Initialized propagator at the record's epoch.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BraheError` if required GPRecord fields are missing or if SGP4
+    /// initialization fails.
+    pub fn from_gp_record(
+        record: &crate::types::GPRecord,
+        force_config: ForceModelConfig,
+        propagation_config: Option<super::NumericalPropagationConfig>,
+        params: Option<DVector<f64>>,
+    ) -> Result<Self, BraheError> {
+        // Create SGP propagator to get initial ECI state at epoch
+        use crate::propagators::traits::SStatePropagator;
+        let sgp = crate::propagators::SGPPropagator::from_gp_record(record, 60.0)?;
+
+        let epoch = sgp.epoch;
+        let state = DVector::from_column_slice(sgp.initial_state().as_slice());
+
+        Self::new(
+            epoch,
+            state,
+            propagation_config.unwrap_or_default(),
+            force_config,
+            params,
+            None,
+            None,
+            None,
+        )
+    }
+
     // =========================================================================
     // Acceleration Computation
     // =========================================================================
@@ -9961,5 +10008,77 @@ mod tests {
         // Now event should be detected
         assert_eq!(prop.event_log().len(), 1);
         assert!(prop.event_log()[0].name.contains("RoundtripEvent"));
+    }
+
+    // =========================================================================
+    // from_gp_record tests
+    // =========================================================================
+
+    fn iss_gp_record() -> crate::types::GPRecord {
+        let json = r#"{
+            "OBJECT_NAME": "ISS (ZARYA)",
+            "OBJECT_ID": "1998-067A",
+            "EPOCH": "2024-01-15T12:00:00.000000",
+            "MEAN_MOTION": 15.50000000,
+            "ECCENTRICITY": 0.00010000,
+            "INCLINATION": 51.6400,
+            "RA_OF_ASC_NODE": 200.0000,
+            "ARG_OF_PERICENTER": 100.0000,
+            "MEAN_ANOMALY": 260.0000,
+            "EPHEMERIS_TYPE": 0,
+            "CLASSIFICATION_TYPE": "U",
+            "NORAD_CAT_ID": 25544,
+            "ELEMENT_SET_NO": 999,
+            "REV_AT_EPOCH": 45000,
+            "BSTAR": 0.00034100,
+            "MEAN_MOTION_DOT": 0.00001000,
+            "MEAN_MOTION_DDOT": 0.00000000
+        }"#;
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn test_from_gp_record_two_body() {
+        setup_global_test_eop();
+        let record = iss_gp_record();
+        let prop = DNumericalOrbitPropagator::from_gp_record(
+            &record,
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+        );
+        assert!(prop.is_ok());
+
+        let prop = prop.unwrap();
+        // Verify initial state is reasonable (LEO)
+        let state = prop.current_state();
+        let pos_mag = (state[0] * state[0] + state[1] * state[1] + state[2] * state[2]).sqrt();
+        assert!(
+            pos_mag > 6000e3 && pos_mag < 7000e3,
+            "Position magnitude: {}",
+            pos_mag
+        );
+    }
+
+    #[test]
+    fn test_from_gp_record_earth_gravity() {
+        setup_global_test_eop();
+        let record = iss_gp_record();
+        let prop = DNumericalOrbitPropagator::from_gp_record(
+            &record,
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+        );
+        assert!(prop.is_ok());
+
+        let prop = prop.unwrap();
+        let state = prop.current_state();
+        let pos_mag = (state[0] * state[0] + state[1] * state[1] + state[2] * state[2]).sqrt();
+        assert!(
+            pos_mag > 6000e3 && pos_mag < 7000e3,
+            "Position magnitude: {}",
+            pos_mag
+        );
     }
 }

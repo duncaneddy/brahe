@@ -681,6 +681,83 @@ impl SGPPropagator {
         })
     }
 
+    /// Create an SGP4 propagator from a GPRecord (OMM data).
+    ///
+    /// Validates required fields and delegates to [`from_omm_elements`](Self::from_omm_elements),
+    /// preserving full OMM numeric precision without TLE text round-tripping.
+    ///
+    /// # Arguments
+    ///
+    /// * `record` - GP record containing OMM orbital elements.
+    /// * `step_size` - Propagation step size in seconds.
+    ///
+    /// # Returns
+    ///
+    /// * `SGPPropagator` - Initialized propagator at the record's epoch.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BraheError` if any required field is `None`:
+    /// `epoch`, `mean_motion`, `eccentricity`, `inclination`, `ra_of_asc_node`,
+    /// `arg_of_pericenter`, `mean_anomaly`, `norad_cat_id`.
+    pub fn from_gp_record(
+        record: &crate::types::GPRecord,
+        step_size: f64,
+    ) -> Result<Self, BraheError> {
+        // Validate required fields
+        let epoch = record.epoch.as_deref().ok_or_else(|| {
+            BraheError::Error("GPRecord missing required field: epoch".to_string())
+        })?;
+        let mean_motion = record.mean_motion.ok_or_else(|| {
+            BraheError::Error("GPRecord missing required field: mean_motion".to_string())
+        })?;
+        let eccentricity = record.eccentricity.ok_or_else(|| {
+            BraheError::Error("GPRecord missing required field: eccentricity".to_string())
+        })?;
+        let inclination = record.inclination.ok_or_else(|| {
+            BraheError::Error("GPRecord missing required field: inclination".to_string())
+        })?;
+        let raan = record.ra_of_asc_node.ok_or_else(|| {
+            BraheError::Error("GPRecord missing required field: ra_of_asc_node".to_string())
+        })?;
+        let arg_of_pericenter = record.arg_of_pericenter.ok_or_else(|| {
+            BraheError::Error("GPRecord missing required field: arg_of_pericenter".to_string())
+        })?;
+        let mean_anomaly = record.mean_anomaly.ok_or_else(|| {
+            BraheError::Error("GPRecord missing required field: mean_anomaly".to_string())
+        })?;
+        let norad_cat_id = record.norad_cat_id.ok_or_else(|| {
+            BraheError::Error("GPRecord missing required field: norad_cat_id".to_string())
+        })?;
+
+        // Extract optional fields
+        let classification = record
+            .classification_type
+            .as_deref()
+            .and_then(|s| s.chars().next());
+
+        Self::from_omm_elements(
+            epoch,
+            mean_motion,
+            eccentricity,
+            inclination,
+            raan,
+            arg_of_pericenter,
+            mean_anomaly,
+            norad_cat_id as u64,
+            step_size,
+            record.object_name.as_deref(),
+            record.object_id.as_deref(),
+            classification,
+            record.bstar,
+            record.mean_motion_dot,
+            record.mean_motion_ddot,
+            record.ephemeris_type,
+            record.element_set_no.map(|v| v as u64),
+            record.rev_at_epoch.map(|v| v as u64),
+        )
+    }
+
     /// Configure output format for propagated states (builder pattern).
     ///
     /// Sets the reference frame, representation type, and angle units for propagation output.
@@ -3360,5 +3437,131 @@ mod tests {
         // Now event should be detected
         assert_eq!(prop.event_log().len(), 1);
         assert!(prop.event_log()[0].name.contains("RoundtripEvent"));
+    }
+
+    // =========================================================================
+    // from_gp_record tests
+    // =========================================================================
+
+    fn iss_gp_record_full() -> crate::types::GPRecord {
+        let json = r#"{
+            "OBJECT_NAME": "ISS (ZARYA)",
+            "OBJECT_ID": "1998-067A",
+            "EPOCH": "2024-01-15T12:00:00.000000",
+            "MEAN_MOTION": 15.50000000,
+            "ECCENTRICITY": 0.00010000,
+            "INCLINATION": 51.6400,
+            "RA_OF_ASC_NODE": 200.0000,
+            "ARG_OF_PERICENTER": 100.0000,
+            "MEAN_ANOMALY": 260.0000,
+            "EPHEMERIS_TYPE": 0,
+            "CLASSIFICATION_TYPE": "U",
+            "NORAD_CAT_ID": 25544,
+            "ELEMENT_SET_NO": 999,
+            "REV_AT_EPOCH": 45000,
+            "BSTAR": 0.00034100,
+            "MEAN_MOTION_DOT": 0.00001000,
+            "MEAN_MOTION_DDOT": 0.00000000
+        }"#;
+        serde_json::from_str(json).unwrap()
+    }
+
+    fn iss_gp_record_minimal() -> crate::types::GPRecord {
+        let json = r#"{
+            "EPOCH": "2024-01-15T12:00:00.000000",
+            "MEAN_MOTION": 15.50000000,
+            "ECCENTRICITY": 0.00010000,
+            "INCLINATION": 51.6400,
+            "RA_OF_ASC_NODE": 200.0000,
+            "ARG_OF_PERICENTER": 100.0000,
+            "MEAN_ANOMALY": 260.0000,
+            "NORAD_CAT_ID": 25544
+        }"#;
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn test_from_gp_record_full() {
+        setup_global_test_eop();
+        let record = iss_gp_record_full();
+        let prop = SGPPropagator::from_gp_record(&record, 60.0);
+        assert!(prop.is_ok());
+
+        let prop = prop.unwrap();
+        assert_eq!(prop.step_size, 60.0);
+        assert_eq!(prop.norad_id, 25544);
+        assert!(prop.satellite_name.as_deref() == Some("ISS (ZARYA)"));
+
+        // Verify initial state is reasonable (LEO position magnitude ~6800 km)
+        let state = prop.initial_state();
+        let pos_mag = (state[0] * state[0] + state[1] * state[1] + state[2] * state[2]).sqrt();
+        assert!(
+            pos_mag > 6000e3 && pos_mag < 7000e3,
+            "Position magnitude: {}",
+            pos_mag
+        );
+    }
+
+    #[test]
+    fn test_from_gp_record_minimal() {
+        setup_global_test_eop();
+        let record = iss_gp_record_minimal();
+        let prop = SGPPropagator::from_gp_record(&record, 120.0);
+        assert!(prop.is_ok());
+
+        let prop = prop.unwrap();
+        assert_eq!(prop.step_size, 120.0);
+        assert_eq!(prop.norad_id, 25544);
+    }
+
+    #[test]
+    fn test_from_gp_record_missing_epoch() {
+        let json = r#"{
+            "MEAN_MOTION": 15.5,
+            "ECCENTRICITY": 0.0001,
+            "INCLINATION": 51.64,
+            "RA_OF_ASC_NODE": 200.0,
+            "ARG_OF_PERICENTER": 100.0,
+            "MEAN_ANOMALY": 260.0,
+            "NORAD_CAT_ID": 25544
+        }"#;
+        let record: crate::types::GPRecord = serde_json::from_str(json).unwrap();
+        let result = SGPPropagator::from_gp_record(&record, 60.0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("epoch"));
+    }
+
+    #[test]
+    fn test_from_gp_record_missing_mean_motion() {
+        let json = r#"{
+            "EPOCH": "2024-01-15T12:00:00.000000",
+            "ECCENTRICITY": 0.0001,
+            "INCLINATION": 51.64,
+            "RA_OF_ASC_NODE": 200.0,
+            "ARG_OF_PERICENTER": 100.0,
+            "MEAN_ANOMALY": 260.0,
+            "NORAD_CAT_ID": 25544
+        }"#;
+        let record: crate::types::GPRecord = serde_json::from_str(json).unwrap();
+        let result = SGPPropagator::from_gp_record(&record, 60.0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("mean_motion"));
+    }
+
+    #[test]
+    fn test_from_gp_record_missing_norad_cat_id() {
+        let json = r#"{
+            "EPOCH": "2024-01-15T12:00:00.000000",
+            "MEAN_MOTION": 15.5,
+            "ECCENTRICITY": 0.0001,
+            "INCLINATION": 51.64,
+            "RA_OF_ASC_NODE": 200.0,
+            "ARG_OF_PERICENTER": 100.0,
+            "MEAN_ANOMALY": 260.0
+        }"#;
+        let record: crate::types::GPRecord = serde_json::from_str(json).unwrap();
+        let result = SGPPropagator::from_gp_record(&record, 60.0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("norad_cat_id"));
     }
 }

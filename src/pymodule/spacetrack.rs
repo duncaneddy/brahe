@@ -676,6 +676,36 @@ pub struct PyGPRecord {
 
 #[pymethods]
 impl PyGPRecord {
+    /// Construct a GPRecord from a JSON string.
+    ///
+    /// Accepts both SpaceTrack format (all strings) and Celestrak format
+    /// (native numbers). The JSON should represent a single GP record object.
+    ///
+    /// Args:
+    ///     json_str (str): JSON string representing a single GP record.
+    ///
+    /// Returns:
+    ///     GPRecord: Parsed GP record.
+    ///
+    /// Raises:
+    ///     BraheError: If the JSON is malformed or cannot be parsed.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     json_str = '{"OBJECT_NAME": "ISS (ZARYA)", "NORAD_CAT_ID": "25544", "EPOCH": "2024-01-15T12:00:00.000"}'
+    ///     record = bh.GPRecord.from_json(json_str)
+    ///     print(record.object_name)  # "ISS (ZARYA)"
+    ///     ```
+    #[classmethod]
+    #[pyo3(signature = (json_str))]
+    fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
+        let record: spacetrack::GPRecord = serde_json::from_str(json_str)
+            .map_err(|e| BraheError::new_err(format!("Failed to parse GPRecord JSON: {}", e)))?;
+        Ok(PyGPRecord { inner: record })
+    }
+
     #[getter] fn ccsds_omm_vers(&self) -> Option<String> { self.inner.ccsds_omm_vers.clone() }
     #[getter] fn comment(&self) -> Option<String> { self.inner.comment.clone() }
     #[getter] fn creation_date(&self) -> Option<String> { self.inner.creation_date.clone() }
@@ -716,6 +746,88 @@ impl PyGPRecord {
     #[getter] fn tle_line0(&self) -> Option<String> { self.inner.tle_line0.clone() }
     #[getter] fn tle_line1(&self) -> Option<String> { self.inner.tle_line1.clone() }
     #[getter] fn tle_line2(&self) -> Option<String> { self.inner.tle_line2.clone() }
+
+    /// Create an SGPPropagator from this GP record using OMM elements directly.
+    ///
+    /// Preserves full OMM numeric precision without TLE text round-tripping.
+    ///
+    /// Args:
+    ///     step_size (float): Propagation step size in seconds. Default: 60.0
+    ///
+    /// Returns:
+    ///     SGPPropagator: Initialized SGP4 propagator at the record's epoch.
+    ///
+    /// Raises:
+    ///     BraheError: If required orbital element fields are missing.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     record = bh.GPRecord.from_json('{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": 25544, ...}')
+    ///     prop = record.to_sgp_propagator()
+    ///     state = prop.state_eci(prop.epoch)
+    ///     ```
+    #[pyo3(signature = (step_size=60.0))]
+    fn to_sgp_propagator(&self, step_size: f64) -> PyResult<PySGPPropagator> {
+        let propagator = propagators::SGPPropagator::from_gp_record(&self.inner, step_size)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(PySGPPropagator { propagator })
+    }
+
+    /// Create a NumericalOrbitPropagator from this GP record.
+    ///
+    /// Internally creates an SGP4 propagator from the OMM elements, computes
+    /// the ECI state at epoch, then initializes a numerical propagator with
+    /// the specified force model.
+    ///
+    /// Args:
+    ///     force_config (ForceModelConfig): Force model configuration (required).
+    ///     propagation_config (NumericalPropagationConfig | None): Integrator config.
+    ///         Default: NumericalPropagationConfig default.
+    ///     params (numpy.ndarray | None): Parameter vector [mass, drag_area, Cd, srp_area, Cr, ...].
+    ///         Required when force_config includes drag or SRP.
+    ///
+    /// Returns:
+    ///     NumericalOrbitPropagator: Initialized numerical propagator at the record's epoch.
+    ///
+    /// Raises:
+    ///     BraheError: If required orbital element fields are missing.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     record = bh.GPRecord.from_json('{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": 25544, ...}')
+    ///     prop = record.to_numerical_orbit_propagator(
+    ///         force_config=bh.ForceModelConfig.two_body_gravity(),
+    ///     )
+    ///     ```
+    #[pyo3(signature = (force_config, propagation_config=None, params=None))]
+    fn to_numerical_orbit_propagator(
+        &self,
+        force_config: &PyForceModelConfig,
+        propagation_config: Option<&PyNumericalPropagationConfig>,
+        params: Option<PyReadonlyArray1<f64>>,
+    ) -> PyResult<PyNumericalOrbitPropagator> {
+        let params_dvec = params.map(|p| {
+            let vec = p.to_vec().unwrap();
+            DVector::from_vec(vec)
+        });
+
+        let prop_config = propagation_config.map(|c| c.config.clone());
+
+        let propagator = propagators::DNumericalOrbitPropagator::from_gp_record(
+            &self.inner,
+            force_config.config.clone(),
+            prop_config,
+            params_dvec,
+        )
+        .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+        Ok(PyNumericalOrbitPropagator { propagator })
+    }
 
     fn __str__(&self) -> String {
         format!(

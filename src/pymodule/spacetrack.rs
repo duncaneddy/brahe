@@ -658,14 +658,15 @@ impl PySpaceTrackQuery {
 ///     print(records[0].object_name)  # "ISS (ZARYA)"
 ///     ```
 #[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "GpRecord")]
+#[pyo3(name = "GPRecord")]
 #[derive(Clone)]
-pub struct PyGpRecord {
-    inner: spacetrack::GpRecord,
+#[allow(clippy::upper_case_acronyms)]
+pub struct PyGPRecord {
+    inner: spacetrack::GPRecord,
 }
 
 #[pymethods]
-impl PyGpRecord {
+impl PyGPRecord {
     #[getter] fn ccsds_omm_vers(&self) -> Option<String> { self.inner.ccsds_omm_vers.clone() }
     #[getter] fn comment(&self) -> Option<String> { self.inner.comment.clone() }
     #[getter] fn creation_date(&self) -> Option<String> { self.inner.creation_date.clone() }
@@ -709,7 +710,7 @@ impl PyGpRecord {
 
     fn __str__(&self) -> String {
         format!(
-            "GpRecord(name={:?}, norad_id={:?}, epoch={:?})",
+            "GPRecord(name={:?}, norad_id={:?}, epoch={:?})",
             self.inner.object_name, self.inner.norad_cat_id, self.inner.epoch
         )
     }
@@ -760,14 +761,15 @@ impl PyGpRecord {
 ///     print(records[0].satname)  # "ISS (ZARYA)"
 ///     ```
 #[pyclass(module = "brahe._brahe")]
-#[pyo3(name = "SatcatRecord")]
+#[pyo3(name = "SATCATRecord")]
 #[derive(Clone)]
-pub struct PySatcatRecord {
-    inner: spacetrack::SatcatRecord,
+#[allow(clippy::upper_case_acronyms)]
+pub struct PySATCATRecord {
+    inner: spacetrack::SATCATRecord,
 }
 
 #[pymethods]
-impl PySatcatRecord {
+impl PySATCATRecord {
     #[getter] fn intldes(&self) -> Option<String> { self.inner.intldes.clone() }
     #[getter] fn norad_cat_id(&self) -> Option<String> { self.inner.norad_cat_id.clone() }
     #[getter] fn object_type(&self) -> Option<String> { self.inner.object_type.clone() }
@@ -795,7 +797,7 @@ impl PySatcatRecord {
 
     fn __str__(&self) -> String {
         format!(
-            "SatcatRecord(name={:?}, norad_id={:?})",
+            "SATCATRecord(name={:?}, norad_id={:?})",
             self.inner.satname, self.inner.norad_cat_id
         )
     }
@@ -917,7 +919,7 @@ impl PySpaceTrackClient {
     ///     query (SpaceTrackQuery): The query to execute (must use JSON format).
     ///
     /// Returns:
-    ///     list[GpRecord]: List of typed GP records.
+    ///     list[GPRecord]: List of typed GP records.
     ///
     /// Raises:
     ///     BraheError: On network, auth, parse, or format errors.
@@ -931,13 +933,13 @@ impl PySpaceTrackClient {
     ///     records = client.query_gp(query)
     ///     print(records[0].object_name)
     ///     ```
-    fn query_gp(&self, query: &PySpaceTrackQuery) -> PyResult<Vec<PyGpRecord>> {
+    fn query_gp(&self, query: &PySpaceTrackQuery) -> PyResult<Vec<PyGPRecord>> {
         let records = self
             .inner
             .query_gp(&query.inner)
             .map_err(|e| BraheError::new_err(e.to_string()))?;
 
-        Ok(records.into_iter().map(|r| PyGpRecord { inner: r }).collect())
+        Ok(records.into_iter().map(|r| PyGPRecord { inner: r }).collect())
     }
 
     /// Execute a SATCAT query and return typed SATCAT records.
@@ -946,7 +948,7 @@ impl PySpaceTrackClient {
     ///     query (SpaceTrackQuery): The query to execute (must use JSON format).
     ///
     /// Returns:
-    ///     list[SatcatRecord]: List of typed SATCAT records.
+    ///     list[SATCATRecord]: List of typed SATCAT records.
     ///
     /// Raises:
     ///     BraheError: On network, auth, parse, or format errors.
@@ -960,7 +962,7 @@ impl PySpaceTrackClient {
     ///     records = client.query_satcat(query)
     ///     print(records[0].satname)
     ///     ```
-    fn query_satcat(&self, query: &PySpaceTrackQuery) -> PyResult<Vec<PySatcatRecord>> {
+    fn query_satcat(&self, query: &PySpaceTrackQuery) -> PyResult<Vec<PySATCATRecord>> {
         let records = self
             .inner
             .query_satcat(&query.inner)
@@ -968,7 +970,7 @@ impl PySpaceTrackClient {
 
         Ok(records
             .into_iter()
-            .map(|r| PySatcatRecord { inner: r })
+            .map(|r| PySATCATRecord { inner: r })
             .collect())
     }
 }

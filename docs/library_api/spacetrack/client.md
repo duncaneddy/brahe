@@ -11,4 +11,4 @@
 
 - [Client Guide](../../learn/spacetrack/client.md) -- Authentication and query execution patterns
 - [SpaceTrackQuery](query.md) -- Building queries to pass to the client
-- [Response Types](responses.md) -- GpRecord and SatcatRecord returned by typed queries
+- [Response Types](responses.md) -- GPRecord and SATCATRecord returned by typed queries

@@ -6,7 +6,7 @@ The spacetrack module provides a typed client and fluent query builder for acces
 
 - [Client](client.md) -- `SpaceTrackClient` for authentication and query execution
 - [Query Builder](query.md) -- `SpaceTrackQuery` fluent builder
-- [Responses](responses.md) -- `GpRecord` and `SatcatRecord` typed response structs
+- [Responses](responses.md) -- `GPRecord` and `SATCATRecord` typed response structs
 - [Enumerations](enums.md) -- `RequestController`, `RequestClass`, `SortOrder`, `OutputFormat`
 - [Operators](operators.md) -- Filter operator functions
 

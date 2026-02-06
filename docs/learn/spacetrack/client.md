@@ -70,8 +70,8 @@ The client provides four query methods, each returning data in a different form:
 |--------|-------------|-----------------|
 | `query_raw(query)` | Raw string | Any |
 | `query_json(query)` | JSON array | JSON |
-| `query_gp(query)` | `GpRecord` list | JSON |
-| `query_satcat(query)` | `SatcatRecord` list | JSON |
+| `query_gp(query)` | `GPRecord` list | JSON |
+| `query_satcat(query)` | `SATCATRecord` list | JSON |
 
 ### Typed Queries
 
@@ -217,4 +217,4 @@ Common error scenarios:
 - [Space-Track API Overview](index.md) -- Module architecture and type catalog
 - [Query Builder](query_builder.md) -- Building queries with filters and operators
 - [SpaceTrackClient Reference](../../library_api/spacetrack/client.md) -- Complete method documentation
-- [Response Types Reference](../../library_api/spacetrack/responses.md) -- GpRecord and SatcatRecord fields
+- [Response Types Reference](../../library_api/spacetrack/responses.md) -- GPRecord and SATCATRecord fields

@@ -48,16 +48,16 @@ Each `RequestClass` has a default controller. For example, `GP` and `SATCAT` use
 | `authenticate()` | Explicitly authenticate (establishes session) |
 | `query_raw(query)` | Execute query, return raw response string |
 | `query_json(query)` | Execute query, parse response as JSON array |
-| `query_gp(query)` | Execute query, parse response as `GpRecord` list |
-| `query_satcat(query)` | Execute query, parse response as `SatcatRecord` list |
+| `query_gp(query)` | Execute query, parse response as `GPRecord` list |
+| `query_satcat(query)` | Execute query, parse response as `SATCATRecord` list |
 
 Authentication is lazy by default -- the client authenticates on the first query if `authenticate()` has not been called explicitly.
 
 ### Response Types
 
-- **`GpRecord`** -- General Perturbations data record with 40 fields including orbital elements (`mean_motion`, `eccentricity`, `inclination`, `ra_of_asc_node`, `arg_of_pericenter`, `mean_anomaly`), object metadata (`object_name`, `norad_cat_id`, `object_type`), and TLE lines (`tle_line0`, `tle_line1`, `tle_line2`). All fields are `Optional[str]` / `Option<String>`.
+- **`GPRecord`** -- General Perturbations data record with 40 fields including orbital elements (`mean_motion`, `eccentricity`, `inclination`, `ra_of_asc_node`, `arg_of_pericenter`, `mean_anomaly`), object metadata (`object_name`, `norad_cat_id`, `object_type`), and TLE lines (`tle_line0`, `tle_line1`, `tle_line2`). All fields are `Optional[str]` / `Option<String>`.
 
-- **`SatcatRecord`** -- Satellite Catalog record with 24 fields including object identification (`norad_cat_id`, `satname`, `intldes`), launch information (`launch`, `site`, `launch_year`), and orbital characteristics (`period`, `inclination`, `apogee`, `perigee`). All fields are `Optional[str]` / `Option<String>`.
+- **`SATCATRecord`** -- Satellite Catalog record with 24 fields including object identification (`norad_cat_id`, `satname`, `intldes`), launch information (`launch`, `site`, `launch_year`), and orbital characteristics (`period`, `inclination`, `apogee`, `perigee`). All fields are `Optional[str]` / `Option<String>`.
 
 ### Operator Functions
 

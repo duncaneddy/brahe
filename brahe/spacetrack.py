@@ -38,8 +38,8 @@ from brahe._brahe import (
     # Client
     SpaceTrackClient,
     # Response types
-    GpRecord,
-    SatcatRecord,
+    GPRecord,
+    SATCATRecord,
     # Operator functions
     spacetrack_greater_than,
     spacetrack_less_than,
@@ -97,8 +97,8 @@ __all__ = [
     # Client
     "SpaceTrackClient",
     # Response types
-    "GpRecord",
-    "SatcatRecord",
+    "GPRecord",
+    "SATCATRecord",
     # Operators namespace
     "operators",
 ]

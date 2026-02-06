@@ -9,7 +9,7 @@
 use std::sync::Mutex;
 
 use crate::spacetrack::query::SpaceTrackQuery;
-use crate::spacetrack::responses::{GpRecord, SatcatRecord};
+use crate::spacetrack::responses::{GPRecord, SATCATRecord};
 use crate::utils::BraheError;
 
 /// Default base URL for the Space-Track.org API.
@@ -213,7 +213,7 @@ impl SpaceTrackClient {
     ///
     /// # Returns
     ///
-    /// * `Ok(Vec<GpRecord>)` - Typed GP records
+    /// * `Ok(Vec<GPRecord>)` - Typed GP records
     /// * `Err(BraheError)` - On network, auth, parse, or format errors
     ///
     /// # Examples
@@ -229,7 +229,7 @@ impl SpaceTrackClient {
     /// let records = client.query_gp(&query).unwrap();
     /// println!("Object: {:?}", records[0].object_name);
     /// ```
-    pub fn query_gp(&self, query: &SpaceTrackQuery) -> Result<Vec<GpRecord>, BraheError> {
+    pub fn query_gp(&self, query: &SpaceTrackQuery) -> Result<Vec<GPRecord>, BraheError> {
         if !query.output_format().is_json() {
             return Err(BraheError::Error(
                 "query_gp requires JSON output format".to_string(),
@@ -253,7 +253,7 @@ impl SpaceTrackClient {
     ///
     /// # Returns
     ///
-    /// * `Ok(Vec<SatcatRecord>)` - Typed SATCAT records
+    /// * `Ok(Vec<SATCATRecord>)` - Typed SATCAT records
     /// * `Err(BraheError)` - On network, auth, parse, or format errors
     ///
     /// # Examples
@@ -269,7 +269,7 @@ impl SpaceTrackClient {
     /// let records = client.query_satcat(&query).unwrap();
     /// println!("Name: {:?}", records[0].satname);
     /// ```
-    pub fn query_satcat(&self, query: &SpaceTrackQuery) -> Result<Vec<SatcatRecord>, BraheError> {
+    pub fn query_satcat(&self, query: &SpaceTrackQuery) -> Result<Vec<SATCATRecord>, BraheError> {
         if !query.output_format().is_json() {
             return Err(BraheError::Error(
                 "query_satcat requires JSON output format".to_string(),

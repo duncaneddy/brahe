@@ -12,7 +12,7 @@
  * - [`operators`] - Filter operator functions: `greater_than`, `less_than`, `inclusive_range`, etc.
  * - [`query`] - [`SpaceTrackQuery`] fluent builder
  * - [`client`] - [`SpaceTrackClient`] with authentication and query execution
- * - [`responses`] - Typed response structs: [`GpRecord`], [`SatcatRecord`]
+ * - [`responses`] - Typed response structs: [`GPRecord`], [`SATCATRecord`]
  *
  * # Examples
  *
@@ -43,5 +43,5 @@ pub mod types;
 // Re-export commonly used types for convenience
 pub use client::SpaceTrackClient;
 pub use query::SpaceTrackQuery;
-pub use responses::{GpRecord, SatcatRecord};
+pub use responses::{GPRecord, SATCATRecord};
 pub use types::{OutputFormat, RequestClass, RequestController, SortOrder};

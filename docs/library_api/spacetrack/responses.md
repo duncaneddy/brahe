@@ -1,15 +1,15 @@
 # Response Types
 
-## GpRecord
+## GPRecord
 
-::: brahe.GpRecord
+::: brahe.GPRecord
     options:
       show_root_heading: true
       show_root_full_path: false
 
-## SatcatRecord
+## SATCATRecord
 
-::: brahe.SatcatRecord
+::: brahe.SATCATRecord
     options:
       show_root_heading: true
       show_root_full_path: false

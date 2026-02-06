@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 /// # Examples
 ///
 /// ```
-/// use brahe::spacetrack::GpRecord;
+/// use brahe::spacetrack::GPRecord;
 ///
 /// let json = r#"[{
 ///     "CCSDS_OMM_VERS": "3.0",
@@ -30,12 +30,13 @@ use serde::{Deserialize, Serialize};
 ///     "INCLINATION": "51.6400"
 /// }]"#;
 ///
-/// let records: Vec<GpRecord> = serde_json::from_str(json).unwrap();
+/// let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
 /// assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
 /// assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GpRecord {
+#[allow(clippy::upper_case_acronyms)]
+pub struct GPRecord {
     /// CCSDS OMM version
     #[serde(rename = "CCSDS_OMM_VERS", default)]
     pub ccsds_omm_vers: Option<String>,
@@ -166,7 +167,7 @@ pub struct GpRecord {
 /// # Examples
 ///
 /// ```
-/// use brahe::spacetrack::SatcatRecord;
+/// use brahe::spacetrack::SATCATRecord;
 ///
 /// let json = r#"[{
 ///     "SATNAME": "ISS (ZARYA)",
@@ -175,11 +176,12 @@ pub struct GpRecord {
 ///     "COUNTRY": "ISS"
 /// }]"#;
 ///
-/// let records: Vec<SatcatRecord> = serde_json::from_str(json).unwrap();
+/// let records: Vec<SATCATRecord> = serde_json::from_str(json).unwrap();
 /// assert_eq!(records[0].satname.as_deref(), Some("ISS (ZARYA)"));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SatcatRecord {
+#[allow(clippy::upper_case_acronyms)]
+pub struct SATCATRecord {
     /// International designator
     #[serde(rename = "INTLDES", default)]
     pub intldes: Option<String>,
@@ -304,7 +306,7 @@ mod tests {
             "TLE_LINE2": "2 25544  51.6400 200.0000 0001000 100.0000 260.0000 15.50000000450001"
         }]"#;
 
-        let records: Vec<GpRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
         assert_eq!(records.len(), 1);
 
         let record = &records[0];
@@ -323,7 +325,7 @@ mod tests {
             "NORAD_CAT_ID": "25544"
         }]"#;
 
-        let records: Vec<GpRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
         assert!(records[0].epoch.is_none());
@@ -338,7 +340,7 @@ mod tests {
             "ANOTHER_UNKNOWN": 42
         }]"#;
 
-        let records: Vec<GpRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
     }
@@ -346,7 +348,7 @@ mod tests {
     #[test]
     fn test_gp_record_empty_array() {
         let json = "[]";
-        let records: Vec<GpRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
         assert!(records.is_empty());
     }
 
@@ -379,7 +381,7 @@ mod tests {
             "OBJECT_NUMBER": "25544"
         }]"#;
 
-        let records: Vec<SatcatRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<SATCATRecord> = serde_json::from_str(json).unwrap();
         assert_eq!(records.len(), 1);
 
         let record = &records[0];
@@ -397,14 +399,14 @@ mod tests {
             "FUTURE_FIELD": "value"
         }]"#;
 
-        let records: Vec<SatcatRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<SATCATRecord> = serde_json::from_str(json).unwrap();
         assert_eq!(records[0].satname.as_deref(), Some("ISS"));
     }
 
     #[test]
     fn test_gp_record_clone() {
         let json = r#"[{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": "25544"}]"#;
-        let records: Vec<GpRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
         let cloned = records[0].clone();
         assert_eq!(cloned.object_name, records[0].object_name);
     }
@@ -412,7 +414,7 @@ mod tests {
     #[test]
     fn test_gp_record_debug() {
         let json = r#"[{"OBJECT_NAME": "ISS"}]"#;
-        let records: Vec<GpRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
         let debug = format!("{:?}", records[0]);
         assert!(debug.contains("ISS"));
     }
@@ -420,7 +422,7 @@ mod tests {
     #[test]
     fn test_gp_record_serialize() {
         let json = r#"[{"OBJECT_NAME":"ISS","NORAD_CAT_ID":"25544"}]"#;
-        let records: Vec<GpRecord> = serde_json::from_str(json).unwrap();
+        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
         let serialized = serde_json::to_string(&records[0]).unwrap();
         assert!(serialized.contains("OBJECT_NAME"));
         assert!(serialized.contains("ISS"));

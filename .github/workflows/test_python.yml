@@ -3,6 +3,7 @@ on: [ workflow_call ]
 jobs:
     test-python:
         runs-on: ${{ matrix.os }}
+        environment: release
         strategy:
             matrix:
                 # os: [ubuntu-latest]

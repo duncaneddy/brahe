@@ -508,7 +508,7 @@ def test_integration_gp_query():
     )
     records = client.query_gp(query)
     assert len(records) > 0
-    assert records[0].norad_cat_id == "25544"
+    assert records[0].norad_cat_id == 25544
     assert records[0].object_name is not None
 
 
@@ -523,7 +523,7 @@ def test_integration_satcat_query():
     )
     records = client.query_satcat(query)
     assert len(records) > 0
-    assert records[0].norad_cat_id == "25544"
+    assert records[0].norad_cat_id == 25544
 
 
 @pytest.mark.ci

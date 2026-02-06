@@ -57,7 +57,7 @@ class TestCelestrakClientIntegration:
         query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
         records = client.query_gp(query)
         assert len(records) > 0
-        assert records[0].norad_cat_id == "25544"
+        assert records[0].norad_cat_id == 25544
 
     def test_query_gp_by_name(self):
         client = bh.celestrak.CelestrakClient(cache_max_age=0.0)
@@ -82,7 +82,7 @@ class TestCelestrakClientIntegration:
         query = bh.celestrak.CelestrakQuery.satcat().catnr(25544)
         records = client.query_satcat(query)
         assert len(records) > 0
-        assert records[0].norad_cat_id == "25544"
+        assert records[0].norad_cat_id == 25544
         assert records[0].object_name is not None
 
     def test_query_raw(self):

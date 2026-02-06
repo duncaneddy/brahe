@@ -10,6 +10,7 @@
 ///     BASIC_SPACE_DATA: Basic space data controller (most common)
 ///     EXPANDED_SPACE_DATA: Expanded space data controller
 ///     FILE_SHARE: File share controller
+///     SP_EPHEMERIS: SP ephemeris controller
 ///     PUBLIC_FILES: Public files controller
 ///
 /// Example:
@@ -49,6 +50,14 @@ impl PyRequestController {
     fn FILE_SHARE() -> Self {
         PyRequestController {
             value: spacetrack::RequestController::FileShare,
+        }
+    }
+
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SP_EPHEMERIS() -> Self {
+        PyRequestController {
+            value: spacetrack::RequestController::SpEphemeris,
         }
     }
 
@@ -807,6 +816,158 @@ impl PySATCATRecord {
     }
 }
 
+/// FileShare file record from the fileshare/file request class.
+///
+/// Contains metadata about a file in a user's Space-Track file share.
+/// All fields are optional strings since Space-Track may omit fields.
+///
+/// Attributes:
+///     file_id (str | None): File identifier
+///     file_name (str | None): File name
+///     file_link (str | None): File download link
+///     file_size (str | None): File size in bytes
+///     file_conttype (str | None): File content type
+///     folder_id (str | None): Folder identifier
+///     created (str | None): Creation date
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     client = bh.SpaceTrackClient("user@example.com", "password")
+///     files = client.fileshare_list_files()
+///     for f in files:
+///         print(f.file_name, f.file_size)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "FileShareFileRecord")]
+#[derive(Clone)]
+pub struct PyFileShareFileRecord {
+    inner: spacetrack::FileShareFileRecord,
+}
+
+#[pymethods]
+impl PyFileShareFileRecord {
+    #[getter] fn file_id(&self) -> Option<String> { self.inner.file_id.clone() }
+    #[getter] fn file_name(&self) -> Option<String> { self.inner.file_name.clone() }
+    #[getter] fn file_link(&self) -> Option<String> { self.inner.file_link.clone() }
+    #[getter] fn file_size(&self) -> Option<String> { self.inner.file_size.clone() }
+    #[getter] fn file_conttype(&self) -> Option<String> { self.inner.file_conttype.clone() }
+    #[getter] fn folder_id(&self) -> Option<String> { self.inner.folder_id.clone() }
+    #[getter] fn created(&self) -> Option<String> { self.inner.created.clone() }
+
+    fn __str__(&self) -> String {
+        format!(
+            "FileShareFileRecord(id={:?}, name={:?})",
+            self.inner.file_id, self.inner.file_name
+        )
+    }
+
+    fn __repr__(&self) -> String {
+        self.__str__()
+    }
+}
+
+/// FileShare folder record from the fileshare/folder request class.
+///
+/// Contains metadata about a folder in a user's Space-Track file share.
+/// All fields are optional strings since Space-Track may omit fields.
+///
+/// Attributes:
+///     folder_id (str | None): Folder identifier
+///     folder_name (str | None): Folder name
+///     parent_folder_id (str | None): Parent folder identifier
+///     created (str | None): Creation date
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     client = bh.SpaceTrackClient("user@example.com", "password")
+///     folders = client.fileshare_list_folders()
+///     for f in folders:
+///         print(f.folder_name, f.folder_id)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "FolderRecord")]
+#[derive(Clone)]
+pub struct PyFolderRecord {
+    inner: spacetrack::FolderRecord,
+}
+
+#[pymethods]
+impl PyFolderRecord {
+    #[getter] fn folder_id(&self) -> Option<String> { self.inner.folder_id.clone() }
+    #[getter] fn folder_name(&self) -> Option<String> { self.inner.folder_name.clone() }
+    #[getter] fn parent_folder_id(&self) -> Option<String> { self.inner.parent_folder_id.clone() }
+    #[getter] fn created(&self) -> Option<String> { self.inner.created.clone() }
+
+    fn __str__(&self) -> String {
+        format!(
+            "FolderRecord(id={:?}, name={:?})",
+            self.inner.folder_id, self.inner.folder_name
+        )
+    }
+
+    fn __repr__(&self) -> String {
+        self.__str__()
+    }
+}
+
+/// SP Ephemeris file record from the spephemeris/file request class.
+///
+/// Contains metadata about an SP ephemeris file on Space-Track.
+/// All fields are optional strings since Space-Track may omit fields.
+///
+/// Attributes:
+///     file_id (str | None): File identifier
+///     norad_cat_id (str | None): NORAD catalog ID
+///     file_name (str | None): File name
+///     file_link (str | None): File download link
+///     file_size (str | None): File size in bytes
+///     created (str | None): Creation date
+///     epoch_start (str | None): Epoch start
+///     epoch_stop (str | None): Epoch stop
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     client = bh.SpaceTrackClient("user@example.com", "password")
+///     files = client.spephemeris_list_files()
+///     for f in files:
+///         print(f.file_name, f.norad_cat_id)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "SpEphemerisFileRecord")]
+#[derive(Clone)]
+pub struct PySpEphemerisFileRecord {
+    inner: spacetrack::SpEphemerisFileRecord,
+}
+
+#[pymethods]
+impl PySpEphemerisFileRecord {
+    #[getter] fn file_id(&self) -> Option<String> { self.inner.file_id.clone() }
+    #[getter] fn norad_cat_id(&self) -> Option<String> { self.inner.norad_cat_id.clone() }
+    #[getter] fn file_name(&self) -> Option<String> { self.inner.file_name.clone() }
+    #[getter] fn file_link(&self) -> Option<String> { self.inner.file_link.clone() }
+    #[getter] fn file_size(&self) -> Option<String> { self.inner.file_size.clone() }
+    #[getter] fn created(&self) -> Option<String> { self.inner.created.clone() }
+    #[getter] fn epoch_start(&self) -> Option<String> { self.inner.epoch_start.clone() }
+    #[getter] fn epoch_stop(&self) -> Option<String> { self.inner.epoch_stop.clone() }
+
+    fn __str__(&self) -> String {
+        format!(
+            "SpEphemerisFileRecord(id={:?}, norad_id={:?}, name={:?})",
+            self.inner.file_id, self.inner.norad_cat_id, self.inner.file_name
+        )
+    }
+
+    fn __repr__(&self) -> String {
+        self.__str__()
+    }
+}
+
 // -- Client --
 
 /// SpaceTrack API client with session-based authentication.
@@ -972,6 +1133,295 @@ impl PySpaceTrackClient {
             .into_iter()
             .map(|r| PySATCATRecord { inner: r })
             .collect())
+    }
+
+    // ========================================
+    // FileShare operations
+    // ========================================
+
+    /// Upload a file to the Space-Track file share.
+    ///
+    /// Args:
+    ///     folder_id (str): Target folder identifier.
+    ///     file_name (str): Name for the uploaded file.
+    ///     file_data (bytes): File content as bytes.
+    ///
+    /// Returns:
+    ///     str: Server response (typically JSON confirmation).
+    ///
+    /// Raises:
+    ///     BraheError: On network, auth, or upload errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.SpaceTrackClient("user@example.com", "password")
+    ///     response = client.fileshare_upload("100", "data.txt", b"file contents")
+    ///     ```
+    fn fileshare_upload(
+        &self,
+        folder_id: &str,
+        file_name: &str,
+        file_data: &[u8],
+    ) -> PyResult<String> {
+        self.inner
+            .fileshare_upload(folder_id, file_name, file_data)
+            .map_err(|e| BraheError::new_err(e.to_string()))
+    }
+
+    /// Download a file from the Space-Track file share.
+    ///
+    /// Args:
+    ///     file_id (str): File identifier to download.
+    ///
+    /// Returns:
+    ///     bytes: File content as bytes.
+    ///
+    /// Raises:
+    ///     BraheError: On network, auth, or download errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.SpaceTrackClient("user@example.com", "password")
+    ///     data = client.fileshare_download("12345")
+    ///     ```
+    fn fileshare_download<'py>(
+        &self,
+        py: Python<'py>,
+        file_id: &str,
+    ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
+        let data = self
+            .inner
+            .fileshare_download(file_id)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(pyo3::types::PyBytes::new(py, &data))
+    }
+
+    /// Download all files in a folder from the Space-Track file share.
+    ///
+    /// Args:
+    ///     folder_id (str): Folder identifier to download.
+    ///
+    /// Returns:
+    ///     bytes: Folder content as bytes (typically a zip archive).
+    ///
+    /// Raises:
+    ///     BraheError: On network, auth, or download errors.
+    fn fileshare_download_folder<'py>(
+        &self,
+        py: Python<'py>,
+        folder_id: &str,
+    ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
+        let data = self
+            .inner
+            .fileshare_download_folder(folder_id)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(pyo3::types::PyBytes::new(py, &data))
+    }
+
+    /// List files in the Space-Track file share.
+    ///
+    /// Returns:
+    ///     list[FileShareFileRecord]: File metadata records.
+    ///
+    /// Raises:
+    ///     BraheError: On network, auth, or parse errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.SpaceTrackClient("user@example.com", "password")
+    ///     files = client.fileshare_list_files()
+    ///     for f in files:
+    ///         print(f.file_name, f.file_size)
+    ///     ```
+    fn fileshare_list_files(&self) -> PyResult<Vec<PyFileShareFileRecord>> {
+        let records = self
+            .inner
+            .fileshare_list_files()
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(records
+            .into_iter()
+            .map(|r| PyFileShareFileRecord { inner: r })
+            .collect())
+    }
+
+    /// List folders in the Space-Track file share.
+    ///
+    /// Returns:
+    ///     list[FolderRecord]: Folder metadata records.
+    ///
+    /// Raises:
+    ///     BraheError: On network, auth, or parse errors.
+    fn fileshare_list_folders(&self) -> PyResult<Vec<PyFolderRecord>> {
+        let records = self
+            .inner
+            .fileshare_list_folders()
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(records
+            .into_iter()
+            .map(|r| PyFolderRecord { inner: r })
+            .collect())
+    }
+
+    /// Delete a file from the Space-Track file share.
+    ///
+    /// Args:
+    ///     file_id (str): File identifier to delete.
+    ///
+    /// Returns:
+    ///     str: Server response.
+    ///
+    /// Raises:
+    ///     BraheError: On network, auth, or deletion errors.
+    fn fileshare_delete(&self, file_id: &str) -> PyResult<String> {
+        self.inner
+            .fileshare_delete(file_id)
+            .map_err(|e| BraheError::new_err(e.to_string()))
+    }
+
+    // ========================================
+    // SP Ephemeris operations
+    // ========================================
+
+    /// Download an SP ephemeris file from Space-Track.
+    ///
+    /// Args:
+    ///     file_id (str): SP ephemeris file identifier.
+    ///
+    /// Returns:
+    ///     bytes: Ephemeris file content as bytes.
+    ///
+    /// Raises:
+    ///     BraheError: On network, auth, or download errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.SpaceTrackClient("user@example.com", "password")
+    ///     data = client.spephemeris_download("99999")
+    ///     ```
+    fn spephemeris_download<'py>(
+        &self,
+        py: Python<'py>,
+        file_id: &str,
+    ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
+        let data = self
+            .inner
+            .spephemeris_download(file_id)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(pyo3::types::PyBytes::new(py, &data))
+    }
+
+    /// List available SP ephemeris files.
+    ///
+    /// Returns:
+    ///     list[SpEphemerisFileRecord]: Ephemeris file metadata records.
+    ///
+    /// Raises:
+    ///     BraheError: On network, auth, or parse errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.SpaceTrackClient("user@example.com", "password")
+    ///     files = client.spephemeris_list_files()
+    ///     for f in files:
+    ///         print(f.file_name, f.norad_cat_id)
+    ///     ```
+    fn spephemeris_list_files(&self) -> PyResult<Vec<PySpEphemerisFileRecord>> {
+        let records = self
+            .inner
+            .spephemeris_list_files()
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(records
+            .into_iter()
+            .map(|r| PySpEphemerisFileRecord { inner: r })
+            .collect())
+    }
+
+    /// List SP ephemeris file history.
+    ///
+    /// Returns:
+    ///     list[dict]: File history records as JSON objects.
+    ///
+    /// Raises:
+    ///     BraheError: On network, auth, or parse errors.
+    fn spephemeris_file_history(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let values = self
+            .inner
+            .spephemeris_file_history()
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+        let json_str = serde_json::to_string(&values)
+            .map_err(|e| BraheError::new_err(format!("JSON serialization failed: {}", e)))?;
+
+        let json_module = py.import("json")?;
+        json_module
+            .call_method1("loads", (json_str,))
+            .map(|obj| obj.into())
+    }
+
+    // ========================================
+    // Public Files operations
+    // ========================================
+
+    /// Download a public file from Space-Track (no auth required).
+    ///
+    /// Args:
+    ///     file_name (str): Name of the public file to download.
+    ///
+    /// Returns:
+    ///     bytes: File content as bytes.
+    ///
+    /// Raises:
+    ///     BraheError: On network or download errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.SpaceTrackClient("user@example.com", "password")
+    ///     data = client.publicfiles_download("catalog.txt")
+    ///     ```
+    fn publicfiles_download<'py>(
+        &self,
+        py: Python<'py>,
+        file_name: &str,
+    ) -> PyResult<Bound<'py, pyo3::types::PyBytes>> {
+        let data = self
+            .inner
+            .publicfiles_download(file_name)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(pyo3::types::PyBytes::new(py, &data))
+    }
+
+    /// List public file directories on Space-Track (no auth required).
+    ///
+    /// Returns:
+    ///     list[dict]: Directory listing as JSON objects.
+    ///
+    /// Raises:
+    ///     BraheError: On network or parse errors.
+    fn publicfiles_list_dirs(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let values = self
+            .inner
+            .publicfiles_list_dirs()
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+        let json_str = serde_json::to_string(&values)
+            .map_err(|e| BraheError::new_err(format!("JSON serialization failed: {}", e)))?;
+
+        let json_module = py.import("json")?;
+        json_module
+            .call_method1("loads", (json_str,))
+            .map(|obj| obj.into())
     }
 }
 

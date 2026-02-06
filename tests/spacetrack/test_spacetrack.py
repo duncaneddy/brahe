@@ -73,6 +73,7 @@ class TestEnums:
         assert str(bh.RequestController.BASIC_SPACE_DATA) == "BasicSpaceData"
         assert str(bh.RequestController.EXPANDED_SPACE_DATA) == "ExpandedSpaceData"
         assert str(bh.RequestController.FILE_SHARE) == "FileShare"
+        assert str(bh.RequestController.SP_EPHEMERIS) == "SpEphemeris"
         assert str(bh.RequestController.PUBLIC_FILES) == "PublicFiles"
 
     def test_request_class_variants(self):
@@ -282,11 +283,12 @@ class TestSpaceTrackQuery:
             assert expected in url, f"Expected '{expected}' in URL, got: {url}"
 
     def test_query_with_all_controllers(self):
-        """Test all 4 controllers produce correct URL segments."""
+        """Test all 5 controllers produce correct URL segments."""
         controllers = [
             (bh.RequestController.BASIC_SPACE_DATA, "/basicspacedata/"),
             (bh.RequestController.EXPANDED_SPACE_DATA, "/expandedspacedata/"),
             (bh.RequestController.FILE_SHARE, "/fileshare/"),
+            (bh.RequestController.SP_EPHEMERIS, "/spephemeris/"),
             (bh.RequestController.PUBLIC_FILES, "/publicfiles/"),
         ]
         for ctrl, expected in controllers:
@@ -328,6 +330,66 @@ class TestSpaceTrackClient:
             "user@example.com", "password", "https://test.space-track.org"
         )
         assert client is not None
+
+
+# ========================================
+# Response Type Tests
+# ========================================
+
+
+class TestResponseTypes:
+    """Tests for SpaceTrack response type availability."""
+
+    def test_fileshare_file_record_exists(self):
+        """FileShareFileRecord type should be importable."""
+        from brahe.spacetrack import FileShareFileRecord
+
+        assert FileShareFileRecord is not None
+
+    def test_folder_record_exists(self):
+        """FolderRecord type should be importable."""
+        from brahe.spacetrack import FolderRecord
+
+        assert FolderRecord is not None
+
+    def test_sp_ephemeris_file_record_exists(self):
+        """SpEphemerisFileRecord type should be importable."""
+        from brahe.spacetrack import SpEphemerisFileRecord
+
+        assert SpEphemerisFileRecord is not None
+
+
+class TestSpaceTrackClientMethods:
+    """Tests for SpaceTrack client method availability (no network)."""
+
+    def test_fileshare_methods_exist(self):
+        """Client should have all fileshare methods."""
+        client = bh.SpaceTrackClient("user@example.com", "password")
+        assert hasattr(client, "fileshare_upload")
+        assert hasattr(client, "fileshare_download")
+        assert hasattr(client, "fileshare_download_folder")
+        assert hasattr(client, "fileshare_list_files")
+        assert hasattr(client, "fileshare_list_folders")
+        assert hasattr(client, "fileshare_delete")
+
+    def test_spephemeris_methods_exist(self):
+        """Client should have all spephemeris methods."""
+        client = bh.SpaceTrackClient("user@example.com", "password")
+        assert hasattr(client, "spephemeris_download")
+        assert hasattr(client, "spephemeris_list_files")
+        assert hasattr(client, "spephemeris_file_history")
+
+    def test_publicfiles_methods_exist(self):
+        """Client should have all publicfiles methods."""
+        client = bh.SpaceTrackClient("user@example.com", "password")
+        assert hasattr(client, "publicfiles_download")
+        assert hasattr(client, "publicfiles_list_dirs")
+
+    def test_sp_ephemeris_controller_variant(self):
+        """SP_EPHEMERIS controller variant should be accessible."""
+        assert bh.RequestController.SP_EPHEMERIS is not None
+        assert str(bh.RequestController.SP_EPHEMERIS) == "SpEphemeris"
+        assert "RequestController" in repr(bh.RequestController.SP_EPHEMERIS)
 
 
 # ========================================

@@ -30,6 +30,8 @@ pub enum RequestController {
     ExpandedSpaceData,
     /// File share controller for bulk file downloads.
     FileShare,
+    /// SP Ephemeris controller for special perturbations ephemeris data.
+    SpEphemeris,
     /// Public files controller.
     PublicFiles,
 }
@@ -41,6 +43,7 @@ impl RequestController {
             RequestController::BasicSpaceData => "basicspacedata",
             RequestController::ExpandedSpaceData => "expandedspacedata",
             RequestController::FileShare => "fileshare",
+            RequestController::SpEphemeris => "spephemeris",
             RequestController::PublicFiles => "publicfiles",
         }
     }
@@ -240,6 +243,7 @@ mod tests {
             "expandedspacedata"
         );
         assert_eq!(RequestController::FileShare.as_str(), "fileshare");
+        assert_eq!(RequestController::SpEphemeris.as_str(), "spephemeris");
         assert_eq!(RequestController::PublicFiles.as_str(), "publicfiles");
     }
 
@@ -254,6 +258,7 @@ mod tests {
             "expandedspacedata"
         );
         assert_eq!(format!("{}", RequestController::FileShare), "fileshare");
+        assert_eq!(format!("{}", RequestController::SpEphemeris), "spephemeris");
         assert_eq!(format!("{}", RequestController::PublicFiles), "publicfiles");
     }
 

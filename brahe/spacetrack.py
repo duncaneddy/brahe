@@ -40,6 +40,9 @@ from brahe._brahe import (
     # Response types
     GPRecord,
     SATCATRecord,
+    FileShareFileRecord,
+    FolderRecord,
+    SpEphemerisFileRecord,
     # Operator functions
     spacetrack_greater_than,
     spacetrack_less_than,
@@ -99,6 +102,9 @@ __all__ = [
     # Response types
     "GPRecord",
     "SATCATRecord",
+    "FileShareFileRecord",
+    "FolderRecord",
+    "SpEphemerisFileRecord",
     # Operators namespace
     "operators",
 ]

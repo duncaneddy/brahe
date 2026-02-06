@@ -13,7 +13,7 @@ The spacetrack module is organized into five components:
 
 | Type | Purpose |
 |------|---------|
-| `RequestController` | API endpoint namespace (`BasicSpaceData`, `ExpandedSpaceData`, `FileShare`, `PublicFiles`) |
+| `RequestController` | API endpoint namespace (`BasicSpaceData`, `ExpandedSpaceData`, `FileShare`, `SpEphemeris`, `PublicFiles`) |
 | `RequestClass` | Data category to query (`GP`, `SATCAT`, `Decay`, `TIP`, `CDMPublic`, etc.) |
 | `SortOrder` | Result ordering direction (`Asc`, `Desc`) |
 | `OutputFormat` | Response format (`JSON`, `TLE`, `CSV`, `XML`, `KVN`, etc.) |
@@ -50,6 +50,17 @@ Each `RequestClass` has a default controller. For example, `GP` and `SATCAT` use
 | `query_json(query)` | Execute query, parse response as JSON array |
 | `query_gp(query)` | Execute query, parse response as `GPRecord` list |
 | `query_satcat(query)` | Execute query, parse response as `SATCATRecord` list |
+| `fileshare_upload(folder_id, file_name, file_data)` | Upload a file to the file share |
+| `fileshare_download(file_id)` | Download a file from the file share |
+| `fileshare_download_folder(folder_id)` | Download all files in a folder (zip archive) |
+| `fileshare_list_files()` | List files in the file share |
+| `fileshare_list_folders()` | List folders in the file share |
+| `fileshare_delete(file_id)` | Delete a file from the file share |
+| `spephemeris_download(file_id)` | Download an SP ephemeris file |
+| `spephemeris_list_files()` | List available SP ephemeris files |
+| `spephemeris_file_history()` | List SP ephemeris file history |
+| `publicfiles_download(file_name)` | Download a public file (no auth required) |
+| `publicfiles_list_dirs()` | List public file directories (no auth required) |
 
 Authentication is lazy by default -- the client authenticates on the first query if `authenticate()` has not been called explicitly.
 
@@ -58,6 +69,12 @@ Authentication is lazy by default -- the client authenticates on the first query
 - **`GPRecord`** -- General Perturbations data record with 40 fields including orbital elements (`mean_motion`, `eccentricity`, `inclination`, `ra_of_asc_node`, `arg_of_pericenter`, `mean_anomaly`), object metadata (`object_name`, `norad_cat_id`, `object_type`), and TLE lines (`tle_line0`, `tle_line1`, `tle_line2`). All fields are `Optional[str]` / `Option<String>`.
 
 - **`SATCATRecord`** -- Satellite Catalog record with 24 fields including object identification (`norad_cat_id`, `satname`, `intldes`), launch information (`launch`, `site`, `launch_year`), and orbital characteristics (`period`, `inclination`, `apogee`, `perigee`). All fields are `Optional[str]` / `Option<String>`.
+
+- **`FileShareFileRecord`** -- File share file metadata with 7 fields: `file_id`, `file_name`, `file_link`, `file_size`, `file_conttype`, `folder_id`, and `created`. All fields are `Optional[str]` / `Option<String>`.
+
+- **`FolderRecord`** -- File share folder metadata with 4 fields: `folder_id`, `folder_name`, `parent_folder_id`, and `created`. All fields are `Optional[str]` / `Option<String>`.
+
+- **`SpEphemerisFileRecord`** -- SP ephemeris file metadata with 8 fields: `file_id`, `norad_cat_id`, `file_name`, `file_link`, `file_size`, `created`, `epoch_start`, and `epoch_stop`. All fields are `Optional[str]` / `Option<String>`.
 
 ### Operator Functions
 
@@ -82,6 +99,7 @@ Operators compose naturally. For example, `greater_than(now_offset(-7))` produce
 
 - [Query Builder](query_builder.md) -- Building queries with filters, ordering, and output formats
 - [Client](client.md) -- Authentication, query execution, and response handling
+- [File Operations](file_operations.md) -- FileShare, SP Ephemeris, and Public Files
 
 ---
 

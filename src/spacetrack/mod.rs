@@ -43,5 +43,7 @@ pub mod types;
 // Re-export commonly used types for convenience
 pub use client::SpaceTrackClient;
 pub use query::SpaceTrackQuery;
-pub use responses::{GPRecord, SATCATRecord};
+pub use responses::{
+    FileShareFileRecord, FolderRecord, GPRecord, SATCATRecord, SpEphemerisFileRecord,
+};
 pub use types::{OutputFormat, RequestClass, RequestController, SortOrder};

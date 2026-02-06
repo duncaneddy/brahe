@@ -9,7 +9,9 @@
 use std::sync::Mutex;
 
 use crate::spacetrack::query::SpaceTrackQuery;
-use crate::spacetrack::responses::{GPRecord, SATCATRecord};
+use crate::spacetrack::responses::{
+    FileShareFileRecord, FolderRecord, GPRecord, SATCATRecord, SpEphemerisFileRecord,
+};
 use crate::utils::BraheError;
 
 /// Default base URL for the Space-Track.org API.
@@ -154,23 +156,8 @@ impl SpaceTrackClient {
     /// * `Ok(String)` - Raw response body
     /// * `Err(BraheError)` - On network, auth, or HTTP errors
     pub fn query_raw(&self, query: &SpaceTrackQuery) -> Result<String, BraheError> {
-        self.ensure_authenticated()?;
-
         let url = format!("{}{}", self.base_url, query.build());
-
-        match self.execute_get(&url) {
-            Ok(body) => Ok(body),
-            Err(e) => {
-                // If we get an auth-related error, try re-authenticating once
-                let err_str = e.to_string();
-                if err_str.contains("401") || err_str.contains("Unauthorized") {
-                    self.authenticate()?;
-                    self.execute_get(&url)
-                } else {
-                    Err(e)
-                }
-            }
-        }
+        self.authenticated_get_string(&url)
     }
 
     /// Execute a query and return the response as parsed JSON values.
@@ -282,6 +269,279 @@ impl SpaceTrackClient {
         })
     }
 
+    // ========================================
+    // FileShare operations
+    // ========================================
+
+    /// Upload a file to the Space-Track file share.
+    ///
+    /// # Arguments
+    ///
+    /// * `folder_id` - Target folder identifier
+    /// * `file_name` - Name for the uploaded file
+    /// * `file_data` - File content as bytes
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - Server response (typically JSON confirmation)
+    /// * `Err(BraheError)` - On network, auth, or upload errors
+    pub fn fileshare_upload(
+        &self,
+        folder_id: &str,
+        file_name: &str,
+        file_data: &[u8],
+    ) -> Result<String, BraheError> {
+        let url = format!("{}/fileshare/upload/folder_id/{}", self.base_url, folder_id);
+        self.authenticated_post_multipart(&url, file_name, file_data)
+    }
+
+    /// Download a file from the Space-Track file share.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_id` - File identifier to download
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<u8>)` - File content as bytes
+    /// * `Err(BraheError)` - On network, auth, or download errors
+    pub fn fileshare_download(&self, file_id: &str) -> Result<Vec<u8>, BraheError> {
+        let url = format!("{}/fileshare/download/file_id/{}", self.base_url, file_id);
+        self.authenticated_get_binary(&url)
+    }
+
+    /// Download all files in a folder from the Space-Track file share.
+    ///
+    /// # Arguments
+    ///
+    /// * `folder_id` - Folder identifier to download
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<u8>)` - Folder content as bytes (typically a zip archive)
+    /// * `Err(BraheError)` - On network, auth, or download errors
+    pub fn fileshare_download_folder(&self, folder_id: &str) -> Result<Vec<u8>, BraheError> {
+        let url = format!(
+            "{}/fileshare/download/folder_id/{}",
+            self.base_url, folder_id
+        );
+        self.authenticated_get_binary(&url)
+    }
+
+    /// List files in the Space-Track file share.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<FileShareFileRecord>)` - File metadata records
+    /// * `Err(BraheError)` - On network, auth, or parse errors
+    pub fn fileshare_list_files(&self) -> Result<Vec<FileShareFileRecord>, BraheError> {
+        let url = format!("{}/fileshare/query/class/file", self.base_url);
+        let body = self.authenticated_get_string(&url)?;
+        serde_json::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!(
+                "Failed to parse SpaceTrack fileshare file listing: {}",
+                e
+            ))
+        })
+    }
+
+    /// List folders in the Space-Track file share.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<FolderRecord>)` - Folder metadata records
+    /// * `Err(BraheError)` - On network, auth, or parse errors
+    pub fn fileshare_list_folders(&self) -> Result<Vec<FolderRecord>, BraheError> {
+        let url = format!("{}/fileshare/query/class/folder", self.base_url);
+        let body = self.authenticated_get_string(&url)?;
+        serde_json::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!(
+                "Failed to parse SpaceTrack fileshare folder listing: {}",
+                e
+            ))
+        })
+    }
+
+    /// Delete a file from the Space-Track file share.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_id` - File identifier to delete
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - Server response
+    /// * `Err(BraheError)` - On network, auth, or deletion errors
+    pub fn fileshare_delete(&self, file_id: &str) -> Result<String, BraheError> {
+        let url = format!(
+            "{}/fileshare/query/class/delete/file_id/{}",
+            self.base_url, file_id
+        );
+        self.authenticated_get_string(&url)
+    }
+
+    // ========================================
+    // SP Ephemeris operations
+    // ========================================
+
+    /// Download an SP ephemeris file from Space-Track.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_id` - SP ephemeris file identifier
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<u8>)` - Ephemeris file content as bytes
+    /// * `Err(BraheError)` - On network, auth, or download errors
+    pub fn spephemeris_download(&self, file_id: &str) -> Result<Vec<u8>, BraheError> {
+        let url = format!("{}/spephemeris/download/file_id/{}", self.base_url, file_id);
+        self.authenticated_get_binary(&url)
+    }
+
+    /// List available SP ephemeris files.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<SpEphemerisFileRecord>)` - Ephemeris file metadata records
+    /// * `Err(BraheError)` - On network, auth, or parse errors
+    pub fn spephemeris_list_files(&self) -> Result<Vec<SpEphemerisFileRecord>, BraheError> {
+        let url = format!("{}/spephemeris/query/class/file", self.base_url);
+        let body = self.authenticated_get_string(&url)?;
+        serde_json::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!(
+                "Failed to parse SpaceTrack SP ephemeris file listing: {}",
+                e
+            ))
+        })
+    }
+
+    /// List SP ephemeris file history.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<serde_json::Value>)` - File history records as generic JSON
+    /// * `Err(BraheError)` - On network, auth, or parse errors
+    pub fn spephemeris_file_history(&self) -> Result<Vec<serde_json::Value>, BraheError> {
+        let url = format!("{}/spephemeris/query/class/file_history", self.base_url);
+        let body = self.authenticated_get_string(&url)?;
+        serde_json::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!(
+                "Failed to parse SpaceTrack SP ephemeris file history: {}",
+                e
+            ))
+        })
+    }
+
+    // ========================================
+    // Public Files operations (no auth required)
+    // ========================================
+
+    /// Download a public file from Space-Track.
+    ///
+    /// This operation does not require authentication.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_name` - Name of the public file to download
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<u8>)` - File content as bytes
+    /// * `Err(BraheError)` - On network or download errors
+    pub fn publicfiles_download(&self, file_name: &str) -> Result<Vec<u8>, BraheError> {
+        let url = format!(
+            "{}/publicfiles/query/class/download?name={}",
+            self.base_url,
+            urlencoded(file_name)
+        );
+        self.execute_get_binary(&url)
+    }
+
+    /// List public file directories on Space-Track.
+    ///
+    /// This operation does not require authentication.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<serde_json::Value>)` - Directory listing as generic JSON
+    /// * `Err(BraheError)` - On network or parse errors
+    pub fn publicfiles_list_dirs(&self) -> Result<Vec<serde_json::Value>, BraheError> {
+        let url = format!("{}/publicfiles/query/class/dirs", self.base_url);
+        let body = self.execute_get(&url)?;
+        serde_json::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!(
+                "Failed to parse SpaceTrack public files directory listing: {}",
+                e
+            ))
+        })
+    }
+
+    /// Execute an authenticated GET request returning a string response.
+    ///
+    /// Auto-authenticates on first call and re-authenticates on 401.
+    fn authenticated_get_string(&self, url: &str) -> Result<String, BraheError> {
+        self.ensure_authenticated()?;
+
+        match self.execute_get(url) {
+            Ok(body) => Ok(body),
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("401") || err_str.contains("Unauthorized") {
+                    self.authenticate()?;
+                    self.execute_get(url)
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    /// Execute an authenticated GET request returning a binary response.
+    ///
+    /// Auto-authenticates on first call and re-authenticates on 401.
+    fn authenticated_get_binary(&self, url: &str) -> Result<Vec<u8>, BraheError> {
+        self.ensure_authenticated()?;
+
+        match self.execute_get_binary(url) {
+            Ok(body) => Ok(body),
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("401") || err_str.contains("Unauthorized") {
+                    self.authenticate()?;
+                    self.execute_get_binary(url)
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    /// Execute an authenticated POST request with multipart form data returning a string response.
+    ///
+    /// Auto-authenticates on first call and re-authenticates on 401.
+    fn authenticated_post_multipart(
+        &self,
+        url: &str,
+        file_name: &str,
+        file_data: &[u8],
+    ) -> Result<String, BraheError> {
+        self.ensure_authenticated()?;
+
+        match self.execute_post_multipart(url, file_name, file_data) {
+            Ok(body) => Ok(body),
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("401") || err_str.contains("Unauthorized") {
+                    self.authenticate()?;
+                    self.execute_post_multipart(url, file_name, file_data)
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
     /// Ensure the client is authenticated, authenticating if necessary.
     fn ensure_authenticated(&self) -> Result<(), BraheError> {
         let auth = self.authenticated.lock().map_err(|e| {
@@ -296,7 +556,7 @@ impl SpaceTrackClient {
         Ok(())
     }
 
-    /// Execute an HTTP GET request and return the response body.
+    /// Execute an HTTP GET request and return the response body as a string.
     fn execute_get(&self, url: &str) -> Result<String, BraheError> {
         let agent = self.agent.lock().map_err(|e| {
             BraheError::Error(format!("Failed to acquire lock on HTTP agent: {}", e))
@@ -311,6 +571,47 @@ impl SpaceTrackClient {
             .body_mut()
             .read_to_string()
             .map_err(|e| BraheError::IoError(format!("Failed to read SpaceTrack response: {}", e)))
+    }
+
+    /// Execute an HTTP GET request and return the response body as bytes.
+    fn execute_get_binary(&self, url: &str) -> Result<Vec<u8>, BraheError> {
+        let agent = self.agent.lock().map_err(|e| {
+            BraheError::Error(format!("Failed to acquire lock on HTTP agent: {}", e))
+        })?;
+
+        let mut response = agent
+            .get(url)
+            .call()
+            .map_err(|e| BraheError::IoError(format!("SpaceTrack request failed: {}", e)))?;
+
+        response.body_mut().read_to_vec().map_err(|e| {
+            BraheError::IoError(format!("Failed to read SpaceTrack binary response: {}", e))
+        })
+    }
+
+    /// Execute an HTTP POST request with multipart form data.
+    fn execute_post_multipart(
+        &self,
+        url: &str,
+        file_name: &str,
+        file_data: &[u8],
+    ) -> Result<String, BraheError> {
+        use ureq::unversioned::multipart::{Form, Part};
+
+        let agent = self.agent.lock().map_err(|e| {
+            BraheError::Error(format!("Failed to acquire lock on HTTP agent: {}", e))
+        })?;
+
+        let form = Form::new().part("file", Part::bytes(file_data).file_name(file_name));
+
+        let mut response = agent
+            .post(url)
+            .send(form)
+            .map_err(|e| BraheError::IoError(format!("SpaceTrack upload request failed: {}", e)))?;
+
+        response.body_mut().read_to_string().map_err(|e| {
+            BraheError::IoError(format!("Failed to read SpaceTrack upload response: {}", e))
+        })
     }
 }
 
@@ -886,6 +1187,345 @@ mod tests {
 
         let records = client.query_gp(&query).expect("Operator query failed");
         assert!(!records.is_empty(), "Expected at least one record");
+    }
+
+    // -- FileShare tests --
+
+    #[test]
+    fn test_fileshare_upload() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        let upload_mock = server.mock(|when, then| {
+            when.method(POST)
+                .path_includes("/fileshare/upload/folder_id/100");
+            then.status(200).body(r#"{"status":"ok"}"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.fileshare_upload("100", "test.txt", b"hello world");
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("ok"));
+        upload_mock.assert();
+    }
+
+    #[test]
+    fn test_fileshare_download() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        let file_data: Vec<u8> = vec![1, 2, 3, 4, 5];
+        server.mock(|when, then| {
+            when.method(GET).path("/fileshare/download/file_id/12345");
+            then.status(200).body(&file_data);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.fileshare_download("12345");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), file_data);
+    }
+
+    #[test]
+    fn test_fileshare_download_folder() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        let zip_data: Vec<u8> = vec![0x50, 0x4B, 0x03, 0x04]; // ZIP magic bytes
+        server.mock(|when, then| {
+            when.method(GET).path("/fileshare/download/folder_id/100");
+            then.status(200).body(&zip_data);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.fileshare_download_folder("100");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), zip_data);
+    }
+
+    #[test]
+    fn test_fileshare_list_files() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET).path("/fileshare/query/class/file");
+            then.status(200)
+                .body(r#"[{"FILE_ID":"12345","FILE_NAME":"data.txt","FOLDER_ID":"100"}]"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.fileshare_list_files();
+        assert!(result.is_ok());
+        let files = result.unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].file_id.as_deref(), Some("12345"));
+        assert_eq!(files[0].file_name.as_deref(), Some("data.txt"));
+    }
+
+    #[test]
+    fn test_fileshare_list_folders() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET).path("/fileshare/query/class/folder");
+            then.status(200)
+                .body(r#"[{"FOLDER_ID":"100","FOLDER_NAME":"my_data"}]"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.fileshare_list_folders();
+        assert!(result.is_ok());
+        let folders = result.unwrap();
+        assert_eq!(folders.len(), 1);
+        assert_eq!(folders[0].folder_id.as_deref(), Some("100"));
+        assert_eq!(folders[0].folder_name.as_deref(), Some("my_data"));
+    }
+
+    #[test]
+    fn test_fileshare_delete() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/fileshare/query/class/delete/file_id/12345");
+            then.status(200).body(r#"{"status":"deleted"}"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.fileshare_delete("12345");
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("deleted"));
+    }
+
+    // -- SP Ephemeris tests --
+
+    #[test]
+    fn test_spephemeris_download() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        let ephem_data: Vec<u8> = vec![0xDE, 0xAD, 0xBE, 0xEF];
+        server.mock(|when, then| {
+            when.method(GET).path("/spephemeris/download/file_id/99999");
+            then.status(200).body(&ephem_data);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.spephemeris_download("99999");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), ephem_data);
+    }
+
+    #[test]
+    fn test_spephemeris_list_files() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET).path("/spephemeris/query/class/file");
+            then.status(200)
+                .body(r#"[{"FILE_ID":"99999","NORAD_CAT_ID":"25544","FILE_NAME":"iss.e"}]"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.spephemeris_list_files();
+        assert!(result.is_ok());
+        let files = result.unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].file_id.as_deref(), Some("99999"));
+        assert_eq!(files[0].norad_cat_id.as_deref(), Some("25544"));
+    }
+
+    #[test]
+    fn test_spephemeris_file_history() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/spephemeris/query/class/file_history");
+            then.status(200)
+                .body(r#"[{"FILE_ID":"99999","VERSION":"2"}]"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.spephemeris_file_history();
+        assert!(result.is_ok());
+        let history = result.unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0]["FILE_ID"], "99999");
+    }
+
+    // -- Public Files tests --
+
+    #[test]
+    fn test_publicfiles_download() {
+        let server = MockServer::start();
+
+        // No auth mock - publicfiles should NOT require authentication
+        let file_data: Vec<u8> = vec![0xCA, 0xFE];
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/publicfiles/query/class/download")
+                .query_param("name", "catalog.txt");
+            then.status(200).body(&file_data);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.publicfiles_download("catalog.txt");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), file_data);
+    }
+
+    #[test]
+    fn test_publicfiles_list_dirs() {
+        let server = MockServer::start();
+
+        // No auth mock - publicfiles should NOT require authentication
+        server.mock(|when, then| {
+            when.method(GET).path("/publicfiles/query/class/dirs");
+            then.status(200)
+                .body(r#"[{"dir":"data"},{"dir":"reports"}]"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.publicfiles_list_dirs();
+        assert!(result.is_ok());
+        let dirs = result.unwrap();
+        assert_eq!(dirs.len(), 2);
+        assert_eq!(dirs[0]["dir"], "data");
+    }
+
+    #[test]
+    fn test_publicfiles_download_url_encoding() {
+        let server = MockServer::start();
+
+        let file_data: Vec<u8> = vec![0x01];
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/publicfiles/query/class/download")
+                .query_param("name", "my file.txt");
+            then.status(200).body(&file_data);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.publicfiles_download("my file.txt");
+        assert!(result.is_ok());
+    }
+
+    // -- Binary GET infrastructure tests --
+
+    #[test]
+    fn test_execute_get_binary() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        let binary_data: Vec<u8> = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        server.mock(|when, then| {
+            when.method(GET).path("/test/binary");
+            then.status(200).body(&binary_data);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let url = format!("{}/test/binary", server.base_url());
+        let result = client.authenticated_get_binary(&url);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), binary_data);
+    }
+
+    #[test]
+    fn test_authenticated_get_binary_reauth_on_401() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        // Always returns 401 to test reauth retry
+        let binary_mock = server.mock(|when, then| {
+            when.method(GET).path("/test/binary");
+            then.status(401).body("Unauthorized");
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let url = format!("{}/test/binary", server.base_url());
+        let result = client.authenticated_get_binary(&url);
+        assert!(result.is_err());
+
+        // Should be called twice: initial + retry after reauth
+        binary_mock.assert_calls(2);
     }
 
     #[test]

@@ -216,5 +216,6 @@ Common error scenarios:
 
 - [Space-Track API Overview](index.md) -- Module architecture and type catalog
 - [Query Builder](query_builder.md) -- Building queries with filters and operators
+- [File Operations](file_operations.md) -- FileShare, SP Ephemeris, and Public Files
 - [SpaceTrackClient Reference](../../library_api/spacetrack/client.md) -- Complete method documentation
-- [Response Types Reference](../../library_api/spacetrack/responses.md) -- GPRecord and SATCATRecord fields
+- [Response Types Reference](../../library_api/spacetrack/responses.md) -- All response type field definitions

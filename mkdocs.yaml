@@ -251,6 +251,7 @@ nav:
                 - learn/spacetrack/index.md
                 - Query Builder: learn/spacetrack/query_builder.md
                 - Client: learn/spacetrack/client.md
+                - File Operations: learn/spacetrack/file_operations.md
             - Utilities:
                 - learn/utilities/index.md
                 - Caching: learn/utilities/caching.md

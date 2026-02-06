@@ -11,4 +11,5 @@
 
 - [Client Guide](../../learn/spacetrack/client.md) -- Authentication and query execution patterns
 - [SpaceTrackQuery](query.md) -- Building queries to pass to the client
-- [Response Types](responses.md) -- GPRecord and SATCATRecord returned by typed queries
+- [Response Types](responses.md) -- GPRecord, SATCATRecord, FileShareFileRecord, FolderRecord, and SpEphemerisFileRecord
+- [File Operations Guide](../../learn/spacetrack/file_operations.md) -- FileShare, SP Ephemeris, and Public Files

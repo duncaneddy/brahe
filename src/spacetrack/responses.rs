@@ -256,6 +256,130 @@ pub struct SATCATRecord {
     pub object_number: Option<String>,
 }
 
+/// FileShare file record from the fileshare/file request class.
+///
+/// Contains metadata about a file in a user's Space-Track file share.
+/// All fields are optional strings since Space-Track may omit fields
+/// or return null values.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::spacetrack::FileShareFileRecord;
+///
+/// let json = r#"[{
+///     "FILE_ID": "12345",
+///     "FILE_NAME": "data.txt",
+///     "FILE_LINK": "/fileshare/download/file_id/12345",
+///     "FOLDER_ID": "100"
+/// }]"#;
+///
+/// let records: Vec<FileShareFileRecord> = serde_json::from_str(json).unwrap();
+/// assert_eq!(records[0].file_id.as_deref(), Some("12345"));
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileShareFileRecord {
+    /// File identifier
+    #[serde(rename = "FILE_ID", default)]
+    pub file_id: Option<String>,
+    /// File name
+    #[serde(rename = "FILE_NAME", default)]
+    pub file_name: Option<String>,
+    /// File download link
+    #[serde(rename = "FILE_LINK", default)]
+    pub file_link: Option<String>,
+    /// File size in bytes
+    #[serde(rename = "FILE_SIZE", default)]
+    pub file_size: Option<String>,
+    /// File content type
+    #[serde(rename = "FILE_CONTTYPE", default)]
+    pub file_conttype: Option<String>,
+    /// Folder identifier
+    #[serde(rename = "FOLDER_ID", default)]
+    pub folder_id: Option<String>,
+    /// Creation date
+    #[serde(rename = "CREATED", default)]
+    pub created: Option<String>,
+}
+
+/// FileShare folder record from the fileshare/folder request class.
+///
+/// Contains metadata about a folder in a user's Space-Track file share.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::spacetrack::FolderRecord;
+///
+/// let json = r#"[{
+///     "FOLDER_ID": "100",
+///     "FOLDER_NAME": "my_data"
+/// }]"#;
+///
+/// let records: Vec<FolderRecord> = serde_json::from_str(json).unwrap();
+/// assert_eq!(records[0].folder_id.as_deref(), Some("100"));
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FolderRecord {
+    /// Folder identifier
+    #[serde(rename = "FOLDER_ID", default)]
+    pub folder_id: Option<String>,
+    /// Folder name
+    #[serde(rename = "FOLDER_NAME", default)]
+    pub folder_name: Option<String>,
+    /// Parent folder identifier
+    #[serde(rename = "PARENT_FOLDER_ID", default)]
+    pub parent_folder_id: Option<String>,
+    /// Creation date
+    #[serde(rename = "CREATED", default)]
+    pub created: Option<String>,
+}
+
+/// SP Ephemeris file record from the spephemeris/file request class.
+///
+/// Contains metadata about an SP ephemeris file on Space-Track.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::spacetrack::SpEphemerisFileRecord;
+///
+/// let json = r#"[{
+///     "FILE_ID": "99999",
+///     "NORAD_CAT_ID": "25544"
+/// }]"#;
+///
+/// let records: Vec<SpEphemerisFileRecord> = serde_json::from_str(json).unwrap();
+/// assert_eq!(records[0].file_id.as_deref(), Some("99999"));
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpEphemerisFileRecord {
+    /// File identifier
+    #[serde(rename = "FILE_ID", default)]
+    pub file_id: Option<String>,
+    /// NORAD catalog identifier
+    #[serde(rename = "NORAD_CAT_ID", default)]
+    pub norad_cat_id: Option<String>,
+    /// File name
+    #[serde(rename = "FILE_NAME", default)]
+    pub file_name: Option<String>,
+    /// File download link
+    #[serde(rename = "FILE_LINK", default)]
+    pub file_link: Option<String>,
+    /// File size in bytes
+    #[serde(rename = "FILE_SIZE", default)]
+    pub file_size: Option<String>,
+    /// Creation date
+    #[serde(rename = "CREATED", default)]
+    pub created: Option<String>,
+    /// Epoch start
+    #[serde(rename = "EPOCH_START", default)]
+    pub epoch_start: Option<String>,
+    /// Epoch stop
+    #[serde(rename = "EPOCH_STOP", default)]
+    pub epoch_stop: Option<String>,
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -426,5 +550,101 @@ mod tests {
         let serialized = serde_json::to_string(&records[0]).unwrap();
         assert!(serialized.contains("OBJECT_NAME"));
         assert!(serialized.contains("ISS"));
+    }
+
+    // -- FileShareFileRecord tests --
+
+    #[test]
+    fn test_fileshare_file_record_deserialize() {
+        let json = r#"[{
+            "FILE_ID": "12345",
+            "FILE_NAME": "data.txt",
+            "FILE_LINK": "/fileshare/download/file_id/12345",
+            "FILE_SIZE": "1024",
+            "FILE_CONTTYPE": "text/plain",
+            "FOLDER_ID": "100",
+            "CREATED": "2024-01-15"
+        }]"#;
+
+        let records: Vec<FileShareFileRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].file_id.as_deref(), Some("12345"));
+        assert_eq!(records[0].file_name.as_deref(), Some("data.txt"));
+        assert_eq!(records[0].folder_id.as_deref(), Some("100"));
+    }
+
+    #[test]
+    fn test_fileshare_file_record_minimal() {
+        let json = r#"[{"FILE_ID": "12345"}]"#;
+        let records: Vec<FileShareFileRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records[0].file_id.as_deref(), Some("12345"));
+        assert!(records[0].file_name.is_none());
+    }
+
+    #[test]
+    fn test_fileshare_file_record_unknown_fields() {
+        let json = r#"[{"FILE_ID": "12345", "UNKNOWN": "value"}]"#;
+        let records: Vec<FileShareFileRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records[0].file_id.as_deref(), Some("12345"));
+    }
+
+    // -- FolderRecord tests --
+
+    #[test]
+    fn test_folder_record_deserialize() {
+        let json = r#"[{
+            "FOLDER_ID": "100",
+            "FOLDER_NAME": "my_data",
+            "PARENT_FOLDER_ID": "50",
+            "CREATED": "2024-01-15"
+        }]"#;
+
+        let records: Vec<FolderRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].folder_id.as_deref(), Some("100"));
+        assert_eq!(records[0].folder_name.as_deref(), Some("my_data"));
+        assert_eq!(records[0].parent_folder_id.as_deref(), Some("50"));
+    }
+
+    #[test]
+    fn test_folder_record_minimal() {
+        let json = r#"[{"FOLDER_ID": "100"}]"#;
+        let records: Vec<FolderRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records[0].folder_id.as_deref(), Some("100"));
+        assert!(records[0].folder_name.is_none());
+    }
+
+    // -- SpEphemerisFileRecord tests --
+
+    #[test]
+    fn test_spephemeris_file_record_deserialize() {
+        let json = r#"[{
+            "FILE_ID": "99999",
+            "NORAD_CAT_ID": "25544",
+            "FILE_NAME": "iss_sp.e",
+            "FILE_LINK": "/spephemeris/download/99999",
+            "FILE_SIZE": "2048",
+            "CREATED": "2024-01-15",
+            "EPOCH_START": "2024-01-14T00:00:00",
+            "EPOCH_STOP": "2024-01-15T00:00:00"
+        }]"#;
+
+        let records: Vec<SpEphemerisFileRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].file_id.as_deref(), Some("99999"));
+        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(records[0].file_name.as_deref(), Some("iss_sp.e"));
+        assert_eq!(
+            records[0].epoch_start.as_deref(),
+            Some("2024-01-14T00:00:00")
+        );
+    }
+
+    #[test]
+    fn test_spephemeris_file_record_minimal() {
+        let json = r#"[{"FILE_ID": "99999"}]"#;
+        let records: Vec<SpEphemerisFileRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records[0].file_id.as_deref(), Some("99999"));
+        assert!(records[0].norad_cat_id.is_none());
     }
 }

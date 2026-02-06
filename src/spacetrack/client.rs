@@ -1,0 +1,898 @@
+/*!
+ * SpaceTrack HTTP client with authentication and query execution.
+ *
+ * Handles session management via cookie-based authentication against
+ * the Space-Track.org API. Supports automatic authentication on first
+ * query and re-authentication on session expiry (401 responses).
+ */
+
+use std::sync::Mutex;
+
+use crate::spacetrack::query::SpaceTrackQuery;
+use crate::spacetrack::responses::{GpRecord, SatcatRecord};
+use crate::utils::BraheError;
+
+/// Default base URL for the Space-Track.org API.
+const DEFAULT_BASE_URL: &str = "https://www.space-track.org";
+
+/// SpaceTrack API client with session-based authentication.
+///
+/// The client lazily authenticates on the first query and re-authenticates
+/// automatically if the session expires (HTTP 401 response).
+///
+/// # Examples
+///
+/// ```no_run
+/// use brahe::spacetrack::*;
+///
+/// let client = SpaceTrackClient::new("user@example.com", "password");
+///
+/// let query = SpaceTrackQuery::new(RequestClass::GP)
+///     .filter("NORAD_CAT_ID", "25544")
+///     .order_by("EPOCH", SortOrder::Desc)
+///     .limit(1);
+///
+/// let json = client.query_json(&query).unwrap();
+/// println!("Records: {}", json.len());
+/// ```
+pub struct SpaceTrackClient {
+    identity: String,
+    password: String,
+    base_url: String,
+    agent: Mutex<ureq::Agent>,
+    authenticated: Mutex<bool>,
+}
+
+impl SpaceTrackClient {
+    /// Create a new SpaceTrack client.
+    ///
+    /// Authentication is deferred until the first query is made.
+    ///
+    /// # Arguments
+    ///
+    /// * `identity` - Space-Track.org login email
+    /// * `password` - Space-Track.org password
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::spacetrack::SpaceTrackClient;
+    ///
+    /// let client = SpaceTrackClient::new("user@example.com", "password");
+    /// ```
+    pub fn new(identity: &str, password: &str) -> Self {
+        SpaceTrackClient {
+            identity: identity.to_string(),
+            password: password.to_string(),
+            base_url: DEFAULT_BASE_URL.to_string(),
+            agent: Mutex::new(ureq::Agent::new_with_defaults()),
+            authenticated: Mutex::new(false),
+        }
+    }
+
+    /// Create a new SpaceTrack client with a custom base URL.
+    ///
+    /// Useful for testing against a mock server or the Space-Track test server.
+    ///
+    /// # Arguments
+    ///
+    /// * `identity` - Space-Track.org login email
+    /// * `password` - Space-Track.org password
+    /// * `base_url` - Custom base URL (e.g., `"https://for-testing-only.space-track.org"`)
+    pub fn with_base_url(identity: &str, password: &str, base_url: &str) -> Self {
+        SpaceTrackClient {
+            identity: identity.to_string(),
+            password: password.to_string(),
+            base_url: base_url.trim_end_matches('/').to_string(),
+            agent: Mutex::new(ureq::Agent::new_with_defaults()),
+            authenticated: Mutex::new(false),
+        }
+    }
+
+    /// Explicitly authenticate with Space-Track.org.
+    ///
+    /// This is called automatically on the first query, but can be called
+    /// explicitly to verify credentials early.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if authentication succeeds
+    /// * `Err(BraheError)` if authentication fails
+    pub fn authenticate(&self) -> Result<(), BraheError> {
+        let url = format!("{}/ajaxauth/login", self.base_url);
+
+        let form_data = format!(
+            "identity={}&password={}",
+            urlencoded(&self.identity),
+            urlencoded(&self.password)
+        );
+
+        let agent = self.agent.lock().map_err(|e| {
+            BraheError::Error(format!("Failed to acquire lock on HTTP agent: {}", e))
+        })?;
+
+        let mut response = agent
+            .post(&url)
+            .content_type("application/x-www-form-urlencoded")
+            .send(form_data.as_str())
+            .map_err(|e| {
+                BraheError::IoError(format!("SpaceTrack authentication request failed: {}", e))
+            })?;
+
+        let body = response.body_mut().read_to_string().map_err(|e| {
+            BraheError::IoError(format!(
+                "Failed to read SpaceTrack authentication response: {}",
+                e
+            ))
+        })?;
+
+        // Check for login failure - Space-Track returns JSON with Login field
+        if body.contains("\"Login\":\"Failed\"") || body.contains("\"Login\": \"Failed\"") {
+            return Err(BraheError::IoError(
+                "SpaceTrack authentication failed: invalid credentials".to_string(),
+            ));
+        }
+
+        let mut auth = self.authenticated.lock().map_err(|e| {
+            BraheError::Error(format!("Failed to acquire lock on auth state: {}", e))
+        })?;
+        *auth = true;
+
+        Ok(())
+    }
+
+    /// Execute a query and return the raw response body as a string.
+    ///
+    /// Auto-authenticates on first query and re-authenticates on 401.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query to execute
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - Raw response body
+    /// * `Err(BraheError)` - On network, auth, or HTTP errors
+    pub fn query_raw(&self, query: &SpaceTrackQuery) -> Result<String, BraheError> {
+        self.ensure_authenticated()?;
+
+        let url = format!("{}{}", self.base_url, query.build());
+
+        match self.execute_get(&url) {
+            Ok(body) => Ok(body),
+            Err(e) => {
+                // If we get an auth-related error, try re-authenticating once
+                let err_str = e.to_string();
+                if err_str.contains("401") || err_str.contains("Unauthorized") {
+                    self.authenticate()?;
+                    self.execute_get(&url)
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    /// Execute a query and return the response as parsed JSON values.
+    ///
+    /// The query format must be JSON (the default). Returns an error if
+    /// a non-JSON format is specified.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query to execute
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<serde_json::Value>)` - Parsed JSON array
+    /// * `Err(BraheError)` - On network, auth, parse, or format errors
+    pub fn query_json(
+        &self,
+        query: &SpaceTrackQuery,
+    ) -> Result<Vec<serde_json::Value>, BraheError> {
+        if !query.output_format().is_json() {
+            return Err(BraheError::Error(
+                "query_json requires JSON output format".to_string(),
+            ));
+        }
+
+        let body = self.query_raw(query)?;
+        serde_json::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!("Failed to parse SpaceTrack JSON response: {}", e))
+        })
+    }
+
+    /// Execute a GP query and return typed GP records.
+    ///
+    /// The query must use JSON format (the default) and should query the
+    /// GP or GP_HISTORY request class for meaningful results.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query to execute
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<GpRecord>)` - Typed GP records
+    /// * `Err(BraheError)` - On network, auth, parse, or format errors
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::spacetrack::*;
+    ///
+    /// let client = SpaceTrackClient::new("user@example.com", "password");
+    /// let query = SpaceTrackQuery::new(RequestClass::GP)
+    ///     .filter("NORAD_CAT_ID", "25544")
+    ///     .limit(1);
+    ///
+    /// let records = client.query_gp(&query).unwrap();
+    /// println!("Object: {:?}", records[0].object_name);
+    /// ```
+    pub fn query_gp(&self, query: &SpaceTrackQuery) -> Result<Vec<GpRecord>, BraheError> {
+        if !query.output_format().is_json() {
+            return Err(BraheError::Error(
+                "query_gp requires JSON output format".to_string(),
+            ));
+        }
+
+        let body = self.query_raw(query)?;
+        serde_json::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!("Failed to parse SpaceTrack GP response: {}", e))
+        })
+    }
+
+    /// Execute a SATCAT query and return typed SATCAT records.
+    ///
+    /// The query must use JSON format (the default) and should query the
+    /// SATCAT request class for meaningful results.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query to execute
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<SatcatRecord>)` - Typed SATCAT records
+    /// * `Err(BraheError)` - On network, auth, parse, or format errors
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::spacetrack::*;
+    ///
+    /// let client = SpaceTrackClient::new("user@example.com", "password");
+    /// let query = SpaceTrackQuery::new(RequestClass::SATCAT)
+    ///     .filter("NORAD_CAT_ID", "25544")
+    ///     .limit(1);
+    ///
+    /// let records = client.query_satcat(&query).unwrap();
+    /// println!("Name: {:?}", records[0].satname);
+    /// ```
+    pub fn query_satcat(&self, query: &SpaceTrackQuery) -> Result<Vec<SatcatRecord>, BraheError> {
+        if !query.output_format().is_json() {
+            return Err(BraheError::Error(
+                "query_satcat requires JSON output format".to_string(),
+            ));
+        }
+
+        let body = self.query_raw(query)?;
+        serde_json::from_str(&body).map_err(|e| {
+            BraheError::ParseError(format!("Failed to parse SpaceTrack SATCAT response: {}", e))
+        })
+    }
+
+    /// Ensure the client is authenticated, authenticating if necessary.
+    fn ensure_authenticated(&self) -> Result<(), BraheError> {
+        let auth = self.authenticated.lock().map_err(|e| {
+            BraheError::Error(format!("Failed to acquire lock on auth state: {}", e))
+        })?;
+
+        if !*auth {
+            drop(auth); // Release lock before authenticate() acquires it
+            self.authenticate()?;
+        }
+
+        Ok(())
+    }
+
+    /// Execute an HTTP GET request and return the response body.
+    fn execute_get(&self, url: &str) -> Result<String, BraheError> {
+        let agent = self.agent.lock().map_err(|e| {
+            BraheError::Error(format!("Failed to acquire lock on HTTP agent: {}", e))
+        })?;
+
+        let mut response = agent
+            .get(url)
+            .call()
+            .map_err(|e| BraheError::IoError(format!("SpaceTrack query request failed: {}", e)))?;
+
+        response
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| BraheError::IoError(format!("Failed to read SpaceTrack response: {}", e)))
+    }
+}
+
+/// Simple URL-encoding for form data fields.
+///
+/// Encodes special characters that need escaping in
+/// application/x-www-form-urlencoded content.
+fn urlencoded(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    for c in input.chars() {
+        match c {
+            ' ' => result.push_str("%20"),
+            '!' => result.push_str("%21"),
+            '#' => result.push_str("%23"),
+            '$' => result.push_str("%24"),
+            '%' => result.push_str("%25"),
+            '&' => result.push_str("%26"),
+            '\'' => result.push_str("%27"),
+            '(' => result.push_str("%28"),
+            ')' => result.push_str("%29"),
+            '*' => result.push_str("%2A"),
+            '+' => result.push_str("%2B"),
+            ',' => result.push_str("%2C"),
+            '/' => result.push_str("%2F"),
+            ':' => result.push_str("%3A"),
+            ';' => result.push_str("%3B"),
+            '=' => result.push_str("%3D"),
+            '?' => result.push_str("%3F"),
+            '@' => result.push_str("%40"),
+            '[' => result.push_str("%5B"),
+            ']' => result.push_str("%5D"),
+            _ => result.push(c),
+        }
+    }
+    result
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use super::*;
+    use crate::spacetrack::{OutputFormat, RequestClass, SortOrder};
+    use httpmock::prelude::*;
+
+    #[test]
+    fn test_client_creation() {
+        let client = SpaceTrackClient::new("user@example.com", "password123");
+        assert_eq!(client.identity, "user@example.com");
+        assert_eq!(client.password, "password123");
+        assert_eq!(client.base_url, DEFAULT_BASE_URL);
+    }
+
+    #[test]
+    fn test_client_with_base_url() {
+        let client = SpaceTrackClient::with_base_url(
+            "user@example.com",
+            "password123",
+            "https://test.space-track.org/",
+        );
+        assert_eq!(client.base_url, "https://test.space-track.org");
+    }
+
+    #[test]
+    fn test_client_with_base_url_no_trailing_slash() {
+        let client = SpaceTrackClient::with_base_url(
+            "user@example.com",
+            "password123",
+            "https://test.space-track.org",
+        );
+        assert_eq!(client.base_url, "https://test.space-track.org");
+    }
+
+    #[test]
+    fn test_urlencoded() {
+        assert_eq!(urlencoded("hello"), "hello");
+        assert_eq!(urlencoded("hello world"), "hello%20world");
+        assert_eq!(urlencoded("user@example.com"), "user%40example.com");
+        assert_eq!(urlencoded("pass&word"), "pass%26word");
+        assert_eq!(urlencoded("a=b"), "a%3Db");
+    }
+
+    #[test]
+    fn test_successful_authentication() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST)
+                .path("/ajaxauth/login")
+                .header("content-type", "application/x-www-form-urlencoded");
+            then.status(200).body("");
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let result = client.authenticate();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_failed_authentication() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body(
+                r#"{"Login":"Failed","help":"https://www.space-track.org/documentation#/api"}"#,
+            );
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("bad@example.com", "wrong", &server.base_url());
+
+        let result = client.authenticate();
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("invalid credentials")
+        );
+    }
+
+    #[test]
+    fn test_auto_auth_on_first_query() {
+        let server = MockServer::start();
+
+        let auth_mock = server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        let query_mock = server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/gp");
+            then.status(200)
+                .body(r#"[{"OBJECT_NAME":"ISS","NORAD_CAT_ID":"25544"}]"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .limit(1);
+
+        let result = client.query_json(&query);
+        assert!(result.is_ok());
+
+        auth_mock.assert();
+        query_mock.assert();
+    }
+
+    #[test]
+    fn test_reauth_on_401() {
+        let server = MockServer::start();
+
+        // Auth always succeeds
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        // Query always returns 401 - after first 401, client re-auths and retries
+        let query_mock = server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/gp");
+            then.status(401).body("Unauthorized");
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .limit(1);
+
+        // First attempt gets 401, triggers re-auth, second attempt also gets 401
+        let result = client.query_raw(&query);
+        assert!(result.is_err());
+
+        // The query endpoint should be called twice: initial + retry after reauth
+        query_mock.assert_calls(2);
+    }
+
+    #[test]
+    fn test_query_raw() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/gp");
+            then.status(200)
+                .body("1 25544U 98067A   24015.50000000\n2 25544  51.6400");
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .format(OutputFormat::TLE);
+
+        let result = client.query_raw(&query);
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("25544"));
+    }
+
+    #[test]
+    fn test_query_json() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/gp");
+            then.status(200)
+                .body(r#"[{"OBJECT_NAME":"ISS (ZARYA)","NORAD_CAT_ID":"25544"}]"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .limit(1);
+
+        let result = client.query_json(&query);
+        assert!(result.is_ok());
+        let records = result.unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["OBJECT_NAME"], "ISS (ZARYA)");
+    }
+
+    #[test]
+    fn test_query_json_rejects_non_json_format() {
+        let client = SpaceTrackClient::new("user@example.com", "password");
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .format(OutputFormat::TLE);
+
+        let result = client.query_json(&query);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("requires JSON output format")
+        );
+    }
+
+    #[test]
+    fn test_query_gp() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/gp");
+            then.status(200).body(
+                r#"[{
+                    "OBJECT_NAME": "ISS (ZARYA)",
+                    "NORAD_CAT_ID": "25544",
+                    "EPOCH": "2024-01-15T12:00:00.000",
+                    "MEAN_MOTION": "15.50000000",
+                    "ECCENTRICITY": "0.00010000",
+                    "INCLINATION": "51.6400"
+                }]"#,
+            );
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .limit(1);
+
+        let result = client.query_gp(&query);
+        assert!(result.is_ok());
+        let records = result.unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
+        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+    }
+
+    #[test]
+    fn test_query_gp_rejects_non_json_format() {
+        let client = SpaceTrackClient::new("user@example.com", "password");
+
+        let query = SpaceTrackQuery::new(RequestClass::GP).format(OutputFormat::TLE);
+
+        let result = client.query_gp(&query);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_query_satcat() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/satcat");
+            then.status(200).body(
+                r#"[{
+                    "SATNAME": "ISS (ZARYA)",
+                    "NORAD_CAT_ID": "25544",
+                    "OBJECT_TYPE": "PAY",
+                    "COUNTRY": "ISS"
+                }]"#,
+            );
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::SATCAT)
+            .filter("NORAD_CAT_ID", "25544")
+            .limit(1);
+
+        let result = client.query_satcat(&query);
+        assert!(result.is_ok());
+        let records = result.unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].satname.as_deref(), Some("ISS (ZARYA)"));
+    }
+
+    #[test]
+    fn test_query_satcat_rejects_non_json_format() {
+        let client = SpaceTrackClient::new("user@example.com", "password");
+
+        let query = SpaceTrackQuery::new(RequestClass::SATCAT).format(OutputFormat::CSV);
+
+        let result = client.query_satcat(&query);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_http_error_500() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/gp");
+            then.status(500).body("Internal Server Error");
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .limit(1);
+
+        let result = client.query_raw(&query);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_json_response() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/gp");
+            then.status(200).body("this is not json");
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::GP).limit(1);
+
+        let result = client.query_json(&query);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("parse"));
+    }
+
+    #[test]
+    fn test_query_json_rejects_all_non_json_formats() {
+        let client = SpaceTrackClient::new("user@example.com", "password");
+        let non_json_formats = vec![
+            OutputFormat::XML,
+            OutputFormat::HTML,
+            OutputFormat::CSV,
+            OutputFormat::TLE,
+            OutputFormat::ThreeLe,
+            OutputFormat::KVN,
+        ];
+
+        for fmt in non_json_formats {
+            let query = SpaceTrackQuery::new(RequestClass::GP).format(fmt);
+            let result = client.query_json(&query);
+            assert!(
+                result.is_err(),
+                "query_json should reject format {}",
+                fmt.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn test_query_gp_rejects_all_non_json_formats() {
+        let client = SpaceTrackClient::new("user@example.com", "password");
+        let non_json_formats = vec![
+            OutputFormat::XML,
+            OutputFormat::HTML,
+            OutputFormat::CSV,
+            OutputFormat::TLE,
+            OutputFormat::ThreeLe,
+            OutputFormat::KVN,
+        ];
+
+        for fmt in non_json_formats {
+            let query = SpaceTrackQuery::new(RequestClass::GP).format(fmt);
+            let result = client.query_gp(&query);
+            assert!(
+                result.is_err(),
+                "query_gp should reject format {}",
+                fmt.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn test_query_satcat_rejects_all_non_json_formats() {
+        let client = SpaceTrackClient::new("user@example.com", "password");
+        let non_json_formats = vec![
+            OutputFormat::XML,
+            OutputFormat::HTML,
+            OutputFormat::CSV,
+            OutputFormat::TLE,
+            OutputFormat::ThreeLe,
+            OutputFormat::KVN,
+        ];
+
+        for fmt in non_json_formats {
+            let query = SpaceTrackQuery::new(RequestClass::SATCAT).format(fmt);
+            let result = client.query_satcat(&query);
+            assert!(
+                result.is_err(),
+                "query_satcat should reject format {}",
+                fmt.as_str()
+            );
+        }
+    }
+
+    // Integration tests against the real SpaceTrack test server
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_integration_auth() {
+        let user = std::env::var("TEST_SPACETRACK_USER")
+            .expect("TEST_SPACETRACK_USER env var must be set");
+        let pass = std::env::var("TEST_SPACETRACK_PASS")
+            .expect("TEST_SPACETRACK_PASS env var must be set");
+
+        let client = SpaceTrackClient::new(&user, &pass);
+        let result = client.authenticate();
+        assert!(result.is_ok(), "Authentication failed: {:?}", result.err());
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_integration_gp_query() {
+        let user = std::env::var("TEST_SPACETRACK_USER")
+            .expect("TEST_SPACETRACK_USER env var must be set");
+        let pass = std::env::var("TEST_SPACETRACK_PASS")
+            .expect("TEST_SPACETRACK_PASS env var must be set");
+
+        let client = SpaceTrackClient::new(&user, &pass);
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .order_by("EPOCH", SortOrder::Desc)
+            .limit(1);
+
+        let records = client.query_gp(&query).expect("GP query failed");
+        assert!(!records.is_empty(), "Expected at least one GP record");
+        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_integration_satcat_query() {
+        let user = std::env::var("TEST_SPACETRACK_USER")
+            .expect("TEST_SPACETRACK_USER env var must be set");
+        let pass = std::env::var("TEST_SPACETRACK_PASS")
+            .expect("TEST_SPACETRACK_PASS env var must be set");
+
+        let client = SpaceTrackClient::new(&user, &pass);
+
+        let query = SpaceTrackQuery::new(RequestClass::SATCAT)
+            .filter("NORAD_CAT_ID", "25544")
+            .limit(1);
+
+        let records = client.query_satcat(&query).expect("SATCAT query failed");
+        assert!(!records.is_empty(), "Expected at least one SATCAT record");
+        assert_eq!(records[0].norad_cat_id.as_deref(), Some("25544"));
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_integration_tle_format() {
+        let user = std::env::var("TEST_SPACETRACK_USER")
+            .expect("TEST_SPACETRACK_USER env var must be set");
+        let pass = std::env::var("TEST_SPACETRACK_PASS")
+            .expect("TEST_SPACETRACK_PASS env var must be set");
+
+        let client = SpaceTrackClient::new(&user, &pass);
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .order_by("EPOCH", SortOrder::Desc)
+            .limit(1)
+            .format(OutputFormat::TLE);
+
+        let raw = client.query_raw(&query).expect("TLE query failed");
+        assert!(!raw.trim().is_empty(), "Expected TLE data");
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_integration_query_with_operators() {
+        use crate::spacetrack::operators;
+
+        let user = std::env::var("TEST_SPACETRACK_USER")
+            .expect("TEST_SPACETRACK_USER env var must be set");
+        let pass = std::env::var("TEST_SPACETRACK_PASS")
+            .expect("TEST_SPACETRACK_PASS env var must be set");
+
+        let client = SpaceTrackClient::new(&user, &pass);
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter(
+                "NORAD_CAT_ID",
+                &operators::inclusive_range("25544", "25550"),
+            )
+            .filter(
+                "EPOCH",
+                &operators::greater_than(operators::now_offset(-30)),
+            )
+            .order_by("NORAD_CAT_ID", SortOrder::Asc)
+            .limit(5);
+
+        let records = client.query_gp(&query).expect("Operator query failed");
+        assert!(!records.is_empty(), "Expected at least one record");
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_integration_invalid_credentials() {
+        let client = SpaceTrackClient::new("invalid@example.com", "wrongpassword");
+        let result = client.authenticate();
+        assert!(result.is_err());
+    }
+}

@@ -553,6 +553,7 @@ include!("relative_motion.rs");
 include!("math.rs");
 include!("utils.rs");
 include!("earth_models.rs");
+include!("spacetrack.rs");
 
 // Define Module
 
@@ -1102,6 +1103,26 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRKF45DIntegrator>()?;
     module.add_class::<PyDP54DIntegrator>()?;
     module.add_class::<PyRKN1210DIntegrator>()?;
+
+    //* SpaceTrack *//
+    module.add_class::<PyRequestController>()?;
+    module.add_class::<PyRequestClass>()?;
+    module.add_class::<PySortOrder>()?;
+    module.add_class::<PyOutputFormat>()?;
+    module.add_class::<PySpaceTrackQuery>()?;
+    module.add_class::<PySpaceTrackClient>()?;
+    module.add_class::<PyGpRecord>()?;
+    module.add_class::<PySatcatRecord>()?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_greater_than, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_less_than, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_not_equal, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_inclusive_range, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_like, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_startswith, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_now, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_now_offset, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_null_val, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_or_list, module)?)?;
 
     Ok(())
 }

@@ -53,6 +53,7 @@ from brahe import (
     logging,
     orbit_dynamics,
     events,
+    spacetrack,
 )
 
 # Re-export everything from submodules
@@ -75,6 +76,7 @@ from brahe.plots import *
 from brahe.datasets import *
 from brahe.orbit_dynamics import *
 from brahe.events import *
+from brahe.spacetrack import *
 
 # Define what's available when doing 'from brahe import *'
 __all__ = [
@@ -99,6 +101,7 @@ __all__ = [
     "logging",
     "orbit_dynamics",
     "events",
+    "spacetrack",
     # Exceptions
     "BraheError",
     "PanicException",
@@ -124,6 +127,7 @@ __all__.extend(plots.__all__)
 __all__.extend(datasets.__all__)
 __all__.extend(orbit_dynamics.__all__)
 __all__.extend(events.__all__)
+__all__.extend(spacetrack.__all__)
 
 # Import version from native module (set from Cargo.toml at build time)
 __version__ = _brahe.__version__

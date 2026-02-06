@@ -123,6 +123,8 @@ pub use trajectories::*;
 
 // Module declarations
 pub mod access;
+// Note: spacetrack is not glob-re-exported since it uses a client pattern
+// that should be accessed via brahe::spacetrack::*
 pub mod attitude;
 pub mod constants;
 pub mod coordinates;
@@ -138,6 +140,7 @@ pub mod orbits;
 pub mod propagators;
 pub mod relative_motion;
 pub mod space_weather;
+pub mod spacetrack;
 pub mod time;
 pub mod trajectories;
 pub mod utils;

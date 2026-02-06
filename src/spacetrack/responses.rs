@@ -8,6 +8,28 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Custom deserializer that accepts any JSON value and converts it to Option<String>.
+///
+/// This handles the difference between SpaceTrack (returns all values as strings)
+/// and CelestrakClient (returns numbers as JSON numbers, not strings). Both are
+/// normalized to `Option<String>` for a unified API.
+mod string_or_any {
+    use serde::{self, Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value: Option<serde_json::Value> = Option::deserialize(deserializer)?;
+        match value {
+            None => Ok(None),
+            Some(serde_json::Value::Null) => Ok(None),
+            Some(serde_json::Value::String(s)) => Ok(Some(s)),
+            Some(v) => Ok(Some(v.to_string())),
+        }
+    }
+}
+
 /// General Perturbations (OMM) record from the GP request class.
 ///
 /// Contains orbital elements and metadata for a single satellite.
@@ -38,124 +60,284 @@ use serde::{Deserialize, Serialize};
 #[allow(clippy::upper_case_acronyms)]
 pub struct GPRecord {
     /// CCSDS OMM version
-    #[serde(rename = "CCSDS_OMM_VERS", default)]
+    #[serde(
+        rename = "CCSDS_OMM_VERS",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub ccsds_omm_vers: Option<String>,
     /// Comment field
-    #[serde(rename = "COMMENT", default)]
+    #[serde(
+        rename = "COMMENT",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub comment: Option<String>,
     /// Record creation date
-    #[serde(rename = "CREATION_DATE", default)]
+    #[serde(
+        rename = "CREATION_DATE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub creation_date: Option<String>,
     /// Data originator
-    #[serde(rename = "ORIGINATOR", default)]
+    #[serde(
+        rename = "ORIGINATOR",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub originator: Option<String>,
     /// Satellite common name
-    #[serde(rename = "OBJECT_NAME", default)]
+    #[serde(
+        rename = "OBJECT_NAME",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub object_name: Option<String>,
     /// International designator
-    #[serde(rename = "OBJECT_ID", default)]
+    #[serde(
+        rename = "OBJECT_ID",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub object_id: Option<String>,
     /// Center name (typically "EARTH")
-    #[serde(rename = "CENTER_NAME", default)]
+    #[serde(
+        rename = "CENTER_NAME",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub center_name: Option<String>,
     /// Reference frame (typically "TEME")
-    #[serde(rename = "REF_FRAME", default)]
+    #[serde(
+        rename = "REF_FRAME",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub ref_frame: Option<String>,
     /// Time system (typically "UTC")
-    #[serde(rename = "TIME_SYSTEM", default)]
+    #[serde(
+        rename = "TIME_SYSTEM",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub time_system: Option<String>,
     /// Mean element theory (typically "SGP4")
-    #[serde(rename = "MEAN_ELEMENT_THEORY", default)]
+    #[serde(
+        rename = "MEAN_ELEMENT_THEORY",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub mean_element_theory: Option<String>,
     /// Epoch of the orbital elements
-    #[serde(rename = "EPOCH", default)]
+    #[serde(
+        rename = "EPOCH",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub epoch: Option<String>,
     /// Mean motion in revolutions per day
-    #[serde(rename = "MEAN_MOTION", default)]
+    #[serde(
+        rename = "MEAN_MOTION",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub mean_motion: Option<String>,
     /// Orbital eccentricity
-    #[serde(rename = "ECCENTRICITY", default)]
+    #[serde(
+        rename = "ECCENTRICITY",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub eccentricity: Option<String>,
     /// Orbital inclination in degrees
-    #[serde(rename = "INCLINATION", default)]
+    #[serde(
+        rename = "INCLINATION",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub inclination: Option<String>,
     /// Right ascension of ascending node in degrees
-    #[serde(rename = "RA_OF_ASC_NODE", default)]
+    #[serde(
+        rename = "RA_OF_ASC_NODE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub ra_of_asc_node: Option<String>,
     /// Argument of pericenter in degrees
-    #[serde(rename = "ARG_OF_PERICENTER", default)]
+    #[serde(
+        rename = "ARG_OF_PERICENTER",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub arg_of_pericenter: Option<String>,
     /// Mean anomaly in degrees
-    #[serde(rename = "MEAN_ANOMALY", default)]
+    #[serde(
+        rename = "MEAN_ANOMALY",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub mean_anomaly: Option<String>,
     /// Ephemeris type
-    #[serde(rename = "EPHEMERIS_TYPE", default)]
+    #[serde(
+        rename = "EPHEMERIS_TYPE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub ephemeris_type: Option<String>,
     /// Classification type (U=Unclassified, C=Classified, S=Secret)
-    #[serde(rename = "CLASSIFICATION_TYPE", default)]
+    #[serde(
+        rename = "CLASSIFICATION_TYPE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub classification_type: Option<String>,
     /// NORAD catalog identifier
-    #[serde(rename = "NORAD_CAT_ID", default)]
+    #[serde(
+        rename = "NORAD_CAT_ID",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub norad_cat_id: Option<String>,
     /// Element set number
-    #[serde(rename = "ELEMENT_SET_NO", default)]
+    #[serde(
+        rename = "ELEMENT_SET_NO",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub element_set_no: Option<String>,
     /// Revolution number at epoch
-    #[serde(rename = "REV_AT_EPOCH", default)]
+    #[serde(
+        rename = "REV_AT_EPOCH",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub rev_at_epoch: Option<String>,
     /// BSTAR drag coefficient
-    #[serde(rename = "BSTAR", default)]
+    #[serde(
+        rename = "BSTAR",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub bstar: Option<String>,
     /// First derivative of mean motion
-    #[serde(rename = "MEAN_MOTION_DOT", default)]
+    #[serde(
+        rename = "MEAN_MOTION_DOT",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub mean_motion_dot: Option<String>,
     /// Second derivative of mean motion
-    #[serde(rename = "MEAN_MOTION_DDOT", default)]
+    #[serde(
+        rename = "MEAN_MOTION_DDOT",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub mean_motion_ddot: Option<String>,
     /// Semi-major axis in kilometers
-    #[serde(rename = "SEMIMAJOR_AXIS", default)]
+    #[serde(
+        rename = "SEMIMAJOR_AXIS",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub semimajor_axis: Option<String>,
     /// Orbital period in minutes
-    #[serde(rename = "PERIOD", default)]
+    #[serde(
+        rename = "PERIOD",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub period: Option<String>,
     /// Apoapsis altitude in kilometers
-    #[serde(rename = "APOAPSIS", default)]
+    #[serde(
+        rename = "APOAPSIS",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub apoapsis: Option<String>,
     /// Periapsis altitude in kilometers
-    #[serde(rename = "PERIAPSIS", default)]
+    #[serde(
+        rename = "PERIAPSIS",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub periapsis: Option<String>,
     /// Object type (PAYLOAD, ROCKET BODY, DEBRIS, etc.)
-    #[serde(rename = "OBJECT_TYPE", default)]
+    #[serde(
+        rename = "OBJECT_TYPE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub object_type: Option<String>,
     /// Radar cross-section size category (SMALL, MEDIUM, LARGE)
-    #[serde(rename = "RCS_SIZE", default)]
+    #[serde(
+        rename = "RCS_SIZE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub rcs_size: Option<String>,
     /// Country code of the launching state
-    #[serde(rename = "COUNTRY_CODE", default)]
+    #[serde(
+        rename = "COUNTRY_CODE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub country_code: Option<String>,
     /// Launch date
-    #[serde(rename = "LAUNCH_DATE", default)]
+    #[serde(
+        rename = "LAUNCH_DATE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub launch_date: Option<String>,
     /// Launch site code
-    #[serde(rename = "SITE", default)]
+    #[serde(
+        rename = "SITE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub site: Option<String>,
     /// Decay date (if decayed)
-    #[serde(rename = "DECAY_DATE", default)]
+    #[serde(
+        rename = "DECAY_DATE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub decay_date: Option<String>,
     /// File number
-    #[serde(rename = "FILE", default)]
+    #[serde(
+        rename = "FILE",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub file: Option<String>,
     /// GP record identifier
-    #[serde(rename = "GP_ID", default)]
+    #[serde(
+        rename = "GP_ID",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub gp_id: Option<String>,
     /// TLE line 0 (object name)
-    #[serde(rename = "TLE_LINE0", default)]
+    #[serde(
+        rename = "TLE_LINE0",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub tle_line0: Option<String>,
     /// TLE line 1
-    #[serde(rename = "TLE_LINE1", default)]
+    #[serde(
+        rename = "TLE_LINE1",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub tle_line1: Option<String>,
     /// TLE line 2
-    #[serde(rename = "TLE_LINE2", default)]
+    #[serde(
+        rename = "TLE_LINE2",
+        default,
+        deserialize_with = "string_or_any::deserialize"
+    )]
     pub tle_line2: Option<String>,
 }
 
@@ -474,6 +656,41 @@ mod tests {
         let json = "[]";
         let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
         assert!(records.is_empty());
+    }
+
+    #[test]
+    fn test_gp_record_deserialize_numeric_values() {
+        // Celestrak returns numeric values as JSON numbers, not strings
+        let json = r#"[{
+            "OBJECT_NAME": "ISS (ZARYA)",
+            "OBJECT_ID": "1998-067A",
+            "EPOCH": "2026-02-06T05:05:23.180640",
+            "MEAN_MOTION": 15.48432747,
+            "ECCENTRICITY": 0.0011199,
+            "INCLINATION": 51.6316,
+            "RA_OF_ASC_NODE": 227.9611,
+            "ARG_OF_PERICENTER": 69.2605,
+            "MEAN_ANOMALY": 290.9582,
+            "EPHEMERIS_TYPE": 0,
+            "CLASSIFICATION_TYPE": "U",
+            "NORAD_CAT_ID": 25544,
+            "ELEMENT_SET_NO": 999,
+            "REV_AT_EPOCH": 55145,
+            "BSTAR": 0.00024775,
+            "MEAN_MOTION_DOT": 0.00012979,
+            "MEAN_MOTION_DDOT": 0
+        }]"#;
+
+        let records: Vec<GPRecord> = serde_json::from_str(json).unwrap();
+        assert_eq!(records.len(), 1);
+
+        let record = &records[0];
+        assert_eq!(record.object_name.as_deref(), Some("ISS (ZARYA)"));
+        assert_eq!(record.norad_cat_id.as_deref(), Some("25544"));
+        assert_eq!(record.inclination.as_deref(), Some("51.6316"));
+        assert_eq!(record.eccentricity.as_deref(), Some("0.0011199"));
+        assert_eq!(record.ephemeris_type.as_deref(), Some("0"));
+        assert_eq!(record.mean_motion_ddot.as_deref(), Some("0"));
     }
 
     #[test]

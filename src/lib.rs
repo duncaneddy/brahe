@@ -123,9 +123,10 @@ pub use trajectories::*;
 
 // Module declarations
 pub mod access;
-// Note: spacetrack is not glob-re-exported since it uses a client pattern
-// that should be accessed via brahe::spacetrack::*
+// Note: celestrak and spacetrack are not glob-re-exported since they use
+// client patterns that should be accessed via brahe::celestrak::* or brahe::spacetrack::*
 pub mod attitude;
+pub mod celestrak;
 pub mod constants;
 pub mod coordinates;
 pub mod datasets;

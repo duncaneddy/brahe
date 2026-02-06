@@ -1,34 +1,52 @@
-# CelesTrak Functions
+# CelesTrak
 
-Functions for accessing satellite ephemeris data from CelesTrak.
+API reference for the CelesTrak client module. All types are available via `brahe.celestrak`.
 
-All functions are available via `brahe.datasets.celestrak.<function_name>`.
+## CelestrakClient
 
-## download_tles
+::: brahe.celestrak.CelestrakClient
+    options:
+      show_root_heading: true
+      show_root_full_path: false
 
-::: brahe._brahe.celestrak_download_tles
+## CelestrakQuery
 
-## get_tle_by_id
+::: brahe.celestrak.CelestrakQuery
+    options:
+      show_root_heading: true
+      show_root_full_path: false
 
-::: brahe._brahe.celestrak_get_tle_by_id
+## CelestrakSATCATRecord
 
-## get_tle_by_id_as_propagator
+::: brahe.celestrak.CelestrakSATCATRecord
+    options:
+      show_root_heading: true
+      show_root_full_path: false
 
-::: brahe._brahe.celestrak_get_tle_by_id_as_propagator
+## CelestrakOutputFormat
 
-## get_tle_by_name
+::: brahe.celestrak.CelestrakOutputFormat
+    options:
+      show_root_heading: true
+      show_root_full_path: false
 
-::: brahe._brahe.celestrak_get_tle_by_name
+## CelestrakQueryType
 
-## get_tle_by_name_as_propagator
+::: brahe.celestrak.CelestrakQueryType
+    options:
+      show_root_heading: true
+      show_root_full_path: false
 
-::: brahe._brahe.celestrak_get_tle_by_name_as_propagator
+## SupGPSource
 
-## get_tles
+::: brahe.celestrak.SupGPSource
+    options:
+      show_root_heading: true
+      show_root_full_path: false
 
-::: brahe._brahe.celestrak_get_tles
+---
 
-## get_tles_as_propagators
+## See Also
 
-::: brahe._brahe.celestrak_get_tles_as_propagators
-
+- [CelesTrak Data Source](../../learn/datasets/celestrak.md) -- Overview, caching, and satellite groups
+- [SpaceTrack Client](../spacetrack/client.md) -- Alternative GP data source with the same GPRecord type

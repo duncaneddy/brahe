@@ -54,6 +54,7 @@ from brahe import (
     orbit_dynamics,
     events,
     spacetrack,
+    celestrak,
 )
 
 # Re-export everything from submodules
@@ -102,6 +103,7 @@ __all__ = [
     "orbit_dynamics",
     "events",
     "spacetrack",
+    "celestrak",
     # Exceptions
     "BraheError",
     "PanicException",

@@ -3,107 +3,158 @@
 [CelesTrak](https://celestrak.org) is a public source for satellite Two-Line Element (TLE) data, maintained by T.S. Kelso since 1985. It provides free, frequently updated orbital element sets for thousands of satellites, making it a useful resource for satellite tracking, orbit determination, and space situational awareness.
 
 !!! tip "Respectful Usage"
-    CelesTrak is freely available for public use, but users should be respectful of the service. Avoid excessive automated requests, and design your calls to take advantage of caching to minimize repeated queries. For large-scale or commercial applications, consider setting up a single download and local caching strategy to disribute ephemeris data internally.
+    CelesTrak is freely available for public use, but users should be respectful of the service. Avoid excessive automated requests, and design your calls to take advantage of caching to minimize repeated queries. For large-scale or commercial applications, consider setting up a single download and local caching strategy to distribute ephemeris data internally.
 
 ## Overview
 
-### What is CelesTrak?
+### Architecture
 
-CelesTrak is a public data source for satellite orbital elements, maintained by Dr. T.S. Kelso since 1985. It provides free, frequently updated Two-Line Element (TLE) data for thousands of satellites, making it an essential resource for satellite tracking, orbit determination, and space situational awareness.
+Brahe provides a `CelestrakClient` with a query builder pattern that mirrors the `SpaceTrackClient` interface. Both clients return `GPRecord` for GP queries, enabling code that works interchangeably with either data source.
 
-### TLE Format
+The client supports three CelesTrak endpoints:
 
-Two-Line Elements (TLEs) are a compact text format for encoding satellite orbital parameters compatible with the SGP4/SDP4 propagation models. For more information on TLEs, see the [Two-Line Elements](../orbits/two_line_elements.md) documentation.
+| Endpoint | Query Constructor | Description |
+|----------|-------------------|-------------|
+| GP | `CelestrakQuery.gp()` | General Perturbations (OMM) data |
+| SupGP | `CelestrakQuery.sup_gp()` | Supplemental GP data from constellation operators |
+| SATCAT | `CelestrakQuery.satcat()` | Satellite catalog metadata |
 
 ### Caching
 
 To minimize load on CelesTrak's servers and improve performance, brahe implements a 6-hour cache for downloaded data:
 
-- **Cache key**: Satellite group name (e.g., "starlink", "stations")
+- **Cache key**: Query URL (group, CATNR, etc.)
 - **Cache duration**: 6 hours (default, configurable)
-- **Cache location**: System temp directory
-
-When you request a satellite by ID or name with a group hint, brahe checks if that group was recently downloaded and uses cached data if available. This is much faster and more respectful than making individual requests.
+- **Cache location**: System cache directory (`~/.cache/brahe/celestrak/`)
 
 !!! tip "Customizing Cache"
-    See the [Caching](../utilities/caching.md) documentation for details on customizing cache behavior.
+    Pass `cache_max_age=0.0` to disable caching, or a custom value in seconds to change the TTL.
+
+### Client-Side Filtering
+
+CelesTrak's API only supports a few server-side filters (GROUP, CATNR, NAME, INTDES). For more complex filtering, brahe provides client-side filtering using the same SpaceTrack operator syntax:
+
+```python
+import brahe as bh
+from brahe.spacetrack import operators as op
+
+client = bh.celestrak.CelestrakClient()
+query = (
+    bh.celestrak.CelestrakQuery.gp()
+    .group("stations")
+    .filter("INCLINATION", op.greater_than("50"))
+    .filter("OBJECT_TYPE", op.not_equal("DEBRIS"))
+    .order_by("INCLINATION", False)
+    .limit(10)
+)
+records = client.query_gp(query)
+```
+
+Client-side filters are applied after downloading the full dataset, so they work on any field in the response.
 
 ## Usage
 
-### Getting Ephemeris by Group
+### Querying GP Data
 
-The most efficient way to get TLE data is by downloading entire groups. This minimizes API requests and leverages caching:
+The most common use case is querying GP (General Perturbations) data, which returns `GPRecord` objects -- the same type used by SpaceTrack:
 
-=== "Python"
+```python
+import brahe as bh
 
-    ``` python
-    --8<-- "./examples/datasets/celestrak_get_group.py:12"
-    ```
+client = bh.celestrak.CelestrakClient()
 
-=== "Rust"
+# By satellite group
+query = bh.celestrak.CelestrakQuery.gp().group("stations")
+records = client.query_gp(query)
 
-    ``` rust
-    --8<-- "./examples/datasets/celestrak_get_group.rs:9"
-    ```
+# By NORAD catalog number
+query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
+records = client.query_gp(query)
 
-### Getting a Satellite by ID
+# By name search
+query = bh.celestrak.CelestrakQuery.gp().name_search("ISS")
+records = client.query_gp(query)
 
-To get a specific satellite, provide its NORAD ID. **Always include a group hint** to enable cache-efficient lookups:
+for rec in records:
+    print(f"{rec.object_name}: inc={rec.inclination}°")
+```
 
-=== "Python"
+### Getting Raw TLE Data
 
-    ``` python
-    --8<-- "./examples/datasets/celestrak_get_by_id.py:12"
-    ```
+For direct TLE text (e.g., for file output or custom parsing):
 
-=== "Rust"
+```python
+import brahe as bh
 
-    ``` rust
-    --8<-- "./examples/datasets/celestrak_get_by_id.rs:9"
-    ```
+client = bh.celestrak.CelestrakClient()
+query = (
+    bh.celestrak.CelestrakQuery.gp()
+    .catnr(25544)
+    .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
+)
+tle_text = client.query_raw(query)
+print(tle_text)
+```
 
-!!! tip "Cache-Efficient Pattern"
-    The most efficient workflow is:
+### Querying SATCAT Data
 
-    1. Download the group once: `get_tles("stations")`
-    2. Query specific satellites with the group hint: `get_tle_by_id(25544, "stations")`
+The SATCAT endpoint provides satellite catalog metadata:
 
-    This pattern uses cached data and avoids redundant downloads.
+```python
+import brahe as bh
 
-### Converting to Propagators
+client = bh.celestrak.CelestrakClient()
+query = (
+    bh.celestrak.CelestrakQuery.satcat()
+    .active(True)
+    .payloads(True)
+    .on_orbit(True)
+)
+records = client.query_satcat(query)
+for rec in records:
+    print(f"{rec.object_name}: {rec.owner}, launched {rec.launch_date}")
+```
 
-For most applications, you'll want to convert TLEs directly to SGP propagators. Brahe provides convenience functions that do this in one step:
+### Downloading to File
 
-=== "Python"
+Save query results directly to a file:
 
-    ``` python
-    --8<-- "./examples/datasets/celestrak_as_propagator.py:12"
-    ```
+```python
+import brahe as bh
 
-=== "Rust"
+client = bh.celestrak.CelestrakClient()
+query = (
+    bh.celestrak.CelestrakQuery.gp()
+    .group("stations")
+    .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
+)
+client.download(query, "stations.txt")
+```
 
-    ``` rust
-    --8<-- "./examples/datasets/celestrak_as_propagator.rs:9"
-    ```
+### Interoperability with SpaceTrack
 
-### Getting by Name
+Both `CelestrakClient.query_gp()` and `SpaceTrackClient.query_gp()` return `Vec<GPRecord>` / `list[GPRecord]`, so downstream processing code works with either source:
 
-You can also search for satellites by name. This performs a cascading search across groups:
+```python
+import brahe as bh
 
-=== "Python"
+def process_records(records):
+    """Works with records from either CelesTrak or SpaceTrack."""
+    for rec in records:
+        print(f"{rec.object_name}: {rec.norad_cat_id}")
 
-    ``` python
-    --8<-- "./examples/datasets/celestrak_get_by_name.py:12"
-    ```
+# From CelesTrak (no authentication required)
+ct_client = bh.celestrak.CelestrakClient()
+ct_query = bh.celestrak.CelestrakQuery.gp().group("stations")
+ct_records = ct_client.query_gp(ct_query)
+process_records(ct_records)
 
-=== "Rust"
-
-    ``` rust
-    --8<-- "./examples/datasets/celestrak_get_by_name.rs:9"
-    ```
-
-!!! note "Name Matching"
-    Name searches are case-insensitive and support partial matches. If multiple satellites match, the function returns the first match. 
+# From SpaceTrack (requires authentication)
+# st_client = bh.spacetrack.SpaceTrackClient(username, password)
+# st_query = bh.spacetrack.SpaceTrackQuery(bh.spacetrack.RequestClass.GP)
+# st_records = st_client.query_gp(st_query)
+# process_records(st_records)
+```
 
 ## Satellite Groups
 
@@ -173,5 +224,4 @@ CelesTrak organizes satellites into logical groups accessible via simple names. 
 
 - [Datasets Overview](index.md) - Understanding satellite ephemeris datasets
 - [Two-Line Elements](../orbits/two_line_elements.md) - TLE and 3LE format details
-- [Downloading TLE Data](../../examples/visualizing_starlink.md) - Practical examples
-- [CelesTrak API Reference](../../library_api/datasets/celestrak.md) - Function documentation
+- [CelesTrak API Reference](../../library_api/datasets/celestrak.md) - Class and method documentation

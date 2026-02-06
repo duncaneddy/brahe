@@ -32,6 +32,7 @@ jobs:
     needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_rust.yml
+    secrets: inherit
 
   delay-python:
     needs: [check-skip]
@@ -45,6 +46,7 @@ jobs:
     needs: [delay-python]
     if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
+    secrets: inherit
 
   test-examples:
     needs: [check-skip]

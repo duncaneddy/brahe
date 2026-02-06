@@ -46,6 +46,8 @@ jobs:
             id-token: write
         env:
             CARGO_TERM_COLOR: always
+            TEST_SPACETRACK_USER: ${{ secrets.TEST_SPACETRACK_USER }}
+            TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
         steps:
             -   uses: actions/checkout@v6
             -   name: Set up Rust toolchain with cache

@@ -1620,6 +1620,40 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // -- Order-by URL encoding tests --
+
+    #[test]
+    fn test_query_with_order_by_produces_valid_url() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        let query_mock = server.mock(|when, then| {
+            when.method(GET).path_includes("/orderby/EPOCH%20desc/");
+            then.status(200)
+                .body(r#"[{"OBJECT_NAME":"ISS","NORAD_CAT_ID":"25544"}]"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .order_by("EPOCH", SortOrder::Desc)
+            .limit(1);
+
+        let result = client.query_json(&query);
+        assert!(
+            result.is_ok(),
+            "ureq rejected the order_by URL: {:?}",
+            result.err()
+        );
+        query_mock.assert();
+    }
+
     // -- Rate limiting tests --
 
     #[test]

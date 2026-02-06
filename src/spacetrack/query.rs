@@ -285,7 +285,7 @@ impl SpaceTrackQuery {
     /// let path = query.build();
     /// assert_eq!(
     ///     path,
-    ///     "/basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH desc/limit/1/format/json"
+    ///     "/basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH%20desc/limit/1/format/json"
     /// );
     /// ```
     pub fn build(&self) -> String {
@@ -308,7 +308,7 @@ impl SpaceTrackQuery {
             let order_str: Vec<String> = self
                 .order_by
                 .iter()
-                .map(|o| format!("{} {}", o.field, o.order.as_str()))
+                .map(|o| format!("{}%20{}", o.field, o.order.as_str()))
                 .collect();
             parts.push(format!("/orderby/{}", order_str.join(",")));
         }
@@ -409,7 +409,7 @@ mod tests {
             .order_by("EPOCH", SortOrder::Desc);
 
         let path = query.build();
-        assert!(path.contains("/orderby/EPOCH desc/"));
+        assert!(path.contains("/orderby/EPOCH%20desc/"));
     }
 
     #[test]
@@ -419,7 +419,7 @@ mod tests {
             .order_by("NORAD_CAT_ID", SortOrder::Asc);
 
         let path = query.build();
-        assert!(path.contains("/orderby/EPOCH desc,NORAD_CAT_ID asc/"));
+        assert!(path.contains("/orderby/EPOCH%20desc,NORAD_CAT_ID%20asc/"));
     }
 
     #[test]
@@ -544,7 +544,7 @@ mod tests {
         let path = query.build();
         assert_eq!(
             path,
-            "/basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH desc/limit/1/format/json"
+            "/basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH%20desc/limit/1/format/json"
         );
     }
 

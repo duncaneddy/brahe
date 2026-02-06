@@ -3,7 +3,7 @@
 from typer.testing import CliRunner
 from brahe.cli.datasets.groundstations import app
 
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def test_help():

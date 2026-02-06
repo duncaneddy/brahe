@@ -5,7 +5,7 @@ from brahe.cli.__main__ import app
 app.rich_markup_mode = None
 
 # Disable color output to avoid ANSI escape codes in output
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def test_help():

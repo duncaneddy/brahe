@@ -7,8 +7,10 @@
  */
 
 use std::sync::Mutex;
+use std::time::Duration;
 
 use crate::spacetrack::query::SpaceTrackQuery;
+use crate::spacetrack::rate_limiter::{RateLimitConfig, RateLimiter};
 use crate::spacetrack::responses::{
     FileShareFileRecord, FolderRecord, GPRecord, SATCATRecord, SpEphemerisFileRecord,
 };
@@ -43,6 +45,7 @@ pub struct SpaceTrackClient {
     base_url: String,
     agent: Mutex<ureq::Agent>,
     authenticated: Mutex<bool>,
+    rate_limiter: Mutex<RateLimiter>,
 }
 
 impl SpaceTrackClient {
@@ -69,6 +72,7 @@ impl SpaceTrackClient {
             base_url: DEFAULT_BASE_URL.to_string(),
             agent: Mutex::new(ureq::Agent::new_with_defaults()),
             authenticated: Mutex::new(false),
+            rate_limiter: Mutex::new(RateLimiter::new(RateLimitConfig::default())),
         }
     }
 
@@ -88,7 +92,78 @@ impl SpaceTrackClient {
             base_url: base_url.trim_end_matches('/').to_string(),
             agent: Mutex::new(ureq::Agent::new_with_defaults()),
             authenticated: Mutex::new(false),
+            rate_limiter: Mutex::new(RateLimiter::new(RateLimitConfig::default())),
         }
+    }
+
+    /// Create a new SpaceTrack client with a custom rate limit configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `identity` - Space-Track.org login email
+    /// * `password` - Space-Track.org password
+    /// * `config` - Rate limit configuration
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::spacetrack::{SpaceTrackClient, RateLimitConfig};
+    ///
+    /// let config = RateLimitConfig { max_per_minute: 10, max_per_hour: 100 };
+    /// let client = SpaceTrackClient::with_rate_limit("user@example.com", "password", config);
+    /// ```
+    pub fn with_rate_limit(identity: &str, password: &str, config: RateLimitConfig) -> Self {
+        SpaceTrackClient {
+            identity: identity.to_string(),
+            password: password.to_string(),
+            base_url: DEFAULT_BASE_URL.to_string(),
+            agent: Mutex::new(ureq::Agent::new_with_defaults()),
+            authenticated: Mutex::new(false),
+            rate_limiter: Mutex::new(RateLimiter::new(config)),
+        }
+    }
+
+    /// Create a new SpaceTrack client with a custom base URL and rate limit configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `identity` - Space-Track.org login email
+    /// * `password` - Space-Track.org password
+    /// * `base_url` - Custom base URL
+    /// * `config` - Rate limit configuration
+    pub fn with_base_url_and_rate_limit(
+        identity: &str,
+        password: &str,
+        base_url: &str,
+        config: RateLimitConfig,
+    ) -> Self {
+        SpaceTrackClient {
+            identity: identity.to_string(),
+            password: password.to_string(),
+            base_url: base_url.trim_end_matches('/').to_string(),
+            agent: Mutex::new(ureq::Agent::new_with_defaults()),
+            authenticated: Mutex::new(false),
+            rate_limiter: Mutex::new(RateLimiter::new(config)),
+        }
+    }
+
+    /// Wait for rate limit clearance before making an HTTP request.
+    ///
+    /// Acquires the rate limiter lock, computes the required wait duration,
+    /// releases the lock, then sleeps for the computed duration.
+    fn wait_for_rate_limit(&self) -> Result<(), BraheError> {
+        let wait = {
+            let mut limiter = self.rate_limiter.lock().map_err(|e| {
+                BraheError::Error(format!("Failed to acquire lock on rate limiter: {}", e))
+            })?;
+            limiter.acquire()
+        };
+
+        if wait > Duration::ZERO {
+            std::thread::sleep(wait);
+        }
+
+        Ok(())
     }
 
     /// Explicitly authenticate with Space-Track.org.
@@ -101,6 +176,8 @@ impl SpaceTrackClient {
     /// * `Ok(())` if authentication succeeds
     /// * `Err(BraheError)` if authentication fails
     pub fn authenticate(&self) -> Result<(), BraheError> {
+        self.wait_for_rate_limit()?;
+
         let url = format!("{}/ajaxauth/login", self.base_url);
 
         let form_data = format!(
@@ -558,6 +635,8 @@ impl SpaceTrackClient {
 
     /// Execute an HTTP GET request and return the response body as a string.
     fn execute_get(&self, url: &str) -> Result<String, BraheError> {
+        self.wait_for_rate_limit()?;
+
         let agent = self.agent.lock().map_err(|e| {
             BraheError::Error(format!("Failed to acquire lock on HTTP agent: {}", e))
         })?;
@@ -575,6 +654,8 @@ impl SpaceTrackClient {
 
     /// Execute an HTTP GET request and return the response body as bytes.
     fn execute_get_binary(&self, url: &str) -> Result<Vec<u8>, BraheError> {
+        self.wait_for_rate_limit()?;
+
         let agent = self.agent.lock().map_err(|e| {
             BraheError::Error(format!("Failed to acquire lock on HTTP agent: {}", e))
         })?;
@@ -596,6 +677,8 @@ impl SpaceTrackClient {
         file_name: &str,
         file_data: &[u8],
     ) -> Result<String, BraheError> {
+        self.wait_for_rate_limit()?;
+
         use ureq::unversioned::multipart::{Form, Part};
 
         let agent = self.agent.lock().map_err(|e| {
@@ -1534,5 +1617,96 @@ mod tests {
         let client = SpaceTrackClient::new("invalid@example.com", "wrongpassword");
         let result = client.authenticate();
         assert!(result.is_err());
+    }
+
+    // -- Rate limiting tests --
+
+    #[test]
+    fn test_client_with_rate_limit() {
+        let config = crate::spacetrack::RateLimitConfig {
+            max_per_minute: 10,
+            max_per_hour: 100,
+        };
+        let client = SpaceTrackClient::with_rate_limit("user@example.com", "password123", config);
+        assert_eq!(client.identity, "user@example.com");
+        assert_eq!(client.password, "password123");
+        assert_eq!(client.base_url, DEFAULT_BASE_URL);
+    }
+
+    #[test]
+    fn test_client_with_base_url_and_rate_limit() {
+        let config = crate::spacetrack::RateLimitConfig::disabled();
+        let client = SpaceTrackClient::with_base_url_and_rate_limit(
+            "user@example.com",
+            "password123",
+            "https://test.space-track.org/",
+            config,
+        );
+        assert_eq!(client.base_url, "https://test.space-track.org");
+    }
+
+    #[test]
+    fn test_client_default_rate_limit_does_not_delay() {
+        // With default 25/min limit, a single query should not be delayed
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/gp");
+            then.status(200)
+                .body(r#"[{"OBJECT_NAME":"ISS","NORAD_CAT_ID":"25544"}]"#);
+        });
+
+        let client =
+            SpaceTrackClient::with_base_url("user@example.com", "password", &server.base_url());
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .limit(1);
+
+        let start = std::time::Instant::now();
+        let result = client.query_json(&query);
+        let elapsed = start.elapsed();
+
+        assert!(result.is_ok());
+        // Should complete quickly (no rate limit delay)
+        assert!(elapsed < std::time::Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_client_disabled_rate_limit() {
+        let config = crate::spacetrack::RateLimitConfig::disabled();
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(POST).path("/ajaxauth/login");
+            then.status(200).body("");
+        });
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path_includes("/basicspacedata/query/class/gp");
+            then.status(200)
+                .body(r#"[{"OBJECT_NAME":"ISS","NORAD_CAT_ID":"25544"}]"#);
+        });
+
+        let client = SpaceTrackClient::with_base_url_and_rate_limit(
+            "user@example.com",
+            "password",
+            &server.base_url(),
+            config,
+        );
+
+        let query = SpaceTrackQuery::new(RequestClass::GP)
+            .filter("NORAD_CAT_ID", "25544")
+            .limit(1);
+
+        let result = client.query_json(&query);
+        assert!(result.is_ok());
     }
 }

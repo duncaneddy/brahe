@@ -9,6 +9,7 @@ The spacetrack module provides a typed client and fluent query builder for acces
 - [Responses](responses.md) -- `GPRecord`, `SATCATRecord`, `FileShareFileRecord`, `FolderRecord`, and `SpEphemerisFileRecord` typed response structs
 - [Enumerations](enums.md) -- `RequestController`, `RequestClass`, `SortOrder`, `OutputFormat`
 - [Operators](operators.md) -- Filter operator functions
+- [Rate Limiting](rate_limiting.md) -- `RateLimitConfig` rate limit configuration
 
 ---
 

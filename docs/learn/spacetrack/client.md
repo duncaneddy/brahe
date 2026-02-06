@@ -36,6 +36,43 @@ Create a client with your Space-Track.org credentials. An optional `base_url` pa
     );
     ```
 
+## Rate Limiting
+
+The client includes a built-in rate limiter that prevents exceeding Space-Track.org's request limits. By default, conservative limits of 25 requests/minute and 250 requests/hour are applied automatically. Pass a `RateLimitConfig` to customize or disable rate limiting.
+
+=== "Python"
+
+    ``` python
+    import brahe as bh
+
+    # Custom rate limits
+    config = bh.RateLimitConfig(max_per_minute=10, max_per_hour=100)
+    client = bh.SpaceTrackClient("user@example.com", "password", rate_limit=config)
+
+    # Disable rate limiting
+    client = bh.SpaceTrackClient("user@example.com", "password",
+                                  rate_limit=bh.RateLimitConfig.disabled())
+    ```
+
+=== "Rust"
+
+    ``` rust
+    use brahe::spacetrack::{SpaceTrackClient, RateLimitConfig};
+
+    // Custom rate limits
+    let config = RateLimitConfig { max_per_minute: 10, max_per_hour: 100 };
+    let client = SpaceTrackClient::with_rate_limit(
+        "user@example.com", "password", config
+    );
+
+    // Disable rate limiting
+    let client = SpaceTrackClient::with_rate_limit(
+        "user@example.com", "password", RateLimitConfig::disabled()
+    );
+    ```
+
+For a full explanation of how rate limiting works, see [Rate Limiting](rate_limiting.md).
+
 ## Authentication
 
 The client authenticates lazily -- credentials are sent on the first query. Call `authenticate()` explicitly to verify credentials before executing queries.

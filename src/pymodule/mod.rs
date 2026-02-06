@@ -1109,6 +1109,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRequestClass>()?;
     module.add_class::<PySortOrder>()?;
     module.add_class::<PyOutputFormat>()?;
+    module.add_class::<PyRateLimitConfig>()?;
     module.add_class::<PySpaceTrackQuery>()?;
     module.add_class::<PySpaceTrackClient>()?;
     module.add_class::<PyGPRecord>()?;

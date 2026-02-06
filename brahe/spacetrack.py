@@ -33,6 +33,8 @@ from brahe._brahe import (
     RequestClass,
     SortOrder,
     OutputFormat,
+    # Rate limiting
+    RateLimitConfig,
     # Query builder
     SpaceTrackQuery,
     # Client
@@ -95,6 +97,8 @@ __all__ = [
     "RequestClass",
     "SortOrder",
     "OutputFormat",
+    # Rate limiting
+    "RateLimitConfig",
     # Query builder
     "SpaceTrackQuery",
     # Client

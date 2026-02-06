@@ -318,6 +318,56 @@ class TestSpaceTrackQuery:
 # ========================================
 
 
+class TestRateLimitConfig:
+    """Tests for RateLimitConfig configuration object."""
+
+    def test_default_values(self):
+        config = bh.RateLimitConfig()
+        assert config.max_per_minute == 25
+        assert config.max_per_hour == 250
+
+    def test_custom_values(self):
+        config = bh.RateLimitConfig(max_per_minute=10, max_per_hour=100)
+        assert config.max_per_minute == 10
+        assert config.max_per_hour == 100
+
+    def test_keyword_arguments(self):
+        config = bh.RateLimitConfig(max_per_hour=50, max_per_minute=5)
+        assert config.max_per_minute == 5
+        assert config.max_per_hour == 50
+
+    def test_disabled(self):
+        config = bh.RateLimitConfig.disabled()
+        assert config.max_per_minute == 2**32 - 1
+        assert config.max_per_hour == 2**32 - 1
+
+    def test_str(self):
+        config = bh.RateLimitConfig()
+        s = str(config)
+        assert "25" in s
+        assert "250" in s
+
+    def test_repr(self):
+        config = bh.RateLimitConfig()
+        r = repr(config)
+        assert "RateLimitConfig" in r
+        assert "25" in r
+        assert "250" in r
+
+    def test_equality(self):
+        a = bh.RateLimitConfig()
+        b = bh.RateLimitConfig()
+        c = bh.RateLimitConfig(max_per_minute=10, max_per_hour=100)
+        assert a == b
+        assert a != c
+
+    def test_equality_disabled(self):
+        a = bh.RateLimitConfig.disabled()
+        b = bh.RateLimitConfig.disabled()
+        assert a == b
+        assert a != bh.RateLimitConfig()
+
+
 class TestSpaceTrackClient:
     """Tests for SpaceTrackClient construction (no network)."""
 
@@ -329,6 +379,32 @@ class TestSpaceTrackClient:
         client = bh.SpaceTrackClient(
             "user@example.com", "password", "https://test.space-track.org"
         )
+        assert client is not None
+
+    def test_client_with_rate_limit(self):
+        config = bh.RateLimitConfig(max_per_minute=10, max_per_hour=100)
+        client = bh.SpaceTrackClient("user@example.com", "password", rate_limit=config)
+        assert client is not None
+
+    def test_client_with_base_url_and_rate_limit(self):
+        config = bh.RateLimitConfig(max_per_minute=10, max_per_hour=100)
+        client = bh.SpaceTrackClient(
+            "user@example.com",
+            "password",
+            "https://test.space-track.org",
+            rate_limit=config,
+        )
+        assert client is not None
+
+    def test_client_with_disabled_rate_limit(self):
+        config = bh.RateLimitConfig.disabled()
+        client = bh.SpaceTrackClient("user@example.com", "password", rate_limit=config)
+        assert client is not None
+
+    def test_client_default_rate_limit(self):
+        """Client created without rate_limit uses defaults (25/min, 250/hr)."""
+        config = bh.RateLimitConfig()
+        client = bh.SpaceTrackClient("user@example.com", "password", rate_limit=config)
         assert client is not None
 
 

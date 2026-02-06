@@ -39,6 +39,12 @@ Each `RequestClass` has a default controller. For example, `GP` and `SATCAT` use
 | `controller(ctrl)` | Override the default controller |
 | `build()` | Produce the URL path string |
 
+### Configuration
+
+| Type | Purpose |
+|------|---------|
+| `RateLimitConfig` | Rate limit thresholds for per-minute and per-hour request windows |
+
 ### Client
 
 `SpaceTrackClient` handles authentication and HTTP communication with Space-Track.org:
@@ -100,6 +106,7 @@ Operators compose naturally. For example, `greater_than(now_offset(-7))` produce
 - [Query Builder](query_builder.md) -- Building queries with filters, ordering, and output formats
 - [Client](client.md) -- Authentication, query execution, and response handling
 - [File Operations](file_operations.md) -- FileShare, SP Ephemeris, and Public Files
+- [Rate Limiting](rate_limiting.md) -- Configuring request rate limits
 
 ---
 

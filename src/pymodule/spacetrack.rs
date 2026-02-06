@@ -968,6 +968,108 @@ impl PySpEphemerisFileRecord {
     }
 }
 
+// -- Rate Limit Config --
+
+/// Configuration for SpaceTrack API rate limiting.
+///
+/// Defines the maximum number of requests allowed per minute and per hour.
+/// Defaults to 25 requests/minute and 250 requests/hour (~83% of
+/// Space-Track.org's actual limits of 30/min and 300/hour).
+///
+/// Args:
+///     max_per_minute (int): Maximum requests per rolling 60-second window. Default: 25.
+///     max_per_hour (int): Maximum requests per rolling 3600-second window. Default: 250.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Default conservative limits
+///     config = bh.RateLimitConfig()
+///     print(config.max_per_minute)  # 25
+///     print(config.max_per_hour)    # 250
+///
+///     # Custom limits
+///     config = bh.RateLimitConfig(max_per_minute=10, max_per_hour=100)
+///
+///     # Disable rate limiting
+///     config = bh.RateLimitConfig.disabled()
+///
+///     # Use with client
+///     client = bh.SpaceTrackClient("user@example.com", "password", rate_limit=config)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "RateLimitConfig")]
+#[derive(Clone)]
+pub struct PyRateLimitConfig {
+    pub(crate) inner: spacetrack::RateLimitConfig,
+}
+
+#[pymethods]
+impl PyRateLimitConfig {
+    #[new]
+    #[pyo3(signature = (max_per_minute=25, max_per_hour=250))]
+    fn new(max_per_minute: u32, max_per_hour: u32) -> Self {
+        PyRateLimitConfig {
+            inner: spacetrack::RateLimitConfig {
+                max_per_minute,
+                max_per_hour,
+            },
+        }
+    }
+
+    /// Create a configuration that disables rate limiting.
+    ///
+    /// Returns:
+    ///     RateLimitConfig: Configuration with no rate limits.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     config = bh.RateLimitConfig.disabled()
+    ///     ```
+    #[staticmethod]
+    fn disabled() -> Self {
+        PyRateLimitConfig {
+            inner: spacetrack::RateLimitConfig::disabled(),
+        }
+    }
+
+    /// Maximum requests per rolling 60-second window.
+    #[getter]
+    fn max_per_minute(&self) -> u32 {
+        self.inner.max_per_minute
+    }
+
+    /// Maximum requests per rolling 3600-second window.
+    #[getter]
+    fn max_per_hour(&self) -> u32 {
+        self.inner.max_per_hour
+    }
+
+    fn __str__(&self) -> String {
+        format!(
+            "RateLimitConfig(max_per_minute={}, max_per_hour={})",
+            self.inner.max_per_minute, self.inner.max_per_hour
+        )
+    }
+
+    fn __repr__(&self) -> String {
+        self.__str__()
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.inner == other.inner),
+            CompareOp::Ne => Ok(self.inner != other.inner),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
+        }
+    }
+}
+
 // -- Client --
 
 /// SpaceTrack API client with session-based authentication.
@@ -979,12 +1081,18 @@ impl PySpEphemerisFileRecord {
 ///     identity (str): Space-Track.org login email.
 ///     password (str): Space-Track.org password.
 ///     base_url (str, optional): Custom base URL for testing.
+///     rate_limit (RateLimitConfig, optional): Rate limit configuration.
+///         Defaults to 25 requests/minute, 250 requests/hour.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
 ///     client = bh.SpaceTrackClient("user@example.com", "password")
+///
+///     # With custom rate limits
+///     config = bh.RateLimitConfig(max_per_minute=10, max_per_hour=100)
+///     client = bh.SpaceTrackClient("user@example.com", "password", rate_limit=config)
 ///
 ///     query = (
 ///         bh.SpaceTrackQuery(bh.RequestClass.GP)
@@ -1003,11 +1111,22 @@ pub struct PySpaceTrackClient {
 #[pymethods]
 impl PySpaceTrackClient {
     #[new]
-    #[pyo3(signature = (identity, password, base_url=None))]
-    fn new(identity: &str, password: &str, base_url: Option<&str>) -> Self {
+    #[pyo3(signature = (identity, password, base_url=None, rate_limit=None))]
+    fn new(
+        identity: &str,
+        password: &str,
+        base_url: Option<&str>,
+        rate_limit: Option<&PyRateLimitConfig>,
+    ) -> Self {
+        let config = rate_limit
+            .map(|rl| rl.inner.clone())
+            .unwrap_or_default();
+
         let client = match base_url {
-            Some(url) => spacetrack::SpaceTrackClient::with_base_url(identity, password, url),
-            None => spacetrack::SpaceTrackClient::new(identity, password),
+            Some(url) => spacetrack::SpaceTrackClient::with_base_url_and_rate_limit(
+                identity, password, url, config,
+            ),
+            None => spacetrack::SpaceTrackClient::with_rate_limit(identity, password, config),
         };
         PySpaceTrackClient { inner: client }
     }

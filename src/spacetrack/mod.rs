@@ -37,12 +37,14 @@
 pub mod client;
 pub mod operators;
 pub mod query;
+pub mod rate_limiter;
 pub mod responses;
 pub mod types;
 
 // Re-export commonly used types for convenience
 pub use client::SpaceTrackClient;
 pub use query::SpaceTrackQuery;
+pub use rate_limiter::RateLimitConfig;
 pub use responses::{
     FileShareFileRecord, FolderRecord, GPRecord, SATCATRecord, SpEphemerisFileRecord,
 };

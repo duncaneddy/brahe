@@ -48,6 +48,7 @@ jobs:
             CARGO_TERM_COLOR: always
             TEST_SPACETRACK_USER: ${{ secrets.TEST_SPACETRACK_USER }}
             TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
+            TEST_SPACETRACK_BASE_URL: https://for-testing-only.space-track.org
         steps:
             -   uses: actions/checkout@v6
             -   name: Set up Rust toolchain with cache

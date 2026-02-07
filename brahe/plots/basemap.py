@@ -45,7 +45,9 @@ def get_natural_earth_land_shapefile():
 
     print("Downloading Natural Earth 50m Land data...")
     try:
-        response = httpx.get(NATURAL_EARTH_50M_LAND_URL, timeout=30)
+        response = httpx.get(
+            NATURAL_EARTH_50M_LAND_URL, timeout=30, follow_redirects=True
+        )
         response.raise_for_status()
 
         with open(zip_path, "wb") as f:

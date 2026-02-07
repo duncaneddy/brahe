@@ -1180,8 +1180,10 @@ mod tests {
             .expect("TEST_SPACETRACK_USER env var must be set");
         let pass = std::env::var("TEST_SPACETRACK_PASS")
             .expect("TEST_SPACETRACK_PASS env var must be set");
+        let base_url = std::env::var("TEST_SPACETRACK_BASE_URL")
+            .expect("TEST_SPACETRACK_BASE_URL env var must be set");
 
-        let client = SpaceTrackClient::new(&user, &pass);
+        let client = SpaceTrackClient::with_base_url(&user, &pass, &base_url);
         let result = client.authenticate();
         assert!(result.is_ok(), "Authentication failed: {:?}", result.err());
     }
@@ -1193,8 +1195,10 @@ mod tests {
             .expect("TEST_SPACETRACK_USER env var must be set");
         let pass = std::env::var("TEST_SPACETRACK_PASS")
             .expect("TEST_SPACETRACK_PASS env var must be set");
+        let base_url = std::env::var("TEST_SPACETRACK_BASE_URL")
+            .expect("TEST_SPACETRACK_BASE_URL env var must be set");
 
-        let client = SpaceTrackClient::new(&user, &pass);
+        let client = SpaceTrackClient::with_base_url(&user, &pass, &base_url);
 
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -1213,8 +1217,10 @@ mod tests {
             .expect("TEST_SPACETRACK_USER env var must be set");
         let pass = std::env::var("TEST_SPACETRACK_PASS")
             .expect("TEST_SPACETRACK_PASS env var must be set");
+        let base_url = std::env::var("TEST_SPACETRACK_BASE_URL")
+            .expect("TEST_SPACETRACK_BASE_URL env var must be set");
 
-        let client = SpaceTrackClient::new(&user, &pass);
+        let client = SpaceTrackClient::with_base_url(&user, &pass, &base_url);
 
         let query = SpaceTrackQuery::new(RequestClass::SATCAT)
             .filter("NORAD_CAT_ID", "25544")
@@ -1232,8 +1238,10 @@ mod tests {
             .expect("TEST_SPACETRACK_USER env var must be set");
         let pass = std::env::var("TEST_SPACETRACK_PASS")
             .expect("TEST_SPACETRACK_PASS env var must be set");
+        let base_url = std::env::var("TEST_SPACETRACK_BASE_URL")
+            .expect("TEST_SPACETRACK_BASE_URL env var must be set");
 
-        let client = SpaceTrackClient::new(&user, &pass);
+        let client = SpaceTrackClient::with_base_url(&user, &pass, &base_url);
 
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter("NORAD_CAT_ID", "25544")
@@ -1254,8 +1262,10 @@ mod tests {
             .expect("TEST_SPACETRACK_USER env var must be set");
         let pass = std::env::var("TEST_SPACETRACK_PASS")
             .expect("TEST_SPACETRACK_PASS env var must be set");
+        let base_url = std::env::var("TEST_SPACETRACK_BASE_URL")
+            .expect("TEST_SPACETRACK_BASE_URL env var must be set");
 
-        let client = SpaceTrackClient::new(&user, &pass);
+        let client = SpaceTrackClient::with_base_url(&user, &pass, &base_url);
 
         let query = SpaceTrackQuery::new(RequestClass::GP)
             .filter(

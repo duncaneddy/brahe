@@ -112,7 +112,7 @@ impl RateLimiter {
         let now = Instant::now();
 
         // Prune expired entries from both windows
-        let minute_cutoff = now - Duration::from_secs(60);
+        let minute_cutoff = now.checked_sub(Duration::from_secs(60)).unwrap_or(now);
         while self
             .minute_window
             .front()
@@ -121,7 +121,7 @@ impl RateLimiter {
             self.minute_window.pop_front();
         }
 
-        let hour_cutoff = now - Duration::from_secs(3600);
+        let hour_cutoff = now.checked_sub(Duration::from_secs(3600)).unwrap_or(now);
         while self.hour_window.front().is_some_and(|&t| t < hour_cutoff) {
             self.hour_window.pop_front();
         }

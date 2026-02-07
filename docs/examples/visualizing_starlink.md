@@ -17,7 +17,7 @@ Before starting, we need to import brahe and ensure that we have Earth orientati
 
 ## Download Starlink TLEs
 
-We'll use the [CelesTrak dataset](../library_api/datasets/celestrak.md) to fetch the latest TLE data for all Starlink satellites. The `get_tles_as_propagators` function downloads the data and creates SGP4 propagators in one step:
+We'll use the [CelesTrak dataset](../library_api/ephemeris/celestrak.md) to fetch the latest TLE data for all Starlink satellites. The `get_tles_as_propagators` function downloads the data and creates SGP4 propagators in one step:
 
 ``` python
 --8<-- "./examples/examples/visualizing_starlink.py:download_starlink"
@@ -63,7 +63,7 @@ The resulting plot shows the complete Starlink constellation orbiting Earth. The
 
 ## See Also
 
-- [CelesTrak Dataset](../learn/datasets/celestrak.md) - More details on using CelesTrak datasets
+- [CelesTrak Dataset](../learn/ephemeris/celestrak.md) - More details on using CelesTrak datasets
 - [Two-Line Elements](../learn/orbits/two_line_elements.md) - Understanding TLE format and usage
 - [SGP4 Propagator](../learn/orbit_propagation/sgp_propagation.md) - How SGP4 works for orbit propagation
 - [3D Trajectory Plotting](../learn/plots/3d_trajectory.md) - Advanced options for trajectory visualization

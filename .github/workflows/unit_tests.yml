@@ -27,6 +27,7 @@ concurrency:
 jobs:
     test-rust:
         uses: ./.github/workflows/test_rust.yml
+        secrets: inherit
     delay-python:
         runs-on: ubuntu-latest
         steps:
@@ -35,6 +36,7 @@ jobs:
     test-python:
         needs: [delay-python]
         uses: ./.github/workflows/test_python.yml
+        secrets: inherit
     test-examples:
         # needs: [ test-rust ] # Remove this dependency for optimistic parallel execution
         uses: ./.github/workflows/test_examples.yml

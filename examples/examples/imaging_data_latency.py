@@ -44,15 +44,15 @@ OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
 os.makedirs(OUTDIR, exist_ok=True)
 
 # --8<-- [start:download_capella]
-# Download TLE data for all active satellites and filter for Capella
-print("Downloading active satellite TLEs from CelesTrak...")
+# Download TLE data for Capella satellites from CelesTrak
+print("Downloading Capella satellite TLEs from CelesTrak...")
 start_time = time.time()
-all_active_props = bh.datasets.celestrak.get_tles_as_propagators("active", 60.0)
+client = bh.celestrak.CelestrakClient()
+query = bh.celestrak.CelestrakQuery.gp().name_search("CAPELLA")
+records = client.query_gp(query)
 
-# Filter for Capella satellites (name contains "CAPELLA")
-capella_props = [
-    prop for prop in all_active_props if "CAPELLA" in prop.get_name().upper()
-]
+# Convert to propagators
+capella_props = [r.to_sgp_propagator(60.0) for r in records]
 elapsed = time.time() - start_time
 print(f"Found {len(capella_props)} Capella satellites in {elapsed:.2f} seconds")
 for prop in capella_props:

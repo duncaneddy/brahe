@@ -3,10 +3,10 @@
 # FLAGS = ["CI-ONLY"]
 # ///
 """
-Get satellite TLE by name from CelesTrak.
+Get satellite GP data by name from CelesTrak.
 
-This example demonstrates searching for satellites by name,
-with and without group hints for efficiency.
+This example demonstrates searching for satellites by name using the
+CelestrakQuery builder's name_search method.
 """
 
 import brahe as bh
@@ -14,31 +14,33 @@ import brahe as bh
 # Initialize EOP data
 bh.initialize_eop()
 
-# Search by name (checks common groups automatically)
-iss_name, iss_line1, iss_line2 = bh.datasets.celestrak.get_tle_by_name("ISS")
+# Search by name
+client = bh.celestrak.CelestrakClient()
+query = bh.celestrak.CelestrakQuery.gp().name_search("ISS")
+records = client.query_gp(query)
 
-print("Search without group hint:")
-print(f"  Found: {iss_name}")
-print(f"  Line 1: {iss_line1}")
-print(f"  Line 2: {iss_line2}")
+print(f"Found {len(records)} results for 'ISS'")
+for record in records[:5]:
+    print(f"  {record.object_name} (NORAD ID: {record.norad_cat_id})")
 
-# Or provide a group hint for faster lookup
-iss_name2, iss_line2_1, iss_line2_2 = bh.datasets.celestrak.get_tle_by_name(
-    "ISS", "stations"
-)
-
-print("\nSearch with group hint:")
-print(f"  Found: {iss_name2}")
-print(f"  Line 1: {iss_line2_1}")
-print(f"  Line 2: {iss_line2_2}")
+# The first result should be ISS (ZARYA)
+iss = records[0]
+print("\nISS GP Data:")
+print(f"  Name: {iss.object_name}")
+print(f"  NORAD ID: {iss.norad_cat_id}")
+print(f"  Epoch: {iss.epoch}")
+print(f"  Inclination: {iss.inclination:.2f}°")
+print(f"  Eccentricity: {iss.eccentricity:.6f}")
 
 # Expected output:
-# Search without group hint:
-#   Found: ISS (ZARYA)
-#   Line 1: 1 25544U 98067A   25306.42331346  .00010070  00000+0  18610-3 0  9998
-#   Line 2: 2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.49700017536601
-
-# Search with group hint:
-#   Found: ISS (ZARYA)
-#   Line 1: 1 25544U 98067A   25306.42331346  .00010070  00000+0  18610-3 0  9998
-#   Line 2: 2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.49700017536601
+# Found N results for 'ISS'
+#   ISS (ZARYA) (NORAD ID: 25544)
+#   ISS DEB (NORAD ID: ...)
+#   ...
+#
+# ISS GP Data:
+#   Name: ISS (ZARYA)
+#   NORAD ID: 25544
+#   Epoch: 2025-11-02T10:09:34.283392
+#   Inclination: 51.63°
+#   Eccentricity: 0.000497

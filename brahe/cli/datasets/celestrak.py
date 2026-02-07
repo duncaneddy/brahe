@@ -2,6 +2,7 @@
 CLI commands for CelesTrak datasets
 """
 
+import math
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -12,7 +13,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-import brahe.datasets as datasets
 import brahe as bh
 
 
@@ -68,6 +68,16 @@ COLUMN_PRESETS = {
 }
 
 
+def _format_to_celestrak(content_format: str) -> "bh.celestrak.CelestrakOutputFormat":
+    """Map CLI content format to CelestrakOutputFormat."""
+    if content_format == "tle":
+        return bh.celestrak.CelestrakOutputFormat.TLE
+    elif content_format == "3le":
+        return bh.celestrak.CelestrakOutputFormat.THREE_LE
+    else:
+        raise ValueError(f"Invalid content format: {content_format}")
+
+
 @app.command()
 def download(
     filepath: Annotated[Path, typer.Argument(help="Output file path")],
@@ -104,14 +114,74 @@ def download(
         )
 
         try:
-            datasets.celestrak.download_tles(
-                group, str(filepath.absolute()), content_format.value, file_format.value
-            )
+            client = bh.celestrak.CelestrakClient()
+            fmt = _format_to_celestrak(content_format.value)
+            query = bh.celestrak.CelestrakQuery.gp().group(group).format(fmt)
+            client.download(query, str(filepath.absolute()))
         except Exception as e:
             typer.echo(f"Error: {e}", err=True)
             raise typer.Exit(code=1)
 
     typer.echo(f"✓ Downloaded {group} satellites to {filepath}")
+
+
+def _fetch_3le_by_name(name: str, group: str = None):
+    """Fetch 3LE text for a satellite by name, return list of (name, line1, line2) tuples."""
+    client = bh.celestrak.CelestrakClient()
+    if group:
+        # Fetch group as 3LE and search by name client-side
+        query = (
+            bh.celestrak.CelestrakQuery.gp()
+            .group(group)
+            .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
+        )
+    else:
+        query = (
+            bh.celestrak.CelestrakQuery.gp()
+            .name_search(name)
+            .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
+        )
+    raw = client.query_raw(query)
+    results = _parse_3le_text(raw)
+    if group:
+        # Filter client-side by name (case-insensitive contains)
+        name_upper = name.upper()
+        results = [(n, l1, l2) for n, l1, l2 in results if name_upper in n.upper()]
+    if not results:
+        raise RuntimeError(f"No satellite found matching '{name}'")
+    return results
+
+
+def _fetch_3le_by_id(norad_id: int):
+    """Fetch 3LE text for a satellite by NORAD ID, return (name, line1, line2)."""
+    client = bh.celestrak.CelestrakClient()
+    query = (
+        bh.celestrak.CelestrakQuery.gp()
+        .catnr(norad_id)
+        .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
+    )
+    raw = client.query_raw(query)
+    results = _parse_3le_text(raw)
+    if not results:
+        raise RuntimeError(f"No satellite found for NORAD ID {norad_id}")
+    return results[0]
+
+
+def _parse_3le_text(raw: str):
+    """Parse 3LE text into list of (name, line1, line2) tuples."""
+    lines = [ln for ln in raw.strip().splitlines() if ln.strip()]
+    results = []
+    i = 0
+    while i + 2 < len(lines):
+        name = lines[i].strip()
+        line1 = lines[i + 1].strip()
+        line2 = lines[i + 2].strip()
+        if line1.startswith("1 ") and line2.startswith("2 "):
+            results.append((name, line1, line2))
+            i += 3
+        else:
+            i += 1
+    return results
 
 
 @app.command()
@@ -123,8 +193,6 @@ def lookup(
 ):
     """
     Lookup a satellite by name and display its NORAD ID and TLE.
-
-    Uses cascading search: specified group → "active" group → CelesTrak NAME API.
 
     Examples:
         brahe datasets celestrak lookup "ISS"
@@ -139,7 +207,8 @@ def lookup(
         progress.add_task(description=f"Searching for '{name}'...", total=None)
 
         try:
-            sat_name, line1, line2 = datasets.celestrak.get_tle_by_name(name, group)
+            results = _fetch_3le_by_name(name, group)
+            sat_name, line1, line2 = results[0]
         except Exception as e:
             typer.echo(f"ERROR: {e}", err=True)
             raise typer.Exit(code=1)
@@ -196,14 +265,11 @@ def show(
             # Try to parse as NORAD ID first
             try:
                 norad_id = int(identifier)
-                sat_name, line1, line2 = datasets.celestrak.get_tle_by_id(
-                    norad_id, group
-                )
+                sat_name, line1, line2 = _fetch_3le_by_id(norad_id)
             except ValueError:
                 # Not a number, treat as name
-                sat_name, line1, line2 = datasets.celestrak.get_tle_by_name(
-                    identifier, group
-                )
+                results = _fetch_3le_by_name(identifier, group)
+                sat_name, line1, line2 = results[0]
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]", style="bold")
             raise typer.Exit(code=1)
@@ -459,7 +525,7 @@ def search(
     """
     console = Console()
 
-    # Download ephemeris for the group
+    # Download ephemeris for the group and filter by name
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -470,18 +536,16 @@ def search(
         )
 
         try:
-            ephemeris = datasets.celestrak.get_tles(group)
+            client = bh.celestrak.CelestrakClient()
+            query = (
+                bh.celestrak.CelestrakQuery.gp()
+                .group(group)
+                .filter("OBJECT_NAME", f"~~{pattern}")
+            )
+            matches = client.query_gp(query)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]", style="bold")
             raise typer.Exit(code=1)
-
-    # Filter by pattern (case-insensitive substring match)
-    pattern_upper = pattern.upper()
-    matches = [
-        (name, line1, line2)
-        for name, line1, line2 in ephemeris
-        if pattern_upper in name.upper()
-    ]
 
     if not matches:
         console.print(
@@ -491,8 +555,9 @@ def search(
 
     # Simple format (default)
     if not table:
-        for name, line1, line2 in matches:
-            norad_id = line1[2:7].strip()
+        for rec in matches:
+            norad_id = rec.norad_cat_id if rec.norad_cat_id is not None else "?"
+            name = rec.object_name or "UNKNOWN"
             typer.echo(f"{name} (NORAD: {norad_id})")
         typer.echo(f"\n✓ Found {len(matches)} satellite(s)")
         return
@@ -539,52 +604,58 @@ def search(
         bh.TimeSystem.UTC,
     )
 
-    for name, line1, line2 in matches:
-        # Extract NORAD ID
-        norad_id = line1[2:7].strip()
+    for rec in matches:
+        name = rec.object_name or "UNKNOWN"
+        norad_id = rec.norad_cat_id if rec.norad_cat_id is not None else "?"
 
-        # Parse TLE to get orbital elements
-        try:
-            epoch, elements = bh.keplerian_elements_from_tle(line1, line2)
-        except Exception as e:
-            # Skip satellites with invalid TLEs
-            console.print(
-                f"[dim]Warning: Skipping {name} - invalid TLE: {e}[/dim]", err=True
-            )
+        # Use orbital elements directly from GP record (already typed as float)
+        mean_motion_val = rec.mean_motion
+        ecc = rec.eccentricity
+        inc = rec.inclination
+        raan = rec.ra_of_asc_node
+        argp = rec.arg_of_pericenter
+        ma = rec.mean_anomaly
+
+        if mean_motion_val is None or ecc is None:
             continue
 
-        # Extract orbital elements
-        a = elements[0]  # meters
-        e = elements[1]  # dimensionless
-        inc = elements[2]  # degrees
-        raan = elements[3]  # degrees
-        argp = elements[4]  # degrees
-        ma = elements[5]  # degrees
+        # Derive SMA from mean motion (rev/day -> rad/s -> SMA via Kepler)
+        n_rad_s = mean_motion_val * 2.0 * math.pi / 86400.0
+        a = (bh.GM_EARTH / (n_rad_s**2)) ** (1.0 / 3.0)  # meters
 
         # Compute derived parameters
         period_sec = bh.orbital_period(a)
         period_min = period_sec / 60.0
-        mean_motion = 86400.0 / period_sec  # rev/day
-        perigee_alt_km = (a * (1.0 - e) - bh.R_EARTH) / 1000.0
-        apogee_alt_km = (a * (1.0 + e) - bh.R_EARTH) / 1000.0
-        age_seconds = current_epoch - epoch
+        perigee_alt_m = a * (1.0 - ecc) - bh.R_EARTH
+        apogee_alt_m = a * (1.0 + ecc) - bh.R_EARTH
+
+        # Compute age from epoch string
+        epoch_str = rec.epoch or ""
+        age_seconds = 0.0
+        if epoch_str:
+            try:
+                # Parse ISO epoch string
+                ep = bh.Epoch.from_string(epoch_str)
+                age_seconds = current_epoch - ep
+            except Exception:
+                pass
 
         # Build row data dictionary
         row_data = {
             "name": name,
             "norad_id": norad_id,
-            "epoch": str(epoch),
-            "age": age_seconds,  # Will be formatted by column formatter
-            "sma": a,  # meters, will be formatted by column formatter
-            "perigee": perigee_alt_km * 1000.0,  # convert back to meters for formatter
-            "apogee": apogee_alt_km * 1000.0,  # convert back to meters for formatter
-            "ecc": e,
-            "inc": inc,
-            "raan": raan,
-            "argp": argp,
-            "ma": ma,
+            "epoch": epoch_str,
+            "age": age_seconds,
+            "sma": a,
+            "perigee": perigee_alt_m,
+            "apogee": apogee_alt_m,
+            "ecc": ecc,
+            "inc": inc or 0.0,
+            "raan": raan or 0.0,
+            "argp": argp or 0.0,
+            "ma": ma or 0.0,
             "period": period_min,
-            "mean_motion": mean_motion,
+            "mean_motion": mean_motion_val,
         }
 
         # Format and add row

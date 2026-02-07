@@ -52,7 +52,7 @@ jobs:
   generate-release-notes:
     runs-on: ubuntu-latest
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
       PYTHON_VERSION: 3.12
     needs: [validate-version, test-rust, test-python, test-examples]
     permissions:
@@ -158,7 +158,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version: ['3.12']
-        rust-toolchain: [nightly]
+        rust-toolchain: [stable]
 
     steps:
     - name: Checkout code
@@ -212,7 +212,7 @@ jobs:
       matrix:
           os: [ubuntu-latest, macos-latest, windows-latest]
           python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
-          rust-toolchain: [nightly]
+          rust-toolchain: [stable]
     environment: release
 
     steps:
@@ -278,7 +278,7 @@ jobs:
     permissions:
       id-token: write
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
       - name: Download CHANGELOG

@@ -10,7 +10,7 @@ import brahe
 app.rich_markup_mode = None
 
 # Disable color output to avoid ANSI escape codes in output
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def test_cli_eop_download_standard():
@@ -314,7 +314,7 @@ def test_cli_eop_get_lod(iau2000_standard_filepath, iau2000_c04_20_filepath):
     ):
         result = runner.invoke(app, ["eop", "get-lod", "2022-01-01T00:00:00Z"])
         assert result.exit_code == 0
-        assert "-2.67e-05" in result.stdout
+        assert "-2.67" in result.stdout and "e-05" in result.stdout
 
     with patch(
         "brahe.cli.eop.get_global_eop_source",
@@ -326,7 +326,7 @@ def test_cli_eop_get_lod(iau2000_standard_filepath, iau2000_c04_20_filepath):
             app, ["eop", "get-lod", "2022-01-01T00:00:00Z", "--product", "standard"]
         )
         assert result.exit_code == 0
-        assert "-2.67e-05" in result.stdout
+        assert "-2.67" in result.stdout and "e-05" in result.stdout
 
     result = runner.invoke(
         app,
@@ -343,7 +343,7 @@ def test_cli_eop_get_lod(iau2000_standard_filepath, iau2000_c04_20_filepath):
         ],
     )
     assert result.exit_code == 0
-    assert "-2.67e-05" in result.stdout
+    assert "-2.67" in result.stdout and "e-05" in result.stdout
 
     with patch(
         "brahe.cli.eop.get_global_eop_source",

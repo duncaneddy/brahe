@@ -1,34 +1,36 @@
-//! Get a single satellite TLE by NORAD ID from CelesTrak.
+//! Get a single satellite GP record by NORAD ID from CelesTrak.
 //!
-//! This example demonstrates the cache-efficient pattern: providing the group name
-//! allows brahe to use cached group data rather than making a new API request.
+//! This example demonstrates querying CelesTrak for a satellite's general
+//! perturbations (GP) data using its NORAD catalog number.
 //!
 //! FLAGS = ["CI-ONLY"]
 
 #[allow(unused_imports)]
 use brahe as bh;
+use bh::celestrak::{CelestrakClient, CelestrakQuery};
 
 fn main() {
     bh::initialize_eop().unwrap();
 
-    // Get ISS TLE by NORAD ID
-    // The group hint ("stations") allows brahe to check cached data first
-    let (name, line1, line2) = bh::datasets::celestrak::get_tle_by_id(25544, Some("stations")).unwrap();
+    // Query ISS GP data by NORAD catalog number
+    let client = CelestrakClient::new();
+    let query = CelestrakQuery::gp().catnr(25544);
+    let records = client.query_gp(&query).unwrap();
+    let record = &records[0];
 
-    // Parse TLE data to get epoch and orbital elements
-    let (epoch, oe) = bh::keplerian_elements_from_tle(&line1, &line2).unwrap();
-
-    println!("ISS TLE:");
-    println!("  Name: {}", name);
-    println!("  Epoch: {}", epoch);
-    println!("  Inclination: {:.2}°", oe[2]);
-    println!("  RAAN: {:.2}°", oe[3]);
-    println!("  Eccentricity: {:.6}", oe[1]);
+    println!("ISS GP Data:");
+    println!("  Name: {}", record.object_name.as_deref().unwrap_or("Unknown"));
+    println!("  NORAD ID: {}", record.norad_cat_id.unwrap_or(0));
+    println!("  Epoch: {}", record.epoch.as_deref().unwrap_or("Unknown"));
+    println!("  Inclination: {:.2}°", record.inclination.unwrap_or(0.0));
+    println!("  RAAN: {:.2}°", record.ra_of_asc_node.unwrap_or(0.0));
+    println!("  Eccentricity: {:.6}", record.eccentricity.unwrap_or(0.0));
 
     // Expected output:
-    // ISS TLE:
+    // ISS GP Data:
     //   Name: ISS (ZARYA)
-    //   Epoch: 2025-11-02 10:09:34.283 UTC
+    //   NORAD ID: 25544
+    //   Epoch: 2025-11-02T10:09:34.283392
     //   Inclination: 51.63°
     //   RAAN: 342.07°
     //   Eccentricity: 0.000497

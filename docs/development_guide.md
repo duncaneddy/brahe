@@ -7,17 +7,9 @@ The guidelines for contributing, developing, and extending brahe assume you are 
 
 ### Setting up your environment
 
-If you need to setup the development environment, including installing the necessary
-development dependencies.
+If you need to setup the development environment, including installing the necessary development dependencies.
 
 First, you need to install Rust from [rustup.rs](https://rustup.rs/).
-
-Then you can install the nightly toolchain with:
-
-```bash
-rustup toolchain install nightly
-rustup default nightly
-```
 
 After this you can now setup your python environment with:
 
@@ -41,9 +33,9 @@ cargo test
 # Run Python tests
 uv pip install -e ".[all]" && uv run pytest
 # Run documentation examples
-uv run make.py test-examples
+just test-examples
 # Test specific example
-uv run make.py test-example <example_name> # Can just be the file name without extension, e.g. impulsive_maneuver or impulsive_maneuver.py
+just test-example <example_name> # Can just be the file name without extension, e.g. impulsive_maneuver or impulsive_maneuver.py
 ```
 
 
@@ -78,7 +70,7 @@ When adding new functionality to Brahe, follow this sequence:
 **5. Documentation Examples**
 - Create standalone example files in `examples/<module>/`
 - Create both Python and Rust versions (see templates below)
-- Test: `uv run make.py test-examples`
+- Test: `just test-examples`
 
 **6. Documentation**
 - Update or create documentation in `docs/`
@@ -95,8 +87,8 @@ ruff format
 cargo test
 uv pip install -e ".[all]" && ./scripts/generate_stubs.sh && uv run pytest
 # Documentation
-uv run test-examples
-uv run make-plots
+just test-examples
+just make-plots
 uv run mkdocs build --strict
 uv run mkdocs serve
 ```
@@ -235,7 +227,7 @@ fn main() {
 
 Test examples locally:
 ```bash
-uv run make.py test-examples
+just test-examples
 ```
 
 The build system will:
@@ -346,7 +338,7 @@ print(f"✓ Generated {OUTFILE}")
 
 Generate all plots:
 ```bash
-uv run make.py make-plots
+just make-plots
 ```
 
 Plots are written to `docs/figures/` as partial HTML files for embedding.
@@ -471,7 +463,7 @@ Before creating a release:
 
 2. **Run quality checks**:
    ```bash
-   ruff check && cargo fmt -- --check && cargo test && uv pip install -e ".[all]" && uv run pytest && uv run make.py test-examples && uv run make.py make-plots && uv run mkdocs build --strict
+   ruff check && cargo fmt -- --check && cargo test && uv pip install -e ".[all]" && uv run pytest && just test-examples && just make-plots && uv run mkdocs build --strict
    ```
 
 3. **Push version tag**:

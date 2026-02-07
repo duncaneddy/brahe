@@ -7,7 +7,7 @@ jobs:
   test-examples:
     runs-on: ubuntu-latest
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
 
@@ -89,11 +89,14 @@ jobs:
               uv pip install -e .
           fi
 
+      - name: Install just
+        uses: extractions/setup-just@v3
+
       - name: Test examples (including CI-ONLY)
-        run: uv run python make.py test-examples --ci-only
+        run: just test-examples --ci-only
 
       - name: Generate documentation plots
-        run: uv run python make.py make-plots
+        run: just make-plots
 
       - name: Upload figures as artifact
         uses: actions/upload-artifact@v6

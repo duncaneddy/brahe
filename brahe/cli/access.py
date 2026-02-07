@@ -232,10 +232,22 @@ def compute(
         typer.echo(f"Error parsing time: {e}")
         raise typer.Exit(code=1)
 
-    # Fetch TLE from CelesTrak
+    # Fetch TLE from CelesTrak (request 3LE format to get name + TLE lines)
     logger.debug(f"Fetching TLE for NORAD ID {norad_id} from CelesTrak")
     try:
-        sat_name, line1, line2 = brahe.datasets.celestrak.get_tle_by_id(norad_id)
+        client = brahe.celestrak.CelestrakClient()
+        query = (
+            brahe.celestrak.CelestrakQuery.gp()
+            .catnr(norad_id)
+            .format(brahe.celestrak.CelestrakOutputFormat.THREE_LE)
+        )
+        raw = client.query_raw(query)
+        lines = [ln for ln in raw.strip().splitlines() if ln.strip()]
+        if len(lines) < 3:
+            raise RuntimeError(f"Unexpected 3LE response for NORAD ID {norad_id}")
+        sat_name = lines[0].strip()
+        line1 = lines[1].strip()
+        line2 = lines[2].strip()
         logger.info(f"Retrieved TLE for {sat_name}")
     except Exception as e:
         typer.echo(f"Error fetching TLE for NORAD ID {norad_id}: {e}")

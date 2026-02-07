@@ -244,9 +244,19 @@ nav:
                 - learn/space_weather/managing_space_weather_data.md
             - Datasets:
                 - learn/datasets/index.md
-                - CelesTrak: learn/datasets/celestrak.md
                 - NAIF: learn/datasets/naif.md
                 - Groundstations: learn/datasets/groundstations.md
+            - Ephemeris Data Sources:
+                - learn/ephemeris/index.md
+                - CelesTrak: learn/ephemeris/celestrak.md
+                - Space-Track:
+                    - learn/ephemeris/spacetrack/index.md
+                    - Query Builder: learn/ephemeris/spacetrack/query_builder.md
+                    - Common Queries: learn/ephemeris/spacetrack/common_queries.md
+                    - Conjunction Data: learn/ephemeris/spacetrack/cdm.md
+                    - Client: learn/ephemeris/spacetrack/client.md
+                    - File Operations: learn/ephemeris/spacetrack/file_operations.md
+                    - Rate Limiting: learn/ephemeris/spacetrack/rate_limiting.md
             - Utilities:
                 - learn/utilities/index.md
                 - Caching: learn/utilities/caching.md
@@ -388,9 +398,20 @@ nav:
                 - NRLMSISE-00: library_api/earth_models/nrlmsise00.md
             - Datasets:
                 - library_api/datasets/index.md
-                - CelesTrak: library_api/datasets/celestrak.md
                 - Groundstations: library_api/datasets/groundstations.md
                 - NAIF: library_api/datasets/naif.md
+            - Ephemeris Data Sources:
+                - library_api/ephemeris/index.md
+                - Shared Types: library_api/ephemeris/shared_types.md
+                - CelesTrak: library_api/ephemeris/celestrak.md
+                - Space-Track:
+                    - library_api/ephemeris/spacetrack/index.md
+                    - Client: library_api/ephemeris/spacetrack/client.md
+                    - Query Builder: library_api/ephemeris/spacetrack/query.md
+                    - Responses: library_api/ephemeris/spacetrack/responses.md
+                    - Enumerations: library_api/ephemeris/spacetrack/enums.md
+                    - Operators: library_api/ephemeris/spacetrack/operators.md
+                    - Rate Limiting: library_api/ephemeris/spacetrack/rate_limiting.md
             - Utilities:
                 - library_api/utils/index.md
                 - Caching: library_api/utils/caching.md

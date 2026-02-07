@@ -45,7 +45,9 @@ def get_natural_earth_land_shapefile():
 
     print("Downloading Natural Earth 50m Land data...")
     try:
-        response = httpx.get(NATURAL_EARTH_50M_LAND_URL, timeout=30)
+        response = httpx.get(
+            NATURAL_EARTH_50M_LAND_URL, timeout=30, follow_redirects=True
+        )
         response.raise_for_status()
 
         with open(zip_path, "wb") as f:
@@ -63,13 +65,15 @@ def get_natural_earth_land_shapefile():
 
         print(f"Extracted to {ne_dir / 'ne_50m_land'}")
 
+        if not zip_path.exists():
+            print(f"Warning: zip file disappeared after extraction: {zip_path}")
+
     except zipfile.BadZipFile as e:
         raise RuntimeError(f"Failed to extract Natural Earth data: {e}")
 
     finally:
         # Clean up zip file
-        if zip_path.exists():
-            zip_path.unlink()
+        zip_path.unlink(missing_ok=True)
 
     # Verify shapefile exists
     if not shapefile_path.exists():

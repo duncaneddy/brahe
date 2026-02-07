@@ -66,13 +66,7 @@ If you want to build Brahe from source (e.g., for development or to use unreleas
    cargo --version
    ```
 
-2. **Configure Rust to Use Nightly**:
-   ```bash
-   rustup toolchain install nightly
-   rustup default nightly
-   ```
-
-3. **Python 3.10+** with development headers:
+2. **Python 3.10+** with development headers:
    ```bash
    # On Ubuntu/Debian
    sudo apt-get install python3-dev

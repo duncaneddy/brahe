@@ -3,10 +3,10 @@
 # FLAGS = ["CI-ONLY"]
 # ///
 """
-Convert CelesTrak TLE directly to SGP propagator.
+Convert CelesTrak GP data directly to SGP propagator.
 
-This example shows how to get a satellite and convert it to a propagator
-in a single step, which is the most common use case.
+This example shows how to query a satellite from CelesTrak and convert it
+to a propagator in a few steps, which is the most common use case.
 """
 
 import brahe as bh
@@ -14,9 +14,11 @@ import brahe as bh
 # Initialize EOP data
 bh.initialize_eop()
 
-# Get ISS as a propagator with 60-second step size
-# The group hint ("stations") uses cached data for efficiency
-iss_prop = bh.datasets.celestrak.get_tle_by_id_as_propagator(25544, 60.0, "stations")
+# Query ISS GP data from CelesTrak and create a propagator with 60-second step size
+client = bh.celestrak.CelestrakClient()
+query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
+records = client.query_gp(query)
+iss_prop = records[0].to_sgp_propagator(60.0)
 
 print(f"Created propagator: {iss_prop.get_name()}")
 print(f"Epoch: {iss_prop.epoch}")

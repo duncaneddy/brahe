@@ -32,6 +32,7 @@ jobs:
     needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_rust.yml
+    secrets: inherit
 
   delay-python:
     needs: [check-skip]
@@ -45,6 +46,7 @@ jobs:
     needs: [delay-python]
     if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
+    secrets: inherit
 
   test-examples:
     needs: [check-skip]
@@ -57,7 +59,7 @@ jobs:
     needs: [check-skip, test-rust]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
 
@@ -79,8 +81,11 @@ jobs:
       - name: Install Python 3.14
         run: uv python install 3.14
 
+      - name: Install just
+        uses: extractions/setup-just@v3
+
       - name: Build and validate Rust package
-        run: uv run python make.py build --lang rust
+        run: just build --lang rust
 
   # Validate PyPI packages build correctly with proper metadata
   validate-python-package:
@@ -88,7 +93,7 @@ jobs:
     needs: [check-skip, test-python]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
 
@@ -110,8 +115,11 @@ jobs:
       - name: Install Python 3.14
         run: uv python install 3.14
 
+      - name: Install just
+        uses: extractions/setup-just@v3
+
       - name: Build and validate Python package
-        run: uv run python make.py build --lang python
+        run: just build --lang python
 
   # Build docs to verify no breakage, but don't deploy
   build-docs:
@@ -119,7 +127,7 @@ jobs:
     needs: [check-skip, test-rust, test-python, test-examples]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
 

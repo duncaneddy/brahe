@@ -8,7 +8,6 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::ops::Bound;
 use std::path::Path;
 
 use crate::space_weather::parser::{is_data_line, parse_cssi_line_with_section};
@@ -352,9 +351,8 @@ impl FileSpaceWeatherProvider {
             return Ok(data);
         }
 
-        // Use cursor to find the previous entry
-        let mut cursor = self.data.upper_bound(Bound::Included(&key));
-        if let Some((_, data)) = cursor.prev() {
+        // Find the previous entry
+        if let Some((_, data)) = self.data.range(..=key).next_back() {
             return Ok(data);
         }
 
@@ -402,8 +400,7 @@ impl FileSpaceWeatherProvider {
                         return Ok(data);
                     }
                     // Fallback: find nearest data
-                    let mut cursor = self.data.upper_bound(Bound::Included(&key));
-                    if let Some((_, data)) = cursor.prev() {
+                    if let Some((_, data)) = self.data.range(..=key).next_back() {
                         return Ok(data);
                     }
                 }

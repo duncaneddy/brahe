@@ -133,7 +133,10 @@ class DopplerComputer(bh.AccessPropertyComputer):
 print("Downloading ISS TLE from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_iss]
-iss = bh.datasets.celestrak.get_tle_by_id_as_propagator(25544, 60.0)
+client = bh.celestrak.CelestrakClient()
+query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
+records = client.query_gp(query)
+iss = records[0].to_sgp_propagator(60.0)
 # --8<-- [end:download_iss]
 elapsed = time.time() - start_time
 print(f"Downloaded ISS TLE in {elapsed:.2f} seconds.")

@@ -3,10 +3,10 @@
 # FLAGS = ["CI-ONLY"]
 # ///
 """
-Get a single satellite TLE by NORAD ID from CelesTrak.
+Get a single satellite GP record by NORAD ID from CelesTrak.
 
-This example demonstrates the cache-efficient pattern: providing the group name
-allows brahe to use cached group data rather than making a new API request.
+This example demonstrates querying CelesTrak for a satellite's general
+perturbations (GP) data using its NORAD catalog number.
 """
 
 import brahe as bh
@@ -14,24 +14,25 @@ import brahe as bh
 # Initialize EOP data
 bh.initialize_eop()
 
-# Get ISS TLE by NORAD ID
-# The group hint ("stations") allows brahe to check cached data first
-name, line1, line2 = bh.datasets.celestrak.get_tle_by_id(25544, "stations")
+# Query ISS GP data by NORAD catalog number
+client = bh.celestrak.CelestrakClient()
+query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
+records = client.query_gp(query)
+record = records[0]
 
-# Parse TLE data to get epoch and orbital elements
-epoch, oe = bh.keplerian_elements_from_tle(line1, line2)
-
-print("ISS TLE:")
-print(f"  Name: {name}")
-print(f"  Epoch: {epoch}")
-print(f"  Inclination: {oe[2]:.2f}°")
-print(f"  RAAN: {oe[3]:.2f}°")
-print(f"  Eccentricity: {oe[1]:.6f}")
+print("ISS GP Data:")
+print(f"  Name: {record.object_name}")
+print(f"  NORAD ID: {record.norad_cat_id}")
+print(f"  Epoch: {record.epoch}")
+print(f"  Inclination: {record.inclination:.2f}°")
+print(f"  RAAN: {record.ra_of_asc_node:.2f}°")
+print(f"  Eccentricity: {record.eccentricity:.6f}")
 
 # Expected output:
-# ISS TLE:
+# ISS GP Data:
 #   Name: ISS (ZARYA)
-#   Epoch: 2025-11-02 10:09:34.283 UTC
+#   NORAD ID: 25544
+#   Epoch: 2025-11-02T10:09:34.283392
 #   Inclination: 51.63°
 #   RAAN: 342.07°
 #   Eccentricity: 0.000497

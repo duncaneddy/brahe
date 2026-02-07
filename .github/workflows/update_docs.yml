@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: write
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
         with:

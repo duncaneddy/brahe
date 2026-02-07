@@ -1,29 +1,20 @@
 # Datasets
 
-The datasets module in Brahe provides easy access to common data sources used in astrodynamics, space mission analysis, and research. This includes ephemeris data for Earth-orbiting satellites and locations of ground stations.
+The datasets module in Brahe provides easy access to common static data sources used in astrodynamics, space mission analysis, and research. This includes planetary ephemeris kernels and locations of ground stations.
+
+!!! tip "Satellite Ephemeris Data"
+    For satellite ephemeris API clients (CelesTrak, Space-Track), see [Ephemeris Data Sources](../ephemeris/index.md).
 
 ## Overview
 
 Working with satellite and planetary data typically requires gathering information from multiple sources:
 
-- **Orbital elements** (TLEs) for satellite tracking and propagation
 - **Planetary ephemeris** (DE kernels) for high-precision solar system body positions
 - **Groundstation locations** for computing contact opportunities
-- **Satellite metadata** for mission planning and analysis
 
 Brahe's datasets module centralizes access to these data sources, handling the details of fetching, parsing, and caching so you can focus on analysis rather than data wrangling.
 
 ## Available Data Sources
-
-### [CelesTrak](celestrak.md)
-
-[CelesTrak](https://celestrak.org) provides Two-Line Element (TLE) data for thousands of Earth-orbiting satellites. The brahe interface supports:
-
-- **Group downloads**: Fetch entire satellite constellations (Starlink, OneWeb, GPS, etc.)
-- **Individual lookups**: Get specific satellites by NORAD ID or name
-- **Direct propagation**: Convert TLEs to SGP4 propagators in one step
-
-**Best for**: Satellite analysis, orbit propagation, space situational awareness
 
 ### [NAIF](naif.md)
 
@@ -62,7 +53,7 @@ Brahe's datasets module aims to:
 
 ## See Also
 
-- [CelesTrak Data Source](celestrak.md) - TLE ephemeris data
+- [Ephemeris Data Sources](../ephemeris/index.md) - CelesTrak and Space-Track API clients
 - [NAIF Ephemeris Kernels](naif.md) - Planetary ephemeris data
 - [Groundstation Datasets](groundstations.md) - Ground facility locations
 - [Datasets API Reference](../../library_api/datasets/index.md) - Complete function documentation

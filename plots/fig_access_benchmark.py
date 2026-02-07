@@ -14,7 +14,7 @@ Generates light and dark themed benchmark comparison charts showing:
 
 This script is marked IGNORE because it takes several minutes to run the full
 benchmark with 100 locations. Run manually with:
-    uv run python make.py make-plots --ignore
+    just make-plots --ignore
 """
 
 import json

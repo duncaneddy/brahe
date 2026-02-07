@@ -94,9 +94,6 @@ love to know about it! Tweet me [@duncaneddy](https://twitter.com/DuncanEddy) or
 email me at duncan.eddy (at) gmail.com.
  */
 
-// TODO: Remove when BTreeCursor is stabilized
-// See: https://github.com/rust-lang/rust/issues/107540
-#![feature(btree_cursors)]
 // This enables the use of the coverage attribute which turns
 // off erroneous coverage miss reporting in test blocks
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
@@ -123,7 +120,10 @@ pub use trajectories::*;
 
 // Module declarations
 pub mod access;
+// Note: celestrak and spacetrack are not glob-re-exported since they use
+// client patterns that should be accessed via brahe::celestrak::* or brahe::spacetrack::*
 pub mod attitude;
+pub mod celestrak;
 pub mod constants;
 pub mod coordinates;
 pub mod datasets;
@@ -138,8 +138,10 @@ pub mod orbits;
 pub mod propagators;
 pub mod relative_motion;
 pub mod space_weather;
+pub mod spacetrack;
 pub mod time;
 pub mod trajectories;
+pub mod types;
 pub mod utils;
 // Centralized traits module - re-exports all public traits
 pub mod traits;

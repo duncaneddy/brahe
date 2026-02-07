@@ -553,6 +553,8 @@ include!("relative_motion.rs");
 include!("math.rs");
 include!("utils.rs");
 include!("earth_models.rs");
+include!("spacetrack.rs");
+include!("celestrak.rs");
 
 // Define Module
 
@@ -909,22 +911,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRotationMatrix>()?;
 
     //* Datasets *//
-    module.add_function(wrap_pyfunction!(py_celestrak_get_tles, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_celestrak_get_tles_as_propagators,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_celestrak_download_tles, module)?)?;
-    module.add_function(wrap_pyfunction!(py_celestrak_get_tle_by_id, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_celestrak_get_tle_by_id_as_propagator,
-        module
-    )?)?;
-    module.add_function(wrap_pyfunction!(py_celestrak_get_tle_by_name, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        py_celestrak_get_tle_by_name_as_propagator,
-        module
-    )?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_from_file, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;
@@ -1102,6 +1088,38 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRKF45DIntegrator>()?;
     module.add_class::<PyDP54DIntegrator>()?;
     module.add_class::<PyRKN1210DIntegrator>()?;
+
+    //* SpaceTrack *//
+    module.add_class::<PyRequestController>()?;
+    module.add_class::<PyRequestClass>()?;
+    module.add_class::<PySortOrder>()?;
+    module.add_class::<PyOutputFormat>()?;
+    module.add_class::<PyRateLimitConfig>()?;
+    module.add_class::<PySpaceTrackQuery>()?;
+    module.add_class::<PySpaceTrackClient>()?;
+    module.add_class::<PyGPRecord>()?;
+    module.add_class::<PySATCATRecord>()?;
+    module.add_class::<PyFileShareFileRecord>()?;
+    module.add_class::<PyFolderRecord>()?;
+    module.add_class::<PySPEphemerisFileRecord>()?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_greater_than, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_less_than, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_not_equal, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_inclusive_range, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_like, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_startswith, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_now, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_now_offset, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_null_val, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spacetrack_or_list, module)?)?;
+
+    //* CelestrakClient *//
+    module.add_class::<PyCelestrakQueryType>()?;
+    module.add_class::<PyCelestrakOutputFormat>()?;
+    module.add_class::<PySupGPSource>()?;
+    module.add_class::<PyCelestrakQuery>()?;
+    module.add_class::<PyCelestrakClient>()?;
+    module.add_class::<PyCelestrakSATCATRecord>()?;
 
     Ok(())
 }

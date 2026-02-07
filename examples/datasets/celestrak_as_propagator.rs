@@ -1,26 +1,25 @@
-//! Convert CelesTrak TLE directly to SGP propagator.
+//! Convert CelesTrak GP data directly to SGP propagator.
 //!
-//! This example shows how to get a satellite and convert it to a propagator
-//! in a single step, which is the most common use case.
+//! This example shows how to query a satellite from CelesTrak and convert it
+//! to a propagator in a few steps, which is the most common use case.
 //!
 //! FLAGS = ["CI-ONLY"]
 
 #[allow(unused_imports)]
 use brahe as bh;
+use bh::celestrak::{CelestrakClient, CelestrakQuery};
+use bh::propagators::SGPPropagator;
 use bh::traits::SStatePropagator;
 use bh::utils::Identifiable;
 
 fn main() {
     bh::initialize_eop().unwrap();
 
-    // Get ISS as a propagator with 60-second step size
-    // The group hint ("stations") uses cached data for efficiency
-    let mut iss_prop = bh::datasets::celestrak::get_tle_by_id_as_propagator(
-        25544,
-        Some("stations"),
-        60.0,
-    )
-    .unwrap();
+    // Query ISS GP data from CelesTrak and create a propagator with 60-second step size
+    let client = CelestrakClient::new();
+    let query = CelestrakQuery::gp().catnr(25544);
+    let records = client.query_gp(&query).unwrap();
+    let mut iss_prop = SGPPropagator::from_gp_record(&records[0], 60.0).unwrap();
 
     println!("Created propagator: {}", iss_prop.get_name().unwrap_or("Unknown"));
     println!("Epoch: {}", iss_prop.epoch);

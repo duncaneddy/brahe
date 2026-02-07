@@ -1,11 +1,11 @@
 Spacecraft,Gap Start (UTC),Gap End (UTC),Duration,Last Station,Next Station
-UMBRA-10,2026-02-09 00:45:11,2026-02-09 03:13:46,2h 28m 35s,Svalbard,Punta Arenas
 UMBRA-10,2026-02-08 00:57:10,2026-02-08 03:25:32,2h 28m 22s,Svalbard,Punta Arenas
 UMBRA-09,2026-02-08 00:57:49,2026-02-08 03:26:10,2h 28m 21s,Svalbard,Punta Arenas
-UMBRA-07,2026-02-06 23:43:14,2026-02-07 02:11:27,2h 28m 13s,Svalbard,Punta Arenas
-UMBRA-10,2026-02-07 01:09:05,2026-02-07 03:37:18,2h 28m 12s,Svalbard,Punta Arenas
-UMBRA-09,2026-02-07 01:09:45,2026-02-07 03:37:56,2h 28m 11s,Svalbard,Punta Arenas
-UMBRA-11,2026-02-11 00:07:58,2026-02-11 02:36:02,2h 28m 4s,Svalbard,Punta Arenas
-UMBRA-11,2026-02-10 00:26:46,2026-02-10 02:54:33,2h 27m 46s,Svalbard,Punta Arenas
-UMBRA-11,2026-02-09 00:45:31,2026-02-09 03:13:07,2h 27m 36s,Svalbard,Punta Arenas
-UMBRA-11,2026-02-10 04:37:07,2026-02-10 06:45:34,2h 8m 27s,Punta Arenas,Svalbard
+UMBRA-10,2026-02-14 01:19:00,2026-02-14 03:47:06,2h 28m 6s,Svalbard,Punta Arenas
+UMBRA-09,2026-02-14 01:19:35,2026-02-14 03:47:40,2h 28m 5s,Svalbard,Punta Arenas
+UMBRA-11,2026-02-11 00:07:59,2026-02-11 02:36:04,2h 28m 4s,Svalbard,Punta Arenas
+UMBRA-11,2026-02-10 00:26:48,2026-02-10 02:54:34,2h 27m 46s,Svalbard,Punta Arenas
+UMBRA-11,2026-02-09 00:45:32,2026-02-09 03:13:08,2h 27m 36s,Svalbard,Punta Arenas
+UMBRA-11,2026-02-14 00:45:15,2026-02-14 03:12:51,2h 27m 36s,Svalbard,Punta Arenas
+UMBRA-11,2026-02-10 04:37:08,2026-02-10 06:45:36,2h 8m 27s,Punta Arenas,Svalbard
+UMBRA-07,2026-02-07 23:37:58,2026-02-08 01:11:36,1h 33m 38s,Svalbard,Svalbard

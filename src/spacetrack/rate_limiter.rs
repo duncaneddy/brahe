@@ -111,19 +111,23 @@ impl RateLimiter {
     pub(crate) fn acquire(&mut self) -> Duration {
         let now = Instant::now();
 
-        // Prune expired entries from both windows
-        let minute_cutoff = now.checked_sub(Duration::from_secs(60)).unwrap_or(now);
-        while self
-            .minute_window
-            .front()
-            .is_some_and(|&t| t < minute_cutoff)
-        {
-            self.minute_window.pop_front();
+        // Prune expired entries from both windows.
+        // Use if-let to skip pruning when checked_sub underflows (e.g., on a
+        // freshly-booted system where Instant::now() < window duration).
+        if let Some(minute_cutoff) = now.checked_sub(Duration::from_secs(60)) {
+            while self
+                .minute_window
+                .front()
+                .is_some_and(|&t| t < minute_cutoff)
+            {
+                self.minute_window.pop_front();
+            }
         }
 
-        let hour_cutoff = now.checked_sub(Duration::from_secs(3600)).unwrap_or(now);
-        while self.hour_window.front().is_some_and(|&t| t < hour_cutoff) {
-            self.hour_window.pop_front();
+        if let Some(hour_cutoff) = now.checked_sub(Duration::from_secs(3600)) {
+            while self.hour_window.front().is_some_and(|&t| t < hour_cutoff) {
+                self.hour_window.pop_front();
+            }
         }
 
         // Calculate required wait time

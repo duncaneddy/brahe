@@ -69,11 +69,14 @@ jobs:
       - name: Generate type stubs
         run: ./scripts/generate_stubs.sh
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+
       - name: Test examples (including CI-ONLY)
-        run: uv run python make.py test-examples --ci-only
+        run: just test-examples --ci-only
 
       - name: Generate documentation plots
-        run: uv run python make.py make-plots
+        run: just make-plots
 
       - name: Upload figures as artifact
         uses: actions/upload-artifact@v6

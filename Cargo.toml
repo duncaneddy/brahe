@@ -22,7 +22,7 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
     "/plots",
     "/test_assets",
     "/data/textures/world.topo.200410.3x5400x2700.png", # Python-only
-    "make.py",
+    "justfile",
     "mkdocs.yaml",
     "uv.lock"
 ]

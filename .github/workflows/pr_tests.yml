@@ -81,8 +81,11 @@ jobs:
       - name: Install Python 3.14
         run: uv python install 3.14
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+
       - name: Build and validate Rust package
-        run: uv run python make.py build --lang rust
+        run: just build --lang rust
 
   # Validate PyPI packages build correctly with proper metadata
   validate-python-package:
@@ -112,8 +115,11 @@ jobs:
       - name: Install Python 3.14
         run: uv python install 3.14
 
+      - name: Install just
+        uses: extractions/setup-just@v4
+
       - name: Build and validate Python package
-        run: uv run python make.py build --lang python
+        run: just build --lang python
 
   # Build docs to verify no breakage, but don't deploy
   build-docs:

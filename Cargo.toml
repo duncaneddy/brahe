@@ -67,6 +67,7 @@ cargo-deny = "0.19.0"
 mockall = "0.14.0"
 rv = "0.19"
 rand = "0.9"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 ci = []
@@ -82,6 +83,21 @@ lto = "off"
 opt-level = 3
 codegen-units = 1
 lto = "fat"
+
+# Benchmark Profiles
+[profile.bench]
+opt-level = 3
+lto = "thin"
+
+[[bench]]
+name = "provider_benchmarks"
+path = "benchmarks/provider_benchmarks.rs"
+harness = false
+
+[[bench]]
+name = "propagator_benchmarks"
+path = "benchmarks/propagator_benchmarks.rs"
+harness = false
 
 [lints.rust]
 missing_docs = "warn"

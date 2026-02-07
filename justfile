@@ -32,6 +32,20 @@ test-examples *args: _setup
 test-example *args: _setup
     PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_example.py {{args}}
 
+# ───── Benchmarks ─────
+
+# Run all benchmarks
+bench *flags:
+    cargo bench {{flags}}
+
+# Run provider benchmarks only
+bench-providers *flags:
+    cargo bench --bench provider_benchmarks {{flags}}
+
+# Run propagator benchmarks only
+bench-propagators *flags:
+    cargo bench --bench propagator_benchmarks {{flags}}
+
 # ───── Code Quality ─────
 
 # Format all code (Rust + Python)

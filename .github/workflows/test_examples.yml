@@ -90,7 +90,7 @@ jobs:
           fi
 
       - name: Install just
-        uses: extractions/setup-just@v4
+        uses: extractions/setup-just@v3
 
       - name: Test examples (including CI-ONLY)
         run: just test-examples --ci-only

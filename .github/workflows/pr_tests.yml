@@ -59,7 +59,7 @@ jobs:
     needs: [check-skip, test-rust]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
 
@@ -93,7 +93,7 @@ jobs:
     needs: [check-skip, test-python]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
 
@@ -127,7 +127,7 @@ jobs:
     needs: [check-skip, test-rust, test-python, test-examples]
     if: needs.check-skip.outputs.should_skip == 'false'
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
 

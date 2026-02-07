@@ -11,7 +11,6 @@ use std::fmt;
 use std::io;
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::ops::Bound;
 use std::path::Path;
 
 use crate::eop::c04_parser::parse_c04_line;
@@ -881,68 +880,40 @@ impl EarthOrientationProvider for FileEOPProvider {
                 }
             } else if mjd <= self.mjd_max {
                 if self.interpolate {
-                    // Get cursor pointing at the gap after the data for the previous data point
-                    let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-
-                    // Time points and values - handle boundary cases where prev/next might not exist
-                    let prev_opt = cursor.peek_prev();
-                    let next_opt = cursor.peek_next();
+                    let prev_opt = self.data.range(..=EOPKey(mjd)).next_back();
+                    let next_opt = self.data.range(EOPKey(mjd)..).next();
 
                     match (prev_opt, next_opt) {
                         (Some((t1_key, data1)), Some((t2_key, data2))) => {
-                            // Both previous and next exist - interpolate normally
                             let t1 = t1_key.0;
                             let t2 = t2_key.0;
                             let y1 = data1.2;
                             let y2 = data2.2;
 
-                            // Interpolate, checking if we are exactly at a data point
                             if t1 == t2 {
                                 Ok(y1)
                             } else {
                                 Ok((y2 - y1) / (t2 - t1) * (mjd - t1) + y1)
                             }
                         }
-                        (Some((_t1_key, data1)), None) => {
-                            // At or beyond last data point - use last value
-                            Ok(data1.2)
-                        }
-                        (None, Some((_t2_key, data2))) => {
-                            // At or before first data point - use first value
-                            Ok(data2.2)
-                        }
-                        (None, None) => {
-                            // No data available (shouldn't happen if initialized)
-                            Err(BraheError::EOPError(String::from(
-                                "No EOP data available for interpolation",
-                            )))
-                        }
+                        (Some((_t1_key, data1)), None) => Ok(data1.2),
+                        (None, Some((_t2_key, data2))) => Ok(data2.2),
+                        (None, None) => Err(BraheError::EOPError(String::from(
+                            "No EOP data available for interpolation",
+                        ))),
                     }
+                } else if let Some(data) = self.data.get(&EOPKey(mjd)) {
+                    Ok(data.2)
                 } else {
-                    // Without interpolation, use the value at or before the requested MJD
-                    // Check if there's an exact match first
-                    if let Some(data) = self.data.get(&EOPKey(mjd)) {
-                        Ok(data.2)
-                    } else {
-                        // No exact match, get the previous value
-                        let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-                        match cursor.peek_prev() {
-                            Some((_, data)) => Ok(data.2),
-                            None => {
-                                // No previous value, use first value in dataset
-                                Ok(self.data.get(&EOPKey(self.mjd_min)).unwrap().2)
-                            }
-                        }
+                    match self.data.range(..=EOPKey(mjd)).next_back() {
+                        Some((_, data)) => Ok(data.2),
+                        None => Ok(self.data.get(&EOPKey(self.mjd_min)).unwrap().2),
                     }
                 }
             } else {
-                // Above maximum data range
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok(0.0),
-                    EOPExtrapolation::Hold => {
-                        // UT1-UTC is guaranteed to be present through `mjd_max`
-                        Ok(self.data.get(&EOPKey(self.mjd_max)).unwrap().2)
-                    }
+                    EOPExtrapolation::Hold => Ok(self.data.get(&EOPKey(self.mjd_max)).unwrap().2),
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval beyond end of loaded data. Accessed: {}, Max MJD: {}",
                         mjd, self.mjd_max
@@ -1008,16 +979,11 @@ impl EarthOrientationProvider for FileEOPProvider {
                 }
             } else if mjd <= self.mjd_max {
                 if self.interpolate {
-                    // Get cursor pointing at the gap after the data for the previous data point
-                    let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-
-                    // Time points and values - handle boundary cases where prev/next might not exist
-                    let prev_opt = cursor.peek_prev();
-                    let next_opt = cursor.peek_next();
+                    let prev_opt = self.data.range(..=EOPKey(mjd)).next_back();
+                    let next_opt = self.data.range(EOPKey(mjd)..).next();
 
                     match (prev_opt, next_opt) {
                         (Some((t1_key, data1)), Some((t2_key, data2))) => {
-                            // Both previous and next exist - interpolate normally
                             let t1 = t1_key.0;
                             let t2 = t2_key.0;
                             let pm_x1 = data1.0;
@@ -1025,7 +991,6 @@ impl EarthOrientationProvider for FileEOPProvider {
                             let pm_y1 = data1.1;
                             let pm_y2 = data2.1;
 
-                            // Interpolate
                             if t1 == t2 {
                                 Ok((pm_x1, pm_y1))
                             } else {
@@ -1035,45 +1000,27 @@ impl EarthOrientationProvider for FileEOPProvider {
                                 ))
                             }
                         }
-                        (Some((_t1_key, data1)), None) => {
-                            // At or beyond last data point - use last value
-                            Ok((data1.0, data1.1))
-                        }
-                        (None, Some((_t2_key, data2))) => {
-                            // At or before first data point - use first value
-                            Ok((data2.0, data2.1))
-                        }
-                        (None, None) => {
-                            // No data available (shouldn't happen if initialized)
-                            Err(BraheError::EOPError(String::from(
-                                "No EOP data available for interpolation",
-                            )))
-                        }
+                        (Some((_t1_key, data1)), None) => Ok((data1.0, data1.1)),
+                        (None, Some((_t2_key, data2))) => Ok((data2.0, data2.1)),
+                        (None, None) => Err(BraheError::EOPError(String::from(
+                            "No EOP data available for interpolation",
+                        ))),
                     }
+                } else if let Some(data) = self.data.get(&EOPKey(mjd)) {
+                    Ok((data.0, data.1))
                 } else {
-                    // Without interpolation, use the value at or before the requested MJD
-                    // Check if there's an exact match first
-                    if let Some(data) = self.data.get(&EOPKey(mjd)) {
-                        Ok((data.0, data.1))
-                    } else {
-                        // No exact match, get the previous value
-                        let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-                        match cursor.peek_prev() {
-                            Some((_, data)) => Ok((data.0, data.1)),
-                            None => {
-                                // No previous value, use first value in dataset
-                                let first = self.data.get(&EOPKey(self.mjd_min)).unwrap();
-                                Ok((first.0, first.1))
-                            }
+                    match self.data.range(..=EOPKey(mjd)).next_back() {
+                        Some((_, data)) => Ok((data.0, data.1)),
+                        None => {
+                            let first = self.data.get(&EOPKey(self.mjd_min)).unwrap();
+                            Ok((first.0, first.1))
                         }
                     }
                 }
             } else {
-                // Above maximum data range
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok((0.0, 0.0)),
                     EOPExtrapolation::Hold => {
-                        // Get Last Value
                         let last = self.data.get(&EOPKey(self.mjd_max));
                         Ok((last.unwrap().0, last.unwrap().1))
                     }
@@ -1142,16 +1089,11 @@ impl EarthOrientationProvider for FileEOPProvider {
                 }
             } else if mjd <= self.mjd_last_dxdy {
                 if self.interpolate {
-                    // Get cursor pointing at the gap after the data for the previous data point
-                    let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-
-                    // Time points and values - handle boundary cases where prev/next might not exist
-                    let prev_opt = cursor.peek_prev();
-                    let next_opt = cursor.peek_next();
+                    let prev_opt = self.data.range(..=EOPKey(mjd)).next_back();
+                    let next_opt = self.data.range(EOPKey(mjd)..).next();
 
                     match (prev_opt, next_opt) {
                         (Some((t1_key, data1)), Some((t2_key, data2))) => {
-                            // Both previous and next exist - interpolate normally
                             let t1 = t1_key.0;
                             let t2 = t2_key.0;
                             let dx1 = data1.3.unwrap();
@@ -1159,7 +1101,6 @@ impl EarthOrientationProvider for FileEOPProvider {
                             let dy1 = data1.4.unwrap();
                             let dy2 = data2.4.unwrap();
 
-                            // Interpolate
                             if t1 == t2 {
                                 Ok((dx1, dy1))
                             } else {
@@ -1169,45 +1110,27 @@ impl EarthOrientationProvider for FileEOPProvider {
                                 ))
                             }
                         }
-                        (Some((_t1_key, data1)), None) => {
-                            // At or beyond last data point - use last value
-                            Ok((data1.3.unwrap(), data1.4.unwrap()))
-                        }
-                        (None, Some((_t2_key, data2))) => {
-                            // At or before first data point - use first value
-                            Ok((data2.3.unwrap(), data2.4.unwrap()))
-                        }
-                        (None, None) => {
-                            // No data available (shouldn't happen if initialized)
-                            Err(BraheError::EOPError(String::from(
-                                "No EOP data available for interpolation",
-                            )))
-                        }
+                        (Some((_t1_key, data1)), None) => Ok((data1.3.unwrap(), data1.4.unwrap())),
+                        (None, Some((_t2_key, data2))) => Ok((data2.3.unwrap(), data2.4.unwrap())),
+                        (None, None) => Err(BraheError::EOPError(String::from(
+                            "No EOP data available for interpolation",
+                        ))),
                     }
+                } else if let Some(data) = self.data.get(&EOPKey(mjd)) {
+                    Ok((data.3.unwrap(), data.4.unwrap()))
                 } else {
-                    // Without interpolation, use the value at or before the requested MJD
-                    // Check if there's an exact match first
-                    if let Some(data) = self.data.get(&EOPKey(mjd)) {
-                        Ok((data.3.unwrap(), data.4.unwrap()))
-                    } else {
-                        // No exact match, get the previous value
-                        let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-                        match cursor.peek_prev() {
-                            Some((_, data)) => Ok((data.3.unwrap(), data.4.unwrap())),
-                            None => {
-                                // No previous value, use first value in dataset
-                                let first = self.data.get(&EOPKey(self.mjd_min)).unwrap();
-                                Ok((first.3.unwrap(), first.4.unwrap()))
-                            }
+                    match self.data.range(..=EOPKey(mjd)).next_back() {
+                        Some((_, data)) => Ok((data.3.unwrap(), data.4.unwrap())),
+                        None => {
+                            let first = self.data.get(&EOPKey(self.mjd_min)).unwrap();
+                            Ok((first.3.unwrap(), first.4.unwrap()))
                         }
                     }
                 }
             } else {
-                // Above maximum data range
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok((0.0, 0.0)),
                     EOPExtrapolation::Hold => {
-                        // Get last value. This is guaranteed to be present through `mjd_last_dxdy`
                         let last = self.data.get(&EOPKey(self.mjd_last_dxdy)).unwrap();
                         Ok((last.3.unwrap(), last.4.unwrap()))
                     }
@@ -1273,58 +1196,34 @@ impl EarthOrientationProvider for FileEOPProvider {
                 }
             } else if mjd <= self.mjd_last_lod {
                 if self.interpolate {
-                    // Get cursor pointing at the gap after the data for the previous data point
-                    let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-
-                    // Time points and values - handle boundary cases where prev/next might not exist
-                    let prev_opt = cursor.peek_prev();
-                    let next_opt = cursor.peek_next();
+                    let prev_opt = self.data.range(..=EOPKey(mjd)).next_back();
+                    let next_opt = self.data.range(EOPKey(mjd)..).next();
 
                     match (prev_opt, next_opt) {
                         (Some((t1_key, data1)), Some((t2_key, data2))) => {
-                            // Both previous and next exist - interpolate normally
                             let t1 = t1_key.0;
                             let t2 = t2_key.0;
                             let y1 = data1.5.unwrap();
                             let y2 = data2.5.unwrap();
 
-                            // Interpolate
                             if t1 == t2 {
                                 Ok(y1)
                             } else {
                                 Ok((y2 - y1) / (t2 - t1) * (mjd - t1) + y1)
                             }
                         }
-                        (Some((_t1_key, data1)), None) => {
-                            // At or beyond last data point - use last value
-                            Ok(data1.5.unwrap())
-                        }
-                        (None, Some((_t2_key, data2))) => {
-                            // At or before first data point - use first value
-                            Ok(data2.5.unwrap())
-                        }
-                        (None, None) => {
-                            // No data available (shouldn't happen if initialized)
-                            Err(BraheError::EOPError(String::from(
-                                "No EOP data available for interpolation",
-                            )))
-                        }
+                        (Some((_t1_key, data1)), None) => Ok(data1.5.unwrap()),
+                        (None, Some((_t2_key, data2))) => Ok(data2.5.unwrap()),
+                        (None, None) => Err(BraheError::EOPError(String::from(
+                            "No EOP data available for interpolation",
+                        ))),
                     }
+                } else if let Some(data) = self.data.get(&EOPKey(mjd)) {
+                    Ok(data.5.unwrap())
                 } else {
-                    // Without interpolation, use the value at or before the requested MJD
-                    // Check if there's an exact match first
-                    if let Some(data) = self.data.get(&EOPKey(mjd)) {
-                        Ok(data.5.unwrap())
-                    } else {
-                        // No exact match, get the previous value
-                        let cursor = self.data.lower_bound(Bound::Included(&EOPKey(mjd)));
-                        match cursor.peek_prev() {
-                            Some((_, data)) => Ok(data.5.unwrap()),
-                            None => {
-                                // No previous value, use first value in dataset
-                                Ok(self.data.get(&EOPKey(self.mjd_min)).unwrap().5.unwrap())
-                            }
-                        }
+                    match self.data.range(..=EOPKey(mjd)).next_back() {
+                        Some((_, data)) => Ok(data.5.unwrap()),
+                        None => Ok(self.data.get(&EOPKey(self.mjd_min)).unwrap().5.unwrap()),
                     }
                 }
             } else {
@@ -1861,6 +1760,33 @@ mod tests {
         assert_eq!(eop_data.3, dx_first); // dx
         assert_eq!(eop_data.4, dy_first); // dy
         assert_eq!(eop_data.5, lod_first); // lod
+    }
+
+    #[test]
+    fn test_eop_lookup_performance() {
+        let eop = setup_test_eop(true, EOPExtrapolation::Hold);
+        let mjd_min = eop.mjd_min();
+        let mjd_max = eop.mjd_max();
+        let num_lookups = 1_000_000;
+
+        // Generate varied MJDs across the full range (including fractional for interpolation)
+        let start = std::time::Instant::now();
+        for i in 0..num_lookups {
+            let frac = (i as f64) / (num_lookups as f64);
+            let mjd = mjd_min + frac * (mjd_max - mjd_min);
+            let _ = eop.get_ut1_utc(mjd).unwrap();
+        }
+        let elapsed = start.elapsed();
+
+        println!(
+            "EOP lookup performance: {} lookups in {:.3}s ({:.0} lookups/sec)",
+            num_lookups,
+            elapsed.as_secs_f64(),
+            num_lookups as f64 / elapsed.as_secs_f64()
+        );
+
+        // Sanity check - 1M lookups should complete well within 5 seconds
+        assert!(elapsed.as_secs() < 5, "EOP lookups too slow: {:?}", elapsed);
     }
 
     #[test]

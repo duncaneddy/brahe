@@ -7,7 +7,7 @@ jobs:
   test-examples:
     runs-on: ubuntu-latest
     env:
-      RUST_TOOLCHAIN: nightly
+      RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
 

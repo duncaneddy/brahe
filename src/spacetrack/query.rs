@@ -11,6 +11,23 @@
 
 use crate::spacetrack::types::{OutputFormat, RequestClass, RequestController, SortOrder};
 
+/// Percent-encode characters that are invalid in URI path segments.
+///
+/// Encodes `>`, `<`, and `^` which are used by SpaceTrack filter operators
+/// but are not valid URI path characters per RFC 3986.
+fn encode_path_value(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '>' => result.push_str("%3E"),
+            '<' => result.push_str("%3C"),
+            '^' => result.push_str("%5E"),
+            _ => result.push(c),
+        }
+    }
+    result
+}
+
 /// A filter predicate for a SpaceTrack query.
 #[derive(Debug, Clone)]
 struct Filter {
@@ -298,9 +315,13 @@ impl SpaceTrackQuery {
             self.class.as_str()
         ));
 
-        // Filters
+        // Filters (percent-encode operator characters in values)
         for filter in &self.filters {
-            parts.push(format!("/{}/{}", filter.field, filter.value));
+            parts.push(format!(
+                "/{}/{}",
+                filter.field,
+                encode_path_value(&filter.value)
+            ));
         }
 
         // Order by
@@ -399,7 +420,7 @@ mod tests {
 
         let path = query.build();
         assert!(path.contains("/NORAD_CAT_ID/25544/"));
-        assert!(path.contains("/EPOCH/>2024-01-01/"));
+        assert!(path.contains("/EPOCH/%3E2024-01-01/"));
     }
 
     #[test]
@@ -558,9 +579,9 @@ mod tests {
             .format(OutputFormat::JSON);
 
         let path = query.build();
-        assert!(path.contains("/EPOCH/>now-7/"));
-        assert!(path.contains("/ECCENTRICITY/<0.01/"));
-        assert!(path.contains("/OBJECT_TYPE/<>DEBRIS/"));
+        assert!(path.contains("/EPOCH/%3Enow-7/"));
+        assert!(path.contains("/ECCENTRICITY/%3C0.01/"));
+        assert!(path.contains("/OBJECT_TYPE/%3C%3EDEBRIS/"));
         assert!(path.contains("/NORAD_CAT_ID/25544--25600/"));
     }
 

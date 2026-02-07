@@ -26,14 +26,15 @@ bh.initialize_eop()
 # --8<-- [end:preamble]
 
 # Download TLE data for all GPS satellites from CelesTrak
-# The get_tles_as_propagators function:
-#   - Downloads latest TLE data (cached for 6 hours)
-#   - Parses each TLE into an SGP4 propagator
-#   - Sets default propagation step size (60 seconds)
+# Uses CelestrakClient to query the "gps-ops" group, then converts
+# each GP record into an SGP4 propagator with a 60-second step size
 print("Downloading GPS TLEs from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_gps]
-propagators = bh.datasets.celestrak.get_tles_as_propagators("gps-ops", 60.0)
+client = bh.celestrak.CelestrakClient()
+query = bh.celestrak.CelestrakQuery.gp().group("gps-ops")
+records = client.query_gp(query)
+propagators = [r.to_sgp_propagator(60.0) for r in records]
 # --8<-- [end:download_gps]
 elapsed = time.time() - start_time
 print(

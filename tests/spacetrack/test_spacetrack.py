@@ -162,14 +162,14 @@ class TestSpaceTrackQuery:
             "EPOCH", bh.SortOrder.DESC
         )
         url = query.build()
-        assert "orderby/EPOCH desc" in url
+        assert "orderby/EPOCH%20desc" in url
 
     def test_order_by_asc(self):
         query = bh.SpaceTrackQuery(bh.RequestClass.GP).order_by(
             "EPOCH", bh.SortOrder.ASC
         )
         url = query.build()
-        assert "orderby/EPOCH asc" in url
+        assert "orderby/EPOCH%20asc" in url
 
     def test_limit(self):
         query = bh.SpaceTrackQuery(bh.RequestClass.GP).limit(10)
@@ -240,7 +240,7 @@ class TestSpaceTrackQuery:
         )
         url = query.build()
         assert "NORAD_CAT_ID/25544" in url
-        assert "orderby/EPOCH desc" in url
+        assert "orderby/EPOCH%20desc" in url
         assert "limit/1" in url
         assert "format/json" in url
 

@@ -1274,7 +1274,7 @@ mod tests {
             )
             .filter(
                 "EPOCH",
-                &operators::greater_than(operators::now_offset(-30)),
+                &operators::greater_than(operators::now_offset(-3650)),
             )
             .order_by("NORAD_CAT_ID", SortOrder::Asc)
             .limit(5);

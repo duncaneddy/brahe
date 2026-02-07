@@ -11,6 +11,8 @@ The spacetrack module is organized into five components:
 
 ### Enumerations
 
+<div class="center-table" markdown="1">
+
 | Type | Purpose |
 |------|---------|
 | `RequestController` | API endpoint namespace (`BasicSpaceData`, `ExpandedSpaceData`, `FileShare`, `SPEphemeris`, `PublicFiles`) |
@@ -18,11 +20,15 @@ The spacetrack module is organized into five components:
 | `SortOrder` | Result ordering direction (`Asc`, `Desc`) |
 | `OutputFormat` | Response format (`JSON`, `TLE`, `CSV`, `XML`, `KVN`, etc.) |
 
+</div>
+
 Each `RequestClass` has a default controller. For example, `GP` and `SATCAT` use `BasicSpaceData`, while `CDMPublic` uses `ExpandedSpaceData`. The query builder selects the correct controller automatically.
 
 ### Query Builder
 
 `SpaceTrackQuery` constructs API queries using a fluent builder pattern. All builder methods return a new query instance, allowing method chaining:
+
+<div class="center-table" markdown="1">
 
 | Method | Purpose |
 |--------|---------|
@@ -39,15 +45,23 @@ Each `RequestClass` has a default controller. For example, `GP` and `SATCAT` use
 | `controller(ctrl)` | Override the default controller |
 | `build()` | Produce the URL path string |
 
+</div>
+
 ### Configuration
+
+<div class="center-table" markdown="1">
 
 | Type | Purpose |
 |------|---------|
 | `RateLimitConfig` | Rate limit thresholds for per-minute and per-hour request windows |
 
+</div>
+
 ### Client
 
 `SpaceTrackClient` handles authentication and HTTP communication with Space-Track.org:
+
+<div class="center-table" markdown="1">
 
 | Method | Purpose |
 |--------|---------|
@@ -67,6 +81,8 @@ Each `RequestClass` has a default controller. For example, `GP` and `SATCAT` use
 | `spephemeris_file_history()` | List SP ephemeris file history |
 | `publicfiles_download(file_name)` | Download a public file (no auth required) |
 | `publicfiles_list_dirs()` | List public file directories (no auth required) |
+
+</div>
 
 Authentication is lazy by default -- the client authenticates on the first query if `authenticate()` has not been called explicitly.
 

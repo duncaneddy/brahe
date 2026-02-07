@@ -13,11 +13,15 @@ Brahe provides a `CelestrakClient` with a query builder pattern that mirrors the
 
 The client supports three CelesTrak endpoints:
 
+<div class="center-table" markdown="1">
+
 | Endpoint | Query Constructor | Description |
 |----------|-------------------|-------------|
 | GP | `CelestrakQuery.gp()` | General Perturbations (OMM) data |
 | SupGP | `CelestrakQuery.sup_gp()` | Supplemental GP data from constellation operators |
 | SATCAT | `CelestrakQuery.satcat()` | Satellite catalog metadata |
+
+</div>
 
 ### Caching
 
@@ -162,13 +166,19 @@ CelesTrak organizes satellites into logical groups accessible via simple names. 
 
 ### Temporal Groups
 
+<div class="center-table" markdown="1">
+
 | Group | Description |
 |-------|-------------|
 | `active` | All active satellites |
 | `last-30-days` | Recently launched satellites |
 | `tle-new` | Newly added TLEs (last 15 days) |
 
+</div>
+
 ### Communications
+
+<div class="center-table" markdown="1">
 
 | Group | Description |
 |-------|-------------|
@@ -184,7 +194,11 @@ CelesTrak organizes satellites into logical groups accessible via simple names. 
 | `qianfan` | Qianfan constellation |
 | `hulianwang` | Hulianwang Digui constellation |
 
+</div>
+
 ### Earth Observation
+
+<div class="center-table" markdown="1">
 
 | Group | Description |
 |-------|-------------|
@@ -193,7 +207,11 @@ CelesTrak organizes satellites into logical groups accessible via simple names. 
 | `planet` | Planet Labs imaging satellites |
 | `spire` | Spire Global satellites |
 
+</div>
+
 ### Navigation
+
+<div class="center-table" markdown="1">
 
 | Group | Description |
 |-------|-------------|
@@ -204,7 +222,11 @@ CelesTrak organizes satellites into logical groups accessible via simple names. 
 | `beidou` | Chinese BeiDou/COMPASS constellation |
 | `sbas` | Satellite-Based Augmentation System (WAAS/EGNOS/MSAS) |
 
+</div>
+
 ### Scientific and Special Purpose
+
+<div class="center-table" markdown="1">
 
 | Group | Description |
 |-------|-------------|
@@ -215,6 +237,8 @@ CelesTrak organizes satellites into logical groups accessible via simple names. 
 | `visual` | 100 (or so) brightest objects |
 | `gpz` | Geostationary Protected Zone |
 | `gpz-plus` | Geostationary Protected Zone Plus |
+
+</div>
 
 **Note**: Group names and contents evolve as missions launch, deorbit, or change status. Visit [CelesTrak GP Element Sets](https://celestrak.org/NORAD/elements) for the current complete list.
 

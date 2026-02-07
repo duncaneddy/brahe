@@ -10,6 +10,8 @@ Brahe provides typed clients for two satellite ephemeris data sources: [CelesTra
 
 These fields contain textual metadata about the object and data record:
 
+<div class="center-table" markdown="1">
+
 | Field | Python Type | Description |
 |-------|-------------|-------------|
 | `ccsds_omm_vers` | `Optional[str]` | CCSDS OMM version |
@@ -34,9 +36,13 @@ These fields contain textual metadata about the object and data record:
 | `tle_line1` | `Optional[str]` | TLE line 1 |
 | `tle_line2` | `Optional[str]` | TLE line 2 |
 
+</div>
+
 ### Orbital Element Fields (Numeric)
 
 These fields contain orbital mechanics parameters. In Rust, they are typed as `Option<f64>` and deserialized from either string (SpaceTrack) or numeric (CelesTrak) JSON values.
+
+<div class="center-table" markdown="1">
 
 | Field | Python Type | Rust Type | Description |
 |-------|-------------|-----------|-------------|
@@ -54,9 +60,13 @@ These fields contain orbital mechanics parameters. In Rust, they are typed as `O
 | `apoapsis` | `Optional[float]` | `Option<f64>` | Apoapsis altitude (km) |
 | `periapsis` | `Optional[float]` | `Option<f64>` | Periapsis altitude (km) |
 
+</div>
+
 ### Identifier Fields (Integer)
 
 These fields contain numeric identifiers. Like the orbital element fields, they accept both string and numeric JSON representations.
+
+<div class="center-table" markdown="1">
 
 | Field | Python Type | Rust Type | Description |
 |-------|-------------|-----------|-------------|
@@ -67,12 +77,16 @@ These fields contain numeric identifiers. Like the orbital element fields, they 
 | `file` | `Optional[int]` | `Option<u64>` | File number |
 | `gp_id` | `Optional[int]` | `Option<u32>` | GP record identifier |
 
+</div>
+
 !!! info "Flexible Deserialization"
     SpaceTrack returns all JSON values as strings (e.g., `"NORAD_CAT_ID": "25544"`), while CelesTrak returns numeric fields as JSON numbers (e.g., `"NORAD_CAT_ID": 25544`). GPRecord uses custom deserializers that accept both formats transparently, so the same code works with data from either source.
 
 ## Operator Functions
 
 The `operators` module provides functions that generate operator-prefixed strings for use in query filters. These operators work with both `SpaceTrackQuery.filter()` and `CelestrakQuery.filter()`:
+
+<div class="center-table" markdown="1">
 
 | Function | Output | Example |
 |----------|--------|---------|
@@ -87,6 +101,8 @@ The `operators` module provides functions that generate operator-prefixed string
 | `null_val()` | `"null-val"` | `"null-val"` |
 | `or_list(vals)` | `"v1,v2,v3"` | `"25544,48274"` |
 
+</div>
+
 Operators compose naturally. For example, `greater_than(now_offset(-7))` produces `">now-7"`.
 
 In Python, access these via `brahe.spacetrack.operators`:
@@ -97,6 +113,8 @@ op.greater_than("25544")  # ">25544"
 ```
 
 ## CelesTrak vs Space-Track
+
+<div class="center-table" markdown="1">
 
 | Feature | CelesTrak | Space-Track |
 |---------|-----------|-------------|
@@ -109,6 +127,8 @@ op.greater_than("25544")  # ">25544"
 | **Rate limiting** | 6-hour client cache | Built-in sliding window limiter |
 | **Output formats** | JSON, 3LE, CSV, XML | JSON, TLE, CSV, XML, KVN |
 | **Supplemental GP** | SupGP endpoint (constellation operators) | Not available |
+
+</div>
 
 ## Subpages
 

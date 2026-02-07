@@ -8,6 +8,8 @@ Space-Track publishes CDMs through the `CDMPublic` request class, which uses the
 
 The following table lists commonly used CDM fields for filtering and analysis:
 
+<div class="center-table" markdown="1">
+
 | Field | Description |
 |-------|-------------|
 | `CDM_ID` | Unique CDM identifier |
@@ -26,6 +28,8 @@ The following table lists commonly used CDM fields for filtering and analysis:
 | `SAT2_RCS` | Radar cross-section of the second object |
 | `SAT_1_EXCL_VOL` | Exclusion volume of the first object |
 | `SAT_2_EXCL_VOL` | Exclusion volume of the second object |
+
+</div>
 
 !!! note "JSON-Only Responses"
     CDM queries return unstructured JSON. Use `query_json()` on the client to parse the response as `list[dict]` (Python) or `Vec<serde_json::Value>` (Rust). There is no typed `CDMRecord` struct.

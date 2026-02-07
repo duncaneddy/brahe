@@ -37,13 +37,18 @@ pub fn parse_standard_line(line: String) -> EOPParseResult {
     const LOD_RANGE: std::ops::Range<usize> = 78..86;
     const STANDARD_LINE_LENGTH: usize = 187;
 
-    if line.len() != STANDARD_LINE_LENGTH {
+    if line.len() > STANDARD_LINE_LENGTH {
         return Err(BraheError::EOPError(format!(
-            "Line too short to be a standard line: found {} characters, expected {}",
+            "Line too long to be a standard line: found {} characters, expected {}",
             line.len(),
             STANDARD_LINE_LENGTH
         )));
     }
+
+    // Pad shorter lines with spaces so column extraction works for all fields.
+    // IERS finals.all prediction lines may be shorter than 187 chars when
+    // trailing whitespace is trimmed by the server.
+    let line = format!("{:<width$}", line, width = STANDARD_LINE_LENGTH);
 
     let mjd = match line[MJD_RANGE].trim().parse::<f64>() {
         Ok(mjd) => mjd,
@@ -189,16 +194,23 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_standard_line_wrong_length_too_short() {
-        let line = "short line";
-        let result = parse_standard_line(line.to_string());
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Line too short to be a standard line")
-        );
+    #[allow(non_snake_case)]
+    fn test_parse_standard_line_short_line_pads_successfully() {
+        // Simulate a prediction line with trailing whitespace trimmed by the IERS
+        // server — shorter than 187 chars but valid core data.
+        let full_line = "241228 60672.00 P  0.173369 0.019841  0.266914 0.028808  P 0.0420038 0.0254096                                                                                                             ";
+        let line = full_line.trim_end().to_string();
+        assert!(line.len() < 187);
+        let result = parse_standard_line(line);
+        assert!(result.is_ok());
+        let (mjd, pm_x, pm_y, ut1_utc, dX, dY, lod) = result.unwrap();
+        assert_eq!(mjd, 60672.0);
+        assert_eq!(pm_x, 0.173369 * AS2RAD);
+        assert_eq!(pm_y, 0.266914 * AS2RAD);
+        assert_eq!(ut1_utc, 0.0420038);
+        assert_eq!(dX, None);
+        assert_eq!(dY, None);
+        assert_eq!(lod, None);
     }
 
     #[test]
@@ -206,6 +218,12 @@ mod tests {
         let line = "2311 1 60249.00 I  0.274620 0.000020  0.268283 0.000018  I 0.0113205 0.0000039 -0.3630 0.0029  I     0.293    0.290    -0.045    0.041  0.274569  0.268315  0.0113342     0.238    -0.039  EXTRA";
         let result = parse_standard_line(line.to_string());
         assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Line too long to be a standard line")
+        );
     }
 
     #[test]
@@ -262,6 +280,7 @@ mod tests {
 
     #[test]
     fn test_parse_standard_line_empty_string() {
+        // Empty string gets padded to all spaces, then fails on mjd parse
         let line = "";
         let result = parse_standard_line(line.to_string());
         assert!(result.is_err());
@@ -269,7 +288,7 @@ mod tests {
             result
                 .unwrap_err()
                 .to_string()
-                .contains("Line too short to be a standard line")
+                .contains("Failed to parse mjd")
         );
     }
 }

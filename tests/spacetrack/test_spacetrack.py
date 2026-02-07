@@ -155,7 +155,7 @@ class TestSpaceTrackQuery:
         )
         url = query.build()
         assert "NORAD_CAT_ID/25544" in url
-        assert "EPOCH/>2024-01-01" in url
+        assert "EPOCH/%3E2024-01-01" in url
 
     def test_order_by(self):
         query = bh.SpaceTrackQuery(bh.RequestClass.GP).order_by(
@@ -253,8 +253,8 @@ class TestSpaceTrackQuery:
             .filter("NORAD_CAT_ID", op.inclusive_range("25544", "25600"))
         )
         url = query.build()
-        assert "EPOCH/>now-7" in url
-        assert "ECCENTRICITY/<0.01" in url
+        assert "EPOCH/%3Enow-7" in url
+        assert "ECCENTRICITY/%3C0.01" in url
         assert "NORAD_CAT_ID/25544--25600" in url
 
     def test_query_str(self):

@@ -189,7 +189,7 @@ def test_rust_example(
         env["RUSTFLAGS"] = "-D warnings"
 
         result = subprocess.run(
-            ["rust-script", "--toolchain", "nightly", tmp_path],
+            ["rust-script", tmp_path],
             capture_output=True,
             text=True,
             timeout=timeout,

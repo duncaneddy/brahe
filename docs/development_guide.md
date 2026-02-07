@@ -7,17 +7,9 @@ The guidelines for contributing, developing, and extending brahe assume you are 
 
 ### Setting up your environment
 
-If you need to setup the development environment, including installing the necessary
-development dependencies.
+If you need to setup the development environment, including installing the necessary development dependencies.
 
 First, you need to install Rust from [rustup.rs](https://rustup.rs/).
-
-Then you can install the nightly toolchain with:
-
-```bash
-rustup toolchain install nightly
-rustup default nightly
-```
 
 After this you can now setup your python environment with:
 

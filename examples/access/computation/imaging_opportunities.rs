@@ -1,4 +1,5 @@
 //! Find imaging opportunities using polygon locations and complex constraint combinations
+// TIMEOUT = 600
 
 #[allow(unused_imports)]
 use brahe as bh;

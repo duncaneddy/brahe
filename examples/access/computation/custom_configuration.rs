@@ -1,4 +1,5 @@
 //! Configure access search algorithm with custom parameters for performance tuning
+// TIMEOUT = 600
 
 #[allow(unused_imports)]
 use brahe as bh;

@@ -1,4 +1,5 @@
 //! TODO: Write a brief description of what this example demonstrates.
+// FLAGS = ["IGNORE"]
 
 #[allow(unused_imports)]
 use brahe as bh;

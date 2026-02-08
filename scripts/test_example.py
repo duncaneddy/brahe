@@ -123,19 +123,24 @@ def main(
     # Test Rust if requested and found
     if test_rust_lang and rust_file:
         console.print(f"[blue]Testing Rust: {rust_file.relative_to(REPO_ROOT)}[/blue]")
-        _, _, rust_timeout = check_flags(rust_file)
-        effective_timeout = timeout if timeout is not None else (rust_timeout or 300)
-        passed, stdout, stderr = test_rust_example(
-            rust_file, verbose, effective_timeout
-        )
-        if passed:
-            console.print("[green]✓ PASS[/green]")
+        should_skip, reason, rust_timeout = check_flags(rust_file)
+        if should_skip:
+            console.print(f"[yellow]SKIP ({reason})[/yellow]")
         else:
-            console.print("[red]✗ FAIL[/red]")
-            all_passed = False
-            error_details.append(
-                (str(rust_file.relative_to(REPO_ROOT)), stdout, stderr)
+            effective_timeout = (
+                timeout if timeout is not None else (rust_timeout or 300)
             )
+            passed, stdout, stderr = test_rust_example(
+                rust_file, verbose, effective_timeout
+            )
+            if passed:
+                console.print("[green]✓ PASS[/green]")
+            else:
+                console.print("[red]✗ FAIL[/red]")
+                all_passed = False
+                error_details.append(
+                    (str(rust_file.relative_to(REPO_ROOT)), stdout, stderr)
+                )
     elif test_rust_lang and not rust_file:
         expected_path = expected_dir / f"{Path(base_name).stem}.rs"
         console.print(
@@ -145,17 +150,22 @@ def main(
     # Test Python if requested and found
     if test_python_lang and py_file:
         console.print(f"[blue]Testing Python: {py_file.relative_to(REPO_ROOT)}[/blue]")
-        _, _, py_timeout = check_flags(py_file)
-        effective_timeout = timeout if timeout is not None else (py_timeout or 180)
-        passed, stdout, stderr = test_python_example(
-            py_file, verbose, effective_timeout
-        )
-        if passed:
-            console.print("[green]✓ PASS[/green]")
+        should_skip, reason, py_timeout = check_flags(py_file)
+        if should_skip:
+            console.print(f"[yellow]SKIP ({reason})[/yellow]")
         else:
-            console.print("[red]✗ FAIL[/red]")
-            all_passed = False
-            error_details.append((str(py_file.relative_to(REPO_ROOT)), stdout, stderr))
+            effective_timeout = timeout if timeout is not None else (py_timeout or 180)
+            passed, stdout, stderr = test_python_example(
+                py_file, verbose, effective_timeout
+            )
+            if passed:
+                console.print("[green]✓ PASS[/green]")
+            else:
+                console.print("[red]✗ FAIL[/red]")
+                all_passed = False
+                error_details.append(
+                    (str(py_file.relative_to(REPO_ROOT)), stdout, stderr)
+                )
     elif test_python_lang and not py_file:
         expected_path = expected_dir / f"{Path(base_name).stem}.py"
         console.print(

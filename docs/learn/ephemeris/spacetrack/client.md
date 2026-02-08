@@ -103,12 +103,16 @@ The client authenticates lazily -- credentials are sent on the first query. Call
 
 The client provides four query methods, each returning data in a different form:
 
+<div class="center-table" markdown="1">
+
 | Method | Return Type | Format Required |
 |--------|-------------|-----------------|
 | `query_raw(query)` | Raw string | Any |
 | `query_json(query)` | JSON array | JSON |
 | `query_gp(query)` | `GPRecord` list | JSON |
 | `query_satcat(query)` | `SATCATRecord` list | JSON |
+
+</div>
 
 ### Typed Queries
 

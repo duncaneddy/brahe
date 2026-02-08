@@ -536,6 +536,7 @@ impl PyAngleFormat {
 // single module for the Python bindings to work correctly.
 
 include!("datasets.rs");
+include!("py_gcat.rs");
 include!("eop.rs");
 include!("space_weather.rs");
 include!("time.rs");
@@ -916,6 +917,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_list_providers, module)?)?;
     module.add_function(wrap_pyfunction!(py_naif_download_de_kernel, module)?)?;
+
+    //* GCAT *//
+    module.add_class::<PyGCATSatcatRecord>()?;
+    module.add_class::<PyGCATPsatcatRecord>()?;
+    module.add_class::<PyGCATSatcat>()?;
+    module.add_class::<PyGCATPsatcat>()?;
+    module.add_function(wrap_pyfunction!(py_gcat_get_satcat, module)?)?;
+    module.add_function(wrap_pyfunction!(py_gcat_get_psatcat, module)?)?;
 
     //* Orbit Dynamics - Ephemerides *//
     module.add_class::<PyEphemerisSource>()?;

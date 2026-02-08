@@ -26,6 +26,17 @@ Brahe's datasets module centralizes access to these data sources, handling the d
 
 **Best for**: High-precision planetary ephemeris, interplanetary mission analysis
 
+### [GCAT Satellite Catalogs](gcat.md)
+
+[Jonathan McDowell's GCAT](https://planet4589.org/space/gcat/) provides comprehensive metadata for all cataloged artificial space objects. The brahe interface supports:
+
+- **SATCAT**: Physical, orbital, and administrative properties for all cataloged objects
+- **PSATCAT**: Payload-specific mission metadata and UN registry information
+- **Automatic caching**: File-based caching with configurable 24-hour TTL
+- **Search and filtering**: Name search, type/status/owner filters, orbital range filters
+
+**Best for**: Satellite catalog research, constellation analysis, historical studies
+
 ### [Groundstations](groundstations.md)
 
 Embedded GeoJSON data for commercial groundstation networks. Includes 6 major providers:
@@ -55,5 +66,6 @@ Brahe's datasets module aims to:
 
 - [Ephemeris Data Sources](../ephemeris/index.md) - CelesTrak and Space-Track API clients
 - [NAIF Ephemeris Kernels](naif.md) - Planetary ephemeris data
+- [GCAT Satellite Catalogs](gcat.md) - GCAT SATCAT and PSATCAT catalogs
 - [Groundstation Datasets](groundstations.md) - Ground facility locations
 - [Datasets API Reference](../../library_api/datasets/index.md) - Complete function documentation

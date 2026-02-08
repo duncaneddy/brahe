@@ -1,4 +1,5 @@
 //! Basic access computation workflow: finding satellite passes over a ground location
+// TIMEOUT = 600
 
 #[allow(unused_imports)]
 use brahe as bh;

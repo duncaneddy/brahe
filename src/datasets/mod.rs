@@ -6,6 +6,7 @@
  * and source-specific implementations (CelesTrak, groundstations, etc.).
  */
 
+pub mod gcat;
 pub mod groundstations;
 pub mod loaders;
 pub mod naif;
@@ -19,3 +20,8 @@ pub use groundstations::{
 
 // Re-export commonly used functions from naif
 pub use naif::download_de_kernel;
+
+// Re-export commonly used types and functions from gcat
+pub use gcat::{
+    GCATPsatcat, GCATPsatcatRecord, GCATSatcat, GCATSatcatRecord, get_psatcat, get_satcat,
+};

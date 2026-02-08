@@ -6,6 +6,7 @@
  */
 
 use std::fs;
+use std::io::Read;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -72,21 +73,27 @@ fn is_cache_stale(path: &Path, cache_max_age: f64) -> Result<bool, BraheError> {
         .duration_since(modified)
         .unwrap_or_default();
 
-    Ok(age.as_secs_f64() > cache_max_age)
+    Ok(age.as_secs_f64() >= cache_max_age)
 }
 
 /// Execute an HTTP GET request and return the response body.
 fn execute_get(url: &str) -> Result<String, BraheError> {
     let agent = ureq::Agent::new_with_defaults();
-    let mut response = agent
+    let response = agent
         .get(url)
         .call()
         .map_err(|e| BraheError::IoError(format!("GCAT request failed: {}", e)))?;
 
-    response
-        .body_mut()
-        .read_to_string()
-        .map_err(|e| BraheError::IoError(format!("Failed to read GCAT response: {}", e)))
+    // Read body manually to avoid ureq's default 10MB size limit.
+    // GCAT SATCAT is ~18MB.
+    let mut buffer = Vec::new();
+    let mut reader = response.into_body().into_reader();
+    reader
+        .read_to_end(&mut buffer)
+        .map_err(|e| BraheError::IoError(format!("Failed to read GCAT response: {}", e)))?;
+
+    String::from_utf8(buffer)
+        .map_err(|e| BraheError::IoError(format!("GCAT response is not valid UTF-8: {}", e)))
 }
 
 #[cfg(test)]

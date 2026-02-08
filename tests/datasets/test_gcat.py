@@ -122,7 +122,7 @@ class TestGCATLiveDownload:
         """Test PSATCAT filtering by category."""
         psatcat = datasets.gcat.get_psatcat()
 
-        comms = psatcat.filter_by_category("Communications")
+        comms = psatcat.filter_by_category("COM")
         assert len(comms) > 0
 
     def test_psatcat_filter_active(self):
@@ -155,8 +155,8 @@ class TestGCATLiveDownload:
         """Test PSATCAT filter by class."""
         psatcat = datasets.gcat.get_psatcat()
 
-        com = psatcat.filter_by_class("Com")
-        assert len(com) > 0
+        b_class = psatcat.filter_by_class("B")
+        assert len(b_class) > 0
 
     def test_psatcat_filter_by_result(self):
         """Test PSATCAT filter by result."""

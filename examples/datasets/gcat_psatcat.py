@@ -19,16 +19,16 @@ print(f"Loaded {len(psatcat)} PSATCAT records")
 active = psatcat.filter_active()
 print(f"Active payloads: {len(active)}")
 
-# Filter by mission category
-comms = psatcat.filter_by_category("Communications")
+# Filter by mission category (COM=communications, IMG=imaging, NAV=navigation, etc.)
+comms = psatcat.filter_by_category("COM")
 print(f"\nCommunications payloads: {len(comms)}")
 
-# Filter by mission class
-stations = psatcat.filter_by_class("Station")
-print(f"Space stations: {len(stations)}")
+# Filter by mission class (A=amateur, B=business, C=civil, D=defense)
+civil = psatcat.filter_by_class("C")
+print(f"Civil payloads: {len(civil)}")
 
-# Look up a specific payload
-iss = psatcat.get_by_jcat("S049652")
+# Look up a specific payload (ISS Zarya module)
+iss = psatcat.get_by_jcat("S25544")
 if iss:
     print("\nISS Payload Details:")
     print(f"  Name:       {iss.name}")
@@ -36,19 +36,17 @@ if iss:
     print(f"  Category:   {iss.category}")
     print(f"  Class:      {iss.class_}")
     print(f"  Result:     {iss.result}")
-    print(f"  Discipline: {iss.discipline}")
 
 # Expected output:
 # Loaded NNNNN PSATCAT records
 # Active payloads: NNNN
 #
-# Communications payloads: NNNN
-# Space stations: NN
+# Communications payloads: NNNNN
+# Civil payloads: NNNN
 #
 # ISS Payload Details:
-#   Name:       ISS (Zarya)
-#   Program:    ISS
-#   Category:   Human spaceflight
-#   Class:      Station
+#   Name:       Zarya Cargo Block
+#   Program:    TsM
+#   Category:   SS
+#   Class:      C
 #   Result:     S
-#   Discipline: Life sci

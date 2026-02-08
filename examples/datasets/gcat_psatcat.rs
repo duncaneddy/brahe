@@ -18,16 +18,16 @@ fn main() {
     let active = psatcat.filter_active();
     println!("Active payloads: {}", active.len());
 
-    // Filter by mission category
-    let comms = psatcat.filter_by_category("Communications");
+    // Filter by mission category (COM=communications, IMG=imaging, NAV=navigation, etc.)
+    let comms = psatcat.filter_by_category("COM");
     println!("\nCommunications payloads: {}", comms.len());
 
-    // Filter by mission class
-    let stations = psatcat.filter_by_class("Station");
-    println!("Space stations: {}", stations.len());
+    // Filter by mission class (A=amateur, B=business, C=civil, D=defense)
+    let civil = psatcat.filter_by_class("C");
+    println!("Civil payloads: {}", civil.len());
 
-    // Look up a specific payload
-    if let Some(iss) = psatcat.get_by_jcat("S049652") {
+    // Look up a specific payload (ISS Zarya module)
+    if let Some(iss) = psatcat.get_by_jcat("S25544") {
         println!("\nISS Payload Details:");
         println!("  Name:       {}", iss.name.as_deref().unwrap_or("Unknown"));
         println!(
@@ -46,24 +46,19 @@ fn main() {
             "  Result:     {}",
             iss.result.as_deref().unwrap_or("Unknown")
         );
-        println!(
-            "  Discipline: {}",
-            iss.discipline.as_deref().unwrap_or("Unknown")
-        );
     }
 
     // Expected output:
     // Loaded NNNNN PSATCAT records
     // Active payloads: NNNN
     //
-    // Communications payloads: NNNN
-    // Space stations: NN
+    // Communications payloads: NNNNN
+    // Civil payloads: NNNN
     //
     // ISS Payload Details:
-    //   Name:       ISS (Zarya)
-    //   Program:    ISS
-    //   Category:   Human spaceflight
-    //   Class:      Station
+    //   Name:       Zarya Cargo Block
+    //   Program:    TsM
+    //   Category:   SS
+    //   Class:      C
     //   Result:     S
-    //   Discipline: Life sci
 }

@@ -322,11 +322,17 @@ impl GCATPsatcat {
     }
 
     /// Filter for active payloads (result is "S" for success and no end date).
+    ///
+    /// A payload is considered active if the result is "S" (success) and
+    /// `tdate` is either absent or `"*"` (GCAT's marker for "still active").
     pub fn filter_active(&self) -> Self {
         Self::new(
             self.records
                 .iter()
-                .filter(|r| r.result.as_deref() == Some("S") && r.tdate.is_none())
+                .filter(|r| {
+                    r.result.as_deref() == Some("S")
+                        && (r.tdate.is_none() || r.tdate.as_deref() == Some("*"))
+                })
                 .cloned()
                 .collect(),
         )
@@ -545,7 +551,7 @@ mod tests {
                 ldate: Some("1998 Nov 20".to_string()),
                 tlast: Some("2025 Jan  1".to_string()),
                 top: Some("1998 Nov 20".to_string()),
-                tdate: None,
+                tdate: Some("*".to_string()),
                 tf: None,
                 program: Some("ISS".to_string()),
                 plane: None,

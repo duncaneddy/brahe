@@ -1,7 +1,7 @@
 /*!
  * Record types for GCAT (General Catalog of Artificial Space Objects) data.
  *
- * Defines `GCATSatcatRecord` (41-column satellite catalog) and
+ * Defines `GCATSatcatRecord` (42-column satellite catalog) and
  * `GCATPsatcatRecord` (28-column payload catalog) structs that mirror
  * the TSV schemas from Jonathan McDowell's GCAT.
  */
@@ -9,7 +9,7 @@
 /// A single record from the GCAT SATCAT (satellite catalog).
 ///
 /// Contains physical, orbital, and administrative metadata for an artificial
-/// space object. All 41 columns from the `satcat.tsv` file are represented.
+/// space object. All 42 columns from the `satcat.tsv` file are represented.
 /// Orbital values (perigee, apogee) are in km and inclination in degrees,
 /// matching the source data.
 #[derive(Debug, Clone)]

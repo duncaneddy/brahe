@@ -839,7 +839,7 @@ impl PyGCATPsatcat {
     /// Filter records by mission category (exact match).
     ///
     /// Args:
-    ///     category (str): Category name (e.g. "Communications", "Human spaceflight")
+    ///     category (str): Category code (e.g. "COM", "IMG", "TECH", "SCI", "NAV")
     ///
     /// Returns:
     ///     GCATPsatcat: New catalog containing matching records
@@ -852,7 +852,7 @@ impl PyGCATPsatcat {
     /// Filter records by mission class (exact match).
     ///
     /// Args:
-    ///     class_ (str): Mission class (e.g. "Com", "Station")
+    ///     class_ (str): Mission class code (e.g. "A", "B", "C", "D")
     ///
     /// Returns:
     ///     GCATPsatcat: New catalog containing matching records
@@ -876,7 +876,7 @@ impl PyGCATPsatcat {
         }
     }
 
-    /// Filter for active payloads (successful result and no end date).
+    /// Filter for active payloads (result is "S" and no end date or ``tdate="*"``).
     ///
     /// Returns:
     ///     GCATPsatcat: New catalog containing active records

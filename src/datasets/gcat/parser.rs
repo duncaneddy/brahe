@@ -39,7 +39,8 @@ fn parse_optional_f64(value: &str) -> Option<f64> {
 
 /// Parse GCAT SATCAT TSV data into a vector of records.
 ///
-/// Expects the standard `satcat.tsv` format with 41 tab-separated columns.
+/// Expects the standard `satcat.tsv` format with 42 tab-separated columns
+/// (41 standard plus an optional `alt_names` column).
 /// The first line must be a header row (first column prefixed with `#`).
 /// Lines starting with `#` after the header are treated as comments and skipped.
 ///

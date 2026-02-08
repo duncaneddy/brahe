@@ -9,9 +9,10 @@
 
 ### SATCAT
 
-The SATCAT catalog contains physical, orbital, and administrative metadata for all cataloged artificial space objects. Each record includes 41 fields organized into several categories:
+The SATCAT catalog contains physical, orbital, and administrative metadata for all cataloged artificial space objects. Each record includes 42 fields organized into several categories:
 
 <div class="center-table" markdown="1">
+
 | Category | Fields | Description |
 |----------|--------|-------------|
 | **Identification** | `jcat`, `satcat`, `launch_tag`, `piece`, `name`, `pl_name`, `alt_names` | Catalog IDs, designations, and names |
@@ -20,6 +21,7 @@ The SATCAT catalog contains physical, orbital, and administrative metadata for a
 | **Orbital** | `perigee`, `apogee`, `inc`, `odate` | Perigee/apogee altitude (km), inclination (degrees) |
 | **Administrative** | `owner`, `state`, `manufacturer`, `bus`, `motor` | Owner, country, manufacturer, spacecraft bus |
 | **Timeline** | `ldate`, `sdate`, `ddate`, `parent`, `primary` | Launch, separation, and decay dates |
+
 </div>
 
 ### PSATCAT
@@ -27,12 +29,14 @@ The SATCAT catalog contains physical, orbital, and administrative metadata for a
 The PSATCAT catalog contains payload-specific metadata for missions, extending the SATCAT with operational and registry information. Each record includes 28 fields:
 
 <div class="center-table" markdown="1">
+
 | Category | Fields | Description |
 |----------|--------|-------------|
-| **Mission** | `program`, `class`, `category`, `discipline`, `result` | Program name, mission class/category, outcome |
+| **Mission** | `program`, `class` (Python: `class_`), `category`, `discipline`, `result` | Program name, mission class/category, outcome |
 | **Operations** | `top`, `tdate`, `tlast`, `tf`, `att`, `mvr`, `control` | Operational dates, attitude control, maneuver capability |
 | **UN Registry** | `un_state`, `un_reg`, `un_period`, `un_perigee`, `un_apogee`, `un_inc` | UN registration details and registered orbital parameters |
 | **Disposal** | `disp_epoch`, `disp_peri`, `disp_apo`, `disp_inc` | End-of-life orbit parameters |
+
 </div>
 
 ## Caching Behavior
@@ -99,7 +103,7 @@ Download the PSATCAT catalog and use payload-specific filters:
 
 ### DataFrame Export
 
-Both catalogs support conversion to [Polars](https://pola.rs/) DataFrames for analysis. This is available in Python only:
+Both catalogs support conversion to [Polars](https://pola.rs/) DataFrames for analysis. In Python, `to_dataframe()` returns a `polars.DataFrame`; in Rust, it returns a `polars::DataFrame`:
 
 ```python
 import brahe as bh
@@ -115,6 +119,81 @@ print(df.columns[:5]) # ['jcat', 'satcat', 'launch_tag', 'piece', 'object_type']
 operational = df.filter(df["status"] == "O")
 print(f"Operational objects: {operational.shape[0]}")
 ```
+
+## Field Code Reference
+
+Many GCAT fields use abbreviated codes. The tables below document the most common values. For full definitions, see the [GCAT column definitions](https://planet4589.org/space/gcat/web/cat/cols.html).
+
+### SATCAT Codes
+
+**Object Type** (`object_type`):
+
+| Code | Meaning |
+|------|---------|
+| `P` | Payload |
+| `R` | Rocket body |
+| `D` | Debris |
+| `C` | Component |
+
+**Status** (`status`) — see [GCAT phases](https://planet4589.org/space/gcat/web/intro/phases.html) for full list:
+
+| Code | Meaning |
+|------|---------|
+| `O` | Operational (in orbit) |
+| `D` | Decayed (re-entered) |
+| `L` | Landed (on surface) |
+| `AR` | Attached/Recovered |
+
+**JCAT Prefix**:
+
+| Prefix | Meaning |
+|--------|---------|
+| `S` | Standard catalog |
+| `A` | Auxiliary catalog |
+| `D` | Deep space |
+| `F` | Failed to orbit |
+
+### PSATCAT Codes
+
+**Mission Class** (`class` / Python: `class_`):
+
+| Code | Meaning |
+|------|---------|
+| `A` | Amateur / academic / non-profit |
+| `B` | Business (commercial) |
+| `C` | Civil (government, non-military) |
+| `D` | Defense (military / intelligence) |
+
+Two-letter codes (e.g. `BD`, `CD`) indicate shared management across categories.
+
+**Mission Category** (`category`) — see [GCAT payload categories](https://planet4589.org/space/gcat/web/cat/pcols.html) for full list:
+
+| Code | Meaning |
+|------|---------|
+| `COM` | Communications |
+| `IMG` | Imaging (optical) |
+| `IMG-R` | Imaging (radar) |
+| `NAV` | Navigation |
+| `MET` | Meteorology |
+| `SCI` | Science |
+| `TECH` | Technology demonstration |
+| `AST` | Astronomy |
+| `SS` | Space station / crewed spaceflight |
+| `CAL` | Calibration |
+| `SIG` | Signals intelligence |
+| `EW` | Early warning |
+| `EOSCI` | Earth observation science |
+| `GEOD` | Geodesy |
+
+**Result** (`result`):
+
+| Code | Meaning |
+|------|---------|
+| `S` | Success |
+| `F` | Failure |
+| `U` | Unknown |
+
+**Date Conventions**: A `tdate` value of `*` means "still active" (no end-of-operations date).
 
 ---
 

@@ -11,11 +11,13 @@ The module is organized by data source:
 
 - **`brahe.datasets.groundstations`**: Curated groundstation location datasets
 - **`brahe.datasets.naif`**: NASA JPL NAIF planetary ephemeris kernels
+- **`brahe.datasets.gcat`**: GCAT satellite catalogs (SATCAT, PSATCAT)
 
 ## Submodules
 
 - [Groundstation Functions](groundstations.md) - Groundstation location datasets
 - [NAIF Functions](naif.md) - Planetary ephemeris kernels from NASA JPL
+- [GCAT Functions](gcat.md) - GCAT satellite catalog access
 
 ---
 

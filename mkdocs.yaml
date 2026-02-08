@@ -257,6 +257,7 @@ nav:
           - learn/datasets/index.md
           - NAIF: learn/datasets/naif.md
           - Groundstations: learn/datasets/groundstations.md
+          - GCAT: learn/datasets/gcat.md
       - Utilities:
           - learn/utilities/index.md
           - Caching: learn/utilities/caching.md
@@ -400,6 +401,7 @@ nav:
           - library_api/datasets/index.md
           - Groundstations: library_api/datasets/groundstations.md
           - NAIF: library_api/datasets/naif.md
+          - GCAT: library_api/datasets/gcat.md
       - Ephemeris Data Sources:
           - library_api/ephemeris/index.md
           - Shared Types: library_api/ephemeris/shared_types.md

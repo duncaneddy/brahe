@@ -4,7 +4,7 @@ Brahe provides typed clients for two satellite ephemeris data sources: [CelesTra
 
 ## GPRecord
 
-`GPRecord` is the shared data type for General Perturbations (OMM) data returned by both `CelestrakClient.query_gp()` and `SpaceTrackClient.query_gp()`. It contains 40 fields organized into three categories based on their data type.
+`GPRecord` is the shared data type for General Perturbations (OMM) data returned by both `CelestrakClient.get_gp()` / `CelestrakClient.query()` and `SpaceTrackClient.query_gp()`. It contains 40 fields organized into three categories based on their data type.
 
 ### Metadata Fields (String)
 

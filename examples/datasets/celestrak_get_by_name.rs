@@ -7,15 +7,14 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::celestrak::{CelestrakClient, CelestrakQuery};
+use bh::celestrak::CelestrakClient;
 
 fn main() {
     bh::initialize_eop().unwrap();
 
     // Search by name
     let client = CelestrakClient::new();
-    let query = CelestrakQuery::gp().name_search("ISS");
-    let records = client.query_gp(&query).unwrap();
+    let records = client.get_gp_by_name("ISS").unwrap();
 
     println!("Found {} results for 'ISS'", records.len());
     for record in records.iter().take(5) {

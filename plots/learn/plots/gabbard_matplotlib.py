@@ -22,24 +22,16 @@ bh.initialize_eop()
 # Get Ephemeris and debris for major events:
 client = bh.celestrak.CelestrakClient()
 
-cosmos_1408_records = client.query_gp(
-    bh.celestrak.CelestrakQuery.gp().group("cosmos-1408-debris")
-)
+cosmos_1408_records = client.get_gp(group="cosmos-1408-debris")
 cosmos_1408_debris = [r.to_sgp_propagator(60.0) for r in cosmos_1408_records]
 
-fengyun_records = client.query_gp(
-    bh.celestrak.CelestrakQuery.gp().group("fengyun-1c-debris")
-)
+fengyun_records = client.get_gp(group="fengyun-1c-debris")
 fengyun_debris = [r.to_sgp_propagator(60.0) for r in fengyun_records]
 
-iridium_records = client.query_gp(
-    bh.celestrak.CelestrakQuery.gp().group("iridium-33-debris")
-)
+iridium_records = client.get_gp(group="iridium-33-debris")
 iridium_debris = [r.to_sgp_propagator(60.0) for r in iridium_records]
 
-cosmos_2251_records = client.query_gp(
-    bh.celestrak.CelestrakQuery.gp().group("cosmos-2251-debris")
-)
+cosmos_2251_records = client.get_gp(group="cosmos-2251-debris")
 cosmos_2251_debris = [r.to_sgp_propagator(60.0) for r in cosmos_2251_records]
 
 all_debris = cosmos_1408_debris + fengyun_debris + iridium_debris + cosmos_2251_debris
@@ -54,8 +46,7 @@ print(f"Total debris objects loaded: {len(all_debris)}")
 epoch = all_debris[0].epoch
 
 # Get ISS ephemeris for reference altitude line
-iss_records = client.query_gp(bh.celestrak.CelestrakQuery.gp().catnr(25544))
-iss = iss_records[0].to_sgp_propagator(60.0)
+iss = client.get_sgp_propagator(catnr=25544, step_size=60.0)
 iss_state = iss.state_eci(epoch)
 iss_oe = bh.state_eci_to_koe(iss_state, bh.AngleFormat.RADIANS)
 iss_altitude_km = (iss_oe[0] - bh.R_EARTH) / 1e3  # Convert to km

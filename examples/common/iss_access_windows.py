@@ -16,9 +16,7 @@ location = bh.PointLocation(-122.4194, 37.7749, 0.0).with_name("San Francisco")
 
 # Get the latest TLE for the ISS (NORAD ID 25544) from Celestrak
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
-records = client.query_gp(query)
-propagator = records[0].to_sgp_propagator(60.0)
+propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
 
 # Configure Search Window
 epoch_start = bh.Epoch.now()

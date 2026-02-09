@@ -7,19 +7,16 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::celestrak::{CelestrakClient, CelestrakQuery};
-use bh::propagators::SGPPropagator;
+use bh::celestrak::CelestrakClient;
 use bh::traits::SStatePropagator;
 use bh::utils::Identifiable;
 
 fn main() {
     bh::initialize_eop().unwrap();
 
-    // Query ISS GP data from CelesTrak and create a propagator with 60-second step size
+    // Get an SGP4 propagator for the ISS directly from CelesTrak
     let client = CelestrakClient::new();
-    let query = CelestrakQuery::gp().catnr(25544);
-    let records = client.query_gp(&query).unwrap();
-    let mut iss_prop = SGPPropagator::from_gp_record(&records[0], 60.0).unwrap();
+    let mut iss_prop = client.get_sgp_propagator_by_catnr(25544, 60.0).unwrap();
 
     println!("Created propagator: {}", iss_prop.get_name().unwrap_or("Unknown"));
     println!("Epoch: {}", iss_prop.epoch);

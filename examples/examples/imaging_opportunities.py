@@ -42,8 +42,7 @@ start_time = time.time()
 # --8<-- [start:ephemeris_download]
 # Search for ICEYE satellites on CelesTrak
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().name_search("ICEYE")
-records = client.query_gp(query)
+records = client.get_gp(name="ICEYE")
 iceye_sats = [r.to_sgp_propagator(60.0) for r in records]
 # --8<-- [end:ephemeris_download]
 

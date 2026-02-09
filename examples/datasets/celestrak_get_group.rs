@@ -7,7 +7,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::celestrak::{CelestrakClient, CelestrakQuery};
+use bh::celestrak::CelestrakClient;
 
 fn main() {
     bh::initialize_eop().unwrap();
@@ -15,8 +15,7 @@ fn main() {
     // Download GP data for the Starlink group
     // This fetches all Starlink satellites in one request
     let client = CelestrakClient::new();
-    let query = CelestrakQuery::gp().group("starlink");
-    let records = client.query_gp(&query).unwrap();
+    let records = client.get_gp_by_group("starlink").unwrap();
 
     println!("Downloaded {} Starlink GP records", records.len());
 

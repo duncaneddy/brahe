@@ -411,36 +411,39 @@ impl PySupGPSource {
 /// Constructs URL parameters for the Celestrak REST API endpoints.
 /// All builder methods return a new instance for method chaining.
 ///
+/// Use the class attributes ``gp``, ``sup_gp``, and ``satcat`` to create
+/// queries targeting the respective endpoints, then chain builder methods.
+///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
 ///     # GP query for ISS
-///     query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
+///     query = bh.celestrak.CelestrakQuery.gp.catnr(25544)
 ///
 ///     # GP query for stations group with filtering
 ///     query = (
-///         bh.celestrak.CelestrakQuery.gp()
+///         bh.celestrak.CelestrakQuery.gp
 ///         .group("stations")
 ///         .filter("INCLINATION", ">50")
 ///     )
 ///
 ///     # Supplemental GP query
-///     query = bh.celestrak.CelestrakQuery.sup_gp().source(bh.celestrak.SupGPSource.SPACEX)
+///     query = bh.celestrak.CelestrakQuery.sup_gp.source(bh.celestrak.SupGPSource.SPACEX)
 ///
 ///     # SATCAT query
-///     query = bh.celestrak.CelestrakQuery.satcat().active(True).payloads(True)
+///     query = bh.celestrak.CelestrakQuery.satcat.active(True).payloads(True)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "CelestrakQuery")]
 #[derive(Clone)]
 pub struct PyCelestrakQuery {
-    inner: celestrak::CelestrakQuery,
+    pub(crate) inner: celestrak::CelestrakQuery,
 }
 
 #[pymethods]
 impl PyCelestrakQuery {
-    /// Create a GP (General Perturbations) query.
+    /// GP (General Perturbations) query builder.
     ///
     /// Returns:
     ///     CelestrakQuery: New query targeting the GP endpoint.
@@ -449,16 +452,16 @@ impl PyCelestrakQuery {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     query = bh.celestrak.CelestrakQuery.gp().group("stations")
+    ///     query = bh.celestrak.CelestrakQuery.gp.group("stations")
     ///     ```
-    #[staticmethod]
+    #[classattr]
     fn gp() -> Self {
         PyCelestrakQuery {
             inner: celestrak::CelestrakQuery::gp(),
         }
     }
 
-    /// Create a Supplemental GP query.
+    /// Supplemental GP query builder.
     ///
     /// Returns:
     ///     CelestrakQuery: New query targeting the Supplemental GP endpoint.
@@ -467,16 +470,16 @@ impl PyCelestrakQuery {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     query = bh.celestrak.CelestrakQuery.sup_gp().source(bh.celestrak.SupGPSource.STARLINK)
+    ///     query = bh.celestrak.CelestrakQuery.sup_gp.source(bh.celestrak.SupGPSource.STARLINK)
     ///     ```
-    #[staticmethod]
+    #[classattr]
     fn sup_gp() -> Self {
         PyCelestrakQuery {
             inner: celestrak::CelestrakQuery::sup_gp(),
         }
     }
 
-    /// Create a SATCAT (Satellite Catalog) query.
+    /// SATCAT (Satellite Catalog) query builder.
     ///
     /// Returns:
     ///     CelestrakQuery: New query targeting the SATCAT endpoint.
@@ -485,9 +488,9 @@ impl PyCelestrakQuery {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     query = bh.celestrak.CelestrakQuery.satcat().active(True)
+    ///     query = bh.celestrak.CelestrakQuery.satcat.active(True)
     ///     ```
-    #[staticmethod]
+    #[classattr]
     fn satcat() -> Self {
         PyCelestrakQuery {
             inner: celestrak::CelestrakQuery::satcat(),
@@ -768,8 +771,7 @@ impl PyCelestrakQuery {
 ///     import brahe as bh
 ///
 ///     client = bh.celestrak.CelestrakClient()
-///     query = bh.celestrak.CelestrakQuery.satcat().catnr(25544)
-///     records = client.query_satcat(query)
+///     records = client.get_satcat(catnr=25544)
 ///     print(records[0].object_name)  # "ISS (ZARYA)"
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -819,6 +821,17 @@ impl PyCelestrakSATCATRecord {
 /// data from CelestrakClient. No authentication is required. Responses
 /// are cached locally to reduce server load.
 ///
+/// Two tiers of API are available:
+///
+/// **Tier 1 — Compact convenience methods** (most common operations):
+///     - ``get_gp()``: Look up GP records by catnr, group, name, or intdes
+///     - ``get_sup_gp()``: Look up supplemental GP records
+///     - ``get_satcat()``: Look up SATCAT records
+///     - ``get_sgp_propagator()``: Get an SGP4 propagator directly
+///
+/// **Tier 2 — Query builder** (complex queries with filtering/sorting):
+///     - ``query()``: Execute any ``CelestrakQuery`` and return typed results
+///
 /// Args:
 ///     base_url (str, optional): Custom base URL for testing.
 ///     cache_max_age (float, optional): Cache TTL in seconds. Default: 21600.0 (6 hours).
@@ -829,15 +842,20 @@ impl PyCelestrakSATCATRecord {
 ///
 ///     client = bh.celestrak.CelestrakClient()
 ///
-///     # GP query
-///     query = bh.celestrak.CelestrakQuery.gp().group("stations")
-///     records = client.query_gp(query)
-///     print(f"Found {len(records)} records")
+///     # Compact: look up ISS GP data
+///     records = client.get_gp(catnr=25544)
 ///
-///     # SATCAT query
-///     query = bh.celestrak.CelestrakQuery.satcat().active(True)
-///     records = client.query_satcat(query)
-///     print(f"Found {len(records)} active objects")
+///     # Compact: get an SGP4 propagator directly
+///     prop = client.get_sgp_propagator(catnr=25544, step_size=60.0)
+///
+///     # Query builder: complex queries with filtering
+///     query = (
+///         bh.celestrak.CelestrakQuery.gp
+///         .group("active")
+///         .filter("INCLINATION", ">50")
+///         .limit(10)
+///     )
+///     records = client.query(query)
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "CelestrakClient")]
@@ -861,6 +879,268 @@ impl PyCelestrakClient {
         PyCelestrakClient { inner: client }
     }
 
+    // -- Tier 1: Compact convenience methods --
+
+    /// Look up GP records by exactly one identifier.
+    ///
+    /// Provide exactly one of ``catnr``, ``group``, ``name``, or ``intdes``.
+    ///
+    /// Args:
+    ///     catnr (int, optional): NORAD catalog number (e.g., 25544 for ISS).
+    ///     group (str, optional): Satellite group name (e.g., "stations", "active").
+    ///     name (str, optional): Satellite name to search for (partial match).
+    ///     intdes (str, optional): International designator (e.g., "1998-067A").
+    ///
+    /// Returns:
+    ///     list[GPRecord]: List of matching GP records.
+    ///
+    /// Raises:
+    ///     ValueError: If zero or more than one identifier is provided.
+    ///     BraheError: On network, cache, or parse errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.celestrak.CelestrakClient()
+    ///     records = client.get_gp(catnr=25544)
+    ///     records = client.get_gp(group="stations")
+    ///     records = client.get_gp(name="ISS")
+    ///     records = client.get_gp(intdes="1998-067A")
+    ///     ```
+    #[pyo3(signature = (*, catnr=None, group=None, name=None, intdes=None))]
+    fn get_gp(
+        &self,
+        catnr: Option<u32>,
+        group: Option<&str>,
+        name: Option<&str>,
+        intdes: Option<&str>,
+    ) -> PyResult<Vec<PyGPRecord>> {
+        let count = catnr.is_some() as u8
+            + group.is_some() as u8
+            + name.is_some() as u8
+            + intdes.is_some() as u8;
+        if count != 1 {
+            return Err(exceptions::PyValueError::new_err(
+                "Provide exactly one of: catnr, group, name, intdes",
+            ));
+        }
+
+        let records = if let Some(id) = catnr {
+            self.inner.get_gp_by_catnr(id)
+        } else if let Some(g) = group {
+            self.inner.get_gp_by_group(g)
+        } else if let Some(n) = name {
+            self.inner.get_gp_by_name(n)
+        } else {
+            self.inner.get_gp_by_intdes(intdes.unwrap())
+        }
+        .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+        Ok(records
+            .into_iter()
+            .map(|r| PyGPRecord { inner: r })
+            .collect())
+    }
+
+    /// Look up supplemental GP records by source.
+    ///
+    /// Args:
+    ///     source (SupGPSource): The supplemental data source.
+    ///
+    /// Returns:
+    ///     list[GPRecord]: List of GP records from the supplemental source.
+    ///
+    /// Raises:
+    ///     BraheError: On network, cache, or parse errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.celestrak.CelestrakClient()
+    ///     records = client.get_sup_gp(bh.celestrak.SupGPSource.STARLINK)
+    ///     ```
+    fn get_sup_gp(&self, source: &PySupGPSource) -> PyResult<Vec<PyGPRecord>> {
+        let records = self
+            .inner
+            .get_sup_gp(source.value)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+        Ok(records
+            .into_iter()
+            .map(|r| PyGPRecord { inner: r })
+            .collect())
+    }
+
+    /// Look up SATCAT records.
+    ///
+    /// At least one parameter must be provided.
+    ///
+    /// Args:
+    ///     catnr (int, optional): NORAD catalog number.
+    ///     active (bool, optional): Filter to active objects only.
+    ///     payloads (bool, optional): Filter to payloads only.
+    ///     on_orbit (bool, optional): Filter to on-orbit objects only.
+    ///
+    /// Returns:
+    ///     list[CelestrakSATCATRecord]: List of matching SATCAT records.
+    ///
+    /// Raises:
+    ///     ValueError: If no parameters are provided.
+    ///     BraheError: On network, cache, or parse errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.celestrak.CelestrakClient()
+    ///     records = client.get_satcat(catnr=25544)
+    ///     records = client.get_satcat(active=True, payloads=True)
+    ///     ```
+    #[pyo3(signature = (*, catnr=None, active=None, payloads=None, on_orbit=None))]
+    fn get_satcat(
+        &self,
+        catnr: Option<u32>,
+        active: Option<bool>,
+        payloads: Option<bool>,
+        on_orbit: Option<bool>,
+    ) -> PyResult<Vec<PyCelestrakSATCATRecord>> {
+        if catnr.is_none() && active.is_none() && payloads.is_none() && on_orbit.is_none() {
+            return Err(exceptions::PyValueError::new_err(
+                "Provide at least one of: catnr, active, payloads, on_orbit",
+            ));
+        }
+
+        let mut query = celestrak::CelestrakQuery::satcat();
+        if let Some(id) = catnr {
+            query = query.catnr(id);
+        }
+        if let Some(a) = active {
+            query = query.active(a);
+        }
+        if let Some(p) = payloads {
+            query = query.payloads(p);
+        }
+        if let Some(o) = on_orbit {
+            query = query.on_orbit(o);
+        }
+
+        let records = self
+            .inner
+            .query_satcat(&query)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+        Ok(records
+            .into_iter()
+            .map(|r| PyCelestrakSATCATRecord { inner: r })
+            .collect())
+    }
+
+    /// Look up a satellite and return an SGP4 propagator.
+    ///
+    /// Queries GP data for the given catalog number and creates an
+    /// SGPPropagator from the first result.
+    ///
+    /// Args:
+    ///     catnr (int): NORAD catalog number.
+    ///     step_size (float): Propagator step size in seconds. Default: 60.0.
+    ///
+    /// Returns:
+    ///     SGPPropagator: Ready-to-use SGP4 propagator.
+    ///
+    /// Raises:
+    ///     BraheError: If no records found or propagator creation fails.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.celestrak.CelestrakClient()
+    ///     propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
+    ///     ```
+    #[pyo3(signature = (*, catnr, step_size=60.0))]
+    fn get_sgp_propagator(&self, catnr: u32, step_size: f64) -> PyResult<PySGPPropagator> {
+        let propagator = self
+            .inner
+            .get_sgp_propagator_by_catnr(catnr, step_size)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(PySGPPropagator { propagator })
+    }
+
+    // -- Tier 2: Query builder methods --
+
+    /// Execute a query and return typed results.
+    ///
+    /// Dispatches to the appropriate handler based on query type:
+    /// GP and SupGP queries return ``list[GPRecord]``, SATCAT queries
+    /// return ``list[CelestrakSATCATRecord]``.
+    ///
+    /// Args:
+    ///     query (CelestrakQuery): The query to execute.
+    ///
+    /// Returns:
+    ///     list[GPRecord] | list[CelestrakSATCATRecord]: Typed records based on query type.
+    ///
+    /// Raises:
+    ///     BraheError: On network, cache, or parse errors.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     client = bh.celestrak.CelestrakClient()
+    ///
+    ///     # GP query with filtering
+    ///     query = (
+    ///         bh.celestrak.CelestrakQuery.gp
+    ///         .group("active")
+    ///         .filter("INCLINATION", ">50")
+    ///         .limit(10)
+    ///     )
+    ///     records = client.query(query)
+    ///
+    ///     # SATCAT query
+    ///     query = bh.celestrak.CelestrakQuery.satcat.active(True)
+    ///     records = client.query(query)
+    ///     ```
+    fn query<'py>(
+        &self,
+        py: Python<'py>,
+        query: &PyCelestrakQuery,
+    ) -> PyResult<Py<PyAny>> {
+        match query.inner.query_type() {
+            celestrak::CelestrakQueryType::GP | celestrak::CelestrakQueryType::SupGP => {
+                let records = self
+                    .inner
+                    .query_gp(&query.inner)
+                    .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+                let py_records: Vec<PyGPRecord> = records
+                    .into_iter()
+                    .map(|r| PyGPRecord { inner: r })
+                    .collect();
+
+                py_records.into_py_any(py)
+            }
+            celestrak::CelestrakQueryType::SATCAT => {
+                let records = self
+                    .inner
+                    .query_satcat(&query.inner)
+                    .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+                let py_records: Vec<PyCelestrakSATCATRecord> = records
+                    .into_iter()
+                    .map(|r| PyCelestrakSATCATRecord { inner: r })
+                    .collect();
+
+                py_records.into_py_any(py)
+            }
+        }
+    }
+
+    // -- Raw/download methods --
+
     /// Execute a query and return the raw response body.
     ///
     /// Args:
@@ -878,7 +1158,7 @@ impl PyCelestrakClient {
     ///
     ///     client = bh.celestrak.CelestrakClient()
     ///     query = (
-    ///         bh.celestrak.CelestrakQuery.gp()
+    ///         bh.celestrak.CelestrakQuery.gp
     ///         .group("stations")
     ///         .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
     ///     )
@@ -905,7 +1185,7 @@ impl PyCelestrakClient {
     ///
     ///     client = bh.celestrak.CelestrakClient()
     ///     query = (
-    ///         bh.celestrak.CelestrakQuery.gp()
+    ///         bh.celestrak.CelestrakQuery.gp
     ///         .group("stations")
     ///         .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
     ///     )
@@ -915,77 +1195,5 @@ impl PyCelestrakClient {
         self.inner
             .download(&query.inner, Path::new(filepath))
             .map_err(|e| BraheError::new_err(e.to_string()))
-    }
-
-    /// Execute a GP query and return typed GP records.
-    ///
-    /// Forces JSON format internally for deserialization. Returns the same
-    /// GPRecord type as the SpaceTrack module, enabling interoperability.
-    /// Client-side filters, ordering, and limits are applied after download.
-    ///
-    /// Args:
-    ///     query (CelestrakQuery): The query to execute.
-    ///
-    /// Returns:
-    ///     list[GPRecord]: List of typed GP records.
-    ///
-    /// Raises:
-    ///     BraheError: On network, cache, or parse errors.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     client = bh.celestrak.CelestrakClient()
-    ///     query = bh.celestrak.CelestrakQuery.gp().group("stations")
-    ///     records = client.query_gp(query)
-    ///     for r in records:
-    ///         print(f"{r.object_name}: inc={r.inclination}")
-    ///     ```
-    fn query_gp(&self, query: &PyCelestrakQuery) -> PyResult<Vec<PyGPRecord>> {
-        let records = self
-            .inner
-            .query_gp(&query.inner)
-            .map_err(|e| BraheError::new_err(e.to_string()))?;
-
-        Ok(records
-            .into_iter()
-            .map(|r| PyGPRecord { inner: r })
-            .collect())
-    }
-
-    /// Execute a SATCAT query and return typed SATCAT records.
-    ///
-    /// Forces JSON format internally for deserialization.
-    /// Client-side filters, ordering, and limits are applied after download.
-    ///
-    /// Args:
-    ///     query (CelestrakQuery): The query to execute.
-    ///
-    /// Returns:
-    ///     list[CelestrakSATCATRecord]: List of typed SATCAT records.
-    ///
-    /// Raises:
-    ///     BraheError: On network, cache, or parse errors.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     client = bh.celestrak.CelestrakClient()
-    ///     query = bh.celestrak.CelestrakQuery.satcat().active(True)
-    ///     records = client.query_satcat(query)
-    ///     print(f"Found {len(records)} active objects")
-    ///     ```
-    fn query_satcat(&self, query: &PyCelestrakQuery) -> PyResult<Vec<PyCelestrakSATCATRecord>> {
-        let records = self
-            .inner
-            .query_satcat(&query.inner)
-            .map_err(|e| BraheError::new_err(e.to_string()))?;
-
-        Ok(records
-            .into_iter()
-            .map(|r| PyCelestrakSATCATRecord { inner: r })
-            .collect())
     }
 }

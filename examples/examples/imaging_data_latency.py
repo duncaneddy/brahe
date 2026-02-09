@@ -48,8 +48,7 @@ os.makedirs(OUTDIR, exist_ok=True)
 print("Downloading Capella satellite TLEs from CelesTrak...")
 start_time = time.time()
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().name_search("CAPELLA")
-records = client.query_gp(query)
+records = client.get_gp(name="CAPELLA")
 
 # Convert to propagators
 capella_props = [r.to_sgp_propagator(60.0) for r in records]

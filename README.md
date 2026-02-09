@@ -102,12 +102,21 @@ import brahe as bh
 
 bh.initialize_eop()
 
-# Compute upcoming passes of the ISS over San Francisco
+# Download ISS TLE and create a propagator
+client = bh.celestrak.CelestrakClient()
+iss = client.get_sgp_propagator(catnr=25544, step_size=60.0)
+
+# Propagate for 24 hours
+epoch_start = iss.epoch
+epoch_end = epoch_start + 24 * 3600.0
+iss.propagate_to(epoch_end)
+
+# Compute upcoming passes over San Francisco
 passes = bh.location_accesses(
     bh.PointLocation(-122.4194, 37.7749, 0.0),  # San Francisco
-    bh.celestrak.get_tle_by_id_as_propagator(25544, 60.0, "active"),  # ISS
-    bh.Epoch.now(),
-    bh.Epoch.now() + 24 * 3600.0,  # Next 24 hours
+    iss,
+    epoch_start,
+    epoch_end,
     bh.ElevationConstraint(min_elevation_deg=10.0),
 )
 print(f"Number of passes in next 24 hours: {len(passes)}")

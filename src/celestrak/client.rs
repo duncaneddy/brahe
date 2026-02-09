@@ -12,7 +12,8 @@ use std::time::SystemTime;
 use crate::celestrak::filter::{apply_filters, apply_limit, apply_order_by};
 use crate::celestrak::query::CelestrakQuery;
 use crate::celestrak::responses::CelestrakSATCATRecord;
-use crate::celestrak::types::CelestrakOutputFormat;
+use crate::celestrak::types::{CelestrakOutputFormat, SupGPSource};
+use crate::propagators::SGPPropagator;
 use crate::types::GPRecord;
 use crate::utils::{BraheError, get_celestrak_cache_dir};
 
@@ -259,6 +260,196 @@ impl CelestrakClient {
         records = apply_limit(records, query.client_side_limit());
 
         Ok(records)
+    }
+
+    // -- Convenience methods --
+
+    /// Look up GP records by NORAD catalog number.
+    ///
+    /// # Arguments
+    ///
+    /// * `catnr` - NORAD catalog number (e.g., 25544 for ISS)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<GPRecord>)` - Matching GP records
+    /// * `Err(BraheError)` - On network, cache, or parse errors
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::celestrak::CelestrakClient;
+    ///
+    /// let client = CelestrakClient::new();
+    /// let records = client.get_gp_by_catnr(25544).unwrap();
+    /// println!("ISS: {:?}", records[0].object_name);
+    /// ```
+    pub fn get_gp_by_catnr(&self, catnr: u32) -> Result<Vec<GPRecord>, BraheError> {
+        let query = CelestrakQuery::gp().catnr(catnr);
+        self.query_gp(&query)
+    }
+
+    /// Look up GP records by satellite group name.
+    ///
+    /// # Arguments
+    ///
+    /// * `group` - Group name (e.g., "stations", "active", "gnss")
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<GPRecord>)` - GP records in the group
+    /// * `Err(BraheError)` - On network, cache, or parse errors
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::celestrak::CelestrakClient;
+    ///
+    /// let client = CelestrakClient::new();
+    /// let records = client.get_gp_by_group("stations").unwrap();
+    /// println!("Found {} records", records.len());
+    /// ```
+    pub fn get_gp_by_group(&self, group: &str) -> Result<Vec<GPRecord>, BraheError> {
+        let query = CelestrakQuery::gp().group(group);
+        self.query_gp(&query)
+    }
+
+    /// Look up GP records by satellite name (substring match).
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Satellite name to search for (partial match supported)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<GPRecord>)` - Matching GP records
+    /// * `Err(BraheError)` - On network, cache, or parse errors
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::celestrak::CelestrakClient;
+    ///
+    /// let client = CelestrakClient::new();
+    /// let records = client.get_gp_by_name("ISS").unwrap();
+    /// ```
+    pub fn get_gp_by_name(&self, name: &str) -> Result<Vec<GPRecord>, BraheError> {
+        let query = CelestrakQuery::gp().name_search(name);
+        self.query_gp(&query)
+    }
+
+    /// Look up GP records by international designator.
+    ///
+    /// # Arguments
+    ///
+    /// * `intdes` - International designator (e.g., "1998-067A")
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<GPRecord>)` - Matching GP records
+    /// * `Err(BraheError)` - On network, cache, or parse errors
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::celestrak::CelestrakClient;
+    ///
+    /// let client = CelestrakClient::new();
+    /// let records = client.get_gp_by_intdes("1998-067A").unwrap();
+    /// ```
+    pub fn get_gp_by_intdes(&self, intdes: &str) -> Result<Vec<GPRecord>, BraheError> {
+        let query = CelestrakQuery::gp().intdes(intdes);
+        self.query_gp(&query)
+    }
+
+    /// Look up supplemental GP records by source.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The supplemental data source
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<GPRecord>)` - GP records from the supplemental source
+    /// * `Err(BraheError)` - On network, cache, or parse errors
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::celestrak::{CelestrakClient, SupGPSource};
+    ///
+    /// let client = CelestrakClient::new();
+    /// let records = client.get_sup_gp(SupGPSource::Starlink).unwrap();
+    /// ```
+    pub fn get_sup_gp(&self, source: SupGPSource) -> Result<Vec<GPRecord>, BraheError> {
+        let query = CelestrakQuery::sup_gp().source(source);
+        self.query_gp(&query)
+    }
+
+    /// Look up SATCAT records by NORAD catalog number.
+    ///
+    /// # Arguments
+    ///
+    /// * `catnr` - NORAD catalog number
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<CelestrakSATCATRecord>)` - Matching SATCAT records
+    /// * `Err(BraheError)` - On network, cache, or parse errors
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::celestrak::CelestrakClient;
+    ///
+    /// let client = CelestrakClient::new();
+    /// let records = client.get_satcat_by_catnr(25544).unwrap();
+    /// println!("ISS: {:?}", records[0].object_name);
+    /// ```
+    pub fn get_satcat_by_catnr(
+        &self,
+        catnr: u32,
+    ) -> Result<Vec<CelestrakSATCATRecord>, BraheError> {
+        let query = CelestrakQuery::satcat().catnr(catnr);
+        self.query_satcat(&query)
+    }
+
+    /// Look up a satellite by NORAD catalog number and return an SGP4 propagator.
+    ///
+    /// Queries GP data for the given catalog number and creates an
+    /// `SGPPropagator` from the first result.
+    ///
+    /// # Arguments
+    ///
+    /// * `catnr` - NORAD catalog number
+    /// * `step_size` - Propagator step size in seconds
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(SGPPropagator)` - Ready-to-use propagator
+    /// * `Err(BraheError)` - If no records found or propagator creation fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use brahe::celestrak::CelestrakClient;
+    ///
+    /// let client = CelestrakClient::new();
+    /// let propagator = client.get_sgp_propagator_by_catnr(25544, 60.0).unwrap();
+    /// ```
+    pub fn get_sgp_propagator_by_catnr(
+        &self,
+        catnr: u32,
+        step_size: f64,
+    ) -> Result<SGPPropagator, BraheError> {
+        let records = self.get_gp_by_catnr(catnr)?;
+        let record = records.first().ok_or_else(|| {
+            BraheError::Error(format!(
+                "No GP records found for NORAD catalog number {}",
+                catnr
+            ))
+        })?;
+        SGPPropagator::from_gp_record(record, step_size)
     }
 
     // -- Internal helpers --
@@ -706,14 +897,168 @@ mod tests {
         assert!(!key.contains("/"));
     }
 
+    // -- Convenience method tests --
+
+    #[test]
+    fn test_get_gp_by_catnr() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("CATNR", "25544");
+            then.status(200).body(
+                r#"[{
+                    "OBJECT_NAME": "ISS (ZARYA)",
+                    "NORAD_CAT_ID": "25544",
+                    "INCLINATION": "51.6400"
+                }]"#,
+            );
+        });
+
+        let client = CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0);
+        let records = client.get_gp_by_catnr(25544).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].norad_cat_id, Some(25544));
+    }
+
+    #[test]
+    fn test_get_gp_by_group() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("GROUP", "stations");
+            then.status(200).body(
+                r#"[{
+                    "OBJECT_NAME": "ISS (ZARYA)",
+                    "NORAD_CAT_ID": "25544"
+                }]"#,
+            );
+        });
+
+        let client = CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0);
+        let records = client.get_gp_by_group("stations").unwrap();
+        assert_eq!(records.len(), 1);
+    }
+
+    #[test]
+    fn test_get_gp_by_name() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("NAME", "ISS");
+            then.status(200).body(
+                r#"[{
+                    "OBJECT_NAME": "ISS (ZARYA)",
+                    "NORAD_CAT_ID": "25544"
+                }]"#,
+            );
+        });
+
+        let client = CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0);
+        let records = client.get_gp_by_name("ISS").unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].object_name.as_deref(), Some("ISS (ZARYA)"));
+    }
+
+    #[test]
+    fn test_get_gp_by_intdes() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("INTDES", "1998-067A");
+            then.status(200).body(
+                r#"[{
+                    "OBJECT_NAME": "ISS (ZARYA)",
+                    "NORAD_CAT_ID": "25544"
+                }]"#,
+            );
+        });
+
+        let client = CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0);
+        let records = client.get_gp_by_intdes("1998-067A").unwrap();
+        assert_eq!(records.len(), 1);
+    }
+
+    #[test]
+    fn test_get_sup_gp() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/supplemental/sup-gp.php")
+                .query_param("SOURCE", "spacex");
+            then.status(200).body(
+                r#"[{
+                    "OBJECT_NAME": "STARLINK-1234",
+                    "NORAD_CAT_ID": "44000"
+                }]"#,
+            );
+        });
+
+        let client = CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0);
+        let records = client.get_sup_gp(SupGPSource::SpaceX).unwrap();
+        assert_eq!(records.len(), 1);
+    }
+
+    #[test]
+    fn test_get_satcat_by_catnr() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/satcat/records.php")
+                .query_param("CATNR", "25544");
+            then.status(200).body(
+                r#"[{
+                    "OBJECT_NAME": "ISS (ZARYA)",
+                    "NORAD_CAT_ID": "25544",
+                    "OBJECT_TYPE": "PAY"
+                }]"#,
+            );
+        });
+
+        let client = CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0);
+        let records = client.get_satcat_by_catnr(25544).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].norad_cat_id, Some(25544));
+    }
+
+    #[test]
+    fn test_get_sgp_propagator_by_catnr_empty_results() {
+        let server = MockServer::start();
+
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/NORAD/elements/gp.php")
+                .query_param("CATNR", "99999");
+            then.status(200).body("[]");
+        });
+
+        let client = CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0);
+        let result = client.get_sgp_propagator_by_catnr(99999, 60.0);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("No GP records found")
+        );
+    }
+
     // -- CI-gated live integration tests --
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_integration_gp_by_group() {
         let client = CelestrakClient::with_cache_age(0.0);
-        let query = CelestrakQuery::gp().group("stations");
-        let records = client.query_gp(&query).expect("GP query failed");
+        let records = client.get_gp_by_group("stations").expect("GP query failed");
         assert!(!records.is_empty(), "Expected at least one GP record");
     }
 
@@ -721,8 +1066,7 @@ mod tests {
     #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_integration_gp_by_catnr() {
         let client = CelestrakClient::with_cache_age(0.0);
-        let query = CelestrakQuery::gp().catnr(25544);
-        let records = client.query_gp(&query).expect("GP query failed");
+        let records = client.get_gp_by_catnr(25544).expect("GP query failed");
         assert!(!records.is_empty(), "Expected ISS GP record");
         assert_eq!(records[0].norad_cat_id, Some(25544));
     }
@@ -731,8 +1075,7 @@ mod tests {
     #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_integration_gp_by_name() {
         let client = CelestrakClient::with_cache_age(0.0);
-        let query = CelestrakQuery::gp().name_search("ISS");
-        let records = client.query_gp(&query).expect("GP query failed");
+        let records = client.get_gp_by_name("ISS").expect("GP query failed");
         assert!(
             !records.is_empty(),
             "Expected at least one record matching ISS"
@@ -743,9 +1086,20 @@ mod tests {
     #[cfg_attr(not(feature = "ci"), ignore)]
     fn test_integration_satcat() {
         let client = CelestrakClient::with_cache_age(0.0);
-        let query = CelestrakQuery::satcat().catnr(25544);
-        let records = client.query_satcat(&query).expect("SATCAT query failed");
+        let records = client
+            .get_satcat_by_catnr(25544)
+            .expect("SATCAT query failed");
         assert!(!records.is_empty(), "Expected ISS SATCAT record");
         assert_eq!(records[0].norad_cat_id, Some(25544));
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "ci"), ignore)]
+    fn test_integration_get_sgp_propagator_by_catnr() {
+        let client = CelestrakClient::with_cache_age(0.0);
+        let propagator = client
+            .get_sgp_propagator_by_catnr(25544, 60.0)
+            .expect("SGP propagator creation failed");
+        assert_eq!(propagator.norad_id, 25544);
     }
 }

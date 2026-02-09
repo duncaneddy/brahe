@@ -14,11 +14,9 @@ import brahe as bh
 # Initialize EOP data
 bh.initialize_eop()
 
-# Query ISS GP data from CelesTrak and create a propagator with 60-second step size
+# Get an SGP4 propagator for the ISS directly from CelesTrak
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
-records = client.query_gp(query)
-iss_prop = records[0].to_sgp_propagator(60.0)
+iss_prop = client.get_sgp_propagator(catnr=25544, step_size=60.0)
 
 print(f"Created propagator: {iss_prop.get_name()}")
 print(f"Epoch: {iss_prop.epoch}")

@@ -45,8 +45,7 @@ print("Downloading active satellite TLEs from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_umbra]
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().name_search("UMBRA")
-records = client.query_gp(query)
+records = client.get_gp(name="UMBRA")
 
 # Convert to propagators
 umbra_props = [r.to_sgp_propagator(60.0) for r in records]

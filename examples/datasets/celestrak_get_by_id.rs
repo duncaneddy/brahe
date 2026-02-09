@@ -7,15 +7,14 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use bh::celestrak::{CelestrakClient, CelestrakQuery};
+use bh::celestrak::CelestrakClient;
 
 fn main() {
     bh::initialize_eop().unwrap();
 
     // Query ISS GP data by NORAD catalog number
     let client = CelestrakClient::new();
-    let query = CelestrakQuery::gp().catnr(25544);
-    let records = client.query_gp(&query).unwrap();
+    let records = client.get_gp_by_catnr(25544).unwrap();
     let record = &records[0];
 
     println!("ISS GP Data:");

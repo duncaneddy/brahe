@@ -116,7 +116,7 @@ def download(
         try:
             client = bh.celestrak.CelestrakClient()
             fmt = _format_to_celestrak(content_format.value)
-            query = bh.celestrak.CelestrakQuery.gp().group(group).format(fmt)
+            query = bh.celestrak.CelestrakQuery.gp.group(group).format(fmt)
             client.download(query, str(filepath.absolute()))
         except Exception as e:
             typer.echo(f"Error: {e}", err=True)
@@ -130,16 +130,12 @@ def _fetch_3le_by_name(name: str, group: str = None):
     client = bh.celestrak.CelestrakClient()
     if group:
         # Fetch group as 3LE and search by name client-side
-        query = (
-            bh.celestrak.CelestrakQuery.gp()
-            .group(group)
-            .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
+        query = bh.celestrak.CelestrakQuery.gp.group(group).format(
+            bh.celestrak.CelestrakOutputFormat.THREE_LE
         )
     else:
-        query = (
-            bh.celestrak.CelestrakQuery.gp()
-            .name_search(name)
-            .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
+        query = bh.celestrak.CelestrakQuery.gp.name_search(name).format(
+            bh.celestrak.CelestrakOutputFormat.THREE_LE
         )
     raw = client.query_raw(query)
     results = _parse_3le_text(raw)
@@ -155,10 +151,8 @@ def _fetch_3le_by_name(name: str, group: str = None):
 def _fetch_3le_by_id(norad_id: int):
     """Fetch 3LE text for a satellite by NORAD ID, return (name, line1, line2)."""
     client = bh.celestrak.CelestrakClient()
-    query = (
-        bh.celestrak.CelestrakQuery.gp()
-        .catnr(norad_id)
-        .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
+    query = bh.celestrak.CelestrakQuery.gp.catnr(norad_id).format(
+        bh.celestrak.CelestrakOutputFormat.THREE_LE
     )
     raw = client.query_raw(query)
     results = _parse_3le_text(raw)
@@ -537,12 +531,10 @@ def search(
 
         try:
             client = bh.celestrak.CelestrakClient()
-            query = (
-                bh.celestrak.CelestrakQuery.gp()
-                .group(group)
-                .filter("OBJECT_NAME", f"~~{pattern}")
+            query = bh.celestrak.CelestrakQuery.gp.group(group).filter(
+                "OBJECT_NAME", f"~~{pattern}"
             )
-            matches = client.query_gp(query)
+            matches = client.query(query)
         except Exception as e:
             console.print(f"[red]ERROR: {e}[/red]", style="bold")
             raise typer.Exit(code=1)

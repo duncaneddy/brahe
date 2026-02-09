@@ -12,9 +12,7 @@ bh.initialize_eop()
 
 # Fetch the ISS from CelesTrak and create a propagator
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
-records = client.query_gp(query)
-iss = records[0].to_sgp_propagator(60.0)
+iss = client.get_sgp_propagator(catnr=25544, step_size=60.0)
 
 # Compute upcoming passes of the ISS over San Francisco
 passes = bh.location_accesses(

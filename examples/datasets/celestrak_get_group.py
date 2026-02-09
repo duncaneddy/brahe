@@ -17,8 +17,7 @@ bh.initialize_eop()
 # Download GP data for the Starlink group
 # This fetches all Starlink satellites in one request
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().group("starlink")
-records = client.query_gp(query)
+records = client.get_gp(group="starlink")
 
 print(f"Downloaded {len(records)} Starlink GP records")
 

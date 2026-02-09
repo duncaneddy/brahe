@@ -4,8 +4,7 @@
 #[allow(unused_imports)]
 use brahe as bh;
 use brahe::{Epoch, PointLocation, ElevationConstraint, location_accesses};
-use brahe::celestrak::{CelestrakClient, CelestrakQuery};
-use brahe::propagators::SGPPropagator;
+use brahe::celestrak::CelestrakClient;
 use brahe::utils::Identifiable;
 
 fn main() {
@@ -18,9 +17,7 @@ fn main() {
 
     // Get the latest TLE for the ISS (NORAD ID 25544) from Celestrak
     let client = CelestrakClient::new();
-    let query = CelestrakQuery::gp().catnr(25544);
-    let records = client.query_gp(&query).unwrap();
-    let propagator = SGPPropagator::from_gp_record(&records[0], 60.0).unwrap();
+    let propagator = client.get_sgp_propagator_by_catnr(25544, 60.0).unwrap();
 
     // Configure Search Window
     let epoch_start = Epoch::now();

@@ -16,8 +16,7 @@ bh.initialize_eop()
 
 # Search by name
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().name_search("ISS")
-records = client.query_gp(query)
+records = client.get_gp(name="ISS")
 
 print(f"Found {len(records)} results for 'ISS'")
 for record in records[:5]:

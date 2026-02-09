@@ -236,10 +236,8 @@ def compute(
     logger.debug(f"Fetching TLE for NORAD ID {norad_id} from CelesTrak")
     try:
         client = brahe.celestrak.CelestrakClient()
-        query = (
-            brahe.celestrak.CelestrakQuery.gp()
-            .catnr(norad_id)
-            .format(brahe.celestrak.CelestrakOutputFormat.THREE_LE)
+        query = brahe.celestrak.CelestrakQuery.gp.catnr(norad_id).format(
+            brahe.celestrak.CelestrakOutputFormat.THREE_LE
         )
         raw = client.query_raw(query)
         lines = [ln for ln in raw.strip().splitlines() if ln.strip()]

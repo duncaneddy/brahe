@@ -32,8 +32,7 @@ print("Downloading GPS TLEs from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_gps]
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().group("gps-ops")
-records = client.query_gp(query)
+records = client.get_gp(group="gps-ops")
 propagators = [r.to_sgp_propagator(60.0) for r in records]
 # --8<-- [end:download_gps]
 elapsed = time.time() - start_time

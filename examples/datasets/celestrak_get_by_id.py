@@ -16,8 +16,7 @@ bh.initialize_eop()
 
 # Query ISS GP data by NORAD catalog number
 client = bh.celestrak.CelestrakClient()
-query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
-records = client.query_gp(query)
+records = client.get_gp(catnr=25544)
 record = records[0]
 
 print("ISS GP Data:")

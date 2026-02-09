@@ -20,22 +20,21 @@ Example:
 
     client = bh.celestrak.CelestrakClient()
 
-    # Query GP data for the stations group
-    query = bh.celestrak.CelestrakQuery.gp().group("stations")
-    records = client.query_gp(query)
-    for r in records:
-        print(f"{r.object_name}: inc={r.inclination}")
+    # Compact convenience methods (most common use cases)
+    records = client.get_gp(group="stations")
+    records = client.get_gp(catnr=25544)
+    propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
 
-    # Query with client-side filtering
+    # Query builder for complex queries with filtering/sorting/limiting
     from brahe.spacetrack import operators as op
 
     query = (
-        bh.celestrak.CelestrakQuery.gp()
+        bh.celestrak.CelestrakQuery.gp
         .group("active")
         .filter("OBJECT_TYPE", op.not_equal("DEBRIS"))
         .filter("INCLINATION", op.greater_than("50"))
     )
-    records = client.query_gp(query)
+    records = client.query(query)
     ```
 """
 

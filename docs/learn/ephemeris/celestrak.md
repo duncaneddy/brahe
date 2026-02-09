@@ -17,9 +17,9 @@ The client supports three CelesTrak endpoints:
 
 | Endpoint | Query Constructor | Description |
 |----------|-------------------|-------------|
-| GP | `CelestrakQuery.gp()` | General Perturbations (OMM) data |
-| SupGP | `CelestrakQuery.sup_gp()` | Supplemental GP data from constellation operators |
-| SATCAT | `CelestrakQuery.satcat()` | Satellite catalog metadata |
+| GP | `CelestrakQuery.gp` | General Perturbations (OMM) data |
+| SupGP | `CelestrakQuery.sup_gp` | Supplemental GP data from constellation operators |
+| SATCAT | `CelestrakQuery.satcat` | Satellite catalog metadata |
 
 </div>
 
@@ -44,14 +44,14 @@ from brahe.spacetrack import operators as op
 
 client = bh.celestrak.CelestrakClient()
 query = (
-    bh.celestrak.CelestrakQuery.gp()
+    bh.celestrak.CelestrakQuery.gp
     .group("stations")
     .filter("INCLINATION", op.greater_than("50"))
     .filter("OBJECT_TYPE", op.not_equal("DEBRIS"))
     .order_by("INCLINATION", False)
     .limit(10)
 )
-records = client.query_gp(query)
+records = client.query(query)
 ```
 
 Client-side filters are applied after downloading the full dataset, so they work on any field in the response.
@@ -60,7 +60,7 @@ Client-side filters are applied after downloading the full dataset, so they work
 
 ### Querying GP Data
 
-The most common use case is querying GP (General Perturbations) data, which returns `GPRecord` objects -- the same type used by SpaceTrack:
+The most common use case is querying GP (General Perturbations) data, which returns `GPRecord` objects -- the same type used by SpaceTrack. Compact convenience methods handle the most common lookups:
 
 ```python
 import brahe as bh
@@ -68,19 +68,26 @@ import brahe as bh
 client = bh.celestrak.CelestrakClient()
 
 # By satellite group
-query = bh.celestrak.CelestrakQuery.gp().group("stations")
-records = client.query_gp(query)
+records = client.get_gp(group="stations")
 
 # By NORAD catalog number
-query = bh.celestrak.CelestrakQuery.gp().catnr(25544)
-records = client.query_gp(query)
+records = client.get_gp(catnr=25544)
 
 # By name search
-query = bh.celestrak.CelestrakQuery.gp().name_search("ISS")
-records = client.query_gp(query)
+records = client.get_gp(name="ISS")
+
+# By international designator
+records = client.get_gp(intdes="1998-067A")
 
 for rec in records:
     print(f"{rec.object_name}: inc={rec.inclination}°")
+```
+
+For complex queries with filtering, sorting, or limiting, use the query builder:
+
+```python
+query = bh.celestrak.CelestrakQuery.gp.group("stations")
+records = client.query(query)
 ```
 
 ### Getting Raw TLE Data
@@ -92,7 +99,7 @@ import brahe as bh
 
 client = bh.celestrak.CelestrakClient()
 query = (
-    bh.celestrak.CelestrakQuery.gp()
+    bh.celestrak.CelestrakQuery.gp
     .catnr(25544)
     .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
 )
@@ -108,13 +115,19 @@ The SATCAT endpoint provides satellite catalog metadata:
 import brahe as bh
 
 client = bh.celestrak.CelestrakClient()
+
+# Compact method for simple lookups
+records = client.get_satcat(active=True, payloads=True, on_orbit=True)
+
+# Or use the query builder for equivalent results
 query = (
-    bh.celestrak.CelestrakQuery.satcat()
+    bh.celestrak.CelestrakQuery.satcat
     .active(True)
     .payloads(True)
     .on_orbit(True)
 )
-records = client.query_satcat(query)
+records = client.query(query)
+
 for rec in records:
     print(f"{rec.object_name}: {rec.owner}, launched {rec.launch_date}")
 ```
@@ -128,7 +141,7 @@ import brahe as bh
 
 client = bh.celestrak.CelestrakClient()
 query = (
-    bh.celestrak.CelestrakQuery.gp()
+    bh.celestrak.CelestrakQuery.gp
     .group("stations")
     .format(bh.celestrak.CelestrakOutputFormat.THREE_LE)
 )
@@ -137,7 +150,7 @@ client.download(query, "stations.txt")
 
 ### Interoperability with SpaceTrack
 
-Both `CelestrakClient.query_gp()` and `SpaceTrackClient.query_gp()` return `Vec<GPRecord>` / `list[GPRecord]`, so downstream processing code works with either source:
+Both CelesTrak and SpaceTrack return `list[GPRecord]` for GP queries, so downstream processing code works with either source:
 
 ```python
 import brahe as bh
@@ -149,8 +162,7 @@ def process_records(records):
 
 # From CelesTrak (no authentication required)
 ct_client = bh.celestrak.CelestrakClient()
-ct_query = bh.celestrak.CelestrakQuery.gp().group("stations")
-ct_records = ct_client.query_gp(ct_query)
+ct_records = ct_client.get_gp(group="stations")
 process_records(ct_records)
 
 # From SpaceTrack (requires authentication)

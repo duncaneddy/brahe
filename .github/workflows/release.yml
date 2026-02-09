@@ -39,14 +39,17 @@ jobs:
   test-rust:
     uses: ./.github/workflows/test_rust.yml
     needs: [validate-version]
+    secrets: inherit
 
   test-python:
     uses: ./.github/workflows/test_python.yml
     needs: [validate-version]
+    secrets: inherit
 
   test-examples:
     uses: ./.github/workflows/test_examples.yml
     needs: [validate-version]
+    secrets: inherit
 
   # Generate release notes using towncrier
   generate-release-notes:

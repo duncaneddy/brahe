@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.1.0] - 2026-02-10
+### Added
+
+- - Added `par_propagate_to_d` method. [#109](https://github.com/duncaneddy/brahe/pull/109)
+- - Add Github issue templates for bugs and feature requests [#113](https://github.com/duncaneddy/brahe/pull/113)
+- - Add arXiv citation to README and documentation. [#124](https://github.com/duncaneddy/brahe/pull/124)
+- - Modified python bindings to support access computation with numerical orbit propagators. [#126](https://github.com/duncaneddy/brahe/pull/126)
+- - Added `spacetrack` client module, enabling direct interaction with space-track.org APIs [#150](https://github.com/duncaneddy/brahe/pull/150)
+- - Added BSL-1.0 to allowed dependency license list
+  - Added [GCAT](https://planet4589.org/space/gcat/web/cat/index.html) dataset interface [#152](https://github.com/duncaneddy/brahe/pull/152)
+- - Added simplified `CelestrakClient` interface to bridge gap between new interface and old one. [#157](https://github.com/duncaneddy/brahe/pull/157)
+
+### Changed
+
+- - Bump version for 1.0.1 release [#106](https://github.com/duncaneddy/brahe/pull/106)
+- - Renamed `par_propagate_to` to `par_propagate_to_s`
+  - Move SGPPropagator to D-Type event detection. [#109](https://github.com/duncaneddy/brahe/pull/109)
+- - Update documentation to add [JOSS](https://joss.theoj.org/) paper submission badge. [#113](https://github.com/duncaneddy/brahe/pull/113)
+- - Update JOSS workflow to export tex artifacts to support arXiv upload. [#122](https://github.com/duncaneddy/brahe/pull/122)
+- - Moved all Brahe errors in python bindings from `OSError` to `BraheError` to make them more distinguishable and easy to handle. [#126](https://github.com/duncaneddy/brahe/pull/126)
+- - Updated JOSS paper with [new required sections](https://blog.joss.theoj.org/2026/01/preparing-joss-for-a-generative-ai-future). [#137](https://github.com/duncaneddy/brahe/pull/137)
+- - Enable manual triggering of latest documentation build in CI for handling EOP-update edge cases for releases. [#139](https://github.com/duncaneddy/brahe/pull/139)
+- - Overhauled `celestrak` client. The `celestrak` client now uses a common type and query structure shared with the `spacetrack` module. In particular, the `GPRecord` serves as the common representation of OMM elements returned by both sites. This enables greater interoperability between other library modules that can consume or act on `GPRecord` types. The `celestrak` module is now it's own, stand-alone, module independent of `datasets`.
+  - Migrate developer workflow from `make.py` to [just](https://github.com/casey/just)
+  - Remove dependency on [BTreeCursor](https://github.com/rust-lang/rust/issues/107540) nightly feature, allowing crate to compile with stable rust. [#150](https://github.com/duncaneddy/brahe/pull/150)
+- - Adjusted `CelestrakQuery` python bindings to properly use properties instead of methods for specific dataset queries. **Example:** New: `CelestrakQuery.gp` vs Old: `CelestrakQuery.gp()` [#157](https://github.com/duncaneddy/brahe/pull/157)
+
+### Fixed
+
+- - Enabled event detection in `par_propagate_to` method in Python [#109](https://github.com/duncaneddy/brahe/pull/109)
+- - Fixed broken documentation links in readme. (Thank you Stuart Bartlett for pointing it out) [#129](https://github.com/duncaneddy/brahe/pull/129)
+- - Fix broken links in main documentation landing page. [#131](https://github.com/duncaneddy/brahe/pull/131)
+- - Fix provider names for SSC stations in NASA Near Earth Network [#143](https://github.com/duncaneddy/brahe/pull/143)
+- - Fix https://duncaneddy.github.io/brahe/ to redirect to the current default root URL. [#147](https://github.com/duncaneddy/brahe/pull/147)
+- - Fixed tables in ephemeris documentation not being justified. [#152](https://github.com/duncaneddy/brahe/pull/152)
+- - Reverted `pyo3` version update due to incompatibility with `numpy` depdency
+  - Prevented dependabot from auto-updating `pyo3` [#157](https://github.com/duncaneddy/brahe/pull/157)
+- - Properly pass environment secrets from the `release` workflow to child-workflows [#159](https://github.com/duncaneddy/brahe/pull/159)
+
 ## [1.0.1] - 2025-12-04
 ### Added
 

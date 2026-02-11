@@ -83,7 +83,7 @@ import brahe as bh
 bh.initialize_eop()
 passes = bh.location_accesses(
     bh.PointLocation(-122.4194, 37.7749, 0.0),  # San Francisco
-    bh.celestrak.get_tle_by_id_as_propagator(25544, 60.0, "active"),  # ISS
+    bh.celestrak.CelestrakClient().get_sgp_propagator(catnr=25544, step_size=60.0), # ISS
     bh.Epoch.now(),
     bh.Epoch.now() + 24 * 3600.0,  # Next 24 hours
     bh.ElevationConstraint(min_elevation_deg=10.0)
@@ -95,7 +95,8 @@ passes = bh.location_accesses(
 \begin{lstlisting}[language=Python]
 import brahe as bh
 bh.initialize_eop()
-starlink = bh.datasets.celestrak.get_tles_as_propagators("starlink", 60.0)
+gp_records = bh.celestrak.CelestrakClient().get_gp(group="starlink")
+starlink = [rec.to_sgp_propagator(step_size=60.0) for rec in gp_records]
 bh.par_propagate_to(starlink, bh.Epoch.now() + 86400.0) # Predict next 24 hours
 \end{lstlisting}
 
@@ -151,11 +152,11 @@ The core functionality is implemented in Rust for performance and safety, with P
 
 # Research Impact Statement
 
-`brahe` has been used by current satellite missions after its adoption by aerospace companies such as Capella Space, Northwood Space, Xona Space [@reid2020satellite], and Kongsberg Satellite Services. They have used it for mission analysis and planning, and in some cases supporting on-orbit mission operations. One particularly significant contribution is that satellite imaging prediction and task planning algorithms of Brahe were used by the first US synthetic aperture radar (SAR) satellite constellation, operated by Capella Space [@stringham2019capella] to predict communications and imaging opportunities. It has also been used in a number of scientific publications [@eddyOptimal2024; @kim2025scalable]. It has a small, but growing, user base in both academia and industry.
+`brahe` has been used by current satellite missions after its adoption by aerospace companies such as Capella Space, Northwood Space, Xona Space [@reid2020satellite], and Kongsberg Satellite Services. They have used it for mission analysis and planning, and in some cases supporting on-orbit mission operations. One particularly significant contribution is that satellite imaging prediction and task planning algorithms of Brahe were used by the first US synthetic aperture radar (SAR) satellite constellation, operated by Capella Space [@stringham2019capella] to predict communications and imaging opportunities. It has also been used in a number of scientific publications [@eddyOptimal2024; @kim2025scalable].
 
 # AI Usage Disclosure
 
-The core development of `brahe` did not involve the use of AI tools, and in-fact, predated them. However, AI tools were used to unblock continued development in 2025 due to a breaking change in how PyO3 (the Rust-to-Python bindings library) API worked. Specifically, Claude was used to help understand the new API and refactor existing code to be compatible with the new version. Additionally, Github Copilot and Claude code were used to help implement a few long-outstanding features, specifically, the addition of trajectory data structures, numerical orbit propagators, and space weather data ingestion. AI tools have also been used to help improve test coverage and documentation. In all cases, the generated code was carefully reviewed, tested, and modified by the authors prior to merging to ensure correctness and maintainability. AI tools were not used in the writing of this paper.
+The core development of `brahe` did not involve the use of AI tools, and in-fact, predated them. AI tools were used to unblock continued development in 2025 due to a breaking change in how PyO3 (the Rust-to-Python bindings library) API worked. Specifically, Claude was used to help understand the new API and refactor existing code to be compatible with the new version. Additionally, Github copilot autcompletions and Claude were used to help implement a few long-outstanding features, specifically, the addition of trajectory data structures, numerical orbit propagators convenience-classes, and space weather data ingestion. AI tools have also been used to help improve test coverage and documentation. In all cases, the generated code was carefully reviewed, tested, and modified by the authors prior to merging to ensure correctness and maintainability. AI tools were not used in the writing of this paper.
 
 # Acknowledgments
 

@@ -7,8 +7,10 @@ import brahe as bh
 
 bh.initialize_eop()
 
-# Download TLE data for all GPS satellites from CelesTrak
-propagators = bh.datasets.celestrak.get_tles_as_propagators("gps-ops", 60.0)
+# Download GP data for all GPS satellites from CelesTrak
+client = bh.celestrak.CelestrakClient()
+gp_records = client.get_gp(group="gps-ops")
+propagators = [rec.to_sgp_propagator(step_size=60.0) for rec in gp_records]
 
 # Propagate each satellite one orbit
 for prop in propagators:

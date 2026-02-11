@@ -7,7 +7,9 @@ import brahe as bh
 ts = time.time()
 
 bh.initialize_eop()
-starlink = bh.datasets.celestrak.get_tles_as_propagators("starlink", 60.0)
+client = bh.celestrak.CelestrakClient()
+gp_records = client.get_gp(group="starlink")
+starlink = [rec.to_sgp_propagator(step_size=60.0) for rec in gp_records]
 for sat in starlink:
     sat.propagate_to(bh.Epoch.now() + 86400.0)
 

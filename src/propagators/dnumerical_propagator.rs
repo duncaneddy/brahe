@@ -584,12 +584,12 @@ impl DNumericalPropagator {
         events
     }
 
-    /// Replace linearly-interpolated event states with precisely-integrated states.
+    /// Replace interpolated event states with precisely-integrated states.
     ///
-    /// Only refines events that occur within the first 10% of the integration step.
-    /// For events deeper into the step, the linearly-interpolated state is kept because
-    /// a separate integration to that time would produce a trajectory inconsistent with
-    /// the main integrator's step, potentially causing subsequent events to be missed.
+    /// After bisection finds the event time (to within tolerance), this method
+    /// re-integrates from the step start to each event time using sub-steps
+    /// no larger than 10 seconds. The resulting state error is bounded by
+    /// integrator accuracy rather than interpolation error over the full step.
     fn refine_event_states(
         &self,
         events: &mut [(usize, DDetectedEvent)],

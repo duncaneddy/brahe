@@ -5138,3 +5138,148 @@ def test_numericalorbitpropagator_edge_case_propagate_to_same_epoch():
     final_state = prop.current_state()
     assert np.allclose(initial_state, final_state, rtol=1e-14)
     assert prop.current_epoch() == epoch
+
+
+def test_numericalorbitpropagator_event_callback_accuracy_at_different_times():
+    """Test that TimeEvent with state-modifying callbacks matches new-propagator baseline.
+
+    Each TimeEvent test gets its own baseline where the burn is applied at the same
+    time via the 'new propagator' method. This isolates numerical error from the
+    physical effect of applying the burn at different times.
+    """
+    from brahe import TimeEvent, EventAction
+
+    epoch = create_test_epoch()
+
+    # Inclined LEO orbit — non-axis-aligned
+    oe = np.array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    x_init = state_koe_to_eci(oe, AngleFormat.DEGREES)
+
+    force_config = ForceModelConfig.earth_gravity()
+    prop_config = NumericalPropagationConfig.default()
+    target_epoch = epoch + 120.0
+
+    # Delta-v to apply
+    dv = np.array([0.0, 0.0, 0.0, 0.1, -0.05, 0.02])
+
+    offsets = [0.0, 0.0001, 1.0, 10.0, 30.0, 60.0]
+
+    for offset in offsets:
+        # --- Baseline: propagate to burn time, apply dv, new propagator ---
+        if offset <= 1e-12:
+            x_burned = x_init.copy()
+            x_burned[3:6] += dv[3:6]
+            p = NumericalOrbitPropagator(epoch, x_burned, prop_config, force_config)
+            p.propagate_to(target_epoch)
+            baseline_state = p.current_state()
+        else:
+            p1 = NumericalOrbitPropagator(epoch, x_init, prop_config, force_config)
+            p1.propagate_to(epoch + offset)
+            state_at_burn = p1.current_state().copy()
+            state_at_burn[3:6] += dv[3:6]
+            p2 = NumericalOrbitPropagator(
+                epoch + offset, state_at_burn, prop_config, force_config
+            )
+            p2.propagate_to(target_epoch)
+            baseline_state = p2.current_state()
+
+        # --- TimeEvent approach ---
+        dv_copy = dv.copy()
+
+        def make_cb(dv_local):
+            def cb(event_epoch, event_state):
+                new_state = event_state.copy()
+                new_state[3:6] += dv_local[3:6]
+                return (new_state, EventAction.CONTINUE)
+
+            return cb
+
+        prop_te = NumericalOrbitPropagator(epoch, x_init, prop_config, force_config)
+        event = TimeEvent(epoch + offset, f"Burn_T+{offset}").with_callback(
+            make_cb(dv_copy)
+        )
+        prop_te.add_event_detector(event)
+        prop_te.propagate_to(target_epoch)
+        te_state = prop_te.current_state()
+
+        # --- Compare ---
+        pos_err = np.linalg.norm(te_state[:3] - baseline_state[:3])
+        vel_err = np.linalg.norm(te_state[3:6] - baseline_state[3:6])
+
+        assert pos_err < 1e-2, (
+            f"T+{offset}s: position error {pos_err:.2e} m exceeds 10 mm threshold"
+        )
+        assert vel_err < 1e-5, (
+            f"T+{offset}s: velocity error {vel_err:.2e} m/s exceeds 10 μm/s threshold"
+        )
+
+        # Verify the event was detected
+        events = prop_te.event_log()
+        assert len(events) == 1, f"T+{offset}s: expected 1 event, got {len(events)}"
+
+
+def test_numericalorbitpropagator_event_callback_multi_impulse_accuracy():
+    """Test that multiple TimeEvent impulses match chaining new propagators."""
+    from brahe import TimeEvent, EventAction
+
+    epoch = create_test_epoch()
+
+    oe = np.array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    x_init = state_koe_to_eci(oe, AngleFormat.DEGREES)
+
+    force_config = ForceModelConfig.earth_gravity()
+    prop_config = NumericalPropagationConfig.default()
+
+    dvs = [
+        np.array([0.0, 0.0, 0.0, 0.1, -0.05, 0.02]),
+        np.array([0.0, 0.0, 0.0, -0.03, 0.08, -0.01]),
+        np.array([0.0, 0.0, 0.0, 0.02, -0.02, 0.005]),
+    ]
+    burn_times = [0.0001, 60.0, 120.0]
+    target_epoch = epoch + 180.0
+
+    # --- Baseline: chain of new propagators ---
+    x_state = x_init.copy()
+    cur_ep = epoch
+    for dv_k, t_burn in zip(dvs, burn_times):
+        burn_ep = epoch + t_burn
+        if burn_ep > cur_ep:
+            p = NumericalOrbitPropagator(cur_ep, x_state, prop_config, force_config)
+            p.propagate_to(burn_ep)
+            x_state = p.current_state().copy()
+            cur_ep = burn_ep
+        x_state[3:6] += dv_k[3:6]
+
+    p_final = NumericalOrbitPropagator(cur_ep, x_state, prop_config, force_config)
+    p_final.propagate_to(target_epoch)
+    baseline_state = p_final.current_state()
+
+    # --- TimeEvent approach: single propagator with 3 events ---
+    def make_impulse_cb(dv_local):
+        def cb(event_epoch, event_state):
+            new_state = event_state.copy()
+            new_state[3:6] += dv_local[3:6]
+            return (new_state, EventAction.CONTINUE)
+
+        return cb
+
+    prop_te = NumericalOrbitPropagator(epoch, x_init, prop_config, force_config)
+    for k, (dv_k, t_burn) in enumerate(zip(dvs, burn_times)):
+        event = TimeEvent(epoch + t_burn, f"Burn_{k}").with_callback(
+            make_impulse_cb(dv_k)
+        )
+        prop_te.add_event_detector(event)
+
+    prop_te.propagate_to(target_epoch)
+    te_state = prop_te.current_state()
+
+    # Compare
+    pos_err = np.linalg.norm(te_state[:3] - baseline_state[:3])
+    vel_err = np.linalg.norm(te_state[3:6] - baseline_state[3:6])
+
+    assert pos_err < 1e-2, (
+        f"Multi-impulse position error {pos_err:.2e} m exceeds 10 mm threshold"
+    )
+    assert vel_err < 1e-5, (
+        f"Multi-impulse velocity error {vel_err:.2e} m/s exceeds 10 μm/s threshold"
+    )

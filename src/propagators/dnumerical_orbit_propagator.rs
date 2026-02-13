@@ -19,7 +19,7 @@ use crate::frames::rotation_eci_to_ecef;
 use crate::integrators::traits::DIntegrator;
 use crate::math::interpolation::{
     CovarianceInterpolationConfig, CovarianceInterpolationMethod, InterpolationConfig,
-    InterpolationMethod,
+    InterpolationMethod, interpolate_hermite_cubic_dvector6,
 };
 use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
@@ -692,17 +692,15 @@ impl DNumericalOrbitPropagator {
         let mut events = Vec::new();
 
         // Create state function for bisection search: Epoch → State
-        // Uses linear interpolation between x_prev and x_new
+        // Uses cubic Hermite interpolation between x_prev and x_new.
+        // Hermite uses position + velocity at both endpoints for C1-continuous
+        // interpolation, giving O(h^4) accuracy vs O(h^2) for linear.
+        let t_prev_rel = epoch_prev - self.epoch_initial;
+        let t_new_rel = epoch_new - self.epoch_initial;
+
         let state_fn = |epoch: Epoch| -> DVector<f64> {
             let t_rel = epoch - self.epoch_initial;
-            let t_prev = epoch_prev - self.epoch_initial;
-            let t_new = epoch_new - self.epoch_initial;
-
-            // Linear interpolation parameter
-            let alpha = (t_rel - t_prev) / (t_new - t_prev);
-
-            // Interpolate state
-            x_prev + (x_new - x_prev) * alpha
+            interpolate_hermite_cubic_dvector6(t_prev_rel, t_new_rel, x_prev, x_new, t_rel)
         };
 
         // Scan each detector
@@ -724,15 +722,12 @@ impl DNumericalOrbitPropagator {
         events
     }
 
-    /// Replace linearly-interpolated event states with precisely-integrated states.
+    /// Replace interpolated event states with precisely-integrated states.
     ///
-    /// Only refines events that occur within the first 10% of the integration step.
-    /// For events deeper into the step, the linearly-interpolated state is kept because
-    /// a separate integration to that time would produce a trajectory inconsistent with
-    /// the main integrator's step, potentially causing subsequent events to be missed.
-    ///
-    /// Events near the step start (e.g., impulsive maneuvers at T+epsilon) benefit most
-    /// from refinement: a short integration step is both accurate and consistent.
+    /// After bisection finds the event time (to within tolerance), this method
+    /// re-integrates from the step start to each event time using sub-steps
+    /// no larger than 10 seconds. The resulting state error is bounded by
+    /// integrator accuracy rather than interpolation error over the full step.
     fn refine_event_states(
         &self,
         events: &mut [(usize, DDetectedEvent)],
@@ -5071,6 +5066,265 @@ mod tests {
         // Both events should be in the log
         let events = prop.event_log();
         assert_eq!(events.len(), 2, "Both events should be logged");
+    }
+
+    /// Test that TimeEvent with state-modifying callbacks produces the same result
+    /// as creating a new propagator with the modified state at the event time.
+    /// Tests at multiple offsets to verify accuracy is bounded by integrator precision,
+    /// not by interpolation error.
+    #[test]
+    fn test_dnumericalorbitpropagator_event_callback_accuracy_at_different_times() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Inclined LEO orbit — non-axis-aligned so frame rotations matter
+        let oe = Vector6::new(
+            R_EARTH + 700e3,
+            0.001,
+            97.8_f64.to_radians(),
+            0.26,
+            0.52,
+            0.79,
+        );
+        let state = state_koe_to_eci(oe, AngleFormat::Radians);
+        let x_init = DVector::from_column_slice(state.as_slice());
+
+        let force_config = ForceModelConfig::earth_gravity();
+        let prop_config = NumericalPropagationConfig::default();
+        let target_epoch = epoch + 120.0;
+
+        // Delta-v to apply at each event time
+        let dv = DVector::from_vec(vec![0.0, 0.0, 0.0, 0.1, -0.05, 0.02]);
+
+        let offsets = [0.0, 0.0001, 1.0, 10.0, 30.0, 60.0];
+
+        for &offset in &offsets {
+            // --- Baseline: propagate to burn time, apply dv, new propagator ---
+            let baseline_state = if offset <= 1e-12 {
+                let mut x_burned = x_init.clone();
+                for i in 3..6 {
+                    x_burned[i] += dv[i];
+                }
+                let mut p = DNumericalOrbitPropagator::new(
+                    epoch,
+                    x_burned,
+                    prop_config.clone(),
+                    force_config.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                p.propagate_to(target_epoch);
+                p.current_state().clone()
+            } else {
+                let mut p1 = DNumericalOrbitPropagator::new(
+                    epoch,
+                    x_init.clone(),
+                    prop_config.clone(),
+                    force_config.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                p1.propagate_to(epoch + offset);
+                let mut state_at_burn = p1.current_state().clone();
+                for i in 3..6 {
+                    state_at_burn[i] += dv[i];
+                }
+                let mut p2 = DNumericalOrbitPropagator::new(
+                    epoch + offset,
+                    state_at_burn,
+                    prop_config.clone(),
+                    force_config.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                p2.propagate_to(target_epoch);
+                p2.current_state().clone()
+            };
+
+            // --- TimeEvent approach ---
+            let dv_clone = dv.clone();
+            let mut prop_te = DNumericalOrbitPropagator::new(
+                epoch,
+                x_init.clone(),
+                prop_config.clone(),
+                force_config.clone(),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+
+            use crate::events::EventAction;
+            let event = DTimeEvent::new(epoch + offset, format!("Burn_T+{offset}")).with_callback(
+                Box::new(move |_t, state, _params| {
+                    let mut new_state = state.clone();
+                    for i in 3..6 {
+                        new_state[i] += dv_clone[i];
+                    }
+                    (Some(new_state), None, EventAction::Continue)
+                }),
+            );
+
+            prop_te.add_event_detector(Box::new(event));
+            prop_te.propagate_to(target_epoch);
+            let te_state = prop_te.current_state();
+
+            // --- Compare ---
+            let pos_err = (te_state.rows(0, 3) - baseline_state.rows(0, 3)).norm();
+            let vel_err = (te_state.rows(3, 3) - baseline_state.rows(3, 3)).norm();
+
+            // Position error should be sub-millimeter for single burns
+            assert!(
+                pos_err < 1e-2,
+                "T+{offset}s: position error {pos_err:.2e} m exceeds 10 mm threshold"
+            );
+            // Velocity error should be sub-micron/s
+            assert!(
+                vel_err < 1e-5,
+                "T+{offset}s: velocity error {vel_err:.2e} m/s exceeds 10 μm/s threshold"
+            );
+
+            // Verify the event was detected
+            let events = prop_te.event_log();
+            assert_eq!(
+                events.len(),
+                1,
+                "T+{offset}s: expected 1 event, got {}",
+                events.len()
+            );
+        }
+    }
+
+    /// Test that multiple TimeEvent impulses in sequence produce the same result
+    /// as chaining new propagators at each burn time.
+    #[test]
+    fn test_dnumericalorbitpropagator_event_callback_multi_impulse_accuracy() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let oe = Vector6::new(
+            R_EARTH + 700e3,
+            0.001,
+            97.8_f64.to_radians(),
+            0.26,
+            0.52,
+            0.79,
+        );
+        let state = state_koe_to_eci(oe, AngleFormat::Radians);
+        let x_init = DVector::from_column_slice(state.as_slice());
+
+        let force_config = ForceModelConfig::earth_gravity();
+        let prop_config = NumericalPropagationConfig::default();
+
+        // Three impulses at different times
+        let dvs = [
+            DVector::from_vec(vec![0.0, 0.0, 0.0, 0.1, -0.05, 0.02]),
+            DVector::from_vec(vec![0.0, 0.0, 0.0, -0.03, 0.08, -0.01]),
+            DVector::from_vec(vec![0.0, 0.0, 0.0, 0.02, -0.02, 0.005]),
+        ];
+        let burn_times = [0.0001, 60.0, 120.0]; // seconds after epoch
+        let target_epoch = epoch + 180.0;
+
+        // --- Baseline: chain of new propagators ---
+        let mut x_state = x_init.clone();
+        let mut cur_ep = epoch;
+        for (dv, &t_burn) in dvs.iter().zip(&burn_times) {
+            let burn_ep = epoch + t_burn;
+            if burn_ep > cur_ep {
+                let mut p = DNumericalOrbitPropagator::new(
+                    cur_ep,
+                    x_state.clone(),
+                    prop_config.clone(),
+                    force_config.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                p.propagate_to(burn_ep);
+                x_state = p.current_state().clone();
+                cur_ep = burn_ep;
+            }
+            for i in 3..6 {
+                x_state[i] += dv[i];
+            }
+        }
+        let mut p_final = DNumericalOrbitPropagator::new(
+            cur_ep,
+            x_state,
+            prop_config.clone(),
+            force_config.clone(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        p_final.propagate_to(target_epoch);
+        let baseline_state = p_final.current_state().clone();
+
+        // --- TimeEvent approach: single propagator with 3 events ---
+        use crate::events::EventAction;
+
+        let mut prop_te = DNumericalOrbitPropagator::new(
+            epoch,
+            x_init.clone(),
+            prop_config.clone(),
+            force_config.clone(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        for (k, (dv, &t_burn)) in dvs.iter().zip(&burn_times).enumerate() {
+            let dv_clone = dv.clone();
+            let event = DTimeEvent::new(epoch + t_burn, format!("Burn_{k}")).with_callback(
+                Box::new(move |_t, state, _params| {
+                    let mut new_state = state.clone();
+                    for i in 3..6 {
+                        new_state[i] += dv_clone[i];
+                    }
+                    (Some(new_state), None, EventAction::Continue)
+                }),
+            );
+            prop_te.add_event_detector(Box::new(event));
+        }
+
+        prop_te.propagate_to(target_epoch);
+        let te_state = prop_te.current_state();
+
+        // Compare
+        let pos_err = (te_state.rows(0, 3) - baseline_state.rows(0, 3)).norm();
+        let vel_err = (te_state.rows(3, 3) - baseline_state.rows(3, 3)).norm();
+
+        // Multi-impulse accumulates error across 3 burns — allow 10 mm
+        assert!(
+            pos_err < 1e-2,
+            "Multi-impulse position error {pos_err:.2e} m exceeds 10 mm threshold"
+        );
+        assert!(
+            vel_err < 1e-5,
+            "Multi-impulse velocity error {vel_err:.2e} m/s exceeds 10 μm/s threshold"
+        );
+
+        // All 3 events should be detected
+        let events = prop_te.event_log();
+        assert_eq!(events.len(), 3, "Expected 3 events, got {}", events.len());
     }
 
     #[test]

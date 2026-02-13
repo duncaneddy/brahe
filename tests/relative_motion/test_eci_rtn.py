@@ -129,3 +129,52 @@ def test_state_rtn_to_eci_and_back(eop):
 
     # Should recover original deputy state
     assert np.linalg.norm(x_deputy - x_deputy_reconstructed) == approx(0.0, abs=1e-6)
+
+
+def test_state_eci_to_rtn_and_back_non_aligned_orbit(eop):
+    """
+    Test ECI -> RTN -> ECI round-trip with a non-axis-aligned inclined orbit.
+
+    This catches frame-mixing bugs in the velocity transformation that are
+    invisible when the orbit is axis-aligned (RTN == ECI axes).
+
+    Mirrors test_state_eci_to_rtn_and_back_non_aligned in Rust.
+    """
+    oe_chief = np.array([brahe.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    oe_deputy = np.array([brahe.R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05])
+
+    x_chief = brahe.state_koe_to_eci(oe_chief, brahe.AngleFormat.DEGREES)
+    x_deputy = brahe.state_koe_to_eci(oe_deputy, brahe.AngleFormat.DEGREES)
+
+    # Round-trip: ECI -> RTN -> ECI
+    x_rel_rtn = brahe.state_eci_to_rtn(x_chief, x_deputy)
+    x_deputy_reconstructed = brahe.state_rtn_to_eci(x_chief, x_rel_rtn)
+
+    pos_err = np.linalg.norm(x_deputy[:3] - x_deputy_reconstructed[:3])
+    vel_err = np.linalg.norm(x_deputy[3:] - x_deputy_reconstructed[3:])
+
+    assert pos_err == approx(0.0, abs=1e-8)
+    assert vel_err == approx(0.0, abs=1e-8)
+
+
+def test_state_rtn_to_eci_and_back_non_aligned_orbit(eop):
+    """
+    Test RTN -> ECI -> RTN round-trip with a non-axis-aligned inclined orbit.
+
+    Mirrors test_state_rtn_to_eci_and_back_non_aligned in Rust.
+    """
+    oe_chief = np.array([brahe.R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    x_chief = brahe.state_koe_to_eci(oe_chief, brahe.AngleFormat.DEGREES)
+
+    # Known RTN offset
+    x_rel_rtn = np.array([1000.0, 500.0, -300.0, 0.1, -0.05, 0.02])
+
+    # Round-trip: RTN -> ECI -> RTN
+    x_deputy = brahe.state_rtn_to_eci(x_chief, x_rel_rtn)
+    x_rel_rtn_recovered = brahe.state_eci_to_rtn(x_chief, x_deputy)
+
+    pos_err = np.linalg.norm(x_rel_rtn[:3] - x_rel_rtn_recovered[:3])
+    vel_err = np.linalg.norm(x_rel_rtn[3:] - x_rel_rtn_recovered[3:])
+
+    assert pos_err == approx(0.0, abs=1e-8)
+    assert vel_err == approx(0.0, abs=1e-8)

@@ -41,7 +41,7 @@ use super::TrajectoryMode;
 use super::traits::DStatePropagator;
 
 // Event detection imports
-use crate::events::{DDetectedEvent, DEventDetector, EventAction, dscan_for_event};
+use crate::events::{DDetectedEvent, DEventDetector, EventAction, EventType, dscan_for_event};
 
 // Import dynamics type from integrator traits
 use crate::integrators::traits::{DControlInput, DStateDynamics};
@@ -459,9 +459,83 @@ impl DNumericalPropagator {
     // Event Detection
     // =========================================================================
 
+    /// Check for events at the current epoch before taking any integration steps.
+    ///
+    /// This handles the edge case where an event is scheduled at the exact
+    /// propagation start time (e.g., `TimeEvent` at T+0.0s). Normal event
+    /// scanning requires a completed integration step to detect crossings,
+    /// so events exactly at the initial epoch would otherwise be missed.
+    fn process_initial_events(&mut self) {
+        if self.event_detectors.is_empty() || self.terminated {
+            return;
+        }
+
+        let epoch = self.current_epoch();
+        let state = self.x_curr.clone();
+        let params_ref = if self.params.is_empty() {
+            None
+        } else {
+            Some(&self.params)
+        };
+
+        let mut events_to_process = Vec::new();
+
+        for (idx, detector) in self.event_detectors.iter().enumerate() {
+            if detector.is_processed() {
+                continue;
+            }
+
+            let value = detector.evaluate(epoch, &state, params_ref);
+            let target = detector.target_value();
+
+            // Event is at this epoch if the event function equals the target
+            if (value - target).abs() <= detector.value_tolerance() {
+                let event = DDetectedEvent {
+                    window_open: epoch,
+                    window_close: epoch,
+                    entry_state: state.clone(),
+                    exit_state: state.clone(),
+                    value,
+                    name: detector.name().to_string(),
+                    action: detector.action(),
+                    event_type: EventType::Instantaneous,
+                    detector_index: idx,
+                };
+                events_to_process.push((idx, event));
+            }
+        }
+
+        if !events_to_process.is_empty() {
+            // Mark all initial-epoch events as processed so they won't re-trigger
+            // on subsequent propagate_to()/step_by() calls (e.g., after reset_termination).
+            for &(idx, _) in &events_to_process {
+                self.event_detectors[idx].mark_processed();
+            }
+
+            match self.process_events_smart(events_to_process) {
+                EventProcessingResult::NoEvents => {}
+                EventProcessingResult::Restart { epoch, state } => {
+                    self.t_rel = epoch - self.epoch_initial;
+                    self.epoch_current = epoch;
+                    self.x_curr = state;
+                    self.integrator.reset_cache();
+                }
+                EventProcessingResult::Terminal {
+                    epoch: term_epoch,
+                    state: term_state,
+                } => {
+                    self.epoch_current = term_epoch;
+                    self.x_curr = term_state;
+                }
+            }
+        }
+    }
+
     /// Scan all event detectors for events in the interval [epoch_prev, epoch_new]
     ///
-    /// Returns a vector of (detector_index, detected_event) pairs
+    /// Returns a vector of (detector_index, detected_event) pairs.
+    /// Uses linear interpolation for the bisection time-search, then re-integrates
+    /// from `(epoch_prev, x_prev)` to each detected event time for precise states.
     fn scan_all_events(
         &self,
         epoch_prev: Epoch,
@@ -472,8 +546,7 @@ impl DNumericalPropagator {
         let mut events = Vec::new();
 
         // Create state function for bisection search: Epoch → State
-        // Uses linear interpolation between x_prev and x_new
-        // TODO: Use integrator's dense output if available for better accuracy
+        // Uses linear interpolation between x_prev and x_new (fast, for time-finding only)
         let state_fn = |epoch: Epoch| -> DVector<f64> {
             let t_rel = epoch - self.epoch_initial;
             let t_prev = epoch_prev - self.epoch_initial;
@@ -487,14 +560,13 @@ impl DNumericalPropagator {
         };
 
         // Scan each detector
-        for (idx, detector) in self.event_detectors.iter().enumerate() {
-            // Pass params only if non-empty
-            let params_opt = if !self.params.is_empty() {
-                Some(&self.params)
-            } else {
-                None
-            };
+        let params_opt = if !self.params.is_empty() {
+            Some(&self.params)
+        } else {
+            None
+        };
 
+        for (idx, detector) in self.event_detectors.iter().enumerate() {
             if let Some(event) = dscan_for_event(
                 detector.as_ref(),
                 idx,
@@ -510,6 +582,66 @@ impl DNumericalPropagator {
         }
 
         events
+    }
+
+    /// Replace linearly-interpolated event states with precisely-integrated states.
+    ///
+    /// Only refines events that occur within the first 10% of the integration step.
+    /// For events deeper into the step, the linearly-interpolated state is kept because
+    /// a separate integration to that time would produce a trajectory inconsistent with
+    /// the main integrator's step, potentially causing subsequent events to be missed.
+    fn refine_event_states(
+        &self,
+        events: &mut [(usize, DDetectedEvent)],
+        epoch_prev: Epoch,
+        x_prev: &DVector<f64>,
+    ) {
+        if events.is_empty() {
+            return;
+        }
+
+        let t_prev_rel = epoch_prev - self.epoch_initial;
+        let params_ref = if self.params.is_empty() {
+            None
+        } else {
+            Some(&self.params)
+        };
+
+        // Clear FSAL cache before refinement — the main step cached the
+        // derivative at the step endpoint, which is wrong for re-integration
+        // starting at the step start.
+        self.integrator.reset_cache();
+
+        for (_, event) in events.iter_mut() {
+            let dt_to_event = event.window_open - epoch_prev;
+
+            if dt_to_event.abs() <= 1e-12 {
+                event.entry_state = x_prev.clone();
+                event.exit_state = x_prev.clone();
+                continue;
+            }
+
+            // Re-integrate from step start to event time using sub-steps
+            // no larger than 10 seconds.
+            let max_sub_dt = 10.0;
+            let n_steps = ((dt_to_event.abs() / max_sub_dt).ceil() as usize).max(1);
+            let sub_dt = dt_to_event / n_steps as f64;
+
+            let mut t = t_prev_rel;
+            let mut x = x_prev.clone();
+
+            for _ in 0..n_steps {
+                let result = self.integrator.step(t, x, params_ref, Some(sub_dt));
+                x = result.state;
+                t += result.dt_used;
+            }
+
+            event.entry_state = x.clone();
+            event.exit_state = x;
+        }
+
+        // Clear again — sub-steps cached derivatives at intermediate times.
+        self.integrator.reset_cache();
     }
 
     /// Process detected events using smart sequential algorithm
@@ -545,6 +677,7 @@ impl DNumericalPropagator {
 
                 for (det_idx, event) in sorted_events {
                     self.event_log.push(event.clone());
+                    self.event_detectors[det_idx].mark_processed();
 
                     // Add to trajectory at exact event time if configured
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
@@ -573,8 +706,9 @@ impl DNumericalPropagator {
 
             Some(callback_idx) => {
                 // 3b. Process all no-callback events before the callback event
-                for (_, event) in sorted_events.iter().take(callback_idx) {
+                for (det_idx, event) in sorted_events.iter().take(callback_idx) {
                     self.event_log.push(event.clone());
+                    self.event_detectors[*det_idx].mark_processed();
 
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                         self.trajectory
@@ -1125,205 +1259,207 @@ impl DNumericalPropagator {
     /// Propagates the state forward by one adaptive timestep. Depending on the propagation
     /// mode configured at construction, also propagates STM and/or sensitivity matrices.
     ///
-    /// Includes event detection loop: if events with callbacks are detected, integration
-    /// restarts from the event time with the modified state/parameters.
+    /// Includes event detection: if events with callbacks are detected that modify state,
+    /// the propagator resets to the event time with the modified state and returns to the
+    /// caller so that `propagate_to()` can re-clamp `dt_next` before the next step.
     fn step_once(&mut self) {
-        loop {
-            // Save state before integration step (for event detection)
-            let epoch_prev = self.current_epoch();
-            let x_prev = self.x_curr.clone();
+        // Save state before integration step (for event detection)
+        let epoch_prev = self.current_epoch();
+        let x_prev = self.x_curr.clone();
 
-            // Use adaptive step size (dt_next from previous step)
-            let dt_requested = self.dt_next;
+        // Use adaptive step size (dt_next from previous step)
+        let dt_requested = self.dt_next;
 
-            // Dispatch to appropriate integrator method based on propagation mode
-            // Create params reference if params is not empty
-            let params_ref = if self.params.is_empty() {
-                None
-            } else {
-                Some(&self.params)
-            };
+        // Dispatch to appropriate integrator method based on propagation mode
+        // Create params reference if params is not empty
+        let params_ref = if self.params.is_empty() {
+            None
+        } else {
+            Some(&self.params)
+        };
 
-            match self.propagation_mode {
-                PropagationMode::StateOnly => {
-                    // Basic state propagation only
-                    let result = self.integrator.step(
-                        self.t_rel,
-                        self.x_curr.clone(),
-                        params_ref,
-                        Some(dt_requested),
-                    );
+        match self.propagation_mode {
+            PropagationMode::StateOnly => {
+                // Basic state propagation only
+                let result = self.integrator.step(
+                    self.t_rel,
+                    self.x_curr.clone(),
+                    params_ref,
+                    Some(dt_requested),
+                );
 
-                    self.x_curr = result.state;
-                    self.dt = result.dt_used;
-                    self.dt_next = result.dt_next;
+                self.x_curr = result.state;
+                self.dt = result.dt_used;
+                self.dt_next = result.dt_next;
+            }
+            PropagationMode::WithSTM => {
+                // Propagate state and STM (variational matrix)
+                let phi = self.stm.take().unwrap();
+
+                let result = self.integrator.step_with_varmat(
+                    self.t_rel,
+                    self.x_curr.clone(),
+                    params_ref,
+                    phi,
+                    Some(dt_requested),
+                );
+
+                self.x_curr = result.state;
+                self.stm = result.phi;
+                self.dt = result.dt_used;
+                self.dt_next = result.dt_next;
+
+                // Propagate covariance if initial covariance was provided
+                // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
+                if let Some(ref p0) = self.initial_covariance
+                    && let Some(ref phi_result) = self.stm
+                {
+                    let p_new = phi_result * p0 * phi_result.transpose();
+                    self.current_covariance = Some(p_new);
                 }
-                PropagationMode::WithSTM => {
-                    // Propagate state and STM (variational matrix)
-                    let phi = self.stm.take().unwrap();
+            }
+            PropagationMode::WithSensitivity => {
+                // Propagate state and sensitivity
+                let sens = self.sensitivity.take().unwrap();
 
-                    let result = self.integrator.step_with_varmat(
-                        self.t_rel,
-                        self.x_curr.clone(),
-                        params_ref,
-                        phi,
-                        Some(dt_requested),
-                    );
+                let result = self.integrator.step_with_sensmat(
+                    self.t_rel,
+                    self.x_curr.clone(),
+                    sens,
+                    &self.params,
+                    Some(dt_requested),
+                );
 
-                    self.x_curr = result.state;
-                    self.stm = result.phi;
-                    self.dt = result.dt_used;
-                    self.dt_next = result.dt_next;
+                self.x_curr = result.state;
+                self.sensitivity = result.sens;
+                self.dt = result.dt_used;
+                self.dt_next = result.dt_next;
+            }
+            PropagationMode::WithSTMAndSensitivity => {
+                // Propagate state, STM, and sensitivity
+                let phi = self.stm.take().unwrap();
+                let sens = self.sensitivity.take().unwrap();
 
-                    // Propagate covariance if initial covariance was provided
-                    // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
-                    if let Some(ref p0) = self.initial_covariance
-                        && let Some(ref phi_result) = self.stm
-                    {
-                        let p_new = phi_result * p0 * phi_result.transpose();
-                        self.current_covariance = Some(p_new);
-                    }
+                let result = self.integrator.step_with_varmat_sensmat(
+                    self.t_rel,
+                    self.x_curr.clone(),
+                    phi,
+                    sens,
+                    &self.params,
+                    Some(dt_requested),
+                );
+
+                self.x_curr = result.state;
+                self.stm = result.phi.clone();
+                self.sensitivity = result.sens;
+                self.dt = result.dt_used;
+                self.dt_next = result.dt_next;
+
+                // Propagate covariance if initial covariance was provided
+                // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
+                if let Some(ref p0) = self.initial_covariance
+                    && let Some(ref phi_result) = self.stm
+                {
+                    let p_new = phi_result * p0 * phi_result.transpose();
+                    self.current_covariance = Some(p_new);
                 }
-                PropagationMode::WithSensitivity => {
-                    // Propagate state and sensitivity
-                    let sens = self.sensitivity.take().unwrap();
+            }
+        }
 
-                    let result = self.integrator.step_with_sensmat(
-                        self.t_rel,
-                        self.x_curr.clone(),
-                        sens,
-                        &self.params,
-                        Some(dt_requested),
-                    );
+        // Update time (use actual dt_used)
+        self.t_rel += self.dt;
+        self.epoch_current = self.epoch_initial + self.t_rel;
+        let epoch_new = self.epoch_current;
 
-                    self.x_curr = result.state;
-                    self.sensitivity = result.sens;
-                    self.dt = result.dt_used;
-                    self.dt_next = result.dt_next;
-                }
-                PropagationMode::WithSTMAndSensitivity => {
-                    // Propagate state, STM, and sensitivity
-                    let phi = self.stm.take().unwrap();
-                    let sens = self.sensitivity.take().unwrap();
+        // Scan for events in [epoch_prev, epoch_new]
+        let mut detected_events =
+            self.scan_all_events(epoch_prev, epoch_new, &x_prev, &self.x_curr);
 
-                    let result = self.integrator.step_with_varmat_sensmat(
-                        self.t_rel,
-                        self.x_curr.clone(),
-                        phi,
-                        sens,
-                        &self.params,
-                        Some(dt_requested),
-                    );
+        // Refine event states: replace linearly-interpolated states with
+        // precisely-integrated states for accurate callback input.
+        self.refine_event_states(&mut detected_events, epoch_prev, &x_prev);
 
-                    self.x_curr = result.state;
-                    self.stm = result.phi.clone();
-                    self.sensitivity = result.sens;
-                    self.dt = result.dt_used;
-                    self.dt_next = result.dt_next;
+        // Process events using smart sequential algorithm
+        match self.process_events_smart(detected_events) {
+            EventProcessingResult::NoEvents => {
+                // No events or all events processed without callbacks
+                // Accept step and store in trajectory if needed
+                if self.should_store_state() {
+                    // Prepare optional matrices for storage
+                    let cov = self.current_covariance.clone();
+                    let stm_to_store = if self.store_stm_history {
+                        self.stm.clone()
+                    } else {
+                        None
+                    };
+                    let sens_to_store = if self.store_sensitivity_history {
+                        self.sensitivity.clone()
+                    } else {
+                        None
+                    };
 
-                    // Propagate covariance if initial covariance was provided
-                    // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
-                    if let Some(ref p0) = self.initial_covariance
-                        && let Some(ref phi_result) = self.stm
-                    {
-                        let p_new = phi_result * p0 * phi_result.transpose();
-                        self.current_covariance = Some(p_new);
+                    // Use add_full if any optional data is present, otherwise use add
+                    if cov.is_some() || stm_to_store.is_some() || sens_to_store.is_some() {
+                        self.trajectory.add_full(
+                            epoch_new,
+                            self.x_curr.clone(),
+                            cov,
+                            stm_to_store,
+                            sens_to_store,
+                        );
+                    } else {
+                        self.trajectory.add(epoch_new, self.x_curr.clone());
                     }
                 }
             }
 
-            // Update time (use actual dt_used)
-            self.t_rel += self.dt;
-            self.epoch_current = self.epoch_initial + self.t_rel;
-            let epoch_new = self.epoch_current;
+            EventProcessingResult::Restart { epoch, state } => {
+                // Event callback modified state — reset to event time with new state
+                // and return to caller so propagate_to() can re-clamp dt_next.
+                self.t_rel = epoch - self.epoch_initial;
+                self.epoch_current = epoch;
+                self.x_curr = state;
+                // Invalidate integrator FSAL cache — the cached derivative
+                // is from the old state and must not be reused.
+                self.integrator.reset_cache();
+            }
 
-            // Scan for events in [epoch_prev, epoch_new]
-            let detected_events =
-                self.scan_all_events(epoch_prev, epoch_new, &x_prev, &self.x_curr);
+            EventProcessingResult::Terminal {
+                epoch: term_epoch,
+                state: term_state,
+            } => {
+                // Terminal event detected
+                // Update current state to precise event values
+                self.epoch_current = term_epoch;
+                self.x_curr = term_state.clone();
 
-            // Process events using smart sequential algorithm
-            match self.process_events_smart(detected_events) {
-                EventProcessingResult::NoEvents => {
-                    // No events or all events processed without callbacks
-                    // Accept step and store in trajectory if needed
-                    if self.should_store_state() {
-                        // Prepare optional matrices for storage
-                        let cov = self.current_covariance.clone();
-                        let stm_to_store = if self.store_stm_history {
-                            self.stm.clone()
-                        } else {
-                            None
-                        };
-                        let sens_to_store = if self.store_sensitivity_history {
-                            self.sensitivity.clone()
-                        } else {
-                            None
-                        };
+                // Store final state and exit (terminated flag already set)
+                if self.should_store_state() {
+                    // Prepare optional matrices for storage
+                    let cov = self.current_covariance.clone();
+                    let stm_to_store = if self.store_stm_history {
+                        self.stm.clone()
+                    } else {
+                        None
+                    };
+                    let sens_to_store = if self.store_sensitivity_history {
+                        self.sensitivity.clone()
+                    } else {
+                        None
+                    };
 
-                        // Use add_full if any optional data is present, otherwise use add
-                        if cov.is_some() || stm_to_store.is_some() || sens_to_store.is_some() {
-                            self.trajectory.add_full(
-                                epoch_new,
-                                self.x_curr.clone(),
-                                cov,
-                                stm_to_store,
-                                sens_to_store,
-                            );
-                        } else {
-                            self.trajectory.add(epoch_new, self.x_curr.clone());
-                        }
+                    // Use add_full if any optional data is present, otherwise use add
+                    if cov.is_some() || stm_to_store.is_some() || sens_to_store.is_some() {
+                        self.trajectory.add_full(
+                            term_epoch,
+                            term_state,
+                            cov,
+                            stm_to_store,
+                            sens_to_store,
+                        );
+                    } else {
+                        self.trajectory.add(term_epoch, term_state);
                     }
-                    break; // Exit event loop
-                }
-
-                EventProcessingResult::Restart { epoch, state } => {
-                    // Event callback modified state/params
-                    // Reset to event time and state, then continue loop
-                    self.t_rel = epoch - self.epoch_initial;
-                    self.epoch_current = epoch;
-                    self.x_curr = state;
-                    // Note: process_events_smart() already updated self.params if needed
-                    continue; // Take new step from event time
-                }
-
-                EventProcessingResult::Terminal {
-                    epoch: term_epoch,
-                    state: term_state,
-                } => {
-                    // Terminal event detected
-                    // Update current state to precise event values
-                    self.epoch_current = term_epoch;
-                    self.x_curr = term_state.clone();
-
-                    // Store final state and exit (terminated flag already set)
-                    if self.should_store_state() {
-                        // Prepare optional matrices for storage
-                        let cov = self.current_covariance.clone();
-                        let stm_to_store = if self.store_stm_history {
-                            self.stm.clone()
-                        } else {
-                            None
-                        };
-                        let sens_to_store = if self.store_sensitivity_history {
-                            self.sensitivity.clone()
-                        } else {
-                            None
-                        };
-
-                        // Use add_full if any optional data is present, otherwise use add
-                        if cov.is_some() || stm_to_store.is_some() || sens_to_store.is_some() {
-                            self.trajectory.add_full(
-                                term_epoch,
-                                term_state,
-                                cov,
-                                stm_to_store,
-                                sens_to_store,
-                            );
-                        } else {
-                            self.trajectory.add(term_epoch, term_state);
-                        }
-                    }
-                    break; // Exit event loop
                 }
             }
         }
@@ -1346,6 +1482,9 @@ impl DNumericalPropagator {
 impl super::traits::DStatePropagator for DNumericalPropagator {
     fn step_by(&mut self, step_size: f64) {
         let target_t = self.t_rel + step_size;
+
+        // Check for events at the current epoch before taking any steps.
+        self.process_initial_events();
 
         // Support both forward and backward propagation
         let is_forward = step_size >= 0.0;
@@ -1394,6 +1533,11 @@ impl super::traits::DStatePropagator for DNumericalPropagator {
 
     fn propagate_to(&mut self, target_epoch: Epoch) {
         let target_rel = target_epoch - self.epoch_initial;
+
+        // Check for events at the current epoch before taking any steps.
+        // This handles the edge case where an event is scheduled at the exact
+        // propagation start time (e.g., TimeEvent at T+0.0s).
+        self.process_initial_events();
 
         // Support both forward and backward propagation
         let is_forward = target_rel >= self.t_rel;

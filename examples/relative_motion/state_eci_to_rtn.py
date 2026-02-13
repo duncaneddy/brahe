@@ -49,14 +49,6 @@ print(f"Cross-track (N): {x_rel_rtn[2]:.3f} m")
 print(f"Velocity R:      {x_rel_rtn[3]:.6f} m/s")
 print(f"Velocity T:      {x_rel_rtn[4]:.6f} m/s")
 print(f"Velocity N:      {x_rel_rtn[5]:.6f} m/s\n")
-# Radial (R):      -1508.659 m
-# Along-track (T): 11576.951 m
-# Cross-track (N): 4401.874 m
-# Velocity R:      -17.504100 m/s
-# Velocity T:      12.730654 m/s
-# Velocity N:      7.959939 m/s
-
 # Calculate total relative distance
 relative_distance = np.linalg.norm(x_rel_rtn[:3])
 print(f"Total relative distance: {relative_distance:.3f} m")
-# Total relative distance: 12477.113 m

@@ -81,7 +81,7 @@ def test_numericalpropagator_construction_default():
 
     assert prop is not None
     assert prop.initial_epoch == epoch
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
     assert prop.state_dim == 2
 
 
@@ -151,7 +151,7 @@ def test_dstatepropagator_step_by_forward():
 
     prop.step_by(0.5)
 
-    assert prop.current_epoch == epoch + 0.5
+    assert prop.current_epoch() == epoch + 0.5
     new_state = prop.current_state()
     assert len(new_state) == 2
     # State should have changed
@@ -170,7 +170,7 @@ def test_dstatepropagator_propagate_to_forward():
     target = epoch + np.pi  # Half period of SHO with omega=1
     prop.propagate_to(target)
 
-    assert prop.current_epoch == target
+    assert prop.current_epoch() == target
     # At t = pi, for SHO starting at [1,0], should be near [-1, 0]
     final_state = prop.current_state()
     assert final_state[0] < 0  # Position should be negative
@@ -187,11 +187,11 @@ def test_dstatepropagator_step_by_backward():
 
     # Step forward first
     prop.step_by(1.0)
-    assert prop.current_epoch == epoch + 1.0
+    assert prop.current_epoch() == epoch + 1.0
 
     # Then step backward
     prop.step_by(-0.5)
-    assert prop.current_epoch == epoch + 0.5
+    assert prop.current_epoch() == epoch + 0.5
 
 
 def test_dstatepropagator_propagate_to_backward():
@@ -208,7 +208,7 @@ def test_dstatepropagator_propagate_to_backward():
 
     # Then backward
     prop.propagate_to(epoch + 1.0)
-    assert prop.current_epoch == epoch + 1.0
+    assert prop.current_epoch() == epoch + 1.0
 
 
 def test_dstatepropagator_propagate_steps():
@@ -223,7 +223,7 @@ def test_dstatepropagator_propagate_steps():
     prop.step_size = 0.1
     prop.propagate_steps(10)
 
-    assert abs(prop.current_epoch - (epoch + 1.0)) < 1e-6
+    assert abs(prop.current_epoch() - (epoch + 1.0)) < 1e-6
 
 
 def test_dstatepropagator_reset():
@@ -237,12 +237,12 @@ def test_dstatepropagator_reset():
 
     # Propagate
     prop.propagate_to(epoch + 2.0)
-    assert prop.current_epoch != epoch
+    assert prop.current_epoch() != epoch
 
     # Reset
     prop.reset()
 
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
     np.testing.assert_array_almost_equal(prop.current_state(), state)
 
 
@@ -256,7 +256,7 @@ def test_dstatepropagator_getters():
     )
 
     assert prop.initial_epoch == epoch
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
     assert prop.state_dim == 2
     np.testing.assert_array_almost_equal(prop.initial_state(), state)
     np.testing.assert_array_almost_equal(prop.current_state(), state)
@@ -606,7 +606,7 @@ def test_numericalpropagator_very_small_timestep():
     prop.step_size = 0.001
     prop.propagate_steps(10)
 
-    assert prop.current_epoch == epoch + 0.01
+    assert prop.current_epoch() == epoch + 0.01
 
 
 def test_numericalpropagator_single_dimension():
@@ -810,7 +810,7 @@ def test_numericalpropagator_event_terminal():
 
     # Should have stopped at event (around time 5)
     assert prop.terminated()
-    time_diff = float(prop.current_epoch - (epoch + 5.0))
+    time_diff = float(prop.current_epoch() - (epoch + 5.0))
     assert abs(time_diff) < 1.0
 
 
@@ -1178,7 +1178,7 @@ def test_stm_reset():
     prop.reset()
 
     # Check epoch is reset
-    assert prop.current_epoch == initial_epoch
+    assert prop.current_epoch() == initial_epoch
 
     # STM should be reset to identity (if available)
     stm = prop.stm()
@@ -1327,7 +1327,7 @@ def test_sensitivity_reset():
     prop.reset()
 
     # Check epoch is reset
-    assert prop.current_epoch == prop.initial_epoch
+    assert prop.current_epoch() == prop.initial_epoch
 
     # Sensitivity should be reset to zero (if available)
     sens = prop.sensitivity()
@@ -1648,7 +1648,7 @@ def test_corner_case_zero_parameters():
     # Should propagate successfully
     prop.propagate_to(epoch + 1.0)
 
-    assert prop.current_epoch == epoch + 1.0
+    assert prop.current_epoch() == epoch + 1.0
 
 
 def test_corner_case_single_parameter():
@@ -1664,7 +1664,7 @@ def test_corner_case_single_parameter():
     # Should propagate successfully
     prop.propagate_to(epoch + 1.0)
 
-    assert prop.current_epoch == epoch + 1.0
+    assert prop.current_epoch() == epoch + 1.0
 
 
 def test_corner_case_sensitivity_without_params():

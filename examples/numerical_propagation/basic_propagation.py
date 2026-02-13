@@ -37,7 +37,7 @@ prop = bh.NumericalOrbitPropagator(
 prop.propagate_to(epoch + 3600.0)
 
 # Get final state
-final_epoch = prop.current_epoch
+final_epoch = prop.current_epoch()
 final_state = prop.current_state()
 
 # Validate propagation completed

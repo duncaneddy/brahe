@@ -272,7 +272,7 @@ class TestSGPPropagatorOrbitPropagatorTrait:
 
         prop.step()
 
-        current_epoch = prop.current_epoch
+        current_epoch = prop.current_epoch()
         # Use approximate comparison for epoch (floating point precision)
         assert abs((current_epoch - initial_epoch) - 60.0) < 0.01
         assert prop.trajectory.length == 2  # Initial + 1 step
@@ -289,7 +289,7 @@ class TestSGPPropagatorOrbitPropagatorTrait:
 
         prop.step_by(120.0)
 
-        current_epoch = prop.current_epoch
+        current_epoch = prop.current_epoch()
         # Use approximate comparison for epoch (floating point precision)
         assert abs((current_epoch - initial_epoch) - 120.0) < 0.01
 
@@ -308,7 +308,7 @@ class TestSGPPropagatorOrbitPropagatorTrait:
 
         prop.propagate_steps(5)
 
-        current_epoch = prop.current_epoch
+        current_epoch = prop.current_epoch()
         assert abs((current_epoch - initial_epoch) - 300.0) < 0.01
         assert prop.trajectory.length == 6  # Initial + 5 steps
 
@@ -325,7 +325,7 @@ class TestSGPPropagatorOrbitPropagatorTrait:
         target_epoch = initial_epoch + 250.0
         prop.step_past(target_epoch)
 
-        current_epoch = prop.current_epoch
+        current_epoch = prop.current_epoch()
         assert current_epoch > target_epoch
 
         # Should have 6 steps: initial + 5 steps of 60s
@@ -345,7 +345,7 @@ class TestSGPPropagatorOrbitPropagatorTrait:
 
         prop.propagate_to(target_epoch)
 
-        current_epoch = prop.current_epoch
+        current_epoch = prop.current_epoch()
         assert current_epoch == target_epoch
 
         # Should have 3 steps: initial + 1 step of 60s + 1 step of 30s
@@ -370,7 +370,7 @@ class TestSGPPropagatorOrbitPropagatorTrait:
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
         initial_epoch = prop.epoch
 
-        current_epoch = prop.current_epoch
+        current_epoch = prop.current_epoch()
 
         assert current_epoch == initial_epoch
 
@@ -430,7 +430,7 @@ class TestSGPPropagatorOrbitPropagatorTrait:
         prop.step()
         prop.reset()
 
-        assert prop.current_epoch == initial_epoch
+        assert prop.current_epoch() == initial_epoch
         assert prop.trajectory.length == 1  # Only initial state
 
     def test_sgppropagator_orbitpropagator_trajectory(self, iss_tle):
@@ -907,7 +907,7 @@ class TestOldBraheTLEFunctions:
         """Test SGPPropagator states_gcrf() batch method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        epoch = prop.current_epoch
+        epoch = prop.current_epoch()
         epochs = [epoch, epoch + 120.0, epoch + 240.0]
         states = prop.states_gcrf(epochs)
 
@@ -922,7 +922,7 @@ class TestOldBraheTLEFunctions:
         """Test SGPPropagator states_itrf() batch method."""
         prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
 
-        epoch = prop.current_epoch
+        epoch = prop.current_epoch()
         epochs = [epoch, epoch + 120.0, epoch + 240.0]
         states = prop.states_itrf(epochs)
 
@@ -971,7 +971,7 @@ class TestSGPPropagatorEventDetection:
         # Should have terminated early
         assert prop.terminated
         # Should not have reached 300 seconds
-        assert prop.current_epoch < epoch + 200.0
+        assert prop.current_epoch() < epoch + 200.0
 
     def test_sgppropagator_ascending_node_event(self, iss_tle):
         """Test ascending node event detection."""
@@ -1457,7 +1457,7 @@ class TestSGPPropagatorEventDetection:
         # Callback should have been called exactly once
         assert callback_count[0] == 1
         # Should not have reached full propagation time
-        assert prop.current_epoch < epoch + 200.0
+        assert prop.current_epoch() < epoch + 200.0
 
     def test_sgppropagator_callback_continue_action(self, iss_tle):
         """Test that callback returning EventAction.CONTINUE allows propagation."""
@@ -1485,7 +1485,7 @@ class TestSGPPropagatorEventDetection:
         # Callback should have been called once
         assert callback_count[0] == 1
         # Should have reached full propagation time
-        assert prop.current_epoch == target_epoch
+        assert prop.current_epoch() == target_epoch
 
     def test_sgppropagator_multiple_time_events_with_callbacks(self, iss_tle):
         """Test combining multiple TimeEvents with callbacks."""

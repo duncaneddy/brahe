@@ -26,5 +26,5 @@ print(f"New step size: {prop.step_size} seconds")
 
 # Subsequent steps use new step size
 prop.step()  # Advances 120 seconds
-print(f"After step: {(prop.current_epoch - epoch):.1f} seconds elapsed")
+print(f"After step: {(prop.current_epoch() - epoch):.1f} seconds elapsed")
 # After step: 120.0 seconds elapsed

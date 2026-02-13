@@ -18,7 +18,7 @@ prop = bh.KeplerianPropagator.from_keplerian(
 
 # Take 10 steps (10 × 60 = 600 seconds)
 prop.propagate_steps(10)
-print(f"After 10 steps: {(prop.current_epoch - epoch):.1f} seconds elapsed")
+print(f"After 10 steps: {(prop.current_epoch() - epoch):.1f} seconds elapsed")
 # After 10 steps: 600.0 seconds elapsed
 print(f"Trajectory length: {len(prop.trajectory)}")
 # Trajectory length: 11

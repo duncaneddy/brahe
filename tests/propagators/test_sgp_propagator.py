@@ -1523,3 +1523,85 @@ class TestSGPPropagatorEventDetection:
         event_names = [e.name for e in events]
         assert "Event 1" in event_names
         assert "Event 2" in event_names
+
+
+class TestSGPPropagatorTrajectoryMode:
+    """Test SGPPropagator trajectory mode support."""
+
+    def test_sgppropagator_trajectory_mode_default(self, iss_tle):
+        """Test that default trajectory mode is OutputStepsOnly."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        mode = prop.trajectory_mode
+        assert str(mode) == "OutputStepsOnly"
+
+    def test_sgppropagator_trajectory_mode_disabled(self, iss_tle):
+        """Test that Disabled mode prevents trajectory growth."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
+
+        initial_epoch = prop.epoch
+
+        # Propagate multiple steps
+        prop.step_by(60.0)
+        prop.step_by(60.0)
+        prop.step_by(60.0)
+
+        # Trajectory should only contain the initial state
+        traj = prop.trajectory
+        assert traj.len() == 1
+
+        # current_epoch should still advance
+        current_epoch = prop.current_epoch()
+        assert (current_epoch - initial_epoch) == pytest.approx(180.0, abs=1e-6)
+
+        # current_state should still be valid (not equal to initial)
+        current_state = prop.current_state()
+        initial_state = prop.initial_state()
+        assert not np.allclose(current_state, initial_state)
+
+    def test_sgppropagator_set_trajectory_mode_runtime(self, iss_tle):
+        """Test changing trajectory mode at runtime."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        # Default mode - should store states
+        prop.step_by(60.0)
+        assert prop.trajectory.len() == 2  # initial + 1 step
+
+        # Switch to disabled
+        prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
+
+        # Propagate more - trajectory should not grow
+        prop.step_by(60.0)
+        prop.step_by(60.0)
+        assert prop.trajectory.len() == 2  # still 2
+
+        # current_epoch should reflect latest propagation
+        assert (prop.current_epoch() - prop.epoch) == pytest.approx(180.0, abs=1e-6)
+
+    def test_sgppropagator_trajectory_mode_getter(self, iss_tle):
+        """Test trajectory_mode getter returns correct mode."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+
+        prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
+        assert str(prop.trajectory_mode) == "Disabled"
+
+        prop.set_trajectory_mode(brahe.TrajectoryMode.ALL_STEPS)
+        assert str(prop.trajectory_mode) == "AllSteps"
+
+        prop.set_trajectory_mode(brahe.TrajectoryMode.OUTPUT_STEPS_ONLY)
+        assert str(prop.trajectory_mode) == "OutputStepsOnly"
+
+    def test_sgppropagator_trajectory_mode_preserved_on_reset(self, iss_tle):
+        """Test that trajectory mode is preserved across reset."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
+
+        prop.step_by(60.0)
+        prop.step_by(60.0)
+        prop.reset()
+
+        # Mode should still be disabled
+        assert str(prop.trajectory_mode) == "Disabled"
+
+        # State should be back to initial
+        assert prop.current_epoch() == prop.epoch

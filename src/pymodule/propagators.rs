@@ -654,6 +654,48 @@ impl PySGPPropagator {
         self.propagator.reset();
     }
 
+    /// Set trajectory storage mode.
+    ///
+    /// Controls whether propagation states are stored in the trajectory.
+    /// Use `TrajectoryMode.DISABLED` to prevent unbounded memory growth
+    /// during long-duration propagations.
+    ///
+    /// Args:
+    ///     mode (TrajectoryMode): The new trajectory mode.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     prop.set_trajectory_mode(bh.TrajectoryMode.DISABLED)
+    ///     ```
+    #[pyo3(text_signature = "(mode)")]
+    pub fn set_trajectory_mode(&mut self, mode: &PyTrajectoryMode) {
+        self.propagator.set_trajectory_mode(mode.mode);
+    }
+
+    /// Get current trajectory storage mode.
+    ///
+    /// Returns:
+    ///     TrajectoryMode: Current trajectory mode.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     mode = prop.trajectory_mode
+    ///     ```
+    #[getter]
+    pub fn trajectory_mode(&self) -> PyTrajectoryMode {
+        PyTrajectoryMode { mode: self.propagator.trajectory_mode() }
+    }
+
     /// Set trajectory eviction policy based on maximum size.
     ///
     /// Args:
@@ -2627,19 +2669,18 @@ fn py_par_propagate_to(
         for (i, item) in prop_list.iter().enumerate() {
             let mut py_prop = item.cast::<PySGPPropagator>()?.borrow_mut();
 
-            // Transfer event_detectors back (for potential reuse)
+            // Take event state from propagated clone before transferring
             let detectors = props[i].take_event_detectors();
-            py_prop.propagator.set_event_detectors(detectors);
-
-            // Transfer event_log (the detected events)
             let event_log = props[i].take_event_log();
+            let terminated = props[i].is_terminated();
+
+            // Transfer full propagator state (trajectory, epoch_current, state_current, etc.)
+            py_prop.propagator = props[i].clone();
+
+            // Restore event detection state lost in clone
+            py_prop.propagator.set_event_detectors(detectors);
             py_prop.propagator.set_event_log(event_log);
-
-            // Transfer terminated flag
-            py_prop.propagator.set_terminated(props[i].is_terminated());
-
-            // Update trajectory
-            py_prop.propagator.trajectory = props[i].trajectory.clone();
+            py_prop.propagator.set_terminated(terminated);
         }
 
         Ok(())

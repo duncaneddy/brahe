@@ -18,9 +18,9 @@ fn main() {
         bh::R_EARTH + 500e3,
         0.01,
         45.0,
-        0.0,
-        0.0,
-        0.0,
+        15.0,
+        30.0,
+        1.0,
     );
     let state = bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees);
     let params = na::DVector::from_vec(vec![500.0, 2.0, 2.2, 2.0, 1.3]);

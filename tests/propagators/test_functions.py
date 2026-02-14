@@ -51,7 +51,7 @@ def test_par_propagate_to_keplerian():
 
     # Verify all propagators reached target epoch
     for prop in propagators:
-        assert prop.current_epoch == target
+        assert prop.current_epoch() == target
 
     # Verify states are different (they had different initial conditions)
     state0 = prop1.current_state()
@@ -84,7 +84,7 @@ def test_par_propagate_to_sgp():
 
     # Verify all reached target epoch
     for prop in propagators:
-        assert prop.current_epoch == target
+        assert prop.current_epoch() == target
 
     # Verify states are the same (same TLE, same propagation)
     state0 = propagators[0].current_state()
@@ -127,7 +127,7 @@ def test_par_propagate_to_matches_sequential():
 
     # Results should be identical
     for i in range(len(parallel_props)):
-        assert parallel_props[i].current_epoch == sequential_props[i].current_epoch
+        assert parallel_props[i].current_epoch() == sequential_props[i].current_epoch()
 
         parallel_state = parallel_props[i].current_state()
         sequential_state = sequential_props[i].current_state()
@@ -159,7 +159,7 @@ def test_par_propagate_to_single_propagator():
 
     par_propagate_to(propagators, target)
 
-    assert propagators[0].current_epoch == target
+    assert propagators[0].current_epoch() == target
 
 
 def test_par_propagate_to_mixed_types_raises_error():
@@ -282,7 +282,7 @@ def test_par_propagate_to_numerical_orbit():
 
     # Verify all propagators reached target epoch
     for prop in propagators:
-        assert prop.current_epoch == target
+        assert prop.current_epoch() == target
 
     # Verify states are different (they had different initial conditions)
     state0 = propagators[0].current_state()
@@ -335,7 +335,7 @@ def test_par_propagate_to_numerical_orbit_matches_sequential():
 
     # Results should be identical
     for i in range(len(parallel_props)):
-        assert parallel_props[i].current_epoch == sequential_props[i].current_epoch
+        assert parallel_props[i].current_epoch() == sequential_props[i].current_epoch()
 
         parallel_state = parallel_props[i].current_state()
         sequential_state = sequential_props[i].current_state()

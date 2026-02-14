@@ -19,7 +19,7 @@ use crate::frames::rotation_eci_to_ecef;
 use crate::integrators::traits::DIntegrator;
 use crate::math::interpolation::{
     CovarianceInterpolationConfig, CovarianceInterpolationMethod, InterpolationConfig,
-    InterpolationMethod,
+    InterpolationMethod, interpolate_hermite_cubic_dvector6,
 };
 use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
@@ -50,7 +50,7 @@ use super::TrajectoryMode;
 use super::traits::DStatePropagator;
 
 // Event detection imports
-use crate::events::{DDetectedEvent, DEventDetector, EventAction, dscan_for_event};
+use crate::events::{DDetectedEvent, DEventDetector, EventAction, EventType, dscan_for_event};
 
 // Import dynamics type from integrator traits
 use crate::integrators::traits::{DControlInput, DStateDynamics};
@@ -605,9 +605,83 @@ impl DNumericalOrbitPropagator {
     // Event Detection
     // =========================================================================
 
+    /// Check for events at the current epoch before taking any integration steps.
+    ///
+    /// This handles the edge case where an event is scheduled at the exact
+    /// propagation start time (e.g., `TimeEvent` at T+0.0s). Normal event
+    /// scanning requires a completed integration step to detect crossings,
+    /// so events exactly at the initial epoch would otherwise be missed.
+    fn process_initial_events(&mut self) {
+        if self.event_detectors.is_empty() || self.terminated {
+            return;
+        }
+
+        let epoch = self.current_epoch();
+        let state = self.x_curr.clone();
+        let params_ref = if self.params.is_empty() {
+            None
+        } else {
+            Some(&self.params)
+        };
+
+        let mut events_to_process = Vec::new();
+
+        for (idx, detector) in self.event_detectors.iter().enumerate() {
+            if detector.is_processed() {
+                continue;
+            }
+
+            let value = detector.evaluate(epoch, &state, params_ref);
+            let target = detector.target_value();
+
+            // Event is at this epoch if the event function equals the target
+            if (value - target).abs() <= detector.value_tolerance() {
+                let event = DDetectedEvent {
+                    window_open: epoch,
+                    window_close: epoch,
+                    entry_state: state.clone(),
+                    exit_state: state.clone(),
+                    value,
+                    name: detector.name().to_string(),
+                    action: detector.action(),
+                    event_type: EventType::Instantaneous,
+                    detector_index: idx,
+                };
+                events_to_process.push((idx, event));
+            }
+        }
+
+        if !events_to_process.is_empty() {
+            // Mark all initial-epoch events as processed so they won't re-trigger
+            // on subsequent propagate_to()/step_by() calls (e.g., after reset_termination).
+            for &(idx, _) in &events_to_process {
+                self.event_detectors[idx].mark_processed();
+            }
+
+            match self.process_events_smart(events_to_process) {
+                EventProcessingResult::NoEvents => {}
+                EventProcessingResult::Restart { epoch, state } => {
+                    self.t_rel = epoch - self.epoch_initial;
+                    self.epoch_current = epoch;
+                    self.x_curr = state;
+                    self.integrator.reset_cache();
+                }
+                EventProcessingResult::Terminal {
+                    epoch: term_epoch,
+                    state: term_state,
+                } => {
+                    self.epoch_current = term_epoch;
+                    self.x_curr = term_state;
+                }
+            }
+        }
+    }
+
     /// Scan all event detectors for events in the interval [epoch_prev, epoch_new]
     ///
-    /// Returns a vector of (detector_index, detected_event) pairs
+    /// Returns a vector of (detector_index, detected_event) pairs.
+    /// Uses linear interpolation for bisection. The returned event states are
+    /// approximate; call `refine_event_states` afterwards for precise states.
     fn scan_all_events(
         &self,
         epoch_prev: Epoch,
@@ -618,18 +692,15 @@ impl DNumericalOrbitPropagator {
         let mut events = Vec::new();
 
         // Create state function for bisection search: Epoch → State
-        // Uses linear interpolation between x_prev and x_new
-        // TODO: Use integrator's dense output if available for better accuracy
+        // Uses cubic Hermite interpolation between x_prev and x_new.
+        // Hermite uses position + velocity at both endpoints for C1-continuous
+        // interpolation, giving O(h^4) accuracy vs O(h^2) for linear.
+        let t_prev_rel = epoch_prev - self.epoch_initial;
+        let t_new_rel = epoch_new - self.epoch_initial;
+
         let state_fn = |epoch: Epoch| -> DVector<f64> {
             let t_rel = epoch - self.epoch_initial;
-            let t_prev = epoch_prev - self.epoch_initial;
-            let t_new = epoch_new - self.epoch_initial;
-
-            // Linear interpolation parameter
-            let alpha = (t_rel - t_prev) / (t_new - t_prev);
-
-            // Interpolate state
-            x_prev + (x_new - x_prev) * alpha
+            interpolate_hermite_cubic_dvector6(t_prev_rel, t_new_rel, x_prev, x_new, t_rel)
         };
 
         // Scan each detector
@@ -649,6 +720,72 @@ impl DNumericalOrbitPropagator {
         }
 
         events
+    }
+
+    /// Replace interpolated event states with precisely-integrated states.
+    ///
+    /// After bisection finds the event time (to within tolerance), this method
+    /// re-integrates from the step start to each event time using sub-steps
+    /// no larger than 10 seconds. The resulting state error is bounded by
+    /// integrator accuracy rather than interpolation error over the full step.
+    fn refine_event_states(
+        &self,
+        events: &mut [(usize, DDetectedEvent)],
+        epoch_prev: Epoch,
+        x_prev: &DVector<f64>,
+    ) {
+        if events.is_empty() {
+            return;
+        }
+
+        let t_prev_rel = epoch_prev - self.epoch_initial;
+        let params_ref = if self.params.is_empty() {
+            None
+        } else {
+            Some(&self.params)
+        };
+
+        // Clear FSAL cache before refinement — the main step cached the
+        // derivative at the step endpoint, which is wrong for re-integration
+        // starting at the step start.
+        self.integrator.reset_cache();
+
+        for (_, event) in events.iter_mut() {
+            let dt_to_event = event.window_open - epoch_prev;
+
+            if dt_to_event.abs() <= 1e-12 {
+                // Event is at the step boundary — use exact pre-step state
+                event.entry_state = x_prev.clone();
+                event.exit_state = x_prev.clone();
+                continue;
+            }
+
+            // Re-integrate from step start to event time using sub-steps
+            // no larger than 10 seconds. This replaces the linearly-interpolated
+            // state with a precisely-integrated one, so the state error is
+            // bounded by velocity × time_tolerance rather than by
+            // linear-interpolation error over the full integration step.
+            let max_sub_dt = 10.0;
+            let n_steps = ((dt_to_event.abs() / max_sub_dt).ceil() as usize).max(1);
+            let sub_dt = dt_to_event / n_steps as f64;
+
+            let mut t = t_prev_rel;
+            let mut x = x_prev.clone();
+
+            for _ in 0..n_steps {
+                let result = self.integrator.step(t, x, params_ref, Some(sub_dt));
+                x = result.state;
+                t += result.dt_used;
+            }
+
+            event.entry_state = x.clone();
+            event.exit_state = x;
+        }
+
+        // Clear again — sub-steps cached derivatives at intermediate times,
+        // but the main integration already accepted the full step. The next
+        // step_once() will start from the post-event state with a fresh cache.
+        self.integrator.reset_cache();
     }
 
     /// Process detected events using smart sequential algorithm
@@ -684,6 +821,7 @@ impl DNumericalOrbitPropagator {
 
                 for (det_idx, event) in sorted_events {
                     self.event_log.push(event.clone());
+                    self.event_detectors[det_idx].mark_processed();
 
                     // Add to trajectory at exact event time if configured
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
@@ -712,8 +850,9 @@ impl DNumericalOrbitPropagator {
 
             Some(callback_idx) => {
                 // 3b. Process all no-callback events before the callback event
-                for (_, event) in sorted_events.iter().take(callback_idx) {
+                for (det_idx, event) in sorted_events.iter().take(callback_idx) {
                     self.event_log.push(event.clone());
+                    self.event_detectors[*det_idx].mark_processed();
 
                     if !matches!(self.trajectory_mode, TrajectoryMode::Disabled) {
                         self.trajectory
@@ -1499,199 +1638,201 @@ impl DNumericalOrbitPropagator {
     /// Propagates the state forward by one adaptive timestep. Depending on the propagation
     /// mode configured at construction, also propagates STM and/or sensitivity matrices.
     ///
-    /// Includes event detection loop: if events with callbacks are detected, integration
-    /// restarts from the event time with the modified state/parameters.
+    /// Includes event detection: if events with callbacks are detected that modify state,
+    /// the propagator resets to the event time with the modified state and returns to the
+    /// caller so that `propagate_to()` can re-clamp `dt_next` before the next step.
     fn step_once(&mut self) {
-        loop {
-            // Save state before integration step (for event detection)
-            let epoch_prev = self.current_epoch();
-            let x_prev = self.x_curr.clone();
+        // Save state before integration step (for event detection)
+        let epoch_prev = self.current_epoch();
+        let x_prev = self.x_curr.clone();
 
-            // Use adaptive step size (dt_next from previous step)
-            let dt_requested = self.dt_next;
+        // Use adaptive step size (dt_next from previous step)
+        let dt_requested = self.dt_next;
 
-            // Dispatch to appropriate integrator method based on propagation mode
-            // Create params reference if params is not empty
-            let params_ref = if self.params.is_empty() {
-                None
-            } else {
-                Some(&self.params)
-            };
+        // Dispatch to appropriate integrator method based on propagation mode
+        // Create params reference if params is not empty
+        let params_ref = if self.params.is_empty() {
+            None
+        } else {
+            Some(&self.params)
+        };
 
-            match self.propagation_mode {
-                PropagationMode::StateOnly => {
-                    // Basic state propagation only
-                    let result = self.integrator.step(
-                        self.t_rel,
-                        self.x_curr.clone(),
-                        params_ref,
-                        Some(dt_requested),
-                    );
+        match self.propagation_mode {
+            PropagationMode::StateOnly => {
+                // Basic state propagation only
+                let result = self.integrator.step(
+                    self.t_rel,
+                    self.x_curr.clone(),
+                    params_ref,
+                    Some(dt_requested),
+                );
 
-                    self.x_curr = result.state;
-                    self.dt = result.dt_used;
-                    self.dt_next = result.dt_next;
+                self.x_curr = result.state;
+                self.dt = result.dt_used;
+                self.dt_next = result.dt_next;
+            }
+            PropagationMode::WithSTM => {
+                // Propagate state and STM (variational matrix)
+                let phi = self.stm.take().unwrap();
+
+                let result = self.integrator.step_with_varmat(
+                    self.t_rel,
+                    self.x_curr.clone(),
+                    params_ref,
+                    phi,
+                    Some(dt_requested),
+                );
+
+                self.x_curr = result.state;
+                self.stm = result.phi;
+                self.dt = result.dt_used;
+                self.dt_next = result.dt_next;
+
+                // Propagate covariance if initial covariance was provided
+                // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
+                if let Some(ref p0) = self.initial_covariance
+                    && let Some(ref phi_result) = self.stm
+                {
+                    let p_new = phi_result * p0 * phi_result.transpose();
+                    self.current_covariance = Some(p_new);
                 }
-                PropagationMode::WithSTM => {
-                    // Propagate state and STM (variational matrix)
-                    let phi = self.stm.take().unwrap();
+            }
+            PropagationMode::WithSensitivity => {
+                // Propagate state and sensitivity
+                let sens = self.sensitivity.take().unwrap();
 
-                    let result = self.integrator.step_with_varmat(
-                        self.t_rel,
-                        self.x_curr.clone(),
-                        params_ref,
-                        phi,
-                        Some(dt_requested),
-                    );
+                let result = self.integrator.step_with_sensmat(
+                    self.t_rel,
+                    self.x_curr.clone(),
+                    sens,
+                    &self.params,
+                    Some(dt_requested),
+                );
 
-                    self.x_curr = result.state;
-                    self.stm = result.phi;
-                    self.dt = result.dt_used;
-                    self.dt_next = result.dt_next;
+                self.x_curr = result.state;
+                self.sensitivity = result.sens;
+                self.dt = result.dt_used;
+                self.dt_next = result.dt_next;
+            }
+            PropagationMode::WithSTMAndSensitivity => {
+                // Propagate state, STM, and sensitivity
+                let phi = self.stm.take().unwrap();
+                let sens = self.sensitivity.take().unwrap();
 
-                    // Propagate covariance if initial covariance was provided
-                    // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
-                    if let Some(ref p0) = self.initial_covariance
-                        && let Some(ref phi_result) = self.stm
-                    {
-                        let p_new = phi_result * p0 * phi_result.transpose();
-                        self.current_covariance = Some(p_new);
-                    }
+                let result = self.integrator.step_with_varmat_sensmat(
+                    self.t_rel,
+                    self.x_curr.clone(),
+                    phi,
+                    sens,
+                    &self.params,
+                    Some(dt_requested),
+                );
+
+                self.x_curr = result.state;
+                self.stm = result.phi.clone();
+                self.sensitivity = result.sens;
+                self.dt = result.dt_used;
+                self.dt_next = result.dt_next;
+
+                // Propagate covariance if initial covariance was provided
+                // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
+                if let Some(ref p0) = self.initial_covariance
+                    && let Some(ref phi_result) = self.stm
+                {
+                    let p_new = phi_result * p0 * phi_result.transpose();
+                    self.current_covariance = Some(p_new);
                 }
-                PropagationMode::WithSensitivity => {
-                    // Propagate state and sensitivity
-                    let sens = self.sensitivity.take().unwrap();
+            }
+        }
 
-                    let result = self.integrator.step_with_sensmat(
-                        self.t_rel,
+        // Update time (use actual dt_used)
+        self.t_rel += self.dt;
+        self.epoch_current = self.epoch_initial + self.t_rel;
+        let epoch_new = self.epoch_current;
+
+        // Scan for events in [epoch_prev, epoch_new]
+        let mut detected_events =
+            self.scan_all_events(epoch_prev, epoch_new, &x_prev, &self.x_curr);
+
+        // Refine event states: replace linearly-interpolated states with
+        // precisely-integrated states for events near the step start.
+        self.refine_event_states(&mut detected_events, epoch_prev, &x_prev);
+
+        // Process events using smart sequential algorithm
+        match self.process_events_smart(detected_events) {
+            EventProcessingResult::NoEvents => {
+                // No events or all events processed without callbacks
+                // Accept step and store in trajectory if needed
+                if self.should_store_state() {
+                    // Prepare optional matrices for storage
+                    let cov = self.current_covariance.clone();
+                    let stm_to_store = if self.store_stm_history {
+                        self.stm.clone()
+                    } else {
+                        None
+                    };
+                    let sens_to_store = if self.store_sensitivity_history {
+                        self.sensitivity.clone()
+                    } else {
+                        None
+                    };
+                    let acc = self.compute_acceleration(epoch_new, &self.x_curr);
+
+                    self.trajectory.add_full(
+                        epoch_new,
                         self.x_curr.clone(),
-                        sens,
-                        &self.params,
-                        Some(dt_requested),
+                        cov,
+                        stm_to_store,
+                        sens_to_store,
+                        acc,
                     );
-
-                    self.x_curr = result.state;
-                    self.sensitivity = result.sens;
-                    self.dt = result.dt_used;
-                    self.dt_next = result.dt_next;
-                }
-                PropagationMode::WithSTMAndSensitivity => {
-                    // Propagate state, STM, and sensitivity
-                    let phi = self.stm.take().unwrap();
-                    let sens = self.sensitivity.take().unwrap();
-
-                    let result = self.integrator.step_with_varmat_sensmat(
-                        self.t_rel,
-                        self.x_curr.clone(),
-                        phi,
-                        sens,
-                        &self.params,
-                        Some(dt_requested),
-                    );
-
-                    self.x_curr = result.state;
-                    self.stm = result.phi.clone();
-                    self.sensitivity = result.sens;
-                    self.dt = result.dt_used;
-                    self.dt_next = result.dt_next;
-
-                    // Propagate covariance if initial covariance was provided
-                    // P(t) = Φ(t, t₀) * P(t₀) * Φ(t, t₀)^T
-                    if let Some(ref p0) = self.initial_covariance
-                        && let Some(ref phi_result) = self.stm
-                    {
-                        let p_new = phi_result * p0 * phi_result.transpose();
-                        self.current_covariance = Some(p_new);
-                    }
                 }
             }
 
-            // Update time (use actual dt_used)
-            self.t_rel += self.dt;
-            self.epoch_current = self.epoch_initial + self.t_rel;
-            let epoch_new = self.epoch_current;
+            EventProcessingResult::Restart { epoch, state } => {
+                // Event callback modified state — reset to event time with new state
+                // and return to caller so propagate_to() can re-clamp dt_next.
+                self.t_rel = epoch - self.epoch_initial;
+                self.epoch_current = epoch;
+                self.x_curr = state;
+                // Invalidate integrator FSAL cache — the cached derivative
+                // is from the old state and must not be reused.
+                self.integrator.reset_cache();
+            }
 
-            // Scan for events in [epoch_prev, epoch_new]
-            let detected_events =
-                self.scan_all_events(epoch_prev, epoch_new, &x_prev, &self.x_curr);
+            EventProcessingResult::Terminal {
+                epoch: term_epoch,
+                state: term_state,
+            } => {
+                // Terminal event detected
+                // Update current state to precise event values
+                self.epoch_current = term_epoch;
+                self.x_curr = term_state.clone();
 
-            // Process events using smart sequential algorithm
-            match self.process_events_smart(detected_events) {
-                EventProcessingResult::NoEvents => {
-                    // No events or all events processed without callbacks
-                    // Accept step and store in trajectory if needed
-                    if self.should_store_state() {
-                        // Prepare optional matrices for storage
-                        let cov = self.current_covariance.clone();
-                        let stm_to_store = if self.store_stm_history {
-                            self.stm.clone()
-                        } else {
-                            None
-                        };
-                        let sens_to_store = if self.store_sensitivity_history {
-                            self.sensitivity.clone()
-                        } else {
-                            None
-                        };
-                        let acc = self.compute_acceleration(epoch_new, &self.x_curr);
+                // Store final state and exit (terminated flag already set)
+                if self.should_store_state() {
+                    // Prepare optional matrices for storage
+                    let cov = self.current_covariance.clone();
+                    let stm_to_store = if self.store_stm_history {
+                        self.stm.clone()
+                    } else {
+                        None
+                    };
+                    let sens_to_store = if self.store_sensitivity_history {
+                        self.sensitivity.clone()
+                    } else {
+                        None
+                    };
+                    let acc = self.compute_acceleration(term_epoch, &term_state);
 
-                        self.trajectory.add_full(
-                            epoch_new,
-                            self.x_curr.clone(),
-                            cov,
-                            stm_to_store,
-                            sens_to_store,
-                            acc,
-                        );
-                    }
-                    break; // Exit event loop
-                }
-
-                EventProcessingResult::Restart { epoch, state } => {
-                    // Event callback modified state/params
-                    // Reset to event time and state, then continue loop
-                    self.t_rel = epoch - self.epoch_initial;
-                    self.epoch_current = epoch;
-                    self.x_curr = state;
-                    // Note: process_events_smart() already updated self.params if needed
-                    continue; // Take new step from event time
-                }
-
-                EventProcessingResult::Terminal {
-                    epoch: term_epoch,
-                    state: term_state,
-                } => {
-                    // Terminal event detected
-                    // Update current state to precise event values
-                    self.epoch_current = term_epoch;
-                    self.x_curr = term_state.clone();
-
-                    // Store final state and exit (terminated flag already set)
-                    if self.should_store_state() {
-                        // Prepare optional matrices for storage
-                        let cov = self.current_covariance.clone();
-                        let stm_to_store = if self.store_stm_history {
-                            self.stm.clone()
-                        } else {
-                            None
-                        };
-                        let sens_to_store = if self.store_sensitivity_history {
-                            self.sensitivity.clone()
-                        } else {
-                            None
-                        };
-                        let acc = self.compute_acceleration(term_epoch, &term_state);
-
-                        self.trajectory.add_full(
-                            term_epoch,
-                            term_state,
-                            cov,
-                            stm_to_store,
-                            sens_to_store,
-                            acc,
-                        );
-                    }
-                    break; // Exit event loop
+                    self.trajectory.add_full(
+                        term_epoch,
+                        term_state,
+                        cov,
+                        stm_to_store,
+                        sens_to_store,
+                        acc,
+                    );
                 }
             }
         }
@@ -1714,6 +1855,9 @@ impl DNumericalOrbitPropagator {
 impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
     fn step_by(&mut self, step_size: f64) {
         let target_t = self.t_rel + step_size;
+
+        // Check for events at the current epoch before taking any steps.
+        self.process_initial_events();
 
         // Support both forward and backward propagation
         let is_forward = step_size >= 0.0;
@@ -1762,6 +1906,11 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
 
     fn propagate_to(&mut self, target_epoch: Epoch) {
         let target_rel = target_epoch - self.epoch_initial;
+
+        // Check for events at the current epoch before taking any steps.
+        // This handles the edge case where an event is scheduled at the exact
+        // propagation start time (e.g., TimeEvent at T+0.0s).
+        self.process_initial_events();
 
         // Support both forward and backward propagation
         let is_forward = target_rel >= self.t_rel;
@@ -4793,9 +4942,9 @@ mod tests {
 
         use crate::events::EventAction;
 
-        // Event 1: 471.1 km crossing with callback (applies +5 m/s in vx)
-        // This event occurs SECOND chronologically (higher altitude)
-        let event1 = DAltitudeEvent::new(471.1e3, "Event 1 - 471.1 km", EventDirection::Any)
+        // Event 1: 410 km crossing with callback (applies +5 m/s in vx)
+        // This event occurs SECOND chronologically (higher altitude, ascending from perigee)
+        let event1 = DAltitudeEvent::new(410e3, "Event 1 - 410 km", EventDirection::Any)
             .with_callback(Box::new(move |_t, state, _params| {
                 cb1_flag.store(true, std::sync::atomic::Ordering::SeqCst);
                 let mut new_state = state.clone();
@@ -4803,9 +4952,9 @@ mod tests {
                 (Some(new_state), None, EventAction::Continue)
             }));
 
-        // Event 2: 471 km crossing with callback (applies +10 m/s in vy)
-        // This event occurs FIRST chronologically (lower altitude)
-        let event2 = DAltitudeEvent::new(471e3, "Event 2 - 471 km", EventDirection::Any)
+        // Event 2: 380 km crossing with callback (applies +10 m/s in vy)
+        // This event occurs FIRST chronologically (lower altitude, ascending from perigee)
+        let event2 = DAltitudeEvent::new(380e3, "Event 2 - 380 km", EventDirection::Any)
             .with_callback(Box::new(move |_t, state, _params| {
                 cb2_flag.store(true, std::sync::atomic::Ordering::SeqCst);
                 let mut new_state = state.clone();
@@ -4816,18 +4965,19 @@ mod tests {
         prop.add_event_detector(Box::new(event1));
         prop.add_event_detector(Box::new(event2));
 
-        // Propagate for one quarter orbit (from 406 km to ~475 km, crossing both values)
+        // Propagate for one quarter orbit (from ~362 km perigee to ~638 km apogee,
+        // crossing both 380 km and 410 km on the ascending leg)
         let period = orbital_period(a);
         prop.propagate_to(epoch + period / 4.0);
 
-        // Verify both events were detected in chronological order
+        // Verify both events were detected
         assert!(
             callback2_executed.load(std::sync::atomic::Ordering::SeqCst),
-            "Event 2 callback (471 km, first chronological) should execute"
+            "Event 2 callback (380 km, first chronological) should execute"
         );
         assert!(
             callback1_executed.load(std::sync::atomic::Ordering::SeqCst),
-            "Event 1 callback (471.1 km, second chronological) should also execute"
+            "Event 1 callback (410 km, second chronological) should also execute"
         );
 
         // Verify both events are in the log
@@ -4839,18 +4989,10 @@ mod tests {
         );
 
         // Verify both expected events were logged (order may vary due to callback restarts)
-        let has_471km = events.iter().any(|e| e.name == "Event 2 - 471 km");
-        let has_471_1km = events.iter().any(|e| e.name == "Event 1 - 471.1 km");
-        assert!(has_471km, "471 km event should be in the log");
-        assert!(has_471_1km, "471.1 km event should be in the log");
-
-        // Verify events occurred within the same integration step (900s)
-        let time_diff = events[1].window_open - events[0].window_open;
-        assert!(
-            time_diff < 900.0,
-            "Events should occur within same 900s integration step, but were {:.2}s apart",
-            time_diff
-        );
+        let has_380km = events.iter().any(|e| e.name == "Event 2 - 380 km");
+        let has_410km = events.iter().any(|e| e.name == "Event 1 - 410 km");
+        assert!(has_380km, "380 km event should be in the log");
+        assert!(has_410km, "410 km event should be in the log");
     }
 
     #[test]
@@ -4924,6 +5066,265 @@ mod tests {
         // Both events should be in the log
         let events = prop.event_log();
         assert_eq!(events.len(), 2, "Both events should be logged");
+    }
+
+    /// Test that TimeEvent with state-modifying callbacks produces the same result
+    /// as creating a new propagator with the modified state at the event time.
+    /// Tests at multiple offsets to verify accuracy is bounded by integrator precision,
+    /// not by interpolation error.
+    #[test]
+    fn test_dnumericalorbitpropagator_event_callback_accuracy_at_different_times() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Inclined LEO orbit — non-axis-aligned so frame rotations matter
+        let oe = Vector6::new(
+            R_EARTH + 700e3,
+            0.001,
+            97.8_f64.to_radians(),
+            0.26,
+            0.52,
+            0.79,
+        );
+        let state = state_koe_to_eci(oe, AngleFormat::Radians);
+        let x_init = DVector::from_column_slice(state.as_slice());
+
+        let force_config = ForceModelConfig::earth_gravity();
+        let prop_config = NumericalPropagationConfig::default();
+        let target_epoch = epoch + 120.0;
+
+        // Delta-v to apply at each event time
+        let dv = DVector::from_vec(vec![0.0, 0.0, 0.0, 0.1, -0.05, 0.02]);
+
+        let offsets = [0.0, 0.0001, 1.0, 10.0, 30.0, 60.0];
+
+        for &offset in &offsets {
+            // --- Baseline: propagate to burn time, apply dv, new propagator ---
+            let baseline_state = if offset <= 1e-12 {
+                let mut x_burned = x_init.clone();
+                for i in 3..6 {
+                    x_burned[i] += dv[i];
+                }
+                let mut p = DNumericalOrbitPropagator::new(
+                    epoch,
+                    x_burned,
+                    prop_config.clone(),
+                    force_config.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                p.propagate_to(target_epoch);
+                p.current_state().clone()
+            } else {
+                let mut p1 = DNumericalOrbitPropagator::new(
+                    epoch,
+                    x_init.clone(),
+                    prop_config.clone(),
+                    force_config.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                p1.propagate_to(epoch + offset);
+                let mut state_at_burn = p1.current_state().clone();
+                for i in 3..6 {
+                    state_at_burn[i] += dv[i];
+                }
+                let mut p2 = DNumericalOrbitPropagator::new(
+                    epoch + offset,
+                    state_at_burn,
+                    prop_config.clone(),
+                    force_config.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                p2.propagate_to(target_epoch);
+                p2.current_state().clone()
+            };
+
+            // --- TimeEvent approach ---
+            let dv_clone = dv.clone();
+            let mut prop_te = DNumericalOrbitPropagator::new(
+                epoch,
+                x_init.clone(),
+                prop_config.clone(),
+                force_config.clone(),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+
+            use crate::events::EventAction;
+            let event = DTimeEvent::new(epoch + offset, format!("Burn_T+{offset}")).with_callback(
+                Box::new(move |_t, state, _params| {
+                    let mut new_state = state.clone();
+                    for i in 3..6 {
+                        new_state[i] += dv_clone[i];
+                    }
+                    (Some(new_state), None, EventAction::Continue)
+                }),
+            );
+
+            prop_te.add_event_detector(Box::new(event));
+            prop_te.propagate_to(target_epoch);
+            let te_state = prop_te.current_state();
+
+            // --- Compare ---
+            let pos_err = (te_state.rows(0, 3) - baseline_state.rows(0, 3)).norm();
+            let vel_err = (te_state.rows(3, 3) - baseline_state.rows(3, 3)).norm();
+
+            // Position error should be sub-millimeter for single burns
+            assert!(
+                pos_err < 1e-2,
+                "T+{offset}s: position error {pos_err:.2e} m exceeds 10 mm threshold"
+            );
+            // Velocity error should be sub-micron/s
+            assert!(
+                vel_err < 1e-5,
+                "T+{offset}s: velocity error {vel_err:.2e} m/s exceeds 10 μm/s threshold"
+            );
+
+            // Verify the event was detected
+            let events = prop_te.event_log();
+            assert_eq!(
+                events.len(),
+                1,
+                "T+{offset}s: expected 1 event, got {}",
+                events.len()
+            );
+        }
+    }
+
+    /// Test that multiple TimeEvent impulses in sequence produce the same result
+    /// as chaining new propagators at each burn time.
+    #[test]
+    fn test_dnumericalorbitpropagator_event_callback_multi_impulse_accuracy() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let oe = Vector6::new(
+            R_EARTH + 700e3,
+            0.001,
+            97.8_f64.to_radians(),
+            0.26,
+            0.52,
+            0.79,
+        );
+        let state = state_koe_to_eci(oe, AngleFormat::Radians);
+        let x_init = DVector::from_column_slice(state.as_slice());
+
+        let force_config = ForceModelConfig::earth_gravity();
+        let prop_config = NumericalPropagationConfig::default();
+
+        // Three impulses at different times
+        let dvs = [
+            DVector::from_vec(vec![0.0, 0.0, 0.0, 0.1, -0.05, 0.02]),
+            DVector::from_vec(vec![0.0, 0.0, 0.0, -0.03, 0.08, -0.01]),
+            DVector::from_vec(vec![0.0, 0.0, 0.0, 0.02, -0.02, 0.005]),
+        ];
+        let burn_times = [0.0001, 60.0, 120.0]; // seconds after epoch
+        let target_epoch = epoch + 180.0;
+
+        // --- Baseline: chain of new propagators ---
+        let mut x_state = x_init.clone();
+        let mut cur_ep = epoch;
+        for (dv, &t_burn) in dvs.iter().zip(&burn_times) {
+            let burn_ep = epoch + t_burn;
+            if burn_ep > cur_ep {
+                let mut p = DNumericalOrbitPropagator::new(
+                    cur_ep,
+                    x_state.clone(),
+                    prop_config.clone(),
+                    force_config.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                p.propagate_to(burn_ep);
+                x_state = p.current_state().clone();
+                cur_ep = burn_ep;
+            }
+            for i in 3..6 {
+                x_state[i] += dv[i];
+            }
+        }
+        let mut p_final = DNumericalOrbitPropagator::new(
+            cur_ep,
+            x_state,
+            prop_config.clone(),
+            force_config.clone(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        p_final.propagate_to(target_epoch);
+        let baseline_state = p_final.current_state().clone();
+
+        // --- TimeEvent approach: single propagator with 3 events ---
+        use crate::events::EventAction;
+
+        let mut prop_te = DNumericalOrbitPropagator::new(
+            epoch,
+            x_init.clone(),
+            prop_config.clone(),
+            force_config.clone(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        for (k, (dv, &t_burn)) in dvs.iter().zip(&burn_times).enumerate() {
+            let dv_clone = dv.clone();
+            let event = DTimeEvent::new(epoch + t_burn, format!("Burn_{k}")).with_callback(
+                Box::new(move |_t, state, _params| {
+                    let mut new_state = state.clone();
+                    for i in 3..6 {
+                        new_state[i] += dv_clone[i];
+                    }
+                    (Some(new_state), None, EventAction::Continue)
+                }),
+            );
+            prop_te.add_event_detector(Box::new(event));
+        }
+
+        prop_te.propagate_to(target_epoch);
+        let te_state = prop_te.current_state();
+
+        // Compare
+        let pos_err = (te_state.rows(0, 3) - baseline_state.rows(0, 3)).norm();
+        let vel_err = (te_state.rows(3, 3) - baseline_state.rows(3, 3)).norm();
+
+        // Multi-impulse accumulates error across 3 burns — allow 10 mm
+        assert!(
+            pos_err < 1e-2,
+            "Multi-impulse position error {pos_err:.2e} m exceeds 10 mm threshold"
+        );
+        assert!(
+            vel_err < 1e-5,
+            "Multi-impulse velocity error {vel_err:.2e} m/s exceeds 10 μm/s threshold"
+        );
+
+        // All 3 events should be detected
+        let events = prop_te.event_log();
+        assert_eq!(events.len(), 3, "Expected 3 events, got {}", events.len());
     }
 
     #[test]

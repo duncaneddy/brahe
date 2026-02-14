@@ -132,6 +132,13 @@ pub trait DIntegrator: Send + Sync {
     /// Get the integrator configuration.
     fn config(&self) -> &IntegratorConfig;
 
+    /// Reset any internal caches (e.g., FSAL cached evaluations).
+    ///
+    /// Must be called when the state is externally modified (e.g., by an
+    /// event callback) so that cached derivative evaluations from the
+    /// previous state are not incorrectly reused.
+    fn reset_cache(&self) {}
+
     /// Advance the state by one timestep using this integration method.
     ///
     /// # Arguments
@@ -270,6 +277,13 @@ pub trait DIntegratorConstructor: DIntegrator + Sized {
 pub trait SIntegrator<const S: usize, const P: usize>: Send + Sync {
     /// Get the integrator configuration.
     fn config(&self) -> &IntegratorConfig;
+
+    /// Reset any internal caches (e.g., FSAL cached evaluations).
+    ///
+    /// Must be called when the state is externally modified (e.g., by an
+    /// event callback) so that cached derivative evaluations from the
+    /// previous state are not incorrectly reused.
+    fn reset_cache(&self) {}
 
     /// Advance the state by one timestep using this integration method.
     ///

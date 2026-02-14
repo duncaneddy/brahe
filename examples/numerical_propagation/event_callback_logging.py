@@ -89,7 +89,7 @@ prop2.add_event_detector(stop_event)
 prop2.propagate_to(epoch + orbital_period)
 
 # Check where propagation actually stopped
-actual_duration = prop2.current_epoch - epoch
+actual_duration = prop2.current_epoch() - epoch
 print(f"  Requested duration: {orbital_period:.1f}s")
 print(f"  Actual duration: {actual_duration:.1f}s")
 print(f"  Stopped early: {actual_duration < orbital_period}")

@@ -50,7 +50,7 @@ for event in events:
     print(f"  '{event.name}' at t+{dt:.1f}s")
 
 # Verify propagation stopped at terminal event
-final_time = prop.current_epoch - epoch
+final_time = prop.current_epoch() - epoch
 print(f"\nPropagation stopped at: t+{final_time:.1f}s (requested: t+7200s)")
 
 # Validate

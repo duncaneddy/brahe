@@ -74,7 +74,7 @@ def test_numericalorbitpropagator_construction_default():
 
     assert prop is not None
     assert prop.initial_epoch == epoch
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
     assert prop.state_dim == 6
 
 
@@ -139,7 +139,7 @@ def test_numericalorbitpropagator_dstatepropagator_step_by():
 
     prop.step_by(60.0)
 
-    assert prop.current_epoch == epoch + 60.0
+    assert prop.current_epoch() == epoch + 60.0
     new_state = prop.current_state()
     assert len(new_state) == 6
     # State should have changed
@@ -162,7 +162,7 @@ def test_numericalorbitpropagator_dstatepropagator_propagate_to_forward():
     target = epoch + 3600.0  # 1 hour
     prop.propagate_to(target)
 
-    assert prop.current_epoch == target
+    assert prop.current_epoch() == target
 
 
 def test_numericalorbitpropagator_dstatepropagator_step_by_backward():
@@ -180,11 +180,11 @@ def test_numericalorbitpropagator_dstatepropagator_step_by_backward():
 
     # Step forward first
     prop.step_by(120.0)
-    assert prop.current_epoch == epoch + 120.0
+    assert prop.current_epoch() == epoch + 120.0
 
     # Then step backward
     prop.step_by(-60.0)
-    assert prop.current_epoch == epoch + 60.0
+    assert prop.current_epoch() == epoch + 60.0
 
 
 def test_numericalorbitpropagator_dstatepropagator_propagate_to_backward():
@@ -205,7 +205,7 @@ def test_numericalorbitpropagator_dstatepropagator_propagate_to_backward():
 
     # Then propagate backward
     prop.propagate_to(epoch + 300.0)
-    assert prop.current_epoch == epoch + 300.0
+    assert prop.current_epoch() == epoch + 300.0
 
 
 def test_numericalorbitpropagator_dstatepropagator_propagate_steps():
@@ -224,7 +224,7 @@ def test_numericalorbitpropagator_dstatepropagator_propagate_steps():
     prop.step_size = 60.0
     prop.propagate_steps(5)
 
-    assert prop.current_epoch == epoch + 300.0
+    assert prop.current_epoch() == epoch + 300.0
 
 
 def test_numericalorbitpropagator_dstatepropagator_reset():
@@ -242,12 +242,12 @@ def test_numericalorbitpropagator_dstatepropagator_reset():
 
     # Propagate forward
     prop.propagate_to(epoch + 3600.0)
-    assert prop.current_epoch != epoch
+    assert prop.current_epoch() != epoch
 
     # Reset
     prop.reset()
 
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
     np.testing.assert_array_almost_equal(prop.current_state(), state)
 
 
@@ -265,7 +265,7 @@ def test_numericalorbitpropagator_dstatepropagator_getters():
     )
 
     assert prop.initial_epoch == epoch
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
     assert prop.state_dim == 6
     np.testing.assert_array_almost_equal(prop.initial_state(), state)
     np.testing.assert_array_almost_equal(prop.current_state(), state)
@@ -906,7 +906,7 @@ def test_numericalorbitpropagator_event_detection_terminal_event():
 
     # Should have stopped at 30 minutes
     assert prop.terminated(), "Propagator should be terminated"
-    current = prop.current_epoch
+    current = prop.current_epoch()
     assert abs(current - terminal_time) < 10.0, (
         f"Current epoch {current - epoch} not close to {terminal_time - epoch}"
     )
@@ -1716,7 +1716,7 @@ def test_numericalorbitpropagator_edge_case_backward_then_forward():
     # Forward again
     prop.propagate_to(epoch + 900.0)
 
-    assert prop.current_epoch == epoch + 900.0
+    assert prop.current_epoch() == epoch + 900.0
 
 
 def test_numericalorbitpropagator_edge_case_single_step_propagation():
@@ -1735,7 +1735,7 @@ def test_numericalorbitpropagator_edge_case_single_step_propagation():
     prop.step_size = 60.0
     prop.propagate_steps(1)
 
-    assert prop.current_epoch == epoch + 60.0
+    assert prop.current_epoch() == epoch + 60.0
 
 
 # =============================================================================
@@ -1780,7 +1780,7 @@ def test_numericalorbitpropagator_construction_multiple_integrators():
         )
 
         prop.propagate_to(epoch + 60.0)
-        assert prop.current_epoch == epoch + 60.0
+        assert prop.current_epoch() == epoch + 60.0
 
 
 # =============================================================================
@@ -1801,10 +1801,10 @@ def test_numericalorbitpropagator_current_epoch():
         None,
     )
 
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
 
     prop.step_by(60.0)
-    assert prop.current_epoch == epoch + 60.0
+    assert prop.current_epoch() == epoch + 60.0
 
 
 def test_numericalorbitpropagator_current_state():
@@ -2020,7 +2020,7 @@ def test_numericalorbitpropagator_force_gravity_point_mass():
     prop.propagate_to(epoch + period)
 
     # Verify propagation completed
-    assert prop.current_epoch == epoch + period
+    assert prop.current_epoch() == epoch + period
 
 
 def test_numericalorbitpropagator_force_combined_leo():
@@ -2039,7 +2039,7 @@ def test_numericalorbitpropagator_force_combined_leo():
 
     prop.propagate_to(epoch + 600.0)
 
-    assert prop.current_epoch == epoch + 600.0
+    assert prop.current_epoch() == epoch + 600.0
 
 
 def test_numericalorbitpropagator_force_combined_geo():
@@ -2062,7 +2062,7 @@ def test_numericalorbitpropagator_force_combined_geo():
 
     prop.propagate_to(epoch + 3600.0)
 
-    assert prop.current_epoch == epoch + 3600.0
+    assert prop.current_epoch() == epoch + 3600.0
 
 
 # =============================================================================
@@ -2151,20 +2151,20 @@ def test_numericalorbitpropagator_existing_methods_unchanged():
     )
 
     # Test basic methods still work
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
     assert len(prop.current_state()) == 6
     assert len(prop.initial_state()) == 6
     assert prop.state_dim == 6
 
     # Test propagation methods
     prop.step_by(60.0)
-    assert prop.current_epoch == epoch + 60.0
+    assert prop.current_epoch() == epoch + 60.0
 
     prop.reset()
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
 
     prop.propagate_to(epoch + 120.0)
-    assert prop.current_epoch == epoch + 120.0
+    assert prop.current_epoch() == epoch + 120.0
 
     # Test event methods exist
     _ = prop.event_log()
@@ -2193,7 +2193,7 @@ def test_numericalorbitpropagator_force_gravity_spherical_harmonic():
 
     prop.propagate_to(epoch + 600.0)
 
-    assert prop.current_epoch == epoch + 600.0
+    assert prop.current_epoch() == epoch + 600.0
 
 
 def test_numericalorbitpropagator_force_gravity_j2_perturbation():
@@ -2282,7 +2282,7 @@ def test_numericalorbitpropagator_force_srp_effects():
 
     prop.propagate_to(epoch + 3600.0)
 
-    assert prop.current_epoch == epoch + 3600.0
+    assert prop.current_epoch() == epoch + 3600.0
 
 
 def test_numericalorbitpropagator_force_third_body_sun():
@@ -2304,7 +2304,7 @@ def test_numericalorbitpropagator_force_third_body_sun():
     # Propagate for several hours
     prop.propagate_to(epoch + 12 * 3600.0)
 
-    assert prop.current_epoch == epoch + 12 * 3600.0
+    assert prop.current_epoch() == epoch + 12 * 3600.0
 
 
 def test_numericalorbitpropagator_force_third_body_moon():
@@ -2325,7 +2325,7 @@ def test_numericalorbitpropagator_force_third_body_moon():
 
     prop.propagate_to(epoch + 6 * 3600.0)
 
-    assert prop.current_epoch == epoch + 6 * 3600.0
+    assert prop.current_epoch() == epoch + 6 * 3600.0
 
 
 def test_numericalorbitpropagator_force_high_fidelity():
@@ -2344,7 +2344,7 @@ def test_numericalorbitpropagator_force_high_fidelity():
 
     prop.propagate_to(epoch + 600.0)
 
-    assert prop.current_epoch == epoch + 600.0
+    assert prop.current_epoch() == epoch + 600.0
 
 
 def test_numericalorbitpropagator_force_conservative_forces():
@@ -2362,7 +2362,7 @@ def test_numericalorbitpropagator_force_conservative_forces():
 
     prop.propagate_to(epoch + 600.0)
 
-    assert prop.current_epoch == epoch + 600.0
+    assert prop.current_epoch() == epoch + 600.0
 
 
 # =============================================================================
@@ -2386,7 +2386,7 @@ def test_numericalorbitpropagator_propagation_mode_state_only():
     prop.propagate_to(epoch + 600.0)
 
     # Should complete without error
-    assert prop.current_epoch == epoch + 600.0
+    assert prop.current_epoch() == epoch + 600.0
 
 
 def test_numericalorbitpropagator_integrator_rk4():
@@ -2401,7 +2401,7 @@ def test_numericalorbitpropagator_integrator_rk4():
 
     prop.propagate_to(epoch + 600.0)
 
-    assert prop.current_epoch == epoch + 600.0
+    assert prop.current_epoch() == epoch + 600.0
 
 
 def test_numericalorbitpropagator_integrator_rkf45():
@@ -2416,7 +2416,7 @@ def test_numericalorbitpropagator_integrator_rkf45():
 
     prop.propagate_to(epoch + 600.0)
 
-    assert prop.current_epoch == epoch + 600.0
+    assert prop.current_epoch() == epoch + 600.0
 
 
 def test_numericalorbitpropagator_integrator_dp54():
@@ -2431,7 +2431,7 @@ def test_numericalorbitpropagator_integrator_dp54():
 
     prop.propagate_to(epoch + 600.0)
 
-    assert prop.current_epoch == epoch + 600.0
+    assert prop.current_epoch() == epoch + 600.0
 
 
 def test_numericalorbitpropagator_integrator_comparison():
@@ -2602,7 +2602,7 @@ def test_numericalorbitpropagator_accuracy_geo_regime():
     period = orbital_period(oe[0])
     prop.propagate_to(epoch + period / 2)
 
-    assert prop.current_epoch == epoch + period / 2
+    assert prop.current_epoch() == epoch + period / 2
 
 
 def test_numericalorbitpropagator_accuracy_heo_regime():
@@ -2716,7 +2716,7 @@ def test_numericalorbitpropagator_event_at_final_epoch():
 
     # The event might or might not be detected at the exact boundary
     # This test verifies the propagation completes without error
-    assert prop.current_epoch == final_epoch
+    assert prop.current_epoch() == final_epoch
 
 
 def test_numericalorbitpropagator_event_simultaneous_events():
@@ -2932,7 +2932,7 @@ def test_numericalorbitpropagator_construction_custom_step_size():
     assert prop.step_size == 30.0
 
     prop.propagate_steps(10)
-    assert prop.current_epoch == epoch + 300.0
+    assert prop.current_epoch() == epoch + 300.0
 
 
 def test_numericalorbitpropagator_construction_from_eci_full():
@@ -3268,7 +3268,7 @@ def test_numericalorbitpropagator_multi_orbit_propagation():
     period = orbital_period(oe[0])
     prop.propagate_to(epoch + 5 * period)
 
-    assert prop.current_epoch == epoch + 5 * period
+    assert prop.current_epoch() == epoch + 5 * period
 
 
 def test_numericalorbitpropagator_propagate_one_day():
@@ -3287,7 +3287,7 @@ def test_numericalorbitpropagator_propagate_one_day():
     one_day = 86400.0
     prop.propagate_to(epoch + one_day)
 
-    assert prop.current_epoch == epoch + one_day
+    assert prop.current_epoch() == epoch + one_day
 
 
 # =============================================================================
@@ -3351,7 +3351,7 @@ def test_numericalorbitpropagator_callback_stop_propagation():
 
     # Should have stopped at event
     assert prop.terminated()
-    assert abs(prop.current_epoch - (epoch + 1800.0)) < 10.0
+    assert abs(prop.current_epoch() - (epoch + 1800.0)) < 10.0
 
 
 # =============================================================================
@@ -3903,7 +3903,7 @@ def test_numericalorbitpropagator_covariance_gcrf():
 
     # Get covariance in GCRF
     try:
-        cov_gcrf = prop.covariance_gcrf(prop.current_epoch)
+        cov_gcrf = prop.covariance_gcrf(prop.current_epoch())
         assert cov_gcrf.shape == (6, 6)
         # Should be symmetric
         assert np.allclose(cov_gcrf, cov_gcrf.T, atol=1e-10)
@@ -3965,7 +3965,7 @@ def test_numericalorbitpropagator_covariance_positive_definiteness():
     prop.propagate_to(epoch + 3600.0)
 
     try:
-        cov = prop.covariance(prop.current_epoch)
+        cov = prop.covariance(prop.current_epoch())
         if cov is not None:
             # Check positive definiteness via eigenvalues
             eigvals = np.linalg.eigvalsh(cov)
@@ -3997,7 +3997,7 @@ def test_numericalorbitpropagator_covariance_stm_formula_verification():
     prop.propagate_to(epoch + 3600.0)
 
     stm = prop.stm()
-    cov = prop.covariance(prop.current_epoch)
+    cov = prop.covariance(prop.current_epoch())
 
     if stm is not None and cov is not None:
         # Verify P(t) = STM @ P0 @ STM.T
@@ -4407,8 +4407,8 @@ def test_numericalorbitpropagator_state_provider_angle_format():
 
     # Get Keplerian elements in different formats
     try:
-        koe_rad = prop.koe(prop.current_epoch, AngleFormat.RADIANS)
-        koe_deg = prop.koe(prop.current_epoch, AngleFormat.DEGREES)
+        koe_rad = prop.koe(prop.current_epoch(), AngleFormat.RADIANS)
+        koe_deg = prop.koe(prop.current_epoch(), AngleFormat.DEGREES)
 
         # Check conversion consistency
         assert koe_rad is not None and koe_deg is not None
@@ -4837,7 +4837,7 @@ def test_numericalorbitpropagator_eviction_policy_max_size_config():
     prop.propagate_to(epoch + 86400.0)
 
     # Should complete without error
-    assert prop.current_epoch == epoch + 86400.0
+    assert prop.current_epoch() == epoch + 86400.0
 
 
 def test_numericalorbitpropagator_eviction_policy_max_age_config():
@@ -4865,7 +4865,7 @@ def test_numericalorbitpropagator_eviction_policy_max_age_config():
     prop.propagate_to(epoch + 86400.0)
 
     # Should complete without error
-    assert prop.current_epoch == epoch + 86400.0
+    assert prop.current_epoch() == epoch + 86400.0
 
 
 # =============================================================================
@@ -5097,13 +5097,13 @@ def test_numericalorbitpropagator_event_detection_with_backward_propagation():
 
     # Should have detected one event
     assert len(prop.event_log()) == 1
-    forward_final_epoch = prop.current_epoch
+    forward_final_epoch = prop.current_epoch()
 
     # Now test that we can propagate backward (state propagation works)
     prop.step_by(-900.0)
 
     # Verify backward propagation changed the state
-    assert prop.current_epoch < forward_final_epoch, (
+    assert prop.current_epoch() < forward_final_epoch, (
         "Backward propagation should move time backwards"
     )
 
@@ -5137,4 +5137,149 @@ def test_numericalorbitpropagator_edge_case_propagate_to_same_epoch():
     # State should be unchanged
     final_state = prop.current_state()
     assert np.allclose(initial_state, final_state, rtol=1e-14)
-    assert prop.current_epoch == epoch
+    assert prop.current_epoch() == epoch
+
+
+def test_numericalorbitpropagator_event_callback_accuracy_at_different_times():
+    """Test that TimeEvent with state-modifying callbacks matches new-propagator baseline.
+
+    Each TimeEvent test gets its own baseline where the burn is applied at the same
+    time via the 'new propagator' method. This isolates numerical error from the
+    physical effect of applying the burn at different times.
+    """
+    from brahe import TimeEvent, EventAction
+
+    epoch = create_test_epoch()
+
+    # Inclined LEO orbit — non-axis-aligned
+    oe = np.array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    x_init = state_koe_to_eci(oe, AngleFormat.DEGREES)
+
+    force_config = ForceModelConfig.earth_gravity()
+    prop_config = NumericalPropagationConfig.default()
+    target_epoch = epoch + 120.0
+
+    # Delta-v to apply
+    dv = np.array([0.0, 0.0, 0.0, 0.1, -0.05, 0.02])
+
+    offsets = [0.0, 0.0001, 1.0, 10.0, 30.0, 60.0]
+
+    for offset in offsets:
+        # --- Baseline: propagate to burn time, apply dv, new propagator ---
+        if offset <= 1e-12:
+            x_burned = x_init.copy()
+            x_burned[3:6] += dv[3:6]
+            p = NumericalOrbitPropagator(epoch, x_burned, prop_config, force_config)
+            p.propagate_to(target_epoch)
+            baseline_state = p.current_state()
+        else:
+            p1 = NumericalOrbitPropagator(epoch, x_init, prop_config, force_config)
+            p1.propagate_to(epoch + offset)
+            state_at_burn = p1.current_state().copy()
+            state_at_burn[3:6] += dv[3:6]
+            p2 = NumericalOrbitPropagator(
+                epoch + offset, state_at_burn, prop_config, force_config
+            )
+            p2.propagate_to(target_epoch)
+            baseline_state = p2.current_state()
+
+        # --- TimeEvent approach ---
+        dv_copy = dv.copy()
+
+        def make_cb(dv_local):
+            def cb(event_epoch, event_state):
+                new_state = event_state.copy()
+                new_state[3:6] += dv_local[3:6]
+                return (new_state, EventAction.CONTINUE)
+
+            return cb
+
+        prop_te = NumericalOrbitPropagator(epoch, x_init, prop_config, force_config)
+        event = TimeEvent(epoch + offset, f"Burn_T+{offset}").with_callback(
+            make_cb(dv_copy)
+        )
+        prop_te.add_event_detector(event)
+        prop_te.propagate_to(target_epoch)
+        te_state = prop_te.current_state()
+
+        # --- Compare ---
+        pos_err = np.linalg.norm(te_state[:3] - baseline_state[:3])
+        vel_err = np.linalg.norm(te_state[3:6] - baseline_state[3:6])
+
+        assert pos_err < 1e-2, (
+            f"T+{offset}s: position error {pos_err:.2e} m exceeds 10 mm threshold"
+        )
+        assert vel_err < 1e-5, (
+            f"T+{offset}s: velocity error {vel_err:.2e} m/s exceeds 10 μm/s threshold"
+        )
+
+        # Verify the event was detected
+        events = prop_te.event_log()
+        assert len(events) == 1, f"T+{offset}s: expected 1 event, got {len(events)}"
+
+
+def test_numericalorbitpropagator_event_callback_multi_impulse_accuracy():
+    """Test that multiple TimeEvent impulses match chaining new propagators."""
+    from brahe import TimeEvent, EventAction
+
+    epoch = create_test_epoch()
+
+    oe = np.array([R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+    x_init = state_koe_to_eci(oe, AngleFormat.DEGREES)
+
+    force_config = ForceModelConfig.earth_gravity()
+    prop_config = NumericalPropagationConfig.default()
+
+    dvs = [
+        np.array([0.0, 0.0, 0.0, 0.1, -0.05, 0.02]),
+        np.array([0.0, 0.0, 0.0, -0.03, 0.08, -0.01]),
+        np.array([0.0, 0.0, 0.0, 0.02, -0.02, 0.005]),
+    ]
+    burn_times = [0.0001, 60.0, 120.0]
+    target_epoch = epoch + 180.0
+
+    # --- Baseline: chain of new propagators ---
+    x_state = x_init.copy()
+    cur_ep = epoch
+    for dv_k, t_burn in zip(dvs, burn_times):
+        burn_ep = epoch + t_burn
+        if burn_ep > cur_ep:
+            p = NumericalOrbitPropagator(cur_ep, x_state, prop_config, force_config)
+            p.propagate_to(burn_ep)
+            x_state = p.current_state().copy()
+            cur_ep = burn_ep
+        x_state[3:6] += dv_k[3:6]
+
+    p_final = NumericalOrbitPropagator(cur_ep, x_state, prop_config, force_config)
+    p_final.propagate_to(target_epoch)
+    baseline_state = p_final.current_state()
+
+    # --- TimeEvent approach: single propagator with 3 events ---
+    def make_impulse_cb(dv_local):
+        def cb(event_epoch, event_state):
+            new_state = event_state.copy()
+            new_state[3:6] += dv_local[3:6]
+            return (new_state, EventAction.CONTINUE)
+
+        return cb
+
+    prop_te = NumericalOrbitPropagator(epoch, x_init, prop_config, force_config)
+    for k, (dv_k, t_burn) in enumerate(zip(dvs, burn_times)):
+        event = TimeEvent(epoch + t_burn, f"Burn_{k}").with_callback(
+            make_impulse_cb(dv_k)
+        )
+        prop_te.add_event_detector(event)
+
+    prop_te.propagate_to(target_epoch)
+    te_state = prop_te.current_state()
+
+    # Compare
+    pos_err = np.linalg.norm(te_state[:3] - baseline_state[:3])
+    vel_err = np.linalg.norm(te_state[3:6] - baseline_state[3:6])
+
+    assert pos_err < 1e-2, (
+        f"Multi-impulse position error {pos_err:.2e} m exceeds 10 mm threshold"
+    )
+    assert vel_err < 1e-5, (
+        f"Multi-impulse velocity error {vel_err:.2e} m/s exceeds 10 μm/s threshold"
+    )

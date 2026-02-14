@@ -42,17 +42,7 @@ fn main() {
     println!("Velocity R:      {:.6} m/s", x_rel_rtn[3]);
     println!("Velocity T:      {:.6} m/s", x_rel_rtn[4]);
     println!("Velocity N:      {:.6} m/s\n", x_rel_rtn[5]);
-    // Expected output:
-    // Radial (R):      -1508.659 m
-    // Along-track (T): 11576.951 m
-    // Cross-track (N): 4401.874 m
-    // Velocity R:      -17.504100 m/s
-    // Velocity T:      12.730654 m/s
-    // Velocity N:      7.959939 m/s
-
     // Calculate total relative distance
     let relative_distance = x_rel_rtn.fixed_rows::<3>(0).norm();
     println!("Total relative distance: {:.3} m", relative_distance);
-    // Expected output:
-    // Total relative distance: 12477.113 m
 }

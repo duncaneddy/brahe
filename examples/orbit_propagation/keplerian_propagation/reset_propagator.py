@@ -25,5 +25,5 @@ print(f"After propagation: {len(prop.trajectory)} states")
 prop.reset()
 print(f"After reset: {len(prop.trajectory)} states")
 # After reset: 1 states
-print(f"Current epoch: {prop.current_epoch}")
+print(f"Current epoch: {prop.current_epoch()}")
 # Current epoch: 2024-01-01 00:00:00.000 UTC

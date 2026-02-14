@@ -37,6 +37,7 @@ use crate::orbits::tle::{
     TleFormat, calculate_tle_line_checksum, create_tle_lines, epoch_from_tle,
     norad_id_numeric_to_alpha5, parse_norad_id, validate_tle_lines,
 };
+use crate::propagators::TrajectoryMode;
 use crate::propagators::traits::{SOrbitStateProvider, SStatePropagator, SStateProvider};
 use crate::time::{Epoch, TimeSystem};
 use crate::trajectories::DOrbitTrajectory;
@@ -140,12 +141,6 @@ fn svec6_to_dvec(sv: &Vector6<f64>) -> DVector<f64> {
     DVector::from_column_slice(sv.as_slice())
 }
 
-/// Convert DVector to Vector6 for internal SGP4 usage
-#[inline]
-fn dvec_to_svec6(dv: &DVector<f64>) -> Vector6<f64> {
-    Vector6::from_column_slice(&dv.as_slice()[0..6])
-}
-
 /// SGP4 propagator
 #[allow(non_camel_case_types)]
 pub struct SGPPropagator {
@@ -176,8 +171,17 @@ pub struct SGPPropagator {
     /// Initial state vector (always ECI Cartesian from SGP4)
     initial_state: Vector6<f64>,
 
+    /// Current epoch (tracked independently of trajectory)
+    epoch_current: Epoch,
+
+    /// Current state vector in output frame/representation (tracked independently)
+    state_current: Vector6<f64>,
+
     /// Accumulated trajectory with configurable management
     pub trajectory: DOrbitTrajectory,
+
+    /// Trajectory storage mode
+    trajectory_mode: TrajectoryMode,
 
     /// Step size in seconds for stepping operations
     pub step_size: f64,
@@ -228,7 +232,10 @@ impl Clone for SGPPropagator {
             constants: self.constants.clone(),
             epoch: self.epoch,
             initial_state: self.initial_state,
+            epoch_current: self.epoch_current,
+            state_current: self.state_current,
             trajectory: self.trajectory.clone(),
+            trajectory_mode: self.trajectory_mode,
             step_size: self.step_size,
             frame: self.frame,
             representation: self.representation,
@@ -256,6 +263,9 @@ impl std::fmt::Debug for SGPPropagator {
             .field("norad_id", &self.norad_id)
             .field("epoch", &self.epoch)
             .field("initial_state", &self.initial_state)
+            .field("epoch_current", &self.epoch_current)
+            .field("state_current", &self.state_current)
+            .field("trajectory_mode", &self.trajectory_mode)
             .field("step_size", &self.step_size)
             .field("frame", &self.frame)
             .field("representation", &self.representation)
@@ -418,7 +428,10 @@ impl SGPPropagator {
             constants,
             epoch,
             initial_state,
+            epoch_current: epoch,
+            state_current: initial_state,
             trajectory,
+            trajectory_mode: TrajectoryMode::OutputStepsOnly,
             step_size,
             frame: OrbitFrame::ECI,
             representation: OrbitRepresentation::Cartesian,
@@ -667,7 +680,10 @@ impl SGPPropagator {
             constants,
             epoch: brahe_epoch,
             initial_state,
+            epoch_current: brahe_epoch,
+            state_current: initial_state,
             trajectory,
+            trajectory_mode: TrajectoryMode::OutputStepsOnly,
             step_size,
             frame: OrbitFrame::ECI,
             representation: OrbitRepresentation::Cartesian,
@@ -758,6 +774,27 @@ impl SGPPropagator {
         )
     }
 
+    /// Set trajectory storage mode.
+    ///
+    /// # Arguments
+    /// * `mode` - The trajectory storage mode to use
+    pub fn set_trajectory_mode(&mut self, mode: TrajectoryMode) {
+        self.trajectory_mode = mode;
+    }
+
+    /// Get the current trajectory storage mode.
+    ///
+    /// # Returns
+    /// * `TrajectoryMode` - Current trajectory storage mode
+    pub fn trajectory_mode(&self) -> TrajectoryMode {
+        self.trajectory_mode
+    }
+
+    /// Helper to determine if current state should be stored in trajectory.
+    fn should_store_state(&self) -> bool {
+        !matches!(self.trajectory_mode, TrajectoryMode::Disabled)
+    }
+
     /// Configure output format for propagated states (builder pattern).
     ///
     /// Sets the reference frame, representation type, and angle units for propagation output.
@@ -828,6 +865,9 @@ impl SGPPropagator {
             representation,
             angle_format,
         );
+        self.initial_state = initial_state;
+        self.epoch_current = self.epoch;
+        self.state_current = initial_state;
         self.trajectory
             .add(self.epoch, svec6_to_dvec(&initial_state));
 
@@ -1480,8 +1520,16 @@ impl SStatePropagator for SGPPropagator {
                     self.representation,
                     self.angle_format,
                 );
-                self.trajectory
-                    .add(event.window_open, svec6_to_dvec(&event_state_output));
+
+                // Always update independent state tracking
+                self.epoch_current = event.window_open;
+                self.state_current = event_state_output;
+
+                // Gate trajectory storage on mode
+                if self.should_store_state() {
+                    self.trajectory
+                        .add(event.window_open, svec6_to_dvec(&event_state_output));
+                }
 
                 // Check for terminal action
                 if action == EventAction::Stop {
@@ -1491,7 +1539,7 @@ impl SStatePropagator for SGPPropagator {
             }
         }
 
-        // If not terminated, add the target state to trajectory
+        // If not terminated, compute the target state
         let tle_state = self.propagate_internal(target_epoch);
         let new_state = convert_state_from_spg4_frame(
             target_epoch,
@@ -1500,7 +1548,15 @@ impl SStatePropagator for SGPPropagator {
             self.representation,
             self.angle_format,
         );
-        self.trajectory.add(target_epoch, svec6_to_dvec(&new_state))
+
+        // Always update independent state tracking
+        self.epoch_current = target_epoch;
+        self.state_current = new_state;
+
+        // Gate trajectory storage on mode
+        if self.should_store_state() {
+            self.trajectory.add(target_epoch, svec6_to_dvec(&new_state));
+        }
     }
 
     // Default implementation from trait is used for:
@@ -1518,12 +1574,11 @@ impl SStatePropagator for SGPPropagator {
     }
 
     fn current_epoch(&self) -> Epoch {
-        self.trajectory.last().unwrap().0
+        self.epoch_current
     }
 
     fn current_state(&self) -> Vector6<f64> {
-        let (_, dstate) = self.trajectory.last().unwrap();
-        dvec_to_svec6(&dstate)
+        self.state_current
     }
 
     fn step_size(&self) -> f64 {
@@ -1535,6 +1590,8 @@ impl SStatePropagator for SGPPropagator {
     }
 
     fn reset(&mut self) {
+        self.epoch_current = self.epoch;
+        self.state_current = self.initial_state;
         self.trajectory.clear();
         self.trajectory
             .add(self.epoch, svec6_to_dvec(&self.initial_state));
@@ -3563,5 +3620,117 @@ mod tests {
         let result = SGPPropagator::from_gp_record(&record, 60.0);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("norad_cat_id"));
+    }
+
+    // =========================================================================
+    // Trajectory Mode Tests
+    // =========================================================================
+
+    #[test]
+    fn test_sgppropagator_trajectory_mode_default() {
+        setup_global_test_eop();
+
+        let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+        let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+        let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+
+        assert_eq!(prop.trajectory_mode(), TrajectoryMode::OutputStepsOnly);
+    }
+
+    #[test]
+    fn test_sgppropagator_trajectory_mode_disabled() {
+        setup_global_test_eop();
+
+        let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+        let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+        let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+
+        prop.set_trajectory_mode(TrajectoryMode::Disabled);
+
+        let initial_epoch = prop.initial_epoch();
+        let initial_state = prop.initial_state();
+
+        // Propagate multiple steps
+        prop.step_by(60.0);
+        prop.step_by(60.0);
+        prop.step_by(60.0);
+
+        // Trajectory should only contain the initial state (from construction)
+        assert_eq!(prop.trajectory.len(), 1);
+
+        // But current_epoch and current_state should still be updated
+        let current_epoch = prop.current_epoch();
+        assert!(current_epoch > initial_epoch);
+        assert_abs_diff_eq!((current_epoch - initial_epoch), 180.0, epsilon = 1e-6);
+
+        let current_state = prop.current_state();
+        assert_ne!(current_state, initial_state);
+    }
+
+    #[test]
+    fn test_sgppropagator_trajectory_mode_output_steps_only() {
+        setup_global_test_eop();
+
+        let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+        let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+        let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+
+        // Default mode - should store states
+        prop.step_by(60.0);
+        prop.step_by(60.0);
+
+        // Should have initial state + 2 propagation steps
+        assert_eq!(prop.trajectory.len(), 3);
+    }
+
+    #[test]
+    fn test_sgppropagator_set_trajectory_mode_runtime() {
+        setup_global_test_eop();
+
+        let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+        let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+        let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+
+        // Start with default mode, propagate
+        prop.step_by(60.0);
+        assert_eq!(prop.trajectory.len(), 2); // initial + 1 step
+
+        // Switch to disabled mode
+        prop.set_trajectory_mode(TrajectoryMode::Disabled);
+        assert_eq!(prop.trajectory_mode(), TrajectoryMode::Disabled);
+
+        // Propagate more - trajectory should not grow
+        prop.step_by(60.0);
+        prop.step_by(60.0);
+        assert_eq!(prop.trajectory.len(), 2); // still 2
+
+        // But current state should reflect the latest propagation
+        let current_epoch = prop.current_epoch();
+        assert_abs_diff_eq!(
+            (current_epoch - prop.initial_epoch()),
+            180.0,
+            epsilon = 1e-6
+        );
+    }
+
+    #[test]
+    fn test_sgppropagator_trajectory_mode_reset() {
+        setup_global_test_eop();
+
+        let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+        let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+        let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
+
+        prop.set_trajectory_mode(TrajectoryMode::Disabled);
+        prop.step_by(60.0);
+        prop.step_by(60.0);
+
+        // Reset should restore to initial state
+        prop.reset();
+        assert_eq!(prop.current_epoch(), prop.initial_epoch());
+        assert_eq!(prop.current_state(), prop.initial_state());
+
+        // Trajectory mode should be preserved across reset
+        assert_eq!(prop.trajectory_mode(), TrajectoryMode::Disabled);
     }
 }

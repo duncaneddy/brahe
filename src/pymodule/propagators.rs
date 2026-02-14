@@ -293,9 +293,9 @@ impl PySGPPropagator {
     ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
     ///     propagator = bh.SGPPropagator.from_tle(line1, line2)
     ///     propagator.step()
-    ///     print(f"Current epoch: {propagator.current_epoch}")
+    ///     print(f"Current epoch: {propagator.current_epoch()}")
     ///     ```
-    #[getter]
+    #[pyo3(text_signature = "()")]
     pub fn current_epoch(&self) -> PyEpoch {
         PyEpoch { obj: self.propagator.current_epoch() }
     }
@@ -546,7 +546,7 @@ impl PySGPPropagator {
     ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     prop.step()  # Advance by default step_size
-    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "()")]
     pub fn step(&mut self) {
@@ -566,7 +566,7 @@ impl PySGPPropagator {
     ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     prop.step_by(120.0)  # Advance by 2 minutes
-    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "(step_size)")]
     pub fn step_by(&mut self, step_size: f64) {
@@ -607,7 +607,7 @@ impl PySGPPropagator {
     ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
     ///     prop = bh.SGPPropagator.from_tle(line1, line2, step_size=60.0)
     ///     prop.propagate_steps(10)  # Advance by 10 steps (600 seconds)
-    ///     print(f"After 10 steps: {prop.current_epoch}")
+    ///     print(f"After 10 steps: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "(num_steps)")]
     pub fn propagate_steps(&mut self, num_steps: usize) {
@@ -628,7 +628,7 @@ impl PySGPPropagator {
     ///     prop = bh.SGPPropagator.from_tle(line1, line2)
     ///     target = prop.epoch + 7200.0  # 2 hours later
     ///     prop.propagate_to(target)
-    ///     print(f"Propagated to: {prop.current_epoch}")
+    ///     print(f"Propagated to: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) {
@@ -647,11 +647,53 @@ impl PySGPPropagator {
     ///     initial_epoch = prop.epoch
     ///     prop.propagate_steps(100)
     ///     prop.reset()
-    ///     print(f"Reset to: {prop.current_epoch == initial_epoch}")
+    ///     print(f"Reset to: {prop.current_epoch() == initial_epoch}")
     ///     ```
     #[pyo3(text_signature = "()")]
     pub fn reset(&mut self) {
         self.propagator.reset();
+    }
+
+    /// Set trajectory storage mode.
+    ///
+    /// Controls whether propagation states are stored in the trajectory.
+    /// Use `TrajectoryMode.DISABLED` to prevent unbounded memory growth
+    /// during long-duration propagations.
+    ///
+    /// Args:
+    ///     mode (TrajectoryMode): The new trajectory mode.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     prop.set_trajectory_mode(bh.TrajectoryMode.DISABLED)
+    ///     ```
+    #[pyo3(text_signature = "(mode)")]
+    pub fn set_trajectory_mode(&mut self, mode: &PyTrajectoryMode) {
+        self.propagator.set_trajectory_mode(mode.mode);
+    }
+
+    /// Get current trajectory storage mode.
+    ///
+    /// Returns:
+    ///     TrajectoryMode: Current trajectory mode.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     line1 = "1 25544U 98067A   21027.77992426  .00003336  00000-0  68893-4 0  9990"
+    ///     line2 = "2 25544  51.6461 339.8014 0002571  24.9690  60.4407 15.48919393267689"
+    ///     prop = bh.SGPPropagator.from_tle(line1, line2)
+    ///     mode = prop.trajectory_mode
+    ///     ```
+    #[getter]
+    pub fn trajectory_mode(&self) -> PyTrajectoryMode {
+        PyTrajectoryMode { mode: self.propagator.trajectory_mode() }
     }
 
     /// Set trajectory eviction policy based on maximum size.
@@ -1723,7 +1765,7 @@ impl PyKeplerianPropagator {
     ///
     /// Returns:
     ///     Epoch: Current propagator epoch.
-    #[getter]
+    #[pyo3(text_signature = "()")]
     pub fn current_epoch(&self) -> PyEpoch {
         PyEpoch { obj: self.propagator.current_epoch() }
     }
@@ -1809,7 +1851,7 @@ impl PyKeplerianPropagator {
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.step()  # Advance by default step_size (60 seconds)
-    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "()")]
     pub fn step(&mut self) {
@@ -1831,7 +1873,7 @@ impl PyKeplerianPropagator {
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.step_by(120.0)  # Advance by 120 seconds
-    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "(step_size)")]
     pub fn step_by(&mut self, step_size: f64) {
@@ -1854,7 +1896,7 @@ impl PyKeplerianPropagator {
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     target = epc + 300.0  # Target 5 minutes ahead
     ///     prop.step_past(target)
-    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn step_past(&mut self, target_epoch: PyRef<PyEpoch>) {
@@ -1876,7 +1918,7 @@ impl PyKeplerianPropagator {
     ///     state = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.propagate_steps(10)  # Take 10 steps (600 seconds total)
-    ///     print(f"Advanced to: {prop.current_epoch}")
+    ///     print(f"Advanced to: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "(num_steps)")]
     pub fn propagate_steps(&mut self, num_steps: usize) {
@@ -1899,7 +1941,7 @@ impl PyKeplerianPropagator {
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     target = epc + 3600.0  # Propagate to 1 hour ahead
     ///     prop.propagate_to(target)
-    ///     print(f"Propagated to: {prop.current_epoch}")
+    ///     print(f"Propagated to: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "(target_epoch)")]
     pub fn propagate_to(&mut self, target_epoch: PyRef<PyEpoch>) {
@@ -1919,7 +1961,7 @@ impl PyKeplerianPropagator {
     ///     prop = bh.KeplerianPropagator(epc, state, bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None, 60.0)
     ///     prop.propagate_steps(10)
     ///     prop.reset()  # Return to initial epoch and state
-    ///     print(f"Reset to: {prop.current_epoch}")
+    ///     print(f"Reset to: {prop.current_epoch()}")
     ///     ```
     #[pyo3(text_signature = "()")]
     pub fn reset(&mut self) {
@@ -2627,19 +2669,18 @@ fn py_par_propagate_to(
         for (i, item) in prop_list.iter().enumerate() {
             let mut py_prop = item.cast::<PySGPPropagator>()?.borrow_mut();
 
-            // Transfer event_detectors back (for potential reuse)
+            // Take event state from propagated clone before transferring
             let detectors = props[i].take_event_detectors();
-            py_prop.propagator.set_event_detectors(detectors);
-
-            // Transfer event_log (the detected events)
             let event_log = props[i].take_event_log();
+            let terminated = props[i].is_terminated();
+
+            // Transfer full propagator state (trajectory, epoch_current, state_current, etc.)
+            py_prop.propagator = props[i].clone();
+
+            // Restore event detection state lost in clone
+            py_prop.propagator.set_event_detectors(detectors);
             py_prop.propagator.set_event_log(event_log);
-
-            // Transfer terminated flag
-            py_prop.propagator.set_terminated(props[i].is_terminated());
-
-            // Update trajectory
-            py_prop.propagator.trajectory = props[i].trajectory.clone();
+            py_prop.propagator.set_terminated(terminated);
         }
 
         Ok(())
@@ -4415,7 +4456,7 @@ impl PyNumericalOrbitPropagator {
     // =========================================================================
 
     /// Get current epoch.
-    #[getter]
+    #[pyo3(text_signature = "()")]
     pub fn current_epoch(&self) -> PyEpoch {
         PyEpoch { obj: self.propagator.current_epoch() }
     }
@@ -5722,7 +5763,7 @@ impl PyNumericalPropagator {
     // =========================================================================
 
     /// Get current epoch.
-    #[getter]
+    #[pyo3(text_signature = "()")]
     pub fn current_epoch(&self) -> PyEpoch {
         PyEpoch { obj: DStatePropagator::current_epoch(&self.propagator) }
     }

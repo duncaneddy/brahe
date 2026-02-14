@@ -70,7 +70,7 @@ def test_keplerianpropagator_new():
     )
 
     assert propagator.initial_epoch == epoch
-    assert propagator.current_epoch == epoch
+    assert propagator.current_epoch() == epoch
     state = propagator.initial_state()
     assert abs(state[0] - 7000e3) < 1.0
     assert abs(state[1] - 0.01) < 1e-10
@@ -224,7 +224,7 @@ def test_keplerianpropagator_orbitpropagator_step():
 
     propagator.step()
 
-    new_epoch = propagator.current_epoch
+    new_epoch = propagator.current_epoch()
     assert new_epoch == epoch + 60.0
     assert len(propagator.trajectory) == 2
 
@@ -250,7 +250,7 @@ def test_keplerianpropagator_orbitpropagator_step_by():
 
     propagator.step_by(120.0)
 
-    new_epoch = propagator.current_epoch
+    new_epoch = propagator.current_epoch()
     assert new_epoch == epoch + 120.0
 
     # Confirm only 2 states in trajectory (initial + 1 step)
@@ -281,7 +281,7 @@ def test_keplerian_orbitpropagator_step_past():
     target_epoch = epoch + 250.0
     propagator.step_past(target_epoch)
 
-    current_epoch = propagator.current_epoch
+    current_epoch = propagator.current_epoch()
     assert current_epoch > target_epoch
 
     # Should have 6 steps: initial + 5 steps of 60s
@@ -311,7 +311,7 @@ def test_keplerianpropagator_orbitpropagator_propagate_steps():
     propagator.propagate_steps(5)
 
     assert len(propagator.trajectory) == 6  # Initial + 5 steps
-    new_epoch = propagator.current_epoch
+    new_epoch = propagator.current_epoch()
     assert new_epoch == epoch + 300.0
 
     # Confirm all elements except for mean anomaly are unchanged
@@ -337,7 +337,7 @@ def test_keplerianpropagator_orbitpropagator_propagate_to():
     target_epoch = epoch + 90.0
     propagator.propagate_to(target_epoch)
 
-    current_epoch = propagator.current_epoch
+    current_epoch = propagator.current_epoch()
     assert current_epoch == target_epoch
 
     # Should have 3 steps: initial + 1 step of 60s + 1 step of 30s
@@ -363,11 +363,11 @@ def test_keplerianpropagator_orbitpropagator_current_epoch():
         60.0,
     )
 
-    assert propagator.current_epoch == epoch
+    assert propagator.current_epoch() == epoch
 
     # step and check epoch advanced
     propagator.step()
-    assert propagator.current_epoch != epoch
+    assert propagator.current_epoch() != epoch
 
 
 def test_keplerianpropagator_orbitpropagator_current_state():
@@ -508,7 +508,7 @@ def test_keplerianpropagator_orbitpropagator_reset():
     # Reset
     propagator.reset()
     assert len(propagator.trajectory) == 1
-    assert propagator.current_epoch == epoch
+    assert propagator.current_epoch() == epoch
 
 
 def test_keplerianpropagator_orbitpropagator_set_initial_conditions():
@@ -889,14 +889,14 @@ def test_orbit_propagator_step():
         60.0,
     )
 
-    initial_epoch = prop.current_epoch
+    initial_epoch = prop.current_epoch()
     step_size = prop.step_size
 
     # Step forward using default step() method
     prop.step()
 
     # Verify epoch advanced by step_size
-    new_epoch = prop.current_epoch
+    new_epoch = prop.current_epoch()
     assert abs(new_epoch - initial_epoch - step_size) < 1e-6
 
 
@@ -913,14 +913,14 @@ def test_orbit_propagator_step_past():
         60.0,
     )
 
-    initial_epoch = prop.current_epoch
+    initial_epoch = prop.current_epoch()
     target = initial_epoch + 250.0  # 250 seconds in the future
 
     # Use step_past to reach target
     prop.step_past(target)
 
     # Verify we've gone past the target
-    assert prop.current_epoch >= target
+    assert prop.current_epoch() >= target
 
 
 def test_orbit_propagator_step_past_already_past():
@@ -936,17 +936,17 @@ def test_orbit_propagator_step_past_already_past():
         60.0,
     )
 
-    initial_epoch = prop.current_epoch
+    initial_epoch = prop.current_epoch()
 
     # Step forward first
     prop.step_by(120.0)
-    current = prop.current_epoch
+    current = prop.current_epoch()
 
     # Try to step_past to an epoch in the past
     prop.step_past(initial_epoch)
 
     # Should not have changed (already past)
-    assert prop.current_epoch == current
+    assert prop.current_epoch() == current
 
 
 def test_orbit_propagator_propagate_steps():
@@ -962,7 +962,7 @@ def test_orbit_propagator_propagate_steps():
         60.0,
     )
 
-    initial_epoch = prop.current_epoch
+    initial_epoch = prop.current_epoch()
     step_size = prop.step_size
     num_steps = 5
 
@@ -970,7 +970,7 @@ def test_orbit_propagator_propagate_steps():
     prop.propagate_steps(num_steps)
 
     # Verify epoch advanced by num_steps * step_size
-    new_epoch = prop.current_epoch
+    new_epoch = prop.current_epoch()
     expected_time = step_size * num_steps
     assert abs(new_epoch - initial_epoch - expected_time) < 1e-3
 
@@ -988,14 +988,14 @@ def test_orbit_propagator_propagate_to():
         60.0,
     )
 
-    initial_epoch = prop.current_epoch
+    initial_epoch = prop.current_epoch()
     target = initial_epoch + 157.0  # Not a multiple of step_size
 
     # Propagate to exact target
     prop.propagate_to(target)
 
     # Verify we reached the target (within tolerance)
-    final_epoch = prop.current_epoch
+    final_epoch = prop.current_epoch()
     assert abs(final_epoch - target) < 1e-6
 
 
@@ -1012,14 +1012,14 @@ def test_orbit_propagator_propagate_to_past_epoch():
         60.0,
     )
 
-    initial_epoch = prop.current_epoch
+    initial_epoch = prop.current_epoch()
 
     # Try to propagate to a past epoch
     past = initial_epoch - 100.0
     prop.propagate_to(past)
 
     # Should not have changed
-    assert prop.current_epoch == initial_epoch
+    assert prop.current_epoch() == initial_epoch
 
 
 # Note: test_orbit_propagator_propagate_trajectory removed

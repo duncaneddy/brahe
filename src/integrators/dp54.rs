@@ -190,6 +190,10 @@ impl<const S: usize, const P: usize> SIntegrator<S, P> for DormandPrince54SInteg
         &self.config
     }
 
+    fn reset_cache(&self) {
+        *self.last_f.write().unwrap() = None;
+    }
+
     fn step(
         &self,
         t: f64,
@@ -349,6 +353,10 @@ impl DIntegrator for DormandPrince54DIntegrator {
 
     fn config(&self) -> &IntegratorConfig {
         &self.config
+    }
+
+    fn reset_cache(&self) {
+        *self.last_f.write().unwrap() = None;
     }
 
     fn step(

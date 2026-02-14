@@ -18,7 +18,7 @@ target = prop.epoch + 7200.0  # 2 hours later
 prop.propagate_to(target)
 
 print(f"Target epoch: {target}")
-print(f"Current epoch: {prop.current_epoch}")
+print(f"Current epoch: {prop.current_epoch()}")
 print(f"Trajectory contains {len(prop.trajectory)} states")
 
 # Expected output:

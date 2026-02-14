@@ -53,7 +53,7 @@ end_epoch = epoch + 86400 * 7  # 7 days later
 propagator.propagate_to(end_epoch)
 
 # Confirm the final epoch is as expected
-assert abs(propagator.current_epoch - end_epoch) < 1e-6
-print("Propagation complete. Final epoch:", propagator.current_epoch)
+assert abs(propagator.current_epoch() - end_epoch) < 1e-6
+print("Propagation complete. Final epoch:", propagator.current_epoch())
 # Output:
 # Propagation complete. Final epoch: 2025-10-31 22:18:40.413 UTC

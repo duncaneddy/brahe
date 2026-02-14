@@ -132,7 +132,7 @@ pub fn state_eci_to_rtn(x_chief: SVector6, x_deputy: SVector6) -> SVector6 {
 
     // Transform relative position and velocity to RTN frame
     let rho_rtn = r_eci_to_rtn * rho_eci;
-    let rho_dot_rtn = r_eci_to_rtn * rho_dot_eci - omega.cross(&rho_eci);
+    let rho_dot_rtn = r_eci_to_rtn * rho_dot_eci - omega.cross(&rho_rtn);
 
     SVector6::new(
         rho_rtn[0],
@@ -206,8 +206,11 @@ pub fn state_rtn_to_eci(x_chief: SVector6, x_rel_rtn: SVector6) -> SVector6 {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::AngleFormat;
     use crate::R_EARTH;
+    use crate::coordinates::state_koe_to_eci;
     use crate::orbits::perigee_velocity;
+    use crate::utils::testing::setup_global_test_eop;
 
     fn get_test_state() -> SVector6 {
         let sma = R_EARTH + 700e3; // Semi-major axis in meters
@@ -246,5 +249,53 @@ mod tests {
         let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
         let x_deputy_reconstructed = state_rtn_to_eci(x_chief, x_rel_rtn);
         assert!((x_deputy - x_deputy_reconstructed).norm() < 1e-6);
+    }
+
+    #[test]
+    fn test_state_eci_to_rtn_and_back_non_aligned() {
+        setup_global_test_eop();
+
+        // Use an inclined orbit where RTN != ECI axes
+        let oe_chief = SVector6::new(R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let oe_deputy = SVector6::new(R_EARTH + 701e3, 0.0015, 97.85, 15.05, 30.05, 45.05);
+
+        let x_chief = state_koe_to_eci(oe_chief, AngleFormat::Degrees);
+        let x_deputy = state_koe_to_eci(oe_deputy, AngleFormat::Degrees);
+
+        // Round-trip: ECI -> RTN -> ECI
+        let x_rel_rtn = state_eci_to_rtn(x_chief, x_deputy);
+        let x_deputy_reconstructed = state_rtn_to_eci(x_chief, x_rel_rtn);
+
+        let pos_err =
+            (x_deputy.fixed_rows::<3>(0) - x_deputy_reconstructed.fixed_rows::<3>(0)).norm();
+        let vel_err =
+            (x_deputy.fixed_rows::<3>(3) - x_deputy_reconstructed.fixed_rows::<3>(3)).norm();
+
+        assert!(pos_err < 1e-8, "Position round-trip error: {pos_err} m");
+        assert!(vel_err < 1e-8, "Velocity round-trip error: {vel_err} m/s");
+    }
+
+    #[test]
+    fn test_state_rtn_to_eci_and_back_non_aligned() {
+        setup_global_test_eop();
+
+        // Use an inclined orbit where RTN != ECI axes
+        let oe_chief = SVector6::new(R_EARTH + 700e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+        let x_chief = state_koe_to_eci(oe_chief, AngleFormat::Degrees);
+
+        // Known RTN offset
+        let x_rel_rtn = SVector6::new(1000.0, 500.0, -300.0, 0.1, -0.05, 0.02);
+
+        // Round-trip: RTN -> ECI -> RTN
+        let x_deputy = state_rtn_to_eci(x_chief, x_rel_rtn);
+        let x_rel_rtn_recovered = state_eci_to_rtn(x_chief, x_deputy);
+
+        let pos_err =
+            (x_rel_rtn.fixed_rows::<3>(0) - x_rel_rtn_recovered.fixed_rows::<3>(0)).norm();
+        let vel_err =
+            (x_rel_rtn.fixed_rows::<3>(3) - x_rel_rtn_recovered.fixed_rows::<3>(3)).norm();
+
+        assert!(pos_err < 1e-8, "Position round-trip error: {pos_err} m");
+        assert!(vel_err < 1e-8, "Velocity round-trip error: {vel_err} m/s");
     }
 }

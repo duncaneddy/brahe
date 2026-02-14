@@ -315,7 +315,7 @@
 </span><span id=__span-6-8><a id=__codelineno-6-8 name=__codelineno-6-8></a>
 </span><span id=__span-6-9><a id=__codelineno-6-9 name=__codelineno-6-9></a><span class=c1># Single step (60 seconds)</span>
 </span><span id=__span-6-10><a id=__codelineno-6-10 name=__codelineno-6-10></a><span class=n>prop</span><span class=o>.</span><span class=n>step</span><span class=p>()</span>
-</span><span id=__span-6-11><a id=__codelineno-6-11 name=__codelineno-6-11></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;After 1 step: </span><span class=si>{</span><span class=n>prop</span><span class=o>.</span><span class=n>current_epoch</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-6-11><a id=__codelineno-6-11 name=__codelineno-6-11></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;After 1 step: </span><span class=si>{</span><span class=n>prop</span><span class=o>.</span><span class=n>current_epoch</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
 </span><span id=__span-6-12><a id=__codelineno-6-12 name=__codelineno-6-12></a>
 </span><span id=__span-6-13><a id=__codelineno-6-13 name=__codelineno-6-13></a><span class=c1># Multiple steps</span>
 </span><span id=__span-6-14><a id=__codelineno-6-14 name=__codelineno-6-14></a><span class=n>prop</span><span class=o>.</span><span class=n>propagate_steps</span><span class=p>(</span><span class=mi>10</span><span class=p>)</span>
@@ -323,7 +323,7 @@
 </span><span id=__span-6-16><a id=__codelineno-6-16 name=__codelineno-6-16></a>
 </span><span id=__span-6-17><a id=__codelineno-6-17 name=__codelineno-6-17></a><span class=c1># Step by custom duration</span>
 </span><span id=__span-6-18><a id=__codelineno-6-18 name=__codelineno-6-18></a><span class=n>prop</span><span class=o>.</span><span class=n>step_by</span><span class=p>(</span><span class=mf>120.0</span><span class=p>)</span>
-</span><span id=__span-6-19><a id=__codelineno-6-19 name=__codelineno-6-19></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;After custom step: </span><span class=si>{</span><span class=n>prop</span><span class=o>.</span><span class=n>current_epoch</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-6-19><a id=__codelineno-6-19 name=__codelineno-6-19></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;After custom step: </span><span class=si>{</span><span class=n>prop</span><span class=o>.</span><span class=n>current_epoch</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
 </span><span id=__span-6-20><a id=__codelineno-6-20 name=__codelineno-6-20></a>
 </span><span id=__span-6-21><a id=__codelineno-6-21 name=__codelineno-6-21></a><span class=c1># Expected output:</span>
 </span><span id=__span-6-22><a id=__codelineno-6-22 name=__codelineno-6-22></a><span class=c1># After 1 step: 2008-09-20 12:26:40.104 UTC</span>
@@ -414,7 +414,7 @@
 </span><span id=__span-8-11><a id=__codelineno-8-11 name=__codelineno-8-11></a><span class=n>prop</span><span class=o>.</span><span class=n>propagate_to</span><span class=p>(</span><span class=n>target</span><span class=p>)</span>
 </span><span id=__span-8-12><a id=__codelineno-8-12 name=__codelineno-8-12></a>
 </span><span id=__span-8-13><a id=__codelineno-8-13 name=__codelineno-8-13></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Target epoch: </span><span class=si>{</span><span class=n>target</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-8-14><a id=__codelineno-8-14 name=__codelineno-8-14></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Current epoch: </span><span class=si>{</span><span class=n>prop</span><span class=o>.</span><span class=n>current_epoch</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-8-14><a id=__codelineno-8-14 name=__codelineno-8-14></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Current epoch: </span><span class=si>{</span><span class=n>prop</span><span class=o>.</span><span class=n>current_epoch</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
 </span><span id=__span-8-15><a id=__codelineno-8-15 name=__codelineno-8-15></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Trajectory contains </span><span class=si>{</span><span class=nb>len</span><span class=p>(</span><span class=n>prop</span><span class=o>.</span><span class=n>trajectory</span><span class=p>)</span><span class=si>}</span><span class=s2> states&quot;</span><span class=p>)</span>
 </span><span id=__span-8-16><a id=__codelineno-8-16 name=__codelineno-8-16></a>
 </span><span id=__span-8-17><a id=__codelineno-8-17 name=__codelineno-8-17></a><span class=c1># Expected output:</span>

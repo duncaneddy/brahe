@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.1.1] - 2026-02-14
+### Added
+
+- - Added ability to configure `TrajectoryMode` on `SGP4Propagator` for applications where memory-use management is key. [#167](https://github.com/duncaneddy/brahe/pull/167)
+
+### Changed
+
+- - The JOSS paper submission used code examples with the older celestrak API. This PR updates the code examples to use the updated, stabilized API.
+  - Slightly adjust language in paper to avoid silly page overflow [#165](https://github.com/duncaneddy/brahe/pull/165)
+- - Changed default interpolator used by `NumericalOrbitPropgator` for event detection from linear to 3rd degree Hermite. [#167](https://github.com/duncaneddy/brahe/pull/167)
+
+### Fixed
+
+- - Make `.current_epoch()` property a method, not property in python bindings.
+  - Fixed issue with event detection system in `NumericalOrbitPropagator` where it not correctly process events co-located with the current time, and would sometimes miss events in between time steps. [#167](https://github.com/duncaneddy/brahe/pull/167)
+
 ## [1.1.0] - 2026-02-10
 ### Added
 

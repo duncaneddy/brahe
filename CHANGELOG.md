@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.1.2] - 2026-02-14
+### Fixed
+
+- - Fix spacetrack client erroring out when query returns a lot of results
+  - Fix spacetrack `cdm_public` route having wrong parent stem [#169](https://github.com/duncaneddy/brahe/pull/169)
+
 ## [1.1.1] - 2026-02-14
 ### Added
 

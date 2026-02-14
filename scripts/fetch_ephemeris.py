@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "brahe",
+#     "brahe>=1.1.2",
 # ]
 # ///
 """Fetch satellite ephemeris data from Space-Track and Celestrak.
@@ -78,7 +78,7 @@ def fetch_spacetrack_cdm(client: bh.SpaceTrackClient, timestamp: str) -> None:
     """Download latest CDM public messages from Space-Track."""
     query = (
         bh.SpaceTrackQuery(bh.RequestClass.CDM_PUBLIC)
-        .filter("CREATION_DATE", op.greater_than(op.now_offset(-7)))
+        .filter("CREATED", op.greater_than(op.now_offset(-7)))
         .order_by("TCA", bh.SortOrder.DESC)
     )
     raw_json = client.query_raw(query)

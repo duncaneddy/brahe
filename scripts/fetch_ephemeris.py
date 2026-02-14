@@ -9,10 +9,11 @@
 
 Downloads GP elements, CDM messages, and active satellite data, saving
 gzip-compressed JSON files to a shared NFS mount. Designed to run as a
-cron job every 8 hours.
+cron job every 8 hours. Be sure to create the log entry and set the required
+permissions the log file.
 
 Cron entry (runs at minute 17 every 8 hours):
-    17 */8 * * * SPACETRACK_USER='user@example.com' SPACETRACK_PASSWORD='password' /usr/bin/env uv run /home/deddy/repos/brahe/scripts/fetch_ephemeris.py >> /var/log/fetch_ephemeris.log 2>&1
+    17 */8 * * * SPACETRACK_USER='user@example.com' SPACETRACK_PASSWORD='password' /usr/bin/env uv run /PATH_TO/brahe/scripts/fetch_ephemeris.py >> /var/log/fetch_ephemeris.log 2>&1
 
 Environment variables:
     SPACETRACK_USER      Space-Track.org username

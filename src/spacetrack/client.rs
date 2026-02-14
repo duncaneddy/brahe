@@ -6,6 +6,7 @@
  * query and re-authentication on session expiry (401 responses).
  */
 
+use std::io::Read;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -642,15 +643,25 @@ impl SpaceTrackClient {
             BraheError::Error(format!("Failed to acquire lock on HTTP agent: {}", e))
         })?;
 
-        let mut response = agent
+        let response = agent
             .get(url)
             .call()
             .map_err(|e| BraheError::IoError(format!("SpaceTrack query request failed: {}", e)))?;
 
-        response
-            .body_mut()
-            .read_to_string()
-            .map_err(|e| BraheError::IoError(format!("Failed to read SpaceTrack response: {}", e)))
+        // Read body manually to avoid ureq's default 10MB size limit.
+        // SpaceTrack GP responses for all non-decayed objects can exceed 10MB.
+        let mut buffer = Vec::new();
+        let mut reader = response.into_body().into_reader();
+        reader.read_to_end(&mut buffer).map_err(|e| {
+            BraheError::IoError(format!("Failed to read SpaceTrack response: {}", e))
+        })?;
+
+        String::from_utf8(buffer).map_err(|e| {
+            BraheError::IoError(format!(
+                "SpaceTrack response is not valid UTF-8: {}",
+                e
+            ))
+        })
     }
 
     /// Execute an HTTP GET request and return the response body as bytes.

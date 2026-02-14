@@ -539,7 +539,7 @@ mod tests {
         let query = SpaceTrackQuery::new(RequestClass::CDMPublic);
 
         let path = query.build();
-        assert!(path.starts_with("/expandedspacedata/"));
+        assert!(path.starts_with("/basicspacedata/"));
     }
 
     #[test]

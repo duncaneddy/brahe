@@ -120,10 +120,7 @@ impl RequestClass {
     /// Most classes default to `BasicSpaceData`. This allows users to
     /// construct queries without needing to know which controller to use.
     pub fn default_controller(&self) -> RequestController {
-        match self {
-            RequestClass::CDMPublic => RequestController::ExpandedSpaceData,
-            _ => RequestController::BasicSpaceData,
-        }
+        RequestController::BasicSpaceData
     }
 }
 
@@ -326,7 +323,7 @@ mod tests {
         );
         assert_eq!(
             RequestClass::CDMPublic.default_controller(),
-            RequestController::ExpandedSpaceData
+            RequestController::BasicSpaceData
         );
         assert_eq!(
             RequestClass::Boxscore.default_controller(),

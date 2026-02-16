@@ -50,7 +50,7 @@ uuid = { version = "1.20.0", features = ["v4", "serde"] }
 rayon = "1.11"
 num_cpus = "1.17"
 dirs = "6.0.0"
-polars = { version = "0.52", default-features = false, features = ["lazy"] }
+polars = { version = "0.53", default-features = false, features = ["lazy"] }
 anise = "0.9.3"
 
 [dependencies.pyo3]

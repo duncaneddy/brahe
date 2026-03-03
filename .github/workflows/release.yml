@@ -168,7 +168,7 @@ jobs:
       uses: actions/checkout@v6
 
     - name: Download CHANGELOG
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: changelog
 
@@ -263,7 +263,7 @@ jobs:
     steps:
     # Download all artifacts to dist folder
     - name: Download artifacts
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
 
     - name: Copy artifacts to dist folder
       run: |
@@ -285,7 +285,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Download CHANGELOG
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: changelog
       - name: Set up Rust toolchain
@@ -316,7 +316,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
 
       - name: Prepare artifacts for release
         run: |
@@ -326,7 +326,7 @@ jobs:
           ls -lah release-artifacts/
 
       - name: Download release notes
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-notes
 
@@ -351,7 +351,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
 
       - name: Prepare and rename artifacts for latest release
         run: |

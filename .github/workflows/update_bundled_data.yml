@@ -2,7 +2,7 @@ name: Update Bundled Data
 
 on:
   schedule:
-    - cron: '0 2 * * 3'  # Wednesday 2 AM UTC (Tuesday 9 PM EST)
+    - cron: '0 2 */3 * *'  # Every 3 days at 2 AM UTC
   workflow_call:
 
 jobs:

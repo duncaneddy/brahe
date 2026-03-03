@@ -5,6 +5,7 @@
 pub use cache::*;
 pub use errors::*;
 pub use formatting::*;
+pub use fs::*;
 pub use identifiable::*;
 pub use state_providers::*;
 pub use threading::*;
@@ -12,6 +13,7 @@ pub use threading::*;
 pub mod cache;
 pub mod errors;
 pub mod formatting;
+pub mod fs;
 pub mod identifiable;
 pub mod operators;
 pub mod state_providers;

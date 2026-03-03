@@ -11,6 +11,7 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use crate::utils::BraheError;
+use crate::utils::atomic_write;
 use crate::utils::cache::get_brahe_cache_dir_with_subdir;
 
 /// Get the GCAT cache directory path.
@@ -54,7 +55,7 @@ pub fn fetch_with_cache(
     let body = execute_get(url)?;
 
     // Write to cache
-    fs::write(&cache_path, &body)
+    atomic_write(&cache_path, body.as_bytes())
         .map_err(|e| BraheError::IoError(format!("Failed to write GCAT cache file: {}", e)))?;
 
     Ok(body)

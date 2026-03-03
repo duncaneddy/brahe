@@ -68,7 +68,8 @@ fn eop_type_to_string(eop_type: eop::EOPType) -> String {
 #[pyo3(text_signature = "(filepath)")]
 #[pyo3(name = "download_c04_eop_file")]
 fn py_download_c04_eop_file(filepath: &str) -> PyResult<()> {
-    eop::download_c04_eop_file(filepath).unwrap();
+    eop::download_c04_eop_file(filepath)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(())
 }
 
@@ -91,7 +92,8 @@ fn py_download_c04_eop_file(filepath: &str) -> PyResult<()> {
 #[pyo3(text_signature = "(filepath)")]
 #[pyo3(name = "download_standard_eop_file")]
 fn py_download_standard_eop_file(filepath: &str) -> PyResult<()> {
-    eop::download_standard_eop_file(filepath).unwrap();
+    eop::download_standard_eop_file(filepath)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(())
 }
 

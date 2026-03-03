@@ -256,12 +256,8 @@ impl CachingEOPProvider {
             .ok_or_else(|| BraheError::IoError("Invalid file path".to_string()))?;
 
         match eop_type {
-            EOPType::C04 => download_c04_eop_file(filepath_str).map_err(|e| {
-                BraheError::IoError(format!("Failed to download C04 EOP file: {}", e))
-            }),
-            EOPType::StandardBulletinA => download_standard_eop_file(filepath_str).map_err(|e| {
-                BraheError::IoError(format!("Failed to download Standard EOP file: {}", e))
-            }),
+            EOPType::C04 => download_c04_eop_file(filepath_str),
+            EOPType::StandardBulletinA => download_standard_eop_file(filepath_str),
             _ => Err(BraheError::EOPError(format!(
                 "Unsupported EOP type for download: {:?}",
                 eop_type

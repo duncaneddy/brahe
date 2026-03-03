@@ -352,6 +352,13 @@ impl FileEOPProvider {
             );
         }
 
+        if data.is_empty() {
+            return Err(BraheError::EOPError(
+                "EOP C04 file contained no valid data entries (file may be empty or corrupt)"
+                    .to_string(),
+            ));
+        }
+
         Ok(Self {
             initialized: true,
             eop_type: EOPType::C04,
@@ -485,6 +492,13 @@ impl FileEOPProvider {
                     eop_data.1, eop_data.2, eop_data.3, eop_data.4, eop_data.5, eop_data.6,
                 ),
             );
+        }
+
+        if data.is_empty() {
+            return Err(BraheError::EOPError(
+                "EOP Standard file contained no valid data entries (file may be empty or corrupt)"
+                    .to_string(),
+            ));
         }
 
         Ok(Self {
@@ -623,6 +637,27 @@ impl FileEOPProvider {
             ))),
         }
     }
+
+    /// Look up EOP data for a given MJD key, returning an error instead of panicking
+    /// if the key is missing (e.g., due to a corrupt or truncated data file).
+    fn get_data(&self, mjd: f64) -> Result<&EOPData, BraheError> {
+        self.data.get(&EOPKey(mjd)).ok_or_else(|| {
+            BraheError::EOPError(format!(
+                "EOP data missing for MJD {} (data may be corrupt or incomplete)",
+                mjd
+            ))
+        })
+    }
+}
+
+/// Extract a required `Option<f64>` EOP field, returning an error if `None`.
+fn require_eop_field(value: Option<f64>, field_name: &str) -> Result<f64, BraheError> {
+    value.ok_or_else(|| {
+        BraheError::EOPError(format!(
+            "Missing {} value in EOP data (file may be corrupt or incomplete)",
+            field_name
+        ))
+    })
 }
 
 impl EarthOrientationProvider for FileEOPProvider {
@@ -869,10 +904,7 @@ impl EarthOrientationProvider for FileEOPProvider {
                 // Below minimum data range
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok(0.0),
-                    EOPExtrapolation::Hold => {
-                        // UT1-UTC is guaranteed to be present at `mjd_min`
-                        Ok(self.data.get(&EOPKey(self.mjd_min)).unwrap().2)
-                    }
+                    EOPExtrapolation::Hold => Ok(self.get_data(self.mjd_min)?.2),
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval before start of loaded data. Accessed: {}, Min MJD: {}",
                         mjd, self.mjd_min
@@ -907,13 +939,13 @@ impl EarthOrientationProvider for FileEOPProvider {
                 } else {
                     match self.data.range(..=EOPKey(mjd)).next_back() {
                         Some((_, data)) => Ok(data.2),
-                        None => Ok(self.data.get(&EOPKey(self.mjd_min)).unwrap().2),
+                        None => Ok(self.get_data(self.mjd_min)?.2),
                     }
                 }
             } else {
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok(0.0),
-                    EOPExtrapolation::Hold => Ok(self.data.get(&EOPKey(self.mjd_max)).unwrap().2),
+                    EOPExtrapolation::Hold => Ok(self.get_data(self.mjd_max)?.2),
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval beyond end of loaded data. Accessed: {}, Max MJD: {}",
                         mjd, self.mjd_max
@@ -968,9 +1000,8 @@ impl EarthOrientationProvider for FileEOPProvider {
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok((0.0, 0.0)),
                     EOPExtrapolation::Hold => {
-                        // Get First Value
-                        let first = self.data.get(&EOPKey(self.mjd_min));
-                        Ok((first.unwrap().0, first.unwrap().1))
+                        let first = self.get_data(self.mjd_min)?;
+                        Ok((first.0, first.1))
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval before start of loaded data. Accessed: {}, Min MJD: {}",
@@ -1012,7 +1043,7 @@ impl EarthOrientationProvider for FileEOPProvider {
                     match self.data.range(..=EOPKey(mjd)).next_back() {
                         Some((_, data)) => Ok((data.0, data.1)),
                         None => {
-                            let first = self.data.get(&EOPKey(self.mjd_min)).unwrap();
+                            let first = self.get_data(self.mjd_min)?;
                             Ok((first.0, first.1))
                         }
                     }
@@ -1021,8 +1052,8 @@ impl EarthOrientationProvider for FileEOPProvider {
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok((0.0, 0.0)),
                     EOPExtrapolation::Hold => {
-                        let last = self.data.get(&EOPKey(self.mjd_max));
-                        Ok((last.unwrap().0, last.unwrap().1))
+                        let last = self.get_data(self.mjd_max)?;
+                        Ok((last.0, last.1))
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval beyond end of loaded data. Accessed: {}, Max MJD: {}",
@@ -1078,9 +1109,11 @@ impl EarthOrientationProvider for FileEOPProvider {
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok((0.0, 0.0)),
                     EOPExtrapolation::Hold => {
-                        // Get first value. This is guaranteed to be present at `mjd_min`
-                        let first = self.data.get(&EOPKey(self.mjd_min)).unwrap();
-                        Ok((first.3.unwrap(), first.4.unwrap()))
+                        let first = self.get_data(self.mjd_min)?;
+                        Ok((
+                            require_eop_field(first.3, "dX")?,
+                            require_eop_field(first.4, "dY")?,
+                        ))
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval before start of loaded data. Accessed: {}, Min MJD: {}",
@@ -1096,10 +1129,10 @@ impl EarthOrientationProvider for FileEOPProvider {
                         (Some((t1_key, data1)), Some((t2_key, data2))) => {
                             let t1 = t1_key.0;
                             let t2 = t2_key.0;
-                            let dx1 = data1.3.unwrap();
-                            let dx2 = data2.3.unwrap();
-                            let dy1 = data1.4.unwrap();
-                            let dy2 = data2.4.unwrap();
+                            let dx1 = require_eop_field(data1.3, "dX")?;
+                            let dx2 = require_eop_field(data2.3, "dX")?;
+                            let dy1 = require_eop_field(data1.4, "dY")?;
+                            let dy2 = require_eop_field(data2.4, "dY")?;
 
                             if t1 == t2 {
                                 Ok((dx1, dy1))
@@ -1110,20 +1143,35 @@ impl EarthOrientationProvider for FileEOPProvider {
                                 ))
                             }
                         }
-                        (Some((_t1_key, data1)), None) => Ok((data1.3.unwrap(), data1.4.unwrap())),
-                        (None, Some((_t2_key, data2))) => Ok((data2.3.unwrap(), data2.4.unwrap())),
+                        (Some((_t1_key, data1)), None) => Ok((
+                            require_eop_field(data1.3, "dX")?,
+                            require_eop_field(data1.4, "dY")?,
+                        )),
+                        (None, Some((_t2_key, data2))) => Ok((
+                            require_eop_field(data2.3, "dX")?,
+                            require_eop_field(data2.4, "dY")?,
+                        )),
                         (None, None) => Err(BraheError::EOPError(String::from(
                             "No EOP data available for interpolation",
                         ))),
                     }
                 } else if let Some(data) = self.data.get(&EOPKey(mjd)) {
-                    Ok((data.3.unwrap(), data.4.unwrap()))
+                    Ok((
+                        require_eop_field(data.3, "dX")?,
+                        require_eop_field(data.4, "dY")?,
+                    ))
                 } else {
                     match self.data.range(..=EOPKey(mjd)).next_back() {
-                        Some((_, data)) => Ok((data.3.unwrap(), data.4.unwrap())),
+                        Some((_, data)) => Ok((
+                            require_eop_field(data.3, "dX")?,
+                            require_eop_field(data.4, "dY")?,
+                        )),
                         None => {
-                            let first = self.data.get(&EOPKey(self.mjd_min)).unwrap();
-                            Ok((first.3.unwrap(), first.4.unwrap()))
+                            let first = self.get_data(self.mjd_min)?;
+                            Ok((
+                                require_eop_field(first.3, "dX")?,
+                                require_eop_field(first.4, "dY")?,
+                            ))
                         }
                     }
                 }
@@ -1131,8 +1179,11 @@ impl EarthOrientationProvider for FileEOPProvider {
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok((0.0, 0.0)),
                     EOPExtrapolation::Hold => {
-                        let last = self.data.get(&EOPKey(self.mjd_last_dxdy)).unwrap();
-                        Ok((last.3.unwrap(), last.4.unwrap()))
+                        let last = self.get_data(self.mjd_last_dxdy)?;
+                        Ok((
+                            require_eop_field(last.3, "dX")?,
+                            require_eop_field(last.4, "dY")?,
+                        ))
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval beyond end of loaded data. Accessed: {}, Max MJD: {}",
@@ -1186,8 +1237,7 @@ impl EarthOrientationProvider for FileEOPProvider {
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok(0.0),
                     EOPExtrapolation::Hold => {
-                        // LOD is guaranteed to be present at `mjd_min`
-                        Ok(self.data.get(&EOPKey(self.mjd_min)).unwrap().5.unwrap())
+                        Ok(require_eop_field(self.get_data(self.mjd_min)?.5, "LOD")?)
                     }
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval before start of loaded data. Accessed: {}, Min MJD: {}",
@@ -1203,8 +1253,8 @@ impl EarthOrientationProvider for FileEOPProvider {
                         (Some((t1_key, data1)), Some((t2_key, data2))) => {
                             let t1 = t1_key.0;
                             let t2 = t2_key.0;
-                            let y1 = data1.5.unwrap();
-                            let y2 = data2.5.unwrap();
+                            let y1 = require_eop_field(data1.5, "LOD")?;
+                            let y2 = require_eop_field(data2.5, "LOD")?;
 
                             if t1 == t2 {
                                 Ok(y1)
@@ -1212,33 +1262,28 @@ impl EarthOrientationProvider for FileEOPProvider {
                                 Ok((y2 - y1) / (t2 - t1) * (mjd - t1) + y1)
                             }
                         }
-                        (Some((_t1_key, data1)), None) => Ok(data1.5.unwrap()),
-                        (None, Some((_t2_key, data2))) => Ok(data2.5.unwrap()),
+                        (Some((_t1_key, data1)), None) => Ok(require_eop_field(data1.5, "LOD")?),
+                        (None, Some((_t2_key, data2))) => Ok(require_eop_field(data2.5, "LOD")?),
                         (None, None) => Err(BraheError::EOPError(String::from(
                             "No EOP data available for interpolation",
                         ))),
                     }
                 } else if let Some(data) = self.data.get(&EOPKey(mjd)) {
-                    Ok(data.5.unwrap())
+                    Ok(require_eop_field(data.5, "LOD")?)
                 } else {
                     match self.data.range(..=EOPKey(mjd)).next_back() {
-                        Some((_, data)) => Ok(data.5.unwrap()),
-                        None => Ok(self.data.get(&EOPKey(self.mjd_min)).unwrap().5.unwrap()),
+                        Some((_, data)) => Ok(require_eop_field(data.5, "LOD")?),
+                        None => Ok(require_eop_field(self.get_data(self.mjd_min)?.5, "LOD")?),
                     }
                 }
             } else {
                 // Above maximum data range
                 match self.extrapolate {
                     EOPExtrapolation::Zero => Ok(0.0),
-                    EOPExtrapolation::Hold => {
-                        // LOD is guaranteed to be present through `mjd_last_lod`
-                        Ok(self
-                            .data
-                            .get(&EOPKey(self.mjd_last_lod))
-                            .unwrap()
-                            .5
-                            .unwrap())
-                    }
+                    EOPExtrapolation::Hold => Ok(require_eop_field(
+                        self.get_data(self.mjd_last_lod)?.5,
+                        "LOD",
+                    )?),
                     EOPExtrapolation::Error => Err(BraheError::OutOfBoundsError(format!(
                         "Attempted EOP retrieval beyond end of loaded data. Accessed: {}, Max MJD: {}",
                         mjd, self.mjd_max

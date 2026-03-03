@@ -2337,7 +2337,7 @@ impl PyAccessWindow {
 
     // ===== Access properties (convenience getters) =====
 
-    /// Get the access properties object.
+    /// Get or set the access properties object.
     ///
     /// Returns:
     ///     AccessProperties: Computed properties for this access window
@@ -2346,6 +2346,15 @@ impl PyAccessWindow {
         PyAccessProperties {
             properties: self.window.properties.clone(),
         }
+    }
+
+    /// Set the access properties object.
+    ///
+    /// Args:
+    ///     value (AccessProperties): New properties for this access window
+    #[setter]
+    fn set_properties(&mut self, value: PyAccessProperties) {
+        self.window.properties = value.properties;
     }
 
     /// Get azimuth angle at window opening (degrees, 0-360).
@@ -2532,7 +2541,8 @@ impl PyAccessWindow {
 ///     if "signal_strength" in props.additional:
 ///         print(f"Signal: {props.additional['signal_strength']}")
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[derive(Clone)]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "AccessProperties")]
 pub struct PyAccessProperties {
     pub(crate) properties: AccessProperties,
@@ -3431,7 +3441,8 @@ pub struct PyAccessPropertyComputer {
 #[pymethods]
 impl PyAccessPropertyComputer {
     #[new]
-    fn new() -> Self {
+    #[pyo3(signature = (*_args, **_kwargs))]
+    fn new(_args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> Self {
         PyAccessPropertyComputer {}
     }
 

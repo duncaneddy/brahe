@@ -57,9 +57,10 @@ jobs:
               if match:
                   content = match.group(1).strip()
 
-                  # Filter out empty lines and HTML comments
+                  # Filter out empty lines and HTML comments, and strip leading "- " prefix
+                  # to avoid double-dash when towncrier template adds its own "- " prefix
                   lines = [
-                      line.strip()
+                      re.sub(r'^-\s+', '', line.strip())
                       for line in content.split('\n')
                       if line.strip() and not line.strip().startswith('<!--')
                   ]

@@ -657,10 +657,7 @@ impl SpaceTrackClient {
         })?;
 
         String::from_utf8(buffer).map_err(|e| {
-            BraheError::IoError(format!(
-                "SpaceTrack response is not valid UTF-8: {}",
-                e
-            ))
+            BraheError::IoError(format!("SpaceTrack response is not valid UTF-8: {}", e))
         })
     }
 

@@ -18,7 +18,7 @@
 ///     qt = bh.celestrak.CelestrakQueryType.GP
 ///     print(qt)  # "gp"
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "CelestrakQueryType")]
 #[derive(Clone)]
 pub struct PyCelestrakQueryType {
@@ -91,7 +91,7 @@ impl PyCelestrakQueryType {
 ///     fmt = bh.celestrak.CelestrakOutputFormat.JSON
 ///     print(fmt)  # "JSON"
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "CelestrakOutputFormat")]
 #[derive(Clone)]
 pub struct PyCelestrakOutputFormat {
@@ -216,7 +216,7 @@ impl PyCelestrakOutputFormat {
 ///     source = bh.celestrak.SupGPSource.SPACEX
 ///     print(source)  # "spacex"
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SupGPSource")]
 #[derive(Clone)]
 pub struct PySupGPSource {
@@ -434,7 +434,7 @@ impl PySupGPSource {
 ///     # SATCAT query
 ///     query = bh.celestrak.CelestrakQuery.satcat.active(True).payloads(True)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "CelestrakQuery")]
 #[derive(Clone)]
 pub struct PyCelestrakQuery {
@@ -774,7 +774,7 @@ impl PyCelestrakQuery {
 ///     records = client.get_satcat(catnr=25544)
 ///     print(records[0].object_name)  # "ISS (ZARYA)"
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "CelestrakSATCATRecord")]
 #[derive(Clone)]
 pub struct PyCelestrakSATCATRecord {

@@ -228,7 +228,7 @@ impl GCATSatcat {
             str_col("alt_names", |r| r.alt_names.as_deref()),
         ];
 
-        DataFrame::new(columns)
+        DataFrame::new(self.records.len(), columns)
             .map_err(|e| BraheError::Error(format!("Failed to create SATCAT DataFrame: {}", e)))
     }
 }
@@ -395,7 +395,7 @@ impl GCATPsatcat {
             str_col("comment", |r| r.comment.as_deref()),
         ];
 
-        DataFrame::new(columns)
+        DataFrame::new(self.records.len(), columns)
             .map_err(|e| BraheError::Error(format!("Failed to create PSATCAT DataFrame: {}", e)))
     }
 }

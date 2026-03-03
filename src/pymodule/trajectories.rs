@@ -4,7 +4,7 @@
 ///
 /// Specifies the algorithm used to estimate states at epochs between
 /// discrete trajectory points.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "InterpolationMethod")]
 #[derive(Clone)]
 pub struct PyInterpolationMethod {
@@ -154,7 +154,7 @@ impl PyInterpolationMethod {
 /// discrete trajectory points. Covariance matrices are positive semi-definite matrices
 /// living on a manifold, requiring specialized interpolation methods to preserve
 /// mathematical properties.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "CovarianceInterpolationMethod")]
 #[derive(Clone)]
 pub struct PyCovarianceInterpolationMethod {
@@ -218,7 +218,7 @@ impl PyCovarianceInterpolationMethod {
 /// Reference frame for orbital trajectory representation.
 ///
 /// Specifies the coordinate reference frame for position and velocity states.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "OrbitFrame")]
 #[derive(Clone)]
 pub struct PyOrbitFrame {
@@ -317,7 +317,7 @@ impl PyOrbitFrame {
 /// Orbital state representation format.
 ///
 /// Specifies how orbital states are represented in the trajectory.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "OrbitRepresentation")]
 #[derive(Clone)]
 pub struct PyOrbitRepresentation {

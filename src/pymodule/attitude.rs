@@ -58,7 +58,7 @@ fn euler_angle_order_to_string(order: attitude::EulerAngleOrder) -> String {
 ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
 ///     euler = bh.EulerAngle.from_quaternion(q, bh.EulerAngleOrder.ZYX)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "EulerAngleOrder")]
 #[derive(Clone)]
 pub struct PyEulerAngleOrder {
@@ -158,7 +158,7 @@ impl PyEulerAngleOrder {
     }
 }
 
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "Quaternion")]
 #[derive(Clone)]
 /// Represents a quaternion for 3D rotations.
@@ -625,7 +625,7 @@ impl PyQuaternion {
 ///     # Convert to rotation matrix
 ///     dcm = e.to_rotation_matrix()
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "EulerAngle")]
 #[derive(Clone)]
 pub struct PyEulerAngle {
@@ -934,7 +934,7 @@ impl PyEulerAngle {
     }
 }
 
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "EulerAxis")]
 #[derive(Clone)]
 /// Represents a rotation using Euler axis-angle representation.
@@ -1283,7 +1283,7 @@ impl PyEulerAxis {
     }
 }
 
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "RotationMatrix")]
 #[derive(Clone)]
 /// Represents a rotation using a 3x3 rotation matrix (Direction Cosine Matrix).

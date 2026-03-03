@@ -2760,7 +2760,7 @@ fn py_par_propagate_to(
 ///     # Create config with specific method
 ///     config = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RKF45)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "IntegrationMethod")]
 #[derive(Clone)]
 pub struct PyIntegrationMethod {
@@ -2827,7 +2827,7 @@ impl PyIntegrationMethod {
 ///
 ///     config = bh.VariationalConfig(enable_stm=True, store_stm_history=True)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "VariationalConfig")]
 #[derive(Clone)]
 pub struct PyVariationalConfig {
@@ -2941,7 +2941,7 @@ impl PyVariationalConfig {
 ///     model = bh.AtmosphericModel.HARRIS_PRIESTER
 ///     model = bh.AtmosphericModel.NRLMSISE00
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "AtmosphericModel")]
 #[derive(Clone)]
 pub struct PyAtmosphericModel {
@@ -2990,7 +2990,7 @@ impl PyAtmosphericModel {
 ///     eclipse = bh.EclipseModel.CONICAL
 ///     eclipse = bh.EclipseModel.CYLINDRICAL
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "EclipseModel")]
 #[derive(Clone)]
 pub struct PyEclipseModel {
@@ -3042,7 +3042,7 @@ impl PyEclipseModel {
 ///     # Variable mass from parameter vector index 0
 ///     mass = bh.ParameterSource.parameter_index(0)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "ParameterSource")]
 #[derive(Clone)]
 pub struct PyParameterSource {
@@ -3156,7 +3156,7 @@ impl PyParameterSource {
 ///     gravity = bh.GravityConfiguration.point_mass()
 ///     gravity = bh.GravityConfiguration.spherical_harmonic(degree=20, order=20)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "GravityConfiguration")]
 #[derive(Clone)]
 pub struct PyGravityConfiguration {
@@ -3340,7 +3340,7 @@ impl PyGravityConfiguration {
 ///         cd=bh.ParameterSource.value(2.2)
 ///     )
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "DragConfiguration")]
 #[derive(Clone)]
 pub struct PyDragConfiguration {
@@ -3437,7 +3437,7 @@ impl PyDragConfiguration {
 ///         eclipse_model=bh.EclipseModel.CONICAL
 ///     )
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SolarRadiationPressureConfiguration")]
 #[derive(Clone)]
 pub struct PySolarRadiationPressureConfiguration {
@@ -3521,7 +3521,7 @@ impl PySolarRadiationPressureConfiguration {
 ///     sun = bh.ThirdBody.SUN
 ///     moon = bh.ThirdBody.MOON
 ///     ```
-#[pyclass(module = "brahe._brahe", eq, eq_int)]
+#[pyclass(module = "brahe._brahe", eq, eq_int, from_py_object)]
 #[pyo3(name = "ThirdBody")]
 #[derive(Clone, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms)]
@@ -3590,7 +3590,7 @@ impl From<propagators::ThirdBody> for PyThirdBody {
 ///         bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON]
 ///     )
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "ThirdBodyConfiguration")]
 #[derive(Clone)]
 pub struct PyThirdBodyConfiguration {
@@ -3677,7 +3677,7 @@ impl PyThirdBodyConfiguration {
 ///     # High precision configuration
 ///     config = bh.NumericalPropagationConfig.high_precision()
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "NumericalPropagationConfig")]
 #[derive(Clone)]
 pub struct PyNumericalPropagationConfig {
@@ -3958,7 +3958,7 @@ impl PyNumericalPropagationConfig {
 ///     config = bh.ForceModelConfig.default()
 ///     config = bh.ForceModelConfig.two_body()
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "ForceModelConfig")]
 #[derive(Clone)]
 pub struct PyForceModelConfig {
@@ -5504,7 +5504,7 @@ impl PyNumericalOrbitPropagator {
 ///     # Or store all integration steps for analysis
 ///     prop.set_trajectory_mode(bh.TrajectoryMode.ALL_STEPS)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "TrajectoryMode")]
 #[derive(Clone)]
 pub struct PyTrajectoryMode {

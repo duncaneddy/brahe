@@ -578,7 +578,7 @@ impl PyTimeEvent {
                   state: &DVector<f64>,
                   _params: Option<&DVector<f64>>|
              -> (Option<DVector<f64>>, Option<DVector<f64>>, events::EventAction) {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     // Convert to Python
                     let py_epoch = Py::new(py, PyEpoch { obj: t }).ok();
                     let state_array = state.as_slice().to_pyarray(py).to_owned();
@@ -819,7 +819,7 @@ impl PyValueEvent {
         let value_fn_clone = value_fn.clone_ref(py);
         let rust_value_fn =
             move |t: time::Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> f64 {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     // Convert arguments to Python types
                     let py_epoch = match Py::new(py, PyEpoch { obj: t }) {
                         Ok(e) => e,
@@ -944,7 +944,7 @@ impl PyValueEvent {
                   state: &DVector<f64>,
                   _params: Option<&DVector<f64>>|
              -> (Option<DVector<f64>>, Option<DVector<f64>>, events::EventAction) {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let py_epoch = Py::new(py, PyEpoch { obj: t }).ok();
                     let state_array = state.as_slice().to_pyarray(py).to_owned();
 
@@ -1150,7 +1150,7 @@ impl PyBinaryEvent {
         let condition_fn_clone = condition_fn.clone_ref(py);
         let rust_condition_fn =
             move |t: time::Epoch, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> bool {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     // Convert arguments to Python types
                     let py_epoch = match Py::new(py, PyEpoch { obj: t }) {
                         Ok(e) => e,
@@ -1261,7 +1261,7 @@ impl PyBinaryEvent {
                   state: &DVector<f64>,
                   _params: Option<&DVector<f64>>|
              -> (Option<DVector<f64>>, Option<DVector<f64>>, events::EventAction) {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let py_epoch = Py::new(py, PyEpoch { obj: t }).ok();
                     let state_array = state.as_slice().to_pyarray(py).to_owned();
 
@@ -1923,7 +1923,7 @@ impl PyAltitudeEvent {
                   state: &DVector<f64>,
                   _params: Option<&DVector<f64>>|
              -> (Option<DVector<f64>>, Option<DVector<f64>>, events::EventAction) {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let py_epoch = Py::new(py, PyEpoch { obj: t }).ok();
                     let state_array = state.as_slice().to_pyarray(py).to_owned();
 

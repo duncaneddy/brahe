@@ -20,7 +20,7 @@
 ///     # Use high-precision DE440s for Sun position
 ///     r_sun = bh.sun_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
-#[pyclass(name = "EphemerisSource", module = "brahe._brahe", eq, eq_int)]
+#[pyclass(name = "EphemerisSource", module = "brahe._brahe", eq, eq_int, from_py_object)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyEphemerisSource {
     LowPrecision = 0,
@@ -1011,7 +1011,7 @@ fn py_accel_point_mass_gravity<'py>(
 ///
 /// These models provide varying levels of fidelity for Earth's gravitational field.
 /// Models can either be packaged with Brahe or loaded from external files.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "GravityModelType")]
 #[derive(Clone)]
 pub struct PyGravityModelType {
@@ -1129,7 +1129,7 @@ impl PyGravityModelType {
 /// Tide system convention used in gravity model.
 ///
 /// Different gravity models use different conventions for handling permanent tidal deformation.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "GravityModelTideSystem")]
 #[derive(Clone)]
 pub struct PyGravityModelTideSystem {
@@ -1202,7 +1202,7 @@ impl PyGravityModelTideSystem {
 /// Error estimation type for gravity model coefficients.
 ///
 /// Indicates what kind of uncertainty information is provided with the model.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "GravityModelErrors")]
 #[derive(Clone)]
 pub struct PyGravityModelErrors {
@@ -1271,7 +1271,7 @@ impl PyGravityModelErrors {
 /// Normalization convention for spherical harmonic coefficients.
 ///
 /// Different gravity models use different normalization schemes for coefficients.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "GravityModelNormalization")]
 #[derive(Clone)]
 pub struct PyGravityModelNormalization {

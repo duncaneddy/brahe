@@ -50,7 +50,7 @@
 ///         min_step=0.001
 ///     )
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "IntegratorConfig")]
 #[derive(Clone)]
 pub struct PyIntegratorConfig {
@@ -350,7 +350,7 @@ impl PyRK4DIntegrator {
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
             move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
                         .call1(py, (t, state_py))
@@ -366,7 +366,7 @@ impl PyRK4DIntegrator {
         let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
             Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
                         .call1(py, (t, state_py))
@@ -383,7 +383,7 @@ impl PyRK4DIntegrator {
         // Handle optional Jacobian provider
         let varmat: Option<Box<dyn DJacobianProvider>> = if let Some(jac_obj) = jacobian {
             // Check if it's a DNumericalJacobian or DAnalyticJacobian
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let jac = jac_obj.bind(py);
 
                 // Try to extract as PyDNumericalJacobian
@@ -393,7 +393,7 @@ impl PyRK4DIntegrator {
                     let jac_pert = num_jac.perturbation;
 
                     let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
                                 .call1(py, (t, state_py))
@@ -434,7 +434,7 @@ impl PyRK4DIntegrator {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
                     let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
                                 .call1(py, (t, state_py))
@@ -467,7 +467,7 @@ impl PyRK4DIntegrator {
 
         // Handle optional sensitivity provider
         let sensmat: Option<Box<dyn DSensitivityProvider>> = if let Some(sens_obj) = sensitivity {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let sens = sens_obj.bind(py);
 
                 // Try to extract as PyDNumericalSensitivity
@@ -477,7 +477,7 @@ impl PyRK4DIntegrator {
                     let sens_pert = num_sens.perturbation;
 
                     let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DVector<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let params_py = params.as_slice().to_pyarray(py);
                             let result = sens_arc
@@ -523,7 +523,7 @@ impl PyRK4DIntegrator {
                     let sens_arc = Arc::new(ana_sens.sensitivity_fn.clone_ref(py));
 
                     let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DMatrix<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let params_py = params.as_slice().to_pyarray(py);
                             let result = sens_arc
@@ -925,7 +925,7 @@ impl PyRKF45DIntegrator {
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
             move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
                         .call1(py, (t, state_py))
@@ -941,7 +941,7 @@ impl PyRKF45DIntegrator {
         let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
             Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
                         .call1(py, (t, state_py))
@@ -957,7 +957,7 @@ impl PyRKF45DIntegrator {
 
         // Handle optional Jacobian provider (same as RK4)
         let varmat: Option<Box<dyn DJacobianProvider>> = if let Some(jac_obj) = jacobian {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let jac = jac_obj.bind(py);
 
                 if let Ok(num_jac) = jac.extract::<PyRef<PyDNumericalJacobian>>() {
@@ -966,7 +966,7 @@ impl PyRKF45DIntegrator {
                     let jac_pert = num_jac.perturbation;
 
                     let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
                                 .call1(py, (t, state_py))
@@ -1007,7 +1007,7 @@ impl PyRKF45DIntegrator {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
                     let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
                                 .call1(py, (t, state_py))
@@ -1040,7 +1040,7 @@ impl PyRKF45DIntegrator {
 
         // Handle optional sensitivity provider
         let sensmat: Option<Box<dyn DSensitivityProvider>> = if let Some(sens_obj) = sensitivity {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let sens = sens_obj.bind(py);
 
                 // Try to extract as PyDNumericalSensitivity
@@ -1050,7 +1050,7 @@ impl PyRKF45DIntegrator {
                     let sens_pert = num_sens.perturbation;
 
                     let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DVector<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let params_py = params.as_slice().to_pyarray(py);
                             let result = sens_arc
@@ -1095,7 +1095,7 @@ impl PyRKF45DIntegrator {
                     let sens_arc = Arc::new(ana_sens.sensitivity_fn.clone_ref(py));
 
                     let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DMatrix<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let params_py = params.as_slice().to_pyarray(py);
                             let result = sens_arc
@@ -1500,7 +1500,7 @@ impl PyDP54DIntegrator {
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
             move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
                         .call1(py, (t, state_py))
@@ -1516,7 +1516,7 @@ impl PyDP54DIntegrator {
         let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
             Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = ctrl_fn_arc
                         .call1(py, (t, state_py))
@@ -1532,7 +1532,7 @@ impl PyDP54DIntegrator {
 
         // Handle optional Jacobian provider
         let varmat: Option<Box<dyn DJacobianProvider>> = if let Some(jac_obj) = jacobian {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let jac = jac_obj.bind(py);
 
                 if let Ok(num_jac) = jac.extract::<PyRef<PyDNumericalJacobian>>() {
@@ -1541,7 +1541,7 @@ impl PyDP54DIntegrator {
                     let jac_pert = num_jac.perturbation;
 
                     let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
                                 .call1(py, (t, state_py))
@@ -1582,7 +1582,7 @@ impl PyDP54DIntegrator {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
                     let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
                                 .call1(py, (t, state_py))
@@ -1615,7 +1615,7 @@ impl PyDP54DIntegrator {
 
         // Handle optional sensitivity provider
         let sensmat: Option<Box<dyn DSensitivityProvider>> = if let Some(sens_obj) = sensitivity {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let sens = sens_obj.bind(py);
 
                 if let Ok(num_sens) = sens.extract::<PyRef<PyDNumericalSensitivity>>() {
@@ -1624,7 +1624,7 @@ impl PyDP54DIntegrator {
                     let sens_pert = num_sens.perturbation;
 
                     let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DVector<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let params_py = params.as_slice().to_pyarray(py);
                             let result = sens_arc
@@ -1669,7 +1669,7 @@ impl PyDP54DIntegrator {
                     let sens_arc = Arc::new(ana_sens.sensitivity_fn.clone_ref(py));
 
                     let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DMatrix<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let params_py = params.as_slice().to_pyarray(py);
                             let result = sens_arc
@@ -2083,7 +2083,7 @@ impl PyRKN1210DIntegrator {
         let dynamics_closure = {
             let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
             move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let result = dynamics_fn_arc
                         .call1(py, (t, state_py))
@@ -2097,7 +2097,7 @@ impl PyRKN1210DIntegrator {
 
         // Handle optional Jacobian provider
         let varmat: Option<Box<dyn DJacobianProvider>> = if let Some(jac_obj) = jacobian {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let jac = jac_obj.bind(py);
 
                 if let Ok(num_jac) = jac.extract::<PyRef<PyDNumericalJacobian>>() {
@@ -2106,7 +2106,7 @@ impl PyRKN1210DIntegrator {
                     let jac_pert = num_jac.perturbation;
 
                     let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
                                 .call1(py, (t, state_py))
@@ -2147,7 +2147,7 @@ impl PyRKN1210DIntegrator {
                     let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
 
                     let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let result = jac_arc
                                 .call1(py, (t, state_py))
@@ -2180,7 +2180,7 @@ impl PyRKN1210DIntegrator {
 
         // Handle optional sensitivity provider
         let sensmat: Option<Box<dyn DSensitivityProvider>> = if let Some(sens_obj) = sensitivity {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let sens = sens_obj.bind(py);
 
                 if let Ok(num_sens) = sens.extract::<PyRef<PyDNumericalSensitivity>>() {
@@ -2189,7 +2189,7 @@ impl PyRKN1210DIntegrator {
                     let sens_pert = num_sens.perturbation;
 
                     let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DVector<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let params_py = params.as_slice().to_pyarray(py);
                             let result = sens_arc
@@ -2234,7 +2234,7 @@ impl PyRKN1210DIntegrator {
                     let sens_arc = Arc::new(ana_sens.sensitivity_fn.clone_ref(py));
 
                     let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DMatrix<f64> {
-                        Python::with_gil(|py| {
+                        Python::attach(|py| {
                             let state_py = state.as_slice().to_pyarray(py);
                             let params_py = params.as_slice().to_pyarray(py);
                             let result = sens_arc

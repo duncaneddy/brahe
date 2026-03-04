@@ -165,6 +165,7 @@ def test_access_svalbard_stk_validation(spacecraft_polar, station_svalbard):
     config = bh.AccessSearchConfig(
         initial_time_step=0.1,  # 0.1-second steps for sub-second accuracy
         adaptive_step=False,
+        time_tolerance=0.01,
     )
 
     # Find access windows with tight time tolerance
@@ -176,7 +177,6 @@ def test_access_svalbard_stk_validation(spacecraft_polar, station_svalbard):
         constraint,
         None,  # property_computers
         config,
-        0.01,  # time_tolerance in seconds
     )
 
     # Validate number of windows
@@ -232,7 +232,11 @@ def test_access_svalbard_stk_with_5deg_elevation(spacecraft_polar, station_svalb
     constraint = bh.ElevationConstraint(min_elevation_deg=5.0, max_elevation_deg=None)
 
     # Configure access search with fine time resolution
-    config = bh.AccessSearchConfig(initial_time_step=1.0, adaptive_step=False)
+    config = bh.AccessSearchConfig(
+        initial_time_step=1.0,
+        adaptive_step=False,
+        time_tolerance=0.01,
+    )
 
     # Find access windows
     windows = bh.location_accesses(
@@ -243,7 +247,6 @@ def test_access_svalbard_stk_with_5deg_elevation(spacecraft_polar, station_svalb
         constraint,
         None,  # property_computers
         config,
-        0.01,  # time_tolerance in seconds
     )
 
     # Should have same number of windows, but shorter duration
@@ -282,7 +285,11 @@ def test_access_window_properties_svalbard(spacecraft_polar, station_svalbard):
     constraint = bh.ElevationConstraint(min_elevation_deg=0.0, max_elevation_deg=None)
 
     # Configure access search with fine time resolution
-    config = bh.AccessSearchConfig(initial_time_step=1.0, adaptive_step=False)
+    config = bh.AccessSearchConfig(
+        initial_time_step=1.0,
+        adaptive_step=False,
+        time_tolerance=0.01,
+    )
 
     # Find access windows
     windows = bh.location_accesses(
@@ -293,7 +300,6 @@ def test_access_window_properties_svalbard(spacecraft_polar, station_svalbard):
         constraint,
         None,  # property_computers
         config,
-        0.01,  # time_tolerance in seconds
     )
 
     # Should find several windows in first 6 hours

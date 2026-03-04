@@ -124,7 +124,7 @@ fn compute_accesses_for_location(
     let point = PointLocation::new(location.lon, location.lat, location.alt)
         .with_name(&location.name);
 
-    let windows = location_accesses(&point, propagator, epoch_start, epoch_end, constraint, None, None, None)
+    let windows = location_accesses(&point, propagator, epoch_start, epoch_end, constraint, None, None)
         .expect("Failed to compute accesses");
 
     windows
@@ -206,7 +206,7 @@ fn benchmark_parallel(
     for _ in 0..iterations {
         let start = Instant::now();
         // Pass all locations at once - brahe handles parallelization
-        let windows = location_accesses(&points, propagator, epoch_start, epoch_end, constraint, None, None, None)
+        let windows = location_accesses(&points, propagator, epoch_start, epoch_end, constraint, None, None)
             .expect("Failed to compute accesses");
         let elapsed = start.elapsed().as_secs_f64();
         times.push(elapsed);

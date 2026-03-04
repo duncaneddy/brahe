@@ -37,6 +37,7 @@ def test_location_accesses_single():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     windows = bh.location_accesses(
@@ -46,7 +47,6 @@ def test_location_accesses_single():
         search_end,
         constraint,
         config=config,
-        time_tolerance=0.1,
     )
 
     # Should find at least one window
@@ -109,6 +109,7 @@ def test_location_accesses_multiple_sats():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     windows = bh.location_accesses(
@@ -118,7 +119,6 @@ def test_location_accesses_multiple_sats():
         search_end,
         constraint,
         config=config,
-        time_tolerance=0.1,
     )
 
     # Should find windows from multiple satellites
@@ -147,6 +147,7 @@ def test_location_accesses_multiple_locations():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     windows = bh.location_accesses(
@@ -156,7 +157,6 @@ def test_location_accesses_multiple_locations():
         search_end,
         constraint,
         config=config,
-        time_tolerance=0.1,
     )
 
     # Should find windows for multiple locations
@@ -205,6 +205,7 @@ def test_location_accesses_multiple():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     windows = bh.location_accesses(
@@ -214,7 +215,6 @@ def test_location_accesses_multiple():
         search_end,
         constraint,
         config=config,
-        time_tolerance=0.1,
     )
 
     # Should find windows for multiple location-satellite pairs
@@ -261,7 +261,7 @@ def test_elevation_boundary_precision():
     search_end = epoch + 86400.0  # 24 hours in seconds
     constraint = bh.ElevationConstraint(5.0)
 
-    # Find access windows with default settings (currently 0.01s time tolerance)
+    # Find access windows with default settings (0.001s time tolerance)
     config = bh.AccessSearchConfig(
         initial_time_step=60.0,
         adaptive_step=False,
@@ -275,7 +275,6 @@ def test_elevation_boundary_precision():
         search_end,
         constraint,
         config=config,
-        # time_tolerance defaults to None, which uses the Rust default
     )
 
     # Should find at least one window
@@ -332,6 +331,7 @@ def test_location_accesses_sequential():
         adaptive_fraction=0.75,
         parallel=False,  # Use sequential computation
         num_threads=None,
+        time_tolerance=0.1,
     )
 
     windows = bh.location_accesses(
@@ -341,7 +341,6 @@ def test_location_accesses_sequential():
         search_end,
         constraint,
         config=config,
-        time_tolerance=0.1,
     )
 
     # Should find at least one window
@@ -370,6 +369,7 @@ def test_location_accesses_sequential_vs_parallel():
         adaptive_fraction=0.75,
         parallel=False,
         num_threads=None,
+        time_tolerance=0.1,
     )
 
     windows_seq = bh.location_accesses(
@@ -379,7 +379,6 @@ def test_location_accesses_sequential_vs_parallel():
         search_end,
         constraint,
         config=config_seq,
-        time_tolerance=0.1,
     )
 
     # Parallel computation
@@ -389,6 +388,7 @@ def test_location_accesses_sequential_vs_parallel():
         adaptive_fraction=0.75,
         parallel=True,
         num_threads=None,
+        time_tolerance=0.1,
     )
 
     windows_par = bh.location_accesses(
@@ -398,7 +398,6 @@ def test_location_accesses_sequential_vs_parallel():
         search_end,
         constraint,
         config=config_par,
-        time_tolerance=0.1,
     )
 
     # Should find the same number of windows
@@ -453,6 +452,7 @@ def test_location_accesses_numerical_single():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     windows = bh.location_accesses(
@@ -462,7 +462,6 @@ def test_location_accesses_numerical_single():
         search_end,
         constraint,
         config=config,
-        time_tolerance=0.1,
     )
 
     # Should find at least one window
@@ -503,6 +502,7 @@ def test_location_accesses_numerical_list():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     windows = bh.location_accesses(
@@ -512,7 +512,6 @@ def test_location_accesses_numerical_list():
         search_end,
         constraint,
         config=config,
-        time_tolerance=0.1,
     )
 
     # Should find windows from multiple satellites
@@ -543,6 +542,7 @@ def test_location_accesses_numerical_multiple_locations():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     windows = bh.location_accesses(
@@ -552,7 +552,6 @@ def test_location_accesses_numerical_multiple_locations():
         search_end,
         constraint,
         config=config,
-        time_tolerance=0.1,
     )
 
     # Should find windows for multiple locations
@@ -584,6 +583,7 @@ def test_location_accesses_numerical_insufficient_propagation():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     # Should raise BraheError because propagator hasn't been propagated far enough
@@ -595,5 +595,129 @@ def test_location_accesses_numerical_insufficient_propagation():
             search_end,
             constraint,
             config=config,
-            time_tolerance=0.1,
         )
+
+
+# =============================================================================
+# Subdivision Tests
+# =============================================================================
+
+
+def test_location_accesses_with_subdivisions():
+    """Test that subdivisions produce n * parent_count sub-windows."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+
+    constraint = bh.ElevationConstraint(5.0)
+
+    # First get parent windows (no subdivision)
+    config_no_sub = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        time_tolerance=0.1,
+    )
+    parent_windows = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config_no_sub
+    )
+    parent_count = len(parent_windows)
+    assert parent_count > 0, "Need at least 1 parent window for subdivision test"
+
+    # Now with subdivision=4
+    n = 4
+    config_sub = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        time_tolerance=0.1,
+        subdivisions=n,
+    )
+    sub_windows = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config_sub
+    )
+
+    # Should have n * parent_count sub-windows
+    assert len(sub_windows) == n * parent_count, (
+        f"Expected {n * parent_count} sub-windows ({n}*{parent_count}), "
+        f"found {len(sub_windows)}"
+    )
+
+    # Verify sub-windows within each parent are contiguous
+    for parent_idx in range(parent_count):
+        base = parent_idx * n
+        parent_open = parent_windows[parent_idx].window_open
+        parent_close = parent_windows[parent_idx].window_close
+
+        # First sub-window opens at parent open
+        assert abs(sub_windows[base].window_open - parent_open) < 1e-6
+
+        # Last sub-window closes at parent close
+        assert abs(sub_windows[base + n - 1].window_close - parent_close) < 1e-6
+
+        # Sub-windows are contiguous
+        for i in range(1, n):
+            prev_close = sub_windows[base + i - 1].window_close
+            curr_open = sub_windows[base + i].window_open
+            assert abs(prev_close - curr_open) < 1e-6, (
+                f"Sub-windows not contiguous: sub[{i - 1}].close != sub[{i}].open"
+            )
+
+        # Each sub-window has valid properties
+        for i in range(n):
+            sw = sub_windows[base + i]
+            assert sw.window_open < sw.window_close
+            assert sw.duration > 0.0
+            assert 0.0 <= sw.properties.azimuth_open <= 360.0
+            assert -90.0 <= sw.properties.elevation_max <= 90.0
+
+
+def test_location_accesses_no_subdivisions_preserves_behavior():
+    """Test that subdivisions=None preserves existing behavior."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+
+    constraint = bh.ElevationConstraint(5.0)
+
+    # Default config (no subdivisions)
+    windows_default = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint
+    )
+
+    # Explicit None subdivisions
+    config = bh.AccessSearchConfig(subdivisions=None)
+    windows_explicit = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config
+    )
+
+    assert len(windows_default) == len(windows_explicit)
+
+
+def test_config_time_tolerance_property():
+    """Test that time_tolerance is accessible on AccessSearchConfig."""
+    config = bh.AccessSearchConfig()
+    assert config.time_tolerance == pytest.approx(0.001)
+
+    config = bh.AccessSearchConfig(time_tolerance=0.5)
+    assert config.time_tolerance == pytest.approx(0.5)
+
+    config.time_tolerance = 0.01
+    assert config.time_tolerance == pytest.approx(0.01)
+
+
+def test_config_subdivisions_property():
+    """Test that subdivisions is accessible on AccessSearchConfig."""
+    config = bh.AccessSearchConfig()
+    assert config.subdivisions is None
+
+    config = bh.AccessSearchConfig(subdivisions=4)
+    assert config.subdivisions == 4
+
+    config.subdivisions = 8
+    assert config.subdivisions == 8
+
+    config.subdivisions = None
+    assert config.subdivisions is None

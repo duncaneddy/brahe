@@ -3875,7 +3875,6 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
         sat_state_ecef: &nalgebra::Vector6<f64>,
         location_ecef: &nalgebra::Vector3<f64>,
     ) -> bool {
-        #[allow(deprecated)]
         Python::attach(|py| {
             // Convert to numpy arrays
             let sat_state_array = sat_state_ecef.as_slice().to_pyarray(py).to_owned();
@@ -3929,12 +3928,17 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
 
 /// Configuration for access search grid parameters.
 ///
-/// Controls the time step and adaptive stepping behavior for access window finding.
+/// Controls the time step, adaptive stepping, boundary refinement tolerance,
+/// and optional subdivision behavior for access window finding.
 ///
 /// Args:
 ///     initial_time_step (float): Initial time step in seconds for grid search (default: 60.0)
 ///     adaptive_step (bool): Enable adaptive stepping after first access (default: False)
 ///     adaptive_fraction (float): Fraction of orbital period to use for adaptive step (default: 0.75)
+///     parallel (bool): Enable parallel computation (default: True)
+///     num_threads (Optional[int]): Number of threads for parallel computation (default: None)
+///     time_tolerance (float): Boundary refinement tolerance in seconds (default: 0.001)
+///     subdivisions (Optional[int]): Number of equal-time subdivisions per window (default: None)
 ///
 /// Example:
 ///     ```python
@@ -3952,6 +3956,13 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
 ///         station, prop, search_start, search_end,
 ///         constraint, config=config
 ///     )
+///
+///     # Subdivide each access window into 4 equal-time sub-windows
+///     config = bh.AccessSearchConfig(subdivisions=4, time_tolerance=0.01)
+///     sub_windows = bh.location_accesses(
+///         station, prop, search_start, search_end,
+///         constraint, config=config
+///     )
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "AccessSearchConfig")]
@@ -3963,13 +3974,15 @@ pub struct PyAccessSearchConfig {
 #[pymethods]
 impl PyAccessSearchConfig {
     #[new]
-    #[pyo3(signature = (initial_time_step=60.0, adaptive_step=false, adaptive_fraction=0.75, parallel=true, num_threads=None))]
+    #[pyo3(signature = (initial_time_step=60.0, adaptive_step=false, adaptive_fraction=0.75, parallel=true, num_threads=None, time_tolerance=0.001, subdivisions=None))]
     fn new(
         initial_time_step: f64,
         adaptive_step: bool,
         adaptive_fraction: f64,
         parallel: bool,
         num_threads: Option<usize>,
+        time_tolerance: f64,
+        subdivisions: Option<usize>,
     ) -> Self {
         Self {
             config: AccessSearchConfig {
@@ -3978,6 +3991,8 @@ impl PyAccessSearchConfig {
                 adaptive_fraction,
                 parallel,
                 num_threads,
+                time_tolerance,
+                subdivisions,
             },
         }
     }
@@ -4072,10 +4087,46 @@ impl PyAccessSearchConfig {
         self.config.num_threads = value;
     }
 
+    /// Get the boundary refinement tolerance in seconds.
+    ///
+    /// Returns:
+    ///     float: Time tolerance in seconds
+    #[getter]
+    fn time_tolerance(&self) -> f64 {
+        self.config.time_tolerance
+    }
+
+    /// Set the boundary refinement tolerance in seconds.
+    ///
+    /// Args:
+    ///     value (float): New time tolerance in seconds
+    #[setter]
+    fn set_time_tolerance(&mut self, value: f64) {
+        self.config.time_tolerance = value;
+    }
+
+    /// Get the number of subdivisions per access window.
+    ///
+    /// Returns:
+    ///     Optional[int]: Number of subdivisions, or None for no subdivision
+    #[getter]
+    fn subdivisions(&self) -> Option<usize> {
+        self.config.subdivisions
+    }
+
+    /// Set the number of subdivisions per access window.
+    ///
+    /// Args:
+    ///     value (Optional[int]): Number of subdivisions, or None for no subdivision
+    #[setter]
+    fn set_subdivisions(&mut self, value: Option<usize>) {
+        self.config.subdivisions = value;
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "AccessSearchConfig(initial_time_step={}, adaptive_step={}, adaptive_fraction={}, parallel={}, num_threads={:?})",
-            self.config.initial_time_step, self.config.adaptive_step, self.config.adaptive_fraction, self.config.parallel, self.config.num_threads
+            "AccessSearchConfig(initial_time_step={}, adaptive_step={}, adaptive_fraction={}, parallel={}, num_threads={:?}, time_tolerance={}, subdivisions={:?})",
+            self.config.initial_time_step, self.config.adaptive_step, self.config.adaptive_fraction, self.config.parallel, self.config.num_threads, self.config.time_tolerance, self.config.subdivisions
         )
     }
 }
@@ -4133,8 +4184,7 @@ fn process_property_computers(
 ///     search_end (Epoch): End of search window
 ///     constraint (AccessConstraint): Access constraints to evaluate
 ///     property_computers (Optional[List[AccessPropertyComputer]]): Optional property computers
-///     config (Optional[AccessSearchConfig]): Search configuration (default: 60s fixed grid, no adaptation)
-///     time_tolerance (Optional[float]): Bisection search tolerance in seconds (default: 0.01)
+///     config (Optional[AccessSearchConfig]): Search configuration (time step, tolerance, subdivisions, etc.)
 ///
 /// Returns:
 ///     List[AccessWindow]: List of access windows sorted by start time
@@ -4171,12 +4221,12 @@ fn process_property_computers(
 ///     # Multiple locations, multiple propagators
 ///     windows = bh.location_accesses([station, station2], [prop1, prop2], epoch, search_end, constraint)
 ///
-///     # Custom search configuration
-///     config = bh.AccessSearchConfig(initial_time_step=30.0, adaptive_step=True)
+///     # Custom search configuration with time tolerance and subdivisions
+///     config = bh.AccessSearchConfig(initial_time_step=30.0, adaptive_step=True, time_tolerance=0.01)
 ///     windows = bh.location_accesses(station, prop1, epoch, search_end, constraint, config=config)
 ///     ```
 #[pyfunction(name = "location_accesses")]
-#[pyo3(signature = (locations, propagators, search_start, search_end, constraint, property_computers=None, config=None, time_tolerance=None))]
+#[pyo3(signature = (locations, propagators, search_start, search_end, constraint, property_computers=None, config=None))]
 #[allow(clippy::too_many_arguments)]
 fn py_location_accesses(
     py: Python,
@@ -4187,7 +4237,6 @@ fn py_location_accesses(
     constraint: &Bound<'_, PyAny>,
     property_computers: Option<Vec<Py<PyAny>>>,
     config: Option<&PyAccessSearchConfig>,
-    time_tolerance: Option<f64>,
 ) -> PyResult<Vec<PyAccessWindow>> {
     // Use provided config or create default
     let search_config = config.map(|c| c.config).unwrap_or_default();
@@ -4316,7 +4365,6 @@ fn py_location_accesses(
         // thread mutated the propagator (e.g., via propagate_to()) while we're computing
         // access, we'd have a data race. The cloneable propagators path (SGP, Keplerian)
         // safely releases the GIL because it clones the propagators first.
-        #[allow(deprecated)]
         let windows = match &locations_vec {
             LocationVec::Point(locs) => location_accesses(
                 locs,
@@ -4326,7 +4374,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             ),
             LocationVec::Polygon(locs) => location_accesses(
                 locs,
@@ -4336,7 +4383,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             ),
         }?;
 
@@ -4411,7 +4457,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             )
         }
         (LocationVec::Point(locs), PropagatorVec::Keplerian(props)) => {
@@ -4423,7 +4468,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             )
         }
         (LocationVec::Polygon(locs), PropagatorVec::Sgp(props)) => {
@@ -4435,7 +4479,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             )
         }
         (LocationVec::Polygon(locs), PropagatorVec::Keplerian(props)) => {
@@ -4447,7 +4490,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             )
         }
     })?;

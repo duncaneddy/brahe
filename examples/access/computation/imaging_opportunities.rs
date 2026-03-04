@@ -35,6 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         adaptive_fraction: 0.05,
         parallel: false,
         num_threads: Some(0),
+        ..Default::default()
     };
 
     // Compute imaging opportunities
@@ -49,7 +50,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &constraint,
         None,
         Some(&config),
-        None,
     )?;
 
     println!("Found {} imaging opportunities", windows.len());

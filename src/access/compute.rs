@@ -55,7 +55,6 @@ impl<L: AccessibleLocation> ToLocationRefs<L> for Vec<L> {
 // ================================
 
 /// Sequential access computation (for debugging or single-threaded operation)
-#[allow(clippy::too_many_arguments)]
 fn compute_accesses_sequential<L, P>(
     locations: &[&L],
     propagators: &[&P],
@@ -64,7 +63,6 @@ fn compute_accesses_sequential<L, P>(
     constraint: &dyn AccessConstraint,
     property_computers: Option<&[&dyn AccessPropertyComputer]>,
     search_config: &AccessSearchConfig,
-    time_tolerance: Option<f64>,
 ) -> Result<Vec<AccessWindow>, BraheError>
 where
     L: AccessibleLocation,
@@ -81,8 +79,7 @@ where
                 search_end,
                 constraint,
                 property_computers,
-                Some(search_config.initial_time_step),
-                time_tolerance,
+                Some(search_config),
             )?;
             all_windows.append(&mut windows);
         }
@@ -99,7 +96,6 @@ where
 }
 
 /// Parallel access computation using rayon
-#[allow(clippy::too_many_arguments)]
 fn compute_accesses_parallel<L, P>(
     locations: &[&L],
     propagators: &[&P],
@@ -108,7 +104,6 @@ fn compute_accesses_parallel<L, P>(
     constraint: &dyn AccessConstraint,
     property_computers: Option<&[&dyn AccessPropertyComputer]>,
     search_config: &AccessSearchConfig,
-    time_tolerance: Option<f64>,
 ) -> Result<Vec<AccessWindow>, BraheError>
 where
     L: AccessibleLocation + Sync,
@@ -131,8 +126,7 @@ where
                 search_end,
                 constraint,
                 property_computers,
-                Some(search_config.initial_time_step),
-                time_tolerance,
+                Some(search_config),
             )
         })
         .collect();
@@ -167,8 +161,7 @@ where
 /// * `search_end` - End of search window
 /// * `constraint` - Access constraints to evaluate
 /// * `property_computers` - Optional custom property computers
-/// * `config` - Optional search configuration (time step, adaptive parameters)
-/// * `time_tolerance` - Optional boundary refinement tolerance (default: 0.01s)
+/// * `config` - Optional search configuration (time step, adaptive parameters, tolerance, subdivisions)
 ///
 /// # Returns
 /// Result containing vector of `AccessWindow` objects sorted by start time,
@@ -207,7 +200,6 @@ where
 ///     &constraint,
 ///     None,
 ///     None,
-///     None,
 /// ).unwrap();
 ///
 /// // Windows contains all periods when satellite is above 10 degrees elevation
@@ -215,7 +207,6 @@ where
 ///     println!("Access from {} to {}", window.window_open, window.window_close);
 /// }
 /// ```
-#[allow(clippy::too_many_arguments)]
 #[allow(private_bounds)]
 pub fn location_accesses<L, P, Locs, Props>(
     locations: &Locs,
@@ -225,7 +216,6 @@ pub fn location_accesses<L, P, Locs, Props>(
     constraint: &dyn AccessConstraint,
     property_computers: Option<&[&dyn AccessPropertyComputer]>,
     config: Option<&AccessSearchConfig>,
-    time_tolerance: Option<f64>,
 ) -> Result<Vec<AccessWindow>, BraheError>
 where
     L: AccessibleLocation + Sync,
@@ -258,7 +248,6 @@ where
                     constraint,
                     property_computers,
                     &search_config,
-                    time_tolerance,
                 )
             })
         } else {
@@ -272,7 +261,6 @@ where
                     constraint,
                     property_computers,
                     &search_config,
-                    time_tolerance,
                 )
             })
         }
@@ -286,7 +274,6 @@ where
             constraint,
             property_computers,
             &search_config,
-            time_tolerance,
         )
     }
 }
@@ -338,6 +325,8 @@ mod tests {
             adaptive_fraction: 0.75,
             parallel: true,
             num_threads: None,
+            time_tolerance: 0.1,
+            ..Default::default()
         };
 
         let windows = location_accesses(
@@ -348,7 +337,6 @@ mod tests {
             &constraint,
             None,
             Some(&config),
-            Some(0.1),
         )
         .unwrap();
 
@@ -424,6 +412,8 @@ mod tests {
             adaptive_fraction: 0.75,
             parallel: true,
             num_threads: None,
+            time_tolerance: 0.1,
+            ..Default::default()
         };
 
         let windows = location_accesses(
@@ -434,7 +424,6 @@ mod tests {
             &constraint,
             None,
             Some(&config),
-            Some(0.1),
         )
         .unwrap();
 
@@ -474,6 +463,8 @@ mod tests {
             adaptive_fraction: 0.75,
             parallel: true,
             num_threads: None,
+            time_tolerance: 0.1,
+            ..Default::default()
         };
 
         let windows = location_accesses(
@@ -484,7 +475,6 @@ mod tests {
             &constraint,
             None,
             Some(&config),
-            Some(0.1),
         )
         .unwrap();
 
@@ -542,6 +532,8 @@ mod tests {
             adaptive_fraction: 0.75,
             parallel: true,
             num_threads: None,
+            time_tolerance: 0.1,
+            ..Default::default()
         };
 
         let windows = location_accesses(
@@ -552,7 +544,6 @@ mod tests {
             &constraint,
             None,
             Some(&config),
-            Some(0.1),
         )
         .unwrap();
 
@@ -589,6 +580,8 @@ mod tests {
             adaptive_fraction: 0.75,
             parallel: false, // Use sequential computation
             num_threads: None,
+            time_tolerance: 0.1,
+            ..Default::default()
         };
 
         let windows = location_accesses(
@@ -599,7 +592,6 @@ mod tests {
             &constraint,
             None,
             Some(&config),
-            Some(0.1),
         )
         .unwrap();
 

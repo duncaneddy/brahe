@@ -51,7 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &constraint,
         Some(&[&doppler]),  // Property computers
         None,  // Use default config
-        None,  // No time tolerance
     )?;
 
     // Access computed properties

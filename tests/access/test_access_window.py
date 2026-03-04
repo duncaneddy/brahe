@@ -36,6 +36,7 @@ def create_test_window():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     windows = bh.location_accesses(
@@ -45,7 +46,6 @@ def create_test_window():
         search_end,
         constraint,
         config=config,
-        time_tolerance=0.1,
     )
 
     assert len(windows) > 0, "Should find at least one access window"

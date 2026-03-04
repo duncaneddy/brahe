@@ -109,6 +109,7 @@ def test_custom_property_computer_polar_orbit():
         initial_time_step=60.0,
         adaptive_step=False,
         adaptive_fraction=0.75,
+        time_tolerance=0.1,
     )
 
     # Run access computation with custom property computer
@@ -120,7 +121,6 @@ def test_custom_property_computer_polar_orbit():
         constraint,
         property_computers=[prop_computer],
         config=config,
-        time_tolerance=0.1,
     )
 
     # Should find multiple accesses with this configuration

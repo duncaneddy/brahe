@@ -799,9 +799,16 @@ def test_subdivision_config_validation():
     with pytest.raises(Exception):
         bh.SubdivisionConfig(duration=30.0, offset=-1.0)
 
-    # Negative gap is allowed (overlapping)
+    # Negative gap is allowed (overlapping), but must be > -duration
     config = bh.SubdivisionConfig(duration=30.0, gap=-5.0)
     assert config.gap == pytest.approx(-5.0)
+
+    # gap <= -duration would cause infinite loop
+    with pytest.raises(Exception):
+        bh.SubdivisionConfig(duration=30.0, gap=-30.0)
+
+    with pytest.raises(Exception):
+        bh.SubdivisionConfig(duration=30.0, gap=-31.0)
 
 
 def test_location_accesses_fixed_duration_subdivisions():

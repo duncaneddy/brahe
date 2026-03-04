@@ -328,6 +328,11 @@ impl SubdivisionConfig {
                 "SubdivisionConfig: offset must be >= 0.0".to_string(),
             ));
         }
+        if gap <= -duration {
+            return Err(BraheError::Error(
+                "SubdivisionConfig: gap must be > -duration to ensure forward progress".to_string(),
+            ));
+        }
         Ok(Self::FixedDuration {
             duration,
             offset,
@@ -965,6 +970,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: DIdentifiableStateProvider>
                         if sub_end > refined_end {
                             if *truncate_partial {
                                 sub_end = refined_end;
+                                break; // Immediately break to prevent infinite loop on next iteration for some negative-gap configurations
                             } else {
                                 break; // Drop partial sub-window
                             }
@@ -2150,6 +2156,7 @@ mod tests {
         // Valid
         assert!(SubdivisionConfig::fixed_duration(30.0, 0.0, 0.0, false).is_ok());
         assert!(SubdivisionConfig::fixed_duration(30.0, 10.0, -5.0, true).is_ok());
+        assert!(SubdivisionConfig::fixed_duration(30.0, 0.0, -29.99, false).is_ok());
 
         // Invalid duration
         assert!(SubdivisionConfig::fixed_duration(0.0, 0.0, 0.0, false).is_err());
@@ -2157,6 +2164,10 @@ mod tests {
 
         // Invalid offset
         assert!(SubdivisionConfig::fixed_duration(30.0, -1.0, 0.0, false).is_err());
+
+        // Invalid gap: gap <= -duration would cause infinite loop
+        assert!(SubdivisionConfig::fixed_duration(30.0, 0.0, -30.0, false).is_err());
+        assert!(SubdivisionConfig::fixed_duration(30.0, 0.0, -31.0, false).is_err());
     }
 
     #[test]

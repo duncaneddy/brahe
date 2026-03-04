@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.1.3] - 2026-03-04
+### Added
+
+- Added `SubdivisionConfig` a subfield of `AccessSearchConfig` to control how subdivisions are created [#181](https://github.com/duncaneddy/brahe/pull/181)
+
+### Changed
+
+- Migrated to PyO3 `v0.28`
+  Update Cargo dependencies [#179](https://github.com/duncaneddy/brahe/pull/179)
+- Removed `time_step` parameter from internal `find_access_windows` method. Configuration of stepping and subdivision is now unified as a property of `AccessSearchConfig` [#181](https://github.com/duncaneddy/brahe/pull/181)
+
+### Fixed
+
+- Fixed issue in dataframe creation from dependabot update. [#179](https://github.com/duncaneddy/brahe/pull/179)
+
 ## [1.1.2] - 2026-02-14
 ### Fixed
 

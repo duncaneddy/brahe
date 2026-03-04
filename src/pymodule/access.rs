@@ -3875,7 +3875,6 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
         sat_state_ecef: &nalgebra::Vector6<f64>,
         location_ecef: &nalgebra::Vector3<f64>,
     ) -> bool {
-        #[allow(deprecated)]
         Python::attach(|py| {
             // Convert to numpy arrays
             let sat_state_array = sat_state_ecef.as_slice().to_pyarray(py).to_owned();
@@ -3927,14 +3926,252 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
 // Access Computation Functions
 // ================================
 
+/// Configuration for how access windows are subdivided.
+///
+/// Supports two modes: equal-count (split into N equal parts) and fixed-duration
+/// (generate sub-windows with a specific duration at regular intervals).
+///
+/// Can be created using keyword constructor or named class methods:
+///
+/// Args:
+///     count (Optional[int]): Number of equal subdivisions (EqualCount mode)
+///     duration (Optional[float]): Duration of each sub-window in seconds (FixedDuration mode)
+///     offset (float): Offset from parent window start in seconds (default: 0.0)
+///     gap (float): Gap between sub-windows in seconds, negative for overlap (default: 0.0)
+///     truncate_partial (bool): If True, truncate partial sub-windows; if False, drop them (default: False)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Equal-count mode via keyword constructor
+///     config = bh.SubdivisionConfig(count=4)
+///
+///     # Equal-count mode via named constructor
+///     config = bh.SubdivisionConfig.equal_count(4)
+///
+///     # Fixed-duration mode via keyword constructor
+///     config = bh.SubdivisionConfig(duration=30.0, offset=10.0, gap=5.0)
+///
+///     # Fixed-duration mode via named constructor
+///     config = bh.SubdivisionConfig.fixed_duration(
+///         duration=30.0, offset=10.0, gap=5.0, truncate_partial=False
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "SubdivisionConfig")]
+#[derive(Clone)]
+pub struct PySubdivisionConfig {
+    pub(crate) config: SubdivisionConfig,
+}
+
+#[pymethods]
+impl PySubdivisionConfig {
+    /// Create a SubdivisionConfig.
+    ///
+    /// Detects mode from which arguments are provided:
+    /// - Provide `count` for EqualCount mode
+    /// - Provide `duration` for FixedDuration mode
+    ///
+    /// Args:
+    ///     count (Optional[int]): Number of equal subdivisions
+    ///     duration (Optional[float]): Duration of each sub-window in seconds
+    ///     offset (float): Offset from parent window start in seconds (default: 0.0)
+    ///     gap (float): Gap between sub-windows in seconds (default: 0.0)
+    ///     truncate_partial (bool): Truncate partial sub-windows (default: False)
+    ///
+    /// Returns:
+    ///     SubdivisionConfig: The configured subdivision
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     config = bh.SubdivisionConfig(count=4)
+    ///     config = bh.SubdivisionConfig(duration=30.0, gap=5.0)
+    ///     ```
+    #[new]
+    #[pyo3(signature = (count=None, duration=None, offset=0.0, gap=0.0, truncate_partial=false))]
+    fn new(
+        count: Option<usize>,
+        duration: Option<f64>,
+        offset: f64,
+        gap: f64,
+        truncate_partial: bool,
+    ) -> PyResult<Self> {
+        match (count, duration) {
+            (Some(n), None) => Ok(Self {
+                config: SubdivisionConfig::equal_count(n)?,
+            }),
+            (None, Some(d)) => Ok(Self {
+                config: SubdivisionConfig::fixed_duration(d, offset, gap, truncate_partial)?,
+            }),
+            (Some(_), Some(_)) => Err(exceptions::PyValueError::new_err(
+                "Specify either count or duration, not both",
+            )),
+            (None, None) => Err(exceptions::PyValueError::new_err(
+                "Must specify either count or duration",
+            )),
+        }
+    }
+
+    /// Create an equal-count subdivision configuration.
+    ///
+    /// Splits each access window into N equal-duration sub-windows.
+    ///
+    /// Args:
+    ///     count (int): Number of equal subdivisions (must be >= 1)
+    ///
+    /// Returns:
+    ///     SubdivisionConfig: Equal-count subdivision configuration
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     config = bh.SubdivisionConfig.equal_count(4)
+    ///     ```
+    #[staticmethod]
+    #[pyo3(signature = (count,))]
+    fn equal_count(count: usize) -> PyResult<Self> {
+        Ok(Self {
+            config: SubdivisionConfig::equal_count(count)?,
+        })
+    }
+
+    /// Create a fixed-duration subdivision configuration.
+    ///
+    /// Generates sub-windows with a specific duration at regular intervals
+    /// within each parent access window.
+    ///
+    /// Args:
+    ///     duration (float): Duration of each sub-window in seconds (must be > 0.0)
+    ///     offset (float): Offset from parent window start in seconds (default: 0.0)
+    ///     gap (float): Gap between sub-windows in seconds, negative for overlap (default: 0.0)
+    ///     truncate_partial (bool): If True, truncate partial sub-windows; if False, drop them (default: False)
+    ///
+    /// Returns:
+    ///     SubdivisionConfig: Fixed-duration subdivision configuration
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     config = bh.SubdivisionConfig.fixed_duration(
+    ///         duration=30.0, offset=10.0, gap=5.0, truncate_partial=False
+    ///     )
+    ///     ```
+    #[staticmethod]
+    #[pyo3(signature = (duration, offset=0.0, gap=0.0, truncate_partial=false))]
+    fn fixed_duration(
+        duration: f64,
+        offset: f64,
+        gap: f64,
+        truncate_partial: bool,
+    ) -> PyResult<Self> {
+        Ok(Self {
+            config: SubdivisionConfig::fixed_duration(duration, offset, gap, truncate_partial)?,
+        })
+    }
+
+    /// Get the count (for EqualCount mode).
+    ///
+    /// Returns:
+    ///     Optional[int]: Number of subdivisions, or None if FixedDuration mode
+    #[getter]
+    fn count(&self) -> Option<usize> {
+        match self.config {
+            SubdivisionConfig::EqualCount { count } => Some(count),
+            _ => None,
+        }
+    }
+
+    /// Get the duration (for FixedDuration mode).
+    ///
+    /// Returns:
+    ///     Optional[float]: Sub-window duration in seconds, or None if EqualCount mode
+    #[getter]
+    fn duration(&self) -> Option<f64> {
+        match self.config {
+            SubdivisionConfig::FixedDuration { duration, .. } => Some(duration),
+            _ => None,
+        }
+    }
+
+    /// Get the offset (for FixedDuration mode).
+    ///
+    /// Returns:
+    ///     Optional[float]: Offset from parent window start in seconds, or None if EqualCount mode
+    #[getter]
+    fn offset(&self) -> Option<f64> {
+        match self.config {
+            SubdivisionConfig::FixedDuration { offset, .. } => Some(offset),
+            _ => None,
+        }
+    }
+
+    /// Get the gap (for FixedDuration mode).
+    ///
+    /// Returns:
+    ///     Optional[float]: Gap between sub-windows in seconds, or None if EqualCount mode
+    #[getter]
+    fn gap(&self) -> Option<f64> {
+        match self.config {
+            SubdivisionConfig::FixedDuration { gap, .. } => Some(gap),
+            _ => None,
+        }
+    }
+
+    /// Get the truncate_partial flag (for FixedDuration mode).
+    ///
+    /// Returns:
+    ///     Optional[bool]: Truncate partial flag, or None if EqualCount mode
+    #[getter]
+    fn truncate_partial(&self) -> Option<bool> {
+        match self.config {
+            SubdivisionConfig::FixedDuration {
+                truncate_partial, ..
+            } => Some(truncate_partial),
+            _ => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match self.config {
+            SubdivisionConfig::EqualCount { count } => {
+                format!("SubdivisionConfig.equal_count({})", count)
+            }
+            SubdivisionConfig::FixedDuration {
+                duration,
+                offset,
+                gap,
+                truncate_partial,
+            } => {
+                format!(
+                    "SubdivisionConfig.fixed_duration(duration={}, offset={}, gap={}, truncate_partial={})",
+                    duration,
+                    offset,
+                    gap,
+                    if truncate_partial { "True" } else { "False" }
+                )
+            }
+        }
+    }
+}
+
 /// Configuration for access search grid parameters.
 ///
-/// Controls the time step and adaptive stepping behavior for access window finding.
+/// Controls the time step, adaptive stepping, boundary refinement tolerance,
+/// and optional subdivision behavior for access window finding.
 ///
 /// Args:
 ///     initial_time_step (float): Initial time step in seconds for grid search (default: 60.0)
 ///     adaptive_step (bool): Enable adaptive stepping after first access (default: False)
 ///     adaptive_fraction (float): Fraction of orbital period to use for adaptive step (default: 0.75)
+///     parallel (bool): Enable parallel computation (default: True)
+///     num_threads (Optional[int]): Number of threads for parallel computation (default: None)
+///     time_tolerance (float): Boundary refinement tolerance in seconds (default: 0.001)
+///     subdivisions (Optional[SubdivisionConfig]): Subdivision configuration per window (default: None)
 ///
 /// Example:
 ///     ```python
@@ -3952,6 +4189,21 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
 ///         station, prop, search_start, search_end,
 ///         constraint, config=config
 ///     )
+///
+///     # Subdivide each access window into 4 equal-time sub-windows
+///     config = bh.AccessSearchConfig(
+///         subdivisions=bh.SubdivisionConfig.equal_count(4),
+///         time_tolerance=0.01
+///     )
+///     sub_windows = bh.location_accesses(
+///         station, prop, search_start, search_end,
+///         constraint, config=config
+///     )
+///
+///     # Fixed-duration sub-windows
+///     config = bh.AccessSearchConfig(
+///         subdivisions=bh.SubdivisionConfig.fixed_duration(30.0, gap=5.0)
+///     )
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "AccessSearchConfig")]
@@ -3963,13 +4215,15 @@ pub struct PyAccessSearchConfig {
 #[pymethods]
 impl PyAccessSearchConfig {
     #[new]
-    #[pyo3(signature = (initial_time_step=60.0, adaptive_step=false, adaptive_fraction=0.75, parallel=true, num_threads=None))]
+    #[pyo3(signature = (initial_time_step=60.0, adaptive_step=false, adaptive_fraction=0.75, parallel=true, num_threads=None, time_tolerance=0.001, subdivisions=None))]
     fn new(
         initial_time_step: f64,
         adaptive_step: bool,
         adaptive_fraction: f64,
         parallel: bool,
         num_threads: Option<usize>,
+        time_tolerance: f64,
+        subdivisions: Option<PySubdivisionConfig>,
     ) -> Self {
         Self {
             config: AccessSearchConfig {
@@ -3978,6 +4232,8 @@ impl PyAccessSearchConfig {
                 adaptive_fraction,
                 parallel,
                 num_threads,
+                time_tolerance,
+                subdivisions: subdivisions.map(|s| s.config),
             },
         }
     }
@@ -4072,10 +4328,55 @@ impl PyAccessSearchConfig {
         self.config.num_threads = value;
     }
 
+    /// Get the boundary refinement tolerance in seconds.
+    ///
+    /// Returns:
+    ///     float: Time tolerance in seconds
+    #[getter]
+    fn time_tolerance(&self) -> f64 {
+        self.config.time_tolerance
+    }
+
+    /// Set the boundary refinement tolerance in seconds.
+    ///
+    /// Args:
+    ///     value (float): New time tolerance in seconds
+    #[setter]
+    fn set_time_tolerance(&mut self, value: f64) {
+        self.config.time_tolerance = value;
+    }
+
+    /// Get the subdivision configuration per access window.
+    ///
+    /// Returns:
+    ///     Optional[SubdivisionConfig]: Subdivision configuration, or None for no subdivision
+    #[getter]
+    fn subdivisions(&self) -> Option<PySubdivisionConfig> {
+        self.config
+            .subdivisions
+            .map(|config| PySubdivisionConfig { config })
+    }
+
+    /// Set the subdivision configuration per access window.
+    ///
+    /// Args:
+    ///     value (Optional[SubdivisionConfig]): Subdivision configuration, or None for no subdivision
+    #[setter]
+    fn set_subdivisions(&mut self, value: Option<PySubdivisionConfig>) {
+        self.config.subdivisions = value.map(|s| s.config);
+    }
+
     fn __repr__(&self) -> String {
+        let sub_repr = match &self.config.subdivisions {
+            Some(s) => {
+                let py_sub = PySubdivisionConfig { config: *s };
+                py_sub.__repr__()
+            }
+            None => "None".to_string(),
+        };
         format!(
-            "AccessSearchConfig(initial_time_step={}, adaptive_step={}, adaptive_fraction={}, parallel={}, num_threads={:?})",
-            self.config.initial_time_step, self.config.adaptive_step, self.config.adaptive_fraction, self.config.parallel, self.config.num_threads
+            "AccessSearchConfig(initial_time_step={}, adaptive_step={}, adaptive_fraction={}, parallel={}, num_threads={:?}, time_tolerance={}, subdivisions={})",
+            self.config.initial_time_step, self.config.adaptive_step, self.config.adaptive_fraction, self.config.parallel, self.config.num_threads, self.config.time_tolerance, sub_repr
         )
     }
 }
@@ -4133,8 +4434,7 @@ fn process_property_computers(
 ///     search_end (Epoch): End of search window
 ///     constraint (AccessConstraint): Access constraints to evaluate
 ///     property_computers (Optional[List[AccessPropertyComputer]]): Optional property computers
-///     config (Optional[AccessSearchConfig]): Search configuration (default: 60s fixed grid, no adaptation)
-///     time_tolerance (Optional[float]): Bisection search tolerance in seconds (default: 0.01)
+///     config (Optional[AccessSearchConfig]): Search configuration (time step, tolerance, subdivisions, etc.)
 ///
 /// Returns:
 ///     List[AccessWindow]: List of access windows sorted by start time
@@ -4171,12 +4471,12 @@ fn process_property_computers(
 ///     # Multiple locations, multiple propagators
 ///     windows = bh.location_accesses([station, station2], [prop1, prop2], epoch, search_end, constraint)
 ///
-///     # Custom search configuration
-///     config = bh.AccessSearchConfig(initial_time_step=30.0, adaptive_step=True)
+///     # Custom search configuration with time tolerance and subdivisions
+///     config = bh.AccessSearchConfig(initial_time_step=30.0, adaptive_step=True, time_tolerance=0.01)
 ///     windows = bh.location_accesses(station, prop1, epoch, search_end, constraint, config=config)
 ///     ```
 #[pyfunction(name = "location_accesses")]
-#[pyo3(signature = (locations, propagators, search_start, search_end, constraint, property_computers=None, config=None, time_tolerance=None))]
+#[pyo3(signature = (locations, propagators, search_start, search_end, constraint, property_computers=None, config=None))]
 #[allow(clippy::too_many_arguments)]
 fn py_location_accesses(
     py: Python,
@@ -4187,7 +4487,6 @@ fn py_location_accesses(
     constraint: &Bound<'_, PyAny>,
     property_computers: Option<Vec<Py<PyAny>>>,
     config: Option<&PyAccessSearchConfig>,
-    time_tolerance: Option<f64>,
 ) -> PyResult<Vec<PyAccessWindow>> {
     // Use provided config or create default
     let search_config = config.map(|c| c.config).unwrap_or_default();
@@ -4316,7 +4615,6 @@ fn py_location_accesses(
         // thread mutated the propagator (e.g., via propagate_to()) while we're computing
         // access, we'd have a data race. The cloneable propagators path (SGP, Keplerian)
         // safely releases the GIL because it clones the propagators first.
-        #[allow(deprecated)]
         let windows = match &locations_vec {
             LocationVec::Point(locs) => location_accesses(
                 locs,
@@ -4326,7 +4624,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             ),
             LocationVec::Polygon(locs) => location_accesses(
                 locs,
@@ -4336,7 +4633,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             ),
         }?;
 
@@ -4411,7 +4707,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             )
         }
         (LocationVec::Point(locs), PropagatorVec::Keplerian(props)) => {
@@ -4423,7 +4718,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             )
         }
         (LocationVec::Polygon(locs), PropagatorVec::Sgp(props)) => {
@@ -4435,7 +4729,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             )
         }
         (LocationVec::Polygon(locs), PropagatorVec::Keplerian(props)) => {
@@ -4447,7 +4740,6 @@ fn py_location_accesses(
                 constraint_trait,
                 property_computers_option,
                 Some(&search_config),
-                time_tolerance,
             )
         }
     })?;

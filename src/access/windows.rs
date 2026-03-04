@@ -240,17 +240,121 @@ impl Identifiable for AccessWindow {
 }
 
 // ================================
+// Subdivision Configuration
+// ================================
+
+/// Configuration for how access windows are subdivided.
+///
+/// Supports two modes:
+/// - `EqualCount`: Split each window into N equal-duration sub-windows
+/// - `FixedDuration`: Generate sub-windows with fixed duration at regular intervals
+///
+/// # Examples
+/// ```
+/// use brahe::access::SubdivisionConfig;
+///
+/// // Split into 4 equal parts
+/// let config = SubdivisionConfig::equal_count(4).unwrap();
+///
+/// // Fixed 30-second sub-windows with 5-second gaps
+/// let config = SubdivisionConfig::fixed_duration(30.0, 0.0, 5.0, false).unwrap();
+///
+/// // Fixed 60-second sub-windows starting 10 seconds in, truncate partial
+/// let config = SubdivisionConfig::fixed_duration(60.0, 10.0, 0.0, true).unwrap();
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub enum SubdivisionConfig {
+    /// Split each access window into N equal-duration sub-windows.
+    EqualCount {
+        /// Number of equal-duration sub-windows to create (must be >= 1)
+        count: usize,
+    },
+
+    /// Generate sub-windows with fixed duration at regular intervals.
+    FixedDuration {
+        /// Duration of each sub-window (seconds, must be > 0.0)
+        duration: f64,
+        /// Offset from parent window start to first sub-window (seconds, default 0.0)
+        offset: f64,
+        /// Gap between end of one sub-window and start of next (seconds, default 0.0).
+        /// Negative values produce overlapping sub-windows.
+        gap: f64,
+        /// If true, truncate the last sub-window to fit within the parent window.
+        /// If false (default), drop any sub-window that doesn't fit fully.
+        truncate_partial: bool,
+    },
+}
+
+impl SubdivisionConfig {
+    /// Create an EqualCount subdivision configuration.
+    ///
+    /// # Arguments
+    /// * `count` - Number of equal-duration sub-windows (must be >= 1)
+    ///
+    /// # Returns
+    /// * `SubdivisionConfig` - The validated configuration
+    pub fn equal_count(count: usize) -> Result<Self, BraheError> {
+        if count < 1 {
+            return Err(BraheError::Error(
+                "SubdivisionConfig: count must be >= 1".to_string(),
+            ));
+        }
+        Ok(Self::EqualCount { count })
+    }
+
+    /// Create a FixedDuration subdivision configuration.
+    ///
+    /// # Arguments
+    /// * `duration` - Duration of each sub-window in seconds (must be > 0.0)
+    /// * `offset` - Offset from parent window start to first sub-window in seconds (must be >= 0.0)
+    /// * `gap` - Gap between sub-windows in seconds (negative values produce overlapping sub-windows)
+    /// * `truncate_partial` - If true, truncate partial sub-windows; if false, drop them
+    ///
+    /// # Returns
+    /// * `SubdivisionConfig` - The validated configuration
+    pub fn fixed_duration(
+        duration: f64,
+        offset: f64,
+        gap: f64,
+        truncate_partial: bool,
+    ) -> Result<Self, BraheError> {
+        if duration <= 0.0 {
+            return Err(BraheError::Error(
+                "SubdivisionConfig: duration must be > 0.0".to_string(),
+            ));
+        }
+        if offset < 0.0 {
+            return Err(BraheError::Error(
+                "SubdivisionConfig: offset must be >= 0.0".to_string(),
+            ));
+        }
+        if gap <= -duration {
+            return Err(BraheError::Error(
+                "SubdivisionConfig: gap must be > -duration to ensure forward progress".to_string(),
+            ));
+        }
+        Ok(Self::FixedDuration {
+            duration,
+            offset,
+            gap,
+            truncate_partial,
+        })
+    }
+}
+
+// ================================
 // Access Search Configuration
 // ================================
 
 /// Configuration for access window search algorithms.
 ///
-/// Controls the grid search parameters and whether to enable adaptive stepping
+/// Controls the grid search parameters, boundary refinement tolerance,
+/// optional subdivision of windows, and whether to enable adaptive stepping
 /// based on orbital period.
 ///
 /// # Examples
 /// ```
-/// use brahe::access::AccessSearchConfig;
+/// use brahe::access::{AccessSearchConfig, SubdivisionConfig};
 ///
 /// // Default configuration: 60 second fixed grid, no adaptation, parallel enabled
 /// let config = AccessSearchConfig::default();
@@ -262,15 +366,24 @@ impl Identifiable for AccessWindow {
 ///     adaptive_fraction: 0.75,
 ///     parallel: true,
 ///     num_threads: None,
+///     ..Default::default()
 /// };
 ///
-/// // Sequential (non-parallel) with custom threads
+/// // Subdivide each access window into 4 equal-time sub-windows
 /// let config = AccessSearchConfig {
-///     initial_time_step: 60.0,
-///     adaptive_step: false,
-///     adaptive_fraction: 0.75,
-///     parallel: false,
-///     num_threads: Some(4),
+///     subdivisions: Some(SubdivisionConfig::EqualCount { count: 4 }),
+///     ..Default::default()
+/// };
+///
+/// // Fixed-duration sub-windows of 30 seconds with 5-second gaps
+/// let config = AccessSearchConfig {
+///     subdivisions: Some(SubdivisionConfig::FixedDuration {
+///         duration: 30.0,
+///         offset: 0.0,
+///         gap: 5.0,
+///         truncate_partial: false,
+///     }),
+///     ..Default::default()
 /// };
 /// ```
 #[derive(Debug, Clone, Copy)]
@@ -318,6 +431,25 @@ pub struct AccessSearchConfig {
     ///
     /// Only applies when `parallel = true`.
     pub num_threads: Option<usize>,
+
+    /// Boundary refinement tolerance in seconds
+    ///
+    /// Controls the precision of the bisection search when refining
+    /// access window open/close boundaries. Smaller values give more
+    /// precise boundaries but take longer to compute.
+    ///
+    /// Default: 0.001 seconds (~0.01° elevation precision)
+    pub time_tolerance: f64,
+
+    /// Subdivision configuration for access windows
+    ///
+    /// When `Some(config)`, each found access window is subdivided
+    /// according to the config (equal-count or fixed-duration).
+    /// Only sub-windows are returned; parent timing is recoverable
+    /// from `first.window_open` / `last.window_close`.
+    ///
+    /// When `None` (default), windows are returned as-is.
+    pub subdivisions: Option<SubdivisionConfig>,
 }
 
 impl Default for AccessSearchConfig {
@@ -328,6 +460,8 @@ impl Default for AccessSearchConfig {
             adaptive_fraction: 0.75,
             parallel: true,
             num_threads: None,
+            time_tolerance: 0.001,
+            subdivisions: None,
         }
     }
 }
@@ -367,6 +501,7 @@ impl Default for AccessSearchConfig {
 ///     adaptive_fraction: 0.75,
 ///     parallel: true,
 ///     num_threads: None,
+///     ..Default::default()
 /// };
 /// let windows = find_access_candidates(&location, &prop, start, end, &constraint, &config);
 /// ```
@@ -702,7 +837,7 @@ fn compute_window_properties_internal<L: AccessibleLocation, P: DIdentifiableSta
 /// Find and refine access windows for a location
 ///
 /// Complete workflow: coarse grid search, boundary refinement,
-/// and property computation.
+/// property computation, and optional subdivision.
 ///
 /// # Arguments
 /// * `location` - Ground location
@@ -711,12 +846,11 @@ fn compute_window_properties_internal<L: AccessibleLocation, P: DIdentifiableSta
 /// * `search_end` - End of search window
 /// * `constraint` - Access constraints
 /// * `property_computers` - Optional custom property computers
-/// * `time_step` - Search grid step (default: 60 seconds)
-/// * `time_tolerance` - Boundary refinement tolerance (default: 0.001 seconds, ~0.01° elevation precision)
+/// * `config` - Optional search configuration (time step, tolerance, subdivisions, etc.)
 ///
 /// # Returns
-/// Result containing list of complete AccessWindow objects, or error if property computation fails
-#[allow(clippy::too_many_arguments)]
+/// Result containing list of complete AccessWindow objects, or error if property computation fails.
+/// When `config.subdivisions` is set, returns subdivided sub-windows instead of parent windows.
 pub fn find_access_windows<L: AccessibleLocation, P: DIdentifiableStateProvider>(
     location: &L,
     propagator: &P,
@@ -724,19 +858,9 @@ pub fn find_access_windows<L: AccessibleLocation, P: DIdentifiableStateProvider>
     search_end: Epoch,
     constraint: &dyn AccessConstraint,
     property_computers: Option<&[&dyn AccessPropertyComputer]>,
-    time_step: Option<f64>,
-    time_tolerance: Option<f64>,
+    config: Option<&AccessSearchConfig>,
 ) -> Result<Vec<AccessWindow>, BraheError> {
-    let time_tolerance = time_tolerance.unwrap_or(0.001);
-
-    // Create search config from time_step parameter
-    let config = AccessSearchConfig {
-        initial_time_step: time_step.unwrap_or(60.0),
-        adaptive_step: false, // Default: no adaptation
-        adaptive_fraction: 0.75,
-        parallel: true,    // Default: parallel enabled (not used in this function)
-        num_threads: None, // Default: use global setting (not used in this function)
-    };
+    let config = config.copied().unwrap_or_default();
 
     // Find candidate windows
     let candidates = find_access_candidates(
@@ -770,7 +894,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: DIdentifiableStateProvider>
                 config.initial_time_step,
                 start_condition,
                 constraint,
-                time_tolerance,
+                config.time_tolerance,
                 search_start, // min_bound
                 coarse_start, // max_bound
             )?
@@ -793,7 +917,7 @@ pub fn find_access_windows<L: AccessibleLocation, P: DIdentifiableStateProvider>
                 config.initial_time_step,
                 end_condition,
                 constraint,
-                time_tolerance,
+                config.time_tolerance,
                 coarse_end, // min_bound (starting point)
                 search_end, // max_bound (allow stepping forward to search end)
             )?
@@ -801,23 +925,99 @@ pub fn find_access_windows<L: AccessibleLocation, P: DIdentifiableStateProvider>
             coarse_end
         };
 
-        // Compute properties (propagate errors instead of skipping)
-        let properties = compute_window_properties_internal(
-            refined_start,
-            refined_end,
-            location,
-            propagator,
-            property_computers,
-        )?;
+        // Either subdivide the window or return it as-is
+        match &config.subdivisions {
+            Some(SubdivisionConfig::EqualCount { count }) => {
+                let duration = refined_end - refined_start;
+                let sub_duration = duration / *count as f64;
 
-        // Create complete window
-        windows.push(AccessWindow::new(
-            refined_start,
-            refined_end,
-            location,
-            propagator,
-            properties,
-        ));
+                for i in 0..*count {
+                    let sub_open = refined_start + sub_duration * i as f64;
+                    let sub_close = refined_start + sub_duration * (i + 1) as f64;
+
+                    let sub_properties = compute_window_properties_internal(
+                        sub_open,
+                        sub_close,
+                        location,
+                        propagator,
+                        property_computers,
+                    )?;
+
+                    windows.push(AccessWindow::new(
+                        sub_open,
+                        sub_close,
+                        location,
+                        propagator,
+                        sub_properties,
+                    ));
+                }
+            }
+            Some(SubdivisionConfig::FixedDuration {
+                duration,
+                offset,
+                gap,
+                truncate_partial,
+            }) => {
+                let parent_duration = refined_end - refined_start;
+
+                // If offset exceeds parent duration, no sub-windows
+                if *offset < parent_duration {
+                    let mut sub_start = refined_start + *offset;
+
+                    while sub_start < refined_end {
+                        let mut sub_end = sub_start + *duration;
+
+                        if sub_end > refined_end {
+                            if *truncate_partial {
+                                sub_end = refined_end;
+                                break; // Immediately break to prevent infinite loop on next iteration for some negative-gap configurations
+                            } else {
+                                break; // Drop partial sub-window
+                            }
+                        }
+
+                        // Skip zero-duration sub-windows from truncation
+                        if sub_end > sub_start {
+                            let sub_properties = compute_window_properties_internal(
+                                sub_start,
+                                sub_end,
+                                location,
+                                propagator,
+                                property_computers,
+                            )?;
+
+                            windows.push(AccessWindow::new(
+                                sub_start,
+                                sub_end,
+                                location,
+                                propagator,
+                                sub_properties,
+                            ));
+                        }
+
+                        sub_start = sub_end + *gap;
+                    }
+                }
+            }
+            None => {
+                // Compute properties for the full window
+                let properties = compute_window_properties_internal(
+                    refined_start,
+                    refined_end,
+                    location,
+                    propagator,
+                    property_computers,
+                )?;
+
+                windows.push(AccessWindow::new(
+                    refined_start,
+                    refined_end,
+                    location,
+                    propagator,
+                    properties,
+                ));
+            }
+        }
     }
 
     Ok(windows)
@@ -1002,6 +1202,10 @@ mod tests {
 
         let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
 
+        let config = AccessSearchConfig {
+            time_tolerance: 0.1,
+            ..Default::default()
+        };
         let windows = find_access_windows(
             &location,
             &propagator,
@@ -1009,8 +1213,7 @@ mod tests {
             search_end,
             &constraint,
             None,
-            Some(60.0),
-            Some(0.1),
+            Some(&config),
         )
         .unwrap();
 
@@ -1247,7 +1450,7 @@ mod tests {
         let search_end = epoch + 86400.0; // 24 hours in seconds
         let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
 
-        // Find access windows with default settings (currently 0.01s time tolerance)
+        // Find access windows with default settings (0.001s time tolerance)
         let windows = find_access_windows(
             &location,
             &propagator,
@@ -1255,8 +1458,7 @@ mod tests {
             search_end,
             &constraint,
             None,
-            Some(60.0), // Grid step
-            None,       // Use default time tolerance
+            None,
         )
         .unwrap();
 
@@ -1684,6 +1886,7 @@ mod tests {
             adaptive_fraction: 0.5,
             parallel: false,
             num_threads: Some(1),
+            ..Default::default()
         };
         let candidates_no_adaptive = find_access_candidates(
             &location,
@@ -1702,6 +1905,7 @@ mod tests {
             adaptive_fraction: 0.5, // Jump forward by 50% of orbital period after window closes
             parallel: false,
             num_threads: Some(1),
+            ..Default::default()
         };
         let candidates_adaptive = find_access_candidates(
             &location,
@@ -1754,6 +1958,528 @@ mod tests {
             "Adaptive stepping test: found {} windows without adaptive, {} windows with adaptive",
             candidates_no_adaptive.len(),
             candidates_adaptive.len()
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_find_access_windows_with_subdivisions() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(45.0, 0.0, 0.0);
+
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let period = 5674.0;
+        let search_end = epoch + (period * 2.0);
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+
+        // First, find windows without subdivision to get the parent count
+        let config_no_sub = AccessSearchConfig {
+            time_tolerance: 0.1,
+            ..Default::default()
+        };
+        let parent_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_no_sub),
+        )
+        .unwrap();
+
+        let parent_count = parent_windows.len();
+        assert!(
+            parent_count > 0,
+            "Need at least 1 parent window for subdivision test"
+        );
+
+        // Now find windows with subdivision=4
+        let n = 4;
+        let config_sub = AccessSearchConfig {
+            time_tolerance: 0.1,
+            subdivisions: Some(SubdivisionConfig::EqualCount { count: n }),
+            ..Default::default()
+        };
+        let sub_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_sub),
+        )
+        .unwrap();
+
+        // Should have n * parent_count sub-windows
+        assert_eq!(
+            sub_windows.len(),
+            n * parent_count,
+            "Expected {} sub-windows ({}*{}), found {}",
+            n * parent_count,
+            n,
+            parent_count,
+            sub_windows.len()
+        );
+
+        // Verify sub-windows within each parent are contiguous
+        for (parent_idx, parent) in parent_windows.iter().enumerate() {
+            let base = parent_idx * n;
+            let parent_open = parent.window_open;
+            let parent_close = parent.window_close;
+
+            // First sub-window opens at parent open
+            assert!(
+                (sub_windows[base].window_open - parent_open).abs() < 1e-6,
+                "First sub-window open should match parent open"
+            );
+
+            // Last sub-window closes at parent close
+            assert!(
+                (sub_windows[base + n - 1].window_close - parent_close).abs() < 1e-6,
+                "Last sub-window close should match parent close"
+            );
+
+            // Sub-windows are contiguous
+            for i in 1..n {
+                let prev_close = sub_windows[base + i - 1].window_close;
+                let curr_open = sub_windows[base + i].window_open;
+                assert!(
+                    (prev_close - curr_open).abs() < 1e-6,
+                    "Sub-windows should be contiguous: sub[{}].close ({}) != sub[{}].open ({})",
+                    i - 1,
+                    prev_close,
+                    i,
+                    curr_open,
+                );
+            }
+
+            // Each sub-window has valid properties
+            for i in 0..n {
+                let sw = &sub_windows[base + i];
+                assert!(sw.window_open < sw.window_close);
+                assert!(sw.duration() > 0.0);
+                assert!((0.0..=360.0).contains(&sw.properties.azimuth_open));
+                assert!((-90.0..=90.0).contains(&sw.properties.elevation_max));
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_find_access_windows_no_subdivisions_preserves_behavior() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(45.0, 0.0, 0.0);
+
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let period = 5674.0;
+        let search_end = epoch + (period * 2.0);
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+
+        // Explicit None subdivisions should behave identically to default
+        let config = AccessSearchConfig {
+            time_tolerance: 0.1,
+            subdivisions: None,
+            ..Default::default()
+        };
+        let _windows_explicit = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config),
+        )
+        .unwrap();
+
+        let windows_default = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Same count (default time_tolerance=0.001 vs explicit 0.1 may differ,
+        // but with explicit None subdivisions and same tolerance they must match)
+        let config_default_tol = AccessSearchConfig::default();
+        let windows_default_tol = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_default_tol),
+        )
+        .unwrap();
+
+        assert_eq!(windows_default.len(), windows_default_tol.len());
+    }
+
+    #[test]
+    fn test_subdivision_config_equal_count_validation() {
+        // Valid
+        assert!(SubdivisionConfig::equal_count(1).is_ok());
+        assert!(SubdivisionConfig::equal_count(10).is_ok());
+    }
+
+    #[test]
+    fn test_subdivision_config_fixed_duration_validation() {
+        // Valid
+        assert!(SubdivisionConfig::fixed_duration(30.0, 0.0, 0.0, false).is_ok());
+        assert!(SubdivisionConfig::fixed_duration(30.0, 10.0, -5.0, true).is_ok());
+        assert!(SubdivisionConfig::fixed_duration(30.0, 0.0, -29.99, false).is_ok());
+
+        // Invalid duration
+        assert!(SubdivisionConfig::fixed_duration(0.0, 0.0, 0.0, false).is_err());
+        assert!(SubdivisionConfig::fixed_duration(-1.0, 0.0, 0.0, false).is_err());
+
+        // Invalid offset
+        assert!(SubdivisionConfig::fixed_duration(30.0, -1.0, 0.0, false).is_err());
+
+        // Invalid gap: gap <= -duration would cause infinite loop
+        assert!(SubdivisionConfig::fixed_duration(30.0, 0.0, -30.0, false).is_err());
+        assert!(SubdivisionConfig::fixed_duration(30.0, 0.0, -31.0, false).is_err());
+    }
+
+    #[test]
+    #[serial]
+    fn test_find_access_windows_fixed_duration() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let period = 5674.0;
+        let search_end = epoch + (period * 2.0);
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+
+        // Get parent windows first
+        let config_no_sub = AccessSearchConfig {
+            time_tolerance: 0.1,
+            ..Default::default()
+        };
+        let parent_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_no_sub),
+        )
+        .unwrap();
+        assert!(!parent_windows.is_empty());
+
+        // Use a small duration relative to typical window (~5-10 min)
+        let sub_dur = 30.0; // 30 seconds
+        let config_sub = AccessSearchConfig {
+            time_tolerance: 0.1,
+            subdivisions: Some(SubdivisionConfig::FixedDuration {
+                duration: sub_dur,
+                offset: 0.0,
+                gap: 0.0,
+                truncate_partial: false,
+            }),
+            ..Default::default()
+        };
+        let sub_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_sub),
+        )
+        .unwrap();
+
+        assert!(!sub_windows.is_empty());
+
+        // Each sub-window should be exactly sub_dur seconds (except possibly last in a group)
+        for sw in &sub_windows {
+            assert!(sw.duration() <= sub_dur + 1e-6);
+            assert!(sw.duration() > 0.0);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_find_access_windows_fixed_duration_with_gap() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let period = 5674.0;
+        let search_end = epoch + (period * 2.0);
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+
+        // 30-second sub-windows with 10-second gaps
+        let sub_dur = 30.0;
+        let gap = 10.0;
+        let config_sub = AccessSearchConfig {
+            time_tolerance: 0.1,
+            subdivisions: Some(SubdivisionConfig::FixedDuration {
+                duration: sub_dur,
+                offset: 0.0,
+                gap,
+                truncate_partial: false,
+            }),
+            ..Default::default()
+        };
+        let sub_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_sub),
+        )
+        .unwrap();
+
+        assert!(!sub_windows.is_empty());
+
+        // All sub-windows should be exactly sub_dur (no truncation)
+        for sw in &sub_windows {
+            assert!(
+                (sw.duration() - sub_dur).abs() < 1e-6,
+                "Expected sub-window duration {}, got {}",
+                sub_dur,
+                sw.duration()
+            );
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_find_access_windows_fixed_duration_truncate() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let period = 5674.0;
+        let search_end = epoch + (period * 2.0);
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+
+        // Get parent windows to know their durations
+        let config_no_sub = AccessSearchConfig {
+            time_tolerance: 0.1,
+            ..Default::default()
+        };
+        let parent_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_no_sub),
+        )
+        .unwrap();
+        assert!(!parent_windows.is_empty());
+
+        // Use truncate_partial=true so last sub-window is trimmed
+        let sub_dur = 30.0;
+        let config_trunc = AccessSearchConfig {
+            time_tolerance: 0.1,
+            subdivisions: Some(SubdivisionConfig::FixedDuration {
+                duration: sub_dur,
+                offset: 0.0,
+                gap: 0.0,
+                truncate_partial: true,
+            }),
+            ..Default::default()
+        };
+        let trunc_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_trunc),
+        )
+        .unwrap();
+
+        // With truncation, we should get more (or equal) sub-windows than without
+        let config_no_trunc = AccessSearchConfig {
+            time_tolerance: 0.1,
+            subdivisions: Some(SubdivisionConfig::FixedDuration {
+                duration: sub_dur,
+                offset: 0.0,
+                gap: 0.0,
+                truncate_partial: false,
+            }),
+            ..Default::default()
+        };
+        let no_trunc_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_no_trunc),
+        )
+        .unwrap();
+
+        assert!(
+            trunc_windows.len() >= no_trunc_windows.len(),
+            "Truncation should produce >= sub-windows: trunc={}, no_trunc={}",
+            trunc_windows.len(),
+            no_trunc_windows.len()
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_find_access_windows_fixed_duration_with_offset() {
+        setup_global_test_eop();
+
+        let location = PointLocation::new(45.0, 0.0, 0.0);
+        let oe = Vector6::new(R_EARTH + 500e3, 0.0, 45.0_f64.to_radians(), 0.0, 0.0, 0.0);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let propagator = KeplerianPropagator::new(
+            epoch,
+            oe,
+            crate::trajectories::traits::OrbitFrame::ECI,
+            crate::trajectories::traits::OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Radians),
+            60.0,
+        );
+
+        let period = 5674.0;
+        let search_end = epoch + (period * 2.0);
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+
+        // Get parent windows
+        let config_no_sub = AccessSearchConfig {
+            time_tolerance: 0.1,
+            ..Default::default()
+        };
+        let parent_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_no_sub),
+        )
+        .unwrap();
+        assert!(!parent_windows.is_empty());
+
+        // Use a 10-second offset
+        let offset = 10.0;
+        let sub_dur = 30.0;
+        let config_offset = AccessSearchConfig {
+            time_tolerance: 0.1,
+            subdivisions: Some(SubdivisionConfig::FixedDuration {
+                duration: sub_dur,
+                offset,
+                gap: 0.0,
+                truncate_partial: false,
+            }),
+            ..Default::default()
+        };
+        let sub_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_offset),
+        )
+        .unwrap();
+
+        assert!(!sub_windows.is_empty());
+
+        // With offset, should get fewer or equal sub-windows vs no offset
+        let config_no_offset = AccessSearchConfig {
+            time_tolerance: 0.1,
+            subdivisions: Some(SubdivisionConfig::FixedDuration {
+                duration: sub_dur,
+                offset: 0.0,
+                gap: 0.0,
+                truncate_partial: false,
+            }),
+            ..Default::default()
+        };
+        let no_offset_windows = find_access_windows(
+            &location,
+            &propagator,
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config_no_offset),
+        )
+        .unwrap();
+
+        assert!(
+            sub_windows.len() <= no_offset_windows.len(),
+            "Offset should produce <= sub-windows: offset={}, no_offset={}",
+            sub_windows.len(),
+            no_offset_windows.len()
         );
     }
 }

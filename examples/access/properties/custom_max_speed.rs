@@ -79,7 +79,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &constraint,
         Some(&[&max_speed]),  // Property computers
         None,  // Use default config
-        None,  // No time tolerance
     )?;
 
     for window in &windows {

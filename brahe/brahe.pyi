@@ -1025,7 +1025,6 @@ def location_accesses(
     constraint,
     property_computers=None,
     config=None,
-    time_tolerance=None,
 ):
     """
     Compute access windows for locations and satellites.
@@ -1043,8 +1042,7 @@ def location_accesses(
         search_end (Epoch): End of search window
         constraint (AccessConstraint): Access constraints to evaluate
         property_computers (Optional[List[AccessPropertyComputer]]): Optional property computers
-        config (Optional[AccessSearchConfig]): Search configuration (default: 60s fixed grid, no adaptation)
-        time_tolerance (Optional[float]): Bisection search tolerance in seconds (default: 0.01)
+        config (Optional[AccessSearchConfig]): Search configuration (time step, tolerance, subdivisions, etc.)
 
     Returns:
         List[AccessWindow]: List of access windows sorted by start time

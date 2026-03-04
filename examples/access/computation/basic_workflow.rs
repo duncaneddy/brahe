@@ -37,9 +37,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         epoch_start,
         epoch_end,
         &constraint,
-        None, // Use default config
         None, // No custom property computers
-        None, // No progress callback
+        None, // Use default config
     )?;
 
     // Process results

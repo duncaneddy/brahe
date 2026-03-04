@@ -15,6 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         adaptive_fraction: 0.75,
         parallel: true,
         num_threads: Some(0),
+        ..Default::default()
     };
 
     // Use custom config with location and propagator
@@ -42,7 +43,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &constraint,
         None,
         Some(&config),
-        None,
     )?;
 
     println!(

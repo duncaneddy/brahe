@@ -34,7 +34,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &constraint,
         None,
         None,
-        None,
     )?;
 
     // Access core properties from first window

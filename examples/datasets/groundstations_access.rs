@@ -43,7 +43,6 @@ fn main() {
         &constraint,
         None,
         None,
-        None,
     ).unwrap();
 
     // Display results

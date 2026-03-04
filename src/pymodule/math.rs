@@ -26,7 +26,7 @@
 ///     # Or explicitly set the method
 ///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_method(bh.DifferenceMethod.CENTRAL)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "DifferenceMethod")]
 #[derive(Clone)]
 pub struct PyDifferenceMethod {
@@ -107,7 +107,7 @@ impl PyDifferenceMethod {
 ///     # Percentage-based perturbation
 ///     jacobian = bh.NumericalJacobian.new(dynamics_fn).with_percentage(1e-6)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "PerturbationStrategy")]
 #[derive(Clone)]
 pub struct PyPerturbationStrategy {
@@ -402,7 +402,7 @@ impl PyDNumericalJacobian {
         let dynamics_closure = {
             let dynamics_fn_clone = self.dynamics_fn.clone_ref(py);
             move |t: f64, state: &DVector<f64>, _params: Option<&DVector<f64>>| -> DVector<f64> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     // Convert state to NumPy array
                     let state_py = state.as_slice().to_pyarray(py);
 
@@ -758,7 +758,7 @@ impl PyDNumericalSensitivity {
         let dynamics_closure = {
             let dynamics_fn_clone = self.dynamics_fn.clone_ref(py);
             move |t: f64, state: &DVector<f64>, params: &DVector<f64>| -> DVector<f64> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let state_py = state.as_slice().to_pyarray(py);
                     let params_py = params.as_slice().to_pyarray(py);
 

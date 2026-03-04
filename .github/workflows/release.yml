@@ -137,7 +137,7 @@ jobs:
         run: |
           VERSION=${{ needs.validate-version.outputs.version }}
           # Extract the section for this version from CHANGELOG.md
-          awk "/^## v?$VERSION/,/^## /" CHANGELOG.md | head -n -1 > release_notes.md
+          awk "/^## \\[$VERSION\\]/,/^## /" CHANGELOG.md | head -n -1 > release_notes.md
           echo "Extracted release notes:"
           cat release_notes.md
 

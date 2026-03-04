@@ -235,7 +235,7 @@ impl PyPropertiesDict {
 ///     assert bh.LookDirection.LEFT != bh.LookDirection.RIGHT
 ///     assert bh.LookDirection.LEFT == bh.LookDirection.LEFT
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "LookDirection")]
 #[derive(Clone)]
 pub struct PyLookDirection {
@@ -323,7 +323,7 @@ impl PyLookDirection {
 ///     assert bh.AscDsc.ASCENDING != bh.AscDsc.DESCENDING
 ///     assert bh.AscDsc.ASCENDING == bh.AscDsc.ASCENDING
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "AscDsc")]
 #[derive(Clone)]
 pub struct PyAscDsc {
@@ -2337,7 +2337,7 @@ impl PyAccessWindow {
 
     // ===== Access properties (convenience getters) =====
 
-    /// Get the access properties object.
+    /// Get or set the access properties object.
     ///
     /// Returns:
     ///     AccessProperties: Computed properties for this access window
@@ -2346,6 +2346,15 @@ impl PyAccessWindow {
         PyAccessProperties {
             properties: self.window.properties.clone(),
         }
+    }
+
+    /// Set the access properties object.
+    ///
+    /// Args:
+    ///     value (AccessProperties): New properties for this access window
+    #[setter]
+    fn set_properties(&mut self, value: PyAccessProperties) {
+        self.window.properties = value.properties;
     }
 
     /// Get azimuth angle at window opening (degrees, 0-360).
@@ -2532,7 +2541,8 @@ impl PyAccessWindow {
 ///     if "signal_strength" in props.additional:
 ///         print(f"Signal: {props.additional['signal_strength']}")
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[derive(Clone)]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "AccessProperties")]
 pub struct PyAccessProperties {
     pub(crate) properties: AccessProperties,
@@ -3021,7 +3031,7 @@ impl PyAdditionalPropertiesDict {
 ///     config = bh.SamplingConfig.midpoint()
 ///     config = bh.SamplingConfig.relative_points([0.0, 0.5, 1.0])
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SamplingConfig")]
 #[derive(Clone)]
 pub struct PySamplingConfig {
@@ -3431,7 +3441,8 @@ pub struct PyAccessPropertyComputer {
 #[pymethods]
 impl PyAccessPropertyComputer {
     #[new]
-    fn new() -> Self {
+    #[pyo3(signature = (*_args, **_kwargs))]
+    fn new(_args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> Self {
         PyAccessPropertyComputer {}
     }
 
@@ -3865,7 +3876,7 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
         location_ecef: &nalgebra::Vector3<f64>,
     ) -> bool {
         #[allow(deprecated)]
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // Convert to numpy arrays
             let sat_state_array = sat_state_ecef.as_slice().to_pyarray(py).to_owned();
             let loc_array = location_ecef.as_slice().to_pyarray(py).to_owned();
@@ -3942,7 +3953,7 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
 ///         constraint, config=config
 ///     )
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "AccessSearchConfig")]
 #[derive(Clone)]
 pub struct PyAccessSearchConfig {
@@ -4390,8 +4401,7 @@ fn py_location_accesses(
 
     // Call the Rust function with the extracted types
     // Release GIL to allow parallel execution and Python callbacks from threads
-    #[allow(deprecated)]
-    let windows = py.allow_threads(|| match (&locations_vec, &propagators_vec) {
+    let windows = py.detach(|| match (&locations_vec, &propagators_vec) {
         (LocationVec::Point(locs), PropagatorVec::Sgp(props)) => {
             location_accesses(
                 locs,

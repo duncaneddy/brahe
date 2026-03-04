@@ -2,8 +2,9 @@
  * Module that provides download functionality for different EOP file sources.
  */
 
-use std::fs;
 use std::path::Path;
+
+use crate::utils::{BraheError, atomic_write};
 
 const STANDARD_FILE_SOURCE: &str =
     "https://datacenter.iers.org/data/latestVersion/finals.all.iau2000.txt";
@@ -17,25 +18,19 @@ const C04_FILE_SOURCE: &str =
 ///
 /// # Arguments
 /// - `filepath`: Path of desired output file
-pub fn download_c04_eop_file(filepath: &str) -> Result<(), &str> {
-    // Create parent directory
+pub fn download_c04_eop_file(filepath: &str) -> Result<(), BraheError> {
     let filepath = Path::new(filepath);
-    let parent_dir = filepath
-        .parent()
-        .expect("Failed to identify parent directory.");
-
-    fs::create_dir_all(parent_dir)
-        .unwrap_or_else(|_| panic!("Failed to create directory {}", parent_dir.display()));
 
     let body = ureq::get(C04_FILE_SOURCE)
         .call()
-        .expect("Download Request failed")
+        .map_err(|e| BraheError::IoError(format!("C04 EOP download request failed: {}", e)))?
         .body_mut()
         .read_to_string()
-        .expect("Failed to parse response into string");
+        .map_err(|e| {
+            BraheError::IoError(format!("Failed to read C04 EOP download response: {}", e))
+        })?;
 
-    fs::write(filepath, body)
-        .unwrap_or_else(|_| panic!("Failed to write file: {}", filepath.display()));
+    atomic_write(filepath, body.as_bytes())?;
 
     Ok(())
 }
@@ -47,25 +42,22 @@ pub fn download_c04_eop_file(filepath: &str) -> Result<(), &str> {
 ///
 /// # Arguments
 /// - `filepath`: Path of desired output file
-pub fn download_standard_eop_file(filepath: &str) -> Result<(), &str> {
-    // Create parent directory
+pub fn download_standard_eop_file(filepath: &str) -> Result<(), BraheError> {
     let filepath = Path::new(filepath);
-    let parent_dir = filepath
-        .parent()
-        .expect("Failed to identify parent directory.");
-
-    fs::create_dir_all(parent_dir)
-        .unwrap_or_else(|_| panic!("Failed to create directory {}", parent_dir.display()));
 
     let body = ureq::get(STANDARD_FILE_SOURCE)
         .call()
-        .expect("Download Request failed")
+        .map_err(|e| BraheError::IoError(format!("Standard EOP download request failed: {}", e)))?
         .body_mut()
         .read_to_string()
-        .expect("Failed to parse response into string");
+        .map_err(|e| {
+            BraheError::IoError(format!(
+                "Failed to read standard EOP download response: {}",
+                e
+            ))
+        })?;
 
-    fs::write(filepath, body)
-        .unwrap_or_else(|_| panic!("Failed to write file: {}", filepath.display()));
+    atomic_write(filepath, body.as_bytes())?;
 
     Ok(())
 }
@@ -74,6 +66,7 @@ pub fn download_standard_eop_file(filepath: &str) -> Result<(), &str> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use std::env;
+    use std::fs;
 
     use httpmock::prelude::*;
     use tempfile::tempdir;

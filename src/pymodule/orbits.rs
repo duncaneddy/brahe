@@ -1480,7 +1480,7 @@ fn py_state_koe_mean_to_osc<'py>(
 ///     delta = bh.WalkerPattern.DELTA  # 360° RAAN spread
 ///     star = bh.WalkerPattern.STAR    # 180° RAAN spread
 ///     ```
-#[pyclass(name = "WalkerPattern", module = "brahe._brahe", eq, eq_int)]
+#[pyclass(name = "WalkerPattern", module = "brahe._brahe", eq, eq_int, from_py_object)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms)] // Python convention: enum variants are UPPERCASE
 pub enum PyWalkerPattern {
@@ -1562,7 +1562,7 @@ impl From<orbits::WalkerPattern> for PyWalkerPattern {
 ///     # Generate Keplerian propagators
 ///     propagators = gen.as_keplerian_propagators(60.0)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "WalkerConstellationGenerator")]
 #[derive(Clone)]
 pub struct PyWalkerConstellationGenerator {

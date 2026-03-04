@@ -3,7 +3,7 @@
 ///
 /// Time systems define different conventions for measuring and representing time.
 /// Each system has specific uses in astrodynamics and timekeeping applications.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "TimeSystem")]
 #[derive(Clone)]
 pub struct PyTimeSystem {
@@ -399,7 +399,7 @@ fn py_time_system_offset_for_datetime(
 ///     epc4 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.UTC)
 ///     epc5 = bh.Epoch.from_jd(2460310.0, bh.UTC)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "Epoch")]
 #[derive(Clone)]
 pub struct PyEpoch {

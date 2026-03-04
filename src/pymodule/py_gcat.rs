@@ -63,7 +63,7 @@ use crate::datasets::gcat;
 ///         print(f"Name: {record.name}")
 ///         print(f"Perigee: {record.perigee} km")
 ///     ```
-#[pyclass(name = "GCATSatcatRecord")]
+#[pyclass(name = "GCATSatcatRecord", from_py_object)]
 #[derive(Clone)]
 struct PyGCATSatcatRecord {
     inner: gcat::GCATSatcatRecord,
@@ -303,7 +303,7 @@ impl PyGCATSatcatRecord {
 ///         print(f"Program: {record.program}")
 ///         print(f"Category: {record.category}")
 ///     ```
-#[pyclass(name = "GCATPsatcatRecord")]
+#[pyclass(name = "GCATPsatcatRecord", from_py_object)]
 #[derive(Clone)]
 struct PyGCATPsatcatRecord {
     inner: gcat::GCATPsatcatRecord,

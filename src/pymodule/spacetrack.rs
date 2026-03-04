@@ -20,7 +20,7 @@
 ///     controller = bh.RequestController.BASIC_SPACE_DATA
 ///     print(controller)  # "BasicSpaceData"
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "RequestController")]
 #[derive(Clone)]
 pub struct PyRequestController {
@@ -111,7 +111,7 @@ impl PyRequestController {
 ///
 ///     query = bh.SpaceTrackQuery(bh.RequestClass.GP)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "RequestClass")]
 #[derive(Clone)]
 pub struct PyRequestClass {
@@ -241,7 +241,7 @@ impl PyRequestClass {
 ///
 ///     query = bh.SpaceTrackQuery(bh.RequestClass.GP).order_by("EPOCH", bh.SortOrder.DESC)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SortOrder")]
 #[derive(Clone)]
 pub struct PySortOrder {
@@ -304,7 +304,7 @@ impl PySortOrder {
 ///
 ///     query = bh.SpaceTrackQuery(bh.RequestClass.GP).format(bh.OutputFormat.TLE)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "OutputFormat")]
 #[derive(Clone)]
 pub struct PyOutputFormat {
@@ -415,7 +415,7 @@ impl PyOutputFormat {
 ///         .limit(1)
 ///     )
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SpaceTrackQuery")]
 #[derive(Clone)]
 pub struct PySpaceTrackQuery {
@@ -666,7 +666,7 @@ impl PySpaceTrackQuery {
 ///     records = client.query_gp(query)
 ///     print(records[0].object_name)  # "ISS (ZARYA)"
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "GPRecord")]
 #[derive(Clone)]
 #[allow(clippy::upper_case_acronyms)]
@@ -881,7 +881,7 @@ impl PyGPRecord {
 ///     records = client.query_satcat(query)
 ///     print(records[0].satname)  # "ISS (ZARYA)"
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SATCATRecord")]
 #[derive(Clone)]
 #[allow(clippy::upper_case_acronyms)]
@@ -951,7 +951,7 @@ impl PySATCATRecord {
 ///     for f in files:
 ///         print(f.file_name, f.file_size)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "FileShareFileRecord")]
 #[derive(Clone)]
 pub struct PyFileShareFileRecord {
@@ -1000,7 +1000,7 @@ impl PyFileShareFileRecord {
 ///     for f in folders:
 ///         print(f.folder_name, f.folder_id)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "FolderRecord")]
 #[derive(Clone)]
 pub struct PyFolderRecord {
@@ -1050,7 +1050,7 @@ impl PyFolderRecord {
 ///     for f in files:
 ///         print(f.file_name, f.norad_cat_id)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SPEphemerisFileRecord")]
 #[derive(Clone)]
 pub struct PySPEphemerisFileRecord {
@@ -1110,7 +1110,7 @@ impl PySPEphemerisFileRecord {
 ///     # Use with client
 ///     client = bh.SpaceTrackClient("user@example.com", "password", rate_limit=config)
 ///     ```
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "RateLimitConfig")]
 #[derive(Clone)]
 pub struct PyRateLimitConfig {

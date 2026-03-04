@@ -15,7 +15,7 @@ use crate::celestrak::responses::CelestrakSATCATRecord;
 use crate::celestrak::types::{CelestrakOutputFormat, SupGPSource};
 use crate::propagators::SGPPropagator;
 use crate::types::GPRecord;
-use crate::utils::{BraheError, get_celestrak_cache_dir};
+use crate::utils::{BraheError, atomic_write, get_celestrak_cache_dir};
 
 /// Default base URL for the CelestrakClient API.
 const DEFAULT_BASE_URL: &str = "https://celestrak.org";
@@ -150,7 +150,7 @@ impl CelestrakClient {
                 .map_err(|e| BraheError::IoError(format!("Failed to create directories: {}", e)))?;
         }
 
-        fs::write(filepath, &body)
+        atomic_write(filepath, body.as_bytes())
             .map_err(|e| BraheError::IoError(format!("Failed to write file: {}", e)))
     }
 
@@ -521,7 +521,7 @@ impl CelestrakClient {
         let cache_dir = get_celestrak_cache_dir()?;
         let cache_path = Path::new(&cache_dir).join(cache_key);
 
-        fs::write(&cache_path, data)
+        atomic_write(&cache_path, data.as_bytes())
             .map_err(|e| BraheError::IoError(format!("Failed to write cache file: {}", e)))
     }
 

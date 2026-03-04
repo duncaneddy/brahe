@@ -1,7 +1,7 @@
 /// Python wrapper for EllipsoidalConversionType enum
 ///
 /// Specifies the type of ellipsoidal conversion used in coordinate transformations.
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "EllipsoidalConversionType")]
 #[derive(Clone)]
 pub struct PyEllipsoidalConversionType {

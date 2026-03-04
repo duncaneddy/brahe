@@ -488,7 +488,7 @@ fn pyany_to_smatrix<const R: usize, const C: usize>(
 }
 
 /// Python wrapper for AngleFormat enum
-#[pyclass(module = "brahe._brahe")]
+#[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "AngleFormat")]
 #[derive(Clone)]
 pub struct PyAngleFormat {

@@ -7,6 +7,7 @@
  */
 
 use crate::utils::BraheError;
+use crate::utils::atomic_write;
 use crate::utils::cache::get_naif_cache_dir;
 use std::fs;
 use std::io::Read;
@@ -136,7 +137,7 @@ pub fn download_de_kernel(name: &str, output_path: Option<PathBuf>) -> Result<Pa
         let data = fetch_de_kernel(name)?;
 
         // Cache it for future use
-        fs::write(&cache_path, &data).map_err(|e| {
+        atomic_write(&cache_path, &data).map_err(|e| {
             BraheError::Error(format!(
                 "Failed to cache kernel {} to {}: {}",
                 name,

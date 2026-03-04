@@ -12,6 +12,7 @@ use crate::space_weather::provider::SpaceWeatherProvider;
 use crate::space_weather::types::{SpaceWeatherExtrapolation, SpaceWeatherType};
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
+use crate::utils::atomic_write;
 use crate::utils::cache::get_space_weather_cache_dir;
 
 /// Default URL for downloading space weather data from CelesTrak
@@ -533,7 +534,7 @@ fn download_from_url(url: &str, output_path: &Path) -> Result<(), BraheError> {
         .read_to_string()
         .map_err(|e| BraheError::IoError(format!("Failed to read response: {}", e)))?;
 
-    fs::write(output_path, body)?;
+    atomic_write(output_path, body.as_bytes())?;
 
     Ok(())
 }

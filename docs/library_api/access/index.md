@@ -10,6 +10,8 @@ The access computation module provides comprehensive tools for determining when 
 
 ::: brahe.AccessSearchConfig
 
+::: brahe.SubdivisionConfig
+
 ## Threading Control
 
 ::: brahe.set_num_threads

@@ -1012,6 +1012,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Access Properties
     module.add_class::<PyAccessWindow>()?;
     module.add_class::<PyAccessProperties>()?;
+    module.add_class::<PySubdivisionConfig>()?;
     module.add_class::<PyAccessSearchConfig>()?;
     module.add_class::<PyAdditionalPropertiesDict>()?;
     module.add_class::<PySamplingConfig>()?;

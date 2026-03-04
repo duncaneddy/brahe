@@ -630,7 +630,7 @@ def test_location_accesses_with_subdivisions():
     config_sub = bh.AccessSearchConfig(
         initial_time_step=60.0,
         time_tolerance=0.1,
-        subdivisions=n,
+        subdivisions=bh.SubdivisionConfig.equal_count(n),
     )
     sub_windows = bh.location_accesses(
         location, propagator, epoch, search_end, constraint, config=config_sub
@@ -713,11 +713,236 @@ def test_config_subdivisions_property():
     config = bh.AccessSearchConfig()
     assert config.subdivisions is None
 
-    config = bh.AccessSearchConfig(subdivisions=4)
-    assert config.subdivisions == 4
+    config = bh.AccessSearchConfig(subdivisions=bh.SubdivisionConfig.equal_count(4))
+    assert config.subdivisions is not None
+    assert config.subdivisions.count == 4
 
-    config.subdivisions = 8
-    assert config.subdivisions == 8
+    config.subdivisions = bh.SubdivisionConfig.equal_count(8)
+    assert config.subdivisions.count == 8
 
     config.subdivisions = None
     assert config.subdivisions is None
+
+
+# =============================================================================
+# SubdivisionConfig Tests
+# =============================================================================
+
+
+def test_subdivision_config_equal_count():
+    """Test SubdivisionConfig.equal_count construction and properties."""
+    config = bh.SubdivisionConfig.equal_count(4)
+    assert config.count == 4
+    assert config.duration is None
+    assert config.offset is None
+    assert config.gap is None
+    assert config.truncate_partial is None
+    assert "equal_count(4)" in repr(config)
+
+
+def test_subdivision_config_fixed_duration():
+    """Test SubdivisionConfig.fixed_duration construction and properties."""
+    config = bh.SubdivisionConfig.fixed_duration(
+        30.0, offset=10.0, gap=5.0, truncate_partial=True
+    )
+    assert config.count is None
+    assert config.duration == pytest.approx(30.0)
+    assert config.offset == pytest.approx(10.0)
+    assert config.gap == pytest.approx(5.0)
+    assert config.truncate_partial is True
+    assert "fixed_duration" in repr(config)
+
+
+def test_subdivision_config_fixed_duration_defaults():
+    """Test FixedDuration default values for offset, gap, truncate_partial."""
+    config = bh.SubdivisionConfig.fixed_duration(60.0)
+    assert config.duration == pytest.approx(60.0)
+    assert config.offset == pytest.approx(0.0)
+    assert config.gap == pytest.approx(0.0)
+    assert config.truncate_partial is False
+
+
+def test_subdivision_config_keyword_constructor():
+    """Test SubdivisionConfig keyword constructor for both modes."""
+    # EqualCount via keyword
+    c1 = bh.SubdivisionConfig(count=4)
+    assert c1.count == 4
+    assert c1.duration is None
+
+    # FixedDuration via keyword
+    c2 = bh.SubdivisionConfig(duration=30.0, offset=10.0, gap=5.0)
+    assert c2.count is None
+    assert c2.duration == pytest.approx(30.0)
+    assert c2.offset == pytest.approx(10.0)
+    assert c2.gap == pytest.approx(5.0)
+    assert c2.truncate_partial is False
+
+
+def test_subdivision_config_validation():
+    """Test SubdivisionConfig validation errors."""
+    # Must specify either count or duration
+    with pytest.raises(ValueError, match="Must specify either count or duration"):
+        bh.SubdivisionConfig()
+
+    # Cannot specify both
+    with pytest.raises(ValueError, match="Specify either count or duration, not both"):
+        bh.SubdivisionConfig(count=4, duration=30.0)
+
+    # Invalid duration
+    with pytest.raises(Exception):
+        bh.SubdivisionConfig(duration=-1.0)
+
+    with pytest.raises(Exception):
+        bh.SubdivisionConfig(duration=0.0)
+
+    # Invalid offset
+    with pytest.raises(Exception):
+        bh.SubdivisionConfig(duration=30.0, offset=-1.0)
+
+    # Negative gap is allowed (overlapping)
+    config = bh.SubdivisionConfig(duration=30.0, gap=-5.0)
+    assert config.gap == pytest.approx(-5.0)
+
+
+def test_location_accesses_fixed_duration_subdivisions():
+    """Test end-to-end access computation with fixed-duration subdivisions."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+    constraint = bh.ElevationConstraint(5.0)
+
+    # Fixed 30-second sub-windows
+    sub_dur = 30.0
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        time_tolerance=0.1,
+        subdivisions=bh.SubdivisionConfig.fixed_duration(sub_dur),
+    )
+    windows = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config
+    )
+
+    assert len(windows) > 0
+
+    # Each sub-window should be at most sub_dur seconds
+    for w in windows:
+        assert w.duration <= sub_dur + 1e-6
+        assert w.duration > 0.0
+
+
+def test_location_accesses_fixed_duration_truncate():
+    """Test that truncate_partial=True truncates the last sub-window."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+    constraint = bh.ElevationConstraint(5.0)
+
+    sub_dur = 30.0
+
+    # With truncation
+    config_trunc = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        time_tolerance=0.1,
+        subdivisions=bh.SubdivisionConfig.fixed_duration(
+            sub_dur, truncate_partial=True
+        ),
+    )
+    trunc_windows = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config_trunc
+    )
+
+    # Without truncation
+    config_no_trunc = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        time_tolerance=0.1,
+        subdivisions=bh.SubdivisionConfig.fixed_duration(
+            sub_dur, truncate_partial=False
+        ),
+    )
+    no_trunc_windows = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config_no_trunc
+    )
+
+    # Truncation should produce at least as many windows
+    assert len(trunc_windows) >= len(no_trunc_windows)
+
+
+def test_location_accesses_fixed_duration_with_gap():
+    """Test fixed-duration subdivisions with gap/spacing between sub-windows."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+    constraint = bh.ElevationConstraint(5.0)
+
+    # 30-second sub-windows with 10-second gaps
+    sub_dur = 30.0
+    gap = 10.0
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        time_tolerance=0.1,
+        subdivisions=bh.SubdivisionConfig.fixed_duration(sub_dur, gap=gap),
+    )
+    windows = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config
+    )
+
+    assert len(windows) > 0
+
+    # All sub-windows should be exactly sub_dur (no truncation by default)
+    for w in windows:
+        assert w.duration == pytest.approx(sub_dur, abs=1e-6)
+
+    # With gaps, should get fewer sub-windows than without
+    config_no_gap = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        time_tolerance=0.1,
+        subdivisions=bh.SubdivisionConfig.fixed_duration(sub_dur, gap=0.0),
+    )
+    no_gap_windows = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config_no_gap
+    )
+    assert len(windows) <= len(no_gap_windows)
+
+
+def test_location_accesses_fixed_duration_with_overlap():
+    """Test fixed-duration subdivisions with negative gap (overlapping)."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+    constraint = bh.ElevationConstraint(5.0)
+
+    # 30-second sub-windows with -10 second gap (overlapping)
+    sub_dur = 30.0
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        time_tolerance=0.1,
+        subdivisions=bh.SubdivisionConfig.fixed_duration(sub_dur, gap=-10.0),
+    )
+    windows = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config
+    )
+
+    assert len(windows) > 0
+
+    # With overlap, should get more sub-windows than without
+    config_no_gap = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        time_tolerance=0.1,
+        subdivisions=bh.SubdivisionConfig.fixed_duration(sub_dur, gap=0.0),
+    )
+    no_gap_windows = bh.location_accesses(
+        location, propagator, epoch, search_end, constraint, config=config_no_gap
+    )
+    assert len(windows) >= len(no_gap_windows)

@@ -95,6 +95,12 @@ jobs:
       - name: Test examples (including CI-ONLY)
         run: just test-examples --ci-only
 
+      - name: Cache Natural Earth data
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/brahe/natural_earth
+          key: natural-earth-50m-land-v1
+
       - name: Generate documentation plots
         run: just make-plots
 

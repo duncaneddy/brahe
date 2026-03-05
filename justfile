@@ -104,6 +104,12 @@ install: _setup
 stubs: _setup
     ./scripts/generate_stubs.sh
 
+# ───── LSP Support ─────
+
+# Set up LSP support (install + generate stubs)
+setup-lsp: install stubs
+    @echo "LSP support ready. Restart your editor/LSP server to pick up changes."
+
 # ───── Utilities ─────
 
 # Clean build artifacts

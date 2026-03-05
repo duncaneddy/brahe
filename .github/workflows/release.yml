@@ -153,8 +153,51 @@ jobs:
           name: changelog
           path: CHANGELOG.md
 
-  python-build-source:
+  # Generate type stubs once (platform-independent) for inclusion in all packages
+  generate-stubs:
     needs: [generate-release-notes]
+    runs-on: ubuntu-latest
+    env:
+      RUST_TOOLCHAIN: stable
+      PYTHON_VERSION: 3.12
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+    - name: Set default Rust toolchain
+      run: |
+        rustup update ${{ env.RUST_TOOLCHAIN }}
+        rustup default ${{ env.RUST_TOOLCHAIN }}
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+
+    - name: Install Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+
+    - name: Create virtual environment
+      run: uv venv -p ${{ env.PYTHON_VERSION }}
+
+    - name: Install package and generate stubs
+      run: |
+        uv pip install -e .
+        ./scripts/generate_stubs.sh
+
+    - name: Upload stubs artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: type-stubs
+        path: brahe/_brahe.pyi
+
+  python-build-source:
+    needs: [generate-release-notes, generate-stubs]
     runs-on: ubuntu-latest
     environment: release
     strategy:
@@ -171,6 +214,12 @@ jobs:
       uses: actions/download-artifact@v8
       with:
         name: changelog
+
+    - name: Download type stubs
+      uses: actions/download-artifact@v8
+      with:
+        name: type-stubs
+        path: brahe/
 
     - name: Set up Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -209,7 +258,7 @@ jobs:
         name: brahe-${{ github.ref_name }}-${{ runner.os }}-source
 
   python-build-wheels:
-    needs: [generate-release-notes]
+    needs: [generate-release-notes, generate-stubs]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -221,6 +270,12 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
+
+    - name: Download type stubs
+      uses: actions/download-artifact@v8
+      with:
+        name: type-stubs
+        path: brahe/
 
     - name: Set up Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1

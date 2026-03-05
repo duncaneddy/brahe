@@ -99,7 +99,7 @@ module-name = "brahe._brahe"
 # "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
 features = ["pyo3/extension-module", "python"]
 # Include type stub file in distribution
-include = ["brahe/_brahe.pyi"]
+include = ["brahe/_brahe.pyi", "brahe/py.typed"]
 
 [tool.pytest.ini_options]
 markers = [

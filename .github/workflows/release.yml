@@ -185,10 +185,13 @@ jobs:
     - name: Create virtual environment
       run: uv venv -p ${{ env.PYTHON_VERSION }}
 
-    - name: Install package and generate stubs
+    - name: Install package and dependencies
       run: |
+        uv sync --group dev
         uv pip install -e .
-        ./scripts/generate_stubs.sh
+
+    - name: Generate stubs
+      run: ./scripts/generate_stubs.sh
 
     - name: Upload stubs artifact
       uses: actions/upload-artifact@v6

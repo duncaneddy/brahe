@@ -14,7 +14,8 @@ updates:
     cooldown:
       default-days: 7
     ignore:
-      - dependency-name: "pyo3" # Needs to be on 0.27.2 until a numpy release is cut
+      - dependency-name: "rand" # Skip updating rand and rv to avoid breaking changes
+      - dependency-name: "rv"
   - package-ecosystem: "pip"
     directory: "/"
     schedule:

@@ -4747,3 +4747,425 @@ fn py_location_accesses(
     // Convert to Python windows
     Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect())
 }
+
+// ================================
+// Tessellation
+// ================================
+
+/// Configuration for the orbit geometry tessellator.
+///
+/// Controls tile dimensions, overlaps, and ascending/descending pass selection.
+///
+/// Args:
+///     image_width (float): Cross-track tile width in meters (default: 5000)
+///     image_length (float): Along-track tile length in meters (default: 5000)
+///     crosstrack_overlap (float): Cross-track overlap in meters (default: 200)
+///     alongtrack_overlap (float): Along-track overlap in meters (default: 200)
+///     asc_dsc (AscDsc): Ascending/descending pass selection (default: Either)
+///     min_image_length (float): Minimum tile length in meters (default: 5000)
+///     max_image_length (float): Maximum tile length in meters (default: 5000)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     config = bh.OrbitGeometryTessellatorConfig(
+///         image_width=5000,
+///         image_length=5000,
+///         asc_dsc=bh.AscDsc.ASCENDING,
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "OrbitGeometryTessellatorConfig")]
+#[derive(Clone)]
+pub struct PyOrbitGeometryTessellatorConfig {
+    pub(crate) config: access::tessellation::OrbitGeometryTessellatorConfig,
+}
+
+#[pymethods]
+impl PyOrbitGeometryTessellatorConfig {
+    /// Create a new tessellation configuration.
+    ///
+    /// Args:
+    ///     image_width (float): Cross-track tile width in meters
+    ///     image_length (float): Along-track tile length in meters
+    ///     crosstrack_overlap (float): Cross-track overlap in meters
+    ///     alongtrack_overlap (float): Along-track overlap in meters
+    ///     asc_dsc (AscDsc): Ascending/descending pass selection
+    ///     min_image_length (float): Minimum tile length in meters
+    ///     max_image_length (float): Maximum tile length in meters
+    ///
+    /// Returns:
+    ///     OrbitGeometryTessellatorConfig: New configuration
+    #[new]
+    #[pyo3(signature = (
+        image_width=5000.0,
+        image_length=5000.0,
+        crosstrack_overlap=200.0,
+        alongtrack_overlap=200.0,
+        asc_dsc=None,
+        min_image_length=5000.0,
+        max_image_length=5000.0,
+    ))]
+    fn new(
+        image_width: f64,
+        image_length: f64,
+        crosstrack_overlap: f64,
+        alongtrack_overlap: f64,
+        asc_dsc: Option<PyAscDsc>,
+        min_image_length: f64,
+        max_image_length: f64,
+    ) -> Self {
+        let ad = asc_dsc.map(|a| a.value).unwrap_or(AscDsc::Either);
+        Self {
+            config: access::tessellation::OrbitGeometryTessellatorConfig {
+                image_width,
+                image_length,
+                crosstrack_overlap,
+                alongtrack_overlap,
+                asc_dsc: ad,
+                min_image_length,
+                max_image_length,
+            },
+        }
+    }
+
+    /// Cross-track tile width in meters.
+    ///
+    /// Returns:
+    ///     float: Tile width
+    #[getter]
+    fn image_width(&self) -> f64 {
+        self.config.image_width
+    }
+
+    /// Along-track tile length in meters.
+    ///
+    /// Returns:
+    ///     float: Tile length
+    #[getter]
+    fn image_length(&self) -> f64 {
+        self.config.image_length
+    }
+
+    /// Cross-track overlap in meters.
+    ///
+    /// Returns:
+    ///     float: Overlap
+    #[getter]
+    fn crosstrack_overlap(&self) -> f64 {
+        self.config.crosstrack_overlap
+    }
+
+    /// Along-track overlap in meters.
+    ///
+    /// Returns:
+    ///     float: Overlap
+    #[getter]
+    fn alongtrack_overlap(&self) -> f64 {
+        self.config.alongtrack_overlap
+    }
+
+    /// Ascending/descending pass selection.
+    ///
+    /// Returns:
+    ///     AscDsc: Pass selection
+    #[getter]
+    fn asc_dsc(&self) -> PyAscDsc {
+        PyAscDsc {
+            value: self.config.asc_dsc,
+        }
+    }
+
+    /// Minimum tile length in meters.
+    ///
+    /// Returns:
+    ///     float: Min tile length
+    #[getter]
+    fn min_image_length(&self) -> f64 {
+        self.config.min_image_length
+    }
+
+    /// Maximum tile length in meters.
+    ///
+    /// Returns:
+    ///     float: Max tile length
+    #[getter]
+    fn max_image_length(&self) -> f64 {
+        self.config.max_image_length
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "OrbitGeometryTessellatorConfig(image_width={}, image_length={}, asc_dsc={:?})",
+            self.config.image_width, self.config.image_length, self.config.asc_dsc,
+        )
+    }
+}
+
+/// Tessellator that uses orbital geometry to create rectangular tiles aligned
+/// with satellite ground tracks.
+///
+/// Uses the satellite's orbital elements to compute along-track directions at
+/// the target latitude, then tiles the area perpendicular and parallel to the
+/// ground track. Each output tile is a PolygonLocation with metadata properties:
+///
+/// - ``tile_direction``: along-track unit ECEF vector [x, y, z]
+/// - ``tile_width``: cross-track dimension (m)
+/// - ``tile_length``: along-track dimension (m)
+/// - ``tile_area``: width * length (m^2)
+/// - ``tile_group_id``: UUID string shared by tiles in the same tiling direction
+/// - ``spacecraft_ids``: list of spacecraft identifiers
+///
+/// Args:
+///     propagator (SGPPropagator): Orbit propagator
+///     epoch (Epoch): Reference epoch for the propagator
+///     config (OrbitGeometryTessellatorConfig): Tessellation configuration
+///     spacecraft_id (str): Optional spacecraft identifier for tile metadata
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     prop = bh.SGPPropagator(line1, line2)
+///     config = bh.OrbitGeometryTessellatorConfig(
+///         image_width=5000, image_length=5000
+///     )
+///     tess = bh.OrbitGeometryTessellator(prop, prop.epoch, config)
+///     point = bh.PointLocation(10.0, 30.0, 0.0)
+///     tiles = tess.tessellate_point(point)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "OrbitGeometryTessellator")]
+pub struct PyOrbitGeometryTessellator {
+    tessellator: access::tessellation::OrbitGeometryTessellator,
+}
+
+#[pymethods]
+impl PyOrbitGeometryTessellator {
+    /// Create a new orbit geometry tessellator.
+    ///
+    /// Args:
+    ///     propagator (SGPPropagator): Orbit propagator
+    ///     epoch (Epoch): Reference epoch for the propagator
+    ///     config (OrbitGeometryTessellatorConfig): Tessellation configuration
+    ///     spacecraft_id (str): Optional spacecraft identifier
+    ///
+    /// Returns:
+    ///     OrbitGeometryTessellator: New tessellator
+    #[new]
+    #[pyo3(signature = (propagator, epoch, config=None, spacecraft_id=None))]
+    fn new(
+        propagator: &PySGPPropagator,
+        epoch: &PyEpoch,
+        config: Option<&PyOrbitGeometryTessellatorConfig>,
+        spacecraft_id: Option<String>,
+    ) -> PyResult<Self> {
+        let rust_config = config
+            .map(|c| c.config.clone())
+            .unwrap_or_default();
+
+        // Clone the propagator for the tessellator
+        let prop_clone = propagator.propagator.clone();
+
+        Ok(Self {
+            tessellator: access::tessellation::OrbitGeometryTessellator::new(
+                Box::new(prop_clone),
+                epoch.obj,
+                rust_config,
+                spacecraft_id,
+            ),
+        })
+    }
+
+    /// Tessellate a point location into rectangular tiles.
+    ///
+    /// Creates one tile per orbital pass direction (ascending, descending, or both)
+    /// centered on the point. At high latitudes where ascending and descending
+    /// directions converge, redundant tiles may be automatically merged.
+    ///
+    /// Args:
+    ///     point (PointLocation): Point to tessellate
+    ///
+    /// Returns:
+    ///     list[PolygonLocation]: Tessellated tiles with metadata properties
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     point = bh.PointLocation(10.0, 30.0, 0.0)
+    ///     tiles = tessellator.tessellate_point(point)
+    ///     for tile in tiles:
+    ///         print(tile.properties)
+    ///     ```
+    fn tessellate_point(&self, point: &PyPointLocation) -> PyResult<Vec<PyPolygonLocation>> {
+        let tiles = self
+            .tessellator
+            .tessellate(&point.location)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+        Ok(tiles
+            .into_iter()
+            .map(|t| PyPolygonLocation { location: t })
+            .collect())
+    }
+
+    /// Tessellate a polygon location into rectangular tiles.
+    ///
+    /// Divides the polygon into cross-track strips aligned with satellite ground
+    /// tracks, then subdivides each strip along-track into tiles. Handles concave
+    /// polygons by detecting gaps in the along-track direction.
+    ///
+    /// Args:
+    ///     polygon (PolygonLocation): Polygon to tessellate
+    ///
+    /// Returns:
+    ///     list[PolygonLocation]: Tessellated tiles with metadata properties
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     vertices = np.array([
+    ///         [10.0, 30.0, 0.0],
+    ///         [10.1, 30.0, 0.0],
+    ///         [10.1, 30.1, 0.0],
+    ///         [10.0, 30.1, 0.0],
+    ///     ])
+    ///     polygon = bh.PolygonLocation(vertices)
+    ///     tiles = tessellator.tessellate_polygon(polygon)
+    ///     ```
+    fn tessellate_polygon(&self, polygon: &PyPolygonLocation) -> PyResult<Vec<PyPolygonLocation>> {
+        let tiles = self
+            .tessellator
+            .tessellate(&polygon.location)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+
+        Ok(tiles
+            .into_iter()
+            .map(|t| PyPolygonLocation { location: t })
+            .collect())
+    }
+
+    /// Tessellate a location (point or polygon) into rectangular tiles.
+    ///
+    /// Dispatches to tessellate_point or tessellate_polygon based on input type.
+    ///
+    /// Args:
+    ///     location (PointLocation | PolygonLocation): Location to tessellate
+    ///
+    /// Returns:
+    ///     list[PolygonLocation]: Tessellated tiles with metadata properties
+    fn tessellate(&self, location: &Bound<'_, PyAny>) -> PyResult<Vec<PyPolygonLocation>> {
+        // Try to extract as PointLocation first
+        if let Ok(point_ref) = location.cast::<PyPointLocation>() {
+            let point = point_ref.borrow();
+            let tiles = self
+                .tessellator
+                .tessellate(&point.location)
+                .map_err(|e| BraheError::new_err(e.to_string()))?;
+            return Ok(tiles
+                .into_iter()
+                .map(|t| PyPolygonLocation { location: t })
+                .collect());
+        }
+        // Try PolygonLocation
+        if let Ok(polygon_ref) = location.cast::<PyPolygonLocation>() {
+            let polygon = polygon_ref.borrow();
+            let tiles = self
+                .tessellator
+                .tessellate(&polygon.location)
+                .map_err(|e| BraheError::new_err(e.to_string()))?;
+            return Ok(tiles
+                .into_iter()
+                .map(|t| PyPolygonLocation { location: t })
+                .collect());
+        }
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "Expected PointLocation or PolygonLocation",
+        ))
+    }
+
+    /// Get the tessellator configuration.
+    ///
+    /// Returns:
+    ///     OrbitGeometryTessellatorConfig: Current configuration
+    #[getter]
+    fn config(&self) -> PyOrbitGeometryTessellatorConfig {
+        PyOrbitGeometryTessellatorConfig {
+            config: self.tessellator.config().clone(),
+        }
+    }
+
+    /// Get the tessellator name.
+    ///
+    /// Returns:
+    ///     str: Tessellator name
+    fn name(&self) -> String {
+        access::tessellation::Tessellator::name(&self.tessellator).to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        "OrbitGeometryTessellator()".to_string()
+    }
+}
+
+/// Merge tessellation tiles from multiple spacecraft.
+///
+/// When multiple spacecraft can image the same area with similar ground-track
+/// directions, tiles from one spacecraft can be merged onto another by adding
+/// the alternate spacecraft's ID to the base tile's spacecraft_ids property.
+///
+/// Args:
+///     tiles (list[PolygonLocation]): All tiles from all spacecraft
+///     at_overlap (float): Along-track overlap in meters
+///     ct_overlap (float): Cross-track overlap in meters
+///     mergable_range_deg (float): Maximum angular difference in degrees for grouping directions
+///
+/// Returns:
+///     list[PolygonLocation]: Reduced set of tiles with merged spacecraft_ids
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Tessellate with two spacecraft
+///     tiles_sc1 = tess1.tessellate_point(point)
+///     tiles_sc2 = tess2.tessellate_point(point)
+///     all_tiles = tiles_sc1 + tiles_sc2
+///
+///     # Merge tiles with similar directions
+///     merged = bh.tile_merge_orbit_geometry(all_tiles, 200.0, 200.0, 2.0)
+///     ```
+#[pyfunction]
+#[pyo3(name = "tile_merge_orbit_geometry")]
+#[pyo3(signature = (tiles, at_overlap=200.0, ct_overlap=200.0, mergable_range_deg=2.0))]
+pub fn py_tile_merge_orbit_geometry(
+    tiles: &Bound<'_, PyList>,
+    at_overlap: f64,
+    ct_overlap: f64,
+    mergable_range_deg: f64,
+) -> PyResult<Vec<PyPolygonLocation>> {
+    let mut rust_tiles = Vec::new();
+    for item in tiles.iter() {
+        let poly_ref = item.cast::<PyPolygonLocation>()
+            .map_err(|_| pyo3::exceptions::PyTypeError::new_err(
+                "All items in tiles must be PolygonLocation"
+            ))?;
+        rust_tiles.push(poly_ref.borrow().location.clone());
+    }
+
+    let merged = access::tessellation::tile_merge_orbit_geometry(
+        &rust_tiles,
+        at_overlap,
+        ct_overlap,
+        mergable_range_deg,
+    );
+
+    Ok(merged
+        .into_iter()
+        .map(|t| PyPolygonLocation { location: t })
+        .collect())
+}

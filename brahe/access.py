@@ -54,6 +54,10 @@ from brahe._brahe import (
     RangeRateComputer,
     # Access Computation
     location_accesses,
+    # Tessellation
+    OrbitGeometryTessellatorConfig,
+    OrbitGeometryTessellator,
+    tile_merge_orbit_geometry,
     # Threading
     set_max_threads,
     get_max_threads,
@@ -92,6 +96,10 @@ __all__ = [
     "RangeRateComputer",
     # Access Computation
     "location_accesses",
+    # Tessellation
+    "OrbitGeometryTessellatorConfig",
+    "OrbitGeometryTessellator",
+    "tile_merge_orbit_geometry",
     # Threading
     "set_max_threads",
     "get_max_threads",

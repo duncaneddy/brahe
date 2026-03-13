@@ -16,6 +16,7 @@ pub mod constraints;
 pub mod geometry;
 pub mod location;
 pub mod properties;
+pub mod tessellation;
 pub mod windows;
 
 // Re-exports
@@ -24,4 +25,5 @@ pub use constraints::*;
 pub use geometry::*;
 pub use location::*;
 pub use properties::*;
+pub use tessellation::*;
 pub use windows::*;

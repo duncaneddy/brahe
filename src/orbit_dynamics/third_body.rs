@@ -10,7 +10,7 @@ use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
 use crate::spice::{
-    jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
+    SpkKernel, jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
     neptune_position_de, saturn_position_de, sun_position_de, uranus_position_de,
     venus_position_de,
 };
@@ -18,6 +18,10 @@ use crate::time::Epoch;
 use crate::{
     GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,
 };
+
+fn de_kernel_from_source(source: EphemerisSource) -> SpkKernel {
+    SpkKernel::try_from(source).expect("DE ephemeris source should map to a DE kernel")
+}
 
 /// Unified third-body acceleration with source enumeration.
 ///
@@ -76,39 +80,48 @@ pub fn accel_third_body<P: IntoPosition>(
 
         // DE440s and DE440 - all bodies (shared code, differ only in kernel loaded)
         (ThirdBody::Sun, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            sun_position_de(epc, source.into()).expect("Failed to get Sun position"),
+            sun_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Sun position"),
             GM_SUN,
         ),
         (ThirdBody::Moon, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            moon_position_de(epc, source.into()).expect("Failed to get Moon position"),
+            moon_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Moon position"),
             GM_MOON,
         ),
         (ThirdBody::Mercury, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            mercury_position_de(epc, source.into()).expect("Failed to get Mercury position"),
+            mercury_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Mercury position"),
             GM_MERCURY,
         ),
         (ThirdBody::Venus, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            venus_position_de(epc, source.into()).expect("Failed to get Venus position"),
+            venus_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Venus position"),
             GM_VENUS,
         ),
         (ThirdBody::Mars, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            mars_position_de(epc, source.into()).expect("Failed to get Mars position"),
+            mars_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Mars position"),
             GM_MARS,
         ),
         (ThirdBody::Jupiter, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            jupiter_position_de(epc, source.into()).expect("Failed to get Jupiter position"),
+            jupiter_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Jupiter position"),
             GM_JUPITER,
         ),
         (ThirdBody::Saturn, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            saturn_position_de(epc, source.into()).expect("Failed to get Saturn position"),
+            saturn_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Saturn position"),
             GM_SATURN,
         ),
         (ThirdBody::Uranus, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            uranus_position_de(epc, source.into()).expect("Failed to get Uranus position"),
+            uranus_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Uranus position"),
             GM_URANUS,
         ),
         (ThirdBody::Neptune, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            neptune_position_de(epc, source.into()).expect("Failed to get Neptune position"),
+            neptune_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Neptune position"),
             GM_NEPTUNE,
         ),
 

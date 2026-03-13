@@ -2,6 +2,9 @@
  * This is where kernel file enums live. Currently DE only, will scale up to other kernel files.
  */
 
+use crate::propagators::force_model_config::EphemerisSource;
+use crate::utils::BraheError;
+
 /// Selects which JPL DE SPK kernel file to load.
 ///
 /// This is different from `EphemerisSource` in `crate::propagators::force_model_config`,
@@ -13,15 +16,17 @@ pub enum SpkKernel {
     DE440,
 }
 
-impl From<crate::propagators::force_model_config::EphemerisSource> for SpkKernel {
-    fn from(source: crate::propagators::force_model_config::EphemerisSource) -> Self {
-        use crate::propagators::force_model_config::EphemerisSource;
+impl TryFrom<EphemerisSource> for SpkKernel {
+    type Error = BraheError;
+
+    fn try_from(source: EphemerisSource) -> Result<Self, Self::Error> {
         match source {
-            EphemerisSource::DE440s => SpkKernel::DE440s,
-            EphemerisSource::DE440 => SpkKernel::DE440,
-            EphemerisSource::LowPrecision => {
-                panic!("LowPrecision is not a valid DE kernel — use SpkKernel::DE440s or DE440")
-            }
+            EphemerisSource::DE440s => Ok(SpkKernel::DE440s),
+            EphemerisSource::DE440 => Ok(SpkKernel::DE440),
+            EphemerisSource::LowPrecision => Err(BraheError::Error(
+                "LowPrecision is not a valid DE kernel - use SpkKernel::DE440s or DE440"
+                    .to_string(),
+            )),
         }
     }
 }

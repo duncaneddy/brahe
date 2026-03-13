@@ -1056,6 +1056,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial_test::serial]
     fn test_integration_gp_by_group() {
         let client = CelestrakClient::with_cache_age(0.0);
         let records = client.get_gp_by_group("stations").expect("GP query failed");
@@ -1064,6 +1065,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial_test::serial]
     fn test_integration_gp_by_catnr() {
         let client = CelestrakClient::with_cache_age(0.0);
         let records = client.get_gp_by_catnr(25544).expect("GP query failed");
@@ -1073,6 +1075,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial_test::serial]
     fn test_integration_gp_by_name() {
         let client = CelestrakClient::with_cache_age(0.0);
         let records = client.get_gp_by_name("ISS").expect("GP query failed");
@@ -1084,6 +1087,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial_test::serial]
     fn test_integration_satcat() {
         let client = CelestrakClient::with_cache_age(0.0);
         let records = client
@@ -1095,6 +1099,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "ci"), ignore)]
+    #[serial_test::serial]
     fn test_integration_get_sgp_propagator_by_catnr() {
         let client = CelestrakClient::with_cache_age(0.0);
         let propagator = client

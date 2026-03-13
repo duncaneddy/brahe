@@ -13,8 +13,9 @@ use crate::frames::rotation_eme2000_to_gcrf;
 pub use crate::spice::{
     get_loaded_kernel_type, initialize_ephemeris, initialize_ephemeris_with_kernel,
     jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
-    neptune_position_de, saturn_position_de, solar_system_barycenter_position_de, ssb_position_de,
-    sun_position_de, uranus_position_de, venus_position_de,
+    neptune_position_de, saturn_position_de, set_global_almanac,
+    solar_system_barycenter_position_de, ssb_position_de, sun_position_de, uranus_position_de,
+    venus_position_de,
 };
 use crate::time::{Epoch, TimeSystem};
 

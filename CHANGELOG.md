@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.1.4] - 2026-03-05
+### Fixed
+
+- Fix regression from dependabot update
+  Included type annotations in package generation [#188](https://github.com/duncaneddy/brahe/pull/188)
+
 ## [1.1.3] - 2026-03-04
 ### Added
 

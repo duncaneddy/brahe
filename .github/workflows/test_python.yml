@@ -1,9 +1,16 @@
 name: Test Python
-on: [ workflow_call ]
+on:
+    workflow_call:
+        inputs:
+            is-fork-pr:
+                description: 'Whether this is a fork PR (skip credential-dependent tests)'
+                required: false
+                type: boolean
+                default: false
 jobs:
     test-python:
         runs-on: ${{ matrix.os }}
-        environment: release
+        environment: ${{ !inputs.is-fork-pr && 'release' || '' }}
         strategy:
             matrix:
                 # os: [ubuntu-latest]
@@ -12,8 +19,8 @@ jobs:
                 python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
                 rust-toolchain: [stable]
         env:
-            TEST_SPACETRACK_USER: ${{ secrets.TEST_SPACETRACK_USER }}
-            TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
+            TEST_SPACETRACK_USER: ${{ !inputs.is-fork-pr && secrets.TEST_SPACETRACK_USER || '' }}
+            TEST_SPACETRACK_PASS: ${{ !inputs.is-fork-pr && secrets.TEST_SPACETRACK_PASS || '' }}
         steps:
             -   name: Set up Rust toolchain
                 uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -35,7 +42,7 @@ jobs:
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
                 
             -   name: Test with python ${{ matrix.python-version }}
-                run: uv run --frozen coverage run -m pytest -m ''
+                run: uv run --frozen coverage run -m pytest -m '${{ inputs.is-fork-pr && 'not ci' || '' }}'
 
             -   name: Generate coverage report
                 run: |

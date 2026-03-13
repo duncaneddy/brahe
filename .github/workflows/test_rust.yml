@@ -1,5 +1,12 @@
 name: Test Rust
-on: [ workflow_call ]
+on:
+    workflow_call:
+        inputs:
+            is-fork-pr:
+                description: 'Whether this is a fork PR (skip credential-dependent tests)'
+                required: false
+                type: boolean
+                default: false
 jobs:
     build-rust:
         runs-on: ${{ matrix.os }}
@@ -41,13 +48,13 @@ jobs:
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [stable]
         needs: build-rust
-        environment: release
+        environment: ${{ !inputs.is-fork-pr && 'release' || '' }}
         permissions:
             id-token: write
         env:
             CARGO_TERM_COLOR: always
-            TEST_SPACETRACK_USER: ${{ secrets.TEST_SPACETRACK_USER }}
-            TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
+            TEST_SPACETRACK_USER: ${{ !inputs.is-fork-pr && secrets.TEST_SPACETRACK_USER || '' }}
+            TEST_SPACETRACK_PASS: ${{ !inputs.is-fork-pr && secrets.TEST_SPACETRACK_PASS || '' }}
             TEST_SPACETRACK_BASE_URL: https://for-testing-only.space-track.org
         steps:
             -   uses: actions/checkout@v6
@@ -67,7 +74,7 @@ jobs:
             -   name: Install cargo-llvm-cov
                 uses: taiki-e/install-action@cargo-llvm-cov
             -   name: Run Rust tests with coverage
-                run: cargo llvm-cov --workspace --lcov --output-path lcov.info --features ci
+                run: cargo llvm-cov --workspace --lcov --output-path lcov.info ${{ !inputs.is-fork-pr && '--features ci' || '' }}
             -   name: Upload coverage to Codecov
                 if: matrix.os == 'ubuntu-latest'
                 uses: codecov/codecov-action@v5.5.2
@@ -118,5 +125,5 @@ jobs:
                     name: rust-build-artifacts-${{ runner.os }}
                     path: target/debug/
             -   name: Run Rust doc tests
-                run: cargo test --doc --features ci -- --test-threads=1
+                run: cargo test --doc ${{ !inputs.is-fork-pr && '--features ci' || '' }} -- --test-threads=1
     

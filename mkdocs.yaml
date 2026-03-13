@@ -5,6 +5,10 @@ site_url: https://duncaneddy.github.io/brahe/
 repo_url: https://github.com/duncaneddy/brahe
 docs_dir: docs
 use_directory_urls: false
+watch:
+  - docs
+  - examples
+  - plots
 
 # Exclude auto-generated simple index (deployed separately)
 exclude_docs: |
@@ -125,7 +129,11 @@ markdown_extensions:
       linenums_style: table
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.details
@@ -228,6 +236,7 @@ nav:
           - Constraints: learn/access_computation/constraints.md
           - Properties: learn/access_computation/properties.md
           - Computation: learn/access_computation/computation.md
+          - Tessellation: learn/access_computation/tessellation.md
       - Mathematics:
           - learn/mathematics/index.md
           - Jacobian Computation: learn/mathematics/jacobian.md
@@ -287,6 +296,7 @@ nav:
       - examples/max_communications_gap.md
       - examples/imaging_data_latency.md
       - examples/imaging_opportunities.md
+      - examples/tessellation_visualization.md
       - examples/using_different_integrators.md
       - examples/geo_hohmann_transfer.md
       - examples/low_thrust_orbit_raising.md
@@ -375,6 +385,7 @@ nav:
           - Constraint Computer: library_api/access/constraint_computer.md
           - Properties: library_api/access/properties.md
           - Windows: library_api/access/windows.md
+          - Tessellation: library_api/access/tessellation.md
           - Enumerations: library_api/access/enums.md
       - Mathematics:
           - library_api/mathematics/index.md

@@ -13,6 +13,7 @@ pub mod interpolation;
 pub mod jacobian;
 pub mod linalg;
 pub mod sensitivity;
+pub mod spherical_geometry;
 pub mod traits;
 
 // Re-export commonly used items
@@ -21,4 +22,5 @@ pub use interpolation::*;
 pub use jacobian::*;
 pub use linalg::*;
 pub use sensitivity::*;
+pub use spherical_geometry::*;
 pub use traits::*;

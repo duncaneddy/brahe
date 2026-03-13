@@ -5,10 +5,12 @@
  * All locations implement the Identifiable trait for traceability.
  */
 
+use std::any::Any;
+use std::collections::HashMap;
+
 use nalgebra::Vector3;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as JsonValue, json};
-use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::constants::AngleFormat;
@@ -46,6 +48,12 @@ pub trait AccessibleLocation: Identifiable + Send + Sync {
     ///
     /// Returns a GeoJSON Feature object with geometry and properties
     fn to_geojson(&self) -> JsonValue;
+
+    /// Downcast to a concrete type via `Any`.
+    ///
+    /// Enables runtime type checking for algorithms that need to dispatch
+    /// on the concrete location type (e.g., tessellation).
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// A single point location on Earth's surface
@@ -331,6 +339,10 @@ impl AccessibleLocation for PointLocation {
             },
             "properties": props
         })
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -765,6 +777,10 @@ impl AccessibleLocation for PolygonLocation {
             },
             "properties": props
         })
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

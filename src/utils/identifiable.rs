@@ -19,19 +19,29 @@ use uuid::Uuid;
 /// and standard getters for accessing them.
 pub trait Identifiable {
     /// Set the name and return self (consuming constructor pattern)
-    fn with_name(self, name: &str) -> Self;
+    fn with_name(self, name: &str) -> Self
+    where
+        Self: Sized;
 
     /// Set the UUID and return self (consuming constructor pattern)
-    fn with_uuid(self, uuid: Uuid) -> Self;
+    fn with_uuid(self, uuid: Uuid) -> Self
+    where
+        Self: Sized;
 
     /// Generate a new UUID, set it, and return self (consuming constructor pattern)
-    fn with_new_uuid(self) -> Self;
+    fn with_new_uuid(self) -> Self
+    where
+        Self: Sized;
 
     /// Set the numeric ID and return self (consuming constructor pattern)
-    fn with_id(self, id: u64) -> Self;
+    fn with_id(self, id: u64) -> Self
+    where
+        Self: Sized;
 
     /// Set all identity fields at once and return self (consuming constructor pattern)
-    fn with_identity(self, name: Option<&str>, uuid: Option<Uuid>, id: Option<u64>) -> Self;
+    fn with_identity(self, name: Option<&str>, uuid: Option<Uuid>, id: Option<u64>) -> Self
+    where
+        Self: Sized;
 
     /// Set all identity fields in-place (mutating)
     fn set_identity(&mut self, name: Option<&str>, uuid: Option<Uuid>, id: Option<u64>);

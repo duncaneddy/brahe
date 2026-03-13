@@ -17,12 +17,12 @@ use crate::constants::DEG2RAD;
 use crate::constants::physical::R_EARTH;
 use crate::eop::*;
 use crate::math::angles::oe_to_radians;
-use crate::spice::set_global_almanac;
 use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType, set_global_gravity_model};
 use crate::orbits::keplerian::{geo_sma, perigee_velocity, sun_synchronous_inclination};
 use crate::space_weather::{
     FileSpaceWeatherProvider, SpaceWeatherExtrapolation, set_global_space_weather_provider,
 };
+use crate::spice::set_global_almanac;
 use crate::utils::get_naif_cache_dir;
 
 // =============================================================================

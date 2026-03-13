@@ -19,7 +19,7 @@ use super::kernels::SpkKernel;
 // ============================================================================
 
 /// Convert a Brahe [`Epoch`] to an ANISE Epoch using Gregorian calendar components.
-/// 
+///
 /// Converts via datetime components
 #[inline]
 pub(super) fn brahe_epoch_to_anise(epc: Epoch) -> anise_prelude::Epoch {
@@ -32,10 +32,10 @@ pub(super) fn brahe_epoch_to_anise(epc: Epoch) -> anise_prelude::Epoch {
 // ============================================================================
 
 /// Global ANISE Almanac instance for DE position queries.
-/// 
+///
 /// Thread-safe, lazily initialized. Use `initialize_ephemeris` to pre-load,
 /// or it will be loaded automatically on the first DE position call.
-static GLOBAL_ALMANAC: Lazy<Arc<RwLock<Option<Arc<anise_prelude::Almanac>>>>> = 
+static GLOBAL_ALMANAC: Lazy<Arc<RwLock<Option<Arc<anise_prelude::Almanac>>>>> =
     Lazy::new(|| Arc::new(RwLock::new(None)));
 
 /// TODO: Replace with a kernel-set tracker once multiple kernel types are supported simultaneously.
@@ -48,13 +48,13 @@ static GLOBAL_KERNEL_TYPE: Lazy<Arc<RwLock<Option<String>>>> =
 // ============================================================================
 
 /// Set a custom ANISE Almanac as the global ephemeris provider.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```no_run
 /// use brahe::spice::set_global_almanac;
 /// use anise::prelude::{SPK, Almanac};
-/// 
+///
 /// let spk = SPK::load("path/to/custom.bsp").unwrap();
 /// let almanac = Almanac::from_spk(spk);
 /// set_global_almanac(almanac);
@@ -64,15 +64,15 @@ pub fn set_global_almanac(almanac: anise_prelude::Almanac) {
 }
 
 /// Initialize the global ephemeris provider with the default DE440s kernel.
-/// 
+///
 /// Optional. The almanac is lazily initialized on first use if not called.
 /// Call explicitly to control when the download/load latency occurs.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// use brahe::spice::initialize_ephemeris;
-/// 
+///
 /// initialize_ephemeris().expect("Failed to initialize ephemeris");
 /// ```
 pub fn initialize_ephemeris() -> Result<(), BraheError> {
@@ -80,14 +80,14 @@ pub fn initialize_ephemeris() -> Result<(), BraheError> {
 }
 
 /// Initialize the global ephemeris provider with a specific JPL DE kernel.
-/// 
+///
 /// Supported kernels: `"de440s"` and `"de440"`.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// use brahe::spice::initialize_ephemeris_with_kernel;
-/// 
+///
 /// initialize_ephemeris_with_kernel("de440s").expect("Failed to initialize DE440s");
 /// ```
 pub fn initialize_ephemeris_with_kernel(kernel: &str) -> Result<(), BraheError> {
@@ -107,12 +107,12 @@ pub fn initialize_ephemeris_with_kernel(kernel: &str) -> Result<(), BraheError> 
 }
 
 /// Return the name of the currently loaded kernel, or `None` if none is loaded.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// use brahe::spice::{initialize_ephemeris_with_kernel, get_loaded_kernel_type};
-/// 
+///
 /// initialize_ephemeris_with_kernel("de440s").unwrap();
 /// assert_eq!(get_loaded_kernel_type(), Some("de440s".to_string()));
 /// ```
@@ -132,7 +132,7 @@ pub(super) fn get_almanac() -> Result<Arc<anise_prelude::Almanac>, BraheError> {
             return Ok(Arc::clone(almanac));
         }
     }
-    
+
     let mut writer = GLOBAL_ALMANAC.write().unwrap();
 
     // Double-checked locking: another thread may have initialized while we waited

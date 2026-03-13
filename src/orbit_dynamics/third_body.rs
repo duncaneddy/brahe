@@ -5,14 +5,15 @@ ephemerides.
 
 use nalgebra::Vector3;
 
-use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
-use crate::spice::{
-    jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
-    neptune_position_de, saturn_position_de, sun_position_de, uranus_position_de, venus_position_de,
-};
 use crate::math::traits::IntoPosition;
+use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
+use crate::spice::{
+    jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
+    neptune_position_de, saturn_position_de, sun_position_de, uranus_position_de,
+    venus_position_de,
+};
 use crate::time::Epoch;
 use crate::{
     GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,

@@ -1,5 +1,5 @@
 /*!
- * 
+ *
  */
 
 use nalgebra::{Matrix3, Vector3};
@@ -28,15 +28,21 @@ use super::kernels::SpkKernel;
 #[inline]
 #[allow(non_snake_case)]
 fn j2000_to_icrf() -> Matrix3<f64> {
-    let dxi    = -16.6170e-3 * AS2RAD; // Frame bias in ξ.  Units: [rad]
-    let deta   =  -6.8192e-3 * AS2RAD; // Frame bias in η.  Units: [rad]
-    let dalpha = -14.6e-3    * AS2RAD; // Frame bias in α₀. Units: [rad]
+    let dxi = -16.6170e-3 * AS2RAD; // Frame bias in ξ.  Units: [rad]
+    let deta = -6.8192e-3 * AS2RAD; // Frame bias in η.  Units: [rad]
+    let dalpha = -14.6e-3 * AS2RAD; // Frame bias in α₀. Units: [rad]
 
     // Second-order approximation of bias matrix B (GCRF → EME2000).
     let b = Matrix3::new(
-        1.0 - 0.5 * (dxi * dxi + deta * deta), dalpha,                                      -dxi,
-        -dalpha - dxi * deta,                  1.0 - 0.5 * (dalpha * dalpha + deta * deta), -deta,
-        dxi + dalpha * deta,                   deta + dalpha * dxi,                         1.0 - 0.5 * (deta * deta + dxi * dxi),
+        1.0 - 0.5 * (dxi * dxi + deta * deta),
+        dalpha,
+        -dxi,
+        -dalpha - dxi * deta,
+        1.0 - 0.5 * (dalpha * dalpha + deta * deta),
+        -deta,
+        dxi + dalpha * deta,
+        deta + dalpha * dxi,
+        1.0 - 0.5 * (deta * deta + dxi * dxi),
     );
     b.transpose() // EME2000 → GCRF, i.e. J2000 → ICRF
 }
@@ -46,30 +52,29 @@ fn j2000_to_icrf() -> Matrix3<f64> {
 // ============================================================================
 
 /// Calculate the position of the Sun in the GCRF frame using NAIF DE ephemeris.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `epc` - Epoch at which to calculate the Sun's position
 /// * `kernel` - Which DE kernel to use
-/// 
+///
 /// # Returns
-/// 
+///
 /// * `Ok(Vector3<f64>)` - Position of the Sun in the GCRF frame. Units: [m]
 /// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// use brahe::spice::{SpkKernel, sun_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
-/// 
+///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
 /// let r_sun = sun_position_de(epc, SpkKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn sun_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError>
-{
+pub fn sun_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -79,7 +84,8 @@ pub fn sun_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, Br
             anise_frames::EME2000,
             anise_epoch,
             None,
-        ).map_err(|e| BraheError::Error(format!("Failed to query Sun position: {}", e)))?;
+        )
+        .map_err(|e| BraheError::Error(format!("Failed to query Sun position: {}", e)))?;
 
     let r_m = Vector3::new(
         r_j2000.radius_km[0] * 1.0e3,
@@ -91,9 +97,9 @@ pub fn sun_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, Br
 }
 
 /// Calculate the position of the Moon in the GCRF frame using NAIF DE ephemeris.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `epc` - Epoch at which to calculate the Moon's position
 /// * `kernel` - Which DE kernel to use
 ///
@@ -103,12 +109,12 @@ pub fn sun_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, Br
 /// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
 ///
 /// # Example
-/// 
+///
 /// ```
 /// use brahe::spice::{SpkKernel, moon_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
-/// 
+///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
 /// let r_moon = moon_position_de(epc, SpkKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())

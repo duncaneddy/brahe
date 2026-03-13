@@ -18,7 +18,7 @@ impl From<crate::propagators::force_model_config::EphemerisSource> for SpkKernel
         use crate::propagators::force_model_config::EphemerisSource;
         match source {
             EphemerisSource::DE440s => SpkKernel::DE440s,
-            EphemerisSource::DE440  => SpkKernel::DE440,
+            EphemerisSource::DE440 => SpkKernel::DE440,
             EphemerisSource::LowPrecision => {
                 panic!("LowPrecision is not a valid DE kernel — use SpkKernel::DE440s or DE440")
             }

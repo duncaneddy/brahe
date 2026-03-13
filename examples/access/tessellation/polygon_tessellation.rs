@@ -18,7 +18,7 @@ fn main() {
 
     // Create propagator and tessellator
     let prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
-    let epoch = prop.epoch();
+    let epoch = prop.epoch;
     let config = OrbitGeometryTessellatorConfig::default()
         .with_asc_dsc(AscDsc::Ascending);
     let tess = OrbitGeometryTessellator::new(

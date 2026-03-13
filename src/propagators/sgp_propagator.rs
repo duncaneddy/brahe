@@ -418,7 +418,7 @@ impl SGPPropagator {
 
         trajectory.add(epoch, svec6_to_dvec(&initial_state));
 
-        Ok(SGPPropagator {
+        let mut result = Ok(SGPPropagator {
             line1: line1.to_string(),
             line2: line2.to_string(),
             satellite_name: name.map(|s| s.to_string()),
@@ -443,7 +443,16 @@ impl SGPPropagator {
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
-        })
+        });
+
+        // Auto-generate UUID and sync to trajectory
+        if let Ok(ref mut prop) = result {
+            let uuid = uuid::Uuid::now_v7();
+            prop.uuid = Some(uuid);
+            prop.trajectory.uuid = Some(uuid);
+        }
+
+        result
     }
 
     /// Create a new SGP propagator from CCSDS OMM (Orbit Mean-elements Message) fields.
@@ -670,7 +679,7 @@ impl SGPPropagator {
 
         trajectory.add(brahe_epoch, svec6_to_dvec(&initial_state));
 
-        Ok(SGPPropagator {
+        let mut result = Ok(SGPPropagator {
             line1,
             line2,
             satellite_name: object_name.map(|s| s.to_string()),
@@ -694,7 +703,16 @@ impl SGPPropagator {
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
-        })
+        });
+
+        // Auto-generate UUID and sync to trajectory
+        if let Ok(ref mut prop) = result {
+            let uuid = uuid::Uuid::now_v7();
+            prop.uuid = Some(uuid);
+            prop.trajectory.uuid = Some(uuid);
+        }
+
+        result
     }
 
     /// Create an SGP4 propagator from a GPRecord (OMM data).
@@ -1783,7 +1801,7 @@ impl Identifiable for SGPPropagator {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(uuid::Uuid::new_v4());
+        self.uuid = Some(uuid::Uuid::now_v7());
         self
     }
 
@@ -1824,7 +1842,7 @@ impl Identifiable for SGPPropagator {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(uuid::Uuid::new_v4());
+        self.uuid = Some(uuid::Uuid::now_v7());
         self.trajectory.generate_uuid();
     }
 
@@ -2384,7 +2402,7 @@ mod tests {
         assert_eq!(prop.get_name(), Some("My Satellite"));
         // ID should be set from NORAD catalog number (25544), even when created from 2-line TLE
         assert_eq!(prop.get_id(), Some(25544));
-        assert_eq!(prop.get_uuid(), None);
+        assert!(prop.get_uuid().is_some()); // Auto-generated in constructor
     }
 
     #[test]
@@ -2396,13 +2414,13 @@ mod tests {
 
         assert_eq!(prop.get_id(), Some(12345));
         assert_eq!(prop.get_name(), None);
-        assert_eq!(prop.get_uuid(), None);
+        assert!(prop.get_uuid().is_some()); // Auto-generated in constructor
     }
 
     #[test]
     fn test_sgppropagator_identifiable_with_uuid() {
         setup_global_test_eop();
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
             .with_uuid(test_uuid);
@@ -2429,7 +2447,7 @@ mod tests {
     #[test]
     fn test_sgppropagator_identifiable_with_identity() {
         setup_global_test_eop();
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
             .with_identity(Some("Satellite A"), Some(test_uuid), Some(999));
@@ -2468,7 +2486,9 @@ mod tests {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
 
-        assert_eq!(prop.get_uuid(), None);
+        // UUID is auto-generated in constructor
+        let initial_uuid = prop.get_uuid();
+        assert!(initial_uuid.is_some());
 
         prop.generate_uuid();
         let uuid1 = prop.get_uuid();
@@ -2485,7 +2505,7 @@ mod tests {
     fn test_sgppropagator_identifiable_set_identity() {
         setup_global_test_eop();
         let mut prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
 
         prop.set_identity(Some("Updated Name"), Some(test_uuid), Some(777));
 
@@ -2503,7 +2523,7 @@ mod tests {
     #[test]
     fn test_sgppropagator_identifiable_chaining() {
         setup_global_test_eop();
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
         let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0)
             .unwrap()
             .with_name("Chained Satellite")

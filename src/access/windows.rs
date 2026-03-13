@@ -186,7 +186,7 @@ impl Identifiable for AccessWindow {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
         self
     }
 
@@ -223,7 +223,7 @@ impl Identifiable for AccessWindow {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -1543,7 +1543,7 @@ mod tests {
         assert!(window.get_uuid().is_none());
 
         // Create a specific UUID and set it
-        let test_uuid = Uuid::new_v4();
+        let test_uuid = Uuid::now_v7();
         let window_with_uuid = window.with_uuid(test_uuid);
 
         // Should have the exact UUID we set
@@ -1581,7 +1581,7 @@ mod tests {
         );
 
         // Set complete identity (name, UUID, ID)
-        let test_uuid = Uuid::new_v4();
+        let test_uuid = Uuid::now_v7();
         let window_with_identity =
             window
                 .clone()
@@ -1635,7 +1635,7 @@ mod tests {
         assert!(window.get_id().is_none());
 
         // Set complete identity using mutable method
-        let test_uuid = Uuid::new_v4();
+        let test_uuid = Uuid::now_v7();
         window.set_identity(Some("MutableAccess"), Some(test_uuid), Some(123));
 
         // Verify all fields updated
@@ -1691,7 +1691,7 @@ mod tests {
 
         // Verify it's a valid UUID (has correct version and variant)
         let uuid = window.get_uuid().unwrap();
-        assert_eq!(uuid.get_version_num(), 4); // UUIDv4
+        assert_eq!(uuid.get_version_num(), 7); // UUIDv7
 
         // Generate another UUID and verify it's different
         let first_uuid = uuid;

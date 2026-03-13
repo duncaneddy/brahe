@@ -491,7 +491,7 @@ impl DNumericalOrbitPropagator {
         // Set up covariance if initial covariance provided
         let current_covariance = initial_covariance.clone();
 
-        Ok(Self {
+        let mut result = Ok(Self {
             epoch_initial: epoch,
             epoch_current: epoch,
             t_rel: 0.0,
@@ -521,7 +521,16 @@ impl DNumericalOrbitPropagator {
             name: None,
             id: None,
             uuid: None,
-        })
+        });
+
+        // Auto-generate UUID and sync to trajectory
+        if let Ok(ref mut prop) = result {
+            let uuid = uuid::Uuid::now_v7();
+            prop.uuid = Some(uuid);
+            prop.trajectory.uuid = Some(uuid);
+        }
+
+        result
     }
 
     /// Create a numerical orbit propagator from a GPRecord (OMM data).
@@ -2309,7 +2318,7 @@ impl Identifiable for DNumericalOrbitPropagator {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(uuid::Uuid::new_v4());
+        self.uuid = Some(uuid::Uuid::now_v7());
         self
     }
 
@@ -2345,7 +2354,7 @@ impl Identifiable for DNumericalOrbitPropagator {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(uuid::Uuid::new_v4());
+        self.uuid = Some(uuid::Uuid::now_v7());
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -3846,7 +3855,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
 
         // Use builder pattern to set UUID
         let prop = DNumericalOrbitPropagator::new(
@@ -3910,10 +3919,10 @@ mod tests {
         )
         .unwrap();
 
-        // Initially should have no identifiers
+        // Initially should have no name/id but UUID is auto-generated
         assert_eq!(prop.get_name(), None);
         assert_eq!(prop.get_id(), None);
-        assert_eq!(prop.get_uuid(), None);
+        assert!(prop.get_uuid().is_some());
 
         // Set name
         prop.set_name(Some("UpdatedSat"));
@@ -3939,7 +3948,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
 
         // Use with_identity to set all at once
         let prop = DNumericalOrbitPropagator::new(
@@ -3980,7 +3989,7 @@ mod tests {
         )
         .unwrap();
 
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
 
         // Use set_identity to set all at once
         prop.set_identity(Some("ModifiedSat"), Some(test_uuid), Some(777));
@@ -4004,7 +4013,7 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
 
         // Create propagator with identifiers
         let mut prop = DNumericalOrbitPropagator::new(

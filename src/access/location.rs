@@ -114,7 +114,7 @@ impl PointLocation {
             properties: HashMap::new(),
             name: None,
             id: None,
-            uuid: None,
+            uuid: Some(Uuid::now_v7()),
         }
     }
 
@@ -358,7 +358,7 @@ impl Identifiable for PointLocation {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
         self
     }
 
@@ -389,7 +389,7 @@ impl Identifiable for PointLocation {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -522,7 +522,7 @@ impl PolygonLocation {
             properties: HashMap::new(),
             name: None,
             id: None,
-            uuid: None,
+            uuid: Some(Uuid::now_v7()),
         })
     }
 
@@ -796,7 +796,7 @@ impl Identifiable for PolygonLocation {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
         self
     }
 
@@ -827,7 +827,7 @@ impl Identifiable for PolygonLocation {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -1143,7 +1143,7 @@ mod tests {
 
     #[test]
     fn test_point_location_identifiable_methods() {
-        let uuid = Uuid::new_v4();
+        let uuid = Uuid::now_v7();
 
         // Test with_name
         let loc = PointLocation::new(0.0, 0.0, 0.0).with_name("Test");
@@ -1464,7 +1464,7 @@ mod tests {
             Vector3::new(10.0, 50.0, 0.0),
         ];
 
-        let uuid = Uuid::new_v4();
+        let uuid = Uuid::now_v7();
 
         // Test with_name
         let poly = PolygonLocation::new(vertices.clone())

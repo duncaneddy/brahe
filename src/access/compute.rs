@@ -607,4 +607,262 @@ mod tests {
             assert!(windows[i - 1].window_open <= windows[i].window_open);
         }
     }
+
+    #[test]
+    fn test_access_identification_traceability() {
+        use crate::propagators::sgp_propagator::SGPPropagator;
+        use crate::utils::Identifiable;
+
+        setup_global_test_eop();
+
+        // -- Locations --
+        let new_york = PointLocation::new(-74.006, 40.7128, 0.0)
+            .with_name("NewYork")
+            .with_id(1);
+        let london = PointLocation::new(-0.1276, 51.5074, 0.0)
+            .with_name("London")
+            .with_id(2);
+        let locations = vec![new_york, london];
+
+        // -- Propagators (SGP4 from 3LE) --
+        // ISS (NORAD 25544) - 2026 epoch
+        let iss = SGPPropagator::from_3le(
+            Some("ISS"),
+            "1 25544U 98067A   26071.86901803  .00011348  00000-0  21655-3 0  9990",
+            "2 25544  51.6324  56.6367 0007924 186.1410 173.9482 15.48614629556825",
+            60.0,
+        )
+        .unwrap();
+        // Hubble (NORAD 20580) - 2026 epoch
+        let hubble = SGPPropagator::from_3le(
+            Some("HST"),
+            "1 20580U 90037B   26071.94420327  .00008743  00000-0  28877-3 0  9998",
+            "2 20580  28.4723  17.7975 0001801 157.8636 202.2037 15.29540863773810",
+            60.0,
+        )
+        .unwrap();
+
+        // Verify default identification after construction
+        assert_eq!(iss.get_name(), Some("ISS"));
+        assert_eq!(iss.get_id(), Some(25544));
+        assert_eq!(hubble.get_name(), Some("HST"));
+        assert_eq!(hubble.get_id(), Some(20580));
+
+        // Verify PointLocation defaults before builder methods
+        let bare = PointLocation::new(0.0, 0.0, 0.0);
+        assert_eq!(bare.get_name(), None);
+        assert_eq!(bare.get_id(), None);
+        assert!(bare.get_uuid().is_some()); // Auto-generated in constructor
+
+        // Verify locations have identity set
+        assert_eq!(locations[0].get_name(), Some("NewYork"));
+        assert_eq!(locations[0].get_id(), Some(1));
+        assert_eq!(locations[1].get_name(), Some("London"));
+        assert_eq!(locations[1].get_id(), Some(2));
+
+        let propagators = vec![iss, hubble];
+
+        // -- Search window: 24 hours from a 2026 epoch --
+        let search_start = Epoch::from_datetime(2026, 3, 13, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let search_end = search_start + 86400.0;
+
+        let constraint = ElevationConstraint::new(Some(10.0), None).unwrap();
+
+        let windows = location_accesses(
+            &locations,
+            &propagators,
+            search_start,
+            search_end,
+            &constraint,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Should find access windows
+        assert!(
+            !windows.is_empty(),
+            "Expected at least 1 access window, found 0"
+        );
+
+        // -- Traceability assertions --
+        for window in &windows {
+            // Every window must have location and satellite identification
+            assert!(
+                window.location_name.is_some(),
+                "Window missing location_name"
+            );
+            assert!(window.location_id.is_some(), "Window missing location_id");
+            assert!(
+                window.satellite_name.is_some(),
+                "Window missing satellite_name"
+            );
+            assert!(window.satellite_id.is_some(), "Window missing satellite_id");
+
+            let loc_id = window.location_id.unwrap();
+            let sat_id = window.satellite_id.unwrap();
+
+            // Location ID must be one of our locations
+            assert!(
+                loc_id == 1 || loc_id == 2,
+                "Unexpected location_id: {loc_id}"
+            );
+            // Satellite ID must be one of our NORAD IDs
+            assert!(
+                sat_id == 25544 || sat_id == 20580,
+                "Unexpected satellite_id: {sat_id}"
+            );
+
+            // No cross-contamination: name must match ID
+            let loc_name = window.location_name.as_deref().unwrap();
+            let sat_name = window.satellite_name.as_deref().unwrap();
+
+            match loc_id {
+                1 => assert_eq!(loc_name, "NewYork"),
+                2 => assert_eq!(loc_name, "London"),
+                _ => unreachable!(),
+            }
+            match sat_id {
+                25544 => assert_eq!(sat_name, "ISS"),
+                20580 => assert_eq!(sat_name, "HST"),
+                _ => unreachable!(),
+            }
+
+            // Auto-generated window name should contain both location and satellite names
+            let window_name = window.name.as_deref().unwrap();
+            assert!(
+                window_name.contains(loc_name),
+                "Window name '{window_name}' should contain location name '{loc_name}'"
+            );
+            assert!(
+                window_name.contains(sat_name),
+                "Window name '{window_name}' should contain satellite name '{sat_name}'"
+            );
+            assert!(
+                window_name.contains("Access"),
+                "Window name '{window_name}' should contain 'Access'"
+            );
+        }
+    }
+
+    #[test]
+    fn test_access_default_uuid_traceability() {
+        use crate::utils::Identifiable;
+        use std::collections::HashSet;
+
+        setup_global_test_eop();
+
+        // Create locations with NO explicit identity — only auto-generated UUIDs
+        let loc1 = PointLocation::new(0.0, 45.0, 0.0);
+        let loc2 = PointLocation::new(-120.0, 30.0, 0.0);
+
+        // Create propagators with NO explicit name/id/uuid
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let prop1 = create_test_propagator(epoch);
+        let prop2 = {
+            let oe = Vector6::new(
+                R_EARTH + 500e3,
+                0.0,
+                45.0_f64.to_radians(),
+                60.0_f64.to_radians(),
+                0.0,
+                0.0,
+            );
+            KeplerianPropagator::new(
+                epoch,
+                oe,
+                crate::trajectories::traits::OrbitFrame::ECI,
+                crate::trajectories::traits::OrbitRepresentation::Keplerian,
+                Some(AngleFormat::Radians),
+                60.0,
+            )
+        };
+
+        // All objects should have auto-generated UUIDs
+        let loc1_uuid = loc1
+            .get_uuid()
+            .expect("loc1 should have auto-generated UUID");
+        let loc2_uuid = loc2
+            .get_uuid()
+            .expect("loc2 should have auto-generated UUID");
+        let prop1_uuid = prop1
+            .get_uuid()
+            .expect("prop1 should have auto-generated UUID");
+        let prop2_uuid = prop2
+            .get_uuid()
+            .expect("prop2 should have auto-generated UUID");
+
+        // All UUIDs should be unique
+        let all_uuids: HashSet<_> = [loc1_uuid, loc2_uuid, prop1_uuid, prop2_uuid]
+            .into_iter()
+            .collect();
+        assert_eq!(all_uuids.len(), 4, "All 4 UUIDs should be unique");
+
+        let loc_uuids: HashSet<_> = [loc1_uuid, loc2_uuid].into_iter().collect();
+        let sat_uuids: HashSet<_> = [prop1_uuid, prop2_uuid].into_iter().collect();
+
+        // Compute access windows
+        let period = 5674.0;
+        let search_end = epoch + (period * 3.0);
+        let constraint = ElevationConstraint::new(Some(5.0), None).unwrap();
+        let config = AccessSearchConfig {
+            initial_time_step: 60.0,
+            adaptive_step: false,
+            time_tolerance: 0.1,
+            ..Default::default()
+        };
+
+        let windows = location_accesses(
+            &vec![loc1, loc2],
+            &vec![prop1, prop2],
+            epoch,
+            search_end,
+            &constraint,
+            None,
+            Some(&config),
+        )
+        .unwrap();
+
+        assert!(!windows.is_empty(), "Expected at least 1 access window");
+
+        for window in &windows {
+            // Every window should carry location and satellite UUIDs
+            assert!(
+                window.location_uuid.is_some(),
+                "Window missing location_uuid"
+            );
+            assert!(
+                window.satellite_uuid.is_some(),
+                "Window missing satellite_uuid"
+            );
+
+            let loc_uuid = window.location_uuid.unwrap();
+            let sat_uuid = window.satellite_uuid.unwrap();
+
+            // UUIDs should match one of our source objects
+            assert!(
+                loc_uuids.contains(&loc_uuid),
+                "Window location_uuid {loc_uuid} doesn't match any source location"
+            );
+            assert!(
+                sat_uuids.contains(&sat_uuid),
+                "Window satellite_uuid {sat_uuid} doesn't match any source propagator"
+            );
+        }
+
+        // Group windows by satellite UUID to verify filtering works
+        let unique_sat_uuids: HashSet<_> =
+            windows.iter().filter_map(|w| w.satellite_uuid).collect();
+        assert!(
+            !unique_sat_uuids.is_empty(),
+            "Should be able to group windows by satellite UUID"
+        );
+
+        // Group windows by location UUID
+        let unique_loc_uuids: HashSet<_> = windows.iter().filter_map(|w| w.location_uuid).collect();
+        assert!(
+            !unique_loc_uuids.is_empty(),
+            "Should be able to group windows by location UUID"
+        );
+    }
 }

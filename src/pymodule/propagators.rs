@@ -4816,7 +4816,7 @@ impl PyNumericalOrbitPropagator {
 
     /// Generate a new UUID, set it, and return self.
     pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
-        slf.propagator.uuid = Some(uuid::Uuid::new_v4());
+        slf.propagator.uuid = Some(uuid::Uuid::now_v7());
         slf
     }
 
@@ -5975,7 +5975,7 @@ impl PyNumericalPropagator {
 
     /// Generate a new UUID, set it, and return self.
     pub fn with_new_uuid(mut slf: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
-        slf.propagator.uuid = Some(uuid::Uuid::new_v4());
+        slf.propagator.uuid = Some(uuid::Uuid::now_v7());
         slf
     }
 
@@ -6231,7 +6231,7 @@ impl PyNumericalPropagator {
 
     /// Generate a new UUID and set it in-place (mutating).
     pub fn generate_uuid(&mut self) {
-        self.propagator.uuid = Some(uuid::Uuid::new_v4());
+        self.propagator.uuid = Some(uuid::Uuid::now_v7());
     }
 
     /// Set all identity fields at once and return self (consuming constructor pattern).

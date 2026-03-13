@@ -2649,7 +2649,7 @@ impl Identifiable for SOrbitTrajectory {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
         self
     }
 
@@ -2680,7 +2680,7 @@ impl Identifiable for SOrbitTrajectory {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -5108,7 +5108,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_identifiable_with_identity() {
-        let uuid = Uuid::new_v4();
+        let uuid = Uuid::now_v7();
         let traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
         let traj = traj.with_identity(Some("Test"), Some(uuid), Some(999));
 
@@ -5963,7 +5963,7 @@ mod tests {
 
     #[test]
     fn test_orbittrajectory_with_uuid() {
-        let uuid = Uuid::new_v4();
+        let uuid = Uuid::now_v7();
         let traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .with_uuid(uuid);
 

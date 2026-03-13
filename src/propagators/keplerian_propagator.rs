@@ -149,7 +149,7 @@ impl KeplerianPropagator {
 
         let n = mean_motion(internal_elements[0], AngleFormat::Radians);
 
-        Self {
+        let mut prop = Self {
             initial_epoch: epoch,
             initial_state: state,
             frame,
@@ -162,7 +162,14 @@ impl KeplerianPropagator {
             name: None,
             id: None,
             uuid: None,
-        }
+        };
+
+        // Auto-generate UUID and sync to trajectory
+        let uuid = uuid::Uuid::now_v7();
+        prop.uuid = Some(uuid);
+        prop.trajectory.uuid = Some(uuid);
+
+        prop
     }
 
     /// Create a new KeplerianPropagator from Keplerian orbital elements
@@ -560,7 +567,7 @@ impl Identifiable for KeplerianPropagator {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(uuid::Uuid::new_v4());
+        self.uuid = Some(uuid::Uuid::now_v7());
         self.trajectory = self.trajectory.with_uuid(self.uuid.unwrap());
         self
     }
@@ -602,7 +609,7 @@ impl Identifiable for KeplerianPropagator {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(uuid::Uuid::new_v4());
+        self.uuid = Some(uuid::Uuid::now_v7());
         self.trajectory.generate_uuid();
     }
 
@@ -1456,7 +1463,7 @@ mod tests {
 
         assert_eq!(prop.get_name(), Some("My Orbit"));
         assert_eq!(prop.get_id(), None);
-        assert_eq!(prop.get_uuid(), None);
+        assert!(prop.get_uuid().is_some()); // Auto-generated in constructor
     }
 
     #[test]
@@ -1469,14 +1476,14 @@ mod tests {
 
         assert_eq!(prop.get_id(), Some(54321));
         assert_eq!(prop.get_name(), None);
-        assert_eq!(prop.get_uuid(), None);
+        assert!(prop.get_uuid().is_some()); // Auto-generated in constructor
     }
 
     #[test]
     fn test_keplerianpropagator_identifiable_with_uuid() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
 
         let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
             .with_uuid(test_uuid);
@@ -1503,7 +1510,7 @@ mod tests {
     fn test_keplerianpropagator_identifiable_with_identity() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
 
         let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
             .with_identity(Some("Orbit X"), Some(test_uuid), Some(888));
@@ -1551,7 +1558,9 @@ mod tests {
         let mut prop =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
 
-        assert_eq!(prop.get_uuid(), None);
+        // UUID is auto-generated in constructor
+        let initial_uuid = prop.get_uuid();
+        assert!(initial_uuid.is_some());
 
         prop.generate_uuid();
         let uuid1 = prop.get_uuid();
@@ -1568,7 +1577,7 @@ mod tests {
     fn test_keplerianpropagator_identifiable_set_identity() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
 
         let mut prop =
             KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
@@ -1590,7 +1599,7 @@ mod tests {
     fn test_keplerianpropagator_identifiable_chaining() {
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
         let elements = create_test_elements();
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
 
         let prop = KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0)
             .with_name("Chained Orbit")

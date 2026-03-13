@@ -953,3 +953,179 @@ def test_location_accesses_fixed_duration_with_overlap():
         location, propagator, epoch, search_end, constraint, config=config_no_gap
     )
     assert len(windows) >= len(no_gap_windows)
+
+
+def test_access_identification_traceability():
+    """Test that each AccessWindow can be traced back to its generating location and spacecraft."""
+    # -- Locations --
+    new_york = bh.PointLocation(-74.006, 40.7128, 0.0).with_name("NewYork").with_id(1)
+    london = bh.PointLocation(-0.1276, 51.5074, 0.0).with_name("London").with_id(2)
+
+    # -- Propagators (SGP4 from 3LE) --
+    # ISS (NORAD 25544) - 2026 epoch
+    iss = bh.SGPPropagator.from_3le(
+        "ISS",
+        "1 25544U 98067A   26071.86901803  .00011348  00000-0  21655-3 0  9990",
+        "2 25544  51.6324  56.6367 0007924 186.1410 173.9482 15.48614629556825",
+        60.0,
+    )
+    # Hubble (NORAD 20580) - 2026 epoch
+    hubble = bh.SGPPropagator.from_3le(
+        "HST",
+        "1 20580U 90037B   26071.94420327  .00008743  00000-0  28877-3 0  9998",
+        "2 20580  28.4723  17.7975 0001801 157.8636 202.2037 15.29540863773810",
+        60.0,
+    )
+
+    # Verify default identification: bare PointLocation has no identity
+    bare = bh.PointLocation(0.0, 0.0, 0.0)
+    assert bare.get_name() is None
+    assert bare.get_id() is None
+    assert bare.get_uuid() is not None  # Auto-generated in constructor
+
+    # Verify SGPPropagator identity from 3LE
+    assert iss.get_name() == "ISS"
+    assert iss.get_id() == 25544
+    assert hubble.get_name() == "HST"
+    assert hubble.get_id() == 20580
+
+    # Verify locations have identity set via builder
+    assert new_york.get_name() == "NewYork"
+    assert new_york.get_id() == 1
+    assert london.get_name() == "London"
+    assert london.get_id() == 2
+
+    # -- Search window: 24 hours --
+    search_start = bh.Epoch(2026, 3, 13, 0, 0, 0.0)
+    search_end = search_start + 86400.0
+
+    constraint = bh.ElevationConstraint(10.0)
+
+    windows = bh.location_accesses(
+        [new_york, london],
+        [iss, hubble],
+        search_start,
+        search_end,
+        constraint,
+    )
+
+    # Should find access windows
+    assert len(windows) > 0, "Expected at least 1 access window"
+
+    # -- Traceability assertions --
+    for window in windows:
+        # Every window must have location and satellite identification
+        assert window.location_name is not None, "Window missing location_name"
+        assert window.location_id is not None, "Window missing location_id"
+        assert window.satellite_name is not None, "Window missing satellite_name"
+        assert window.satellite_id is not None, "Window missing satellite_id"
+
+        loc_id = window.location_id
+        sat_id = window.satellite_id
+
+        # Location ID must be one of our locations
+        assert loc_id in (1, 2), f"Unexpected location_id: {loc_id}"
+        # Satellite ID must be one of our NORAD IDs
+        assert sat_id in (25544, 20580), f"Unexpected satellite_id: {sat_id}"
+
+        # No cross-contamination: name must match ID
+        loc_name = window.location_name
+        sat_name = window.satellite_name
+
+        if loc_id == 1:
+            assert loc_name == "NewYork"
+        else:
+            assert loc_name == "London"
+
+        if sat_id == 25544:
+            assert sat_name == "ISS"
+        else:
+            assert sat_name == "HST"
+
+        # Auto-generated window name should contain both names and "Access"
+        window_name = window.name
+        assert window_name is not None, "Window missing auto-generated name"
+        assert loc_name in window_name, (
+            f"Window name '{window_name}' should contain location '{loc_name}'"
+        )
+        assert sat_name in window_name, (
+            f"Window name '{window_name}' should contain satellite '{sat_name}'"
+        )
+        assert "Access" in window_name, (
+            f"Window name '{window_name}' should contain 'Access'"
+        )
+
+
+def test_access_default_uuid_traceability():
+    """Test that auto-generated UUIDs flow through access computation for traceability."""
+    # Create locations with NO explicit identity
+    loc1 = bh.PointLocation(0.0, 45.0, 0.0)
+    loc2 = bh.PointLocation(-120.0, 30.0, 0.0)
+
+    # Create propagators with NO explicit name/id/uuid
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    prop1 = create_test_propagator(epoch)
+    prop2 = bh.KeplerianPropagator(
+        epoch,
+        np.array([bh.R_EARTH + 500e3, 0.0, 45.0, 60.0, 0.0, 0.0]),
+        frame=bh.OrbitFrame.ECI,
+        representation=bh.OrbitRepresentation.KEPLERIAN,
+        angle_format=bh.AngleFormat.DEGREES,
+        step_size=60.0,
+    )
+
+    # All objects should have auto-generated UUIDs
+    assert loc1.get_uuid() is not None, "loc1 should have auto-generated UUID"
+    assert loc2.get_uuid() is not None, "loc2 should have auto-generated UUID"
+    assert prop1.get_uuid() is not None, "prop1 should have auto-generated UUID"
+    assert prop2.get_uuid() is not None, "prop2 should have auto-generated UUID"
+
+    # All UUIDs should be unique
+    all_uuids = [loc1.get_uuid(), loc2.get_uuid(), prop1.get_uuid(), prop2.get_uuid()]
+    assert len(set(all_uuids)) == 4, "All 4 UUIDs should be unique"
+
+    # Compute access windows
+    period = 5674.0
+    search_end = epoch + (period * 3.0)
+    constraint = bh.ElevationConstraint(5.0)
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        adaptive_step=False,
+        time_tolerance=0.1,
+    )
+
+    windows = bh.location_accesses(
+        [loc1, loc2],
+        [prop1, prop2],
+        epoch,
+        search_end,
+        constraint,
+        config=config,
+    )
+
+    assert len(windows) > 0, "Expected at least 1 access window"
+
+    loc_uuids = {loc1.get_uuid(), loc2.get_uuid()}
+    sat_uuids = {prop1.get_uuid(), prop2.get_uuid()}
+
+    # Verify UUID traceability in windows
+    for window in windows:
+        assert window.location_uuid is not None, "Window missing location_uuid"
+        assert window.satellite_uuid is not None, "Window missing satellite_uuid"
+
+        # UUIDs should match one of our source objects
+        assert window.location_uuid in loc_uuids, (
+            f"Window location_uuid {window.location_uuid} doesn't match any source location"
+        )
+        assert window.satellite_uuid in sat_uuids, (
+            f"Window satellite_uuid {window.satellite_uuid} doesn't match any source propagator"
+        )
+
+    # Verify we can group/filter windows by UUID
+    unique_sat_uuids = {w.satellite_uuid for w in windows}
+    assert len(unique_sat_uuids) > 0, (
+        "Should be able to group windows by satellite UUID"
+    )
+
+    unique_loc_uuids = {w.location_uuid for w in windows}
+    assert len(unique_loc_uuids) > 0, "Should be able to group windows by location UUID"

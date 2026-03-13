@@ -19,7 +19,7 @@ class TestSGPPropagatorIdentifiable:
 
         assert prop.get_name() == "Test Satellite"
         assert prop.get_id() == 25544
-        assert prop.get_uuid() is None
+        assert prop.get_uuid() is not None  # Auto-generated in constructor
 
     def test_sgp_with_id(self):
         """Test with_id method."""
@@ -28,7 +28,7 @@ class TestSGPPropagatorIdentifiable:
 
         assert prop.get_id() == 12345
         assert prop.get_name() is None
-        assert prop.get_uuid() is None
+        assert prop.get_uuid() is not None  # Auto-generated in constructor
 
     def test_sgp_with_uuid(self):
         """Test with_uuid method."""
@@ -86,7 +86,8 @@ class TestSGPPropagatorIdentifiable:
         """Test generate_uuid method."""
         prop = bh.SGPPropagator.from_tle(ISS_LINE1, ISS_LINE2)
 
-        assert prop.get_uuid() is None
+        # UUID is auto-generated in constructor
+        assert prop.get_uuid() is not None
 
         prop.generate_uuid()
         uuid1 = prop.get_uuid()
@@ -147,7 +148,7 @@ class TestKeplerianPropagatorIdentifiable:
 
         assert prop.get_name() == "My Orbit"
         assert prop.get_id() is None
-        assert prop.get_uuid() is None
+        assert prop.get_uuid() is not None  # Auto-generated in constructor
 
     def test_keplerian_with_id(self):
         """Test with_id method."""
@@ -158,7 +159,7 @@ class TestKeplerianPropagatorIdentifiable:
 
         assert prop.get_id() == 54321
         assert prop.get_name() is None
-        assert prop.get_uuid() is None
+        assert prop.get_uuid() is not None  # Auto-generated in constructor
 
     def test_keplerian_with_uuid(self):
         """Test with_uuid method."""
@@ -228,7 +229,8 @@ class TestKeplerianPropagatorIdentifiable:
             self.epoch, self.elements, bh.AngleFormat.DEGREES, 60.0
         )
 
-        assert prop.get_uuid() is None
+        # UUID is auto-generated in constructor
+        assert prop.get_uuid() is not None
 
         prop.generate_uuid()
         uuid1 = prop.get_uuid()

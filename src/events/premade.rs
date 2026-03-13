@@ -13,7 +13,8 @@ use crate::access::PolygonLocation;
 use crate::constants::AngleFormat;
 use crate::coordinates::{point_in_polygon, position_ecef_to_geodetic, state_eci_to_koe};
 use crate::frames::position_eci_to_ecef;
-use crate::orbit_dynamics::{eclipse_conical, sun_position, sun_position_de};
+use crate::orbit_dynamics::{eclipse_conical, sun_position};
+use crate::spice::sun_position_de;
 use crate::orbits::{anomaly_mean_to_eccentric, anomaly_mean_to_true};
 use crate::propagators::EphemerisSource;
 use crate::time::Epoch;
@@ -2112,7 +2113,7 @@ impl_devent_detector_delegate!(DLatitudeEvent, inner);
 fn get_sun_position(t: Epoch, source: Option<EphemerisSource>) -> Vector3<f64> {
     match source {
         None | Some(EphemerisSource::LowPrecision) => sun_position(t),
-        Some(source) => sun_position_de(t, source).unwrap_or_else(|_| sun_position(t)),
+        Some(source) => sun_position_de(t, source.into()).unwrap_or_else(|_| sun_position(t)),
     }
 }
 

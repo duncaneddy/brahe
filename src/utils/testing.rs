@@ -17,7 +17,7 @@ use crate::constants::DEG2RAD;
 use crate::constants::physical::R_EARTH;
 use crate::eop::*;
 use crate::math::angles::oe_to_radians;
-use crate::orbit_dynamics::ephemerides::set_global_almanac;
+use crate::spice::set_global_almanac;
 use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType, set_global_gravity_model};
 use crate::orbits::keplerian::{geo_sma, perigee_velocity, sun_synchronous_inclination};
 use crate::space_weather::{

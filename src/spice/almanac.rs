@@ -83,6 +83,10 @@ pub fn initialize_ephemeris() -> Result<(), BraheError> {
 ///
 /// Supported kernels: `"de440s"` and `"de440"`.
 ///
+/// # Arguments
+///
+/// * `kernel` - Name of the DE kernel to download and load as the global ephemeris provider
+///
 /// # Example
 ///
 /// ```

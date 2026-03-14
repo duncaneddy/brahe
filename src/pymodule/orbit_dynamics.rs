@@ -42,13 +42,9 @@ impl TryFrom<PyEphemerisSource> for spice::SPKKernel {
     type Error = PyErr;
 
     fn try_from(source: PyEphemerisSource) -> Result<Self, Self::Error> {
-        match source {
-            PyEphemerisSource::DE440s => Ok(spice::SPKKernel::DE440s),
-            PyEphemerisSource::DE440 => Ok(spice::SPKKernel::DE440),
-            PyEphemerisSource::LowPrecision => Err(exceptions::PyValueError::new_err(
-                "LowPrecision is not a valid DE kernel - use EphemerisSource.DE440s or EphemerisSource.DE440",
-            )),
-        }
+        let source = propagators::force_model_config::EphemerisSource::from(source);
+        spice::SPKKernel::try_from(source)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
     }
 }
 

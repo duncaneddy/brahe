@@ -78,48 +78,75 @@ pub fn accel_third_body<P: IntoPosition>(
         (ThirdBody::Sun, EphemerisSource::LowPrecision) => (sun_position(epc), GM_SUN),
         (ThirdBody::Moon, EphemerisSource::LowPrecision) => (moon_position(epc), GM_MOON),
 
-        // DE440s and DE440 - all bodies (shared code, differ only in kernel loaded)
-        (ThirdBody::Sun, EphemerisSource::DE440s | EphemerisSource::DE440) => (
+        // SPK-backed ephemerides - all bodies (shared code, differ only in kernel loaded)
+        (
+            ThirdBody::Sun,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
             sun_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Sun position"),
             GM_SUN,
         ),
-        (ThirdBody::Moon, EphemerisSource::DE440s | EphemerisSource::DE440) => (
+        (
+            ThirdBody::Moon,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
             moon_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Moon position"),
             GM_MOON,
         ),
-        (ThirdBody::Mercury, EphemerisSource::DE440s | EphemerisSource::DE440) => (
+        (
+            ThirdBody::Mercury,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
             mercury_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Mercury position"),
             GM_MERCURY,
         ),
-        (ThirdBody::Venus, EphemerisSource::DE440s | EphemerisSource::DE440) => (
+        (
+            ThirdBody::Venus,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
             venus_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Venus position"),
             GM_VENUS,
         ),
-        (ThirdBody::Mars, EphemerisSource::DE440s | EphemerisSource::DE440) => (
+        (
+            ThirdBody::Mars,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
             mars_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Mars position"),
             GM_MARS,
         ),
-        (ThirdBody::Jupiter, EphemerisSource::DE440s | EphemerisSource::DE440) => (
+        (
+            ThirdBody::Jupiter,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
             jupiter_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Jupiter position"),
             GM_JUPITER,
         ),
-        (ThirdBody::Saturn, EphemerisSource::DE440s | EphemerisSource::DE440) => (
+        (
+            ThirdBody::Saturn,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
             saturn_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Saturn position"),
             GM_SATURN,
         ),
-        (ThirdBody::Uranus, EphemerisSource::DE440s | EphemerisSource::DE440) => (
+        (
+            ThirdBody::Uranus,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
             uranus_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Uranus position"),
             GM_URANUS,
         ),
-        (ThirdBody::Neptune, EphemerisSource::DE440s | EphemerisSource::DE440) => (
+        (
+            ThirdBody::Neptune,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
             neptune_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Neptune position"),
             GM_NEPTUNE,
@@ -129,7 +156,7 @@ pub fn accel_third_body<P: IntoPosition>(
         (body, EphemerisSource::LowPrecision) => {
             panic!(
                 "Low-precision ephemerides only support Sun and Moon. \
-                Requested {:?}. Use EphemerisSource::DE440s or DE440 for planets.",
+                Requested {:?}. Use EphemerisSource::DE440s, DE440, or SPK(...) for planets.",
                 body
             )
         }

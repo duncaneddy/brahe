@@ -20,8 +20,11 @@ use super::kernels::SpkKernel;
 /// Fixed rotation matrix transforming J2000-aligned (EME2000) coordinates to ICRF/GCRF.
 ///
 /// This is the IAU 2006 frame bias — constant, independent of epoch.
-/// Inlined here (rather than imported from `frames/`) to avoid a
-/// `frames → spice → frames` circular dependency.
+///
+/// TODO: This function duplicates `rotation_eme2000_to_gcrf()` in `src/frames/eme_2000.rs`.
+/// It is re-implemented here rather than imported because `*_position_de()` functions
+/// should not depend on modules outside `spice`; it can be removed once we settle on a
+/// clearer boundary between `frames/` and `spice/`.
 ///
 /// # References
 /// - IERS Conventions (2010), IERS TN 36, §5

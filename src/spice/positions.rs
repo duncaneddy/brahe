@@ -1,5 +1,5 @@
 /*!
- *
+ * Solar-system body position queries backed by NAIF DE ephemeris kernels.
  */
 
 use nalgebra::{Matrix3, Vector3};
@@ -512,7 +512,31 @@ pub fn solar_system_barycenter_position_de(
     Ok(j2000_to_icrf() * r_m)
 }
 
+/// Calculate the position of the Solar System Barycenter in the GCRF frame using NAIF DE ephemeris.
+///
 /// Convenience alias for [`solar_system_barycenter_position_de`].
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate the SSB position
+/// * `kernel` - Which DE kernel to use
+///
+/// # Returns
+///
+/// * `Ok(Vector3<f64>)` - Position of the SSB in the GCRF frame. Units: [m]
+/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
+///
+/// # Example
+///
+/// ```
+/// use brahe::spice::{SPKKernel, ssb_position_de};
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+/// let r_ssb = ssb_position_de(epc, SPKKernel::DE440s)?;
+/// # Ok::<(), brahe::utils::BraheError>(())
+/// ```
 pub fn ssb_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     solar_system_barycenter_position_de(epc, kernel)
 }

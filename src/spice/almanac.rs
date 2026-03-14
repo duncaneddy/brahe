@@ -12,7 +12,7 @@ use crate::datasets::naif::download_de_kernel;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
-use super::kernels::SpkKernel;
+use super::kernels::SPKKernel;
 
 // ============================================================================
 // Epoch Conversion
@@ -160,11 +160,11 @@ pub(super) fn get_almanac() -> Result<Arc<anise_prelude::Almanac>, BraheError> {
 
 /// Ensure the correct kernel is loaded for `kernel`, switching if needed.
 pub(super) fn ensure_kernel_loaded(
-    kernel: SpkKernel,
+    kernel: SPKKernel,
 ) -> Result<Arc<anise_prelude::Almanac>, BraheError> {
     let required = match kernel {
-        SpkKernel::DE440s => "de440s",
-        SpkKernel::DE440 => "de440",
+        SPKKernel::DE440s => "de440s",
+        SPKKernel::DE440 => "de440",
     };
 
     // Fast path: correct kernel already loaded (read lock only)

@@ -38,13 +38,13 @@ impl From<PyEphemerisSource> for propagators::force_model_config::EphemerisSourc
     }
 }
 
-impl TryFrom<PyEphemerisSource> for spice::SpkKernel {
+impl TryFrom<PyEphemerisSource> for spice::SPKKernel {
     type Error = PyErr;
 
     fn try_from(source: PyEphemerisSource) -> Result<Self, Self::Error> {
         match source {
-            PyEphemerisSource::DE440s => Ok(spice::SpkKernel::DE440s),
-            PyEphemerisSource::DE440 => Ok(spice::SpkKernel::DE440),
+            PyEphemerisSource::DE440s => Ok(spice::SPKKernel::DE440s),
+            PyEphemerisSource::DE440 => Ok(spice::SPKKernel::DE440),
             PyEphemerisSource::LowPrecision => Err(exceptions::PyValueError::new_err(
                 "LowPrecision is not a valid DE kernel - use EphemerisSource.DE440s or EphemerisSource.DE440",
             )),
@@ -52,8 +52,8 @@ impl TryFrom<PyEphemerisSource> for spice::SpkKernel {
     }
 }
 
-fn de_kernel_from_py_source(source: PyEphemerisSource) -> PyResult<spice::SpkKernel> {
-    spice::SpkKernel::try_from(source)
+fn de_kernel_from_py_source(source: PyEphemerisSource) -> PyResult<spice::SPKKernel> {
+    spice::SPKKernel::try_from(source)
 }
 
 /// Calculate the position of the Sun in the GCRF inertial frame using low-precision analytical methods.

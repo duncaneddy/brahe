@@ -10,7 +10,7 @@ use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
 use crate::spice::{
-    SpkKernel, jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
+    SPKKernel, jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
     neptune_position_de, saturn_position_de, sun_position_de, uranus_position_de,
     venus_position_de,
 };
@@ -19,8 +19,8 @@ use crate::{
     GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,
 };
 
-fn de_kernel_from_source(source: EphemerisSource) -> SpkKernel {
-    SpkKernel::try_from(source).expect("DE ephemeris source should map to a DE kernel")
+fn de_kernel_from_source(source: EphemerisSource) -> SPKKernel {
+    SPKKernel::try_from(source).expect("DE ephemeris source should map to a DE kernel")
 }
 
 /// Unified third-body acceleration with source enumeration.

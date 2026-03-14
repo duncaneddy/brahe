@@ -11,7 +11,7 @@ use crate::time::Epoch;
 use crate::utils::BraheError;
 
 use super::almanac::{brahe_epoch_to_anise, ensure_kernel_loaded};
-use super::kernels::SpkKernel;
+use super::kernels::SPKKernel;
 
 // ============================================================================
 // J2000 → ICRF Frame Bias (private)
@@ -69,15 +69,15 @@ fn j2000_to_icrf() -> Matrix3<f64> {
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, sun_position_de};
+/// use brahe::spice::{SPKKernel, sun_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_sun = sun_position_de(epc, SpkKernel::DE440s)?;
+/// let r_sun = sun_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn sun_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn sun_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -114,15 +114,15 @@ pub fn sun_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, Br
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, moon_position_de};
+/// use brahe::spice::{SPKKernel, moon_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_moon = moon_position_de(epc, SpkKernel::DE440s)?;
+/// let r_moon = moon_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn moon_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn moon_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -159,15 +159,15 @@ pub fn moon_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, B
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, jupiter_position_de};
+/// use brahe::spice::{SPKKernel, jupiter_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_jupiter = jupiter_position_de(epc, SpkKernel::DE440s)?;
+/// let r_jupiter = jupiter_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn jupiter_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn jupiter_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -204,15 +204,15 @@ pub fn jupiter_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, mars_position_de};
+/// use brahe::spice::{SPKKernel, mars_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_mars = mars_position_de(epc, SpkKernel::DE440s)?;
+/// let r_mars = mars_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn mars_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn mars_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -249,15 +249,15 @@ pub fn mars_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, B
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, mercury_position_de};
+/// use brahe::spice::{SPKKernel, mercury_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_mercury = mercury_position_de(epc, SpkKernel::DE440s)?;
+/// let r_mercury = mercury_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn mercury_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn mercury_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -294,15 +294,15 @@ pub fn mercury_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, neptune_position_de};
+/// use brahe::spice::{SPKKernel, neptune_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_neptune = neptune_position_de(epc, SpkKernel::DE440s)?;
+/// let r_neptune = neptune_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn neptune_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn neptune_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -339,15 +339,15 @@ pub fn neptune_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, saturn_position_de};
+/// use brahe::spice::{SPKKernel, saturn_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_saturn = saturn_position_de(epc, SpkKernel::DE440s)?;
+/// let r_saturn = saturn_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn saturn_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn saturn_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -384,15 +384,15 @@ pub fn saturn_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>,
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, uranus_position_de};
+/// use brahe::spice::{SPKKernel, uranus_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_uranus = uranus_position_de(epc, SpkKernel::DE440s)?;
+/// let r_uranus = uranus_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn uranus_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn uranus_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -429,15 +429,15 @@ pub fn uranus_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>,
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, venus_position_de};
+/// use brahe::spice::{SPKKernel, venus_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_venus = venus_position_de(epc, SpkKernel::DE440s)?;
+/// let r_venus = venus_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn venus_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn venus_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
 
@@ -474,17 +474,17 @@ pub fn venus_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, 
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SpkKernel, solar_system_barycenter_position_de};
+/// use brahe::spice::{SPKKernel, solar_system_barycenter_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_ssb = solar_system_barycenter_position_de(epc, SpkKernel::DE440s)?;
+/// let r_ssb = solar_system_barycenter_position_de(epc, SPKKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
 pub fn solar_system_barycenter_position_de(
     epc: Epoch,
-    kernel: SpkKernel,
+    kernel: SPKKernel,
 ) -> Result<Vector3<f64>, BraheError> {
     let ctx = ensure_kernel_loaded(kernel)?;
     let anise_epoch = brahe_epoch_to_anise(epc);
@@ -513,7 +513,7 @@ pub fn solar_system_barycenter_position_de(
 }
 
 /// Convenience alias for [`solar_system_barycenter_position_de`].
-pub fn ssb_position_de(epc: Epoch, kernel: SpkKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn ssb_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
     solar_system_barycenter_position_de(epc, kernel)
 }
 
@@ -542,7 +542,7 @@ mod tests {
 
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let r_analytical = sun_position(epc);
-        let r_de = sun_position_de(epc, SpkKernel::DE440s).unwrap();
+        let r_de = sun_position_de(epc, SPKKernel::DE440s).unwrap();
 
         let dot = r_analytical.dot(&r_de) / (r_analytical.norm() * r_de.norm());
         let angle = dot.acos() * (180.0 / std::f64::consts::PI);
@@ -564,7 +564,7 @@ mod tests {
 
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let r_analytical = moon_position(epc);
-        let r_de = moon_position_de(epc, SpkKernel::DE440s).unwrap();
+        let r_de = moon_position_de(epc, SPKKernel::DE440s).unwrap();
 
         let dot = r_analytical.dot(&r_de) / (r_analytical.norm() * r_de.norm());
         let angle = dot.acos() * (180.0 / std::f64::consts::PI);
@@ -584,7 +584,7 @@ mod tests {
     fn test_jupiter_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = jupiter_position_de(epc, SpkKernel::DE440s).unwrap();
+        let _r = jupiter_position_de(epc, SPKKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -600,7 +600,7 @@ mod tests {
     fn test_mars_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = mars_position_de(epc, SpkKernel::DE440s).unwrap();
+        let _r = mars_position_de(epc, SPKKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -616,7 +616,7 @@ mod tests {
     fn test_mercury_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = mercury_position_de(epc, SpkKernel::DE440s).unwrap();
+        let _r = mercury_position_de(epc, SPKKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -632,7 +632,7 @@ mod tests {
     fn test_neptune_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = neptune_position_de(epc, SpkKernel::DE440s).unwrap();
+        let _r = neptune_position_de(epc, SPKKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -648,7 +648,7 @@ mod tests {
     fn test_saturn_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = saturn_position_de(epc, SpkKernel::DE440s).unwrap();
+        let _r = saturn_position_de(epc, SPKKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -664,7 +664,7 @@ mod tests {
     fn test_uranus_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = uranus_position_de(epc, SpkKernel::DE440s).unwrap();
+        let _r = uranus_position_de(epc, SPKKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -680,7 +680,7 @@ mod tests {
     fn test_venus_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_almanac();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = venus_position_de(epc, SpkKernel::DE440s).unwrap();
+        let _r = venus_position_de(epc, SPKKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -700,6 +700,6 @@ mod tests {
     ) {
         setup_global_test_almanac();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = solar_system_barycenter_position_de(epc, SpkKernel::DE440s).unwrap();
+        let _r = solar_system_barycenter_position_de(epc, SPKKernel::DE440s).unwrap();
     }
 }

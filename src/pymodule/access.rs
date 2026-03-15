@@ -878,7 +878,7 @@ impl PyAscDscConstraint {
 /// All constraints must be satisfied for the composite to evaluate to true.
 ///
 /// Args:
-///     constraints (list): List of constraint objects to combine with AND logic
+///     constraints (Sequence): List of constraint objects to combine with AND logic
 ///
 /// Example:
 ///     ```python
@@ -976,7 +976,7 @@ impl PyConstraintAll {
 /// At least one constraint must be satisfied for the composite to evaluate to true.
 ///
 /// Args:
-///     constraints (list): List of constraint objects to combine with OR logic
+///     constraints (Sequence): List of constraint objects to combine with OR logic
 ///
 /// Example:
 ///     ```python
@@ -4739,14 +4739,14 @@ fn process_property_computers(
 /// and results are returned sorted by window start time.
 ///
 /// Args:
-///     locations (PointLocation | PolygonLocation | List[PointLocation | PolygonLocation]):
+///     locations (PointLocation | PolygonLocation | Sequence[PointLocation | PolygonLocation]):
 ///         Single location or list of locations
-///     propagators (SGPPropagator | KeplerianPropagator | List[SGPPropagator | KeplerianPropagator]):
+///     propagators (SGPPropagator | KeplerianPropagator | Sequence[SGPPropagator | KeplerianPropagator]):
 ///         Single propagator or list of propagators
 ///     search_start (Epoch): Start of search window
 ///     search_end (Epoch): End of search window
 ///     constraint (AccessConstraint): Access constraints to evaluate
-///     property_computers (Optional[List[AccessPropertyComputer]]): Optional property computers
+///     property_computers (Optional[Sequence[AccessPropertyComputer]]): Optional property computers
 ///     config (Optional[AccessSearchConfig]): Search configuration (time step, tolerance, subdivisions, etc.)
 ///
 /// Returns:

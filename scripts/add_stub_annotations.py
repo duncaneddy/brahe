@@ -186,7 +186,7 @@ def parse_params_from_docstring(doc: str) -> list:
                         if t == "numpy.ndarray" or t == "ndarray":
                             mapped_types.append("np.ndarray")
                         elif t == "list":
-                            mapped_types.append("List")
+                            mapped_types.append("Sequence")
                         elif t == "tuple":
                             mapped_types.append("Tuple")
                         else:
@@ -203,7 +203,7 @@ def parse_params_from_docstring(doc: str) -> list:
                         "TimeSystem": "TimeSystem",
                         "AngleFormat": "AngleFormat",
                         "Epoch": "Epoch",
-                        "list": "List",
+                        "list": "Sequence",
                         "tuple": "Tuple",
                         "dict": "dict",
                         "AccessConstraint": "Union[ElevationConstraint, OffNadirConstraint, LocalTimeConstraint, LookDirectionConstraint, AscDscConstraint, ElevationMaskConstraint, ConstraintAll, ConstraintAny, ConstraintNot]",
@@ -618,7 +618,9 @@ def main():
     # Header
     output_lines.append('"""Type stubs for brahe._brahe module - AUTO-GENERATED"""')
     output_lines.append("")
-    output_lines.append("from typing import Any, List, Tuple, Optional, Union")
+    output_lines.append(
+        "from typing import Any, List, Sequence, Tuple, Optional, Union"
+    )
     output_lines.append("import numpy as np")
     output_lines.append("")
 

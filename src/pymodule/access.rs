@@ -2337,15 +2337,18 @@ impl PyAccessWindow {
 
     // ===== Access properties (convenience getters) =====
 
-    /// Get or set the access properties object.
+    /// Get the access properties as a live view.
+    ///
+    /// Returns a proxy that delegates reads and writes back to this window,
+    /// so mutations to additional properties persist.
     ///
     /// Returns:
-    ///     AccessProperties: Computed properties for this access window
+    ///     AccessPropertiesView: Live view into this window's properties
     #[getter]
-    fn properties(&self) -> PyAccessProperties {
-        PyAccessProperties {
-            properties: self.window.properties.clone(),
-        }
+    fn properties(slf: Bound<'_, Self>) -> PyResult<Py<PyAccessPropertiesView>> {
+        let py = slf.py();
+        let view = PyAccessPropertiesView { parent: slf.into_any().unbind() };
+        Py::new(py, view)
     }
 
     /// Set the access properties object.
@@ -2499,6 +2502,316 @@ impl PyAccessWindow {
             self.window.end(),
             self.window.duration()
         )
+    }
+
+    // ===== Internal delegation methods for PyAccessPropertiesView =====
+
+    fn _get_properties_azimuth_open(&self) -> f64 {
+        self.window.properties.azimuth_open
+    }
+
+    fn _get_properties_azimuth_close(&self) -> f64 {
+        self.window.properties.azimuth_close
+    }
+
+    fn _get_properties_elevation_min(&self) -> f64 {
+        self.window.properties.elevation_min
+    }
+
+    fn _get_properties_elevation_max(&self) -> f64 {
+        self.window.properties.elevation_max
+    }
+
+    fn _get_properties_elevation_open(&self) -> f64 {
+        self.window.properties.elevation_open
+    }
+
+    fn _get_properties_elevation_close(&self) -> f64 {
+        self.window.properties.elevation_close
+    }
+
+    fn _get_properties_off_nadir_min(&self) -> f64 {
+        self.window.properties.off_nadir_min
+    }
+
+    fn _get_properties_off_nadir_max(&self) -> f64 {
+        self.window.properties.off_nadir_max
+    }
+
+    fn _get_properties_local_time(&self) -> f64 {
+        self.window.properties.local_time
+    }
+
+    fn _get_properties_look_direction(&self) -> PyLookDirection {
+        PyLookDirection { value: self.window.properties.look_direction }
+    }
+
+    fn _get_properties_asc_dsc(&self) -> PyAscDsc {
+        PyAscDsc { value: self.window.properties.asc_dsc }
+    }
+
+    fn _get_properties_center_lon(&self) -> f64 {
+        self.window.properties.center_lon
+    }
+
+    fn _get_properties_center_lat(&self) -> f64 {
+        self.window.properties.center_lat
+    }
+
+    fn _get_properties_center_alt(&self) -> f64 {
+        self.window.properties.center_alt
+    }
+
+    fn _get_properties_center_ecef(&self) -> [f64; 3] {
+        self.window.properties.center_ecef
+    }
+
+    fn _get_additional_properties_dict(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for (key, value) in &self.window.properties.additional {
+            let py_value: Py<PyAny> = match value {
+                PropertyValue::Scalar(v) => {
+                    let float_obj = PyFloat::new(py, *v);
+                    float_obj.unbind().into()
+                }
+                PropertyValue::Vector(v) => {
+                    let list = PyList::new(py, v.iter())?;
+                    list.unbind().into()
+                }
+                PropertyValue::TimeSeries { times, values } => {
+                    let ts_dict = PyDict::new(py);
+                    ts_dict.set_item("times", times)?;
+                    ts_dict.set_item("values", values)?;
+                    ts_dict.into()
+                }
+                PropertyValue::Boolean(v) => {
+                    let builtins = py.import("builtins")?;
+                    let bool_func = builtins.getattr("bool")?;
+                    bool_func.call1((*v,))?.into()
+                }
+                PropertyValue::String(v) => {
+                    let str_obj = PyString::new(py, v);
+                    str_obj.unbind().into()
+                }
+                PropertyValue::Json(v) => {
+                    let json_module = py.import("json")?;
+                    let loads = json_module.getattr("loads")?;
+                    let json_str = serde_json::to_string(v)
+                        .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(format!("JSON error: {}", e)))?;
+                    loads.call1((json_str,))?.into()
+                }
+            };
+            dict.set_item(key, py_value)?;
+        }
+        Ok(dict.into())
+    }
+
+    fn _set_additional_property(&mut self, key: String, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        let property_value = if let Ok(v) = value.extract::<bool>() {
+            PropertyValue::Boolean(v)
+        } else if let Ok(v) = value.extract::<f64>() {
+            PropertyValue::Scalar(v)
+        } else if let Ok(v) = value.extract::<Vec<f64>>() {
+            PropertyValue::Vector(v)
+        } else if value.hasattr("tolist")? {
+            let as_list = value.call_method0("tolist")?;
+            if let Ok(v) = as_list.extract::<Vec<f64>>() {
+                PropertyValue::Vector(v)
+            } else {
+                return Err(PyErr::new::<exceptions::PyTypeError, _>(
+                    "Numpy array must contain numeric values"
+                ));
+            }
+        } else if let Ok(v) = value.extract::<String>() {
+            PropertyValue::String(v)
+        } else if let Ok(dict) = value.cast::<PyDict>() {
+            let json_module = value.py().import("json")?;
+            let dumps = json_module.getattr("dumps")?;
+            let json_str: String = dumps.call1((dict,))?.extract()?;
+            let json_value: serde_json::Value = serde_json::from_str(&json_str)
+                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(format!("JSON error: {}", e)))?;
+            PropertyValue::Json(json_value)
+        } else {
+            return Err(PyErr::new::<exceptions::PyTypeError, _>(
+                "Property value must be a number, list, numpy array, bool, str, or dict"
+            ));
+        };
+
+        self.window.properties.additional.insert(key, property_value);
+        Ok(())
+    }
+
+    fn _remove_additional_property(&mut self, key: String) -> PyResult<()> {
+        self.window.properties.additional.remove(&key)
+            .ok_or_else(|| exceptions::PyKeyError::new_err(format!("Key '{}' not found", key)))?;
+        Ok(())
+    }
+}
+
+// ================================
+// AccessPropertiesView
+// ================================
+
+/// A proxy view into the properties of an AccessWindow.
+///
+/// This view delegates all reads and writes back to the parent AccessWindow,
+/// ensuring that mutations (especially to additional properties) persist.
+/// Returned by AccessWindow.properties getter.
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "AccessPropertiesView")]
+pub struct PyAccessPropertiesView {
+    parent: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyAccessPropertiesView {
+    #[getter]
+    fn azimuth_open(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_azimuth_open")?.extract()
+    }
+
+    #[getter]
+    fn azimuth_close(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_azimuth_close")?.extract()
+    }
+
+    #[getter]
+    fn elevation_min(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_elevation_min")?.extract()
+    }
+
+    #[getter]
+    fn elevation_max(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_elevation_max")?.extract()
+    }
+
+    #[getter]
+    fn elevation_open(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_elevation_open")?.extract()
+    }
+
+    #[getter]
+    fn elevation_close(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_elevation_close")?.extract()
+    }
+
+    #[getter]
+    fn off_nadir_min(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_off_nadir_min")?.extract()
+    }
+
+    #[getter]
+    fn off_nadir_max(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_off_nadir_max")?.extract()
+    }
+
+    #[getter]
+    fn local_time(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_local_time")?.extract()
+    }
+
+    #[getter]
+    fn look_direction(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let parent = self.parent.bind(py);
+        Ok(parent.call_method0("_get_properties_look_direction")?.unbind())
+    }
+
+    #[getter]
+    fn asc_dsc(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let parent = self.parent.bind(py);
+        Ok(parent.call_method0("_get_properties_asc_dsc")?.unbind())
+    }
+
+    #[getter]
+    fn center_lon(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_center_lon")?.extract()
+    }
+
+    #[getter]
+    fn center_lat(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_center_lat")?.extract()
+    }
+
+    #[getter]
+    fn center_alt(&self, py: Python) -> PyResult<f64> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_center_alt")?.extract()
+    }
+
+    #[getter]
+    fn center_ecef(&self, py: Python) -> PyResult<[f64; 3]> {
+        let parent = self.parent.bind(py);
+        parent.call_method0("_get_properties_center_ecef")?.extract()
+    }
+
+    /// Get additional properties as a dict-like wrapper.
+    ///
+    /// Returns:
+    ///     AdditionalPropertiesDict: Dict-like wrapper for additional properties
+    #[getter]
+    fn additional(slf: Bound<'_, Self>) -> PyResult<Py<PyAdditionalPropertiesDict>> {
+        let py = slf.py();
+        let dict = PyAdditionalPropertiesDict::new(slf.into_any().unbind());
+        Py::new(py, dict)
+    }
+
+    /// Get a property value by key (convenience for additional properties).
+    fn __getitem__(&self, key: String, py: Python) -> PyResult<Py<PyAny>> {
+        let props_dict = self._get_additional_properties_dict(py)?;
+        let dict = props_dict.bind(py);
+        dict.get_item(&key)?
+            .ok_or_else(|| exceptions::PyKeyError::new_err(format!("Key '{}' not found", key)))
+            .map(|item| item.into())
+    }
+
+    /// Set a property value by key (convenience for additional properties).
+    fn __setitem__(&self, key: String, value: &Bound<'_, PyAny>, py: Python) -> PyResult<()> {
+        let parent = self.parent.bind(py);
+        parent.call_method1("_set_additional_property", (key, value))?;
+        Ok(())
+    }
+
+    // Internal methods for AdditionalPropertiesDict to chain through the view
+    fn _get_additional_properties_dict(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let parent = self.parent.bind(py);
+        let result = parent.call_method0("_get_additional_properties_dict")?;
+        Ok(result.extract()?)
+    }
+
+    fn _set_additional_property(&self, key: String, value: &Bound<'_, PyAny>, py: Python) -> PyResult<()> {
+        let parent = self.parent.bind(py);
+        parent.call_method1("_set_additional_property", (key, value))?;
+        Ok(())
+    }
+
+    fn _remove_additional_property(&self, key: String, py: Python) -> PyResult<()> {
+        let parent = self.parent.bind(py);
+        parent.call_method1("_remove_additional_property", (key,))?;
+        Ok(())
+    }
+
+    fn __repr__(&self, py: Python) -> PyResult<String> {
+        let az_open: f64 = self.parent.bind(py).call_method0("_get_properties_azimuth_open")?.extract()?;
+        let az_close: f64 = self.parent.bind(py).call_method0("_get_properties_azimuth_close")?.extract()?;
+        let el_min: f64 = self.parent.bind(py).call_method0("_get_properties_elevation_min")?.extract()?;
+        let el_max: f64 = self.parent.bind(py).call_method0("_get_properties_elevation_max")?.extract()?;
+        let on_min: f64 = self.parent.bind(py).call_method0("_get_properties_off_nadir_min")?.extract()?;
+        let on_max: f64 = self.parent.bind(py).call_method0("_get_properties_off_nadir_max")?.extract()?;
+        Ok(format!(
+            "AccessPropertiesView(az=[{:.1}°, {:.1}°], el=[{:.1}°, {:.1}°], off_nadir=[{:.1}°, {:.1}°])",
+            az_open, az_close, el_min, el_max, on_min, on_max
+        ))
     }
 }
 

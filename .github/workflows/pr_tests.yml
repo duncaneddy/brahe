@@ -32,6 +32,8 @@ jobs:
     needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_rust.yml
+    with:
+      is-fork-pr: ${{ github.event.pull_request.head.repo.fork == true }}
     secrets: inherit
 
   delay-python:
@@ -46,6 +48,8 @@ jobs:
     needs: [delay-python]
     if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
+    with:
+      is-fork-pr: ${{ github.event.pull_request.head.repo.fork == true }}
     secrets: inherit
 
   test-examples:

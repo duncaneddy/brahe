@@ -2456,7 +2456,7 @@ impl Identifiable for DOrbitTrajectory {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
         self
     }
 
@@ -2487,7 +2487,7 @@ impl Identifiable for DOrbitTrajectory {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -5475,7 +5475,7 @@ mod tests {
 
     #[test]
     fn test_dorbittrajectory_with_uuid() {
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .with_uuid(test_uuid);
 
@@ -5500,7 +5500,7 @@ mod tests {
 
     #[test]
     fn test_dorbittrajectory_with_identity() {
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .with_identity(Some("Name"), Some(test_uuid), Some(1));
 
@@ -5513,7 +5513,7 @@ mod tests {
     fn test_dorbittrajectory_set_identity() {
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
         traj.set_identity(Some("NewName"), Some(test_uuid), Some(10));
 
         assert_eq!(traj.get_id(), Some(10));
@@ -5548,7 +5548,7 @@ mod tests {
 
     #[test]
     fn test_dorbittrajectory_get_id_name_uuid() {
-        let test_uuid = uuid::Uuid::new_v4();
+        let test_uuid = uuid::Uuid::now_v7();
         let traj = DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
             .with_id(5)
             .with_name("GetTest")

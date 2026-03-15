@@ -424,7 +424,7 @@ impl DNumericalPropagator {
         // Set up covariance if initial covariance provided
         let current_covariance = initial_covariance.clone();
 
-        Ok(Self {
+        let mut result = Ok(Self {
             epoch_initial: epoch,
             epoch_current: epoch,
             t_rel: 0.0,
@@ -452,7 +452,14 @@ impl DNumericalPropagator {
             name: None,
             id: None,
             uuid: None,
-        })
+        });
+
+        // Auto-generate UUID
+        if let Ok(ref mut prop) = result {
+            prop.uuid = Some(uuid::Uuid::now_v7());
+        }
+
+        result
     }
 
     // =========================================================================
@@ -1805,7 +1812,7 @@ impl Identifiable for DNumericalPropagator {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(uuid::Uuid::new_v4());
+        self.uuid = Some(uuid::Uuid::now_v7());
         self
     }
 
@@ -1841,7 +1848,7 @@ impl Identifiable for DNumericalPropagator {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(uuid::Uuid::new_v4());
+        self.uuid = Some(uuid::Uuid::now_v7());
     }
 
     fn get_id(&self) -> Option<u64> {

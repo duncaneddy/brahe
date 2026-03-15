@@ -5,10 +5,12 @@
  * All locations implement the Identifiable trait for traceability.
  */
 
+use std::any::Any;
+use std::collections::HashMap;
+
 use nalgebra::Vector3;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as JsonValue, json};
-use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::constants::AngleFormat;
@@ -46,6 +48,12 @@ pub trait AccessibleLocation: Identifiable + Send + Sync {
     ///
     /// Returns a GeoJSON Feature object with geometry and properties
     fn to_geojson(&self) -> JsonValue;
+
+    /// Downcast to a concrete type via `Any`.
+    ///
+    /// Enables runtime type checking for algorithms that need to dispatch
+    /// on the concrete location type (e.g., tessellation).
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// A single point location on Earth's surface
@@ -106,7 +114,7 @@ impl PointLocation {
             properties: HashMap::new(),
             name: None,
             id: None,
-            uuid: None,
+            uuid: Some(Uuid::now_v7()),
         }
     }
 
@@ -332,6 +340,10 @@ impl AccessibleLocation for PointLocation {
             "properties": props
         })
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Identifiable for PointLocation {
@@ -346,7 +358,7 @@ impl Identifiable for PointLocation {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
         self
     }
 
@@ -377,7 +389,7 @@ impl Identifiable for PointLocation {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -510,7 +522,7 @@ impl PolygonLocation {
             properties: HashMap::new(),
             name: None,
             id: None,
-            uuid: None,
+            uuid: Some(Uuid::now_v7()),
         })
     }
 
@@ -766,6 +778,10 @@ impl AccessibleLocation for PolygonLocation {
             "properties": props
         })
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Identifiable for PolygonLocation {
@@ -780,7 +796,7 @@ impl Identifiable for PolygonLocation {
     }
 
     fn with_new_uuid(mut self) -> Self {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
         self
     }
 
@@ -811,7 +827,7 @@ impl Identifiable for PolygonLocation {
     }
 
     fn generate_uuid(&mut self) {
-        self.uuid = Some(Uuid::new_v4());
+        self.uuid = Some(Uuid::now_v7());
     }
 
     fn get_id(&self) -> Option<u64> {
@@ -1127,7 +1143,7 @@ mod tests {
 
     #[test]
     fn test_point_location_identifiable_methods() {
-        let uuid = Uuid::new_v4();
+        let uuid = Uuid::now_v7();
 
         // Test with_name
         let loc = PointLocation::new(0.0, 0.0, 0.0).with_name("Test");
@@ -1448,7 +1464,7 @@ mod tests {
             Vector3::new(10.0, 50.0, 0.0),
         ];
 
-        let uuid = Uuid::new_v4();
+        let uuid = Uuid::now_v7();
 
         // Test with_name
         let poly = PolygonLocation::new(vertices.clone())

@@ -1025,6 +1025,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Access Computation
     module.add_function(wrap_pyfunction!(py_location_accesses, module)?)?;
 
+    // Tessellation
+    module.add_class::<PyOrbitGeometryTessellatorConfig>()?;
+    module.add_class::<PyOrbitGeometryTessellator>()?;
+    module.add_function(wrap_pyfunction!(py_tile_merge_orbit_geometry, module)?)?;
+
     //* Event Detection *//
     module.add_class::<PyEventDirection>()?;
     module.add_class::<PyEdgeType>()?;

@@ -136,5 +136,6 @@ Convert locations back to GeoJSON format:
 
 - [Constraints](constraints.md) - Defining access criteria for locations
 - [Computation](computation.md) - Access algorithms and property computation
+- [Tessellation](tessellation.md) - Dividing locations into satellite imaging tiles
 - [API Reference: Locations](../../library_api/access/locations.md)
 - [Example: Predicting Ground Contacts](../../examples/ground_contacts.md)

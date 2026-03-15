@@ -217,12 +217,12 @@ def test_location_satellite_identification():
         # Test location identification
         assert window.location_name == "TestLocation"
         assert window.location_id is None  # Not set
-        assert window.location_uuid is None  # Not set
+        assert window.location_uuid is not None  # Auto-generated in constructor
 
         # Test satellite identification
         assert window.satellite_name == "TestSatellite"
         assert window.satellite_id is None  # Not set
-        assert window.satellite_uuid is None  # Not set
+        assert window.satellite_uuid is not None  # Auto-generated in constructor
 
 
 def test_direct_access_properties():

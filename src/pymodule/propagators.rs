@@ -3622,6 +3622,8 @@ impl PyThirdBodyConfiguration {
             propagators::EphemerisSource::LowPrecision => PyEphemerisSource::LowPrecision,
             propagators::EphemerisSource::DE440s => PyEphemerisSource::DE440s,
             propagators::EphemerisSource::DE440 => PyEphemerisSource::DE440,
+            propagators::EphemerisSource::SPK(spice::SPKKernel::DE440s) => PyEphemerisSource::DE440s,
+            propagators::EphemerisSource::SPK(spice::SPKKernel::DE440) => PyEphemerisSource::DE440,
         }
     }
 

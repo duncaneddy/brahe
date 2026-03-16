@@ -95,6 +95,52 @@ jobs:
         if: inputs.version != ''
         run: uv run --frozen mike deploy --push --update-aliases ${{ inputs.version }} stable
 
+      - name: Prune old doc versions (keep latest + 3 most recent minor versions)
+        if: inputs.version != ''
+        run: |
+          # List all deployed versions from mike
+          VERSIONS=$(uv run --frozen mike list 2>/dev/null | awk '{print $1}' | tr -d '[]')
+
+          # Collect release versions (exclude "latest"), sort by semver descending
+          RELEASE_VERSIONS=""
+          for v in $VERSIONS; do
+            if [ "$v" != "latest" ]; then
+              RELEASE_VERSIONS="$RELEASE_VERSIONS $v"
+            fi
+          done
+
+          # Sort versions by semver descending
+          SORTED=$(echo $RELEASE_VERSIONS | tr ' ' '\n' | sed 's/^v//' | sort -t. -k1,1nr -k2,2nr -k3,3nr | sed 's/^/v/')
+
+          # Group by minor version (major.minor), keep only the 3 most recent minor groups
+          # For each version, the highest patch in each minor group is kept (first seen since sorted desc)
+          KEEP_VERSIONS=""
+          DELETE_VERSIONS=""
+          SEEN_MINORS=""
+          MINOR_COUNT=0
+          for v in $SORTED; do
+            # Extract major.minor (e.g., v1.1.4 -> 1.1)
+            MINOR=$(echo "$v" | sed 's/^v//' | cut -d. -f1,2)
+            if ! echo "$SEEN_MINORS" | grep -q "^${MINOR}$"; then
+              # New minor version group
+              MINOR_COUNT=$((MINOR_COUNT + 1))
+              SEEN_MINORS=$(printf '%s\n%s' "$SEEN_MINORS" "$MINOR")
+            fi
+            if [ $MINOR_COUNT -le 3 ]; then
+              KEEP_VERSIONS="$KEEP_VERSIONS $v"
+            else
+              DELETE_VERSIONS="$DELETE_VERSIONS $v"
+            fi
+          done
+
+          if [ -n "$DELETE_VERSIONS" ]; then
+            echo "Keeping versions:$KEEP_VERSIONS"
+            echo "Pruning old doc versions:$DELETE_VERSIONS"
+            uv run --frozen mike delete --push $DELETE_VERSIONS
+          else
+            echo "No old versions to prune (all within 3 most recent minor versions)"
+          fi
+
       - name: Set default version redirect (versioned release)
         if: inputs.version != ''
         run: uv run --frozen mike set-default --push latest

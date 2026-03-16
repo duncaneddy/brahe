@@ -16,6 +16,8 @@ import org.orekit.propagation.analytical.tle.TLE;
 import org.orekit.propagation.analytical.tle.TLEPropagator;
 import org.orekit.propagation.numerical.NumericalPropagator;
 import org.orekit.time.AbsoluteDate;
+import org.orekit.time.DateComponents;
+import org.orekit.time.TimeComponents;
 import org.orekit.time.TimeScalesFactory;
 import org.orekit.utils.Constants;
 import org.orekit.utils.PVCoordinates;
@@ -29,10 +31,17 @@ public class PropagationBenchmark {
     private static final Frame EME2000 = FramesFactory.getEME2000();
     private static final Frame TEME = FramesFactory.getTEME();
 
+    /**
+     * Convert JD (UTC) to OreKit AbsoluteDate.
+     */
     private static AbsoluteDate jdToDate(double jd) {
-        double offsetDays = jd - 2451545.0;
-        double offsetSeconds = offsetDays * 86400.0;
-        return AbsoluteDate.J2000_EPOCH.shiftedBy(offsetSeconds);
+        double mjd = jd - 2400000.5;
+        int mjdDay = (int) Math.floor(mjd);
+        double secondsInDay = (mjd - mjdDay) * 86400.0;
+        return new AbsoluteDate(
+                new DateComponents(DateComponents.MODIFIED_JULIAN_EPOCH, mjdDay),
+                new TimeComponents(secondsInDay),
+                TimeScalesFactory.getUTC());
     }
 
     private static void addState(JsonArray results, PVCoordinates pv) {

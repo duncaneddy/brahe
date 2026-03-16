@@ -16,6 +16,9 @@ import org.orekit.propagation.events.ElevationDetector;
 import org.orekit.propagation.events.handlers.EventHandler;
 import org.hipparchus.ode.events.Action;
 import org.orekit.time.AbsoluteDate;
+import org.orekit.time.DateComponents;
+import org.orekit.time.TimeComponents;
+import org.orekit.time.TimeScalesFactory;
 import org.orekit.utils.Constants;
 import org.orekit.utils.IERSConventions;
 
@@ -34,10 +37,21 @@ public class AccessBenchmark {
             Constants.WGS84_EARTH_FLATTENING,
             ITRF);
 
+    /** J2000.0 epoch in UTC timescale (for JD ↔ AbsoluteDate conversions) */
+    private static final AbsoluteDate J2000_UTC = new AbsoluteDate(
+            DateComponents.J2000_EPOCH, TimeComponents.H12, TimeScalesFactory.getUTC());
+
+    /**
+     * Convert JD (UTC) to OreKit AbsoluteDate.
+     */
     private static AbsoluteDate jdToDate(double jd) {
-        double offsetDays = jd - 2451545.0;
-        double offsetSeconds = offsetDays * 86400.0;
-        return AbsoluteDate.J2000_EPOCH.shiftedBy(offsetSeconds);
+        double mjd = jd - 2400000.5;
+        int mjdDay = (int) Math.floor(mjd);
+        double secondsInDay = (mjd - mjdDay) * 86400.0;
+        return new AbsoluteDate(
+                new DateComponents(DateComponents.MODIFIED_JULIAN_EPOCH, mjdDay),
+                new TimeComponents(secondsInDay),
+                TimeScalesFactory.getUTC());
     }
 
     public static JsonObject sgp4Access(JsonObject params, int iterations) {
@@ -89,11 +103,11 @@ public class AccessBenchmark {
                             public Action eventOccurred(SpacecraftState s, EventDetector d, boolean increasing) {
                                 if (increasing) {
                                     // Rise event
-                                    riseTime[0] = s.getDate().durationFrom(AbsoluteDate.J2000_EPOCH);
+                                    riseTime[0] = s.getDate().durationFrom(J2000_UTC);
                                 } else {
                                     // Set event
                                     if (!Double.isNaN(riseTime[0])) {
-                                        double setTimeSec = s.getDate().durationFrom(AbsoluteDate.J2000_EPOCH);
+                                        double setTimeSec = s.getDate().durationFrom(J2000_UTC);
                                         windows.add(new double[]{riseTime[0], setTimeSec});
                                         riseTime[0] = Double.NaN;
                                     }

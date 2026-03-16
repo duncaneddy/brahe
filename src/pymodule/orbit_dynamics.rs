@@ -38,6 +38,20 @@ impl From<PyEphemerisSource> for propagators::force_model_config::EphemerisSourc
     }
 }
 
+impl TryFrom<PyEphemerisSource> for spice::SPKKernel {
+    type Error = PyErr;
+
+    fn try_from(source: PyEphemerisSource) -> Result<Self, Self::Error> {
+        let source = propagators::force_model_config::EphemerisSource::from(source);
+        spice::SPKKernel::try_from(source)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+    }
+}
+
+fn de_kernel_from_py_source(source: PyEphemerisSource) -> PyResult<spice::SPKKernel> {
+    spice::SPKKernel::try_from(source)
+}
+
 /// Calculate the position of the Sun in the GCRF inertial frame using low-precision analytical methods.
 ///
 /// Args:
@@ -115,7 +129,8 @@ fn py_moon_position<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, 
 #[pyfunction]
 #[pyo3(name = "sun_position_de")]
 fn py_sun_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::sun_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::sun_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -153,7 +168,8 @@ fn py_sun_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
 #[pyfunction]
 #[pyo3(name = "moon_position_de")]
 fn py_moon_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::moon_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::moon_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -191,7 +207,8 @@ fn py_moon_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 #[pyfunction]
 #[pyo3(name = "mercury_position_de")]
 fn py_mercury_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::mercury_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::mercury_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -229,7 +246,8 @@ fn py_mercury_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
 #[pyfunction]
 #[pyo3(name = "venus_position_de")]
 fn py_venus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::venus_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::venus_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -267,7 +285,8 @@ fn py_venus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeris
 #[pyfunction]
 #[pyo3(name = "mars_position_de")]
 fn py_mars_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::mars_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::mars_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -305,7 +324,8 @@ fn py_mars_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 #[pyfunction]
 #[pyo3(name = "jupiter_position_de")]
 fn py_jupiter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::jupiter_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::jupiter_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -343,7 +363,8 @@ fn py_jupiter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
 #[pyfunction]
 #[pyo3(name = "saturn_position_de")]
 fn py_saturn_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::saturn_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::saturn_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -381,7 +402,8 @@ fn py_saturn_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
 #[pyfunction]
 #[pyo3(name = "uranus_position_de")]
 fn py_uranus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::uranus_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::uranus_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -419,7 +441,8 @@ fn py_uranus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
 #[pyfunction]
 #[pyo3(name = "neptune_position_de")]
 fn py_neptune_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::neptune_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::neptune_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -457,7 +480,8 @@ fn py_neptune_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
 #[pyfunction]
 #[pyo3(name = "solar_system_barycenter_position_de")]
 fn py_solar_system_barycenter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::solar_system_barycenter_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::solar_system_barycenter_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -490,7 +514,8 @@ fn py_solar_system_barycenter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, s
 #[pyfunction]
 #[pyo3(name = "ssb_position_de")]
 fn py_ssb_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = orbit_dynamics::ssb_position_de(epc.obj, source.into())
+    let kernel = de_kernel_from_py_source(source)?;
+    let r = spice::ssb_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -528,7 +553,7 @@ fn py_ssb_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
 #[pyfunction]
 #[pyo3(name = "initialize_ephemeris")]
 fn py_initialize_ephemeris() -> PyResult<()> {
-    orbit_dynamics::initialize_ephemeris()
+    spice::initialize_ephemeris()
         .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to initialize ephemeris: {}", e)))
 }
 

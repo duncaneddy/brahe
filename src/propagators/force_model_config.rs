@@ -13,6 +13,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::orbit_dynamics::gravity::GravityModelType;
+use crate::spice::SPKKernel;
+use crate::utils::BraheError;
 
 // =============================================================================
 // Parameter Source Configuration
@@ -722,6 +724,28 @@ pub enum EphemerisSource {
     /// Valid over extended time range 13200 BCE-17191 CE.
     /// All planets available. File size ~114 MB.
     DE440,
+
+    /// Custom SPK-backed ephemeris source.
+    ///
+    /// Uses an explicitly selected SPK kernel while keeping the higher-level
+    /// force-model interface centered on `EphemerisSource`.
+    SPK(SPKKernel),
+}
+
+impl TryFrom<EphemerisSource> for SPKKernel {
+    type Error = BraheError;
+
+    fn try_from(source: EphemerisSource) -> Result<Self, Self::Error> {
+        match source {
+            EphemerisSource::DE440s => Ok(SPKKernel::DE440s),
+            EphemerisSource::DE440 => Ok(SPKKernel::DE440),
+            EphemerisSource::SPK(kernel) => Ok(kernel),
+            EphemerisSource::LowPrecision => Err(BraheError::Error(
+                "LowPrecision is not a valid DE kernel - use DE440s, DE440, or EphemerisSource::SPK(...)"
+                    .to_string(),
+            )),
+        }
+    }
 }
 
 /// Third-body perturber
@@ -873,6 +897,23 @@ mod tests {
             config.mass,
             Some(ParameterSource::ParameterIndex(0))
         ));
+    }
+
+    #[test]
+    fn test_ephemeris_source_to_spk_kernel() {
+        assert_eq!(
+            SPKKernel::try_from(EphemerisSource::DE440s).unwrap(),
+            SPKKernel::DE440s
+        );
+        assert_eq!(
+            SPKKernel::try_from(EphemerisSource::DE440).unwrap(),
+            SPKKernel::DE440
+        );
+        assert_eq!(
+            SPKKernel::try_from(EphemerisSource::SPK(SPKKernel::DE440s)).unwrap(),
+            SPKKernel::DE440s
+        );
+        assert!(SPKKernel::try_from(EphemerisSource::LowPrecision).is_err());
     }
 
     #[test]

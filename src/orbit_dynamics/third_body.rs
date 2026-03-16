@@ -5,18 +5,23 @@ ephemerides.
 
 use nalgebra::Vector3;
 
-use crate::ephemerides::{
-    jupiter_position_de, mars_position_de, mercury_position_de, moon_position, moon_position_de,
-    neptune_position_de, saturn_position_de, sun_position, sun_position_de, uranus_position_de,
-    venus_position_de,
-};
 use crate::math::traits::IntoPosition;
+use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
+use crate::spice::{
+    SPKKernel, jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
+    neptune_position_de, saturn_position_de, sun_position_de, uranus_position_de,
+    venus_position_de,
+};
 use crate::time::Epoch;
 use crate::{
     GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,
 };
+
+fn de_kernel_from_source(source: EphemerisSource) -> SPKKernel {
+    SPKKernel::try_from(source).expect("DE ephemeris source should map to a DE kernel")
+}
 
 /// Unified third-body acceleration with source enumeration.
 ///
@@ -73,41 +78,77 @@ pub fn accel_third_body<P: IntoPosition>(
         (ThirdBody::Sun, EphemerisSource::LowPrecision) => (sun_position(epc), GM_SUN),
         (ThirdBody::Moon, EphemerisSource::LowPrecision) => (moon_position(epc), GM_MOON),
 
-        // DE440s and DE440 - all bodies (shared code, differ only in kernel loaded)
-        (ThirdBody::Sun, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            sun_position_de(epc, source).expect("Failed to get Sun position"),
+        // SPK-backed ephemerides - all bodies (shared code, differ only in kernel loaded)
+        (
+            ThirdBody::Sun,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            sun_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Sun position"),
             GM_SUN,
         ),
-        (ThirdBody::Moon, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            moon_position_de(epc, source).expect("Failed to get Moon position"),
+        (
+            ThirdBody::Moon,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            moon_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Moon position"),
             GM_MOON,
         ),
-        (ThirdBody::Mercury, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            mercury_position_de(epc, source).expect("Failed to get Mercury position"),
+        (
+            ThirdBody::Mercury,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            mercury_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Mercury position"),
             GM_MERCURY,
         ),
-        (ThirdBody::Venus, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            venus_position_de(epc, source).expect("Failed to get Venus position"),
+        (
+            ThirdBody::Venus,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            venus_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Venus position"),
             GM_VENUS,
         ),
-        (ThirdBody::Mars, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            mars_position_de(epc, source).expect("Failed to get Mars position"),
+        (
+            ThirdBody::Mars,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            mars_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Mars position"),
             GM_MARS,
         ),
-        (ThirdBody::Jupiter, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            jupiter_position_de(epc, source).expect("Failed to get Jupiter position"),
+        (
+            ThirdBody::Jupiter,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            jupiter_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Jupiter position"),
             GM_JUPITER,
         ),
-        (ThirdBody::Saturn, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            saturn_position_de(epc, source).expect("Failed to get Saturn position"),
+        (
+            ThirdBody::Saturn,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            saturn_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Saturn position"),
             GM_SATURN,
         ),
-        (ThirdBody::Uranus, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            uranus_position_de(epc, source).expect("Failed to get Uranus position"),
+        (
+            ThirdBody::Uranus,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            uranus_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Uranus position"),
             GM_URANUS,
         ),
-        (ThirdBody::Neptune, EphemerisSource::DE440s | EphemerisSource::DE440) => (
-            neptune_position_de(epc, source).expect("Failed to get Neptune position"),
+        (
+            ThirdBody::Neptune,
+            source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
+        ) => (
+            neptune_position_de(epc, de_kernel_from_source(source))
+                .expect("Failed to get Neptune position"),
             GM_NEPTUNE,
         ),
 
@@ -115,7 +156,7 @@ pub fn accel_third_body<P: IntoPosition>(
         (body, EphemerisSource::LowPrecision) => {
             panic!(
                 "Low-precision ephemerides only support Sun and Moon. \
-                Requested {:?}. Use EphemerisSource::DE440s or DE440 for planets.",
+                Requested {:?}. Use EphemerisSource::DE440s, DE440, or SPK(...) for planets.",
                 body
             )
         }

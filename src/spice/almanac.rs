@@ -181,3 +181,117 @@ pub(super) fn ensure_kernel_loaded(
     initialize_ephemeris_with_kernel(required)?;
     get_almanac()
 }
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use serial_test::serial;
+
+    use super::*;
+    use crate::utils::cache::get_naif_cache_dir;
+
+    fn reset_global_almanac_state() {
+        *GLOBAL_ALMANAC.write().unwrap() = None;
+        *GLOBAL_KERNEL_TYPE.write().unwrap() = None;
+    }
+
+    fn setup_test_kernel() -> Option<PathBuf> {
+        let test_asset_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("test_assets")
+            .join("de440s.bsp");
+
+        if !test_asset_path.exists() {
+            return None;
+        }
+
+        let cache_dir = get_naif_cache_dir().expect("Failed to get NAIF cache dir");
+        let cache_path = PathBuf::from(&cache_dir).join("de440s.bsp");
+
+        if !cache_path.exists() {
+            fs::copy(&test_asset_path, &cache_path).expect("Failed to copy test asset to cache");
+        }
+
+        Some(cache_path)
+    }
+
+    fn load_test_almanac() -> Option<anise_prelude::Almanac> {
+        let cache_path = setup_test_kernel()?;
+        let cache_path_str = cache_path
+            .to_str()
+            .expect("Failed to convert path to string");
+        let spk =
+            anise_prelude::SPK::load(cache_path_str).expect("Failed to load DE440s test kernel");
+        Some(anise_prelude::Almanac::from_spk(spk))
+    }
+
+    #[test]
+    #[serial]
+    fn test_initialize_ephemeris_with_invalid_kernel_returns_err() {
+        reset_global_almanac_state();
+
+        let result = initialize_ephemeris_with_kernel("invalid");
+
+        assert!(result.is_err());
+        assert_eq!(get_loaded_kernel_type(), None);
+    }
+
+    #[test]
+    #[serial]
+    fn test_initialize_ephemeris_sets_loaded_kernel_type() {
+        let Some(_) = setup_test_kernel() else {
+            return;
+        };
+
+        reset_global_almanac_state();
+        initialize_ephemeris().expect("Failed to initialize DE440s test kernel");
+
+        assert_eq!(get_loaded_kernel_type(), Some("de440s".to_string()));
+
+        reset_global_almanac_state();
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_almanac_returns_seeded_global_almanac() {
+        let Some(almanac) = load_test_almanac() else {
+            return;
+        };
+
+        reset_global_almanac_state();
+
+        let seeded = Arc::new(almanac);
+        *GLOBAL_ALMANAC.write().unwrap() = Some(Arc::clone(&seeded));
+
+        let retrieved = get_almanac().expect("Failed to get seeded almanac");
+
+        assert!(Arc::ptr_eq(&retrieved, &seeded));
+
+        reset_global_almanac_state();
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_kernel_loaded_returns_existing_almanac_for_matching_kernel() {
+        let Some(almanac) = load_test_almanac() else {
+            return;
+        };
+
+        reset_global_almanac_state();
+
+        let seeded = Arc::new(almanac);
+        *GLOBAL_ALMANAC.write().unwrap() = Some(Arc::clone(&seeded));
+        *GLOBAL_KERNEL_TYPE.write().unwrap() = Some("de440s".to_string());
+
+        let retrieved =
+            ensure_kernel_loaded(SPKKernel::DE440s).expect("Failed to get existing almanac");
+
+        assert!(Arc::ptr_eq(&retrieved, &seeded));
+        assert_eq!(get_loaded_kernel_type(), Some("de440s".to_string()));
+
+        reset_global_almanac_state();
+    }
+}

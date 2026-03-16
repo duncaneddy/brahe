@@ -64,3 +64,11 @@ brahe/_brahe.pyi
 
 # JOSS build byproducts
 joss/jats/
+
+# Comparative benchmarks - runtime output
+benchmarks/comparative/results/
+
+# Comparative benchmarks - build artifacts
+benchmarks/comparative/implementations/rust/target/
+benchmarks/comparative/implementations/java/.gradle/
+benchmarks/comparative/implementations/java/build/

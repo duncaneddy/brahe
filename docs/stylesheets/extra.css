@@ -28,6 +28,11 @@
     height: 800px;
 }
 
+/* Extra-tall iframe for full-width horizontal bar charts (e.g., 24-task speedup) */
+.plotly-embed.x-tall iframe {
+    height: 1200px;
+}
+
 /* Increase main column width */
 .md-grid {
   max-width: 1440px; 

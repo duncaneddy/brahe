@@ -43,6 +43,7 @@ from brahe._brahe import (
     # Access Properties
     AccessWindow,
     AccessProperties,
+    AccessPropertiesView,
     SubdivisionConfig,
     AccessSearchConfig,
     SamplingConfig,
@@ -85,6 +86,7 @@ __all__ = [
     # Access Properties
     "AccessWindow",
     "AccessProperties",
+    "AccessPropertiesView",
     "SubdivisionConfig",
     "AccessSearchConfig",
     "SamplingConfig",

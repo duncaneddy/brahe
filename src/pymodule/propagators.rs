@@ -2573,7 +2573,7 @@ impl PyKeplerianPropagator {
 /// available in each propagator's `event_log()` after the call completes.
 ///
 /// Args:
-///     propagators (List[KeplerianPropagator] or List[SGPPropagator] or List[NumericalOrbitPropagator]): List of propagators to update.
+///     propagators (Sequence[KeplerianPropagator] or Sequence[SGPPropagator] or Sequence[NumericalOrbitPropagator]): List of propagators to update.
 ///     target_epoch (Epoch): The epoch to propagate all propagators to.
 ///
 /// Returns:

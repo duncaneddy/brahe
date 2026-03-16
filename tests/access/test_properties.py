@@ -324,3 +324,146 @@ def test_access_properties_repr():
     repr_str = repr(props)
     assert isinstance(repr_str, str)
     assert "AccessProperties" in repr_str
+
+
+# ================================
+# AccessPropertiesView Tests (window.properties proxy)
+# ================================
+
+
+@pytest.fixture
+def window_with_props():
+    """Create an AccessWindow with known property values."""
+    epoch1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    epoch2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, bh.TimeSystem.UTC)
+    window = bh.AccessWindow(epoch1, epoch2)
+
+    # Set properties via the setter
+    props = bh.AccessProperties(
+        azimuth_open=45.0,
+        azimuth_close=135.0,
+        elevation_min=10.0,
+        elevation_max=85.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
+        off_nadir_min=5.0,
+        off_nadir_max=80.0,
+        local_time=43200.0,
+        look_direction=bh.LookDirection.RIGHT,
+        asc_dsc=bh.AscDsc.ASCENDING,
+        center_lon=10.0,
+        center_lat=45.0,
+        center_alt=100.0,
+        center_ecef=[4517.59e3, 4517.59e3, 0.0],
+    )
+    window.properties = props
+    return window
+
+
+def test_window_properties_view_reads_through(window_with_props):
+    """Test that view getters match window property values."""
+    view = window_with_props.properties
+
+    assert view.azimuth_open == pytest.approx(45.0)
+    assert view.azimuth_close == pytest.approx(135.0)
+    assert view.elevation_min == pytest.approx(10.0)
+    assert view.elevation_max == pytest.approx(85.0)
+    assert view.elevation_open == pytest.approx(12.0)
+    assert view.elevation_close == pytest.approx(10.5)
+    assert view.off_nadir_min == pytest.approx(5.0)
+    assert view.off_nadir_max == pytest.approx(80.0)
+    assert view.local_time == pytest.approx(43200.0)
+    assert view.look_direction == bh.LookDirection.RIGHT
+    assert view.asc_dsc == bh.AscDsc.ASCENDING
+    assert view.center_lon == pytest.approx(10.0)
+    assert view.center_lat == pytest.approx(45.0)
+    assert view.center_alt == pytest.approx(100.0)
+    assert view.center_ecef == pytest.approx([4517.59e3, 4517.59e3, 0.0])
+
+
+def test_window_properties_additional_persists(window_with_props):
+    """Test that window.properties.additional['k'] = v persists across re-reads."""
+    window = window_with_props
+
+    # Set via additional dict
+    window.properties.additional["doppler_shift"] = 2500.5
+    window.properties.additional["pass_type"] = "nominal"
+
+    # Re-read from a fresh .properties access
+    assert window.properties.additional["doppler_shift"] == pytest.approx(2500.5)
+    assert window.properties.additional["pass_type"] == "nominal"
+    assert len(window.properties.additional) == 2
+
+
+def test_window_properties_subscript_access(window_with_props):
+    """Test that window.properties['k'] = v works as convenience for additional."""
+    window = window_with_props
+
+    window.properties["hello"] = "world"
+    window.properties["value"] = 42.0
+
+    # Re-read
+    assert window.properties["hello"] == "world"
+    assert window.properties["value"] == pytest.approx(42.0)
+
+
+def test_window_properties_additional_delete_persists(window_with_props):
+    """Test that deleting through view persists."""
+    window = window_with_props
+
+    window.properties.additional["key1"] = 1.0
+    window.properties.additional["key2"] = 2.0
+    assert len(window.properties.additional) == 2
+
+    del window.properties.additional["key1"]
+    assert len(window.properties.additional) == 1
+    assert "key1" not in window.properties.additional
+    assert "key2" in window.properties.additional
+
+
+def test_window_properties_additional_clear_persists(window_with_props):
+    """Test that clear through view persists."""
+    window = window_with_props
+
+    window.properties.additional["a"] = 1.0
+    window.properties.additional["b"] = 2.0
+    window.properties.additional["c"] = 3.0
+    assert len(window.properties.additional) == 3
+
+    window.properties.additional.clear()
+    assert len(window.properties.additional) == 0
+
+
+def test_standalone_access_properties_unchanged():
+    """Test that standalone AccessProperties (not via window) still works normally."""
+    props = bh.AccessProperties(
+        azimuth_open=45.0,
+        azimuth_close=135.0,
+        elevation_min=10.0,
+        elevation_max=85.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
+        off_nadir_min=5.0,
+        off_nadir_max=80.0,
+        local_time=43200.0,
+        look_direction=bh.LookDirection.RIGHT,
+        asc_dsc=bh.AscDsc.ASCENDING,
+        center_lon=0.0,
+        center_lat=45.0,
+        center_alt=0.0,
+        center_ecef=[4517.59e3, 4517.59e3, 0.0],
+    )
+
+    # Standalone props still work as before
+    assert props.azimuth_open == pytest.approx(45.0)
+    props.additional["key"] = 99.0
+    assert props.additional["key"] == pytest.approx(99.0)
+    assert repr(props).startswith("AccessProperties(")
+
+
+def test_window_properties_view_repr(window_with_props):
+    """Test AccessPropertiesView string representation."""
+    window = window_with_props
+    repr_str = repr(window.properties)
+    assert "AccessPropertiesView" in repr_str
+    assert "45.0" in repr_str  # azimuth_open

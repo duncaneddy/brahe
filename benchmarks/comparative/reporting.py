@@ -35,7 +35,7 @@ def print_performance_table(run: BenchmarkRun) -> None:
     table.add_column("Std", justify="right")
     table.add_column("Min", justify="right")
     table.add_column("Max", justify="right")
-    table.add_column("Speedup", justify="right", style="green")
+    table.add_column("Speedup", justify="right")
 
     # Group results by task
     tasks: dict[str, list[TaskResult]] = {}
@@ -54,13 +54,13 @@ def print_performance_table(run: BenchmarkRun) -> None:
         for r in sorted(results, key=lambda x: x.mean):
             speedup = baseline_mean / r.mean if r.mean > 0 else float("inf")
             if r.language == BASELINE_LANGUAGE:
-                speedup_str = "baseline"
+                speedup_str = "[dim]baseline[/dim]"
             elif speedup > 1.01:
-                speedup_str = f"{speedup:.1f}x"
+                speedup_str = f"[green]{speedup:.1f}x[/green]"
             elif speedup < 0.99:
-                speedup_str = f"{1.0 / speedup:.1f}x slower"
+                speedup_str = f"[red]{1.0 / speedup:.1f}x slower[/red]"
             else:
-                speedup_str = "~1x"
+                speedup_str = "[green]~1x[/green]"
 
             table.add_row(
                 task_name,

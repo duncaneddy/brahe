@@ -1,5 +1,5 @@
-use brahe::coordinates::{state_eci_to_koe, state_koe_to_eci};
 use brahe::AngleFormat;
+use brahe::coordinates::{state_eci_to_koe, state_koe_to_eci};
 use nalgebra::SVector;
 use std::time::Instant;
 

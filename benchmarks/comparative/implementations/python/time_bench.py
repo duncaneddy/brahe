@@ -1,8 +1,6 @@
 """
-Python (Brahe) coordinate conversion benchmarks.
+Python (Brahe) time system conversion benchmarks.
 """
-
-import numpy as np
 
 import brahe
 
@@ -13,149 +11,169 @@ from benchmarks.comparative.implementations.python.base import (
 from benchmarks.comparative.results import TaskResult
 
 
-def geodetic_to_ecef(params: dict, iterations: int) -> TaskResult:
-    """Benchmark geodetic to ECEF conversion using brahe."""
+def _make_epochs(datetimes: list[dict]) -> list:
+    """Create Epoch objects from datetime dicts."""
+    epochs = []
+    for dt in datetimes:
+        epc = brahe.Epoch(
+            dt["year"],
+            dt["month"],
+            dt["day"],
+            dt["hour"],
+            dt["minute"],
+            dt["second"],
+            dt["nanosecond"],
+            time_system=brahe.TimeSystem.UTC,
+        )
+        epochs.append(epc)
+    return epochs
+
+
+def epoch_creation(params: dict, iterations: int) -> TaskResult:
+    """Benchmark Epoch creation from datetime and JD extraction."""
     ensure_eop()
-    points = params["points"]
+    datetimes = params["datetimes"]
 
     def run():
         results = []
-        for lon, lat, alt in points:
-            geod = np.array([lon, lat, alt])
-            ecef = brahe.position_geodetic_to_ecef(geod, brahe.AngleFormat.DEGREES)
-            results.append(ecef.tolist())
-        return results
-
-    times, results = time_iterations(run, iterations)
-
-    return TaskResult(
-        task_name="coordinates.geodetic_to_ecef",
-        language="python",
-        library="brahe",
-        iterations=iterations,
-        times_seconds=times,
-        results=results,
-        metadata={
-            "library": "brahe",
-            "language": "python",
-            "version": getattr(brahe, "__version__", "unknown"),
-        },
-    )
-
-
-def ecef_to_geodetic(params: dict, iterations: int) -> TaskResult:
-    """Benchmark ECEF to geodetic conversion using brahe."""
-    ensure_eop()
-    points = params["points"]
-
-    def run():
-        results = []
-        for x, y, z in points:
-            ecef = np.array([x, y, z])
-            geod = brahe.position_ecef_to_geodetic(ecef, brahe.AngleFormat.DEGREES)
-            results.append(geod.tolist())
-        return results
-
-    times, results = time_iterations(run, iterations)
-
-    return TaskResult(
-        task_name="coordinates.ecef_to_geodetic",
-        language="python",
-        library="brahe",
-        iterations=iterations,
-        times_seconds=times,
-        results=results,
-        metadata={
-            "library": "brahe",
-            "language": "python",
-            "version": getattr(brahe, "__version__", "unknown"),
-        },
-    )
-
-
-def geocentric_to_ecef(params: dict, iterations: int) -> TaskResult:
-    """Benchmark geocentric to ECEF conversion using brahe."""
-    ensure_eop()
-    points = params["points"]
-
-    def run():
-        results = []
-        for lon, lat, radius in points:
-            geoc = np.array([lon, lat, radius])
-            ecef = brahe.position_geocentric_to_ecef(geoc, brahe.AngleFormat.DEGREES)
-            results.append(ecef.tolist())
-        return results
-
-    times, results = time_iterations(run, iterations)
-
-    return TaskResult(
-        task_name="coordinates.geocentric_to_ecef",
-        language="python",
-        library="brahe",
-        iterations=iterations,
-        times_seconds=times,
-        results=results,
-        metadata={
-            "library": "brahe",
-            "language": "python",
-            "version": getattr(brahe, "__version__", "unknown"),
-        },
-    )
-
-
-def ecef_to_geocentric(params: dict, iterations: int) -> TaskResult:
-    """Benchmark ECEF to geocentric conversion using brahe."""
-    ensure_eop()
-    points = params["points"]
-
-    def run():
-        results = []
-        for x, y, z in points:
-            ecef = np.array([x, y, z])
-            geoc = brahe.position_ecef_to_geocentric(ecef, brahe.AngleFormat.DEGREES)
-            results.append(geoc.tolist())
-        return results
-
-    times, results = time_iterations(run, iterations)
-
-    return TaskResult(
-        task_name="coordinates.ecef_to_geocentric",
-        language="python",
-        library="brahe",
-        iterations=iterations,
-        times_seconds=times,
-        results=results,
-        metadata={
-            "library": "brahe",
-            "language": "python",
-            "version": getattr(brahe, "__version__", "unknown"),
-        },
-    )
-
-
-def ecef_to_azel(params: dict, iterations: int) -> TaskResult:
-    """Benchmark ECEF to azimuth/elevation/range conversion using brahe."""
-    ensure_eop()
-    pairs = params["pairs"]
-
-    def run():
-        results = []
-        for pair in pairs:
-            station = np.array(pair["station_ecef"])
-            satellite = np.array(pair["satellite_ecef"])
-            enz = brahe.relative_position_ecef_to_enz(
-                station,
-                satellite,
-                brahe.EllipsoidalConversionType.GEODETIC,
+        for dt in datetimes:
+            epc = brahe.Epoch(
+                dt["year"],
+                dt["month"],
+                dt["day"],
+                dt["hour"],
+                dt["minute"],
+                dt["second"],
+                dt["nanosecond"],
+                time_system=brahe.TimeSystem.UTC,
             )
-            azel = brahe.position_enz_to_azel(enz, brahe.AngleFormat.DEGREES)
-            results.append(azel.tolist())
+            results.append(epc.jd())
         return results
 
     times, results = time_iterations(run, iterations)
 
     return TaskResult(
-        task_name="coordinates.ecef_to_azel",
+        task_name="time.epoch_creation",
+        language="python",
+        library="brahe",
+        iterations=iterations,
+        times_seconds=times,
+        results=results,
+        metadata={
+            "library": "brahe",
+            "language": "python",
+            "version": getattr(brahe, "__version__", "unknown"),
+        },
+    )
+
+
+def utc_to_tai(params: dict, iterations: int) -> TaskResult:
+    """Benchmark UTC to TAI conversion."""
+    ensure_eop()
+    datetimes = params["datetimes"]
+    epochs = _make_epochs(datetimes)
+
+    def run():
+        results = []
+        for epc in epochs:
+            jd_tai = epc.jd_as_time_system(brahe.TimeSystem.TAI)
+            results.append(jd_tai)
+        return results
+
+    times, results = time_iterations(run, iterations)
+
+    return TaskResult(
+        task_name="time.utc_to_tai",
+        language="python",
+        library="brahe",
+        iterations=iterations,
+        times_seconds=times,
+        results=results,
+        metadata={
+            "library": "brahe",
+            "language": "python",
+            "version": getattr(brahe, "__version__", "unknown"),
+        },
+    )
+
+
+def utc_to_tt(params: dict, iterations: int) -> TaskResult:
+    """Benchmark UTC to TT conversion."""
+    ensure_eop()
+    datetimes = params["datetimes"]
+    epochs = _make_epochs(datetimes)
+
+    def run():
+        results = []
+        for epc in epochs:
+            jd_tt = epc.jd_as_time_system(brahe.TimeSystem.TT)
+            results.append(jd_tt)
+        return results
+
+    times, results = time_iterations(run, iterations)
+
+    return TaskResult(
+        task_name="time.utc_to_tt",
+        language="python",
+        library="brahe",
+        iterations=iterations,
+        times_seconds=times,
+        results=results,
+        metadata={
+            "library": "brahe",
+            "language": "python",
+            "version": getattr(brahe, "__version__", "unknown"),
+        },
+    )
+
+
+def utc_to_gps(params: dict, iterations: int) -> TaskResult:
+    """Benchmark UTC to GPS conversion."""
+    ensure_eop()
+    datetimes = params["datetimes"]
+    epochs = _make_epochs(datetimes)
+
+    def run():
+        results = []
+        for epc in epochs:
+            jd_gps = epc.jd_as_time_system(brahe.TimeSystem.GPS)
+            results.append(jd_gps)
+        return results
+
+    times, results = time_iterations(run, iterations)
+
+    return TaskResult(
+        task_name="time.utc_to_gps",
+        language="python",
+        library="brahe",
+        iterations=iterations,
+        times_seconds=times,
+        results=results,
+        metadata={
+            "library": "brahe",
+            "language": "python",
+            "version": getattr(brahe, "__version__", "unknown"),
+        },
+    )
+
+
+def utc_to_ut1(params: dict, iterations: int) -> TaskResult:
+    """Benchmark UTC to UT1 conversion."""
+    ensure_eop()
+    datetimes = params["datetimes"]
+    epochs = _make_epochs(datetimes)
+
+    def run():
+        results = []
+        for epc in epochs:
+            jd_ut1 = epc.jd_as_time_system(brahe.TimeSystem.UT1)
+            results.append(jd_ut1)
+        return results
+
+    times, results = time_iterations(run, iterations)
+
+    return TaskResult(
+        task_name="time.utc_to_ut1",
         language="python",
         library="brahe",
         iterations=iterations,

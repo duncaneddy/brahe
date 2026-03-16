@@ -38,6 +38,12 @@ def _scale_times(seconds: list[float]) -> tuple[list[float], str]:
     return seconds, "s"
 
 
+def _scale_to_unit(seconds: list[float], unit: str) -> list[float]:
+    """Scale times to a specific unit. Use after _scale_times determines the common unit."""
+    multiplier = {"ns": 1e9, "\u00b5s": 1e6, "ms": 1e3, "s": 1.0}[unit]
+    return [t * multiplier for t in seconds]
+
+
 def generate_performance_bar_chart(
     run: BenchmarkRun, output_base: Path | None = None
 ) -> Path:
@@ -56,9 +62,15 @@ def generate_performance_bar_chart(
         colors = get_color_sequence(theme, len(languages))
         fig = go.Figure()
 
+        # Determine a single time scale from all values across all languages
+        all_means = [
+            tasks.get(t, {}).get(lang, 0) for lang in languages for t in task_names
+        ]
+        _, unit = _scale_times(all_means)
+
         for i, lang in enumerate(languages):
             means = [tasks.get(t, {}).get(lang, 0) for t in task_names]
-            scaled, unit = _scale_times(means)
+            scaled = _scale_to_unit(means, unit)
             fig.add_trace(
                 go.Bar(
                     name=lang,
@@ -94,9 +106,13 @@ def generate_timing_box_plot(
             lang: color_seq[i % len(color_seq)] for i, lang in enumerate(languages)
         }
 
+        # Determine a single time scale from all timing data across all traces
+        all_times = [t for r in run.task_results for t in r.times_seconds]
+        _, unit = _scale_times(all_times)
+
         fig = go.Figure()
         for r in sorted(run.task_results, key=lambda x: (x.task_name, x.language)):
-            scaled, unit = _scale_times(r.times_seconds)
+            scaled = _scale_to_unit(r.times_seconds, unit)
             fig.add_trace(
                 go.Box(
                     y=scaled,

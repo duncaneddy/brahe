@@ -85,7 +85,7 @@ class BenchmarkRun:
 
     def save(self, path: Path) -> Path:
         """Save benchmark run to JSON file."""
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.mkdir(parents=True, exist_ok=True)
         filepath = path / f"run_{self.run_id}_{self.timestamp[:10]}.json"
 
         data = {

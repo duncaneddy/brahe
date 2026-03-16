@@ -116,6 +116,23 @@ bench-compare-plot *args: _setup
 bench-compare-list: _setup
     {{python}} -m benchmarks.comparative.runner list
 
+# Run comparative benchmarks, generate figures + CSV tables, and stage for commit
+bench-compare-publish *args: _setup
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Running comparative benchmarks..."
+    uv pip install -e . --quiet
+    {{python}} -m benchmarks.comparative.runner run {{args}}
+    echo ""
+    echo "Generating benchmark figures and CSV tables..."
+    BRAHE_FIGURE_OUTPUT_DIR=./docs/figures/ {{python}} plots/fig_comparative_benchmarks.py
+    echo ""
+    echo "Staging benchmark artifacts..."
+    git add -f docs/figures/bench_*.csv
+    git add -f docs/figures/fig_bench_*_light.html docs/figures/fig_bench_*_dark.html
+    echo ""
+    echo "✓ Benchmark artifacts staged. Review with 'git status' and commit when ready."
+
 # ───── Code Quality ─────
 
 # Format all code (Rust + Python)

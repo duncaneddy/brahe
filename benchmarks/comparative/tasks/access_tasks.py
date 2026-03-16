@@ -33,6 +33,10 @@ class Sgp4AccessTask(BenchmarkTask):
     def languages(self) -> list[str]:
         return ["python", "rust", "java"]
 
+    @property
+    def timeout(self) -> int:
+        return 1800
+
     def generate_params(self, seed: int) -> dict:
         rng = random.Random(seed)
 

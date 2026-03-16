@@ -19,6 +19,7 @@ import os
 import pathlib
 import sys
 from collections import defaultdict
+from dataclasses import dataclass
 
 import plotly.graph_objects as go
 
@@ -150,14 +151,24 @@ def load_results() -> BenchmarkRun:
     return run
 
 
-def group_by_module(run: BenchmarkRun) -> dict[str, dict[str, dict[str, float]]]:
-    """Group results by module -> task -> language -> mean_time."""
-    modules: dict[str, dict[str, dict[str, float]]] = defaultdict(
+@dataclass
+class TaskStats:
+    """Mean and standard deviation for a single task/language pair."""
+
+    mean: float
+    std: float
+
+
+def group_by_module(
+    run: BenchmarkRun,
+) -> dict[str, dict[str, dict[str, TaskStats]]]:
+    """Group results by module -> task -> language -> TaskStats."""
+    modules: dict[str, dict[str, dict[str, TaskStats]]] = defaultdict(
         lambda: defaultdict(dict)
     )
     for r in run.task_results:
         module = r.task_name.split(".")[0]
-        modules[module][r.task_name][r.language] = r.mean
+        modules[module][r.task_name][r.language] = TaskStats(mean=r.mean, std=r.std)
     return modules
 
 
@@ -185,10 +196,10 @@ def make_speedup_figure(run: BenchmarkRun):
 
         for task in tasks:
             module = task.split(".")[0]
-            times = modules[module][task]
-            java_t = times.get("java", 0)
-            py_t = times.get("python", 0)
-            rs_t = times.get("rust", 0)
+            stats = modules[module][task]
+            java_t = stats["java"].mean if "java" in stats else 0
+            py_t = stats["python"].mean if "python" in stats else 0
+            rs_t = stats["rust"].mean if "rust" in stats else 0
             py_speedups.append(java_t / py_t if py_t else 0)
             rs_speedups.append(java_t / rs_t if rs_t else 0)
 
@@ -262,8 +273,21 @@ def make_module_figure(run: BenchmarkRun, module: str):
         labels = [_task_label(t) for t in task_names]
 
         for lang in LANGUAGES:
-            means_raw = [task_data[t].get(lang, 0) for t in task_names]
+            means_raw = [
+                task_data[t][lang].mean if lang in task_data[t] else 0
+                for t in task_names
+            ]
+            stds_raw = [
+                task_data[t][lang].std if lang in task_data[t] else 0
+                for t in task_names
+            ]
             scaled, unit = _scale_times(means_raw)
+            # Scale the 3-sigma error bars with the same factor as the means
+            scale_factor = scaled[0] / means_raw[0] if means_raw[0] else 1
+            error_upper = [s * scale_factor * 3 for s in stds_raw]
+            # Clamp lower error bars so they don't exceed the bar value
+            # (which would go negative/off-screen on a log scale)
+            error_lower = [min(e, v * 0.9) for e, v in zip(error_upper, scaled)]
             hover_texts = [_format_time(m) for m in means_raw]
 
             fig.add_trace(
@@ -271,6 +295,12 @@ def make_module_figure(run: BenchmarkRun, module: str):
                     name=LANGUAGE_LABELS[lang],
                     x=labels,
                     y=scaled,
+                    error_y=dict(
+                        type="data",
+                        array=error_upper,
+                        arrayminus=error_lower,
+                        visible=True,
+                    ),
                     marker_color=lang_colors[lang],
                     hovertemplate="%{x}<br>%{customdata}<extra>"
                     + LANGUAGE_LABELS[lang]
@@ -369,10 +399,10 @@ def generate_csv_tables(run: BenchmarkRun):
         task_count = len(task_data)
         py_speedups = []
         rs_speedups = []
-        for task_times in task_data.values():
-            java_t = task_times.get("java", 0)
-            py_t = task_times.get("python", 0)
-            rs_t = task_times.get("rust", 0)
+        for task_stats in task_data.values():
+            java_t = task_stats["java"].mean if "java" in task_stats else 0
+            py_t = task_stats["python"].mean if "python" in task_stats else 0
+            rs_t = task_stats["rust"].mean if "rust" in task_stats else 0
             if py_t and java_t:
                 py_speedups.append(java_t / py_t)
             if rs_t and java_t:
@@ -400,10 +430,10 @@ def generate_csv_tables(run: BenchmarkRun):
         task_data = modules[module]
         perf_rows = []
         for task_name in sorted(task_data.keys()):
-            times = task_data[task_name]
-            java_t = times.get("java", 0)
-            py_t = times.get("python", 0)
-            rs_t = times.get("rust", 0)
+            stats = task_data[task_name]
+            java_t = stats["java"].mean if "java" in stats else 0
+            py_t = stats["python"].mean if "python" in stats else 0
+            rs_t = stats["rust"].mean if "rust" in stats else 0
             py_speedup = java_t / py_t if py_t and java_t else 0
             rs_speedup = java_t / rs_t if rs_t and java_t else 0
             perf_rows.append(

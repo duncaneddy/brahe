@@ -16,7 +16,7 @@ Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-s
 
 **Test Environment**: 2021 MacBook Pro, Apple M1 Max, 64 GB RAM
 
-**Protocol**: Each task is run 100 iterations with a fixed random seed. Mean execution time is reported. Accuracy is measured by comparing outputs element-wise against the Java (OreKit) reference implementation.
+**Protocol**: Each task is run 1000 iterations with a fixed random seed. Mean execution time is reported. Accuracy is measured by comparing outputs element-wise against the Java (OreKit) reference implementation.
 
 ### Performance Overview
 

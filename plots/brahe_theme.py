@@ -21,7 +21,7 @@ LIGHT_THEME = {
 }
 
 DARK_THEME = {
-    "primary": "#5599ff",  # Lighter blue for dark mode
+    "primary": "#79b8ff",  # Lighter blue for dark mode
     "secondary": "#ffaa44",  # Lighter orange for dark mode
     "accent": "#55cc55",  # Lighter green for dark mode
     "error": "#ff6b6b",  # Lighter red for dark mode

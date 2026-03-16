@@ -234,6 +234,7 @@ def _run_subprocess(
 
     input_data = task.to_input_json(iterations, seed)
     input_json = json.dumps(input_data)
+    task_timeout = task.timeout
 
     try:
         result = subprocess.run(
@@ -241,7 +242,7 @@ def _run_subprocess(
             input=input_json,
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=task_timeout,
         )
 
         if result.returncode != 0:
@@ -259,7 +260,7 @@ def _run_subprocess(
             metadata=output["metadata"],
         )
     except subprocess.TimeoutExpired:
-        console.print("    [red]Timeout after 300s[/red]")
+        console.print(f"    [red]Timeout after {task_timeout}s[/red]")
         return None
     except (json.JSONDecodeError, KeyError) as e:
         console.print(f"    [red]Protocol error: {e}[/red]")

@@ -35,6 +35,11 @@ class BenchmarkTask(ABC):
         """Languages that have implementations."""
         ...
 
+    @property
+    def timeout(self) -> int:
+        """Subprocess timeout in seconds. Override for slow tasks."""
+        return 300
+
     @abstractmethod
     def generate_params(self, seed: int) -> dict:
         """Generate deterministic benchmark parameters from seed."""

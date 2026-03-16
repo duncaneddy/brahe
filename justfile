@@ -46,6 +46,76 @@ bench-providers *flags:
 bench-propagators *flags:
     cargo bench --bench propagator_benchmarks {{flags}}
 
+# Paths for comparative benchmark implementations
+_bench_java_dir := "benchmarks/comparative/implementations/java"
+_bench_rust_manifest := "benchmarks/comparative/implementations/rust/Cargo.toml"
+_orekit_data_url := "https://gitlab.orekit.org/orekit/orekit-data/-/archive/main/orekit-data-main.zip"
+_orekit_data_dir := env("OREKIT_DATA", "~/.orekit/orekit-data")
+
+# Install all comparative benchmark dependencies
+bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-java _bench-compare-orekit-data
+    uv pip install -e . --quiet
+    @echo "✓ Comparative benchmark setup complete. Run: just bench-compare"
+
+# Build Rust benchmark binary
+_bench-compare-build-rust:
+    @echo "Building Rust benchmark binary..."
+    cargo build --release --manifest-path {{_bench_rust_manifest}}
+
+# Build Java/OreKit benchmark project (generates Gradle wrapper if needed)
+_bench-compare-build-java:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Building Java benchmark project..."
+    cd {{_bench_java_dir}}
+    if [ ! -f gradlew ]; then
+        if command -v gradle &> /dev/null; then
+            echo "  Generating Gradle wrapper..."
+            gradle wrapper
+        else
+            echo "ERROR: No Gradle wrapper and gradle not installed."
+            echo "  macOS:  brew install gradle"
+            echo "  Linux:  sdk install gradle  (via https://sdkman.io)"
+            exit 1
+        fi
+    fi
+    ./gradlew build
+
+# Download OreKit data if not present
+_bench-compare-orekit-data:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    OREKIT_DIR="$(eval echo {{_orekit_data_dir}})"
+    if [ -d "$OREKIT_DIR" ] && [ "$(ls -A "$OREKIT_DIR" 2>/dev/null)" ]; then
+        echo "OreKit data found: $OREKIT_DIR"
+        exit 0
+    fi
+    echo "Downloading OreKit data to $OREKIT_DIR..."
+    mkdir -p "$(dirname "$OREKIT_DIR")"
+    TMP_ZIP="$(dirname "$OREKIT_DIR")/orekit-data.zip"
+    curl -fSL "{{_orekit_data_url}}" -o "$TMP_ZIP"
+    unzip -q "$TMP_ZIP" -d "$(dirname "$OREKIT_DIR")"
+    # The zip extracts to orekit-data-main/ — rename to expected directory
+    if [ -d "$(dirname "$OREKIT_DIR")/orekit-data-main" ]; then
+        rm -rf "$OREKIT_DIR"
+        mv "$(dirname "$OREKIT_DIR")/orekit-data-main" "$OREKIT_DIR"
+    fi
+    rm -f "$TMP_ZIP"
+    echo "✓ OreKit data installed: $OREKIT_DIR"
+
+# Run comparative benchmarks across languages
+bench-compare *args: _setup
+    uv pip install -e . --quiet
+    {{python}} -m benchmarks.comparative.runner run {{args}}
+
+# Generate comparison plots from latest benchmark results
+bench-compare-plot *args: _setup
+    {{python}} -m benchmarks.comparative.runner plot {{args}}
+
+# List available comparative benchmark tasks
+bench-compare-list: _setup
+    {{python}} -m benchmarks.comparative.runner list
+
 # ───── Code Quality ─────
 
 # Format all code (Rust + Python)

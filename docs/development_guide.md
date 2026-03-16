@@ -508,3 +508,172 @@ After publishing, verify:
 - Crates.io: [https://crates.io/crates/brahe](https://crates.io/crates/brahe)
 - Docs: [https://duncaneddy.github.io/brahe/latest/](https://duncaneddy.github.io/brahe/latest/)
 - GitHub: [https://github.com/duncaneddy/brahe/releases](https://github.com/duncaneddy/brahe/releases)
+
+## Benchmarks
+
+Brahe has two benchmark layers: **Criterion micro-benchmarks** for internal Rust performance regression testing, and a **comparative benchmark framework** that measures both runtime performance and numerical accuracy across Python (Brahe), Rust (Brahe), and Java (OreKit).
+
+### Criterion Micro-Benchmarks
+
+These are standard Rust benchmarks using the [Criterion](https://bheisler.github.io/criterion.rs/book/) harness, located in `benchmarks/`:
+
+```bash
+# Run all Criterion benchmarks
+just bench
+
+# Run specific benchmark suites
+just bench-providers
+just bench-propagators
+```
+
+Criterion generates HTML reports in `target/criterion/` with statistical analysis, regression detection, and timing distributions.
+
+### Comparative Benchmark Framework
+
+The comparative framework lives in `benchmarks/comparative/` and compares equivalent implementations across languages using a standardized JSON stdin/stdout protocol. Each language implementation is a standalone process that receives task parameters as JSON and returns timing data and numerical results.
+
+#### Setup
+
+Before running comparative benchmarks, install all dependencies with a single command:
+
+```bash
+just bench-compare-setup
+```
+
+This builds the Rust benchmark binary, builds the Java/Gradle project (generating a Gradle wrapper if needed), and downloads OreKit data to `~/.orekit/orekit-data`.
+
+**Prerequisites:**
+
+- **Rust**: Install from [rustup.rs](https://rustup.rs/) (used for the Rust benchmark binary)
+- **JDK 17+**: Install via `brew install openjdk` (macOS) or your system package manager (used for Java/OreKit benchmarks)
+- **Gradle**: Install via `brew install gradle` (macOS) or `sdk install gradle` via [SDKMAN](https://sdkman.io/) (Linux). Only needed if the Gradle wrapper doesn't exist yet — after first setup, `gradlew` is committed and Gradle is no longer required.
+
+You can override the OreKit data location with the `OREKIT_DATA` environment variable.
+
+#### Running Benchmarks
+
+```bash
+# List available benchmark tasks
+just bench-compare-list
+
+# Run all tasks across all available languages
+just bench-compare
+
+# Run with specific options
+just bench-compare --iterations 100 --seed 42
+just bench-compare --module coordinates --language python
+just bench-compare --task orbits.keplerian_to_cartesian
+
+# Generate plots from the latest run
+just bench-compare-plot
+```
+
+#### Output
+
+Each run prints two Rich tables to the console:
+
+- **Performance Comparison** — mean, median, std, min, max per task per language, with speedup ratios relative to the OreKit (Java) baseline.
+- **Numerical Accuracy (vs OreKit baseline)** — max absolute error, max relative error, and RMS error for each implementation compared against OreKit.
+
+Results are saved as JSON to `benchmarks/comparative/results/` (gitignored). Plots are generated as themed Plotly HTML to `docs/figures/`.
+
+#### Architecture
+
+```
+benchmarks/comparative/
+    runner.py              # Typer CLI orchestrator
+    config.py              # Defaults, paths, system info collection
+    registry.py            # Task discovery and filtering
+    results.py             # Result dataclasses and JSON serialization
+    reporting.py           # Rich console table formatting
+    plotting.py            # Plotly charts with brahe_theme
+    tasks/
+        base.py            # BenchmarkTask ABC
+        coordinates_tasks.py
+        orbits_tasks.py
+    implementations/
+        python/            # Brahe Python — called in-process
+        rust/              # Brahe Rust — standalone binary, JSON protocol
+        java/              # OreKit Java — Gradle project, JSON protocol
+```
+
+The orchestrator dispatches each task to each language. Python implementations run in-process. Rust and Java implementations are invoked as subprocesses with JSON piped to stdin and results read from stdout.
+
+#### Adding a New Benchmark Task
+
+To add a new benchmark task (e.g., a frame transformation benchmark):
+
+**1. Define the task specification** in `benchmarks/comparative/tasks/`:
+
+```python
+# benchmarks/comparative/tasks/frames_tasks.py
+from benchmarks.comparative.tasks.base import BenchmarkTask
+
+class EciToEcefTask(BenchmarkTask):
+    @property
+    def name(self) -> str:
+        return "frames.eci_to_ecef"
+
+    @property
+    def module(self) -> str:
+        return "frames"
+
+    @property
+    def description(self) -> str:
+        return "Transform ECI position to ECEF"
+
+    @property
+    def languages(self) -> list[str]:
+        return ["python", "rust"]  # list languages you'll implement
+
+    def generate_params(self, seed: int) -> dict:
+        """Generate deterministic test parameters."""
+        import random
+        rng = random.Random(seed)
+        # Generate test data...
+        return {"states": [...], "epoch_mjd": 60000.0}
+```
+
+**2. Register the task** in `benchmarks/comparative/tasks/__init__.py`:
+
+```python
+from benchmarks.comparative.tasks.frames_tasks import EciToEcefTask
+
+ALL_TASKS = [
+    # ... existing tasks ...
+    EciToEcefTask(),
+]
+```
+
+**3. Add the Python implementation** in `benchmarks/comparative/implementations/python/`:
+
+```python
+# benchmarks/comparative/implementations/python/frames.py
+import numpy as np
+import brahe
+from benchmarks.comparative.implementations.python.base import ensure_eop, time_iterations
+from benchmarks.comparative.results import TaskResult
+
+def eci_to_ecef(params: dict, iterations: int) -> TaskResult:
+    ensure_eop()
+    # ... implementation that calls brahe functions and times them ...
+    times, results = time_iterations(run, iterations)
+    return TaskResult(task_name="frames.eci_to_ecef", ...)
+```
+
+Register the function in `implementations/python/__init__.py` by adding it to `_DISPATCH_TABLE`.
+
+**4. Add the Rust implementation** in `benchmarks/comparative/implementations/rust/src/`:
+
+Create the module file (e.g., `frames.rs`) with functions that deserialize JSON params, run the benchmark loop with `std::time::Instant`, and return `(Vec<f64>, serde_json::Value)`. Add the module and dispatch arm in `main.rs`.
+
+**5. (Optional) Add the Java/OreKit implementation** following the same pattern in the Gradle project.
+
+#### Key Design Decisions
+
+- **OreKit as baseline**: Java/OreKit is the reference implementation for both performance speedup ratios and numerical accuracy comparisons. OreKit runs first for each task, and all other implementations are compared against it.
+- **Deterministic parameters**: `generate_params(seed)` ensures reproducible benchmarks across runs. Always use the seed to initialize your RNG.
+- **JSON protocol**: Language implementations are decoupled from the orchestrator. Any language that can read JSON from stdin and write JSON to stdout can participate.
+- **First-iteration results**: Only the first iteration's numerical results are stored for accuracy comparison. All iterations contribute timing data.
+- **Angle normalization**: Orbital element comparisons normalize angular differences modulo 360 degrees to handle different library conventions for angle ranges.
+- **EOP initialization**: Benchmarks use `StaticEOPProvider.from_zero()` (zero EOP values) to avoid file I/O overhead and ensure reproducibility. This is sufficient for coordinate and orbital element conversions that don't depend on Earth orientation.

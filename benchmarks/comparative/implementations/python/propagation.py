@@ -26,10 +26,10 @@ def keplerian_single(params: dict, iterations: int) -> TaskResult:
             dt = case["dt"]
             target = epc + dt
 
-            # Convert Keplerian to Cartesian so state() returns Cartesian
-            cart = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
-            prop = brahe.KeplerianPropagator.from_eci(epc, cart, 60.0)
-            state = prop.state(target)
+            prop = brahe.KeplerianPropagator.from_keplerian(
+                epc, oe, brahe.AngleFormat.DEGREES, 60.0
+            )
+            state = prop.state_eci(target)
             results.append(state.tolist())
         return results
 
@@ -60,15 +60,14 @@ def keplerian_trajectory(params: dict, iterations: int) -> TaskResult:
 
     epc = brahe.Epoch.from_jd(jd, brahe.TimeSystem.UTC)
 
-    # Convert Keplerian to Cartesian so current_state() returns Cartesian
-    cart = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
-
     def run():
-        prop = brahe.KeplerianPropagator.from_eci(epc, cart, step_size)
+        prop = brahe.KeplerianPropagator.from_keplerian(
+            epc, oe, brahe.AngleFormat.DEGREES, step_size
+        )
         results = []
         for step_idx in range(n_steps):
             target = epc + (step_idx + 1) * step_size
-            state = prop.state(target)
+            state = prop.state_eci(target)
             results.append(state.tolist())
         return results
 
@@ -133,9 +132,10 @@ def sgp4_trajectory(params: dict, iterations: int) -> TaskResult:
     step_size = params["step_size"]
     n_steps = params["n_steps"]
 
+    prop = brahe.SGPPropagator.from_tle(line1, line2, step_size)
+    base_epoch = prop.epoch
+
     def run():
-        prop = brahe.SGPPropagator.from_tle(line1, line2, step_size)
-        base_epoch = prop.epoch
         results = []
         for step_idx in range(n_steps):
             target = base_epoch + (step_idx + 1) * step_size

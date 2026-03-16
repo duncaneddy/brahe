@@ -32,6 +32,9 @@ from benchmarks.comparative.implementations.python.orbits import (
     cartesian_to_keplerian,
     keplerian_to_cartesian,
 )
+from benchmarks.comparative.implementations.python.access import (
+    sgp4_access,
+)
 from benchmarks.comparative.implementations.python.time_bench import (
     epoch_creation,
     utc_to_gps,
@@ -66,6 +69,7 @@ _DISPATCH_TABLE: dict = {
     "propagation.sgp4_single": sgp4_single,
     "propagation.sgp4_trajectory": sgp4_trajectory,
     "propagation.numerical_twobody": numerical_twobody,
+    "access.sgp4_access": sgp4_access,
 }
 
 

@@ -1,7 +1,7 @@
 use brahe::AngleFormat;
 use brahe::coordinates::state_koe_to_eci;
 use brahe::propagators::traits::{DStatePropagator, SStatePropagator, SStateProvider};
-use brahe::utils::state_providers::DStateProvider;
+use brahe::traits::DOrbitStateProvider;
 use brahe::propagators::{
     DNumericalOrbitPropagator, ForceModelConfig, KeplerianPropagator, NumericalPropagationConfig,
     SGPPropagator,
@@ -42,10 +42,8 @@ pub fn keplerian_single(
             );
             let target = epc + case.dt;
 
-            // Convert Keplerian to Cartesian so state() returns Cartesian
-            let cart = state_koe_to_eci(oe, AngleFormat::Degrees);
-            let prop = KeplerianPropagator::from_eci(epc, cart, 60.0);
-            let state = DStateProvider::state(&prop, target).unwrap();
+            let prop = KeplerianPropagator::from_keplerian(epc, oe, AngleFormat::Degrees, 60.0);
+            let state = DOrbitStateProvider::state_eci(&prop, target).unwrap();
             results.push(vec![
                 state[0], state[1], state[2], state[3], state[4], state[5],
             ]);
@@ -80,20 +78,17 @@ pub fn keplerian_trajectory(
         elements[5],
     );
 
-    // Convert Keplerian to Cartesian so state output is in Cartesian
-    let cart = state_koe_to_eci(oe, AngleFormat::Degrees);
-
     let mut all_times = Vec::with_capacity(iterations);
     let mut first_results = Vec::new();
 
     for iter in 0..iterations {
         let start = Instant::now();
-        let prop = KeplerianPropagator::from_eci(epc, cart, step_size);
+        let prop = KeplerianPropagator::from_keplerian(epc, oe, AngleFormat::Degrees, step_size);
         let mut results = Vec::with_capacity(n_steps);
 
         for step_idx in 0..n_steps {
             let target = epc + (step_idx as f64 + 1.0) * step_size;
-            let state = DStateProvider::state(&prop, target).unwrap();
+            let state = DOrbitStateProvider::state_eci(&prop, target).unwrap();
             results.push(vec![
                 state[0], state[1], state[2], state[3], state[4], state[5],
             ]);
@@ -122,13 +117,12 @@ pub fn sgp4_single(params: &serde_json::Value, iterations: usize) -> (Vec<f64>, 
 
     for iter in 0..iterations {
         let start = Instant::now();
-        let prop = SGPPropagator::from_tle(&line1, &line2, 60.0).unwrap();
         let mut results = Vec::with_capacity(offsets.len());
 
         for dt in &offsets {
             let target = base_epoch + *dt;
             // Use SStateProvider::state() to get TEME output directly (matches Java's TEME frame)
-            let state = SStateProvider::state(&prop, target).unwrap();
+            let state = SStateProvider::state(&base_prop, target).unwrap();
             results.push(vec![
                 state[0], state[1], state[2], state[3], state[4], state[5],
             ]);
@@ -153,13 +147,14 @@ pub fn sgp4_trajectory(
     let step_size: f64 = serde_json::from_value(params["step_size"].clone()).unwrap();
     let n_steps: usize = serde_json::from_value(params["n_steps"].clone()).unwrap();
 
+    let prop = SGPPropagator::from_tle(&line1, &line2, step_size).unwrap();
+    let base_epoch = prop.initial_epoch();
+
     let mut all_times = Vec::with_capacity(iterations);
     let mut first_results = Vec::new();
 
     for iter in 0..iterations {
         let start = Instant::now();
-        let prop = SGPPropagator::from_tle(&line1, &line2, step_size).unwrap();
-        let base_epoch = prop.initial_epoch();
         let mut results = Vec::with_capacity(n_steps);
 
         for step_idx in 0..n_steps {

@@ -2,6 +2,7 @@
 //!
 //! Reads JSON task input from stdin, runs the benchmark, outputs JSON to stdout.
 
+mod access;
 mod attitude;
 mod coordinates;
 mod frames;
@@ -137,6 +138,9 @@ fn main() {
         }
         "propagation.numerical_twobody" => {
             propagation::numerical_twobody(&bench_input.params, bench_input.iterations)
+        }
+        "access.sgp4_access" => {
+            access::sgp4_access(&bench_input.params, bench_input.iterations)
         }
         _ => {
             eprintln!("Unknown task: {}", bench_input.task);

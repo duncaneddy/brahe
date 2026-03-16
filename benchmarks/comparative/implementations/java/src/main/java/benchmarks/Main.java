@@ -102,6 +102,9 @@ public class Main {
             case "propagation.numerical_twobody":
                 output = PropagationBenchmark.numericalTwobody(params, iterations);
                 break;
+            case "access.sgp4_access":
+                output = AccessBenchmark.sgp4Access(params, iterations);
+                break;
             default:
                 System.err.println("Unknown task: " + task);
                 System.exit(1);

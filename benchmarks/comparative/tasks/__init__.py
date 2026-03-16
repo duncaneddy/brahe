@@ -33,6 +33,9 @@ from benchmarks.comparative.tasks.time_tasks import (
     UtcToTtTask,
     UtcToUt1Task,
 )
+from benchmarks.comparative.tasks.access_tasks import (
+    Sgp4AccessTask,
+)
 
 ALL_TASKS = [
     # Coordinates
@@ -64,6 +67,8 @@ ALL_TASKS = [
     Sgp4SingleTask(),
     Sgp4TrajectoryTask(),
     NumericalTwobodyTask(),
+    # Access
+    Sgp4AccessTask(),
 ]
 
 __all__ = [
@@ -91,4 +96,5 @@ __all__ = [
     "Sgp4SingleTask",
     "Sgp4TrajectoryTask",
     "NumericalTwobodyTask",
+    "Sgp4AccessTask",
 ]

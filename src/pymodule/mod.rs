@@ -556,6 +556,7 @@ include!("utils.rs");
 include!("earth_models.rs");
 include!("spacetrack.rs");
 include!("celestrak.rs");
+include!("ccsds.rs");
 
 // Define Module
 
@@ -1136,6 +1137,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCelestrakQuery>()?;
     module.add_class::<PyCelestrakClient>()?;
     module.add_class::<PyCelestrakSATCATRecord>()?;
+
+    //* CCSDS *//
+    module.add_class::<PyOEM>()?;
+    module.add_class::<PyOMM>()?;
+    module.add_class::<PyOPM>()?;
 
     Ok(())
 }

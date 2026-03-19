@@ -1,4 +1,4 @@
-"""Tests for CCSDS OMM parsing — parity with Rust tests."""
+"""Tests for CCSDS OMM parsing and mutation — parity with Rust tests."""
 
 import pytest
 from brahe.ccsds import OMM
@@ -86,3 +86,89 @@ def test_omm_repr(eop):
     r = repr(omm)
     assert "GOES 9" in r
     assert "1995-025A" in r
+
+
+# ─────────────────────────────────────────────
+# Mutation tests
+# ─────────────────────────────────────────────
+
+
+def test_omm_metadata_setters(eop):
+    """Test setting metadata on OMM."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+
+    omm.object_name = "ISS"
+    assert omm.object_name == "ISS"
+
+    omm.object_id = "1998-067A"
+    assert omm.object_id == "1998-067A"
+
+    omm.center_name = "MOON"
+    assert omm.center_name == "MOON"
+
+    omm.ref_frame = "GCRF"
+    assert omm.ref_frame == "GCRF"
+
+    omm.time_system = "TAI"
+    assert omm.time_system == "TAI"
+
+    omm.mean_element_theory = "SGP4-XP"
+    assert omm.mean_element_theory == "SGP4-XP"
+
+
+def test_omm_mean_element_setters(eop):
+    """Test setting mean element values on OMM."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+
+    omm.eccentricity = 0.001
+    assert omm.eccentricity == pytest.approx(0.001)
+
+    omm.inclination = 51.6
+    assert omm.inclination == pytest.approx(51.6)
+
+    omm.ra_of_asc_node = 100.0
+    assert omm.ra_of_asc_node == pytest.approx(100.0)
+
+    omm.arg_of_pericenter = 200.0
+    assert omm.arg_of_pericenter == pytest.approx(200.0)
+
+    omm.mean_anomaly = 300.0
+    assert omm.mean_anomaly == pytest.approx(300.0)
+
+    omm.mean_motion = 15.0
+    assert omm.mean_motion == pytest.approx(15.0)
+
+    omm.gm = 398600.4418e9
+    assert omm.gm == pytest.approx(398600.4418e9)
+
+
+def test_omm_tle_parameter_setters(eop):
+    """Test setting TLE parameters on OMM."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+
+    omm.norad_cat_id = 25544
+    assert omm.norad_cat_id == 25544
+
+    omm.bstar = 0.0002
+    assert omm.bstar == pytest.approx(0.0002)
+
+    omm.mean_motion_dot = -0.00001
+    assert omm.mean_motion_dot == pytest.approx(-0.00001)
+
+    omm.mean_motion_ddot = 0.0
+    assert omm.mean_motion_ddot == pytest.approx(0.0)
+
+    omm.element_set_no = 999
+    assert omm.element_set_no == 999
+
+    omm.rev_at_epoch = 5000
+    assert omm.rev_at_epoch == 5000
+
+    omm.classification_type = "S"
+    assert omm.classification_type == "S"
+
+    omm.ephemeris_type = 2
+    assert omm.ephemeris_type == 2
+
+    omm.format_version = 2.0
+    assert omm.format_version == pytest.approx(2.0)

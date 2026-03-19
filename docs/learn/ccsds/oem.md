@@ -14,74 +14,69 @@ An OEM message consists of:
 
 Multiple segments allow a single file to cover different time spans, reference frames, or trajectory arcs (e.g., before and after a maneuver).
 
-## Parsing
+## Parsing and Accessing Data
 
-```python
-from brahe.ccsds import OEM
+Parse from file or string, then access header properties, segment metadata, and state vectors:
 
-# From file (KVN, XML, or JSON — auto-detected)
-oem = OEM.from_file("ephemeris.oem")
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/oem_parse_access.py:8"
+    ```
 
-# From string
-oem = OEM.from_str(kvn_content)
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/oem_parse_access.rs:4"
+    ```
+
+## Creating from Scratch
+
+Build an OEM programmatically — define header, add segments with metadata, and populate state vectors:
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/oem_create_write.py:8"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/oem_create_write.rs:4"
+    ```
+
+## Append, Extend, and Delete (Python)
+
+Python supports collection-style mutation on OEM segments and state vectors:
+
+``` python
+--8<-- "./examples/ccsds/oem_append_extend.py:8"
 ```
 
-## Accessing Data
+## Generating from a Propagator
 
-### Header and Metadata
+Propagate an orbit numerically, extract the trajectory, and build an OEM for distribution:
 
-```python
-oem.format_version()   # float, e.g. 3.0
-oem.originator()       # str, e.g. "NASA/JPL"
-oem.classification()   # str or None
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/oem_from_propagator.py:8"
+    ```
 
-oem.num_segments()     # int
-oem.object_name(0)     # str — name for segment 0
-oem.object_id(0)       # str — international designator
-oem.center_name(0)     # str — e.g. "EARTH", "MARS BARYCENTER"
-oem.ref_frame(0)       # str — e.g. "EME2000", "GCRF", "ITRF2000"
-```
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/oem_from_propagator.rs:4"
+    ```
 
-### State Vectors
+## Converting to OrbitTrajectory
 
-```python
-oem.num_states(0)      # int — number of state vectors in segment 0
+Convert OEM segments to brahe `OrbitTrajectory` objects for interpolation and analysis:
 
-# Get a single state vector as a dictionary
-sv = oem.state(0, 0)   # segment 0, state 0
-# sv = {
-#     "epoch": "1996-12-18T12:00:00.331",
-#     "position": [2789619.0, -280045.0, -1746755.0],   # meters
-#     "velocity": [4733.72, -2495.86, -1041.95],         # m/s
-#     "acceleration": None                                # or [ax, ay, az] in m/s²
-# }
-```
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/oem_to_trajectory.py:8"
+    ```
 
-### Covariance
-
-```python
-oem.num_covariances(0)  # int — number of covariance blocks in segment 0
-```
-
-Covariance matrices are accessible through `to_dict()` at the segment level.
-
-### Full Serialization
-
-```python
-d = oem.to_dict()
-# d = {
-#     "header": { "format_version": 3.0, "originator": "NASA/JPL", ... },
-#     "segments": [
-#         {
-#             "metadata": { "object_name": "...", "ref_frame": "...", ... },
-#             "states": [ { "epoch": "...", "position": [...], "velocity": [...] }, ... ],
-#             "comments": [...],
-#             "num_covariances": 0
-#         },
-#         ...
-#     ]
-# }
-```
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/oem_to_trajectory.rs:4"
+    ```
 
 ## Writing
 
@@ -89,7 +84,7 @@ d = oem.to_dict()
 # Write to KVN string
 kvn = oem.to_string("KVN")
 
-# Write to file
+# Write to file (KVN, XML, or JSON)
 oem.to_file("output.oem", "KVN")
 ```
 

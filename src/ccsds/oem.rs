@@ -92,7 +92,143 @@ pub struct OEMStateVector {
     pub acceleration: Option<[f64; 3]>,
 }
 
+impl OEMStateVector {
+    /// Create a new state vector.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - Epoch of this state vector
+    /// * `position` - Position vector [x, y, z]. Units: meters
+    /// * `velocity` - Velocity vector [vx, vy, vz]. Units: m/s
+    pub fn new(epoch: Epoch, position: [f64; 3], velocity: [f64; 3]) -> Self {
+        Self {
+            epoch,
+            position,
+            velocity,
+            acceleration: None,
+        }
+    }
+
+    /// Set the optional acceleration vector.
+    ///
+    /// # Arguments
+    ///
+    /// * `acceleration` - Acceleration vector [ax, ay, az]. Units: m/s²
+    pub fn with_acceleration(mut self, acceleration: [f64; 3]) -> Self {
+        self.acceleration = Some(acceleration);
+        self
+    }
+}
+
+impl OEMSegment {
+    /// Create a new empty segment with the given metadata.
+    ///
+    /// # Arguments
+    ///
+    /// * `metadata` - Segment metadata
+    pub fn new(metadata: OEMMetadata) -> Self {
+        Self {
+            metadata,
+            comments: Vec::new(),
+            states: Vec::new(),
+            covariances: Vec::new(),
+        }
+    }
+
+    /// Add a state vector to this segment.
+    ///
+    /// # Arguments
+    ///
+    /// * `state` - State vector to add
+    pub fn push_state(&mut self, state: OEMStateVector) {
+        self.states.push(state);
+    }
+}
+
+impl OEMMetadata {
+    /// Create new metadata with required fields.
+    ///
+    /// # Arguments
+    ///
+    /// * `object_name` - Spacecraft name
+    /// * `object_id` - International designator (e.g., "1996-062A")
+    /// * `center_name` - Central body name (e.g., "EARTH")
+    /// * `ref_frame` - Reference frame for the state vectors
+    /// * `time_system` - Time system for all epochs
+    /// * `start_time` - Start time of the ephemeris data
+    /// * `stop_time` - Stop time of the ephemeris data
+    pub fn new(
+        object_name: String,
+        object_id: String,
+        center_name: String,
+        ref_frame: CCSDSRefFrame,
+        time_system: CCSDSTimeSystem,
+        start_time: Epoch,
+        stop_time: Epoch,
+    ) -> Self {
+        Self {
+            object_name,
+            object_id,
+            center_name,
+            ref_frame,
+            ref_frame_epoch: None,
+            time_system,
+            start_time,
+            useable_start_time: None,
+            useable_stop_time: None,
+            stop_time,
+            interpolation: None,
+            interpolation_degree: None,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Set the interpolation method.
+    pub fn with_interpolation(mut self, method: String, degree: Option<u32>) -> Self {
+        self.interpolation = Some(method);
+        self.interpolation_degree = degree;
+        self
+    }
+}
+
 impl OEM {
+    /// Create a new empty OEM message.
+    ///
+    /// # Arguments
+    ///
+    /// * `originator` - Originator of the message
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::ccsds::oem::OEM;
+    ///
+    /// let oem = OEM::new("MY_ORG".to_string());
+    /// assert_eq!(oem.segments.len(), 0);
+    /// ```
+    pub fn new(originator: String) -> Self {
+        Self {
+            header: ODMHeader {
+                format_version: 3.0,
+                classification: None,
+                creation_date: Epoch::now(),
+                originator,
+                message_id: None,
+                comments: Vec::new(),
+            },
+            segments: Vec::new(),
+        }
+    }
+
+    /// Add a segment to the OEM.
+    ///
+    /// # Arguments
+    ///
+    /// * `segment` - Segment to add
+    pub fn push_segment(&mut self, segment: OEMSegment) {
+        self.segments.push(segment);
+    }
+
     /// Parse an OEM message from a string, auto-detecting the format.
     ///
     /// # Arguments
@@ -158,5 +294,89 @@ impl OEM {
         let content = self.to_string(format)?;
         std::fs::write(path.as_ref(), content)
             .map_err(|e| BraheError::IoError(format!("Failed to write OEM file: {}", e)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_oem_builder() {
+        let mut oem = OEM::new("TEST_ORG".to_string());
+        assert_eq!(oem.header.originator, "TEST_ORG");
+        assert_eq!(oem.segments.len(), 0);
+
+        let metadata = OEMMetadata::new(
+            "SAT1".to_string(),
+            "2024-001A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::GCRF,
+            CCSDSTimeSystem::UTC,
+            Epoch::now(),
+            Epoch::now(),
+        );
+        let mut seg = OEMSegment::new(metadata);
+        assert_eq!(seg.states.len(), 0);
+
+        let sv = OEMStateVector::new(Epoch::now(), [7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0]);
+        seg.push_state(sv);
+        assert_eq!(seg.states.len(), 1);
+
+        let sv_with_acc =
+            OEMStateVector::new(Epoch::now(), [6000e3, 3000e3, 0.0], [-2000.0, 6000.0, 0.0])
+                .with_acceleration([0.001, 0.002, 0.003]);
+        seg.push_state(sv_with_acc);
+        assert_eq!(seg.states.len(), 2);
+        assert!(seg.states[1].acceleration.is_some());
+
+        oem.push_segment(seg);
+        assert_eq!(oem.segments.len(), 1);
+        assert_eq!(oem.segments[0].metadata.object_name, "SAT1");
+        assert_eq!(oem.segments[0].states.len(), 2);
+    }
+
+    #[test]
+    fn test_oem_builder_round_trip() {
+        let mut oem = OEM::new("ROUND_TRIP".to_string());
+        let metadata = OEMMetadata::new(
+            "TEST_SAT".to_string(),
+            "2024-999A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::J2000,
+            CCSDSTimeSystem::UTC,
+            Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC),
+            Epoch::from_datetime(2024, 6, 1, 1, 0, 0.0, 0.0, crate::time::TimeSystem::UTC),
+        );
+        let mut seg = OEMSegment::new(metadata);
+        seg.push_state(OEMStateVector::new(
+            Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC),
+            [7000e3, 0.0, 0.0],
+            [0.0, 7500.0, 0.0],
+        ));
+        oem.push_segment(seg);
+
+        let kvn = oem.to_string(CCSDSFormat::KVN).unwrap();
+        let oem2 = OEM::from_str(&kvn).unwrap();
+        assert_eq!(oem2.header.originator, "ROUND_TRIP");
+        assert_eq!(oem2.segments.len(), 1);
+        assert_eq!(oem2.segments[0].states.len(), 1);
+    }
+
+    #[test]
+    fn test_oem_metadata_with_interpolation() {
+        let metadata = OEMMetadata::new(
+            "SAT".to_string(),
+            "2024-001A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::GCRF,
+            CCSDSTimeSystem::UTC,
+            Epoch::now(),
+            Epoch::now(),
+        )
+        .with_interpolation("HERMITE".to_string(), Some(7));
+
+        assert_eq!(metadata.interpolation.as_deref(), Some("HERMITE"));
+        assert_eq!(metadata.interpolation_degree, Some(7));
     }
 }

@@ -118,7 +118,94 @@ pub struct OMMTleParameters {
     pub comments: Vec<String>,
 }
 
+impl OMMMetadata {
+    /// Create new metadata with required fields.
+    pub fn new(
+        object_name: String,
+        object_id: String,
+        center_name: String,
+        ref_frame: CCSDSRefFrame,
+        time_system: CCSDSTimeSystem,
+        mean_element_theory: String,
+    ) -> Self {
+        Self {
+            object_name,
+            object_id,
+            center_name,
+            ref_frame,
+            ref_frame_epoch: None,
+            time_system,
+            mean_element_theory,
+            comments: Vec::new(),
+        }
+    }
+}
+
+impl OMMeanElements {
+    /// Create new mean elements with required fields.
+    pub fn new(
+        epoch: Epoch,
+        eccentricity: f64,
+        inclination: f64,
+        ra_of_asc_node: f64,
+        arg_of_pericenter: f64,
+        mean_anomaly: f64,
+    ) -> Self {
+        Self {
+            epoch,
+            mean_motion: None,
+            semi_major_axis: None,
+            eccentricity,
+            inclination,
+            ra_of_asc_node,
+            arg_of_pericenter,
+            mean_anomaly,
+            gm: None,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Set mean motion.
+    pub fn with_mean_motion(mut self, mean_motion: f64) -> Self {
+        self.mean_motion = Some(mean_motion);
+        self
+    }
+
+    /// Set GM.
+    pub fn with_gm(mut self, gm: f64) -> Self {
+        self.gm = Some(gm);
+        self
+    }
+}
+
 impl OMM {
+    /// Create a new OMM message with required fields.
+    ///
+    /// # Arguments
+    ///
+    /// * `originator` - Originator of the message
+    /// * `metadata` - OMM metadata
+    /// * `mean_elements` - Mean Keplerian elements
+    pub fn new(originator: String, metadata: OMMMetadata, mean_elements: OMMeanElements) -> Self {
+        Self {
+            header: ODMHeader {
+                format_version: 3.0,
+                classification: None,
+                creation_date: Epoch::now(),
+                originator,
+                message_id: None,
+                comments: Vec::new(),
+            },
+            metadata,
+            mean_elements,
+            tle_parameters: None,
+            spacecraft_parameters: None,
+            covariance: None,
+            user_defined: None,
+            comments: Vec::new(),
+        }
+    }
+
     /// Parse an OMM message from a string, auto-detecting the format.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(content: &str) -> Result<Self, BraheError> {

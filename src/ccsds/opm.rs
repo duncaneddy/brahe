@@ -97,6 +97,45 @@ pub struct OPMKeplerianElements {
     pub comments: Vec<String>,
 }
 
+impl OPMMetadata {
+    /// Create new metadata with required fields.
+    pub fn new(
+        object_name: String,
+        object_id: String,
+        center_name: String,
+        ref_frame: CCSDSRefFrame,
+        time_system: CCSDSTimeSystem,
+    ) -> Self {
+        Self {
+            object_name,
+            object_id,
+            center_name,
+            ref_frame,
+            ref_frame_epoch: None,
+            time_system,
+            comments: Vec::new(),
+        }
+    }
+}
+
+impl OPMStateVector {
+    /// Create a new state vector.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - Epoch of the state vector
+    /// * `position` - Position [x, y, z]. Units: meters
+    /// * `velocity` - Velocity [vx, vy, vz]. Units: m/s
+    pub fn new(epoch: Epoch, position: [f64; 3], velocity: [f64; 3]) -> Self {
+        Self {
+            epoch,
+            position,
+            velocity,
+            comments: Vec::new(),
+        }
+    }
+}
+
 /// A maneuver specification in an OPM.
 ///
 /// Delta-V stored in m/s (SI).
@@ -116,7 +155,71 @@ pub struct OPMManeuver {
     pub comments: Vec<String>,
 }
 
+impl OPMManeuver {
+    /// Create a new maneuver.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch_ignition` - Epoch of ignition
+    /// * `duration` - Duration in seconds
+    /// * `ref_frame` - Reference frame for the delta-V
+    /// * `dv` - Delta-V vector [dv1, dv2, dv3]. Units: m/s
+    pub fn new(
+        epoch_ignition: Epoch,
+        duration: f64,
+        ref_frame: CCSDSRefFrame,
+        dv: [f64; 3],
+    ) -> Self {
+        Self {
+            epoch_ignition,
+            duration,
+            delta_mass: None,
+            ref_frame,
+            dv,
+            comments: Vec::new(),
+        }
+    }
+
+    /// Set the delta mass.
+    pub fn with_delta_mass(mut self, delta_mass: f64) -> Self {
+        self.delta_mass = Some(delta_mass);
+        self
+    }
+}
+
 impl OPM {
+    /// Create a new OPM message with required fields.
+    ///
+    /// # Arguments
+    ///
+    /// * `originator` - Originator of the message
+    /// * `metadata` - OPM metadata
+    /// * `state_vector` - State vector data
+    pub fn new(originator: String, metadata: OPMMetadata, state_vector: OPMStateVector) -> Self {
+        Self {
+            header: ODMHeader {
+                format_version: 3.0,
+                classification: None,
+                creation_date: Epoch::now(),
+                originator,
+                message_id: None,
+                comments: Vec::new(),
+            },
+            metadata,
+            state_vector,
+            keplerian_elements: None,
+            spacecraft_parameters: None,
+            covariance: None,
+            maneuvers: Vec::new(),
+            user_defined: None,
+        }
+    }
+
+    /// Add a maneuver to the OPM.
+    pub fn push_maneuver(&mut self, maneuver: OPMManeuver) {
+        self.maneuvers.push(maneuver);
+    }
+
     /// Parse an OPM message from a string, auto-detecting the format.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(content: &str) -> Result<Self, BraheError> {
@@ -149,5 +252,31 @@ impl OPM {
         let content = self.to_string(format)?;
         std::fs::write(path.as_ref(), content)
             .map_err(|e| BraheError::IoError(format!("Failed to write OPM file: {}", e)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_opm_builder() {
+        let metadata = OPMMetadata::new(
+            "SAT1".to_string(),
+            "2024-001A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::GCRF,
+            CCSDSTimeSystem::UTC,
+        );
+        let sv = OPMStateVector::new(Epoch::now(), [7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0]);
+        let mut opm = OPM::new("TEST_ORG".to_string(), metadata, sv);
+        assert_eq!(opm.header.originator, "TEST_ORG");
+        assert_eq!(opm.maneuvers.len(), 0);
+
+        let m = OPMManeuver::new(Epoch::now(), 120.0, CCSDSRefFrame::RTN, [10.0, 0.0, 0.0])
+            .with_delta_mass(-15.0);
+        opm.push_maneuver(m);
+        assert_eq!(opm.maneuvers.len(), 1);
+        assert_eq!(opm.maneuvers[0].delta_mass, Some(-15.0));
     }
 }

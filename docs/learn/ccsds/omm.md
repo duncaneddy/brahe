@@ -16,77 +16,36 @@ An OMM message consists of:
 - **Covariance** (optional) — 6$\times$6 covariance matrix
 - **User-defined parameters** (optional) — arbitrary key-value pairs
 
-## Parsing
+## Parsing and Accessing Data
 
-```python
-from brahe.ccsds import OMM
+Parse from file or string, then access metadata, mean elements, and TLE parameters:
 
-# From file (KVN, XML, or JSON — auto-detected)
-omm = OMM.from_file("gp_data.omm")
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/omm_parse_access.py:8"
+    ```
 
-# From string
-omm = OMM.from_str(kvn_content)
-```
-
-## Accessing Data
-
-### Metadata
-
-```python
-omm.format_version()       # 3.0
-omm.object_name()          # "GOES 9"
-omm.object_id()            # "1995-025A"
-omm.center_name()          # "EARTH"
-omm.ref_frame()            # "TEME"
-omm.time_system()          # "UTC"
-omm.mean_element_theory()  # "SGP/SGP4"
-```
-
-### Mean Elements
-
-Mean elements use CCSDS/TLE-native units — mean motion in rev/day, angles in degrees:
-
-```python
-omm.mean_motion()          # 1.00273272 (rev/day), or None
-omm.eccentricity()         # 0.0005013
-omm.inclination()          # 3.0539 (degrees)
-omm.ra_of_asc_node()       # 81.7939 (degrees)
-omm.arg_of_pericenter()    # 249.2363 (degrees)
-omm.mean_anomaly()         # 150.1602 (degrees)
-omm.gm()                   # 3.986008e+14 (m³/s², converted from km³/s²)
-```
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/omm_parse_access.rs:4"
+    ```
 
 !!! info "Unit Convention for OMM"
     Mean motion, angles, and TLE drag terms are kept in their CCSDS/TLE-native units (rev/day, degrees, etc.) because these values are needed as-is for TLE generation and SGP4 initialization. Only GM is converted to SI (m$^3$/s$^2$).
 
-### TLE Parameters
+## Initializing an SGP4 Propagator
 
-```python
-omm.norad_cat_id()         # 23581
-omm.classification_type()  # "U"
-omm.ephemeris_type()       # 0
-omm.element_set_no()       # 925
-omm.rev_at_epoch()         # 4316
-omm.bstar()                # 0.0001
-omm.mean_motion_dot()      # -1.13e-06 (rev/day²)
-omm.mean_motion_ddot()     # 0.0 (rev/day³)
-```
+Extract OMM mean elements and TLE parameters to create an `SGPPropagator`:
 
-### Full Serialization
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/omm_init_sgp.py:8"
+    ```
 
-```python
-d = omm.to_dict()
-# d = {
-#     "header": { "format_version": 3.0, "originator": "NOAA/USA", ... },
-#     "metadata": { "object_name": "GOES 9", "ref_frame": "TEME", ... },
-#     "mean_elements": { "epoch": "...", "mean_motion": 1.00273272, ... },
-#     "tle_parameters": { "norad_cat_id": 23581, "bstar": 0.0001, ... },
-#     "spacecraft_parameters": { ... },  # if present
-#     "user_defined": { ... }            # if present
-# }
-```
-
-The `to_dict()` method returns all data in the message, including optional sections that may not be present in every file. Missing optional sections are omitted from the dictionary.
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/omm_init_sgp.rs:4"
+    ```
 
 ## KVN Format Example
 

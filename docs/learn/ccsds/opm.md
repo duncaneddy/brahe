@@ -15,102 +15,47 @@ An OPM message consists of:
 - **Maneuvers** (optional, multiple) — ignition epoch, duration, delta-mass, reference frame, delta-V components
 - **User-defined parameters** (optional) — arbitrary key-value pairs
 
-## Parsing
+## Parsing and Accessing Data
 
-```python
-from brahe.ccsds import OPM
+Parse from file or string, then access state vector, Keplerian elements, spacecraft parameters, and maneuvers:
 
-# From file (KVN, XML, or JSON — auto-detected)
-opm = OPM.from_file("state.opm")
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/opm_parse_access.py:8"
+    ```
 
-# From string
-opm = OPM.from_str(kvn_content)
-```
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/opm_parse_access.rs:4"
+    ```
 
-## Accessing Data
+## Initializing a Propagator
 
-### Metadata
+Extract position, velocity, epoch, and spacecraft parameters from an OPM to initialize a `NumericalOrbitPropagator`:
 
-```python
-opm.format_version()   # 3.0
-opm.object_name()      # "GODZILLA 5"
-opm.object_id()        # "1998-999A"
-opm.center_name()      # "EARTH"
-opm.ref_frame()        # "ITRF2000"
-opm.time_system()      # "UTC"
-```
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/opm_init_propagator.py:8"
+    ```
 
-### State Vector
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/opm_init_propagator.rs:4"
+    ```
 
-Position and velocity are returned in SI units (meters, m/s):
+## Maneuver Propagation
 
-```python
-pos = opm.position()   # [6503514.0, 1239647.0, -717490.0]  (meters)
-vel = opm.velocity()   # [-873.16, 8740.42, -4191.076]      (m/s)
-```
+Read OPM maneuvers and apply them as impulsive delta-V events during propagation:
 
-### Keplerian Elements
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/opm_maneuver_propagation.py:8"
+    ```
 
-```python
-opm.has_keplerian_elements()  # True/False
-
-opm.semi_major_axis()         # 41399512.3 (meters, converted from km)
-```
-
-Full Keplerian element access is available through `to_dict()`:
-
-```python
-d = opm.to_dict()
-kep = d["keplerian_elements"]
-# kep = {
-#     "semi_major_axis": 41399512.3,     # meters
-#     "eccentricity": 0.020842611,
-#     "inclination": 0.117746,           # degrees
-#     "ra_of_asc_node": 17.604721,       # degrees
-#     "arg_of_pericenter": 218.242943,   # degrees
-#     "true_anomaly": 41.922339,         # degrees
-#     "mean_anomaly": None,
-#     "gm": 3.986004415e+14              # m³/s²
-# }
-```
-
-### Spacecraft Parameters
-
-```python
-opm.mass()  # 3000.0 (kg), or None
-```
-
-### Maneuvers
-
-```python
-opm.num_maneuvers()    # 2
-
-m = opm.maneuver(0)
-# m = {
-#     "epoch_ignition": "2000-06-03T09:00:34.1",
-#     "duration": 132.6,           # seconds
-#     "delta_mass": -18.418,       # kg (negative = mass decrease)
-#     "ref_frame": "J2000",
-#     "dv": [-23.257, 16.8316, -8.93444]  # m/s
-# }
-```
-
-Each maneuver specifies its own reference frame for the delta-V components. Common frames include J2000/EME2000 (inertial) and RTN (orbit-relative radial-transverse-normal).
-
-### Full Serialization
-
-```python
-d = opm.to_dict()
-# d = {
-#     "header": { ... },
-#     "metadata": { "object_name": "...", "ref_frame": "...", ... },
-#     "state_vector": { "epoch": "...", "position": [...], "velocity": [...] },
-#     "keplerian_elements": { ... },       # if present
-#     "spacecraft_parameters": { ... },    # if present
-#     "maneuvers": [ { ... }, ... ],       # if present
-#     "user_defined": { "KEY": "value" }   # if present
-# }
-```
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/opm_maneuver_propagation.rs:4"
+    ```
 
 ## KVN Format Example
 

@@ -14,9 +14,11 @@ from brahe._brahe import (
     OEM,
     OEMSegment,
     OEMSegments,
+    OEMStateVector,
     OEMStates,
     OMM,
     OPM,
+    OPMManeuver,
     OPMManeuvers,
 )
 
@@ -24,8 +26,10 @@ __all__ = [
     "OEM",
     "OEMSegment",
     "OEMSegments",
+    "OEMStateVector",
     "OEMStates",
     "OMM",
     "OPM",
+    "OPMManeuver",
     "OPMManeuvers",
 ]

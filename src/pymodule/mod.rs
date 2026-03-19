@@ -1140,8 +1140,15 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     //* CCSDS *//
     module.add_class::<PyOEM>()?;
+    module.add_class::<PyOEMSegments>()?;
+    module.add_class::<PyOEMSegment>()?;
+    module.add_class::<PyOEMStates>()?;
+    module.add_class::<PyOEMSegmentIterator>()?;
+    module.add_class::<PyOEMStateIterator>()?;
     module.add_class::<PyOMM>()?;
     module.add_class::<PyOPM>()?;
+    module.add_class::<PyOPMManeuvers>()?;
+    module.add_class::<PyOPMManeuverIterator>()?;
 
     Ok(())
 }

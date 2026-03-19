@@ -10,10 +10,22 @@ Provides parsing and writing of CCSDS standard orbit data messages:
 Supported formats: KVN (text), XML, JSON.
 """
 
-from brahe._brahe import OEM, OMM, OPM
+from brahe._brahe import (
+    OEM,
+    OEMSegment,
+    OEMSegments,
+    OEMStates,
+    OMM,
+    OPM,
+    OPMManeuvers,
+)
 
 __all__ = [
     "OEM",
+    "OEMSegment",
+    "OEMSegments",
+    "OEMStates",
     "OMM",
     "OPM",
+    "OPMManeuvers",
 ]

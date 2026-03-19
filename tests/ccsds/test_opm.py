@@ -8,56 +8,56 @@ def test_opm_parse_example1(eop):
     """Mirror of test_parse_opm_example1 in Rust."""
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
 
-    assert opm.format_version() == pytest.approx(3.0, abs=1e-10)
-    assert opm.object_name() == "GODZILLA 5"
-    assert opm.object_id() == "1998-999A"
-    assert opm.ref_frame() == "ITRF2000"
-    assert opm.time_system() == "UTC"
+    assert opm.format_version == pytest.approx(3.0, abs=1e-10)
+    assert opm.object_name == "GODZILLA 5"
+    assert opm.object_id == "1998-999A"
+    assert opm.ref_frame == "ITRF2000"
+    assert opm.time_system == "UTC"
 
-    # State vector (km → m)
-    pos = opm.position()
+    # State vector (km -> m)
+    pos = opm.position
     assert pos[0] == pytest.approx(6503514.0, abs=1.0)
     assert pos[1] == pytest.approx(1239647.0, abs=1.0)
     assert pos[2] == pytest.approx(-717490.0, abs=1.0)
 
-    vel = opm.velocity()
+    vel = opm.velocity
     assert vel[0] == pytest.approx(-873.160, abs=0.001)
     assert vel[1] == pytest.approx(8740.420, abs=0.001)
     assert vel[2] == pytest.approx(-4191.076, abs=0.001)
 
     # Spacecraft parameters
-    assert opm.mass() == pytest.approx(3000.0, abs=1e-3)
+    assert opm.mass == pytest.approx(3000.0, abs=1e-3)
 
     # No Keplerian, no maneuvers, no covariance
-    assert not opm.has_keplerian_elements()
-    assert opm.num_maneuvers() == 0
+    assert not opm.has_keplerian_elements
+    assert len(opm.maneuvers) == 0
 
 
 def test_opm_parse_example2_with_keplerian_and_maneuvers(eop):
     """Mirror of test_parse_opm_example2_with_keplerian_and_maneuvers in Rust."""
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
 
-    assert opm.object_name() == "EUTELSAT W4"
-    assert opm.ref_frame() == "TOD"
+    assert opm.object_name == "EUTELSAT W4"
+    assert opm.ref_frame == "TOD"
 
     # State vector
-    pos = opm.position()
+    pos = opm.position
     assert pos[0] == pytest.approx(6655994.2, abs=1.0)
 
     # Keplerian elements
-    assert opm.has_keplerian_elements()
-    assert opm.semi_major_axis() == pytest.approx(41399512.3, abs=1.0)
+    assert opm.has_keplerian_elements
+    assert opm.semi_major_axis == pytest.approx(41399512.3, abs=1.0)
 
-    # 2 maneuvers
-    assert opm.num_maneuvers() == 2
+    # 2 maneuvers via .maneuvers property
+    assert len(opm.maneuvers) == 2
 
-    m1 = opm.maneuver(0)
+    m1 = opm.maneuvers[0]
     assert m1["duration"] == pytest.approx(132.60, abs=0.01)
     assert m1["delta_mass"] == pytest.approx(-18.418, abs=0.001)
     assert m1["ref_frame"] == "J2000"
     assert m1["dv"][0] == pytest.approx(-23.257, abs=0.001)
 
-    m2 = opm.maneuver(1)
+    m2 = opm.maneuvers[1]
     assert m2["ref_frame"] == "RTN"
 
 
@@ -65,9 +65,9 @@ def test_opm_parse_example5_three_maneuvers(eop):
     """Mirror of test_parse_opm_example5_with_three_maneuvers in Rust."""
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample5.txt")
 
-    assert opm.ref_frame() == "GCRF"
-    assert opm.time_system() == "GPS"
-    assert opm.num_maneuvers() == 3
+    assert opm.ref_frame == "GCRF"
+    assert opm.time_system == "GPS"
+    assert len(opm.maneuvers) == 3
 
 
 def test_opm_to_dict(eop):
@@ -117,3 +117,25 @@ def test_opm_repr(eop):
     r = repr(opm)
     assert "GODZILLA 5" in r
     assert "ITRF2000" in r
+
+
+def test_opm_maneuvers_iteration(eop):
+    """Test iterating over maneuvers."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+
+    frames = [m["ref_frame"] for m in opm.maneuvers]
+    assert frames == ["J2000", "RTN"]
+
+
+def test_opm_maneuvers_negative_indexing(eop):
+    """Test negative indexing on maneuvers."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    last = opm.maneuvers[-1]
+    assert last["ref_frame"] == "RTN"
+
+
+def test_opm_maneuvers_index_out_of_range(eop):
+    """Test that out-of-range maneuver index raises IndexError."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    with pytest.raises(IndexError):
+        opm.maneuvers[100]

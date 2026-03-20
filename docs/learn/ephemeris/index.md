@@ -1,143 +1,83 @@
 # Ephemeris Data Sources
 
-Brahe provides typed clients for two satellite ephemeris data sources: [CelesTrak](celestrak.md) and [Space-Track](spacetrack/index.md). Both clients return `GPRecord` for General Perturbations queries, enabling code that works interchangeably with either data source.
+Brahe queries satellite orbital data from two public sources -- CelesTrak and Space-Track --
+and returns it as `GPRecord` objects that convert directly into SGP4 propagators. For most
+operational satellite tracking workflows, this is the primary entry point: fetch current
+elements for a satellite, build a propagator, and compute states.
 
-## GPRecord
+## The Core Workflow
 
-`GPRecord` is the shared data type for General Perturbations (OMM) data returned by both `CelestrakClient.get_gp()` / `CelestrakClient.query()` and `SpaceTrackClient.query_gp()`. It contains 40 fields organized into three categories based on their data type.
+The most common usage pattern is three conceptual steps: **query** a data source for a
+satellite by catalog number or name, **receive** a `GPRecord` containing the latest orbital
+elements, and **propagate** to compute position and velocity at any future time. Brahe
+provides a convenience method that collapses these steps into a single call:
 
-### Metadata Fields (String)
+=== "Python"
+    ``` python
+    --8<-- "./examples/datasets/celestrak_as_propagator.py:11"
+    ```
 
-These fields contain textual metadata about the object and data record:
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/datasets/celestrak_as_propagator.rs:9"
+    ```
 
-<div class="center-table" markdown="1">
+Behind the scenes, `get_sgp_propagator` queries the data source, deserializes the response
+into a `GPRecord`, extracts the TLE lines, and initializes an `SGPPropagator`. The returned
+propagator is ready for immediate use with `propagate_to()` and `current_state()`.
 
-| Field | Python Type | Description |
-|-------|-------------|-------------|
-| `ccsds_omm_vers` | `Optional[str]` | CCSDS OMM version |
-| `comment` | `Optional[str]` | Comment field |
-| `creation_date` | `Optional[str]` | Record creation date |
-| `originator` | `Optional[str]` | Data originator |
-| `object_name` | `Optional[str]` | Satellite common name |
-| `object_id` | `Optional[str]` | International designator |
-| `center_name` | `Optional[str]` | Center name (typically "EARTH") |
-| `ref_frame` | `Optional[str]` | Reference frame (typically "TEME") |
-| `time_system` | `Optional[str]` | Time system (typically "UTC") |
-| `mean_element_theory` | `Optional[str]` | Mean element theory (typically "SGP4") |
-| `epoch` | `Optional[str]` | Epoch of the orbital elements |
-| `classification_type` | `Optional[str]` | Classification (U=Unclassified, C=Classified, S=Secret) |
-| `object_type` | `Optional[str]` | Object type (PAYLOAD, ROCKET BODY, DEBRIS, etc.) |
-| `rcs_size` | `Optional[str]` | Radar cross-section size category (SMALL, MEDIUM, LARGE) |
-| `country_code` | `Optional[str]` | Country code of the launching state |
-| `launch_date` | `Optional[str]` | Launch date |
-| `site` | `Optional[str]` | Launch site code |
-| `decay_date` | `Optional[str]` | Decay date (if decayed) |
-| `tle_line0` | `Optional[str]` | TLE line 0 (object name) |
-| `tle_line1` | `Optional[str]` | TLE line 1 |
-| `tle_line2` | `Optional[str]` | TLE line 2 |
+## What is a GPRecord?
 
-</div>
+A General Perturbations (GP) record is the standard data format for satellite orbital
+elements distributed by the US Space Surveillance Network. It is formally defined as an
+Orbit Mean-Elements Message (OMM) under the CCSDS standard. Each record contains
+approximately 40 fields spanning three categories: **identifiers** (NORAD catalog number,
+international designator, object name), **orbital elements** (mean motion, eccentricity,
+inclination, RAAN, argument of perigee, mean anomaly, $B^*$ drag term), and **metadata**
+(epoch, classification, originator, reference frame). When TLE lines are available, they
+are included as well.
 
-### Orbital Element Fields (Numeric)
+Brahe's `GPRecord` struct handles a practical complication transparently: SpaceTrack returns
+all JSON values as strings (e.g., `"NORAD_CAT_ID": "25544"`), while CelesTrak returns
+numeric fields as native JSON numbers (e.g., `"NORAD_CAT_ID": 25544`). Custom deserializers
+accept both formats, so downstream code works identically regardless of which source
+produced the data. For the complete field listing, see the
+[GPRecord API Reference](../../library_api/ephemeris/shared_types.md).
 
-These fields contain orbital mechanics parameters. In Rust, they are typed as `Option<f64>` and deserialized from either string (SpaceTrack) or numeric (CelesTrak) JSON values.
+## How the Pieces Connect
 
-<div class="center-table" markdown="1">
+`GPRecord` serves as the bridge type in Brahe's ephemeris architecture. Both
+`CelestrakClient` and `SpaceTrackClient` return `GPRecord` from their GP query methods,
+making it possible to write source-agnostic code. From a `GPRecord`, you can:
 
-| Field | Python Type | Rust Type | Description |
-|-------|-------------|-----------|-------------|
-| `mean_motion` | `Optional[float]` | `Option<f64>` | Mean motion (rev/day) |
-| `eccentricity` | `Optional[float]` | `Option<f64>` | Orbital eccentricity |
-| `inclination` | `Optional[float]` | `Option<f64>` | Orbital inclination (deg) |
-| `ra_of_asc_node` | `Optional[float]` | `Option<f64>` | Right ascension of ascending node (deg) |
-| `arg_of_pericenter` | `Optional[float]` | `Option<f64>` | Argument of pericenter (deg) |
-| `mean_anomaly` | `Optional[float]` | `Option<f64>` | Mean anomaly (deg) |
-| `bstar` | `Optional[float]` | `Option<f64>` | BSTAR drag coefficient |
-| `mean_motion_dot` | `Optional[float]` | `Option<f64>` | First derivative of mean motion |
-| `mean_motion_ddot` | `Optional[float]` | `Option<f64>` | Second derivative of mean motion |
-| `semimajor_axis` | `Optional[float]` | `Option<f64>` | Semi-major axis (km) |
-| `period` | `Optional[float]` | `Option<f64>` | Orbital period (min) |
-| `apoapsis` | `Optional[float]` | `Option<f64>` | Apoapsis altitude (km) |
-| `periapsis` | `Optional[float]` | `Option<f64>` | Periapsis altitude (km) |
+- **Build an SGP4 propagator** using the embedded TLE data, which is the primary use case
+  for operational orbit prediction.
+- **Export to CCSDS OMM format** for standards-compliant data exchange.
+- **Access individual fields** for filtering, cataloging, or display purposes.
 
-</div>
+This design means that switching between CelesTrak and SpaceTrack requires changing only
+the client instantiation and query call -- all downstream propagation and analysis code
+remains unchanged.
 
-### Identifier Fields (Integer)
+## Choosing a Data Source
 
-These fields contain numeric identifiers. Like the orbital element fields, they accept both string and numeric JSON representations.
+**CelesTrak** is the simplest starting point. It requires no account or authentication,
+provides pre-built satellite groups (e.g., active satellites, GPS, Starlink), and supports
+lookup by catalog number, name, or international designator. It is well-suited for quick
+prototyping, educational use, and applications that need common satellite constellations.
 
-<div class="center-table" markdown="1">
-
-| Field | Python Type | Rust Type | Description |
-|-------|-------------|-----------|-------------|
-| `norad_cat_id` | `Optional[int]` | `Option<u32>` | NORAD catalog identifier |
-| `element_set_no` | `Optional[int]` | `Option<u16>` | Element set number |
-| `rev_at_epoch` | `Optional[int]` | `Option<u32>` | Revolution number at epoch |
-| `ephemeris_type` | `Optional[int]` | `Option<u8>` | Ephemeris type |
-| `file` | `Optional[int]` | `Option<u64>` | File number |
-| `gp_id` | `Optional[int]` | `Option<u32>` | GP record identifier |
-
-</div>
-
-!!! info "Flexible Deserialization"
-    SpaceTrack returns all JSON values as strings (e.g., `"NORAD_CAT_ID": "25544"`), while CelesTrak returns numeric fields as JSON numbers (e.g., `"NORAD_CAT_ID": 25544`). GPRecord uses custom deserializers that accept both formats transparently, so the same code works with data from either source.
-
-## Operator Functions
-
-The `operators` module provides functions that generate operator-prefixed strings for use in query filters. These operators work with both `SpaceTrackQuery.filter()` and `CelestrakQuery.filter()`:
-
-<div class="center-table" markdown="1">
-
-| Function | Output | Example |
-|----------|--------|---------|
-| `greater_than(v)` | `">v"` | `">25544"` |
-| `less_than(v)` | `"<v"` | `"<0.01"` |
-| `not_equal(v)` | `"<>v"` | `"<>DEBRIS"` |
-| `inclusive_range(a, b)` | `"a--b"` | `"25544--25600"` |
-| `like(v)` | `"~~v"` | `"~~STARLINK"` |
-| `startswith(v)` | `"^v"` | `"^NOAA"` |
-| `now()` | `"now"` | `"now"` |
-| `now_offset(days)` | `"now-N"` / `"now+N"` | `"now-7"` |
-| `null_val()` | `"null-val"` | `"null-val"` |
-| `or_list(vals)` | `"v1,v2,v3"` | `"25544,48274"` |
-
-</div>
-
-Operators compose naturally. For example, `greater_than(now_offset(-7))` produces `">now-7"`.
-
-In Python, access these via `brahe.spacetrack.operators`:
-
-```python
-from brahe.spacetrack import operators as op
-op.greater_than("25544")  # ">25544"
-```
-
-## CelesTrak vs Space-Track
-
-<div class="center-table" markdown="1">
-
-| Feature | CelesTrak | Space-Track |
-|---------|-----------|-------------|
-| **Authentication** | None required | Free account required |
-| **GP data** | `GPRecord` | `GPRecord` |
-| **SATCAT data** | `CelestrakSATCATRecord` | `SATCATRecord` |
-| **Server-side filtering** | Limited (GROUP, CATNR, NAME, INTDES) | Full (any field) |
-| **Client-side filtering** | Supported via operators | Not needed (server filters) |
-| **File operations** | Not available | FileShare, SP Ephemeris, Public Files |
-| **Rate limiting** | 6-hour client cache | Built-in sliding window limiter |
-| **Output formats** | JSON, 3LE, CSV, XML | JSON, TLE, CSV, XML, KVN |
-| **Supplemental GP** | SupGP endpoint (constellation operators) | Not available |
-
-</div>
-
-## Subpages
-
-- [CelesTrak](celestrak.md) -- Public ephemeris data source (no account required)
-- [Space-Track](spacetrack/index.md) -- Authoritative catalog data (account required)
+**Space-Track** is the authoritative source for the US satellite catalog. It requires a
+free account and provides full server-side query filtering on any GP field, access to the
+complete historical catalog, supplemental data products (SP ephemeris, file shares), and
+SATCAT metadata. It is the appropriate choice when you need comprehensive catalog access
+or precise control over query results.
 
 ---
 
 ## See Also
 
-- [Ephemeris API Reference](../../library_api/ephemeris/index.md) -- Complete function documentation
+- [CelesTrak](celestrak.md) -- Using the CelesTrak client
+- [Space-Track](spacetrack/index.md) -- Using the Space-Track client
+- [Ephemeris API Reference](../../library_api/ephemeris/index.md) -- Complete function and type documentation
 - [Two-Line Elements](../orbits/two_line_elements.md) -- TLE and 3LE format details
+- [SGP Propagation](../orbit_propagation/sgp_propagation.md) -- SGP4/SDP4 propagation theory and usage

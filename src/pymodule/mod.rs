@@ -556,6 +556,7 @@ include!("utils.rs");
 include!("earth_models.rs");
 include!("spacetrack.rs");
 include!("celestrak.rs");
+include!("ccsds.rs");
 
 // Define Module
 
@@ -1172,6 +1173,24 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCelestrakQuery>()?;
     module.add_class::<PyCelestrakClient>()?;
     module.add_class::<PyCelestrakSATCATRecord>()?;
+
+    //* CCSDS *//
+    module.add_class::<PyOEM>()?;
+    module.add_class::<PyOEMSegments>()?;
+    module.add_class::<PyOEMSegment>()?;
+    module.add_class::<PyOEMStates>()?;
+    module.add_class::<PyOEMStateVector>()?;
+    module.add_class::<PyOEMSegmentIterator>()?;
+    module.add_class::<PyOEMStateIterator>()?;
+    module.add_class::<PyOMM>()?;
+    module.add_class::<PyOPM>()?;
+    module.add_class::<PyOPMManeuver>()?;
+    module.add_class::<PyOPMManeuvers>()?;
+    module.add_class::<PyOPMManeuverIterator>()?;
+    module.add_class::<PyCDM>()?;
+    module.add_class::<PyCDMObject>()?;
+    module.add_class::<PyCDMStateVector>()?;
+    module.add_class::<PyCDMRTNCovariance>()?;
 
     Ok(())
 }

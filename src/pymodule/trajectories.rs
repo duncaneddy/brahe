@@ -2162,8 +2162,29 @@ impl PyOrbitalTrajectory {
     ///     traj = traj.with_name("My Trajectory")
     ///     print(traj.get_name())  # "My Trajectory"
     ///     ```
+    /// Get the trajectory name.
+    ///
+    /// Returns:
+    ///     str | None: The trajectory name, or None if not set
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     traj = bh.OrbitTrajectory(bh.OrbitFrame.ECI, bh.OrbitRepresentation.CARTESIAN, None)
+    ///     traj = traj.with_name("My Trajectory")
+    ///     print(traj.get_name())  # "My Trajectory"
+    ///     ```
     fn get_name(&self) -> Option<&str> {
         Identifiable::get_name(&self.trajectory)
+    }
+
+    /// Set the trajectory name.
+    ///
+    /// Args:
+    ///     name (str | None): Name to set, or None to clear
+    fn set_name(&mut self, name: Option<String>) {
+        Identifiable::set_name(&mut self.trajectory, name.as_deref());
     }
 
     /// Get the trajectory numeric ID.
@@ -2181,6 +2202,14 @@ impl PyOrbitalTrajectory {
     ///     ```
     fn get_id(&self) -> Option<u64> {
         Identifiable::get_id(&self.trajectory)
+    }
+
+    /// Set the trajectory numeric ID.
+    ///
+    /// Args:
+    ///     id (int | None): ID to set, or None to clear
+    fn set_id(&mut self, id: Option<u64>) {
+        Identifiable::set_id(&mut self.trajectory, id);
     }
 
     /// Get the trajectory UUID.

@@ -262,6 +262,12 @@ nav:
               - File Operations: learn/ephemeris/spacetrack/file_operations.md
               - Rate Limiting: learn/ephemeris/spacetrack/rate_limiting.md
           - CelesTrak: learn/ephemeris/celestrak.md
+      - CCSDS Data Formats:
+          - learn/ccsds/index.md
+          - OEM - Orbit Ephemeris Message: learn/ccsds/oem.md
+          - OMM - Orbit Mean-elements Message: learn/ccsds/omm.md
+          - OPM - Orbit Parameter Message: learn/ccsds/opm.md
+          - CDM - Conjunction Data Message: learn/ccsds/cdm.md
       - Datasets:
           - learn/datasets/index.md
           - NAIF: learn/datasets/naif.md
@@ -292,6 +298,7 @@ nav:
       - examples/visualizing_gps.md
       - examples/visualizing_starlink.md
       - examples/ground_contacts.md
+      - examples/oem_access_prediction.md
       - examples/doppler_compensation.md
       - examples/max_communications_gap.md
       - examples/imaging_data_latency.md
@@ -425,6 +432,12 @@ nav:
               - Enumerations: library_api/ephemeris/spacetrack/enums.md
               - Operators: library_api/ephemeris/spacetrack/operators.md
               - Rate Limiting: library_api/ephemeris/spacetrack/rate_limiting.md
+      - CCSDS:
+          - library_api/ccsds/index.md
+          - OEM: library_api/ccsds/oem.md
+          - OMM: library_api/ccsds/omm.md
+          - OPM: library_api/ccsds/opm.md
+          - CDM: library_api/ccsds/cdm.md
       - Utilities:
           - library_api/utils/index.md
           - Caching: library_api/utils/caching.md

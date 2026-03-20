@@ -71,7 +71,9 @@ def fetch_spacetrack_gp(client: bh.SpaceTrackClient, timestamp: str) -> None:
 
     # Count records (top-level JSON array)
     count = raw_json.count('"NORAD_CAT_ID"')
-    print(f"  Space-Track GP: {count} records, {format_size(compressed_size)} -> {out_path}")
+    print(
+        f"  Space-Track GP: {count} records, {format_size(compressed_size)} -> {out_path}"
+    )
 
 
 def fetch_spacetrack_cdm(client: bh.SpaceTrackClient, timestamp: str) -> None:
@@ -87,16 +89,16 @@ def fetch_spacetrack_cdm(client: bh.SpaceTrackClient, timestamp: str) -> None:
     compressed_size = write_gzipped(out_path, raw_json)
 
     count = raw_json.count('"CDM_ID"')
-    print(f"  Space-Track CDM: {count} records, {format_size(compressed_size)} -> {out_path}")
+    print(
+        f"  Space-Track CDM: {count} records, {format_size(compressed_size)} -> {out_path}"
+    )
 
 
 def fetch_celestrak_gp_active(timestamp: str) -> None:
     """Download active spacecraft GP elements from Celestrak."""
     ct_client = bh.celestrak.CelestrakClient(cache_max_age=0.0)
-    query = (
-        bh.celestrak.CelestrakQuery.gp
-        .group("active")
-        .format(bh.celestrak.CelestrakOutputFormat.JSON)
+    query = bh.celestrak.CelestrakQuery.gp.group("active").format(
+        bh.celestrak.CelestrakOutputFormat.JSON
     )
     raw_json = ct_client.query_raw(query)
 
@@ -104,7 +106,9 @@ def fetch_celestrak_gp_active(timestamp: str) -> None:
     compressed_size = write_gzipped(out_path, raw_json)
 
     count = raw_json.count('"NORAD_CAT_ID"')
-    print(f"  Celestrak GP Active: {count} records, {format_size(compressed_size)} -> {out_path}")
+    print(
+        f"  Celestrak GP Active: {count} records, {format_size(compressed_size)} -> {out_path}"
+    )
 
 
 def main() -> None:
@@ -158,7 +162,10 @@ def main() -> None:
 
     # Summary
     if errors:
-        print(f"Completed with {len(errors)} error(s): {', '.join(errors)}", file=sys.stderr)
+        print(
+            f"Completed with {len(errors)} error(s): {', '.join(errors)}",
+            file=sys.stderr,
+        )
         sys.exit(1)
     else:
         print("All fetches completed successfully.")

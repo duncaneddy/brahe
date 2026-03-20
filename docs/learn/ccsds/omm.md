@@ -1,24 +1,24 @@
 # OMM — Orbit Mean-elements Message
 
-An Orbit Mean-elements Message (OMM) contains mean Keplerian elements and associated TLE parameters used for SGP4/SDP4 analytical propagation. OMM is the CCSDS-standardized representation of General Perturbations (GP) data — the same orbital information traditionally distributed as Two-Line Element sets (TLEs), but in a structured, self-describing format.
+An Orbit Mean-elements Message (OMM) is the CCSDS-standardized representation of TLE/GP data — the same orbital elements traditionally distributed as Two-Line Element sets, in a structured, self-describing format. Data sources like CelesTrak and Space-Track distribute GP data as OMM. The typical workflow is to parse an OMM and initialize an SGP4 propagator.
 
-Data sources like CelesTrak and Space-Track distribute GP data as OMM messages (typically in XML or JSON), making OMM the modern successor to the fixed-width TLE format.
+## Parse and Propagate with SGP4
 
-## Structure
+Extract OMM mean elements and TLE parameters to create an `SGPPropagator`:
 
-An OMM message consists of:
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/omm_init_sgp.py:10"
+    ```
 
-- **Header** — format version, creation date, originator
-- **Metadata** — object name/ID, center body, reference frame, time system, mean element theory (e.g., "SGP/SGP4")
-- **Mean elements** — epoch, mean motion (or semi-major axis), eccentricity, inclination, RAAN, argument of pericenter, mean anomaly, optional GM
-- **TLE parameters** (optional) — NORAD catalog ID, classification, element set number, revolution count, BSTAR, mean motion derivatives
-- **Spacecraft parameters** (optional) — mass, drag/SRP areas and coefficients
-- **Covariance** (optional) — 6$\times$6 covariance matrix
-- **User-defined parameters** (optional) — arbitrary key-value pairs
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/omm_init_sgp.rs:5"
+    ```
 
-## Parsing and Accessing Data
+## Accessing Mean Elements and TLE Parameters
 
-Parse from file or string, then access metadata, mean elements, and TLE parameters:
+Parse from file or string, then access metadata, mean elements, and TLE parameters. The message carries two main data sections: **mean elements** (epoch, mean motion, eccentricity, inclination, RAAN, argument of pericenter, mean anomaly) and **TLE parameters** (NORAD catalog ID, classification, element set number, revolution count, $B^*$ drag term, mean motion derivatives):
 
 === "Python"
     ``` python
@@ -33,19 +33,11 @@ Parse from file or string, then access metadata, mean elements, and TLE paramete
 !!! info "Unit Convention for OMM"
     Mean motion, angles, and TLE drag terms are kept in their CCSDS/TLE-native units (rev/day, degrees, etc.) because these values are needed as-is for TLE generation and SGP4 initialization. Only GM is converted to SI (m$^3$/s$^2$).
 
-## Initializing an SGP4 Propagator
+## OMM and GPRecord
 
-Extract OMM mean elements and TLE parameters to create an `SGPPropagator`:
+Brahe's `GPRecord` type — returned by both `CelestrakClient` and `SpaceTrackClient` when querying GP data — has a bidirectional relationship with OMM. A `GPRecord` can be converted to an OMM via `to_omm()` for CCSDS-compliant export, and an OMM can be converted to a `GPRecord` via `to_gp_record()` for use with brahe's ephemeris infrastructure.
 
-=== "Python"
-    ``` python
-    --8<-- "./examples/ccsds/omm_init_sgp.py:10"
-    ```
-
-=== "Rust"
-    ``` rust
-    --8<-- "./examples/ccsds/omm_init_sgp.rs:5"
-    ```
+This means you can move freely between the two representations: query CelesTrak for a satellite, get a `GPRecord`, and export it as a standards-compliant OMM file for distribution. Or parse an OMM file received from an external system and convert it to a `GPRecord` to use the same downstream code you would with a CelesTrak or Space-Track query. Both conversions preserve all shared fields, so switching between formats introduces no data loss.
 
 ## KVN Format Example
 
@@ -90,3 +82,5 @@ Note that OMM KVN does not use `META_START`/`META_STOP` markers — all keywords
 - [API Reference — OMM](../../library_api/ccsds/omm.md)
 - [CCSDS Data Formats](index.md) — Overview of all message types
 - [Two-Line Elements](../orbits/two_line_elements.md) — Traditional TLE format
+- [Ephemeris Data Sources](../ephemeris/index.md) — CelesTrak and Space-Track clients
+- [SGP Propagation](../orbit_propagation/sgp_propagation.md) — SGP4/SDP4 propagation theory and usage

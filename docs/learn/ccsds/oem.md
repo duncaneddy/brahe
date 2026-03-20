@@ -1,20 +1,8 @@
 # OEM — Orbit Ephemeris Message
 
-An Orbit Ephemeris Message (OEM) contains time-ordered sequences of spacecraft state vectors (position and velocity), optionally with accelerations and covariance matrices. OEM is the standard format for exchanging ephemeris data — for example, when handing off a trajectory between mission planning and flight dynamics teams, distributing predicted or definitive ephemerides, or providing data for conjunction screening.
+An Orbit Ephemeris Message (OEM) carries time-ordered state vectors for spacecraft ephemeris exchange. The typical workflow is to parse an OEM file and convert it into an `OrbitTrajectory` for interpolation and analysis, or to generate an OEM from a propagator for distribution.
 
-## Structure
-
-An OEM message consists of:
-
-- **Header** — format version, creation date, originator, optional classification
-- **One or more segments**, each containing:
-    - **Metadata** — object name/ID, center body, reference frame, time system, time span, interpolation settings
-    - **State vectors** — epoch + position + velocity (+ optional acceleration) per line
-    - **Covariance blocks** (optional) — 6$\times$6 symmetric covariance matrices with optional epoch and reference frame
-
-Multiple segments allow a single file to cover different time spans, reference frames, or trajectory arcs (e.g., before and after a maneuver).
-
-## Parsing and Accessing Data
+## Parse and Access
 
 Parse from file or string, then access header properties, segment metadata, and state vectors:
 
@@ -28,9 +16,29 @@ Parse from file or string, then access header properties, segment metadata, and 
     --8<-- "./examples/ccsds/oem_parse_access.rs:4"
     ```
 
-## Creating from Scratch
+## Converting to OrbitTrajectory
 
-Build an OEM programmatically — define header, add segments with metadata, and populate state vectors:
+The primary interoperability point for OEM data is conversion to brahe's `OrbitTrajectory`. Each OEM segment maps to a trajectory object, giving you Hermite interpolation at arbitrary epochs within the covered time span:
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/oem_to_trajectory.py:8"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/oem_to_trajectory.rs:4"
+    ```
+
+## How OEM Messages Are Organized
+
+An OEM message begins with a **header** that records the format version, creation date, and originator. The bulk of the data lives in one or more **segments**, each of which has its own metadata block and a sequence of state vectors.
+
+Multiple segments exist because a single file may need to cover different trajectory arcs. A maneuver boundary, a change in reference frame, or a gap in tracking data each warrant a new segment. Within a segment, the metadata block records the object identity, center body, reference frame, time system, time span, and interpolation settings. The state vectors follow — each line provides an epoch plus position and velocity (and optionally acceleration). If covariance data is available, it appears as one or more 6$\times$6 symmetric matrices attached to the segment, each with its own epoch and optional reference frame override.
+
+## Creating and Writing OEMs
+
+Build an OEM programmatically by defining a header, adding segments with metadata, and populating state vectors. The resulting message can be serialized to KVN, XML, or JSON:
 
 === "Python"
     ``` python
@@ -42,13 +50,8 @@ Build an OEM programmatically — define header, add segments with metadata, and
     --8<-- "./examples/ccsds/oem_create_write.rs:4"
     ```
 
-## Append, Extend, and Delete (Python)
-
-Python supports collection-style mutation on OEM segments and state vectors:
-
-``` python
---8<-- "./examples/ccsds/oem_append_extend.py:8"
-```
+!!! info "Round-Trip Fidelity"
+    Writing and re-parsing an OEM preserves all metadata, state vectors, and covariance data. Numeric precision may vary slightly due to floating-point formatting, but values are preserved within the precision of the output format.
 
 ## Generating from a Propagator
 
@@ -63,33 +66,6 @@ Propagate an orbit numerically, extract the trajectory, and build an OEM for dis
     ``` rust
     --8<-- "./examples/ccsds/oem_from_propagator.rs:4"
     ```
-
-## Converting to OrbitTrajectory
-
-Convert OEM segments to brahe `OrbitTrajectory` objects for interpolation and analysis:
-
-=== "Python"
-    ``` python
-    --8<-- "./examples/ccsds/oem_to_trajectory.py:8"
-    ```
-
-=== "Rust"
-    ``` rust
-    --8<-- "./examples/ccsds/oem_to_trajectory.rs:4"
-    ```
-
-## Writing
-
-```python
-# Write to KVN string
-kvn = oem.to_string("KVN")
-
-# Write to file (KVN, XML, or JSON)
-oem.to_file("output.oem", "KVN")
-```
-
-!!! info "Round-Trip Fidelity"
-    Writing and re-parsing an OEM preserves all metadata, state vectors, and covariance data. Numeric precision may vary slightly due to floating-point formatting, but values are preserved within the precision of the output format.
 
 ## KVN Format Example
 

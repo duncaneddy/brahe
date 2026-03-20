@@ -1,35 +1,8 @@
 # OPM — Orbit Parameter Message
 
-An Orbit Parameter Message (OPM) contains a single spacecraft state (position and velocity) at a specific epoch, optionally accompanied by Keplerian elements, spacecraft physical parameters, maneuver specifications, and covariance data. OPM is used when exchanging a complete snapshot of an object's orbital state — for example, as initial conditions for propagation, in maneuver planning documents, or as part of a state handoff between organizations.
+An Orbit Parameter Message (OPM) carries a single spacecraft state at one epoch — position, velocity, and optionally Keplerian elements, spacecraft parameters, maneuvers, and covariance. It is the standard format for handing off initial conditions for propagation or documenting a maneuver plan.
 
-## Structure
-
-An OPM message consists of:
-
-- **Header** — format version, creation date, originator, comments
-- **Metadata** — object name/ID, center body, reference frame, time system
-- **State vector** — epoch + position [X, Y, Z] + velocity [X_DOT, Y_DOT, Z_DOT]
-- **Keplerian elements** (optional) — semi-major axis, eccentricity, inclination, RAAN, argument of pericenter, true/mean anomaly, GM
-- **Spacecraft parameters** (optional) — mass, drag area/coefficient, SRP area/coefficient
-- **Covariance** (optional) — 6$\times$6 symmetric covariance matrix with reference frame
-- **Maneuvers** (optional, multiple) — ignition epoch, duration, delta-mass, reference frame, delta-V components
-- **User-defined parameters** (optional) — arbitrary key-value pairs
-
-## Parsing and Accessing Data
-
-Parse from file or string, then access state vector, Keplerian elements, spacecraft parameters, and maneuvers:
-
-=== "Python"
-    ``` python
-    --8<-- "./examples/ccsds/opm_parse_access.py:8"
-    ```
-
-=== "Rust"
-    ``` rust
-    --8<-- "./examples/ccsds/opm_parse_access.rs:4"
-    ```
-
-## Initializing a Propagator
+## Parse and Initialize a Propagator
 
 Extract position, velocity, epoch, and spacecraft parameters from an OPM to initialize a `NumericalOrbitPropagator`:
 
@@ -42,6 +15,32 @@ Extract position, velocity, epoch, and spacecraft parameters from an OPM to init
     ``` rust
     --8<-- "./examples/ccsds/opm_init_propagator.rs:4"
     ```
+
+## Accessing OPM Data
+
+Parse from file or string, then access the state vector, optional Keplerian elements, spacecraft parameters, covariance, and maneuvers:
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/ccsds/opm_parse_access.py:8"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/ccsds/opm_parse_access.rs:4"
+    ```
+
+## What an OPM Contains
+
+Every OPM has a **header** (version, creation date, originator), **metadata** (object identity, center body, reference frame, time system), and a **state vector** (epoch plus position and velocity). Beyond these required parts, four optional sections can be present.
+
+**Keplerian elements** duplicate the state vector information in orbital-element form — semi-major axis, eccentricity, inclination, RAAN, argument of pericenter, and true or mean anomaly, plus $GM$. The redundancy is intentional: elements are easier for humans to review at a glance, and some receiving systems prefer them as input.
+
+**Spacecraft parameters** record physical properties relevant to force modeling — mass, drag area and coefficient ($C_D$), and solar radiation pressure area and coefficient ($C_R$). These feed directly into atmospheric drag and SRP force models during numerical propagation.
+
+**Maneuvers** describe planned or executed burns. Each maneuver specifies an ignition epoch, duration, delta-mass, reference frame, and three delta-V components. Multiple maneuvers are allowed, and the reference frame can differ between them (e.g., RTN for in-plane burns, EME2000 for inertial targeting).
+
+**Covariance** provides a 6$\times$6 symmetric position-velocity covariance matrix with an optional reference frame override relative to the state vector frame.
 
 ## Maneuver Propagation
 

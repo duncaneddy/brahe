@@ -57,17 +57,23 @@ def test_oem_parse_example2_unsupported_time_system(eop):
         OEM.from_file("test_assets/ccsds/oem/OEMExample2.txt")
 
 
-def test_oem_from_str_json_unsupported(eop):
-    """OEM JSON format is not yet supported."""
-    with pytest.raises(Exception, match="JSON"):
-        OEM.from_str('{"CCSDS_OEM_VERS": "3.0"}')
+def test_oem_json_round_trip(eop):
+    """OEM JSON round-trip: from_file -> to_string(JSON) -> from_str -> compare."""
+    oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    json_str = oem.to_string("JSON")
+    oem2 = OEM.from_str(json_str)
+    assert oem2.originator == oem.originator
+    assert len(oem2.segments) == len(oem.segments)
+    assert len(oem2.segments[0].states) == len(oem.segments[0].states)
+    assert oem2.segments[0].object_name == oem.segments[0].object_name
 
 
-def test_oem_to_string_json_unsupported(eop):
-    """OEM JSON format is not yet supported for writing."""
-    oem = OEM(originator="TEST")
-    with pytest.raises(Exception, match="JSON"):
-        oem.to_string("JSON")
+def test_oem_json_uppercase_keys(eop):
+    """OEM to_json_string with uppercase keys."""
+    oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    json_str = oem.to_json_string(uppercase_keys=True)
+    assert '"OBJECT_NAME"' in json_str
+    assert '"header"' in json_str  # container keys always lowercase
 
 
 def test_oem_parse_example4(eop):

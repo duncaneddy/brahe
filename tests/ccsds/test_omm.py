@@ -76,17 +76,23 @@ def test_omm_parse_example3_unsupported_time_system(eop):
         OMM.from_file("test_assets/ccsds/omm/OMMExample3.txt")
 
 
-def test_omm_from_str_json_unsupported(eop):
-    """OMM JSON format is not yet supported."""
-    with pytest.raises(Exception, match="JSON"):
-        OMM.from_str('{"CCSDS_OMM_VERS": "3.0"}')
-
-
-def test_omm_to_string_json_unsupported(eop):
-    """OMM JSON format is not yet supported for writing."""
+def test_omm_json_round_trip(eop):
+    """OMM JSON round-trip: from_file -> to_string(JSON) -> from_str -> compare."""
     omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
-    with pytest.raises(Exception, match="JSON"):
-        omm.to_string("JSON")
+    json_str = omm.to_string("JSON")
+    omm2 = OMM.from_str(json_str)
+    assert omm2.object_name == omm.object_name
+    assert omm2.object_id == omm.object_id
+    assert omm2.eccentricity == pytest.approx(omm.eccentricity, abs=1e-10)
+    assert omm2.inclination == pytest.approx(omm.inclination, abs=1e-10)
+
+
+def test_omm_json_uppercase_keys(eop):
+    """OMM to_json_string with uppercase keys."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    json_str = omm.to_json_string(uppercase_keys=True)
+    assert '"OBJECT_NAME"' in json_str
+    assert '"header"' in json_str  # container keys always lowercase
 
 
 def test_omm_repr(eop):

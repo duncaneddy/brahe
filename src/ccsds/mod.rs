@@ -37,7 +37,7 @@ pub mod xml;
 
 // Re-export commonly used types at the ccsds module level
 pub use cdm::{CDM, CDMObject, CDMObjectMetadata, CDMRTNCovariance, CDMStateVector};
-pub use common::{CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem};
+pub use common::{CCSDSFormat, CCSDSJsonKeyCase, CCSDSRefFrame, CCSDSTimeSystem};
 pub use oem::{OEM, OEMMetadata, OEMSegment, OEMStateVector};
 pub use omm::OMM;
 pub use opm::OPM;

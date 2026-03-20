@@ -244,9 +244,7 @@ impl OEM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::parse_oem(content),
             CCSDSFormat::XML => crate::ccsds::xml::parse_oem_xml(content),
-            CCSDSFormat::JSON => Err(BraheError::Error(
-                "OEM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
-            )),
+            CCSDSFormat::JSON => crate::ccsds::json::parse_oem_json(content),
         }
     }
 
@@ -278,10 +276,27 @@ impl OEM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::write_oem(self),
             CCSDSFormat::XML => crate::ccsds::xml::write_oem_xml(self),
-            CCSDSFormat::JSON => Err(BraheError::Error(
-                "OEM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
-            )),
+            CCSDSFormat::JSON => crate::ccsds::json::write_oem_json(
+                self,
+                crate::ccsds::common::CCSDSJsonKeyCase::Lower,
+            ),
         }
+    }
+
+    /// Write the OEM message to JSON with explicit key case control.
+    ///
+    /// # Arguments
+    ///
+    /// * `key_case` - Whether CCSDS keywords should be lowercase or uppercase
+    ///
+    /// # Returns
+    ///
+    /// * `Result<String, BraheError>` - Serialized JSON string or error
+    pub fn to_json_string(
+        &self,
+        key_case: crate::ccsds::common::CCSDSJsonKeyCase,
+    ) -> Result<String, BraheError> {
+        crate::ccsds::json::write_oem_json(self, key_case)
     }
 
     /// Write the OEM message to a file in the specified format.
@@ -385,28 +400,32 @@ mod tests {
     }
 
     #[test]
-    fn test_oem_from_str_json_unsupported() {
-        let result = OEM::from_str(r#"{"CCSDS_OEM_VERS": "3.0"}"#);
-        assert!(result.is_err());
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(
-            err_msg.contains("JSON"),
-            "Error should mention JSON: {}",
-            err_msg
+    fn test_oem_json_round_trip_via_dispatch() {
+        let mut oem = OEM::new("JSON_RT".to_string());
+        let metadata = OEMMetadata::new(
+            "TEST_SAT".to_string(),
+            "2024-999A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::J2000,
+            CCSDSTimeSystem::UTC,
+            Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC),
+            Epoch::from_datetime(2024, 6, 1, 1, 0, 0.0, 0.0, crate::time::TimeSystem::UTC),
         );
-    }
+        let mut seg = OEMSegment::new(metadata);
+        seg.push_state(OEMStateVector::new(
+            Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC),
+            [7000e3, 0.0, 0.0],
+            [0.0, 7500.0, 0.0],
+        ));
+        oem.push_segment(seg);
 
-    #[test]
-    fn test_oem_to_string_json_unsupported() {
-        let oem = OEM::new("TEST".to_string());
-        let result = oem.to_string(CCSDSFormat::JSON);
-        assert!(result.is_err());
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(
-            err_msg.contains("JSON"),
-            "Error should mention JSON: {}",
-            err_msg
-        );
+        let json_str = oem.to_string(CCSDSFormat::JSON).unwrap();
+        assert!(json_str.contains("7000") || json_str.contains("7.0"));
+        let oem2 = OEM::from_str(&json_str).unwrap();
+        assert_eq!(oem2.header.originator, "JSON_RT");
+        assert_eq!(oem2.segments.len(), 1);
+        assert_eq!(oem2.segments[0].states.len(), 1);
+        assert!((oem2.segments[0].states[0].position[0] - 7000e3).abs() < 1.0);
     }
 
     #[test]

@@ -1333,6 +1333,24 @@ impl PyOEM {
         Ok(result)
     }
 
+    /// Write the OEM to JSON with explicit key case control.
+    ///
+    /// Args:
+    ///     uppercase_keys (bool): If True, use uppercase CCSDS keywords. Default: False.
+    ///
+    /// Returns:
+    ///     str: Serialized JSON string
+    #[pyo3(signature = (uppercase_keys=false))]
+    fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
+        let key_case = if uppercase_keys {
+            crate::ccsds::common::CCSDSJsonKeyCase::Upper
+        } else {
+            crate::ccsds::common::CCSDSJsonKeyCase::Lower
+        };
+        let result = self.inner.to_json_string(key_case)?;
+        Ok(result)
+    }
+
     /// Write the OEM to a file in the specified format.
     ///
     /// Args:
@@ -2628,6 +2646,24 @@ impl PyOMM {
         Ok(result)
     }
 
+    /// Write the OMM to JSON with explicit key case control.
+    ///
+    /// Args:
+    ///     uppercase_keys (bool): If True, use uppercase CCSDS keywords. Default: False.
+    ///
+    /// Returns:
+    ///     str: Serialized JSON string
+    #[pyo3(signature = (uppercase_keys=false))]
+    fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
+        let key_case = if uppercase_keys {
+            crate::ccsds::common::CCSDSJsonKeyCase::Upper
+        } else {
+            crate::ccsds::common::CCSDSJsonKeyCase::Lower
+        };
+        let result = self.inner.to_json_string(key_case)?;
+        Ok(result)
+    }
+
     /// Write the OMM to a file in the specified format.
     ///
     /// Args:
@@ -3232,6 +3268,24 @@ impl PyOPM {
     fn to_string(&self, format: &str) -> PyResult<String> {
         let fmt = parse_format(format)?;
         let result = self.inner.to_string(fmt)?;
+        Ok(result)
+    }
+
+    /// Write the OPM to JSON with explicit key case control.
+    ///
+    /// Args:
+    ///     uppercase_keys (bool): If True, use uppercase CCSDS keywords. Default: False.
+    ///
+    /// Returns:
+    ///     str: Serialized JSON string
+    #[pyo3(signature = (uppercase_keys=false))]
+    fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
+        let key_case = if uppercase_keys {
+            crate::ccsds::common::CCSDSJsonKeyCase::Upper
+        } else {
+            crate::ccsds::common::CCSDSJsonKeyCase::Lower
+        };
+        let result = self.inner.to_json_string(key_case)?;
         Ok(result)
     }
 
@@ -4301,6 +4355,24 @@ impl PyCDM {
     fn to_string(&self, format: &str) -> PyResult<String> {
         let fmt = parse_format(format)?;
         let result = self.inner.to_string(fmt)?;
+        Ok(result)
+    }
+
+    /// Write the CDM to JSON with explicit key case control.
+    ///
+    /// Args:
+    ///     uppercase_keys (bool): If True, use uppercase CCSDS keywords. Default: False.
+    ///
+    /// Returns:
+    ///     str: Serialized JSON string
+    #[pyo3(signature = (uppercase_keys=false))]
+    fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
+        let key_case = if uppercase_keys {
+            crate::ccsds::common::CCSDSJsonKeyCase::Upper
+        } else {
+            crate::ccsds::common::CCSDSJsonKeyCase::Lower
+        };
+        let result = self.inner.to_json_string(key_case)?;
         Ok(result)
     }
 

@@ -227,9 +227,7 @@ impl OPM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::parse_opm(content),
             CCSDSFormat::XML => crate::ccsds::xml::parse_opm_xml(content),
-            CCSDSFormat::JSON => Err(BraheError::Error(
-                "OPM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
-            )),
+            CCSDSFormat::JSON => crate::ccsds::json::parse_opm_json(content),
         }
     }
 
@@ -245,10 +243,19 @@ impl OPM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::write_opm(self),
             CCSDSFormat::XML => crate::ccsds::xml::write_opm_xml(self),
-            CCSDSFormat::JSON => Err(BraheError::Error(
-                "OPM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
-            )),
+            CCSDSFormat::JSON => crate::ccsds::json::write_opm_json(
+                self,
+                crate::ccsds::common::CCSDSJsonKeyCase::Lower,
+            ),
         }
+    }
+
+    /// Write the OPM message to JSON with explicit key case control.
+    pub fn to_json_string(
+        &self,
+        key_case: crate::ccsds::common::CCSDSJsonKeyCase,
+    ) -> Result<String, BraheError> {
+        crate::ccsds::json::write_opm_json(self, key_case)
     }
 
     /// Write the OPM message to a file in the specified format.
@@ -260,8 +267,11 @@ impl OPM {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::ccsds::common::CCSDSJsonKeyCase;
+    use crate::time::TimeSystem;
 
     #[test]
     fn test_opm_builder() {
@@ -285,20 +295,179 @@ mod tests {
     }
 
     #[test]
-    fn test_opm_from_str_json_unsupported() {
-        let result = OPM::from_str(r#"{"CCSDS_OPM_VERS": "3.0"}"#);
-        assert!(result.is_err());
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(
-            err_msg.contains("JSON"),
-            "Error should mention JSON: {}",
-            err_msg
-        );
+    fn test_opm_json_round_trip_via_dispatch() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let json_str = opm.to_string(CCSDSFormat::JSON).unwrap();
+        assert!(json_str.contains("object_name") || json_str.contains("OBJECT_NAME"));
+        let opm2 = OPM::from_str(&json_str).unwrap();
+        assert_eq!(opm2.metadata.object_name, opm.metadata.object_name);
+        assert_eq!(opm2.metadata.object_id, opm.metadata.object_id);
+        assert!((opm2.state_vector.position[0] - opm.state_vector.position[0]).abs() < 1.0);
+        assert!((opm2.state_vector.velocity[0] - opm.state_vector.velocity[0]).abs() < 0.001);
     }
 
     #[test]
-    fn test_opm_to_string_json_unsupported() {
-        let metadata = OPMMetadata::new(
+    fn test_opm_from_file_nonexistent() {
+        let result = OPM::from_file("nonexistent_file.txt");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_opm_metadata_new() {
+        let meta = OPMMetadata::new(
+            "ISS".to_string(),
+            "1998-067A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::ITRF2000,
+            CCSDSTimeSystem::UTC,
+        );
+        assert_eq!(meta.object_name, "ISS");
+        assert_eq!(meta.object_id, "1998-067A");
+        assert_eq!(meta.center_name, "EARTH");
+        assert!(matches!(meta.ref_frame, CCSDSRefFrame::ITRF2000));
+        assert!(matches!(meta.time_system, CCSDSTimeSystem::UTC));
+        assert!(meta.ref_frame_epoch.is_none());
+        assert!(meta.comments.is_empty());
+    }
+
+    #[test]
+    fn test_opm_state_vector_new() {
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let pos = [6503.514e3, 1239.647e3, -717.490e3];
+        let vel = [-873.160, 8740.420, -4191.076];
+        let sv = OPMStateVector::new(epoch, pos, vel);
+
+        assert!((sv.position[0] - 6503.514e3).abs() < 1e-6);
+        assert!((sv.position[1] - 1239.647e3).abs() < 1e-6);
+        assert!((sv.position[2] - (-717.490e3)).abs() < 1e-6);
+        assert!((sv.velocity[0] - (-873.160)).abs() < 1e-6);
+        assert!((sv.velocity[1] - 8740.420).abs() < 1e-6);
+        assert!((sv.velocity[2] - (-4191.076)).abs() < 1e-6);
+        assert!(sv.comments.is_empty());
+    }
+
+    #[test]
+    fn test_opm_new() {
+        let meta = OPMMetadata::new(
+            "SAT1".to_string(),
+            "2024-001A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::GCRF,
+            CCSDSTimeSystem::UTC,
+        );
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let sv = OPMStateVector::new(epoch, [7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0]);
+        let opm = OPM::new("TEST_ORG".to_string(), meta, sv);
+
+        assert_eq!(opm.header.originator, "TEST_ORG");
+        assert!((opm.header.format_version - 3.0).abs() < 1e-15);
+        assert!(opm.header.classification.is_none());
+        assert!(opm.header.message_id.is_none());
+        assert_eq!(opm.metadata.object_name, "SAT1");
+        assert_eq!(opm.metadata.object_id, "2024-001A");
+        assert!(opm.keplerian_elements.is_none());
+        assert!(opm.spacecraft_parameters.is_none());
+        assert!(opm.covariance.is_none());
+        assert!(opm.maneuvers.is_empty());
+        assert!(opm.user_defined.is_none());
+    }
+
+    #[test]
+    fn test_opm_kvn_parse_example1() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        assert_eq!(opm.metadata.object_name, "GODZILLA 5");
+        assert_eq!(opm.metadata.object_id, "1998-999A");
+        assert_eq!(opm.metadata.center_name, "EARTH");
+        assert!(matches!(opm.metadata.ref_frame, CCSDSRefFrame::ITRF2000));
+        assert!(matches!(opm.metadata.time_system, CCSDSTimeSystem::UTC));
+        // Position in meters (converted from km in file)
+        assert!((opm.state_vector.position[0] - 6503.514e3).abs() < 1.0);
+        assert!((opm.state_vector.position[1] - 1239.647e3).abs() < 1.0);
+        assert!((opm.state_vector.position[2] - (-717.490e3)).abs() < 1.0);
+        // Velocity in m/s (converted from km/s in file)
+        assert!((opm.state_vector.velocity[0] - (-873.160)).abs() < 0.01);
+        assert!((opm.state_vector.velocity[1] - 8740.420).abs() < 0.01);
+        assert!((opm.state_vector.velocity[2] - (-4191.076)).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_opm_with_keplerian_elements() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
+        assert!(
+            opm.keplerian_elements.is_some(),
+            "OPMExample5 should have Keplerian elements"
+        );
+        let ke = opm.keplerian_elements.as_ref().unwrap();
+        assert!((ke.eccentricity - 0.020842611).abs() < 1e-9);
+        assert!((ke.inclination - 0.117746).abs() < 1e-6);
+        assert!((ke.ra_of_asc_node - 17.604721).abs() < 1e-6);
+        assert!((ke.arg_of_pericenter - 218.242943).abs() < 1e-6);
+        assert!(ke.true_anomaly.is_some());
+        assert!((ke.true_anomaly.unwrap() - 41.922339).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_opm_with_maneuvers() {
+        // OPMExample5 has 3 maneuvers
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
+        assert!(
+            opm.maneuvers.len() >= 2,
+            "OPMExample5 should have maneuvers"
+        );
+        // Verify first maneuver has expected delta_mass
+        assert!(opm.maneuvers[0].delta_mass.is_some());
+        assert!((opm.maneuvers[0].delta_mass.unwrap() - (-18.418)).abs() < 0.001);
+        assert!((opm.maneuvers[0].duration - 132.60).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_opm_to_string_kvn_returns_error() {
+        // KVN writer is not yet implemented
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let result = opm.to_string(CCSDSFormat::KVN);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_opm_to_string_xml_returns_error() {
+        // XML writer is not yet implemented
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let result = opm.to_string(CCSDSFormat::XML);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_opm_to_file_propagates_write_error() {
+        // to_file delegates to to_string, which fails for all formats currently
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let result = opm.to_file("/tmp/brahe_test_opm.txt", CCSDSFormat::KVN);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_opm_maneuver_new() {
+        let epoch = Epoch::from_datetime(2024, 6, 1, 9, 0, 0.0, 0.0, TimeSystem::UTC);
+        let m = OPMManeuver::new(epoch, 132.6, CCSDSRefFrame::EME2000, [10.0, -5.0, 2.0]);
+        assert!((m.duration - 132.6).abs() < 1e-15);
+        assert!(matches!(m.ref_frame, CCSDSRefFrame::EME2000));
+        assert!((m.dv[0] - 10.0).abs() < 1e-15);
+        assert!((m.dv[1] - (-5.0)).abs() < 1e-15);
+        assert!((m.dv[2] - 2.0).abs() < 1e-15);
+        assert!(m.delta_mass.is_none());
+        assert!(m.comments.is_empty());
+    }
+
+    #[test]
+    fn test_opm_maneuver_with_delta_mass() {
+        let epoch = Epoch::from_datetime(2024, 6, 1, 9, 0, 0.0, 0.0, TimeSystem::UTC);
+        let m = OPMManeuver::new(epoch, 100.0, CCSDSRefFrame::RTN, [1.0, 0.0, 0.0])
+            .with_delta_mass(-10.5);
+        assert_eq!(m.delta_mass, Some(-10.5));
+    }
+
+    #[test]
+    fn test_opm_push_maneuver() {
+        let meta = OPMMetadata::new(
             "SAT".to_string(),
             "2024-001A".to_string(),
             "EARTH".to_string(),
@@ -306,20 +475,42 @@ mod tests {
             CCSDSTimeSystem::UTC,
         );
         let sv = OPMStateVector::new(Epoch::now(), [7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0]);
-        let opm = OPM::new("TEST".to_string(), metadata, sv);
-        let result = opm.to_string(CCSDSFormat::JSON);
-        assert!(result.is_err());
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(
-            err_msg.contains("JSON"),
-            "Error should mention JSON: {}",
-            err_msg
-        );
+        let mut opm = OPM::new("ORG".to_string(), meta, sv);
+        assert_eq!(opm.maneuvers.len(), 0);
+
+        let epoch = Epoch::from_datetime(2024, 6, 1, 9, 0, 0.0, 0.0, TimeSystem::UTC);
+        opm.push_maneuver(OPMManeuver::new(
+            epoch,
+            60.0,
+            CCSDSRefFrame::RTN,
+            [1.0, 0.0, 0.0],
+        ));
+        opm.push_maneuver(OPMManeuver::new(
+            epoch,
+            30.0,
+            CCSDSRefFrame::RTN,
+            [0.0, 1.0, 0.0],
+        ));
+        assert_eq!(opm.maneuvers.len(), 2);
+        assert!((opm.maneuvers[0].duration - 60.0).abs() < 1e-15);
+        assert!((opm.maneuvers[1].duration - 30.0).abs() < 1e-15);
     }
 
     #[test]
-    fn test_opm_from_file_nonexistent() {
-        let result = OPM::from_file("nonexistent_file.txt");
-        assert!(result.is_err());
+    fn test_opm_kvn_parse_spacecraft_params() {
+        // OPMExample1 has spacecraft parameters
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        assert!(opm.spacecraft_parameters.is_some());
+        let sp = opm.spacecraft_parameters.as_ref().unwrap();
+        assert!(sp.mass.is_some());
+        assert!((sp.mass.unwrap() - 3000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_opm_to_json_string_upper_key_case() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
+        let json_str = opm.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
+        assert!(json_str.contains("OBJECT_NAME"));
+        assert!(json_str.contains("OBJECT_ID"));
     }
 }

@@ -14,6 +14,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::time::Epoch;
 
+/// Controls the casing of CCSDS data field keys in JSON output.
+///
+/// Container/structural keys (e.g., `"header"`, `"segments"`, `"metadata"`) are
+/// always lowercase regardless of this setting. Only CCSDS data field keywords
+/// (e.g., `OBJECT_NAME`, `CREATION_DATE`, `X`, `Y`) are affected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CCSDSJsonKeyCase {
+    /// Lowercase keys (default): `"object_name"`, `"creation_date"`
+    Lower,
+    /// Uppercase CCSDS keywords: `"OBJECT_NAME"`, `"CREATION_DATE"`
+    Upper,
+}
+
 /// CCSDS message encoding format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CCSDSFormat {
@@ -944,5 +957,292 @@ mod tests {
                 result.unwrap_err()
             );
         }
+    }
+
+    // --- 1. CCSDSTimeSystem Display for exotic variants ---
+
+    #[test]
+    fn test_ccsds_time_system_display_exotic() {
+        assert_eq!(format!("{}", CCSDSTimeSystem::TDB), "TDB");
+        assert_eq!(format!("{}", CCSDSTimeSystem::TCB), "TCB");
+        assert_eq!(format!("{}", CCSDSTimeSystem::TDR), "TDR");
+        assert_eq!(format!("{}", CCSDSTimeSystem::TCG), "TCG");
+        assert_eq!(format!("{}", CCSDSTimeSystem::GMST), "GMST");
+        assert_eq!(format!("{}", CCSDSTimeSystem::MET), "MET");
+        assert_eq!(format!("{}", CCSDSTimeSystem::MRT), "MRT");
+        assert_eq!(format!("{}", CCSDSTimeSystem::SCLK), "SCLK");
+    }
+
+    // --- 2. CCSDSTimeSystem::parse() for exotic variants ---
+
+    #[test]
+    fn test_ccsds_time_system_parse_exotic() {
+        assert_eq!(CCSDSTimeSystem::parse("TCB").unwrap(), CCSDSTimeSystem::TCB);
+        assert_eq!(CCSDSTimeSystem::parse("TDR").unwrap(), CCSDSTimeSystem::TDR);
+        assert_eq!(CCSDSTimeSystem::parse("TCG").unwrap(), CCSDSTimeSystem::TCG);
+        assert_eq!(
+            CCSDSTimeSystem::parse("GMST").unwrap(),
+            CCSDSTimeSystem::GMST
+        );
+        assert_eq!(
+            CCSDSTimeSystem::parse("SCLK").unwrap(),
+            CCSDSTimeSystem::SCLK
+        );
+    }
+
+    // --- 3. CCSDSRefFrame Display for untested variants ---
+
+    #[test]
+    fn test_ccsds_ref_frame_display_all_variants() {
+        assert_eq!(format!("{}", CCSDSRefFrame::GCRF), "GCRF");
+        assert_eq!(format!("{}", CCSDSRefFrame::ITRF2000), "ITRF2000");
+        assert_eq!(format!("{}", CCSDSRefFrame::ITRF93), "ITRF93");
+        assert_eq!(format!("{}", CCSDSRefFrame::ITRF97), "ITRF97");
+        assert_eq!(format!("{}", CCSDSRefFrame::ITRF2005), "ITRF2005");
+        assert_eq!(format!("{}", CCSDSRefFrame::ITRF2008), "ITRF2008");
+        assert_eq!(format!("{}", CCSDSRefFrame::ITRF2014), "ITRF2014");
+        assert_eq!(format!("{}", CCSDSRefFrame::TEME), "TEME");
+        assert_eq!(format!("{}", CCSDSRefFrame::TDR), "TDR");
+        assert_eq!(format!("{}", CCSDSRefFrame::TNW), "TNW");
+        assert_eq!(format!("{}", CCSDSRefFrame::RSW), "RSW");
+        assert_eq!(format!("{}", CCSDSRefFrame::TOD), "TOD");
+        assert_eq!(format!("{}", CCSDSRefFrame::J2000), "J2000");
+    }
+
+    // --- 4. CCSDSRefFrame::parse() alternative formats ---
+
+    #[test]
+    fn test_ccsds_ref_frame_parse_alternative_formats() {
+        assert_eq!(CCSDSRefFrame::parse("ITRF-2005"), CCSDSRefFrame::ITRF2005);
+        assert_eq!(CCSDSRefFrame::parse("ITRF-2008"), CCSDSRefFrame::ITRF2008);
+        assert_eq!(CCSDSRefFrame::parse("ITRF-2014"), CCSDSRefFrame::ITRF2014);
+        assert_eq!(CCSDSRefFrame::parse("ITRF-97"), CCSDSRefFrame::ITRF97);
+        assert_eq!(CCSDSRefFrame::parse("ITRF-93"), CCSDSRefFrame::ITRF93);
+        assert_eq!(CCSDSRefFrame::parse("TDR"), CCSDSRefFrame::TDR);
+        assert_eq!(CCSDSRefFrame::parse("TOD"), CCSDSRefFrame::TOD);
+        assert_eq!(CCSDSRefFrame::parse("J2000"), CCSDSRefFrame::J2000);
+        assert_eq!(CCSDSRefFrame::parse("TNW"), CCSDSRefFrame::TNW);
+        assert_eq!(CCSDSRefFrame::parse("RSW"), CCSDSRefFrame::RSW);
+    }
+
+    // --- 5. format_ccsds_datetime edge cases ---
+
+    #[test]
+    fn test_format_ccsds_datetime_zero_nanoseconds() {
+        // Zero nanoseconds should produce the simpler 3-decimal format (via the nanosecond==0.0 branch)
+        // Use from_date which guarantees zero nanosecond component
+        let epoch = Epoch::from_date(2024, 1, 15, crate::time::TimeSystem::UTC);
+        let formatted = format_ccsds_datetime(&epoch);
+        assert_eq!(formatted, "2024-01-15T00:00:00.000");
+    }
+
+    #[test]
+    fn test_format_ccsds_datetime_trailing_zeros_trimmed() {
+        // Non-zero nanoseconds that would leave trailing zeros after trimming
+        let epoch = Epoch::from_datetime(
+            2024,
+            1,
+            15,
+            12,
+            0,
+            0.0,
+            500_000_000.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let formatted = format_ccsds_datetime(&epoch);
+        assert!(formatted.contains("T12:00:00.5"));
+        assert!(!formatted.ends_with('0') || formatted.ends_with(".0"));
+    }
+
+    #[test]
+    fn test_format_ccsds_datetime_integer_second_with_nanoseconds() {
+        // Nanoseconds that result in a trailing-dot scenario after trim (whole number of seconds from ns)
+        // e.g. 1_000_000_000 ns = 1.0 extra second. This tests the ".0" branch.
+        let epoch =
+            Epoch::from_datetime(2024, 6, 1, 0, 0, 10.0, 100.0, crate::time::TimeSystem::UTC);
+        let formatted = format_ccsds_datetime(&epoch);
+        // Should contain decimal portion and not end with bare '.'
+        assert!(!formatted.ends_with('.'));
+    }
+
+    // --- 6. parse_ccsds_datetime edge cases ---
+
+    #[test]
+    fn test_parse_ccsds_datetime_date_only() {
+        let ts = CCSDSTimeSystem::UTC;
+        let epoch = parse_ccsds_datetime("2024-01-15", &ts).unwrap();
+        let (year, month, day, hour, minute, second, _ns) = epoch.to_datetime();
+        assert_eq!(year, 2024);
+        assert_eq!(month, 1);
+        assert_eq!(day, 15);
+        assert_eq!(hour, 0);
+        assert_eq!(minute, 0);
+        assert_eq!(second, 0.0);
+    }
+
+    #[test]
+    fn test_parse_ccsds_datetime_doy_high_precision() {
+        let ts = CCSDSTimeSystem::UTC;
+        // DOY format with high-precision fractional seconds
+        let epoch = parse_ccsds_datetime("2024-032T06:30:15.123456789", &ts).unwrap();
+        let (year, month, day, hour, minute, _second, _ns) = epoch.to_datetime();
+        assert_eq!(year, 2024);
+        assert_eq!(month, 2); // Day 32 of 2024 = Feb 1
+        assert_eq!(day, 1);
+        assert_eq!(hour, 6);
+        assert_eq!(minute, 30);
+    }
+
+    #[test]
+    fn test_parse_ccsds_datetime_ut1() {
+        // UT1 is supported but requires EOP initialization
+        crate::utils::testing::setup_global_test_eop();
+        let ts = CCSDSTimeSystem::UT1;
+        let epoch = parse_ccsds_datetime("2020-06-15T00:00:00.000", &ts);
+        assert!(epoch.is_ok());
+    }
+
+    // --- 7. Covariance scale factor tests ---
+
+    #[test]
+    fn test_covariance_from_lower_triangular_with_scale() {
+        let values: [f64; 21] = [
+            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
+            17.0, 18.0, 19.0, 20.0, 21.0,
+        ];
+        // Scale by 1e6 (km^2 -> m^2)
+        let matrix = covariance_from_lower_triangular(&values, 1e6);
+        assert_eq!(matrix[(0, 0)], 1.0e6);
+        assert_eq!(matrix[(1, 0)], 2.0e6);
+        assert_eq!(matrix[(0, 1)], 2.0e6); // symmetry
+        assert_eq!(matrix[(5, 5)], 21.0e6);
+    }
+
+    #[test]
+    fn test_covariance_to_lower_triangular_with_scale() {
+        let values: [f64; 21] = [
+            1.0e6, 2.0e6, 3.0e6, 4.0e6, 5.0e6, 6.0e6, 7.0e6, 8.0e6, 9.0e6, 10.0e6, 11.0e6, 12.0e6,
+            13.0e6, 14.0e6, 15.0e6, 16.0e6, 17.0e6, 18.0e6, 19.0e6, 20.0e6, 21.0e6,
+        ];
+        let matrix = covariance_from_lower_triangular(&values, 1.0);
+        // Scale by 1e-6 (m^2 -> km^2)
+        let recovered = covariance_to_lower_triangular(&matrix, 1e-6);
+        for (i, val) in recovered.iter().enumerate() {
+            assert!((val - (i + 1) as f64).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn test_covariance_round_trip_with_scale() {
+        let values: [f64; 21] = [
+            3.331e-04, 4.619e-04, 6.782e-04, -3.070e-04, -4.221e-04, 3.232e-04, -3.349e-07,
+            -4.686e-07, 2.485e-07, 4.296e-10, -2.212e-07, -2.864e-07, 1.798e-07, 2.609e-10,
+            1.768e-10, -3.041e-07, -4.989e-07, 3.540e-07, 1.869e-10, 1.009e-10, 6.224e-10,
+        ];
+        // Convert km^2 -> m^2 and back
+        let matrix = covariance_from_lower_triangular(&values, 1e6);
+        let recovered = covariance_to_lower_triangular(&matrix, 1e-6);
+        for i in 0..21 {
+            assert!(
+                (values[i] - recovered[i]).abs() < 1e-15,
+                "Mismatch at index {}: {} vs {}",
+                i,
+                values[i],
+                recovered[i]
+            );
+        }
+    }
+
+    // --- 8. covariance9x9 7x7 and 9x9 round-trips ---
+
+    #[test]
+    fn test_covariance9x9_round_trip_7x7() {
+        let mut values = vec![0.0; 28];
+        for (i, v) in values.iter_mut().enumerate() {
+            *v = (i + 1) as f64 * 0.01;
+        }
+        let (matrix, dim) = covariance9x9_from_lower_triangular(&values).unwrap();
+        assert_eq!(dim, CDMCovarianceDimension::SevenBySeven);
+        let recovered = covariance9x9_to_lower_triangular(&matrix, dim);
+        assert_eq!(values.len(), recovered.len());
+        for i in 0..28 {
+            assert!(
+                (values[i] - recovered[i]).abs() < 1e-15,
+                "Mismatch at index {}: {} vs {}",
+                i,
+                values[i],
+                recovered[i]
+            );
+        }
+        // Verify symmetry in populated 7x7 region
+        for i in 0..7 {
+            for j in 0..7 {
+                assert_eq!(matrix[(i, j)], matrix[(j, i)]);
+            }
+        }
+        // Verify unpopulated rows 7-8 are zero
+        for i in 7..9 {
+            for j in 0..9 {
+                assert_eq!(matrix[(i, j)], 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_covariance9x9_round_trip_9x9() {
+        let mut values = vec![0.0; 45];
+        for (i, v) in values.iter_mut().enumerate() {
+            *v = (i + 1) as f64 * 0.001;
+        }
+        let (matrix, dim) = covariance9x9_from_lower_triangular(&values).unwrap();
+        assert_eq!(dim, CDMCovarianceDimension::NineByNine);
+        let recovered = covariance9x9_to_lower_triangular(&matrix, dim);
+        assert_eq!(values.len(), recovered.len());
+        for i in 0..45 {
+            assert!(
+                (values[i] - recovered[i]).abs() < 1e-15,
+                "Mismatch at index {}: {} vs {}",
+                i,
+                values[i],
+                recovered[i]
+            );
+        }
+        // Verify full 9x9 symmetry
+        for i in 0..9 {
+            for j in 0..9 {
+                assert_eq!(matrix[(i, j)], matrix[(j, i)]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_covariance9x9_invalid_element_count() {
+        let values = vec![0.0; 10]; // Invalid count
+        let result = covariance9x9_from_lower_triangular(&values);
+        assert!(result.is_err());
+    }
+
+    // --- Additional edge cases for CCSDSTimeSystem ---
+
+    #[test]
+    fn test_ccsds_time_system_display_all_standard() {
+        // Cover the standard variants that Display test above already covers
+        // but ensure all are tested including UTC/TAI/GPS/TT/UT1
+        assert_eq!(format!("{}", CCSDSTimeSystem::UTC), "UTC");
+        assert_eq!(format!("{}", CCSDSTimeSystem::TAI), "TAI");
+        assert_eq!(format!("{}", CCSDSTimeSystem::GPS), "GPS");
+        assert_eq!(format!("{}", CCSDSTimeSystem::TT), "TT");
+        assert_eq!(format!("{}", CCSDSTimeSystem::UT1), "UT1");
+    }
+
+    #[test]
+    fn test_ccsds_time_system_to_brahe_exotic_none() {
+        // Verify all exotic variants return None
+        assert!(CCSDSTimeSystem::TCB.to_time_system().is_none());
+        assert!(CCSDSTimeSystem::TDR.to_time_system().is_none());
+        assert!(CCSDSTimeSystem::TCG.to_time_system().is_none());
+        assert!(CCSDSTimeSystem::GMST.to_time_system().is_none());
+        assert!(CCSDSTimeSystem::MRT.to_time_system().is_none());
+        assert!(CCSDSTimeSystem::SCLK.to_time_system().is_none());
     }
 }

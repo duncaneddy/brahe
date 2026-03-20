@@ -698,8 +698,19 @@ impl CDM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::write_cdm(self),
             CCSDSFormat::XML => crate::ccsds::xml::write_cdm_xml(self),
-            CCSDSFormat::JSON => crate::ccsds::json::write_cdm_json(self),
+            CCSDSFormat::JSON => crate::ccsds::json::write_cdm_json(
+                self,
+                crate::ccsds::common::CCSDSJsonKeyCase::Lower,
+            ),
         }
+    }
+
+    /// Write the CDM message to JSON with explicit key case control.
+    pub fn to_json_string(
+        &self,
+        key_case: crate::ccsds::common::CCSDSJsonKeyCase,
+    ) -> Result<String, BraheError> {
+        crate::ccsds::json::write_cdm_json(self, key_case)
     }
 
     /// Write the CDM message to a file in the specified format.

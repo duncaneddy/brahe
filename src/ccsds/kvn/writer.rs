@@ -837,6 +837,7 @@ pub fn write_cdm(cdm: &crate::ccsds::cdm::CDM) -> Result<String, BraheError> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::ccsds::common::CDMCovarianceDimension;
     use crate::ccsds::kvn::parse_oem;
 
     #[test]
@@ -915,5 +916,902 @@ mod tests {
             oem.segments[0].metadata.object_name,
             oem2.segments[0].metadata.object_name
         );
+    }
+
+    // ------------------------------------------------------------------
+    // OEM writer: optional field coverage
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn test_oem_write_header_classification() {
+        // OEMExample1 has CLASSIFICATION = public, test-data
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let oem = parse_oem(&content).unwrap();
+        assert!(oem.header.classification.is_some());
+
+        let written = write_oem(&oem).unwrap();
+        assert!(written.contains("CLASSIFICATION = public, test-data"));
+    }
+
+    #[test]
+    fn test_oem_write_header_message_id() {
+        // OEMExample3 has MESSAGE_ID
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample3.txt").unwrap();
+        let oem = parse_oem(&content).unwrap();
+        assert!(oem.header.message_id.is_some());
+
+        let written = write_oem(&oem).unwrap();
+        assert!(written.contains("MESSAGE_ID = OEM 201113719185"));
+    }
+
+    #[test]
+    fn test_oem_write_ref_frame_epoch() {
+        use crate::ccsds::common::{CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
+        use crate::ccsds::oem::{OEMMetadata, OEMSegment, OEMStateVector};
+        use crate::time::Epoch;
+
+        let epoch = Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let ref_epoch =
+            Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let mut metadata = OEMMetadata::new(
+            "REF_SAT".to_string(),
+            "2024-001A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::TOD,
+            CCSDSTimeSystem::UTC,
+            epoch,
+            epoch,
+        );
+        metadata.ref_frame_epoch = Some(ref_epoch);
+        let mut seg = OEMSegment::new(metadata);
+        seg.push_state(OEMStateVector::new(
+            epoch,
+            [7000e3, 0.0, 0.0],
+            [0.0, 7500.0, 0.0],
+        ));
+        let oem = OEM {
+            header: ODMHeader {
+                format_version: 3.0,
+                classification: None,
+                creation_date: epoch,
+                originator: "TEST".to_string(),
+                message_id: None,
+                comments: Vec::new(),
+            },
+            segments: vec![seg],
+        };
+        let written = write_oem(&oem).unwrap();
+        assert!(written.contains("REF_FRAME_EPOCH ="));
+        assert!(written.contains("2000-01-01"));
+        let oem2 = parse_oem(&written).unwrap();
+        assert!(oem2.segments[0].metadata.ref_frame_epoch.is_some());
+    }
+
+    #[test]
+    fn test_oem_write_useable_times() {
+        // OEMExample1 has USEABLE_START_TIME and USEABLE_STOP_TIME
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let oem = parse_oem(&content).unwrap();
+        assert!(oem.segments[0].metadata.useable_start_time.is_some());
+        assert!(oem.segments[0].metadata.useable_stop_time.is_some());
+
+        let written = write_oem(&oem).unwrap();
+        assert!(written.contains("USEABLE_START_TIME ="));
+        assert!(written.contains("USEABLE_STOP_TIME ="));
+    }
+
+    #[test]
+    fn test_oem_write_interpolation() {
+        // OEMExample1 has INTERPOLATION and INTERPOLATION_DEGREE
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
+        let oem = parse_oem(&content).unwrap();
+        assert!(oem.segments[0].metadata.interpolation.is_some());
+        assert!(oem.segments[0].metadata.interpolation_degree.is_some());
+
+        let written = write_oem(&oem).unwrap();
+        assert!(written.contains("INTERPOLATION = HERMITE"));
+        assert!(written.contains("INTERPOLATION_DEGREE = 7"));
+    }
+
+    #[test]
+    fn test_oem_write_acceleration() {
+        use crate::ccsds::common::{CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
+        use crate::ccsds::oem::{OEMMetadata, OEMSegment, OEMStateVector};
+        use crate::time::Epoch;
+
+        let epoch = Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let sv = OEMStateVector::new(epoch, [7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0])
+            .with_acceleration([0.001, -0.002, 0.003]);
+
+        let metadata = OEMMetadata::new(
+            "ACCEL_SAT".to_string(),
+            "2024-001A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::J2000,
+            CCSDSTimeSystem::UTC,
+            epoch,
+            epoch,
+        );
+        let mut seg = OEMSegment::new(metadata);
+        seg.push_state(sv);
+
+        let oem = OEM {
+            header: ODMHeader {
+                format_version: 3.0,
+                classification: None,
+                creation_date: epoch,
+                originator: "TEST".to_string(),
+                message_id: None,
+                comments: Vec::new(),
+            },
+            segments: vec![seg],
+        };
+
+        let written = write_oem(&oem).unwrap();
+        // Acceleration columns produce 9 space-separated values after epoch
+        // Verify the line has 9 numeric columns (position, velocity, acceleration)
+        let data_lines: Vec<&str> = written.lines().filter(|l| l.starts_with("2024")).collect();
+        assert_eq!(data_lines.len(), 1);
+        let cols: Vec<&str> = data_lines[0].split_whitespace().collect();
+        // epoch + 3 pos + 3 vel + 3 acc = 10
+        assert_eq!(
+            cols.len(),
+            10,
+            "Expected 10 columns for state with acceleration"
+        );
+
+        // Round-trip: re-parse and verify acceleration survives
+        let oem2 = parse_oem(&written).unwrap();
+        let sv2 = &oem2.segments[0].states[0];
+        assert!(sv2.acceleration.is_some());
+        let acc = sv2.acceleration.unwrap();
+        // Units are m/s², written as km/s², so after round-trip converted back
+        assert!((acc[0] - 0.001).abs() < 1e-6);
+        assert!((acc[1] - (-0.002)).abs() < 1e-6);
+        assert!((acc[2] - 0.003).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_oem_write_covariance_with_epoch_and_frame() {
+        use crate::ccsds::common::{CCSDSCovariance, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
+        use crate::ccsds::oem::{OEMMetadata, OEMSegment, OEMStateVector};
+        use crate::time::Epoch;
+        use nalgebra::SMatrix;
+
+        let epoch = Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+
+        let metadata = OEMMetadata::new(
+            "COV_SAT".to_string(),
+            "2024-002A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::J2000,
+            CCSDSTimeSystem::UTC,
+            epoch,
+            epoch,
+        );
+        let mut seg = OEMSegment::new(metadata);
+        seg.push_state(OEMStateVector::new(
+            epoch,
+            [7000e3, 0.0, 0.0],
+            [0.0, 7500.0, 0.0],
+        ));
+
+        // Add covariance with optional epoch and cov_ref_frame
+        let mut matrix = SMatrix::<f64, 6, 6>::zeros();
+        matrix[(0, 0)] = 1.0e6; // 1 km^2 in m^2
+        matrix[(1, 1)] = 2.0e6;
+        matrix[(2, 2)] = 3.0e6;
+        matrix[(3, 3)] = 1.0;
+        matrix[(4, 4)] = 2.0;
+        matrix[(5, 5)] = 3.0;
+
+        let cov_epoch =
+            Epoch::from_datetime(2024, 6, 1, 0, 30, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        seg.covariances.push(CCSDSCovariance {
+            epoch: Some(cov_epoch),
+            cov_ref_frame: Some(CCSDSRefFrame::RTN),
+            matrix,
+            comments: vec!["Test covariance comment".to_string()],
+        });
+
+        let oem = OEM {
+            header: ODMHeader {
+                format_version: 3.0,
+                classification: None,
+                creation_date: epoch,
+                originator: "TEST".to_string(),
+                message_id: None,
+                comments: Vec::new(),
+            },
+            segments: vec![seg],
+        };
+
+        let written = write_oem(&oem).unwrap();
+        assert!(written.contains("COVARIANCE_START"));
+        assert!(written.contains("COVARIANCE_STOP"));
+        assert!(written.contains("EPOCH ="));
+        assert!(written.contains("COV_REF_FRAME = RTN"));
+        assert!(written.contains("COMMENT Test covariance comment"));
+    }
+
+    #[test]
+    fn test_oem_write_data_block_comments() {
+        use crate::ccsds::common::{CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
+        use crate::ccsds::oem::{OEMMetadata, OEMSegment, OEMStateVector};
+        use crate::time::Epoch;
+
+        let epoch = Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+
+        let metadata = OEMMetadata::new(
+            "CMT_SAT".to_string(),
+            "2024-003A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::J2000,
+            CCSDSTimeSystem::UTC,
+            epoch,
+            epoch,
+        );
+        let mut seg = OEMSegment::new(metadata);
+        seg.comments = vec![
+            "Data block comment line 1".to_string(),
+            "Data block comment line 2".to_string(),
+        ];
+        seg.push_state(OEMStateVector::new(
+            epoch,
+            [7000e3, 0.0, 0.0],
+            [0.0, 7500.0, 0.0],
+        ));
+
+        let oem = OEM {
+            header: ODMHeader {
+                format_version: 3.0,
+                classification: None,
+                creation_date: epoch,
+                originator: "TEST".to_string(),
+                message_id: None,
+                comments: Vec::new(),
+            },
+            segments: vec![seg],
+        };
+
+        let written = write_oem(&oem).unwrap();
+        assert!(written.contains("COMMENT Data block comment line 1"));
+        assert!(written.contains("COMMENT Data block comment line 2"));
+    }
+
+    #[test]
+    fn test_oem_write_all_optional_fields_round_trip() {
+        // Build OEM with all optional metadata fields set
+        use crate::ccsds::common::{CCSDSRefFrame, CCSDSTimeSystem, ODMHeader};
+        use crate::ccsds::oem::{OEMMetadata, OEMSegment, OEMStateVector};
+        use crate::time::Epoch;
+
+        let epoch = Epoch::from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let ref_epoch =
+            Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let mut metadata = OEMMetadata::new(
+            "ALL_OPT".to_string(),
+            "2024-001A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::TOD,
+            CCSDSTimeSystem::UTC,
+            epoch,
+            epoch,
+        );
+        metadata.ref_frame_epoch = Some(ref_epoch);
+        metadata.useable_start_time = Some(epoch);
+        metadata.useable_stop_time = Some(epoch);
+        metadata.interpolation = Some("HERMITE".to_string());
+        metadata.interpolation_degree = Some(7);
+
+        let mut seg = OEMSegment::new(metadata);
+        seg.push_state(OEMStateVector::new(
+            epoch,
+            [7000e3, 0.0, 0.0],
+            [0.0, 7500.0, 0.0],
+        ));
+
+        let oem = OEM {
+            header: ODMHeader {
+                format_version: 3.0,
+                classification: None,
+                creation_date: epoch,
+                originator: "TEST".to_string(),
+                message_id: None,
+                comments: Vec::new(),
+            },
+            segments: vec![seg],
+        };
+
+        let written = write_oem(&oem).unwrap();
+        let oem2 = parse_oem(&written).unwrap();
+
+        let seg = &oem2.segments[0];
+        assert!(seg.metadata.ref_frame_epoch.is_some());
+        assert!(seg.metadata.useable_start_time.is_some());
+        assert!(seg.metadata.useable_stop_time.is_some());
+        assert_eq!(seg.metadata.interpolation.as_deref(), Some("HERMITE"));
+        assert_eq!(seg.metadata.interpolation_degree, Some(7));
+        assert_eq!(seg.metadata.ref_frame, CCSDSRefFrame::TOD);
+    }
+
+    // ------------------------------------------------------------------
+    // CDM writer: round-trip tests with test assets
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn test_cdm_kvn_round_trip_example2() {
+        // CDMExample2 has many optional fields: MESSAGE_FOR, OBJECT_TYPE,
+        // OPERATOR_*, ORBIT_CENTER, OD params, additional params, 8x8 covariance
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample2.txt").unwrap();
+        let cdm = crate::ccsds::kvn::parse_cdm(&content).unwrap();
+
+        let written = write_cdm(&cdm).unwrap();
+
+        // Verify header optional fields
+        assert!(written.contains("MESSAGE_FOR"));
+        assert!(written.contains("SATELLITE A"));
+
+        // Verify relative metadata screening volume fields
+        assert!(written.contains("START_SCREEN_PERIOD"));
+        assert!(written.contains("STOP_SCREEN_PERIOD"));
+        assert!(written.contains("SCREEN_VOLUME_FRAME"));
+        assert!(written.contains("SCREEN_VOLUME_SHAPE"));
+        assert!(written.contains("SCREEN_VOLUME_X"));
+        assert!(written.contains("SCREEN_VOLUME_Y"));
+        assert!(written.contains("SCREEN_VOLUME_Z"));
+        assert!(written.contains("SCREEN_ENTRY_TIME"));
+        assert!(written.contains("SCREEN_EXIT_TIME"));
+        assert!(written.contains("COLLISION_PROBABILITY"));
+        assert!(written.contains("COLLISION_PROBABILITY_METHOD"));
+
+        // Verify relative speed and positions
+        assert!(written.contains("RELATIVE_SPEED"));
+        assert!(written.contains("RELATIVE_POSITION_R"));
+        assert!(written.contains("RELATIVE_POSITION_T"));
+        assert!(written.contains("RELATIVE_POSITION_N"));
+        assert!(written.contains("RELATIVE_VELOCITY_R"));
+        assert!(written.contains("RELATIVE_VELOCITY_T"));
+        assert!(written.contains("RELATIVE_VELOCITY_N"));
+
+        // Verify object metadata optional fields
+        assert!(written.contains("OBJECT_TYPE"));
+        assert!(written.contains("OPERATOR_CONTACT_POSITION"));
+        assert!(written.contains("OPERATOR_ORGANIZATION"));
+        assert!(written.contains("OPERATOR_PHONE"));
+        assert!(written.contains("OPERATOR_EMAIL"));
+        assert!(written.contains("ORBIT_CENTER"));
+
+        // Verify physical model fields
+        assert!(written.contains("GRAVITY_MODEL"));
+        assert!(written.contains("ATMOSPHERIC_MODEL"));
+        assert!(written.contains("N_BODY_PERTURBATIONS"));
+        assert!(written.contains("SOLAR_RAD_PRESSURE"));
+        assert!(written.contains("EARTH_TIDES"));
+        assert!(written.contains("INTRACK_THRUST"));
+
+        // Verify OD parameters block
+        assert!(written.contains("TIME_LASTOB_START"));
+        assert!(written.contains("TIME_LASTOB_END"));
+        assert!(written.contains("RECOMMENDED_OD_SPAN"));
+        assert!(written.contains("ACTUAL_OD_SPAN"));
+        assert!(written.contains("OBS_AVAILABLE"));
+        assert!(written.contains("OBS_USED"));
+        assert!(written.contains("TRACKS_AVAILABLE"));
+        assert!(written.contains("TRACKS_USED"));
+        assert!(written.contains("RESIDUALS_ACCEPTED"));
+        assert!(written.contains("WEIGHTED_RMS"));
+
+        // Verify additional parameters
+        assert!(written.contains("AREA_PC"));
+        assert!(written.contains("MASS"));
+        assert!(written.contains("CD_AREA_OVER_MASS"));
+        assert!(written.contains("CR_AREA_OVER_MASS"));
+        assert!(written.contains("THRUST_ACCELERATION"));
+        assert!(written.contains("SEDR"));
+
+        // Verify 8x8 covariance (has DRG and SRP rows)
+        assert!(written.contains("CDRG_R"));
+        assert!(written.contains("CDRG_DRG"));
+        assert!(written.contains("CSRP_R"));
+        assert!(written.contains("CSRP_SRP"));
+
+        // Round-trip: re-parse and verify structure
+        let cdm2 = crate::ccsds::kvn::parse_cdm(&written).unwrap();
+        assert_eq!(cdm2.header.originator, "JSPOC");
+        assert_eq!(cdm2.header.message_for.as_deref(), Some("SATELLITE A"));
+        assert!(cdm2.relative_metadata.collision_probability.is_some());
+        assert!(cdm2.object1.data.od_parameters.is_some());
+        assert!(cdm2.object1.data.additional_parameters.is_some());
+        assert!(cdm2.object2.data.od_parameters.is_some());
+        assert!(cdm2.object2.data.additional_parameters.is_some());
+    }
+
+    #[test]
+    fn test_cdm_write_programmatic_all_optional_fields() {
+        use crate::ccsds::cdm::*;
+        use crate::ccsds::common::{CCSDSRefFrame, CCSDSUserDefined, CDMCovarianceDimension};
+        use crate::time::Epoch;
+        use nalgebra::SMatrix;
+        use std::collections::HashMap;
+
+        let tca = Epoch::from_datetime(2024, 1, 15, 12, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let creation =
+            Epoch::from_datetime(2024, 1, 14, 8, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let screen_start =
+            Epoch::from_datetime(2024, 1, 14, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let screen_stop =
+            Epoch::from_datetime(2024, 1, 16, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let screen_entry =
+            Epoch::from_datetime(2024, 1, 15, 11, 59, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let screen_exit =
+            Epoch::from_datetime(2024, 1, 15, 12, 1, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let prev_epoch =
+            Epoch::from_datetime(2024, 1, 13, 12, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let next_epoch =
+            Epoch::from_datetime(2024, 1, 16, 12, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let od_start =
+            Epoch::from_datetime(2024, 1, 10, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let od_end =
+            Epoch::from_datetime(2024, 1, 14, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let od_epoch =
+            Epoch::from_datetime(2024, 1, 13, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        let oeb_epoch =
+            Epoch::from_datetime(2024, 1, 15, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+
+        // Build relative metadata with all optional fields
+        let mut rm = CDMRelativeMetadata::new(tca, 500.0);
+        rm.conjunction_id = Some("CONJ-2024-001".to_string());
+        rm.mahalanobis_distance = Some(3.5);
+        rm.relative_speed = Some(14000.0);
+        rm.relative_position_r = Some(25.0);
+        rm.relative_position_t = Some(-60.0);
+        rm.relative_position_n = Some(490.0);
+        rm.relative_velocity_r = Some(-5.0);
+        rm.relative_velocity_t = Some(-13900.0);
+        rm.relative_velocity_n = Some(-1200.0);
+        rm.approach_angle = Some(45.0);
+        rm.start_screen_period = Some(screen_start);
+        rm.stop_screen_period = Some(screen_stop);
+        rm.screen_type = Some("PC".to_string());
+        rm.screen_volume_frame = Some(CCSDSRefFrame::RTN);
+        rm.screen_volume_shape = Some("ELLIPSOID".to_string());
+        rm.screen_volume_radius = Some(100.0);
+        rm.screen_volume_x = Some(200.0);
+        rm.screen_volume_y = Some(1000.0);
+        rm.screen_volume_z = Some(1000.0);
+        rm.screen_entry_time = Some(screen_entry);
+        rm.screen_exit_time = Some(screen_exit);
+        rm.screen_pc_threshold = Some(1e-7);
+        rm.collision_percentile = Some(vec![25, 50, 75]);
+        rm.collision_probability = Some(5.0e-5);
+        rm.collision_probability_method = Some("FOSTER-1992".to_string());
+        rm.collision_max_probability = Some(1.0e-4);
+        rm.collision_max_pc_method = Some("ALFANO-2005".to_string());
+        rm.sefi_collision_probability = Some(2.0e-5);
+        rm.sefi_collision_probability_method = Some("SEFI-FOSTER".to_string());
+        rm.sefi_fragmentation_model = Some("NASA-SBM".to_string());
+        rm.previous_message_id = Some("PREV-MSG-001".to_string());
+        rm.previous_message_epoch = Some(prev_epoch);
+        rm.next_message_epoch = Some(next_epoch);
+        rm.comments = vec!["Relative metadata comment".to_string()];
+
+        // Build object metadata with all optional fields
+        let mut meta1 = CDMObjectMetadata::new(
+            "OBJECT1".to_string(),
+            "12345".to_string(),
+            "SATCAT".to_string(),
+            "SAT-A".to_string(),
+            "2020-001A".to_string(),
+            "EPHEMERIS SAT-A".to_string(),
+            "CALCULATED".to_string(),
+            "YES".to_string(),
+            CCSDSRefFrame::EME2000,
+        );
+        meta1.object_type = Some("PAYLOAD".to_string());
+        meta1.ops_status = Some("+/- FON".to_string());
+        meta1.operator_contact_position = Some("OSA".to_string());
+        meta1.operator_organization = Some("EUMETSAT".to_string());
+        meta1.operator_phone = Some("+49123456789".to_string());
+        meta1.operator_email = Some("ops@example.com".to_string());
+        meta1.odm_msg_link = Some("ccsds.org/msg/12345".to_string());
+        meta1.adm_msg_link = Some("ccsds.org/adm/67890".to_string());
+        meta1.obs_before_next_message = Some("YES".to_string());
+        meta1.covariance_source = Some("ASW".to_string());
+        meta1.orbit_center = Some("EARTH".to_string());
+        meta1.alt_cov_type = Some("XYZ".to_string());
+        meta1.alt_cov_ref_frame = Some(CCSDSRefFrame::ITRF2000);
+        meta1.gravity_model = Some("EGM-96: 36D 36O".to_string());
+        meta1.atmospheric_model = Some("JACCHIA 70 DCA".to_string());
+        meta1.n_body_perturbations = Some("MOON, SUN".to_string());
+        meta1.solar_rad_pressure = Some("YES".to_string());
+        meta1.earth_tides = Some("NO".to_string());
+        meta1.intrack_thrust = Some("NO".to_string());
+        meta1.comments = vec!["Object1 metadata comment".to_string()];
+
+        // Build OD parameters
+        let od_params = CDMODParameters {
+            time_lastob_start: Some(od_start),
+            time_lastob_end: Some(od_end),
+            recommended_od_span: Some(7.5),
+            actual_od_span: Some(5.0),
+            obs_available: Some(500),
+            obs_used: Some(480),
+            tracks_available: Some(100),
+            tracks_used: Some(95),
+            residuals_accepted: Some(98.5),
+            weighted_rms: Some(0.95),
+            od_epoch: Some(od_epoch),
+            comments: vec!["OD parameters comment".to_string()],
+        };
+
+        // Build additional parameters with many optional fields
+        let ap = CDMAdditionalParameters {
+            area_pc: Some(5.0),
+            area_pc_min: Some(3.0),
+            area_pc_max: Some(7.0),
+            area_drg: Some(10.0),
+            area_srp: Some(12.0),
+            oeb_parent_frame: Some("EME2000".to_string()),
+            oeb_parent_frame_epoch: Some(oeb_epoch),
+            oeb_q1: Some(0.1),
+            oeb_q2: Some(0.2),
+            oeb_q3: Some(0.3),
+            oeb_qc: Some(0.927),
+            oeb_max: Some(2.0),
+            oeb_int: Some(1.5),
+            oeb_min: Some(1.0),
+            area_along_oeb_max: Some(4.0),
+            area_along_oeb_int: Some(3.0),
+            area_along_oeb_min: Some(2.0),
+            rcs: Some(1.5),
+            rcs_min: Some(0.5),
+            rcs_max: Some(2.5),
+            vm_absolute: Some(20.0),
+            vm_apparent_min: Some(18.0),
+            vm_apparent: Some(19.0),
+            vm_apparent_max: Some(21.0),
+            reflectance: Some(0.3),
+            mass: Some(250.0),
+            hbr: Some(1.0),
+            cd_area_over_mass: Some(0.05),
+            cr_area_over_mass: Some(0.01),
+            thrust_acceleration: Some(0.001),
+            sedr: Some(4.5e-5),
+            min_dv: None,
+            max_dv: None,
+            lead_time_reqd_before_tca: Some(24.0),
+            apoapsis_altitude: Some(800e3),
+            periapsis_altitude: Some(750e3),
+            inclination: Some(98.0),
+            cov_confidence: Some(0.95),
+            cov_confidence_method: Some("EIGENVALUE".to_string()),
+            comments: vec!["Additional params comment".to_string()],
+        };
+
+        // Build state vector
+        let sv1 = CDMStateVector::new(
+            [2570097.065, 2244654.904, 6281497.978],
+            [4418.769571, 4833.547743, -3526.774282],
+        );
+
+        // Build 6x6 RTN covariance
+        let mut rtn_matrix = SMatrix::<f64, 9, 9>::zeros();
+        rtn_matrix[(0, 0)] = 4.142e+01;
+        rtn_matrix[(1, 0)] = -8.579e+00;
+        rtn_matrix[(0, 1)] = -8.579e+00;
+        rtn_matrix[(1, 1)] = 2.533e+03;
+        rtn_matrix[(2, 2)] = 7.098e+01;
+        rtn_matrix[(3, 3)] = 5.744e-03;
+        rtn_matrix[(4, 4)] = 1.049e-05;
+        rtn_matrix[(5, 5)] = 5.529e-05;
+
+        let rtn_cov = CDMRTNCovariance {
+            matrix: rtn_matrix,
+            dimension: CDMCovarianceDimension::SixBySix,
+            comments: vec!["RTN covariance comment".to_string()],
+        };
+
+        // Build XYZ covariance (optional)
+        let mut xyz_matrix = SMatrix::<f64, 9, 9>::zeros();
+        xyz_matrix[(0, 0)] = 1.0e+02;
+        xyz_matrix[(1, 1)] = 2.0e+02;
+        xyz_matrix[(2, 2)] = 3.0e+02;
+        xyz_matrix[(3, 3)] = 1.0e-03;
+        xyz_matrix[(4, 4)] = 2.0e-03;
+        xyz_matrix[(5, 5)] = 3.0e-03;
+
+        let xyz_cov = CDMXYZCovariance {
+            matrix: xyz_matrix,
+            dimension: CDMCovarianceDimension::SixBySix,
+            comments: vec!["XYZ covariance comment".to_string()],
+        };
+
+        // Build additional covariance metadata
+        let acm = CDMAdditionalCovarianceMetadata {
+            density_forecast_uncertainty: Some(0.5),
+            cscale_factor_min: Some(0.8),
+            cscale_factor: Some(1.0),
+            cscale_factor_max: Some(1.2),
+            screening_data_source: Some("ASTAT".to_string()),
+            dcp_sensitivity_vector_position: Some([1.0, 2.0, 3.0]),
+            dcp_sensitivity_vector_velocity: Some([0.01, 0.02, 0.03]),
+            comments: vec!["Additional covariance comment".to_string()],
+        };
+
+        let obj1 = CDMObject {
+            metadata: meta1,
+            data: CDMObjectData {
+                od_parameters: Some(od_params),
+                additional_parameters: Some(ap),
+                state_vector: sv1,
+                rtn_covariance: rtn_cov,
+                xyz_covariance: Some(xyz_cov),
+                additional_covariance_metadata: Some(acm),
+                csig3eigvec3: Some("1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0".to_string()),
+                comments: vec!["Data section comment".to_string()],
+            },
+        };
+
+        // Minimal object2
+        let meta2 = CDMObjectMetadata::new(
+            "OBJECT2".to_string(),
+            "67890".to_string(),
+            "SATCAT".to_string(),
+            "DEBRIS-B".to_string(),
+            "1999-025AA".to_string(),
+            "NONE".to_string(),
+            "CALCULATED".to_string(),
+            "NO".to_string(),
+            CCSDSRefFrame::EME2000,
+        );
+        let sv2 = CDMStateVector::new(
+            [2569540.800, 2245093.614, 6281599.946],
+            [-2888.612500, -6007.247516, 3328.770172],
+        );
+        let mut rtn_matrix2 = SMatrix::<f64, 9, 9>::zeros();
+        rtn_matrix2[(0, 0)] = 1.337e+03;
+        rtn_matrix2[(1, 1)] = 2.492e+06;
+        rtn_matrix2[(2, 2)] = 7.105e+01;
+        rtn_matrix2[(3, 3)] = 6.886e-05;
+        rtn_matrix2[(4, 4)] = 1.059e-05;
+        rtn_matrix2[(5, 5)] = 5.178e-05;
+        let rtn_cov2 = CDMRTNCovariance {
+            matrix: rtn_matrix2,
+            dimension: CDMCovarianceDimension::SixBySix,
+            comments: Vec::new(),
+        };
+        let obj2 = CDMObject::new(meta2, sv2, rtn_cov2);
+
+        // Build CDM with all optional fields
+        let cdm = CDM {
+            header: CDMHeader {
+                format_version: 1.0,
+                classification: Some("RESTRICTED".to_string()),
+                creation_date: creation,
+                originator: "TEST_ORG".to_string(),
+                message_for: Some("SAT-A".to_string()),
+                message_id: "MSG-2024-001".to_string(),
+                comments: vec!["Header comment".to_string()],
+            },
+            relative_metadata: rm,
+            object1: obj1,
+            object2: obj2,
+            user_defined: Some(CCSDSUserDefined {
+                parameters: {
+                    let mut m = HashMap::new();
+                    m.insert("PARAM_A".to_string(), "VALUE_A".to_string());
+                    m.insert("PARAM_B".to_string(), "42".to_string());
+                    m
+                },
+            }),
+        };
+
+        let written = write_cdm(&cdm).unwrap();
+
+        // Verify header
+        assert!(written.contains("CLASSIFICATION"));
+        assert!(written.contains("RESTRICTED"));
+        assert!(written.contains("MESSAGE_FOR"));
+        assert!(written.contains("SAT-A"));
+        assert!(written.contains("COMMENT Header comment"));
+
+        // Verify relative metadata
+        assert!(written.contains("CONJUNCTION_ID"));
+        assert!(written.contains("MAHALANOBIS_DISTANCE"));
+        assert!(written.contains("APPROACH_ANGLE"));
+        assert!(written.contains("SCREEN_TYPE"));
+        assert!(written.contains("SCREEN_VOLUME_RADIUS"));
+        assert!(written.contains("SCREEN_PC_THRESHOLD"));
+        assert!(written.contains("COLLISION_PERCENTILE"));
+        assert!(written.contains("COLLISION_MAX_PROBABILITY"));
+        assert!(written.contains("COLLISION_MAX_PC_METHOD"));
+        assert!(written.contains("SEFI_COLLISION_PROBABILITY"));
+        assert!(written.contains("SEFI_COLLISION_PROBABILITY_METHOD"));
+        assert!(written.contains("SEFI_FRAGMENTATION_MODEL"));
+        assert!(written.contains("PREVIOUS_MESSAGE_ID"));
+        assert!(written.contains("PREVIOUS_MESSAGE_EPOCH"));
+        assert!(written.contains("NEXT_MESSAGE_EPOCH"));
+
+        // Verify object metadata optional fields
+        assert!(written.contains("OPS_STATUS"));
+        assert!(written.contains("ODM_MSG_LINK"));
+        assert!(written.contains("ADM_MSG_LINK"));
+        assert!(written.contains("OBS_BEFORE_NEXT_MESSAGE"));
+        assert!(written.contains("COVARIANCE_SOURCE"));
+        assert!(written.contains("ALT_COV_TYPE"));
+        assert!(written.contains("ALT_COV_REF_FRAME"));
+
+        // Verify OD parameters
+        assert!(written.contains("OD_EPOCH"));
+
+        // Verify additional parameters
+        assert!(written.contains("AREA_PC_MIN"));
+        assert!(written.contains("AREA_PC_MAX"));
+        assert!(written.contains("AREA_DRG"));
+        assert!(written.contains("AREA_SRP"));
+        assert!(written.contains("OEB_PARENT_FRAME"));
+        assert!(written.contains("OEB_PARENT_FRAME_EPOCH"));
+        assert!(written.contains("OEB_Q1"));
+        assert!(written.contains("OEB_Q2"));
+        assert!(written.contains("OEB_Q3"));
+        assert!(written.contains("OEB_QC"));
+        assert!(written.contains("OEB_MAX"));
+        assert!(written.contains("OEB_INT"));
+        assert!(written.contains("OEB_MIN"));
+        assert!(written.contains("AREA_ALONG_OEB_MAX"));
+        assert!(written.contains("AREA_ALONG_OEB_INT"));
+        assert!(written.contains("AREA_ALONG_OEB_MIN"));
+        assert!(written.contains("RCS"));
+        assert!(written.contains("RCS_MIN"));
+        assert!(written.contains("RCS_MAX"));
+        assert!(written.contains("VM_ABSOLUTE"));
+        assert!(written.contains("VM_APPARENT_MIN"));
+        assert!(written.contains("VM_APPARENT"));
+        assert!(written.contains("VM_APPARENT_MAX"));
+        assert!(written.contains("REFLECTANCE"));
+        assert!(written.contains("HBR"));
+        assert!(written.contains("LEAD_TIME_REQD_BEFORE_TCA"));
+        assert!(written.contains("APOAPSIS_ALTITUDE"));
+        assert!(written.contains("PERIAPSIS_ALTITUDE"));
+        assert!(written.contains("INCLINATION"));
+        assert!(written.contains("COV_CONFIDENCE"));
+        assert!(written.contains("COV_CONFIDENCE_METHOD"));
+
+        // Verify XYZ covariance block
+        assert!(written.contains("CX_X"));
+        assert!(written.contains("CY_Y"));
+        assert!(written.contains("CZ_Z"));
+        assert!(written.contains("CXDOT_XDOT"));
+        assert!(written.contains("CYDOT_YDOT"));
+        assert!(written.contains("CZDOT_ZDOT"));
+        assert!(written.contains("COMMENT XYZ covariance comment"));
+
+        // Verify additional covariance metadata
+        assert!(written.contains("DENSITY_FORECAST_UNCERTAINTY"));
+        assert!(written.contains("CSCALE_FACTOR_MIN"));
+        assert!(written.contains("CSCALE_FACTOR_MAX"));
+        assert!(written.contains("SCREENING_DATA_SOURCE"));
+        assert!(written.contains("DCP_SENSITIVITY_VECTOR_POSITION"));
+        assert!(written.contains("DCP_SENSITIVITY_VECTOR_VELOCITY"));
+
+        // Verify CSIG3EIGVEC3
+        assert!(written.contains("CSIG3EIGVEC3"));
+
+        // Verify data comments
+        assert!(written.contains("COMMENT Data section comment"));
+        assert!(written.contains("COMMENT RTN covariance comment"));
+        assert!(written.contains("COMMENT Additional covariance comment"));
+        assert!(written.contains("COMMENT OD parameters comment"));
+        assert!(written.contains("COMMENT Additional params comment"));
+
+        // Verify user-defined parameters
+        assert!(written.contains("USER_DEFINED_PARAM_A"));
+        assert!(written.contains("USER_DEFINED_PARAM_B"));
+    }
+
+    #[test]
+    fn test_cdm_kvn_round_trip_example4_9x9_covariance() {
+        // CDMExample4 has 9x9 covariance (THR row)
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample4.txt").unwrap();
+        let cdm = crate::ccsds::kvn::parse_cdm(&content).unwrap();
+
+        let written = write_cdm(&cdm).unwrap();
+
+        // Verify 9x9 covariance fields (thrust row)
+        assert!(written.contains("CTHR_R"));
+        assert!(written.contains("CTHR_THR"));
+        assert!(written.contains("CDRG_DRG"));
+        assert!(written.contains("CSRP_SRP"));
+
+        // Round-trip
+        let cdm2 = crate::ccsds::kvn::parse_cdm(&written).unwrap();
+        assert_eq!(
+            cdm2.object1.data.rtn_covariance.dimension,
+            CDMCovarianceDimension::NineByNine
+        );
+    }
+
+    #[test]
+    fn test_cdm_write_ion_starlink_round_trip() {
+        // ION_SCV8_vs_STARLINK_1233 has operator fields and ITRF ref frame
+        let content =
+            std::fs::read_to_string("test_assets/ccsds/cdm/ION_SCV8_vs_STARLINK_1233.txt").unwrap();
+        let cdm = crate::ccsds::kvn::parse_cdm(&content).unwrap();
+
+        let written = write_cdm(&cdm).unwrap();
+        assert!(written.contains("OPERATOR_CONTACT_POSITION"));
+        assert!(written.contains("OPERATOR_ORGANIZATION"));
+        assert!(written.contains("OPERATOR_PHONE"));
+        assert!(written.contains("OPERATOR_EMAIL"));
+        assert!(written.contains("MESSAGE_FOR"));
+
+        // Round-trip verify
+        let cdm2 = crate::ccsds::kvn::parse_cdm(&written).unwrap();
+        assert_eq!(cdm2.header.originator, cdm.header.originator);
+        assert!(cdm2.header.message_for.is_some());
+        assert!(cdm2.object1.metadata.operator_email.is_some());
+    }
+
+    #[test]
+    fn test_cdm_write_minimal_round_trip() {
+        // CDMExample5 is a minimal CDM (only mandatory fields)
+        let content = std::fs::read_to_string("test_assets/ccsds/cdm/CDMExample5.txt").unwrap();
+        let cdm = crate::ccsds::kvn::parse_cdm(&content).unwrap();
+        let written = write_cdm(&cdm).unwrap();
+        let cdm2 = crate::ccsds::kvn::parse_cdm(&written).unwrap();
+
+        assert_eq!(cdm2.header.message_id, cdm.header.message_id);
+        assert_eq!(cdm2.object1.metadata.object_name, "SATELLITE A");
+        assert_eq!(cdm2.object2.metadata.object_name, "FENGYUN 1C DEB");
+    }
+
+    #[test]
+    fn test_cdm_write_state_vector_comments() {
+        use crate::ccsds::cdm::*;
+        use crate::ccsds::common::{CCSDSRefFrame, CDMCovarianceDimension};
+        use crate::time::Epoch;
+        use nalgebra::SMatrix;
+
+        let tca = Epoch::from_datetime(2024, 1, 15, 12, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+
+        let mut sv = CDMStateVector::new([7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0]);
+        sv.comments = vec!["State vector comment".to_string()];
+
+        let meta = CDMObjectMetadata::new(
+            "OBJECT1".to_string(),
+            "99999".to_string(),
+            "SATCAT".to_string(),
+            "TEST-SAT".to_string(),
+            "2024-999A".to_string(),
+            "NONE".to_string(),
+            "CALCULATED".to_string(),
+            "NO".to_string(),
+            CCSDSRefFrame::EME2000,
+        );
+        let rtn = CDMRTNCovariance {
+            matrix: SMatrix::<f64, 9, 9>::identity(),
+            dimension: CDMCovarianceDimension::SixBySix,
+            comments: Vec::new(),
+        };
+        let obj1 = CDMObject::new(meta.clone(), sv, rtn.clone());
+
+        let sv2 = CDMStateVector::new([6000e3, 1000e3, 0.0], [0.0, 6500.0, 1000.0]);
+        let mut meta2 = meta;
+        meta2.object = "OBJECT2".to_string();
+        meta2.object_name = "TEST-DEB".to_string();
+        let obj2 = CDMObject::new(meta2, sv2, rtn);
+
+        let cdm = CDM::new(
+            "TEST".to_string(),
+            "MSG-001".to_string(),
+            tca,
+            500.0,
+            obj1,
+            obj2,
+        );
+
+        let written = write_cdm(&cdm).unwrap();
+        assert!(written.contains("COMMENT State vector comment"));
     }
 }

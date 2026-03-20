@@ -418,14 +418,20 @@ def test_opm_state_setter_numpy(eop):
     assert opm.velocity == pytest.approx([0.0, 7500.0, 0.0])
 
 
-def test_opm_from_str_json_unsupported(eop):
-    """OPM JSON format is not yet supported."""
-    with pytest.raises(Exception, match="JSON"):
-        OPM.from_str('{"CCSDS_OPM_VERS": "3.0"}')
-
-
-def test_opm_to_string_json_unsupported(eop):
-    """OPM JSON format is not yet supported for writing."""
+def test_opm_json_round_trip(eop):
+    """OPM JSON round-trip: from_file -> to_string(JSON) -> from_str -> compare."""
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
-    with pytest.raises(Exception, match="JSON"):
-        opm.to_string("JSON")
+    json_str = opm.to_string("JSON")
+    opm2 = OPM.from_str(json_str)
+    assert opm2.object_name == opm.object_name
+    assert opm2.object_id == opm.object_id
+    assert opm2.position == pytest.approx(opm.position, abs=1.0)
+    assert opm2.velocity == pytest.approx(opm.velocity, abs=0.001)
+
+
+def test_opm_json_uppercase_keys(eop):
+    """OPM to_json_string with uppercase keys."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    json_str = opm.to_json_string(uppercase_keys=True)
+    assert '"OBJECT_NAME"' in json_str
+    assert '"header"' in json_str  # container keys always lowercase

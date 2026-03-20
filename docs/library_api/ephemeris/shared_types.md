@@ -50,6 +50,6 @@ op.greater_than("25544")  # ">25544"
 
 ## See Also
 
-- [Ephemeris Data Sources Overview](../../learn/ephemeris/index.md) -- GPRecord field tables and operator usage
+- [Ephemeris Data Sources Overview](../../learn/ephemeris/index.md) -- GPRecord concepts and data source comparison
 - [CelesTrak](celestrak.md) -- CelesTrak client that returns GPRecord
 - [Space-Track](spacetrack/index.md) -- Space-Track client that returns GPRecord

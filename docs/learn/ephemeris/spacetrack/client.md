@@ -6,98 +6,29 @@ For the complete API reference, see the [SpaceTrackClient Reference](../../../li
 
 ## Client Creation
 
-Create a client with your Space-Track.org credentials. An optional `base_url` parameter allows pointing to a different endpoint for testing.
+Create a client with your Space-Track.org credentials:
 
 === "Python"
 
     ``` python
     import brahe as bh
-
-    # Standard client
     client = bh.SpaceTrackClient("user@example.com", "password")
-
-    # Client with custom base URL (e.g., for testing)
-    client = bh.SpaceTrackClient("user@example.com", "password",
-                                  base_url="https://test.space-track.org")
     ```
 
 === "Rust"
 
     ``` rust
     use brahe::spacetrack::SpaceTrackClient;
-
-    // Standard client
     let client = SpaceTrackClient::new("user@example.com", "password");
-
-    // Client with custom base URL (e.g., for testing)
-    let client = SpaceTrackClient::with_base_url(
-        "user@example.com", "password",
-        "https://test.space-track.org"
-    );
     ```
 
 ## Rate Limiting
 
-The client includes a built-in rate limiter that prevents exceeding Space-Track.org's request limits. By default, conservative limits of 25 requests/minute and 250 requests/hour are applied automatically. Pass a `RateLimitConfig` to customize or disable rate limiting.
-
-=== "Python"
-
-    ``` python
-    import brahe as bh
-
-    # Custom rate limits
-    config = bh.RateLimitConfig(max_per_minute=10, max_per_hour=100)
-    client = bh.SpaceTrackClient("user@example.com", "password", rate_limit=config)
-
-    # Disable rate limiting
-    client = bh.SpaceTrackClient("user@example.com", "password",
-                                  rate_limit=bh.RateLimitConfig.disabled())
-    ```
-
-=== "Rust"
-
-    ``` rust
-    use brahe::spacetrack::{SpaceTrackClient, RateLimitConfig};
-
-    // Custom rate limits
-    let config = RateLimitConfig { max_per_minute: 10, max_per_hour: 100 };
-    let client = SpaceTrackClient::with_rate_limit(
-        "user@example.com", "password", config
-    );
-
-    // Disable rate limiting
-    let client = SpaceTrackClient::with_rate_limit(
-        "user@example.com", "password", RateLimitConfig::disabled()
-    );
-    ```
-
-For a full explanation of how rate limiting works, see [Rate Limiting](rate_limiting.md).
+The client includes a built-in rate limiter that prevents exceeding Space-Track.org's request limits. By default, conservative limits of 25 requests/minute and 250 requests/hour are applied automatically. Pass a `RateLimitConfig` to customize or disable rate limiting. For a full explanation of how rate limiting works, see [Rate Limiting](rate_limiting.md).
 
 ## Authentication
 
-The client authenticates lazily -- credentials are sent on the first query. Call `authenticate()` explicitly to verify credentials before executing queries.
-
-=== "Python"
-
-    ``` python
-    import brahe as bh
-
-    client = bh.SpaceTrackClient("user@example.com", "password")
-
-    # Explicitly authenticate to verify credentials
-    client.authenticate()
-    ```
-
-=== "Rust"
-
-    ``` rust
-    use brahe::spacetrack::SpaceTrackClient;
-
-    let client = SpaceTrackClient::new("user@example.com", "password");
-
-    // Explicitly authenticate to verify credentials
-    client.authenticate().unwrap();
-    ```
+The client authenticates lazily -- credentials are sent on the first query. If you want to verify credentials before executing queries, call `authenticate()` explicitly. This is useful for failing fast on bad credentials rather than discovering the problem mid-workflow.
 
 ## Query Execution
 
@@ -184,61 +115,7 @@ Use `query_gp()` and `query_satcat()` for strongly-typed access to GP and SATCAT
     println!("Launch: {:?}", iss_meta.launch);
     ```
 
-### Raw and JSON Queries
-
-Use `query_raw()` for non-JSON formats (TLE, CSV, KVN) and `query_json()` for generic JSON access:
-
-=== "Python"
-
-    ``` python
-    import brahe as bh
-
-    client = bh.SpaceTrackClient("user@example.com", "password")
-
-    # Get TLE text directly
-    query = (
-        bh.SpaceTrackQuery(bh.RequestClass.GP)
-        .filter("NORAD_CAT_ID", "25544")
-        .format(bh.OutputFormat.TLE)
-        .limit(1)
-    )
-    tle_text = client.query_raw(query)
-    print(tle_text)
-
-    # Get raw JSON for flexible processing
-    query = (
-        bh.SpaceTrackQuery(bh.RequestClass.GP)
-        .filter("NORAD_CAT_ID", "25544")
-        .limit(1)
-    )
-    json_data = client.query_json(query)
-    print(json_data[0]["OBJECT_NAME"])
-    ```
-
-=== "Rust"
-
-    ``` rust
-    use brahe::spacetrack::{
-        SpaceTrackClient, SpaceTrackQuery, RequestClass, OutputFormat
-    };
-
-    let client = SpaceTrackClient::new("user@example.com", "password");
-
-    // Get TLE text directly
-    let query = SpaceTrackQuery::new(RequestClass::GP)
-        .filter("NORAD_CAT_ID", "25544")
-        .format(OutputFormat::TLE)
-        .limit(1);
-    let tle_text = client.query_raw(&query).unwrap();
-    println!("{}", tle_text);
-
-    // Get raw JSON for flexible processing
-    let query = SpaceTrackQuery::new(RequestClass::GP)
-        .filter("NORAD_CAT_ID", "25544")
-        .limit(1);
-    let json_data = client.query_json(&query).unwrap();
-    println!("{}", json_data[0]["OBJECT_NAME"]);
-    ```
+For non-JSON formats (TLE, CSV, KVN), use `query_raw()` to get the response as a plain string. For generic JSON access without deserialization into a specific record type, use `query_json()`.
 
 ## Error Handling
 

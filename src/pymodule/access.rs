@@ -4884,6 +4884,72 @@ fn py_location_accesses(
         propagators.is_instance_of::<PyNumericalOrbitPropagator>()
     };
 
+    // Check for OrbitTrajectory (handled like NumericalOrbitPropagator: borrow guards, no GIL release)
+    let is_trajectory = if prop_is_list {
+        let list = propagators.cast::<PyList>()?;
+        !list.is_empty() && list.get_item(0)?.is_instance_of::<PyOrbitalTrajectory>()
+    } else {
+        propagators.is_instance_of::<PyOrbitalTrajectory>()
+    };
+
+    if is_trajectory {
+        let borrow_guards: Vec<pyo3::PyRef<'_, PyOrbitalTrajectory>> = if prop_is_list {
+            let list = propagators.cast::<PyList>()?;
+            let mut guards = Vec::new();
+            for item in list.iter() {
+                if let Ok(traj) = item.cast::<PyOrbitalTrajectory>() {
+                    guards.push(traj.borrow());
+                } else {
+                    return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                        "propagators list must contain only OrbitTrajectory objects (cannot mix types)"
+                    ));
+                }
+            }
+            guards
+        } else {
+            vec![propagators.cast::<PyOrbitalTrajectory>()?.borrow()]
+        };
+
+        let traj_refs: Vec<&trajectories::DOrbitTrajectory> =
+            borrow_guards.iter().map(|g| &g.trajectory).collect();
+
+        let rust_property_computers = process_property_computers(property_computers);
+
+        let property_computer_refs: Vec<&dyn AccessPropertyComputer> = rust_property_computers
+            .iter()
+            .map(|c| c as &dyn AccessPropertyComputer)
+            .collect();
+
+        let property_computers_option = if property_computer_refs.is_empty() {
+            None
+        } else {
+            Some(property_computer_refs.as_slice())
+        };
+
+        let windows = match &locations_vec {
+            LocationVec::Point(locs) => location_accesses(
+                locs,
+                traj_refs.as_slice(),
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                property_computers_option,
+                Some(&search_config),
+            ),
+            LocationVec::Polygon(locs) => location_accesses(
+                locs,
+                traj_refs.as_slice(),
+                search_start.obj,
+                search_end.obj,
+                constraint_trait,
+                property_computers_option,
+                Some(&search_config),
+            ),
+        }?;
+
+        return Ok(windows.into_iter().map(|w| PyAccessWindow { window: w }).collect());
+    }
+
     if is_numerical {
         // Handle NumericalOrbitPropagator separately using borrow guards
         // (DNumericalOrbitPropagator doesn't implement Clone due to Box<dyn DIntegrator>)
@@ -4988,7 +5054,7 @@ fn py_location_accesses(
         PropagatorVec::Keplerian(vec![prop.borrow().propagator.clone()])
     } else {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "propagators must be SGPPropagator, KeplerianPropagator, NumericalOrbitPropagator, or a list of these types"
+            "propagators must be SGPPropagator, KeplerianPropagator, NumericalOrbitPropagator, OrbitTrajectory, or a list of these types"
         ));
     };
 

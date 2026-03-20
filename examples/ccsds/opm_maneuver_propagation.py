@@ -1,6 +1,7 @@
 # /// script
 # dependencies = ["brahe", "numpy"]
 # ///
+# FLAGS = [SLOW]
 """
 Read an OPM with maneuvers, initialize a propagator, and apply each maneuver
 as an impulsive delta-V at the specified ignition epoch using TimeEvent callbacks.

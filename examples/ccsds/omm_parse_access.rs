@@ -45,7 +45,7 @@ fn main() {
     println!("Mean anomaly:        {} deg", omm.mean_elements.mean_anomaly);
     println!(
         "GM:                  {:.4e} m³/s²",
-        omm.mean_elements.gm
+        omm.mean_elements.gm.unwrap_or(0.0)
     );
 
     // TLE parameters
@@ -56,7 +56,7 @@ fn main() {
         );
         println!(
             "Classification:      {}",
-            tle.classification_type.as_deref().unwrap_or("U")
+            tle.classification_type.unwrap_or('U')
         );
         println!("Ephemeris type:      {}", tle.ephemeris_type.unwrap_or(0));
         println!(
@@ -75,9 +75,5 @@ fn main() {
         );
     }
 
-    // Serialization
-    let kvn = omm.to_string(brahe::ccsds::CCSDSFormat::KVN).unwrap();
-    println!("\nKVN length: {} characters", kvn.len());
-    // Expected output:
-    // KVN length: ... characters
+    println!("\nParsing completed successfully.");
 }

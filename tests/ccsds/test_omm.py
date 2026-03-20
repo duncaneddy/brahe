@@ -1,6 +1,7 @@
 """Tests for CCSDS OMM parsing and mutation — parity with Rust tests."""
 
 import pytest
+import brahe as bh
 from brahe.ccsds import OMM
 
 
@@ -172,3 +173,121 @@ def test_omm_tle_parameter_setters(eop):
 
     omm.format_version = 2.0
     assert omm.format_version == pytest.approx(2.0)
+
+
+# ─────────────────────────────────────────────
+# GPRecord <-> OMM conversion tests
+# ─────────────────────────────────────────────
+
+SAMPLE_GP_JSON = (
+    '{"CCSDS_OMM_VERS": "3.0", "CREATION_DATE": "2024-01-15 12:00:00",'
+    ' "ORIGINATOR": "18 SDS", "OBJECT_NAME": "ISS (ZARYA)",'
+    ' "OBJECT_ID": "1998-067A", "CENTER_NAME": "EARTH",'
+    ' "REF_FRAME": "TEME", "TIME_SYSTEM": "UTC",'
+    ' "MEAN_ELEMENT_THEORY": "SGP4",'
+    ' "EPOCH": "2024-01-15T12:00:00.000000",'
+    ' "MEAN_MOTION": 15.5, "ECCENTRICITY": 0.0001,'
+    ' "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0,'
+    ' "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0,'
+    ' "EPHEMERIS_TYPE": 0, "CLASSIFICATION_TYPE": "U",'
+    ' "NORAD_CAT_ID": 25544, "ELEMENT_SET_NO": 999,'
+    ' "REV_AT_EPOCH": 45000, "BSTAR": 0.000341,'
+    ' "MEAN_MOTION_DOT": 0.00001, "MEAN_MOTION_DDOT": 0.0}'
+)
+
+
+def test_omm_from_gp_record(eop):
+    """Test GPRecord.to_omm() conversion."""
+    record = bh.GPRecord.from_json(SAMPLE_GP_JSON)
+    omm = record.to_omm()
+
+    assert omm.format_version == pytest.approx(3.0, abs=1e-10)
+    assert omm.originator == "18 SDS"
+    assert omm.object_name == "ISS (ZARYA)"
+    assert omm.object_id == "1998-067A"
+    assert omm.center_name == "EARTH"
+    assert omm.ref_frame == "TEME"
+    assert omm.time_system == "UTC"
+    assert omm.mean_element_theory == "SGP4"
+
+    assert omm.eccentricity == pytest.approx(0.0001, abs=1e-10)
+    assert omm.inclination == pytest.approx(51.64, abs=1e-4)
+    assert omm.ra_of_asc_node == pytest.approx(200.0, abs=1e-4)
+    assert omm.arg_of_pericenter == pytest.approx(100.0, abs=1e-4)
+    assert omm.mean_anomaly == pytest.approx(260.0, abs=1e-4)
+    assert omm.mean_motion == pytest.approx(15.5, abs=1e-8)
+
+    assert omm.ephemeris_type == 0
+    assert omm.classification_type == "U"
+    assert omm.norad_cat_id == 25544
+    assert omm.element_set_no == 999
+    assert omm.rev_at_epoch == 45000
+    assert omm.bstar == pytest.approx(0.000341, abs=1e-10)
+
+
+def test_omm_from_gp_record_missing_required(eop):
+    """Test that missing required fields raise an error."""
+    # Missing epoch
+    record = bh.GPRecord.from_json(
+        '{"ECCENTRICITY": 0.001, "INCLINATION": 51.64,'
+        ' "RA_OF_ASC_NODE": 200.0, "ARG_OF_PERICENTER": 100.0,'
+        ' "MEAN_ANOMALY": 260.0}'
+    )
+    with pytest.raises(Exception, match="EPOCH"):
+        record.to_omm()
+
+
+def test_omm_to_gp_record(eop):
+    """Test OMM.to_gp_record() conversion."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    gp = omm.to_gp_record()
+
+    assert gp.object_name == "GOES 9"
+    assert gp.object_id == "1995-025A"
+    assert gp.center_name == "EARTH"
+    assert gp.ref_frame == "TEME"
+    assert gp.time_system == "UTC"
+    assert gp.eccentricity == pytest.approx(0.0005013, abs=1e-10)
+    assert gp.inclination == pytest.approx(3.0539, abs=1e-4)
+    assert gp.norad_cat_id == 23581
+    assert gp.classification_type == "U"
+    assert gp.bstar == pytest.approx(0.0001, abs=1e-10)
+
+
+def test_omm_gp_record_roundtrip(eop):
+    """Test GPRecord -> OMM -> GPRecord preserves fields."""
+    record = bh.GPRecord.from_json(SAMPLE_GP_JSON)
+    omm = record.to_omm()
+    roundtripped = omm.to_gp_record()
+
+    assert roundtripped.object_name == record.object_name
+    assert roundtripped.object_id == record.object_id
+    assert roundtripped.center_name == record.center_name
+    assert roundtripped.ref_frame == record.ref_frame
+    assert roundtripped.time_system == record.time_system
+    assert roundtripped.mean_element_theory == record.mean_element_theory
+
+    assert roundtripped.eccentricity == pytest.approx(record.eccentricity, abs=1e-10)
+    assert roundtripped.inclination == pytest.approx(record.inclination, abs=1e-10)
+    assert roundtripped.ra_of_asc_node == pytest.approx(
+        record.ra_of_asc_node, abs=1e-10
+    )
+    assert roundtripped.arg_of_pericenter == pytest.approx(
+        record.arg_of_pericenter, abs=1e-10
+    )
+    assert roundtripped.mean_anomaly == pytest.approx(record.mean_anomaly, abs=1e-10)
+    assert roundtripped.mean_motion == pytest.approx(record.mean_motion, abs=1e-10)
+
+    assert roundtripped.norad_cat_id == record.norad_cat_id
+    assert roundtripped.classification_type == record.classification_type
+    assert roundtripped.rev_at_epoch == record.rev_at_epoch
+    assert roundtripped.bstar == pytest.approx(record.bstar, abs=1e-10)
+
+
+def test_omm_from_gp_record_static_method(eop):
+    """Test OMM.from_gp_record() static method alternative."""
+    record = bh.GPRecord.from_json(SAMPLE_GP_JSON)
+    omm = OMM.from_gp_record(record)
+
+    assert omm.object_name == "ISS (ZARYA)"
+    assert omm.eccentricity == pytest.approx(0.0001, abs=1e-10)

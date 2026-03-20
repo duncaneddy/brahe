@@ -8,7 +8,7 @@ extract the trajectory, and build an OEM message.
 
 import brahe as bh
 import numpy as np
-from brahe.ccsds import OEM, OEMStateVector
+from brahe.ccsds import OEM
 
 bh.initialize_eop()
 bh.initialize_sw()
@@ -37,7 +37,7 @@ print(f"Propagated from {epoch} to {prop.current_epoch()}")
 traj = prop.trajectory
 print(f"Trajectory: {len(traj)} states, span={traj.timespan():.0f}s")
 
-# Build an OEM from the trajectory states
+# Build an OEM from the trajectory states using the trajectory kwarg
 oem = OEM(originator="BRAHE_PROP")
 stop_epoch = prop.current_epoch()
 seg_idx = oem.add_segment(
@@ -50,13 +50,9 @@ seg_idx = oem.add_segment(
     stop_time=stop_epoch,
     interpolation="LAGRANGE",
     interpolation_degree=7,
+    trajectory=traj,
 )
-
-# Extract states from trajectory and add to OEM
 seg = oem.segments[seg_idx]
-for i in range(len(traj)):
-    epc, s = traj.get(i)
-    seg.states.append(OEMStateVector(epc, s[:3], s[3:6]))
 
 print(f"\nOEM: {len(oem.segments)} segment, {seg.num_states} states")
 

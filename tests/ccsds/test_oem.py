@@ -862,3 +862,181 @@ def test_OEMStateVector_state_setter_proxy(eop):
     # Verify via fresh proxy access
     assert oem.segments[0].states[0].position == pytest.approx([1.0, 2.0, 3.0])
     assert oem.segments[0].states[0].velocity == pytest.approx([4.0, 5.0, 6.0])
+
+
+# ─────────────────────────────────────────────
+# Trajectory import tests
+# ─────────────────────────────────────────────
+
+
+@pytest.fixture
+def keplerian_trajectory(eop):
+    """Create a short Keplerian-propagated trajectory for testing."""
+    epoch = Epoch.from_datetime(2024, 6, 15, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    oe = np.array([brahe.R_EARTH + 500e3, 0.001, 51.6, 15.0, 30.0, 0.0])
+    prop = brahe.KeplerianPropagator.from_keplerian(
+        epoch, oe, brahe.AngleFormat.DEGREES, 60.0
+    )
+    # Propagate 5 steps of 60s
+    for i in range(1, 6):
+        prop.state(epoch + i * 60.0)
+    return epoch, prop
+
+
+def test_OEMSegment_add_trajectory(keplerian_trajectory):
+    """Test bulk-adding trajectory states to a standalone segment.
+
+    add_trajectory() should auto-convert from the trajectory's internal
+    representation (Keplerian elements) to Cartesian states in the segment's
+    declared ref_frame (EME2000).
+    """
+    epoch, prop = keplerian_trajectory
+    traj = prop.trajectory
+    stop_epoch = epoch + 5 * 60.0
+
+    seg = OEMSegment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="EME2000",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=stop_epoch,
+    )
+    seg.add_trajectory(traj)
+
+    assert seg.num_states == len(traj)
+    # Verify first state matches trajectory's EME2000 Cartesian output
+    epc0, _ = traj.get(0)
+    expected = prop.state_eme2000(epc0)
+    states = seg.states
+    assert states[0].epoch == epc0
+    assert states[0].position == pytest.approx(list(expected[:3]), abs=1.0)
+    assert states[0].velocity == pytest.approx(list(expected[3:6]), abs=0.001)
+    # Sanity check: position magnitude should be ~R_EARTH + 500km
+    pos_mag = np.linalg.norm(states[0].position)
+    assert pos_mag == pytest.approx(brahe.R_EARTH + 500e3, rel=0.01)
+
+
+def test_OEM_add_segment_with_trajectory(keplerian_trajectory):
+    """Test add_segment with trajectory kwarg populates states automatically.
+
+    States should be auto-converted to Cartesian in the declared ref_frame.
+    """
+    epoch, prop = keplerian_trajectory
+    traj = prop.trajectory
+    stop_epoch = epoch + 5 * 60.0
+
+    oem = OEM(originator="TEST")
+    seg_idx = oem.add_segment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="EME2000",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=stop_epoch,
+        trajectory=traj,
+    )
+
+    seg = oem.segments[seg_idx]
+    assert seg.num_states == len(traj)
+    # Verify last state matches trajectory's EME2000 output
+    epc_last, _ = traj.get(len(traj) - 1)
+    expected = prop.state_eme2000(epc_last)
+    sv_last = seg.states[-1]
+    assert sv_last.epoch == epc_last
+    assert sv_last.position == pytest.approx(list(expected[:3]), abs=1.0)
+    assert sv_last.velocity == pytest.approx(list(expected[3:6]), abs=0.001)
+
+
+def test_OEMSegment_add_trajectory_proxy(keplerian_trajectory):
+    """Test add_trajectory on a proxy segment (accessed via OEM).
+
+    Proxy mode should also auto-convert trajectory states to the segment's
+    declared ref_frame.
+    """
+    epoch, prop = keplerian_trajectory
+    traj = prop.trajectory
+    stop_epoch = epoch + 5 * 60.0
+
+    oem = OEM(originator="TEST")
+    seg_idx = oem.add_segment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="EME2000",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=stop_epoch,
+    )
+
+    # Access via proxy and add trajectory
+    oem.segments[seg_idx].add_trajectory(traj)
+
+    assert oem.segments[seg_idx].num_states == len(traj)
+    epc0, _ = traj.get(0)
+    expected = prop.state_eme2000(epc0)
+    sv0 = oem.segments[seg_idx].states[0]
+    assert sv0.epoch == epc0
+    assert sv0.position == pytest.approx(list(expected[:3]), abs=1.0)
+    assert sv0.velocity == pytest.approx(list(expected[3:6]), abs=0.001)
+
+
+def test_OEMSegment_add_trajectory_gcrf_frame(keplerian_trajectory):
+    """Test add_trajectory with GCRF ref_frame produces GCRF states."""
+    epoch, prop = keplerian_trajectory
+    traj = prop.trajectory
+    stop_epoch = epoch + 5 * 60.0
+
+    seg = OEMSegment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="GCRF",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=stop_epoch,
+    )
+    seg.add_trajectory(traj)
+
+    # States should match the trajectory's GCRF output
+    epc0, _ = traj.get(0)
+    expected = prop.state_gcrf(epc0)
+    states = seg.states
+    assert states[0].position == pytest.approx(list(expected[:3]), abs=1.0)
+    assert states[0].velocity == pytest.approx(list(expected[3:6]), abs=0.001)
+
+
+def test_OEM_trajectory_round_trip(keplerian_trajectory):
+    """Test full pipeline: trajectory → OEM → file → load → compare states."""
+    epoch, prop = keplerian_trajectory
+    traj = prop.trajectory
+    stop_epoch = epoch + 5 * 60.0
+
+    # Build OEM from trajectory
+    oem = OEM(originator="ROUND_TRIP")
+    oem.add_segment(
+        object_name="SAT",
+        object_id="2024-100A",
+        center_name="EARTH",
+        ref_frame="EME2000",
+        time_system="UTC",
+        start_time=epoch,
+        stop_time=stop_epoch,
+        trajectory=traj,
+    )
+
+    # Round-trip via serialization
+    written = oem.to_string("KVN")
+    oem2 = OEM.from_str(written)
+
+    assert oem2.segments[0].num_states == len(traj)
+    # Verify states survived the round-trip
+    for i in range(len(traj)):
+        epc_i, _ = traj.get(i)
+        expected = prop.state_eme2000(epc_i)
+        sv = oem2.segments[0].states[i]
+        # KVN format has limited precision (~1m for position, ~0.001 m/s for velocity)
+        assert sv.position == pytest.approx(list(expected[:3]), abs=1.0)
+        assert sv.velocity == pytest.approx(list(expected[3:6]), abs=0.001)

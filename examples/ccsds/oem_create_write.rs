@@ -5,7 +5,7 @@ use brahe as bh;
 use brahe::ccsds::{
     CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, OEM, OEMMetadata, OEMSegment, OEMStateVector,
 };
-use brahe::traits::SStateProvider;
+use brahe::traits::DStateProvider;
 use nalgebra as na;
 
 fn main() {
@@ -16,7 +16,7 @@ fn main() {
 
     // Define a LEO orbit and propagate with KeplerianPropagator (two-body)
     let epoch =
-        bh::Epoch::from_datetime(2024, 6, 15, 0, 0, 0.0, 0.0, bh::TimeSystem::UTC).unwrap();
+        bh::Epoch::from_datetime(2024, 6, 15, 0, 0, 0.0, 0.0, bh::TimeSystem::UTC);
     let oe = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 51.6, 15.0, 30.0, 0.0);
     let prop = bh::KeplerianPropagator::from_keplerian(epoch, oe, bh::AngleFormat::Degrees, 60.0);
 

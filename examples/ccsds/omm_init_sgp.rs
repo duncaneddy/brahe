@@ -48,15 +48,15 @@ fn main() {
     .unwrap();
 
     println!("\nSGP Propagator created:");
-    println!("  NORAD ID: {}", prop.norad_id());
+    println!("  NORAD ID: {}", prop.norad_id);
     println!(
         "  Name:     {}",
-        prop.satellite_name().unwrap_or_default()
+        prop.satellite_name.as_deref().unwrap_or_default()
     );
-    println!("  Epoch:    {}", prop.epoch());
+    println!("  Epoch:    {}", prop.epoch);
 
     // Propagate 1 day forward
-    let target = prop.epoch() + 86400.0;
+    let target = prop.epoch + 86400.0;
     let state = prop.state(target).unwrap();
     println!("\nState after 1 day ({}):", target);
     println!(
@@ -73,7 +73,7 @@ fn main() {
     // Propagate to several epochs
     println!("\nState every 6 hours:");
     for hours in (0..=24).step_by(6) {
-        let t = prop.epoch() + hours as f64 * 3600.0;
+        let t = prop.epoch + hours as f64 * 3600.0;
         let s = prop.state(t).unwrap();
         let r = (s[0].powi(2) + s[1].powi(2) + s[2].powi(2)).sqrt();
         println!("  +{:2}h: r={:.1} km", hours, r / 1e3);

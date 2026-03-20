@@ -7,7 +7,7 @@ Build an OEM message from scratch and write it to KVN format.
 
 import brahe as bh
 import numpy as np
-from brahe.ccsds import OEM, OEMStateVector
+from brahe.ccsds import OEM
 
 bh.initialize_eop()
 
@@ -38,12 +38,10 @@ seg_idx = oem.add_segment(
     interpolation_degree=7,
 )
 
-# Populate states from the Keplerian propagator
+# Propagate to build trajectory, then bulk-add states to segment
+prop.propagate_to(stop_epoch)
 seg = oem.segments[seg_idx]
-for i in range(n_states):
-    t = epoch + i * step
-    s = prop.state(t)
-    seg.states.append(OEMStateVector(t, s[:3], s[3:6]))
+seg.add_trajectory(prop.trajectory)
 
 print(f"Created OEM with {len(oem.segments)} segment, {seg.num_states} states")
 # Created OEM with 1 segment, 5 states

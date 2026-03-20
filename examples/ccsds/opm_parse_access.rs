@@ -51,7 +51,7 @@ fn main() {
         if let Some(ta) = kep.true_anomaly {
             println!("  True anomaly:       {:.6} deg", ta);
         }
-        println!("  GM:                 {:.4e} m³/s²", kep.gm);
+        println!("  GM:                 {:.4e} m³/s²", kep.gm.unwrap_or(0.0));
     }
 
     // Spacecraft parameters

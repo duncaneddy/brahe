@@ -34,7 +34,11 @@ pub mod omm;
 pub mod opm;
 pub mod xml;
 
-use common::CCSDSFormat;
+// Re-export commonly used types at the ccsds module level
+pub use common::{CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem};
+pub use oem::{OEM, OEMMetadata, OEMSegment, OEMStateVector};
+pub use omm::OMM;
+pub use opm::OPM;
 
 /// Auto-detect the encoding format of a CCSDS message string.
 ///

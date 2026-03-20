@@ -671,7 +671,7 @@ impl PySpaceTrackQuery {
 #[derive(Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct PyGPRecord {
-    inner: spacetrack::GPRecord,
+    pub(crate) inner: spacetrack::GPRecord,
 }
 
 #[pymethods]
@@ -827,6 +827,34 @@ impl PyGPRecord {
         .map_err(|e| BraheError::new_err(e.to_string()))?;
 
         Ok(PyNumericalOrbitPropagator { propagator })
+    }
+
+    /// Convert this GPRecord to a CCSDS OMM message.
+    ///
+    /// Validates that required orbital element fields are present (epoch,
+    /// eccentricity, inclination, ra_of_asc_node, arg_of_pericenter,
+    /// mean_anomaly) and builds an OMM with defaults for missing metadata.
+    ///
+    /// Returns:
+    ///     OMM: CCSDS OMM message constructed from this GP record.
+    ///
+    /// Raises:
+    ///     BraheError: If required orbital element fields are missing.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     record = bh.GPRecord.from_json('{"OBJECT_NAME": "ISS", "EPOCH": "2024-01-15T12:00:00.000", "ECCENTRICITY": 0.0001, "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0, "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}')
+    ///     omm = record.to_omm()
+    ///     print(omm.object_name)
+    ///     ```
+    fn to_omm(&self) -> PyResult<PyOMM> {
+        let omm = self
+            .inner
+            .to_omm()
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(PyOMM { inner: omm })
     }
 
     fn __str__(&self) -> String {

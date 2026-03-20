@@ -39,12 +39,12 @@ Extract OMM mean elements and TLE parameters to create an `SGPPropagator`:
 
 === "Python"
     ``` python
-    --8<-- "./examples/ccsds/omm_init_sgp.py:8"
+    --8<-- "./examples/ccsds/omm_init_sgp.py:10"
     ```
 
 === "Rust"
     ``` rust
-    --8<-- "./examples/ccsds/omm_init_sgp.rs:4"
+    --8<-- "./examples/ccsds/omm_init_sgp.rs:5"
     ```
 
 ## KVN Format Example

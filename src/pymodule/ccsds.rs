@@ -10,9 +10,33 @@
 use crate::ccsds::common::{
     CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
 };
+use crate::ccsds::interop::ccsds_ref_frame_to_orbit_frame;
 use crate::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
 use crate::ccsds::omm::OMM as RustOMM;
 use crate::ccsds::opm::{OPM as RustOPM, OPMManeuver};
+use crate::trajectories::DOrbitTrajectory;
+use crate::trajectories::traits::OrbitFrame;
+
+/// Push all states from a trajectory into an OEM segment, converting to the
+/// segment's declared reference frame using the trajectory's frame-aware methods.
+fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), crate::utils::BraheError> {
+    let orbit_frame = ccsds_ref_frame_to_orbit_frame(&seg.metadata.ref_frame)?;
+    for epoch in traj.epochs.iter() {
+        let state = match orbit_frame {
+            OrbitFrame::EME2000 => traj.state_eme2000(*epoch)?,
+            OrbitFrame::GCRF => traj.state_gcrf(*epoch)?,
+            OrbitFrame::ECI => traj.state_eci(*epoch)?,
+            OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch)?,
+        };
+        seg.states.push(OEMStateVector {
+            epoch: *epoch,
+            position: [state[0], state[1], state[2]],
+            velocity: [state[3], state[4], state[5]],
+            acceleration: None,
+        });
+    }
+    Ok(())
+}
 
 // ─────────────────────────────────────────────
 // PyOEMStateVector — typed proxy/owned for a state vector
@@ -947,6 +971,75 @@ impl PyOEMSegment {
         }
     }
 
+    /// Bulk-add states from an orbital trajectory to this segment.
+    ///
+    /// Iterates the trajectory's epochs and states, extracting position and
+    /// velocity components to create OEM state vectors.
+    ///
+    /// Args:
+    ///     trajectory (OrbitTrajectory): Orbital trajectory to import states from
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.ccsds import OEMSegment
+    ///     seg = OEMSegment(
+    ///         object_name="SAT", object_id="2024-001A",
+    ///         center_name="EARTH", ref_frame="EME2000", time_system="UTC",
+    ///         start_time=epoch, stop_time=stop_epoch,
+    ///     )
+    ///     seg.add_trajectory(prop.trajectory)
+    ///     ```
+    fn add_trajectory(&mut self, py: Python, trajectory: PyRef<PyOrbitalTrajectory>) -> PyResult<()> {
+        let traj = &trajectory.trajectory;
+        match &mut self.mode {
+            SegmentMode::Owned { data } => {
+                push_trajectory_states(data, traj).map_err(|e| {
+                    pyo3::exceptions::PyRuntimeError::new_err(format!(
+                        "Failed to convert trajectory states: {}", e
+                    ))
+                })?;
+                Ok(())
+            }
+            SegmentMode::Proxy { parent, seg_idx } => {
+                // Get the ref_frame from the parent OEM's segment metadata
+                let parent_ref = parent.bind(py);
+                let oem_bound = parent_ref.cast::<PyOEM>()
+                    .map_err(|_| pyo3::exceptions::PyRuntimeError::new_err(
+                        "Parent is not an OEM object"
+                    ))?;
+                let ref_frame = oem_bound.borrow().inner.segments[*seg_idx].metadata.ref_frame.clone();
+                let orbit_frame = ccsds_ref_frame_to_orbit_frame(&ref_frame).map_err(|e| {
+                    pyo3::exceptions::PyValueError::new_err(format!(
+                        "Unsupported ref_frame for trajectory conversion: {}", e
+                    ))
+                })?;
+
+                for epoch in traj.epochs.iter() {
+                    let state = match orbit_frame {
+                        OrbitFrame::EME2000 => traj.state_eme2000(*epoch),
+                        OrbitFrame::GCRF => traj.state_gcrf(*epoch),
+                        OrbitFrame::ECI => traj.state_eci(*epoch),
+                        OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch),
+                    }.map_err(|e| {
+                        pyo3::exceptions::PyRuntimeError::new_err(format!(
+                            "Failed to convert trajectory state at {}: {}", epoch, e
+                        ))
+                    })?;
+
+                    let pos = vec![state[0], state[1], state[2]];
+                    let vel = vec![state[3], state[4], state[5]];
+                    let acc: Option<Vec<f64>> = None;
+                    parent.bind(py).call_method1(
+                        "_add_state",
+                        (*seg_idx, PyEpoch { obj: *epoch }, pos, vel, acc),
+                    )?;
+                }
+                Ok(())
+            }
+        }
+    }
+
     /// Remove a state vector from this segment by index.
     ///
     /// Args:
@@ -1542,6 +1635,7 @@ impl PyOEM {
     ///     stop_time (Epoch): Stop time of ephemeris data
     ///     interpolation (str | None): Interpolation method
     ///     interpolation_degree (int | None): Interpolation degree
+    ///     trajectory (OrbitTrajectory | None): Optional trajectory to populate states from
     ///
     /// Returns:
     ///     int: Index of the new segment
@@ -1557,9 +1651,10 @@ impl PyOEM {
     ///         object_name="SAT1", object_id="2024-001A",
     ///         center_name="EARTH", ref_frame="GCRF", time_system="UTC",
     ///         start_time=start, stop_time=stop,
+    ///         trajectory=prop.trajectory,
     ///     )
     ///     ```
-    #[pyo3(signature = (object_name, object_id, center_name, ref_frame, time_system, start_time, stop_time, interpolation=None, interpolation_degree=None))]
+    #[pyo3(signature = (object_name, object_id, center_name, ref_frame, time_system, start_time, stop_time, interpolation=None, interpolation_degree=None, trajectory=None))]
     #[allow(clippy::too_many_arguments)]
     fn add_segment(
         &mut self,
@@ -1572,12 +1667,13 @@ impl PyOEM {
         stop_time: PyEpoch,
         interpolation: Option<String>,
         interpolation_degree: Option<u32>,
+        trajectory: Option<PyRef<PyOrbitalTrajectory>>,
     ) -> PyResult<usize> {
         let rf = CCSDSRefFrame::parse(&ref_frame);
         let ts = CCSDSTimeSystem::parse(&time_system).map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!("Invalid time_system: {}", e))
         })?;
-        let seg = OEMSegment {
+        let mut seg = OEMSegment {
             metadata: OEMMetadata {
                 object_name,
                 object_id,
@@ -1597,6 +1693,13 @@ impl PyOEM {
             states: Vec::new(),
             covariances: Vec::new(),
         };
+        if let Some(traj) = trajectory {
+            push_trajectory_states(&mut seg, &traj.trajectory).map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "Failed to convert trajectory states: {}", e
+                ))
+            })?;
+        }
         self.inner.segments.push(seg);
         Ok(self.inner.segments.len() - 1)
     }
@@ -2342,6 +2445,59 @@ impl PyOMM {
     fn from_file(path: &str) -> PyResult<Self> {
         let inner = RustOMM::from_file(path)?;
         Ok(PyOMM { inner })
+    }
+
+    /// Create an OMM from a GPRecord.
+    ///
+    /// Validates that required orbital element fields are present (epoch,
+    /// eccentricity, inclination, ra_of_asc_node, arg_of_pericenter,
+    /// mean_anomaly) and builds an OMM with defaults for missing metadata.
+    ///
+    /// Args:
+    ///     gp (GPRecord): GP record to convert.
+    ///
+    /// Returns:
+    ///     OMM: CCSDS OMM message constructed from the GP record.
+    ///
+    /// Raises:
+    ///     BraheError: If required orbital element fields are missing.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.ccsds import OMM
+    ///
+    ///     record = bh.GPRecord.from_json('{"OBJECT_NAME": "ISS", "EPOCH": "2024-01-15T12:00:00.000", "ECCENTRICITY": 0.0001, "INCLINATION": 51.64, "RA_OF_ASC_NODE": 200.0, "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 260.0}')
+    ///     omm = OMM.from_gp_record(record)
+    ///     print(omm.object_name)
+    ///     ```
+    #[staticmethod]
+    fn from_gp_record(gp: &PyGPRecord) -> PyResult<Self> {
+        let omm = RustOMM::from_gp_record(&gp.inner)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(PyOMM { inner: omm })
+    }
+
+    /// Convert this OMM to a GPRecord.
+    ///
+    /// Maps all OMM fields back to the GPRecord format. This conversion
+    /// is infallible since all GPRecord fields are optional.
+    ///
+    /// Returns:
+    ///     GPRecord: GP record with fields populated from this OMM.
+    ///
+    /// Example:
+    ///     ```python
+    ///     from brahe.ccsds import OMM
+    ///
+    ///     omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    ///     gp = omm.to_gp_record()
+    ///     print(gp.object_name)
+    ///     ```
+    fn to_gp_record(&self) -> PyGPRecord {
+        PyGPRecord {
+            inner: self.inner.to_gp_record(),
+        }
     }
 
     // --- serialization ---

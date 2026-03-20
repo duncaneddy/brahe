@@ -297,6 +297,7 @@ nav:
       - examples/visualizing_gps.md
       - examples/visualizing_starlink.md
       - examples/ground_contacts.md
+      - examples/oem_access_prediction.md
       - examples/doppler_compensation.md
       - examples/max_communications_gap.md
       - examples/imaging_data_latency.md

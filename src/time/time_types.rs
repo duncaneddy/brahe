@@ -49,6 +49,24 @@ pub enum TimeSystem {
     /// Universal Time 1. Solar time representing Earth's rotation relative to the ICRF
     /// inertial frame. Mean solar time at 0° longitude, varies irregularly due to Earth's rotation.
     UT1,
+    /// Barycentric Dynamical Time. Time scale for solar system barycentric ephemerides.
+    /// Differs from TT by small periodic terms (< 1.7 ms) due to relativistic effects
+    /// of Earth's orbital motion. Computed via Kaplan (2005:15) / Vallado Eq. 3-53.
+    TDB,
+    /// Geocentric Coordinate Time. Coordinate time for geocentric reference systems.
+    /// Differs from TT by a secular drift (~0.7 s/year) due to Earth's gravitational
+    /// time dilation. Computed via Vallado Eq. 3-56.
+    TCG,
+    /// Barycentric Coordinate Time. Coordinate time for the solar system barycenter.
+    /// Differs from TDB by a secular drift due to relativistic effects.
+    /// Computed via Vallado Eq. 3-52.
+    TCB,
+    /// BeiDou Navigation Satellite System Time. Atomic time scale aligned with UTC
+    /// at inception (January 1, 2006). Fixed offset from TAI of 33 seconds (BDT = TAI - 33s).
+    BDT,
+    /// Galileo System Time. Atomic time scale for the Galileo navigation system.
+    /// Steered to GPS time, sharing the same fixed offset from TAI of 19 seconds (GST = TAI - 19s).
+    GST,
 }
 
 impl fmt::Display for TimeSystem {
@@ -59,6 +77,11 @@ impl fmt::Display for TimeSystem {
             TimeSystem::TT => write!(f, "TT"),
             TimeSystem::UTC => write!(f, "UTC"),
             TimeSystem::UT1 => write!(f, "UT1"),
+            TimeSystem::TDB => write!(f, "TDB"),
+            TimeSystem::TCG => write!(f, "TCG"),
+            TimeSystem::TCB => write!(f, "TCB"),
+            TimeSystem::BDT => write!(f, "BDT"),
+            TimeSystem::GST => write!(f, "GST"),
         }
     }
 }
@@ -75,5 +98,10 @@ mod tests {
         assert_eq!(format!("{}", TimeSystem::TT), "TT");
         assert_eq!(format!("{}", TimeSystem::UTC), "UTC");
         assert_eq!(format!("{}", TimeSystem::UT1), "UT1");
+        assert_eq!(format!("{}", TimeSystem::TDB), "TDB");
+        assert_eq!(format!("{}", TimeSystem::TCG), "TCG");
+        assert_eq!(format!("{}", TimeSystem::TCB), "TCB");
+        assert_eq!(format!("{}", TimeSystem::BDT), "BDT");
+        assert_eq!(format!("{}", TimeSystem::GST), "GST");
     }
 }

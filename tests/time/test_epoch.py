@@ -34,6 +34,21 @@ def test_epoch_time_system(eop):
     epc = bh.Epoch.from_date(2022, 1, 1, bh.UT1)
     assert epc.time_system == bh.UT1
 
+    epc = bh.Epoch.from_date(2022, 1, 1, bh.TDB)
+    assert epc.time_system == bh.TDB
+
+    epc = bh.Epoch.from_date(2022, 1, 1, bh.TCG)
+    assert epc.time_system == bh.TCG
+
+    epc = bh.Epoch.from_date(2022, 1, 1, bh.TCB)
+    assert epc.time_system == bh.TCB
+
+    epc = bh.Epoch.from_date(2022, 1, 1, bh.BDT)
+    assert epc.time_system == bh.BDT
+
+    epc = bh.Epoch.from_date(2022, 1, 1, bh.GST)
+    assert epc.time_system == bh.GST
+
 
 def test_epoch_from_date(eop):
     epc = bh.Epoch.from_date(2020, 1, 2, bh.GPS)
@@ -233,9 +248,6 @@ def test_epoch_from_string(eop):
 
 def test_epoch_from_string_invalid_time_system(eop):
     # Test that invalid time system strings raise ValueError
-    with pytest.raises(ValueError, match="Failed to parse epoch string"):
-        bh.Epoch.from_string("2023-01-01 12:00:00 TDB")
-
     with pytest.raises(ValueError, match="Failed to parse epoch string"):
         bh.Epoch.from_string("2023-01-01 12:00:00 INVALID")
 

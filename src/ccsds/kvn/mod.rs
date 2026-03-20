@@ -11,9 +11,11 @@
 mod parser;
 mod writer;
 
+pub use parser::parse_cdm;
 pub use parser::parse_oem;
 pub use parser::parse_omm;
 pub use parser::parse_opm;
+pub use writer::write_cdm;
 pub use writer::write_oem;
 pub use writer::write_omm;
 pub use writer::write_opm;

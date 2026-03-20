@@ -7,6 +7,7 @@ Brahe supports three CCSDS Orbit Data Message (ODM) types defined in CCSDS 502.0
 - **[OEM](oem.md)** — Orbit Ephemeris Message (time-series state vectors)
 - **[OMM](omm.md)** — Orbit Mean-elements Message (SGP4/TLE data)
 - **[OPM](opm.md)** — Orbit Parameter Message (single state vector)
+- **[CDM](cdm.md)** — Conjunction Data Message (two-object close approach)
 
 ---
 

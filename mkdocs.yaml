@@ -267,6 +267,7 @@ nav:
           - OEM - Orbit Ephemeris Message: learn/ccsds/oem.md
           - OMM - Orbit Mean-elements Message: learn/ccsds/omm.md
           - OPM - Orbit Parameter Message: learn/ccsds/opm.md
+          - CDM - Conjunction Data Message: learn/ccsds/cdm.md
       - Datasets:
           - learn/datasets/index.md
           - NAIF: learn/datasets/naif.md
@@ -436,6 +437,7 @@ nav:
           - OEM: library_api/ccsds/oem.md
           - OMM: library_api/ccsds/omm.md
           - OPM: library_api/ccsds/opm.md
+          - CDM: library_api/ccsds/cdm.md
       - Utilities:
           - library_api/utils/index.md
           - Caching: library_api/utils/caching.md

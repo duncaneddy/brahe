@@ -1151,6 +1151,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyOPMManeuver>()?;
     module.add_class::<PyOPMManeuvers>()?;
     module.add_class::<PyOPMManeuverIterator>()?;
+    module.add_class::<PyCDM>()?;
+    module.add_class::<PyCDMObject>()?;
+    module.add_class::<PyCDMStateVector>()?;
+    module.add_class::<PyCDMRTNCovariance>()?;
 
     Ok(())
 }

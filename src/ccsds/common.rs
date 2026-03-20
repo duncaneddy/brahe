@@ -35,6 +35,31 @@ impl fmt::Display for CCSDSFormat {
     }
 }
 
+/// Auto-detect the encoding format of a CCSDS message string.
+///
+/// Detection logic:
+/// - Starts with `<?xml` or `<`: XML
+/// - Starts with `{` or `[`: JSON
+/// - Otherwise: KVN (default)
+///
+/// # Arguments
+///
+/// * `content` - String content of the CCSDS message
+///
+/// # Returns
+///
+/// * `CCSDSFormat` - Detected format
+pub(crate) fn detect_format(content: &str) -> CCSDSFormat {
+    let trimmed = content.trim_start();
+    if trimmed.starts_with("<?xml") || trimmed.starts_with('<') {
+        CCSDSFormat::XML
+    } else if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        CCSDSFormat::JSON
+    } else {
+        CCSDSFormat::KVN
+    }
+}
+
 /// CCSDS time system identifier.
 ///
 /// Maps CCSDS time system keywords to their standard definitions.
@@ -524,6 +549,112 @@ pub fn covariance_from_lower_triangular(values: &[f64; 21], scale: f64) -> SMatr
     matrix
 }
 
+/// Indicates how many dimensions of a CDM extended covariance matrix are populated.
+///
+/// CDM covariance can extend beyond the standard 6×6 position/velocity block
+/// to include drag (row 7), solar radiation pressure (row 8), and thrust (row 9)
+/// uncertainty cross-correlations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CDMCovarianceDimension {
+    /// 6×6 position/velocity only (21 lower-triangular elements)
+    SixBySix,
+    /// 7×7 with drag row/column (28 lower-triangular elements)
+    SevenBySeven,
+    /// 8×8 with drag + SRP rows/columns (36 lower-triangular elements)
+    EightByEight,
+    /// 9×9 with drag + SRP + thrust rows/columns (45 lower-triangular elements)
+    NineByNine,
+}
+
+impl CDMCovarianceDimension {
+    /// Return the matrix dimension (6, 7, 8, or 9).
+    pub fn size(&self) -> usize {
+        match self {
+            CDMCovarianceDimension::SixBySix => 6,
+            CDMCovarianceDimension::SevenBySeven => 7,
+            CDMCovarianceDimension::EightByEight => 8,
+            CDMCovarianceDimension::NineByNine => 9,
+        }
+    }
+
+    /// Return the number of lower-triangular elements for this dimension.
+    pub fn num_elements(&self) -> usize {
+        let n = self.size();
+        n * (n + 1) / 2
+    }
+
+    /// Determine the dimension from the number of lower-triangular elements.
+    pub fn from_num_elements(n: usize) -> Result<Self, crate::utils::errors::BraheError> {
+        match n {
+            21 => Ok(CDMCovarianceDimension::SixBySix),
+            28 => Ok(CDMCovarianceDimension::SevenBySeven),
+            36 => Ok(CDMCovarianceDimension::EightByEight),
+            45 => Ok(CDMCovarianceDimension::NineByNine),
+            _ => Err(crate::ccsds::error::ccsds_parse_error(
+                "CDM",
+                &format!(
+                    "invalid number of covariance elements: {} (expected 21, 28, 36, or 45)",
+                    n
+                ),
+            )),
+        }
+    }
+}
+
+/// Parse lower-triangular values into a 9×9 symmetric covariance matrix.
+///
+/// CDM covariance values are already in SI units (m², m²/s, m²/s² for the
+/// 6×6 core; m³/kg, m⁴/kg² for drag/SRP rows). No unit scaling is applied.
+///
+/// # Arguments
+///
+/// * `values` - Lower-triangular elements in row-major order (21, 28, 36, or 45 elements)
+///
+/// # Returns
+///
+/// * `(SMatrix<f64, 9, 9>, CDMCovarianceDimension)` - Symmetric matrix (zeroed beyond populated dimension) and dimension indicator
+pub fn covariance9x9_from_lower_triangular(
+    values: &[f64],
+) -> Result<(SMatrix<f64, 9, 9>, CDMCovarianceDimension), crate::utils::errors::BraheError> {
+    let dim = CDMCovarianceDimension::from_num_elements(values.len())?;
+    let n = dim.size();
+    let mut matrix = SMatrix::<f64, 9, 9>::zeros();
+    let mut idx = 0;
+    for row in 0..n {
+        for col in 0..=row {
+            let val = values[idx];
+            matrix[(row, col)] = val;
+            matrix[(col, row)] = val;
+            idx += 1;
+        }
+    }
+    Ok((matrix, dim))
+}
+
+/// Extract lower-triangular values from a 9×9 matrix up to the given dimension.
+///
+/// # Arguments
+///
+/// * `matrix` - 9×9 symmetric covariance matrix
+/// * `dimension` - How many rows/columns to extract
+///
+/// # Returns
+///
+/// * `Vec<f64>` - Lower-triangular elements in row-major order
+pub fn covariance9x9_to_lower_triangular(
+    matrix: &SMatrix<f64, 9, 9>,
+    dimension: CDMCovarianceDimension,
+) -> Vec<f64> {
+    let n = dimension.size();
+    let mut values = Vec::with_capacity(dimension.num_elements());
+    for row in 0..n {
+        for col in 0..=row {
+            values.push(matrix[(row, col)]);
+        }
+    }
+    values
+}
+
 /// Extract 21 lower-triangular values from a 6x6 symmetric matrix.
 ///
 /// # Arguments
@@ -658,6 +789,72 @@ mod tests {
     }
 
     #[test]
+    fn test_cdm_covariance_dimension() {
+        assert_eq!(CDMCovarianceDimension::SixBySix.size(), 6);
+        assert_eq!(CDMCovarianceDimension::SevenBySeven.size(), 7);
+        assert_eq!(CDMCovarianceDimension::EightByEight.size(), 8);
+        assert_eq!(CDMCovarianceDimension::NineByNine.size(), 9);
+        assert_eq!(CDMCovarianceDimension::SixBySix.num_elements(), 21);
+        assert_eq!(CDMCovarianceDimension::SevenBySeven.num_elements(), 28);
+        assert_eq!(CDMCovarianceDimension::EightByEight.num_elements(), 36);
+        assert_eq!(CDMCovarianceDimension::NineByNine.num_elements(), 45);
+        assert_eq!(
+            CDMCovarianceDimension::from_num_elements(21).unwrap(),
+            CDMCovarianceDimension::SixBySix
+        );
+        assert_eq!(
+            CDMCovarianceDimension::from_num_elements(45).unwrap(),
+            CDMCovarianceDimension::NineByNine
+        );
+        assert!(CDMCovarianceDimension::from_num_elements(10).is_err());
+    }
+
+    #[test]
+    fn test_covariance9x9_round_trip_6x6() {
+        // Standard 6x6 RTN covariance values from CDMExample1.txt Object1
+        let values: Vec<f64> = vec![
+            4.142e+01, -8.579e+00, 2.533e+03, -2.313e+01, 1.336e+01, 7.098e+01, 2.520e-03,
+            -5.476e+00, 8.626e-04, 5.744e-03, -1.006e-02, 4.041e-03, -1.359e-03, -1.502e-05,
+            1.049e-05, 1.053e-03, -3.412e-03, 1.213e-02, -3.004e-06, -1.091e-06, 5.529e-05,
+        ];
+        let (matrix, dim) = covariance9x9_from_lower_triangular(&values).unwrap();
+        assert_eq!(dim, CDMCovarianceDimension::SixBySix);
+        let recovered = covariance9x9_to_lower_triangular(&matrix, dim);
+        for i in 0..21 {
+            assert!((values[i] - recovered[i]).abs() < 1e-15);
+        }
+        // Verify symmetry in populated region
+        for i in 0..6 {
+            for j in 0..6 {
+                assert_eq!(matrix[(i, j)], matrix[(j, i)]);
+            }
+        }
+        // Verify unpopulated region is zero
+        for i in 6..9 {
+            for j in 0..9 {
+                assert_eq!(matrix[(i, j)], 0.0);
+                assert_eq!(matrix[(j, i)], 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_covariance9x9_round_trip_8x8() {
+        // 8x8 = 36 elements (6x6 core + drag row + SRP row)
+        let mut values = vec![0.0; 36];
+        for (i, v) in values.iter_mut().enumerate() {
+            *v = (i + 1) as f64 * 0.1;
+        }
+        let (matrix, dim) = covariance9x9_from_lower_triangular(&values).unwrap();
+        assert_eq!(dim, CDMCovarianceDimension::EightByEight);
+        let recovered = covariance9x9_to_lower_triangular(&matrix, dim);
+        assert_eq!(values.len(), recovered.len());
+        for i in 0..36 {
+            assert!((values[i] - recovered[i]).abs() < 1e-15);
+        }
+    }
+
+    #[test]
     fn test_parse_ccsds_datetime_no_fractional() {
         let ts = CCSDSTimeSystem::UTC;
         let epoch = parse_ccsds_datetime("1998-11-06T09:23:57", &ts).unwrap();
@@ -668,5 +865,34 @@ mod tests {
         assert_eq!(hour, 9);
         assert_eq!(minute, 23);
         assert_eq!(second, 57.0);
+    }
+
+    #[test]
+    fn test_detect_format_kvn() {
+        assert_eq!(detect_format("CCSDS_OEM_VERS = 3.0\n"), CCSDSFormat::KVN);
+    }
+
+    #[test]
+    fn test_detect_format_xml() {
+        assert_eq!(
+            detect_format("<?xml version=\"1.0\"?>\n<oem>"),
+            CCSDSFormat::XML
+        );
+        assert_eq!(detect_format("<oem>"), CCSDSFormat::XML);
+    }
+
+    #[test]
+    fn test_detect_format_json() {
+        assert_eq!(detect_format("{\"header\": {}}"), CCSDSFormat::JSON);
+        assert_eq!(detect_format("[{\"header\": {}}]"), CCSDSFormat::JSON);
+    }
+
+    #[test]
+    fn test_detect_format_whitespace() {
+        assert_eq!(
+            detect_format("  \n  CCSDS_OEM_VERS = 3.0"),
+            CCSDSFormat::KVN
+        );
+        assert_eq!(detect_format("  \n  <?xml"), CCSDSFormat::XML);
     }
 }

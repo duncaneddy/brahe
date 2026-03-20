@@ -163,7 +163,7 @@ def test_oem_negative_indexing(eop):
     # Negative state index
     seg0 = oem.segments[0]
     last_state = seg0.states[-1]
-    assert isinstance(last_state.position, list)
+    assert isinstance(last_state.position, np.ndarray)
 
 
 def test_oem_index_out_of_range(eop):
@@ -262,11 +262,11 @@ def test_oem_state_setters(eop):
 
     # Set position
     oem.segments[0].states[0].position = [1.0, 2.0, 3.0]
-    assert oem.segments[0].states[0].position == [1.0, 2.0, 3.0]
+    assert oem.segments[0].states[0].position == pytest.approx([1.0, 2.0, 3.0])
 
     # Set velocity
     oem.segments[0].states[0].velocity = [4.0, 5.0, 6.0]
-    assert oem.segments[0].states[0].velocity == [4.0, 5.0, 6.0]
+    assert oem.segments[0].states[0].velocity == pytest.approx([4.0, 5.0, 6.0])
 
     # Set acceleration
     oem.segments[0].states[0].acceleration = [0.1, 0.2, 0.3]
@@ -509,10 +509,10 @@ def test_OEMStateVector_standalone_setters(eop):
     sv = OEMStateVector(epoch=epoch, position=[1, 2, 3], velocity=[4, 5, 6])
 
     sv.position = [10.0, 20.0, 30.0]
-    assert sv.position == [10.0, 20.0, 30.0]
+    assert sv.position == pytest.approx([10.0, 20.0, 30.0])
 
     sv.velocity = [40.0, 50.0, 60.0]
-    assert sv.velocity == [40.0, 50.0, 60.0]
+    assert sv.velocity == pytest.approx([40.0, 50.0, 60.0])
 
     new_epoch = Epoch.from_datetime(2024, 6, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
     sv.epoch = new_epoch

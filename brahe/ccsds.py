@@ -11,6 +11,10 @@ Supported formats: KVN (text), XML, JSON.
 """
 
 from brahe._brahe import (
+    CDM,
+    CDMObject,
+    CDMRTNCovariance,
+    CDMStateVector,
     OEM,
     OEMSegment,
     OEMSegments,
@@ -23,6 +27,10 @@ from brahe._brahe import (
 )
 
 __all__ = [
+    "CDM",
+    "CDMObject",
+    "CDMRTNCovariance",
+    "CDMStateVector",
     "OEM",
     "OEMSegment",
     "OEMSegments",

@@ -362,16 +362,8 @@ mod tests {
     use crate::ccsds::oem::OEM;
     use crate::trajectories::traits::Trajectory;
 
-    fn setup_eop() {
-        use crate::eop::*;
-        let eop = StaticEOPProvider::new();
-        set_global_eop_provider(eop);
-    }
-
     #[test]
     fn test_oem_to_trajectory_example4() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
@@ -388,8 +380,6 @@ mod tests {
 
     #[test]
     fn test_oem_to_trajectory_example5() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
@@ -400,8 +390,6 @@ mod tests {
 
     #[test]
     fn test_oem_to_trajectories_multi_segment() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
@@ -411,8 +399,6 @@ mod tests {
 
     #[test]
     fn test_oem_try_from_single_segment() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
@@ -422,8 +408,6 @@ mod tests {
 
     #[test]
     fn test_oem_try_from_multi_segment_fails() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
@@ -432,8 +416,6 @@ mod tests {
 
     #[test]
     fn test_oem_segment_out_of_bounds() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
@@ -543,8 +525,6 @@ mod tests {
 
     #[test]
     fn test_omm_to_gp_record() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let omm = OMM::from_str(&content).unwrap();
 

@@ -1352,16 +1352,1318 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
     })
 }
 
+/// Parse a CDM message from KVN format.
+///
+/// Uses a flat key-match approach with object context tracking. The `OBJECT`
+/// keyword triggers transitions between Object1 and Object2. Within each
+/// object, field names implicitly determine the subsection.
+pub fn parse_cdm(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError> {
+    use crate::ccsds::cdm::*;
+    use crate::ccsds::common::covariance9x9_from_lower_triangular;
+
+    // Track which object we're currently parsing
+    #[derive(PartialEq)]
+    enum CurrentObject {
+        None,
+        Object1,
+        Object2,
+    }
+    let mut current_object = CurrentObject::None;
+
+    // Header fields
+    let mut format_version: Option<f64> = None;
+    let mut classification: Option<String> = None;
+    let mut creation_date: Option<Epoch> = None;
+    let mut originator: Option<String> = None;
+    let mut message_for: Option<String> = None;
+    let mut message_id: Option<String> = None;
+    let mut header_comments: Vec<String> = Vec::new();
+
+    // Relative metadata fields
+    let mut conjunction_id: Option<String> = None;
+    let mut tca: Option<Epoch> = None;
+    let mut miss_distance: Option<f64> = None;
+    let mut mahalanobis_distance: Option<f64> = None;
+    let mut relative_speed: Option<f64> = None;
+    let mut rel_pos_r: Option<f64> = None;
+    let mut rel_pos_t: Option<f64> = None;
+    let mut rel_pos_n: Option<f64> = None;
+    let mut rel_vel_r: Option<f64> = None;
+    let mut rel_vel_t: Option<f64> = None;
+    let mut rel_vel_n: Option<f64> = None;
+    let mut approach_angle: Option<f64> = None;
+    let mut start_screen_period: Option<Epoch> = None;
+    let mut stop_screen_period: Option<Epoch> = None;
+    let mut screen_type: Option<String> = None;
+    let mut screen_volume_frame: Option<CCSDSRefFrame> = None;
+    let mut screen_volume_shape: Option<String> = None;
+    let mut screen_volume_radius: Option<f64> = None;
+    let mut screen_volume_x: Option<f64> = None;
+    let mut screen_volume_y: Option<f64> = None;
+    let mut screen_volume_z: Option<f64> = None;
+    let mut screen_entry_time: Option<Epoch> = None;
+    let mut screen_exit_time: Option<Epoch> = None;
+    let mut screen_pc_threshold: Option<f64> = None;
+    let mut collision_percentile: Option<Vec<u32>> = None;
+    let mut collision_probability: Option<f64> = None;
+    let mut collision_probability_method: Option<String> = None;
+    let mut collision_max_probability: Option<f64> = None;
+    let mut collision_max_pc_method: Option<String> = None;
+    let mut sefi_collision_probability: Option<f64> = None;
+    let mut sefi_collision_probability_method: Option<String> = None;
+    let mut sefi_fragmentation_model: Option<String> = None;
+    let mut previous_message_id: Option<String> = None;
+    let mut previous_message_epoch: Option<Epoch> = None;
+    let mut next_message_epoch: Option<Epoch> = None;
+    let mut rel_comments: Vec<String> = Vec::new();
+
+    // Per-object data (index 0 = object1, 1 = object2)
+    struct ObjectBuilder {
+        // Metadata
+        object: Option<String>,
+        object_designator: Option<String>,
+        catalog_name: Option<String>,
+        object_name: Option<String>,
+        international_designator: Option<String>,
+        object_type: Option<String>,
+        ops_status: Option<String>,
+        operator_contact_position: Option<String>,
+        operator_organization: Option<String>,
+        operator_phone: Option<String>,
+        operator_email: Option<String>,
+        ephemeris_name: Option<String>,
+        odm_msg_link: Option<String>,
+        adm_msg_link: Option<String>,
+        obs_before_next_message: Option<String>,
+        covariance_method: Option<String>,
+        covariance_source: Option<String>,
+        maneuverable: Option<String>,
+        orbit_center: Option<String>,
+        ref_frame: Option<CCSDSRefFrame>,
+        alt_cov_type: Option<String>,
+        alt_cov_ref_frame: Option<CCSDSRefFrame>,
+        gravity_model: Option<String>,
+        atmospheric_model: Option<String>,
+        n_body_perturbations: Option<String>,
+        solar_rad_pressure: Option<String>,
+        earth_tides: Option<String>,
+        intrack_thrust: Option<String>,
+        metadata_comments: Vec<String>,
+
+        // OD parameters
+        time_lastob_start: Option<Epoch>,
+        time_lastob_end: Option<Epoch>,
+        recommended_od_span: Option<f64>,
+        actual_od_span: Option<f64>,
+        obs_available: Option<u32>,
+        obs_used: Option<u32>,
+        tracks_available: Option<u32>,
+        tracks_used: Option<u32>,
+        residuals_accepted: Option<f64>,
+        weighted_rms: Option<f64>,
+        od_epoch: Option<Epoch>,
+        od_comments: Vec<String>,
+        has_od_params: bool,
+
+        // Additional parameters
+        area_pc: Option<f64>,
+        area_pc_min: Option<f64>,
+        area_pc_max: Option<f64>,
+        area_drg: Option<f64>,
+        area_srp: Option<f64>,
+        oeb_parent_frame: Option<String>,
+        oeb_parent_frame_epoch: Option<Epoch>,
+        oeb_q1: Option<f64>,
+        oeb_q2: Option<f64>,
+        oeb_q3: Option<f64>,
+        oeb_qc: Option<f64>,
+        oeb_max: Option<f64>,
+        oeb_int: Option<f64>,
+        oeb_min: Option<f64>,
+        area_along_oeb_max: Option<f64>,
+        area_along_oeb_int: Option<f64>,
+        area_along_oeb_min: Option<f64>,
+        rcs: Option<f64>,
+        rcs_min: Option<f64>,
+        rcs_max: Option<f64>,
+        vm_absolute: Option<f64>,
+        vm_apparent_min: Option<f64>,
+        vm_apparent: Option<f64>,
+        vm_apparent_max: Option<f64>,
+        reflectance: Option<f64>,
+        mass: Option<f64>,
+        hbr: Option<f64>,
+        cd_area_over_mass: Option<f64>,
+        cr_area_over_mass: Option<f64>,
+        thrust_acceleration: Option<f64>,
+        sedr: Option<f64>,
+        min_dv: Option<[f64; 3]>,
+        max_dv: Option<[f64; 3]>,
+        lead_time_reqd_before_tca: Option<f64>,
+        apoapsis_altitude: Option<f64>,
+        periapsis_altitude: Option<f64>,
+        inclination: Option<f64>,
+        cov_confidence: Option<f64>,
+        cov_confidence_method: Option<String>,
+        add_comments: Vec<String>,
+        has_add_params: bool,
+
+        // State vector
+        x: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        x_dot: Option<f64>,
+        y_dot: Option<f64>,
+        z_dot: Option<f64>,
+        sv_comments: Vec<String>,
+
+        // RTN covariance (store as lower-triangular values)
+        rtn_cov_values: Vec<f64>,
+        rtn_cov_comments: Vec<String>,
+
+        // XYZ covariance (store as lower-triangular values)
+        xyz_cov_values: Vec<f64>,
+        xyz_cov_comments: Vec<String>,
+
+        // CSIG3EIGVEC3
+        csig3eigvec3: Option<String>,
+
+        // Additional covariance metadata
+        density_forecast_uncertainty: Option<f64>,
+        cscale_factor_min: Option<f64>,
+        cscale_factor: Option<f64>,
+        cscale_factor_max: Option<f64>,
+        screening_data_source: Option<String>,
+        dcp_sensitivity_vector_position: Option<[f64; 3]>,
+        dcp_sensitivity_vector_velocity: Option<[f64; 3]>,
+        acm_comments: Vec<String>,
+        has_acm: bool,
+
+        data_comments: Vec<String>,
+        in_xyz_cov: bool,
+    }
+
+    impl ObjectBuilder {
+        fn new() -> Self {
+            Self {
+                object: None,
+                object_designator: None,
+                catalog_name: None,
+                object_name: None,
+                international_designator: None,
+                object_type: None,
+                ops_status: None,
+                operator_contact_position: None,
+                operator_organization: None,
+                operator_phone: None,
+                operator_email: None,
+                ephemeris_name: None,
+                odm_msg_link: None,
+                adm_msg_link: None,
+                obs_before_next_message: None,
+                covariance_method: None,
+                covariance_source: None,
+                maneuverable: None,
+                orbit_center: None,
+                ref_frame: None,
+                alt_cov_type: None,
+                alt_cov_ref_frame: None,
+                gravity_model: None,
+                atmospheric_model: None,
+                n_body_perturbations: None,
+                solar_rad_pressure: None,
+                earth_tides: None,
+                intrack_thrust: None,
+                metadata_comments: Vec::new(),
+
+                time_lastob_start: None,
+                time_lastob_end: None,
+                recommended_od_span: None,
+                actual_od_span: None,
+                obs_available: None,
+                obs_used: None,
+                tracks_available: None,
+                tracks_used: None,
+                residuals_accepted: None,
+                weighted_rms: None,
+                od_epoch: None,
+                od_comments: Vec::new(),
+                has_od_params: false,
+
+                area_pc: None,
+                area_pc_min: None,
+                area_pc_max: None,
+                area_drg: None,
+                area_srp: None,
+                oeb_parent_frame: None,
+                oeb_parent_frame_epoch: None,
+                oeb_q1: None,
+                oeb_q2: None,
+                oeb_q3: None,
+                oeb_qc: None,
+                oeb_max: None,
+                oeb_int: None,
+                oeb_min: None,
+                area_along_oeb_max: None,
+                area_along_oeb_int: None,
+                area_along_oeb_min: None,
+                rcs: None,
+                rcs_min: None,
+                rcs_max: None,
+                vm_absolute: None,
+                vm_apparent_min: None,
+                vm_apparent: None,
+                vm_apparent_max: None,
+                reflectance: None,
+                mass: None,
+                hbr: None,
+                cd_area_over_mass: None,
+                cr_area_over_mass: None,
+                thrust_acceleration: None,
+                sedr: None,
+                min_dv: None,
+                max_dv: None,
+                lead_time_reqd_before_tca: None,
+                apoapsis_altitude: None,
+                periapsis_altitude: None,
+                inclination: None,
+                cov_confidence: None,
+                cov_confidence_method: None,
+                add_comments: Vec::new(),
+                has_add_params: false,
+
+                x: None,
+                y: None,
+                z: None,
+                x_dot: None,
+                y_dot: None,
+                z_dot: None,
+                sv_comments: Vec::new(),
+
+                rtn_cov_values: Vec::new(),
+                rtn_cov_comments: Vec::new(),
+                xyz_cov_values: Vec::new(),
+                xyz_cov_comments: Vec::new(),
+                csig3eigvec3: None,
+
+                density_forecast_uncertainty: None,
+                cscale_factor_min: None,
+                cscale_factor: None,
+                cscale_factor_max: None,
+                screening_data_source: None,
+                dcp_sensitivity_vector_position: None,
+                dcp_sensitivity_vector_velocity: None,
+                acm_comments: Vec::new(),
+                has_acm: false,
+
+                data_comments: Vec::new(),
+                in_xyz_cov: false,
+            }
+        }
+    }
+
+    let mut obj1 = ObjectBuilder::new();
+    let mut obj2 = ObjectBuilder::new();
+    let mut user_defined: HashMap<String, String> = HashMap::new();
+
+    let utc = CCSDSTimeSystem::UTC;
+
+    // Helper: parse float from value with unit stripping
+    let parse_f64 = |val: &str| -> Result<f64, BraheError> {
+        strip_units(val)
+            .parse()
+            .map_err(|_| ccsds_parse_error("CDM", &format!("invalid numeric value '{}'", val)))
+    };
+    let parse_u32 = |val: &str| -> Result<u32, BraheError> {
+        strip_units(val)
+            .parse()
+            .map_err(|_| ccsds_parse_error("CDM", &format!("invalid integer value '{}'", val)))
+    };
+
+    // RTN covariance field name → (row, col) mapping
+    fn rtn_cov_index(key: &str) -> Option<(usize, usize)> {
+        match key {
+            "CR_R" => Some((0, 0)),
+            "CT_R" => Some((1, 0)),
+            "CT_T" => Some((1, 1)),
+            "CN_R" => Some((2, 0)),
+            "CN_T" => Some((2, 1)),
+            "CN_N" => Some((2, 2)),
+            "CRDOT_R" => Some((3, 0)),
+            "CRDOT_T" => Some((3, 1)),
+            "CRDOT_N" => Some((3, 2)),
+            "CRDOT_RDOT" => Some((3, 3)),
+            "CTDOT_R" => Some((4, 0)),
+            "CTDOT_T" => Some((4, 1)),
+            "CTDOT_N" => Some((4, 2)),
+            "CTDOT_RDOT" => Some((4, 3)),
+            "CTDOT_TDOT" => Some((4, 4)),
+            "CNDOT_R" => Some((5, 0)),
+            "CNDOT_T" => Some((5, 1)),
+            "CNDOT_N" => Some((5, 2)),
+            "CNDOT_RDOT" => Some((5, 3)),
+            "CNDOT_TDOT" => Some((5, 4)),
+            "CNDOT_NDOT" => Some((5, 5)),
+            "CDRG_R" => Some((6, 0)),
+            "CDRG_T" => Some((6, 1)),
+            "CDRG_N" => Some((6, 2)),
+            "CDRG_RDOT" => Some((6, 3)),
+            "CDRG_TDOT" => Some((6, 4)),
+            "CDRG_NDOT" => Some((6, 5)),
+            "CDRG_DRG" => Some((6, 6)),
+            "CSRP_R" => Some((7, 0)),
+            "CSRP_T" => Some((7, 1)),
+            "CSRP_N" => Some((7, 2)),
+            "CSRP_RDOT" => Some((7, 3)),
+            "CSRP_TDOT" => Some((7, 4)),
+            "CSRP_NDOT" => Some((7, 5)),
+            "CSRP_DRG" => Some((7, 6)),
+            "CSRP_SRP" => Some((7, 7)),
+            "CTHR_R" => Some((8, 0)),
+            "CTHR_T" => Some((8, 1)),
+            "CTHR_N" => Some((8, 2)),
+            "CTHR_RDOT" => Some((8, 3)),
+            "CTHR_TDOT" => Some((8, 4)),
+            "CTHR_NDOT" => Some((8, 5)),
+            "CTHR_DRG" => Some((8, 6)),
+            "CTHR_SRP" => Some((8, 7)),
+            "CTHR_THR" => Some((8, 8)),
+            _ => None,
+        }
+    }
+
+    // XYZ covariance field name → (row, col) mapping
+    fn xyz_cov_index(key: &str) -> Option<(usize, usize)> {
+        match key {
+            "CX_X" => Some((0, 0)),
+            "CY_X" => Some((1, 0)),
+            "CY_Y" => Some((1, 1)),
+            "CZ_X" => Some((2, 0)),
+            "CZ_Y" => Some((2, 1)),
+            "CZ_Z" => Some((2, 2)),
+            "CXDOT_X" => Some((3, 0)),
+            "CXDOT_Y" => Some((3, 1)),
+            "CXDOT_Z" => Some((3, 2)),
+            "CXDOT_XDOT" => Some((3, 3)),
+            "CYDOT_X" => Some((4, 0)),
+            "CYDOT_Y" => Some((4, 1)),
+            "CYDOT_Z" => Some((4, 2)),
+            "CYDOT_XDOT" => Some((4, 3)),
+            "CYDOT_YDOT" => Some((4, 4)),
+            "CZDOT_X" => Some((5, 0)),
+            "CZDOT_Y" => Some((5, 1)),
+            "CZDOT_Z" => Some((5, 2)),
+            "CZDOT_XDOT" => Some((5, 3)),
+            "CZDOT_YDOT" => Some((5, 4)),
+            "CZDOT_ZDOT" => Some((5, 5)),
+            "CDRG_X" => Some((6, 0)),
+            "CDRG_Y" => Some((6, 1)),
+            "CDRG_Z" => Some((6, 2)),
+            "CDRG_XDOT" => Some((6, 3)),
+            "CDRG_YDOT" => Some((6, 4)),
+            "CDRG_ZDOT" => Some((6, 5)),
+            // CDRG_DRG is shared between RTN and XYZ contexts
+            "CSRP_X" => Some((7, 0)),
+            "CSRP_Y" => Some((7, 1)),
+            "CSRP_Z" => Some((7, 2)),
+            "CSRP_XDOT" => Some((7, 3)),
+            "CSRP_YDOT" => Some((7, 4)),
+            "CSRP_ZDOT" => Some((7, 5)),
+            // CSRP_DRG and CSRP_SRP shared
+            "CTHR_X" => Some((8, 0)),
+            "CTHR_Y" => Some((8, 1)),
+            "CTHR_Z" => Some((8, 2)),
+            "CTHR_XDOT" => Some((8, 3)),
+            "CTHR_YDOT" => Some((8, 4)),
+            "CTHR_ZDOT" => Some((8, 5)),
+            // CTHR_DRG, CTHR_SRP, CTHR_THR shared
+            _ => None,
+        }
+    }
+
+    // Parse line-by-line
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        // Parse COMMENT lines
+        if let Some(comment_text) = line.strip_prefix("COMMENT") {
+            let comment = comment_text.trim().to_string();
+            match current_object {
+                CurrentObject::None => {
+                    if tca.is_some() {
+                        rel_comments.push(comment);
+                    } else {
+                        header_comments.push(comment);
+                    }
+                }
+                CurrentObject::Object1 => obj1.data_comments.push(comment),
+                CurrentObject::Object2 => obj2.data_comments.push(comment),
+            }
+            continue;
+        }
+
+        // Parse key=value
+        let eq_pos = match line.find('=') {
+            Some(pos) => pos,
+            None => continue,
+        };
+        let key = line[..eq_pos].trim();
+        let raw_val = line[eq_pos + 1..].trim();
+        let val = strip_units(raw_val);
+
+        // Get mutable reference to current object builder
+        let obj = match current_object {
+            CurrentObject::Object1 => &mut obj1,
+            CurrentObject::Object2 => &mut obj2,
+            CurrentObject::None => {
+                // Header + relative metadata keys
+                match key {
+                    "CCSDS_CDM_VERS" => {
+                        format_version = Some(parse_f64(val)?);
+                    }
+                    "CLASSIFICATION" => {
+                        classification = Some(val.trim_matches('"').to_string());
+                    }
+                    "CREATION_DATE" => {
+                        creation_date = Some(parse_ccsds_datetime(val, &utc)?);
+                    }
+                    "ORIGINATOR" => {
+                        originator = Some(val.to_string());
+                    }
+                    "MESSAGE_FOR" => {
+                        message_for = Some(val.to_string());
+                    }
+                    "MESSAGE_ID" => {
+                        message_id = Some(val.to_string());
+                    }
+                    "CONJUNCTION_ID" => {
+                        conjunction_id = Some(val.to_string());
+                    }
+                    "TCA" => {
+                        tca = Some(parse_ccsds_datetime(val, &utc)?);
+                    }
+                    "MISS_DISTANCE" => {
+                        miss_distance = Some(parse_f64(val)?);
+                    }
+                    "MAHALANOBIS_DISTANCE" => {
+                        mahalanobis_distance = Some(parse_f64(val)?);
+                    }
+                    "RELATIVE_SPEED" => {
+                        relative_speed = Some(parse_f64(val)?);
+                    }
+                    "RELATIVE_POSITION_R" => {
+                        rel_pos_r = Some(parse_f64(val)?);
+                    }
+                    "RELATIVE_POSITION_T" => {
+                        rel_pos_t = Some(parse_f64(val)?);
+                    }
+                    "RELATIVE_POSITION_N" => {
+                        rel_pos_n = Some(parse_f64(val)?);
+                    }
+                    "RELATIVE_VELOCITY_R" => {
+                        rel_vel_r = Some(parse_f64(val)?);
+                    }
+                    "RELATIVE_VELOCITY_T" => {
+                        rel_vel_t = Some(parse_f64(val)?);
+                    }
+                    "RELATIVE_VELOCITY_N" => {
+                        rel_vel_n = Some(parse_f64(val)?);
+                    }
+                    "APPROACH_ANGLE" => {
+                        approach_angle = Some(parse_f64(val)?);
+                    }
+                    "START_SCREEN_PERIOD" => {
+                        start_screen_period = Some(parse_ccsds_datetime(val, &utc)?);
+                    }
+                    "STOP_SCREEN_PERIOD" => {
+                        stop_screen_period = Some(parse_ccsds_datetime(val, &utc)?);
+                    }
+                    "SCREEN_TYPE" => {
+                        screen_type = Some(val.to_string());
+                    }
+                    "SCREEN_VOLUME_FRAME" => {
+                        screen_volume_frame = Some(CCSDSRefFrame::parse(val));
+                    }
+                    "SCREEN_VOLUME_SHAPE" => {
+                        screen_volume_shape = Some(val.to_string());
+                    }
+                    "SCREEN_VOLUME_RADIUS" => {
+                        screen_volume_radius = Some(parse_f64(val)?);
+                    }
+                    "SCREEN_VOLUME_X" => {
+                        screen_volume_x = Some(parse_f64(val)?);
+                    }
+                    "SCREEN_VOLUME_Y" => {
+                        screen_volume_y = Some(parse_f64(val)?);
+                    }
+                    "SCREEN_VOLUME_Z" => {
+                        screen_volume_z = Some(parse_f64(val)?);
+                    }
+                    "SCREEN_ENTRY_TIME" => {
+                        screen_entry_time = Some(parse_ccsds_datetime(val, &utc)?);
+                    }
+                    "SCREEN_EXIT_TIME" => {
+                        screen_exit_time = Some(parse_ccsds_datetime(val, &utc)?);
+                    }
+                    "SCREEN_PC_THRESHOLD" => {
+                        screen_pc_threshold = Some(parse_f64(val)?);
+                    }
+                    "COLLISION_PERCENTILE" => {
+                        let parts: Result<Vec<u32>, _> =
+                            val.split_whitespace().map(|s| s.parse::<u32>()).collect();
+                        collision_percentile = Some(parts.map_err(|_| {
+                            ccsds_parse_error("CDM", "invalid COLLISION_PERCENTILE")
+                        })?);
+                    }
+                    "COLLISION_PROBABILITY" => {
+                        collision_probability = Some(parse_f64(val)?);
+                    }
+                    "COLLISION_PROBABILITY_METHOD" => {
+                        collision_probability_method = Some(val.to_string());
+                    }
+                    "COLLISION_MAX_PROBABILITY" => {
+                        collision_max_probability = Some(parse_f64(val)?);
+                    }
+                    "COLLISION_MAX_PC_METHOD" => {
+                        collision_max_pc_method = Some(val.to_string());
+                    }
+                    "SEFI_COLLISION_PROBABILITY" => {
+                        sefi_collision_probability = Some(parse_f64(val)?);
+                    }
+                    "SEFI_COLLISION_PROBABILITY_METHOD" => {
+                        sefi_collision_probability_method = Some(val.to_string());
+                    }
+                    "SEFI_FRAGMENTATION_MODEL" => {
+                        sefi_fragmentation_model = Some(val.to_string());
+                    }
+                    "PREVIOUS_MESSAGE_ID" => {
+                        previous_message_id = Some(val.to_string());
+                    }
+                    "PREVIOUS_MESSAGE_EPOCH" => {
+                        previous_message_epoch = Some(parse_ccsds_datetime(val, &utc)?);
+                    }
+                    "NEXT_MESSAGE_EPOCH" => {
+                        next_message_epoch = Some(parse_ccsds_datetime(val, &utc)?);
+                    }
+                    "OBJECT" => match val {
+                        "OBJECT1" => {
+                            current_object = CurrentObject::Object1;
+                            obj1.object = Some("OBJECT1".to_string());
+                        }
+                        "OBJECT2" => {
+                            current_object = CurrentObject::Object2;
+                            obj2.object = Some("OBJECT2".to_string());
+                        }
+                        _ => {
+                            return Err(ccsds_parse_error(
+                                "CDM",
+                                &format!("unexpected OBJECT value '{}'", val),
+                            ));
+                        }
+                    },
+                    k if k.starts_with("USER_DEFINED_") => {
+                        let ud_key = k.strip_prefix("USER_DEFINED_").unwrap_or(k);
+                        user_defined.insert(ud_key.to_string(), val.to_string());
+                    }
+                    _ => {} // Ignore unknown keys in header/relative metadata
+                }
+                continue;
+            }
+        };
+
+        // Object-level keyword dispatch
+        match key {
+            "OBJECT" => match val {
+                "OBJECT1" => {
+                    current_object = CurrentObject::Object1;
+                    obj1.object = Some("OBJECT1".to_string());
+                }
+                "OBJECT2" => {
+                    current_object = CurrentObject::Object2;
+                    obj2.object = Some("OBJECT2".to_string());
+                }
+                _ => {
+                    return Err(ccsds_parse_error(
+                        "CDM",
+                        &format!("unexpected OBJECT value '{}'", val),
+                    ));
+                }
+            },
+
+            // Metadata fields
+            "OBJECT_DESIGNATOR" => {
+                obj.object_designator = Some(val.to_string());
+            }
+            "CATALOG_NAME" => {
+                obj.catalog_name = Some(val.to_string());
+            }
+            "OBJECT_NAME" => {
+                obj.object_name = Some(val.to_string());
+            }
+            "INTERNATIONAL_DESIGNATOR" => {
+                obj.international_designator = Some(val.to_string());
+            }
+            "OBJECT_TYPE" => {
+                obj.object_type = Some(val.to_string());
+            }
+            "OPS_STATUS" => {
+                obj.ops_status = Some(val.to_string());
+            }
+            "OPERATOR_CONTACT_POSITION" => {
+                obj.operator_contact_position = Some(val.to_string());
+            }
+            "OPERATOR_ORGANIZATION" => {
+                obj.operator_organization = Some(val.to_string());
+            }
+            "OPERATOR_PHONE" => {
+                obj.operator_phone = Some(val.to_string());
+            }
+            "OPERATOR_EMAIL" => {
+                obj.operator_email = Some(val.to_string());
+            }
+            "EPHEMERIS_NAME" => {
+                obj.ephemeris_name = Some(val.to_string());
+            }
+            "ODM_MSG_LINK" => {
+                obj.odm_msg_link = Some(val.to_string());
+            }
+            "ADM_MSG_LINK" => {
+                obj.adm_msg_link = Some(val.to_string());
+            }
+            "OBS_BEFORE_NEXT_MESSAGE" => {
+                obj.obs_before_next_message = Some(val.to_string());
+            }
+            "COVARIANCE_METHOD" => {
+                obj.covariance_method = Some(val.to_string());
+            }
+            "COVARIANCE_SOURCE" => {
+                obj.covariance_source = Some(val.to_string());
+            }
+            "MANEUVERABLE" => {
+                obj.maneuverable = Some(val.to_string());
+            }
+            "ORBIT_CENTER" => {
+                obj.orbit_center = Some(val.to_string());
+            }
+            "REF_FRAME" => {
+                obj.ref_frame = Some(CCSDSRefFrame::parse(val));
+            }
+            "ALT_COV_TYPE" => {
+                obj.alt_cov_type = Some(val.to_string());
+            }
+            "ALT_COV_REF_FRAME" => {
+                obj.alt_cov_ref_frame = Some(CCSDSRefFrame::parse(val));
+            }
+            "GRAVITY_MODEL" => {
+                obj.gravity_model = Some(val.to_string());
+            }
+            "ATMOSPHERIC_MODEL" => {
+                obj.atmospheric_model = Some(val.to_string());
+            }
+            "N_BODY_PERTURBATIONS" => {
+                obj.n_body_perturbations = Some(val.to_string());
+            }
+            "SOLAR_RAD_PRESSURE" => {
+                obj.solar_rad_pressure = Some(val.to_string());
+            }
+            "EARTH_TIDES" => {
+                obj.earth_tides = Some(val.to_string());
+            }
+            "INTRACK_THRUST" => {
+                obj.intrack_thrust = Some(val.to_string());
+            }
+
+            // OD parameters
+            "TIME_LASTOB_START" => {
+                obj.time_lastob_start = Some(parse_ccsds_datetime(val, &utc)?);
+                obj.has_od_params = true;
+            }
+            "TIME_LASTOB_END" => {
+                obj.time_lastob_end = Some(parse_ccsds_datetime(val, &utc)?);
+                obj.has_od_params = true;
+            }
+            "RECOMMENDED_OD_SPAN" => {
+                obj.recommended_od_span = Some(parse_f64(val)?);
+                obj.has_od_params = true;
+            }
+            "ACTUAL_OD_SPAN" => {
+                obj.actual_od_span = Some(parse_f64(val)?);
+                obj.has_od_params = true;
+            }
+            "OBS_AVAILABLE" => {
+                obj.obs_available = Some(parse_u32(val)?);
+                obj.has_od_params = true;
+            }
+            "OBS_USED" => {
+                obj.obs_used = Some(parse_u32(val)?);
+                obj.has_od_params = true;
+            }
+            "TRACKS_AVAILABLE" => {
+                obj.tracks_available = Some(parse_u32(val)?);
+                obj.has_od_params = true;
+            }
+            "TRACKS_USED" => {
+                obj.tracks_used = Some(parse_u32(val)?);
+                obj.has_od_params = true;
+            }
+            "RESIDUALS_ACCEPTED" => {
+                obj.residuals_accepted = Some(parse_f64(val)?);
+                obj.has_od_params = true;
+            }
+            "WEIGHTED_RMS" => {
+                obj.weighted_rms = Some(parse_f64(val)?);
+                obj.has_od_params = true;
+            }
+            "OD_EPOCH" => {
+                obj.od_epoch = Some(parse_ccsds_datetime(val, &utc)?);
+                obj.has_od_params = true;
+            }
+
+            // Additional parameters
+            "AREA_PC" => {
+                obj.area_pc = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "AREA_PC_MIN" => {
+                obj.area_pc_min = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "AREA_PC_MAX" => {
+                obj.area_pc_max = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "AREA_DRG" => {
+                obj.area_drg = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "AREA_SRP" => {
+                obj.area_srp = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "OEB_PARENT_FRAME" => {
+                obj.oeb_parent_frame = Some(val.to_string());
+                obj.has_add_params = true;
+            }
+            "OEB_PARENT_FRAME_EPOCH" => {
+                obj.oeb_parent_frame_epoch = Some(parse_ccsds_datetime(val, &utc)?);
+                obj.has_add_params = true;
+            }
+            "OEB_Q1" => {
+                obj.oeb_q1 = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "OEB_Q2" => {
+                obj.oeb_q2 = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "OEB_Q3" => {
+                obj.oeb_q3 = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "OEB_QC" => {
+                obj.oeb_qc = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "OEB_MAX" => {
+                obj.oeb_max = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "OEB_INT" => {
+                obj.oeb_int = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "OEB_MIN" => {
+                obj.oeb_min = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "AREA_ALONG_OEB_MAX" => {
+                obj.area_along_oeb_max = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "AREA_ALONG_OEB_INT" => {
+                obj.area_along_oeb_int = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "AREA_ALONG_OEB_MIN" => {
+                obj.area_along_oeb_min = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "RCS" => {
+                obj.rcs = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "RCS_MIN" => {
+                obj.rcs_min = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "RCS_MAX" => {
+                obj.rcs_max = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "VM_ABSOLUTE" => {
+                obj.vm_absolute = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "VM_APPARENT_MIN" => {
+                obj.vm_apparent_min = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "VM_APPARENT" => {
+                obj.vm_apparent = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "VM_APPARENT_MAX" => {
+                obj.vm_apparent_max = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "REFLECTANCE" => {
+                obj.reflectance = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "MASS" => {
+                obj.mass = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "HBR" => {
+                obj.hbr = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "CD_AREA_OVER_MASS" => {
+                obj.cd_area_over_mass = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "CR_AREA_OVER_MASS" => {
+                obj.cr_area_over_mass = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "THRUST_ACCELERATION" => {
+                obj.thrust_acceleration = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "SEDR" => {
+                obj.sedr = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "MIN_DV" => {
+                let parts: Vec<f64> = val
+                    .split_whitespace()
+                    .map(|s| s.parse().unwrap_or(0.0))
+                    .collect();
+                if parts.len() == 3 {
+                    obj.min_dv = Some([parts[0], parts[1], parts[2]]);
+                }
+                obj.has_add_params = true;
+            }
+            "MAX_DV" => {
+                let parts: Vec<f64> = val
+                    .split_whitespace()
+                    .map(|s| s.parse().unwrap_or(0.0))
+                    .collect();
+                if parts.len() == 3 {
+                    obj.max_dv = Some([parts[0], parts[1], parts[2]]);
+                }
+                obj.has_add_params = true;
+            }
+            "LEAD_TIME_REQD_BEFORE_TCA" => {
+                obj.lead_time_reqd_before_tca = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "APOAPSIS_ALTITUDE" => {
+                obj.apoapsis_altitude = Some(parse_f64(val)? * 1e3);
+                obj.has_add_params = true;
+            } // km → m
+            "PERIAPSIS_ALTITUDE" => {
+                obj.periapsis_altitude = Some(parse_f64(val)? * 1e3);
+                obj.has_add_params = true;
+            } // km → m
+            "INCLINATION" => {
+                obj.inclination = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "COV_CONFIDENCE" => {
+                obj.cov_confidence = Some(parse_f64(val)?);
+                obj.has_add_params = true;
+            }
+            "COV_CONFIDENCE_METHOD" => {
+                obj.cov_confidence_method = Some(val.to_string());
+                obj.has_add_params = true;
+            }
+
+            // State vector (km → m, km/s → m/s)
+            "X" => {
+                obj.x = Some(parse_f64(val)? * 1e3);
+            }
+            "Y" => {
+                obj.y = Some(parse_f64(val)? * 1e3);
+            }
+            "Z" => {
+                obj.z = Some(parse_f64(val)? * 1e3);
+            }
+            "X_DOT" => {
+                obj.x_dot = Some(parse_f64(val)? * 1e3);
+            }
+            "Y_DOT" => {
+                obj.y_dot = Some(parse_f64(val)? * 1e3);
+            }
+            "Z_DOT" => {
+                obj.z_dot = Some(parse_f64(val)? * 1e3);
+            }
+
+            // Additional covariance metadata
+            "DENSITY_FORECAST_UNCERTAINTY" => {
+                obj.density_forecast_uncertainty = Some(parse_f64(val)?);
+                obj.has_acm = true;
+            }
+            "CSCALE_FACTOR_MIN" => {
+                obj.cscale_factor_min = Some(parse_f64(val)?);
+                obj.has_acm = true;
+            }
+            "CSCALE_FACTOR" => {
+                obj.cscale_factor = Some(parse_f64(val)?);
+                obj.has_acm = true;
+            }
+            "CSCALE_FACTOR_MAX" => {
+                obj.cscale_factor_max = Some(parse_f64(val)?);
+                obj.has_acm = true;
+            }
+            "SCREENING_DATA_SOURCE" => {
+                obj.screening_data_source = Some(val.to_string());
+                obj.has_acm = true;
+            }
+            "DCP_SENSITIVITY_VECTOR_POSITION" => {
+                let parts: Vec<f64> = val
+                    .split_whitespace()
+                    .map(|s| s.parse().unwrap_or(0.0))
+                    .collect();
+                if parts.len() == 3 {
+                    obj.dcp_sensitivity_vector_position = Some([parts[0], parts[1], parts[2]]);
+                }
+                obj.has_acm = true;
+            }
+            "DCP_SENSITIVITY_VECTOR_VELOCITY" => {
+                let parts: Vec<f64> = val
+                    .split_whitespace()
+                    .map(|s| s.parse().unwrap_or(0.0))
+                    .collect();
+                if parts.len() == 3 {
+                    obj.dcp_sensitivity_vector_velocity = Some([parts[0], parts[1], parts[2]]);
+                }
+                obj.has_acm = true;
+            }
+
+            // CSIG3EIGVEC3 (stored as raw string)
+            "CSIG3EIGVEC3" => {
+                obj.csig3eigvec3 = Some(val.to_string());
+            }
+
+            // User-defined
+            k if k.starts_with("USER_DEFINED_") => {
+                let ud_key = k.strip_prefix("USER_DEFINED_").unwrap_or(k);
+                user_defined.insert(ud_key.to_string(), val.to_string());
+            }
+
+            // Covariance fields — route to RTN or XYZ based on context
+            k => {
+                // Check if this is an XYZ-specific key (CX_X, CY_X, etc.)
+                if let Some((_row, _col)) = xyz_cov_index(k) {
+                    let v = parse_f64(val)?;
+                    obj.xyz_cov_values.push(v);
+                    obj.in_xyz_cov = true; // Switch to XYZ context
+                } else if let Some((_row, _col)) = rtn_cov_index(k) {
+                    let v = parse_f64(val)?;
+                    // If this is a core RTN-only key (CR_R, CT_R, etc.), reset XYZ context
+                    if k == "CR_R" {
+                        obj.in_xyz_cov = false;
+                    }
+                    // Shared keys (CDRG_DRG, CSRP_DRG, CSRP_SRP, CTHR_DRG, CTHR_SRP, CTHR_THR)
+                    // are routed based on which covariance context we're currently in
+                    if obj.in_xyz_cov {
+                        obj.xyz_cov_values.push(v);
+                    } else {
+                        obj.rtn_cov_values.push(v);
+                    }
+                }
+                // Unknown keys are silently ignored
+            }
+        }
+    }
+
+    // Build the CDM struct from collected fields
+    let build_object = |obj: ObjectBuilder, label: &str| -> Result<CDMObject, BraheError> {
+        let obj_label = obj.object.clone().unwrap_or_else(|| label.to_string());
+
+        let state_vector = CDMStateVector {
+            position: [
+                obj.x
+                    .ok_or_else(|| ccsds_missing_field("CDM", &format!("{} X", obj_label)))?,
+                obj.y
+                    .ok_or_else(|| ccsds_missing_field("CDM", &format!("{} Y", obj_label)))?,
+                obj.z
+                    .ok_or_else(|| ccsds_missing_field("CDM", &format!("{} Z", obj_label)))?,
+            ],
+            velocity: [
+                obj.x_dot
+                    .ok_or_else(|| ccsds_missing_field("CDM", &format!("{} X_DOT", obj_label)))?,
+                obj.y_dot
+                    .ok_or_else(|| ccsds_missing_field("CDM", &format!("{} Y_DOT", obj_label)))?,
+                obj.z_dot
+                    .ok_or_else(|| ccsds_missing_field("CDM", &format!("{} Z_DOT", obj_label)))?,
+            ],
+            comments: obj.sv_comments,
+        };
+
+        // Build RTN covariance
+        let rtn_covariance = if obj.rtn_cov_values.is_empty() {
+            return Err(ccsds_missing_field(
+                "CDM",
+                &format!("{} RTN covariance", obj_label),
+            ));
+        } else {
+            let (matrix, dim) = covariance9x9_from_lower_triangular(&obj.rtn_cov_values)?;
+            CDMRTNCovariance {
+                matrix,
+                dimension: dim,
+                comments: obj.rtn_cov_comments,
+            }
+        };
+
+        // Build XYZ covariance (optional)
+        let xyz_covariance = if obj.xyz_cov_values.is_empty() {
+            None
+        } else {
+            let (matrix, dim) = covariance9x9_from_lower_triangular(&obj.xyz_cov_values)?;
+            Some(CDMXYZCovariance {
+                matrix,
+                dimension: dim,
+                comments: obj.xyz_cov_comments,
+            })
+        };
+
+        let od_parameters = if obj.has_od_params {
+            Some(CDMODParameters {
+                time_lastob_start: obj.time_lastob_start,
+                time_lastob_end: obj.time_lastob_end,
+                recommended_od_span: obj.recommended_od_span,
+                actual_od_span: obj.actual_od_span,
+                obs_available: obj.obs_available,
+                obs_used: obj.obs_used,
+                tracks_available: obj.tracks_available,
+                tracks_used: obj.tracks_used,
+                residuals_accepted: obj.residuals_accepted,
+                weighted_rms: obj.weighted_rms,
+                od_epoch: obj.od_epoch,
+                comments: obj.od_comments,
+            })
+        } else {
+            None
+        };
+
+        let additional_parameters = if obj.has_add_params {
+            Some(CDMAdditionalParameters {
+                area_pc: obj.area_pc,
+                area_pc_min: obj.area_pc_min,
+                area_pc_max: obj.area_pc_max,
+                area_drg: obj.area_drg,
+                area_srp: obj.area_srp,
+                oeb_parent_frame: obj.oeb_parent_frame,
+                oeb_parent_frame_epoch: obj.oeb_parent_frame_epoch,
+                oeb_q1: obj.oeb_q1,
+                oeb_q2: obj.oeb_q2,
+                oeb_q3: obj.oeb_q3,
+                oeb_qc: obj.oeb_qc,
+                oeb_max: obj.oeb_max,
+                oeb_int: obj.oeb_int,
+                oeb_min: obj.oeb_min,
+                area_along_oeb_max: obj.area_along_oeb_max,
+                area_along_oeb_int: obj.area_along_oeb_int,
+                area_along_oeb_min: obj.area_along_oeb_min,
+                rcs: obj.rcs,
+                rcs_min: obj.rcs_min,
+                rcs_max: obj.rcs_max,
+                vm_absolute: obj.vm_absolute,
+                vm_apparent_min: obj.vm_apparent_min,
+                vm_apparent: obj.vm_apparent,
+                vm_apparent_max: obj.vm_apparent_max,
+                reflectance: obj.reflectance,
+                mass: obj.mass,
+                hbr: obj.hbr,
+                cd_area_over_mass: obj.cd_area_over_mass,
+                cr_area_over_mass: obj.cr_area_over_mass,
+                thrust_acceleration: obj.thrust_acceleration,
+                sedr: obj.sedr,
+                min_dv: obj.min_dv,
+                max_dv: obj.max_dv,
+                lead_time_reqd_before_tca: obj.lead_time_reqd_before_tca,
+                apoapsis_altitude: obj.apoapsis_altitude,
+                periapsis_altitude: obj.periapsis_altitude,
+                inclination: obj.inclination,
+                cov_confidence: obj.cov_confidence,
+                cov_confidence_method: obj.cov_confidence_method,
+                comments: obj.add_comments,
+            })
+        } else {
+            None
+        };
+
+        let additional_covariance_metadata = if obj.has_acm {
+            Some(CDMAdditionalCovarianceMetadata {
+                density_forecast_uncertainty: obj.density_forecast_uncertainty,
+                cscale_factor_min: obj.cscale_factor_min,
+                cscale_factor: obj.cscale_factor,
+                cscale_factor_max: obj.cscale_factor_max,
+                screening_data_source: obj.screening_data_source,
+                dcp_sensitivity_vector_position: obj.dcp_sensitivity_vector_position,
+                dcp_sensitivity_vector_velocity: obj.dcp_sensitivity_vector_velocity,
+                comments: obj.acm_comments,
+            })
+        } else {
+            None
+        };
+
+        let metadata = CDMObjectMetadata {
+            object: obj.object.unwrap_or_else(|| label.to_string()),
+            object_designator: obj.object_designator.ok_or_else(|| {
+                ccsds_missing_field("CDM", &format!("{} OBJECT_DESIGNATOR", obj_label))
+            })?,
+            catalog_name: obj.catalog_name.ok_or_else(|| {
+                ccsds_missing_field("CDM", &format!("{} CATALOG_NAME", obj_label))
+            })?,
+            object_name: obj
+                .object_name
+                .ok_or_else(|| ccsds_missing_field("CDM", &format!("{} OBJECT_NAME", obj_label)))?,
+            international_designator: obj.international_designator.ok_or_else(|| {
+                ccsds_missing_field("CDM", &format!("{} INTERNATIONAL_DESIGNATOR", obj_label))
+            })?,
+            object_type: obj.object_type,
+            ops_status: obj.ops_status,
+            operator_contact_position: obj.operator_contact_position,
+            operator_organization: obj.operator_organization,
+            operator_phone: obj.operator_phone,
+            operator_email: obj.operator_email,
+            ephemeris_name: obj.ephemeris_name.ok_or_else(|| {
+                ccsds_missing_field("CDM", &format!("{} EPHEMERIS_NAME", obj_label))
+            })?,
+            odm_msg_link: obj.odm_msg_link,
+            adm_msg_link: obj.adm_msg_link,
+            obs_before_next_message: obj.obs_before_next_message,
+            covariance_method: obj.covariance_method.ok_or_else(|| {
+                ccsds_missing_field("CDM", &format!("{} COVARIANCE_METHOD", obj_label))
+            })?,
+            covariance_source: obj.covariance_source,
+            maneuverable: obj.maneuverable.ok_or_else(|| {
+                ccsds_missing_field("CDM", &format!("{} MANEUVERABLE", obj_label))
+            })?,
+            orbit_center: obj.orbit_center,
+            ref_frame: obj
+                .ref_frame
+                .ok_or_else(|| ccsds_missing_field("CDM", &format!("{} REF_FRAME", obj_label)))?,
+            alt_cov_type: obj.alt_cov_type,
+            alt_cov_ref_frame: obj.alt_cov_ref_frame,
+            gravity_model: obj.gravity_model,
+            atmospheric_model: obj.atmospheric_model,
+            n_body_perturbations: obj.n_body_perturbations,
+            solar_rad_pressure: obj.solar_rad_pressure,
+            earth_tides: obj.earth_tides,
+            intrack_thrust: obj.intrack_thrust,
+            comments: obj.metadata_comments,
+        };
+
+        Ok(CDMObject {
+            metadata,
+            data: CDMObjectData {
+                od_parameters,
+                additional_parameters,
+                state_vector,
+                rtn_covariance,
+                xyz_covariance,
+                additional_covariance_metadata,
+                csig3eigvec3: obj.csig3eigvec3,
+                comments: obj.data_comments,
+            },
+        })
+    };
+
+    // Validate mandatory header/relative metadata fields
+    let format_version =
+        format_version.ok_or_else(|| ccsds_missing_field("CDM", "CCSDS_CDM_VERS"))?;
+    let creation_date = creation_date.ok_or_else(|| ccsds_missing_field("CDM", "CREATION_DATE"))?;
+    let originator = originator.ok_or_else(|| ccsds_missing_field("CDM", "ORIGINATOR"))?;
+    let message_id = message_id.unwrap_or_default();
+    let tca = tca.ok_or_else(|| ccsds_missing_field("CDM", "TCA"))?;
+    let miss_distance = miss_distance.ok_or_else(|| ccsds_missing_field("CDM", "MISS_DISTANCE"))?;
+
+    let object1 = build_object(obj1, "OBJECT1")?;
+    let object2 = build_object(obj2, "OBJECT2")?;
+
+    let user_defined = if user_defined.is_empty() {
+        None
+    } else {
+        Some(CCSDSUserDefined {
+            parameters: user_defined,
+        })
+    };
+
+    Ok(CDM {
+        header: CDMHeader {
+            format_version,
+            classification,
+            creation_date,
+            originator,
+            message_for,
+            message_id,
+            comments: header_comments,
+        },
+        relative_metadata: CDMRelativeMetadata {
+            conjunction_id,
+            tca,
+            miss_distance,
+            mahalanobis_distance,
+            relative_speed,
+            relative_position_r: rel_pos_r,
+            relative_position_t: rel_pos_t,
+            relative_position_n: rel_pos_n,
+            relative_velocity_r: rel_vel_r,
+            relative_velocity_t: rel_vel_t,
+            relative_velocity_n: rel_vel_n,
+            approach_angle,
+            start_screen_period,
+            stop_screen_period,
+            screen_type,
+            screen_volume_frame,
+            screen_volume_shape,
+            screen_volume_radius,
+            screen_volume_x,
+            screen_volume_y,
+            screen_volume_z,
+            screen_entry_time,
+            screen_exit_time,
+            screen_pc_threshold,
+            collision_percentile,
+            collision_probability,
+            collision_probability_method,
+            collision_max_probability,
+            collision_max_pc_method,
+            sefi_collision_probability,
+            sefi_collision_probability_method,
+            sefi_fragmentation_model,
+            previous_message_id,
+            previous_message_epoch,
+            next_message_epoch,
+            comments: rel_comments,
+        },
+        object1,
+        object2,
+        user_defined,
+    })
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
-
-    fn setup_eop() {
-        use crate::eop::*;
-        let eop = StaticEOPProvider::new();
-        set_global_eop_provider(eop);
-    }
 
     #[test]
     fn test_tokenize_empty() {
@@ -1405,8 +2707,6 @@ mod tests {
 
     #[test]
     fn test_parse_oem_example1() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
 
@@ -1478,8 +2778,6 @@ mod tests {
 
     #[test]
     fn test_parse_oem_example2_doy_format() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample2.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
 
@@ -1507,8 +2805,6 @@ mod tests {
 
     #[test]
     fn test_parse_oem_example4() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
 
@@ -1522,8 +2818,6 @@ mod tests {
 
     #[test]
     fn test_parse_oem_example5_gcrf() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
 
@@ -1536,8 +2830,6 @@ mod tests {
 
     #[test]
     fn test_parse_oem_with_header_comment() {
-        setup_eop();
-
         let content =
             std::fs::read_to_string("test_assets/ccsds/oem/OEMExampleWithHeaderComment.txt")
                 .unwrap();
@@ -1548,8 +2840,6 @@ mod tests {
 
     #[test]
     fn test_parse_oem_iss_truncated() {
-        setup_eop();
-
         let content =
             std::fs::read_to_string("test_assets/ccsds/oem/ISS.resampled.truncated.txt").unwrap();
         let oem = parse_oem(&content).unwrap();
@@ -1560,8 +2850,6 @@ mod tests {
 
     #[test]
     fn test_parse_oem_lowercase_value() {
-        setup_eop();
-
         let content =
             std::fs::read_to_string("test_assets/ccsds/oem/oemLowerCaseValue.oem").unwrap();
         // This should either parse successfully or give a meaningful error
@@ -1574,8 +2862,6 @@ mod tests {
 
     #[test]
     fn test_parse_omm_example1() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
 
@@ -1615,8 +2901,6 @@ mod tests {
 
     #[test]
     fn test_parse_omm_example2_with_covariance() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
 
@@ -1630,8 +2914,6 @@ mod tests {
 
     #[test]
     fn test_parse_omm_example3_with_spacecraft_and_user_defined() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample3.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
 
@@ -1654,8 +2936,6 @@ mod tests {
 
     #[test]
     fn test_parse_omm_example4() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample4.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
 
@@ -1672,8 +2952,6 @@ mod tests {
 
     #[test]
     fn test_parse_omm_example5_sgp4xp() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample5.txt").unwrap();
         let omm = parse_omm(&content).unwrap();
 
@@ -1688,8 +2966,6 @@ mod tests {
 
     #[test]
     fn test_parse_opm_example1() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
         let opm = parse_opm(&content).unwrap();
 
@@ -1720,8 +2996,6 @@ mod tests {
 
     #[test]
     fn test_parse_opm_example2_with_keplerian_and_maneuvers() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample2.txt").unwrap();
         let opm = parse_opm(&content).unwrap();
 
@@ -1755,8 +3029,6 @@ mod tests {
 
     #[test]
     fn test_parse_opm_example4_with_covariance_and_user_defined() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample4.txt").unwrap();
         let opm = parse_opm(&content).unwrap();
 
@@ -1775,8 +3047,6 @@ mod tests {
 
     #[test]
     fn test_parse_opm_example5_with_three_maneuvers() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
         let opm = parse_opm(&content).unwrap();
 

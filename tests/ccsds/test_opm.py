@@ -189,10 +189,10 @@ def test_opm_state_vector_setters(eop):
     opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
 
     opm.position = [1.0, 2.0, 3.0]
-    assert opm.position == [1.0, 2.0, 3.0]
+    assert opm.position == pytest.approx([1.0, 2.0, 3.0])
 
     opm.velocity = [4.0, 5.0, 6.0]
-    assert opm.velocity == [4.0, 5.0, 6.0]
+    assert opm.velocity == pytest.approx([4.0, 5.0, 6.0])
 
     new_epoch = Epoch.from_datetime(2024, 6, 15, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
     opm.epoch = new_epoch

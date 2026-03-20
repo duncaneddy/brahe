@@ -26,6 +26,8 @@ This three-step pattern — parse, convert, interpolate — applies across the l
 
 **OPM** (Orbit Parameter Message) carries a single state snapshot at one epoch, optionally with Keplerian elements, spacecraft parameters, covariance, and maneuvers. Use it when handing off initial conditions for propagation or documenting a maneuver plan. See the [OPM detail page](opm.md).
 
+**CDM** (Conjunction Data Message) describes a close approach between two space objects, providing state vectors, covariance matrices, and collision probability at the Time of Closest Approach (TCA). Use it when processing conjunction screening data from services like the 18th Space Defense Squadron. See the [CDM detail page](cdm.md).
+
 !!! info "OCM Not Yet Supported"
     The Orbit Comprehensive Message (OCM) is not yet implemented. OCM combines features of OEM, OMM, and OPM into a single flexible format and will be added in a future release.
 
@@ -57,4 +59,5 @@ CCSDS files use **km** and **km/s** for position and velocity. Brahe automatical
 - [OEM — Orbit Ephemeris Message](oem.md)
 - [OMM — Orbit Mean-elements Message](omm.md)
 - [OPM — Orbit Parameter Message](opm.md)
+- [CDM — Conjunction Data Message](cdm.md)
 - [API Reference](../../library_api/ccsds/index.md) — Python API documentation

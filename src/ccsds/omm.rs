@@ -209,7 +209,7 @@ impl OMM {
     /// Parse an OMM message from a string, auto-detecting the format.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(content: &str) -> Result<Self, BraheError> {
-        let format = crate::ccsds::detect_format(content);
+        let format = crate::ccsds::common::detect_format(content);
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::parse_omm(content),
             CCSDSFormat::XML => crate::ccsds::xml::parse_omm_xml(content),

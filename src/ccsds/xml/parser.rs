@@ -631,21 +631,126 @@ pub fn parse_opm_xml(_content: &str) -> Result<crate::ccsds::opm::OPM, BraheErro
     Err(ccsds_parse_error("OPM", "XML parsing not yet implemented"))
 }
 
+/// Parse a CDM message from XML format.
+///
+/// Converts XML to KVN-like key=value representation, then delegates to the
+/// KVN parser. This ensures full feature parity between KVN and XML parsing
+/// without duplicating the field-by-field dispatch logic.
+pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError> {
+    use quick_xml::Reader;
+    use quick_xml::events::Event;
+
+    let mut reader = Reader::from_str(content);
+    let mut kvn_lines: Vec<String> = Vec::new();
+    let mut tag_stack: Vec<String> = Vec::new();
+    let mut current_tag = String::new();
+
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                tag_stack.push(name.clone());
+                current_tag = name.clone();
+
+                // Handle cdm root element version attribute
+                if name == "cdm" {
+                    for attr in e.attributes().flatten() {
+                        let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                        if attr_name == "version" {
+                            let val = String::from_utf8_lossy(&attr.value).to_string();
+                            kvn_lines.push(format!("CCSDS_CDM_VERS = {}", val));
+                        }
+                    }
+                }
+            }
+            Ok(Event::End(_e)) => {
+                tag_stack.pop();
+                current_tag = tag_stack.last().cloned().unwrap_or_default();
+            }
+            Ok(Event::Empty(e)) => {
+                // Handle self-closing elements like <FIELD nil="true"/>
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                // Check for nil="true" — skip these
+                let mut is_nil = false;
+                for attr in e.attributes().flatten() {
+                    let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                    if attr_name == "nil" {
+                        let val = String::from_utf8_lossy(&attr.value).to_string();
+                        if val == "true" {
+                            is_nil = true;
+                        }
+                    }
+                }
+                if !is_nil {
+                    // Empty element with no nil attribute - treat as empty value
+                    // Only emit for known CDM keywords
+                    if name.starts_with(|c: char| c.is_uppercase()) && name != "COMMENT" {
+                        kvn_lines.push(format!("{} = ", name));
+                    }
+                }
+            }
+            Ok(Event::Text(e)) => {
+                let text = e.unescape().unwrap_or_default().trim().to_string();
+                if text.is_empty() {
+                    continue;
+                }
+
+                // Map XML tag names to KVN keywords
+                let keyword = match current_tag.as_str() {
+                    // Skip structural tags that don't map to KVN keywords
+                    "header"
+                    | "body"
+                    | "relativeMetadataData"
+                    | "segment"
+                    | "metadata"
+                    | "data"
+                    | "odParameters"
+                    | "additionalParameters"
+                    | "stateVector"
+                    | "covarianceMatrix"
+                    | "relativeStateVector"
+                    | "additionalCovarianceMetadata"
+                    | "userDefinedParameters"
+                    | "cdm" => continue,
+
+                    // COMMENT is handled specially
+                    "COMMENT" => {
+                        kvn_lines.push(format!("COMMENT {}", text));
+                        continue;
+                    }
+
+                    // USER_DEFINED elements
+                    tag if tag.starts_with("USER_DEFINED_") => tag,
+
+                    // All CCSDS keyword tags map directly (uppercase tags)
+                    tag if tag.starts_with(|c: char| c.is_uppercase()) => tag,
+
+                    // camelCase tags for sub-blocks - skip
+                    _ => continue,
+                };
+
+                kvn_lines.push(format!("{} = {}", keyword, text));
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                return Err(ccsds_parse_error("CDM", &format!("XML parse error: {}", e)));
+            }
+            _ => {}
+        }
+    }
+
+    // Now parse the generated KVN representation
+    let kvn_content = kvn_lines.join("\n");
+    crate::ccsds::kvn::parse_cdm(&kvn_content)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
 
-    fn setup_eop() {
-        use crate::eop::*;
-        let eop = StaticEOPProvider::new();
-        set_global_eop_provider(eop);
-    }
-
     #[test]
     fn test_parse_oem_xml_example3() {
-        setup_eop();
-
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample3.xml").unwrap();
         let oem = parse_oem_xml(&content).unwrap();
 

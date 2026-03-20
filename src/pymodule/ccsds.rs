@@ -7,6 +7,9 @@
 // This ensures mutations on proxy sub-objects reflect back to the owning message,
 // while standalone objects can be constructed independently and appended.
 
+use crate::ccsds::cdm::{
+    CDM as RustCDM, CDMObject, CDMObjectMetadata, CDMRTNCovariance, CDMStateVector,
+};
 use crate::ccsds::common::{
     CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
 };
@@ -149,13 +152,14 @@ impl PyOEMStateVector {
     /// Position vector [x, y, z] in meters.
     ///
     /// Returns:
-    ///     list[float]: Position [x, y, z] in meters
+    ///     numpy.ndarray: Position [x, y, z] in meters
     #[getter]
-    fn position(&self, py: Python) -> PyResult<Vec<f64>> {
+    fn position<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
         match &self.mode {
-            StateVectorMode::Owned { data } => Ok(data.position.to_vec()),
+            StateVectorMode::Owned { data } => Ok(data.position.to_vec().into_pyarray(py)),
             StateVectorMode::Proxy { parent, seg_idx, sv_idx } => {
-                parent.bind(py).call_method1("_sv_get_position", (*seg_idx, *sv_idx))?.extract()
+                let pos: Vec<f64> = parent.bind(py).call_method1("_sv_get_position", (*seg_idx, *sv_idx))?.extract()?;
+                Ok(pos.into_pyarray(py))
             }
         }
     }
@@ -179,13 +183,14 @@ impl PyOEMStateVector {
     /// Velocity vector [vx, vy, vz] in m/s.
     ///
     /// Returns:
-    ///     list[float]: Velocity [vx, vy, vz] in m/s
+    ///     numpy.ndarray: Velocity [vx, vy, vz] in m/s
     #[getter]
-    fn velocity(&self, py: Python) -> PyResult<Vec<f64>> {
+    fn velocity<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
         match &self.mode {
-            StateVectorMode::Owned { data } => Ok(data.velocity.to_vec()),
+            StateVectorMode::Owned { data } => Ok(data.velocity.to_vec().into_pyarray(py)),
             StateVectorMode::Proxy { parent, seg_idx, sv_idx } => {
-                parent.bind(py).call_method1("_sv_get_velocity", (*seg_idx, *sv_idx))?.extract()
+                let vel: Vec<f64> = parent.bind(py).call_method1("_sv_get_velocity", (*seg_idx, *sv_idx))?.extract()?;
+                Ok(vel.into_pyarray(py))
             }
         }
     }
@@ -209,13 +214,14 @@ impl PyOEMStateVector {
     /// Optional acceleration vector [ax, ay, az] in m/s².
     ///
     /// Returns:
-    ///     list[float]: Acceleration [ax, ay, az] in m/s², or None
+    ///     numpy.ndarray: Acceleration [ax, ay, az] in m/s², or None
     #[getter]
-    fn acceleration(&self, py: Python) -> PyResult<Option<Vec<f64>>> {
+    fn acceleration<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyArray<f64, Ix1>>>> {
         match &self.mode {
-            StateVectorMode::Owned { data } => Ok(data.acceleration.map(|a| a.to_vec())),
+            StateVectorMode::Owned { data } => Ok(data.acceleration.map(|a| a.to_vec().into_pyarray(py))),
             StateVectorMode::Proxy { parent, seg_idx, sv_idx } => {
-                parent.bind(py).call_method1("_sv_get_acceleration", (*seg_idx, *sv_idx))?.extract()
+                let acc: Option<Vec<f64>> = parent.bind(py).call_method1("_sv_get_acceleration", (*seg_idx, *sv_idx))?.extract()?;
+                Ok(acc.map(|a| a.into_pyarray(py)))
             }
         }
     }
@@ -252,10 +258,18 @@ impl PyOEMStateVector {
     ///     ```
     #[getter]
     fn state<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-        let pos = self.position(py)?;
-        let vel = self.velocity(py)?;
-        let combined = vec![pos[0], pos[1], pos[2], vel[0], vel[1], vel[2]];
-        Ok(combined.into_pyarray(py))
+        match &self.mode {
+            StateVectorMode::Owned { data } => {
+                let p = &data.position;
+                let v = &data.velocity;
+                Ok(vec![p[0], p[1], p[2], v[0], v[1], v[2]].into_pyarray(py))
+            }
+            StateVectorMode::Proxy { parent, seg_idx, sv_idx } => {
+                let pos: Vec<f64> = parent.bind(py).call_method1("_sv_get_position", (*seg_idx, *sv_idx))?.extract()?;
+                let vel: Vec<f64> = parent.bind(py).call_method1("_sv_get_velocity", (*seg_idx, *sv_idx))?.extract()?;
+                Ok(vec![pos[0], pos[1], pos[2], vel[0], vel[1], vel[2]].into_pyarray(py))
+            }
+        }
     }
 
     /// Set combined state vector [x, y, z, vx, vy, vz].
@@ -3508,10 +3522,10 @@ impl PyOPM {
     /// Position vector [x, y, z] in meters.
     ///
     /// Returns:
-    ///     list[float]: Position [x, y, z] in meters
+    ///     numpy.ndarray: Position [x, y, z] in meters
     #[getter]
-    fn position(&self) -> Vec<f64> {
-        self.inner.state_vector.position.to_vec()
+    fn position<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        self.inner.state_vector.position.to_vec().into_pyarray(py)
     }
 
     /// Set position vector.
@@ -3527,10 +3541,10 @@ impl PyOPM {
     /// Velocity vector [vx, vy, vz] in m/s.
     ///
     /// Returns:
-    ///     list[float]: Velocity [vx, vy, vz] in m/s
+    ///     numpy.ndarray: Velocity [vx, vy, vz] in m/s
     #[getter]
-    fn velocity(&self) -> Vec<f64> {
-        self.inner.state_vector.velocity.to_vec()
+    fn velocity<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        self.inner.state_vector.velocity.to_vec().into_pyarray(py)
     }
 
     /// Set velocity vector.
@@ -3903,6 +3917,574 @@ impl PyOPM {
                 idx, len
             ))
         })
+    }
+}
+
+// ─────────────────────────────────────────────
+// CDM — Sub-objects for programmatic creation
+// ─────────────────────────────────────────────
+
+/// A CDM state vector with position and velocity at TCA.
+///
+/// Args:
+///     position (list[float]): Position [x, y, z] in meters
+///     velocity (list[float]): Velocity [vx, vy, vz] in m/s
+///
+/// Example:
+///     ```python
+///     from brahe.ccsds import CDMStateVector
+///     sv = CDMStateVector(
+///         position=[7000e3, 0.0, 0.0],
+///         velocity=[0.0, 7500.0, 0.0],
+///     )
+///     print(sv.position)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "CDMStateVector")]
+pub struct PyCDMStateVector {
+    inner: CDMStateVector,
+}
+
+#[pymethods]
+impl PyCDMStateVector {
+    #[new]
+    #[pyo3(signature = (position, velocity))]
+    fn new(
+        position: &pyo3::Bound<'_, pyo3::types::PyAny>,
+        velocity: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    ) -> PyResult<Self> {
+        let pos = pyany_to_array3(position, "position")?;
+        let vel = pyany_to_array3(velocity, "velocity")?;
+        Ok(Self {
+            inner: CDMStateVector::new(pos, vel),
+        })
+    }
+
+    /// numpy.ndarray: Position [x, y, z] in meters
+    #[getter]
+    fn position<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        self.inner.position.to_vec().into_pyarray(py)
+    }
+
+    /// numpy.ndarray: Velocity [vx, vy, vz] in m/s
+    #[getter]
+    fn velocity<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        self.inner.velocity.to_vec().into_pyarray(py)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CDMStateVector(pos=[{:.1}, {:.1}, {:.1}] m, vel=[{:.1}, {:.1}, {:.1}] m/s)",
+            self.inner.position[0], self.inner.position[1], self.inner.position[2],
+            self.inner.velocity[0], self.inner.velocity[1], self.inner.velocity[2],
+        )
+    }
+}
+
+/// A CDM RTN covariance matrix (6x6 position/velocity).
+///
+/// Args:
+///     matrix (list[list[float]]): 6x6 symmetric covariance matrix in RTN frame.
+///         Units: position-position m², position-velocity m²/s, velocity-velocity m²/s²
+///
+/// Example:
+///     ```python
+///     import numpy as np
+///     from brahe.ccsds import CDMRTNCovariance
+///     cov = CDMRTNCovariance(matrix=np.eye(6).tolist())
+///     print(cov.matrix[0][0])
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "CDMRTNCovariance")]
+pub struct PyCDMRTNCovariance {
+    inner: CDMRTNCovariance,
+}
+
+#[pymethods]
+impl PyCDMRTNCovariance {
+    #[new]
+    #[pyo3(signature = (matrix))]
+    fn new(matrix: &pyo3::Bound<'_, pyo3::types::PyAny>) -> PyResult<Self> {
+        let mat = pyany_to_smatrix::<6, 6>(matrix)?;
+        Ok(Self {
+            inner: CDMRTNCovariance::from_6x6(mat),
+        })
+    }
+
+    /// numpy.ndarray: 6x6 RTN covariance matrix
+    #[getter]
+    fn matrix<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+        let m = self.inner.to_6x6();
+        matrix_to_numpy!(py, m, 6, 6, f64)
+    }
+
+    fn __repr__(&self) -> String {
+        let m = self.inner.to_6x6();
+        format!(
+            "CDMRTNCovariance(diag=[{:.3e}, {:.3e}, {:.3e}, {:.3e}, {:.3e}, {:.3e}])",
+            m[(0, 0)], m[(1, 1)], m[(2, 2)], m[(3, 3)], m[(4, 4)], m[(5, 5)],
+        )
+    }
+}
+
+/// One object in a CDM (metadata + state vector + covariance).
+///
+/// Combines object identity, reference frame, state at TCA, and RTN covariance.
+///
+/// Args:
+///     designator (str): Catalog ID (e.g. "12345")
+///     catalog_name (str): Catalog source (e.g. "SATCAT")
+///     name (str): Object name (e.g. "SATELLITE A")
+///     international_designator (str): COSPAR ID (e.g. "2020-001A")
+///     ephemeris_name (str): Ephemeris source (e.g. "NONE")
+///     covariance_method (str): "CALCULATED" or "DEFAULT"
+///     maneuverable (str): "YES", "NO", "N/A", or "UNKNOWN"
+///     ref_frame (str): Reference frame (e.g. "EME2000")
+///     state_vector (CDMStateVector): State at TCA
+///     rtn_covariance (CDMRTNCovariance): RTN covariance matrix
+///
+/// Example:
+///     ```python
+///     from brahe.ccsds import CDMObject, CDMStateVector, CDMRTNCovariance
+///     import numpy as np
+///
+///     sv = CDMStateVector([7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0])
+///     cov = CDMRTNCovariance(np.eye(6).tolist())
+///     obj = CDMObject(
+///         designator="12345",
+///         catalog_name="SATCAT",
+///         name="SAT A",
+///         international_designator="2020-001A",
+///         ephemeris_name="NONE",
+///         covariance_method="CALCULATED",
+///         maneuverable="YES",
+///         ref_frame="EME2000",
+///         state_vector=sv,
+///         rtn_covariance=cov,
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "CDMObject")]
+pub struct PyCDMObject {
+    inner: CDMObject,
+}
+
+#[pymethods]
+impl PyCDMObject {
+    #[new]
+    #[pyo3(signature = (designator, catalog_name, name, international_designator, ephemeris_name, covariance_method, maneuverable, ref_frame, state_vector, rtn_covariance))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        designator: &str,
+        catalog_name: &str,
+        name: &str,
+        international_designator: &str,
+        ephemeris_name: &str,
+        covariance_method: &str,
+        maneuverable: &str,
+        ref_frame: &str,
+        state_vector: &PyCDMStateVector,
+        rtn_covariance: &PyCDMRTNCovariance,
+    ) -> Self {
+        let metadata = CDMObjectMetadata::new(
+            String::new(), // object label set by CDM constructor
+            designator.to_string(),
+            catalog_name.to_string(),
+            name.to_string(),
+            international_designator.to_string(),
+            ephemeris_name.to_string(),
+            covariance_method.to_string(),
+            maneuverable.to_string(),
+            CCSDSRefFrame::parse(ref_frame),
+        );
+        Self {
+            inner: CDMObject::new(
+                metadata,
+                state_vector.inner.clone(),
+                rtn_covariance.inner.clone(),
+            ),
+        }
+    }
+
+    /// str: Catalog ID
+    #[getter]
+    fn designator(&self) -> &str {
+        &self.inner.metadata.object_designator
+    }
+
+    /// str: Catalog source
+    #[getter]
+    fn catalog_name(&self) -> &str {
+        &self.inner.metadata.catalog_name
+    }
+
+    /// str: Object name
+    #[getter]
+    fn name(&self) -> &str {
+        &self.inner.metadata.object_name
+    }
+
+    /// str: COSPAR international designator
+    #[getter]
+    fn international_designator(&self) -> &str {
+        &self.inner.metadata.international_designator
+    }
+
+    /// str: Ephemeris name
+    #[getter]
+    fn ephemeris_name(&self) -> &str {
+        &self.inner.metadata.ephemeris_name
+    }
+
+    /// str: Covariance method (CALCULATED or DEFAULT)
+    #[getter]
+    fn covariance_method(&self) -> &str {
+        &self.inner.metadata.covariance_method
+    }
+
+    /// str: Maneuverable flag (YES, NO, N/A, UNKNOWN)
+    #[getter]
+    fn maneuverable(&self) -> &str {
+        &self.inner.metadata.maneuverable
+    }
+
+    /// str: Reference frame
+    #[getter]
+    fn ref_frame(&self) -> String {
+        format!("{}", self.inner.metadata.ref_frame)
+    }
+
+    /// numpy.ndarray: State vector [x, y, z, vx, vy, vz] in m and m/s
+    #[getter]
+    fn state<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        let sv = &self.inner.data.state_vector;
+        vec![
+            sv.position[0], sv.position[1], sv.position[2],
+            sv.velocity[0], sv.velocity[1], sv.velocity[2],
+        ].into_pyarray(py)
+    }
+
+    /// numpy.ndarray: RTN covariance matrix (6x6)
+    #[getter]
+    fn covariance<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+        let m = self.inner.data.rtn_covariance.to_6x6();
+        matrix_to_numpy!(py, m, 6, 6, f64)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CDMObject(name='{}', designator='{}')",
+            self.inner.metadata.object_name,
+            self.inner.metadata.object_designator,
+        )
+    }
+}
+
+// ─────────────────────────────────────────────
+// CDM — Top-level message
+// ─────────────────────────────────────────────
+
+/// A CCSDS Conjunction Data Message (CDM).
+///
+/// CDM messages describe a conjunction between two space objects, containing
+/// state vectors, covariance matrices, and collision probability data.
+///
+/// Can be created programmatically or parsed from KVN/XML/JSON.
+///
+/// Args:
+///     originator (str): Originator of the message
+///     message_id (str): Unique message identifier
+///     tca (Epoch): Time of Closest Approach
+///     miss_distance (float): Miss distance in meters
+///     object1 (CDMObject): First conjunction object
+///     object2 (CDMObject): Second conjunction object
+///
+/// Example:
+///     ```python
+///     from brahe.ccsds import CDM, CDMObject, CDMStateVector, CDMRTNCovariance
+///     import numpy as np
+///
+///     sv1 = CDMStateVector([7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0])
+///     cov1 = CDMRTNCovariance(np.eye(6).tolist())
+///     obj1 = CDMObject("12345", "SATCAT", "SAT A", "2020-001A",
+///                       "NONE", "CALCULATED", "YES", "EME2000", sv1, cov1)
+///
+///     sv2 = CDMStateVector([7001e3, 0.0, 0.0], [0.0, -7500.0, 0.0])
+///     cov2 = CDMRTNCovariance(np.eye(6).tolist())
+///     obj2 = CDMObject("67890", "SATCAT", "SAT B", "2021-002B",
+///                       "NONE", "CALCULATED", "NO", "EME2000", sv2, cov2)
+///
+///     tca = Epoch.from_datetime(2024, 1, 15, 12, 0, 0.0, 0.0, TimeSystem.UTC)
+///     cdm = CDM(originator="TEST_ORG", message_id="MSG001",
+///               tca=tca, miss_distance=715.0, object1=obj1, object2=obj2)
+///     print(cdm.miss_distance)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "CDM")]
+pub struct PyCDM {
+    inner: RustCDM,
+}
+
+#[pymethods]
+impl PyCDM {
+    /// Create a new CDM message programmatically.
+    ///
+    /// Args:
+    ///     originator (str): Originator of the message
+    ///     message_id (str): Unique message identifier
+    ///     tca (Epoch): Time of Closest Approach
+    ///     miss_distance (float): Miss distance in meters
+    ///     object1 (CDMObject): First conjunction object
+    ///     object2 (CDMObject): Second conjunction object
+    ///
+    /// Returns:
+    ///     CDM: New CDM message
+    #[new]
+    #[pyo3(signature = (originator, message_id, tca, miss_distance, object1, object2))]
+    fn new(
+        originator: &str,
+        message_id: &str,
+        tca: &PyEpoch,
+        miss_distance: f64,
+        object1: &PyCDMObject,
+        object2: &PyCDMObject,
+    ) -> Self {
+        let mut obj1 = object1.inner.clone();
+        let mut obj2 = object2.inner.clone();
+        obj1.metadata.object = "OBJECT1".to_string();
+        obj2.metadata.object = "OBJECT2".to_string();
+        let inner = RustCDM::new(
+            originator.to_string(),
+            message_id.to_string(),
+            tca.obj,
+            miss_distance,
+            obj1,
+            obj2,
+        );
+        PyCDM { inner }
+    }
+
+    /// Parse a CDM from a string, auto-detecting the format.
+    ///
+    /// Args:
+    ///     content (str): String content of the CDM message
+    ///
+    /// Returns:
+    ///     CDM: Parsed CDM message
+    #[staticmethod]
+    #[allow(clippy::should_implement_trait)]
+    fn from_str(content: &str) -> PyResult<Self> {
+        let inner = RustCDM::from_str(content)?;
+        Ok(PyCDM { inner })
+    }
+
+    /// Parse a CDM from a file, auto-detecting the format.
+    ///
+    /// Args:
+    ///     path (str): Path to the CDM file
+    ///
+    /// Returns:
+    ///     CDM: Parsed CDM message
+    #[staticmethod]
+    fn from_file(path: &str) -> PyResult<Self> {
+        let inner = RustCDM::from_file(path)?;
+        Ok(PyCDM { inner })
+    }
+
+    /// Write the CDM to a string in the specified format.
+    ///
+    /// Args:
+    ///     format (str): Output format - "KVN", "XML", or "JSON"
+    ///
+    /// Returns:
+    ///     str: Serialized CDM string
+    fn to_string(&self, format: &str) -> PyResult<String> {
+        let fmt = parse_format(format)?;
+        let result = self.inner.to_string(fmt)?;
+        Ok(result)
+    }
+
+    /// Write the CDM to a file in the specified format.
+    ///
+    /// Args:
+    ///     path (str): Output file path
+    ///     format (str): Output format - "KVN", "XML", or "JSON"
+    fn to_file(&self, path: &str, format: &str) -> PyResult<()> {
+        let fmt = parse_format(format)?;
+        self.inner.to_file(path, fmt)?;
+        Ok(())
+    }
+
+    // --- Header properties ---
+
+    /// float: CDM format version (e.g. 1.0, 2.0)
+    #[getter]
+    fn format_version(&self) -> f64 {
+        self.inner.header.format_version
+    }
+
+    /// str: Originator of the message
+    #[getter]
+    fn originator(&self) -> &str {
+        &self.inner.header.originator
+    }
+
+    /// str: Unique message identifier
+    #[getter]
+    fn message_id(&self) -> &str {
+        &self.inner.header.message_id
+    }
+
+    /// Optional[str]: Spacecraft name(s) CDM applies to
+    #[getter]
+    fn message_for(&self) -> Option<&str> {
+        self.inner.header.message_for.as_deref()
+    }
+
+    /// Epoch: Creation date of the message
+    #[getter]
+    fn creation_date(&self) -> PyEpoch {
+        PyEpoch { obj: self.inner.header.creation_date }
+    }
+
+    // --- Relative metadata properties ---
+
+    /// Epoch: Time of Closest Approach
+    #[getter]
+    fn tca(&self) -> PyEpoch {
+        PyEpoch { obj: *self.inner.tca() }
+    }
+
+    /// float: Miss distance in meters
+    #[getter]
+    fn miss_distance(&self) -> f64 {
+        self.inner.miss_distance()
+    }
+
+    /// Optional[float]: Collision probability
+    #[getter]
+    fn collision_probability(&self) -> Option<f64> {
+        self.inner.collision_probability()
+    }
+
+    /// Optional[str]: Collision probability method
+    #[getter]
+    fn collision_probability_method(&self) -> Option<&str> {
+        self.inner.relative_metadata.collision_probability_method.as_deref()
+    }
+
+    /// Set the collision probability.
+    ///
+    /// Args:
+    ///     value (float | None): Collision probability value
+    #[setter]
+    fn set_collision_probability(&mut self, value: Option<f64>) {
+        self.inner.relative_metadata.collision_probability = value;
+    }
+
+    /// Set the collision probability method.
+    ///
+    /// Args:
+    ///     value (str | None): Collision probability method name (e.g. "FOSTER-1992")
+    #[setter]
+    fn set_collision_probability_method(&mut self, value: Option<String>) {
+        self.inner.relative_metadata.collision_probability_method = value;
+    }
+
+    /// Optional[float]: Relative speed in m/s
+    #[getter]
+    fn relative_speed(&self) -> Option<f64> {
+        self.inner.relative_metadata.relative_speed
+    }
+
+    // --- Object 1 properties ---
+
+    /// str: Object 1 name
+    #[getter]
+    fn object1_name(&self) -> &str {
+        &self.inner.object1.metadata.object_name
+    }
+
+    /// str: Object 1 designator (catalog ID)
+    #[getter]
+    fn object1_designator(&self) -> &str {
+        &self.inner.object1.metadata.object_designator
+    }
+
+    /// str: Object 1 international designator
+    #[getter]
+    fn object1_international_designator(&self) -> &str {
+        &self.inner.object1.metadata.international_designator
+    }
+
+    /// numpy.ndarray: Object 1 state vector [x, y, z, vx, vy, vz] in m and m/s
+    #[getter]
+    fn object1_state<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        let s = self.inner.object1_state();
+        (0..6).map(|i| s[i]).collect::<Vec<f64>>().into_pyarray(py)
+    }
+
+    /// numpy.ndarray: Object 1 RTN covariance matrix (6x6) in m², m²/s, m²/s²
+    #[getter]
+    fn object1_covariance<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+        let m = self.inner.object1_rtn_covariance_6x6();
+        matrix_to_numpy!(py, m, 6, 6, f64)
+    }
+
+    /// str: Object 1 reference frame
+    #[getter]
+    fn object1_ref_frame(&self) -> String {
+        format!("{}", self.inner.object1.metadata.ref_frame)
+    }
+
+    // --- Object 2 properties ---
+
+    /// str: Object 2 name
+    #[getter]
+    fn object2_name(&self) -> &str {
+        &self.inner.object2.metadata.object_name
+    }
+
+    /// str: Object 2 designator (catalog ID)
+    #[getter]
+    fn object2_designator(&self) -> &str {
+        &self.inner.object2.metadata.object_designator
+    }
+
+    /// str: Object 2 international designator
+    #[getter]
+    fn object2_international_designator(&self) -> &str {
+        &self.inner.object2.metadata.international_designator
+    }
+
+    /// numpy.ndarray: Object 2 state vector [x, y, z, vx, vy, vz] in m and m/s
+    #[getter]
+    fn object2_state<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        let s = self.inner.object2_state();
+        (0..6).map(|i| s[i]).collect::<Vec<f64>>().into_pyarray(py)
+    }
+
+    /// numpy.ndarray: Object 2 RTN covariance matrix (6x6) in m², m²/s, m²/s²
+    #[getter]
+    fn object2_covariance<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+        let m = self.inner.object2_rtn_covariance_6x6();
+        matrix_to_numpy!(py, m, 6, 6, f64)
+    }
+
+    /// str: Object 2 reference frame
+    #[getter]
+    fn object2_ref_frame(&self) -> String {
+        format!("{}", self.inner.object2.metadata.ref_frame)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CDM(tca={}, miss_distance={:.1}m, obj1='{}', obj2='{}')",
+            crate::ccsds::common::format_ccsds_datetime(self.inner.tca()),
+            self.inner.miss_distance(),
+            self.inner.object1.metadata.object_name,
+            self.inner.object2.metadata.object_name,
+        )
     }
 }
 

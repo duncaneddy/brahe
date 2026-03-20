@@ -13,9 +13,25 @@ SGP4 propagation is based on Two-Line Element (TLE) sets, a compact data format 
 
 The initialization automatically detects and handles both formats.
 
+## From Ephemeris Data Sources
+
+Rather than hard-coding TLE strings, you can query live satellite data from CelesTrak or Space-Track and get a ready-to-use propagator in a single call. This is the most common workflow for operational satellite tracking:
+
+=== "Python"
+    ``` python
+    --8<-- "./examples/datasets/celestrak_as_propagator.py:8"
+    ```
+
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/datasets/celestrak_as_propagator.rs:4"
+    ```
+
+For details on querying satellite data, see [Ephemeris Data Sources](../ephemeris/index.md).
+
 ## Initialization
 
-The `SGPPropagator` is initialized from TLE data. The TLE lines contain all orbital parameters needed for propagation.
+The `SGPPropagator` can also be initialized directly from TLE data. The TLE lines contain all orbital parameters needed for propagation.
 
 ### From Two Line Elements (TLE)
 
@@ -234,4 +250,5 @@ Like Keplerian propagators, SGP propagators support identity tracking:
 - [Keplerian Propagation](keplerian_propagation.md) - Analytical two-body propagator
 - [Trajectories](../trajectories/index.md) - Trajectory storage and operations
 - [Two-Line Elements](../orbits/two_line_elements.md) - Working with TLE data
+- [Ephemeris Data Sources](../ephemeris/index.md) - Querying live satellite data from CelesTrak and Space-Track
 - [SGPPropagator API Reference](../../library_api/propagators/sgp_propagator.md)

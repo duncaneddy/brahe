@@ -1,106 +1,27 @@
 # Space-Track API
 
-[Space-Track.org](https://www.space-track.org) is the public interface to the US Space Command satellite catalog, providing authoritative orbital data, satellite metadata, conjunction assessments, and decay predictions. Brahe's spacetrack module provides a typed client and fluent query builder for accessing this data programmatically.
-
 !!! info "Account Required"
     Space-Track.org requires a free account. Register at [https://www.space-track.org/auth/createAccount](https://www.space-track.org/auth/createAccount) to obtain credentials.
 
-## Module Overview
+[Space-Track.org](https://www.space-track.org) is the public interface to the US Space Command satellite catalog. It provides authoritative orbital data (general perturbations records), satellite catalog metadata, conjunction data messages, and decay/re-entry predictions. Unlike other public sources, Space-Track offers full server-side filtering, data types such as CDMs and decay predictions, and file-share access -- all through a REST API that Brahe wraps with a typed client and fluent query builder.
 
-The spacetrack module is organized into five components:
+## How It Works
 
-### Enumerations
+`SpaceTrackClient` manages authentication and HTTP communication with Space-Track.org. You create a client with your credentials, build a query describing the data you want, and execute it through the client. Authentication is lazy: credentials are sent automatically on the first query unless you call `authenticate()` explicitly.
 
-<div class="center-table" markdown="1">
+`SpaceTrackQuery` constructs API requests using a fluent builder pattern. Each builder method -- `filter`, `order_by`, `limit`, `format`, and others -- returns a new query instance, so queries are immutable and can be reused or extended without side effects. Once built, the query produces the URL path that the client sends to Space-Track.
 
-| Type | Purpose |
-|------|---------|
-| `RequestController` | API endpoint namespace (`BasicSpaceData`, `ExpandedSpaceData`, `FileShare`, `SPEphemeris`, `PublicFiles`) |
-| `RequestClass` | Data category to query (`GP`, `SATCAT`, `Decay`, `TIP`, `CDMPublic`, etc.) |
-| `SortOrder` | Result ordering direction (`Asc`, `Desc`) |
-| `OutputFormat` | Response format (`JSON`, `TLE`, `CSV`, `XML`, `KVN`, etc.) |
+The client includes a built-in rate limiter that prevents exceeding Space-Track's request policies. Queries return typed results when using JSON format: `GPRecord` for general perturbations data, `SATCATRecord` for satellite catalog metadata, or raw strings for non-JSON formats and other request classes.
 
-</div>
+## Key Concepts
 
-Each `RequestClass` has a default controller. For example, `GP` and `SATCAT` use `BasicSpaceData`, while `CDMPublic` uses `ExpandedSpaceData`. The query builder selects the correct controller automatically.
+**Request classes.** Space-Track organizes its data into request classes, each representing a distinct data category. GP contains general perturbations orbital elements, SATCAT holds satellite catalog metadata, Decay and TIP provide re-entry predictions, and CDMPublic offers conjunction data messages. Each request class belongs to a specific API controller (endpoint namespace), but the query builder selects the correct controller automatically based on the request class you choose.
 
-### Query Builder
+**Query builder pattern.** All query construction happens through the builder. Filters narrow results by field values, ordering controls sort direction, and limit/offset enable pagination. The builder also supports selecting specific fields, requesting metadata, and toggling distinct or empty-result behavior. Because each method returns a new instance, you can fork a base query into multiple specialized queries without mutation.
 
-`SpaceTrackQuery` constructs API queries using a fluent builder pattern. All builder methods return a new query instance, allowing method chaining:
+**Output formats.** Space-Track supports several output formats: JSON (the default), TLE, 3LE, CSV, XML, and KVN. Typed query methods (`query_gp`, `query_satcat`) require JSON format to deserialize into structured records. For other formats, use `query_raw()` which returns the response body as a plain string.
 
-<div class="center-table" markdown="1">
-
-| Method | Purpose |
-|--------|---------|
-| `filter(field, value)` | Add a field/value filter predicate |
-| `order_by(field, order)` | Sort results by field |
-| `limit(count)` | Limit number of results |
-| `limit_offset(count, offset)` | Paginate with limit and offset |
-| `format(fmt)` | Set output format (default: JSON) |
-| `predicates_filter(fields)` | Select specific fields to return |
-| `metadata(enabled)` | Include query metadata in response |
-| `distinct(enabled)` | Remove duplicate records |
-| `empty_result(enabled)` | Return empty set instead of error when no results |
-| `favorites(id)` | Filter by favorites list |
-| `controller(ctrl)` | Override the default controller |
-| `build()` | Produce the URL path string |
-
-</div>
-
-### Configuration
-
-<div class="center-table" markdown="1">
-
-| Type | Purpose |
-|------|---------|
-| `RateLimitConfig` | Rate limit thresholds for per-minute and per-hour request windows |
-
-</div>
-
-### Client
-
-`SpaceTrackClient` handles authentication and HTTP communication with Space-Track.org:
-
-<div class="center-table" markdown="1">
-
-| Method | Purpose |
-|--------|---------|
-| `authenticate()` | Explicitly authenticate (establishes session) |
-| `query_raw(query)` | Execute query, return raw response string |
-| `query_json(query)` | Execute query, parse response as JSON array |
-| `query_gp(query)` | Execute query, parse response as `GPRecord` list |
-| `query_satcat(query)` | Execute query, parse response as `SATCATRecord` list |
-| `fileshare_upload(folder_id, file_name, file_data)` | Upload a file to the file share |
-| `fileshare_download(file_id)` | Download a file from the file share |
-| `fileshare_download_folder(folder_id)` | Download all files in a folder (zip archive) |
-| `fileshare_list_files()` | List files in the file share |
-| `fileshare_list_folders()` | List folders in the file share |
-| `fileshare_delete(file_id)` | Delete a file from the file share |
-| `spephemeris_download(file_id)` | Download an SP ephemeris file |
-| `spephemeris_list_files()` | List available SP ephemeris files |
-| `spephemeris_file_history()` | List SP ephemeris file history |
-| `publicfiles_download(file_name)` | Download a public file (no auth required) |
-| `publicfiles_list_dirs()` | List public file directories (no auth required) |
-
-</div>
-
-Authentication is lazy by default -- the client authenticates on the first query if `authenticate()` has not been called explicitly.
-
-### Response Types
-
-- **`GPRecord`** -- Shared GP data record. See [Ephemeris Data Sources](../index.md) for field details.
-
-- **`SATCATRecord`** -- Satellite Catalog record with 24 fields including object identification (`norad_cat_id`, `satname`, `intldes`), launch information (`launch`, `site`, `launch_year`), and orbital characteristics (`period`, `inclination`, `apogee`, `perigee`). `norad_cat_id` is `Optional[int]` / `Option<u32>`; remaining fields are `Optional[str]` / `Option<String>`.
-
-- **`FileShareFileRecord`** -- File share file metadata (7 fields). All `Optional[str]` / `Option<String>`.
-
-- **`FolderRecord`** -- File share folder metadata (4 fields). All `Optional[str]` / `Option<String>`.
-
-- **`SPEphemerisFileRecord`** -- SP ephemeris file metadata (8 fields). `norad_cat_id` is `Optional[int]` / `Option<u32>`; remaining fields are `Optional[str]` / `Option<String>`.
-
-### Operator Functions
-
-Operator functions generate filter value strings for `SpaceTrackQuery.filter()`. See [Ephemeris Data Sources](../index.md) for the full operator table.
+**Rate limiting.** Space-Track enforces request rate limits to protect service availability. The client applies conservative defaults (25 requests per minute, 250 per hour) that stay well within these policies. You can adjust or disable the rate limiter through `RateLimitConfig` if your use case requires different thresholds.
 
 ## Subpages
 

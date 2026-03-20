@@ -213,7 +213,9 @@ impl OMM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::parse_omm(content),
             CCSDSFormat::XML => crate::ccsds::xml::parse_omm_xml(content),
-            CCSDSFormat::JSON => crate::ccsds::json::parse_omm_json(content),
+            CCSDSFormat::JSON => Err(BraheError::Error(
+                "OMM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
+            )),
         }
     }
 
@@ -229,7 +231,9 @@ impl OMM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::write_omm(self),
             CCSDSFormat::XML => crate::ccsds::xml::write_omm_xml(self),
-            CCSDSFormat::JSON => crate::ccsds::json::write_omm_json(self),
+            CCSDSFormat::JSON => Err(BraheError::Error(
+                "OMM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
+            )),
         }
     }
 
@@ -238,5 +242,42 @@ impl OMM {
         let content = self.to_string(format)?;
         std::fs::write(path.as_ref(), content)
             .map_err(|e| BraheError::IoError(format!("Failed to write OMM file: {}", e)))
+    }
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_omm_from_str_json_unsupported() {
+        let result = OMM::from_str(r#"{"CCSDS_OMM_VERS": "3.0"}"#);
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("JSON"),
+            "Error should mention JSON: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_omm_to_string_json_unsupported() {
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
+        let result = omm.to_string(CCSDSFormat::JSON);
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("JSON"),
+            "Error should mention JSON: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_omm_from_file_nonexistent() {
+        let result = OMM::from_file("nonexistent_file.txt");
+        assert!(result.is_err());
     }
 }

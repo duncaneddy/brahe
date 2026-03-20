@@ -416,3 +416,16 @@ def test_opm_state_setter_numpy(eop):
     opm.state = np.array([7000e3, 0, 0, 0, 7500, 0])
     assert opm.position == pytest.approx([7000e3, 0.0, 0.0])
     assert opm.velocity == pytest.approx([0.0, 7500.0, 0.0])
+
+
+def test_opm_from_str_json_unsupported(eop):
+    """OPM JSON format is not yet supported."""
+    with pytest.raises(Exception, match="JSON"):
+        OPM.from_str('{"CCSDS_OPM_VERS": "3.0"}')
+
+
+def test_opm_to_string_json_unsupported(eop):
+    """OPM JSON format is not yet supported for writing."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    with pytest.raises(Exception, match="JSON"):
+        opm.to_string("JSON")

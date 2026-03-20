@@ -227,7 +227,9 @@ impl OPM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::parse_opm(content),
             CCSDSFormat::XML => crate::ccsds::xml::parse_opm_xml(content),
-            CCSDSFormat::JSON => crate::ccsds::json::parse_opm_json(content),
+            CCSDSFormat::JSON => Err(BraheError::Error(
+                "OPM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
+            )),
         }
     }
 
@@ -243,7 +245,9 @@ impl OPM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::write_opm(self),
             CCSDSFormat::XML => crate::ccsds::xml::write_opm_xml(self),
-            CCSDSFormat::JSON => crate::ccsds::json::write_opm_json(self),
+            CCSDSFormat::JSON => Err(BraheError::Error(
+                "OPM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
+            )),
         }
     }
 
@@ -278,5 +282,44 @@ mod tests {
         opm.push_maneuver(m);
         assert_eq!(opm.maneuvers.len(), 1);
         assert_eq!(opm.maneuvers[0].delta_mass, Some(-15.0));
+    }
+
+    #[test]
+    fn test_opm_from_str_json_unsupported() {
+        let result = OPM::from_str(r#"{"CCSDS_OPM_VERS": "3.0"}"#);
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("JSON"),
+            "Error should mention JSON: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_opm_to_string_json_unsupported() {
+        let metadata = OPMMetadata::new(
+            "SAT".to_string(),
+            "2024-001A".to_string(),
+            "EARTH".to_string(),
+            CCSDSRefFrame::GCRF,
+            CCSDSTimeSystem::UTC,
+        );
+        let sv = OPMStateVector::new(Epoch::now(), [7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0]);
+        let opm = OPM::new("TEST".to_string(), metadata, sv);
+        let result = opm.to_string(CCSDSFormat::JSON);
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("JSON"),
+            "Error should mention JSON: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_opm_from_file_nonexistent() {
+        let result = OPM::from_file("nonexistent_file.txt");
+        assert!(result.is_err());
     }
 }

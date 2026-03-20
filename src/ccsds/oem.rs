@@ -244,7 +244,9 @@ impl OEM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::parse_oem(content),
             CCSDSFormat::XML => crate::ccsds::xml::parse_oem_xml(content),
-            CCSDSFormat::JSON => crate::ccsds::json::parse_oem_json(content),
+            CCSDSFormat::JSON => Err(BraheError::Error(
+                "OEM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
+            )),
         }
     }
 
@@ -276,7 +278,9 @@ impl OEM {
         match format {
             CCSDSFormat::KVN => crate::ccsds::kvn::write_oem(self),
             CCSDSFormat::XML => crate::ccsds::xml::write_oem_xml(self),
-            CCSDSFormat::JSON => crate::ccsds::json::write_oem_json(self),
+            CCSDSFormat::JSON => Err(BraheError::Error(
+                "OEM JSON format is not yet supported. Use KVN or XML format instead.".to_string(),
+            )),
         }
     }
 
@@ -378,5 +382,36 @@ mod tests {
 
         assert_eq!(metadata.interpolation.as_deref(), Some("HERMITE"));
         assert_eq!(metadata.interpolation_degree, Some(7));
+    }
+
+    #[test]
+    fn test_oem_from_str_json_unsupported() {
+        let result = OEM::from_str(r#"{"CCSDS_OEM_VERS": "3.0"}"#);
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("JSON"),
+            "Error should mention JSON: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_oem_to_string_json_unsupported() {
+        let oem = OEM::new("TEST".to_string());
+        let result = oem.to_string(CCSDSFormat::JSON);
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("JSON"),
+            "Error should mention JSON: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_oem_from_file_nonexistent() {
+        let result = OEM::from_file("nonexistent_file.txt");
+        assert!(result.is_err());
     }
 }

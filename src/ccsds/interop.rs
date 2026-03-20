@@ -33,7 +33,14 @@ pub fn ccsds_ref_frame_to_orbit_frame(frame: &CCSDSRefFrame) -> Result<OrbitFram
         | CCSDSRefFrame::ITRF2005
         | CCSDSRefFrame::ITRF2008
         | CCSDSRefFrame::ITRF2014 => Ok(OrbitFrame::ITRF),
-        CCSDSRefFrame::TEME | CCSDSRefFrame::TOD => Ok(OrbitFrame::ECI),
+        CCSDSRefFrame::TEME => Err(BraheError::Error(
+            "Cannot map CCSDS frame 'TEME' to brahe OrbitFrame. TEME is not equivalent to GCRF or EME2000. \
+             Use frame conversion before creating a trajectory.".to_string(),
+        )),
+        CCSDSRefFrame::TOD => Err(BraheError::Error(
+            "Cannot map CCSDS frame 'TOD' to brahe OrbitFrame. TOD is not equivalent to GCRF or EME2000. \
+             Use frame conversion before creating a trajectory.".to_string(),
+        )),
         _ => Err(BraheError::Error(format!(
             "Cannot map CCSDS frame '{}' to brahe OrbitFrame",
             frame
@@ -442,6 +449,9 @@ mod tests {
         );
         // Orbit-relative frames should fail
         assert!(ccsds_ref_frame_to_orbit_frame(&CCSDSRefFrame::RTN).is_err());
+        // TEME and TOD should fail (not equivalent to GCRF/EME2000)
+        assert!(ccsds_ref_frame_to_orbit_frame(&CCSDSRefFrame::TEME).is_err());
+        assert!(ccsds_ref_frame_to_orbit_frame(&CCSDSRefFrame::TOD).is_err());
     }
 
     fn sample_gp_record_json() -> &'static str {

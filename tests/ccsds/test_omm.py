@@ -70,15 +70,23 @@ def test_omm_to_dict(eop):
     assert d["tle_parameters"]["bstar"] == pytest.approx(0.0001)
 
 
-def test_omm_to_dict_with_user_defined(eop):
-    """Test to_dict() with user-defined parameters."""
-    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample3.txt")
-    d = omm.to_dict()
+def test_omm_parse_example3_unsupported_time_system(eop):
+    """OMMExample3.txt uses TIME_SYSTEM=MRT which is unsupported for epoch conversion."""
+    with pytest.raises(Exception, match="MRT"):
+        OMM.from_file("test_assets/ccsds/omm/OMMExample3.txt")
 
-    assert "user_defined" in d
-    assert d["user_defined"]["EARTH_MODEL"] == "WGS-84"
-    assert "spacecraft_parameters" in d
-    assert d["spacecraft_parameters"]["mass"] == pytest.approx(300.0)
+
+def test_omm_from_str_json_unsupported(eop):
+    """OMM JSON format is not yet supported."""
+    with pytest.raises(Exception, match="JSON"):
+        OMM.from_str('{"CCSDS_OMM_VERS": "3.0"}')
+
+
+def test_omm_to_string_json_unsupported(eop):
+    """OMM JSON format is not yet supported for writing."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    with pytest.raises(Exception, match="JSON"):
+        omm.to_string("JSON")
 
 
 def test_omm_repr(eop):

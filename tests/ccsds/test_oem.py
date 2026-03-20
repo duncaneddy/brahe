@@ -51,14 +51,23 @@ def test_oem_parse_example1(eop):
     assert oem.segments[2].num_covariances == 2
 
 
-def test_oem_parse_example2_doy_format(eop):
-    """Mirror of test_parse_oem_example2_doy_format in Rust."""
-    oem = OEM.from_file("test_assets/ccsds/oem/OEMExample2.txt")
+def test_oem_parse_example2_unsupported_time_system(eop):
+    """OEMExample2.txt uses TIME_SYSTEM=MRT which is unsupported for epoch conversion."""
+    with pytest.raises(Exception, match="MRT"):
+        OEM.from_file("test_assets/ccsds/oem/OEMExample2.txt")
 
-    assert oem.format_version == pytest.approx(2.0, abs=1e-10)
-    assert len(oem.segments) == 2
-    assert oem.segments[0].ref_frame == "TOD"
-    assert oem.segments[0].num_states == 4
+
+def test_oem_from_str_json_unsupported(eop):
+    """OEM JSON format is not yet supported."""
+    with pytest.raises(Exception, match="JSON"):
+        OEM.from_str('{"CCSDS_OEM_VERS": "3.0"}')
+
+
+def test_oem_to_string_json_unsupported(eop):
+    """OEM JSON format is not yet supported for writing."""
+    oem = OEM(originator="TEST")
+    with pytest.raises(Exception, match="JSON"):
+        oem.to_string("JSON")
 
 
 def test_oem_parse_example4(eop):

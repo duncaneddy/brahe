@@ -1239,6 +1239,125 @@ mod tests {
     }
 
     #[test]
+    fn test_cdm_xml_round_trip_issue940_all_fields() {
+        // CDMExample_issue_940.txt has nearly all optional fields populated
+        let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample_issue_940.txt").unwrap();
+
+        // Write to XML and re-parse
+        let xml = cdm1.to_string(CCSDSFormat::XML).unwrap();
+        let cdm2 = CDM::from_str(&xml).unwrap();
+
+        // Header
+        assert_eq!(cdm1.header.originator, cdm2.header.originator);
+        assert_eq!(cdm1.header.message_id, cdm2.header.message_id);
+        assert_eq!(cdm1.header.classification, cdm2.header.classification);
+
+        // Relative metadata
+        assert!((cdm1.miss_distance() - cdm2.miss_distance()).abs() < 1e-6);
+        assert_eq!(
+            cdm1.relative_metadata.conjunction_id,
+            cdm2.relative_metadata.conjunction_id
+        );
+        assert_eq!(
+            cdm1.relative_metadata.approach_angle,
+            cdm2.relative_metadata.approach_angle
+        );
+        assert_eq!(
+            cdm1.relative_metadata.screen_type,
+            cdm2.relative_metadata.screen_type
+        );
+        assert_eq!(
+            cdm1.relative_metadata.screen_pc_threshold,
+            cdm2.relative_metadata.screen_pc_threshold
+        );
+        assert_eq!(
+            cdm1.relative_metadata.collision_percentile,
+            cdm2.relative_metadata.collision_percentile
+        );
+        assert_eq!(
+            cdm1.relative_metadata.collision_probability,
+            cdm2.relative_metadata.collision_probability
+        );
+        assert_eq!(
+            cdm1.relative_metadata.collision_probability_method,
+            cdm2.relative_metadata.collision_probability_method
+        );
+        assert_eq!(
+            cdm1.relative_metadata.collision_max_probability,
+            cdm2.relative_metadata.collision_max_probability
+        );
+        assert_eq!(
+            cdm1.relative_metadata.collision_max_pc_method,
+            cdm2.relative_metadata.collision_max_pc_method
+        );
+        assert_eq!(
+            cdm1.relative_metadata.previous_message_id,
+            cdm2.relative_metadata.previous_message_id
+        );
+
+        // State vectors
+        for i in 0..6 {
+            assert!((cdm1.object1_state()[i] - cdm2.object1_state()[i]).abs() < 0.01);
+            assert!((cdm1.object2_state()[i] - cdm2.object2_state()[i]).abs() < 0.01);
+        }
+
+        // Object metadata
+        assert_eq!(
+            cdm1.object1.metadata.odm_msg_link,
+            cdm2.object1.metadata.odm_msg_link
+        );
+        assert_eq!(
+            cdm1.object1.metadata.covariance_source,
+            cdm2.object1.metadata.covariance_source
+        );
+        assert_eq!(
+            cdm1.object1.metadata.alt_cov_type,
+            cdm2.object1.metadata.alt_cov_type
+        );
+
+        // OD parameters
+        let od1 = cdm1.object1.data.od_parameters.as_ref().unwrap();
+        let od2 = cdm2.object1.data.od_parameters.as_ref().unwrap();
+        assert_eq!(od1.obs_available, od2.obs_available);
+        assert_eq!(od1.obs_used, od2.obs_used);
+
+        // Additional parameters
+        let ap1 = cdm1.object1.data.additional_parameters.as_ref().unwrap();
+        let ap2 = cdm2.object1.data.additional_parameters.as_ref().unwrap();
+        assert!((ap1.hbr.unwrap() - ap2.hbr.unwrap()).abs() < 0.01);
+        assert!((ap1.oeb_q1.unwrap() - ap2.oeb_q1.unwrap()).abs() < 1e-10);
+
+        // XYZ covariance preserved
+        assert!(cdm2.object1.data.xyz_covariance.is_some());
+        let xyz1 = cdm1.object1.data.xyz_covariance.as_ref().unwrap();
+        let xyz2 = cdm2.object1.data.xyz_covariance.as_ref().unwrap();
+        assert_eq!(xyz1.dimension, xyz2.dimension);
+        assert!((xyz1.matrix[(0, 0)] - xyz2.matrix[(0, 0)]).abs() < 1e-10);
+
+        // Additional covariance metadata
+        let acm1 = cdm1
+            .object1
+            .data
+            .additional_covariance_metadata
+            .as_ref()
+            .unwrap();
+        let acm2 = cdm2
+            .object1
+            .data
+            .additional_covariance_metadata
+            .as_ref()
+            .unwrap();
+        assert_eq!(
+            acm1.density_forecast_uncertainty,
+            acm2.density_forecast_uncertainty
+        );
+        assert_eq!(acm1.cscale_factor, acm2.cscale_factor);
+
+        // User-defined parameters
+        assert!(cdm2.user_defined.is_some());
+    }
+
+    #[test]
     fn test_cdm_rtn_covariance_6x6() {
         let mut m6 = SMatrix::<f64, 6, 6>::zeros();
         m6[(0, 0)] = 41.42;

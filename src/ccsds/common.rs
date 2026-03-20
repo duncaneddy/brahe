@@ -318,9 +318,15 @@ pub fn parse_ccsds_datetime(
     time_system: &CCSDSTimeSystem,
 ) -> Result<Epoch, crate::utils::errors::BraheError> {
     let s = s.trim();
-    let ts = time_system
-        .to_time_system()
-        .unwrap_or(crate::time::TimeSystem::UTC);
+    let ts = time_system.to_time_system().ok_or_else(|| {
+        crate::ccsds::error::ccsds_parse_error(
+            "common",
+            &format!(
+                "time system '{}' is not supported for epoch conversion. Supported: UTC, TAI, GPS, TT, UT1",
+                time_system
+            ),
+        )
+    })?;
 
     // Try day-of-year format: YYYY-DDDThh:mm:ss.sss
     if let Some(t_pos) = s.find('T') {
@@ -894,5 +900,49 @@ mod tests {
             CCSDSFormat::KVN
         );
         assert_eq!(detect_format("  \n  <?xml"), CCSDSFormat::XML);
+    }
+
+    #[test]
+    fn test_parse_ccsds_datetime_unsupported_time_system() {
+        let unsupported = [
+            CCSDSTimeSystem::TDB,
+            CCSDSTimeSystem::TCB,
+            CCSDSTimeSystem::TDR,
+            CCSDSTimeSystem::TCG,
+            CCSDSTimeSystem::GMST,
+            CCSDSTimeSystem::MET,
+            CCSDSTimeSystem::MRT,
+            CCSDSTimeSystem::SCLK,
+        ];
+        for ts in &unsupported {
+            let result = parse_ccsds_datetime("2024-01-15T12:00:00.000", ts);
+            assert!(result.is_err(), "Time system {} should return an error", ts);
+            let err_msg = format!("{}", result.unwrap_err());
+            assert!(
+                err_msg.contains("not supported"),
+                "Error for {} should mention 'not supported': {}",
+                ts,
+                err_msg
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_ccsds_datetime_supported_time_systems() {
+        let supported = [
+            CCSDSTimeSystem::UTC,
+            CCSDSTimeSystem::TAI,
+            CCSDSTimeSystem::GPS,
+            CCSDSTimeSystem::TT,
+        ];
+        for ts in &supported {
+            let result = parse_ccsds_datetime("2024-01-15T12:00:00.000", ts);
+            assert!(
+                result.is_ok(),
+                "Time system {} should succeed: {}",
+                ts,
+                result.unwrap_err()
+            );
+        }
     }
 }

@@ -2777,30 +2777,33 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_oem_example2_doy_format() {
+    fn test_parse_oem_example2_unsupported_time_system() {
+        // OEMExample2.txt uses TIME_SYSTEM = MRT which is not supported for epoch conversion
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample2.txt").unwrap();
-        let oem = parse_oem(&content).unwrap();
+        let result = parse_oem(&content);
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("MRT"),
+            "Error should mention unsupported time system MRT: {}",
+            err_msg
+        );
+    }
 
-        assert!((oem.header.format_version - 2.0).abs() < 1e-10);
-        assert_eq!(oem.segments.len(), 2);
+    #[test]
+    fn test_parse_ccsds_datetime_doy_utc() {
+        // Test DOY format with a supported time system (UTC)
+        use crate::ccsds::common::{CCSDSTimeSystem, parse_ccsds_datetime};
 
-        // Check DOY dates parsed correctly
-        let seg0 = &oem.segments[0];
-        assert_eq!(seg0.metadata.ref_frame, CCSDSRefFrame::TOD);
-        assert_eq!(seg0.metadata.time_system, CCSDSTimeSystem::MRT);
-        assert_eq!(seg0.states.len(), 4);
-
-        // Segment has ref_frame_epoch
-        assert!(seg0.metadata.ref_frame_epoch.is_some());
-
-        // Check header comment
-        assert_eq!(oem.header.comments.len(), 1);
-        assert_eq!(oem.header.comments[0], "comment");
-
-        // Check metadata comments
-        assert_eq!(seg0.metadata.comments.len(), 2);
-        assert_eq!(seg0.metadata.comments[0], "comment 1");
-        assert_eq!(seg0.metadata.comments[1], "comment 2");
+        let epoch = parse_ccsds_datetime("1996-200T16:00:00", &CCSDSTimeSystem::UTC).unwrap();
+        // 1996 is a leap year, DOY 200 = July 18
+        let (y, m, d, h, min, s, _ns) = epoch.to_datetime();
+        assert_eq!(y, 1996);
+        assert_eq!(m, 7);
+        assert_eq!(d, 18);
+        assert_eq!(h, 16);
+        assert_eq!(min, 0);
+        assert!((s - 0.0).abs() < 1e-6);
     }
 
     #[test]
@@ -2913,25 +2916,17 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_omm_example3_with_spacecraft_and_user_defined() {
+    fn test_parse_omm_example3_unsupported_time_system() {
+        // OMMExample3.txt uses TIME_SYSTEM = MRT which is not supported for epoch conversion
         let content = std::fs::read_to_string("test_assets/ccsds/omm/OMMExample3.txt").unwrap();
-        let omm = parse_omm(&content).unwrap();
-
-        assert_eq!(omm.metadata.ref_frame, CCSDSRefFrame::TOD);
-        assert_eq!(omm.metadata.time_system, CCSDSTimeSystem::MRT);
-
-        // Spacecraft parameters
-        let sc = omm.spacecraft_parameters.as_ref().unwrap();
-        assert!((sc.mass.unwrap() - 300.0).abs() < 1e-3);
-        assert!((sc.solar_rad_area.unwrap() - 5.0).abs() < 1e-3);
-
-        // Covariance with TNW frame
-        let cov = omm.covariance.as_ref().unwrap();
-        assert_eq!(cov.cov_ref_frame.as_ref().unwrap(), &CCSDSRefFrame::TNW);
-
-        // User-defined
-        let ud = omm.user_defined.as_ref().unwrap();
-        assert_eq!(ud.parameters.get("EARTH_MODEL").unwrap(), "WGS-84");
+        let result = parse_omm(&content);
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("MRT"),
+            "Error should mention unsupported time system MRT: {}",
+            err_msg
+        );
     }
 
     #[test]

@@ -1602,28 +1602,11 @@ impl PyOEM {
     ///     ```python
     ///     from brahe.ccsds import OEM
     ///     oem = OEM.from_file("ephemeris.oem")
-    ///     traj = oem.segment_to_orbit_trajectory(0)
+    ///     traj = oem.segment_to_trajectory(0)
     ///     print(f"States: {len(traj)}")
     ///     ```
-    fn segment_to_orbit_trajectory(&self, segment_idx: usize) -> PyResult<PyOrbitalTrajectory> {
-        let straj = self.inner.segment_to_orbit_trajectory(segment_idx)?;
-
-        // Convert SOrbitTrajectory -> DOrbitTrajectory for the Python wrapper
-        let mut dtraj = trajectories::DOrbitTrajectory::new(
-            6,
-            straj.frame,
-            straj.representation,
-            straj.angle_format,
-        );
-        dtraj.name = straj.name.clone();
-        dtraj.id = straj.id;
-        dtraj.uuid = straj.uuid;
-
-        for (epoch, state) in straj.epochs.iter().zip(straj.states.iter()) {
-            let dstate = DVector::from_column_slice(state.as_slice());
-            dtraj.add(*epoch, dstate);
-        }
-
+    fn segment_to_trajectory(&self, segment_idx: usize) -> PyResult<PyOrbitalTrajectory> {
+        let dtraj = self.inner.segment_to_trajectory(segment_idx)?;
         Ok(PyOrbitalTrajectory { trajectory: dtraj })
     }
 
@@ -1642,14 +1625,14 @@ impl PyOEM {
     ///     ```python
     ///     from brahe.ccsds import OEM
     ///     oem = OEM.from_file("multi_segment.oem")
-    ///     trajs = oem.to_orbit_trajectories()
+    ///     trajs = oem.to_trajectories()
     ///     for t in trajs:
     ///         print(f"{t.name}: {len(t)} states")
     ///     ```
-    fn to_orbit_trajectories(&self) -> PyResult<Vec<PyOrbitalTrajectory>> {
+    fn to_trajectories(&self) -> PyResult<Vec<PyOrbitalTrajectory>> {
         let n = self.inner.segments.len();
         (0..n)
-            .map(|i| self.segment_to_orbit_trajectory(i))
+            .map(|i| self.segment_to_trajectory(i))
             .collect()
     }
 

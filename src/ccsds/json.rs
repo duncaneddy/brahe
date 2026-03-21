@@ -317,9 +317,39 @@ pub fn parse_omm_json(content: &str) -> Result<crate::ccsds::omm::OMM, BraheErro
         "user_defined",
     ];
 
+    // Covariance keys must be in lower-triangular order for the KVN parser
+    let cov_key_order = [
+        "COV_REF_FRAME",
+        "CX_X",
+        "CY_X",
+        "CY_Y",
+        "CZ_X",
+        "CZ_Y",
+        "CZ_Z",
+        "CX_DOT_X",
+        "CX_DOT_Y",
+        "CX_DOT_Z",
+        "CX_DOT_X_DOT",
+        "CY_DOT_X",
+        "CY_DOT_Y",
+        "CY_DOT_Z",
+        "CY_DOT_X_DOT",
+        "CY_DOT_Y_DOT",
+        "CZ_DOT_X",
+        "CZ_DOT_Y",
+        "CZ_DOT_Z",
+        "CZ_DOT_X_DOT",
+        "CZ_DOT_Y_DOT",
+        "CZ_DOT_Z_DOT",
+    ];
+
     for section in &ordered_sections {
         if let Some(obj) = v.get(*section).or_else(|| v.get(section.to_uppercase())) {
-            flatten_object(&mut kvn_lines, obj);
+            if *section == "covariance" {
+                flatten_object_ordered(&mut kvn_lines, obj, &cov_key_order);
+            } else {
+                flatten_object(&mut kvn_lines, obj);
+            }
         }
     }
 
@@ -485,21 +515,7 @@ pub fn write_omm_json(
         if let Some(ref frame) = cov.cov_ref_frame {
             cv.insert(key("COV_REF_FRAME", key_case), json!(format!("{}", frame)));
         }
-        // Convert m² → km² (factor 1e-6)
-        let values = covariance_to_lower_triangular(&cov.matrix, 1e-6);
-        let mut rows: Vec<Value> = Vec::new();
-        let mut idx = 0;
-        for row in 0..6 {
-            let row_vals: Vec<Value> = (0..=row)
-                .map(|_| {
-                    let v = values[idx];
-                    idx += 1;
-                    json!(v)
-                })
-                .collect();
-            rows.push(Value::Array(row_vals));
-        }
-        cv.insert("values".into(), Value::Array(rows));
+        write_json_covariance_elements(&mut cv, &cov.matrix, key_case);
         root.insert("covariance".into(), Value::Object(cv));
     }
 
@@ -555,10 +571,38 @@ pub fn parse_opm_json(content: &str) -> Result<crate::ccsds::opm::OPM, BraheErro
         "GM",
     ];
 
+    // Covariance keys must be in lower-triangular order for the KVN parser
+    let cov_key_order = [
+        "COV_REF_FRAME",
+        "CX_X",
+        "CY_X",
+        "CY_Y",
+        "CZ_X",
+        "CZ_Y",
+        "CZ_Z",
+        "CX_DOT_X",
+        "CX_DOT_Y",
+        "CX_DOT_Z",
+        "CX_DOT_X_DOT",
+        "CY_DOT_X",
+        "CY_DOT_Y",
+        "CY_DOT_Z",
+        "CY_DOT_X_DOT",
+        "CY_DOT_Y_DOT",
+        "CZ_DOT_X",
+        "CZ_DOT_Y",
+        "CZ_DOT_Z",
+        "CZ_DOT_X_DOT",
+        "CZ_DOT_Y_DOT",
+        "CZ_DOT_Z_DOT",
+    ];
+
     for section in &ordered_sections {
         if let Some(obj) = v.get(*section).or_else(|| v.get(section.to_uppercase())) {
             if *section == "keplerian_elements" {
                 flatten_object_ordered(&mut kvn_lines, obj, &kep_key_order);
+            } else if *section == "covariance" {
+                flatten_object_ordered(&mut kvn_lines, obj, &cov_key_order);
             } else {
                 flatten_object(&mut kvn_lines, obj);
             }
@@ -725,20 +769,7 @@ pub fn write_opm_json(
         if let Some(ref frame) = cov.cov_ref_frame {
             cv.insert(key("COV_REF_FRAME", key_case), json!(format!("{}", frame)));
         }
-        let values = covariance_to_lower_triangular(&cov.matrix, 1e-6);
-        let mut rows: Vec<Value> = Vec::new();
-        let mut idx = 0;
-        for row in 0..6 {
-            let row_vals: Vec<Value> = (0..=row)
-                .map(|_| {
-                    let v = values[idx];
-                    idx += 1;
-                    json!(v)
-                })
-                .collect();
-            rows.push(Value::Array(row_vals));
-        }
-        cv.insert("values".into(), Value::Array(rows));
+        write_json_covariance_elements(&mut cv, &cov.matrix, key_case);
         root.insert("covariance".into(), Value::Object(cv));
     }
 
@@ -949,6 +980,9 @@ pub fn write_cdm_json(
         key("CCSDS_CDM_VERS", key_case),
         json!(cdm.header.format_version),
     );
+    if let Some(ref class) = cdm.header.classification {
+        header.insert(key("CLASSIFICATION", key_case), json!(class));
+    }
     header.insert(
         key("CREATION_DATE", key_case),
         json!(format_ccsds_datetime(&cdm.header.creation_date)),
@@ -963,8 +997,14 @@ pub fn write_cdm_json(
     // Relative metadata
     let rm = &cdm.relative_metadata;
     let mut rel = Map::new();
+    if let Some(ref v) = rm.conjunction_id {
+        rel.insert(key("CONJUNCTION_ID", key_case), json!(v));
+    }
     rel.insert(key("TCA", key_case), json!(format_ccsds_datetime(&rm.tca)));
     rel.insert(key("MISS_DISTANCE", key_case), json!(rm.miss_distance));
+    if let Some(v) = rm.mahalanobis_distance {
+        rel.insert(key("MAHALANOBIS_DISTANCE", key_case), json!(v));
+    }
     if let Some(v) = rm.relative_speed {
         rel.insert(key("RELATIVE_SPEED", key_case), json!(v));
     }
@@ -986,11 +1026,102 @@ pub fn write_cdm_json(
     if let Some(v) = rm.relative_velocity_n {
         rel.insert(key("RELATIVE_VELOCITY_N", key_case), json!(v));
     }
+    if let Some(v) = rm.approach_angle {
+        rel.insert(key("APPROACH_ANGLE", key_case), json!(v));
+    }
+    if let Some(ref v) = rm.screen_type {
+        rel.insert(key("SCREEN_TYPE", key_case), json!(v));
+    }
+    if let Some(ref v) = rm.screen_volume_frame {
+        rel.insert(
+            key("SCREEN_VOLUME_FRAME", key_case),
+            json!(format!("{}", v)),
+        );
+    }
+    if let Some(ref v) = rm.screen_volume_shape {
+        rel.insert(key("SCREEN_VOLUME_SHAPE", key_case), json!(v));
+    }
+    if let Some(v) = rm.screen_volume_radius {
+        rel.insert(key("SCREEN_VOLUME_RADIUS", key_case), json!(v));
+    }
+    if let Some(v) = rm.screen_volume_x {
+        rel.insert(key("SCREEN_VOLUME_X", key_case), json!(v));
+    }
+    if let Some(v) = rm.screen_volume_y {
+        rel.insert(key("SCREEN_VOLUME_Y", key_case), json!(v));
+    }
+    if let Some(v) = rm.screen_volume_z {
+        rel.insert(key("SCREEN_VOLUME_Z", key_case), json!(v));
+    }
+    if let Some(ref v) = rm.start_screen_period {
+        rel.insert(
+            key("START_SCREEN_PERIOD", key_case),
+            json!(format_ccsds_datetime(v)),
+        );
+    }
+    if let Some(ref v) = rm.stop_screen_period {
+        rel.insert(
+            key("STOP_SCREEN_PERIOD", key_case),
+            json!(format_ccsds_datetime(v)),
+        );
+    }
+    if let Some(ref v) = rm.screen_entry_time {
+        rel.insert(
+            key("SCREEN_ENTRY_TIME", key_case),
+            json!(format_ccsds_datetime(v)),
+        );
+    }
+    if let Some(ref v) = rm.screen_exit_time {
+        rel.insert(
+            key("SCREEN_EXIT_TIME", key_case),
+            json!(format_ccsds_datetime(v)),
+        );
+    }
+    if let Some(v) = rm.screen_pc_threshold {
+        rel.insert(key("SCREEN_PC_THRESHOLD", key_case), json!(v));
+    }
     if let Some(v) = rm.collision_probability {
         rel.insert(key("COLLISION_PROBABILITY", key_case), json!(v));
     }
     if let Some(ref s) = rm.collision_probability_method {
         rel.insert(key("COLLISION_PROBABILITY_METHOD", key_case), json!(s));
+    }
+    if let Some(v) = rm.collision_max_probability {
+        rel.insert(key("COLLISION_MAX_PROBABILITY", key_case), json!(v));
+    }
+    if let Some(ref s) = rm.collision_max_pc_method {
+        rel.insert(key("COLLISION_MAX_PC_METHOD", key_case), json!(s));
+    }
+    if let Some(ref vals) = rm.collision_percentile {
+        let parts: Vec<String> = vals.iter().map(|v| v.to_string()).collect();
+        rel.insert(
+            key("COLLISION_PERCENTILE", key_case),
+            json!(parts.join(" ")),
+        );
+    }
+    if let Some(v) = rm.sefi_collision_probability {
+        rel.insert(key("SEFI_COLLISION_PROBABILITY", key_case), json!(v));
+    }
+    if let Some(ref s) = rm.sefi_collision_probability_method {
+        rel.insert(key("SEFI_COLLISION_PROBABILITY_METHOD", key_case), json!(s));
+    }
+    if let Some(ref s) = rm.sefi_fragmentation_model {
+        rel.insert(key("SEFI_FRAGMENTATION_MODEL", key_case), json!(s));
+    }
+    if let Some(ref s) = rm.previous_message_id {
+        rel.insert(key("PREVIOUS_MESSAGE_ID", key_case), json!(s));
+    }
+    if let Some(ref v) = rm.previous_message_epoch {
+        rel.insert(
+            key("PREVIOUS_MESSAGE_EPOCH", key_case),
+            json!(format_ccsds_datetime(v)),
+        );
+    }
+    if let Some(ref v) = rm.next_message_epoch {
+        rel.insert(
+            key("NEXT_MESSAGE_EPOCH", key_case),
+            json!(format_ccsds_datetime(v)),
+        );
     }
     root.insert("relative_metadata".into(), Value::Object(rel));
 
@@ -1125,6 +1256,41 @@ fn get_json_f64(obj: &Map<String, Value>, key: &str) -> Option<f64> {
         Value::String(s) => s.parse::<f64>().ok(),
         _ => None,
     })
+}
+
+/// Write covariance matrix as named CX_*/CY_*/CZ_* keys in a JSON object.
+fn write_json_covariance_elements(
+    cv: &mut Map<String, Value>,
+    matrix: &nalgebra::SMatrix<f64, 6, 6>,
+    key_case: CCSDSJsonKeyCase,
+) {
+    let values = covariance_to_lower_triangular(matrix, 1e-6);
+    let names = [
+        "CX_X",
+        "CY_X",
+        "CY_Y",
+        "CZ_X",
+        "CZ_Y",
+        "CZ_Z",
+        "CX_DOT_X",
+        "CX_DOT_Y",
+        "CX_DOT_Z",
+        "CX_DOT_X_DOT",
+        "CY_DOT_X",
+        "CY_DOT_Y",
+        "CY_DOT_Z",
+        "CY_DOT_X_DOT",
+        "CY_DOT_Y_DOT",
+        "CZ_DOT_X",
+        "CZ_DOT_Y",
+        "CZ_DOT_Z",
+        "CZ_DOT_X_DOT",
+        "CZ_DOT_Y_DOT",
+        "CZ_DOT_Z_DOT",
+    ];
+    for (i, name) in names.iter().enumerate() {
+        cv.insert(key(name, key_case), json!(values[i]));
+    }
 }
 
 /// Emit a single JSON value as a KVN line.

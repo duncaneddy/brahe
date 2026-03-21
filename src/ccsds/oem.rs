@@ -459,4 +459,106 @@ mod tests {
         let result = OEM::from_file("nonexistent_file.txt");
         assert!(result.is_err());
     }
+
+    /// Helper: assert all OEM fields match between original and round-tripped.
+    fn assert_oem_fields_match(oem1: &OEM, oem2: &OEM) {
+        // Header
+        assert_eq!(oem1.header.format_version, oem2.header.format_version);
+        assert_eq!(oem1.header.originator, oem2.header.originator);
+        assert_eq!(oem1.header.classification, oem2.header.classification);
+        assert_eq!(oem1.header.message_id, oem2.header.message_id);
+
+        // Segments
+        assert_eq!(oem1.segments.len(), oem2.segments.len());
+        for (seg1, seg2) in oem1.segments.iter().zip(oem2.segments.iter()) {
+            // Metadata
+            assert_eq!(seg1.metadata.object_name, seg2.metadata.object_name);
+            assert_eq!(seg1.metadata.object_id, seg2.metadata.object_id);
+            assert_eq!(seg1.metadata.center_name, seg2.metadata.center_name);
+            assert_eq!(seg1.metadata.ref_frame, seg2.metadata.ref_frame);
+            assert_eq!(seg1.metadata.time_system, seg2.metadata.time_system);
+            assert_eq!(seg1.metadata.interpolation, seg2.metadata.interpolation);
+            assert_eq!(
+                seg1.metadata.interpolation_degree,
+                seg2.metadata.interpolation_degree
+            );
+
+            // States
+            assert_eq!(seg1.states.len(), seg2.states.len());
+            for (s1, s2) in seg1.states.iter().zip(seg2.states.iter()) {
+                for i in 0..3 {
+                    assert!(
+                        (s1.position[i] - s2.position[i]).abs() < 1.0,
+                        "position[{}] mismatch: {} vs {}",
+                        i,
+                        s1.position[i],
+                        s2.position[i]
+                    );
+                    assert!(
+                        (s1.velocity[i] - s2.velocity[i]).abs() < 0.001,
+                        "velocity[{}] mismatch: {} vs {}",
+                        i,
+                        s1.velocity[i],
+                        s2.velocity[i]
+                    );
+                }
+                assert_eq!(s1.acceleration.is_some(), s2.acceleration.is_some());
+                if let (Some(a1), Some(a2)) = (s1.acceleration, s2.acceleration) {
+                    for i in 0..3 {
+                        assert!((a1[i] - a2[i]).abs() < 0.1);
+                    }
+                }
+            }
+
+            // Covariances
+            assert_eq!(seg1.covariances.len(), seg2.covariances.len());
+            for (cov1, cov2) in seg1.covariances.iter().zip(seg2.covariances.iter()) {
+                assert_eq!(cov1.cov_ref_frame, cov2.cov_ref_frame);
+                for i in 0..6 {
+                    for j in 0..6 {
+                        let rel = if cov1.matrix[(i, j)].abs() > 1e-20 {
+                            ((cov1.matrix[(i, j)] - cov2.matrix[(i, j)]) / cov1.matrix[(i, j)])
+                                .abs()
+                        } else {
+                            (cov1.matrix[(i, j)] - cov2.matrix[(i, j)]).abs()
+                        };
+                        assert!(
+                            rel < 1e-4,
+                            "cov({},{}) mismatch: {} vs {}",
+                            i,
+                            j,
+                            cov1.matrix[(i, j)],
+                            cov2.matrix[(i, j)]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_oem_kvn_full_round_trip() {
+        // OEMExample5 has multiple state vectors and metadata
+        let oem1 = OEM::from_file("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
+        let kvn = oem1.to_string(CCSDSFormat::KVN).unwrap();
+        let oem2 = OEM::from_str(&kvn).unwrap();
+        assert_oem_fields_match(&oem1, &oem2);
+    }
+
+    #[test]
+    fn test_oem_xml_full_round_trip() {
+        // OEMExample3.xml has acceleration + covariance + interpolation
+        let oem1 = OEM::from_file("test_assets/ccsds/oem/OEMExample3.xml").unwrap();
+        let xml = oem1.to_string(CCSDSFormat::XML).unwrap();
+        let oem2 = OEM::from_str(&xml).unwrap();
+        assert_oem_fields_match(&oem1, &oem2);
+    }
+
+    #[test]
+    fn test_oem_json_full_round_trip() {
+        let oem1 = OEM::from_file("test_assets/ccsds/oem/OEMExample3.xml").unwrap();
+        let json = oem1.to_string(CCSDSFormat::JSON).unwrap();
+        let oem2 = OEM::from_str(&json).unwrap();
+        assert_oem_fields_match(&oem1, &oem2);
+    }
 }

@@ -394,34 +394,19 @@ pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
     // Spacecraft parameters
     write_kvn_spacecraft_params(&mut out, &opm.spacecraft_parameters);
 
-    // Covariance (OPM uses COVARIANCE_START/STOP like OEM)
+    // Covariance (OPM uses flat CX_*/CY_*/CZ_* key=value pairs)
     if let Some(ref cov) = opm.covariance {
-        out.push_str("\nCOVARIANCE_START\n");
+        out.push('\n');
+        for comment in &cov.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
         if let Some(ref epoch) = cov.epoch {
             out.push_str(&format!("EPOCH = {}\n", format_ccsds_datetime(epoch)));
         }
         if let Some(ref frame) = cov.cov_ref_frame {
             out.push_str(&format!("COV_REF_FRAME = {}\n", frame));
         }
-        for comment in &cov.comments {
-            out.push_str(&format!("COMMENT {}\n", comment));
-        }
-
-        // Convert m² → km² (factor 1e-6)
-        let values = covariance_to_lower_triangular(&cov.matrix, 1e-6);
-        let mut idx = 0;
-        for row in 0..6 {
-            let line: Vec<String> = (0..=row)
-                .map(|_| {
-                    let v = values[idx];
-                    idx += 1;
-                    format!("{:.10e}", v)
-                })
-                .collect();
-            out.push_str(&line.join(" "));
-            out.push('\n');
-        }
-        out.push_str("COVARIANCE_STOP\n");
+        write_kvn_covariance_elements(&mut out, &cov.matrix);
     }
 
     // Maneuvers

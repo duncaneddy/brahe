@@ -5,11 +5,13 @@
  * then converts to the public CCSDS types with unit conversion.
  */
 
+use std::collections::HashMap;
+
 use serde::Deserialize;
 
 use crate::ccsds::common::{
-    CCSDSCovariance, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, covariance_from_lower_triangular,
-    parse_ccsds_datetime,
+    CCSDSCovariance, CCSDSRefFrame, CCSDSTimeSystem, CCSDSUserDefined, ODMHeader,
+    covariance_from_lower_triangular, parse_ccsds_datetime,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::ccsds::oem::{OEM, OEMMetadata, OEMSegment, OEMStateVector};
@@ -142,6 +144,7 @@ enum XMLHeaderItem {
     CREATION_DATE(String),
     ORIGINATOR(String),
     MESSAGE_ID(String),
+    CLASSIFICATION(String),
     COMMENT(String),
 }
 
@@ -169,6 +172,16 @@ impl XMLHeader {
     fn message_id(&self) -> Option<String> {
         self.items.iter().find_map(|item| {
             if let XMLHeaderItem::MESSAGE_ID(s) = item {
+                Some(s.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    fn classification(&self) -> Option<String> {
+        self.items.iter().find_map(|item| {
+            if let XMLHeaderItem::CLASSIFICATION(s) = item {
                 Some(s.clone())
             } else {
                 None
@@ -511,7 +524,7 @@ pub fn parse_oem_xml(content: &str) -> Result<OEM, BraheError> {
 
     let header = ODMHeader {
         format_version,
-        classification: None,
+        classification: xml_oem.header.classification(),
         creation_date: parse_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
         originator,
         message_id: xml_oem.header.message_id(),
@@ -837,7 +850,7 @@ pub fn parse_omm_xml(content: &str) -> Result<crate::ccsds::omm::OMM, BraheError
 
     let header = ODMHeader {
         format_version,
-        classification: None,
+        classification: xml_omm.header.classification(),
         creation_date: parse_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
         originator,
         message_id: xml_omm.header.message_id(),
@@ -978,7 +991,7 @@ pub fn parse_omm_xml(content: &str) -> Result<crate::ccsds::omm::OMM, BraheError
         tle_parameters,
         spacecraft_parameters,
         covariance,
-        user_defined: None,
+        user_defined: extract_xml_user_defined(content),
         comments: Vec::new(),
     })
 }
@@ -1174,7 +1187,7 @@ pub fn parse_opm_xml(content: &str) -> Result<crate::ccsds::opm::OPM, BraheError
 
     let header = ODMHeader {
         format_version,
-        classification: None,
+        classification: xml_opm.header.classification(),
         creation_date: parse_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
         originator,
         message_id: xml_opm.header.message_id(),
@@ -1316,8 +1329,55 @@ pub fn parse_opm_xml(content: &str) -> Result<crate::ccsds::opm::OPM, BraheError
         spacecraft_parameters,
         covariance,
         maneuvers,
-        user_defined: None,
+        user_defined: extract_xml_user_defined(content),
     })
+}
+
+/// Extract user-defined parameters from XML content.
+///
+/// Scans for `<USER_DEFINED_xxx value="yyy"/>` elements inside
+/// `<userDefinedParameters>` blocks and returns them as a `CCSDSUserDefined`.
+fn extract_xml_user_defined(content: &str) -> Option<CCSDSUserDefined> {
+    use quick_xml::Reader;
+    use quick_xml::events::Event;
+
+    let mut reader = Reader::from_str(content);
+    let mut in_user_defined = false;
+    let mut params: HashMap<String, String> = HashMap::new();
+
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                if name == "userDefinedParameters" {
+                    in_user_defined = true;
+                } else if in_user_defined && let Some(key) = name.strip_prefix("USER_DEFINED_") {
+                    for attr in e.attributes().flatten() {
+                        let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                        if attr_name == "value" {
+                            let val = String::from_utf8_lossy(&attr.value).to_string();
+                            params.insert(key.to_string(), val);
+                        }
+                    }
+                }
+            }
+            Ok(Event::End(e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                if name == "userDefinedParameters" {
+                    in_user_defined = false;
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => break,
+            _ => {}
+        }
+    }
+
+    if params.is_empty() {
+        None
+    } else {
+        Some(CCSDSUserDefined { parameters: params })
+    }
 }
 
 /// Parse a CDM message from XML format.
@@ -1371,9 +1431,18 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                     }
                 }
                 if !is_nil {
-                    // Empty element with no nil attribute - treat as empty value
-                    // Only emit for known CDM keywords
-                    if name.starts_with(|c: char| c.is_uppercase()) && name != "COMMENT" {
+                    // Check for USER_DEFINED_* elements with value attribute
+                    if name.starts_with("USER_DEFINED_") {
+                        let mut val = String::new();
+                        for attr in e.attributes().flatten() {
+                            let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if attr_name == "value" {
+                                val = String::from_utf8_lossy(&attr.value).to_string();
+                            }
+                        }
+                        kvn_lines.push(format!("{} = {}", name, val));
+                    } else if name.starts_with(|c: char| c.is_uppercase()) && name != "COMMENT" {
+                        // Empty element with no nil attribute - treat as empty value
                         kvn_lines.push(format!("{} = ", name));
                     }
                 }

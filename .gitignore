@@ -18,6 +18,7 @@ python-coverage.xml
 python-rust-coverage.lcov
 *.profraw
 *.profdata
+.coverage
 
 # Build Artifacts - Rust
 /target

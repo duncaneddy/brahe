@@ -148,7 +148,7 @@ def _extract_orbital_elements(obj, epoch, obj_format):
     """
 
     # Check if it's a propagator
-    if hasattr(obj, "state_koe"):
+    if hasattr(obj, "state_koe_osc"):
         # It's a propagator
         if epoch is not None:
             oe = obj.state_koe_osc(epoch, bh.AngleFormat.RADIANS)

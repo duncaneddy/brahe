@@ -857,6 +857,97 @@ impl PyGPRecord {
         Ok(PyOMM { inner: omm })
     }
 
+    /// Serialize this GPRecord to a JSON string.
+    ///
+    /// Uses the standard uppercase field names (OBJECT_NAME, NORAD_CAT_ID, etc.)
+    /// matching the SpaceTrack/CelesTrak API conventions.
+    ///
+    /// Returns:
+    ///     str: JSON string representation of this GP record.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     record = bh.GPRecord.from_json('{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": 25544}')
+    ///     json_str = record.to_json()
+    ///     ```
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner)
+            .map_err(|e| BraheError::new_err(format!("Failed to serialize GPRecord to JSON: {}", e)))
+    }
+
+    /// Convert this GPRecord to a Python dictionary.
+    ///
+    /// Uses the standard uppercase field names (OBJECT_NAME, NORAD_CAT_ID, etc.)
+    /// matching the SpaceTrack/CelesTrak API conventions. None values are included
+    /// in the dictionary as Python None.
+    ///
+    /// Returns:
+    ///     dict: Dictionary representation of the GP record.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     record = bh.GPRecord.from_json('{"OBJECT_NAME": "ISS", "NORAD_CAT_ID": 25544}')
+    ///     d = record.to_dict()
+    ///     print(d["OBJECT_NAME"])  # "ISS"
+    ///     ```
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+        let dict = pyo3::types::PyDict::new(py);
+
+        // String fields
+        dict.set_item("CCSDS_OMM_VERS", self.inner.ccsds_omm_vers.as_deref())?;
+        dict.set_item("COMMENT", self.inner.comment.as_deref())?;
+        dict.set_item("CREATION_DATE", self.inner.creation_date.as_deref())?;
+        dict.set_item("ORIGINATOR", self.inner.originator.as_deref())?;
+        dict.set_item("OBJECT_NAME", self.inner.object_name.as_deref())?;
+        dict.set_item("OBJECT_ID", self.inner.object_id.as_deref())?;
+        dict.set_item("CENTER_NAME", self.inner.center_name.as_deref())?;
+        dict.set_item("REF_FRAME", self.inner.ref_frame.as_deref())?;
+        dict.set_item("TIME_SYSTEM", self.inner.time_system.as_deref())?;
+        dict.set_item("MEAN_ELEMENT_THEORY", self.inner.mean_element_theory.as_deref())?;
+        dict.set_item("EPOCH", self.inner.epoch.as_deref())?;
+
+        // Float fields
+        dict.set_item("MEAN_MOTION", self.inner.mean_motion)?;
+        dict.set_item("ECCENTRICITY", self.inner.eccentricity)?;
+        dict.set_item("INCLINATION", self.inner.inclination)?;
+        dict.set_item("RA_OF_ASC_NODE", self.inner.ra_of_asc_node)?;
+        dict.set_item("ARG_OF_PERICENTER", self.inner.arg_of_pericenter)?;
+        dict.set_item("MEAN_ANOMALY", self.inner.mean_anomaly)?;
+        dict.set_item("BSTAR", self.inner.bstar)?;
+        dict.set_item("MEAN_MOTION_DOT", self.inner.mean_motion_dot)?;
+        dict.set_item("MEAN_MOTION_DDOT", self.inner.mean_motion_ddot)?;
+        dict.set_item("SEMIMAJOR_AXIS", self.inner.semimajor_axis)?;
+        dict.set_item("PERIOD", self.inner.period)?;
+        dict.set_item("APOAPSIS", self.inner.apoapsis)?;
+        dict.set_item("PERIAPSIS", self.inner.periapsis)?;
+
+        // Integer fields
+        dict.set_item("EPHEMERIS_TYPE", self.inner.ephemeris_type)?;
+        dict.set_item("NORAD_CAT_ID", self.inner.norad_cat_id)?;
+        dict.set_item("ELEMENT_SET_NO", self.inner.element_set_no)?;
+        dict.set_item("REV_AT_EPOCH", self.inner.rev_at_epoch)?;
+        dict.set_item("FILE", self.inner.file)?;
+        dict.set_item("GP_ID", self.inner.gp_id)?;
+
+        // Remaining string fields
+        dict.set_item("CLASSIFICATION_TYPE", self.inner.classification_type.as_deref())?;
+        dict.set_item("OBJECT_TYPE", self.inner.object_type.as_deref())?;
+        dict.set_item("RCS_SIZE", self.inner.rcs_size.as_deref())?;
+        dict.set_item("COUNTRY_CODE", self.inner.country_code.as_deref())?;
+        dict.set_item("LAUNCH_DATE", self.inner.launch_date.as_deref())?;
+        dict.set_item("SITE", self.inner.site.as_deref())?;
+        dict.set_item("DECAY_DATE", self.inner.decay_date.as_deref())?;
+        dict.set_item("TLE_LINE0", self.inner.tle_line0.as_deref())?;
+        dict.set_item("TLE_LINE1", self.inner.tle_line1.as_deref())?;
+        dict.set_item("TLE_LINE2", self.inner.tle_line2.as_deref())?;
+
+        Ok(dict)
+    }
+
     fn __str__(&self) -> String {
         format!(
             "GPRecord(name={:?}, norad_id={:?}, epoch={:?})",

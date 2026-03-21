@@ -421,27 +421,86 @@ mod tests {
     }
 
     #[test]
-    fn test_opm_to_string_kvn_returns_error() {
-        // KVN writer is not yet implemented
+    fn test_opm_kvn_round_trip() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
-        let result = opm.to_string(CCSDSFormat::KVN);
-        assert!(result.is_err());
+        let kvn_str = opm.to_string(CCSDSFormat::KVN).unwrap();
+        let opm2 = OPM::from_str(&kvn_str).unwrap();
+        assert_eq!(opm2.metadata.object_name, opm.metadata.object_name);
+        assert_eq!(opm2.metadata.object_id, opm.metadata.object_id);
+        // Position round-trip: m → km → m
+        assert!((opm2.state_vector.position[0] - opm.state_vector.position[0]).abs() < 1.0);
+        assert!((opm2.state_vector.velocity[0] - opm.state_vector.velocity[0]).abs() < 0.001);
+        // Spacecraft parameters
+        assert!(opm2.spacecraft_parameters.is_some());
+        let sp2 = opm2.spacecraft_parameters.as_ref().unwrap();
+        assert!((sp2.mass.unwrap() - 3000.0).abs() < 0.01);
     }
 
     #[test]
-    fn test_opm_to_string_xml_returns_error() {
-        // XML writer is not yet implemented
-        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
-        let result = opm.to_string(CCSDSFormat::XML);
-        assert!(result.is_err());
+    fn test_opm_kvn_round_trip_with_keplerian_and_maneuvers() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
+        let kvn_str = opm.to_string(CCSDSFormat::KVN).unwrap();
+        let opm2 = OPM::from_str(&kvn_str).unwrap();
+        // Keplerian elements
+        assert!(opm2.keplerian_elements.is_some());
+        let ke1 = opm.keplerian_elements.as_ref().unwrap();
+        let ke2 = opm2.keplerian_elements.as_ref().unwrap();
+        assert!((ke2.eccentricity - ke1.eccentricity).abs() < 1e-9);
+        assert!((ke2.semi_major_axis - ke1.semi_major_axis).abs() < 1.0);
+        // Maneuvers
+        assert_eq!(opm2.maneuvers.len(), opm.maneuvers.len());
+        assert!((opm2.maneuvers[0].duration - opm.maneuvers[0].duration).abs() < 0.01);
+        assert!((opm2.maneuvers[0].dv[0] - opm.maneuvers[0].dv[0]).abs() < 0.01);
     }
 
     #[test]
-    fn test_opm_to_file_propagates_write_error() {
-        // to_file delegates to to_string, which fails for all formats currently
+    fn test_opm_xml_round_trip() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample3.xml").unwrap();
+        let xml_str = opm.to_string(CCSDSFormat::XML).unwrap();
+        let opm2 = OPM::from_str(&xml_str).unwrap();
+        assert_eq!(opm2.metadata.object_name, opm.metadata.object_name);
+        assert_eq!(opm2.metadata.object_id, opm.metadata.object_id);
+        assert!((opm2.state_vector.position[0] - opm.state_vector.position[0]).abs() < 1.0);
+        assert!((opm2.state_vector.velocity[0] - opm.state_vector.velocity[0]).abs() < 0.001);
+        // Covariance
+        assert!(opm2.covariance.is_some());
+        let cov1 = opm.covariance.as_ref().unwrap();
+        let cov2 = opm2.covariance.as_ref().unwrap();
+        assert!((cov2.matrix[(0, 0)] - cov1.matrix[(0, 0)]).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_opm_xml_parse_example3() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample3.xml").unwrap();
+        assert_eq!(opm.metadata.object_name, "OSPREY 5");
+        assert_eq!(opm.metadata.object_id, "1998-999A");
+        assert_eq!(opm.metadata.center_name, "EARTH");
+        assert!(matches!(opm.metadata.ref_frame, CCSDSRefFrame::TOD));
+        assert!(opm.metadata.ref_frame_epoch.is_some());
+        // Position: 6503.514 km → m
+        assert!((opm.state_vector.position[0] - 6503514.0).abs() < 1.0);
+        assert!((opm.state_vector.velocity[0] - (-873.16)).abs() < 0.01);
+        // Spacecraft parameters
+        assert!(opm.spacecraft_parameters.is_some());
+        let sp = opm.spacecraft_parameters.as_ref().unwrap();
+        assert!((sp.mass.unwrap() - 3000.0).abs() < 0.01);
+        // Covariance
+        assert!(opm.covariance.is_some());
+        let cov = opm.covariance.as_ref().unwrap();
+        assert_eq!(cov.cov_ref_frame.as_ref().unwrap(), &CCSDSRefFrame::ITRF97);
+        // CX_X = 0.316 km² = 316000 m²
+        assert!((cov.matrix[(0, 0)] - 316000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_opm_to_file_kvn() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
-        let result = opm.to_file("/tmp/brahe_test_opm.txt", CCSDSFormat::KVN);
-        assert!(result.is_err());
+        let dir = std::env::temp_dir();
+        let path = dir.join("brahe_test_opm.txt");
+        opm.to_file(&path, CCSDSFormat::KVN).unwrap();
+        let opm2 = OPM::from_file(&path).unwrap();
+        assert_eq!(opm2.metadata.object_name, opm.metadata.object_name);
+        std::fs::remove_file(&path).ok();
     }
 
     #[test]

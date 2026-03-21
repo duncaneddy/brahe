@@ -435,3 +435,33 @@ def test_opm_json_uppercase_keys(eop):
     json_str = opm.to_json_string(uppercase_keys=True)
     assert '"OBJECT_NAME"' in json_str
     assert '"header"' in json_str  # container keys always lowercase
+
+
+def test_opm_kvn_round_trip(eop):
+    """Test OPM KVN write then re-parse preserves data."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    kvn_str = opm.to_string("KVN")
+    opm2 = OPM.from_str(kvn_str)
+    assert opm2.object_name == opm.object_name
+    assert opm2.object_id == opm.object_id
+    assert opm2.position == pytest.approx(opm.position, abs=1.0)
+    assert opm2.velocity == pytest.approx(opm.velocity, abs=0.001)
+
+
+def test_opm_xml_round_trip(eop):
+    """Test OPM XML write then re-parse preserves data."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample3.xml")
+    xml_str = opm.to_string("XML")
+    opm2 = OPM.from_str(xml_str)
+    assert opm2.object_name == opm.object_name
+    assert opm2.object_id == opm.object_id
+    assert opm2.position == pytest.approx(opm.position, abs=1.0)
+    assert opm2.velocity == pytest.approx(opm.velocity, abs=0.001)
+
+
+def test_opm_xml_parse_example3(eop):
+    """Test parsing OPM XML Example 3 (OSPREY 5)."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample3.xml")
+    assert opm.object_name == "OSPREY 5"
+    assert opm.object_id == "1998-999A"
+    assert opm.position[0] == pytest.approx(6503514.0, abs=1.0)

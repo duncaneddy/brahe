@@ -389,27 +389,80 @@ mod tests {
     }
 
     #[test]
-    fn test_omm_to_string_kvn_returns_error() {
-        // KVN writer is not yet implemented
+    fn test_omm_kvn_round_trip() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
-        let result = omm.to_string(CCSDSFormat::KVN);
-        assert!(result.is_err());
+        let kvn_str = omm.to_string(CCSDSFormat::KVN).unwrap();
+        let omm2 = OMM::from_str(&kvn_str).unwrap();
+        assert_eq!(omm2.metadata.object_name, omm.metadata.object_name);
+        assert_eq!(omm2.metadata.object_id, omm.metadata.object_id);
+        assert!((omm2.mean_elements.eccentricity - omm.mean_elements.eccentricity).abs() < 1e-10);
+        assert!((omm2.mean_elements.inclination - omm.mean_elements.inclination).abs() < 1e-10);
+        assert!(
+            (omm2.mean_elements.mean_motion.unwrap() - omm.mean_elements.mean_motion.unwrap())
+                .abs()
+                < 1e-10
+        );
+        // GM round-trip (m³/s² → km³/s² → m³/s²)
+        assert!((omm2.mean_elements.gm.unwrap() - omm.mean_elements.gm.unwrap()).abs() < 1e3);
+        // TLE parameters
+        let tle1 = omm.tle_parameters.as_ref().unwrap();
+        let tle2 = omm2.tle_parameters.as_ref().unwrap();
+        assert_eq!(tle2.norad_cat_id, tle1.norad_cat_id);
+        assert!((tle2.bstar.unwrap() - tle1.bstar.unwrap()).abs() < 1e-10);
     }
 
     #[test]
-    fn test_omm_to_string_xml_returns_error() {
-        // XML writer is not yet implemented
-        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
-        let result = omm.to_string(CCSDSFormat::XML);
-        assert!(result.is_err());
+    fn test_omm_kvn_round_trip_with_covariance() {
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let kvn_str = omm.to_string(CCSDSFormat::KVN).unwrap();
+        let omm2 = OMM::from_str(&kvn_str).unwrap();
+        assert!(omm2.covariance.is_some());
+        let cov1 = omm.covariance.as_ref().unwrap();
+        let cov2 = omm2.covariance.as_ref().unwrap();
+        // CX_X round-trip: m² → km² → m²
+        assert!((cov2.matrix[(0, 0)] - cov1.matrix[(0, 0)]).abs() < 1.0);
     }
 
     #[test]
-    fn test_omm_to_file_propagates_write_error() {
-        // to_file delegates to to_string, which fails for all formats currently
+    fn test_omm_xml_round_trip() {
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample2.xml").unwrap();
+        let xml_str = omm.to_string(CCSDSFormat::XML).unwrap();
+        let omm2 = OMM::from_str(&xml_str).unwrap();
+        assert_eq!(omm2.metadata.object_name, omm.metadata.object_name);
+        assert_eq!(omm2.metadata.object_id, omm.metadata.object_id);
+        assert!((omm2.mean_elements.eccentricity - omm.mean_elements.eccentricity).abs() < 1e-10);
+        assert!(
+            (omm2.mean_elements.mean_motion.unwrap() - omm.mean_elements.mean_motion.unwrap())
+                .abs()
+                < 1e-10
+        );
+        // Covariance round-trip
+        assert!(omm2.covariance.is_some());
+        let cov1 = omm.covariance.as_ref().unwrap();
+        let cov2 = omm2.covariance.as_ref().unwrap();
+        assert!((cov2.matrix[(0, 0)] - cov1.matrix[(0, 0)]).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_omm_xml_parse_example4() {
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample4.xml").unwrap();
+        assert_eq!(omm.metadata.object_name, "STARLETTE");
+        assert_eq!(omm.metadata.object_id, "1975-010A");
+        assert_eq!(omm.metadata.mean_element_theory, "SGP4");
+        assert!((omm.mean_elements.mean_motion.unwrap() - 13.82309053).abs() < 1e-8);
+        let tle = omm.tle_parameters.as_ref().unwrap();
+        assert_eq!(tle.norad_cat_id, Some(7646));
+    }
+
+    #[test]
+    fn test_omm_to_file_kvn() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
-        let result = omm.to_file("/tmp/brahe_test_omm.txt", CCSDSFormat::KVN);
-        assert!(result.is_err());
+        let dir = std::env::temp_dir();
+        let path = dir.join("brahe_test_omm.txt");
+        omm.to_file(&path, CCSDSFormat::KVN).unwrap();
+        let omm2 = OMM::from_file(&path).unwrap();
+        assert_eq!(omm2.metadata.object_name, omm.metadata.object_name);
+        std::fs::remove_file(&path).ok();
     }
 
     #[test]

@@ -429,6 +429,32 @@ mod tests {
     }
 
     #[test]
+    fn test_oem_xml_round_trip() {
+        let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample3.xml").unwrap();
+        let oem = OEM::from_str(&content).unwrap();
+        let xml_str = oem.to_string(CCSDSFormat::XML).unwrap();
+        let oem2 = OEM::from_str(&xml_str).unwrap();
+        assert_eq!(oem2.header.originator, oem.header.originator);
+        assert_eq!(oem2.segments.len(), oem.segments.len());
+        assert_eq!(oem2.segments[0].states.len(), oem.segments[0].states.len());
+        // Position round-trip
+        assert!(
+            (oem2.segments[0].states[0].position[0] - oem.segments[0].states[0].position[0]).abs()
+                < 1.0
+        );
+        // Acceleration round-trip
+        assert!(oem2.segments[0].states[0].acceleration.is_some());
+        let acc1 = oem.segments[0].states[0].acceleration.unwrap();
+        let acc2 = oem2.segments[0].states[0].acceleration.unwrap();
+        assert!((acc2[0] - acc1[0]).abs() < 0.1);
+        // Covariance round-trip
+        assert_eq!(oem2.segments[0].covariances.len(), 1);
+        let cov1 = &oem.segments[0].covariances[0];
+        let cov2 = &oem2.segments[0].covariances[0];
+        assert!((cov2.matrix[(0, 0)] - cov1.matrix[(0, 0)]).abs() < 1.0);
+    }
+
+    #[test]
     fn test_oem_from_file_nonexistent() {
         let result = OEM::from_file("nonexistent_file.txt");
         assert!(result.is_err());

@@ -305,3 +305,34 @@ def test_omm_from_gp_record_static_method(eop):
 
     assert omm.object_name == "ISS (ZARYA)"
     assert omm.eccentricity == pytest.approx(0.0001, abs=1e-10)
+
+
+def test_omm_kvn_round_trip(eop):
+    """Test OMM KVN write then re-parse preserves data."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    kvn_str = omm.to_string("KVN")
+    omm2 = OMM.from_str(kvn_str)
+    assert omm2.object_name == omm.object_name
+    assert omm2.object_id == omm.object_id
+    assert omm2.eccentricity == pytest.approx(omm.eccentricity, abs=1e-10)
+    assert omm2.inclination == pytest.approx(omm.inclination, abs=1e-10)
+    assert omm2.mean_motion == pytest.approx(omm.mean_motion, abs=1e-10)
+
+
+def test_omm_xml_round_trip(eop):
+    """Test OMM XML write then re-parse preserves data."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample2.xml")
+    xml_str = omm.to_string("XML")
+    omm2 = OMM.from_str(xml_str)
+    assert omm2.object_name == omm.object_name
+    assert omm2.object_id == omm.object_id
+    assert omm2.eccentricity == pytest.approx(omm.eccentricity, abs=1e-10)
+    assert omm2.mean_motion == pytest.approx(omm.mean_motion, abs=1e-10)
+
+
+def test_omm_xml_parse_example4(eop):
+    """Test parsing OMM XML Example 4 (STARLETTE)."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample4.xml")
+    assert omm.object_name == "STARLETTE"
+    assert omm.object_id == "1975-010A"
+    assert omm.mean_motion == pytest.approx(13.82309053, abs=1e-8)

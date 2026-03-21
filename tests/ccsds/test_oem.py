@@ -1055,3 +1055,18 @@ def test_OEM_trajectory_round_trip(keplerian_trajectory):
         # KVN format has limited precision (~1m for position, ~0.001 m/s for velocity)
         assert sv.position == pytest.approx(list(expected[:3]), abs=1.0)
         assert sv.velocity == pytest.approx(list(expected[3:6]), abs=0.001)
+
+
+def test_oem_xml_round_trip(eop):
+    """Test OEM XML write then re-parse preserves data."""
+    oem = OEM.from_file("test_assets/ccsds/oem/OEMExample3.xml")
+    xml_str = oem.to_string("XML")
+    oem2 = OEM.from_str(xml_str)
+    assert oem2.originator == oem.originator
+    assert len(oem2.segments) == len(oem.segments)
+    assert oem2.segments[0].num_states == oem.segments[0].num_states
+    # Position round-trip
+    sv1 = oem.segments[0].states[0]
+    sv2 = oem2.segments[0].states[0]
+    assert sv2.position == pytest.approx(sv1.position, abs=1.0)
+    assert sv2.velocity == pytest.approx(sv1.velocity, abs=1.0)

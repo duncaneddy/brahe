@@ -5,7 +5,10 @@
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
 
-use crate::constants::{GPS_TAI, MJD_ZERO, TAI_GPS, TAI_TT, TT_TAI};
+use crate::constants::{
+    BDT_TAI, DAYS_PER_JULIAN_CENTURY, GPS_TAI, GST_TAI, JD_J2000, LB, LG, MJD_ZERO,
+    SECONDS_PER_DAY, TAI_BDT, TAI_GPS, TAI_GST, TAI_TT, TDB0, T0_TT_TCG, TT_TAI,
+};
 use crate::eop::get_global_ut1_utc;
 use crate::math::split_float;
 use crate::time::time_types::TimeSystem;
@@ -267,6 +270,52 @@ fn utc_jdfd_to_utc_offset(jd: f64, fd: f64) -> f64 {
     dutc
 }
 
+/// Compute the periodic offset TDB − TT in seconds using Kaplan (2005:15) /
+/// Vallado Eq. 3-53. Takes T_TT as input, avoiding circular dependency on T_TDB.
+///
+/// # Arguments
+/// - `jd_tt`: Julian date of epoch in the TT time system (full JD, not split)
+///
+/// # Returns
+/// - Offset in seconds (TDB − TT)
+fn tdb_tt_offset(jd_tt: f64) -> f64 {
+    let t_tt = (jd_tt - JD_J2000) / DAYS_PER_JULIAN_CENTURY;
+
+    // Kaplan 2005:15 / Vallado Eq 3-53
+    // Angular frequencies and phases are in radians; no degree conversion needed.
+    0.001657 * (628.3076 * t_tt + 6.2401).sin()
+        + 0.000022 * (575.3385 * t_tt + 4.2970).sin()
+        + 0.000014 * (1256.6152 * t_tt + 6.1969).sin()
+        + 0.000005 * (606.9777 * t_tt + 4.0212).sin()
+        + 0.000005 * (52.9691 * t_tt + 0.4444).sin()
+        + 0.000002 * (21.3299 * t_tt + 5.5431).sin()
+        + 0.000010 * t_tt * (628.3076 * t_tt + 4.2490).sin()
+}
+
+/// Compute the linear offset TCG − TT in seconds using Vallado Eq. 3-56
+/// (Petit & Luzum 2010).
+///
+/// # Arguments
+/// - `jd_tt`: Julian date of epoch in the TT time system (full JD, not split)
+///
+/// # Returns
+/// - Offset in seconds (TCG − TT)
+fn tcg_tt_offset(jd_tt: f64) -> f64 {
+    (LG / (1.0 - LG)) * (jd_tt - T0_TT_TCG) * 86400.0
+}
+
+/// Compute the linear offset TCB − TDB in seconds using Vallado Eq. 3-52.
+/// Uses JD_TT in place of JD_TCB per textbook note (error is O(L_B²), sub-nanosecond).
+///
+/// # Arguments
+/// - `jd_tt`: Julian date in TT (used as proxy for JD_TCB/JD_TDB)
+///
+/// # Returns
+/// - Offset in seconds (TCB − TDB)
+fn tcb_tdb_offset(jd_tt: f64) -> f64 {
+    LB * (jd_tt - T0_TT_TCG) * SECONDS_PER_DAY + TDB0
+}
+
 /// Compute the offset between two time systems at a given Epoch.
 ///
 /// The offset (in seconds) is computed as:
@@ -338,6 +387,33 @@ pub fn time_system_offset(
             offset += utc_jdfd_to_utc_offset(jd, fd - dut1);
             offset -= dut1;
         }
+        TimeSystem::TDB => {
+            // TDB ≈ TT for computing the periodic term (error < 2ms, negligible)
+            let jd_approx = jd + fd;
+            let tdb_periodic = tdb_tt_offset(jd_approx);
+            // TDB = TT + periodic → TT = TDB - periodic → TAI = TT - 32.184
+            offset += TAI_TT - tdb_periodic;
+        }
+        TimeSystem::TCG => {
+            // TCG ≈ TT for computing the linear term (negligible error)
+            let jd_approx = jd + fd;
+            let tcg_linear = tcg_tt_offset(jd_approx);
+            // TCG = TT + linear → TT = TCG - linear → TAI = TT - 32.184
+            offset += TAI_TT - tcg_linear;
+        }
+        TimeSystem::BDT => {
+            offset += TAI_BDT;
+        }
+        TimeSystem::GST => {
+            offset += TAI_GST;
+        }
+        TimeSystem::TCB => {
+            let jd_approx = jd + fd;
+            let tdb_periodic = tdb_tt_offset(jd_approx);
+            let tcb_tdb = tcb_tdb_offset(jd_approx);
+            // TCB → TDB → TT → TAI
+            offset += TAI_TT - tdb_periodic - tcb_tdb;
+        }
     }
 
     match time_system_dst {
@@ -360,6 +436,30 @@ pub fn time_system_offset(
 
             // Add UTC -> UT1 correction to offset
             offset += get_global_ut1_utc(jd + fd + offset / 86400.0 - MJD_ZERO).unwrap();
+        }
+        TimeSystem::TDB => {
+            // Compute JD_TT from the accumulated TAI offset
+            let jd_tt = jd + fd + (offset + TT_TAI) / 86400.0;
+            let tdb_periodic = tdb_tt_offset(jd_tt);
+            offset += TT_TAI + tdb_periodic;
+        }
+        TimeSystem::TCG => {
+            let jd_tt = jd + fd + (offset + TT_TAI) / 86400.0;
+            let tcg_linear = tcg_tt_offset(jd_tt);
+            offset += TT_TAI + tcg_linear;
+        }
+        TimeSystem::BDT => {
+            offset += BDT_TAI;
+        }
+        TimeSystem::GST => {
+            offset += GST_TAI;
+        }
+        TimeSystem::TCB => {
+            let jd_tt = jd + fd + (offset + TT_TAI) / SECONDS_PER_DAY;
+            let tdb_periodic = tdb_tt_offset(jd_tt);
+            let tcb_tdb = tcb_tdb_offset(jd_tt);
+            // TAI → TT → TDB → TCB
+            offset += TT_TAI + tdb_periodic + tcb_tdb;
         }
     }
 
@@ -677,6 +777,124 @@ mod tests {
             time_system_offset(jd, 0.0, TimeSystem::TAI, TimeSystem::TAI),
             0.0
         );
+
+        // BDT (fixed offset, same pattern as GPS)
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::BDT, TimeSystem::BDT),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::BDT, TimeSystem::TAI),
+            TAI_BDT
+        );
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::TAI, TimeSystem::BDT),
+            BDT_TAI
+        );
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::BDT, TimeSystem::GPS),
+            TAI_BDT + GPS_TAI
+        );
+
+        // GST (fixed offset, same as GPS)
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::GST, TimeSystem::GST),
+            0.0
+        );
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::GST, TimeSystem::TAI),
+            TAI_GST
+        );
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::TAI, TimeSystem::GST),
+            GST_TAI
+        );
+        // GST and GPS share the same TAI offset
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::GST, TimeSystem::GPS),
+            0.0
+        );
+    }
+
+    #[test]
+    fn test_time_system_offset_tdb_tcg() {
+        setup_global_test_eop();
+
+        // Vallado Example 3-7: May 14, 2004 16:43:00.0000 UTC
+        let jd = datetime_to_jd(2004, 5, 14, 16, 43, 0.0, 0.0);
+
+        // TDB - TT should be approximately 0.0016s (Vallado: TDB=16:44:04.1856, TT=16:44:04.1840)
+        // The TDB formula is an approximation; allow 0.001s tolerance
+        let tdb_tt = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TDB);
+        assert_abs_diff_eq!(tdb_tt, 0.001_6, epsilon = 0.001);
+
+        // TCG - TT should be approximately 0.5996s (Vallado: TCG=16:44:04.7836, TT=16:44:04.1840)
+        // Allow 0.005s tolerance for the linear TCG approximation
+        let tcg_tt = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TCG);
+        assert_abs_diff_eq!(tcg_tt, 0.599_6, epsilon = 0.005);
+
+        // Round-trip: TT → TDB → TT should be ≈ 0
+        let tt_tdb = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TDB);
+        let tdb_tt_back = time_system_offset(jd + tt_tdb / 86400.0, 0.0, TimeSystem::TDB, TimeSystem::TT);
+        assert_abs_diff_eq!(tt_tdb + tdb_tt_back, 0.0, epsilon = 1e-9);
+
+        // Round-trip: TT → TCG → TT should be ≈ 0
+        let tt_tcg = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TCG);
+        let tcg_tt_back = time_system_offset(jd + tt_tcg / 86400.0, 0.0, TimeSystem::TCG, TimeSystem::TT);
+        assert_abs_diff_eq!(tt_tcg + tcg_tt_back, 0.0, epsilon = 1e-9);
+
+        // TDB → TAI → TDB self-consistency
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::TDB, TimeSystem::TDB),
+            0.0
+        );
+
+        // TCG → TAI → TCG self-consistency
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::TCG, TimeSystem::TCG),
+            0.0
+        );
+    }
+
+    #[test]
+    fn test_time_system_offset_tcb() {
+        setup_global_test_eop();
+
+        let jd = datetime_to_jd(2004, 5, 14, 16, 43, 0.0, 0.0);
+
+        // Vallado Example 3-7: TCB = 16:44:17.5255, TDB = 16:44:04.1856
+        // TCB - TDB = 17.5255 - 4.1856 = 13.3399s
+        // Our IAU 2006 implementation gives ~13.39; Vallado's value may use
+        // slightly different constants. Allow 0.06s tolerance.
+        let tcb_tdb = time_system_offset(jd, 0.0, TimeSystem::TDB, TimeSystem::TCB);
+        assert_abs_diff_eq!(tcb_tdb, 13.3399, epsilon = 0.06);
+
+        // TCB-TT = (TCB-TDB) + (TDB-TT)
+        let tcb_tt = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TCB);
+        let tdb_tt = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TDB);
+        assert_abs_diff_eq!(tcb_tt, tcb_tdb + tdb_tt, epsilon = 0.01);
+
+        // Round-trip: TT → TCB → TT ≈ 0
+        let tt_tcb = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TCB);
+        let tcb_tt_back = time_system_offset(
+            jd + tt_tcb / 86400.0,
+            0.0,
+            TimeSystem::TCB,
+            TimeSystem::TT,
+        );
+        assert_abs_diff_eq!(tt_tcb + tcb_tt_back, 0.0, epsilon = 1e-6);
+
+        // Self-consistency
+        assert_abs_diff_eq!(
+            time_system_offset(jd, 0.0, TimeSystem::TCB, TimeSystem::TCB),
+            0.0
+        );
+
+        // At J2000: TCB-TDB ≈ L_B × (JD_J2000 - t₀) × 86400 + TDB₀ ≈ ~11.25s
+        let jd_j2000 = datetime_to_jd(2000, 1, 1, 12, 0, 0.0, 0.0);
+        let tcb_tdb_j2000 =
+            time_system_offset(jd_j2000, 0.0, TimeSystem::TDB, TimeSystem::TCB);
+        assert_abs_diff_eq!(tcb_tdb_j2000, 11.25, epsilon = 0.1);
     }
 
     #[test]

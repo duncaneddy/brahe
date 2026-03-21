@@ -14,6 +14,11 @@ class TimeSystem(str, Enum):
     TAI = "TAI"
     UT1 = "UT1"
     TT = "TT"
+    TDB = "TDB"
+    TCG = "TCG"
+    TCB = "TCB"
+    BDT = "BDT"
+    GST = "GST"
 
 
 class EpochFormat(str, Enum):

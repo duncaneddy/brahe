@@ -49,40 +49,27 @@ jobs:
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
                 uses: taiki-e/install-action@cargo-llvm-cov
 
-            -   name: Build instrumented extension for coverage
+            -   name: Build, test, and generate coverage
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
                 run: |
                     cargo llvm-cov clean --workspace
                     eval "$(cargo llvm-cov show-env --export-prefix)"
                     uv pip install maturin --quiet
                     uv run maturin develop --uv --features pyo3/extension-module,python
-                    # Persist LLVM env vars for subsequent steps
-                    cargo llvm-cov show-env --export-prefix >> "$GITHUB_ENV"
-
-            -   name: Build extension (standard)
-                if: matrix.os != 'ubuntu-latest' || matrix.python-version != '3.13'
-                run: uv pip install -e .
-
-            # ── Run tests ──
-
-            -   name: Test with coverage
-                if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
-                run: |
                     uv run --frozen pytest tests/ \
                         --cov=brahe \
                         --cov-report=xml:python-coverage.xml \
                         --cov-report=term \
                         -m '${{ inputs.is-fork-pr && 'not ci' || '' }}'
+                    cargo llvm-cov report --lcov --output-path python-rust-coverage.lcov
+
+            -   name: Build extension (standard)
+                if: matrix.os != 'ubuntu-latest' || matrix.python-version != '3.13'
+                run: uv pip install -e .
 
             -   name: Test with python ${{ matrix.python-version }}
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != '3.13'
                 run: uv run --frozen pytest tests/ -v -m '${{ inputs.is-fork-pr && 'not ci' || '' }}'
-
-            # ── Generate and upload coverage (ubuntu + Python 3.13 only) ──
-
-            -   name: Generate Rust coverage from Python tests
-                if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
-                run: cargo llvm-cov report --lcov --output-path python-rust-coverage.lcov
 
             -   name: Upload Python coverage to Codecov
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'

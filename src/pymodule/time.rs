@@ -62,6 +62,56 @@ impl PyTimeSystem {
         PyTimeSystem { ts: time::TimeSystem::UT1 }
     }
 
+    /// `TDB` (Barycentric Dynamical Time) time system.
+    ///
+    /// Time scale for solar system barycentric ephemerides. Differs from `TT`
+    /// by small periodic terms (< 1.7 ms) due to relativistic effects.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn TDB() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::TDB }
+    }
+
+    /// `TCG` (Geocentric Coordinate Time) time system.
+    ///
+    /// Coordinate time for geocentric reference systems. Differs from `TT`
+    /// by a secular drift (~0.7 s/year) due to gravitational time dilation.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn TCG() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::TCG }
+    }
+
+    /// `TCB` (Barycentric Coordinate Time) time system.
+    ///
+    /// Coordinate time for the solar system barycenter. Differs from `TDB`
+    /// by a secular drift due to relativistic effects. Computed via Vallado Eq. 3-52.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn TCB() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::TCB }
+    }
+
+    /// `BDT` (BeiDou Time) time system.
+    ///
+    /// Atomic time scale for the BeiDou navigation system. Aligned with `UTC`
+    /// at inception (January 1, 2006). Fixed offset: `BDT` = `TAI` - 33s.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn BDT() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::BDT }
+    }
+
+    /// `GST` (Galileo System Time) time system.
+    ///
+    /// Atomic time scale for the Galileo navigation system. Steered to `GPS` time,
+    /// sharing the same `TAI` offset of 19 seconds.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GST() -> Self {
+        PyTimeSystem { ts: time::TimeSystem::GST }
+    }
+
     fn __str__(&self) -> String {
         format!("{}", self.ts)
     }

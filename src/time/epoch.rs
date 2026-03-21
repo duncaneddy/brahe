@@ -487,6 +487,11 @@ impl Epoch {
                                 "TT" => TimeSystem::TT,
                                 "UTC" => TimeSystem::UTC,
                                 "UT1" => TimeSystem::UT1,
+                                "TDB" => TimeSystem::TDB,
+                                "TCG" => TimeSystem::TCG,
+                                "TCB" => TimeSystem::TCB,
+                                "BDT" => TimeSystem::BDT,
+                                "GST" => TimeSystem::GST,
                                 "" => TimeSystem::UTC,
                                 _ => return None,
                             }
@@ -2197,10 +2202,29 @@ mod tests {
         assert_eq!(epc.time_system, TimeSystem::UTC);
 
         // Test invalid time system strings return None
-        assert!(Epoch::from_string("2023-01-01 12:00:00 TDB").is_none());
         assert!(Epoch::from_string("2023-01-01 12:00:00 INVALID").is_none());
         assert!(Epoch::from_string("2023-01-01 12:00:00 ABC").is_none());
         assert!(Epoch::from_string("2023-01-01 12:00:00 XYZ").is_none());
+    }
+
+    #[test]
+    fn test_epoch_from_string_new_time_systems() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_string("2022-04-01 12:00:00.000 TDB").unwrap();
+        assert_eq!(epc.time_system, TimeSystem::TDB);
+
+        let epc = Epoch::from_string("2022-04-01 12:00:00.000 TCG").unwrap();
+        assert_eq!(epc.time_system, TimeSystem::TCG);
+
+        let epc = Epoch::from_string("2022-04-01 12:00:00.000 TCB").unwrap();
+        assert_eq!(epc.time_system, TimeSystem::TCB);
+
+        let epc = Epoch::from_string("2022-04-01 12:00:00.000 BDT").unwrap();
+        assert_eq!(epc.time_system, TimeSystem::BDT);
+
+        let epc = Epoch::from_string("2022-04-01 12:00:00.000 GST").unwrap();
+        assert_eq!(epc.time_system, TimeSystem::GST);
     }
 
     #[test]

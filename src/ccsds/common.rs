@@ -98,6 +98,10 @@ pub enum CCSDSTimeSystem {
     TDR,
     /// Geocentric Coordinate Time
     TCG,
+    /// BeiDou Navigation Satellite System Time
+    BDT,
+    /// Galileo System Time
+    GST,
     /// Greenwich Mean Sidereal Time
     GMST,
     /// Mission Elapsed Time
@@ -120,6 +124,8 @@ impl fmt::Display for CCSDSTimeSystem {
             CCSDSTimeSystem::TCB => write!(f, "TCB"),
             CCSDSTimeSystem::TDR => write!(f, "TDR"),
             CCSDSTimeSystem::TCG => write!(f, "TCG"),
+            CCSDSTimeSystem::BDT => write!(f, "BDT"),
+            CCSDSTimeSystem::GST => write!(f, "GST"),
             CCSDSTimeSystem::GMST => write!(f, "GMST"),
             CCSDSTimeSystem::MET => write!(f, "MET"),
             CCSDSTimeSystem::MRT => write!(f, "MRT"),
@@ -141,6 +147,8 @@ impl CCSDSTimeSystem {
             "TCB" => Ok(CCSDSTimeSystem::TCB),
             "TDR" => Ok(CCSDSTimeSystem::TDR),
             "TCG" => Ok(CCSDSTimeSystem::TCG),
+            "BDT" => Ok(CCSDSTimeSystem::BDT),
+            "GST" => Ok(CCSDSTimeSystem::GST),
             "GMST" => Ok(CCSDSTimeSystem::GMST),
             "MET" => Ok(CCSDSTimeSystem::MET),
             "MRT" => Ok(CCSDSTimeSystem::MRT),
@@ -160,6 +168,11 @@ impl CCSDSTimeSystem {
             CCSDSTimeSystem::GPS => Some(crate::time::TimeSystem::GPS),
             CCSDSTimeSystem::TT => Some(crate::time::TimeSystem::TT),
             CCSDSTimeSystem::UT1 => Some(crate::time::TimeSystem::UT1),
+            CCSDSTimeSystem::TDB => Some(crate::time::TimeSystem::TDB),
+            CCSDSTimeSystem::TCG => Some(crate::time::TimeSystem::TCG),
+            CCSDSTimeSystem::TCB => Some(crate::time::TimeSystem::TCB),
+            CCSDSTimeSystem::BDT => Some(crate::time::TimeSystem::BDT),
+            CCSDSTimeSystem::GST => Some(crate::time::TimeSystem::GST),
             _ => None,
         }
     }
@@ -335,7 +348,7 @@ pub fn parse_ccsds_datetime(
         crate::ccsds::error::ccsds_parse_error(
             "common",
             &format!(
-                "time system '{}' is not supported for epoch conversion. Supported: UTC, TAI, GPS, TT, UT1",
+                "time system '{}' is not supported for epoch conversion. Supported: UTC, TAI, GPS, TT, UT1, TDB, TCG, TCB, BDT, GST",
                 time_system
             ),
         )
@@ -716,6 +729,10 @@ mod tests {
         assert_eq!(CCSDSTimeSystem::parse("TT").unwrap(), CCSDSTimeSystem::TT);
         assert_eq!(CCSDSTimeSystem::parse("UT1").unwrap(), CCSDSTimeSystem::UT1);
         assert_eq!(CCSDSTimeSystem::parse("TDB").unwrap(), CCSDSTimeSystem::TDB);
+        assert_eq!(CCSDSTimeSystem::parse("TCB").unwrap(), CCSDSTimeSystem::TCB);
+        assert_eq!(CCSDSTimeSystem::parse("TCG").unwrap(), CCSDSTimeSystem::TCG);
+        assert_eq!(CCSDSTimeSystem::parse("BDT").unwrap(), CCSDSTimeSystem::BDT);
+        assert_eq!(CCSDSTimeSystem::parse("GST").unwrap(), CCSDSTimeSystem::GST);
         assert_eq!(CCSDSTimeSystem::parse("MET").unwrap(), CCSDSTimeSystem::MET);
         assert_eq!(CCSDSTimeSystem::parse("MRT").unwrap(), CCSDSTimeSystem::MRT);
         assert!(CCSDSTimeSystem::parse("INVALID").is_err());
@@ -725,7 +742,14 @@ mod tests {
     fn test_ccsds_time_system_to_brahe() {
         assert!(CCSDSTimeSystem::UTC.to_time_system().is_some());
         assert!(CCSDSTimeSystem::TAI.to_time_system().is_some());
-        assert!(CCSDSTimeSystem::TDB.to_time_system().is_none());
+        assert!(CCSDSTimeSystem::GPS.to_time_system().is_some());
+        assert!(CCSDSTimeSystem::TT.to_time_system().is_some());
+        assert!(CCSDSTimeSystem::UT1.to_time_system().is_some());
+        assert!(CCSDSTimeSystem::TDB.to_time_system().is_some());
+        assert!(CCSDSTimeSystem::TCG.to_time_system().is_some());
+        assert!(CCSDSTimeSystem::TCB.to_time_system().is_some());
+        assert!(CCSDSTimeSystem::BDT.to_time_system().is_some());
+        assert!(CCSDSTimeSystem::GST.to_time_system().is_some());
         assert!(CCSDSTimeSystem::MET.to_time_system().is_none());
     }
 
@@ -918,10 +942,7 @@ mod tests {
     #[test]
     fn test_parse_ccsds_datetime_unsupported_time_system() {
         let unsupported = [
-            CCSDSTimeSystem::TDB,
-            CCSDSTimeSystem::TCB,
             CCSDSTimeSystem::TDR,
-            CCSDSTimeSystem::TCG,
             CCSDSTimeSystem::GMST,
             CCSDSTimeSystem::MET,
             CCSDSTimeSystem::MRT,
@@ -1237,10 +1258,8 @@ mod tests {
 
     #[test]
     fn test_ccsds_time_system_to_brahe_exotic_none() {
-        // Verify all exotic variants return None
-        assert!(CCSDSTimeSystem::TCB.to_time_system().is_none());
+        // Verify exotic/unsupported variants return None
         assert!(CCSDSTimeSystem::TDR.to_time_system().is_none());
-        assert!(CCSDSTimeSystem::TCG.to_time_system().is_none());
         assert!(CCSDSTimeSystem::GMST.to_time_system().is_none());
         assert!(CCSDSTimeSystem::MRT.to_time_system().is_none());
         assert!(CCSDSTimeSystem::SCLK.to_time_system().is_none());

@@ -586,6 +586,12 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("GPS_TT", constants::GPS_TT)?;
     module.add("TT_GPS", constants::TT_GPS)?;
     module.add("GPS_ZERO", constants::GPS_ZERO)?;
+    module.add("BDT_TAI", constants::BDT_TAI)?;
+    module.add("TAI_BDT", constants::TAI_BDT)?;
+    module.add("GST_TAI", constants::GST_TAI)?;
+    module.add("TAI_GST", constants::TAI_GST)?;
+    module.add("BDT_ZERO", constants::BDT_ZERO)?;
+    module.add("GST_ZERO", constants::GST_ZERO)?;
     module.add("C_LIGHT", constants::C_LIGHT)?;
     module.add("AU", constants::AU)?;
     module.add("R_EARTH", constants::R_EARTH)?;
@@ -753,6 +759,36 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
         "UT1",
         PyTimeSystem {
             ts: time::TimeSystem::UT1,
+        },
+    )?;
+    module.add(
+        "TDB",
+        PyTimeSystem {
+            ts: time::TimeSystem::TDB,
+        },
+    )?;
+    module.add(
+        "TCG",
+        PyTimeSystem {
+            ts: time::TimeSystem::TCG,
+        },
+    )?;
+    module.add(
+        "TCB",
+        PyTimeSystem {
+            ts: time::TimeSystem::TCB,
+        },
+    )?;
+    module.add(
+        "BDT",
+        PyTimeSystem {
+            ts: time::TimeSystem::BDT,
+        },
+    )?;
+    module.add(
+        "GST",
+        PyTimeSystem {
+            ts: time::TimeSystem::GST,
         },
     )?;
 

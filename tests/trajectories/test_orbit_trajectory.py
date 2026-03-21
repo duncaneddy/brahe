@@ -3631,3 +3631,302 @@ def test_orbittrajectory_set_acceleration_requires_enabled():
 
     with pytest.raises(ValueError, match="Acceleration storage is not enabled"):
         traj.set_acceleration_at(0, acc)
+
+
+# ========================
+# String Representation Tests
+# ========================
+
+
+def test_orbittrajectory_repr_and_str():
+    """Test OrbitTrajectory __repr__ and __str__ methods."""
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    repr_str = repr(traj)
+    str_str = str(traj)
+
+    assert "DOrbitTrajectory" in repr_str
+    assert "ECI" in repr_str or "Earth-Centered Inertial" in repr_str
+    assert "Cartesian" in repr_str
+    assert "states=0" in repr_str
+
+    assert "DOrbitTrajectory" in str_str
+    assert "ECI" in str_str
+    assert "Cartesian" in str_str
+
+    # Add a state and verify count changes
+    epoch = Epoch.from_jd(2451545.0, brahe.UTC)
+    state = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch, state)
+    assert "states=1" in repr(traj)
+
+
+def test_orbitframe_repr_str_name():
+    """Test OrbitFrame __repr__, __str__, and name() methods."""
+    # Test ECI
+    assert str(OrbitFrame.ECI) == "ECI"
+    assert "OrbitFrame" in repr(OrbitFrame.ECI)
+    assert OrbitFrame.ECI.name() == "Earth-Centered Inertial"
+
+    # Test ECEF
+    assert str(OrbitFrame.ECEF) == "ECEF"
+    assert OrbitFrame.ECEF.name() == "Earth-Centered Earth-Fixed"
+
+    # Test GCRF
+    assert str(OrbitFrame.GCRF) == "GCRF"
+    assert OrbitFrame.GCRF.name() == "Geocentric Celestial Reference Frame"
+
+    # Test EME2000
+    assert str(OrbitFrame.EME2000) == "EME2000"
+    assert OrbitFrame.EME2000.name() == "Earth Mean Equator and Equinox of J2000.0"
+
+    # Test ITRF
+    assert str(OrbitFrame.ITRF) == "ITRF"
+    assert OrbitFrame.ITRF.name() == "International Terrestrial Reference Frame"
+
+
+def test_orbitrepresentation_repr_str():
+    """Test OrbitRepresentation __repr__ and __str__ methods."""
+    assert str(OrbitRepresentation.CARTESIAN) == "Cartesian"
+    assert "OrbitRepresentation" in repr(OrbitRepresentation.CARTESIAN)
+
+    assert str(OrbitRepresentation.KEPLERIAN) == "Keplerian"
+    assert "OrbitRepresentation" in repr(OrbitRepresentation.KEPLERIAN)
+
+    # Test inequality
+    assert OrbitRepresentation.CARTESIAN != OrbitRepresentation.KEPLERIAN
+
+
+def test_interpolationmethod_repr_str():
+    """Test InterpolationMethod __repr__ and __str__ methods."""
+    # LINEAR
+    assert str(InterpolationMethod.LINEAR) == "Linear"
+    assert repr(InterpolationMethod.LINEAR) == "InterpolationMethod.LINEAR"
+
+    # HERMITE_CUBIC
+    assert str(InterpolationMethod.HERMITE_CUBIC) == "HermiteCubic"
+    assert (
+        repr(InterpolationMethod.HERMITE_CUBIC) == "InterpolationMethod.HERMITE_CUBIC"
+    )
+
+    # HERMITE_QUINTIC
+    assert str(InterpolationMethod.HERMITE_QUINTIC) == "HermiteQuintic"
+    assert (
+        repr(InterpolationMethod.HERMITE_QUINTIC)
+        == "InterpolationMethod.HERMITE_QUINTIC"
+    )
+
+    # Lagrange
+    lag3 = InterpolationMethod.lagrange(3)
+    assert str(lag3) == "Lagrange(degree=3)"
+    assert repr(lag3) == "InterpolationMethod.lagrange(3)"
+
+
+def test_interpolationmethod_degree_property():
+    """Test InterpolationMethod degree getter."""
+    # Lagrange has a degree
+    lag5 = InterpolationMethod.lagrange(5)
+    assert lag5.degree == 5
+
+    # Non-Lagrange methods return None
+    assert InterpolationMethod.LINEAR.degree is None
+    assert InterpolationMethod.HERMITE_CUBIC.degree is None
+    assert InterpolationMethod.HERMITE_QUINTIC.degree is None
+
+
+def test_interpolationmethod_min_points_required():
+    """Test InterpolationMethod min_points_required getter."""
+    assert InterpolationMethod.LINEAR.min_points_required == 2
+    assert InterpolationMethod.HERMITE_CUBIC.min_points_required == 2
+    assert InterpolationMethod.HERMITE_QUINTIC.min_points_required == 2
+
+    # Lagrange of degree N needs N+1 points
+    assert InterpolationMethod.lagrange(1).min_points_required == 2
+    assert InterpolationMethod.lagrange(3).min_points_required == 4
+    assert InterpolationMethod.lagrange(7).min_points_required == 8
+
+
+def test_interpolationmethod_lagrange_invalid_degree():
+    """Test that Lagrange with degree 0 raises ValueError."""
+    import pytest
+
+    with pytest.raises(ValueError, match="degree must be >= 1"):
+        InterpolationMethod.lagrange(0)
+
+
+def test_interpolationmethod_equality():
+    """Test InterpolationMethod equality and inequality."""
+    assert InterpolationMethod.LINEAR == InterpolationMethod.LINEAR
+    assert InterpolationMethod.LINEAR != InterpolationMethod.HERMITE_CUBIC
+    assert InterpolationMethod.lagrange(3) == InterpolationMethod.lagrange(3)
+    assert InterpolationMethod.lagrange(3) != InterpolationMethod.lagrange(5)
+    assert InterpolationMethod.lagrange(3) != InterpolationMethod.LINEAR
+
+
+def test_covarianceinterpolationmethod_repr_str():
+    """Test CovarianceInterpolationMethod __repr__ and __str__ methods."""
+    from brahe import CovarianceInterpolationMethod
+
+    msr = CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    assert "MatrixSquareRoot" in str(msr)
+    assert "CovarianceInterpolationMethod" in repr(msr)
+
+    tw = CovarianceInterpolationMethod.TWO_WASSERSTEIN
+    assert "TwoWasserstein" in str(tw)
+    assert "CovarianceInterpolationMethod" in repr(tw)
+
+    # Equality
+    assert msr == CovarianceInterpolationMethod.MATRIX_SQUARE_ROOT
+    assert msr != tw
+
+
+# ========================
+# Dimension Method Tests
+# ========================
+
+
+def test_orbittrajectory_orbital_dimension():
+    """Test orbital_dimension() method."""
+    traj6 = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    assert traj6.orbital_dimension() == 6
+
+    traj9 = OrbitTrajectory(9, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    assert traj9.orbital_dimension() == 6  # Always 6
+
+
+def test_orbittrajectory_additional_dimension():
+    """Test additional_dimension() method."""
+    traj6 = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    assert traj6.additional_dimension() == 0
+
+    traj9 = OrbitTrajectory(9, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    assert traj9.additional_dimension() == 3
+
+    traj12 = OrbitTrajectory(12, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    assert traj12.additional_dimension() == 6
+
+
+def test_orbittrajectory_dimension_too_small():
+    """Test that dimension < 6 raises error."""
+    with pytest.raises(ValueError, match="at least 6"):
+        OrbitTrajectory(5, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    with pytest.raises(ValueError, match="at least 6"):
+        OrbitTrajectory(3, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+
+# ========================
+# Identifiable Setter Tests
+# ========================
+
+
+def test_orbittrajectory_set_name():
+    """Test OrbitTrajectory.set_name() method."""
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    assert traj.get_name() is None
+
+    traj.set_name("My Satellite")
+    assert traj.get_name() == "My Satellite"
+
+    # Clear name
+    traj.set_name(None)
+    assert traj.get_name() is None
+
+
+def test_orbittrajectory_set_id():
+    """Test OrbitTrajectory.set_id() method."""
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+    assert traj.get_id() is None
+
+    traj.set_id(42)
+    assert traj.get_id() == 42
+
+    # Clear id
+    traj.set_id(None)
+    assert traj.get_id() is None
+
+
+# ========================
+# Multi-Epoch State Provider Tests
+# ========================
+
+
+def test_orbittrajectory_states_koe_osc_multi_epoch():
+    """Test states_koe_osc() with multiple epochs."""
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    epoch1 = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    state1 = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj.add(epoch1, state1)
+
+    epoch2 = Epoch.from_jd(2451545.5, TimeSystem.UTC)
+    state2 = np.array([7200e3, 1000e3, 500e3, 100.0, 7.6e3, 50.0])
+    traj.add(epoch2, state2)
+
+    # Query at both epochs
+    results = traj.states_koe_osc([epoch1, epoch2], AngleFormat.DEGREES)
+    assert len(results) == 2
+
+    # Each result should be a 6-element array
+    for result in results:
+        assert len(result) == 6
+        # Semi-major axis should be positive
+        assert result[0] > 0
+
+    # Verify first result matches single-epoch query
+    single_result = traj.state_koe_osc(epoch1, AngleFormat.DEGREES)
+    for i in range(6):
+        assert results[0][i] == pytest.approx(single_result[i], abs=1e-6)
+
+
+def test_orbittrajectory_states_koe_mean_multi_epoch():
+    """Test states_koe_mean() with multiple epochs."""
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    # Use realistic inclined orbit to avoid mean element conversion issues
+    oe1 = np.array([R_EARTH + 500e3, 0.01, 51.6, 15.0, 30.0, 45.0])
+    state1 = state_koe_to_eci(oe1, AngleFormat.DEGREES)
+    epoch1 = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    traj.add(epoch1, state1)
+
+    oe2 = np.array([R_EARTH + 500e3, 0.01, 51.6, 15.0, 30.0, 90.0])
+    state2 = state_koe_to_eci(oe2, AngleFormat.DEGREES)
+    epoch2 = Epoch.from_jd(2451545.5, TimeSystem.UTC)
+    traj.add(epoch2, state2)
+
+    # Query mean elements at both epochs
+    results = traj.states_koe_mean([epoch1, epoch2], AngleFormat.DEGREES)
+    assert len(results) == 2
+
+    for result in results:
+        assert len(result) == 6
+        assert result[0] > 0  # Semi-major axis positive
+
+    # Verify first result matches single-epoch query
+    single_result = traj.state_koe_mean(epoch1, AngleFormat.DEGREES)
+    for i in range(6):
+        assert results[0][i] == pytest.approx(single_result[i], abs=1e-6)
+
+
+def test_orbittrajectory_state_koe_mean():
+    """Test state_koe_mean() returns mean Keplerian elements."""
+    traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
+
+    # Use realistic inclined orbit to avoid mean element conversion issues
+    oe = np.array([R_EARTH + 500e3, 0.01, 51.6, 15.0, 30.0, 45.0])
+    state_cart = state_koe_to_eci(oe, AngleFormat.DEGREES)
+    epoch = Epoch.from_jd(2451545.0, TimeSystem.UTC)
+    traj.add(epoch, state_cart)
+
+    # Get mean elements
+    mean_deg = traj.state_koe_mean(epoch, AngleFormat.DEGREES)
+    mean_rad = traj.state_koe_mean(epoch, AngleFormat.RADIANS)
+
+    # Semi-major axis should be the same in both formats
+    assert mean_deg[0] == pytest.approx(mean_rad[0], abs=1e-3)
+
+    # Eccentricity should be the same
+    assert mean_deg[1] == pytest.approx(mean_rad[1], abs=1e-9)
+
+    # Mean elements should differ from osculating for non-spherical Earth
+    osc_deg = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
+    # Semi-major axis may differ slightly due to J2 averaging
+    assert mean_deg[0] != pytest.approx(osc_deg[0], abs=0.01)  # Should differ

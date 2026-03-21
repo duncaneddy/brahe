@@ -542,3 +542,129 @@ def test_omm_constructor_then_mutate(eop):
 
     omm.mean_motion = 14.0
     assert omm.mean_motion == pytest.approx(14.0)
+
+
+# ─────────────────────────────────────────────
+# Additional coverage: header setters, epoch, to_dict from constructor
+# ─────────────────────────────────────────────
+
+
+def test_omm_originator_setter(eop):
+    """Test setting originator on a parsed OMM."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    original = omm.originator
+    assert original == "NOAA/USA"
+
+    omm.originator = "NEW_ORG"
+    assert omm.originator == "NEW_ORG"
+
+
+def test_omm_creation_date_getter_and_setter(eop):
+    """Test getting and setting creation_date on OMM."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    original_date = omm.creation_date
+    assert isinstance(original_date, bh.Epoch)
+
+    new_date = bh.Epoch.from_datetime(2025, 6, 15, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm.creation_date = new_date
+    assert omm.creation_date == new_date
+
+
+def test_omm_epoch_setter(eop):
+    """Test setting epoch on OMM."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    new_epoch = bh.Epoch.from_datetime(2025, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm.epoch = new_epoch
+    assert omm.epoch == new_epoch
+
+
+def test_omm_to_dict_from_constructor(eop):
+    """Test to_dict() on a programmatically-constructed OMM."""
+    epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm = OMM(
+        "MY_ORG",
+        "SAT_A",
+        "2024-001A",
+        "EARTH",
+        "TEME",
+        "UTC",
+        "SGP/SGP4",
+        epoch,
+        0.001,
+        51.6,
+        200.0,
+        100.0,
+        260.0,
+        mean_motion=15.5,
+        gm=398600.4418e9,
+    )
+
+    d = omm.to_dict()
+    assert d["header"]["originator"] == "MY_ORG"
+    assert d["metadata"]["object_name"] == "SAT_A"
+    assert d["metadata"]["object_id"] == "2024-001A"
+    assert d["metadata"]["center_name"] == "EARTH"
+    assert d["metadata"]["ref_frame"] == "TEME"
+    assert d["metadata"]["time_system"] == "UTC"
+    assert d["metadata"]["mean_element_theory"] == "SGP/SGP4"
+    assert d["mean_elements"]["eccentricity"] == pytest.approx(0.001)
+    assert d["mean_elements"]["inclination"] == pytest.approx(51.6)
+    assert d["mean_elements"]["mean_motion"] == pytest.approx(15.5)
+    assert d["mean_elements"]["gm"] == pytest.approx(398600.4418e9)
+
+
+def test_omm_constructor_serialize_all_formats(eop):
+    """Test that a constructed OMM round-trips through JSON and XML."""
+    epoch = bh.Epoch.from_datetime(2024, 6, 15, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm = OMM(
+        "ORG",
+        "MY_SAT",
+        "2024-100A",
+        "EARTH",
+        "TEME",
+        "UTC",
+        "SGP/SGP4",
+        epoch,
+        0.0005,
+        28.5,
+        120.0,
+        90.0,
+        180.0,
+        mean_motion=14.8,
+    )
+
+    # JSON round-trip
+    json_str = omm.to_string("JSON")
+    omm_j = OMM.from_str(json_str)
+    assert omm_j.object_name == "MY_SAT"
+    assert omm_j.eccentricity == pytest.approx(0.0005, abs=1e-10)
+
+    # XML round-trip
+    xml_str = omm.to_string("XML")
+    omm_x = OMM.from_str(xml_str)
+    assert omm_x.object_name == "MY_SAT"
+    assert omm_x.inclination == pytest.approx(28.5, abs=1e-4)
+
+
+def test_omm_json_uppercase_from_constructor(eop):
+    """Test to_json_string with uppercase keys on a constructed OMM."""
+    epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm = OMM(
+        "ORG",
+        "SAT",
+        "2024-001A",
+        "EARTH",
+        "TEME",
+        "UTC",
+        "SGP4",
+        epoch,
+        0.001,
+        51.6,
+        200.0,
+        100.0,
+        260.0,
+        mean_motion=15.0,
+    )
+    json_str = omm.to_json_string(uppercase_keys=True)
+    assert '"OBJECT_NAME"' in json_str
+    assert '"ECCENTRICITY"' in json_str

@@ -4,6 +4,7 @@ Tests for NumericalOrbitPropagator Python bindings
 These tests mirror the Rust tests from src/propagators/dnumerical_orbit_propagator.rs
 """
 
+import pytest
 import numpy as np
 from brahe import (
     Epoch,
@@ -5400,3 +5401,183 @@ def test_numericalorbitpropagator_event_callback_multi_impulse_accuracy():
     assert vel_err < 1e-5, (
         f"Multi-impulse velocity error {vel_err:.2e} m/s exceeds 10 μm/s threshold"
     )
+
+
+# =============================================================================
+# Additional Identity Methods Tests (set_name, set_id, set_uuid, with_uuid,
+# with_identity, set_identity)
+# =============================================================================
+
+
+class TestNumericalOrbitPropagatorIdentity:
+    """Test NumericalOrbitPropagator identity builder and mutator methods."""
+
+    def _create_prop(self):
+        """Create a test propagator."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+        return NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+
+    def test_set_name(self):
+        """Test set_name mutator."""
+        prop = self._create_prop()
+        prop.set_name("new_name")
+        assert prop.get_name() == "new_name"
+
+    def test_set_name_none(self):
+        """Test set_name with None clears the name."""
+        prop = self._create_prop()
+        prop.with_name("initial")
+        assert prop.get_name() == "initial"
+        prop.set_name(None)
+        assert prop.get_name() is None
+
+    def test_set_id(self):
+        """Test set_id mutator."""
+        prop = self._create_prop()
+        prop.set_id(99)
+        assert prop.get_id() == 99
+
+    def test_set_id_none(self):
+        """Test set_id with None clears the id."""
+        prop = self._create_prop()
+        prop.with_id(42)
+        assert prop.get_id() == 42
+        prop.set_id(None)
+        assert prop.get_id() is None
+
+    def test_set_uuid(self):
+        """Test set_uuid mutator."""
+        prop = self._create_prop()
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.set_uuid(test_uuid)
+        assert prop.get_uuid() == test_uuid
+
+    def test_set_uuid_none(self):
+        """Test set_uuid with None clears the uuid."""
+        prop = self._create_prop()
+        prop.with_new_uuid()
+        assert prop.get_uuid() is not None
+        prop.set_uuid(None)
+        assert prop.get_uuid() is None
+
+    def test_with_uuid(self):
+        """Test with_uuid builder pattern."""
+        prop = self._create_prop()
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.with_uuid(test_uuid)
+        assert prop.get_uuid() == test_uuid
+
+    def test_with_identity(self):
+        """Test with_identity builder pattern."""
+        prop = self._create_prop()
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.with_identity("BuilderSat", test_uuid, 99999)
+        assert prop.get_name() == "BuilderSat"
+        assert prop.get_uuid() == test_uuid
+        assert prop.get_id() == 99999
+
+    def test_set_identity(self):
+        """Test set_identity sets name, id, and uuid at once."""
+        prop = self._create_prop()
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.set_identity("MySat", test_uuid, 12345)
+        assert prop.get_name() == "MySat"
+        assert prop.get_uuid() == test_uuid
+        assert prop.get_id() == 12345
+
+
+# =============================================================================
+# Additional KOE Mean and Batch Tests
+# =============================================================================
+
+
+class TestNumericalOrbitPropagatorKOE:
+    """Test NumericalOrbitPropagator mean Keplerian element methods."""
+
+    def test_state_koe_mean(self):
+        """Test state_koe_mean returns mean Keplerian elements."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+
+        # Propagate to build trajectory
+        prop.propagate_to(epoch + 600.0)
+
+        query_epoch = epoch + 300.0
+        mean_deg = prop.state_koe_mean(query_epoch, AngleFormat.DEGREES)
+
+        assert len(mean_deg) == 6
+        assert all(np.isfinite(mean_deg))
+        assert mean_deg[0] > R_EARTH  # Semi-major axis
+
+        # Test radians output
+        mean_rad = prop.state_koe_mean(query_epoch, AngleFormat.RADIANS)
+        assert len(mean_rad) == 6
+        # a and e should be the same
+        assert mean_rad[0] == pytest.approx(mean_deg[0], rel=1e-6)
+        assert mean_rad[1] == pytest.approx(mean_deg[1], rel=1e-6)
+
+    def test_states_koe_mean(self):
+        """Test states_koe_mean returns mean elements at multiple epochs."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+
+        # Propagate to build trajectory spanning all query epochs
+        prop.propagate_to(epoch + 600.0)
+
+        epochs = [epoch + 100.0, epoch + 300.0, epoch + 500.0]
+        mean_list = prop.states_koe_mean(epochs, AngleFormat.DEGREES)
+
+        assert len(mean_list) == 3
+        for elements in mean_list:
+            assert len(elements) == 6
+            assert all(np.isfinite(elements))
+            assert elements[0] > R_EARTH
+
+    def test_states_koe_osc(self):
+        """Test states_koe_osc returns osculating elements at multiple epochs."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+
+        # Propagate to build trajectory spanning all query epochs
+        prop.propagate_to(epoch + 600.0)
+
+        epochs = [epoch + 100.0, epoch + 300.0, epoch + 500.0]
+        osc_list = prop.states_koe_osc(epochs, AngleFormat.DEGREES)
+
+        assert len(osc_list) == 3
+        for elements in osc_list:
+            assert len(elements) == 6
+            assert all(np.isfinite(elements))
+            assert elements[0] > R_EARTH
+            assert elements[1] < 1.0  # Eccentricity < 1

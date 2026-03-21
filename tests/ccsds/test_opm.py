@@ -636,3 +636,276 @@ def test_opm_constructor_then_mutate(eop):
     # Mutate header
     opm.originator = "NEW_ORG"
     assert opm.originator == "NEW_ORG"
+
+
+# ─────────────────────────────────────────────
+# Additional coverage: spacecraft props, creation_date, maneuver comments,
+# constructor then to_dict, and format round-trips
+# ─────────────────────────────────────────────
+
+
+def test_opm_creation_date_getter_and_setter(eop):
+    """Test getting and setting creation_date on OPM."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    original_date = opm.creation_date
+    assert isinstance(original_date, Epoch)
+
+    new_date = Epoch.from_datetime(2025, 6, 15, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm.creation_date = new_date
+    assert opm.creation_date == new_date
+
+
+def test_opm_spacecraft_parameter_getters(eop):
+    """Test spacecraft parameter read access on OPM with parameters."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    # OPMExample2 has spacecraft parameters
+    assert opm.mass is not None
+    assert opm.mass == pytest.approx(1913.0, abs=0.1)
+
+    assert opm.solar_rad_area is not None
+    assert opm.solar_rad_coeff is not None
+    assert opm.drag_area is not None
+    assert opm.drag_coeff is not None
+
+
+def test_opm_spacecraft_parameter_getters_none(eop):
+    """Test spacecraft parameters are None when not present."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        "ORG",
+        "SAT",
+        "2024-001A",
+        "EARTH",
+        "GCRF",
+        "UTC",
+        epoch,
+        [7000e3, 0.0, 0.0],
+        [0.0, 7500.0, 0.0],
+    )
+    assert opm.mass is None
+    assert opm.solar_rad_area is None
+    assert opm.solar_rad_coeff is None
+    assert opm.drag_area is None
+    assert opm.drag_coeff is None
+
+
+def test_opm_keplerian_element_getters(eop):
+    """Test all Keplerian element getters on OPM with Keplerian data."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    assert opm.has_keplerian_elements
+    assert opm.semi_major_axis is not None
+    assert opm.eccentricity is not None
+    assert opm.inclination is not None
+    assert opm.ra_of_asc_node is not None
+    assert opm.arg_of_pericenter is not None
+    assert opm.true_anomaly is not None
+
+
+def test_opm_keplerian_element_getters_none(eop):
+    """Test all Keplerian element getters return None when not present."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        "ORG",
+        "SAT",
+        "2024-001A",
+        "EARTH",
+        "GCRF",
+        "UTC",
+        epoch,
+        [7000e3, 0.0, 0.0],
+        [0.0, 7500.0, 0.0],
+    )
+    assert not opm.has_keplerian_elements
+    assert opm.semi_major_axis is None
+    assert opm.eccentricity is None
+    assert opm.inclination is None
+    assert opm.ra_of_asc_node is None
+    assert opm.arg_of_pericenter is None
+    assert opm.true_anomaly is None
+    assert opm.mean_anomaly is None
+    assert opm.gm is None
+
+
+def test_opm_maneuver_comments(eop):
+    """Test accessing and setting maneuver comments."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    assert len(opm.maneuvers) >= 1
+    # Verify comments property is accessible (may be empty list)
+    comments = opm.maneuvers[0].comments
+    assert isinstance(comments, list)
+
+
+def test_opm_standalone_maneuver_comments(eop):
+    """Test setting comments on a standalone OPMManeuver."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    m = OPMManeuver(
+        epoch_ignition=epoch,
+        duration=120.0,
+        ref_frame="RTN",
+        dv=[10.0, 0.0, 0.0],
+    )
+    assert m.comments == []
+
+    m.comments = ["Test comment 1", "Test comment 2"]
+    assert m.comments == ["Test comment 1", "Test comment 2"]
+
+
+def test_opm_to_dict_from_constructor(eop):
+    """Test to_dict() on a programmatically-constructed OPM."""
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        "MY_ORG",
+        "SAT1",
+        "2024-001A",
+        "EARTH",
+        "GCRF",
+        "UTC",
+        epoch,
+        [7000e3, 0.0, 0.0],
+        [0.0, 7500.0, 0.0],
+    )
+
+    d = opm.to_dict()
+    assert d["header"]["originator"] == "MY_ORG"
+    assert d["metadata"]["object_name"] == "SAT1"
+    assert d["metadata"]["object_id"] == "2024-001A"
+    assert d["metadata"]["ref_frame"] == "GCRF"
+    assert d["state_vector"]["position"] == pytest.approx([7000e3, 0.0, 0.0])
+    assert d["state_vector"]["velocity"] == pytest.approx([0.0, 7500.0, 0.0])
+    # No Keplerian, maneuvers, or spacecraft params in constructor-only OPM
+    assert "keplerian_elements" not in d
+    assert "maneuvers" not in d
+
+
+def test_opm_to_dict_with_maneuvers(eop):
+    """Test to_dict() includes maneuvers added after construction."""
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        "ORG",
+        "SAT",
+        "2024-001A",
+        "EARTH",
+        "GCRF",
+        "UTC",
+        epoch,
+        [7000e3, 0.0, 0.0],
+        [0.0, 7500.0, 0.0],
+    )
+    man_epoch = Epoch.from_datetime(2024, 3, 2, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm.add_maneuver(man_epoch, 120.0, "RTN", [10.0, 0.0, 0.0], delta_mass=-5.0)
+
+    d = opm.to_dict()
+    assert "maneuvers" in d
+    assert len(d["maneuvers"]) == 1
+    assert d["maneuvers"][0]["duration"] == pytest.approx(120.0)
+    assert d["maneuvers"][0]["delta_mass"] == pytest.approx(-5.0)
+    assert d["maneuvers"][0]["ref_frame"] == "RTN"
+    assert d["maneuvers"][0]["dv"] == pytest.approx([10.0, 0.0, 0.0])
+
+
+def test_opm_constructor_serialize_all_formats(eop):
+    """Test that a constructed OPM round-trips through JSON and XML."""
+    epoch = Epoch.from_datetime(2024, 6, 15, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        "ORG",
+        "MY_SAT",
+        "2024-100A",
+        "EARTH",
+        "GCRF",
+        "UTC",
+        epoch,
+        [6500e3, 1200e3, -700e3],
+        [-800.0, 8700.0, -4200.0],
+    )
+
+    # JSON round-trip
+    json_str = opm.to_string("JSON")
+    opm_j = OPM.from_str(json_str)
+    assert opm_j.object_name == "MY_SAT"
+    assert opm_j.position == pytest.approx([6500e3, 1200e3, -700e3], abs=1.0)
+
+    # XML round-trip
+    xml_str = opm.to_string("XML")
+    opm_x = OPM.from_str(xml_str)
+    assert opm_x.object_name == "MY_SAT"
+    assert opm_x.velocity == pytest.approx([-800.0, 8700.0, -4200.0], abs=0.001)
+
+
+def test_opm_json_uppercase_from_constructor(eop):
+    """Test to_json_string with uppercase keys on a constructed OPM."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        "ORG",
+        "SAT",
+        "2024-001A",
+        "EARTH",
+        "GCRF",
+        "UTC",
+        epoch,
+        [7000e3, 0.0, 0.0],
+        [0.0, 7500.0, 0.0],
+    )
+    json_str = opm.to_json_string(uppercase_keys=True)
+    assert '"OBJECT_NAME"' in json_str
+    assert '"header"' in json_str
+
+
+def test_opm_maneuver_construction_and_mutation(eop):
+    """Build maneuver from scratch, mutate all fields, then add to OPM."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    m = OPMManeuver(
+        epoch_ignition=epoch,
+        duration=60.0,
+        ref_frame="J2000",
+        dv=[1.0, 2.0, 3.0],
+    )
+    assert m.delta_mass is None
+
+    # Mutate all fields
+    new_epoch = Epoch.from_datetime(2024, 6, 1, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    m.epoch_ignition = new_epoch
+    assert m.epoch_ignition == new_epoch
+
+    m.duration = 300.0
+    assert m.duration == pytest.approx(300.0)
+
+    m.ref_frame = "RTN"
+    assert m.ref_frame == "RTN"
+
+    m.dv = [10.0, 20.0, 30.0]
+    assert m.dv == pytest.approx([10.0, 20.0, 30.0])
+
+    m.delta_mass = -25.0
+    assert m.delta_mass == pytest.approx(-25.0)
+
+    # Add to OPM and verify it persists
+    opm = OPM(
+        "ORG",
+        "SAT",
+        "2024-001A",
+        "EARTH",
+        "GCRF",
+        "UTC",
+        epoch,
+        [7000e3, 0.0, 0.0],
+        [0.0, 7500.0, 0.0],
+    )
+    opm.maneuvers.append(m)
+    assert len(opm.maneuvers) == 1
+    assert opm.maneuvers[0].duration == pytest.approx(300.0)
+    assert opm.maneuvers[0].ref_frame == "RTN"
+    assert opm.maneuvers[0].delta_mass == pytest.approx(-25.0)
+
+
+def test_opm_maneuver_repr(eop):
+    """Test repr for OPMManeuver in both owned and proxy modes."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    m = OPMManeuver(epoch, 60.0, "RTN", [1.0, 0.0, 0.0])
+    r = repr(m)
+    assert "OPMManeuver" in r
+    assert "RTN" in r
+
+    # Proxy mode repr
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample2.txt")
+    r2 = repr(opm.maneuvers[0])
+    assert "OPMManeuver" in r2

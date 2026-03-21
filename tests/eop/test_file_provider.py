@@ -137,6 +137,73 @@ def test_extrapolate_before_min_hold(iau2000_standard_filepath):
     assert lod == lod_first
 
 
+def test_file_eop_provider_repr_str(iau2000_standard_filepath):
+    """Test FileEOPProvider __repr__ and __str__ methods."""
+    eop = brahe.FileEOPProvider.from_standard_file(
+        iau2000_standard_filepath, True, "Hold"
+    )
+    repr_str = repr(eop)
+    str_str = str(eop)
+
+    assert len(repr_str) > 0
+    assert len(str_str) > 0
+
+
+def test_file_eop_provider_default_constructor():
+    """Test FileEOPProvider default (uninitialized) constructor."""
+    eop = brahe.FileEOPProvider()
+
+    # Should not be initialized
+    assert eop.is_initialized() is False
+
+
+def test_file_eop_provider_from_file(iau2000_standard_filepath):
+    """Test FileEOPProvider.from_file() auto-detection."""
+    eop = brahe.FileEOPProvider.from_file(iau2000_standard_filepath, True, "Hold")
+
+    assert eop.is_initialized() is True
+    assert eop.len() > 0
+    assert eop.eop_type() in ("StandardBulletinA", "C04")
+
+
+def test_file_eop_provider_from_default_file():
+    """Test FileEOPProvider.from_default_file() with eop_type."""
+    eop = brahe.FileEOPProvider.from_default_file("StandardBulletinA", True, "Hold")
+
+    assert eop.is_initialized() is True
+    assert eop.eop_type() == "StandardBulletinA"
+    assert eop.len() > 0
+
+
+def test_file_eop_provider_data_retrieval(iau2000_standard_filepath):
+    """Test FileEOPProvider data retrieval methods."""
+    eop = brahe.FileEOPProvider.from_standard_file(
+        iau2000_standard_filepath, True, "Hold"
+    )
+
+    mjd = 59569.0
+
+    # Test individual getters
+    ut1_utc = eop.get_ut1_utc(mjd)
+    assert ut1_utc == -0.1079939
+
+    pm_x, pm_y = eop.get_pm(mjd)
+    assert pm_x > 0.0
+    assert pm_y > 0.0
+
+    dx, dy = eop.get_dxdy(mjd)
+    assert dx != 0.0 or dy != 0.0
+
+    lod = eop.get_lod(mjd)
+    assert lod != 0.0
+
+    # Test get_eop
+    result = eop.get_eop(mjd)
+    assert len(result) == 6
+    pm_x_eop, pm_y_eop, ut1_utc_eop, dx_eop, dy_eop, lod_eop = result
+    assert ut1_utc_eop == -0.1079939
+
+
 def test_extrapolate_before_min_error(iau2000_standard_filepath):
     """Test extrapolation with Error mode for mjd < mjd_min"""
     import pytest

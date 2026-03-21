@@ -1113,3 +1113,169 @@ def test_oem_json_full_round_trip(eop):
     json_str = oem1.to_string("JSON")
     oem2 = OEM.from_str(json_str)
     _assert_oem_fields(oem1, oem2)
+
+
+# ─────────────────────────────────────────────
+# Additional coverage: creation_date setter, standalone segment setters,
+# OEM/segment repr, construction with options, message_id
+# ─────────────────────────────────────────────
+
+
+def test_oem_creation_date_setter(eop):
+    """Test setting creation_date on OEM."""
+    oem = OEM(originator="TEST")
+    original = oem.creation_date
+    assert isinstance(original, Epoch)
+
+    new_date = Epoch.from_datetime(2025, 3, 15, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    oem.creation_date = new_date
+    assert oem.creation_date == new_date
+
+
+def test_oem_new_empty_verify_defaults(eop):
+    """Create empty OEM and verify all default values."""
+    oem = OEM(originator="MY_ORG")
+    assert oem.originator == "MY_ORG"
+    assert oem.format_version == pytest.approx(3.0)
+    assert len(oem.segments) == 0
+    assert isinstance(oem.creation_date, Epoch)
+    assert oem.classification is None
+    assert oem.message_id is None
+
+
+def test_oem_standalone_segment_setters(eop):
+    """Test setting properties on a standalone OEMSegment (owned mode)."""
+    start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    stop = Epoch.from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+
+    seg = OEMSegment(
+        object_name="SAT1",
+        object_id="2024-001A",
+        center_name="EARTH",
+        ref_frame="GCRF",
+        time_system="UTC",
+        start_time=start,
+        stop_time=stop,
+    )
+
+    # Mutate all metadata fields in owned mode
+    seg.object_name = "NEW_SAT"
+    assert seg.object_name == "NEW_SAT"
+
+    seg.object_id = "2024-999A"
+    assert seg.object_id == "2024-999A"
+
+    seg.center_name = "MOON"
+    assert seg.center_name == "MOON"
+
+    seg.ref_frame = "J2000"
+    assert seg.ref_frame == "J2000"
+
+    seg.time_system = "TAI"
+    assert seg.time_system == "TAI"
+
+    new_start = Epoch.from_datetime(2025, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    new_stop = Epoch.from_datetime(2025, 1, 1, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    seg.start_time = new_start
+    seg.stop_time = new_stop
+    assert seg.start_time == new_start
+    assert seg.stop_time == new_stop
+
+    seg.interpolation = "HERMITE"
+    assert seg.interpolation == "HERMITE"
+
+    seg.interpolation_degree = 7
+    assert seg.interpolation_degree == 7
+
+    seg.comments = ["first comment", "second comment"]
+    assert seg.comments == ["first comment", "second comment"]
+
+
+def test_oem_standalone_segment_repr(eop):
+    """Test OEMSegment repr in owned mode."""
+    start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    stop = Epoch.from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    seg = OEMSegment(
+        object_name="SAT1",
+        object_id="2024-001A",
+        center_name="EARTH",
+        ref_frame="GCRF",
+        time_system="UTC",
+        start_time=start,
+        stop_time=stop,
+    )
+    r = repr(seg)
+    assert "OEMSegment" in r
+    assert "SAT1" in r
+    assert "GCRF" in r
+
+
+def test_oem_standalone_segment_remove_state(eop):
+    """Test removing a state from a standalone segment."""
+    start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    stop = Epoch.from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    mid = Epoch.from_datetime(2024, 1, 1, 0, 30, 0.0, 0.0, brahe.TimeSystem.UTC)
+
+    seg = OEMSegment(
+        object_name="SAT",
+        object_id="2024-001A",
+        center_name="EARTH",
+        ref_frame="GCRF",
+        time_system="UTC",
+        start_time=start,
+        stop_time=stop,
+    )
+    seg.add_state(epoch=start, position=[7000e3, 0, 0], velocity=[0, 7500, 0])
+    seg.add_state(epoch=mid, position=[6000e3, 3000e3, 0], velocity=[-2000, 6000, 0])
+    assert seg.num_states == 2
+
+    seg.remove_state(0)
+    assert seg.num_states == 1
+    # Remaining state should be the second one we added
+    states = seg.states
+    assert states[0].position[0] == pytest.approx(6000e3)
+
+
+def test_oem_standalone_segment_with_interpolation(eop):
+    """Test creating standalone OEMSegment with interpolation params."""
+    start = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    stop = Epoch.from_datetime(2024, 1, 1, 1, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+
+    seg = OEMSegment(
+        object_name="SAT1",
+        object_id="2024-001A",
+        center_name="EARTH",
+        ref_frame="GCRF",
+        time_system="UTC",
+        start_time=start,
+        stop_time=stop,
+        interpolation="LAGRANGE",
+        interpolation_degree=7,
+    )
+    assert seg.interpolation == "LAGRANGE"
+    assert seg.interpolation_degree == 7
+
+
+def test_oem_state_vector_repr(eop):
+    """Test OEMStateVector repr."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    sv = OEMStateVector(epoch, [7000e3, 0, 0], [0, 7500, 0])
+    r = repr(sv)
+    assert "OEMStateVector" in r
+
+
+def test_oem_segment_proxy_repr(eop):
+    """Test OEMSegment repr in proxy mode."""
+    oem = OEM.from_file("test_assets/ccsds/oem/OEMExample4.txt")
+    seg = oem.segments[0]
+    r = repr(seg)
+    assert "OEMSegment" in r
+    assert "MARS GLOBAL SURVEYOR" in r
+
+
+def test_oem_segments_repr(eop):
+    """Test OEMSegments collection repr."""
+    oem = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
+    r = repr(oem.segments)
+    assert "OEMSegments" in r
+    assert "3" in r

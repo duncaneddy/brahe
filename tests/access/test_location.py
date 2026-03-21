@@ -778,3 +778,108 @@ class TestPolygonLocationString:
         s = str(poly)
         assert "AOI-1" in s
         assert "4 vertices" in s
+
+
+# ========================================================================
+# PointLocation Alternative Constructor Tests
+# ========================================================================
+
+
+class TestPointLocationAlternativeConstructors:
+    """Test PointLocation constructed with different argument patterns."""
+
+    def test_pointlocation_two_arg_constructor(self):
+        """Test PointLocation(lon, lat) defaults alt to 0.0."""
+        loc = bh.PointLocation(lon=-105.2705, lat=40.0150)
+        assert loc.lon == -105.2705
+        assert loc.lat == 40.0150
+        assert loc.alt == 0.0
+
+    def test_pointlocation_three_arg_constructor(self):
+        """Test PointLocation(lon, lat, alt) with explicit altitude."""
+        loc = bh.PointLocation(lon=-105.2705, lat=40.0150, alt=1655.0)
+        assert loc.lon == -105.2705
+        assert loc.lat == 40.0150
+        assert loc.alt == 1655.0
+
+    def test_pointlocation_positional_args(self):
+        """Test PointLocation with positional arguments."""
+        loc = bh.PointLocation(-105.2705, 40.0150, 1655.0)
+        assert loc.lon == -105.2705
+        assert loc.lat == 40.0150
+        assert loc.alt == 1655.0
+
+    def test_pointlocation_repr(self):
+        """Test PointLocation __repr__ returns same as __str__."""
+        loc = bh.PointLocation(lon=-105.2705, lat=40.0150, alt=1655.0)
+        assert repr(loc) == str(loc)
+        assert "PointLocation" in repr(loc)
+
+    def test_pointlocation_repr_with_name(self):
+        """Test PointLocation __repr__ includes name when set."""
+        loc = bh.PointLocation(lon=-105.2705, lat=40.0150, alt=1655.0).with_name(
+            "Boulder"
+        )
+        r = repr(loc)
+        assert "Boulder" in r
+        assert "PointLocation" in r
+
+
+# ========================================================================
+# PolygonLocation Alternative Constructor Tests
+# ========================================================================
+
+
+class TestPolygonLocationAlternativeConstructors:
+    """Test PolygonLocation constructed with different argument patterns."""
+
+    def test_polygonlocation_from_geojson_with_properties(self):
+        """Test creating PolygonLocation from GeoJSON with custom properties."""
+        geojson = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [-105.5, 39.5, 0.0],
+                        [-105.0, 39.5, 0.0],
+                        [-105.0, 40.0, 0.0],
+                        [-105.5, 40.0, 0.0],
+                        [-105.5, 39.5, 0.0],
+                    ]
+                ],
+            },
+            "properties": {"name": "BoulderArea", "region": "Colorado"},
+        }
+
+        poly = bh.PolygonLocation.from_geojson(geojson)
+        assert poly.num_vertices == 4
+        assert poly.get_name() == "BoulderArea"
+        assert poly.properties["region"] == "Colorado"
+
+    def test_polygonlocation_repr(self):
+        """Test PolygonLocation __repr__ returns same as __str__."""
+        vertices = [
+            [10.0, 50.0, 0.0],
+            [11.0, 50.0, 0.0],
+            [11.0, 51.0, 0.0],
+            [10.0, 51.0, 0.0],
+            [10.0, 50.0, 0.0],
+        ]
+        poly = bh.PolygonLocation(vertices)
+        assert repr(poly) == str(poly)
+        assert "PolygonLocation" in repr(poly)
+
+    def test_polygonlocation_repr_with_name(self):
+        """Test PolygonLocation __repr__ includes name when set."""
+        vertices = [
+            [10.0, 50.0, 0.0],
+            [11.0, 50.0, 0.0],
+            [11.0, 51.0, 0.0],
+            [10.0, 51.0, 0.0],
+            [10.0, 50.0, 0.0],
+        ]
+        poly = bh.PolygonLocation(vertices).with_name("TestArea")
+        r = repr(poly)
+        assert "TestArea" in r
+        assert "PolygonLocation" in r

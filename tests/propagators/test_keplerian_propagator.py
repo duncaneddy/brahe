@@ -1170,3 +1170,158 @@ def test_state_provider_states_itrf():
     for i in range(len(states)):
         for j in range(i + 1, len(states)):
             assert not np.allclose(states[i], states[j])
+
+
+# =============================================================================
+# Mean Keplerian Elements Tests
+# =============================================================================
+
+
+class TestKeplerianPropagatorKOE:
+    """Test KeplerianPropagator mean Keplerian element methods."""
+
+    def test_state_koe_mean(self):
+        """Test state_koe_mean returns mean Keplerian elements."""
+        epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+        elements = create_test_elements()
+
+        propagator = KeplerianPropagator.from_keplerian(
+            epoch, elements, AngleFormat.DEGREES, 60.0
+        )
+
+        # Get mean elements at epoch + some time
+        target = epoch + 300.0
+        mean_deg = propagator.state_koe_mean(target, angle_format=AngleFormat.DEGREES)
+
+        assert len(mean_deg) == 6
+        assert all(np.isfinite(mean_deg))
+        # Semi-major axis should be close to initial (two-body, mean ~= osc)
+        assert mean_deg[0] == pytest.approx(elements[0], rel=1e-3)
+
+        # Test radians output
+        mean_rad = propagator.state_koe_mean(target, angle_format=AngleFormat.RADIANS)
+        assert len(mean_rad) == 6
+        # a and e should be the same
+        assert mean_rad[0] == pytest.approx(mean_deg[0], rel=1e-10)
+        assert mean_rad[1] == pytest.approx(mean_deg[1], rel=1e-10)
+        # Angular elements should be deg-to-rad converted
+        for i in range(2, 6):
+            assert mean_rad[i] == pytest.approx(np.radians(mean_deg[i]), rel=1e-8)
+
+    def test_states_koe_mean(self):
+        """Test states_koe_mean returns mean elements at multiple epochs."""
+        epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+        elements = create_test_elements()
+
+        propagator = KeplerianPropagator.from_keplerian(
+            epoch, elements, AngleFormat.DEGREES, 60.0
+        )
+
+        epochs = [
+            epoch,
+            epoch + orbital_period(elements[0]),
+            epoch + 2.0 * orbital_period(elements[0]),
+        ]
+
+        mean_list = propagator.states_koe_mean(epochs, angle_format=AngleFormat.DEGREES)
+
+        assert len(mean_list) == 3
+        for state in mean_list:
+            assert len(state) == 6
+            assert all(np.isfinite(state))
+            # Semi-major axis should be close to initial (mean vs osculating ~0.2%)
+            assert state[0] == pytest.approx(elements[0], rel=2e-3)
+
+        # Also test radians conversion consistency
+        mean_list_rad = propagator.states_koe_mean(
+            epochs, angle_format=AngleFormat.RADIANS
+        )
+        assert len(mean_list_rad) == 3
+        for i in range(3):
+            assert mean_list_rad[i][0] == pytest.approx(mean_list[i][0], rel=1e-10)
+            assert mean_list_rad[i][1] == pytest.approx(mean_list[i][1], rel=1e-10)
+
+
+# =============================================================================
+# Identity Methods Tests
+# =============================================================================
+
+
+class TestKeplerianPropagatorIdentity:
+    """Test KeplerianPropagator identity builder and mutator methods."""
+
+    def _create_prop(self):
+        """Create a test propagator."""
+        epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+        elements = create_test_elements()
+        return KeplerianPropagator.from_keplerian(
+            epoch, elements, AngleFormat.DEGREES, 60.0
+        )
+
+    def test_with_name(self):
+        """Test with_name builder pattern."""
+        prop = self._create_prop()
+        prop.with_name("test")
+        assert prop.get_name() == "test"
+
+    def test_with_id(self):
+        """Test with_id builder pattern."""
+        prop = self._create_prop()
+        prop.with_id(42)
+        assert prop.get_id() == 42
+
+    def test_with_uuid(self):
+        """Test with_uuid builder pattern."""
+        prop = self._create_prop()
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.with_uuid(test_uuid)
+        assert prop.get_uuid() == test_uuid
+
+    def test_with_new_uuid(self):
+        """Test with_new_uuid generates a new UUID different from the original."""
+        prop = self._create_prop()
+        original_uuid = prop.get_uuid()
+        prop.with_new_uuid()
+        new_uuid = prop.get_uuid()
+        assert new_uuid is not None
+        assert len(new_uuid) > 0
+        assert new_uuid != original_uuid
+
+    def test_set_name(self):
+        """Test set_name mutator."""
+        prop = self._create_prop()
+        prop.set_name("new")
+        assert prop.get_name() == "new"
+
+    def test_set_id(self):
+        """Test set_id mutator."""
+        prop = self._create_prop()
+        prop.set_id(99)
+        assert prop.get_id() == 99
+
+    def test_generate_uuid(self):
+        """Test generate_uuid mutator generates a new UUID."""
+        prop = self._create_prop()
+        original_uuid = prop.get_uuid()
+        prop.generate_uuid()
+        new_uuid = prop.get_uuid()
+        assert new_uuid is not None
+        assert new_uuid != original_uuid
+
+    def test_set_identity(self):
+        """Test set_identity sets name, id, and uuid at once."""
+        prop = self._create_prop()
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.set_identity("MySat", test_uuid, 12345)
+        assert prop.get_name() == "MySat"
+        assert prop.get_uuid() == test_uuid
+        assert prop.get_id() == 12345
+
+    def test_with_identity(self):
+        """Test with_identity builder pattern."""
+        prop = self._create_prop()
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.with_identity("BuilderSat", test_uuid, 99999)
+        assert prop.get_name() == "BuilderSat"
+        assert prop.get_uuid() == test_uuid
+        assert prop.get_id() == 99999

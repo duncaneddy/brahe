@@ -394,3 +394,151 @@ def test_omm_json_full_round_trip(eop):
     json_str = omm1.to_string("JSON")
     omm2 = OMM.from_str(json_str)
     _assert_omm_fields(omm1, omm2)
+
+
+# ─────────────────────────────────────────────
+# Programmatic constructor tests
+# ─────────────────────────────────────────────
+
+
+def test_omm_constructor(eop):
+    """Test creating an OMM programmatically with the constructor."""
+    epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm = OMM(
+        originator="NOAA",
+        object_name="ISS",
+        object_id="1998-067A",
+        center_name="EARTH",
+        ref_frame="TEME",
+        time_system="UTC",
+        mean_element_theory="SGP/SGP4",
+        epoch=epoch,
+        eccentricity=0.0001,
+        inclination=51.64,
+        ra_of_asc_node=200.0,
+        arg_of_pericenter=100.0,
+        mean_anomaly=260.0,
+        mean_motion=15.5,
+    )
+
+    assert omm.originator == "NOAA"
+    assert omm.object_name == "ISS"
+    assert omm.object_id == "1998-067A"
+    assert omm.center_name == "EARTH"
+    assert omm.ref_frame == "TEME"
+    assert omm.time_system == "UTC"
+    assert omm.mean_element_theory == "SGP/SGP4"
+    assert omm.format_version == pytest.approx(3.0)
+    assert omm.eccentricity == pytest.approx(0.0001)
+    assert omm.inclination == pytest.approx(51.64)
+    assert omm.ra_of_asc_node == pytest.approx(200.0)
+    assert omm.arg_of_pericenter == pytest.approx(100.0)
+    assert omm.mean_anomaly == pytest.approx(260.0)
+    assert omm.mean_motion == pytest.approx(15.5)
+    assert omm.epoch == epoch
+
+
+def test_omm_constructor_with_gm(eop):
+    """Test OMM constructor with GM parameter."""
+    epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm = OMM(
+        "NOAA",
+        "SAT1",
+        "2024-001A",
+        "EARTH",
+        "TEME",
+        "UTC",
+        "SGP/SGP4",
+        epoch,
+        0.001,
+        51.6,
+        200.0,
+        100.0,
+        260.0,
+        gm=398600.4418e9,
+    )
+    assert omm.gm == pytest.approx(398600.4418e9)
+
+
+def test_omm_constructor_minimal(eop):
+    """Test OMM constructor with only required fields (no mean_motion/gm)."""
+    epoch = bh.Epoch.from_datetime(2024, 6, 15, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm = OMM(
+        "ORG",
+        "SAT",
+        "2024-001A",
+        "EARTH",
+        "TEME",
+        "UTC",
+        "SGP4",
+        epoch,
+        0.01,
+        97.8,
+        15.0,
+        30.0,
+        45.0,
+    )
+    assert omm.eccentricity == pytest.approx(0.01)
+    assert omm.inclination == pytest.approx(97.8)
+    assert omm.mean_motion is None
+    assert omm.gm is None
+
+
+def test_omm_constructor_then_serialize(eop):
+    """Test constructing an OMM then round-tripping through KVN."""
+    epoch = bh.Epoch.from_datetime(2024, 1, 15, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm = OMM(
+        "MY_ORG",
+        "MYSAT",
+        "2024-050A",
+        "EARTH",
+        "TEME",
+        "UTC",
+        "SGP/SGP4",
+        epoch,
+        0.0001,
+        51.64,
+        200.0,
+        100.0,
+        260.0,
+        mean_motion=15.5,
+    )
+
+    # Round-trip through KVN
+    kvn = omm.to_string("KVN")
+    omm2 = OMM.from_str(kvn)
+    assert omm2.object_name == "MYSAT"
+    assert omm2.object_id == "2024-050A"
+    assert omm2.eccentricity == pytest.approx(0.0001, abs=1e-10)
+    assert omm2.inclination == pytest.approx(51.64, abs=1e-4)
+    assert omm2.mean_motion == pytest.approx(15.5, abs=1e-8)
+
+
+def test_omm_constructor_then_mutate(eop):
+    """Test constructing an OMM and mutating its fields."""
+    epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    omm = OMM(
+        "ORG",
+        "SAT1",
+        "2024-001A",
+        "EARTH",
+        "TEME",
+        "UTC",
+        "SGP/SGP4",
+        epoch,
+        0.0001,
+        51.64,
+        200.0,
+        100.0,
+        260.0,
+        mean_motion=15.5,
+    )
+
+    omm.object_name = "NEW_SAT"
+    assert omm.object_name == "NEW_SAT"
+
+    omm.eccentricity = 0.01
+    assert omm.eccentricity == pytest.approx(0.01)
+
+    omm.mean_motion = 14.0
+    assert omm.mean_motion == pytest.approx(14.0)

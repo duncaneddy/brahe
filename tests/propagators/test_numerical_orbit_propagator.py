@@ -5044,6 +5044,123 @@ def test_numericalorbitpropagator_query_chained_filters():
     assert len(events) == 2  # Alpha and Beta
 
 
+def test_numericalorbitpropagator_query_after_before():
+    """Test EventQuery after() and before() temporal filters."""
+    from brahe import TimeEvent
+
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.earth_gravity(),
+        None,
+    )
+
+    prop.add_event_detector(TimeEvent(epoch + 100.0, "Event A"))
+    prop.add_event_detector(TimeEvent(epoch + 200.0, "Event B"))
+    prop.add_event_detector(TimeEvent(epoch + 300.0, "Event C"))
+
+    prop.step_by(500.0)
+
+    # after() filters events at or after the given epoch
+    after_events = prop.query_events().after(epoch + 150.0).collect()
+    assert len(after_events) == 2  # B and C
+    names = {e.name for e in after_events}
+    assert "Event B" in names
+    assert "Event C" in names
+
+    # before() filters events at or before the given epoch
+    before_events = prop.query_events().before(epoch + 250.0).collect()
+    assert len(before_events) == 2  # A and B
+    names = {e.name for e in before_events}
+    assert "Event A" in names
+    assert "Event B" in names
+
+    # Combined after + before
+    between = prop.query_events().after(epoch + 150.0).before(epoch + 250.0).collect()
+    assert len(between) == 1
+    assert between[0].name == "Event B"
+
+
+def test_numericalorbitpropagator_query_by_event_type():
+    """Test EventQuery by_event_type() filter."""
+    from brahe import TimeEvent, EventType
+
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.earth_gravity(),
+        None,
+    )
+
+    prop.add_event_detector(TimeEvent(epoch + 100.0, "Event A"))
+    prop.add_event_detector(TimeEvent(epoch + 200.0, "Event B"))
+
+    prop.step_by(500.0)
+
+    # TimeEvent produces Instantaneous events
+    instant_events = (
+        prop.query_events().by_event_type(EventType.INSTANTANEOUS).collect()
+    )
+    assert len(instant_events) == 2
+
+    # Window events should be empty for TimeEvent detectors
+    window_events = prop.query_events().by_event_type(EventType.WINDOW).collect()
+    assert len(window_events) == 0
+
+
+def test_numericalorbitpropagator_query_any_is_empty_len():
+    """Test EventQuery any_matches(), is_empty(), __len__(), and __iter__()."""
+    from brahe import TimeEvent
+
+    epoch = create_test_epoch()
+    state = np.array([R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.earth_gravity(),
+        None,
+    )
+
+    # Empty query
+    q = prop.query_events()
+    assert q.is_empty()
+    assert not q.any()
+    assert len(q) == 0
+
+    # Add events and propagate
+    prop.add_event_detector(TimeEvent(epoch + 100.0, "Event A"))
+    prop.add_event_detector(TimeEvent(epoch + 200.0, "Event B"))
+    prop.step_by(500.0)
+
+    # Non-empty query
+    q = prop.query_events()
+    assert not q.is_empty()
+    assert q.any()
+    assert len(q) == 2
+
+    # __iter__ protocol
+    event_names = [e.name for e in prop.query_events()]
+    assert len(event_names) == 2
+    assert "Event A" in event_names
+    assert "Event B" in event_names
+
+    # Filtered query that matches nothing
+    q_empty = prop.query_events().by_name_exact("NONEXISTENT")
+    assert q_empty.is_empty()
+    assert not q_empty.any()
+    assert len(q_empty) == 0
+
+
 def test_numericalorbitpropagator_event_detection_at_initial_epoch():
     """Test event detection near initial epoch (mirrors Rust test)"""
     from brahe import TimeEvent

@@ -186,34 +186,34 @@ def anomaly_conversion(
     if input_anomaly == OrbitalAnomaly.mean:
         if output_anomaly == OrbitalAnomaly.eccentric:
             typer.echo(
-                f"{brahe.anomaly_mean_to_eccentric(anom, ecc, angle_format):{format_string}}"
+                f"{brahe.anomaly_mean_to_eccentric(anom, ecc, angle_format=angle_format):{format_string}}"
             )
             return
         elif output_anomaly == OrbitalAnomaly.true:
             typer.echo(
-                f"{brahe.anomaly_mean_to_true(anom, ecc, angle_format):{format_string}}"
+                f"{brahe.anomaly_mean_to_true(anom, ecc, angle_format=angle_format):{format_string}}"
             )
             return
     elif input_anomaly == OrbitalAnomaly.eccentric:
         if output_anomaly == OrbitalAnomaly.mean:
             typer.echo(
-                f"{brahe.anomaly_eccentric_to_mean(anom, ecc, angle_format):{format_string}}"
+                f"{brahe.anomaly_eccentric_to_mean(anom, ecc, angle_format=angle_format):{format_string}}"
             )
             return
         elif output_anomaly == OrbitalAnomaly.true:
             typer.echo(
-                f"{brahe.anomaly_eccentric_to_true(anom, ecc, angle_format):{format_string}}"
+                f"{brahe.anomaly_eccentric_to_true(anom, ecc, angle_format=angle_format):{format_string}}"
             )
             return
     elif input_anomaly == OrbitalAnomaly.true:
         if output_anomaly == OrbitalAnomaly.mean:
             typer.echo(
-                f"{brahe.anomaly_true_to_mean(anom, ecc, angle_format):{format_string}}"
+                f"{brahe.anomaly_true_to_mean(anom, ecc, angle_format=angle_format):{format_string}}"
             )
             return
         elif output_anomaly == OrbitalAnomaly.eccentric:
             typer.echo(
-                f"{brahe.anomaly_true_to_eccentric(anom, ecc, angle_format):{format_string}}"
+                f"{brahe.anomaly_true_to_eccentric(anom, ecc, angle_format=angle_format):{format_string}}"
             )
             return
 
@@ -244,7 +244,7 @@ def sun_sync_inclination(
         brahe.AngleFormat.DEGREES if as_degrees else brahe.AngleFormat.RADIANS
     )
     typer.echo(
-        f"{brahe.sun_synchronous_inclination(sma, ecc, angle_format):{format_string}}"
+        f"{brahe.sun_synchronous_inclination(sma, ecc, angle_format=angle_format):{format_string}}"
     )
 
 

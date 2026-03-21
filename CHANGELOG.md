@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.2.0] - 2026-03-21
+### Added
+
+- Added polygon tessellation for large area access computation [#199](https://github.com/duncaneddy/brahe/pull/199)
+- Added additional benchmarks and comparisons to OreKit in `benchmarks/comparisons` [#209](https://github.com/duncaneddy/brahe/pull/209)
+- Add support for CCSDS OEM, OMM, OPM (blue-book) and CDM (pinkbook) types. Methods exist to load, access, modify, and create these data objects. [#214](https://github.com/duncaneddy/brahe/pull/214)
+- Add full support for XML and JSON output across OEM, OPM, and OMM files. [#222](https://github.com/duncaneddy/brahe/pull/222)
+
+### Changed
+
+- Have Propagators set a UUID by default
+  Have Locations set a UUID by default
+  Migrated default-generated UUIDs to UUIDv7 [#202](https://github.com/duncaneddy/brahe/pull/202)
+- Removed `release` environment flag from github release workflows
+  Only retain last 3 minor documentation verions to prevent unbounded growth of github pages deployments. [#209](https://github.com/duncaneddy/brahe/pull/209)
+- Cleaned up space-track and celestrak documentation to improve readability and understandability [#214](https://github.com/duncaneddy/brahe/pull/214)
+- Added coverage reporting for python bindings and module [#218](https://github.com/duncaneddy/brahe/pull/218)
+- Improved CCSDS module round trip test coverage
+  Ensures that default OEM to Trajectory conversion returns a `DOrbitTrajectory` so that it can immediately be used with access computation. [#222](https://github.com/duncaneddy/brahe/pull/222)
+
+### Fixed
+
+- Reverted compilation regression due to dependabot update. Ignored packages to prevent future regressions [#194](https://github.com/duncaneddy/brahe/pull/194)
+- Skip running CI-related tests on fork-PRs so that tests pass. [#204](https://github.com/duncaneddy/brahe/pull/204)
+- Changes access module type annotations from `List` to `Sequence` so that LSPs don't erroneously report a warning that `location_accesses` and other functions might mutate the list.
+  Fix issue where python bindings for access properties would return a copy of the underlying data so mutations would not persist. Introduce `AccessPropertyView` so that it is now properly possible to access, set, and modify access properties in python. [#206](https://github.com/duncaneddy/brahe/pull/206)
+- Fixed issue with Gabbard plots not generating properly [#218](https://github.com/duncaneddy/brahe/pull/218)
+- Fix coverage reporting [#220](https://github.com/duncaneddy/brahe/pull/220)
+
 ## [1.1.4] - 2026-03-05
 ### Fixed
 

@@ -11,6 +11,8 @@ jobs:
     test-python:
         runs-on: ${{ matrix.os }}
         environment: ${{ !inputs.is-fork-pr && 'release' || '' }}
+        permissions:
+            id-token: write
         strategy:
             matrix:
                 # os: [ubuntu-latest]
@@ -40,19 +42,68 @@ jobs:
 
             -   name: Install dependencies
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
-                
-            -   name: Test with python ${{ matrix.python-version }}
-                run: uv run --frozen coverage run -m pytest -m '${{ inputs.is-fork-pr && 'not ci' || '' }}'
 
-            -   name: Generate coverage report
+            # ── Coverage-instrumented build (ubuntu + Python 3.13 only) ──
+
+            -   name: Install cargo-llvm-cov
+                if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+                uses: taiki-e/install-action@cargo-llvm-cov
+
+            -   name: Build instrumented extension for coverage
+                if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
                 run: |
-                    uv run --frozen coverage report
-                    uv run --frozen coverage html
-            
-            -   name: Upload coverage report
-                uses: actions/upload-artifact@v7
-                with:
-                    name: coverage-report-${{ matrix.os }}-py${{ matrix.python-version }}
-                    path: htmlcov/
+                    cargo llvm-cov clean --workspace
+                    eval "$(cargo llvm-cov show-env --export-prefix)"
+                    uv pip install maturin --quiet
+                    uv run maturin develop --uv --features pyo3/extension-module,python
+                    # Persist LLVM env vars for subsequent steps
+                    cargo llvm-cov show-env --export-prefix >> "$GITHUB_ENV"
 
-            
+            -   name: Build extension (standard)
+                if: matrix.os != 'ubuntu-latest' || matrix.python-version != '3.13'
+                run: uv pip install -e .
+
+            # ── Run tests ──
+
+            -   name: Test with coverage
+                if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+                run: |
+                    uv run --frozen pytest tests/ \
+                        --cov=brahe \
+                        --cov-report=xml:python-coverage.xml \
+                        --cov-report=term \
+                        -m '${{ inputs.is-fork-pr && 'not ci' || '' }}'
+
+            -   name: Test with python ${{ matrix.python-version }}
+                if: matrix.os != 'ubuntu-latest' || matrix.python-version != '3.13'
+                run: uv run --frozen pytest tests/ -v -m '${{ inputs.is-fork-pr && 'not ci' || '' }}'
+
+            # ── Generate and upload coverage (ubuntu + Python 3.13 only) ──
+
+            -   name: Generate Rust coverage from Python tests
+                if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+                run: cargo llvm-cov report --lcov --output-path python-rust-coverage.lcov
+
+            -   name: Upload Python coverage to Codecov
+                if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+                uses: codecov/codecov-action@v5.5.2
+                env:
+                    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+                with:
+                    files: python-coverage.xml
+                    flags: python
+                    fail_ci_if_error: false
+                    verbose: true
+                    use_oidc: true
+
+            -   name: Upload Python-Rust coverage to Codecov
+                if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+                uses: codecov/codecov-action@v5.5.2
+                env:
+                    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+                with:
+                    files: python-rust-coverage.lcov
+                    flags: python-rust
+                    fail_ci_if_error: false
+                    verbose: true
+                    use_oidc: true

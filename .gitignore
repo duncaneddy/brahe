@@ -13,6 +13,11 @@ CLAUDE.md
 
 # Coverage
 lcov.info
+htmlcov/
+python-coverage.xml
+python-rust-coverage.lcov
+*.profraw
+*.profdata
 
 # Build Artifacts - Rust
 /target

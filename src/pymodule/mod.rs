@@ -560,6 +560,7 @@ include!("ccsds.rs");
 
 // Define Module
 
+// LCOV_EXCL_START — module registration is procedurally generated boilerplate
 #[cfg(feature = "python")] // Gate this definition behind a feature flag so it doesn't interfere with non-python builds
 #[pymodule(name = "_brahe")] // See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
 pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -1158,3 +1159,4 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     Ok(())
 }
+// LCOV_EXCL_STOP

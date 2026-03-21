@@ -1,0 +1,39 @@
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+flags:
+  rust-unit:
+    paths:
+      - src/
+    carryforward: true
+  python:
+    paths:
+      - brahe/
+    carryforward: true
+  python-rust:
+    paths:
+      - src/
+    carryforward: true
+
+comment:
+  layout: "reach,diff,flags,files"
+
+ignore:
+  - "tests/"
+  - "examples/"
+  - "benchmarks/"
+  - "scripts/"
+  - "docs/"
+  - "plots/"
+  - "brahe/plots/"

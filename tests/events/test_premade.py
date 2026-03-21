@@ -403,3 +403,189 @@ def test_AOI_antimeridian_polygon():
     )
     assert entry_event is not None
     assert exit_event is not None
+
+
+# =============================================================================
+# Builder Chaining Tests for Remaining Premade Events
+# =============================================================================
+
+
+def test_EccentricityEvent_builder_chaining():
+    """Test EccentricityEvent builder pattern."""
+    event = (
+        bh.EccentricityEvent(0.1, "Ecc", bh.EventDirection.ANY)
+        .with_instance(2)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_InclinationEvent_builder_chaining():
+    """Test InclinationEvent builder pattern."""
+    event = (
+        bh.InclinationEvent(
+            45.0, "Inc", bh.EventDirection.INCREASING, bh.AngleFormat.DEGREES
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_ArgumentOfPerigeeEvent_builder_chaining():
+    """Test ArgumentOfPerigeeEvent builder pattern."""
+    event = (
+        bh.ArgumentOfPerigeeEvent(
+            90.0, "AoP", bh.EventDirection.ANY, bh.AngleFormat.DEGREES
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_MeanAnomalyEvent_builder_chaining():
+    """Test MeanAnomalyEvent builder pattern."""
+    event = (
+        bh.MeanAnomalyEvent(
+            0.0, "MA", bh.EventDirection.INCREASING, bh.AngleFormat.DEGREES
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_EccentricAnomalyEvent_builder_chaining():
+    """Test EccentricAnomalyEvent builder pattern."""
+    event = (
+        bh.EccentricAnomalyEvent(
+            0.0, "EA", bh.EventDirection.ANY, bh.AngleFormat.DEGREES
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_TrueAnomalyEvent_builder_chaining():
+    """Test TrueAnomalyEvent builder pattern."""
+    event = (
+        bh.TrueAnomalyEvent(180.0, "TA", bh.EventDirection.ANY, bh.AngleFormat.DEGREES)
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_ArgumentOfLatitudeEvent_builder_chaining():
+    """Test ArgumentOfLatitudeEvent builder pattern."""
+    event = (
+        bh.ArgumentOfLatitudeEvent(
+            30.0, "AoL", bh.EventDirection.INCREASING, bh.AngleFormat.DEGREES
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_LatitudeEvent_builder_chaining():
+    """Test LatitudeEvent builder pattern."""
+    event = (
+        bh.LatitudeEvent(
+            0.0, "Equator", bh.EventDirection.INCREASING, bh.AngleFormat.DEGREES
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_LongitudeEvent_builder_chaining():
+    """Test LongitudeEvent builder pattern."""
+    event = (
+        bh.LongitudeEvent(
+            0.0, "Greenwich", bh.EventDirection.ANY, bh.AngleFormat.DEGREES
+        )
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_PenumbraEvent_builder_chaining():
+    """Test PenumbraEvent builder pattern."""
+    event = (
+        bh.PenumbraEvent("Penumbra", bh.EdgeType.RISING_EDGE, None)
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_EclipseEvent_builder_chaining():
+    """Test EclipseEvent builder pattern."""
+    event = (
+        bh.EclipseEvent("Eclipse", bh.EdgeType.ANY_EDGE, None)
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_SunlitEvent_builder_chaining():
+    """Test SunlitEvent builder pattern."""
+    event = (
+        bh.SunlitEvent("Sunlit", bh.EdgeType.RISING_EDGE, None)
+        .with_instance(1)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+def test_DescendingNodeEvent_builder_chaining():
+    """Test DescendingNodeEvent builder pattern."""
+    event = (
+        bh.DescendingNodeEvent("Desc Node")
+        .with_instance(2)
+        .with_tolerances(1e-5, 1e-8)
+        .set_terminal()
+    )
+    assert event is not None
+
+
+# =============================================================================
+# str/repr tests for premade events
+# =============================================================================
+
+
+def test_premade_event_str_repr():
+    """Test that str and repr work for various premade events."""
+    events = [
+        bh.SemiMajorAxisEvent(7000e3, "SMA Test", bh.EventDirection.ANY),
+        bh.EccentricityEvent(0.01, "Ecc Test", bh.EventDirection.INCREASING),
+        bh.AscendingNodeEvent("AN Test"),
+        bh.DescendingNodeEvent("DN Test"),
+        bh.AltitudeEvent(500e3, "Alt Test", bh.EventDirection.ANY),
+        bh.SpeedEvent(7500.0, "Speed Test", bh.EventDirection.DECREASING),
+        bh.UmbraEvent("Umbra Test", bh.EdgeType.ANY_EDGE, None),
+        bh.EclipseEvent("Eclipse Test", bh.EdgeType.RISING_EDGE, None),
+    ]
+    for event in events:
+        s = str(event)
+        assert len(s) > 0
+        r = repr(event)
+        assert len(r) > 0

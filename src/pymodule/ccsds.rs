@@ -2435,6 +2435,75 @@ pub struct PyOMM {
 impl PyOMM {
     // --- constructors ---
 
+    /// Create a new OMM message programmatically.
+    ///
+    /// Args:
+    ///     originator (str): Originator of the message
+    ///     object_name (str): Spacecraft name
+    ///     object_id (str): International designator
+    ///     center_name (str): Center body name (e.g., "EARTH")
+    ///     ref_frame (str): Reference frame (e.g., "TEME")
+    ///     time_system (str): Time system (e.g., "UTC")
+    ///     mean_element_theory (str): Mean element theory (e.g., "SGP/SGP4")
+    ///     epoch (Epoch): Epoch of the mean elements
+    ///     eccentricity (float): Eccentricity (dimensionless)
+    ///     inclination (float): Inclination in degrees
+    ///     ra_of_asc_node (float): Right ascension of ascending node in degrees
+    ///     arg_of_pericenter (float): Argument of pericenter in degrees
+    ///     mean_anomaly (float): Mean anomaly in degrees
+    ///     mean_motion (float, optional): Mean motion in rev/day
+    ///     gm (float, optional): Gravitational parameter in m³/s²
+    ///
+    /// Returns:
+    ///     OMM: New OMM message
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     from brahe.ccsds import OMM
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     omm = OMM("NOAA", "ISS", "1998-067A", "EARTH", "TEME", "UTC", "SGP/SGP4",
+    ///               epoch, 0.0001, 51.64, 200.0, 100.0, 260.0, mean_motion=15.5)
+    ///     ```
+    #[new]
+    #[pyo3(signature = (originator, object_name, object_id, center_name, ref_frame, time_system, mean_element_theory, epoch, eccentricity, inclination, ra_of_asc_node, arg_of_pericenter, mean_anomaly, mean_motion=None, gm=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        originator: String,
+        object_name: String,
+        object_id: String,
+        center_name: String,
+        ref_frame: String,
+        time_system: String,
+        mean_element_theory: String,
+        epoch: PyEpoch,
+        eccentricity: f64,
+        inclination: f64,
+        ra_of_asc_node: f64,
+        arg_of_pericenter: f64,
+        mean_anomaly: f64,
+        mean_motion: Option<f64>,
+        gm: Option<f64>,
+    ) -> PyResult<Self> {
+        let rf = CCSDSRefFrame::parse(&ref_frame);
+        let ts = CCSDSTimeSystem::parse(&time_system).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid time_system: {}", e))
+        })?;
+
+        use crate::ccsds::omm::{OMMMetadata, OMMeanElements};
+        let metadata = OMMMetadata::new(object_name, object_id, center_name, rf, ts, mean_element_theory);
+        let mut elements = OMMeanElements::new(epoch.obj, eccentricity, inclination, ra_of_asc_node, arg_of_pericenter, mean_anomaly);
+        if let Some(mm) = mean_motion {
+            elements = elements.with_mean_motion(mm);
+        }
+        if let Some(g) = gm {
+            elements = elements.with_gm(g);
+        }
+        let inner = RustOMM::new(originator, metadata, elements);
+        Ok(PyOMM { inner })
+    }
+
     /// Parse an OMM from a string, auto-detecting the format.
     ///
     /// Args:
@@ -3211,6 +3280,60 @@ pub struct PyOPM {
 #[pymethods]
 impl PyOPM {
     // --- constructors ---
+
+    /// Create a new OPM message programmatically.
+    ///
+    /// Args:
+    ///     originator (str): Originator of the message
+    ///     object_name (str): Spacecraft name
+    ///     object_id (str): International designator
+    ///     center_name (str): Center body name (e.g., "EARTH")
+    ///     ref_frame (str): Reference frame (e.g., "GCRF", "ITRF2000")
+    ///     time_system (str): Time system (e.g., "UTC")
+    ///     epoch (Epoch): Epoch of the state vector
+    ///     position (numpy.ndarray): Position [x, y, z] in meters
+    ///     velocity (numpy.ndarray): Velocity [vx, vy, vz] in m/s
+    ///
+    /// Returns:
+    ///     OPM: New OPM message
+    ///
+    /// Example:
+    ///     ```python
+    ///     import numpy as np
+    ///     import brahe as bh
+    ///     from brahe.ccsds import OPM
+    ///
+    ///     epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     opm = OPM("MY_ORG", "SAT1", "2024-001A", "EARTH", "GCRF", "UTC",
+    ///               epoch, np.array([7000e3, 0.0, 0.0]), np.array([0.0, 7500.0, 0.0]))
+    ///     ```
+    #[new]
+    #[pyo3(signature = (originator, object_name, object_id, center_name, ref_frame, time_system, epoch, position, velocity))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        originator: String,
+        object_name: String,
+        object_id: String,
+        center_name: String,
+        ref_frame: String,
+        time_system: String,
+        epoch: PyEpoch,
+        position: &pyo3::Bound<'_, pyo3::types::PyAny>,
+        velocity: &pyo3::Bound<'_, pyo3::types::PyAny>,
+    ) -> PyResult<Self> {
+        let rf = CCSDSRefFrame::parse(&ref_frame);
+        let ts = CCSDSTimeSystem::parse(&time_system).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid time_system: {}", e))
+        })?;
+        let pos = pyany_to_array3(position, "position")?;
+        let vel = pyany_to_array3(velocity, "velocity")?;
+
+        use crate::ccsds::opm::{OPMMetadata, OPMStateVector};
+        let metadata = OPMMetadata::new(object_name, object_id, center_name, rf, ts);
+        let state_vector = OPMStateVector::new(epoch.obj, pos, vel);
+        let inner = RustOPM::new(originator, metadata, state_vector);
+        Ok(PyOPM { inner })
+    }
 
     /// Parse an OPM from a string, auto-detecting the format.
     ///

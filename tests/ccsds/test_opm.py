@@ -524,3 +524,115 @@ def test_opm_json_full_round_trip(eop):
     json_str = opm1.to_string("JSON")
     opm2 = OPM.from_str(json_str)
     _assert_opm_fields(opm1, opm2)
+
+
+# ─────────────────────────────────────────────
+# Programmatic constructor tests
+# ─────────────────────────────────────────────
+
+
+def test_opm_constructor(eop):
+    """Test creating an OPM programmatically with the constructor."""
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        originator="TEST_ORG",
+        object_name="SAT1",
+        object_id="2024-001A",
+        center_name="EARTH",
+        ref_frame="GCRF",
+        time_system="UTC",
+        epoch=epoch,
+        position=np.array([7000e3, 0.0, 0.0]),
+        velocity=np.array([0.0, 7500.0, 0.0]),
+    )
+
+    assert opm.originator == "TEST_ORG"
+    assert opm.object_name == "SAT1"
+    assert opm.object_id == "2024-001A"
+    assert opm.center_name == "EARTH"
+    assert opm.ref_frame == "GCRF"
+    assert opm.time_system == "UTC"
+    assert opm.format_version == pytest.approx(3.0)
+    assert opm.position == pytest.approx([7000e3, 0.0, 0.0])
+    assert opm.velocity == pytest.approx([0.0, 7500.0, 0.0])
+    assert opm.epoch == epoch
+    assert not opm.has_keplerian_elements
+    assert len(opm.maneuvers) == 0
+    assert opm.mass is None
+
+
+def test_opm_constructor_list_inputs(eop):
+    """Test OPM constructor accepts plain lists for position/velocity."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        "ORG",
+        "SAT",
+        "2024-001A",
+        "EARTH",
+        "ITRF2000",
+        "UTC",
+        epoch,
+        [6500e3, 1200e3, -700e3],
+        [-800.0, 8700.0, -4200.0],
+    )
+    assert opm.position == pytest.approx([6500e3, 1200e3, -700e3])
+    assert opm.velocity == pytest.approx([-800.0, 8700.0, -4200.0])
+
+
+def test_opm_constructor_then_serialize(eop):
+    """Test constructing an OPM and serializing it round-trips correctly."""
+    epoch = Epoch.from_datetime(2024, 6, 15, 12, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        "MY_ORG",
+        "MYSAT",
+        "2024-050A",
+        "EARTH",
+        "GCRF",
+        "UTC",
+        epoch,
+        [7000e3, 0.0, 0.0],
+        [0.0, 7500.0, 0.0],
+    )
+
+    # Add a maneuver
+    man_epoch = Epoch.from_datetime(2024, 6, 16, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm.add_maneuver(man_epoch, 120.0, "RTN", [10.0, 0.0, 0.0], delta_mass=-5.0)
+
+    # Round-trip through KVN
+    kvn = opm.to_string("KVN")
+    opm2 = OPM.from_str(kvn)
+    assert opm2.object_name == "MYSAT"
+    assert opm2.object_id == "2024-050A"
+    assert opm2.position == pytest.approx([7000e3, 0.0, 0.0], abs=1.0)
+    assert opm2.velocity == pytest.approx([0.0, 7500.0, 0.0], abs=0.001)
+    assert len(opm2.maneuvers) == 1
+    assert opm2.maneuvers[0].duration == pytest.approx(120.0)
+    assert opm2.maneuvers[0].delta_mass == pytest.approx(-5.0)
+
+
+def test_opm_constructor_then_mutate(eop):
+    """Test constructing an OPM and then mutating its fields."""
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, brahe.TimeSystem.UTC)
+    opm = OPM(
+        "ORG",
+        "SAT1",
+        "2024-001A",
+        "EARTH",
+        "GCRF",
+        "UTC",
+        epoch,
+        [7000e3, 0.0, 0.0],
+        [0.0, 7500.0, 0.0],
+    )
+
+    # Mutate metadata
+    opm.object_name = "NEW_SAT"
+    assert opm.object_name == "NEW_SAT"
+
+    # Mutate state
+    opm.position = [8000e3, 0.0, 0.0]
+    assert opm.position[0] == pytest.approx(8000e3)
+
+    # Mutate header
+    opm.originator = "NEW_ORG"
+    assert opm.originator == "NEW_ORG"

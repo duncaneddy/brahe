@@ -1055,3 +1055,61 @@ def test_OEM_trajectory_round_trip(keplerian_trajectory):
         # KVN format has limited precision (~1m for position, ~0.001 m/s for velocity)
         assert sv.position == pytest.approx(list(expected[:3]), abs=1.0)
         assert sv.velocity == pytest.approx(list(expected[3:6]), abs=0.001)
+
+
+def test_oem_xml_round_trip(eop):
+    """Test OEM XML write then re-parse preserves data."""
+    oem = OEM.from_file("test_assets/ccsds/oem/OEMExample3.xml")
+    xml_str = oem.to_string("XML")
+    oem2 = OEM.from_str(xml_str)
+    assert oem2.originator == oem.originator
+    assert len(oem2.segments) == len(oem.segments)
+    assert oem2.segments[0].num_states == oem.segments[0].num_states
+    # Position round-trip
+    sv1 = oem.segments[0].states[0]
+    sv2 = oem2.segments[0].states[0]
+    assert sv2.position == pytest.approx(sv1.position, abs=1.0)
+    assert sv2.velocity == pytest.approx(sv1.velocity, abs=1.0)
+
+
+def _assert_oem_fields(oem1, oem2):
+    """Assert all accessible OEM fields match."""
+    assert oem2.format_version == oem1.format_version
+    assert oem2.originator == oem1.originator
+    assert oem2.classification == oem1.classification
+    assert oem2.message_id == oem1.message_id
+    assert len(oem2.segments) == len(oem1.segments)
+    for seg1, seg2 in zip(oem1.segments, oem2.segments):
+        assert seg2.object_name == seg1.object_name
+        assert seg2.object_id == seg1.object_id
+        assert seg2.center_name == seg1.center_name
+        assert seg2.ref_frame == seg1.ref_frame
+        assert seg2.time_system == seg1.time_system
+        assert seg2.num_states == seg1.num_states
+        for sv1, sv2 in zip(seg1.states, seg2.states):
+            assert sv2.position == pytest.approx(sv1.position, abs=1.0)
+            assert sv2.velocity == pytest.approx(sv1.velocity, abs=0.001)
+
+
+def test_oem_kvn_full_round_trip(eop):
+    """Full-field OEM KVN round-trip."""
+    oem1 = OEM.from_file("test_assets/ccsds/oem/OEMExample5.txt")
+    kvn = oem1.to_string("KVN")
+    oem2 = OEM.from_str(kvn)
+    _assert_oem_fields(oem1, oem2)
+
+
+def test_oem_xml_full_round_trip(eop):
+    """Full-field OEM XML round-trip with acceleration + covariance."""
+    oem1 = OEM.from_file("test_assets/ccsds/oem/OEMExample3.xml")
+    xml = oem1.to_string("XML")
+    oem2 = OEM.from_str(xml)
+    _assert_oem_fields(oem1, oem2)
+
+
+def test_oem_json_full_round_trip(eop):
+    """Full-field OEM JSON round-trip."""
+    oem1 = OEM.from_file("test_assets/ccsds/oem/OEMExample3.xml")
+    json_str = oem1.to_string("JSON")
+    oem2 = OEM.from_str(json_str)
+    _assert_oem_fields(oem1, oem2)

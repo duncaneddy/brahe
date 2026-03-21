@@ -421,27 +421,86 @@ mod tests {
     }
 
     #[test]
-    fn test_opm_to_string_kvn_returns_error() {
-        // KVN writer is not yet implemented
+    fn test_opm_kvn_round_trip() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
-        let result = opm.to_string(CCSDSFormat::KVN);
-        assert!(result.is_err());
+        let kvn_str = opm.to_string(CCSDSFormat::KVN).unwrap();
+        let opm2 = OPM::from_str(&kvn_str).unwrap();
+        assert_eq!(opm2.metadata.object_name, opm.metadata.object_name);
+        assert_eq!(opm2.metadata.object_id, opm.metadata.object_id);
+        // Position round-trip: m → km → m
+        assert!((opm2.state_vector.position[0] - opm.state_vector.position[0]).abs() < 1.0);
+        assert!((opm2.state_vector.velocity[0] - opm.state_vector.velocity[0]).abs() < 0.001);
+        // Spacecraft parameters
+        assert!(opm2.spacecraft_parameters.is_some());
+        let sp2 = opm2.spacecraft_parameters.as_ref().unwrap();
+        assert!((sp2.mass.unwrap() - 3000.0).abs() < 0.01);
     }
 
     #[test]
-    fn test_opm_to_string_xml_returns_error() {
-        // XML writer is not yet implemented
-        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
-        let result = opm.to_string(CCSDSFormat::XML);
-        assert!(result.is_err());
+    fn test_opm_kvn_round_trip_with_keplerian_and_maneuvers() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
+        let kvn_str = opm.to_string(CCSDSFormat::KVN).unwrap();
+        let opm2 = OPM::from_str(&kvn_str).unwrap();
+        // Keplerian elements
+        assert!(opm2.keplerian_elements.is_some());
+        let ke1 = opm.keplerian_elements.as_ref().unwrap();
+        let ke2 = opm2.keplerian_elements.as_ref().unwrap();
+        assert!((ke2.eccentricity - ke1.eccentricity).abs() < 1e-9);
+        assert!((ke2.semi_major_axis - ke1.semi_major_axis).abs() < 1.0);
+        // Maneuvers
+        assert_eq!(opm2.maneuvers.len(), opm.maneuvers.len());
+        assert!((opm2.maneuvers[0].duration - opm.maneuvers[0].duration).abs() < 0.01);
+        assert!((opm2.maneuvers[0].dv[0] - opm.maneuvers[0].dv[0]).abs() < 0.01);
     }
 
     #[test]
-    fn test_opm_to_file_propagates_write_error() {
-        // to_file delegates to to_string, which fails for all formats currently
+    fn test_opm_xml_round_trip() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample3.xml").unwrap();
+        let xml_str = opm.to_string(CCSDSFormat::XML).unwrap();
+        let opm2 = OPM::from_str(&xml_str).unwrap();
+        assert_eq!(opm2.metadata.object_name, opm.metadata.object_name);
+        assert_eq!(opm2.metadata.object_id, opm.metadata.object_id);
+        assert!((opm2.state_vector.position[0] - opm.state_vector.position[0]).abs() < 1.0);
+        assert!((opm2.state_vector.velocity[0] - opm.state_vector.velocity[0]).abs() < 0.001);
+        // Covariance
+        assert!(opm2.covariance.is_some());
+        let cov1 = opm.covariance.as_ref().unwrap();
+        let cov2 = opm2.covariance.as_ref().unwrap();
+        assert!((cov2.matrix[(0, 0)] - cov1.matrix[(0, 0)]).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_opm_xml_parse_example3() {
+        let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample3.xml").unwrap();
+        assert_eq!(opm.metadata.object_name, "OSPREY 5");
+        assert_eq!(opm.metadata.object_id, "1998-999A");
+        assert_eq!(opm.metadata.center_name, "EARTH");
+        assert!(matches!(opm.metadata.ref_frame, CCSDSRefFrame::TOD));
+        assert!(opm.metadata.ref_frame_epoch.is_some());
+        // Position: 6503.514 km → m
+        assert!((opm.state_vector.position[0] - 6503514.0).abs() < 1.0);
+        assert!((opm.state_vector.velocity[0] - (-873.16)).abs() < 0.01);
+        // Spacecraft parameters
+        assert!(opm.spacecraft_parameters.is_some());
+        let sp = opm.spacecraft_parameters.as_ref().unwrap();
+        assert!((sp.mass.unwrap() - 3000.0).abs() < 0.01);
+        // Covariance
+        assert!(opm.covariance.is_some());
+        let cov = opm.covariance.as_ref().unwrap();
+        assert_eq!(cov.cov_ref_frame.as_ref().unwrap(), &CCSDSRefFrame::ITRF97);
+        // CX_X = 0.316 km² = 316000 m²
+        assert!((cov.matrix[(0, 0)] - 316000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_opm_to_file_kvn() {
         let opm = OPM::from_file("test_assets/ccsds/opm/OPMExample1.txt").unwrap();
-        let result = opm.to_file("/tmp/brahe_test_opm.txt", CCSDSFormat::KVN);
-        assert!(result.is_err());
+        let dir = std::env::temp_dir();
+        let path = dir.join("brahe_test_opm.txt");
+        opm.to_file(&path, CCSDSFormat::KVN).unwrap();
+        let opm2 = OPM::from_file(&path).unwrap();
+        assert_eq!(opm2.metadata.object_name, opm.metadata.object_name);
+        std::fs::remove_file(&path).ok();
     }
 
     #[test]
@@ -512,5 +571,175 @@ mod tests {
         let json_str = opm.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
         assert!(json_str.contains("OBJECT_NAME"));
         assert!(json_str.contains("OBJECT_ID"));
+    }
+
+    /// Helper: assert all OPM fields match between original and round-tripped.
+    fn assert_opm_fields_match(opm1: &OPM, opm2: &OPM) {
+        // Header
+        assert_eq!(opm1.header.format_version, opm2.header.format_version);
+        assert_eq!(opm1.header.originator, opm2.header.originator);
+        assert_eq!(opm1.header.classification, opm2.header.classification);
+        assert_eq!(opm1.header.message_id, opm2.header.message_id);
+
+        // Metadata
+        assert_eq!(opm1.metadata.object_name, opm2.metadata.object_name);
+        assert_eq!(opm1.metadata.object_id, opm2.metadata.object_id);
+        assert_eq!(opm1.metadata.center_name, opm2.metadata.center_name);
+        assert_eq!(opm1.metadata.ref_frame, opm2.metadata.ref_frame);
+        assert_eq!(opm1.metadata.time_system, opm2.metadata.time_system);
+
+        // State vector
+        for i in 0..3 {
+            assert!(
+                (opm1.state_vector.position[i] - opm2.state_vector.position[i]).abs() < 1.0,
+                "position[{}] mismatch: {} vs {}",
+                i,
+                opm1.state_vector.position[i],
+                opm2.state_vector.position[i]
+            );
+            assert!(
+                (opm1.state_vector.velocity[i] - opm2.state_vector.velocity[i]).abs() < 0.001,
+                "velocity[{}] mismatch: {} vs {}",
+                i,
+                opm1.state_vector.velocity[i],
+                opm2.state_vector.velocity[i]
+            );
+        }
+
+        // Keplerian elements
+        assert_eq!(
+            opm1.keplerian_elements.is_some(),
+            opm2.keplerian_elements.is_some()
+        );
+        if let (Some(ke1), Some(ke2)) = (&opm1.keplerian_elements, &opm2.keplerian_elements) {
+            assert!((ke1.semi_major_axis - ke2.semi_major_axis).abs() < 1.0);
+            assert!((ke1.eccentricity - ke2.eccentricity).abs() < 1e-9);
+            assert!((ke1.inclination - ke2.inclination).abs() < 1e-6);
+            assert!((ke1.ra_of_asc_node - ke2.ra_of_asc_node).abs() < 1e-6);
+            assert!((ke1.arg_of_pericenter - ke2.arg_of_pericenter).abs() < 1e-6);
+            assert_eq!(ke1.true_anomaly.is_some(), ke2.true_anomaly.is_some());
+            if let (Some(ta1), Some(ta2)) = (ke1.true_anomaly, ke2.true_anomaly) {
+                assert!((ta1 - ta2).abs() < 1e-6);
+            }
+            assert_eq!(ke1.mean_anomaly.is_some(), ke2.mean_anomaly.is_some());
+            assert_eq!(ke1.gm.is_some(), ke2.gm.is_some());
+            if let (Some(gm1), Some(gm2)) = (ke1.gm, ke2.gm) {
+                assert!((gm1 - gm2).abs() < 1e3);
+            }
+        }
+
+        // Spacecraft parameters
+        assert_eq!(
+            opm1.spacecraft_parameters.is_some(),
+            opm2.spacecraft_parameters.is_some()
+        );
+        if let (Some(sp1), Some(sp2)) = (&opm1.spacecraft_parameters, &opm2.spacecraft_parameters) {
+            assert_eq!(sp1.mass.is_some(), sp2.mass.is_some());
+            if let (Some(m1), Some(m2)) = (sp1.mass, sp2.mass) {
+                assert!((m1 - m2).abs() < 0.01);
+            }
+            assert_eq!(sp1.solar_rad_area.is_some(), sp2.solar_rad_area.is_some());
+            if let (Some(a1), Some(a2)) = (sp1.solar_rad_area, sp2.solar_rad_area) {
+                assert!((a1 - a2).abs() < 0.01);
+            }
+            assert_eq!(sp1.solar_rad_coeff.is_some(), sp2.solar_rad_coeff.is_some());
+            if let (Some(c1), Some(c2)) = (sp1.solar_rad_coeff, sp2.solar_rad_coeff) {
+                assert!((c1 - c2).abs() < 0.01);
+            }
+            assert_eq!(sp1.drag_area.is_some(), sp2.drag_area.is_some());
+            if let (Some(a1), Some(a2)) = (sp1.drag_area, sp2.drag_area) {
+                assert!((a1 - a2).abs() < 0.01);
+            }
+            assert_eq!(sp1.drag_coeff.is_some(), sp2.drag_coeff.is_some());
+            if let (Some(c1), Some(c2)) = (sp1.drag_coeff, sp2.drag_coeff) {
+                assert!((c1 - c2).abs() < 0.01);
+            }
+        }
+
+        // Covariance
+        assert_eq!(opm1.covariance.is_some(), opm2.covariance.is_some());
+        if let (Some(cov1), Some(cov2)) = (&opm1.covariance, &opm2.covariance) {
+            assert_eq!(cov1.cov_ref_frame, cov2.cov_ref_frame);
+            for i in 0..6 {
+                for j in 0..6 {
+                    let rel = if cov1.matrix[(i, j)].abs() > 1e-20 {
+                        ((cov1.matrix[(i, j)] - cov2.matrix[(i, j)]) / cov1.matrix[(i, j)]).abs()
+                    } else {
+                        (cov1.matrix[(i, j)] - cov2.matrix[(i, j)]).abs()
+                    };
+                    assert!(
+                        rel < 1e-4,
+                        "cov({},{}) mismatch: {} vs {}",
+                        i,
+                        j,
+                        cov1.matrix[(i, j)],
+                        cov2.matrix[(i, j)]
+                    );
+                }
+            }
+        }
+
+        // Maneuvers
+        assert_eq!(opm1.maneuvers.len(), opm2.maneuvers.len());
+        for (m1, m2) in opm1.maneuvers.iter().zip(opm2.maneuvers.iter()) {
+            assert!((m1.duration - m2.duration).abs() < 0.01);
+            assert_eq!(m1.ref_frame, m2.ref_frame);
+            for i in 0..3 {
+                assert!((m1.dv[i] - m2.dv[i]).abs() < 0.01);
+            }
+            assert_eq!(m1.delta_mass.is_some(), m2.delta_mass.is_some());
+            if let (Some(dm1), Some(dm2)) = (m1.delta_mass, m2.delta_mass) {
+                assert!((dm1 - dm2).abs() < 0.01);
+            }
+        }
+
+        // User-defined parameters
+        assert_eq!(opm1.user_defined.is_some(), opm2.user_defined.is_some());
+        if let (Some(ud1), Some(ud2)) = (&opm1.user_defined, &opm2.user_defined) {
+            assert_eq!(ud1.parameters.len(), ud2.parameters.len());
+            for (k, v) in &ud1.parameters {
+                assert_eq!(
+                    ud2.parameters.get(k),
+                    Some(v),
+                    "user_defined key {} mismatch",
+                    k
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_opm_kvn_full_round_trip() {
+        // OPMExample4 has: state, Keplerian, spacecraft params, covariance, user_defined
+        let opm1 = OPM::from_file("test_assets/ccsds/opm/OPMExample4.txt").unwrap();
+        let kvn = opm1.to_string(CCSDSFormat::KVN).unwrap();
+        let opm2 = OPM::from_str(&kvn).unwrap();
+        assert_opm_fields_match(&opm1, &opm2);
+    }
+
+    #[test]
+    fn test_opm_xml_full_round_trip() {
+        // Start from KVN (richer fields), write to XML, re-parse
+        let opm1 = OPM::from_file("test_assets/ccsds/opm/OPMExample4.txt").unwrap();
+        let xml = opm1.to_string(CCSDSFormat::XML).unwrap();
+        let opm2 = OPM::from_str(&xml).unwrap();
+        assert_opm_fields_match(&opm1, &opm2);
+    }
+
+    #[test]
+    fn test_opm_json_full_round_trip() {
+        let opm1 = OPM::from_file("test_assets/ccsds/opm/OPMExample4.txt").unwrap();
+        let json = opm1.to_string(CCSDSFormat::JSON).unwrap();
+        let opm2 = OPM::from_str(&json).unwrap();
+        assert_opm_fields_match(&opm1, &opm2);
+    }
+
+    #[test]
+    fn test_opm_kvn_full_round_trip_with_maneuvers() {
+        // OPMExample5 has Keplerian elements and maneuvers
+        let opm1 = OPM::from_file("test_assets/ccsds/opm/OPMExample5.txt").unwrap();
+        let kvn = opm1.to_string(CCSDSFormat::KVN).unwrap();
+        let opm2 = OPM::from_str(&kvn).unwrap();
+        assert_opm_fields_match(&opm1, &opm2);
     }
 }

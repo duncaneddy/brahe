@@ -5,7 +5,7 @@
  * trajectory, propagator, and state vector types.
  */
 
-use nalgebra::SVector;
+use nalgebra::{DVector, SVector};
 
 use crate::ccsds::common::{
     CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, format_ccsds_datetime, parse_ccsds_datetime,
@@ -13,6 +13,7 @@ use crate::ccsds::common::{
 use crate::ccsds::oem::OEM;
 use crate::ccsds::omm::{OMM, OMMMetadata, OMMTleParameters, OMMeanElements};
 use crate::time::Epoch;
+use crate::trajectories::dorbit_trajectory::DOrbitTrajectory;
 use crate::trajectories::sorbit_trajectory::SOrbitTrajectory;
 use crate::trajectories::traits::{OrbitFrame, OrbitRepresentation, Trajectory};
 use crate::types::GPRecord;
@@ -49,10 +50,58 @@ pub fn ccsds_ref_frame_to_orbit_frame(frame: &CCSDSRefFrame) -> Result<OrbitFram
 }
 
 impl OEM {
-    /// Convert a single OEM segment to a brahe `SOrbitTrajectory`.
+    /// Convert a single OEM segment to a `DOrbitTrajectory`.
     ///
-    /// The trajectory contains Cartesian state vectors (position/velocity)
-    /// in the reference frame specified by the segment metadata.
+    /// Returns a dynamic-dimension trajectory that implements
+    /// `DIdentifiableStateProvider`, making it directly usable with the
+    /// access computation API (`location_accesses`).
+    ///
+    /// # Arguments
+    ///
+    /// * `segment_idx` - Index of the segment to convert (0-based)
+    ///
+    /// # Returns
+    ///
+    /// * `Result<DOrbitTrajectory, BraheError>` - Trajectory or error
+    pub fn segment_to_dorbit_trajectory(
+        &self,
+        segment_idx: usize,
+    ) -> Result<DOrbitTrajectory, BraheError> {
+        let segment = self.segments.get(segment_idx).ok_or_else(|| {
+            BraheError::OutOfBoundsError(format!(
+                "OEM segment index {} out of range (have {})",
+                segment_idx,
+                self.segments.len()
+            ))
+        })?;
+
+        let orbit_frame = ccsds_ref_frame_to_orbit_frame(&segment.metadata.ref_frame)?;
+
+        let mut traj = DOrbitTrajectory::new(6, orbit_frame, OrbitRepresentation::Cartesian, None);
+
+        traj.name = Some(segment.metadata.object_name.clone());
+
+        for sv in &segment.states {
+            let state = DVector::from_column_slice(&[
+                sv.position[0],
+                sv.position[1],
+                sv.position[2],
+                sv.velocity[0],
+                sv.velocity[1],
+                sv.velocity[2],
+            ]);
+            traj.add(sv.epoch, state);
+        }
+
+        Ok(traj)
+    }
+
+    /// Convert a single OEM segment to an `SOrbitTrajectory`.
+    ///
+    /// Returns a static 6D trajectory optimized for orbital state vectors.
+    /// Note: `SOrbitTrajectory` does not implement `DIdentifiableStateProvider`,
+    /// so it cannot be used directly with `location_accesses`. Use
+    /// `segment_to_dorbit_trajectory` for access computation.
     ///
     /// # Arguments
     ///
@@ -61,7 +110,7 @@ impl OEM {
     /// # Returns
     ///
     /// * `Result<SOrbitTrajectory, BraheError>` - Trajectory or error
-    pub fn segment_to_orbit_trajectory(
+    pub fn segment_to_sorbit_trajectory(
         &self,
         segment_idx: usize,
     ) -> Result<SOrbitTrajectory, BraheError> {
@@ -94,22 +143,29 @@ impl OEM {
         Ok(traj)
     }
 
-    /// Convert all segments to brahe `SOrbitTrajectory` objects.
+    /// Convert a single OEM segment to a `DOrbitTrajectory`.
     ///
-    /// # Returns
-    ///
-    /// * `Result<Vec<SOrbitTrajectory>, BraheError>` - One trajectory per segment
-    pub fn to_orbit_trajectories(&self) -> Result<Vec<SOrbitTrajectory>, BraheError> {
+    /// Convenience alias for `segment_to_dorbit_trajectory`. Returns a trajectory
+    /// compatible with the access computation API and other brahe functions.
+    pub fn segment_to_trajectory(
+        &self,
+        segment_idx: usize,
+    ) -> Result<DOrbitTrajectory, BraheError> {
+        self.segment_to_dorbit_trajectory(segment_idx)
+    }
+
+    /// Convert all segments to `DOrbitTrajectory` objects.
+    pub fn to_trajectories(&self) -> Result<Vec<DOrbitTrajectory>, BraheError> {
         (0..self.segments.len())
-            .map(|i| self.segment_to_orbit_trajectory(i))
+            .map(|i| self.segment_to_dorbit_trajectory(i))
             .collect()
     }
 }
 
-impl TryFrom<&OEM> for SOrbitTrajectory {
+impl TryFrom<&OEM> for DOrbitTrajectory {
     type Error = BraheError;
 
-    /// Convert a single-segment OEM to a trajectory.
+    /// Convert a single-segment OEM to a `DOrbitTrajectory`.
     ///
     /// Returns an error if the OEM has zero or more than one segment.
     fn try_from(oem: &OEM) -> Result<Self, Self::Error> {
@@ -119,7 +175,7 @@ impl TryFrom<&OEM> for SOrbitTrajectory {
                 oem.segments.len()
             )));
         }
-        oem.segment_to_orbit_trajectory(0)
+        oem.segment_to_dorbit_trajectory(0)
     }
 }
 
@@ -374,7 +430,7 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
-        let traj = oem.segment_to_orbit_trajectory(0).unwrap();
+        let traj = oem.segment_to_trajectory(0).unwrap();
         assert_eq!(traj.len(), 3);
         assert_eq!(traj.name.as_deref(), Some("MARS GLOBAL SURVEYOR"));
         assert_eq!(traj.frame, OrbitFrame::EME2000);
@@ -390,7 +446,7 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample5.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
-        let traj = oem.segment_to_orbit_trajectory(0).unwrap();
+        let traj = oem.segment_to_trajectory(0).unwrap();
         assert_eq!(traj.len(), 49);
         assert_eq!(traj.frame, OrbitFrame::GCRF);
     }
@@ -400,7 +456,7 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
-        let trajs = oem.to_orbit_trajectories().unwrap();
+        let trajs = oem.to_trajectories().unwrap();
         assert_eq!(trajs.len(), 3);
     }
 
@@ -409,7 +465,7 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
-        let traj = SOrbitTrajectory::try_from(&oem).unwrap();
+        let traj = DOrbitTrajectory::try_from(&oem).unwrap();
         assert_eq!(traj.len(), 3);
     }
 
@@ -418,7 +474,7 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
-        assert!(SOrbitTrajectory::try_from(&oem).is_err());
+        assert!(DOrbitTrajectory::try_from(&oem).is_err());
     }
 
     #[test]
@@ -426,7 +482,7 @@ mod tests {
         let content = std::fs::read_to_string("test_assets/ccsds/oem/OEMExample4.txt").unwrap();
         let oem = OEM::from_str(&content).unwrap();
 
-        assert!(oem.segment_to_orbit_trajectory(5).is_err());
+        assert!(oem.segment_to_trajectory(5).is_err());
     }
 
     #[test]

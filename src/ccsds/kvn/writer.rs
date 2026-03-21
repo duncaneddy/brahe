@@ -147,21 +147,362 @@ pub fn write_oem(oem: &OEM) -> Result<String, BraheError> {
 }
 
 /// Write an OMM message to KVN format.
-///
-/// Stub — implemented in Stage 5.
-pub fn write_omm(_omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
-    Err(BraheError::Error(
-        "OMM KVN writer not yet implemented".to_string(),
-    ))
+pub fn write_omm(omm: &crate::ccsds::omm::OMM) -> Result<String, BraheError> {
+    let mut out = String::new();
+
+    // Header
+    out.push_str(&format!(
+        "CCSDS_OMM_VERS = {:.1}\n",
+        omm.header.format_version
+    ));
+    if let Some(ref class) = omm.header.classification {
+        out.push_str(&format!("CLASSIFICATION = {}\n", class));
+    }
+    for comment in &omm.header.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    out.push_str(&format!(
+        "CREATION_DATE = {}\n",
+        format_ccsds_datetime(&omm.header.creation_date)
+    ));
+    out.push_str(&format!("ORIGINATOR = {}\n", omm.header.originator));
+    if let Some(ref msg_id) = omm.header.message_id {
+        out.push_str(&format!("MESSAGE_ID = {}\n", msg_id));
+    }
+    out.push('\n');
+
+    // Metadata comments
+    for comment in &omm.metadata.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    out.push_str(&format!("OBJECT_NAME = {}\n", omm.metadata.object_name));
+    out.push_str(&format!("OBJECT_ID = {}\n", omm.metadata.object_id));
+    out.push_str(&format!("CENTER_NAME = {}\n", omm.metadata.center_name));
+    out.push_str(&format!("REF_FRAME = {}\n", omm.metadata.ref_frame));
+    if let Some(ref epoch) = omm.metadata.ref_frame_epoch {
+        out.push_str(&format!(
+            "REF_FRAME_EPOCH = {}\n",
+            format_ccsds_datetime(epoch)
+        ));
+    }
+    out.push_str(&format!("TIME_SYSTEM = {}\n", omm.metadata.time_system));
+    out.push_str(&format!(
+        "MEAN_ELEMENT_THEORY = {}\n",
+        omm.metadata.mean_element_theory
+    ));
+    out.push('\n');
+
+    // Mean elements
+    for comment in &omm.mean_elements.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    out.push_str(&format!(
+        "EPOCH = {}\n",
+        format_ccsds_datetime(&omm.mean_elements.epoch)
+    ));
+    if let Some(mm) = omm.mean_elements.mean_motion {
+        out.push_str(&format!("MEAN_MOTION = {}\n", mm));
+    }
+    if let Some(sma) = omm.mean_elements.semi_major_axis {
+        out.push_str(&format!("SEMI_MAJOR_AXIS = {}\n", sma));
+    }
+    out.push_str(&format!(
+        "ECCENTRICITY = {}\n",
+        omm.mean_elements.eccentricity
+    ));
+    out.push_str(&format!(
+        "INCLINATION = {}\n",
+        omm.mean_elements.inclination
+    ));
+    out.push_str(&format!(
+        "RA_OF_ASC_NODE = {}\n",
+        omm.mean_elements.ra_of_asc_node
+    ));
+    out.push_str(&format!(
+        "ARG_OF_PERICENTER = {}\n",
+        omm.mean_elements.arg_of_pericenter
+    ));
+    out.push_str(&format!(
+        "MEAN_ANOMALY = {}\n",
+        omm.mean_elements.mean_anomaly
+    ));
+    if let Some(gm) = omm.mean_elements.gm {
+        // Internal m³/s² → CCSDS km³/s²
+        out.push_str(&format!("GM = {}\n", gm / 1e9));
+    }
+
+    // TLE parameters
+    if let Some(ref tle) = omm.tle_parameters {
+        out.push('\n');
+        for comment in &tle.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        if let Some(et) = tle.ephemeris_type {
+            out.push_str(&format!("EPHEMERIS_TYPE = {}\n", et));
+        }
+        if let Some(ct) = tle.classification_type {
+            out.push_str(&format!("CLASSIFICATION_TYPE = {}\n", ct));
+        }
+        if let Some(id) = tle.norad_cat_id {
+            out.push_str(&format!("NORAD_CAT_ID = {}\n", id));
+        }
+        if let Some(esn) = tle.element_set_no {
+            out.push_str(&format!("ELEMENT_SET_NO = {}\n", esn));
+        }
+        if let Some(rev) = tle.rev_at_epoch {
+            out.push_str(&format!("REV_AT_EPOCH = {}\n", rev));
+        }
+        if let Some(bs) = tle.bstar {
+            out.push_str(&format!("BSTAR = {}\n", bs));
+        }
+        if let Some(bt) = tle.bterm {
+            out.push_str(&format!("BTERM = {}\n", bt));
+        }
+        if let Some(mmd) = tle.mean_motion_dot {
+            out.push_str(&format!("MEAN_MOTION_DOT = {}\n", mmd));
+        }
+        if let Some(mmdd) = tle.mean_motion_ddot {
+            out.push_str(&format!("MEAN_MOTION_DDOT = {}\n", mmdd));
+        }
+        if let Some(ag) = tle.agom {
+            out.push_str(&format!("AGOM = {}\n", ag));
+        }
+    }
+
+    // Spacecraft parameters
+    write_kvn_spacecraft_params(&mut out, &omm.spacecraft_parameters);
+
+    // Covariance (OMM uses flat key=value pairs, no COVARIANCE_START/STOP)
+    if let Some(ref cov) = omm.covariance {
+        out.push('\n');
+        for comment in &cov.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        if let Some(ref epoch) = cov.epoch {
+            out.push_str(&format!("EPOCH = {}\n", format_ccsds_datetime(epoch)));
+        }
+        if let Some(ref frame) = cov.cov_ref_frame {
+            out.push_str(&format!("COV_REF_FRAME = {}\n", frame));
+        }
+        write_kvn_covariance_elements(&mut out, &cov.matrix);
+    }
+
+    // User-defined parameters
+    write_kvn_user_defined(&mut out, &omm.user_defined);
+
+    // Comments at message level
+    for comment in &omm.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+
+    Ok(out)
 }
 
 /// Write an OPM message to KVN format.
-///
-/// Stub — implemented in Stage 6.
-pub fn write_opm(_opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
-    Err(BraheError::Error(
-        "OPM KVN writer not yet implemented".to_string(),
-    ))
+pub fn write_opm(opm: &crate::ccsds::opm::OPM) -> Result<String, BraheError> {
+    let mut out = String::new();
+
+    // Header
+    out.push_str(&format!(
+        "CCSDS_OPM_VERS = {:.1}\n",
+        opm.header.format_version
+    ));
+    if let Some(ref class) = opm.header.classification {
+        out.push_str(&format!("CLASSIFICATION = {}\n", class));
+    }
+    for comment in &opm.header.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    out.push_str(&format!(
+        "CREATION_DATE = {}\n",
+        format_ccsds_datetime(&opm.header.creation_date)
+    ));
+    out.push_str(&format!("ORIGINATOR = {}\n", opm.header.originator));
+    if let Some(ref msg_id) = opm.header.message_id {
+        out.push_str(&format!("MESSAGE_ID = {}\n", msg_id));
+    }
+    out.push('\n');
+
+    // Metadata comments
+    for comment in &opm.metadata.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    out.push_str(&format!("OBJECT_NAME = {}\n", opm.metadata.object_name));
+    out.push_str(&format!("OBJECT_ID = {}\n", opm.metadata.object_id));
+    out.push_str(&format!("CENTER_NAME = {}\n", opm.metadata.center_name));
+    out.push_str(&format!("REF_FRAME = {}\n", opm.metadata.ref_frame));
+    if let Some(ref epoch) = opm.metadata.ref_frame_epoch {
+        out.push_str(&format!(
+            "REF_FRAME_EPOCH = {}\n",
+            format_ccsds_datetime(epoch)
+        ));
+    }
+    out.push_str(&format!("TIME_SYSTEM = {}\n", opm.metadata.time_system));
+
+    // State vector
+    for comment in &opm.state_vector.comments {
+        out.push_str(&format!("COMMENT {}\n", comment));
+    }
+    out.push_str(&format!(
+        "EPOCH = {}\n",
+        format_ccsds_datetime(&opm.state_vector.epoch)
+    ));
+    // Position: m → km
+    out.push_str(&format!("X = {:.6}\n", opm.state_vector.position[0] / 1e3));
+    out.push_str(&format!("Y = {:.6}\n", opm.state_vector.position[1] / 1e3));
+    out.push_str(&format!("Z = {:.6}\n", opm.state_vector.position[2] / 1e3));
+    // Velocity: m/s → km/s
+    out.push_str(&format!(
+        "X_DOT = {:.6}\n",
+        opm.state_vector.velocity[0] / 1e3
+    ));
+    out.push_str(&format!(
+        "Y_DOT = {:.6}\n",
+        opm.state_vector.velocity[1] / 1e3
+    ));
+    out.push_str(&format!(
+        "Z_DOT = {:.6}\n",
+        opm.state_vector.velocity[2] / 1e3
+    ));
+
+    // Keplerian elements
+    if let Some(ref ke) = opm.keplerian_elements {
+        for comment in &ke.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        // Semi-major axis: m → km
+        out.push_str(&format!(
+            "SEMI_MAJOR_AXIS = {:.6}\n",
+            ke.semi_major_axis / 1e3
+        ));
+        out.push_str(&format!("ECCENTRICITY = {}\n", ke.eccentricity));
+        out.push_str(&format!("INCLINATION = {}\n", ke.inclination));
+        out.push_str(&format!("RA_OF_ASC_NODE = {}\n", ke.ra_of_asc_node));
+        out.push_str(&format!("ARG_OF_PERICENTER = {}\n", ke.arg_of_pericenter));
+        if let Some(ta) = ke.true_anomaly {
+            out.push_str(&format!("TRUE_ANOMALY = {}\n", ta));
+        }
+        if let Some(ma) = ke.mean_anomaly {
+            out.push_str(&format!("MEAN_ANOMALY = {}\n", ma));
+        }
+        if let Some(gm) = ke.gm {
+            // m³/s² → km³/s²
+            out.push_str(&format!("GM = {}\n", gm / 1e9));
+        }
+    }
+
+    // Spacecraft parameters
+    write_kvn_spacecraft_params(&mut out, &opm.spacecraft_parameters);
+
+    // Covariance (OPM uses flat CX_*/CY_*/CZ_* key=value pairs)
+    if let Some(ref cov) = opm.covariance {
+        out.push('\n');
+        for comment in &cov.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        if let Some(ref epoch) = cov.epoch {
+            out.push_str(&format!("EPOCH = {}\n", format_ccsds_datetime(epoch)));
+        }
+        if let Some(ref frame) = cov.cov_ref_frame {
+            out.push_str(&format!("COV_REF_FRAME = {}\n", frame));
+        }
+        write_kvn_covariance_elements(&mut out, &cov.matrix);
+    }
+
+    // Maneuvers
+    for man in &opm.maneuvers {
+        out.push('\n');
+        for comment in &man.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        out.push_str(&format!(
+            "MAN_EPOCH_IGNITION = {}\n",
+            format_ccsds_datetime(&man.epoch_ignition)
+        ));
+        out.push_str(&format!("MAN_DURATION = {:.2}\n", man.duration));
+        if let Some(dm) = man.delta_mass {
+            out.push_str(&format!("MAN_DELTA_MASS = {:.3}\n", dm));
+        }
+        out.push_str(&format!("MAN_REF_FRAME = {}\n", man.ref_frame));
+        // DV: m/s → km/s
+        out.push_str(&format!("MAN_DV_1 = {:.8}\n", man.dv[0] / 1e3));
+        out.push_str(&format!("MAN_DV_2 = {:.8}\n", man.dv[1] / 1e3));
+        out.push_str(&format!("MAN_DV_3 = {:.8}\n", man.dv[2] / 1e3));
+    }
+
+    // User-defined parameters
+    write_kvn_user_defined(&mut out, &opm.user_defined);
+
+    Ok(out)
+}
+
+/// Shared helper: write spacecraft parameters to KVN output.
+fn write_kvn_spacecraft_params(
+    out: &mut String,
+    sp: &Option<crate::ccsds::common::CCSDSSpacecraftParameters>,
+) {
+    if let Some(sp) = sp {
+        for comment in &sp.comments {
+            out.push_str(&format!("COMMENT {}\n", comment));
+        }
+        if let Some(mass) = sp.mass {
+            out.push_str(&format!("MASS = {:.6}\n", mass));
+        }
+        if let Some(sra) = sp.solar_rad_area {
+            out.push_str(&format!("SOLAR_RAD_AREA = {:.6}\n", sra));
+        }
+        if let Some(src) = sp.solar_rad_coeff {
+            out.push_str(&format!("SOLAR_RAD_COEFF = {:.6}\n", src));
+        }
+        if let Some(da) = sp.drag_area {
+            out.push_str(&format!("DRAG_AREA = {:.6}\n", da));
+        }
+        if let Some(dc) = sp.drag_coeff {
+            out.push_str(&format!("DRAG_COEFF = {:.6}\n", dc));
+        }
+    }
+}
+
+/// Shared helper: write covariance as named key=value elements (for OMM KVN).
+fn write_kvn_covariance_elements(out: &mut String, matrix: &nalgebra::SMatrix<f64, 6, 6>) {
+    // Convert m² → km² (factor 1e-6)
+    let values = covariance_to_lower_triangular(matrix, 1e-6);
+    let names = [
+        "CX_X",
+        "CY_X",
+        "CY_Y",
+        "CZ_X",
+        "CZ_Y",
+        "CZ_Z",
+        "CX_DOT_X",
+        "CX_DOT_Y",
+        "CX_DOT_Z",
+        "CX_DOT_X_DOT",
+        "CY_DOT_X",
+        "CY_DOT_Y",
+        "CY_DOT_Z",
+        "CY_DOT_X_DOT",
+        "CY_DOT_Y_DOT",
+        "CZ_DOT_X",
+        "CZ_DOT_Y",
+        "CZ_DOT_Z",
+        "CZ_DOT_X_DOT",
+        "CZ_DOT_Y_DOT",
+        "CZ_DOT_Z_DOT",
+    ];
+    for (i, name) in names.iter().enumerate() {
+        out.push_str(&format!("{} = {:.15e}\n", name, values[i]));
+    }
+}
+
+/// Shared helper: write user-defined parameters to KVN output.
+fn write_kvn_user_defined(out: &mut String, ud: &Option<crate::ccsds::common::CCSDSUserDefined>) {
+    if let Some(ud) = ud {
+        out.push('\n');
+        for (k, v) in &ud.parameters {
+            out.push_str(&format!("USER_DEFINED_{} = {}\n", k, v));
+        }
+    }
 }
 
 /// Write a CDM message to KVN format.

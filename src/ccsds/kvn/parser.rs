@@ -890,6 +890,7 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
 
     // Header
     let mut format_version: Option<f64> = None;
+    let mut classification: Option<String> = None;
     let mut creation_date: Option<Epoch> = None;
     let mut originator: Option<String> = None;
     let mut message_id: Option<String> = None;
@@ -998,6 +999,9 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
                     }
                     "MESSAGE_ID" => {
                         message_id = Some(val.to_string());
+                    }
+                    "CLASSIFICATION" => {
+                        classification = Some(val.to_string());
                     }
 
                     "OBJECT_NAME" => {
@@ -1258,7 +1262,7 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
     let header = ODMHeader {
         format_version: format_version
             .ok_or_else(|| ccsds_missing_field("OPM", "CCSDS_OPM_VERS"))?,
-        classification: None,
+        classification,
         creation_date: creation_date.ok_or_else(|| ccsds_missing_field("OPM", "CREATION_DATE"))?,
         originator: originator.ok_or_else(|| ccsds_missing_field("OPM", "ORIGINATOR"))?,
         message_id,

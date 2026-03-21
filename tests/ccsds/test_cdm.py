@@ -397,3 +397,54 @@ class TestCDMSubObjects:
         assert obj.state[0] == 7000e3
         assert obj.covariance[0][0] == 1.0
         assert "CDMObject" in repr(obj)
+
+
+def _assert_cdm_fields(cdm1, cdm2):
+    """Assert all accessible CDM fields match."""
+    assert cdm2.format_version == cdm1.format_version
+    assert cdm2.originator == cdm1.originator
+    assert cdm2.message_id == cdm1.message_id
+    assert cdm2.message_for == cdm1.message_for
+    assert cdm2.miss_distance == pytest.approx(cdm1.miss_distance, abs=1e-6)
+    if cdm1.collision_probability is not None:
+        assert cdm2.collision_probability == pytest.approx(
+            cdm1.collision_probability, abs=1e-12
+        )
+    assert cdm2.collision_probability_method == cdm1.collision_probability_method
+    # State vectors
+    assert cdm2.object1_state == pytest.approx(cdm1.object1_state, abs=0.01)
+    assert cdm2.object2_state == pytest.approx(cdm1.object2_state, abs=0.01)
+    # Object metadata
+    assert cdm2.object1_name == cdm1.object1_name
+    assert cdm2.object2_name == cdm1.object2_name
+    assert cdm2.object1_designator == cdm1.object1_designator
+    assert cdm2.object2_designator == cdm1.object2_designator
+    # RTN covariance (check diagonal elements)
+    for i in range(6):
+        assert cdm2.object1_covariance[i][i] == pytest.approx(
+            cdm1.object1_covariance[i][i], rel=1e-4
+        )
+
+
+def test_cdm_kvn_full_round_trip(eop):
+    """Full-field CDM KVN round-trip."""
+    cdm1 = CDM.from_file("test_assets/ccsds/cdm/CDMExample2.txt")
+    kvn = cdm1.to_string("KVN")
+    cdm2 = CDM.from_str(kvn)
+    _assert_cdm_fields(cdm1, cdm2)
+
+
+def test_cdm_xml_full_round_trip(eop):
+    """Full-field CDM XML round-trip."""
+    cdm1 = CDM.from_file("test_assets/ccsds/cdm/CDMExample2.txt")
+    xml = cdm1.to_string("XML")
+    cdm2 = CDM.from_str(xml)
+    _assert_cdm_fields(cdm1, cdm2)
+
+
+def test_cdm_json_full_round_trip(eop):
+    """Full-field CDM JSON round-trip."""
+    cdm1 = CDM.from_file("test_assets/ccsds/cdm/CDMExample2.txt")
+    json_str = cdm1.to_string("JSON")
+    cdm2 = CDM.from_str(json_str)
+    _assert_cdm_fields(cdm1, cdm2)

@@ -1385,4 +1385,217 @@ mod tests {
         assert_eq!(cov.matrix[(6, 0)], 0.0);
         assert_eq!(cov.matrix[(8, 8)], 0.0);
     }
+
+    /// Helper: assert all CDM fields match between original and round-tripped.
+    fn assert_cdm_fields_match(cdm1: &CDM, cdm2: &CDM) {
+        // Header
+        assert_eq!(cdm1.header.format_version, cdm2.header.format_version);
+        assert_eq!(cdm1.header.originator, cdm2.header.originator);
+        assert_eq!(cdm1.header.message_id, cdm2.header.message_id);
+        assert_eq!(cdm1.header.classification, cdm2.header.classification);
+        assert_eq!(cdm1.header.message_for, cdm2.header.message_for);
+
+        // Relative metadata
+        assert!((cdm1.miss_distance() - cdm2.miss_distance()).abs() < 1e-6);
+        assert_eq!(
+            cdm1.relative_metadata.conjunction_id,
+            cdm2.relative_metadata.conjunction_id
+        );
+        assert_eq!(
+            cdm1.relative_metadata.relative_speed.is_some(),
+            cdm2.relative_metadata.relative_speed.is_some()
+        );
+        if let (Some(r1), Some(r2)) = (
+            cdm1.relative_metadata.relative_speed,
+            cdm2.relative_metadata.relative_speed,
+        ) {
+            assert!((r1 - r2).abs() < 0.01);
+        }
+        assert_eq!(
+            cdm1.relative_metadata.collision_probability,
+            cdm2.relative_metadata.collision_probability
+        );
+        assert_eq!(
+            cdm1.relative_metadata.collision_probability_method,
+            cdm2.relative_metadata.collision_probability_method
+        );
+        assert_eq!(
+            cdm1.relative_metadata.collision_percentile,
+            cdm2.relative_metadata.collision_percentile
+        );
+        assert_eq!(
+            cdm1.relative_metadata.collision_max_probability,
+            cdm2.relative_metadata.collision_max_probability
+        );
+        assert_eq!(
+            cdm1.relative_metadata.screen_type,
+            cdm2.relative_metadata.screen_type
+        );
+
+        // State vectors
+        for i in 0..6 {
+            assert!(
+                (cdm1.object1_state()[i] - cdm2.object1_state()[i]).abs() < 0.01,
+                "obj1 state[{}] mismatch",
+                i
+            );
+            assert!(
+                (cdm1.object2_state()[i] - cdm2.object2_state()[i]).abs() < 0.01,
+                "obj2 state[{}] mismatch",
+                i
+            );
+        }
+
+        // Object metadata
+        assert_eq!(
+            cdm1.object1.metadata.object_name,
+            cdm2.object1.metadata.object_name
+        );
+        assert_eq!(
+            cdm1.object1.metadata.object_designator,
+            cdm2.object1.metadata.object_designator
+        );
+        assert_eq!(
+            cdm1.object1.metadata.maneuverable,
+            cdm2.object1.metadata.maneuverable
+        );
+        assert_eq!(
+            cdm1.object1.metadata.ref_frame,
+            cdm2.object1.metadata.ref_frame
+        );
+
+        // RTN covariance
+        assert_eq!(
+            cdm1.object1.data.rtn_covariance.dimension,
+            cdm2.object1.data.rtn_covariance.dimension
+        );
+        let c1 = cdm1.object1_rtn_covariance_6x6();
+        let c2 = cdm2.object1_rtn_covariance_6x6();
+        for i in 0..6 {
+            for j in 0..6 {
+                let rel = if c1[(i, j)].abs() > 1e-20 {
+                    ((c1[(i, j)] - c2[(i, j)]) / c1[(i, j)]).abs()
+                } else {
+                    (c1[(i, j)] - c2[(i, j)]).abs()
+                };
+                assert!(rel < 1e-4, "obj1 cov({},{}) mismatch", i, j);
+            }
+        }
+
+        // OD parameters
+        assert_eq!(
+            cdm1.object1.data.od_parameters.is_some(),
+            cdm2.object1.data.od_parameters.is_some()
+        );
+        if let (Some(od1), Some(od2)) = (
+            &cdm1.object1.data.od_parameters,
+            &cdm2.object1.data.od_parameters,
+        ) {
+            assert_eq!(od1.obs_available, od2.obs_available);
+            assert_eq!(od1.obs_used, od2.obs_used);
+            assert_eq!(od1.tracks_available, od2.tracks_available);
+            assert_eq!(od1.tracks_used, od2.tracks_used);
+        }
+
+        // Additional parameters
+        assert_eq!(
+            cdm1.object1.data.additional_parameters.is_some(),
+            cdm2.object1.data.additional_parameters.is_some()
+        );
+        if let (Some(ap1), Some(ap2)) = (
+            &cdm1.object1.data.additional_parameters,
+            &cdm2.object1.data.additional_parameters,
+        ) {
+            assert_eq!(ap1.area_pc.is_some(), ap2.area_pc.is_some());
+            assert_eq!(ap1.mass.is_some(), ap2.mass.is_some());
+            assert_eq!(ap1.hbr.is_some(), ap2.hbr.is_some());
+            if let (Some(h1), Some(h2)) = (ap1.hbr, ap2.hbr) {
+                assert!((h1 - h2).abs() < 0.01);
+            }
+        }
+
+        // User-defined
+        assert_eq!(cdm1.user_defined.is_some(), cdm2.user_defined.is_some());
+        if let (Some(ud1), Some(ud2)) = (&cdm1.user_defined, &cdm2.user_defined) {
+            assert_eq!(ud1.parameters.len(), ud2.parameters.len());
+            for (k, v) in &ud1.parameters {
+                assert_eq!(
+                    ud2.parameters.get(k),
+                    Some(v),
+                    "user_defined key {} mismatch",
+                    k
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_cdm_kvn_full_round_trip() {
+        // CDMExample_issue_940 has the most comprehensive field coverage
+        let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample_issue_940.txt").unwrap();
+        let kvn = cdm1.to_string(CCSDSFormat::KVN).unwrap();
+        let cdm2 = CDM::from_str(&kvn).unwrap();
+        assert_cdm_fields_match(&cdm1, &cdm2);
+    }
+
+    #[test]
+    fn test_cdm_xml_full_round_trip() {
+        let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample_issue_940.txt").unwrap();
+        let xml = cdm1.to_string(CCSDSFormat::XML).unwrap();
+        let cdm2 = CDM::from_str(&xml).unwrap();
+        assert_cdm_fields_match(&cdm1, &cdm2);
+    }
+
+    #[test]
+    fn test_cdm_json_full_round_trip() {
+        // Use CDMExample2 for JSON round-trip (the JSON writer does not yet
+        // emit all v2.0-only fields like OD/additional parameters)
+        let cdm1 = CDM::from_file("test_assets/ccsds/cdm/CDMExample2.txt").unwrap();
+        let json = cdm1.to_string(CCSDSFormat::JSON).unwrap();
+        let cdm2 = CDM::from_str(&json).unwrap();
+
+        // Header
+        assert_eq!(cdm1.header.originator, cdm2.header.originator);
+        assert_eq!(cdm1.header.message_id, cdm2.header.message_id);
+        assert_eq!(cdm1.header.message_for, cdm2.header.message_for);
+
+        // Relative metadata
+        assert!((cdm1.miss_distance() - cdm2.miss_distance()).abs() < 1e-6);
+        assert_eq!(
+            cdm1.relative_metadata.collision_probability,
+            cdm2.relative_metadata.collision_probability
+        );
+        assert_eq!(
+            cdm1.relative_metadata.collision_probability_method,
+            cdm2.relative_metadata.collision_probability_method
+        );
+
+        // State vectors
+        for i in 0..6 {
+            assert!(
+                (cdm1.object1_state()[i] - cdm2.object1_state()[i]).abs() < 0.01,
+                "obj1 state[{}] mismatch",
+                i
+            );
+            assert!(
+                (cdm1.object2_state()[i] - cdm2.object2_state()[i]).abs() < 0.01,
+                "obj2 state[{}] mismatch",
+                i
+            );
+        }
+
+        // RTN covariance
+        let c1 = cdm1.object1_rtn_covariance_6x6();
+        let c2 = cdm2.object1_rtn_covariance_6x6();
+        for i in 0..6 {
+            for j in 0..6 {
+                let rel = if c1[(i, j)].abs() > 1e-20 {
+                    ((c1[(i, j)] - c2[(i, j)]) / c1[(i, j)]).abs()
+                } else {
+                    (c1[(i, j)] - c2[(i, j)]).abs()
+                };
+                assert!(rel < 1e-4, "obj1 cov({},{}) mismatch", i, j);
+            }
+        }
+    }
 }

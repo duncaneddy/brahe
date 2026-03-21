@@ -305,3 +305,92 @@ def test_omm_from_gp_record_static_method(eop):
 
     assert omm.object_name == "ISS (ZARYA)"
     assert omm.eccentricity == pytest.approx(0.0001, abs=1e-10)
+
+
+def test_omm_kvn_round_trip(eop):
+    """Test OMM KVN write then re-parse preserves data."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample1.txt")
+    kvn_str = omm.to_string("KVN")
+    omm2 = OMM.from_str(kvn_str)
+    assert omm2.object_name == omm.object_name
+    assert omm2.object_id == omm.object_id
+    assert omm2.eccentricity == pytest.approx(omm.eccentricity, abs=1e-10)
+    assert omm2.inclination == pytest.approx(omm.inclination, abs=1e-10)
+    assert omm2.mean_motion == pytest.approx(omm.mean_motion, abs=1e-10)
+
+
+def test_omm_xml_round_trip(eop):
+    """Test OMM XML write then re-parse preserves data."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample2.xml")
+    xml_str = omm.to_string("XML")
+    omm2 = OMM.from_str(xml_str)
+    assert omm2.object_name == omm.object_name
+    assert omm2.object_id == omm.object_id
+    assert omm2.eccentricity == pytest.approx(omm.eccentricity, abs=1e-10)
+    assert omm2.mean_motion == pytest.approx(omm.mean_motion, abs=1e-10)
+
+
+def test_omm_xml_parse_example4(eop):
+    """Test parsing OMM XML Example 4 (STARLETTE)."""
+    omm = OMM.from_file("test_assets/ccsds/omm/OMMExample4.xml")
+    assert omm.object_name == "STARLETTE"
+    assert omm.object_id == "1975-010A"
+    assert omm.mean_motion == pytest.approx(13.82309053, abs=1e-8)
+
+
+def _assert_omm_fields(omm1, omm2):
+    """Assert all accessible OMM fields match."""
+    # Header + metadata
+    assert omm2.format_version == omm1.format_version
+    assert omm2.originator == omm1.originator
+    assert omm2.object_name == omm1.object_name
+    assert omm2.object_id == omm1.object_id
+    assert omm2.center_name == omm1.center_name
+    assert omm2.ref_frame == omm1.ref_frame
+    assert omm2.time_system == omm1.time_system
+    assert omm2.mean_element_theory == omm1.mean_element_theory
+    # Mean elements
+    assert omm2.eccentricity == pytest.approx(omm1.eccentricity, abs=1e-10)
+    assert omm2.inclination == pytest.approx(omm1.inclination, abs=1e-6)
+    assert omm2.ra_of_asc_node == pytest.approx(omm1.ra_of_asc_node, abs=1e-6)
+    assert omm2.arg_of_pericenter == pytest.approx(omm1.arg_of_pericenter, abs=1e-6)
+    assert omm2.mean_anomaly == pytest.approx(omm1.mean_anomaly, abs=1e-6)
+    if omm1.mean_motion is not None:
+        assert omm2.mean_motion == pytest.approx(omm1.mean_motion, abs=1e-10)
+    if omm1.gm is not None:
+        assert omm2.gm == pytest.approx(omm1.gm, abs=1e3)
+    # TLE parameters
+    if omm1.norad_cat_id is not None:
+        assert omm2.norad_cat_id == omm1.norad_cat_id
+    if omm1.element_set_no is not None:
+        assert omm2.element_set_no == omm1.element_set_no
+    if omm1.rev_at_epoch is not None:
+        assert omm2.rev_at_epoch == omm1.rev_at_epoch
+    if omm1.bstar is not None:
+        assert omm2.bstar == pytest.approx(omm1.bstar, abs=1e-10)
+    if omm1.mean_motion_dot is not None:
+        assert omm2.mean_motion_dot == pytest.approx(omm1.mean_motion_dot, abs=1e-12)
+
+
+def test_omm_kvn_full_round_trip(eop):
+    """Full-field OMM KVN round-trip with covariance + TLE params."""
+    omm1 = OMM.from_file("test_assets/ccsds/omm/OMMExample2.txt")
+    kvn = omm1.to_string("KVN")
+    omm2 = OMM.from_str(kvn)
+    _assert_omm_fields(omm1, omm2)
+
+
+def test_omm_xml_full_round_trip(eop):
+    """Full-field OMM XML round-trip."""
+    omm1 = OMM.from_file("test_assets/ccsds/omm/OMMExample2.txt")
+    xml = omm1.to_string("XML")
+    omm2 = OMM.from_str(xml)
+    _assert_omm_fields(omm1, omm2)
+
+
+def test_omm_json_full_round_trip(eop):
+    """Full-field OMM JSON round-trip."""
+    omm1 = OMM.from_file("test_assets/ccsds/omm/OMMExample2.txt")
+    json_str = omm1.to_string("JSON")
+    omm2 = OMM.from_str(json_str)
+    _assert_omm_fields(omm1, omm2)

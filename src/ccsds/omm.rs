@@ -389,27 +389,80 @@ mod tests {
     }
 
     #[test]
-    fn test_omm_to_string_kvn_returns_error() {
-        // KVN writer is not yet implemented
+    fn test_omm_kvn_round_trip() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
-        let result = omm.to_string(CCSDSFormat::KVN);
-        assert!(result.is_err());
+        let kvn_str = omm.to_string(CCSDSFormat::KVN).unwrap();
+        let omm2 = OMM::from_str(&kvn_str).unwrap();
+        assert_eq!(omm2.metadata.object_name, omm.metadata.object_name);
+        assert_eq!(omm2.metadata.object_id, omm.metadata.object_id);
+        assert!((omm2.mean_elements.eccentricity - omm.mean_elements.eccentricity).abs() < 1e-10);
+        assert!((omm2.mean_elements.inclination - omm.mean_elements.inclination).abs() < 1e-10);
+        assert!(
+            (omm2.mean_elements.mean_motion.unwrap() - omm.mean_elements.mean_motion.unwrap())
+                .abs()
+                < 1e-10
+        );
+        // GM round-trip (m³/s² → km³/s² → m³/s²)
+        assert!((omm2.mean_elements.gm.unwrap() - omm.mean_elements.gm.unwrap()).abs() < 1e3);
+        // TLE parameters
+        let tle1 = omm.tle_parameters.as_ref().unwrap();
+        let tle2 = omm2.tle_parameters.as_ref().unwrap();
+        assert_eq!(tle2.norad_cat_id, tle1.norad_cat_id);
+        assert!((tle2.bstar.unwrap() - tle1.bstar.unwrap()).abs() < 1e-10);
     }
 
     #[test]
-    fn test_omm_to_string_xml_returns_error() {
-        // XML writer is not yet implemented
-        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
-        let result = omm.to_string(CCSDSFormat::XML);
-        assert!(result.is_err());
+    fn test_omm_kvn_round_trip_with_covariance() {
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let kvn_str = omm.to_string(CCSDSFormat::KVN).unwrap();
+        let omm2 = OMM::from_str(&kvn_str).unwrap();
+        assert!(omm2.covariance.is_some());
+        let cov1 = omm.covariance.as_ref().unwrap();
+        let cov2 = omm2.covariance.as_ref().unwrap();
+        // CX_X round-trip: m² → km² → m²
+        assert!((cov2.matrix[(0, 0)] - cov1.matrix[(0, 0)]).abs() < 1.0);
     }
 
     #[test]
-    fn test_omm_to_file_propagates_write_error() {
-        // to_file delegates to to_string, which fails for all formats currently
+    fn test_omm_xml_round_trip() {
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample2.xml").unwrap();
+        let xml_str = omm.to_string(CCSDSFormat::XML).unwrap();
+        let omm2 = OMM::from_str(&xml_str).unwrap();
+        assert_eq!(omm2.metadata.object_name, omm.metadata.object_name);
+        assert_eq!(omm2.metadata.object_id, omm.metadata.object_id);
+        assert!((omm2.mean_elements.eccentricity - omm.mean_elements.eccentricity).abs() < 1e-10);
+        assert!(
+            (omm2.mean_elements.mean_motion.unwrap() - omm.mean_elements.mean_motion.unwrap())
+                .abs()
+                < 1e-10
+        );
+        // Covariance round-trip
+        assert!(omm2.covariance.is_some());
+        let cov1 = omm.covariance.as_ref().unwrap();
+        let cov2 = omm2.covariance.as_ref().unwrap();
+        assert!((cov2.matrix[(0, 0)] - cov1.matrix[(0, 0)]).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_omm_xml_parse_example4() {
+        let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample4.xml").unwrap();
+        assert_eq!(omm.metadata.object_name, "STARLETTE");
+        assert_eq!(omm.metadata.object_id, "1975-010A");
+        assert_eq!(omm.metadata.mean_element_theory, "SGP4");
+        assert!((omm.mean_elements.mean_motion.unwrap() - 13.82309053).abs() < 1e-8);
+        let tle = omm.tle_parameters.as_ref().unwrap();
+        assert_eq!(tle.norad_cat_id, Some(7646));
+    }
+
+    #[test]
+    fn test_omm_to_file_kvn() {
         let omm = OMM::from_file("test_assets/ccsds/omm/OMMExample1.txt").unwrap();
-        let result = omm.to_file("/tmp/brahe_test_omm.txt", CCSDSFormat::KVN);
-        assert!(result.is_err());
+        let dir = std::env::temp_dir();
+        let path = dir.join("brahe_test_omm.txt");
+        omm.to_file(&path, CCSDSFormat::KVN).unwrap();
+        let omm2 = OMM::from_file(&path).unwrap();
+        assert_eq!(omm2.metadata.object_name, omm.metadata.object_name);
+        std::fs::remove_file(&path).ok();
     }
 
     #[test]
@@ -428,5 +481,144 @@ mod tests {
         let json_str = omm.to_json_string(CCSDSJsonKeyCase::Upper).unwrap();
         assert!(json_str.contains("OBJECT_NAME"));
         assert!(json_str.contains("ECCENTRICITY"));
+    }
+
+    /// Helper: assert all OMM fields match between original and round-tripped.
+    fn assert_omm_fields_match(omm1: &OMM, omm2: &OMM) {
+        // Header
+        assert_eq!(omm1.header.format_version, omm2.header.format_version);
+        assert_eq!(omm1.header.originator, omm2.header.originator);
+        assert_eq!(omm1.header.classification, omm2.header.classification);
+        assert_eq!(omm1.header.message_id, omm2.header.message_id);
+
+        // Metadata
+        assert_eq!(omm1.metadata.object_name, omm2.metadata.object_name);
+        assert_eq!(omm1.metadata.object_id, omm2.metadata.object_id);
+        assert_eq!(omm1.metadata.center_name, omm2.metadata.center_name);
+        assert_eq!(omm1.metadata.ref_frame, omm2.metadata.ref_frame);
+        assert_eq!(omm1.metadata.time_system, omm2.metadata.time_system);
+        assert_eq!(
+            omm1.metadata.mean_element_theory,
+            omm2.metadata.mean_element_theory
+        );
+
+        // Mean elements
+        assert!((omm1.mean_elements.eccentricity - omm2.mean_elements.eccentricity).abs() < 1e-10);
+        assert!((omm1.mean_elements.inclination - omm2.mean_elements.inclination).abs() < 1e-6);
+        assert!(
+            (omm1.mean_elements.ra_of_asc_node - omm2.mean_elements.ra_of_asc_node).abs() < 1e-6
+        );
+        assert!(
+            (omm1.mean_elements.arg_of_pericenter - omm2.mean_elements.arg_of_pericenter).abs()
+                < 1e-6
+        );
+        assert!((omm1.mean_elements.mean_anomaly - omm2.mean_elements.mean_anomaly).abs() < 1e-6);
+        assert_eq!(
+            omm1.mean_elements.mean_motion.is_some(),
+            omm2.mean_elements.mean_motion.is_some()
+        );
+        if let (Some(mm1), Some(mm2)) = (
+            omm1.mean_elements.mean_motion,
+            omm2.mean_elements.mean_motion,
+        ) {
+            assert!((mm1 - mm2).abs() < 1e-10);
+        }
+        assert_eq!(
+            omm1.mean_elements.semi_major_axis.is_some(),
+            omm2.mean_elements.semi_major_axis.is_some()
+        );
+        assert_eq!(
+            omm1.mean_elements.gm.is_some(),
+            omm2.mean_elements.gm.is_some()
+        );
+        if let (Some(gm1), Some(gm2)) = (omm1.mean_elements.gm, omm2.mean_elements.gm) {
+            assert!((gm1 - gm2).abs() < 1e3);
+        }
+
+        // TLE parameters
+        assert_eq!(omm1.tle_parameters.is_some(), omm2.tle_parameters.is_some());
+        if let (Some(t1), Some(t2)) = (&omm1.tle_parameters, &omm2.tle_parameters) {
+            assert_eq!(t1.ephemeris_type, t2.ephemeris_type);
+            assert_eq!(t1.classification_type, t2.classification_type);
+            assert_eq!(t1.norad_cat_id, t2.norad_cat_id);
+            assert_eq!(t1.element_set_no, t2.element_set_no);
+            assert_eq!(t1.rev_at_epoch, t2.rev_at_epoch);
+            assert_eq!(t1.bstar.is_some(), t2.bstar.is_some());
+            if let (Some(b1), Some(b2)) = (t1.bstar, t2.bstar) {
+                assert!((b1 - b2).abs() < 1e-10);
+            }
+            assert_eq!(t1.mean_motion_dot.is_some(), t2.mean_motion_dot.is_some());
+            if let (Some(d1), Some(d2)) = (t1.mean_motion_dot, t2.mean_motion_dot) {
+                assert!((d1 - d2).abs() < 1e-12);
+            }
+            assert_eq!(t1.mean_motion_ddot.is_some(), t2.mean_motion_ddot.is_some());
+            if let (Some(d1), Some(d2)) = (t1.mean_motion_ddot, t2.mean_motion_ddot) {
+                assert!((d1 - d2).abs() < 1e-12);
+            }
+        }
+
+        // Spacecraft parameters
+        assert_eq!(
+            omm1.spacecraft_parameters.is_some(),
+            omm2.spacecraft_parameters.is_some()
+        );
+
+        // Covariance
+        assert_eq!(omm1.covariance.is_some(), omm2.covariance.is_some());
+        if let (Some(cov1), Some(cov2)) = (&omm1.covariance, &omm2.covariance) {
+            assert_eq!(cov1.cov_ref_frame, cov2.cov_ref_frame);
+            for i in 0..6 {
+                for j in 0..6 {
+                    let rel = if cov1.matrix[(i, j)].abs() > 1e-20 {
+                        ((cov1.matrix[(i, j)] - cov2.matrix[(i, j)]) / cov1.matrix[(i, j)]).abs()
+                    } else {
+                        (cov1.matrix[(i, j)] - cov2.matrix[(i, j)]).abs()
+                    };
+                    assert!(
+                        rel < 1e-4,
+                        "cov({},{}) mismatch: {} vs {}",
+                        i,
+                        j,
+                        cov1.matrix[(i, j)],
+                        cov2.matrix[(i, j)]
+                    );
+                }
+            }
+        }
+
+        // User-defined
+        assert_eq!(omm1.user_defined.is_some(), omm2.user_defined.is_some());
+        if let (Some(ud1), Some(ud2)) = (&omm1.user_defined, &omm2.user_defined) {
+            assert_eq!(ud1.parameters.len(), ud2.parameters.len());
+            for (k, v) in &ud1.parameters {
+                assert_eq!(ud2.parameters.get(k), Some(v));
+            }
+        }
+    }
+
+    #[test]
+    fn test_omm_kvn_full_round_trip() {
+        // OMMExample2 has covariance + full TLE parameters + GM
+        let omm1 = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let kvn = omm1.to_string(CCSDSFormat::KVN).unwrap();
+        let omm2 = OMM::from_str(&kvn).unwrap();
+        assert_omm_fields_match(&omm1, &omm2);
+    }
+
+    #[test]
+    fn test_omm_xml_full_round_trip() {
+        // Start from KVN (richest fields), write to XML, re-parse
+        let omm1 = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let xml = omm1.to_string(CCSDSFormat::XML).unwrap();
+        let omm2 = OMM::from_str(&xml).unwrap();
+        assert_omm_fields_match(&omm1, &omm2);
+    }
+
+    #[test]
+    fn test_omm_json_full_round_trip() {
+        let omm1 = OMM::from_file("test_assets/ccsds/omm/OMMExample2.txt").unwrap();
+        let json = omm1.to_string(CCSDSFormat::JSON).unwrap();
+        let omm2 = OMM::from_str(&json).unwrap();
+        assert_omm_fields_match(&omm1, &omm2);
     }
 }

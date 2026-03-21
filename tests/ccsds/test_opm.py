@@ -435,3 +435,92 @@ def test_opm_json_uppercase_keys(eop):
     json_str = opm.to_json_string(uppercase_keys=True)
     assert '"OBJECT_NAME"' in json_str
     assert '"header"' in json_str  # container keys always lowercase
+
+
+def test_opm_kvn_round_trip(eop):
+    """Test OPM KVN write then re-parse preserves data."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample1.txt")
+    kvn_str = opm.to_string("KVN")
+    opm2 = OPM.from_str(kvn_str)
+    assert opm2.object_name == opm.object_name
+    assert opm2.object_id == opm.object_id
+    assert opm2.position == pytest.approx(opm.position, abs=1.0)
+    assert opm2.velocity == pytest.approx(opm.velocity, abs=0.001)
+
+
+def test_opm_xml_round_trip(eop):
+    """Test OPM XML write then re-parse preserves data."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample3.xml")
+    xml_str = opm.to_string("XML")
+    opm2 = OPM.from_str(xml_str)
+    assert opm2.object_name == opm.object_name
+    assert opm2.object_id == opm.object_id
+    assert opm2.position == pytest.approx(opm.position, abs=1.0)
+    assert opm2.velocity == pytest.approx(opm.velocity, abs=0.001)
+
+
+def test_opm_xml_parse_example3(eop):
+    """Test parsing OPM XML Example 3 (OSPREY 5)."""
+    opm = OPM.from_file("test_assets/ccsds/opm/OPMExample3.xml")
+    assert opm.object_name == "OSPREY 5"
+    assert opm.object_id == "1998-999A"
+    assert opm.position[0] == pytest.approx(6503514.0, abs=1.0)
+
+
+def _assert_opm_fields(opm1, opm2):
+    """Assert all accessible OPM fields match."""
+    # Header + metadata
+    assert opm2.format_version == opm1.format_version
+    assert opm2.originator == opm1.originator
+    assert opm2.object_name == opm1.object_name
+    assert opm2.object_id == opm1.object_id
+    assert opm2.center_name == opm1.center_name
+    assert opm2.ref_frame == opm1.ref_frame
+    assert opm2.time_system == opm1.time_system
+    # State vector
+    assert opm2.position == pytest.approx(opm1.position, abs=1.0)
+    assert opm2.velocity == pytest.approx(opm1.velocity, abs=0.001)
+    # Keplerian elements
+    assert opm2.has_keplerian_elements == opm1.has_keplerian_elements
+    if opm1.has_keplerian_elements:
+        assert opm2.semi_major_axis == pytest.approx(opm1.semi_major_axis, abs=1.0)
+        assert opm2.eccentricity == pytest.approx(opm1.eccentricity, abs=1e-9)
+        assert opm2.inclination == pytest.approx(opm1.inclination, abs=1e-6)
+        assert opm2.ra_of_asc_node == pytest.approx(opm1.ra_of_asc_node, abs=1e-6)
+        assert opm2.arg_of_pericenter == pytest.approx(opm1.arg_of_pericenter, abs=1e-6)
+    # Spacecraft parameters
+    if opm1.mass is not None:
+        assert opm2.mass == pytest.approx(opm1.mass, abs=0.01)
+    if opm1.solar_rad_area is not None:
+        assert opm2.solar_rad_area == pytest.approx(opm1.solar_rad_area, abs=0.01)
+    if opm1.drag_coeff is not None:
+        assert opm2.drag_coeff == pytest.approx(opm1.drag_coeff, abs=0.01)
+    # Maneuvers
+    assert len(opm2.maneuvers) == len(opm1.maneuvers)
+    for m1, m2 in zip(opm1.maneuvers, opm2.maneuvers):
+        assert m2.duration == pytest.approx(m1.duration, abs=0.01)
+        assert m2.dv == pytest.approx(m1.dv, abs=0.01)
+
+
+def test_opm_kvn_full_round_trip(eop):
+    """Full-field OPM KVN round-trip with covariance + Keplerian + user_defined."""
+    opm1 = OPM.from_file("test_assets/ccsds/opm/OPMExample4.txt")
+    kvn = opm1.to_string("KVN")
+    opm2 = OPM.from_str(kvn)
+    _assert_opm_fields(opm1, opm2)
+
+
+def test_opm_xml_full_round_trip(eop):
+    """Full-field OPM XML round-trip."""
+    opm1 = OPM.from_file("test_assets/ccsds/opm/OPMExample4.txt")
+    xml = opm1.to_string("XML")
+    opm2 = OPM.from_str(xml)
+    _assert_opm_fields(opm1, opm2)
+
+
+def test_opm_json_full_round_trip(eop):
+    """Full-field OPM JSON round-trip."""
+    opm1 = OPM.from_file("test_assets/ccsds/opm/OPMExample4.txt")
+    json_str = opm1.to_string("JSON")
+    opm2 = OPM.from_str(json_str)
+    _assert_opm_fields(opm1, opm2)

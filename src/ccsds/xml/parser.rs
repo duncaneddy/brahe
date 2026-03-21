@@ -5,11 +5,13 @@
  * then converts to the public CCSDS types with unit conversion.
  */
 
+use std::collections::HashMap;
+
 use serde::Deserialize;
 
 use crate::ccsds::common::{
-    CCSDSCovariance, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader, covariance_from_lower_triangular,
-    parse_ccsds_datetime,
+    CCSDSCovariance, CCSDSRefFrame, CCSDSTimeSystem, CCSDSUserDefined, ODMHeader,
+    covariance_from_lower_triangular, parse_ccsds_datetime,
 };
 use crate::ccsds::error::ccsds_parse_error;
 use crate::ccsds::oem::{OEM, OEMMetadata, OEMSegment, OEMStateVector};
@@ -142,6 +144,7 @@ enum XMLHeaderItem {
     CREATION_DATE(String),
     ORIGINATOR(String),
     MESSAGE_ID(String),
+    CLASSIFICATION(String),
     COMMENT(String),
 }
 
@@ -169,6 +172,16 @@ impl XMLHeader {
     fn message_id(&self) -> Option<String> {
         self.items.iter().find_map(|item| {
             if let XMLHeaderItem::MESSAGE_ID(s) = item {
+                Some(s.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    fn classification(&self) -> Option<String> {
+        self.items.iter().find_map(|item| {
+            if let XMLHeaderItem::CLASSIFICATION(s) = item {
                 Some(s.clone())
             } else {
                 None
@@ -511,7 +524,7 @@ pub fn parse_oem_xml(content: &str) -> Result<OEM, BraheError> {
 
     let header = ODMHeader {
         format_version,
-        classification: None,
+        classification: xml_oem.header.classification(),
         creation_date: parse_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
         originator,
         message_id: xml_oem.header.message_id(),
@@ -621,14 +634,750 @@ pub fn parse_oem_xml(content: &str) -> Result<OEM, BraheError> {
     Ok(OEM { header, segments })
 }
 
-/// Parse an OMM message from XML format.
-pub fn parse_omm_xml(_content: &str) -> Result<crate::ccsds::omm::OMM, BraheError> {
-    Err(ccsds_parse_error("OMM", "XML parsing not yet implemented"))
+// ============================================================================
+// Intermediate XML structs for OMM
+// ============================================================================
+
+#[derive(Debug, Deserialize)]
+#[serde(rename = "omm")]
+#[allow(clippy::upper_case_acronyms)]
+struct XMLOMM {
+    #[serde(rename = "@version")]
+    version: Option<String>,
+    header: XMLHeader,
+    body: XMLOMMBody,
 }
 
+#[derive(Debug, Deserialize)]
+struct XMLOMMBody {
+    segment: XMLOMMSegment,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLOMMSegment {
+    metadata: XMLOMMMetadata,
+    data: XMLOMMData,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLOMMMetadata {
+    #[serde(rename = "$value")]
+    items: Vec<XMLOMMMetadataItem>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
+enum XMLOMMMetadataItem {
+    OBJECT_NAME(String),
+    OBJECT_ID(String),
+    CENTER_NAME(String),
+    REF_FRAME(String),
+    REF_FRAME_EPOCH(String),
+    TIME_SYSTEM(String),
+    MEAN_ELEMENT_THEORY(String),
+    COMMENT(String),
+}
+
+impl XMLOMMMetadata {
+    fn find_str(&self, variant: &str) -> Option<&str> {
+        self.items.iter().find_map(|item| match item {
+            XMLOMMMetadataItem::OBJECT_NAME(s) if variant == "OBJECT_NAME" => Some(s.as_str()),
+            XMLOMMMetadataItem::OBJECT_ID(s) if variant == "OBJECT_ID" => Some(s.as_str()),
+            XMLOMMMetadataItem::CENTER_NAME(s) if variant == "CENTER_NAME" => Some(s.as_str()),
+            XMLOMMMetadataItem::REF_FRAME(s) if variant == "REF_FRAME" => Some(s.as_str()),
+            XMLOMMMetadataItem::REF_FRAME_EPOCH(s) if variant == "REF_FRAME_EPOCH" => {
+                Some(s.as_str())
+            }
+            XMLOMMMetadataItem::TIME_SYSTEM(s) if variant == "TIME_SYSTEM" => Some(s.as_str()),
+            XMLOMMMetadataItem::MEAN_ELEMENT_THEORY(s) if variant == "MEAN_ELEMENT_THEORY" => {
+                Some(s.as_str())
+            }
+            _ => None,
+        })
+    }
+
+    fn comments(&self) -> Vec<String> {
+        self.items
+            .iter()
+            .filter_map(|item| {
+                if let XMLOMMMetadataItem::COMMENT(s) = item {
+                    Some(s.trim().to_string())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct XMLOMMData {
+    mean_elements: XMLMeanElements,
+    #[serde(default)]
+    tle_parameters: Option<XMLTleParameters>,
+    #[serde(default)]
+    spacecraft_parameters: Option<XMLSpacecraftParameters>,
+    #[serde(default)]
+    covariance_matrix: Option<XMLCovarianceMatrix>,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLMeanElements {
+    #[serde(rename = "EPOCH")]
+    epoch: String,
+    #[serde(rename = "MEAN_MOTION")]
+    mean_motion: Option<XMLValue>,
+    #[serde(rename = "SEMI_MAJOR_AXIS")]
+    semi_major_axis: Option<XMLValue>,
+    #[serde(rename = "ECCENTRICITY")]
+    eccentricity: XMLValue,
+    #[serde(rename = "INCLINATION")]
+    inclination: XMLValue,
+    #[serde(rename = "RA_OF_ASC_NODE")]
+    ra_of_asc_node: XMLValue,
+    #[serde(rename = "ARG_OF_PERICENTER")]
+    arg_of_pericenter: XMLValue,
+    #[serde(rename = "MEAN_ANOMALY")]
+    mean_anomaly: XMLValue,
+    #[serde(rename = "GM")]
+    gm: Option<XMLValue>,
+    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    comments: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLTleParameters {
+    #[serde(rename = "EPHEMERIS_TYPE")]
+    ephemeris_type: Option<XMLValue>,
+    #[serde(rename = "CLASSIFICATION_TYPE")]
+    classification_type: Option<XMLValue>,
+    #[serde(rename = "NORAD_CAT_ID")]
+    norad_cat_id: Option<XMLValue>,
+    #[serde(rename = "ELEMENT_SET_NO")]
+    element_set_no: Option<XMLValue>,
+    #[serde(rename = "REV_AT_EPOCH")]
+    rev_at_epoch: Option<XMLValue>,
+    #[serde(rename = "BSTAR")]
+    bstar: Option<XMLValue>,
+    #[serde(rename = "BTERM")]
+    bterm: Option<XMLValue>,
+    #[serde(rename = "MEAN_MOTION_DOT")]
+    mean_motion_dot: Option<XMLValue>,
+    #[serde(rename = "MEAN_MOTION_DDOT")]
+    mean_motion_ddot: Option<XMLValue>,
+    #[serde(rename = "AGOM")]
+    agom: Option<XMLValue>,
+    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    comments: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLSpacecraftParameters {
+    #[serde(rename = "MASS")]
+    mass: Option<XMLValue>,
+    #[serde(rename = "SOLAR_RAD_AREA")]
+    solar_rad_area: Option<XMLValue>,
+    #[serde(rename = "SOLAR_RAD_COEFF")]
+    solar_rad_coeff: Option<XMLValue>,
+    #[serde(rename = "DRAG_AREA")]
+    drag_area: Option<XMLValue>,
+    #[serde(rename = "DRAG_COEFF")]
+    drag_coeff: Option<XMLValue>,
+    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    comments: Vec<String>,
+}
+
+fn convert_xml_spacecraft_params(
+    xml_sp: &XMLSpacecraftParameters,
+) -> Result<crate::ccsds::common::CCSDSSpacecraftParameters, BraheError> {
+    Ok(crate::ccsds::common::CCSDSSpacecraftParameters {
+        mass: xml_sp.mass.as_ref().map(|v| v.parse_f64()).transpose()?,
+        solar_rad_area: xml_sp
+            .solar_rad_area
+            .as_ref()
+            .map(|v| v.parse_f64())
+            .transpose()?,
+        solar_rad_coeff: xml_sp
+            .solar_rad_coeff
+            .as_ref()
+            .map(|v| v.parse_f64())
+            .transpose()?,
+        drag_area: xml_sp
+            .drag_area
+            .as_ref()
+            .map(|v| v.parse_f64())
+            .transpose()?,
+        drag_coeff: xml_sp
+            .drag_coeff
+            .as_ref()
+            .map(|v| v.parse_f64())
+            .transpose()?,
+        comments: xml_sp
+            .comments
+            .iter()
+            .map(|s| s.trim().to_string())
+            .collect(),
+    })
+}
+
+// ============================================================================
+// OMM XML Parser
+// ============================================================================
+
+/// Parse an OMM message from XML format.
+pub fn parse_omm_xml(content: &str) -> Result<crate::ccsds::omm::OMM, BraheError> {
+    use crate::ccsds::omm::*;
+
+    let xml_omm: XMLOMM = quick_xml::de::from_str(content)
+        .map_err(|e| ccsds_parse_error("OMM", &format!("XML parse error: {}", e)))?;
+
+    let format_version = xml_omm
+        .version
+        .as_ref()
+        .and_then(|v| v.parse::<f64>().ok())
+        .unwrap_or(3.0);
+
+    let creation_date_str = xml_omm
+        .header
+        .creation_date()
+        .ok_or_else(|| ccsds_parse_error("OMM", "missing CREATION_DATE in header"))?;
+    let originator = xml_omm
+        .header
+        .originator()
+        .ok_or_else(|| ccsds_parse_error("OMM", "missing ORIGINATOR in header"))?
+        .to_string();
+
+    let header = ODMHeader {
+        format_version,
+        classification: xml_omm.header.classification(),
+        creation_date: parse_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
+        originator,
+        message_id: xml_omm.header.message_id(),
+        comments: xml_omm.header.comments(),
+    };
+
+    let meta = &xml_omm.body.segment.metadata;
+    let time_system_str = meta
+        .find_str("TIME_SYSTEM")
+        .ok_or_else(|| ccsds_parse_error("OMM", "missing TIME_SYSTEM in metadata"))?;
+    let time_system = CCSDSTimeSystem::parse(time_system_str)?;
+
+    let ref_frame_epoch = meta
+        .find_str("REF_FRAME_EPOCH")
+        .map(|s| parse_ccsds_datetime(s, &time_system))
+        .transpose()?;
+
+    let metadata = OMMMetadata {
+        object_name: meta
+            .find_str("OBJECT_NAME")
+            .ok_or_else(|| ccsds_parse_error("OMM", "missing OBJECT_NAME"))?
+            .to_string(),
+        object_id: meta.find_str("OBJECT_ID").unwrap_or("").to_string(),
+        center_name: meta
+            .find_str("CENTER_NAME")
+            .ok_or_else(|| ccsds_parse_error("OMM", "missing CENTER_NAME"))?
+            .to_string(),
+        ref_frame: CCSDSRefFrame::parse(
+            meta.find_str("REF_FRAME")
+                .ok_or_else(|| ccsds_parse_error("OMM", "missing REF_FRAME"))?,
+        ),
+        ref_frame_epoch,
+        time_system: time_system.clone(),
+        mean_element_theory: meta
+            .find_str("MEAN_ELEMENT_THEORY")
+            .ok_or_else(|| ccsds_parse_error("OMM", "missing MEAN_ELEMENT_THEORY"))?
+            .to_string(),
+        comments: meta.comments(),
+    };
+
+    let me = &xml_omm.body.segment.data.mean_elements;
+    let epoch = parse_ccsds_datetime(&me.epoch, &time_system)?;
+
+    let mean_elements = OMMeanElements {
+        epoch,
+        mean_motion: me.mean_motion.as_ref().map(|v| v.parse_f64()).transpose()?,
+        semi_major_axis: me
+            .semi_major_axis
+            .as_ref()
+            .map(|v| v.parse_f64())
+            .transpose()?,
+        eccentricity: me.eccentricity.parse_f64()?,
+        inclination: me.inclination.parse_f64()?,
+        ra_of_asc_node: me.ra_of_asc_node.parse_f64()?,
+        arg_of_pericenter: me.arg_of_pericenter.parse_f64()?,
+        mean_anomaly: me.mean_anomaly.parse_f64()?,
+        // GM: km³/s² → m³/s²
+        gm: me
+            .gm
+            .as_ref()
+            .map(|v| v.parse_f64().map(|g| g * 1e9))
+            .transpose()?,
+        comments: me.comments.iter().map(|s| s.trim().to_string()).collect(),
+    };
+
+    let tle_parameters = xml_omm
+        .body
+        .segment
+        .data
+        .tle_parameters
+        .as_ref()
+        .map(|tle| -> Result<OMMTleParameters, BraheError> {
+            Ok(OMMTleParameters {
+                ephemeris_type: tle
+                    .ephemeris_type
+                    .as_ref()
+                    .map(|v| v.parse_f64().map(|f| f as u32))
+                    .transpose()?,
+                classification_type: tle
+                    .classification_type
+                    .as_ref()
+                    .and_then(|v| v.value.trim().chars().next()),
+                norad_cat_id: tle
+                    .norad_cat_id
+                    .as_ref()
+                    .map(|v| v.parse_f64().map(|f| f as u32))
+                    .transpose()?,
+                element_set_no: tle
+                    .element_set_no
+                    .as_ref()
+                    .map(|v| v.parse_f64().map(|f| f as u32))
+                    .transpose()?,
+                rev_at_epoch: tle
+                    .rev_at_epoch
+                    .as_ref()
+                    .map(|v| v.parse_f64().map(|f| f as u32))
+                    .transpose()?,
+                bstar: tle.bstar.as_ref().map(|v| v.parse_f64()).transpose()?,
+                bterm: tle.bterm.as_ref().map(|v| v.parse_f64()).transpose()?,
+                mean_motion_dot: tle
+                    .mean_motion_dot
+                    .as_ref()
+                    .map(|v| v.parse_f64())
+                    .transpose()?,
+                mean_motion_ddot: tle
+                    .mean_motion_ddot
+                    .as_ref()
+                    .map(|v| v.parse_f64())
+                    .transpose()?,
+                agom: tle.agom.as_ref().map(|v| v.parse_f64()).transpose()?,
+                comments: tle.comments.iter().map(|s| s.trim().to_string()).collect(),
+            })
+        })
+        .transpose()?;
+
+    let spacecraft_parameters = xml_omm
+        .body
+        .segment
+        .data
+        .spacecraft_parameters
+        .as_ref()
+        .map(convert_xml_spacecraft_params)
+        .transpose()?;
+
+    let covariance = xml_omm
+        .body
+        .segment
+        .data
+        .covariance_matrix
+        .as_ref()
+        .map(|c| convert_xml_covariance(c, &time_system))
+        .transpose()?;
+
+    Ok(OMM {
+        header,
+        metadata,
+        mean_elements,
+        tle_parameters,
+        spacecraft_parameters,
+        covariance,
+        user_defined: extract_xml_user_defined(content),
+        comments: Vec::new(),
+    })
+}
+
+// ============================================================================
+// Intermediate XML structs for OPM
+// ============================================================================
+
+#[derive(Debug, Deserialize)]
+#[serde(rename = "opm")]
+#[allow(clippy::upper_case_acronyms)]
+struct XMLOPM {
+    #[serde(rename = "@version")]
+    version: Option<String>,
+    header: XMLHeader,
+    body: XMLOPMBody,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLOPMBody {
+    segment: XMLOPMSegment,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLOPMSegment {
+    metadata: XMLOPMMetadata,
+    #[serde(default)]
+    data: Option<XMLOPMData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLOPMMetadata {
+    #[serde(rename = "$value")]
+    items: Vec<XMLOPMMetadataItem>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
+enum XMLOPMMetadataItem {
+    OBJECT_NAME(String),
+    OBJECT_ID(String),
+    CENTER_NAME(String),
+    REF_FRAME(String),
+    REF_FRAME_EPOCH(String),
+    TIME_SYSTEM(String),
+    COMMENT(String),
+}
+
+impl XMLOPMMetadata {
+    fn find_str(&self, variant: &str) -> Option<&str> {
+        self.items.iter().find_map(|item| match item {
+            XMLOPMMetadataItem::OBJECT_NAME(s) if variant == "OBJECT_NAME" => Some(s.as_str()),
+            XMLOPMMetadataItem::OBJECT_ID(s) if variant == "OBJECT_ID" => Some(s.as_str()),
+            XMLOPMMetadataItem::CENTER_NAME(s) if variant == "CENTER_NAME" => Some(s.as_str()),
+            XMLOPMMetadataItem::REF_FRAME(s) if variant == "REF_FRAME" => Some(s.as_str()),
+            XMLOPMMetadataItem::REF_FRAME_EPOCH(s) if variant == "REF_FRAME_EPOCH" => {
+                Some(s.as_str())
+            }
+            XMLOPMMetadataItem::TIME_SYSTEM(s) if variant == "TIME_SYSTEM" => Some(s.as_str()),
+            _ => None,
+        })
+    }
+
+    fn comments(&self) -> Vec<String> {
+        self.items
+            .iter()
+            .filter_map(|item| {
+                if let XMLOPMMetadataItem::COMMENT(s) = item {
+                    Some(s.trim().to_string())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct XMLOPMData {
+    state_vector: XMLOPMStateVector,
+    #[serde(default)]
+    keplerian_elements: Option<XMLKeplerianElements>,
+    #[serde(default)]
+    spacecraft_parameters: Option<XMLSpacecraftParameters>,
+    #[serde(default)]
+    covariance_matrix: Option<XMLCovarianceMatrix>,
+    #[serde(
+        default,
+        rename = "maneuverParameters",
+        deserialize_with = "deserialize_one_or_many_opt"
+    )]
+    maneuver_parameters: Vec<XMLManeuverParameters>,
+}
+
+/// Deserialize an optional field that may be absent, a single struct, or a sequence.
+fn deserialize_one_or_many_opt<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    deserialize_one_or_many(deserializer)
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLOPMStateVector {
+    #[serde(rename = "EPOCH")]
+    epoch: String,
+    #[serde(rename = "X")]
+    x: XMLValue,
+    #[serde(rename = "Y")]
+    y: XMLValue,
+    #[serde(rename = "Z")]
+    z: XMLValue,
+    #[serde(rename = "X_DOT")]
+    x_dot: XMLValue,
+    #[serde(rename = "Y_DOT")]
+    y_dot: XMLValue,
+    #[serde(rename = "Z_DOT")]
+    z_dot: XMLValue,
+    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    comments: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLKeplerianElements {
+    #[serde(rename = "SEMI_MAJOR_AXIS")]
+    semi_major_axis: XMLValue,
+    #[serde(rename = "ECCENTRICITY")]
+    eccentricity: XMLValue,
+    #[serde(rename = "INCLINATION")]
+    inclination: XMLValue,
+    #[serde(rename = "RA_OF_ASC_NODE")]
+    ra_of_asc_node: XMLValue,
+    #[serde(rename = "ARG_OF_PERICENTER")]
+    arg_of_pericenter: XMLValue,
+    #[serde(rename = "TRUE_ANOMALY")]
+    true_anomaly: Option<XMLValue>,
+    #[serde(rename = "MEAN_ANOMALY")]
+    mean_anomaly: Option<XMLValue>,
+    #[serde(rename = "GM")]
+    gm: Option<XMLValue>,
+    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    comments: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct XMLManeuverParameters {
+    #[serde(rename = "MAN_EPOCH_IGNITION")]
+    epoch_ignition: String,
+    #[serde(rename = "MAN_DURATION")]
+    duration: XMLValue,
+    #[serde(rename = "MAN_DELTA_MASS")]
+    delta_mass: Option<XMLValue>,
+    #[serde(rename = "MAN_REF_FRAME")]
+    ref_frame: String,
+    #[serde(rename = "MAN_DV_1")]
+    dv_1: XMLValue,
+    #[serde(rename = "MAN_DV_2")]
+    dv_2: XMLValue,
+    #[serde(rename = "MAN_DV_3")]
+    dv_3: XMLValue,
+    #[serde(rename = "COMMENT", default, deserialize_with = "deserialize_comments")]
+    comments: Vec<String>,
+}
+
+// ============================================================================
+// OPM XML Parser
+// ============================================================================
+
 /// Parse an OPM message from XML format.
-pub fn parse_opm_xml(_content: &str) -> Result<crate::ccsds::opm::OPM, BraheError> {
-    Err(ccsds_parse_error("OPM", "XML parsing not yet implemented"))
+pub fn parse_opm_xml(content: &str) -> Result<crate::ccsds::opm::OPM, BraheError> {
+    use crate::ccsds::opm::*;
+
+    let xml_opm: XMLOPM = quick_xml::de::from_str(content)
+        .map_err(|e| ccsds_parse_error("OPM", &format!("XML parse error: {}", e)))?;
+
+    let format_version = xml_opm
+        .version
+        .as_ref()
+        .and_then(|v| v.parse::<f64>().ok())
+        .unwrap_or(3.0);
+
+    let creation_date_str = xml_opm
+        .header
+        .creation_date()
+        .ok_or_else(|| ccsds_parse_error("OPM", "missing CREATION_DATE in header"))?;
+    let originator = xml_opm
+        .header
+        .originator()
+        .ok_or_else(|| ccsds_parse_error("OPM", "missing ORIGINATOR in header"))?
+        .to_string();
+
+    let header = ODMHeader {
+        format_version,
+        classification: xml_opm.header.classification(),
+        creation_date: parse_ccsds_datetime(creation_date_str, &CCSDSTimeSystem::UTC)?,
+        originator,
+        message_id: xml_opm.header.message_id(),
+        comments: xml_opm.header.comments(),
+    };
+
+    let meta = &xml_opm.body.segment.metadata;
+
+    let time_system_str = meta
+        .find_str("TIME_SYSTEM")
+        .ok_or_else(|| ccsds_parse_error("OPM", "missing TIME_SYSTEM in metadata"))?;
+    let time_system = CCSDSTimeSystem::parse(time_system_str)?;
+
+    let ref_frame_epoch = meta
+        .find_str("REF_FRAME_EPOCH")
+        .map(|s| parse_ccsds_datetime(s, &time_system))
+        .transpose()?;
+
+    let metadata = OPMMetadata {
+        object_name: meta
+            .find_str("OBJECT_NAME")
+            .ok_or_else(|| ccsds_parse_error("OPM", "missing OBJECT_NAME"))?
+            .to_string(),
+        object_id: meta
+            .find_str("OBJECT_ID")
+            .ok_or_else(|| ccsds_parse_error("OPM", "missing OBJECT_ID"))?
+            .to_string(),
+        center_name: meta
+            .find_str("CENTER_NAME")
+            .ok_or_else(|| ccsds_parse_error("OPM", "missing CENTER_NAME"))?
+            .to_string(),
+        ref_frame: CCSDSRefFrame::parse(
+            meta.find_str("REF_FRAME")
+                .ok_or_else(|| ccsds_parse_error("OPM", "missing REF_FRAME"))?,
+        ),
+        ref_frame_epoch,
+        time_system: time_system.clone(),
+        comments: meta.comments(),
+    };
+
+    // If data block is missing (e.g., spurious-metadata test), return minimal OPM
+    let data = match xml_opm.body.segment.data {
+        Some(ref d) => d,
+        None => {
+            return Err(ccsds_parse_error("OPM", "missing data block"));
+        }
+    };
+
+    let sv = &data.state_vector;
+    let epoch = parse_ccsds_datetime(&sv.epoch, &time_system)?;
+
+    // Position: km → m
+    let state_vector = OPMStateVector {
+        epoch,
+        position: [
+            sv.x.parse_f64()? * 1e3,
+            sv.y.parse_f64()? * 1e3,
+            sv.z.parse_f64()? * 1e3,
+        ],
+        velocity: [
+            sv.x_dot.parse_f64()? * 1e3,
+            sv.y_dot.parse_f64()? * 1e3,
+            sv.z_dot.parse_f64()? * 1e3,
+        ],
+        comments: sv.comments.iter().map(|s| s.trim().to_string()).collect(),
+    };
+
+    // Keplerian elements
+    let keplerian_elements = data
+        .keplerian_elements
+        .as_ref()
+        .map(|ke| -> Result<OPMKeplerianElements, BraheError> {
+            Ok(OPMKeplerianElements {
+                // km → m
+                semi_major_axis: ke.semi_major_axis.parse_f64()? * 1e3,
+                eccentricity: ke.eccentricity.parse_f64()?,
+                inclination: ke.inclination.parse_f64()?,
+                ra_of_asc_node: ke.ra_of_asc_node.parse_f64()?,
+                arg_of_pericenter: ke.arg_of_pericenter.parse_f64()?,
+                true_anomaly: ke
+                    .true_anomaly
+                    .as_ref()
+                    .map(|v| v.parse_f64())
+                    .transpose()?,
+                mean_anomaly: ke
+                    .mean_anomaly
+                    .as_ref()
+                    .map(|v| v.parse_f64())
+                    .transpose()?,
+                // km³/s² → m³/s²
+                gm: ke
+                    .gm
+                    .as_ref()
+                    .map(|v| v.parse_f64().map(|g| g * 1e9))
+                    .transpose()?,
+                comments: ke.comments.iter().map(|s| s.trim().to_string()).collect(),
+            })
+        })
+        .transpose()?;
+
+    // Spacecraft parameters
+    let spacecraft_parameters = data
+        .spacecraft_parameters
+        .as_ref()
+        .map(convert_xml_spacecraft_params)
+        .transpose()?;
+
+    // Covariance
+    let covariance = data
+        .covariance_matrix
+        .as_ref()
+        .map(|c| convert_xml_covariance(c, &time_system))
+        .transpose()?;
+
+    // Maneuvers
+    let mut maneuvers = Vec::new();
+    for man in &data.maneuver_parameters {
+        let epoch_ignition = parse_ccsds_datetime(&man.epoch_ignition, &time_system)?;
+        maneuvers.push(OPMManeuver {
+            epoch_ignition,
+            duration: man.duration.parse_f64()?,
+            delta_mass: man.delta_mass.as_ref().map(|v| v.parse_f64()).transpose()?,
+            ref_frame: CCSDSRefFrame::parse(&man.ref_frame),
+            // km/s → m/s
+            dv: [
+                man.dv_1.parse_f64()? * 1e3,
+                man.dv_2.parse_f64()? * 1e3,
+                man.dv_3.parse_f64()? * 1e3,
+            ],
+            comments: man.comments.iter().map(|s| s.trim().to_string()).collect(),
+        });
+    }
+
+    Ok(OPM {
+        header,
+        metadata,
+        state_vector,
+        keplerian_elements,
+        spacecraft_parameters,
+        covariance,
+        maneuvers,
+        user_defined: extract_xml_user_defined(content),
+    })
+}
+
+/// Extract user-defined parameters from XML content.
+///
+/// Scans for `<USER_DEFINED_xxx value="yyy"/>` elements inside
+/// `<userDefinedParameters>` blocks and returns them as a `CCSDSUserDefined`.
+fn extract_xml_user_defined(content: &str) -> Option<CCSDSUserDefined> {
+    use quick_xml::Reader;
+    use quick_xml::events::Event;
+
+    let mut reader = Reader::from_str(content);
+    let mut in_user_defined = false;
+    let mut params: HashMap<String, String> = HashMap::new();
+
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                if name == "userDefinedParameters" {
+                    in_user_defined = true;
+                } else if in_user_defined && let Some(key) = name.strip_prefix("USER_DEFINED_") {
+                    for attr in e.attributes().flatten() {
+                        let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                        if attr_name == "value" {
+                            let val = String::from_utf8_lossy(&attr.value).to_string();
+                            params.insert(key.to_string(), val);
+                        }
+                    }
+                }
+            }
+            Ok(Event::End(e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                if name == "userDefinedParameters" {
+                    in_user_defined = false;
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => break,
+            _ => {}
+        }
+    }
+
+    if params.is_empty() {
+        None
+    } else {
+        Some(CCSDSUserDefined { parameters: params })
+    }
 }
 
 /// Parse a CDM message from XML format.
@@ -682,9 +1431,18 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                     }
                 }
                 if !is_nil {
-                    // Empty element with no nil attribute - treat as empty value
-                    // Only emit for known CDM keywords
-                    if name.starts_with(|c: char| c.is_uppercase()) && name != "COMMENT" {
+                    // Check for USER_DEFINED_* elements with value attribute
+                    if name.starts_with("USER_DEFINED_") {
+                        let mut val = String::new();
+                        for attr in e.attributes().flatten() {
+                            let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            if attr_name == "value" {
+                                val = String::from_utf8_lossy(&attr.value).to_string();
+                            }
+                        }
+                        kvn_lines.push(format!("{} = {}", name, val));
+                    } else if name.starts_with(|c: char| c.is_uppercase()) && name != "COMMENT" {
+                        // Empty element with no nil attribute - treat as empty value
                         kvn_lines.push(format!("{} = ", name));
                     }
                 }

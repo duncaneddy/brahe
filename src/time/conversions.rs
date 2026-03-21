@@ -7,7 +7,7 @@ use std::os::raw::{c_char, c_int};
 
 use crate::constants::{
     BDT_TAI, DAYS_PER_JULIAN_CENTURY, GPS_TAI, GST_TAI, JD_J2000, LB, LG, MJD_ZERO,
-    SECONDS_PER_DAY, TAI_BDT, TAI_GPS, TAI_GST, TAI_TT, TDB0, T0_TT_TCG, TT_TAI,
+    SECONDS_PER_DAY, T0_TT_TCG, TAI_BDT, TAI_GPS, TAI_GST, TAI_TT, TDB0, TT_TAI,
 };
 use crate::eop::get_global_ut1_utc;
 use crate::math::split_float;
@@ -835,12 +835,14 @@ mod tests {
 
         // Round-trip: TT → TDB → TT should be ≈ 0
         let tt_tdb = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TDB);
-        let tdb_tt_back = time_system_offset(jd + tt_tdb / 86400.0, 0.0, TimeSystem::TDB, TimeSystem::TT);
+        let tdb_tt_back =
+            time_system_offset(jd + tt_tdb / 86400.0, 0.0, TimeSystem::TDB, TimeSystem::TT);
         assert_abs_diff_eq!(tt_tdb + tdb_tt_back, 0.0, epsilon = 1e-9);
 
         // Round-trip: TT → TCG → TT should be ≈ 0
         let tt_tcg = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TCG);
-        let tcg_tt_back = time_system_offset(jd + tt_tcg / 86400.0, 0.0, TimeSystem::TCG, TimeSystem::TT);
+        let tcg_tt_back =
+            time_system_offset(jd + tt_tcg / 86400.0, 0.0, TimeSystem::TCG, TimeSystem::TT);
         assert_abs_diff_eq!(tt_tcg + tcg_tt_back, 0.0, epsilon = 1e-9);
 
         // TDB → TAI → TDB self-consistency
@@ -876,12 +878,8 @@ mod tests {
 
         // Round-trip: TT → TCB → TT ≈ 0
         let tt_tcb = time_system_offset(jd, 0.0, TimeSystem::TT, TimeSystem::TCB);
-        let tcb_tt_back = time_system_offset(
-            jd + tt_tcb / 86400.0,
-            0.0,
-            TimeSystem::TCB,
-            TimeSystem::TT,
-        );
+        let tcb_tt_back =
+            time_system_offset(jd + tt_tcb / 86400.0, 0.0, TimeSystem::TCB, TimeSystem::TT);
         assert_abs_diff_eq!(tt_tcb + tcb_tt_back, 0.0, epsilon = 1e-6);
 
         // Self-consistency
@@ -892,8 +890,7 @@ mod tests {
 
         // At J2000: TCB-TDB ≈ L_B × (JD_J2000 - t₀) × 86400 + TDB₀ ≈ ~11.25s
         let jd_j2000 = datetime_to_jd(2000, 1, 1, 12, 0, 0.0, 0.0);
-        let tcb_tdb_j2000 =
-            time_system_offset(jd_j2000, 0.0, TimeSystem::TDB, TimeSystem::TCB);
+        let tcb_tdb_j2000 = time_system_offset(jd_j2000, 0.0, TimeSystem::TDB, TimeSystem::TCB);
         assert_abs_diff_eq!(tcb_tdb_j2000, 11.25, epsilon = 0.1);
     }
 

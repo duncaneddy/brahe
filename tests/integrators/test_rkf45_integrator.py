@@ -322,3 +322,46 @@ class TestRKF45Integrator:
         # Should return close to initial state
         for i in range(6):
             assert abs(state_back[i] - state0[i]) < 1e-3
+
+
+class TestRKF45IntegratorRepr:
+    """Tests for RKF45Integrator __repr__."""
+
+    def test_repr(self):
+        """Test RKF45Integrator repr string."""
+
+        def dynamics(t, state):
+            return np.array([2.0 * t])
+
+        integrator = bh.RKF45Integrator(dimension=1, dynamics_fn=dynamics)
+        r = repr(integrator)
+        assert "RKF45Integrator" in r
+        assert "dimension=1" in r
+
+    def test_repr_6d(self):
+        """Test RKF45Integrator repr with 6D system."""
+
+        def dynamics(t, state):
+            return np.zeros(6)
+
+        integrator = bh.RKF45Integrator(dimension=6, dynamics_fn=dynamics)
+        r = repr(integrator)
+        assert "RKF45Integrator" in r
+        assert "dimension=6" in r
+
+
+class TestAdaptiveStepResultRepr:
+    """Tests for AdaptiveStepResult __repr__."""
+
+    def test_repr(self):
+        """Test AdaptiveStepResult repr string."""
+
+        def dynamics(t, state):
+            return np.array([2.0 * t])
+
+        integrator = bh.RKF45Integrator(dimension=1, dynamics_fn=dynamics)
+        result = integrator.step(0.0, np.array([0.0]), 0.1)
+        r = repr(result)
+        assert "AdaptiveStepResult" in r
+        assert "dt_used" in r
+        assert "dt_next" in r

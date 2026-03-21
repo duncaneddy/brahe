@@ -467,3 +467,42 @@ def test_window_properties_view_repr(window_with_props):
     repr_str = repr(window.properties)
     assert "AccessPropertiesView" in repr_str
     assert "45.0" in repr_str  # azimuth_open
+
+
+def test_window_properties_view_subscript_set_and_get(window_with_props):
+    """Test setting and getting additional props via view subscript access."""
+    window = window_with_props
+
+    # Set via subscript on the view
+    window.properties["custom_key"] = 123.0
+    assert window.properties["custom_key"] == pytest.approx(123.0)
+
+    # Set another value
+    window.properties["another"] = "test_string"
+    assert window.properties["another"] == "test_string"
+
+
+def test_access_properties_center_coordinates():
+    """Test AccessProperties center coordinates getters."""
+    props = bh.AccessProperties(
+        azimuth_open=0.0,
+        azimuth_close=90.0,
+        elevation_min=10.0,
+        elevation_max=45.0,
+        elevation_open=12.0,
+        elevation_close=10.5,
+        off_nadir_min=0.0,
+        off_nadir_max=30.0,
+        local_time=43200.0,
+        look_direction=bh.LookDirection.EITHER,
+        asc_dsc=bh.AscDsc.EITHER,
+        center_lon=-105.2705,
+        center_lat=40.0150,
+        center_alt=1655.0,
+        center_ecef=[1234.0, 5678.0, 9012.0],
+    )
+
+    assert props.center_lon == pytest.approx(-105.2705)
+    assert props.center_lat == pytest.approx(40.0150)
+    assert props.center_alt == pytest.approx(1655.0)
+    assert props.center_ecef == pytest.approx([1234.0, 5678.0, 9012.0])

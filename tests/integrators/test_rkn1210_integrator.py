@@ -278,3 +278,30 @@ class TestRKN1210Integrator:
         # Should return close to initial state
         for i in range(6):
             assert abs(state_back[i] - state0[i]) < 1e-3
+
+
+class TestRKN1210IntegratorRepr:
+    """Tests for RKN1210Integrator __repr__."""
+
+    def test_repr(self):
+        """Test RKN1210Integrator repr string."""
+
+        def dynamics(t, state):
+            x, v = state
+            return np.array([v, -x])
+
+        integrator = bh.RKN1210Integrator(dimension=2, dynamics_fn=dynamics)
+        r = repr(integrator)
+        assert "RKN1210Integrator" in r
+        assert "dimension=2" in r
+
+    def test_repr_6d(self):
+        """Test RKN1210Integrator repr with 6D orbital system."""
+
+        def dynamics(t, state):
+            return np.zeros(6)
+
+        integrator = bh.RKN1210Integrator(dimension=6, dynamics_fn=dynamics)
+        r = repr(integrator)
+        assert "RKN1210Integrator" in r
+        assert "dimension=6" in r

@@ -1605,3 +1605,127 @@ class TestSGPPropagatorTrajectoryMode:
 
         # State should be back to initial
         assert prop.current_epoch() == prop.epoch
+
+
+class TestSGPPropagatorIdentity:
+    """Test SGPPropagator identity builder and mutator methods."""
+
+    def test_with_name(self, iss_tle):
+        """Test with_name builder pattern."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        prop.with_name("test")
+        assert prop.get_name() == "test"
+
+    def test_with_id(self, iss_tle):
+        """Test with_id builder pattern."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        prop.with_id(42)
+        assert prop.get_id() == 42
+
+    def test_with_uuid(self, iss_tle):
+        """Test with_uuid builder pattern."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.with_uuid(test_uuid)
+        assert prop.get_uuid() == test_uuid
+
+    def test_with_new_uuid(self, iss_tle):
+        """Test with_new_uuid generates a new UUID different from the original."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        original_uuid = prop.get_uuid()
+        prop.with_new_uuid()
+        new_uuid = prop.get_uuid()
+        assert new_uuid is not None
+        assert len(new_uuid) > 0
+        assert new_uuid != original_uuid
+
+    def test_set_name(self, iss_tle):
+        """Test set_name mutator."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        prop.set_name("new")
+        assert prop.get_name() == "new"
+
+    def test_set_id(self, iss_tle):
+        """Test set_id mutator."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        prop.set_id(99)
+        assert prop.get_id() == 99
+
+    def test_generate_uuid(self, iss_tle):
+        """Test generate_uuid mutator generates a new UUID."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        original_uuid = prop.get_uuid()
+        prop.generate_uuid()
+        new_uuid = prop.get_uuid()
+        assert new_uuid is not None
+        assert new_uuid != original_uuid
+
+    def test_set_identity(self, iss_tle):
+        """Test set_identity sets name, id, and uuid at once."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.set_identity("MySat", test_uuid, 12345)
+        assert prop.get_name() == "MySat"
+        assert prop.get_uuid() == test_uuid
+        assert prop.get_id() == 12345
+
+    def test_with_identity(self, iss_tle):
+        """Test with_identity builder pattern."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+        prop.with_identity("BuilderSat", test_uuid, 99999)
+        assert prop.get_name() == "BuilderSat"
+        assert prop.get_uuid() == test_uuid
+        assert prop.get_id() == 99999
+
+
+class TestSGPPropagatorAdditionalMethods:
+    """Test additional SGPPropagator methods for uncovered code paths."""
+
+    def test_state_koe_mean(self, iss_tle):
+        """Test state_koe_mean returns mean Keplerian elements."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        epoch = prop.epoch
+
+        mean_deg = prop.state_koe_mean(epoch, brahe.AngleFormat.DEGREES)
+
+        assert len(mean_deg) == 6
+        assert all(np.isfinite(mean_deg))
+        # Semi-major axis should be positive and around ISS altitude
+        assert mean_deg[0] > 0.0
+        assert 6.3e6 < mean_deg[0] < 7.0e6
+        # Inclination should be around 51.6 degrees
+        assert mean_deg[2] == pytest.approx(51.6, abs=1.0)
+
+        # Test radians output
+        mean_rad = prop.state_koe_mean(epoch, brahe.AngleFormat.RADIANS)
+        assert len(mean_rad) == 6
+        assert all(np.isfinite(mean_rad))
+        # Semi-major axis and eccentricity should be the same
+        assert mean_rad[0] == pytest.approx(mean_deg[0], rel=1e-10)
+        assert mean_rad[1] == pytest.approx(mean_deg[1], rel=1e-10)
+        # Angular elements should be converted
+        for i in range(2, 6):
+            assert mean_rad[i] == pytest.approx(np.radians(mean_deg[i]), rel=1e-8)
+
+    def test_states_koe_mean(self, iss_tle):
+        """Test states_koe_mean returns mean elements at multiple epochs."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+        epochs = [initial_epoch + i * 3600.0 for i in range(3)]
+
+        mean_list = prop.states_koe_mean(epochs, brahe.AngleFormat.DEGREES)
+
+        assert len(mean_list) == 3
+        for elements in mean_list:
+            assert len(elements) == 6
+            assert all(np.isfinite(elements))
+            assert 6.3e6 < elements[0] < 7.0e6
+            assert elements[2] == pytest.approx(51.6, abs=1.0)
+
+        # Also test radians for conversion consistency
+        mean_list_rad = prop.states_koe_mean(epochs, brahe.AngleFormat.RADIANS)
+        assert len(mean_list_rad) == 3
+        for i in range(3):
+            assert mean_list_rad[i][0] == pytest.approx(mean_list[i][0], rel=1e-10)
+            assert mean_list_rad[i][1] == pytest.approx(mean_list[i][1], rel=1e-10)

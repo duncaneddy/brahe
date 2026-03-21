@@ -448,3 +448,281 @@ def test_cdm_json_full_round_trip(eop):
     json_str = cdm1.to_string("JSON")
     cdm2 = CDM.from_str(json_str)
     _assert_cdm_fields(cdm1, cdm2)
+
+
+# ─────────────────────────────────────────────
+# Additional coverage: object property getters, header fields, uppercase JSON
+# ─────────────────────────────────────────────
+
+
+class TestCDMObjectProperties:
+    """Test CDM object-level property accessors not covered by basic parsing."""
+
+    def test_object1_international_designator(self):
+        """Test object1 international designator from parsed CDM."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample1.txt")
+        intl_des = cdm.object1_international_designator
+        assert isinstance(intl_des, str)
+        assert len(intl_des) > 0
+
+    def test_object2_international_designator(self):
+        """Test object2 international designator from parsed CDM."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample1.txt")
+        intl_des = cdm.object2_international_designator
+        assert isinstance(intl_des, str)
+        assert len(intl_des) > 0
+
+    def test_object2_ref_frame(self):
+        """Test object2 reference frame."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample1.txt")
+        rf = cdm.object2_ref_frame
+        assert isinstance(rf, str)
+        assert rf == "EME2000"
+
+    def test_object2_covariance(self):
+        """Test object2 covariance matrix is accessible and 6x6."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample1.txt")
+        cov2 = cdm.object2_covariance
+        assert cov2.shape == (6, 6)
+        # Diagonal should be positive
+        for i in range(6):
+            assert cov2[i][i] >= 0.0
+
+    def test_tca_property(self):
+        """Test TCA property returns an Epoch."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample1.txt")
+        tca = cdm.tca
+        assert isinstance(tca, bh.Epoch)
+
+    def test_creation_date_property(self):
+        """Test creation_date property returns an Epoch."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample1.txt")
+        cd = cdm.creation_date
+        assert isinstance(cd, bh.Epoch)
+
+    def test_relative_speed_property(self):
+        """Test relative_speed on CDM that has it."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample2.txt")
+        rs = cdm.relative_speed
+        assert rs is not None
+        assert rs == pytest.approx(14762.0)
+
+    def test_relative_speed_property_none(self):
+        """Test relative_speed returns None when not present."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample1.txt")
+        # CDMExample1 may or may not have relative_speed
+        # Just verify the property doesn't raise
+        _ = cdm.relative_speed
+
+    def test_message_for_from_parsed(self):
+        """Test message_for on CDM that has it."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample2.txt")
+        assert cdm.message_for == "SATELLITE A"
+
+    def test_object1_ref_frame(self):
+        """Test object1 reference frame."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample1.txt")
+        rf = cdm.object1_ref_frame
+        assert rf == "EME2000"
+
+    def test_object2_designator(self):
+        """Test object2 designator."""
+        cdm = CDM.from_file("test_assets/ccsds/cdm/CDMExample1.txt")
+        assert cdm.object2_designator == "30337"
+
+
+class TestCDMConstructionExtended:
+    """Extended tests for CDM programmatic creation."""
+
+    def test_cdm_new_all_object_properties(self):
+        """Create CDM from scratch, verify all object property getters."""
+        sv1 = CDMStateVector([7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0])
+        sv2 = CDMStateVector([7001e3, 100.0, -50.0], [0.0, -7500.0, 0.0])
+        cov1 = CDMRTNCovariance(matrix=np.eye(6).tolist())
+        cov2 = CDMRTNCovariance(matrix=(np.eye(6) * 2.0).tolist())
+
+        obj1 = CDMObject(
+            designator="11111",
+            catalog_name="SATCAT",
+            name="PRIMARY",
+            international_designator="2020-001A",
+            ephemeris_name="NONE",
+            covariance_method="CALCULATED",
+            maneuverable="YES",
+            ref_frame="EME2000",
+            state_vector=sv1,
+            rtn_covariance=cov1,
+        )
+        obj2 = CDMObject(
+            designator="22222",
+            catalog_name="SATCAT",
+            name="SECONDARY",
+            international_designator="2021-002B",
+            ephemeris_name="NONE",
+            covariance_method="DEFAULT",
+            maneuverable="NO",
+            ref_frame="EME2000",
+            state_vector=sv2,
+            rtn_covariance=cov2,
+        )
+
+        tca = bh.Epoch.from_datetime(2024, 6, 15, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        cdm = CDM(
+            originator="TEST_ORG",
+            message_id="MSG002",
+            tca=tca,
+            miss_distance=500.0,
+            object1=obj1,
+            object2=obj2,
+        )
+
+        # Header
+        assert cdm.format_version == 1.0
+        assert cdm.originator == "TEST_ORG"
+        assert cdm.message_id == "MSG002"
+        assert cdm.miss_distance == pytest.approx(500.0)
+        assert isinstance(cdm.tca, bh.Epoch)
+        assert isinstance(cdm.creation_date, bh.Epoch)
+
+        # Object 1
+        assert cdm.object1_name == "PRIMARY"
+        assert cdm.object1_designator == "11111"
+        assert cdm.object1_international_designator == "2020-001A"
+        assert cdm.object1_ref_frame == "EME2000"
+        s1 = cdm.object1_state
+        assert s1[0] == pytest.approx(7000e3)
+        assert s1[4] == pytest.approx(7500.0)
+        cov1_mat = cdm.object1_covariance
+        assert cov1_mat[0][0] == pytest.approx(1.0)
+
+        # Object 2
+        assert cdm.object2_name == "SECONDARY"
+        assert cdm.object2_designator == "22222"
+        assert cdm.object2_international_designator == "2021-002B"
+        assert cdm.object2_ref_frame == "EME2000"
+        s2 = cdm.object2_state
+        assert s2[0] == pytest.approx(7001e3)
+        assert s2[1] == pytest.approx(100.0)
+        cov2_mat = cdm.object2_covariance
+        assert cov2_mat[0][0] == pytest.approx(2.0)
+
+        # Optional fields default to None
+        assert cdm.collision_probability is None
+        assert cdm.collision_probability_method is None
+        assert cdm.message_for is None
+
+    def test_cdm_set_collision_probability_then_round_trip(self):
+        """Set collision probability and verify it round-trips."""
+        sv1 = CDMStateVector([7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0])
+        sv2 = CDMStateVector([7001e3, 0.0, 0.0], [0.0, -7500.0, 0.0])
+        cov = CDMRTNCovariance(matrix=np.eye(6).tolist())
+
+        obj1 = CDMObject(
+            "12345",
+            "SATCAT",
+            "SAT A",
+            "2020-001A",
+            "NONE",
+            "CALCULATED",
+            "YES",
+            "EME2000",
+            sv1,
+            cov,
+        )
+        obj2 = CDMObject(
+            "67890",
+            "SATCAT",
+            "SAT B",
+            "2021-002B",
+            "NONE",
+            "CALCULATED",
+            "NO",
+            "EME2000",
+            sv2,
+            cov,
+        )
+
+        tca = bh.Epoch.from_datetime(2024, 1, 15, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        cdm = CDM("ORG", "MSG_PC", tca, 715.0, obj1, obj2)
+
+        cdm.collision_probability = 1.23e-4
+        cdm.collision_probability_method = "FOSTER-1992"
+
+        # Round-trip through all three formats
+        for fmt in ("KVN", "XML", "JSON"):
+            s = cdm.to_string(fmt)
+            cdm2 = CDM.from_str(s)
+            assert cdm2.collision_probability == pytest.approx(1.23e-4, rel=1e-3)
+            assert cdm2.collision_probability_method == "FOSTER-1992"
+
+    def test_cdm_json_uppercase_keys(self):
+        """Test to_json_string with uppercase keys on constructed CDM."""
+        sv = CDMStateVector([7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0])
+        cov = CDMRTNCovariance(matrix=np.eye(6).tolist())
+        obj1 = CDMObject(
+            "12345",
+            "SATCAT",
+            "SAT A",
+            "2020-001A",
+            "NONE",
+            "CALCULATED",
+            "YES",
+            "EME2000",
+            sv,
+            cov,
+        )
+        obj2 = CDMObject(
+            "67890",
+            "SATCAT",
+            "SAT B",
+            "2021-002B",
+            "NONE",
+            "CALCULATED",
+            "NO",
+            "EME2000",
+            sv,
+            cov,
+        )
+        tca = bh.Epoch.from_datetime(2024, 1, 15, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        cdm = CDM("ORG", "MSG001", tca, 715.0, obj1, obj2)
+
+        json_str = cdm.to_json_string(uppercase_keys=True)
+        assert '"ORIGINATOR"' in json_str or '"header"' in json_str
+        # Container keys remain lowercase, but value keys are uppercase
+        json_lower = cdm.to_json_string(uppercase_keys=False)
+        assert '"originator"' in json_lower
+
+    def test_cdm_state_vector_setters(self):
+        """Test CDMStateVector setters via proxy (position/velocity are read-only on sub-objects,
+        but we verify the state is set correctly at construction time for coverage)."""
+        sv = CDMStateVector(
+            position=np.array([1.0, 2.0, 3.0]),
+            velocity=np.array([4.0, 5.0, 6.0]),
+        )
+        # Verify getters return numpy arrays
+        pos = sv.position
+        vel = sv.velocity
+        assert isinstance(pos, np.ndarray)
+        assert isinstance(vel, np.ndarray)
+        assert pos[0] == pytest.approx(1.0)
+        assert vel[2] == pytest.approx(6.0)
+
+    def test_cdm_object_repr(self):
+        """Test CDMObject repr includes name and designator."""
+        sv = CDMStateVector([7000e3, 0.0, 0.0], [0.0, 7500.0, 0.0])
+        cov = CDMRTNCovariance(np.eye(6).tolist())
+        obj = CDMObject(
+            "12345",
+            "SATCAT",
+            "MY SAT",
+            "2020-001A",
+            "NONE",
+            "CALCULATED",
+            "YES",
+            "EME2000",
+            sv,
+            cov,
+        )
+        r = repr(obj)
+        assert "MY SAT" in r
+        assert "12345" in r

@@ -782,3 +782,212 @@ class TestConstraintCompositionEvaluation:
 
         # Low elevation constraint violated, so NOT should be satisfied
         assert high_elev.evaluate(epoch, sat_state, location_ecef) is True
+
+
+# ================================
+# Constraint __repr__ Tests
+# ================================
+
+
+class TestConstraintReprMethods:
+    """Test __repr__ methods return detailed Rust Debug format strings."""
+
+    def test_elevation_constraint_repr_min_only(self):
+        """Test ElevationConstraint repr with min only."""
+        constraint = bh.ElevationConstraint(
+            min_elevation_deg=5.0, max_elevation_deg=None
+        )
+        r = repr(constraint)
+        assert "ElevationConstraint" in r
+        assert "5" in r
+
+    def test_elevation_constraint_repr_both(self):
+        """Test ElevationConstraint repr with min and max."""
+        constraint = bh.ElevationConstraint(
+            min_elevation_deg=5.0, max_elevation_deg=85.0
+        )
+        r = repr(constraint)
+        assert "ElevationConstraint" in r
+        assert "5" in r
+        assert "85" in r
+
+    def test_elevation_mask_constraint_repr(self):
+        """Test ElevationMaskConstraint repr."""
+        mask = [(0.0, 10.0), (180.0, 5.0)]
+        constraint = bh.ElevationMaskConstraint(mask)
+        r = repr(constraint)
+        assert "ElevationMaskConstraint" in r
+
+    def test_off_nadir_constraint_repr(self):
+        """Test OffNadirConstraint repr with min and max."""
+        constraint = bh.OffNadirConstraint(
+            min_off_nadir_deg=10.0, max_off_nadir_deg=45.0
+        )
+        r = repr(constraint)
+        assert "OffNadirConstraint" in r
+        assert "10" in r
+        assert "45" in r
+
+    def test_local_time_constraint_repr(self):
+        """Test LocalTimeConstraint repr."""
+        constraint = bh.LocalTimeConstraint(time_windows=[(600, 1800)])
+        r = repr(constraint)
+        assert "LocalTimeConstraint" in r
+
+    def test_look_direction_constraint_repr(self):
+        """Test LookDirectionConstraint repr."""
+        constraint = bh.LookDirectionConstraint(allowed=bh.LookDirection.RIGHT)
+        r = repr(constraint)
+        assert "LookDirectionConstraint" in r
+        assert "Right" in r
+
+    def test_asc_dsc_constraint_repr(self):
+        """Test AscDscConstraint repr."""
+        constraint = bh.AscDscConstraint(allowed=bh.AscDsc.ASCENDING)
+        r = repr(constraint)
+        assert "AscDscConstraint" in r
+        assert "Ascending" in r
+
+    def test_constraint_all_repr(self):
+        """Test ConstraintAll repr includes child constraints."""
+        elev = bh.ElevationConstraint(min_elevation_deg=5.0, max_elevation_deg=None)
+        asc = bh.AscDscConstraint(allowed=bh.AscDsc.ASCENDING)
+        combined = bh.ConstraintAll(constraints=[elev, asc])
+        r = repr(combined)
+        assert "All" in r
+
+    def test_constraint_any_repr(self):
+        """Test ConstraintAny repr includes child constraints."""
+        elev = bh.ElevationConstraint(min_elevation_deg=60.0, max_elevation_deg=None)
+        time_constraint = bh.LocalTimeConstraint(time_windows=[(1200, 1400)])
+        combined = bh.ConstraintAny(constraints=[elev, time_constraint])
+        r = repr(combined)
+        assert "Any" in r
+
+    def test_constraint_not_repr(self):
+        """Test ConstraintNot repr."""
+        low_elev = bh.ElevationConstraint(
+            min_elevation_deg=None, max_elevation_deg=10.0
+        )
+        negated = bh.ConstraintNot(constraint=low_elev)
+        r = repr(negated)
+        assert "Not" in r
+
+    def test_constraint_any_str(self):
+        """Test ConstraintAny __str__ uses format_string."""
+        elev = bh.ElevationConstraint(min_elevation_deg=60.0, max_elevation_deg=None)
+        time_constraint = bh.LocalTimeConstraint(time_windows=[(1200, 1400)])
+        combined = bh.ConstraintAny(constraints=[elev, time_constraint])
+        s = str(combined)
+        assert "||" in s or "Any" in s
+
+    def test_constraint_not_str(self):
+        """Test ConstraintNot __str__ uses format_string."""
+        low_elev = bh.ElevationConstraint(
+            min_elevation_deg=None, max_elevation_deg=10.0
+        )
+        negated = bh.ConstraintNot(constraint=low_elev)
+        s = str(negated)
+        assert "!" in s or "Not" in s
+
+
+# ================================
+# LookDirection and AscDsc __repr__ Tests
+# ================================
+
+
+class TestEnumReprMethods:
+    """Test enum __repr__ methods."""
+
+    def test_look_direction_repr(self):
+        """Test LookDirection repr format."""
+        assert "LookDirection" in repr(bh.LookDirection.LEFT)
+        assert "LookDirection" in repr(bh.LookDirection.RIGHT)
+        assert "LookDirection" in repr(bh.LookDirection.EITHER)
+
+    def test_asc_dsc_repr(self):
+        """Test AscDsc repr format."""
+        assert "AscDsc" in repr(bh.AscDsc.ASCENDING)
+        assert "AscDsc" in repr(bh.AscDsc.DESCENDING)
+        assert "AscDsc" in repr(bh.AscDsc.EITHER)
+
+
+# ================================
+# Constraint Composition with mixed types
+# ================================
+
+
+class TestConstraintCompositionMixedTypes:
+    """Test constraint composition with all available constraint types."""
+
+    def test_constraint_all_with_elevation_mask(self):
+        """Test ConstraintAll with ElevationMaskConstraint."""
+        mask = [(0.0, 10.0), (90.0, 5.0), (180.0, 5.0), (270.0, 5.0)]
+        mask_constraint = bh.ElevationMaskConstraint(mask)
+        look = bh.LookDirectionConstraint(allowed=bh.LookDirection.RIGHT)
+        combined = bh.ConstraintAll(constraints=[mask_constraint, look])
+        assert combined is not None
+        assert "All" in combined.name()
+
+    def test_constraint_any_with_off_nadir(self):
+        """Test ConstraintAny with OffNadirConstraint."""
+        off_nadir = bh.OffNadirConstraint(
+            min_off_nadir_deg=None, max_off_nadir_deg=45.0
+        )
+        asc = bh.AscDscConstraint(allowed=bh.AscDsc.ASCENDING)
+        combined = bh.ConstraintAny(constraints=[off_nadir, asc])
+        assert combined is not None
+        assert "Any" in combined.name()
+
+    def test_constraint_not_with_off_nadir(self):
+        """Test ConstraintNot with OffNadirConstraint."""
+        off_nadir = bh.OffNadirConstraint(
+            min_off_nadir_deg=None, max_off_nadir_deg=45.0
+        )
+        negated = bh.ConstraintNot(constraint=off_nadir)
+        assert negated is not None
+        assert "Not" in negated.name()
+
+    def test_constraint_not_with_local_time(self):
+        """Test ConstraintNot with LocalTimeConstraint."""
+        lt = bh.LocalTimeConstraint(time_windows=[(600, 1800)])
+        negated = bh.ConstraintNot(constraint=lt)
+        assert negated is not None
+        assert "Not" in negated.name()
+
+    def test_constraint_not_with_look_direction(self):
+        """Test ConstraintNot with LookDirectionConstraint."""
+        look = bh.LookDirectionConstraint(allowed=bh.LookDirection.LEFT)
+        negated = bh.ConstraintNot(constraint=look)
+        assert negated is not None
+        assert "Not" in negated.name()
+
+    def test_constraint_not_with_asc_dsc(self):
+        """Test ConstraintNot with AscDscConstraint."""
+        asc = bh.AscDscConstraint(allowed=bh.AscDsc.DESCENDING)
+        negated = bh.ConstraintNot(constraint=asc)
+        assert negated is not None
+        assert "Not" in negated.name()
+
+    def test_constraint_not_with_elevation_mask(self):
+        """Test ConstraintNot with ElevationMaskConstraint."""
+        mask = [(0.0, 10.0), (180.0, 5.0)]
+        mask_constraint = bh.ElevationMaskConstraint(mask)
+        negated = bh.ConstraintNot(constraint=mask_constraint)
+        assert negated is not None
+        assert "Not" in negated.name()
+
+    def test_constraint_all_invalid_type_raises_error(self):
+        """Test ConstraintAll with invalid constraint type raises TypeError."""
+        with pytest.raises(TypeError):
+            bh.ConstraintAll(constraints=["not_a_constraint"])
+
+    def test_constraint_any_invalid_type_raises_error(self):
+        """Test ConstraintAny with invalid constraint type raises TypeError."""
+        with pytest.raises(TypeError):
+            bh.ConstraintAny(constraints=[42])
+
+    def test_constraint_not_invalid_type_raises_error(self):
+        """Test ConstraintNot with invalid constraint type raises TypeError."""
+        with pytest.raises(TypeError):
+            bh.ConstraintNot(constraint="not_a_constraint")

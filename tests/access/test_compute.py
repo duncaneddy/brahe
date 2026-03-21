@@ -1129,3 +1129,196 @@ def test_access_default_uuid_traceability():
 
     unique_loc_uuids = {w.location_uuid for w in windows}
     assert len(unique_loc_uuids) > 0, "Should be able to group windows by location UUID"
+
+
+# =============================================================================
+# AccessSearchConfig Tests
+# =============================================================================
+
+
+def test_access_search_config_repr():
+    """Test AccessSearchConfig __repr__ includes all fields."""
+    config = bh.AccessSearchConfig(
+        initial_time_step=30.0,
+        adaptive_step=True,
+        adaptive_fraction=0.5,
+        parallel=False,
+        num_threads=4,
+        time_tolerance=0.01,
+    )
+    r = repr(config)
+    assert "AccessSearchConfig" in r
+    assert "30" in r  # initial_time_step
+    assert "0.5" in r  # adaptive_fraction
+    assert "0.01" in r  # time_tolerance
+
+    # With subdivisions
+    config_sub = bh.AccessSearchConfig(
+        subdivisions=bh.SubdivisionConfig.equal_count(4),
+    )
+    r_sub = repr(config_sub)
+    assert "AccessSearchConfig" in r_sub
+    assert "equal_count" in r_sub
+
+
+def test_access_search_config_default_repr():
+    """Test AccessSearchConfig __repr__ with defaults."""
+    config = bh.AccessSearchConfig()
+    r = repr(config)
+    assert "AccessSearchConfig" in r
+    assert "subdivisions=None" in r
+
+
+def test_access_search_config_getters_setters():
+    """Test AccessSearchConfig getter/setter properties."""
+    config = bh.AccessSearchConfig()
+
+    # Test defaults
+    assert config.initial_time_step == pytest.approx(60.0)
+    assert config.adaptive_step is False
+    assert config.adaptive_fraction == pytest.approx(0.75)
+    assert config.parallel is True
+    assert config.num_threads is None
+
+    # Test setters
+    config.initial_time_step = 30.0
+    assert config.initial_time_step == pytest.approx(30.0)
+
+    config.adaptive_step = True
+    assert config.adaptive_step is True
+
+    config.adaptive_fraction = 0.5
+    assert config.adaptive_fraction == pytest.approx(0.5)
+
+    config.parallel = False
+    assert config.parallel is False
+
+    config.num_threads = 4
+    assert config.num_threads == 4
+
+    config.num_threads = None
+    assert config.num_threads is None
+
+
+# =============================================================================
+# AccessWindow Additional Getter Tests
+# =============================================================================
+
+
+def test_access_window_time_aliases():
+    """Test AccessWindow t_start and t_end aliases."""
+    epoch1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    epoch2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, bh.TimeSystem.UTC)
+    window = bh.AccessWindow(epoch1, epoch2)
+
+    # t_start is alias for start/window_open
+    assert window.t_start.jd_as_time_system(bh.TimeSystem.UTC) == pytest.approx(
+        window.start.jd_as_time_system(bh.TimeSystem.UTC)
+    )
+
+    # t_end is alias for end/window_close
+    assert window.t_end.jd_as_time_system(bh.TimeSystem.UTC) == pytest.approx(
+        window.end.jd_as_time_system(bh.TimeSystem.UTC)
+    )
+
+    # window_open and window_close
+    assert window.window_open.jd_as_time_system(bh.TimeSystem.UTC) == pytest.approx(
+        window.start.jd_as_time_system(bh.TimeSystem.UTC)
+    )
+    assert window.window_close.jd_as_time_system(bh.TimeSystem.UTC) == pytest.approx(
+        window.end.jd_as_time_system(bh.TimeSystem.UTC)
+    )
+
+
+def test_access_window_repr():
+    """Test AccessWindow __repr__."""
+    epoch1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    epoch2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, bh.TimeSystem.UTC)
+    window = bh.AccessWindow(epoch1, epoch2)
+    r = repr(window)
+    assert "AccessWindow" in r
+    assert "300" in r  # duration in seconds (5 minutes)
+
+
+def test_access_window_default_identity():
+    """Test AccessWindow default identity fields are None."""
+    epoch1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    epoch2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, bh.TimeSystem.UTC)
+    window = bh.AccessWindow(epoch1, epoch2)
+
+    assert window.name is None
+    assert window.id is None
+    assert window.uuid is None
+    assert window.location_name is None
+    assert window.location_id is None
+    assert window.location_uuid is None
+    assert window.satellite_name is None
+    assert window.satellite_id is None
+    assert window.satellite_uuid is None
+
+
+def test_access_window_default_properties():
+    """Test AccessWindow default access properties are zero/default."""
+    epoch1 = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    epoch2 = bh.Epoch.from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, bh.TimeSystem.UTC)
+    window = bh.AccessWindow(epoch1, epoch2)
+
+    assert window.azimuth_open == pytest.approx(0.0)
+    assert window.azimuth_close == pytest.approx(0.0)
+    assert window.elevation_min == pytest.approx(0.0)
+    assert window.elevation_max == pytest.approx(0.0)
+    assert window.elevation_open == pytest.approx(0.0)
+    assert window.elevation_close == pytest.approx(0.0)
+    assert window.off_nadir_min == pytest.approx(0.0)
+    assert window.off_nadir_max == pytest.approx(0.0)
+    assert window.local_time == pytest.approx(0.0)
+    assert window.center_lon == pytest.approx(0.0)
+    assert window.center_lat == pytest.approx(0.0)
+    assert window.center_alt == pytest.approx(0.0)
+    assert window.center_ecef == pytest.approx([0.0, 0.0, 0.0])
+
+
+def test_access_window_with_property_computers():
+    """Test access computation with built-in property computers."""
+    location = bh.PointLocation(0.0, 45.0, 0.0)
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    propagator = create_test_propagator(epoch)
+
+    period = 5674.0
+    search_end = epoch + (period * 2.0)
+
+    constraint = bh.ElevationConstraint(5.0)
+    config = bh.AccessSearchConfig(
+        initial_time_step=60.0,
+        adaptive_step=False,
+        time_tolerance=0.1,
+    )
+
+    # Create built-in property computers
+    sampling = bh.SamplingConfig.midpoint()
+    doppler = bh.DopplerComputer(None, 1.57542e9, sampling)
+    range_comp = bh.RangeComputer(sampling)
+    range_rate = bh.RangeRateComputer(sampling)
+
+    windows = bh.location_accesses(
+        location,
+        propagator,
+        epoch,
+        search_end,
+        constraint,
+        property_computers=[doppler, range_comp, range_rate],
+        config=config,
+    )
+
+    assert len(windows) > 0
+
+    # Check that property computers added additional properties
+    for w in windows:
+        props = w.properties
+        # Range, range_rate, and doppler properties should be in additional
+        assert "range" in props.additional
+        assert "range_rate" in props.additional
+        assert (
+            "doppler_downlink" in props.additional
+            or "doppler_uplink" in props.additional
+        )

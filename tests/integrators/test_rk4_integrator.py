@@ -446,3 +446,93 @@ class TestRK4Integrator:
             0.0, state, np.eye(1), np.zeros((1, 1)), params, 0.0
         )
         np.testing.assert_allclose(new_phi2, np.eye(1), atol=1e-12)
+
+
+class TestIntegratorConfigRepr:
+    """Tests for IntegratorConfig __repr__ and additional properties."""
+
+    def test_repr_default(self):
+        """Test IntegratorConfig repr with default parameters."""
+        config = bh.IntegratorConfig()
+        r = repr(config)
+        assert "IntegratorConfig" in r
+        assert "abs_tol" in r
+        assert "rel_tol" in r
+
+    def test_repr_fixed_step(self):
+        """Test IntegratorConfig repr from fixed_step factory."""
+        config = bh.IntegratorConfig.fixed_step(1.0)
+        r = repr(config)
+        assert "IntegratorConfig" in r
+
+    def test_repr_adaptive(self):
+        """Test IntegratorConfig repr from adaptive factory."""
+        config = bh.IntegratorConfig.adaptive(1e-9, 1e-6)
+        r = repr(config)
+        assert "IntegratorConfig" in r
+        assert "1e-09" in r or "1e-9" in r or "0.000000001" in r
+
+    def test_fixed_step_properties(self):
+        """Test IntegratorConfig properties from fixed_step factory."""
+        config = bh.IntegratorConfig.fixed_step(0.5)
+        # Fixed step config should have default tolerances
+        assert config.abs_tol is not None
+        assert config.rel_tol is not None
+
+    def test_adaptive_properties(self):
+        """Test IntegratorConfig properties from adaptive factory."""
+        config = bh.IntegratorConfig.adaptive(1e-10, 1e-7)
+        assert config.abs_tol == 1e-10
+        assert config.rel_tol == 1e-7
+        # Adaptive config should have step limits
+        assert config.min_step is not None
+        assert config.max_step is not None
+
+    def test_all_properties_accessible(self):
+        """Test all IntegratorConfig property getters return valid values."""
+        config = bh.IntegratorConfig(
+            abs_tol=1e-8,
+            rel_tol=1e-5,
+            initial_step=0.1,
+            min_step=1e-10,
+            max_step=100.0,
+            step_safety_factor=0.85,
+            min_step_scale_factor=0.1,
+            max_step_scale_factor=8.0,
+            max_step_attempts=15,
+        )
+        assert config.abs_tol == 1e-8
+        assert config.rel_tol == 1e-5
+        assert config.initial_step == 0.1
+        assert config.min_step == 1e-10
+        assert config.max_step == 100.0
+        assert config.step_safety_factor == 0.85
+        assert config.min_step_scale_factor == 0.1
+        assert config.max_step_scale_factor == 8.0
+        assert config.max_step_attempts == 15
+
+
+class TestRK4IntegratorRepr:
+    """Tests for RK4Integrator __repr__."""
+
+    def test_repr(self):
+        """Test RK4Integrator repr string."""
+
+        def dynamics(t, state):
+            return np.array([2.0 * t])
+
+        integrator = bh.RK4Integrator(dimension=1, dynamics_fn=dynamics)
+        r = repr(integrator)
+        assert "RK4Integrator" in r
+        assert "dimension=1" in r
+
+    def test_repr_6d(self):
+        """Test RK4Integrator repr with 6D system."""
+
+        def dynamics(t, state):
+            return np.zeros(6)
+
+        integrator = bh.RK4Integrator(dimension=6, dynamics_fn=dynamics)
+        r = repr(integrator)
+        assert "RK4Integrator" in r
+        assert "dimension=6" in r

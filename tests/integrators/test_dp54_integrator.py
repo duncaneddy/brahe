@@ -265,3 +265,29 @@ class TestDP54Integrator:
         # Should return close to initial state
         for i in range(6):
             assert abs(state_back[i] - state0[i]) < 1e-3
+
+
+class TestDP54IntegratorRepr:
+    """Tests for DP54Integrator __repr__."""
+
+    def test_repr(self):
+        """Test DP54Integrator repr string."""
+
+        def dynamics(t, state):
+            return np.array([2.0 * t])
+
+        integrator = bh.DP54Integrator(dimension=1, dynamics_fn=dynamics)
+        r = repr(integrator)
+        assert "DP54Integrator" in r
+        assert "dimension=1" in r
+
+    def test_repr_6d(self):
+        """Test DP54Integrator repr with 6D system."""
+
+        def dynamics(t, state):
+            return np.zeros(6)
+
+        integrator = bh.DP54Integrator(dimension=6, dynamics_fn=dynamics)
+        r = repr(integrator)
+        assert "DP54Integrator" in r
+        assert "dimension=6" in r

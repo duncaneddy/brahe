@@ -392,3 +392,148 @@ class TestSphericalHarmonicGravity:
         # JGM3 is 70x70, requesting 100 should fail
         with pytest.raises(ValueError):
             model.set_max_degree_order(100, 100)
+
+
+class TestGravityEnumReprStr:
+    """Tests for __repr__ and __str__ of gravity-related enums."""
+
+    def test_gravity_model_type_all_variants_str(self):
+        """Test string representation for all GravityModelType variants."""
+        assert "JGM3" in str(bh.GravityModelType.JGM3)
+        assert "GGM05S" in str(bh.GravityModelType.GGM05S)
+        assert "EGM2008" in str(bh.GravityModelType.EGM2008_360)
+
+    def test_gravity_model_type_all_variants_repr(self):
+        """Test repr for all GravityModelType variants."""
+        assert "GravityModelType" in repr(bh.GravityModelType.JGM3)
+        assert "GravityModelType" in repr(bh.GravityModelType.GGM05S)
+        assert "GravityModelType" in repr(bh.GravityModelType.EGM2008_360)
+
+    def test_gravity_model_type_from_file_str_repr(self):
+        """Test str/repr for FromFile variant."""
+        model_type = bh.GravityModelType.from_file(
+            "data/gravity_models/EGM2008_360.gfc"
+        )
+        assert "FromFile" in str(model_type)
+        assert "FromFile" in repr(model_type)
+        assert "EGM2008_360.gfc" in str(model_type)
+
+    def test_gravity_model_tide_system_all_variants(self):
+        """Test all GravityModelTideSystem variants."""
+        # ZeroTide
+        zt = bh.GravityModelTideSystem.ZeroTide
+        assert "ZeroTide" in str(zt)
+        assert "GravityModelTideSystem" in repr(zt)
+
+        # TideFree
+        tf = bh.GravityModelTideSystem.TideFree
+        assert "TideFree" in str(tf)
+        assert "GravityModelTideSystem" in repr(tf)
+
+        # MeanTide
+        mt = bh.GravityModelTideSystem.MeanTide
+        assert "MeanTide" in str(mt)
+        assert "GravityModelTideSystem" in repr(mt)
+
+        # Unknown
+        uk = bh.GravityModelTideSystem.Unknown
+        assert "Unknown" in str(uk)
+        assert "GravityModelTideSystem" in repr(uk)
+
+        # Equality
+        assert zt == bh.GravityModelTideSystem.ZeroTide
+        assert zt != tf
+        assert tf != mt
+
+    def test_gravity_model_errors_all_variants(self):
+        """Test all GravityModelErrors variants."""
+        no = bh.GravityModelErrors.No
+        cal = bh.GravityModelErrors.Calibrated
+        formal = bh.GravityModelErrors.Formal
+        both = bh.GravityModelErrors.CalibratedAndFormal
+
+        assert "No" in str(no)
+        assert "GravityModelErrors" in repr(no)
+
+        assert "Calibrated" in str(cal)
+        assert "Formal" in str(formal)
+        assert "CalibratedAndFormal" in str(both)
+
+        # Equality
+        assert no == bh.GravityModelErrors.No
+        assert no != cal
+        assert cal != formal
+
+    def test_gravity_model_normalization_all_variants(self):
+        """Test all GravityModelNormalization variants."""
+        fn = bh.GravityModelNormalization.FullyNormalized
+        un = bh.GravityModelNormalization.Unnormalized
+
+        assert "FullyNormalized" in str(fn)
+        assert "GravityModelNormalization" in repr(fn)
+
+        assert "Unnormalized" in str(un)
+        assert "GravityModelNormalization" in repr(un)
+
+        # Equality
+        assert fn == bh.GravityModelNormalization.FullyNormalized
+        assert fn != un
+
+
+class TestGravityModelProperties:
+    """Tests for GravityModel property getters."""
+
+    def test_gravity_model_tide_system_property(self):
+        """Test tide_system property on loaded model."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        ts = model.tide_system
+        # JGM3 should have a tide system defined
+        assert ts is not None
+        assert isinstance(str(ts), str)
+
+    def test_gravity_model_errors_property(self):
+        """Test model_errors property on loaded model."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        errors = model.model_errors
+        assert errors is not None
+        assert isinstance(str(errors), str)
+
+    def test_gravity_model_normalization_property(self):
+        """Test normalization property on loaded model."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        norm = model.normalization
+        assert norm is not None
+        # JGM3 uses fully normalized coefficients
+        assert norm == bh.GravityModelNormalization.FullyNormalized
+
+    def test_gravity_model_gm_property(self):
+        """Test gm property on loaded model."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        assert model.gm == pytest.approx(bh.GM_EARTH, rel=1e-6)
+
+    def test_gravity_model_radius_property(self):
+        """Test radius property on loaded model."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        assert model.radius == pytest.approx(bh.R_EARTH, rel=1e-6)
+
+    def test_gravity_model_model_name_property(self):
+        """Test model_name property on loaded model."""
+        model_jgm3 = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        assert "JGM3" in model_jgm3.model_name
+
+        model_ggm05s = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
+        assert "GGM05S" in model_ggm05s.model_name
+
+    def test_gravity_model_repr_str(self):
+        """Test GravityModel __repr__ and __str__."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+
+        repr_str = repr(model)
+        assert "GravityModel" in repr_str
+        assert "JGM3" in repr_str
+        assert "70" in repr_str
+
+        str_str = str(model)
+        assert "JGM3" in str_str
+        assert "70x70" in str_str
+        assert "m" in str_str  # Units should appear

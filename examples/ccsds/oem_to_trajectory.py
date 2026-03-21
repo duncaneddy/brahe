@@ -17,7 +17,7 @@ print(f"Segment: {seg.object_name}, {seg.num_states} states, frame={seg.ref_fram
 # Segment: ISS, 49 states, frame=GCRF
 
 # Convert segment 0 to an OrbitTrajectory
-traj = oem.segment_to_orbit_trajectory(0)
+traj = oem.segment_to_trajectory(0)
 print(f"\nTrajectory: {len(traj)} states")
 print(f"  Frame: {traj.frame}")
 print(f"  Start: {traj.start_epoch()}")
@@ -50,7 +50,7 @@ print(
 
 # Convert all segments at once
 oem_multi = OEM.from_file("test_assets/ccsds/oem/OEMExample1.txt")
-trajs = oem_multi.to_orbit_trajectories()
+trajs = oem_multi.to_trajectories()
 print(f"\nMulti-segment OEM: {len(trajs)} trajectories")
 for i, t in enumerate(trajs):
     print(f"  [{i}] {len(t)} states, span={t.timespan():.0f}s")

@@ -78,7 +78,7 @@ print(f"  Time span: {seg_loaded.start_time} to {seg_loaded.stop_time}")
 
 # --8<-- [start:create_trajectory]
 # Convert the loaded OEM segment into an OrbitTrajectory
-traj = oem_loaded.segment_to_orbit_trajectory(0)
+traj = oem_loaded.segment_to_trajectory(0)
 traj = traj.with_name("ISS")
 print(f"Created OrbitTrajectory '{traj.get_name()}' with {len(traj)} states")
 # Created OrbitTrajectory 'ISS' with 1441 states

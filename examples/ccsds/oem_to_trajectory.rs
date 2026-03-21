@@ -21,7 +21,7 @@ fn main() {
     // Segment: ISS, 49 states, frame=GCRF
 
     // Convert segment 0 to an SOrbitTrajectory
-    let traj = oem.segment_to_orbit_trajectory(0).unwrap();
+    let traj = oem.segment_to_trajectory(0).unwrap();
     println!("\nTrajectory: {} states", traj.len());
     println!("  Frame: {:?}", traj.frame);
     println!("  Start: {}", traj.start_epoch().unwrap());
@@ -45,7 +45,7 @@ fn main() {
 
     // Convert all segments from a multi-segment OEM
     let oem_multi = OEM::from_file("test_assets/ccsds/oem/OEMExample1.txt").unwrap();
-    let trajs = oem_multi.to_orbit_trajectories().unwrap();
+    let trajs = oem_multi.to_trajectories().unwrap();
     println!("\nMulti-segment OEM: {} trajectories", trajs.len());
     for (i, t) in trajs.iter().enumerate() {
         println!("  [{}] {} states, span={:.0}s", i, t.len(), t.timespan().unwrap());

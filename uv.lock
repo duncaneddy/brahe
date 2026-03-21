@@ -116,6 +116,7 @@ plots = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "coverage" },
     { name = "maturin" },
     { name = "mike" },
     { name = "mkdocs-awesome-nav" },
@@ -150,6 +151,7 @@ docs = [
     { name = "pyo3-stubgen" },
 ]
 test = [
+    { name = "coverage" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-order" },
@@ -176,6 +178,7 @@ provides-extras = ["all", "plots"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "coverage", specifier = ">=7.0.0" },
     { name = "maturin", specifier = ">=1.0,<2.0" },
     { name = "mike", specifier = ">=2.0.0" },
     { name = "mkdocs-awesome-nav", specifier = ">=3.2.0" },
@@ -210,6 +213,7 @@ docs = [
     { name = "pyo3-stubgen", specifier = ">=0.3.0" },
 ]
 test = [
+    { name = "coverage", specifier = ">=7.0.0" },
     { name = "pytest", specifier = ">=7.4.4" },
     { name = "pytest-cov", specifier = ">=3.0.0" },
     { name = "pytest-order", specifier = ">=1.3.0" },

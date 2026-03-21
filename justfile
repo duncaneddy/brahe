@@ -32,6 +32,38 @@ test-examples *args: _setup
 test-example *args: _setup
     PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_example.py {{args}}
 
+# ───── Coverage ─────
+
+# Run Rust tests with coverage
+coverage-rust:
+    cargo llvm-cov --workspace --lcov --output-path lcov.info
+    @echo "Rust coverage → lcov.info"
+
+# Run Python tests with coverage
+coverage-python: _setup
+    uv pip install -e . --quiet
+    {{python}} -m pytest tests/ --cov=brahe --cov-report=html --cov-report=xml:python-coverage.xml --cov-report=term
+
+# Run Python tests with instrumented Rust extension (combined coverage)
+coverage-combined: _setup
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo llvm-cov clean --workspace
+    eval "$(cargo llvm-cov show-env --export-prefix)"
+    uv pip install maturin --quiet
+    uv run maturin develop --uv --features pyo3/extension-module,python
+    {{python}} -m pytest tests/ \
+        --cov=brahe \
+        --cov-report=html \
+        --cov-report=xml:python-coverage.xml \
+        --cov-report=term
+    cargo llvm-cov report --lcov --output-path python-rust-coverage.lcov
+    echo ""
+    echo "Coverage reports:"
+    echo "  Python HTML:  htmlcov/index.html"
+    echo "  Python XML:   python-coverage.xml"
+    echo "  Rust LCOV:    python-rust-coverage.lcov"
+
 # ───── Benchmarks ─────
 
 # Run all benchmarks

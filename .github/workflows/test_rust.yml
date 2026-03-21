@@ -81,6 +81,8 @@ jobs:
                 env:
                     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
                 with:
+                    files: lcov.info
+                    flags: rust-unit
                     fail_ci_if_error: false
                     verbose: true
                     use_oidc: true

@@ -66,7 +66,7 @@ def parse_numeric_expression(expr: Union[str, float]) -> float:
         "RAD2AS": brahe.RAD2AS,
         # Brahe constants - time
         "MJD_ZERO": brahe.MJD_ZERO,
-        "MJD2000": brahe.MJD2000,
+        "MJD_J2000": brahe.MJD_J2000,
         "GPS_TAI": brahe.GPS_TAI,
         "TAI_GPS": brahe.TAI_GPS,
         "TT_TAI": brahe.TT_TAI,

@@ -21,9 +21,9 @@ MJD_ZERO = JD - MJD
 
 ---
 
-### MJD2000
+### MJD_J2000
 
-::: brahe.MJD2000
+::: brahe.MJD_J2000
     options:
       show_root_heading: true
       show_root_full_path: false

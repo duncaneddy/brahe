@@ -25,7 +25,7 @@ pub const MJD_ZERO: f64 = 2400000.5;
 /// TODO: Fix Reference
 ///  1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and
 ///     Applications*, 2012.
-pub const MJD2000: f64 = 51544.5;
+pub const MJD_J2000: f64 = 51544.5;
 
 /// Offset of GPS time system with respect to TAI time system. Units: (s)
 ///

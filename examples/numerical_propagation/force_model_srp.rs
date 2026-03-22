@@ -34,3 +34,4 @@ fn main() {
         eclipse_model: bh::EclipseModel::Conical,
     };
 }
+

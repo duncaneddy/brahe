@@ -56,6 +56,17 @@ To get the position of an object relative to a location, you need to convert the
     --8<-- "./examples/coordinates/ecef_to_enz.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/ecef_to_enz.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/ecef_to_enz.rs.txt"
+        ```
+
 ### Converting ENZ to ECEF
 
 The reverse transformation converts a relative ENZ position back to an absolute ECEF position:
@@ -71,6 +82,17 @@ The reverse transformation converts a relative ENZ position back to an absolute 
     ``` rust
     --8<-- "./examples/coordinates/enz_to_ecef.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/enz_to_ecef.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/enz_to_ecef.rs.txt"
+        ```
 
 ## SEZ Transformations
 
@@ -90,6 +112,17 @@ Similar to ENZ, you can convert ECEF positions to the SEZ frame:
     --8<-- "./examples/coordinates/ecef_to_sez.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/ecef_to_sez.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/ecef_to_sez.rs.txt"
+        ```
+
 ### Converting SEZ to ECEF
 
 The reverse transformation converts a relative SEZ position back to an absolute ECEF position:
@@ -105,6 +138,17 @@ The reverse transformation converts a relative SEZ position back to an absolute 
     ``` rust
     --8<-- "./examples/coordinates/sez_to_ecef.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/sez_to_ecef.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/sez_to_ecef.rs.txt"
+        ```
 
 ## Azimuth and Elevation from Topocentric Coordinates
 
@@ -126,6 +170,17 @@ Convert ENZ positions to azimuth (measured clockwise from North), elevation (ang
     --8<-- "./examples/coordinates/enz_to_azel.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/enz_to_azel.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/enz_to_azel.rs.txt"
+        ```
+
 !!! info
     Azimuth is measured clockwise from North (0° = North, 90° = East, 180° = South, 270° = West). Elevation is the angle above the horizon (0° = horizon, 90° = directly overhead).
 
@@ -144,6 +199,17 @@ The same conversion is available from SEZ coordinates:
     ``` rust
     --8<-- "./examples/coordinates/sez_to_azel.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/sez_to_azel.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/sez_to_azel.rs.txt"
+        ```
 
 !!! info
     Both ENZ and SEZ produce identical azimuth-elevation-range results for the same physical position. The choice between them is purely a matter of intermediate representation.

@@ -12,3 +12,4 @@ fn main() {
     println!("Created: {}", constraint);
     // Created: ElevationConstraint(>= 60.00°) || LookDirectionConstraint(Right)
 }
+

@@ -48,31 +48,3 @@ print("\nRound-trip (RotationMatrix → Quaternion → RotationMatrix):")
 print(f"  [{rm_roundtrip.r11:.6f}, {rm_roundtrip.r12:.6f}, {rm_roundtrip.r13:.6f}]")
 print(f"  [{rm_roundtrip.r21:.6f}, {rm_roundtrip.r22:.6f}, {rm_roundtrip.r23:.6f}]")
 print(f"  [{rm_roundtrip.r31:.6f}, {rm_roundtrip.r32:.6f}, {rm_roundtrip.r33:.6f}]")
-
-# Expected output:
-# Original rotation matrix:
-#   [0.707107, -0.707107, 0.000000]
-#   [0.707107, 0.707107, 0.000000]
-#   [0.000000, 0.000000, 1.000000]
-#
-# To quaternion:
-#   q = [0.923880, 0.000000, 0.000000, 0.382683]
-#
-# To Euler angles (ZYX):
-#   Yaw (Z):   45.000°
-#   Pitch (Y): 0.000°
-#   Roll (X):  0.000°
-#
-# To Euler angles (XYZ):
-#   Angle 1 (X): 0.000°
-#   Angle 2 (Y): 0.000°
-#   Angle 3 (Z): 45.000°
-#
-# To Euler axis:
-#   Axis: [0.000000, 0.000000, 1.000000]
-#   Angle: 45.000°
-#
-# Round-trip (RotationMatrix → Quaternion → RotationMatrix):
-#   [0.707107, -0.707107, 0.000000]
-#   [0.707107, 0.707107, 0.000000]
-#   [0.000000, 0.000000, 1.000000]

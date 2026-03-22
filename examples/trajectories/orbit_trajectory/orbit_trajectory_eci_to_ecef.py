@@ -42,14 +42,3 @@ print(
 print(
     f"First ECEF state: [{state_ecef[0]:.2f}, {state_ecef[1]:.2f}, {state_ecef[2]:.2f}] m"
 )
-
-# Output:
-# Original frame: ECI
-# Original representation: Cartesian
-
-# Converted frame: ECEF
-# Converted representation: Cartesian
-# Same number of states: 5
-
-# First ECI state: [6878136.30, 0.00, 0.00] m
-# First ECEF state: [-1176064.06, -6776826.51, 15961.82] m

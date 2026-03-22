@@ -36,7 +36,6 @@ J_analytical = np.array([[0.0, 1.0], [-1.0, 0.0]])
 
 error = np.linalg.norm(J_numerical - J_analytical)
 print(f"\nError vs analytical: {error:.2e}")
-# Output: ~1e-8 (machine precision)
 
 # Verify accuracy at different state
 state2 = np.array([0.5, 0.866])
@@ -47,4 +46,3 @@ print(J_numerical2)
 
 error2 = np.linalg.norm(J_numerical2 - J_analytical)
 print(f"Error vs analytical: {error2:.2e}")
-# Output: ~1e-8 (consistent accuracy)

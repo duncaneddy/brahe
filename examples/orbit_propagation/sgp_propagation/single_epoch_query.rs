@@ -22,7 +22,5 @@ fn main() {
              state_eci[0]/1e3, state_eci[1]/1e3, state_eci[2]/1e3);
     println!("Osculating semi-major axis: {:.1} km", state_kep[0]/1e3);
 
-    // Expected output:
-    // ECI position: [3822.2, -1684.2, 5264.9] km
-    // Osculating semi-major axis: 6725.4 km
 }
+

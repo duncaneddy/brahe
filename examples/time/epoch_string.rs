@@ -22,3 +22,4 @@ fn main() {
     let epc4 = bh::Epoch::from_string("2022-07-04").unwrap();
     println!("Date only: {}", epc4);
 }
+

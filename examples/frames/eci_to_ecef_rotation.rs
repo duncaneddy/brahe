@@ -54,3 +54,4 @@ fn main() {
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_ecef_direct[0], pos_ecef_direct[1], pos_ecef_direct[2]);
     // [757164.267, 1725863.563, 6564672.302] m
 }
+

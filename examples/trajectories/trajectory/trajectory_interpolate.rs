@@ -34,5 +34,3 @@ fn main() {
     // Expected: approximately 505 km (halfway between 500 and 510 km)
 }
 
-// Output:
-// Interpolated altitude: 505.00 km

@@ -56,10 +56,6 @@ fn main() {
         oem.segments.len(),
         oem.segments[0].states.len()
     );
-    // Expected output:
-    // Created OEM with 1 segment, 5 states
-
-    // Write to KVN string
     let kvn = oem.to_string(CCSDSFormat::KVN).unwrap();
     println!("\nKVN output ({} chars):", kvn.len());
     let preview: String = kvn.chars().take(500).collect();
@@ -77,6 +73,5 @@ fn main() {
         oem2.segments.len(),
         oem2.segments[0].states.len()
     );
-    // Expected output:
-    // Round-trip: 1 segment, 5 states
 }
+

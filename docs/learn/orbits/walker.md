@@ -79,6 +79,17 @@ Brahe supports two Walker patterns:
     --8<-- "./examples/orbits/walker_basic.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/walker_basic.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/walker_basic.rs.txt"
+        ```
+
 ### Walker Star (Iridium-like)
 
 === "Python"
@@ -92,6 +103,17 @@ Brahe supports two Walker patterns:
     ``` rust
     --8<-- "./examples/orbits/walker_star.rs:8"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/walker_star.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/walker_star.rs.txt"
+        ```
 
 ## Using Different Propagators
 

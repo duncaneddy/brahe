@@ -153,3 +153,4 @@ fn main() {
     assert_eq!(final_count, 2);
     assert!(actual_duration < orbital_period);
 }
+

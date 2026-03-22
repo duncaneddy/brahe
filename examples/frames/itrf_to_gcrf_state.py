@@ -75,7 +75,3 @@ diff_vel = np.linalg.norm(state_gcrf[3:6] - state_gcrf_back[3:6])
 print("\nRound-trip error:")
 print(f"  Position: {diff_pos:.6e} m")
 print(f"  Velocity: {diff_vel:.6e} m/s")
-
-# Expected output:
-#   Position: 9.617484e-10 m
-#   Velocity: 9.094947e-13 m/s

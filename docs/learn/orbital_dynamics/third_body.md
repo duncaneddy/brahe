@@ -76,6 +76,17 @@ Compute the combined gravitational acceleration from the Sun and Moon on a satel
     --8<-- "./examples/orbit_dynamics/third_body_sun_moon.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/third_body_sun_moon.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/third_body_sun_moon.rs.txt"
+        ```
+
 ## See Also
 
 - [Library API Reference: Third-Body](../../library_api/orbit_dynamics/third_body.md)

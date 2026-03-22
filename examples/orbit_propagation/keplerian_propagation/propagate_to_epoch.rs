@@ -27,3 +27,4 @@ fn main() {
     // Difference: 0.0000000000 seconds
     // Output shows machine precision agreement
 }
+

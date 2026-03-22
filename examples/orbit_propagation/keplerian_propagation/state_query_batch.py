@@ -24,11 +24,3 @@ print(f"Generated {len(states_eci)} states")
 # Generated 5 states
 for i, state in enumerate(states_eci):
     print(f"  Epoch {i}: position magnitude = {np.linalg.norm(state[:3]) / 1e3:.1f} km")
-
-# Output:
-# Generated 5 states
-#   Epoch 0: position magnitude = 6873.3 km
-#   Epoch 1: position magnitude = 6873.8 km
-#   Epoch 2: position magnitude = 6876.6 km
-#   Epoch 3: position magnitude = 6880.3 km
-#   Epoch 4: position magnitude = 6877.7 km

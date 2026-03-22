@@ -35,3 +35,4 @@ fn main() {
     // Suppress unused variable warnings
     let _ = (kp_daily, ap_daily, kp_all, ap_all, f107_adj, f107_avg);
 }
+

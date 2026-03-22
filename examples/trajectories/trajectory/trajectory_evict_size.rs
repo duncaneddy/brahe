@@ -32,7 +32,6 @@ fn main() {
     println!("Start epoch: {}", traj.start_epoch().unwrap());
     println!("Start altitude: {:.2} km",
         (traj.state_at_idx(0).unwrap()[0] - R_EARTH) / 1e3);
-    // Output: ~502 km (states 0 and 1 were evicted)
 }
 
 // Output

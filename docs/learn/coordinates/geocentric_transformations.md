@@ -47,6 +47,17 @@ You can convert geocentric spherical coordinates to ECEF Cartesian coordinates u
     --8<-- "./examples/coordinates/geocentric_to_ecef.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/geocentric_to_ecef.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/geocentric_to_ecef.rs.txt"
+        ```
+
 ## Converting ECEF to Geocentric
 
 The reverse transformation converts Cartesian ECEF coordinates back to geocentric spherical coordinates:
@@ -62,6 +73,17 @@ The reverse transformation converts Cartesian ECEF coordinates back to geocentri
     ``` rust
     --8<-- "./examples/coordinates/ecef_to_geocentric.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/ecef_to_geocentric.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/ecef_to_geocentric.rs.txt"
+        ```
 
 !!! info
     Latitude values are automatically constrained to the valid range [-90°, +90°] or [$-\frac{\pi}{2}$, $+\frac{\pi}{2}$] during conversion.

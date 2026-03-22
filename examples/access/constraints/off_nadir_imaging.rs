@@ -13,3 +13,4 @@ fn main() {
     println!("Created: {}", constraint);
     // Created: OffNadirConstraint(<= 30.0°)
 }
+

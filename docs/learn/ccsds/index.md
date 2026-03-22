@@ -16,6 +16,17 @@ The most common pattern is to parse an OEM file — received from another system
     --8<-- "./examples/ccsds/oem_to_trajectory.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_to_trajectory.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_to_trajectory.rs.txt"
+        ```
+
 This three-step pattern — parse, convert, interpolate — applies across the library. OEM data becomes trajectories, OMM data feeds SGP4 propagators, and OPM data initializes numerical propagators.
 
 ## Choosing a Message Type

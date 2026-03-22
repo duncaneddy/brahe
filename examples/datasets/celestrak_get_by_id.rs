@@ -25,12 +25,5 @@ fn main() {
     println!("  RAAN: {:.2}°", record.ra_of_asc_node.unwrap_or(0.0));
     println!("  Eccentricity: {:.6}", record.eccentricity.unwrap_or(0.0));
 
-    // Expected output:
-    // ISS GP Data:
-    //   Name: ISS (ZARYA)
-    //   NORAD ID: 25544
-    //   Epoch: 2025-11-02T10:09:34.283392
-    //   Inclination: 51.63°
-    //   RAAN: 342.07°
-    //   Eccentricity: 0.000497
 }
+

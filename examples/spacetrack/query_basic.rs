@@ -30,3 +30,4 @@ fn main() {
     // CDM query URL path (uses expandedspacedata controller):
     //   /expandedspacedata/query/class/cdm_public/format/json
 }
+

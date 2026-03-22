@@ -10,3 +10,4 @@ fn main() {
     println!("Created: {}", night_only);
     // Created: !LocalTimeConstraint(06:00-20:00)
 }
+

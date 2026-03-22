@@ -40,21 +40,3 @@ ea_axis = ea.to_euler_axis()
 print("\nTo Euler axis:")
 print(f"  Axis: [{ea_axis.axis[0]:.6f}, {ea_axis.axis[1]:.6f}, {ea_axis.axis[2]:.6f}]")
 print(f"  Angle: {math.degrees(ea_axis.angle):.3f}°")
-
-# Expected output:
-# Original Euler angles (ZYX):
-#   Yaw (Z):   45.0°
-#   Pitch (Y): 30.0°
-#   Roll (X):  15.0°
-
-# To quaternion:
-#   q = [0.871836, 0.214680, 0.188824, 0.397693]
-
-# To rotation matrix:
-#   [0.612372, 0.774519, -0.158494]
-#   [-0.612372, 0.591506, 0.524519]
-#   [0.500000, -0.224144, 0.836516]
-
-# To Euler axis:
-#   Axis: [0.438304, 0.385514, 0.811954]
-#   Angle: 58.654°

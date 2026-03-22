@@ -83,3 +83,4 @@ fn main() {
     let oem2 = OEM::from_str(&kvn).unwrap();
     println!("Round-trip: {} states", oem2.segments[0].states.len());
 }
+

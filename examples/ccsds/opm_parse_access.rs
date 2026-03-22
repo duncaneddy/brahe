@@ -85,20 +85,5 @@ fn main() {
             man.dv[0], man.dv[1], man.dv[2]
         );
     }
-    // Expected output:
-    // Maneuvers: 2
-    //
-    //   Maneuver 0:
-    //     Epoch ignition: 2000-06-03 09:00:34.100 UTC
-    //     Duration:       132.6 s
-    //     Delta mass:     -18.418 kg
-    //     Ref frame:      J2000
-    //     Delta-V:        [-23.25700, 16.83160, -8.93444] m/s
-    //
-    //   Maneuver 1:
-    //     Epoch ignition: 2000-06-05 18:59:21.000 UTC
-    //     Duration:       0.0 s
-    //     Delta mass:     -1.469 kg
-    //     Ref frame:      RTN
-    //     Delta-V:        [1.01500, -1.87300, 0.00000] m/s
 }
+

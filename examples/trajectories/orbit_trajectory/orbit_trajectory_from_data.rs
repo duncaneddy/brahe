@@ -44,3 +44,4 @@ fn main() {
     println!("Trajectory length: {}", traj.len());  
     // Trajectory length: 3
 }
+

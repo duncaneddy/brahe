@@ -36,7 +36,3 @@ print(f"Found {len(windows)} access windows with custom configuration")
 print(
     f"Configuration: {config.initial_time_step}s time step, adaptive={config.adaptive_step}"
 )
-
-# Expected output:
-# Found 5 access windows with custom configuration
-# Configuration: 60s time step, adaptive=True

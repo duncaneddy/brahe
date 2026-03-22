@@ -25,7 +25,6 @@ for i in range(5):
 print(f"Trajectory length: {len(traj)}")
 print(f"Start epoch: {traj.start_epoch()}")
 print(f"Start altitude: {(traj.state_at_idx(0)[0] - bh.R_EARTH) / 1e3:.2f} km")
-# Output: ~502 km (states 0 and 1 were evicted)
 
 # Output
 # Trajectory length: 3

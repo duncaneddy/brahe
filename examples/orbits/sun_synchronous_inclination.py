@@ -58,27 +58,3 @@ inc_landsat = bh.sun_synchronous_inclination(
 print("\nLandsat-like orbit (705 km, nearly circular):")
 print(f"  Inclination: {inc_landsat:.3f} deg")
 print(f"  Period: {bh.orbital_period(a_landsat) / 60:.3f} min")
-
-# Expected output:
-# Sun-synchronous LEO (800 km, circular):
-#   Inclination: 98.603 degrees
-#   Inclination: 1.720948 radians
-
-# Sun-synchronous inclination vs altitude (circular orbits):
-#    500 km: 97.402 deg
-#    600 km: 97.788 deg
-#    700 km: 98.188 deg
-#    800 km: 98.603 deg
-#    900 km: 99.033 deg
-#   1000 km: 99.479 deg
-
-# Sun-synchronous inclination vs eccentricity (700 km orbit):
-#   e = 0.000: 98.188 deg
-#   e = 0.001: 98.188 deg
-#   e = 0.005: 98.187 deg
-#   e = 0.010: 98.186 deg
-#   e = 0.020: 98.181 deg
-
-# Landsat-like orbit (705 km, nearly circular):
-#   Inclination: 98.208 deg
-#   Period: 98.878 min

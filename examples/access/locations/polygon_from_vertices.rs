@@ -27,8 +27,5 @@ fn main() {
     println!("Vertices: {}", polygon.num_vertices());
     println!("Center: ({:.4}, {:.4})", center[0], center[1]);
 
-    // Expected output:
-    // Name: SF Region
-    // Vertices: 4
-    // Center: (-122.4250, 37.7500)
 }
+

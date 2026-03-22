@@ -21,3 +21,4 @@ fn main() {
         bh::space_weather::set_global_space_weather_provider(sw_file_custom);
     }
 }
+

@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).parent.parent.resolve()
 EXAMPLES_DIR = REPO_ROOT / "examples"
 PLOTS_DIR = REPO_ROOT / "plots"
 FIGURE_OUTPUT_DIR = REPO_ROOT / "docs" / "figures"
+EXAMPLE_OUTPUTS_DIR = REPO_ROOT / "docs" / "outputs"
 TESTS_DIR = REPO_ROOT / "tests"
 
 # Rust dependencies to inject into examples
@@ -36,6 +37,21 @@ RUST_DEPS = """//! ```cargo
 """
 
 console = Console()
+
+
+def save_example_output(example_path: Path, stdout: str) -> None:
+    """Save example stdout to docs/outputs/ mirroring the examples/ directory structure.
+
+    File naming preserves the language extension:
+        examples/orbits/foo.py -> docs/outputs/orbits/foo.py.txt
+        examples/orbits/foo.rs -> docs/outputs/orbits/foo.rs.txt
+    """
+    if not stdout.strip():
+        return
+    rel_path = example_path.relative_to(EXAMPLES_DIR)
+    output_path = EXAMPLE_OUTPUTS_DIR / rel_path.parent / (rel_path.name + ".txt")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(stdout.rstrip() + "\n")
 
 
 class TestResults:
@@ -275,6 +291,7 @@ def run_files_parallel(
     progress: Progress,
     task_id,
     results: TestResults,
+    on_pass: Optional[Callable[[Path, str], None]] = None,
 ) -> None:
     """Run test files in parallel using ProcessPoolExecutor."""
     # Filter files and prepare tasks
@@ -315,6 +332,8 @@ def run_files_parallel(
 
                 if passed:
                     results.passed += 1
+                    if on_pass:
+                        on_pass(file_path, stdout)
                     if verbose:
                         console.print(f"  {rel_path}...[green]PASS[/green]")
                         if stdout:

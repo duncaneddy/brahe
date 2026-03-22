@@ -27,3 +27,4 @@ fn main() {
     println!("After step: {:.1} seconds elapsed", prop.current_epoch() - epoch);
     // After step: 120.0 seconds elapsed
 }
+

@@ -51,23 +51,3 @@ alpha5 = bh.norad_id_numeric_to_alpha5(original)
 back_to_numeric = bh.norad_id_alpha5_to_numeric(alpha5)
 print(f"  {original} -> '{alpha5}' -> {back_to_numeric}")
 print(f"  Match: {original == back_to_numeric}")
-
-# Expected output:
-# NORAD ID Format Conversions
-#
-# Parsing NORAD IDs:
-#   '25544' -> 25544
-#   'A0001' -> 100001
-#
-# Numeric to Alpha-5:
-#   25544 -> Error: NORAD ID 25544 is out of Alpha-5 range (100000-339999)
-#   100000 -> A0000
-#   123456 -> C3456
-#
-# Alpha-5 to Numeric:
-#   'A0001' -> 100001
-#   'L0000' -> 200000
-#
-# Round-trip Conversion:
-#   200000 -> 'L0000' -> 200000
-#   Match: True

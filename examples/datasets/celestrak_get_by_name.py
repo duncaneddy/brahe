@@ -30,16 +30,3 @@ print(f"  NORAD ID: {iss.norad_cat_id}")
 print(f"  Epoch: {iss.epoch}")
 print(f"  Inclination: {iss.inclination:.2f}°")
 print(f"  Eccentricity: {iss.eccentricity:.6f}")
-
-# Expected output:
-# Found N results for 'ISS'
-#   ISS (ZARYA) (NORAD ID: 25544)
-#   ISS DEB (NORAD ID: ...)
-#   ...
-#
-# ISS GP Data:
-#   Name: ISS (ZARYA)
-#   NORAD ID: 25544
-#   Epoch: 2025-11-02T10:09:34.283392
-#   Inclination: 51.63°
-#   Eccentricity: 0.000497

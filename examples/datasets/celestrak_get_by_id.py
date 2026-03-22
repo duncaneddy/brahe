@@ -26,12 +26,3 @@ print(f"  Epoch: {record.epoch}")
 print(f"  Inclination: {record.inclination:.2f}°")
 print(f"  RAAN: {record.ra_of_asc_node:.2f}°")
 print(f"  Eccentricity: {record.eccentricity:.6f}")
-
-# Expected output:
-# ISS GP Data:
-#   Name: ISS (ZARYA)
-#   NORAD ID: 25544
-#   Epoch: 2025-11-02T10:09:34.283392
-#   Inclination: 51.63°
-#   RAAN: 342.07°
-#   Eccentricity: 0.000497

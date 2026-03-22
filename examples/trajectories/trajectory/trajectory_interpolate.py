@@ -27,6 +27,3 @@ interpolated_state = traj.interpolate(query_epoch)
 
 print(f"Interpolated altitude: {(interpolated_state[0] - bh.R_EARTH) / 1e3:.2f} km")
 # Expected: approximately 505 km (halfway between 500 and 510 km)
-
-# Output:
-# Interpolated altitude: 505.00 km

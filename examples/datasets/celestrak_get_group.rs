@@ -28,13 +28,5 @@ fn main() {
     println!("  Inclination: {:.2}°", record.inclination.unwrap_or(0.0));
     println!("  Eccentricity: {:.6}", record.eccentricity.unwrap_or(0.0));
 
-    // Expected output:
-    // Downloaded 8647 Starlink GP records
-    //
-    // First record:
-    //   Name: STARLINK-1008
-    //   NORAD ID: 44714
-    //   Epoch: 2025-11-02T10:49:16.197504
-    //   Inclination: 53.05°
-    //   Eccentricity: 0.000137
 }
+

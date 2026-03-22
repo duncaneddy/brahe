@@ -30,9 +30,5 @@ fn main() {
     println!("Latitude: {:.4} deg", geodetic[1]);
     println!("Altitude: {:.1} m", geodetic[2]);
 
-    // Expected output:
-    // Loaded: Svalbard Station
-    // Longitude: 15.4038 deg
-    // Latitude: 78.2232 deg
-    // Altitude: 458.0 m
 }
+

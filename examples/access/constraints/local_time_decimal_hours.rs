@@ -12,3 +12,4 @@ fn main() {
     println!("Created: {}", constraint);
     // Created: LocalTimeConstraint(08:00-18:00)
 }
+

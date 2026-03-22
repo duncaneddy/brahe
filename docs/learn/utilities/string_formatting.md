@@ -111,6 +111,17 @@ Here's a complete example demonstrating both formats with various durations:
     --8<-- "./examples/utilities/string_formatting.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/utilities/string_formatting.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/utilities/string_formatting.rs.txt"
+        ```
+
 ## Common Use Cases
 
 Time formatting is useful for:

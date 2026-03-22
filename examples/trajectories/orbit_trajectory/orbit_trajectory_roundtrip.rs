@@ -42,6 +42,3 @@ fn main() {
     // Expected: Very small differences (numerical precision)
 }
 
-// Output:
-// Position difference: 2.499882e-10 m
-// Velocity difference: 1.829382e-12 m/s

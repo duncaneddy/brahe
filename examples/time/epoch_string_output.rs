@@ -37,3 +37,4 @@ fn main() {
     // ISO 8601 (3 decimal places): 2024-06-15T14:30:45.123Z
     // ISO 8601 (6 decimal places): 2024-06-15T14:30:45.123456Z
 }
+

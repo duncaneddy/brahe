@@ -40,6 +40,3 @@ fn main() {
     println!("Altitude: {:.2} m", retrieved_state[0] - R_EARTH);
 }
 
-// Output:
-// Epoch: 2024-01-01 00:01:00.000 UTC
-// Altitude: 600000.00 m

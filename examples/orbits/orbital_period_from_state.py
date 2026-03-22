@@ -43,14 +43,3 @@ print(f"Orbital period from state: {period / 60:.3f} min")
 period_from_sma = bh.orbital_period(a)
 print(f"\nOrbital period from SMA: {period_from_sma:.3f} s")
 print(f"Difference: {abs(period - period_from_sma):.2e} s")
-
-# Expected output:
-# ECI State (position in km, velocity in km/s):
-#   r = [1848.964, -434.937, 6560.411] km
-#   v = [-7.098, -2.173, 1.913] km/s
-
-# Orbital period from state: 5676.977 s
-# Orbital period from state: 94.616 min
-
-# Orbital period from SMA: 5676.977 s
-# Difference: 3.64e-12 s

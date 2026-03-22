@@ -42,18 +42,9 @@ for epoch, state in eci_trajectory:
         f"Epoch: {epoch}, Position (ECI): {state[0] / 1e3:.2f} km, {state[1] / 1e3:.2f} km, {state[2] / 1e3:.2f} km"
     )
 
-# Output:
-# Epoch: 2025-10-24 22:14:56.707 UTC, Position (ECI): -1514.38 km, -1475.59 km, 6753.03 km
-# Epoch: 2025-10-24 22:15:56.707 UTC, Position (ECI): -1935.70 km, -1568.01 km, 6623.80 km
-# Epoch: 2025-10-24 22:16:56.707 UTC, Position (ECI): -2349.19 km, -1654.08 km, 6467.76 km
-# Epoch: 2025-10-24 22:17:56.707 UTC, Position (ECI): -2753.17 km, -1733.46 km, 6285.55 km
-
-# Propagate for 7 days
 end_epoch = epoch + 86400 * 7  # 7 days later
 propagator.propagate_to(end_epoch)
 
 # Confirm the final epoch is as expected
 assert abs(propagator.current_epoch() - end_epoch) < 1e-6
 print("Propagation complete. Final epoch:", propagator.current_epoch())
-# Output:
-# Propagation complete. Final epoch: 2025-10-31 22:18:40.413 UTC

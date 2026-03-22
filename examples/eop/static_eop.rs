@@ -11,3 +11,4 @@ fn main() {
     let eop_static_values = bh::eop::StaticEOPProvider::from_values((0.001, 0.002, 0.003, 0.004, 0.005, 0.006));
     bh::eop::set_global_eop_provider(eop_static_values);
 }
+

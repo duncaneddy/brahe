@@ -23,9 +23,3 @@ print(geojson)
 # Can be loaded back with from_geojson()
 reloaded = bh.PointLocation.from_geojson(geojson)
 print(f"\nReloaded: {reloaded.get_name()} (ID: {reloaded.get_id()})")
-
-# Expected output:
-# Exported GeoJSON:
-# {'geometry': {'coordinates': [-122.4194, 37.7749, 0.0], 'type': 'Point'}, 'properties': {'id': 1, 'name': 'San Francisco'}, 'type': 'Feature'}
-#
-# Reloaded: San Francisco (ID: 1)

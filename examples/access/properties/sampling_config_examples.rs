@@ -29,3 +29,4 @@ fn main() {
     println!("Fixed count (50): {:?}", config);
     // Fixed count (50): FixedCount(50)
 }
+

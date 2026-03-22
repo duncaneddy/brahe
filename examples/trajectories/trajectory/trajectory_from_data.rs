@@ -34,5 +34,5 @@ fn main() {
     let traj = DTrajectory::from_data(epochs, states).unwrap();
 
     println!("Trajectory length: {}", traj.len());
-    // Output: 3
 }
+

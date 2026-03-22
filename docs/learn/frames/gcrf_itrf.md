@@ -46,6 +46,17 @@ Transform a complete state vector (position and velocity) from GCRF to ITRF:
     --8<-- "./examples/frames/gcrf_to_itrf_state.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_itrf_state.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_itrf_state.rs.txt"
+        ```
+
 !!! warning "Velocity Transformation"
     Simply rotating velocity vectors will not yield correct velocity components in the ITRF frame due to the Earth's rotation. State vector transformation functions properly account for observed velocity changes in the ITRF frame due to Earth's rotation.
 
@@ -64,6 +75,17 @@ Get the rotation matrix from GCRF to ITRF:
     ``` rust
     --8<-- "./examples/frames/gcrf_to_itrf_rotation.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_itrf_rotation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_itrf_rotation.rs.txt"
+        ```
 
 ## ITRF to GCRF
 
@@ -85,6 +107,17 @@ Transform a complete state vector (position and velocity) from ITRF to GCRF:
     --8<-- "./examples/frames/itrf_to_gcrf_state.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/itrf_to_gcrf_state.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/itrf_to_gcrf_state.rs.txt"
+        ```
+
 !!! warning "Velocity Transformation"
     Simply rotating velocity vectors will not yield correct velocity components in the GCRF frame due to the Earth's rotation. State vector transformation functions properly account for observed velocity changes when transforming from the rotating ITRF frame.
 
@@ -103,6 +136,17 @@ Get the rotation matrix from ITRF to GCRF:
     ``` rust
     --8<-- "./examples/frames/itrf_to_gcrf_rotation.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/itrf_to_gcrf_rotation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/itrf_to_gcrf_rotation.rs.txt"
+        ```
 
 ## Intermediate Rotation Matrices
 
@@ -137,6 +181,17 @@ Get the bias-precession-nutation matrix (GCRF to CIRS):
     --8<-- "./examples/frames/bias_precession_nutation.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/bias_precession_nutation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/bias_precession_nutation.rs.txt"
+        ```
+
 ### Earth Rotation Matrix
 
 Get the Earth rotation matrix (CIRS to TIRS):
@@ -153,6 +208,17 @@ Get the Earth rotation matrix (CIRS to TIRS):
     --8<-- "./examples/frames/earth_rotation.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/earth_rotation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/earth_rotation.rs.txt"
+        ```
+
 ### Polar Motion Matrix
 
 Get the polar motion matrix (TIRS to ITRF):
@@ -168,6 +234,17 @@ Get the polar motion matrix (TIRS to ITRF):
     ``` rust
     --8<-- "./examples/frames/polar_motion.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/polar_motion.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/polar_motion.rs.txt"
+        ```
 
 !!! note
     For most applications, use the combined `rotation_gcrf_to_itrf` or `state_gcrf_to_itrf` functions rather than computing intermediate matrices separately. The intermediate matrices are provided for educational purposes and specialized applications.

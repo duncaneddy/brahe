@@ -72,22 +72,5 @@ fn main() {
     let rel_dist = rel_pos.norm();
     println!("\nRelative distance: {:.1} m", rel_dist);
 
-    // Expected output:
-    // Chief ECI State:
-    //   Position: [4652982.458, 1200261.918, 5093905.755] m
-    //   Velocity: [-5189.098, 3310.839, 4550.927] m/s
-    //
-    // Relative Orbital Elements (ROE):
-    //   da (relative SMA):        1.413000e-04
-    //   d_lambda (relative mean long):  0.093000 deg
-    //   dex (rel ecc x-comp):     4.324000e-04
-    //   dey (rel ecc y-comp):     2.511000e-04
-    //   dix (rel inc x-comp):     0.050000 deg
-    //   diy (rel inc y-comp):     0.050000 deg
-    //
-    // Deputy ECI State (computed from ROE):
-    //   Position: [4654145.325, 1200531.447, 5095024.258] m
-    //   Velocity: [-5189.999, 3311.448, 4550.982] m/s
-    //
-    // Relative distance: 1617.7 m
 }
+

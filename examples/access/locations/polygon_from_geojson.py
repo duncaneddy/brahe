@@ -36,8 +36,3 @@ print(f"Vertices: {polygon.num_vertices}")
 print(
     f"Center: ({polygon.longitude(bh.AngleFormat.DEGREES):.4f}, {polygon.latitude(bh.AngleFormat.DEGREES):.4f})"
 )
-
-# Expected output:
-# Name: Target Area
-# Vertices: 5
-# Center: (-122.4250, 37.7500)

@@ -35,10 +35,3 @@ print(f"Apoapsis altitude: {apoapsis_altitude / 1e3:.3f} km")
 # Compute as an apogee altitude (Earth-specific)
 apogee_altitude = bh.apogee_altitude(a, e)
 print(f"Apogee altitude:   {apogee_altitude / 1e3:.3f} km")
-
-# Expected output:
-# Apoapsis velocity: 7536.859 m/s
-# Apogee velocity:   7536.859 m/s
-# Apoapsis distance: 6946.918 km
-# Apoapsis altitude: 568.781 km
-# Apogee altitude:   568.781 km

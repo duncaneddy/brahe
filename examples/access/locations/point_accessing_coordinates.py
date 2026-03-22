@@ -28,12 +28,3 @@ print(f"Geodetic: [{geodetic[0]:.6f}, {geodetic[1]:.6f}, {geodetic[2]:.1f}]")
 # Get ECEF Cartesian position [x, y, z] in meters
 ecef = location.center_ecef()
 print(f"ECEF: [{ecef[0]:.1f}, {ecef[1]:.1f}, {ecef[2]:.1f}] m")
-
-# Expected output:
-# Longitude: -122.4194 deg
-# Latitude: 37.7749 deg
-# Altitude: 0.0 m
-# Lon (deg): -122.419400
-# Lat (deg): 37.774900
-# Geodetic: [-122.419400, 37.774900, 0.0]
-# ECEF: [-2706174.8, -4261059.5, 3885725.5] m

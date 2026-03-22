@@ -43,3 +43,4 @@ fn main() {
     println!("Recommended next step: {:.2}s", result.dt_next);
     println!("Error estimate: {:.2e}", result.error_estimate.unwrap());
 }
+

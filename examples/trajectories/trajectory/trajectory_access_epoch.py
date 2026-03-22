@@ -32,7 +32,3 @@ nearest_epoch, nearest_state = traj.nearest_state(query_epoch)
 print(
     f"Nearest state at t+125s altitude: {(nearest_state[0] - bh.R_EARTH) / 1e3:.2f} km"
 )
-
-# Output:
-# Nearest state at t+120s altitude: 502.00 km
-# Nearest state at t+125s altitude: 502.00 km

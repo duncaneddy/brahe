@@ -31,11 +31,3 @@ print(f"Difference: {abs(period_earth - period_general):.2e} s")
 a_geo = bh.R_EARTH + 35786e3
 period_geo = bh.orbital_period(a_geo)
 print(f"\nGEO orbital period: {period_geo / 3600:.3f} hours")
-
-# Expected output:
-# Orbital period (Earth): 5676.977 s
-# Orbital period (Earth): 94.616 min
-# Orbital period (general): 5676.977 s
-# Difference: 0.00e0 s
-
-# GEO orbital period: 23.934 hours

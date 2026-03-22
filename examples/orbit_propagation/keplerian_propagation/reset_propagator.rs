@@ -26,3 +26,4 @@ fn main() {
     println!("Current epoch: {}", prop.current_epoch());
     // Current epoch: 2024-01-01 00:00:00.000 UTC
 }
+

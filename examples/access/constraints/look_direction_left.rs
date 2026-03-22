@@ -12,3 +12,4 @@ fn main() {
     println!("Created: {}", constraint);
     // Created: LookDirectionConstraint(Left)
 }
+

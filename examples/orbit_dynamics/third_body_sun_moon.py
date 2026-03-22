@@ -62,30 +62,3 @@ print(f"  Magnitude: {np.linalg.norm(accel_combined):.12f} m/s²")
 # Compare Sun vs Moon relative magnitude
 ratio = np.linalg.norm(accel_sun) / np.linalg.norm(accel_moon)
 print(f"\nSun/Moon acceleration ratio: {ratio:.3f}")
-
-# Expected output:
-# Satellite position (ECI, m):
-#   x = 435.7 km
-#   y = -21864.6 km
-#   z = 15074.0 km
-#   Altitude: 20182.7 km
-
-# Sun third-body acceleration (analytical):
-#   ax = -0.000000011195 m/s²
-#   ay = -0.000000636482 m/s²
-#   az = -0.000001202965 m/s²
-#   Magnitude: 0.000001361014 m/s²
-
-# Moon third-body acceleration (analytical):
-#   ax = -0.000000403111 m/s²
-#   ay = -0.000000652316 m/s²
-#   az = -0.000002920304 m/s²
-#   Magnitude: 0.000003019303 m/s²
-
-# Combined Sun + Moon acceleration:
-#   ax = -0.000000414306 m/s²
-#   ay = -0.000001288798 m/s²
-#   az = -0.000004123269 m/s²
-#   Magnitude: 0.000004339815 m/s²
-
-# Sun/Moon acceleration ratio: 0.451

@@ -37,6 +37,17 @@ The simplest setup uses default configurations:
     --8<-- "./examples/numerical_propagation/basic_propagation.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/basic_propagation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/basic_propagation.rs.txt"
+        ```
+
 
 ## Stepping Through Time
 

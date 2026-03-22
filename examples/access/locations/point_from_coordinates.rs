@@ -22,8 +22,5 @@ fn main() {
     println!("Longitude: {:.4} deg", geodetic[0]);
     println!("Latitude: {:.4} deg", geodetic[1]);
 
-    // Expected output:
-    // Location: San Francisco
-    // Longitude: -122.4194 deg
-    // Latitude: 37.7749 deg
 }
+

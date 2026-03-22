@@ -30,6 +30,3 @@ fn main() {
     println!("First state velocity: {:.1} m/s", matrix[(0, 4)]);
 }
 
-// Output:
-// Matrix shape: (3, 6)
-// First state velocity: 7600.0 m/s

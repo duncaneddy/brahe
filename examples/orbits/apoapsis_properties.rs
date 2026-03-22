@@ -33,10 +33,5 @@ fn main() {
     let apogee_altitude = bh::orbits::apogee_altitude(a, e);
     println!("Apogee altitude:   {:.3} km", apogee_altitude / 1e3);
 
-    // Expected output:
-    // Apoapsis velocity: 7536.859 m/s
-    // Apogee velocity:   7536.859 m/s
-    // Apoapsis distance: 6946.918 km
-    // Apoapsis altitude: 568.781 km
-    // Apogee altitude:   568.781 km
 }
+

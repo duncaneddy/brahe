@@ -28,3 +28,4 @@ fn main() {
     // Recent decays (last 7 days):
     //   /basicspacedata/query/class/decay/DECAY_EPOCH/now-7--now/MSG_TYPE/Decay/orderby/DECAY_EPOCH desc/format/json
 }
+

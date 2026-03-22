@@ -75,3 +75,4 @@ fn main() {
     println!("\nNote: Frame bias is constant (same at all epochs)");
     // Difference between methods: 0.000000e+00 m
 }
+

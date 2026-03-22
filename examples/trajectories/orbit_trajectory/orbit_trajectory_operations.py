@@ -40,15 +40,3 @@ for i, (epoch, state) in enumerate(traj):
         print(
             f"State {i}: Epoch={epoch}, Position magnitude={np.linalg.norm(state[0:3]) / 1e3:.2f} km"
         )
-
-# Output:
-# Length: 10
-# Timespan: 540.0 seconds
-# Start epoch: 2024-01-01 00:00:00.000 UTC
-# End epoch: 2024-01-01 00:09:00.000 UTC
-
-# Interpolated state at 2024-01-01 00:00:45.000 UTC:
-#   Position (km): [1159.01597302 6101.29789026 2925.16369358]
-#   Velocity (m/s): [-5578.86734152 -1338.77483001  5004.22925364]
-# State 0: Epoch=2024-01-01 00:00:00.000 UTC, Position magnitude=6871.26 km
-# State 1: Epoch=2024-01-01 00:01:00.000 UTC, Position magnitude=6871.29 km

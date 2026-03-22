@@ -43,3 +43,4 @@ fn main() {
     println!("Client with disabled rate limiting created");
     // Client with disabled rate limiting created
 }
+

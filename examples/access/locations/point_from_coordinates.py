@@ -20,8 +20,3 @@ sf = sf.with_name("San Francisco")
 print(f"Location: {sf.get_name()}")
 print(f"Longitude: {sf.longitude(bh.AngleFormat.DEGREES):.4f} deg")
 print(f"Latitude: {sf.latitude(bh.AngleFormat.DEGREES):.4f} deg")
-
-# Expected output:
-# Location: San Francisco
-# Longitude: -122.4194 deg
-# Latitude: 37.7749 deg

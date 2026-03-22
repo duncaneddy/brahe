@@ -29,3 +29,4 @@ fn main() {
     println!("Trajectory length after age policy: {}", prop.trajectory.len());
     // Trajectory length after age policy: 61
 }
+

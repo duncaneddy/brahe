@@ -42,6 +42,17 @@ vectors between the two frames.
     --8<-- "./examples/relative_motion/rtn_rotation_matrices.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/rtn_rotation_matrices.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/rtn_rotation_matrices.rs.txt"
+        ```
+
 ## State Transformations
 
 For relative motion analysis between two satellites (often called "chief" and "deputy"),
@@ -70,6 +81,17 @@ The resulting relative state vector contains six components:
     --8<-- "./examples/relative_motion/state_eci_to_rtn.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_eci_to_rtn.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_eci_to_rtn.rs.txt"
+        ```
+
 ### RTN to ECI (Relative to Absolute)
 
 The `state_rtn_to_eci` function performs the inverse operation: it transforms the
@@ -88,3 +110,14 @@ or computing deputy trajectories from relative motion plans.
     ``` rust
     --8<-- "./examples/relative_motion/state_rtn_to_eci.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_rtn_to_eci.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_rtn_to_eci.rs.txt"
+        ```

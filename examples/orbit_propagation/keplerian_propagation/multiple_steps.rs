@@ -22,3 +22,4 @@ fn main() {
     println!("Trajectory length: {}", prop.trajectory.len());
     // Trajectory length: 11
 }
+

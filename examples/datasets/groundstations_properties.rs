@@ -36,14 +36,5 @@ fn main() {
         );
     }
 
-    // Expected output:
-    // Station: Prudhoe Bay
-    // Latitude: 70.2000°
-    // Longitude: -148.4700°
-    // Altitude: 0.0 m
-
-    // 36 KSAT Stations:
-    //  1. Prudhoe Bay                    ( 70.200°, -148.470°)
-    //  2. Athens                         ( 37.850°,   22.620°)
-    //  3. Awarua                         (-46.530°,  168.380°)
 }
+

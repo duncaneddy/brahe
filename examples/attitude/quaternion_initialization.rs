@@ -42,18 +42,3 @@ fn main() {
     println!("  q = [{:.3}, {:.3}, {:.3}, {:.3}]", q5[0], q5[1], q5[2], q5[3]);
 }
 
-// Expected output:
-// From components (identity):
-//   q = [0.924, 0.000, 0.000, 0.383]
-//
-// From vector:
-//   q = [0.924, 0.000, 0.000, 0.383]
-//
-// From rotation matrix (45° about Z-axis):
-//   q = [0.924, 0.000, 0.000, 0.383]
-//
-// From Euler angles (45° yaw, ZYX):
-//   q = [0.924, 0.000, 0.000, 0.383]
-//
-// From Euler axis (45° about Z-axis):
-//   q = [0.924, 0.000, 0.000, 0.383]

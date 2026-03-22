@@ -20,8 +20,5 @@ fn main() {
     println!("Line 1 valid: {}", line1_valid);
     println!("Line 2 valid: {}", line2_valid);
 
-    // Expected output:
-    // TLE set valid: true
-    // Line 1 valid: true
-    // Line 2 valid: true
 }
+

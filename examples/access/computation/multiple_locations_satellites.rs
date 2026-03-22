@@ -72,9 +72,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// Expected output:
-// Total windows: 20
-
-// Boston: 10 windows
-
-// San Francisco: 10 windows

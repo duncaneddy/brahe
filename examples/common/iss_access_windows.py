@@ -35,7 +35,3 @@ for window in windows[:3]:
     print(
         f"Access Window: {window.window_open} to {window.window_close}, Duration: {window.duration / 60:.2f} minutes"
     )
-# Outputs:
-# Access Window: 2025-10-25 08:49:40.062 UTC to 2025-10-25 08:53:48.463 UTC, Duration: 4.14 minutes
-# Access Window: 2025-10-25 10:25:40.245 UTC to 2025-10-25 10:31:48.463 UTC, Duration: 6.14 minutes
-# Access Window: 2025-10-25 12:05:33.455 UTC to 2025-10-25 12:06:48.463 UTC, Duration: 1.25 minutes

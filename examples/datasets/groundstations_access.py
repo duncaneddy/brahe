@@ -41,25 +41,3 @@ for i, window in enumerate(windows[:5], 1):
     print(f"{i}. {window.location_name:20s} -> {window.satellite_name:10s}")
     print(f"   Start: {window.start}")
     print(f"   Duration: {duration_min:.1f} minutes")
-
-# Expected output:
-# Computing access for 36 KSAT stations
-
-# Total access windows: 213
-
-# First 5 windows:
-# 1. Long Beach           -> EO-Sat
-#    Start: 2024-01-01 00:05:08.313 UTC
-#    Duration: 8.9 minutes
-# 2. Thomaston            -> EO-Sat
-#    Start: 2024-01-01 00:07:15.029 UTC
-#    Duration: 1.7 minutes
-# 3. Inuvik               -> EO-Sat
-#    Start: 2024-01-01 00:13:53.159 UTC
-#    Duration: 10.1 minutes
-# 4. Fairbanks            -> EO-Sat
-#    Start: 2024-01-01 00:14:39.836 UTC
-#    Duration: 8.3 minutes
-# 5. Prudhoe Bay          -> EO-Sat
-#    Start: 2024-01-01 00:15:18.853 UTC
-#    Duration: 9.7 minutes

@@ -46,3 +46,4 @@ fn main() {
     let relative_distance = x_rel_rtn.fixed_rows::<3>(0).norm();
     println!("Total relative distance: {:.3} m", relative_distance);
 }
+

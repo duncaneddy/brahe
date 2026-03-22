@@ -34,3 +34,4 @@ fn main() {
     // Use for: Precision orbit determination, research applications
     let _high_fidelity = bh::ForceModelConfig::high_fidelity();
 }
+

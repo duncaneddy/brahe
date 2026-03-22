@@ -110,3 +110,4 @@ fn main() {
     println!("• Use HIGH PRECISION with RKN1210 for sub-meter accuracy");
     println!("• Use FIXED-STEP when regular output intervals are required");
 }
+

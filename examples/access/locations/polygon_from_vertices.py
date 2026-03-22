@@ -27,8 +27,3 @@ print(f"Vertices: {polygon.num_vertices}")
 print(
     f"Center: ({polygon.longitude(bh.AngleFormat.DEGREES):.4f}, {polygon.latitude(bh.AngleFormat.DEGREES):.4f})"
 )
-
-# Expected output:
-# Name: SF Region
-# Vertices: 4
-# Center: (-122.4250, 37.7500)

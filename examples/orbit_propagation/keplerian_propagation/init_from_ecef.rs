@@ -21,3 +21,4 @@ fn main() {
              state_ecef.fixed_rows::<3>(0).norm() / 1e3);
     // ECEF position magnitude: 6873.3 km
 }
+

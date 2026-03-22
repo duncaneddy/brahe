@@ -47,12 +47,5 @@ fn main() {
         .all(|(a, b)| (a - b).abs() / a.abs().max(1e-10) < 1e-5);
     println!("Elements match: {}", elements_match);
 
-    // Expected output:
-    // Generated TLE:
-    // 1 25544U 00000    25302.48953544  .00000000  00000-0  00000-0 0    04
-    // 2 25544  51.6347   1.5519 0004808 353.3325   6.7599 15.49579513    06
-    //
-    // Verification:
-    // Epoch matches: true
-    // Elements match: true
 }
+

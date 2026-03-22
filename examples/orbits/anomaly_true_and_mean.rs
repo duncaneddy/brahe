@@ -25,9 +25,5 @@ fn main() {
     // Verify round-trip accuracy
     println!("Difference:        {:.2e} deg", (nu - nu_2).abs());
 
-    // Expected output:
-    // True anomaly:      45.000 deg
-    // Mean anomaly:      44.194 deg
-    // Round-trip result: 45.000 deg
-    // Difference:        0.00e0 deg
 }
+

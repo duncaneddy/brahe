@@ -23,3 +23,4 @@ fn main() {
     println!("UUID: {:?}", prop.get_uuid());
     // UUID: None (because not set)
 }
+

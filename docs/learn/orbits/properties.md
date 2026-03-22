@@ -26,6 +26,17 @@ The `orbital_period` function computes the period for Earth-orbiting objects, wh
     --8<-- "./examples/orbits/orbital_period.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/orbital_period.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/orbital_period.rs.txt"
+        ```
+
 The plot below shows how orbital period and velocity vary with altitude for circular Earth orbits:
 
 <div class="plotly-embed">
@@ -55,6 +66,17 @@ When orbital elements are unknown but you have a Cartesian state vector, `orbita
     --8<-- "./examples/orbits/orbital_period_from_state.rs:8"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/orbital_period_from_state.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/orbital_period_from_state.rs.txt"
+        ```
+
 ### Semi-major Axis from Period
 
 The inverse relationship allows computing semi-major axis when orbital period is known (useful for mission design):
@@ -74,6 +96,17 @@ $$
     ``` rust
     --8<-- "./examples/orbits/semimajor_axis_from_period.rs:8"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/semimajor_axis_from_period.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/semimajor_axis_from_period.rs.txt"
+        ```
 
 ## Mean Motion
 
@@ -97,6 +130,17 @@ The `mean_motion` function computes this for Earth-orbiting objects, while `mean
     --8<-- "./examples/orbits/mean_motion.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/mean_motion.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/mean_motion.rs.txt"
+        ```
+
 ### Semi-major Axis from Mean Motion
 
 Since orbital data formats like TLEs specify mean motion instead of semi-major axis, the inverse computation is essential:
@@ -116,6 +160,17 @@ $$
     ``` rust
     --8<-- "./examples/orbits/semimajor_axis_from_mean_motion.rs:8"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/semimajor_axis_from_mean_motion.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/semimajor_axis_from_mean_motion.rs.txt"
+        ```
 
 ## Periapsis Properties
 
@@ -170,6 +225,17 @@ where $R_{body}$ is the radius of the central body. For Earth orbits, the `perig
     ``` rust
     --8<-- "./examples/orbits/periapsis_properties.rs:7"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/periapsis_properties.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/periapsis_properties.rs.txt"
+        ```
 
 ## Apoapsis Properties
 
@@ -228,6 +294,17 @@ where $R_{body}$ is the radius of the central body. For Earth orbits, the `apoge
     --8<-- "./examples/orbits/apoapsis_properties.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/apoapsis_properties.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/apoapsis_properties.rs.txt"
+        ```
+
 ## Sun-Synchronous Inclination
 
 A _**sun-synchronous**_ orbit maintains a constant angle relative to the Sun by matching its nodal precession rate to Earth's annual revolution. The right ascension of the ascending node ($\Omega$) advances at the same rate as the Sun's apparent motion: approximately 0.9856°/day. This configuration is highly valuable for Earth observation satellites requiring consistent illumination conditions—a sun-synchronous satellite crosses the equator at the same local time on each pass (e.g., always at 2 PM).
@@ -263,6 +340,17 @@ The `sun_synchronous_inclination` function computes this required inclination:
     ``` rust
     --8<-- "./examples/orbits/sun_synchronous_inclination.rs:8"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/sun_synchronous_inclination.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/sun_synchronous_inclination.rs.txt"
+        ```
 
 The plot below shows how the required inclination varies with altitude for sun-synchronous orbits:
 

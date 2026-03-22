@@ -25,6 +25,17 @@ This example creates a constellation of 10 satellites and propagates them 24 hou
     --8<-- "./examples/orbit_propagation/functions/parallel_propagation.rs:8"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/functions/parallel_propagation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/functions/parallel_propagation.rs.txt"
+        ```
+
 ## Mixing Propagator Types
 
 All propagators in the list must be the same type (either all `KeplerianPropagator` or all `SGPPropagator`). Mixing types will raise a `TypeError`:

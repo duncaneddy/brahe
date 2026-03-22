@@ -88,6 +88,17 @@ Calculate the atmospheric drag acceleration on a satellite using the Harris-Prie
     --8<-- "./examples/orbit_dynamics/atmospheric_drag.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/atmospheric_drag.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/atmospheric_drag.rs.txt"
+        ```
+
 ## See Also
 
 - [Library API Reference: Drag](../../library_api/orbit_dynamics/drag.md)

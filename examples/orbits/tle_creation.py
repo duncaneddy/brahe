@@ -44,12 +44,3 @@ parsed_epoch, parsed_elements = bh.keplerian_elements_from_tle(line1, line2)
 print("\nVerification:")
 print(f"Epoch matches: {abs(epoch.jd() - parsed_epoch.jd()) < 1e-9}")
 print(f"Elements match: {np.allclose(elements, parsed_elements, rtol=1e-5)}")
-
-# Expected output:
-# Generated TLE:
-# 1 25544U 00000    25302.48953544  .00000000  00000-0  00000-0 0    04
-# 2 25544  51.6347   1.5519 0004808 353.3325   6.7599 15.49579513    06
-#
-# Verification:
-# Epoch matches: True
-# Elements match: True

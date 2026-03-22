@@ -79,3 +79,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 //   Duration: X.X min
 //   Off-nadir: XX.X°
 //   Local time: HH:MM
+

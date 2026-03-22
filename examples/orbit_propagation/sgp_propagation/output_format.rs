@@ -33,6 +33,3 @@ fn main() {
              state_kep[3], state_kep[4], state_kep[5]);
 }
 
-// Output:
-// ECEF position (km): [5548.632, 2869.310, -2526.643]
-// Keplerian elements: [8198.2 km, 0.1789, 47.9402, 249.8056 deg, 323.0545 deg, 4.5675 deg]

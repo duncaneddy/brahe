@@ -58,3 +58,4 @@ fn main() {
     println!("      due to ~{:.3}° rotation per hour", (bh::OMEGA_EARTH * 3600.0).to_degrees());
     // Position change magnitude: 2414337.034 m
 }
+

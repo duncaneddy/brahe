@@ -16,7 +16,5 @@ fn main() {
 
     println!("Satellite name: {:?}", prop.satellite_name);
     println!("NORAD ID: {}", prop.norad_id);
-    // Expected output:
-    // Satellite name: Some("ISS (ZARYA)")
-    // NORAD ID: 25544
 }
+

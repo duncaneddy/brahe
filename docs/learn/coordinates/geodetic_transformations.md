@@ -51,6 +51,17 @@ You can convert geodetic coordinates to ECEF Cartesian coordinates using the fol
     --8<-- "./examples/coordinates/geodetic_to_ecef.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/geodetic_to_ecef.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/geodetic_to_ecef.rs.txt"
+        ```
+
 !!! info
     The conversion from geodetic to ECEF accounts for the ellipsoidal shape using the radius of curvature in the prime vertical and the first eccentricity of the ellipsoid.
 
@@ -69,6 +80,17 @@ The reverse transformation converts Cartesian ECEF coordinates back to geodetic 
     ``` rust
     --8<-- "./examples/coordinates/ecef_to_geodetic.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/ecef_to_geodetic.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/ecef_to_geodetic.rs.txt"
+        ```
 
 !!! info
     The ECEF to geodetic conversion uses an iterative algorithm that typically converges in 3-5 iterations to sub-millimeter precision.

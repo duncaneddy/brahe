@@ -12,3 +12,4 @@ fn main() {
     println!("Created: {}", constraint);
     // Created: AscDscConstraint(Ascending)
 }
+

@@ -39,19 +39,5 @@ fn main() {
     println!("\nVerification (general function): {:.6} rad/s", n_leo_general);
     println!("Difference: {:.2e} rad/s", (n_leo_rad - n_leo_general).abs());
 
-    // Expected output:
-    // Mean Motion in radians/second:
-    //   LEO (500 km): 0.001107 rad/s
-    //   GEO:          0.000073 rad/s
-
-    // Mean Motion in degrees/second:
-    //   LEO (500 km): 0.063414 deg/s
-    //   GEO:          0.004178 deg/s
-
-    // Mean Motion in degrees/day:
-    //   LEO (500 km): 5478.972 deg/day
-    //   GEO:          360.986 deg/day
-
-    // Verification (general function): 0.001107 rad/s
-    // Difference: 0.00e+00 rad/s
 }
+

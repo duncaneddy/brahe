@@ -34,12 +34,3 @@ print(f"  Inclination: {i:.4f} deg")
 print(f"  RAAN: {raan:.4f} deg")
 print(f"  Arg of Perigee: {argp:.4f} deg")
 print(f"  Mean Anomaly: {M:.4f} deg")
-
-# Expected output:
-# ISS Orbital Elements (Epoch: 2025-10-29T11:44:55.766182400 UTC)
-#   Semi-major axis: 6795.445 km
-#   Eccentricity: 0.000481
-#   Inclination: 51.6347 deg
-#   RAAN: 1.5519 deg
-#   Arg of Perigee: 353.3325 deg
-#   Mean Anomaly: 6.7599 deg

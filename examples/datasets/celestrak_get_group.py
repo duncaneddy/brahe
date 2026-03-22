@@ -29,13 +29,3 @@ print(f"  NORAD ID: {record.norad_cat_id}")
 print(f"  Epoch: {record.epoch}")
 print(f"  Inclination: {record.inclination:.2f}°")
 print(f"  Eccentricity: {record.eccentricity:.6f}")
-
-# Expected output:
-# Downloaded 8647 Starlink GP records
-#
-# First record:
-#   Name: STARLINK-1008
-#   NORAD ID: 44714
-#   Epoch: 2025-11-02T10:49:16.197504
-#   Inclination: 53.05°
-#   Eccentricity: 0.000137

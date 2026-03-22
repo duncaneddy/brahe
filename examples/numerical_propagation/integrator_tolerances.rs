@@ -24,3 +24,4 @@ fn main() {
     // Precision: abs=1e-9, rel=1e-6
     // Maximum:   abs=1e-10, rel=1e-8
 }
+

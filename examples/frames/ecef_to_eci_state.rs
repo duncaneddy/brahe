@@ -65,7 +65,5 @@ fn main() {
     println!("  Position: {:.6e} m", diff_pos);
     println!("  Velocity: {:.6e} m/s", diff_vel);
 
-    // Expected output:
-    //   Position: 9.617484e-10 m
-    //   Velocity: 9.094947e-13 m/s
 }
+

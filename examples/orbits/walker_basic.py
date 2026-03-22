@@ -53,22 +53,3 @@ propagators = walker.as_keplerian_propagators(60.0)  # 60 second step size
 print(f"\nGenerated {len(propagators)} Keplerian propagators")
 print(f"First propagator name: {propagators[0].get_name()}")
 print(f"Last propagator name: {propagators[-1].get_name()}")
-
-# Expected output:
-# Total satellites: 24
-# Number of planes: 6
-# Satellites per plane: 4
-# Phasing factor: 2
-# Pattern: DELTA
-#
-# First satellite in each plane:
-#   Plane 0: RAAN = 0.0 deg, MA = 0.0 deg
-#   Plane 1: RAAN = 60.0 deg, MA = 30.0 deg
-#   Plane 2: RAAN = 120.0 deg, MA = 60.0 deg
-#   Plane 3: RAAN = 180.0 deg, MA = 90.0 deg
-#   Plane 4: RAAN = 240.0 deg, MA = 120.0 deg
-#   Plane 5: RAAN = 300.0 deg, MA = 150.0 deg
-#
-# Generated 24 Keplerian propagators
-# First propagator name: GPS-P0-S0
-# Last propagator name: GPS-P5-S3

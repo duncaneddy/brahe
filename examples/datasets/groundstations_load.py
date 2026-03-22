@@ -30,11 +30,3 @@ aws_stations = bh.datasets.groundstations.load("aws")
 ssc_stations = bh.datasets.groundstations.load("ssc")
 combined = aws_stations + ssc_stations
 print(f"\nCombined AWS + SSC: {len(combined)} stations")
-
-# Expected output:
-# KSAT stations: 36
-# Total stations (all providers): 96
-
-# Available providers: atlas, aws, ksat, leaf, ssc, viasat
-
-# Combined AWS + SSC: 22 stations

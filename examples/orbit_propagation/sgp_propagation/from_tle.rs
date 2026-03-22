@@ -18,8 +18,5 @@ fn main() {
     println!("TLE epoch: {}", prop.epoch);
     println!("Initial position magnitude: {:.1} km",
              prop.initial_state().fixed_rows::<3>(0).norm() / 1e3);
-    // Expected output:
-    // NORAD ID: 25544
-    // TLE epoch: 2008-09-20 12:25:40.104 UTC
-    // Initial position magnitude: 6720.2 km
 }
+

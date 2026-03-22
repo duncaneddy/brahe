@@ -17,8 +17,5 @@ fn main() {
     let norad_alpha5 = bh::parse_norad_id("A0001").unwrap();
     println!("  'A0001' -> {}", norad_alpha5);
 
-    // Expected output:
-    // Parsing NORAD IDs:
-    //   '25544' -> 25544
-    //   'A0001' -> 100001
 }
+

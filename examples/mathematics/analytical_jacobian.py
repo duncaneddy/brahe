@@ -35,11 +35,6 @@ J = jacobian.compute(t, state)
 
 print("Analytical Jacobian:")
 print(J)
-# Expected output:
-# [[ 0.  1.]
-#  [-1.  0.]]
-
-# Verify it's time-invariant for this system
 t2 = 10.0
 state2 = np.array([0.5, 0.866])
 J2 = jacobian.compute(t2, state2)
@@ -49,4 +44,3 @@ print(J2)
 # Should be identical for linear system
 
 print("\nJacobians are equal:", np.allclose(J, J2))
-# Output: True

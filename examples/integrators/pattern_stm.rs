@@ -56,3 +56,4 @@ fn main() {
     println!("  Φ = {:.6}", new_phi[(0, 0)]);
     println!("  (Analytical Φ = {:.6})", (-0.1 * dt_used).exp());
 }
+

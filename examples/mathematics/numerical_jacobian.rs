@@ -32,7 +32,6 @@ fn main() {
 
     let error = (jac_numerical.clone() - jac_analytical.clone()).norm();
     println!("\nError vs analytical: {:.2e}", error);
-    // Output: ~1e-8 (machine precision)
 
     // Verify accuracy at different state
     let state2 = DVector::from_vec(vec![0.5, 0.866]);
@@ -43,5 +42,5 @@ fn main() {
 
     let error2 = (jac_numerical2 - jac_analytical).norm();
     println!("Error vs analytical: {:.2e}", error2);
-    // Output: ~1e-8 (consistent accuracy)
 }
+

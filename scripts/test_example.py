@@ -12,6 +12,7 @@ from _build_utils import (
     check_flags,
     console,
     find_file_by_name,
+    save_example_output,
     test_python_example,
     test_rust_example,
 )
@@ -134,6 +135,7 @@ def main(
                 rust_file, verbose, effective_timeout
             )
             if passed:
+                save_example_output(rust_file, stdout)
                 console.print("[green]✓ PASS[/green]")
             else:
                 console.print("[red]✗ FAIL[/red]")
@@ -159,6 +161,7 @@ def main(
                 py_file, verbose, effective_timeout
             )
             if passed:
+                save_example_output(py_file, stdout)
                 console.print("[green]✓ PASS[/green]")
             else:
                 console.print("[red]✗ FAIL[/red]")

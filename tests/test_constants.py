@@ -26,8 +26,8 @@ def test_MJD_ZERO():
     assert brahe.MJD_ZERO == 2400000.5
 
 
-def test_MJD2000():
-    assert brahe.MJD2000 == 51544.5
+def test_MJD_J2000():
+    assert brahe.MJD_J2000 == 51544.5
 
 
 def test_GPS_TAI():

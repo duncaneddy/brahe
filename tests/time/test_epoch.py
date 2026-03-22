@@ -259,7 +259,7 @@ def test_epoch_from_string_invalid_time_system(eop):
 
 
 def test_epoch_from_jd(eop):
-    epc = bh.Epoch.from_jd(bh.MJD_ZERO + bh.MJD2000, bh.TAI)
+    epc = bh.Epoch.from_jd(bh.MJD_ZERO + bh.MJD_J2000, bh.TAI)
     (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()
     assert year == 2000
     assert month == 1
@@ -270,7 +270,7 @@ def test_epoch_from_jd(eop):
     assert nanosecond == 0.0
     assert epc.time_system == bh.TAI
 
-    epc = bh.Epoch.from_jd(bh.MJD_ZERO + bh.MJD2000, bh.GPS)
+    epc = bh.Epoch.from_jd(bh.MJD_ZERO + bh.MJD_J2000, bh.GPS)
     (year, month, day, hour, minute, second, nanosecond) = (
         epc.to_datetime_as_time_system(bh.TAI)
     )
@@ -287,7 +287,7 @@ def test_epoch_from_jd(eop):
 
 
 def test_epoch_from_mjd(eop):
-    epc = bh.Epoch.from_mjd(bh.MJD2000, bh.TAI)
+    epc = bh.Epoch.from_mjd(bh.MJD_J2000, bh.TAI)
     (year, month, day, hour, minute, second, nanosecond) = epc.to_datetime()
     assert year == 2000
     assert month == 1
@@ -298,7 +298,7 @@ def test_epoch_from_mjd(eop):
     assert nanosecond == 0.0
     assert epc.time_system == bh.TAI
 
-    epc = bh.Epoch.from_mjd(bh.MJD2000, bh.GPS)
+    epc = bh.Epoch.from_mjd(bh.MJD_J2000, bh.GPS)
     (year, month, day, hour, minute, second, nanosecond) = (
         epc.to_datetime_as_time_system(bh.TAI)
     )
@@ -390,19 +390,19 @@ def test_epoch_from_gps_nanoseconds():
 def test_epoch_to_jd(eop):
     epc = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TAI)
 
-    assert epc.jd() == bh.MJD_ZERO + bh.MJD2000
+    assert epc.jd() == bh.MJD_ZERO + bh.MJD_J2000
 
     epc = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TAI)
-    assert epc.jd_as_time_system(bh.UTC) == bh.MJD_ZERO + bh.MJD2000 - 32.0 / 86400.0
+    assert epc.jd_as_time_system(bh.UTC) == bh.MJD_ZERO + bh.MJD_J2000 - 32.0 / 86400.0
 
 
 def test_epoch_to_mjd(eop):
     epc = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TAI)
 
-    assert epc.mjd() == bh.MJD2000
+    assert epc.mjd() == bh.MJD_J2000
 
     epc = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TAI)
-    assert epc.mjd_as_time_system(bh.UTC) == bh.MJD2000 - 32.0 / 86400.0
+    assert epc.mjd_as_time_system(bh.UTC) == bh.MJD_J2000 - 32.0 / 86400.0
 
 
 def test_gps_date(eop):

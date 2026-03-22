@@ -8,7 +8,7 @@ use nalgebra::Vector3;
 
 use crate::DEG2RAD;
 use crate::attitude::RotationMatrix;
-use crate::constants::{AS2RAD, MJD2000, RADIANS};
+use crate::constants::{AS2RAD, MJD_J2000, RADIANS};
 use crate::frames::rotation_eme2000_to_gcrf;
 pub use crate::spice::{
     get_loaded_kernel_type, initialize_ephemeris, initialize_ephemeris_with_kernel,
@@ -57,7 +57,7 @@ pub fn sun_position(epc: Epoch) -> Vector3<f64> {
     let pi = std::f64::consts::PI;
     let mjd_tt = epc.mjd_as_time_system(TimeSystem::TT);
     let epsilon = 23.43929111 * DEG2RAD; // Obliquity of J2000 ecliptic
-    let T = (mjd_tt - MJD2000) / 36525.0; // Julian cent. since J2000
+    let T = (mjd_tt - MJD_J2000) / 36525.0; // Julian cent. since J2000
 
     // Mean anomaly, ecliptic longitude and radius
     let M = 2.0 * pi * (0.9931267 + 99.9973583 * T).fract(); // [rad]
@@ -108,7 +108,7 @@ pub fn moon_position(epc: Epoch) -> Vector3<f64> {
     let pi = std::f64::consts::PI;
     let mjd_tt = epc.mjd_as_time_system(TimeSystem::TT);
     let epsilon = 23.43929111 * DEG2RAD; // Obliquity of J2000 ecliptic
-    let T = (mjd_tt - MJD2000) / 36525.0; // Julian cent. since J2000
+    let T = (mjd_tt - MJD_J2000) / 36525.0; // Julian cent. since J2000
 
     // Mean elements of lunar orbit
     let L_0 = (0.606433 + 1336.851344 * T).fract(); // Mean longitude [rev] w.r.t. J2000 equinox

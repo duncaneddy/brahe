@@ -113,7 +113,7 @@ Available constants include:
 - `R_EARTH`, `R_SUN`, `R_MOON` - Body radii (meters)
 - `GM_EARTH`, `GM_SUN`, `GM_MOON` - Gravitational parameters (m³/s²)
 - `DEG2RAD`, `RAD2DEG` - Angular conversions
-- `MJD_ZERO`, `MJD2000`, `GPS_ZERO` - Time epoch constants
+- `MJD_ZERO`, `MJD_J2000`, `GPS_ZERO` - Time epoch constants
 
 See the [Constants documentation](../constants.md) for the complete list.
 

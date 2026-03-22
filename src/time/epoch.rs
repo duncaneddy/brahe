@@ -1,5 +1,5 @@
 /*!
- * Defines the `Epoch` type, which represents a point in time relative to MJD2000 in the TAI time system.
+ * Defines the `Epoch` type, which represents a point in time relative to MJD_J2000 in the TAI time system.
  */
 
 use std::cmp::Ordering;
@@ -2231,7 +2231,7 @@ mod tests {
     fn test_epoch_from_jd() {
         setup_global_test_eop();
 
-        let epc = Epoch::from_jd(MJD_ZERO + MJD2000, TimeSystem::TAI);
+        let epc = Epoch::from_jd(MJD_ZERO + MJD_J2000, TimeSystem::TAI);
         let (year, month, day, hour, minute, second, nanoseconds) = epc.to_datetime();
         assert_eq!(year, 2000);
         assert_eq!(month, 1);
@@ -2242,7 +2242,7 @@ mod tests {
         assert_eq!(nanoseconds, 0.0);
         assert_eq!(epc.time_system, TimeSystem::TAI);
 
-        let epc = Epoch::from_jd(MJD_ZERO + MJD2000, TimeSystem::GPS);
+        let epc = Epoch::from_jd(MJD_ZERO + MJD_J2000, TimeSystem::GPS);
         let (year, month, day, hour, minute, second, nanoseconds) =
             epc.to_datetime_as_time_system(TimeSystem::TAI);
         assert_eq!(year, 2000);
@@ -2259,7 +2259,7 @@ mod tests {
     fn test_epoch_from_mjd() {
         setup_global_test_eop();
 
-        let epc = Epoch::from_mjd(MJD2000, TimeSystem::TAI);
+        let epc = Epoch::from_mjd(MJD_J2000, TimeSystem::TAI);
         let (year, month, day, hour, minute, second, nanoseconds) = epc.to_datetime();
         assert_eq!(year, 2000);
         assert_eq!(month, 1);
@@ -2270,7 +2270,7 @@ mod tests {
         assert_eq!(nanoseconds, 0.0);
         assert_eq!(epc.time_system, TimeSystem::TAI);
 
-        let epc = Epoch::from_mjd(MJD2000, TimeSystem::GPS);
+        let epc = Epoch::from_mjd(MJD_J2000, TimeSystem::GPS);
         let (year, month, day, hour, minute, second, nanoseconds) =
             epc.to_datetime_as_time_system(TimeSystem::TAI);
         assert_eq!(year, 2000);
@@ -2371,12 +2371,12 @@ mod tests {
 
         let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TAI);
 
-        assert_eq!(epc.jd(), MJD_ZERO + MJD2000);
+        assert_eq!(epc.jd(), MJD_ZERO + MJD_J2000);
 
         let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TAI);
         assert_eq!(
             epc.jd_as_time_system(TimeSystem::UTC),
-            MJD_ZERO + MJD2000 - 32.0 / 86400.0
+            MJD_ZERO + MJD_J2000 - 32.0 / 86400.0
         )
     }
 
@@ -2386,12 +2386,12 @@ mod tests {
 
         let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TAI);
 
-        assert_eq!(epc.mjd(), MJD2000);
+        assert_eq!(epc.mjd(), MJD_J2000);
 
         let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TAI);
         assert_eq!(
             epc.mjd_as_time_system(TimeSystem::UTC),
-            MJD2000 - 32.0 / 86400.0
+            MJD_J2000 - 32.0 / 86400.0
         )
     }
 

@@ -19,7 +19,7 @@ from brahe._brahe import (
     RAD2AS,
     # Time constants
     MJD_ZERO,
-    MJD2000,
+    MJD_J2000,
     GPS_TAI,
     TAI_GPS,
     TT_TAI,
@@ -70,7 +70,7 @@ __all__ = [
     "RAD2AS",
     # Time constants
     "MJD_ZERO",
-    "MJD2000",
+    "MJD_J2000",
     "GPS_TAI",
     "TAI_GPS",
     "TT_TAI",

@@ -48,3 +48,17 @@ def test_datasets_help():
     result = runner.invoke(app, ["datasets", "--help"])
     assert result.exit_code == 0
     assert "Usage: brahe datasets [OPTIONS] COMMAND [ARGS]..." in result.stdout
+
+
+def test_celestrak_help():
+    result = runner.invoke(app, ["celestrak", "--help"])
+    assert result.exit_code == 0
+    assert "gp" in result.stdout
+    assert "groups" in result.stdout
+
+
+def test_spacetrack_help():
+    result = runner.invoke(app, ["spacetrack", "--help"])
+    assert result.exit_code == 0
+    assert "gp" in result.stdout
+    assert "satcat" in result.stdout

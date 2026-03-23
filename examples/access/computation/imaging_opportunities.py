@@ -63,12 +63,3 @@ for i, window in enumerate(windows[:3], 1):
     hours = int(local_time)
     minutes = int((local_time - hours) * 60)
     print(f"  Local time: {hours:02d}:{minutes:02d}")
-
-# Expected output (values will vary):
-# Found X imaging opportunities
-#
-# Opportunity 1:
-#   Start: 2008-09-XX HH:MM:SS.SSS UTC
-#   Duration: X.X min
-#   Off-nadir: XX.X°
-#   Local time: HH:MM

@@ -83,7 +83,3 @@ while t < period:
 final_oe = bh.state_eci_to_koe(state, bh.AngleFormat.DEGREES)
 print(f"Final semi-major axis: {final_oe[0] / 1000:.3f} km")
 print(f"Change in SMA: {(final_oe[0] - oe[0]) / 1000:.3f} km")
-# Initial semi-major axis: 6878.136 km
-# Integrating with thrust for 1.58 hours...
-# Final semi-major axis: 6888.420 km
-# Change in SMA: 10.283 km

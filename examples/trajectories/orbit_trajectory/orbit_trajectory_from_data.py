@@ -28,4 +28,3 @@ traj = bh.OrbitTrajectory.from_orbital_data(
 )
 
 print(f"Trajectory length: {len(traj)}")
-# Trajectory length: 3

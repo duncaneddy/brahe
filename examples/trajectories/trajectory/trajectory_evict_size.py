@@ -25,8 +25,3 @@ for i in range(5):
 print(f"Trajectory length: {len(traj)}")
 print(f"Start epoch: {traj.start_epoch()}")
 print(f"Start altitude: {(traj.state_at_idx(0)[0] - bh.R_EARTH) / 1e3:.2f} km")
-
-# Output
-# Trajectory length: 3
-# Start epoch: 2024-01-01 00:02:00.000 UTC
-# Start altitude: 502.00 km

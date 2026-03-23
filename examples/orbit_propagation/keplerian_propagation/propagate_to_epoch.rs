@@ -19,12 +19,8 @@ fn main() {
     prop.propagate_to(target);
 
     println!("Target epoch: {}", target);
-    // Target epoch: 2024-01-01 00:08:20.000 UTC
     println!("Current epoch: {}", prop.current_epoch());
-    // Current epoch: 2024-01-01 00:08:20.000 UTC
     println!("Difference: {:.10} seconds",
              (prop.current_epoch() - target).abs());
-    // Difference: 0.0000000000 seconds
-    // Output shows machine precision agreement
 }
 

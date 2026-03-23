@@ -31,6 +31,5 @@ fn main() {
 
     println!("Interpolated altitude: {:.2} km",
         (interpolated_state[0] - R_EARTH) / 1e3);
-    // Expected: approximately 505 km (halfway between 500 and 510 km)
 }
 

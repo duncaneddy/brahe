@@ -89,14 +89,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Max speed: {:.1} m/s", speed);
     }
 
-    // Output example:
-    // Max speed: 7360.1 m/s
-    // Max speed: 7365.5 m/s
-    // Max speed: 7361.2 m/s
-    // Max speed: 7357.5 m/s
-    // Max speed: 7357.8 m/s
-    // Max speed: 7360.0 m/s
-
     Ok(())
 }
 

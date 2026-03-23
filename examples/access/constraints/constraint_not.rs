@@ -8,6 +8,5 @@ fn main() {
     let night_only = bh::ConstraintComposite::Not(daytime);
 
     println!("Created: {}", night_only);
-    // Created: !LocalTimeConstraint(06:00-20:00)
 }
 

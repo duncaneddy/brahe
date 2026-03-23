@@ -11,4 +11,3 @@ import brahe as bh
 constraint = bh.ElevationConstraint(min_elevation_deg=10.0)
 
 print(f"Created: {constraint}")
-# Created:  ElevationConstraint(>= 10.00°)

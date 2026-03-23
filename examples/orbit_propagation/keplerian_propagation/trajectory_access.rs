@@ -20,7 +20,6 @@ fn main() {
     // Access trajectory
     let traj = &prop.trajectory;
     println!("Trajectory contains {} states", traj.len());
-    // Trajectory contains 6 states
 
     // Access by index
     for i in 0..traj.len() {
@@ -28,11 +27,5 @@ fn main() {
         let state = traj.state_at_idx(i).unwrap();
         println!("Epoch: {}, semi-major axis: {:.1} km", epoch, state[0] / 1e3);
     }
-    // Epoch: 2024-01-01 00:00:00.000 UTC, semi-major axis: 6878.1 km
-    // Epoch: 2024-01-01 00:01:00.000 UTC, semi-major axis: 6878.1 km
-    // Epoch: 2024-01-01 00:02:00.000 UTC, semi-major axis: 6878.1 km
-    // Epoch: 2024-01-01 00:03:00.000 UTC, semi-major axis: 6878.1 km
-    // Epoch: 2024-01-01 00:04:00.000 UTC, semi-major axis: 6878.1 km
-    // Epoch: 2024-01-01 00:05:00.000 UTC, semi-major axis: 6878.1 km
 }
 

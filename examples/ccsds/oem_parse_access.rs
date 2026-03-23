@@ -19,7 +19,6 @@ fn main() {
     );
     println!("Creation date:  {}", oem.header.creation_date);
     println!("\nNumber of segments: {}", oem.segments.len());
-    // Number of segments: 3
 
     // Access segment metadata
     let seg = &oem.segments[0];
@@ -61,6 +60,5 @@ fn main() {
     }
     let kvn = oem.to_string(brahe::ccsds::CCSDSFormat::KVN).unwrap();
     println!("\nKVN output length: {} characters", kvn.len());
-    // KVN output length: ... characters
 }
 

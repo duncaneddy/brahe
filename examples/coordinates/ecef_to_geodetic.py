@@ -28,8 +28,6 @@ state_ecef = bh.state_eci_to_ecef(
 print("ECEF Cartesian state [x, y, z, vx, vy, vz] (m, m/s):")
 print(f"Position: [{state_ecef[0]:.3f}, {state_ecef[1]:.3f}, {state_ecef[2]:.3f}]")
 print(f"Velocity: [{state_ecef[3]:.6f}, {state_ecef[4]:.6f}, {state_ecef[5]:.6f}]\n")
-# Position: [-735665.465, -1838913.314, 6586801.432]
-# Velocity: [-1060.370171, 7357.551468, 1935.662061]
 
 # Convert ECEF Cartesian to geodetic position
 ecef_pos = state_ecef[0:3]
@@ -38,6 +36,3 @@ print("Geodetic coordinates (WGS84 ellipsoid model):")
 print(f"Longitude: {geodetic[0]:.4f}° = {np.radians(geodetic[0]):.6f} rad")
 print(f"Latitude:  {geodetic[1]:.4f}° = {np.radians(geodetic[1]):.6f} rad")
 print(f"Altitude:  {geodetic[2]:.1f} m")
-# Longitude: -111.8041° = -1.951350 rad
-# Latitude:  73.3622° = 1.280412 rad
-# Altitude:  519618.1 m

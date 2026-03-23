@@ -33,8 +33,3 @@ fn main() {
     println!("Start altitude: {:.2} km",
         (traj.state_at_idx(0).unwrap()[0] - R_EARTH) / 1e3);
 }
-
-// Output
-// Trajectory length: 3
-// Start epoch: 2024-01-01 00:02:00.000 UTC
-// Start altitude: 502.00 km

@@ -11,6 +11,5 @@ fn main() {
     ).unwrap();
 
     println!("Created: {}", constraint);
-    // Created: OffNadirConstraint(<= 30.0°)
 }
 

@@ -15,8 +15,6 @@ query = (
     .limit(5)
 )
 print(f"Ordered and limited:\n  {query.build()}")
-# Ordered and limited:
-#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH desc/limit/5/format/json
 
 # Use limit with offset for pagination
 query = (
@@ -26,8 +24,6 @@ query = (
     .limit_offset(10, 20)
 )
 print(f"\nPaginated results:\n  {query.build()}")
-# Paginated results:
-#   /basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/orderby/NORAD_CAT_ID asc/limit/10,20/format/json
 
 # Select specific fields with predicates_filter
 query = (
@@ -36,8 +32,6 @@ query = (
     .predicates_filter(["OBJECT_NAME", "EPOCH", "INCLINATION", "PERIOD"])
 )
 print(f"\nFiltered fields:\n  {query.build()}")
-# Filtered fields:
-#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/predicates/OBJECT_NAME,EPOCH,INCLINATION,PERIOD/format/json
 
 # Enable metadata and distinct results
 query = (
@@ -47,5 +41,3 @@ query = (
     .metadata(True)
 )
 print(f"\nDistinct with metadata:\n  {query.build()}")
-# Distinct with metadata:
-#   /basicspacedata/query/class/satcat/COUNTRY/US/metadata/true/distinct/true/format/json

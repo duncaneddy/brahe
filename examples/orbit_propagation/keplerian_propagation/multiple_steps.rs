@@ -18,8 +18,6 @@ fn main() {
     prop.propagate_steps(10);
     println!("After 10 steps: {:.1} seconds elapsed",
              prop.current_epoch() - epoch);
-    // After 10 steps: 600.0 seconds elapsed
     println!("Trajectory length: {}", prop.trajectory.len());
-    // Trajectory length: 11
 }
 

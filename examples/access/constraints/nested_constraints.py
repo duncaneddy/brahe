@@ -20,4 +20,3 @@ look_right = bh.LookDirectionConstraint(allowed=bh.LookDirection.RIGHT)
 constraint = bh.ConstraintAll(constraints=[high_elev, daytime, look_right])
 
 print(f"Created: {constraint}")
-# Created: ElevationConstraint(>= 60.00°) && LocalTimeConstraint(08:00-18:00) && LookDirectionConstraint(Right)

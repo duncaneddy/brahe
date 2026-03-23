@@ -16,7 +16,6 @@ doppler = bh.DopplerComputer(
     sampling_config=bh.SamplingConfig.fixed_interval(0.1, 0.0),  # 0.1 seconds
 )
 print(f"Downlink only: {doppler}")
-# Downlink only: DopplerComputer(uplink=None, downlink=8.4e9 Hz, ...)
 
 # Both uplink (2.0 GHz) and downlink (8.4 GHz)
 doppler = bh.DopplerComputer(
@@ -25,7 +24,6 @@ doppler = bh.DopplerComputer(
     sampling_config=bh.SamplingConfig.fixed_count(100),
 )
 print(f"Both frequencies: {doppler}")
-# Both frequencies: DopplerComputer(uplink=2.0e9 Hz, downlink=8.4e9 Hz, ...)
 
 # Create a simple scenario to demonstrate usage
 # ISS orbit
@@ -58,4 +56,3 @@ values = doppler_data["values"]  # Hz
 print(
     f"\nFirst pass downlink Doppler shift range: {min(values):.1f} to {max(values):.1f} Hz"
 )
-# First pass Doppler shift range: -189220.9 to 189239.8 Hz

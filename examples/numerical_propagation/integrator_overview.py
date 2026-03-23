@@ -37,7 +37,3 @@ print(f"Method: {config.method}")
 print(f"abs_tol: {config.abs_tol}")
 print(f"rel_tol: {config.rel_tol}")
 print(f"Variational: {config.variational}")
-# Method: IntegrationMethod.DP54
-# abs_tol: 1e-09
-# rel_tol: 1e-06
-# Variational: VariationalConfig(enable_stm=true, ...)

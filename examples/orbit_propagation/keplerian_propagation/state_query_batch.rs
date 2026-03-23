@@ -21,7 +21,6 @@ fn main() {
     let states_eci = prop.states_eci(&query_epochs).unwrap();
 
     println!("Generated {} states", states_eci.len());
-    // Generated 5 states
     for (i, state) in states_eci.iter().enumerate() {
         println!("  Epoch {}: position magnitude = {:.1} km",
                  i, state.fixed_rows::<3>(0).norm() / 1e3);

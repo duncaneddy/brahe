@@ -27,9 +27,6 @@ J_numerical = jacobian.compute(t, state)
 
 print("Numerical Jacobian (central differences):")
 print(J_numerical)
-# Expected output (should be very close to analytical):
-# [[ 0.  1.]
-#  [-1.  0.]]
 
 # Compare with analytical solution
 J_analytical = np.array([[0.0, 1.0], [-1.0, 0.0]])

@@ -44,7 +44,6 @@ seg = oem.segments[seg_idx]
 seg.add_trajectory(prop.trajectory)
 
 print(f"Created OEM with {len(oem.segments)} segment, {seg.num_states} states")
-# Created OEM with 1 segment, 5 states
 
 # Write to KVN string
 kvn = oem.to_string("KVN")
@@ -58,4 +57,3 @@ print("\nWritten to /tmp/brahe_example_oem.txt")
 # Verify round-trip
 oem2 = OEM.from_file("/tmp/brahe_example_oem.txt")
 print(f"Round-trip: {len(oem2.segments)} segment, {oem2.segments[0].num_states} states")
-# Round-trip: 1 segment, 5 states

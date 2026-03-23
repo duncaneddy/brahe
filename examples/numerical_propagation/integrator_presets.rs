@@ -13,9 +13,5 @@ fn main() {
     println!("high_precision():   {:?}", high_precision.method);
     println!("with_method(RKF45): {:?}", rkf45.method);
     println!("with_method(RK4):   {:?}", rk4.method);
-    // default():          DP54
-    // high_precision():   RKN1210
-    // with_method(RKF45): RKF45
-    // with_method(RK4):   RK4
 }
 

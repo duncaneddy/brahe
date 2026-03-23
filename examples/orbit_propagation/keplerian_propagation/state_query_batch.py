@@ -21,6 +21,5 @@ query_epochs = [epoch + t for t in [0.0, 100.0, 500.0, 1000.0, 3600.0]]
 states_eci = prop.states_eci(query_epochs)
 
 print(f"Generated {len(states_eci)} states")
-# Generated 5 states
 for i, state in enumerate(states_eci):
     print(f"  Epoch {i}: position magnitude = {np.linalg.norm(state[:3]) / 1e3:.1f} km")

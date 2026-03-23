@@ -21,8 +21,5 @@ fn main() {
 
     // Silence unused warning
     let _ = config_custom;
-    // Method: RKN1210
-    // abs_tol: 1e-10
-    // rel_tol: 1e-8
 }
 

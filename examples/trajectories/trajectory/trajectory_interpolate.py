@@ -26,4 +26,3 @@ query_epoch = epoch0 + 30.0  # Halfway between first two states
 interpolated_state = traj.interpolate(query_epoch)
 
 print(f"Interpolated altitude: {(interpolated_state[0] - bh.R_EARTH) / 1e3:.2f} km")
-# Expected: approximately 505 km (halfway between 500 and 510 km)

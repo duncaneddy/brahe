@@ -46,10 +46,3 @@ print(f"dex (rel ecc x-comp):     {roe[2]:.6e}")
 print(f"dey (rel ecc y-comp):     {roe[3]:.6e}")
 print(f"dix (rel inc x-comp):     {roe[4]:.6f}°")
 print(f"diy (rel inc y-comp):     {roe[5]:.6f}°")
-# Relative Orbital Elements (ROE):
-# da (relative SMA):        1.412801e-4
-# dλ (relative mean long):  0.093214°
-# dex (rel ecc x-comp):     4.323577e-4
-# dey (rel ecc y-comp):     2.511333e-4
-# dix (rel inc x-comp):     0.050000°
-# diy (rel inc y-comp):     0.049537°

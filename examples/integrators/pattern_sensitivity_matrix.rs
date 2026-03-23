@@ -223,21 +223,3 @@ fn main() {
     );
 }
 
-// Example output:
-// Final position after 60 minutes:
-//   x: -2884.245 km
-//   y: -3673.659 km
-//   z: -4635.004 km
-
-// Sensitivity matrix Φ = ∂x/∂p (position per unit Cd*A/m):
-//   dx/dp: 59942.895 m/(m²/kg)
-//   dy/dp: -3796.877 m/(m²/kg)
-//   dz/dp: -4790.467 m/(m²/kg)
-
-// Sensitivity matrix Φ = ∂x/∂p (velocity per unit Cd*A/m):
-//   dvx/dp: 44.091415 m/s/(m²/kg)
-//   dvy/dp: 33.444232 m/s/(m²/kg)
-//   dvz/dp: 42.196119 m/s/(m²/kg)
-
-// Position uncertainty for 10% parameter uncertainty: 265.1 m
-

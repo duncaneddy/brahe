@@ -22,14 +22,7 @@ prop.propagate_steps(5)
 # Access trajectory
 traj = prop.trajectory
 print(f"Trajectory contains {len(traj)} states")
-# Trajectory contains 6 states
 
 # Iterate over epoch-state pairs
 for epoch, state in traj:
     print(f"Epoch: {epoch}, semi-major axis: {state[0] / 1e3:.1f} km")
-# Epoch: 2024-01-01 00:00:00.000 UTC, semi-major axis: 6878.1 km
-# Epoch: 2024-01-01 00:01:00.000 UTC, semi-major axis: 6878.1 km
-# Epoch: 2024-01-01 00:02:00.000 UTC, semi-major axis: 6878.1 km
-# Epoch: 2024-01-01 00:03:00.000 UTC, semi-major axis: 6878.1 km
-# Epoch: 2024-01-01 00:04:00.000 UTC, semi-major axis: 6878.1 km
-# Epoch: 2024-01-01 00:05:00.000 UTC, semi-major axis: 6878.1 km

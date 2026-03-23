@@ -21,4 +21,3 @@ state_ecef = bh.state_eci_to_ecef(epoch, state_eci)
 prop = bh.KeplerianPropagator.from_ecef(epoch, state_ecef, 60.0)
 
 print(f"ECEF position magnitude: {np.linalg.norm(state_ecef[:3]) / 1e3:.1f} km")
-# ECEF position magnitude: 6873.3 km

@@ -15,8 +15,6 @@ fn main() {
 
     let url_path = query.build();
     println!("High-probability CDMs:\n  {}", url_path);
-    // High-probability CDMs:
-    //   /expandedspacedata/query/class/cdm_public/PC/>1.0e-3/orderby/TCA desc/limit/25/format/json
 
     // Query CDMs for a specific satellite (e.g., ISS, NORAD 25544)
     let query = SpaceTrackQuery::new(RequestClass::CDMPublic)
@@ -26,8 +24,6 @@ fn main() {
 
     let url_path = query.build();
     println!("\nCDMs involving ISS:\n  {}", url_path);
-    // CDMs involving ISS:
-    //   /expandedspacedata/query/class/cdm_public/SAT_1_ID/25544/orderby/TCA desc/limit/10/format/json
 
     // Query upcoming conjunctions within the next 7 days
     let query = SpaceTrackQuery::new(RequestClass::CDMPublic)
@@ -36,7 +32,5 @@ fn main() {
 
     let url_path = query.build();
     println!("\nUpcoming conjunctions (next 7 days):\n  {}", url_path);
-    // Upcoming conjunctions (next 7 days):
-    //   /expandedspacedata/query/class/cdm_public/TCA/now--now+7/orderby/TCA asc/format/json
 }
 

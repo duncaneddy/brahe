@@ -16,7 +16,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         SamplingConfig::FixedInterval { interval: 0.5, offset: 0.0 }  // 0.5 seconds
     );
     println!("Range rate computer: sampling=FixedInterval(0.5s)");
-    // Range rate computer: sampling=FixedInterval(0.5s)
 
     // ISS orbit
     let tle_line1 = "1 25544U 98067A   25306.42331346  .00010070  00000-0  18610-3 0  9999";
@@ -58,9 +57,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nRange rate varies from {:.1} to {:.1} m/s", min_vel, max_vel);
     println!("Negative = approaching (decreasing distance)");
     println!("Positive = receding (increasing distance)");
-    // Range rate varies from -6382.0 to 6372.9 m/s
-    // Negative = approaching (decreasing distance)
-    // Positive = receding (increasing distance)
 
     Ok(())
 }

@@ -20,13 +20,11 @@ fn main() {
     // Propagate many steps
     prop.propagate_steps(500);
     println!("Trajectory length: {}", prop.trajectory.len());  // Will be 100
-    // Trajectory length: 100
 
     // Alternative: Keep only states within 1 hour of current time
     prop.reset();
     prop.set_eviction_policy_max_age(3600.0).unwrap();  // 3600 seconds = 1 hour
     prop.propagate_steps(500);
     println!("Trajectory length after age policy: {}", prop.trajectory.len());
-    // Trajectory length after age policy: 61
 }
 

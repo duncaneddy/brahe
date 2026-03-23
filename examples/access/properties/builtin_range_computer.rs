@@ -16,7 +16,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         SamplingConfig::FixedCount(50)
     );
     println!("Range computer: sampling=FixedCount(50)");
-    // Range computer: sampling=FixedCount(50)
 
     // ISS orbit
     let tle_line1 = "1 25544U 98067A   25306.42331346  .00010070  00000-0  18610-3 0  9999";
@@ -57,7 +56,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let max_km = distances_m.iter().fold(f64::NEG_INFINITY, |a: f64, &b| a.max(b)) / 1000.0;
 
     println!("\nRange varies from {:.1} to {:.1} km", min_km, max_km);
-    // Range varies from 658.9 to 1501.0 km
 
     Ok(())
 }

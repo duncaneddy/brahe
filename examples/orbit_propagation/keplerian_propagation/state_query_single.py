@@ -26,8 +26,5 @@ state_ecef = prop.state_ecef(query_epoch)  # ECEF Cartesian
 state_kep = prop.state_koe_osc(query_epoch, bh.AngleFormat.DEGREES)
 
 print(f"Native state (Keplerian): a={state_native[0] / 1e3:.1f} km")
-# Native state (Keplerian): a=6878.1 km
 print(f"ECI position magnitude: {np.linalg.norm(state_eci[:3]) / 1e3:.1f} km")
-# ECI position magnitude: 6877.7 km
 print(f"ECEF position magnitude: {np.linalg.norm(state_ecef[:3]) / 1e3:.1f} km")
-# ECEF position magnitude: 6877.7 km

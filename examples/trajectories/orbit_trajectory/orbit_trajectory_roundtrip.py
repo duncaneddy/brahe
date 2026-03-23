@@ -30,4 +30,3 @@ diff = np.abs(state_original - state_roundtrip)
 
 print(f"Position difference: {np.linalg.norm(diff[0:3]):.6e} m")
 print(f"Velocity difference: {np.linalg.norm(diff[3:6]):.6e} m/s")
-# Expected: Very small differences (numerical precision)

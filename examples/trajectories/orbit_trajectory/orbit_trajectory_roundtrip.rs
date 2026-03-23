@@ -39,6 +39,5 @@ fn main() {
         diff.fixed_rows::<3>(0).norm());
     println!("Velocity difference: {:.6e} m/s",
         diff.fixed_rows::<3>(3).norm());
-    // Expected: Very small differences (numerical precision)
 }
 

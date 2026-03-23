@@ -126,13 +126,3 @@ fn main() {
     let max_diff = diff.abs().max();
     println!("\nMax difference: {:.3e}", max_diff);
 }
-
-// Numerical sensitivity (∂f/∂p):
-//   Position rates: [0, 0, 0]
-//   Velocity rates: [0, -0.000008425648220011794, -0.000010630522385923769]
-
-// Analytical sensitivity (∂f/∂p):
-//   Position rates: [0, 0, 0]
-//   Velocity rates: [0, -0.000008425648218908737, -0.00001063052238539645]
-
-// Max difference: 1.103e-15

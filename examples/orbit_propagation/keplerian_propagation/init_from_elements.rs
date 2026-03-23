@@ -26,6 +26,5 @@ fn main() {
     );
 
     println!("Orbital period: {:.1} seconds", bh::orbital_period(elements[0]));
-    // Orbital period: 5677.0 seconds
 }
 

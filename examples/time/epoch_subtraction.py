@@ -16,7 +16,6 @@ epc2 = bh.Epoch(2024, 1, 2, 12, 1, 1.0, 0.0)
 dt = epc2 - epc1
 print(f"Time difference: {dt:.1f} seconds")
 
-
 # You can also subtract a float (in seconds) from an Epoch to get a new Epoch
 epc = bh.Epoch(2024, 6, 15, 10, 30, 0.0, 0.0)
 

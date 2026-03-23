@@ -27,13 +27,6 @@ fn main() {
     println!("RA of ascending node (deg): {:.6}", oe_deg[3]);
     println!("Argument of periapsis (deg): {:.6}", oe_deg[4]);
     println!("Mean anomaly (deg): {:.6}", oe_deg[5]);
-    // Osculating state  (deg):
-    // Semi-major axis (m): 6878136.299
-    // Eccentricity: 0.010000
-    // Inclination (deg): 97.800000
-    // RA of ascending node (deg): 15.000000
-    // Argument of periapsis (deg): 30.000000
-    // Mean anomaly (deg): 45.000000
 
     // You can also convert using radians
     let oe_rad = bh::state_eci_to_koe(state, bh::AngleFormat::Radians);
@@ -45,12 +38,5 @@ fn main() {
     println!("RA of ascending node (rad): {:.6}", oe_rad[3]);
     println!("Argument of periapsis (rad): {:.6}", oe_rad[4]);
     println!("Mean anomaly (rad): {:.6}", oe_rad[5]);
-    // Osculating state  (rad):
-    // Semi-major axis (m): 6878136.299
-    // Eccentricity: 0.010000
-    // Inclination (rad): 1.706932
-    // RA of ascending node (rad): 0.261799
-    // Argument of periapsis (rad): 0.523599
-    // Mean anomaly (rad): 0.785398
 }
 

@@ -66,11 +66,8 @@ cdm.collision_probability = 1.5e-04
 cdm.collision_probability_method = "FOSTER-1992"
 
 print(f"CDM: {cdm.object1_name} vs {cdm.object2_name}")
-# CDM: SATELLITE A vs DEBRIS FRAGMENT
 print(f"Miss distance: {cdm.miss_distance} m")
-# Miss distance: 502.3 m
 print(f"Collision probability: {cdm.collision_probability}")
-# Collision probability: 0.00015
 
 # Write to KVN
 kvn = cdm.to_string("KVN")
@@ -79,4 +76,3 @@ print(f"\nKVN output ({len(kvn)} chars)")
 # Verify round-trip
 cdm2 = CDM.from_str(kvn)
 print(f"Round-trip: {cdm2.object1_name} vs {cdm2.object2_name}")
-# Round-trip: SATELLITE A vs DEBRIS FRAGMENT

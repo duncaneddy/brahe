@@ -28,11 +28,5 @@ fn main() {
     // Note: All directories are automatically created if they don't exist
     // You can override the default location by setting the BRAHE_CACHE
     // environment variable
-
-    // Expected output (paths will vary by system):
-    // Main cache directory: /home/USER/.cache/brahe
-    // EOP cache directory: /home/USER/.cache/brahe/eop
-    // CelesTrak cache directory: /home/USER/.cache/brahe/celestrak
-    // Custom cache subdirectory: /home/USER/.cache/brahe/custom_data
 }
 

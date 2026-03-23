@@ -18,7 +18,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         SamplingConfig::FixedInterval { interval: 0.1, offset: 0.0 }  // 0.1 seconds
     );
     println!("Downlink only: uplink=None, downlink=8.4e9 Hz");
-    // Downlink only: uplink=None, downlink=8.4e9 Hz
 
     // Both uplink (2.0 GHz) and downlink (8.4 GHz)
     let doppler = DopplerComputer::new(
@@ -27,7 +26,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         SamplingConfig::FixedCount(100)
     );
     println!("Both frequencies: uplink=2.0e9 Hz, downlink=8.4e9 Hz");
-    // Both frequencies: uplink=2.0e9 Hz, downlink=8.4e9 Hz
 
     // ISS orbit
     let tle_line1 = "1 25544U 98067A   25306.42331346  .00010070  00000-0  18610-3 0  9999";
@@ -67,7 +65,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let max_val = values.iter().fold(f64::NEG_INFINITY, |a: f64, &b| a.max(b));
 
     println!("\nFirst pass downlink Doppler shift range: {:.1} to {:.1} Hz", min_val, max_val);
-    // First pass Doppler shift range: -189220.9 to 189239.8 Hz
 
     Ok(())
 }

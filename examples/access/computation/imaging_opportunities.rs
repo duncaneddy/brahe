@@ -71,12 +71,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// Expected output (values will vary):
-// Found X imaging opportunities
-//
-// Opportunity 1:
-//   Start: 2008-09-XX HH:MM:SS.SSS UTC
-//   Duration: X.X min
-//   Off-nadir: XX.X°
-//   Local time: HH:MM
-

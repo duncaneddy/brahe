@@ -74,6 +74,3 @@ max_speed = props["max_ground_speed"]
 print(f"Doppler: {len(doppler_data['values'])} samples")
 print(f"Range: {range_data / 1000:.1f} km")
 print(f"Max speed: {max_speed:.1f} m/s")
-# Doppler: 3777 samples
-# Range: 658.4 km
-# Max speed: 7360.1 m/s

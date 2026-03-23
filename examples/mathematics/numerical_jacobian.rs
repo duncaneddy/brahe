@@ -20,9 +20,6 @@ fn main() {
 
     println!("Numerical Jacobian (central differences):");
     println!("{}", jac_numerical);
-    // Expected output (should be very close to analytical):
-    // [[ 0.  1.]
-    //  [-1.  0.]]
 
     // Compare with analytical solution
     let jac_analytical = DMatrix::from_row_slice(2, 2, &[

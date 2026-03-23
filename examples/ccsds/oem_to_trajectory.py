@@ -14,7 +14,6 @@ bh.initialize_eop()
 oem = OEM.from_file("test_assets/ccsds/oem/OEMExample5.txt")
 seg = oem.segments[0]
 print(f"Segment: {seg.object_name}, {seg.num_states} states, frame={seg.ref_frame}")
-# Segment: ISS, 49 states, frame=GCRF
 
 # Convert segment 0 to an OrbitTrajectory
 traj = oem.segment_to_trajectory(0)
@@ -23,11 +22,6 @@ print(f"  Frame: {traj.frame}")
 print(f"  Start: {traj.start_epoch()}")
 print(f"  End:   {traj.end_epoch()}")
 print(f"  Span:  {traj.timespan():.0f} seconds")
-# Trajectory: 49 states
-#   Frame: ...
-#   Start: ...
-#   End:   ...
-#   Span:  ... seconds
 
 # Access states by index
 epc, state = traj.get(0)

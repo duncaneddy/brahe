@@ -10,8 +10,6 @@ import brahe as bh
 # Default format is JSON
 query = bh.SpaceTrackQuery(bh.RequestClass.GP).filter("NORAD_CAT_ID", "25544")
 print(f"Default (JSON):\n  {query.build()}")
-# Default (JSON):
-#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json
 
 # Request TLE format for direct TLE text output
 query = (
@@ -20,8 +18,6 @@ query = (
     .format(bh.OutputFormat.TLE)
 )
 print(f"\nTLE format:\n  {query.build()}")
-# TLE format:
-#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/tle
 
 # Request CSV format for spreadsheet-compatible output
 query = (
@@ -31,8 +27,6 @@ query = (
     .format(bh.OutputFormat.CSV)
 )
 print(f"\nCSV format:\n  {query.build()}")
-# CSV format:
-#   /basicspacedata/query/class/satcat/COUNTRY/US/limit/10/format/csv
 
 # Request KVN (CCSDS Keyword-Value Notation) format
 query = (
@@ -41,5 +35,3 @@ query = (
     .format(bh.OutputFormat.KVN)
 )
 print(f"\nKVN format:\n  {query.build()}")
-# KVN format:
-#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/kvn

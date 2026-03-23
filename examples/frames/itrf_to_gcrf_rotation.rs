@@ -19,17 +19,12 @@ fn main() {
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_itrf_to_gcrf[(0, 0)], r_itrf_to_gcrf[(0, 1)], r_itrf_to_gcrf[(0, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]", r_itrf_to_gcrf[(1, 0)], r_itrf_to_gcrf[(1, 1)], r_itrf_to_gcrf[(1, 2)]);
     println!("  [{:10.7}, {:10.7}, {:10.7}]\n", r_itrf_to_gcrf[(2, 0)], r_itrf_to_gcrf[(2, 1)], r_itrf_to_gcrf[(2, 2)]);
-    // [ 0.1794538,  0.9837637,  0.0023225]
-    // [-0.9837663,  0.1794542,  0.0000338]
-    // [-0.0003836, -0.0022908,  0.9999973]
 
-    // Verify it's the transpose of GCRF to ITRF rotation
     let r_gcrf_to_itrf = bh::rotation_gcrf_to_itrf(epc);
     let diff = (r_itrf_to_gcrf - r_gcrf_to_itrf.transpose()).abs();
     let max_diff = diff.max();
     println!("Verification: R_itrf_to_gcrf = R_gcrf_to_itrf^T");
     println!("  Max difference: {:.2e}\n", max_diff);
-    // Max difference: 0.00e+00
 
     // Define orbital elements in degrees for satellite position
     let oe = na::SVector::<f64, 6>::new(
@@ -50,19 +45,15 @@ fn main() {
 
     println!("Satellite position in ITRF:");
     println!("  [{:.3}, {:.3}, {:.3}] m\n", pos_itrf[0], pos_itrf[1], pos_itrf[2]);
-    // [757164.267, 1725863.563, 6564672.302] m
 
     // Transform back to GCRF using rotation matrix
     let pos_gcrf = r_itrf_to_gcrf * pos_itrf;
 
     println!("Satellite position in GCRF (using rotation matrix):");
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_gcrf[0], pos_gcrf[1], pos_gcrf[2]);
-    // [1848964.106, -434937.468, 6560410.530] m
 
-    // Verify using position transformation function
     let pos_gcrf_direct = bh::position_itrf_to_gcrf(epc, pos_itrf);
     println!("\nSatellite position in GCRF (using position_itrf_to_gcrf):");
     println!("  [{:.3}, {:.3}, {:.3}] m", pos_gcrf_direct[0], pos_gcrf_direct[1], pos_gcrf_direct[2]);
-    // [1848964.106, -434937.468, 6560410.530] m
 }
 

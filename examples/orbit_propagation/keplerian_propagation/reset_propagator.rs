@@ -17,13 +17,10 @@ fn main() {
     // Propagate forward
     prop.propagate_steps(100);
     println!("After propagation: {} states", prop.trajectory.len());
-    // After propagation: 101 states
 
     // Reset to initial conditions
     prop.reset();
     println!("After reset: {} states", prop.trajectory.len());
-    // After reset: 1 states
     println!("Current epoch: {}", prop.current_epoch());
-    // Current epoch: 2024-01-01 00:00:00.000 UTC
 }
 

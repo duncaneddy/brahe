@@ -21,10 +21,7 @@ fn main() {
     let traj_kep = prop.trajectory.to_keplerian(bh::AngleFormat::Radians);
 
     println!("ECI trajectory: {} states", traj_eci.len());
-    // ECI trajectory: 11 states
     println!("ECEF trajectory: {} states", traj_ecef.len());
-    // ECEF trajectory: 11 states
     println!("Keplerian trajectory: {} states", traj_kep.len());
-    // Keplerian trajectory: 11 states
 }
 

@@ -41,6 +41,17 @@ The following example retrieves GP data for a single satellite by NORAD catalog 
     --8<-- "./examples/datasets/celestrak_get_by_id.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/celestrak_get_by_id.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/celestrak_get_by_id.rs.txt"
+        ```
+
 Other common lookup patterns include querying by group name (`group="stations"`), object name
 (`name="ISS"`), or international designator (`intdes="1998-067A"`). All of these are available as
 keyword arguments to `get_gp` or as builder methods on `CelestrakQuery.gp`.

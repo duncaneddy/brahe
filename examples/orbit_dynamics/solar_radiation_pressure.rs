@@ -86,39 +86,5 @@ fn main() {
     println!("  Point-mass gravity: {:.9} m/s²", accel_gravity);
     println!("  SRP/Gravity ratio: {:.2e}", accel_srp.norm() / accel_gravity);
 
-    // Expected output:
-    // Satellite position (ECI, m):
-    //   x = 42159.9 km
-    //   y = 0.0 km
-    //   z = 0.0 km
-    //   Altitude: 35781.8 km
-
-    // Sun position (ECI, AU):
-    //   x = -0.003352 AU
-    //   y = 0.932401 AU
-    //   z = 0.404245 AU
-
-    // Eclipse status:
-    //   Conical model: 1.000000
-    //   Cylindrical model: 1.000000
-    //   Status: Full sunlight
-
-    // Satellite SRP properties:
-    //   Mass: 1500.0 kg
-    //   Area: 20.0 m²
-    //   Cr coefficient: 1.3
-    //   Area/mass ratio: 0.013333 m²/kg
-
-    // Solar radiation pressure acceleration (ECI, m/s²):
-    //   ax = 0.000000000274
-    //   ay = -0.000000070212
-    //   az = -0.000000030441
-    //   Magnitude: 0.000000076528 m/s²
-
-    // Theoretical maximum (full sun): 0.000000079040 m/s²
-    // Actual/Maximum ratio: 0.968216
-
-    // For comparison at GEO altitude:
-    //   Point-mass gravity: 0.224252979 m/s²
-    //   SRP/Gravity ratio: 3.41e-07
 }
+

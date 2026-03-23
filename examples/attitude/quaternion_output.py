@@ -39,24 +39,3 @@ print(f"  {q}")
 
 print("\Repr representation:")
 print(f"  {repr(q)}")
-
-# Expected output:
-# Individual components:
-#   w (scalar): 0.923880
-#   x: 0.000000
-#   y: 0.000000
-#   z: 0.382683
-
-# As vector :
-#   [0.92387953 0.         0.         0.38268343]: <class 'numpy.ndarray'>
-
-# As vector :
-#   [0.92387953 0.         0.         0.38268343]: <class 'numpy.ndarray'>
-
-# As scalar-last :
-#   [0.         0.         0.38268343 0.92387953]: <class 'numpy.ndarray'>
-
-# String representation:
-#   Quaternion: [s: 0.9238795325112867, v: [0, 0, 0.3826834323650897]]
-# \Repr representation:
-#   Quaternion<0.9238795325112867, 0, 0, 0.3826834323650897>

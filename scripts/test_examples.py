@@ -15,6 +15,7 @@ from _build_utils import (
     console,
     make_progress,
     run_files_parallel,
+    save_example_output,
     test_python_example,
     test_rust_example,
 )
@@ -123,6 +124,7 @@ def main(
 
                         if passed:
                             rust_results.passed += 1
+                            save_example_output(rust_file, stdout)
                             if verbose:
                                 console.print(f"  {rel_path}...[green]PASS[/green]")
                         else:
@@ -149,6 +151,7 @@ def main(
                     progress,
                     task,
                     rust_results,
+                    on_pass=save_example_output,
                 )
 
         console.print(
@@ -195,6 +198,7 @@ def main(
 
                         if passed:
                             python_results.passed += 1
+                            save_example_output(py_file, stdout)
                             if verbose:
                                 console.print(f"  {rel_path}...[green]PASS[/green]")
                         else:
@@ -221,6 +225,7 @@ def main(
                     progress,
                     task,
                     python_results,
+                    on_pass=save_example_output,
                 )
 
         console.print(

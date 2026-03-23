@@ -36,6 +36,17 @@ Below are examples of accessing core properties in Python and Rust.
     --8<-- "./examples/access/properties/accessing_core_properties.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/properties/accessing_core_properties.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/properties/accessing_core_properties.rs.txt"
+        ```
+
 ## Property Computers
 
 Property computers allow users to extend the access computation system to define and compute custom properties for each access window beyond the core set. These computations are performed after access windows are identified and refined. 
@@ -71,6 +82,17 @@ This allows you to compute time-series data at specific intervals or points.
     --8<-- "./examples/access/properties/sampling_config_examples.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/properties/sampling_config_examples.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/properties/sampling_config_examples.rs.txt"
+        ```
+
 ## Built-in Property Computers
 
 Brahe provides three commonly-used property computers optimized in Rust:
@@ -90,6 +112,17 @@ Computes Doppler frequency shifts for uplink and/or downlink communications:
     ``` rust
     --8<-- "./examples/access/properties/builtin_doppler_computer.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/properties/builtin_doppler_computer.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/properties/builtin_doppler_computer.rs.txt"
+        ```
 
 **Doppler Physics:**
 
@@ -113,6 +146,17 @@ Computes slant range (distance) from the location to the satellite:
     --8<-- "./examples/access/properties/builtin_range_computer.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/properties/builtin_range_computer.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/properties/builtin_range_computer.rs.txt"
+        ```
+
 ### RangeRateComputer
 
 Computes line-of-sight velocity (range rate) with the convention that positive values indicate increasing range (satellite receding) and negative values indicate decreasing range (satellite approaching):
@@ -128,6 +172,17 @@ Computes line-of-sight velocity (range rate) with the convention that positive v
     ``` rust
     --8<-- "./examples/access/properties/builtin_range_rate_computer.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/properties/builtin_range_rate_computer.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/properties/builtin_range_rate_computer.rs.txt"
+        ```
 
 
 ## Custom Property Computers
@@ -165,6 +220,17 @@ To implement a custom property computer in Rust, create a struct that implements
     ``` rust
     --8<-- "./examples/access/properties/custom_max_speed.rs:8"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/properties/combining_multiple_computers.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/properties/custom_max_speed.rs.txt"
+        ```
 
 ---
 

@@ -80,10 +80,3 @@ print(f"Found {len(windows)} access windows\n")
 for i, window in enumerate(windows[:3], 1):  # Show first 3
     range_km = window.properties.additional.get("min_range_km")
     print(f"Window {i}: Min range = {range_km:.1f} km")
-
-# Expected output:
-# Found 35 access windows
-
-# Window 1: Min range = 1064.3 km
-# Window 2: Min range = 638.1 km
-# Window 3: Min range = 1454.7 km

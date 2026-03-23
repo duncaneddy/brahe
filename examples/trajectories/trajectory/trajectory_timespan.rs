@@ -38,11 +38,3 @@ fn main() {
     println!("Last epoch: {}", last_epoch);
 }
 
-// Output:
-// Number of states: 6
-// Start epoch: 2024-01-01 00:00:00.000 UTC
-// End epoch: 2024-01-01 00:05:00.000 UTC
-// Timespan: 300.0 seconds
-// Is empty: false
-// First epoch: 2024-01-01 00:00:00.000 UTC
-// Last epoch: 2024-01-01 00:05:00.000 UTC

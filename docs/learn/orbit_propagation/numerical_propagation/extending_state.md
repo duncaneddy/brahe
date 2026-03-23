@@ -115,6 +115,17 @@ The `control_input` function returns a state-sized vector with acceleration in i
     --8<-- "./examples/numerical_propagation/mass_tracking.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/mass_tracking.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/mass_tracking.rs.txt"
+        ```
+
 ### Orbital Elements Evolution
 
 The following plot shows how orbital elements evolve during the thrust maneuver:
@@ -236,6 +247,17 @@ The `additional_dynamics` function computes the illumination at each timestep us
     ``` rust
     --8<-- "./examples/numerical_propagation/battery_tracking.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/battery_tracking.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/battery_tracking.rs.txt"
+        ```
 
 ### Battery Charge and Illumination Profile
 

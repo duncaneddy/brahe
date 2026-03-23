@@ -14,4 +14,3 @@ right_look = bh.LookDirectionConstraint(allowed=bh.LookDirection.RIGHT)
 constraint = bh.ConstraintAny(constraints=[high_elev, right_look])
 
 print(f"Created: {constraint}")
-# Created: ConstraintAny(constraints: [ElevationConstraint(...), LookDirectionConstraint(...)])

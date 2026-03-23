@@ -51,13 +51,3 @@ fn main() {
     );
 }
 
-// Output:
-// Original frame: OrbitFrame(Earth-Centered Inertial)
-// Original representation: OrbitRepresentation(Cartesian)
-
-// Converted frame: OrbitFrame(Earth-Centered Earth-Fixed)
-// Converted representation: OrbitRepresentation(Cartesian)
-// Same number of states: 5
-
-// First state ECI: [6878136.3, 0, 0] m
-// First state ECEF: [-1176064.0596141217, -6776826.507241379, 15961.82358860613] m

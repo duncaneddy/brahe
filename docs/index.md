@@ -46,7 +46,7 @@ Brahe is a modern satellite dynamics library for research and engineering applic
 
 Brahe is permissively licensed under an [MIT License](https://github.com/duncaneddy/brahe/blob/main/LICENSE) to enable people to use and build on the work without worrying about licensing restrictions. We want people to be able to stop reinventing the astrodynamics "wheel" because commercial licenses are expensive and open-source options are hard to use.
 
-We try to prioritize making the software library easy to understand and extend. Many astrodynamics libraries are written in a way that makes them hard to read, understand, or modify. Brahe is written in a modern style with an emphasis on code clarity and modularity to make it easier to understand how algorithms are implemented and to make it easier to extend the library to support new use-cases. This approach has the added benefit of making it easier to verify and validate the correctness of the implementation.
+We try to prioritize making the software library easy to learn, use, and verify. Many astrodynamics libraries are written with many layers of abstraction for flexibility that can make it challenging for new users to understand _where_ the actual logic and algorithms are being executed. Brahe is written in a modern style with an emphasis on code clarity and modularity to make it easier to understand what individual functions are actually doing. This approach has the added benefit of making it easier to verify and validate the correctness of the implementation.
 
 If you do find this useful, please consider starring the repository on GitHub to help increase its visibility. If you're using Brahe for school, research, a commercial endeavour, or flying a mission. I'd love to know about it.
 
@@ -83,12 +83,15 @@ The project is licensed under the MIT License - see the [LICENSE](./about/licens
 
 We want to make it easy for people to use and build on the work without worrying about licensing restrictions.
 
+## Versioning
+
+Brahe generally follows [SemVer](https://semver.org/). New patch versions should be rare. Public facing APIs should not significantly change, though may still change, especially for new features that are still being refined based on user feedback. We want to avoid the forever "0.x" versioning trap that many Rust and scientific software projects fall into, which can deter users from adopting the software for use.
+
+If you need guaranteed stability you should pin your project to a specific major.minor.patch version (e.g., `1.2.3`) rather than using a floating version specifier (e.g., `^1.2.0` or `>=1.2.0`).
+
 ## Contributing
 
 If you find a bug, have a feature request, want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it. We are building software to help everyone on this planet explore the universe. We encourage you to bring your unique perspective to help make us stronger. We appreciate contributions from everyone, no prior space experience is needed to participate.
-
-
-<!-- ## Citation / Acknowledgement -->
 
 ## Quick Start
 

@@ -14,7 +14,6 @@ range_rate = bh.RangeRateComputer(
     sampling_config=bh.SamplingConfig.fixed_interval(0.5, 0.0)  # 0.5 seconds
 )
 print(f"Range rate computer: {range_rate}")
-# Range rate computer: RangeRateComputer()
 
 # Create a simple scenario to demonstrate usage
 # ISS orbit
@@ -48,6 +47,3 @@ print(
 )
 print("Negative = approaching (decreasing distance)")
 print("Positive = receding (increasing distance)")
-# Range rate varies from -6382.0 to 6372.9 m/s
-# Negative = approaching (decreasing distance)
-# Positive = receding (increasing distance)

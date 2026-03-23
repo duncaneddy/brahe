@@ -91,6 +91,17 @@ A simple callback that logs event information without modifying state:
     --8<-- "./examples/numerical_propagation/event_callback_logging.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_callback_logging.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_callback_logging.rs.txt"
+        ```
+
 ## Attaching Callbacks to Events
 
 Use the `with_callback()` method to attach a callback to any event detector:

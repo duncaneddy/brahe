@@ -30,8 +30,3 @@ elif nu_conical == 1.0:
     print("Satellite in full sunlight")
 else:
     print(f"Satellite in penumbra ({nu_conical * 100:.1f}% illuminated)")
-
-# Expected output:
-# Conical illumination fraction: 1.0000
-# Cylindrical illumination: 1.0
-# Satellite in full sunlight

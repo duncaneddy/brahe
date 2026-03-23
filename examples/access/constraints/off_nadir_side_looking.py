@@ -11,4 +11,3 @@ import brahe as bh
 constraint = bh.OffNadirConstraint(min_off_nadir_deg=20.0, max_off_nadir_deg=45.0)
 
 print(f"Created: {constraint}")
-# Created: OffNadirConstraint(20.0° - 45.0°)

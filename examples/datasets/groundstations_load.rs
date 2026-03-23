@@ -31,11 +31,5 @@ fn main() {
         .collect();
     println!("\nCombined AWS + SSC: {} stations", combined.len());
 
-    // Expected output:
-    // KSAT stations: 36
-    // Total stations (all providers): 96
-
-    // Available providers: atlas, aws, ksat, leaf, ssc, viasat
-
-    // Combined AWS + SSC: 22 stations
 }
+

@@ -51,17 +51,5 @@ fn main() {
     let accel_theoretical = bh::constants::GM_EARTH / (r_mag * r_mag);
     println!("Theoretical magnitude: {:.6} m/s²", accel_theoretical);
 
-    // Expected output:
-    // Satellite position (ECI, m):
-    //   x = 6871258.164
-    //   y = 0.000
-    //   z = 0.000
-
-    // Point-mass gravity acceleration (m/s²):
-    //   ax = -8.442387
-    //   ay = -0.000000
-    //   az = -0.000000
-
-    // Acceleration magnitude: 8.442387 m/s²
-    // Theoretical magnitude: 8.442387 m/s²
 }
+

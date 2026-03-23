@@ -73,6 +73,17 @@ Time events trigger at specific epochs. They're useful for scheduled operations 
     --8<-- "./examples/numerical_propagation/event_time.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_time.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_time.rs.txt"
+        ```
+
 ## Value Events
 
 Value events trigger when a user-defined function crosses a value value. This is the most flexible event type, enabling detection of arbitrary orbital conditions.
@@ -103,6 +114,17 @@ The value function receives the current epoch and state vector, returning a scal
     --8<-- "./examples/numerical_propagation/custom_value_event.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/custom_value_event.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/custom_value_event.rs.txt"
+        ```
+
 ## Binary Events
 
 Binary events detect when a boolean condition transitions between true and false. They use `EdgeType` to specify which transition to detect:
@@ -124,6 +146,17 @@ The binary condition function receives the current epoch and state vector, retur
     ``` rust
     --8<-- "./examples/numerical_propagation/event_binary.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_binary.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_binary.rs.txt"
+        ```
 
 ---
 

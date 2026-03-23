@@ -23,7 +23,6 @@ fn main() {
     traj.add(epoch0, state0);
 
     println!("Trajectory length: {}", traj.len());
-    // Trajectory length: 1
 
     let epoch1 = epoch0 + 60.0;
     let state1 = na::DVector::from_vec(vec![
@@ -32,5 +31,5 @@ fn main() {
     traj.add(epoch1, state1);
 
     println!("Trajectory length: {}", traj.len());
-    // Trajectory length: 2
 }
+

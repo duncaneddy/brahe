@@ -24,6 +24,17 @@ The most common constraint - requires satellites to be above a minimum elevation
     --8<-- "./examples/access/constraints/elevation_basic.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/elevation_basic.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/elevation_basic.rs.txt"
+        ```
+
 **With maximum elevation:**
 
 === "Python"
@@ -37,6 +48,17 @@ The most common constraint - requires satellites to be above a minimum elevation
     ``` rust
     --8<-- "./examples/access/constraints/elevation_with_max.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/elevation_with_max.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/elevation_with_max.rs.txt"
+        ```
 
 ### Elevation Mask Constraint
 
@@ -53,6 +75,17 @@ Models azimuth-dependent elevation masks for terrain profiles, mountains, or bui
     ``` rust
     --8<-- "./examples/access/constraints/elevation_mask.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/elevation_mask.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/elevation_mask.rs.txt"
+        ```
 
 ### Off-Nadir Constraint
 
@@ -72,6 +105,17 @@ Limits the off-nadir viewing angle for imaging satellites. Off-nadir angle is me
     --8<-- "./examples/access/constraints/off_nadir_imaging.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/off_nadir_imaging.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/off_nadir_imaging.rs.txt"
+        ```
+
 **Side-looking radar:**
 
 === "Python"
@@ -85,6 +129,17 @@ Limits the off-nadir viewing angle for imaging satellites. Off-nadir angle is me
     ``` rust
     --8<-- "./examples/access/constraints/off_nadir_side_looking.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/off_nadir_side_looking.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/off_nadir_side_looking.rs.txt"
+        ```
 
 ### Local Time Constraint
 
@@ -104,6 +159,17 @@ Filters access windows by local solar time at the ground location. Useful for da
     --8<-- "./examples/access/constraints/local_time_single_window.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/local_time_single_window.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/local_time_single_window.rs.txt"
+        ```
+
 **Multiple time windows:**
 
 === "Python"
@@ -118,6 +184,17 @@ Filters access windows by local solar time at the ground location. Useful for da
     --8<-- "./examples/access/constraints/local_time_multiple_windows.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/local_time_multiple_windows.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/local_time_multiple_windows.rs.txt"
+        ```
+
 **Using decimal hours:**
 
 === "Python"
@@ -131,6 +208,17 @@ Filters access windows by local solar time at the ground location. Useful for da
     ``` rust
     --8<-- "./examples/access/constraints/local_time_decimal_hours.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/local_time_decimal_hours.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/local_time_decimal_hours.rs.txt"
+        ```
 
 !!! warning "Local Solar Time"
 
@@ -154,6 +242,17 @@ Requires the satellite to look in a specific direction relative to its velocity 
     --8<-- "./examples/access/constraints/look_direction_left.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/look_direction_left.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/look_direction_left.rs.txt"
+        ```
+
 ### Ascending-Descending Constraint
 
 Filters passes by whether the satellite is ascending (moving south-to-north) or descending (north-to-south) over the location.
@@ -171,6 +270,17 @@ Filters passes by whether the satellite is ascending (moving south-to-north) or 
     ``` rust
     --8<-- "./examples/access/constraints/asc_dsc_ascending.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/asc_dsc_ascending.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/asc_dsc_ascending.rs.txt"
+        ```
 
 ## Constraint Composition
 
@@ -192,6 +302,17 @@ All child constraints must be satisfied simultaneously:
     --8<-- "./examples/access/constraints/constraint_all.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/constraint_all.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/constraint_all.rs.txt"
+        ```
+
 ### ConstraintAny (OR Logic)
 
 At least one child constraint must be satisfied:
@@ -207,6 +328,17 @@ At least one child constraint must be satisfied:
     ``` rust
     --8<-- "./examples/access/constraints/constraint_any.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/constraint_any.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/constraint_any.rs.txt"
+        ```
 
 ### ConstraintNot (Negation)
 
@@ -224,6 +356,17 @@ Inverts a constraint - access occurs when the child constraint is NOT satisfied:
     --8<-- "./examples/access/constraints/constraint_not.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/constraint_not.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/constraint_not.rs.txt"
+        ```
+
 ### Complex Composition
 
 Build complex logic by combining multiple constraints:
@@ -239,6 +382,17 @@ Build complex logic by combining multiple constraints:
     ``` rust
     --8<-- "./examples/access/constraints/nested_constraints.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/constraints/nested_constraints.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/constraints/nested_constraints.rs.txt"
+        ```
 
 ## Custom Constraints (Python)
 

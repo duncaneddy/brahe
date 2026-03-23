@@ -15,4 +15,3 @@ config = bh.NumericalPropagationConfig(
 )
 
 print(f"Method: {config.method}")
-# Method: IntegrationMethod.RK4

@@ -25,9 +25,5 @@ fn main() {
     let ecef = location.center_ecef();
     println!("ECEF: [{:.1}, {:.1}, {:.1}] m", ecef[0], ecef[1], ecef[2]);
 
-    // Expected output:
-    // Longitude: -122.4194 deg
-    // Latitude: 37.7749 deg
-    // Altitude: 0.0 m
-    // ECEF: [-2706174.8, -4261059.5, 3885725.5] m
 }
+

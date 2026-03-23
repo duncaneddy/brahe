@@ -63,6 +63,17 @@ Brahe provides two approaches for computing the sensitivity matrix $\partial \ma
     --8<-- "./examples/integrators/sensitivity.rs:6"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/sensitivity.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/sensitivity.rs.txt"
+        ```
+
 ### When to Use Analytical Sensitivity
 
 Use analytical sensitivity when:
@@ -99,6 +110,17 @@ See the [Jacobian Computation](../mathematics/jacobian.md#perturbation-strategie
     ``` rust
     --8<-- "./examples/integrators/pattern_sensitivity_matrix.rs:6"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_sensitivity_matrix.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_sensitivity_matrix.rs.txt"
+        ```
 
 
 ## See Also

@@ -24,7 +24,3 @@ for i in range(5):
 # Only states within 120 seconds of the most recent are kept
 print(f"Trajectory length: {len(traj)}")
 print(f"Timespan: {traj.timespan():.1f} seconds")
-
-# Output:
-# Trajectory length: 3
-# Timespan: 120.0 seconds

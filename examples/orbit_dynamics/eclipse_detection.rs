@@ -33,7 +33,3 @@ fn main() {
     }
 }
 
-// Expected output:
-// Conical illumination fraction: 1.0000
-// Cylindrical illumination: 1.0
-// Satellite in full sunlight

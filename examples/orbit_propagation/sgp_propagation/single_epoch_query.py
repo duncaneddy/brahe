@@ -27,7 +27,3 @@ print(
     f"{state_eci[2] / 1e3:.1f}] km"
 )
 print(f"Osculating semi-major axis: {state_kep[0] / 1e3:.1f} km")
-
-# Expected output:
-# ECI position: [3822.2, -1684.2, 5264.9] km
-# Osculating semi-major axis: 6725.4 km

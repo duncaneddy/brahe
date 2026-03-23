@@ -52,6 +52,17 @@ Brahe integrators can propagate the state and STM simultaneously using `step_wit
     --8<-- "./examples/integrators/with_jacobian.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/with_jacobian.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/with_jacobian.rs.txt"
+        ```
+
 ## Equivalence to Direct Perturbation
 
 The power of the STM is that it allows predicting many perturbed trajectories efficiently. Instead of integrating each perturbed initial condition separately, we can integrate the nominal trajectory once (with STM) and map any initial perturbation through the STM.
@@ -69,6 +80,17 @@ The following example demonstrates this equivalence:
     ``` rust
     --8<-- "./examples/integrators/stm_vs_direct_perturbation.rs:14"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/stm_vs_direct_perturbation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/stm_vs_direct_perturbation.rs.txt"
+        ```
 
 ## See Also
 

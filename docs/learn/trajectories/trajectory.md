@@ -27,6 +27,17 @@ Create an empty trajectory by specifying the state dimension. The default dimens
     --8<-- "./examples/trajectories/trajectory/trajectory_empty.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_empty.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_empty.rs.txt"
+        ```
+
 ### From Existing Data
 
 Create a trajectory from existing epochs and states:
@@ -42,6 +53,17 @@ Create a trajectory from existing epochs and states:
     ``` rust
     --8<-- "./examples/trajectories/trajectory/trajectory_from_data.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_from_data.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_from_data.rs.txt"
+        ```
 
 ## Adding and Accessing States
 
@@ -61,6 +83,17 @@ Add states to a trajectory one at a time:
     --8<-- "./examples/trajectories/trajectory/trajectory_add.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_add.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_add.rs.txt"
+        ```
+
 ### Accessing by Index
 
 Retrieve states and epochs by their index:
@@ -77,6 +110,17 @@ Retrieve states and epochs by their index:
     --8<-- "./examples/trajectories/trajectory/trajectory_access_index.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_access_index.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_access_index.rs.txt"
+        ```
+
 ### Accessing by Epoch
 
 Get states at or near specific epochs:
@@ -92,6 +136,17 @@ Get states at or near specific epochs:
     ``` rust
     --8<-- "./examples/trajectories/trajectory/trajectory_access_epoch.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_access_epoch.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_access_epoch.rs.txt"
+        ```
 
 ## Querying Trajectory Properties
 
@@ -111,6 +166,17 @@ Query the temporal extent of a trajectory:
     --8<-- "./examples/trajectories/trajectory/trajectory_timespan.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_timespan.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_timespan.rs.txt"
+        ```
+
 ## Interpolation
 
 Trajectory supports linear interpolation to estimate states at arbitrary epochs between stored data points:
@@ -126,6 +192,17 @@ Trajectory supports linear interpolation to estimate states at arbitrary epochs 
     ``` rust
     --8<-- "./examples/trajectories/trajectory/trajectory_interpolate.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_interpolate.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_interpolate.rs.txt"
+        ```
 
 ## Memory Management
 
@@ -147,6 +224,17 @@ Keep only the N most recent states:
     --8<-- "./examples/trajectories/trajectory/trajectory_evict_size.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_evict_size.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_evict_size.rs.txt"
+        ```
+
 ### Maximum Age Policy
 
 Keep only states within a time window:
@@ -162,6 +250,17 @@ Keep only states within a time window:
     ``` rust
     --8<-- "./examples/trajectories/trajectory/trajectory_evict_age.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_evict_age.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_evict_age.rs.txt"
+        ```
 
 ## Iteration
 
@@ -179,6 +278,17 @@ Trajectories can be iterated to process all epoch-state pairs:
     --8<-- "./examples/trajectories/trajectory/trajectory_iterate.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_iterate.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_iterate.rs.txt"
+        ```
+
 ## Matrix Export
 
 Convert trajectory data to matrix format for analysis or export:
@@ -194,6 +304,17 @@ Convert trajectory data to matrix format for analysis or export:
     ``` rust
     --8<-- "./examples/trajectories/trajectory/trajectory_matrix.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_matrix.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/trajectory/trajectory_matrix.rs.txt"
+        ```
 
 ---
 

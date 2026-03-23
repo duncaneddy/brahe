@@ -37,14 +37,5 @@ fn main() {
     println!("\nOrbital period from SMA: {:.3} s", period_from_sma);
     println!("Difference: {:.2e} s", (period - period_from_sma).abs());
 
-    // Expected output:
-    // ECI State (position in km, velocity in km/s):
-    // r = [1848.964, -434.937, 6560.411] km
-    // v = [-7.098, -2.173, 1.913] km/s
-
-    // Orbital period from state: 5676.977 s
-    // Orbital period from state: 94.616 min
-
-    // Orbital period from SMA: 5676.977 s
-    // Difference: 3.64e-12 s
 }
+

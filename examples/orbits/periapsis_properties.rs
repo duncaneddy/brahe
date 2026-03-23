@@ -33,10 +33,5 @@ fn main() {
     let perigee_altitude = bh::orbits::perigee_altitude(a, e);
     println!("Perigee altitude:   {:.3} km", perigee_altitude / 1e3);
 
-    // Expected output:
-    // Periapsis velocity: 7689.119 m/s
-    // Perigee velocity:   7689.119 m/s
-    // Periapsis distance: 6809.355 km
-    // Periapsis altitude: 431.219 km
-    // Perigee altitude:   431.219 km
 }
+

@@ -12,4 +12,3 @@ from brahe import AscDsc
 constraint = bh.AscDscConstraint(allowed=AscDsc.ASCENDING)
 
 print(f"Created: {constraint}")
-# Created: AscDscConstraint(Ascending)

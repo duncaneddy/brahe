@@ -28,8 +28,3 @@ print(f"Retrieved from cache: {kernel_path_again}")
 output_path = "/tmp/my_kernel.bsp"
 copied_path = bh.datasets.naif.download_de_kernel("de440s", output_path)
 print(f"Copied to: {copied_path}")
-
-# Expected output:
-# Kernel cached at: /Users/username/.cache/brahe/naif/de440s.bsp
-# Retrieved from cache: /Users/username/.cache/brahe/naif/de440s.bsp
-# Copied to: /tmp/my_kernel.bsp

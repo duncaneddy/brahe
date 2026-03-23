@@ -22,7 +22,3 @@ print(f"TLE epoch: {prop.epoch}")
 print(
     f"Initial position magnitude: {np.linalg.norm(prop.initial_state()[:3]) / 1e3:.1f} km"
 )
-# Expected output:
-# NORAD ID: 25544
-# TLE epoch: 2008-09-20 12:25:40.104 UTC
-# Initial position magnitude: 6720.2 km

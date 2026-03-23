@@ -17,7 +17,3 @@ print(f"default():        {default.method}")
 print(f"high_precision(): {high_precision.method}")
 print(f"with_method(RKF45): {rkf45.method}")
 print(f"with_method(RK4):   {rk4.method}")
-# default():        DP54
-# high_precision(): RKN1210
-# with_method(RKF45): RKF45
-# with_method(RK4):   RK4

@@ -28,9 +28,3 @@ print(f"Loaded: {location.get_name()}")
 print(f"Longitude: {location.longitude(bh.AngleFormat.DEGREES):.4f} deg")
 print(f"Latitude: {location.latitude(bh.AngleFormat.DEGREES):.4f} deg")
 print(f"Altitude: {location.altitude():.1f} m")
-
-# Expected output:
-# Loaded: Svalbard Station
-# Longitude: 15.4038 deg
-# Latitude: 78.2232 deg
-# Altitude: 458.0 m

@@ -58,23 +58,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// Output:
-// Found 35 access windows
-
-// Window 1:
-//   Start: 2025-11-02 05:39:28.345 UTC
-//   End:   2025-11-02 05:44:00.000 UTC
-//   Duration: 4.53 minutes
-//   Max elevation: 18.7°
-
-// Window 2:
-//   Start: 2025-11-02 07:15:16.033 UTC
-//   End:   2025-11-02 07:21:00.000 UTC
-//   Duration: 5.73 minutes
-//   Max elevation: 38.9°
-
-// Window 3:
-//   Start: 2025-11-02 08:54:59.619 UTC
-//   End:   2025-11-02 08:56:00.000 UTC
-//   Duration: 1.01 minutes
-//   Max elevation: 10.9°

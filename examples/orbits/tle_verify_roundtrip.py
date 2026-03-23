@@ -32,8 +32,3 @@ parsed_epoch, parsed_elements = bh.keplerian_elements_from_tle(line1, line2)
 print("Verification:")
 print(f"Epoch matches: {abs(epoch.jd() - parsed_epoch.jd()) < 1e-9}")
 print(f"Elements match: {np.allclose(elements, parsed_elements, rtol=1e-5)}")
-
-# Expected output:
-# Verification:
-# Epoch matches: True
-# Elements match: True

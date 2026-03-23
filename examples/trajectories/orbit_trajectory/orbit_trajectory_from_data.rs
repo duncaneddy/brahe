@@ -41,6 +41,6 @@ fn main() {
         None  // No covariances
     );
 
-    println!("Trajectory length: {}", traj.len());  
-    // Trajectory length: 3
+    println!("Trajectory length: {}", traj.len());
 }
+

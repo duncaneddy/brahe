@@ -17,8 +17,5 @@ fn main() {
     println!("Name: {:?}", prop.get_name());
     println!("ID: {:?}", prop.get_id());
     println!("NORAD ID from TLE: {}", prop.norad_id);
-    // Expected output:
-    // Name:  Some("ISS (ZARYA)")
-    // ID: Some(25544)
-    // NORAD ID from TLE: 25544
 }
+

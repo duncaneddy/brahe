@@ -29,11 +29,5 @@ fn main() {
     let period_geo = bh::orbits::orbital_period(a_geo);
     println!("\nGEO orbital period: {:.3} hours", period_geo / 3600.0);
 
-    // Expected output:
-    // Orbital period (Earth): 5676.977 s
-    // Orbital period (Earth): 94.616 min
-    // Orbital period (general): 5676.977 s
-    // Difference: 0.00e0 s
-
-    // GEO orbital period: 23.934 hours
 }
+

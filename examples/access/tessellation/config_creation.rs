@@ -29,15 +29,5 @@ fn main() {
     println!("Custom image_length: {} m", custom_config.image_length);
     println!("Custom asc_dsc: {:?}", custom_config.asc_dsc);
 
-    // Expected output:
-    // Default image_width: 5000 m
-    // Default image_length: 5000 m
-    // Default crosstrack_overlap: 200 m
-    // Default alongtrack_overlap: 200 m
-    // Default min_image_length: 5000 m
-    // Default max_image_length: 5000 m
-    //
-    // Custom image_width: 10000 m
-    // Custom image_length: 15000 m
-    // Custom asc_dsc: Ascending
 }
+

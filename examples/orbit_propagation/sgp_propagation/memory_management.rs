@@ -23,7 +23,5 @@ fn main() {
     prop.set_eviction_policy_max_age(1800.0).unwrap();  // 1800 seconds = 30 minutes
     prop.propagate_steps(200);
     println!("Trajectory length with age policy: {}", prop.trajectory.len());
-    // Expected output:
-    // Trajectory length: 50
-    // Trajectory length with age policy: 31
 }
+

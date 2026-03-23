@@ -48,24 +48,3 @@ print("\nRound-trip verification:")
 print(f"  Original mean motion: {n_iss:.6f} deg/s")
 print(f"  Computed mean motion: {n_verify:.6f} deg/s")
 print(f"  Difference: {abs(n_iss - n_verify):.2e} deg/s")
-
-# Expected output:
-# ISS-like Orbit (15.5 revs/day):
-#   Mean motion: 0.064583 deg/s
-#   Semi-major axis: 6794863.068 m
-#   Altitude: 416.727 km
-
-# Geosynchronous Orbit (1 rev/day):
-#   Mean motion: 0.004167 deg/s
-#   Semi-major axis: 42241095.664 m
-#   Altitude: 35862.959 km
-
-# LEO from radians/s:
-#   Mean motion: 0.001000 rad/s
-#   Semi-major axis: 7359459.593 m
-#   Altitude: 981.323 km
-
-# Round-trip verification:
-#   Original mean motion: 0.064583 deg/s
-#   Computed mean motion: 0.064583 deg/s
-#   Difference: 9.71e-17 deg/s

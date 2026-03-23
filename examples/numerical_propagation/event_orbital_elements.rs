@@ -80,3 +80,4 @@ fn main() {
     // depending on the exact parameters, so we just validate the events work
     println!("\nExample completed successfully!");
 }
+

@@ -18,8 +18,6 @@ query = (
 
 url_path = query.build()
 print(f"Decaying within 30 days:\n  {url_path}")
-# Decaying within 30 days:
-#   /basicspacedata/query/class/decay/DECAY_EPOCH/now--now+30/orderby/DECAY_EPOCH asc/format/json
 
 # Get recent actual decays from the past 7 days
 query = (
@@ -31,5 +29,3 @@ query = (
 
 url_path = query.build()
 print(f"\nRecent decays (last 7 days):\n  {url_path}")
-# Recent decays (last 7 days):
-#   /basicspacedata/query/class/decay/DECAY_EPOCH/now-7--now/MSG_TYPE/Decay/orderby/DECAY_EPOCH desc/format/json

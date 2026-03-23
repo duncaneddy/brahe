@@ -27,6 +27,17 @@ Rather than hard-coding TLE strings, you can query live satellite data from Cele
     --8<-- "./examples/datasets/celestrak_as_propagator.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/celestrak_as_propagator.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/celestrak_as_propagator.rs.txt"
+        ```
+
 For details on querying satellite data, see [Ephemeris Data Sources](../ephemeris/index.md).
 
 ## Initialization
@@ -49,6 +60,17 @@ The most common initialization uses two lines of TLE data.
     --8<-- "./examples/orbit_propagation/sgp_propagation/from_tle.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/from_tle.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/from_tle.rs.txt"
+        ```
+
 ### From 3-Line Elements (3LE)
 
 Three-line TLE format includes an optional satellite name on the first line.
@@ -65,6 +87,17 @@ Three-line TLE format includes an optional satellite name on the first line.
     --8<-- "./examples/orbit_propagation/sgp_propagation/from_3le.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/from_3le.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/from_3le.rs.txt"
+        ```
+
 ### Configuring Output Format
 
 By default, SGP4 outputs states in ECI Cartesian coordinates. Use `with_output_format()` to configure the output frame and representation.
@@ -80,6 +113,17 @@ By default, SGP4 outputs states in ECI Cartesian coordinates. Use `with_output_f
     ``` rust
     --8<-- "./examples/orbit_propagation/sgp_propagation/output_format.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/output_format.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/output_format.rs.txt"
+        ```
 
 ## Stepping Through Time
 
@@ -99,6 +143,17 @@ The SGP propagator uses the same stepping interface as other propagators through
     --8<-- "./examples/orbit_propagation/sgp_propagation/stepping.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/stepping.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/stepping.rs.txt"
+        ```
+
 ### Propagate to Target Epoch
 
 === "Python"
@@ -112,6 +167,17 @@ The SGP propagator uses the same stepping interface as other propagators through
     ``` rust
     --8<-- "./examples/orbit_propagation/sgp_propagation/propagate_to_epoch.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/propagate_to_epoch.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/propagate_to_epoch.rs.txt"
+        ```
 
 ## Direct State Queries
 
@@ -131,6 +197,17 @@ The SGP propagator implements the `StateProvider` trait, allowing direct state c
     --8<-- "./examples/orbit_propagation/sgp_propagation/single_epoch_query.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/single_epoch_query.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/single_epoch_query.rs.txt"
+        ```
+
 ### Batch Queries
 
 === "Python"
@@ -144,6 +221,17 @@ The SGP propagator implements the `StateProvider` trait, allowing direct state c
     ``` rust
     --8<-- "./examples/orbit_propagation/sgp_propagation/batch_queries.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/batch_queries.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/batch_queries.rs.txt"
+        ```
 
 ### Special: PEF Frame
 
@@ -161,6 +249,17 @@ SGP4 natively outputs states in the TEME (True Equator Mean Equinox) frame. For 
     --8<-- "./examples/orbit_propagation/sgp_propagation/pef_frame.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/pef_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/pef_frame.rs.txt"
+        ```
+
 ## Extracting Orbital Elements from TLE
 
 The propagator can extract Keplerian orbital elements directly from the TLE data:
@@ -176,6 +275,17 @@ The propagator can extract Keplerian orbital elements directly from the TLE data
     ``` rust
     --8<-- "./examples/orbit_propagation/sgp_propagation/get_elements.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/get_elements.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/get_elements.rs.txt"
+        ```
 
 ## Trajectory Management
 
@@ -194,6 +304,17 @@ SGP propagators support the same trajectory management as Keplerian propagators,
     ``` rust
     --8<-- "./examples/orbit_propagation/sgp_propagation/memory_management.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/memory_management.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/memory_management.rs.txt"
+        ```
 
 ## Limitations and Considerations
 
@@ -241,6 +362,17 @@ Like Keplerian propagators, SGP propagators support identity tracking:
     ``` rust
     --8<-- "./examples/orbit_propagation/sgp_propagation/identity_tracking.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/identity_tracking.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/sgp_propagation/identity_tracking.rs.txt"
+        ```
 
 ---
 

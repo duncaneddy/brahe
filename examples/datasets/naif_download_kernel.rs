@@ -26,8 +26,5 @@ fn main() {
     let copied_path = bh::datasets::naif::download_de_kernel("de440s", Some(output_path)).unwrap();
     println!("Copied to: {}", copied_path.display());
 
-    // Expected output:
-    // Kernel cached at: /Users/username/.cache/brahe/naif/de440s.bsp
-    // Retrieved from cache: /Users/username/.cache/brahe/naif/de440s.bsp
-    // Copied to: /tmp/my_kernel.bsp
 }
+

@@ -19,7 +19,3 @@ prop = bh.SGPPropagator.from_3le(line0, line1, line2, 60.0)
 print(f"Name: {prop.get_name()}")
 print(f"ID: {prop.get_id()}")
 print(f"NORAD ID from TLE: {prop.norad_id}")
-# Expected output:
-# Name: ISS (ZARYA)
-# ID: 25544
-# NORAD ID from TLE: 25544

@@ -42,8 +42,6 @@ print(f"  Position: [{state_gcrf[0]:.3f}, {state_gcrf[1]:.3f}, {state_gcrf[2]:.3
 print(
     f"  Velocity: [{state_gcrf[3]:.6f}, {state_gcrf[4]:.6f}, {state_gcrf[5]:.6f}] m/s\n"
 )
-# Position: [1848964.106, -434937.468, 6560410.530] m
-# Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
 # Transform to ITRF
 state_itrf = bh.state_gcrf_to_itrf(epc, state_gcrf)
@@ -53,8 +51,6 @@ print(f"  Position: [{state_itrf[0]:.3f}, {state_itrf[1]:.3f}, {state_itrf[2]:.3
 print(
     f"  Velocity: [{state_itrf[3]:.6f}, {state_itrf[4]:.6f}, {state_itrf[5]:.6f}] m/s\n"
 )
-# Position: [757164.267, 1725863.563, 6564672.302] m
-# Velocity: [989.350643, -7432.740021, 1896.768934] m/s
 
 # Transform back to GCRF
 state_gcrf_back = bh.state_itrf_to_gcrf(epc, state_itrf)
@@ -66,16 +62,9 @@ print(
 print(
     f"  Velocity: [{state_gcrf_back[3]:.6f}, {state_gcrf_back[4]:.6f}, {state_gcrf_back[5]:.6f}] m/s"
 )
-# Position: [1848964.106, -434937.468, 6560410.530] m
-# Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
-# Verify round-trip transformation
 diff_pos = np.linalg.norm(state_gcrf[0:3] - state_gcrf_back[0:3])
 diff_vel = np.linalg.norm(state_gcrf[3:6] - state_gcrf_back[3:6])
 print("\nRound-trip error:")
 print(f"  Position: {diff_pos:.6e} m")
 print(f"  Velocity: {diff_vel:.6e} m/s")
-
-# Expected output:
-#   Position: 9.617484e-10 m
-#   Velocity: 9.094947e-13 m/s

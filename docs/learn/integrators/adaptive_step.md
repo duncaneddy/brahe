@@ -57,6 +57,17 @@ A high-order method specialized for second-order differential equations, particu
     --8<-- "./examples/integrators/adaptive_stepping.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/adaptive_stepping.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/adaptive_stepping.rs.txt"
+        ```
+
 ## Step Size Control Algorithm
 
 After computing error estimate $\varepsilon$, the integrator calculates a new step size:
@@ -104,6 +115,17 @@ The following example demonstrates propagating a highly elliptical orbit (HEO) u
     ``` rust
     --8<-- "./examples/integrators/high_precision.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/high_precision.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/high_precision.rs.txt"
+        ```
 
 ## See Also
 

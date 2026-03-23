@@ -57,10 +57,3 @@ for window in windows:
 
 for loc_name, loc_windows in by_location.items():
     print(f"\n{loc_name}: {len(loc_windows)} windows")
-
-# Output:
-# Total windows: 20
-
-# Boston: 10 windows
-
-# San Francisco: 10 windows

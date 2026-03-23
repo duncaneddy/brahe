@@ -28,11 +28,3 @@ state = iss_prop.current_state()
 print("\nState after 1 orbit:")
 print(f"  Position: [{state[0]:.1f}, {state[1]:.1f}, {state[2]:.1f}] m")
 print(f"  Velocity: [{state[3]:.1f}, {state[4]:.1f}, {state[5]:.1f}] m/s")
-
-# Expected output:
-# Created propagator: ISS (ZARYA)
-# Epoch: 2025-11-02 10:09:34.283 UTC
-
-# State after 1 orbit:
-#   Position: [6451630.2, -2126316.1, 34427.2] m
-#   Velocity: [2019.6, 5281.4, 6006.2] m/s

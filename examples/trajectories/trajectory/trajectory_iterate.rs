@@ -30,8 +30,5 @@ fn main() {
         println!("Epoch: {}, Altitude: {:.2} km", epoch, altitude);
     }
     
-    // Output:
-    // Epoch: 2024-01-01 00:00:00.000 UTC, Altitude: 500.00 km
-    // Epoch: 2024-01-01 00:01:00.000 UTC, Altitude: 501.00 km
-    // Epoch: 2024-01-01 00:02:00.000 UTC, Altitude: 502.00 km
 }
+

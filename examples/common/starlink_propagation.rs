@@ -45,3 +45,4 @@ fn main() {
         bh::utils::format_time_string(elapsed, false)
     );
 }
+

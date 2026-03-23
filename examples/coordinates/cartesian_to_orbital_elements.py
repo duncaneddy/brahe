@@ -24,13 +24,6 @@ print(f"Inclination (deg): {oe_deg[2]:.6f}")
 print(f"RA of ascending node (deg): {oe_deg[3]:.6f}")
 print(f"Argument of periapsis (deg): {oe_deg[4]:.6f}")
 print(f"Mean anomaly (deg): {oe_deg[5]:.6f}")
-# Osculating state  (deg):
-# Semi-major axis (m): 6878136.299
-# Eccentricity: 0.010000
-# Inclination (deg): 97.800000
-# RA of ascending node (deg): 15.000000
-# Argument of periapsis (deg): 30.000000
-# Mean anomaly (deg): 45.000000
 
 # You can also convert using radians
 oe_rad = bh.state_eci_to_koe(state, bh.AngleFormat.RADIANS)
@@ -41,10 +34,3 @@ print(f"Inclination (rad): {oe_rad[2]:.6f}")
 print(f"RA of ascending node (rad): {oe_rad[3]:.6f}")
 print(f"Argument of periapsis (rad): {oe_rad[4]:.6f}")
 print(f"Mean anomaly (rad): {oe_rad[5]:.6f}")
-# Osculating state  (rad):
-# Semi-major axis (m): 6878136.299
-# Eccentricity: 0.010000
-# Inclination (rad): 1.706932
-# RA of ascending node (rad): 0.261799
-# Argument of periapsis (rad): 0.523599
-# Mean anomaly (rad): 0.785398

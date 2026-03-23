@@ -40,10 +40,3 @@ print(f"Final thread count: {final_threads}")
 # Note: Thread pool is used for parallelizable operations like:
 # - Computing access windows between satellites and ground locations
 # - Processing large batches of orbital calculations
-
-# Expected output (actual numbers vary by system):
-# Default thread count: 7
-# Thread count after setting to 4: 4
-# Maximum thread count: 8
-# Ludicrous speed thread count: 8
-# Final thread count: 2

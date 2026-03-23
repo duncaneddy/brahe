@@ -12,6 +12,5 @@ fn main() {
     let period = orbital_period(semi_major_axis); 
 
     println!("Orbital Period: {:.2} minutes", period / 60.0);
-    // Outputs:
-    // Orbital Period: 92.56 minutes
 }
+

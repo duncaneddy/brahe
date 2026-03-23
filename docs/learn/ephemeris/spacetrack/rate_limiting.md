@@ -22,6 +22,17 @@ For the complete API reference, see the [RateLimitConfig Reference](../../../lib
     --8<-- "./examples/spacetrack/rate_limiting.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/spacetrack/rate_limiting.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/spacetrack/rate_limiting.rs.txt"
+        ```
+
 !!! note "Defaults Are Automatic"
     Creating a `SpaceTrackClient` without specifying a `RateLimitConfig` applies the default conservative limits (25/min, 250/hour). You only need `RateLimitConfig` if you want to change or disable the limits.
 

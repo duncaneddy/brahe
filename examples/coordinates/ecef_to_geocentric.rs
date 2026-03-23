@@ -23,11 +23,6 @@ fn main() {
     println!("ECEF Cartesian state [x, y, z, vx, vy, vz] (m, m/s):");
     println!("Position: [{:.3}, {:.3}, {:.3}]", state_ecef[0], state_ecef[1], state_ecef[2]);
     println!("Velocity: [{:.6}, {:.6}, {:.6}]\n", state_ecef[3], state_ecef[4], state_ecef[5]);
-    // Expected output:
-    // Position: [-735665.465, -1838913.314, 6586801.432]
-    // Velocity: [-1060.370171, 7357.551468, 1935.662061]
-
-    // Convert ECEF Cartesian to geocentric position
     let ecef_pos = na::Vector3::new(state_ecef[0], state_ecef[1], state_ecef[2]);
     let geocentric = bh::position_ecef_to_geocentric(ecef_pos, bh::AngleFormat::Degrees);
 
@@ -35,8 +30,5 @@ fn main() {
     println!("Longitude: {:.4}° = {:.6} rad", geocentric[0], geocentric[0].to_radians());
     println!("Latitude:  {:.4}° = {:.6} rad", geocentric[1], geocentric[1].to_radians());
     println!("Altitude:  {:.1} m", geocentric[2]);
-    // Expected output:
-    // Longitude: -111.8041° = -1.951350 rad
-    // Latitude:  73.2643° = 1.278704 rad
-    // Altitude:  499999.3 m
 }
+

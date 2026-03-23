@@ -35,19 +35,5 @@ fn main() {
     println!("  {} -> '{}' -> {}", original, alpha5, back_to_numeric);
     println!("  Match: {}", original == back_to_numeric);
 
-    // Expected output:
-    // NORAD ID Format Conversions
-    //
-    // Numeric to Alpha-5:
-    //   25544 -> 25544
-    //   100000 -> A0000
-    //   123456 -> C3456
-    //
-    // Alpha-5 to Numeric:
-    //   'A0001' -> 100001
-    //   'L0000' -> 200000
-    //
-    // Round-trip Conversion:
-    //   200000 -> 'L0000' -> 200000
-    //   Match: true
 }
+

@@ -15,5 +15,3 @@ a = bh.constants.R_EARTH + 400e3  # 400 km altitude
 T = bh.orbital_period(a)
 
 print(f"Orbital Period: {T / 60:.2f} minutes")
-# Outputs:
-# Orbital Period: 92.56 minutes

@@ -30,21 +30,5 @@ fn main() {
     println!("\nLEO orbital period: {}", bh::utils::format_time_string(orbital_period, false));
     println!("LEO orbital period (short): {}", bh::utils::format_time_string(orbital_period, true));
 
-    // Expected output:
-    // Long format (default):
-    //   30 seconds: 30.00 seconds
-    //   90 seconds: 1 minute and 30.00 seconds
-    //   362 seconds: 6 minutes and 2.00 seconds
-    //   3665 seconds: 1 hour, 1 minute and 5.00 seconds
-    //   90000 seconds: 1 day, 1 hour and 0.00 seconds
-    //
-    // Short format:
-    //   30 seconds: 30s
-    //   90 seconds: 1m 30s
-    //   362 seconds: 6m 2s
-    //   3665 seconds: 1h 1m 5s
-    //   90000 seconds: 1d 1h 0m
-    //
-    // LEO orbital period: 1 hour, 34 minutes and 38.34 seconds
-    // LEO orbital period (short): 1h 34m 38s
 }
+

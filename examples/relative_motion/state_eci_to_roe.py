@@ -58,18 +58,3 @@ print(f"  dex (rel ecc x-comp):     {roe[2]:.6e}")
 print(f"  dey (rel ecc y-comp):     {roe[3]:.6e}")
 print(f"  dix (rel inc x-comp):     {roe[4]:.6f} deg")
 print(f"  diy (rel inc y-comp):     {roe[5]:.6f} deg")
-# Chief ECI State:
-#   Position: [4652982.458, 1200261.918, 5093905.755] m
-#   Velocity: [-5189.098, 3310.839, 4550.927] m/s
-#
-# Deputy ECI State:
-#   Position: [4654145.691, 1200531.587, 5095024.654] m
-#   Velocity: [-5189.999, 3311.448, 4550.982] m/s
-#
-# Relative Orbital Elements (ROE):
-#   da (relative SMA):        1.412801e-04
-#   d_lambda (relative mean long):  0.093214 deg
-#   dex (rel ecc x-comp):     4.323577e-04
-#   dey (rel ecc y-comp):     2.511333e-04
-#   dix (rel inc x-comp):     0.050000 deg
-#   diy (rel inc y-comp):     0.049537 deg

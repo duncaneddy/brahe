@@ -28,6 +28,3 @@ state = bh.state_koe_to_eci(oe_deg, bh.AngleFormat.DEGREES)
 print("Cartesian state [x, y, z, vx, vy, vz] (m, m/s):")
 print(f"Position: [{state[0]:.3f}, {state[1]:.3f}, {state[2]:.3f}]")
 print(f"Velocity: [{state[3]:.6f}, {state[4]:.6f}, {state[5]:.6f}]")
-# Cartesian state  (m, m/s):
-# Position: [1848964.106, -434937.468, 6560410.530]
-# Velocity: [-7098.379734, -2173.344867, 1913.333385]

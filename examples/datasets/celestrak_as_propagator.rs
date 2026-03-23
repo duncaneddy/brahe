@@ -35,11 +35,5 @@ fn main() {
         state[3], state[4], state[5]
     );
 
-    // Expected output:
-    // Created propagator: ISS (ZARYA)
-    // Epoch: 2025-11-02 10:09:34.283 UTC
-
-    // State after 1 orbit:
-    //   Position: [6451630.2, -2126316.1, 34427.2] m
-    //   Velocity: [2019.6, 5281.4, 6006.2] m/s
 }
+

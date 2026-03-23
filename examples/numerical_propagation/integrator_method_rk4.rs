@@ -14,6 +14,5 @@ fn main() {
 
     println!("Method: {:?}", config.method);
     println!("Fixed step: {:?} seconds", config.integrator.fixed_step_size);
-    // Method: RK4
-    // Fixed step: Some(60.0) seconds
 }
+

@@ -24,6 +24,17 @@ The most common way to create an Epoch is from date and time components. You can
     --8<-- "./examples/time/epoch_datetime.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_datetime.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_datetime.rs.txt"
+        ```
+
 ### MJD
 
 Modified Julian Date (MJD) is a commonly used time representation in astronomy and astrodynamics. MJD is defined as JD - 2400000.5, which makes it more convenient for modern dates.
@@ -39,6 +50,17 @@ Modified Julian Date (MJD) is a commonly used time representation in astronomy a
     ``` rust
     --8<-- "./examples/time/epoch_mjd.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_mjd.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_mjd.rs.txt"
+        ```
 
 ### JD
 
@@ -56,6 +78,17 @@ Julian Date (JD) is a continuous count of days since the beginning of the Julian
     --8<-- "./examples/time/epoch_jd.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_jd.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_jd.rs.txt"
+        ```
+
 ### String
 
 Epoch instances can be created from ISO 8601 formatted strings or simple date-time strings. The time system can be specified in the string.
@@ -72,6 +105,17 @@ Epoch instances can be created from ISO 8601 formatted strings or simple date-ti
     --8<-- "./examples/time/epoch_string.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_string.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_string.rs.txt"
+        ```
+
 ### GPS Week and Seconds
 
 For GPS applications, you can create epochs from GPS week number and seconds into the week, or from GPS seconds since the GPS epoch (January 6, 1980).
@@ -87,6 +131,17 @@ For GPS applications, you can create epochs from GPS week number and seconds int
     ``` rust
     --8<-- "./examples/time/epoch_gps.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_gps.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_gps.rs.txt"
+        ```
 
 ## Operations
 
@@ -112,6 +167,17 @@ You can add a time duration (in seconds) to an Epoch to get a new Epoch at a lat
     --8<-- "./examples/time/epoch_addition.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_addition.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_addition.rs.txt"
+        ```
+
 ### Subtraction
 
 Subtracting two Epoch instances returns the time difference between them in seconds.
@@ -128,6 +194,17 @@ Subtracting two Epoch instances returns the time difference between them in seco
     --8<-- "./examples/time/epoch_subtraction.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_subtraction.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_subtraction.rs.txt"
+        ```
+
 ### Other Operations
 
 The Epoch class also supports comparison operations (e.g., equality, less than, greater than) to compare different time instances. It also supports methods for getting string representations using language-specific formatting options.
@@ -143,6 +220,17 @@ The Epoch class also supports comparison operations (e.g., equality, less than, 
     ``` rust
     --8<-- "./examples/time/epoch_other_operations.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_other_operations.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_other_operations.rs.txt"
+        ```
 
 ## Output and Formatting
 
@@ -164,6 +252,17 @@ You can extract the date and time components from an Epoch, optionally convertin
     --8<-- "./examples/time/epoch_output.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_output.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_output.rs.txt"
+        ```
+
 ### String Representation
 
 Epochs can be converted to human-readable strings in various formats and time systems.
@@ -179,6 +278,17 @@ Epochs can be converted to human-readable strings in various formats and time sy
     ``` rust
     --8<-- "./examples/time/epoch_string_output.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_string_output.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_string_output.rs.txt"
+        ```
 
 ---
 

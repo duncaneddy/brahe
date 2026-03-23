@@ -110,3 +110,10 @@ jobs:
           name: doc-figures
           path: docs/figures/
           retention-days: 1
+
+      - name: Upload example outputs as artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: doc-outputs
+          path: docs/outputs/
+          retention-days: 1

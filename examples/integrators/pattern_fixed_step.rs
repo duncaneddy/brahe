@@ -42,3 +42,4 @@ fn main() {
     println!("State after 10s: {:.6}", new_state[0]);
     println!("Analytical: {:.6}", initial_state[0] * (-0.1 * 10.0_f64).exp());
 }
+

@@ -23,4 +23,3 @@ passes = bh.location_accesses(
     bh.ElevationConstraint(min_elevation_deg=10.0),
 )
 print(f"Number of passes in next 24 hours: {len(passes)}")
-# Example Output: Number of passes in next 24 hours: 5

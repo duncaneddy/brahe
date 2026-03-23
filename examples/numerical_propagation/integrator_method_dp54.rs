@@ -18,7 +18,5 @@ fn main() {
 
     // Silence unused warning
     let _ = config_tight;
-    // Method: DP54
-    // abs_tol: 1e-6
-    // rel_tol: 1e-3
 }
+

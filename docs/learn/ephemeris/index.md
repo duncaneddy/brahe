@@ -22,6 +22,17 @@ provides a convenience method that collapses these steps into a single call:
     --8<-- "./examples/datasets/celestrak_as_propagator.rs:9"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/celestrak_as_propagator.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/celestrak_as_propagator.rs.txt"
+        ```
+
 Behind the scenes, `get_sgp_propagator` queries the data source, deserializes the response
 into a `GPRecord`, extracts the TLE lines, and initializes an `SGPPropagator`. The returned
 propagator is ready for immediate use with `propagate_to()` and `current_state()`.

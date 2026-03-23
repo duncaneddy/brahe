@@ -24,8 +24,3 @@ matrix = traj.to_matrix()
 print(f"Matrix type: {type(matrix)}")
 print(f"Matrix shape: {matrix.shape}")
 print(f"First state velocity: {matrix[0, 4]:.1f} m/s")
-
-# Output:
-# Matrix type: <class 'numpy.ndarray'>
-# Matrix shape: (3, 6)
-# First state velocity: 7600.0 m/s

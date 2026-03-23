@@ -17,12 +17,6 @@ fn main() {
     println!("Longitude: {:.5}° = {:.6} rad", lon_deg, lon_deg.to_radians());
     println!("Latitude:  {:.5}° = {:.6} rad", lat_deg, lat_deg.to_radians());
     println!("Altitude:  {:.1} m\n", alt_m);
-    // Expected output:
-    // Longitude: -122.17329° = -2.132605 rad
-    // Latitude:  37.42692° = 0.653131 rad
-    // Altitude:  32.0 m
-
-    // Convert ground station to ECEF
     let geodetic_station = na::Vector3::new(lon_deg, lat_deg, alt_m);
     let station_ecef = bh::position_geodetic_to_ecef(geodetic_station, bh::AngleFormat::Degrees).unwrap();
 
@@ -30,25 +24,12 @@ fn main() {
     println!("x = {:.3} m", station_ecef[0]);
     println!("y = {:.3} m", station_ecef[1]);
     println!("z = {:.3} m\n", station_ecef[2]);
-    // Expected output:
-    // x = -2700691.122 m
-    // y = -4292566.016 m
-    // z = 3855395.780 m
-
-    // Define relative position in ENZ coordinates
-    // Example: 50 km East, 100 km North, 200 km Up from station
     let enz = na::Vector3::new(50e3, 100e3, 200e3);
 
     println!("Relative position in ENZ frame:");
     println!("East:   {:.1} km", enz[0] / 1000.0);
     println!("North:  {:.1} km", enz[1] / 1000.0);
     println!("Zenith: {:.1} km\n", enz[2] / 1000.0);
-    // Expected output:
-    // East:   50.0 km
-    // North:  100.0 km
-    // Zenith: 200.0 km
-
-    // Convert ENZ relative position to absolute ECEF position
     let target_ecef = bh::relative_position_enz_to_ecef(
         station_ecef,
         enz,
@@ -61,3 +42,4 @@ fn main() {
     println!("z = {:.3} m", target_ecef[2]);
     println!("Distance from Earth center: {:.3} km", target_ecef.norm() / 1000.0);
 }
+

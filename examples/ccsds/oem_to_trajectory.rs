@@ -17,10 +17,6 @@ fn main() {
         seg.states.len(),
         seg.metadata.ref_frame
     );
-    // Expected output:
-    // Segment: ISS, 49 states, frame=GCRF
-
-    // Convert segment 0 to an SOrbitTrajectory
     let traj = oem.segment_to_trajectory(0).unwrap();
     println!("\nTrajectory: {} states", traj.len());
     println!("  Frame: {:?}", traj.frame);
@@ -50,6 +46,5 @@ fn main() {
     for (i, t) in trajs.iter().enumerate() {
         println!("  [{}] {} states, span={:.0}s", i, t.len(), t.timespan().unwrap());
     }
-    // Expected output:
-    // Multi-segment OEM: 3 trajectories
 }
+

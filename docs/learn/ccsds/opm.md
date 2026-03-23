@@ -16,6 +16,17 @@ Extract position, velocity, epoch, and spacecraft parameters from an OPM to init
     --8<-- "./examples/ccsds/opm_init_propagator.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/opm_init_propagator.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/opm_init_propagator.rs.txt"
+        ```
+
 ## Accessing OPM Data
 
 Parse from file or string, then access the state vector, optional Keplerian elements, spacecraft parameters, covariance, and maneuvers:
@@ -29,6 +40,17 @@ Parse from file or string, then access the state vector, optional Keplerian elem
     ``` rust
     --8<-- "./examples/ccsds/opm_parse_access.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/opm_parse_access.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/opm_parse_access.rs.txt"
+        ```
 
 ## What an OPM Contains
 
@@ -55,6 +77,17 @@ Read OPM maneuvers and apply them as impulsive delta-V events during propagation
     ``` rust
     --8<-- "./examples/ccsds/opm_maneuver_propagation.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/opm_maneuver_propagation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/opm_maneuver_propagation.rs.txt"
+        ```
 
 ## KVN Format Example
 

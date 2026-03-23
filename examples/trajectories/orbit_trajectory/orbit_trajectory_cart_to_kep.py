@@ -25,15 +25,12 @@ for i in range(3):
     traj_cart.add(epoch, state_cart)
 
 print(f"Original representation: {traj_cart.representation}")
-# Output: OrbitRepresentation.CARTESIAN
 
 # Convert to Keplerian with degrees
 traj_kep = traj_cart.to_keplerian(bh.AngleFormat.DEGREES)
 
 print(f"Converted representation: {traj_kep.representation}")
-# Output: OrbitRepresentation.KEPLERIAN
 print(f"Angle format: {traj_kep.angle_format}")
-# Output: AngleFormat.DEGREES
 
 # Examine Keplerian elements
 for epoch, oe in traj_kep:
@@ -44,16 +41,3 @@ for epoch, oe in traj_kep:
     print(f"  RAAN: {oe[3]:.2f}°")
     print(f"  Argument of perigee: {oe[4]:.2f}°")
     print(f"  Mean anomaly: {oe[5]:.2f}°")
-
-# Output:
-# Original representation: Cartesian
-# Converted representation: Keplerian
-# Angle format: Degrees
-
-# Epoch: 2024-01-01 00:00:00.000 UTC
-#   Semi-major axis: 6878.14 km
-#   Eccentricity: 0.001000
-#   Inclination: 97.80°
-#   RAAN: 15.00°
-#   Argument of perigee: 30.00°
-#   True anomaly: 0.00°

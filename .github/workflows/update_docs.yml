@@ -40,6 +40,12 @@ jobs:
           name: doc-figures
           path: docs/figures/
 
+      - name: Download example outputs artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: doc-outputs
+          path: docs/outputs/
+
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:

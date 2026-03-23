@@ -40,7 +40,5 @@ fn main() {
     println!("Method: {:?}", config.method);
     println!("Integrator: {:?}", config.integrator);
     println!("Variational: {:?}", config.variational);
-    // Method: DP54
-    // Integrator: IntegratorConfig { abs_tol: 1e-9, rel_tol: 1e-6, ... }
-    // Variational: VariationalConfig { enable_stm: true, enable_sensitivity: false, ... }
 }
+

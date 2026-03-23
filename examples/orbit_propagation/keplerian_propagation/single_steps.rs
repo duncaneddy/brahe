@@ -18,14 +18,12 @@ fn main() {
     // Take one step (60 seconds)
     prop.step();
     println!("After 1 step: {}", prop.current_epoch());
-    // After 1 step: 2024-01-01 00:01:00.000 UTC
 
     // Step by custom duration (120 seconds)
     prop.step_by(120.0);
     println!("After custom step: {}", prop.current_epoch());
-    // After custom step: 2024-01-01 00:03:00.000 UTC
 
     // Trajectory now contains 3 states (initial + 2 steps)
     println!("Trajectory length: {}", prop.trajectory.len());
-    // Trajectory length: 3
 }
+

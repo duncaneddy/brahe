@@ -64,6 +64,17 @@ Non-angle events (`SemiMajorAxisEvent`, `EccentricityEvent`) omit the `angle_for
     --8<-- "./examples/numerical_propagation/event_orbital_elements.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_orbital_elements.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_orbital_elements.rs.txt"
+        ```
+
 ### Applications
 
 <div class="center-table" markdown="1">
@@ -115,6 +126,17 @@ The `AltitudeEvent` is one of the most commonly used premade events. It detects 
     --8<-- "./examples/numerical_propagation/event_altitude.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_altitude.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_altitude.rs.txt"
+        ```
+
 ### Applications
 
 <div class="center-table" markdown="1">
@@ -163,6 +185,17 @@ Eclipse events take three parameters:
     --8<-- "./examples/numerical_propagation/event_eclipse.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_eclipse.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_eclipse.rs.txt"
+        ```
+
 ### Ephemeris Sources
 
 <div class="center-table" markdown="1">
@@ -208,6 +241,17 @@ desc_event = bh.DescendingNodeEvent("Descending Node")
     ``` rust
     --8<-- "./examples/numerical_propagation/event_node_crossing.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_node_crossing.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/event_node_crossing.rs.txt"
+        ```
 
 ### Applications
 

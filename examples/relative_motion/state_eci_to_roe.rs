@@ -64,20 +64,5 @@ fn main() {
     println!("  dix (rel inc x-comp):     {:.6} deg", roe[4]);
     println!("  diy (rel inc y-comp):     {:.6} deg", roe[5]);
 
-    // Expected output:
-    // Chief ECI State:
-    //   Position: [4652982.458, 1200261.918, 5093905.755] m
-    //   Velocity: [-5189.098, 3310.839, 4550.927] m/s
-    //
-    // Deputy ECI State:
-    //   Position: [4654145.691, 1200531.587, 5095024.654] m
-    //   Velocity: [-5189.999, 3311.448, 4550.982] m/s
-    //
-    // Relative Orbital Elements (ROE):
-    //   da (relative SMA):        1.412801e-04
-    //   d_lambda (relative mean long):  0.093214 deg
-    //   dex (rel ecc x-comp):     4.323577e-04
-    //   dey (rel ecc y-comp):     2.511333e-04
-    //   dix (rel inc x-comp):     0.050000 deg
-    //   diy (rel inc y-comp):     0.049537 deg
 }
+

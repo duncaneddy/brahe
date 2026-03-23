@@ -16,6 +16,17 @@ Extract OMM mean elements and TLE parameters to create an `SGPPropagator`:
     --8<-- "./examples/ccsds/omm_init_sgp.rs:5"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/omm_init_sgp.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/omm_init_sgp.rs.txt"
+        ```
+
 ## Accessing Mean Elements and TLE Parameters
 
 Parse from file or string, then access metadata, mean elements, and TLE parameters. The message carries two main data sections: **mean elements** (epoch, mean motion, eccentricity, inclination, RAAN, argument of pericenter, mean anomaly) and **TLE parameters** (NORAD catalog ID, classification, element set number, revolution count, $B^*$ drag term, mean motion derivatives):
@@ -29,6 +40,17 @@ Parse from file or string, then access metadata, mean elements, and TLE paramete
     ``` rust
     --8<-- "./examples/ccsds/omm_parse_access.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/omm_parse_access.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/omm_parse_access.rs.txt"
+        ```
 
 !!! info "Unit Convention for OMM"
     Mean motion, angles, and TLE drag terms are kept in their CCSDS/TLE-native units (rev/day, degrees, etc.) because these values are needed as-is for TLE generation and SGP4 initialization. Only GM is converted to SI (m$^3$/s$^2$).

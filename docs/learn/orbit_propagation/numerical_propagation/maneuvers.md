@@ -22,6 +22,17 @@ Impulsive maneuvers combine event detection with state modification. For callbac
     --8<-- "./examples/numerical_propagation/impulsive_maneuver.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/impulsive_maneuver.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/impulsive_maneuver.rs.txt"
+        ```
+
 ### Hohmann Transfer Visualization
 
 The following plots show the altitude and velocity changes during the Hohmann transfer example above.
@@ -102,6 +113,17 @@ The control input function is called at each integration step and returns a stat
     --8<-- "./examples/numerical_propagation/continuous_control.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/continuous_control.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/continuous_control.rs.txt"
+        ```
+
 ### Control Function Signature
 
 The control function receives the epoch, current state, and optional parameters. It returns a state derivative vector (same dimension as state):
@@ -164,6 +186,17 @@ The control function can implement time-varying or state-dependent thrust:
     ``` rust
     --8<-- "./examples/numerical_propagation/variable_thrust.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/variable_thrust.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/variable_thrust.rs.txt"
+        ```
 
 #### Thrust Profile Visualization
 

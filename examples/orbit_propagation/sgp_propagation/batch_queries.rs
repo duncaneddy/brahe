@@ -23,11 +23,5 @@ fn main() {
         let altitude = (state.fixed_rows::<3>(0).norm() - bh::R_EARTH) / 1e3;
         println!("  Orbit {}: altitude = {:.1} km", i, altitude);
     }
-    // Expected output:
-    // Generated 5 states over 5 orbits
-    //   Orbit 0: altitude = 342.1 km
-    //   Orbit 1: altitude = 342.3 km
-    //   Orbit 2: altitude = 342.7 km
-    //   Orbit 3: altitude = 343.3 km
-    //   Orbit 4: altitude = 344.0 km
 }
+

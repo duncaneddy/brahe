@@ -72,26 +72,3 @@ print(f"\nOrbital velocity: {v_mag:.3f} m/s ({v_mag / 1e3:.3f} km/s)")
 # Theoretical drag magnitude check: 0.5 * rho * v² * Cd * A / m
 accel_theory = 0.5 * density * v_mag**2 * cd * area / mass
 print(f"Theoretical drag magnitude: {accel_theory:.9f} m/s²")
-
-# Expected output:
-# Satellite state (ECI):
-#   Position: [-1084.6, -6608.2, 1368.5] km
-#   Velocity: [4.582, -1.963, -5.781] km/s
-#   Altitude: 456.8 km
-
-# Atmospheric density (exponential model): 4.000000e-12 kg/m³
-
-# Satellite properties:
-#   Mass: 500.0 kg
-#   Area: 2.5 m²
-#   Drag coefficient: 2.2
-#   Ballistic coefficient: 0.011000 m²/kg
-
-# Drag acceleration (ECI, m/s²):
-#   ax = -0.000000661
-#   ay = 0.000000304
-#   az = 0.000000932
-#   Magnitude: 0.000001183 m/s²
-
-# Orbital velocity: 7632.770 m/s (7.633 km/s)
-# Theoretical drag magnitude: 0.000001282 m/s²

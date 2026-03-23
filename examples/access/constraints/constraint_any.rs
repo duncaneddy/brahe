@@ -10,5 +10,5 @@ fn main() {
     let constraint = bh::ConstraintComposite::Any(vec![high_elev, right_look]);
 
     println!("Created: {}", constraint);
-    // Created: ElevationConstraint(>= 60.00°) || LookDirectionConstraint(Right)
 }
+

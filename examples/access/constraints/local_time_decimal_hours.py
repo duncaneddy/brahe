@@ -11,4 +11,3 @@ import brahe as bh
 constraint = bh.LocalTimeConstraint.from_hours(time_windows=[(8.0, 18.0)])
 
 print(f"Created: {constraint}")
-# Created: LocalTimeConstraint(08:00-18:00)

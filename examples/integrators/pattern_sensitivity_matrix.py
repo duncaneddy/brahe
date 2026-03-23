@@ -137,21 +137,3 @@ print(f"  dvz/dp: {final_phi[5, 0]:.6f} m/s/(m²/kg)")
 delta_p = 0.1 * cd_area_m
 pos_uncertainty = np.linalg.norm(final_phi[:3, 0]) * delta_p
 print(f"\nPosition uncertainty for 10% parameter uncertainty: {pos_uncertainty:.1f} m")
-
-# Expected output:
-# Final position after 60 minutes:
-#   x: -2884.245 km
-#   y: -3673.659 km
-#   z: -4635.004 km
-
-# Sensitivity matrix Φ = ∂x/∂p (position per unit Cd*A/m):
-#   dx/dp: 59942.894 m/(m²/kg)
-#   dy/dp: -3796.878 m/(m²/kg)
-#   dz/dp: -4790.467 m/(m²/kg)
-
-# Sensitivity matrix Φ = ∂x/∂p (velocity per unit Cd*A/m):
-#   dvx/dp: 44.091413 m/s/(m²/kg)
-#   dvy/dp: 33.444231 m/s/(m²/kg)
-#   dvz/dp: 42.196119 m/s/(m²/kg)
-
-# Position uncertainty for 10% parameter uncertainty: 265.1 m

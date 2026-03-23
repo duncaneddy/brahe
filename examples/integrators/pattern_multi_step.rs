@@ -52,3 +52,4 @@ fn main() {
     println!("Analytical: {:.6e}", analytical);
     println!("Error: {:.2e}", (state[0] - analytical).abs());
 }
+

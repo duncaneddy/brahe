@@ -19,8 +19,5 @@ fn main() {
     println!("Current epoch: {}", prop.current_epoch());
     println!("Trajectory contains {} states", prop.trajectory.len());
 
-    // Expected output:
-    // Target epoch: 2008-09-20 14:25:40.104 UTC
-    // Current epoch: 2008-09-20 14:25:40.104 UTC
-    // Trajectory contains 121 states
 }
+

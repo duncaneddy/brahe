@@ -20,6 +20,17 @@ here is a complete example creating a `ForceModelConfig` exercising all availabl
     --8<-- "./examples/numerical_propagation/force_model_overview.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_overview.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_overview.rs.txt"
+        ```
+
 ## Architecture Overview
 
 ### Configuration Hierarchy
@@ -82,6 +93,17 @@ $$
     --8<-- "./examples/numerical_propagation/force_model_gravity_pointmass.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_gravity_pointmass.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_gravity_pointmass.rs.txt"
+        ```
+
 **Spherical Harmonics**: High-fidelity gravity using EGM2008, GGM05S, or user-defined `.gfc` model. Degree and order control accuracy vs computation time.
 
 $$
@@ -99,6 +121,17 @@ $$
     ``` rust
     --8<-- "./examples/numerical_propagation/force_model_gravity_spherical.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_gravity_spherical.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_gravity_spherical.rs.txt"
+        ```
 
 ### Atmospheric Drag
 
@@ -126,6 +159,17 @@ Three atmospheric models are available:
     --8<-- "./examples/numerical_propagation/force_model_drag_harris_priester.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_drag_harris_priester.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_drag_harris_priester.rs.txt"
+        ```
+
 **NRLMSISE-00**: High-fidelity empirical model using space weather data. Valid from ground to thermosphere (~1000 km). More computationally intensive.
 
 === "Python"
@@ -139,6 +183,17 @@ Three atmospheric models are available:
     ``` rust
     --8<-- "./examples/numerical_propagation/force_model_drag_nrlmsise.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_drag_nrlmsise.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_drag_nrlmsise.rs.txt"
+        ```
 
 **Exponential**: An expontential atmospheric density model defined by which provides a simple approximation that is fast for rough calculations:
 
@@ -159,6 +214,17 @@ $\rho_0$ is reference density at altitude $h_0$ and $H$ is scale height.
     ``` rust
     --8<-- "./examples/numerical_propagation/force_model_drag_exponential.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_drag_exponential.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_drag_exponential.rs.txt"
+        ```
 
 ### Solar Radiation Pressure
 
@@ -188,6 +254,17 @@ Eclipse models determine shadow effects:
     --8<-- "./examples/numerical_propagation/force_model_srp.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_srp.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_srp.rs.txt"
+        ```
+
 ### Third-Body Perturbations
 
 Gravitational attraction from Sun, Moon, and planets causes long-period variations in orbital elements.
@@ -215,6 +292,17 @@ Ephemeris sources:
     ``` rust
     --8<-- "./examples/numerical_propagation/force_model_third_body.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_third_body.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_third_body.rs.txt"
+        ```
 
 ### Relativistic Effects
 
@@ -246,6 +334,17 @@ Use `ParameterSource.value()` (Python) / `ParameterSource::Value` (Rust) for par
     --8<-- "./examples/numerical_propagation/force_model_parameter_value.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_parameter_value.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_parameter_value.rs.txt"
+        ```
+
 ### Using Parameter Indices
 
 Use `ParameterSource.from_index()` (Python) / `ParameterSource::ParameterIndex` (Rust) for parameters that may be varied or estimated:
@@ -261,6 +360,17 @@ Use `ParameterSource.from_index()` (Python) / `ParameterSource::ParameterIndex` 
     ``` rust
     --8<-- "./examples/numerical_propagation/force_model_parameter_index.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_parameter_index.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_parameter_index.rs.txt"
+        ```
 
 ### Default Parameter Layout
 
@@ -303,6 +413,17 @@ Brahe provides preset configurations for common scenarios:
     ``` rust
     --8<-- "./examples/numerical_propagation/force_model_presets.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_presets.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/force_model_presets.rs.txt"
+        ```
 
 ---
 

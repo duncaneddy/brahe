@@ -46,6 +46,17 @@ Transform a complete state vector (position and velocity) from ECI to ECEF:
     --8<-- "./examples/frames/eci_to_ecef_state.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/eci_to_ecef_state.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/eci_to_ecef_state.rs.txt"
+        ```
+
 !!! warning "Velocity Transformation"
     Simply rotating velocity vectors will not yield correct velocity components in the ECEF frame due to the Earth's rotation. State vector transformation functions properly account for observed velocity changes in the ECEF frame due to Earth's rotation.
 
@@ -64,6 +75,17 @@ Get the rotation matrix from ECI to ECEF:
     ``` rust
     --8<-- "./examples/frames/eci_to_ecef_rotation.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/eci_to_ecef_rotation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/eci_to_ecef_rotation.rs.txt"
+        ```
 
 ## ECEF to ECI
 
@@ -85,6 +107,17 @@ Transform a complete state vector (position and velocity) from ECEF to ECI:
     --8<-- "./examples/frames/ecef_to_eci_state.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/ecef_to_eci_state.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/ecef_to_eci_state.rs.txt"
+        ```
+
 !!! warning "Velocity Transformation"
     Simply rotating velocity vectors will not yield correct velocity components in the ECI frame due to the Earth's rotation. State vector transformation functions properly account for observed velocity changes when transforming from the rotating ECEF frame.
 
@@ -103,6 +136,17 @@ Get the rotation matrix from ECEF to ECI:
     ``` rust
     --8<-- "./examples/frames/ecef_to_eci_rotation.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/ecef_to_eci_rotation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/ecef_to_eci_rotation.rs.txt"
+        ```
 
 ## See Also
 

@@ -39,3 +39,4 @@ fn main() {
         bh::eop::set_global_eop_provider(eop_file_custom_c04);
     }
 }
+

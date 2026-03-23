@@ -1,4 +1,4 @@
-Propagated 10 satellites in parallel: 0.0117 seconds
+Propagated 10 satellites in parallel: 0.0142 seconds
 
 Final states:
   Satellite 0: r = 6876.8 km

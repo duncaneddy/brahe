@@ -19,5 +19,5 @@ fn main() {
 
     println!("Initial position magnitude: {:.1} km",
              state_eci.fixed_rows::<3>(0).norm() / 1e3);
-    // Initial position magnitude: 6873.3 km
 }
+

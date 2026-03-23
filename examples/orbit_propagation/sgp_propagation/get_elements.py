@@ -23,10 +23,3 @@ print(f"Inclination: {elements_deg[2]:.4f} degrees")
 print(f"RAAN: {elements_deg[3]:.4f} degrees")
 print(f"Argument of perigee: {elements_deg[4]:.4f} degrees")
 print(f"Mean anomaly: {elements_deg[5]:.4f} degrees")
-# Expected output:
-# Semi-major axis: 6758.7 km
-# Eccentricity: 0.000670
-# Inclination: 51.6416 degrees
-# RAAN: 247.4627 degrees
-# Argument of perigee: 130.5360 degrees
-# Mean anomaly: 325.0288 degrees

@@ -94,6 +94,17 @@ The point-mass gravity model can be used for any celestial body by providing its
     --8<-- "./examples/orbit_dynamics/point_mass_gravity.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/point_mass_gravity.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/point_mass_gravity.rs.txt"
+        ```
+
 ### Spherical Harmonics
 
 For high-fidelity Earth gravity modeling, use the spherical harmonic expansion with an appropriate geopotential model.
@@ -109,6 +120,17 @@ For high-fidelity Earth gravity modeling, use the spherical harmonic expansion w
     ```rust
     --8<-- "./examples/orbit_dynamics/spherical_harmonics.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/spherical_harmonics.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/spherical_harmonics.rs.txt"
+        ```
 
 ## See Also
 

@@ -11,5 +11,5 @@ fn main() {
     ).unwrap();
 
     println!("Created: {}", constraint);
-    // Created: OffNadirCOffNadirConstraint(20.0° - 45.0°)
 }
+

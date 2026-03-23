@@ -19,6 +19,3 @@ prop = bh.SGPPropagator.from_3le(name, line1, line2, 60.0)
 
 print(f"Satellite name: {prop.satellite_name}")
 print(f"NORAD ID: {prop.norad_id}")
-# Expected output:
-# Satellite name: ISS (ZARYA)
-# NORAD ID: 25544

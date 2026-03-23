@@ -42,6 +42,17 @@ Calculate the general relativistic correction to a satellite's acceleration.
     --8<-- "./examples/orbit_dynamics/relativistic_acceleration.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/relativistic_acceleration.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/relativistic_acceleration.rs.txt"
+        ```
+
 ## See Also
 
 - [Library API Reference: Relativity](../../library_api/orbit_dynamics/relativity.md)

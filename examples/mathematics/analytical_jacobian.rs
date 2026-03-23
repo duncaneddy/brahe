@@ -24,11 +24,6 @@ fn main() {
 
     println!("Analytical Jacobian:");
     println!("{}", jac);
-    // Expected output:
-    // [[ 0.  1.]
-    //  [-1.  0.]]
-
-    // Verify it's time-invariant for this system
     let t2 = 10.0;
     let state2 = DVector::from_vec(vec![0.5, 0.866]);
     let jac2 = jacobian.compute(t2, &state2, None);
@@ -39,5 +34,5 @@ fn main() {
     // Check if matrices are equal
     let are_equal = (jac - jac2).norm() < 1e-10;
     println!("\nJacobians are equal: {}", are_equal);
-    // Output: true
 }
+

@@ -21,9 +21,5 @@ target = epoch + 500.0
 prop.propagate_to(target)
 
 print(f"Target epoch: {target}")
-# Target epoch: 2024-01-01 00:08:20.000 UTC
 print(f"Current epoch: {prop.current_epoch()}")
-# Current epoch: 2024-01-01 00:08:20.000 UTC
 print(f"Difference: {abs(prop.current_epoch() - target):.10f} seconds")
-# Difference: 0.0000000000 seconds
-# Output shows machine precision agreement

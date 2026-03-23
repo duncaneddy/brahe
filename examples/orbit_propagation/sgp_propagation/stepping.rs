@@ -23,8 +23,3 @@ fn main() {
     prop.step_by(120.0);
     println!("After custom step: {}", prop.current_epoch());
 }
-
-// Output
-// After 1 step: 2008-09-20 12:26:40.104 UTC
-// After 11 total steps: 12 states
-// After custom step: 2008-09-20 12:38:40.104 UTC

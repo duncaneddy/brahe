@@ -32,17 +32,3 @@ print(f"  Day: {dt[2]}")
 print(f"  Hour: {dt[3]}")
 print(f"  Minute: {dt[4]}")
 print(f"  Second: {dt[5]:.6f}")
-
-# Expected output:
-# TLE Epoch: 2025-10-29T11:44:55.766182400 UTC
-# Time System: TimeSystem.UTC
-# Julian Date: 2460974.9895780
-# Modified Julian Date: 60974.4895780
-#
-# Datetime Components:
-#   Year: 2025
-#   Month: 10
-#   Day: 29
-#   Hour: 11
-#   Minute: 44
-#   Second: 55.766182

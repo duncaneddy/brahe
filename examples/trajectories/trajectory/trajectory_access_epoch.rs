@@ -37,6 +37,3 @@ fn main() {
         (nearest_state[0] - R_EARTH) / 1e3);
 }
 
-// Output:
-// Nearest state at t+120s altitude: 502.00 km
-// Nearest state at t+125s altitude: 502.00 km

@@ -30,6 +30,17 @@ For cartesian representation, the frame can be `ECI` or `ECEF`. The `AngleFormat
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_empty_cartesian.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_empty_cartesian.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_empty_cartesian.rs.txt"
+        ```
+
 ### Empty Trajectory - Keplerian Elements
 
 To create an empty trajectory in Keplerian representation you **must** specify the frame as `ECI` and provide an `AngleFormat`.
@@ -46,6 +57,17 @@ To create an empty trajectory in Keplerian representation you **must** specify t
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_empty_keplerian.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_empty_keplerian.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_empty_keplerian.rs.txt"
+        ```
+
 ### From Existing Data
 
 You can also initialize an `OrbitTrajectory` from existing epoch and state data:
@@ -61,6 +83,17 @@ You can also initialize an `OrbitTrajectory` from existing epoch and state data:
     ``` rust
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_from_data.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_from_data.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_from_data.rs.txt"
+        ```
 
 ### From Propagator
 
@@ -79,6 +112,17 @@ See the [Propagators](../orbit_propagation/index.md) section for more details on
     ``` rust
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_from_propagator.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_from_propagator.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_from_propagator.rs.txt"
+        ```
 
 ## Frame Conversions
 
@@ -100,6 +144,17 @@ Convert a trajectory from Earth-Centered Inertial (ECI) to Earth-Centered Earth-
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_eci_to_ecef.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_eci_to_ecef.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_eci_to_ecef.rs.txt"
+        ```
+
 ### Converting ECEF to ECI
 
 Convert from ECEF back to ECI:
@@ -115,6 +170,17 @@ Convert from ECEF back to ECI:
     ``` rust
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_ecef_to_eci.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_ecef_to_eci.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_ecef_to_eci.rs.txt"
+        ```
 
 ### Round-Trip Frame Conversion
 
@@ -132,6 +198,17 @@ Convert from ECI to ECEF and back to verify consistency:
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_roundtrip.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_roundtrip.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_roundtrip.rs.txt"
+        ```
+
 ### Converting Cartesian to Keplerian
 
 Convert from Cartesian position/velocity to Keplerian orbital elements:
@@ -147,6 +224,17 @@ Convert from Cartesian position/velocity to Keplerian orbital elements:
     ``` rust
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_cart_to_kep.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_cart_to_kep.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_cart_to_kep.rs.txt"
+        ```
 
 ### Converting with Different Angle Formats
 
@@ -164,6 +252,17 @@ Convert to Keplerian with different angle formats:
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_angle_formats.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_angle_formats.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_angle_formats.rs.txt"
+        ```
+
 ## Combined Frame and Representation Conversions
 
 Every conversion method returns a new `OrbitTrajectory` instance, so you can chain conversions together if desired:
@@ -179,6 +278,17 @@ Every conversion method returns a new `OrbitTrajectory` instance, so you can cha
     ``` rust
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_combined.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_combined.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_combined.rs.txt"
+        ```
 
 ## Standard Trajectory Operations
 
@@ -196,6 +306,17 @@ Every conversion method returns a new `OrbitTrajectory` instance, so you can cha
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_operations.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_operations.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_operations.rs.txt"
+        ```
+
 ## Practical Workflow Example
 
 A complete example showing propagation, frame conversion, and analysis:
@@ -211,6 +332,17 @@ A complete example showing propagation, frame conversion, and analysis:
     ``` rust
     --8<-- "./examples/trajectories/orbit_trajectory/orbit_trajectory_workflow.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_workflow.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/trajectories/orbit_trajectory/orbit_trajectory_workflow.rs.txt"
+        ```
 
 ---
 

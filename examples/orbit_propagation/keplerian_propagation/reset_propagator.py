@@ -19,11 +19,8 @@ prop = bh.KeplerianPropagator.from_keplerian(
 # Propagate forward
 prop.propagate_steps(100)
 print(f"After propagation: {len(prop.trajectory)} states")
-# After propagation: 101 states
 
 # Reset to initial conditions
 prop.reset()
 print(f"After reset: {len(prop.trajectory)} states")
-# After reset: 1 states
 print(f"Current epoch: {prop.current_epoch()}")
-# Current epoch: 2024-01-01 00:00:00.000 UTC

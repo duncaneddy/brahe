@@ -16,6 +16,17 @@ Parse from file or string, then access header properties, segment metadata, and 
     --8<-- "./examples/ccsds/oem_parse_access.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_parse_access.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_parse_access.rs.txt"
+        ```
+
 ## Converting to OrbitTrajectory
 
 The primary interoperability point for OEM data is conversion to brahe's `OrbitTrajectory`. Each OEM segment maps to a trajectory object, giving you Hermite interpolation at arbitrary epochs within the covered time span:
@@ -29,6 +40,17 @@ The primary interoperability point for OEM data is conversion to brahe's `OrbitT
     ``` rust
     --8<-- "./examples/ccsds/oem_to_trajectory.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_to_trajectory.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_to_trajectory.rs.txt"
+        ```
 
 ## How OEM Messages Are Organized
 
@@ -50,6 +72,17 @@ Build an OEM programmatically by defining a header, adding segments with metadat
     --8<-- "./examples/ccsds/oem_create_write.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_create_write.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_create_write.rs.txt"
+        ```
+
 !!! info "Round-Trip Fidelity"
     Writing and re-parsing an OEM preserves all metadata, state vectors, and covariance data. Numeric precision may vary slightly due to floating-point formatting, but values are preserved within the precision of the output format.
 
@@ -66,6 +99,17 @@ Propagate an orbit numerically, extract the trajectory, and build an OEM for dis
     ``` rust
     --8<-- "./examples/ccsds/oem_from_propagator.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_from_propagator.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/oem_from_propagator.rs.txt"
+        ```
 
 ## KVN Format Example
 

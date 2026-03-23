@@ -18,6 +18,17 @@ Here is a complete example demonstrating STM, covariance, and sensitivity propag
     --8<-- "./examples/numerical_propagation/variational_overview.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/variational_overview.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/variational_overview.rs.txt"
+        ```
+
 ## Architecture Overview
 
 ### Configuration Hierarchy
@@ -91,6 +102,17 @@ The STM has several important mathematical properties:
     --8<-- "./examples/numerical_propagation/stm_propagation.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/stm_propagation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/stm_propagation.rs.txt"
+        ```
+
 ---
 
 ## Covariance Propagation
@@ -113,6 +135,17 @@ $$P(t) = \Phi(t, t_0) P_0 \Phi(t, t_0)^T$$
     --8<-- "./examples/numerical_propagation/covariance_propagation.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/covariance_propagation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/covariance_propagation.rs.txt"
+        ```
+
 ### Covariance in RTN Frame
 
 The RTN (Radial-Tangential-Normal) frame provides physical insight into how uncertainty evolves relative to the orbit.
@@ -128,6 +161,17 @@ The RTN (Radial-Tangential-Normal) frame provides physical insight into how unce
     ``` rust
     --8<-- "./examples/numerical_propagation/covariance_rtn.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/covariance_rtn.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/covariance_rtn.rs.txt"
+        ```
 
 ### RTN Frame Interpretation
 
@@ -215,6 +259,17 @@ The default parameter vector contains spacecraft physical properties:
     ``` rust
     --8<-- "./examples/numerical_propagation/sensitivity_analysis.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/sensitivity_analysis.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/sensitivity_analysis.rs.txt"
+        ```
 
 ### Interpreting Sensitivity Results
 

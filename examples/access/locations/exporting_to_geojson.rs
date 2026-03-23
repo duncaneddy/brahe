@@ -25,9 +25,5 @@ fn main() {
         reloaded.get_name().unwrap_or_default(),
         reloaded.get_id().unwrap_or(0));
 
-    // Expected output:
-    // Exported GeoJSON:
-    // {"geometry":{"coordinates":[-122.4194,37.7749,0.0],"type":"Point"},"properties":{"id":1,"name":"San Francisco"},"type":"Feature"}
-    //
-    // Reloaded: San Francisco (ID: 1)
 }
+

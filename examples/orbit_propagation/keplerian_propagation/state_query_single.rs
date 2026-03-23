@@ -24,11 +24,9 @@ fn main() {
     ).unwrap();
 
     println!("Native state (Keplerian): a={:.1} km", state_native[0] / 1e3);
-    // Native state (Keplerian): a=6878.1 km
     println!("ECI position magnitude: {:.1} km",
              state_eci.fixed_rows::<3>(0).norm() / 1e3);
-    // ECI position magnitude: 6877.7 km
     println!("ECEF position magnitude: {:.1} km",
              state_ecef.fixed_rows::<3>(0).norm() / 1e3);
-    // ECEF position magnitude: 6877.7 km
 }
+

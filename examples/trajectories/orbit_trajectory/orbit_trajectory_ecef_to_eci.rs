@@ -47,3 +47,4 @@ fn main() {
         println!("  Velocity magnitude: {:.2} m/s", vel_mag);
     }
 }
+

@@ -19,3 +19,4 @@ fn main() {
     // Method 2: Use initialize_sw() which creates a caching provider
     bh::space_weather::initialize_sw().unwrap();
 }
+

@@ -27,6 +27,17 @@ Create a point location from geodetic coordinates (longitude, latitude, altitude
     --8<-- "./examples/access/locations/point_from_coordinates.rs:5"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/locations/point_from_coordinates.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/locations/point_from_coordinates.rs.txt"
+        ```
+
 !!! info "Coordinate Units"
     Python uses degrees for input convenience. Rust uses radians (SI standard). Both use meters for altitude.
 
@@ -46,6 +57,17 @@ Load locations from GeoJSON strings or files:
     --8<-- "./examples/access/locations/point_from_geojson.rs:5"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/locations/point_from_geojson.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/locations/point_from_geojson.rs.txt"
+        ```
+
 ### Accessing Coordinates
 
 Retrieve coordinates in different formats:
@@ -61,6 +83,17 @@ Retrieve coordinates in different formats:
     ``` rust
     --8<-- "./examples/access/locations/point_accessing_coordinates.rs:5"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/locations/point_accessing_coordinates.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/locations/point_accessing_coordinates.rs.txt"
+        ```
 
 ## PolygonLocation
 
@@ -82,6 +115,17 @@ Create a polygon from a list of vertices:
     --8<-- "./examples/access/locations/polygon_from_vertices.rs:5"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/locations/polygon_from_vertices.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/locations/polygon_from_vertices.rs.txt"
+        ```
+
 ### Initialization from GeoJSON
 
 Load polygon areas from GeoJSON:
@@ -97,6 +141,17 @@ Load polygon areas from GeoJSON:
     ``` rust
     --8<-- "./examples/access/locations/polygon_from_geojson.rs:5"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/locations/polygon_from_geojson.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/locations/polygon_from_geojson.rs.txt"
+        ```
 
 ## Working with Properties
 
@@ -114,6 +169,17 @@ Both location types support custom properties for storing metadata:
     --8<-- "./examples/access/locations/working_with_properties.rs:5"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/locations/working_with_properties.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/locations/working_with_properties.rs.txt"
+        ```
+
 ## Exporting to GeoJSON
 
 Convert locations back to GeoJSON format:
@@ -129,6 +195,17 @@ Convert locations back to GeoJSON format:
     ``` rust
     --8<-- "./examples/access/locations/exporting_to_geojson.rs:5"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/locations/exporting_to_geojson.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/locations/exporting_to_geojson.rs.txt"
+        ```
 
 ---
 

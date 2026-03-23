@@ -62,32 +62,3 @@ for dt in step_sizes:
     print(f"  Exact:       [{exact[0]:.6f}, {exact[1]:.6f}]")
     print(f"  Error:       {error:.2e}")
     print()
-
-# Expected Output:
-# RK4 Fixed-Step Integration Demonstration
-# System: Simple Harmonic Oscillator (ω=1.0)
-# Integration time: 0 to 12.57 (2 periods)
-
-# Step size dt= 0.50:
-#   Steps:      26
-#   Final state: [0.907541, -0.413422]
-#   Exact:       [0.907447, -0.420167]
-#   Error:       6.75e-03
-
-# Step size dt= 0.20:
-#   Steps:      63
-#   Final state: [0.999412, -0.033457]
-#   Exact:       [0.999435, -0.033623]
-#   Error:       1.68e-04
-
-# Step size dt= 0.10:
-#   Steps:      126
-#   Final state: [0.999434, -0.033613]
-#   Exact:       [0.999435, -0.033623]
-#   Error:       1.05e-05
-
-# Step size dt= 0.05:
-#   Steps:      252
-#   Final state: [0.999435, -0.033622]
-#   Exact:       [0.999435, -0.033623]
-#   Error:       6.56e-07

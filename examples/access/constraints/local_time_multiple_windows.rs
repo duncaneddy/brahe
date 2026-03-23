@@ -10,5 +10,5 @@ fn main() {
     ).unwrap();
 
     println!("Created: {}", constraint);
-    // Created: LocalTimeConstraint(06:00-08:00, 18:00-20:00)
 }
+

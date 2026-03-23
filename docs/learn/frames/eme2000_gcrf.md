@@ -65,6 +65,17 @@ Transform a complete state vector (position and velocity) from EME2000 to GCRF:
     --8<-- "./examples/frames/eme2000_to_gcrf_state.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/eme2000_to_gcrf_state.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/eme2000_to_gcrf_state.rs.txt"
+        ```
+
 !!! tip "Velocity Transformation"
     Because the transformation does not vary with time, velocity vectors are directly rotated without additional correction terms. There is no time-varying rotation rate to account for.
 
@@ -84,6 +95,17 @@ Transform a position vector from EME2000 to GCRF:
     --8<-- "./examples/frames/eme2000_to_gcrf_position.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/eme2000_to_gcrf_position.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/eme2000_to_gcrf_position.rs.txt"
+        ```
+
 ### Rotation Matrix
 
 Get the constant rotation matrix from EME2000 to GCRF:
@@ -99,6 +121,17 @@ Get the constant rotation matrix from EME2000 to GCRF:
     ``` rust
     --8<-- "./examples/frames/eme2000_to_gcrf_rotation.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/eme2000_to_gcrf_rotation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/eme2000_to_gcrf_rotation.rs.txt"
+        ```
 
 ## GCRF to EME2000
 
@@ -120,6 +153,17 @@ Transform a complete state vector (position and velocity) from GCRF to EME2000:
     --8<-- "./examples/frames/gcrf_to_eme2000_state.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_eme2000_state.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_eme2000_state.rs.txt"
+        ```
+
 ### Position Vector
 
 Transform a position vector from GCRF to EME2000:
@@ -135,6 +179,17 @@ Transform a position vector from GCRF to EME2000:
     ``` rust
     --8<-- "./examples/frames/gcrf_to_eme2000_position.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_eme2000_position.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_eme2000_position.rs.txt"
+        ```
 
 ### Rotation Matrix
 
@@ -152,6 +207,17 @@ Get the constant rotation matrix from GCRF to EME2000:
     --8<-- "./examples/frames/gcrf_to_eme2000_rotation.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_eme2000_rotation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/gcrf_to_eme2000_rotation.rs.txt"
+        ```
+
 ## Frame Bias Matrix
 
 The underlying frame bias transformation can also be accessed directly:
@@ -167,6 +233,17 @@ The underlying frame bias transformation can also be accessed directly:
     ``` rust
     --8<-- "./examples/frames/bias_eme2000.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/bias_eme2000.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/bias_eme2000.rs.txt"
+        ```
 
 The bias matrix is identical to `rotation_gcrf_to_eme2000()` and represents the constant transformation from GCRF to EME2000.
 

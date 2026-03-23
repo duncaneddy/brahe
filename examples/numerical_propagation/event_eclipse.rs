@@ -99,22 +99,3 @@ fn main() {
     println!("\nExample validated successfully!");
 }
 
-// Expected output:
-// Detected 10 eclipse events:
-//   'Eclipse Entry' at t+1923.4s
-//   'Eclipse Exit' at t+4078.2s
-//   'Eclipse Entry' at t+7508.5s
-//   'Eclipse Exit' at t+9663.3s
-//   'Eclipse Entry' at t+13093.6s
-//   'Eclipse Exit' at t+15248.4s
-//   'Eclipse Entry' at t+18678.7s
-//   'Eclipse Exit' at t+20833.5s
-//   'Eclipse Entry' at t+24263.8s
-//   'Eclipse Exit' at t+26418.6s
-//
-// Eclipse entries: 5
-// Eclipse exits: 5
-//
-// Average eclipse duration: 2154.9s (35.9 min)
-//
-// Example validated successfully!

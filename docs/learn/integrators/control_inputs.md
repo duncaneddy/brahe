@@ -77,6 +77,17 @@ Control inputs are passed as a separate parameter to the integrator constructor.
     --8<-- "./examples/integrators/control_inputs.rs:6"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/control_inputs.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/control_inputs.rs.txt"
+        ```
+
 ## Applications
 
 Control inputs are particularly useful for:

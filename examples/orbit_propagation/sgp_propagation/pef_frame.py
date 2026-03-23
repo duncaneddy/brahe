@@ -16,5 +16,3 @@ prop = bh.SGPPropagator.from_tle(line1, line2, 60.0)
 # Get state in PEF frame (TEME rotated by GMST)
 state_pef = prop.state_pef(prop.epoch)
 print(f"PEF position: {state_pef[:3] / 1e3}")
-# Expected output:
-# PEF position: [-3953.20574821  1427.51460044  5243.61453697]

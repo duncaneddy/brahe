@@ -20,6 +20,17 @@ Here is a complete example creating a `NumericalPropagationConfig` exercising al
     --8<-- "./examples/numerical_propagation/integrator_overview.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_overview.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_overview.rs.txt"
+        ```
+
 ## Architecture Overview
 
 ### Configuration Hierarchy
@@ -76,6 +87,17 @@ Classic 4th-order Runge-Kutta with fixed step size. No error control - requires 
     --8<-- "./examples/numerical_propagation/integrator_method_rk4.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_rk4.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_rk4.rs.txt"
+        ```
+
 ### DP54 (Default)
 
 Dormand-Prince 5(4) adaptive method. Uses FSAL (First-Same-As-Last) optimization for efficiency. MATLAB's `ode45` uses this method.
@@ -92,6 +114,17 @@ Dormand-Prince 5(4) adaptive method. Uses FSAL (First-Same-As-Last) optimization
     --8<-- "./examples/numerical_propagation/integrator_method_dp54.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_dp54.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_dp54.rs.txt"
+        ```
+
 ### RKN1210 (High Precision)
 
 12th-order Runge-Kutta-Nystrom optimized for second-order ODEs like orbital mechanics. Achieves extreme accuracy with tight tolerances.
@@ -107,6 +140,17 @@ Dormand-Prince 5(4) adaptive method. Uses FSAL (First-Same-As-Last) optimization
     ``` rust
     --8<-- "./examples/numerical_propagation/integrator_method_rkn1210.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_rkn1210.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_rkn1210.rs.txt"
+        ```
 
 ## Error Tolerances
 
@@ -131,6 +175,17 @@ $$
     --8<-- "./examples/numerical_propagation/integrator_tolerances.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_tolerances.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_tolerances.rs.txt"
+        ```
+
 ## Customizing Configuration
 
 ### Python Builder Pattern
@@ -152,6 +207,17 @@ In Rust, use struct update syntax (`..`) to customize from defaults:
     ``` rust
     --8<-- "./examples/numerical_propagation/integrator_builder_pattern.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_builder_pattern.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_builder_pattern.rs.txt"
+        ```
 
 ## Preset Configurations
 
@@ -176,6 +242,17 @@ Brahe provides preset configurations for common use cases:
     ``` rust
     --8<-- "./examples/numerical_propagation/integrator_presets.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_presets.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_presets.rs.txt"
+        ```
 
 ## Variational Equations
 

@@ -51,6 +51,17 @@ The `state_oe_to_roe` function converts the classical orbital elements of a chie
     --8<-- "./examples/relative_motion/state_oe_to_roe.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_oe_to_roe.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_oe_to_roe.rs.txt"
+        ```
+
 ## Converting ROE to Deputy Orbital Elements
 
 The `state_roe_to_oe` function performs the inverse operation: given the chief's orbital elements and the desired ROE, it computes the deputy's orbital elements. This is essential for:
@@ -71,6 +82,17 @@ The `state_roe_to_oe` function performs the inverse operation: given the chief's
     --8<-- "./examples/relative_motion/state_roe_to_oe.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_roe_to_oe.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_roe_to_oe.rs.txt"
+        ```
+
 ## Direct ECI State to ROE Conversion
 
 In many practical applications, satellite states are available as Cartesian ECI vectors rather than orbital elements. The `state_eci_to_roe` function provides a convenient way to compute ROE directly from the ECI states of the chief and deputy satellites, internally handling the conversion to orbital elements.
@@ -87,6 +109,17 @@ In many practical applications, satellite states are available as Cartesian ECI 
     --8<-- "./examples/relative_motion/state_eci_to_roe.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_eci_to_roe.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_eci_to_roe.rs.txt"
+        ```
+
 ## Converting ROE to Deputy ECI State
 
 The inverse operation, `state_roe_to_eci`, computes the deputy satellite's ECI state from the chief's ECI state and the ROE.
@@ -102,6 +135,17 @@ The inverse operation, `state_roe_to_eci`, computes the deputy satellite's ECI s
     ``` rust
     --8<-- "./examples/relative_motion/state_roe_to_eci.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_roe_to_eci.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/relative_motion/state_roe_to_eci.rs.txt"
+        ```
 
 ## References
 

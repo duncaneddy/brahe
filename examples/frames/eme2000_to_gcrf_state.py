@@ -28,13 +28,6 @@ print(f"  i    = {oe[2]:.4f}°")
 print(f"  Ω    = {oe[3]:.4f}°")
 print(f"  ω    = {oe[4]:.4f}°")
 print(f"  M    = {oe[5]:.4f}°\n")
-# Orbital elements (degrees):
-#   a    = 6878136.300 m = 500.0 km altitude
-#   e    = 0.0100
-#   i    = 97.8000°
-#   Ω    = 15.0000°
-#   ω    = 30.0000°
-#   M    = 45.0000°
 
 # Convert to EME2000 Cartesian state
 # Note: state_koe_to_eci produces EME2000 states by default
@@ -47,9 +40,6 @@ print(
 print(
     f"  Velocity: [{state_eme2000[3]:.6f}, {state_eme2000[4]:.6f}, {state_eme2000[5]:.6f}] m/s\n"
 )
-# EME2000 state vector:
-#   Position: [1848964.106, -434937.468, 6560410.530] m
-#   Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
 # Transform to GCRF (constant transformation, no epoch needed)
 state_gcrf = bh.state_eme2000_to_gcrf(state_eme2000)
@@ -59,9 +49,6 @@ print(f"  Position: [{state_gcrf[0]:.3f}, {state_gcrf[1]:.3f}, {state_gcrf[2]:.3
 print(
     f"  Velocity: [{state_gcrf[3]:.6f}, {state_gcrf[4]:.6f}, {state_gcrf[5]:.6f}] m/s\n"
 )
-# GCRF state vector:
-#   Position: [1848963.547, -434937.816, 6560410.665] m
-#   Velocity: [-7098.380042, -2173.344428, 1913.332741] m/s
 
 # Transform back to EME2000 to verify round-trip
 state_eme2000_back = bh.state_gcrf_to_eme2000(state_gcrf)
@@ -73,17 +60,10 @@ print(
 print(
     f"  Velocity: [{state_eme2000_back[3]:.6f}, {state_eme2000_back[4]:.6f}, {state_eme2000_back[5]:.6f}] m/s\n"
 )
-# EME2000 state vector (transformed from GCRF):
-#   Position: [1848964.106, -434937.468, 6560410.530] m
-#   Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
-# Verify round-trip transformation
 diff_pos = np.linalg.norm(state_eme2000[0:3] - state_eme2000_back[0:3])
 diff_vel = np.linalg.norm(state_eme2000[3:6] - state_eme2000_back[3:6])
 print("Round-trip error:")
 print(f"  Position: {diff_pos:.6e} m")
 print(f"  Velocity: {diff_vel:.6e} m/s")
 print("\nNote: Transformation is constant (time-independent, no epoch needed)")
-# Round-trip error:
-#   Position: 3.863884e-08 m
-#   Velocity: 3.876304e-11 m/s

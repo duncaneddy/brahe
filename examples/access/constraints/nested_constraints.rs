@@ -12,5 +12,5 @@ fn main() {
     let constraint = bh::ConstraintComposite::All(vec![high_elev, daytime, look_right]);
 
     println!("Created: {}", constraint);
-    // Created: ElevationConstraint(>= 60.00°) && LocalTimeConstraint(08:00-18:00) && LookDirectionConstraint(Right)
 }
+

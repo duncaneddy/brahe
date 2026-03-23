@@ -43,10 +43,5 @@ fn main() {
     println!("Third-body: {:?}", force_config.third_body);
     println!("Relativity: {:?}", force_config.relativity);
     println!("Mass: {:?}", force_config.mass);
-    // Gravity: SphericalHarmonic { source: ModelType(EGM2008_360), degree: 20, order: 20 }
-    // Drag: Some(DragConfiguration { model: HarrisPriester, area: ParameterIndex(1), cd: ParameterIndex(2) })
-    // SRP: Some(SolarRadiationPressureConfiguration { area: ParameterIndex(3), cr: ParameterIndex(4), eclipse_model: Conical })
-    // Third-body: Some(ThirdBodyConfiguration { ephemeris_source: DE440s, bodies: [Sun, Moon] })
-    // Relativity: true
-    // Mass: Some(Value(1000.0))
 }
+

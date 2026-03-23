@@ -56,14 +56,3 @@ fn main() {
     }
 }
 
-// Output:
-// Length: 10
-// Timespan: 540.0 seconds
-// Start epoch: 2024-01-01 00:00:00.000 UTC
-// End epoch: 2024-01-01 00:09:00.000 UTC
-
-// Interpolated state at 2024-01-01 00:00:45.000 UTC:
-//   Position (km): [1159.0159730226278, 6101.297890257402, 2925.16369357997] km
-//   Velocity (m/s): [-5578.867341523014, -1338.7748300095711, 5004.22925363932] m/s
-// State 0: Epoch=2024-01-01 00:00:00.000 UTC, Position magnitude=6871.26 km
-// State 1: Epoch=2024-01-01 00:01:00.000 UTC, Position magnitude=6871.29 km

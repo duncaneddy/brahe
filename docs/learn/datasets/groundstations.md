@@ -59,6 +59,17 @@ Load groundstation data from one or more providers:
     --8<-- "./examples/datasets/groundstations_load.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/groundstations_load.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/groundstations_load.rs.txt"
+        ```
+
 ### Accessing Properties
 
 Each groundstation includes geographic coordinates and metadata:
@@ -75,6 +86,17 @@ Each groundstation includes geographic coordinates and metadata:
     --8<-- "./examples/datasets/groundstations_properties.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/groundstations_properties.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/groundstations_properties.rs.txt"
+        ```
+
 ### Computing Access Windows
 
 Use groundstation data with brahe's access computation to find contact opportunities:
@@ -90,6 +112,17 @@ Use groundstation data with brahe's access computation to find contact opportuni
     ``` rust
     --8<-- "./examples/datasets/groundstations_access.rs:7"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/groundstations_access.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/groundstations_access.rs.txt"
+        ```
 
 ## Data Format
 

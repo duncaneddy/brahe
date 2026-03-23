@@ -53,6 +53,17 @@ Download a kernel and use the cached location:
     --8<-- "./examples/datasets/naif_download_kernel.rs:9"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/naif_download_kernel.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/naif_download_kernel.rs.txt"
+        ```
+
 The first call downloads and caches the kernel. Subsequent calls immediately return the cached file path.
 
 ## Error Handling

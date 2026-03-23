@@ -122,6 +122,17 @@ Here's a complete example demonstrating all threading configuration functions:
     --8<-- "./examples/utilities/parallelization.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/utilities/parallelization.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/utilities/parallelization.rs.txt"
+        ```
+
 ---
 
 ## See Also

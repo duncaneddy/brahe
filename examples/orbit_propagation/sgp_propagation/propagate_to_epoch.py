@@ -20,8 +20,3 @@ prop.propagate_to(target)
 print(f"Target epoch: {target}")
 print(f"Current epoch: {prop.current_epoch()}")
 print(f"Trajectory contains {len(prop.trajectory)} states")
-
-# Expected output:
-# Target epoch: 2008-09-20 14:25:40.104 UTC
-# Current epoch: 2008-09-20 14:25:40.104 UTC
-# Trajectory contains 121 states

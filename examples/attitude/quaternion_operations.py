@@ -80,29 +80,3 @@ q_slerp_1 = q_x.slerp(q_z, 1.0)  # t=1, should equal q_z
 print(
     f"  t=1.0: [{q_slerp_1.w:.6f}, {q_slerp_1.x:.6f}, {q_slerp_1.y:.6f}, {q_slerp_1.z:.6f}]"
 )
-
-# Expected output:
-# Original quaternion:
-#   q = [0.923880, 0.000000, 0.000000, 0.382683]
-
-# To rotation matrix:
-#   [0.707107, 0.707107, 0.000000]
-#   [-0.707107, 0.707107, 0.000000]
-#   [0.000000, 0.000000, 1.000000]
-
-# To Euler angles (ZYX):
-#   Yaw (Z):   45.000°
-#   Pitch (Y): 0.000°
-#   Roll (X):  -0.000°
-
-# To Euler angles (XYZ):
-#   Angle 1 (X): 0.000°
-#   Angle 2 (Y): -0.000°
-#   Angle 3 (Z): 45.000°
-
-# To Euler axis:
-#   Axis: [0.000000, 0.000000, 1.000000]
-#   Angle: 45.000°
-
-# Round-trip (Quaternion → RotationMatrix → Quaternion):
-#   q_rt = [0.923880, 0.000000, 0.000000, 0.382683]

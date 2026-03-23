@@ -18,8 +18,6 @@ query = (
 
 url_path = query.build()
 print(f"All non-decayed objects:\n  {url_path}")
-# All non-decayed objects:
-#   /basicspacedata/query/class/gp/DECAY_DATE/null-val/orderby/NORAD_CAT_ID asc/format/json
 
 # Filter to only active payloads (exclude debris and rocket bodies)
 query = (
@@ -31,8 +29,6 @@ query = (
 
 url_path = query.build()
 print(f"\nActive payloads only:\n  {url_path}")
-# Active payloads only:
-#   /basicspacedata/query/class/gp/DECAY_DATE/null-val/OBJECT_TYPE/PAYLOAD/orderby/NORAD_CAT_ID asc/format/json
 
 # Filter to active objects in LEO (period under 128 minutes)
 query = (
@@ -44,5 +40,3 @@ query = (
 
 url_path = query.build()
 print(f"\nActive LEO objects:\n  {url_path}")
-# Active LEO objects:
-#   /basicspacedata/query/class/gp/DECAY_DATE/null-val/PERIOD/<128/orderby/NORAD_CAT_ID asc/format/json

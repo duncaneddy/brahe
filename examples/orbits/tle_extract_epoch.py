@@ -14,7 +14,3 @@ epoch = bh.epoch_from_tle(line1)
 
 print(f"TLE Epoch: {epoch}")
 print(f"Time System: {epoch.time_system}")
-
-# Expected output:
-# TLE Epoch: 2025-10-29 11:44:55.862 UTC
-# Time System: UTC

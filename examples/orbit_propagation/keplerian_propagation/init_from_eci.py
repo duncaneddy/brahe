@@ -21,4 +21,3 @@ state_eci = bh.state_koe_to_eci(elements, bh.AngleFormat.DEGREES)
 prop = bh.KeplerianPropagator.from_eci(epoch, state_eci, 60.0)
 
 print(f"Initial position magnitude: {np.linalg.norm(state_eci[:3]) / 1e3:.1f} km")
-# Initial position magnitude: 6873.3 km

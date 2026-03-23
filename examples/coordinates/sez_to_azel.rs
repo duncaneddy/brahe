@@ -30,10 +30,5 @@ fn main() {
                  azel[0], azel[1], azel[2] / 1000.0);
     }
 
-    // Expected outputs:
-    // Directly overhead: Az=0.0°, El=90.0°, Range=100.0km
-    // North horizon: Az=0.0°, El=0.0°, Range=100.0km
-    // East horizon: Az=90.0°, El=0.0°, Range=100.0km
-    // South horizon: Az=180.0°, El=0.0°, Range=100.0km
-    // West horizon: Az=270.0°, El=0.0°, Range=100.0km
 }
+

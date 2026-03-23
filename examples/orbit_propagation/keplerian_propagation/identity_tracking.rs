@@ -17,9 +17,7 @@ fn main() {
     ).with_name("Satellite-A").with_id(12345);
 
     println!("Name: {:?}", prop.get_name());
-    // Name: Some("Satellite-A")
     println!("ID: {:?}", prop.get_id());
-    // ID: Some(12345)
     println!("UUID: {:?}", prop.get_uuid());
-    // UUID: None (because not set)
 }
+

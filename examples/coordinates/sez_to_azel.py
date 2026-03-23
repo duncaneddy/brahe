@@ -33,10 +33,3 @@ for name, sez in test_cases:
     print(
         f"  Az/El: Az={azel[0]:.1f}°, El={azel[1]:.1f}°, Range={azel[2] / 1000:.1f}km\n"
     )
-
-# Expected outputs:
-# Directly overhead: Az=0.0°, El=90.0°, Range=100.0km
-# North horizon: Az=0.0°, El=0.0°, Range=100.0km
-# East horizon: Az=90.0°, El=0.0°, Range=100.0km
-# South horizon: Az=180.0°, El=0.0°, Range=100.0km
-# West horizon: Az=270.0°, El=0.0°, Range=100.0km

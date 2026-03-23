@@ -20,6 +20,3 @@ config_custom = (
 print(f"Method: {config.method}")
 print(f"abs_tol: {config.abs_tol}")
 print(f"rel_tol: {config.rel_tol}")
-# Method: IntegrationMethod.RKN1210
-# abs_tol: 1e-10
-# rel_tol: 1e-08

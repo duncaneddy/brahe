@@ -26,27 +26,14 @@ fn main() {
     // Convert Keplerian state to ECI coordinates
     let state_eci = state_koe_to_eci(state_kep, AngleFormat::Degrees);
     println!("ECI Coordinates: {:?}", state_eci);
-    // Outputs:
-    // ECI Coordinates: [2026514.0589990876, -527290.0808564089, 6756067.089961103, -6931.980949848838, -2160.9799111629056, 1916.1856855691967]
-
-    // Define a time epoch
     let epoch = Epoch::from_datetime(2024, 6, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
     // Convert ECI coordinates to ECEF coordinates at the given epoch
     let state_ecef = state_eci_to_ecef(epoch, state_eci);
     println!("ECEF Coordinates: {:?}", state_ecef);
-    // Outputs:
-    // ECEF Coordinates: [186480.17260881448, -2070225.9929370368, 6760815.482882127, -4538.863726757974, 5777.023453395301, 1899.7320274086795]
-
-    // Convert back from ECEF to ECI coordinates
     let state_eci_2 = state_ecef_to_eci(epoch, state_ecef);
     println!("Recovered ECI Coordinates: {:?}", state_eci_2);
-    // Outputs:
-    // Recovered ECI Coordinates: [2026514.0589990876, -527290.0808564089, 6756067.089961103, -6931.980949848838, -2160.9799111629056, 1916.1856855691967]
-
-    // Convert back from ECI to Keplerian elements
     let state_kep_2 = state_eci_to_koe(state_eci_2, AngleFormat::Degrees);
     println!("Recovered Keplerian Elements: {:?}", state_kep_2);
-    // Outputs:
-    // Recovered Keplerian Elements: [7078136.3, 0.001, 98.7, 15.0, 30.0, 45.0]
 }
+

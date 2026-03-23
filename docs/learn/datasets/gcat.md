@@ -67,6 +67,17 @@ Download the SATCAT catalog and look up records by SATCAT number or JCAT identif
     --8<-- "./examples/datasets/gcat_get_satcat.rs:8"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/gcat_get_satcat.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/gcat_get_satcat.rs.txt"
+        ```
+
 ### Searching and Filtering
 
 Use name search and filter chaining to narrow down the catalog:
@@ -82,6 +93,17 @@ Use name search and filter chaining to narrow down the catalog:
     ``` rust
     --8<-- "./examples/datasets/gcat_search_filter.rs:8"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/gcat_search_filter.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/gcat_search_filter.rs.txt"
+        ```
 
 All filter methods return new catalog instances (immutable pattern), so the original catalog is never modified. This enables chaining multiple filters to progressively narrow results.
 
@@ -100,6 +122,17 @@ Download the PSATCAT catalog and use payload-specific filters:
     ``` rust
     --8<-- "./examples/datasets/gcat_psatcat.rs:8"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/datasets/gcat_psatcat.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/datasets/gcat_psatcat.rs.txt"
+        ```
 
 ### DataFrame Export
 

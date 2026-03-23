@@ -32,3 +32,4 @@ fn main() {
     println!("Frame: {}", traj.frame);  // Output: ECI
     println!("Representation: {}", traj.representation);  // Output: Keplerian
 }
+

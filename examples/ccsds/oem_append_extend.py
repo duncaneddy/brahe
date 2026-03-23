@@ -33,7 +33,6 @@ seg.add_state(
     epoch=epoch1 + 120.0, position=[6996e3, 900e3, 0.0], velocity=[0.0, 7497.0, 0.0]
 )
 print(f"After add_state x3: {seg.num_states} states")
-# After add_state x3: 3 states
 
 # Verify standalone states
 states = seg.states  # Returns a list copy for standalone segments
@@ -54,7 +53,6 @@ idx = oem.add_segment(
     stop_time=epoch1 + 300.0,
 )
 print(f"\nOEM segments: {len(oem.segments)}")
-# OEM segments: 1
 
 # Append states to the OEM segment (proxy mode — mutations reflect back)
 proxy_seg = oem.segments[idx]
@@ -63,7 +61,6 @@ proxy_seg.states.append(
     OEMStateVector(epoch1 + 60.0, [7999e3, 432e3, 0.0], [0.0, 7199.0, 0.0])
 )
 print(f"Proxy segment states: {proxy_seg.num_states}")
-# Proxy segment states: 2
 
 # Extend with more states
 proxy_seg.states.extend(
@@ -72,17 +69,14 @@ proxy_seg.states.extend(
     ]
 )
 print(f"After extend: {proxy_seg.num_states}")
-# After extend: 3
 
 # Delete a state
 del proxy_seg.states[1]  # Remove the middle state
 print(f"After del [1]: {proxy_seg.num_states} states")
-# After del [1]: 2 states
 
 # ── Append standalone segment to OEM ──
 oem.segments.append(seg)
 print(f"\nAfter append standalone segment: {len(oem.segments)} segments")
-# After append standalone segment: 2
 
 # Access the appended segment (now in proxy mode)
 appended = oem.segments[1]
@@ -92,8 +86,6 @@ print(f"  Segment 1: {appended.object_name}, {appended.num_states} states")
 del oem.segments[0]  # Remove the first segment
 print(f"After del segment[0]: {len(oem.segments)} segment(s)")
 print(f"  Remaining: {oem.segments[0].object_name}")
-# After del segment[0]: 1 segment(s)
-# Remaining: TEST SAT
 
 # ── Extend with multiple segments ──
 seg2 = OEMSegment(
@@ -107,7 +99,6 @@ seg2 = OEMSegment(
 )
 oem.segments.extend([seg2])
 print(f"After extend segments: {len(oem.segments)}")
-# After extend segments: 2
 
 # ── Verify round-trip ──
 kvn = oem.to_string("KVN")

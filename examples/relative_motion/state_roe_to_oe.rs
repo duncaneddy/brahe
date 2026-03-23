@@ -39,11 +39,5 @@ fn main() {
     println!("RAAN:            {:.4}°", oe_deputy[3]);
     println!("Arg of perigee:  {:.4}°", oe_deputy[4]);
     println!("Mean anomaly:    {:.4}°", oe_deputy[5]);
-    // Deputy Satellite Orbital Elements:
-    // Semi-major axis: 7079136.300 m (701.0 km alt)
-    // Eccentricity:    0.001500
-    // Inclination:     97.8500°
-    // RAAN:            15.0500°
-    // Arg of perigee:  30.0500°
-    // Mean anomaly:    45.0500°
 }
+

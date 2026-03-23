@@ -33,11 +33,3 @@ print(f"Frame (str): {traj_ecef.frame}")  # Output: ECEF
 print(
     f"Frame (repr): {repr(traj_ecef.frame)}"
 )  # Output: OrbitFrame(Earth-Centered Earth-Fixed)
-
-# Output:
-# Frame (str): ECI
-# Frame (repr): OrbitFrame(Earth-Centered Inertial)
-# Representation (str): Cartesian
-# Representation (repr): OrbitRepresentation(Cartesian)
-# Frame (str): ECEF
-# Frame (repr): OrbitFrame(Earth-Centered Earth-Fixed)

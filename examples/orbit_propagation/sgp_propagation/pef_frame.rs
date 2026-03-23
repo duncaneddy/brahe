@@ -13,6 +13,5 @@ fn main() {
     // Get state in PEF frame (TEME rotated by GMST)
     let state_pef = prop.state_pef(prop.epoch);
     println!("PEF position: {:?}", state_pef.fixed_rows::<3>(0) / 1e3);
-    // Expected output:
-    // PEF position: [[-3953.2057482107907, 1427.514600436758, 5243.614536966578]]
 }
+

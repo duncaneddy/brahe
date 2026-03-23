@@ -62,6 +62,17 @@ We can implement this analytical Jacobian in Brahe as follows:
     --8<-- "./examples/mathematics/analytical_jacobian.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/mathematics/analytical_jacobian.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/mathematics/analytical_jacobian.rs.txt"
+        ```
+
 ### When to Use Analytical Jacobians
 
 - Derivatives are simple to compute (e.g., linear systems, Keplerian dynamics)
@@ -122,6 +133,17 @@ We can implement the same 2D harmonic oscillator example using a numerical Jacob
     --8<-- "./examples/mathematics/numerical_jacobian.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/mathematics/numerical_jacobian.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/mathematics/numerical_jacobian.rs.txt"
+        ```
+
 
 ## Comparing Methods
 
@@ -136,6 +158,17 @@ We can implement the same 2D harmonic oscillator example using a numerical Jacob
     ``` rust
     --8<-- "./examples/mathematics/jacobian_methods.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/mathematics/jacobian_methods.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/mathematics/jacobian_methods.rs.txt"
+        ```
 
 ## Perturbation Strategies
 
@@ -196,6 +229,17 @@ jacobian = bh.NumericalJacobian.central(dynamics) \\
     ``` rust
     --8<-- "./examples/mathematics/perturbation_strategies.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/mathematics/perturbation_strategies.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/mathematics/perturbation_strategies.rs.txt"
+        ```
 
 ## Using with Integrators
 

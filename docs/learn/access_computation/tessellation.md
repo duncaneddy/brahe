@@ -34,6 +34,17 @@ The `OrbitGeometryTessellatorConfig` controls tile dimensions, overlap, and asce
     --8<-- "./examples/access/tessellation/config_creation.rs:5"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/config_creation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/config_creation.rs.txt"
+        ```
+
 ## Point Tessellation
 
 Tessellating a `PointLocation` creates one tile per pass direction, centered on the point. With `AscDsc.ASCENDING`, a single tile is created; with `AscDsc.EITHER`, up to two tiles are created (one per direction). At high latitudes where ascending and descending ground tracks converge, redundant tiles may be automatically merged.
@@ -49,6 +60,17 @@ Tessellating a `PointLocation` creates one tile per pass direction, centered on 
     ``` rust
     --8<-- "./examples/access/tessellation/point_tessellation.rs:5"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/point_tessellation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/point_tessellation.rs.txt"
+        ```
 
 The figure below shows the difference between ascending-only and ascending+descending tessellation for a single point near San Francisco. Each tile direction produces a rectangle aligned to the satellite ground track at that latitude.
 
@@ -78,6 +100,17 @@ Tessellating a `PolygonLocation` divides the area into cross-track strips perpen
     ``` rust
     --8<-- "./examples/access/tessellation/polygon_tessellation.rs:5"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/polygon_tessellation.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/polygon_tessellation.rs.txt"
+        ```
 
 The figure below shows England tessellated with 50 km tiles. Tiles are colored by `tile_group_id` — each color represents tiles sharing the same ground-track direction (ascending vs descending). The dashed line is the input polygon boundary.
 
@@ -145,6 +178,17 @@ Each output tile is a `PolygonLocation` with metadata properties stored in its `
     --8<-- "./examples/access/tessellation/tile_properties.rs:5"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/tile_properties.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/tile_properties.rs.txt"
+        ```
+
 ## Merging Tiles from Multiple Spacecraft
 
 When multiple spacecraft have similar orbital planes, their ground-track directions at a given latitude will be similar. The `tile_merge_orbit_geometry` function clusters tiles by direction and merges groups whose directions fall within a configurable angular threshold. Rather than creating duplicate tiles, it adds the additional spacecraft's ID to the base tile's `spacecraft_ids` list.
@@ -160,6 +204,17 @@ When multiple spacecraft have similar orbital planes, their ground-track directi
     ``` rust
     --8<-- "./examples/access/tessellation/tile_merging.rs:5"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/tile_merging.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/tessellation/tile_merging.rs.txt"
+        ```
 
 The figure below shows tiles from two spacecraft with slightly different inclinations (~1.4° offset). Before merging, the tiles from SC-1 and SC-2 are visibly offset; after merging with a 2° angular threshold, overlapping tiles are combined with both spacecraft IDs in the `spacecraft_ids` list.
 

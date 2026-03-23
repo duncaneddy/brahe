@@ -14,6 +14,17 @@ Brahe provides a global space weather provider that supplies geomagnetic indices
     --8<-- "./examples/space_weather/initialize_sw.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/space_weather/initialize_sw.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/space_weather/initialize_sw.rs.txt"
+        ```
+
 !!! warning
 
     Space weather data **MUST** be initialized before using any functionality that requires it. If no data is initialized, brahe will panic and terminate the program.
@@ -40,6 +51,17 @@ A static provider uses fixed values for all space weather parameters. This is us
     --8<-- "./examples/space_weather/static_sw.rs:3"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/space_weather/static_sw.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/space_weather/static_sw.rs.txt"
+        ```
+
 ### FileSpaceWeatherProvider
 
 Load space weather data from CSSI format files. Brahe includes a default data file that is updated with each release.
@@ -56,6 +78,17 @@ Load space weather data from CSSI format files. Brahe includes a default data fi
     --8<-- "./examples/space_weather/file_sw.rs:3"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/space_weather/file_sw.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/space_weather/file_sw.rs.txt"
+        ```
+
 ### CachingSpaceWeatherProvider
 
 The caching provider automatically downloads and manages space weather data files from CelesTrak. It checks file age and updates when the cache becomes stale.
@@ -71,6 +104,17 @@ The caching provider automatically downloads and manages space weather data file
     ``` rust
     --8<-- "./examples/space_weather/caching_sw.rs:3"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/space_weather/caching_sw.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/space_weather/caching_sw.rs.txt"
+        ```
 
 ## Extrapolation Options
 
@@ -96,6 +140,17 @@ Query space weather data using the global functions:
     --8<-- "./examples/space_weather/accessing_sw_data.rs:3"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/space_weather/accessing_sw_data.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/space_weather/accessing_sw_data.rs.txt"
+        ```
+
 ## Range Data Access
 
 The space weather providers also support querying data over a date range, returning a vector of values from before the specific time. This is useful to providing the weather history for drag models.
@@ -111,6 +166,17 @@ The space weather providers also support querying data over a date range, return
     ``` rust
     --8<-- "./examples/space_weather/historical_sw_data.rs:3"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/space_weather/historical_sw_data.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/space_weather/historical_sw_data.rs.txt"
+        ```
 
 ---
 

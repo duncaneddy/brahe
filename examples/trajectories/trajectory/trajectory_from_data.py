@@ -26,4 +26,3 @@ states = np.array([state0, state1, state2])
 traj = bh.Trajectory.from_data(epochs, states)
 
 print(f"Trajectory length: {len(traj)}")
-# Trajectory length: 3

@@ -99,9 +99,3 @@ print(
 print(
     f"  Coast only:  {r_coast / 1000:.3f} km (delta_r = {(r_coast - r_initial) / 1000:.3f} km)"
 )
-# Initial radius: 6878.136 km
-# Orbital period: 1.58 hours
-
-# After one orbit:
-#   With thrust: 6889.325 km (delta_r = 11.189 km)
-#   Coast only:  6878.136 km (delta_r = 0.000 km)

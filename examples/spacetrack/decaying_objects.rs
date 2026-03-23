@@ -14,8 +14,6 @@ fn main() {
 
     let url_path = query.build();
     println!("Decaying within 30 days:\n  {}", url_path);
-    // Decaying within 30 days:
-    //   /basicspacedata/query/class/decay/DECAY_EPOCH/now--now+30/orderby/DECAY_EPOCH asc/format/json
 
     // Get recent actual decays from the past 7 days
     let query = SpaceTrackQuery::new(RequestClass::Decay)
@@ -25,6 +23,5 @@ fn main() {
 
     let url_path = query.build();
     println!("\nRecent decays (last 7 days):\n  {}", url_path);
-    // Recent decays (last 7 days):
-    //   /basicspacedata/query/class/decay/DECAY_EPOCH/now-7--now/MSG_TYPE/Decay/orderby/DECAY_EPOCH desc/format/json
 }
+

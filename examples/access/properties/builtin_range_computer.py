@@ -12,7 +12,6 @@ bh.initialize_eop()
 # Compute range at 50 evenly-spaced points
 range_comp = bh.RangeComputer(sampling_config=bh.SamplingConfig.fixed_count(50))
 print(f"Range computer: {range_comp}")
-# Range computer: RangeComputer(sampling=FixedCount(50))
 
 
 # Create a simple scenario to demonstrate usage
@@ -44,4 +43,3 @@ range_data = window.properties.additional["range"]
 distances_m = range_data["values"]  # meters
 distances_km = [d / 1000.0 for d in distances_m]
 print(f"\nRange varies from {min(distances_km):.1f} to {max(distances_km):.1f} km")
-# Range varies from 658.9 to 1501.0 km

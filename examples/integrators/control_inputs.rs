@@ -82,9 +82,3 @@ fn main() {
     println!("Orbit raised by: {:.3} km", delta_r / 1000.0);
 }
 
-// Initial radius: 6878.136 km
-// Orbital period: 1.58 hours
-
-// After one orbit:
-//   With thrust: 6889.325 km (delta_r = 11.189 km)
-//   Coast only:  6878.136 km (delta_r = 0.000 km)

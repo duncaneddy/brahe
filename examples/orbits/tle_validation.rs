@@ -34,12 +34,5 @@ fn main() {
     let is_corrupted_valid = bh::validate_tle_line(corrupted_line1);
     println!("\nCorrupted line valid: {}", is_corrupted_valid);
 
-    // Expected output:
-    // TLE set valid: true
-    // Line 1 valid: true
-    // Line 2 valid: true
-    // Line 1 checksum: 5
-    // Line 2 checksum: 9
-    //
-    // Corrupted line valid: false
 }
+

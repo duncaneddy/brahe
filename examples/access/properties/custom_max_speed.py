@@ -61,11 +61,3 @@ windows = bh.location_accesses(
 for window in windows:
     speed = window.properties.additional["max_ground_speed"]
     print(f"Max speed: {speed:.1f} m/s")
-
-# Output example:
-# Max speed: 7360.1 m/s
-# Max speed: 7365.5 m/s
-# Max speed: 7361.2 m/s
-# Max speed: 7357.5 m/s
-# Max speed: 7357.8 m/s
-# Max speed: 7360.0 m/s

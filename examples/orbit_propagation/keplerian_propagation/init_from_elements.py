@@ -31,4 +31,3 @@ prop = bh.KeplerianPropagator.from_keplerian(
 )
 
 print(f"Orbital period: {bh.orbital_period(elements[0]):.1f} seconds")
-# Orbital period: 5677.0 seconds

@@ -45,19 +45,3 @@ ea_rep = bh.EulerAxis(axis, angle, bh.AngleFormat.RADIANS)
 q5 = bh.Quaternion.from_euler_axis(ea_rep)
 print("\nFrom Euler axis (45° about Z-axis):")
 print(f"  q = [{q5.w:.3f}, {q5.x:.3f}, {q5.y:.3f}, {q5.z:.3f}]")
-
-# Expected output:
-# From components (identity):
-#   q = [0.924, 0.000, 0.000, 0.383]
-
-# From vector:
-#   q = [0.924, 0.000, 0.000, 0.383]
-
-# From rotation matrix (45° about Z-axis):
-#   q = [0.924, 0.000, 0.000, 0.383]
-
-# From Euler angles (45° yaw, ZYX):
-#   q = [0.924, 0.000, 0.000, 0.383]
-
-# From Euler axis (45° about Z-axis):
-#   q = [0.924, 0.000, 0.000, 0.383]

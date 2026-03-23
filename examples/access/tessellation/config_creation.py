@@ -31,15 +31,3 @@ custom_config = bh.OrbitGeometryTessellatorConfig(
 print(f"\nCustom image_width: {custom_config.image_width} m")
 print(f"Custom image_length: {custom_config.image_length} m")
 print(f"Custom asc_dsc: {custom_config.asc_dsc}")
-
-# Expected output:
-# Default image_width: 5000.0 m
-# Default image_length: 5000.0 m
-# Default crosstrack_overlap: 200.0 m
-# Default alongtrack_overlap: 200.0 m
-# Default min_image_length: 5000.0 m
-# Default max_image_length: 5000.0 m
-#
-# Custom image_width: 10000.0 m
-# Custom image_length: 15000.0 m
-# Custom asc_dsc: AscDsc.ASCENDING

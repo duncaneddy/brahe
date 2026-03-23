@@ -86,39 +86,3 @@ print(f"  Central:  {error_central:.2e} (O(h²))")
 print(f"  Backward: {error_backward:.2e} (O(h))")
 print(f"\nCentral is {error_forward / error_central:.1f}x more accurate than forward")
 print(f"Central is {error_backward / error_central:.1f}x more accurate than backward")
-
-# Expected output:
-# Forward Difference Jacobian:
-# [ 0.00e+00   0.00e+00   0.00e+00   1.00e+00   0.00e+00   0.00e+00]
-# [ 0.00e+00   0.00e+00   0.00e+00   0.00e+00   1.00e+00   0.00e+00]
-# [ 0.00e+00   0.00e+00   0.00e+00   0.00e+00   0.00e+00   1.00e+00]
-# [ 2.45e-06   0.00e+00   0.00e+00   0.00e+00   0.00e+00   0.00e+00]
-# [ 0.00e+00  -1.22e-06   0.00e+00   0.00e+00   0.00e+00   0.00e+00]
-# [ 0.00e+00   0.00e+00  -1.22e-06   0.00e+00   0.00e+00   0.00e+00]
-# Error: 5.54e-14
-
-# Central Difference Jacobian:
-# [ 0.00e+00   0.00e+00   0.00e+00   1.00e+00   0.00e+00   0.00e+00]
-# [ 0.00e+00   0.00e+00   0.00e+00   0.00e+00   1.00e+00   0.00e+00]
-# [ 0.00e+00   0.00e+00   0.00e+00   0.00e+00   0.00e+00   1.00e+00]
-# [ 2.45e-06   0.00e+00   0.00e+00   0.00e+00   0.00e+00   0.00e+00]
-# [ 0.00e+00  -1.22e-06   0.00e+00   0.00e+00   0.00e+00   0.00e+00]
-# [ 0.00e+00   0.00e+00  -1.22e-06   0.00e+00   0.00e+00   0.00e+00]
-# Error: 5.27e-15
-
-# Backward Difference Jacobian:
-# [ 0.00e+00   0.00e+00   0.00e+00   1.00e+00   0.00e+00   0.00e+00]
-# [ 0.00e+00   0.00e+00   0.00e+00   0.00e+00   1.00e+00   0.00e+00]
-# [ 0.00e+00   0.00e+00   0.00e+00   0.00e+00   0.00e+00   1.00e+00]
-# [ 2.45e-06   0.00e+00   0.00e+00   0.00e+00   0.00e+00   0.00e+00]
-# [ 0.00e+00  -1.22e-06   0.00e+00   0.00e+00   0.00e+00   0.00e+00]
-# [ 0.00e+00   0.00e+00  -1.22e-06   0.00e+00   0.00e+00   0.00e+00]
-# Error: 6.59e-14
-
-# Accuracy Comparison:
-#   Forward:  5.54e-14 (O(h))
-#   Central:  5.27e-15 (O(h²))
-#   Backward: 6.59e-14 (O(h))
-
-# Central is 10.5x more accurate than forward
-# Central is 12.5x more accurate than backward

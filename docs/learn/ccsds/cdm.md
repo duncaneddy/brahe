@@ -60,6 +60,17 @@ Build a CDM programmatically by constructing state vectors, covariance matrices,
     --8<-- "./examples/ccsds/cdm_create_write.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/ccsds/cdm_create_write.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/ccsds/cdm_create_write.rs.txt"
+        ```
+
 ## What a CDM Contains
 
 Every CDM has a **header** (version, creation date, originator, message ID), **relative metadata** (TCA, miss distance, optional collision probability and screening volume), and exactly **two object sections**.

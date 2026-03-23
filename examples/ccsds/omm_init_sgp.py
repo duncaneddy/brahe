@@ -65,9 +65,3 @@ for hours in range(0, 25, 6):
     s = prop.state(t)
     r = (s[0] ** 2 + s[1] ** 2 + s[2] ** 2) ** 0.5
     print(f"  +{hours:2d}h: r={r / 1e3:.1f} km")
-# State every 6 hours:
-#   + 0h: r=... km
-#   + 6h: r=... km
-#   +12h: r=... km
-#   +18h: r=... km
-#   +24h: r=... km

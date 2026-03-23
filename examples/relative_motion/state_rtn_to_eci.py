@@ -33,8 +33,6 @@ print(
 print(
     f"Velocity:  [{x_chief[3] / 1e3:.6f}, {x_chief[4] / 1e3:.6f}, {x_chief[5] / 1e3:.6f}] km/s\n"
 )
-# Position:  [1999.015, -424.663, 6771.472] km
-# Velocity:  [-6.939780, -2.131872, 1.920555] km/s
 
 # Define relative state in RTN frame
 # Deputy is 1 km radial, 500 m along-track, -300 m cross-track
@@ -57,12 +55,6 @@ print(f"Cross-track (N): {x_rel_rtn[2]:.3f} m")
 print(f"Velocity R:      {x_rel_rtn[3]:.3f} m/s")
 print(f"Velocity T:      {x_rel_rtn[4]:.3f} m/s")
 print(f"Velocity N:      {x_rel_rtn[5]:.3f} m/s\n")
-# Radial (R):      1000.000 m
-# Along-track (T): 500.000 m
-# Cross-track (N): -300.000 m
-# Velocity R:      0.100 m/s
-# Velocity T:      -0.050 m/s
-# Velocity N:      0.020 m/s
 
 # Transform to absolute deputy ECI state
 x_deputy = bh.state_rtn_to_eci(x_chief, x_rel_rtn)
@@ -74,8 +66,6 @@ print(
 print(
     f"Velocity:  [{x_deputy[3] / 1e3:.6f}, {x_deputy[4] / 1e3:.6f}, {x_deputy[5] / 1e3:.6f}] km/s\n"
 )
-# Position:  [1998.759, -424.578, 6772.598] km
-# Velocity:  [-6.940832, -2.132153, 1.920398] km/s
 
 # Verify by transforming back to RTN
 x_rel_rtn_verify = bh.state_eci_to_rtn(x_chief, x_deputy)
@@ -86,6 +76,3 @@ print(
     f"Recovered RTN: [{x_rel_rtn_verify[0]:.3f}, {x_rel_rtn_verify[1]:.3f}, {x_rel_rtn_verify[2]:.3f}] m"
 )
 print(f"Difference:    {np.linalg.norm(x_rel_rtn - x_rel_rtn_verify):.9f} m")
-# Original RTN:  [1000.000, 500.000, -300.000] m
-# Recovered RTN: [1000.000, 500.000, -300.000] m
-# Difference:    0.000000000 m

@@ -13,21 +13,14 @@ fn main() {
 
     // You can compare two Epoch instances for equality
     println!("epc_1 == epc_2: {}", epc_1 == epc_2);
-    // epc_1 == epc_2: false
     println!("epc_1 == epc_3: {}", epc_1 == epc_3);
-    // epc_1 == epc_3: true
 
     // You can also use inequality and comparison operators
     println!("epc_1 != epc_2: {}", epc_1 != epc_2);
-    // epc_1 != epc_2: true
     println!("epc_1 < epc_2: {}", epc_1 < epc_2);
-    // epc_1 < epc_2: true
     println!("epc_2 < epc_1: {}", epc_2 < epc_1);
-    // epc_2 > epc_1: false
     println!("epc_2 > epc_1: {}", epc_2 > epc_1);
-    // epc_2 > epc_1: true
     println!("epc_1 <= epc_3: {}", epc_1 <= epc_3);
-    // epc_1 <= epc_3: true
     println!("epc_2 >= epc_1: {}", epc_2 >= epc_1);
-    // epc_2 >= epc_1: true
 }
+

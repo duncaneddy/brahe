@@ -109,6 +109,17 @@ Here's a complete example demonstrating all cache directory functions:
     --8<-- "./examples/utilities/caching.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/utilities/caching.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/utilities/caching.rs.txt"
+        ```
+
 ## Cache Management
 
 !!! note "Automatic Cleanup"

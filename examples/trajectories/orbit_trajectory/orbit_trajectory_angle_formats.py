@@ -34,10 +34,3 @@ print(f"  Inclination: {oe_rad[2]:.6f} rad = {np.degrees(oe_rad[2]):.2f}°")
 
 print("\nDegrees version:")
 print(f"  Inclination: {oe_deg[2]:.2f}°")
-
-# Output:
-# Radians version:
-#   Inclination: 0.900000 rad = 51.57°
-
-# Degrees version:
-#   Inclination: 51.57°

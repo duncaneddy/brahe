@@ -20,9 +20,6 @@ print("Ground Station (Stanford):")
 print(f"Longitude: {lon_deg:.5f}° = {np.radians(lon_deg):.6f} rad")
 print(f"Latitude:  {lat_deg:.5f}° = {np.radians(lat_deg):.6f} rad")
 print(f"Altitude:  {alt_m:.1f} m\n")
-# Longitude: -122.17329° = -2.132605 rad
-# Latitude:  37.42692° = 0.653131 rad
-# Altitude:  32.0 m
 
 # Convert ground station to ECEF
 geodetic_station = np.array([lon_deg, lat_deg, alt_m])
@@ -32,13 +29,9 @@ print("Ground Station ECEF:")
 print(f"x = {station_ecef[0]:.3f} m")
 print(f"y = {station_ecef[1]:.3f} m")
 print(f"z = {station_ecef[2]:.3f} m\n")
-# x = -2700691.122 m
-# y = -4292566.016 m
-# z = 3855395.780 m
 
 # Define satellite in sun-synchronous orbit at 500 km altitude
 # SSO orbit passes over Stanford at approximately 10:30 AM local time
-# Orbital elements: [a, e, i, RAAN, omega, M]
 oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 240.0, 0.0, 90.0])
 
 # Define epoch when satellite passes near Stanford (Jan 1, 2024, 17:05 UTC)

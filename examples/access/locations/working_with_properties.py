@@ -31,8 +31,3 @@ uplink = props.get("uplink_enabled")
 print(f"Antenna Gain: {gain}")
 print(f"Operator: {operator}")
 print(f"Uplink Enabled: {uplink}")
-
-# Expected output:
-# Antenna Gain: 42.5
-# Operator: NOAA
-# Uplink Enabled: True

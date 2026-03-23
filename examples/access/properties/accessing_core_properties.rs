@@ -83,17 +83,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-// Expected output (values will vary based on TLE and time):
-// Window 
-//   Start: 2025-11-02 05:39:28.345 UTC
-//   End:   2025-11-02 05:44:00.000 UTC
-//   Duration: 271.7 seconds
-//   Midtime: 2025-11-02 05:41:44.172 UTC
 
-// Properties:
-//   Azimuth - Min: 177.0°, Max: 87.3°
-//   Elevation - Min: 10.0°, Max: 18.7°
-//   Off-nadir - Min: 62.6°, Max: 67.4°
-//   Local time: 05:37.24
-//   Look direction: Left
-//   Ascending/Descending: Ascending

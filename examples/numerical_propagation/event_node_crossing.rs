@@ -97,14 +97,3 @@ fn main() {
     );
 }
 
-// Expected output:
-// Detected 6 node crossing events:
-//   'Descending Node' at t+2831.5s (latitude: -0.13 deg)
-//   'Ascending Node' at t+5663.2s (latitude: 0.13 deg)
-//   'Descending Node' at t+8494.6s (latitude: -0.13 deg)
-//   'Ascending Node' at t+11326.4s (latitude: 0.13 deg)
-//   'Descending Node' at t+14157.5s (latitude: -0.13 deg)
-//   'Ascending Node' at t+16989.6s (latitude: 0.13 deg)
-//
-// Ascending node crossings: 3
-// Descending node crossings: 3

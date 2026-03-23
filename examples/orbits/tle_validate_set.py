@@ -19,8 +19,3 @@ line1_valid = bh.validate_tle_line(line1)
 line2_valid = bh.validate_tle_line(line2)
 print(f"Line 1 valid: {line1_valid}")
 print(f"Line 2 valid: {line2_valid}")
-
-# Expected output:
-# TLE set valid: True
-# Line 1 valid: True
-# Line 2 valid: True

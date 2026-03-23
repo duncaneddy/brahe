@@ -43,9 +43,3 @@ fn main() {
     println!("  Inclination: {:.2}°", oe_deg[2]);
 }
 
-// Output:
-// Radians version:
-//   Inclination: 0.900000 rad = 51.57°
-
-// Degrees version:
-//   Inclination: 51.57°

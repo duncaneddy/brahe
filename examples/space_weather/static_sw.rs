@@ -13,3 +13,4 @@ fn main() {
         bh::space_weather::StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 150.0, 100);
     bh::space_weather::set_global_space_weather_provider(sw_static_values);
 }
+

@@ -37,8 +37,5 @@ fn main() {
         .all(|(a, b)| (a - b).abs() / a.abs().max(1e-10) < 1e-5);
     println!("Elements match: {}", elements_match);
 
-    // Expected output:
-    // Verification:
-    // Epoch matches: true
-    // Elements match: true
 }
+

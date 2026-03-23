@@ -57,6 +57,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// Output:
-// Found 5 access windows with custom configuration
-// Configuration: 60s time step, adaptive=true

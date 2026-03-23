@@ -39,8 +39,5 @@ fn main() {
         );
     }
 
-    // Expected output:
-    // Number of tiles: 1
-    // Tile 0: center=(10.0000, 30.0000)
-    //   width=5000 m, length=5000 m
 }
+

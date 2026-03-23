@@ -59,23 +59,3 @@ fn main() {
     println!("  Angle: {:.1}°", ea_from_euler.angle.to_degrees());
 }
 
-// Expected output:
-// 45° rotation about Z-axis:
-//   Axis: [0.000, 0.000, 1.000]
-//   Angle: 45.0°
-//
-// 90° rotation about X-axis:
-//   Axis: [1.000, 0.000, 0.000]
-//   Angle: 90.0°
-//
-// From quaternion (45° about Z):
-//   Axis: [0.000000, 0.000000, 1.000000]
-//   Angle: 45.0°
-//
-// From rotation matrix (45° about Z):
-//   Axis: [0.000000, 0.000000, 1.000000]
-//   Angle: 45.0°
-//
-// From EulerAngle (45° about Z):
-//   Axis: [0.000000, 0.000000, 1.000000]
-//   Angle: 45.0°

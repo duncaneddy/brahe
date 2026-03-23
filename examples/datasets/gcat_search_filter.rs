@@ -32,13 +32,5 @@ fn main() {
     let sso = operational.filter_by_inc_range(96.0, 99.0);
     println!("Operational SSO payloads: {}", sso.len());
 
-    // Expected output:
-    // Total records: NNNNN
-    //
-    // Starlink name search: NNNN results
-    //
-    // All payloads: NNNNN
-    // Operational payloads: NNNNN
-    // Operational LEO payloads: NNNNN
-    // Operational SSO payloads: NNNN
 }
+

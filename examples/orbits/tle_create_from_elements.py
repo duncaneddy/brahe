@@ -31,8 +31,3 @@ line1, line2 = bh.keplerian_elements_to_tle(epoch, elements, norad_id)
 print("Generated TLE:")
 print(line1)
 print(line2)
-
-# Expected output:
-# Generated TLE:
-# 1 25544U          25302.48953433  .00000000  00000+0  00000+0 0 00002
-# 2 25544  51.6347   1.5519 0004808 353.3325   6.7599 15.49800901000006

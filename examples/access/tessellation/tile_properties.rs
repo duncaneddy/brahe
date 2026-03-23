@@ -48,3 +48,4 @@ fn main() {
     println!("tile_group_id: {}...", &group_id[..8]);
     println!("spacecraft_ids: {}", props["spacecraft_ids"]);
 }
+

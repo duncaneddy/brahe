@@ -25,7 +25,5 @@ fn main() {
     println!("Cartesian state [x, y, z, vx, vy, vz] (m, m/s):");
     println!("Position: [{:.3}, {:.3}, {:.3}]", state[0], state[1], state[2]);
     println!("Velocity: [{:.6}, {:.6}, {:.6}]", state[3], state[4], state[5]);
-    // Cartesian state  (m, m/s):
-    // Position: [-3117582.037, -5092452.343, -3511765.495]
-    // Velocity: [6408.435846, -1407.501408, -3752.763969]
 }
+

@@ -61,6 +61,17 @@ which allows for conversion from true anomaly to eccentric anomaly and is implem
     --8<-- "./examples/orbits/anomaly_true_and_eccentric.rs:8"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/anomaly_true_and_eccentric.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/anomaly_true_and_eccentric.rs.txt"
+        ```
+
 <div class="plotly-embed">
   <iframe class="only-light" src="../../figures/fig_anomaly_true_eccentric_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../../figures/fig_anomaly_true_eccentric_dark.html"  loading="lazy"></iframe>
@@ -126,6 +137,17 @@ This conversion is provided by `anomaly_mean_to_eccentric`.
     --8<-- "./examples/orbits/anomaly_eccentric_and_mean.rs:8"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/anomaly_eccentric_and_mean.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/anomaly_eccentric_and_mean.rs.txt"
+        ```
+
 <div class="plotly-embed">
   <iframe class="only-light" src="../../figures/fig_anomaly_eccentric_mean_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../../figures/fig_anomaly_eccentric_mean_dark.html"  loading="lazy"></iframe>
@@ -155,6 +177,17 @@ provided for convenience. These methods simply wrap successive calls to two
     ``` rust
     --8<-- "./examples/orbits/anomaly_true_and_mean.rs:8"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbits/anomaly_true_and_mean.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbits/anomaly_true_and_mean.rs.txt"
+        ```
 
 <div class="plotly-embed">
   <iframe class="only-light" src="../../figures/fig_anomaly_true_mean_light.html" loading="lazy"></iframe>

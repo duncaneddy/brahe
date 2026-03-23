@@ -57,24 +57,5 @@ fn main() {
     let propagators = walker.as_keplerian_propagators(60.0);
     println!("\nGenerated {} Keplerian propagators", propagators.len());
 
-    // Expected output:
-    // Total satellites: 66
-    // Number of planes: 6
-    // Satellites per plane: 11
-    // Phasing factor: 2
-    // Pattern: Star
-    //
-    // First satellite in each plane (Walker Star):
-    //   Plane 0: RAAN = 0.0 deg
-    //   Plane 1: RAAN = 30.0 deg
-    //   Plane 2: RAAN = 60.0 deg
-    //   Plane 3: RAAN = 90.0 deg
-    //   Plane 4: RAAN = 120.0 deg
-    //   Plane 5: RAAN = 150.0 deg
-    //
-    // Remark: Walker Delta with same P=6 would have 60 deg RAAN spacing
-    // Walker Star spreads planes over 180 deg (0-150 deg)
-    // Walker Delta spreads planes over 360 deg (0-300 deg)
-    //
-    // Generated 66 Keplerian propagators
 }
+

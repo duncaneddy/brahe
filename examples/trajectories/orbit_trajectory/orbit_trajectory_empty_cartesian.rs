@@ -29,10 +29,3 @@ fn main() {
     println!("Frame (Debug): {:?}", traj_ecef.frame);
 }
 
-// Output:
-// Frame (Display): ECI
-// Frame (Debug): OrbitFrame(Earth-Centered Inertial)
-// Representation (Display): OrbitRepresentation(Cartesian)
-// Representation (Debug): Cartesian
-// Frame (Display): ECEF
-// Frame (Debug): OrbitFrame(Earth-Centered Earth-Fixed)

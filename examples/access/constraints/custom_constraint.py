@@ -31,4 +31,3 @@ class MaxRangeConstraint(bh.AccessConstraintComputer):
 constraint = MaxRangeConstraint()
 
 print(f"Created: {constraint.name()}")
-# Created: MaxRange(2000km)

@@ -32,7 +32,3 @@ print(
     f"Keplerian elements: [{state_kep[0]:.1f} km, {state_kep[1]:.4f}, {state_kep[2]:.4f}, "
     f"{state_kep[3]:.4f} deg, {state_kep[4]:.4f} deg, {state_kep[5]:.4f} deg]"
 )
-
-# Expected output:
-# ECEF position (km): [ 5548.63233725  2869.31027561 -2526.64252368]
-# Keplerian elements: [8198150.8 km, 0.1789, 47.9402, 249.8056 deg, 323.0545 deg, 4.5675 deg]

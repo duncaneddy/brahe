@@ -48,17 +48,5 @@ fn main() {
         );
     }
 
-    // Expected output:
-    // Loaded NNNNN PSATCAT records
-    // Active payloads: NNNN
-    //
-    // Communications payloads: NNNNN
-    // Civil payloads: NNNN
-    //
-    // ISS Payload Details:
-    //   Name:       Zarya Cargo Block
-    //   Program:    TsM
-    //   Category:   SS
-    //   Class:      C
-    //   Result:     S
 }
+

@@ -19,8 +19,5 @@ fn main() {
     println!("Standard:  abs={:e}, rel={:e}", config_standard.integrator.abs_tol, config_standard.integrator.rel_tol);
     println!("Precision: abs={:e}, rel={:e}", config_precision.integrator.abs_tol, config_precision.integrator.rel_tol);
     println!("Maximum:   abs={:e}, rel={:e}", config_maximum.integrator.abs_tol, config_maximum.integrator.rel_tol);
-    // Quick:     abs=1e-3, rel=1e-1
-    // Standard:  abs=1e-6, rel=1e-3
-    // Precision: abs=1e-9, rel=1e-6
-    // Maximum:   abs=1e-10, rel=1e-8
 }
+

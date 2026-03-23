@@ -53,29 +53,3 @@ fn main() {
     println!("  Angle: {:.1}°", ea_roundtrip.angle.to_degrees());
 }
 
-// Expected output:
-// Original Euler axis:
-//   Axis: [0.000000, 0.000000, 1.000000]
-//   Angle: 45.0°
-
-// To quaternion:
-//   q = [0.923880, 0.000000, 0.000000, 0.382683]
-
-// To rotation matrix:
-//   [0.707107, 0.707107, 0.000000]
-//   [-0.707107, 0.707107, 0.000000]
-//   [0.000000, 0.000000, 1.000000]
-
-// To Euler angles (ZYX):
-//   Yaw (Z):   45.000°
-//   Pitch (Y): 0.000°
-//   Roll (X):  -0.000°
-
-// To Euler angles (XYZ):
-//   Angle 1 (X): 0.000°
-//   Angle 2 (Y): -0.000°
-//   Angle 3 (Z): 45.000°
-
-// Round-trip (EulerAxis → Quaternion → EulerAxis):
-//   Axis: [0.000000, 0.000000, 1.000000]
-//   Angle: 45.0°

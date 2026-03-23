@@ -13,3 +13,14 @@ The `TimeRange` class provides an easy way to iterate over a range of time insta
     ``` rust
     --8<-- "./examples/time/time_range.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/time_range.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/time_range.rs.txt"
+        ```

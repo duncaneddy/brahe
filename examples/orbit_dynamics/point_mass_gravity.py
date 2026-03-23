@@ -47,17 +47,3 @@ print(f"\nAcceleration magnitude: {accel_mag:.6f} m/s²")
 r_mag = np.linalg.norm(r_sat)
 accel_theoretical = bh.GM_EARTH / (r_mag**2)
 print(f"Theoretical magnitude: {accel_theoretical:.6f} m/s²")
-
-# Expected output:
-# Satellite position (ECI, m):
-#   x = 6871258.164
-#   y = 0.000
-#   z = 0.000
-
-# Point-mass gravity acceleration (m/s²):
-#   ax = -8.442387
-#   ay = -0.000000
-#   az = -0.000000
-
-# Acceleration magnitude: 8.442387 m/s²
-# Theoretical magnitude: 8.442387 m/s²

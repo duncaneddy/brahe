@@ -20,6 +20,17 @@ Create a query by specifying the request class. The default controller is select
     --8<-- "./examples/spacetrack/query_basic.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/spacetrack/query_basic.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/spacetrack/query_basic.rs.txt"
+        ```
+
 ## Filters and Operators
 
 The `operators` module provides functions that generate operator-prefixed strings for filter values. These compose naturally -- `greater_than(now_offset(-7))` nests the time offset inside the comparison operator.
@@ -35,6 +46,17 @@ The `operators` module provides functions that generate operator-prefixed string
     ``` rust
     --8<-- "./examples/spacetrack/query_filters.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/spacetrack/query_filters.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/spacetrack/query_filters.rs.txt"
+        ```
 
 !!! tip "Operator Composition"
     Operators are string-generating functions. You can compose them by nesting:
@@ -58,6 +80,17 @@ Control result ordering, pagination, and field selection. Multiple `order_by` ca
     --8<-- "./examples/spacetrack/query_advanced.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/spacetrack/query_advanced.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/spacetrack/query_advanced.rs.txt"
+        ```
+
 ## Output Formats
 
 The default output format is JSON, which works with `query_json()`, `query_gp()`, and `query_satcat()`. Other formats like TLE, CSV, and KVN are useful with `query_raw()` for direct text output.
@@ -73,6 +106,17 @@ The default output format is JSON, which works with `query_json()`, `query_gp()`
     ``` rust
     --8<-- "./examples/spacetrack/query_formats.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/spacetrack/query_formats.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/spacetrack/query_formats.rs.txt"
+        ```
 
 !!! note "Format and Query Method Compatibility"
     The typed query methods (`query_gp()`, `query_satcat()`, `query_json()`) require JSON format. If you set a non-JSON format, use `query_raw()` to get the raw response string.

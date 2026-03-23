@@ -12,4 +12,3 @@ from brahe import LookDirection
 constraint = bh.LookDirectionConstraint(allowed=LookDirection.LEFT)
 
 print(f"Created: {constraint}")
-# Created: LookDirectionConstraint(Left)

@@ -37,6 +37,17 @@ Calculate the solar radiation pressure acceleration on a satellite, accounting f
     --8<-- "./examples/orbit_dynamics/solar_radiation_pressure.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/solar_radiation_pressure.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/solar_radiation_pressure.rs.txt"
+        ```
+
 
 ## Earth Eclipse (Earth Shadowing)
 
@@ -81,6 +92,17 @@ Determine if a satellite is in Earth's shadow using either the conical or cylind
     ```rust
     --8<-- "./examples/orbit_dynamics/eclipse_detection.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/eclipse_detection.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_dynamics/eclipse_detection.rs.txt"
+        ```
 
 
 ## See Also

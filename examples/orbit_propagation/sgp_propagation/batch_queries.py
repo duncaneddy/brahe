@@ -23,10 +23,3 @@ print(f"Generated {len(states_eci)} states over {len(query_epochs)} orbits")
 for i, state in enumerate(states_eci):
     altitude = (np.linalg.norm(state[:3]) - bh.R_EARTH) / 1e3
     print(f"  Orbit {i}: altitude = {altitude:.1f} km")
-# Expected output:
-# Generated 5 states over 5 orbits
-#   Orbit 0: altitude = 342.1 km
-#   Orbit 1: altitude = 342.3 km
-#   Orbit 2: altitude = 342.7 km
-#   Orbit 3: altitude = 343.3 km
-#   Orbit 4: altitude = 344.0 km

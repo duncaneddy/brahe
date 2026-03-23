@@ -35,10 +35,3 @@ print(f"Periapsis altitude: {periapsis_altitude / 1e3:.3f} km")
 # Compute as a perigee altitude (Earth-specific)
 perigee_altitude = bh.perigee_altitude(a, e)
 print(f"Perigee altitude:   {perigee_altitude / 1e3:.3f} km")
-
-# Expected output:
-# Periapsis velocity: 7689.119 m/s
-# Perigee velocity:   7689.119 m/s
-# Periapsis distance: 6809.355 km
-# Periapsis altitude: 431.219 km
-# Perigee altitude:   431.219 km

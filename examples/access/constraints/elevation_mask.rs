@@ -16,5 +16,5 @@ fn main() {
     let constraint = bh::ElevationMaskConstraint::new(mask_points);
 
     println!("Created: {}", constraint);
-    // Created: ElevationMaskConstraint(Min: 5.00° at 0.00°, Max: 15.00° at 90.00°)
 }
+

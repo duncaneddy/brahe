@@ -30,16 +30,3 @@ if iss:
 record = satcat.get_by_jcat("S049652")
 if record:
     print(f"\nRecord by JCAT S049652: {record.name}")
-
-# Expected output:
-# Loaded NNNNN SATCAT records
-#
-# ISS (by SATCAT number 25544):
-#   JCAT:    S049652
-#   Name:    ISS (Zarya)
-#   Status:  O
-#   Perigee: 408.0 km
-#   Apogee:  418.0 km
-#   Inc:     51.64°
-#
-# Record by JCAT S049652: ISS (Zarya)

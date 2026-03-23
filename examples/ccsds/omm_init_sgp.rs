@@ -78,11 +78,5 @@ fn main() {
         let r = (s[0].powi(2) + s[1].powi(2) + s[2].powi(2)).sqrt();
         println!("  +{:2}h: r={:.1} km", hours, r / 1e3);
     }
-    // Expected output:
-    // State every 6 hours:
-    //   + 0h: r=... km
-    //   + 6h: r=... km
-    //   +12h: r=... km
-    //   +18h: r=... km
-    //   +24h: r=... km
 }
+

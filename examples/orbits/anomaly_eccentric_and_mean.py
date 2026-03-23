@@ -29,9 +29,3 @@ print(f"Round-trip result: {ecc_2:.3f} deg")
 
 # Verify round-trip accuracy
 print(f"Difference:        {abs(ecc - ecc_2):.2e} deg")
-
-# Expected output:
-# Eccentric anomaly: 45.000 deg
-# Mean anomaly:      44.595 deg
-# Round-trip result: 45.000 deg
-# Difference:        0.00e0 deg

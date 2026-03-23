@@ -23,8 +23,3 @@ for i in range(3):
 for epoch, state in traj:
     altitude = (state[0] - bh.R_EARTH) / 1e3
     print(f"Epoch: {epoch}, Altitude: {altitude:.2f} km")
-
-# Output:
-# Epoch: 2024-01-01 00:00:00.000 UTC, Altitude: 500.00 km
-# Epoch: 2024-01-01 00:01:00.000 UTC, Altitude: 501.00 km
-# Epoch: 2024-01-01 00:02:00.000 UTC, Altitude: 502.00 km

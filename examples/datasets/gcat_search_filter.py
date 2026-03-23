@@ -32,13 +32,3 @@ print(f"Operational LEO payloads: {len(leo)}")
 # Filter by inclination range (sun-synchronous orbits ~96-99 deg)
 sso = operational.filter_by_inc_range(96.0, 99.0)
 print(f"Operational SSO payloads: {len(sso)}")
-
-# Expected output:
-# Total records: NNNNN
-#
-# Starlink name search: NNNN results
-#
-# All payloads: NNNNN
-# Operational payloads: NNNNN
-# Operational LEO payloads: NNNNN
-# Operational SSO payloads: NNNN

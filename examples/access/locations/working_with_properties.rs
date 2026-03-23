@@ -27,8 +27,5 @@ fn main() {
         println!("Uplink Enabled: {}", uplink);
     }
 
-    // Expected output:
-    // Antenna Gain: 42.5
-    // Operator: "NOAA"
-    // Uplink Enabled: true
 }
+

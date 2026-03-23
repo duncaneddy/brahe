@@ -24,6 +24,17 @@ The most direct initialization method uses classical Keplerian orbital elements.
     --8<-- "./examples/orbit_propagation/keplerian_propagation/init_from_elements.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/init_from_elements.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/init_from_elements.rs.txt"
+        ```
+
 ### From ECI Cartesian State
 
 Initialize from position and velocity vectors in the Earth-Centered Inertial (ECI) frame.
@@ -40,6 +51,17 @@ Initialize from position and velocity vectors in the Earth-Centered Inertial (EC
     --8<-- "./examples/orbit_propagation/keplerian_propagation/init_from_eci.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/init_from_eci.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/init_from_eci.rs.txt"
+        ```
+
 ### From ECEF Cartesian State
 
 Initialize from position and velocity vectors in the Earth-Centered Earth-Fixed (ECEF) frame. The propagator will automatically convert to ECI internally.
@@ -55,6 +77,17 @@ Initialize from position and velocity vectors in the Earth-Centered Earth-Fixed 
     ``` rust
     --8<-- "./examples/orbit_propagation/keplerian_propagation/init_from_ecef.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/init_from_ecef.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/init_from_ecef.rs.txt"
+        ```
 
 ## Stepping Through Time
 
@@ -74,6 +107,17 @@ One of the primary functions of propagators is to step forward in time, generati
     --8<-- "./examples/orbit_propagation/keplerian_propagation/single_steps.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/single_steps.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/single_steps.rs.txt"
+        ```
+
 ### Multiple Steps
 
 The `propagate_steps()` method allows taking multiple fixed-size steps in one call.
@@ -90,6 +134,17 @@ The `propagate_steps()` method allows taking multiple fixed-size steps in one ca
     --8<-- "./examples/orbit_propagation/keplerian_propagation/multiple_steps.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/multiple_steps.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/multiple_steps.rs.txt"
+        ```
+
 ### Propagate to Target Epoch
 
 For precise time targeting, use `propagate_to()` which adjusts the final step size to exactly reach the target epoch.
@@ -105,6 +160,17 @@ For precise time targeting, use `propagate_to()` which adjusts the final step si
     ``` rust
     --8<-- "./examples/orbit_propagation/keplerian_propagation/propagate_to_epoch.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/propagate_to_epoch.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/propagate_to_epoch.rs.txt"
+        ```
 
 ## Direct State Queries
 
@@ -126,6 +192,17 @@ Single epoch queries like `state()`, `state_eci()`, and `state_ecef()` compute t
     --8<-- "./examples/orbit_propagation/keplerian_propagation/state_query_single.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/state_query_single.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/state_query_single.rs.txt"
+        ```
+
 ### Batch Queries
 
 Batch queries like `states()` and `states_eci()` compute states at each epoch in a provided list.
@@ -141,6 +218,17 @@ Batch queries like `states()` and `states_eci()` compute states at each epoch in
     ``` rust
     --8<-- "./examples/orbit_propagation/keplerian_propagation/state_query_batch.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/state_query_batch.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/state_query_batch.rs.txt"
+        ```
 
 ## Trajectory Management
 
@@ -160,6 +248,17 @@ The propagator stores all stepped states in an internal `OrbitTrajectory`. This 
     --8<-- "./examples/orbit_propagation/keplerian_propagation/trajectory_access.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/trajectory_access.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/trajectory_access.rs.txt"
+        ```
+
 ### Frame Conversions
 
 You can use the OrbitTrajectory's frame conversion methods to get the trajectory in different reference frames.
@@ -176,6 +275,17 @@ You can use the OrbitTrajectory's frame conversion methods to get the trajectory
     --8<-- "./examples/orbit_propagation/keplerian_propagation/trajectory_conversions.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/trajectory_conversions.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/trajectory_conversions.rs.txt"
+        ```
+
 ### Memory Management
 
 Propagators support trajectory memory management via eviction policies to limit memory usage for long-running applications.
@@ -191,6 +301,17 @@ Propagators support trajectory memory management via eviction policies to limit 
     ``` rust
     --8<-- "./examples/orbit_propagation/keplerian_propagation/trajectory_memory.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/trajectory_memory.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/trajectory_memory.rs.txt"
+        ```
 
 ## Configuration and Control
 
@@ -212,6 +333,17 @@ You can reset the propagator to its initial conditions using the `reset()` metho
     --8<-- "./examples/orbit_propagation/keplerian_propagation/reset_propagator.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/reset_propagator.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/reset_propagator.rs.txt"
+        ```
+
 ### Changing Step Size
 
 If you need to adjust the default step size during propagation, use the `set_step_size()` method.
@@ -227,6 +359,17 @@ If you need to adjust the default step size during propagation, use the `set_ste
     ``` rust
     --8<-- "./examples/orbit_propagation/keplerian_propagation/change_step_size.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/change_step_size.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/change_step_size.rs.txt"
+        ```
 
 ## Identity Tracking
 
@@ -245,6 +388,17 @@ Track propagators with names, IDs, or UUIDs for multi-satellite scenarios.
     ``` rust
     --8<-- "./examples/orbit_propagation/keplerian_propagation/identity_tracking.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/identity_tracking.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/orbit_propagation/keplerian_propagation/identity_tracking.rs.txt"
+        ```
 
 ---
 

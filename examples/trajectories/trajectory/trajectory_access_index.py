@@ -30,7 +30,3 @@ retrieved_state = traj.state_at_idx(1)
 
 print(f"Epoch: {retrieved_epoch}")
 print(f"Altitude: {retrieved_state[0] - bh.R_EARTH:.2f} m")
-
-# Output:
-# Epoch: 2024-01-01 00:01:00.000 UTC
-# Altitude: 600000.00 m

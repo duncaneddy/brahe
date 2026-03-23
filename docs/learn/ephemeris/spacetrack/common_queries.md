@@ -20,6 +20,17 @@ The most common query retrieves the latest GP record for a specific satellite. F
     --8<-- "./examples/spacetrack/latest_ephemeris.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/spacetrack/latest_ephemeris.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/spacetrack/latest_ephemeris.rs.txt"
+        ```
+
 ## Latest Ephemeris for Non-Decayed Objects
 
 To query the full active catalog, filter where `DECAY_DATE` equals `null_val()`. This excludes objects that have already reentered. Combine with additional filters like `OBJECT_TYPE` or `PERIOD` to narrow the results.
@@ -35,6 +46,17 @@ To query the full active catalog, filter where `DECAY_DATE` equals `null_val()`.
     ``` rust
     --8<-- "./examples/spacetrack/non_decayed_objects.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/spacetrack/non_decayed_objects.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/spacetrack/non_decayed_objects.rs.txt"
+        ```
 
 !!! tip "Catalog Size"
     The full non-decayed catalog contains tens of thousands of records. Consider adding `OBJECT_TYPE`, orbit regime filters, or `limit()` to keep response sizes manageable.
@@ -54,6 +76,17 @@ The `Decay` request class provides reentry predictions and historical decay reco
     ``` rust
     --8<-- "./examples/spacetrack/decaying_objects.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/spacetrack/decaying_objects.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/spacetrack/decaying_objects.rs.txt"
+        ```
 
 ---
 

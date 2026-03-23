@@ -18,6 +18,17 @@ If you want to skip understanding Earth orientation data for now, you can initia
     --8<-- "./examples/eop/initialize_eop.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/eop/initialize_eop.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/eop/initialize_eop.rs.txt"
+        ```
+
 !!! warning 
 
     Earth orientation data **MUST** be initialized before using any functionality in brahe that requires Earth orientation data. If no data is initialized, brahe will panic and terminate the program when Earth orientation data is requested.
@@ -43,6 +54,17 @@ A static provider is one that just uses fixed values for Earth orientation param
     ``` rust
     --8<-- "./examples/eop/static_eop.rs:3"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/eop/static_eop.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/eop/static_eop.rs.txt"
+        ```
 
 ### FileEOPProvider
 
@@ -72,6 +94,17 @@ You can create a file-based Earth orientation provider by specifying the file pa
     --8<-- "./examples/eop/file_eop.rs:3"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/eop/file_eop.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/eop/file_eop.rs.txt"
+        ```
+
 
 ### CachingEOPProvider
 
@@ -92,6 +125,17 @@ The interpolation and extrapolation parameters are also available when creating 
     ``` rust
     --8<-- "./examples/eop/caching_eop.rs:3"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/eop/caching_eop.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/eop/caching_eop.rs.txt"
+        ```
 
 
 ## Downloading EOP Data Files
@@ -175,6 +219,17 @@ While not common it is possible to directly access Earth orientation parameters 
     ``` rust
     --8<-- "./examples/eop/accesing_eop_data.rs:3"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/eop/accesing_eop_data.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/eop/accesing_eop_data.rs.txt"
+        ```
 
 You can find more functions to access specific subsets of Earth orientation data in the [API Reference](../../library_api/eop/functions.md).
 

@@ -57,7 +57,6 @@ seg = oem.segments[seg_idx]
 seg.add_trajectory(prop.trajectory)
 
 print(f"Generated OEM with {seg.num_states} states over 24 hours")
-# Generated OEM with 1441 states over 24 hours
 # --8<-- [end:generate_oem]
 
 # --8<-- [start:write_read_oem]
@@ -71,9 +70,6 @@ oem_loaded = OEM.from_file(oem_path)
 seg_loaded = oem_loaded.segments[0]
 print(f"Loaded OEM: object={seg_loaded.object_name}, states={seg_loaded.num_states}")
 print(f"  Time span: {seg_loaded.start_time} to {seg_loaded.stop_time}")
-# Written OEM to /tmp/brahe_iss_ephemeris.oem
-# Loaded OEM: object=ISS (ZARYA), states=1441
-#   Time span: 2024-06-15T00:00:00.000000000 UTC to 2024-06-16T00:00:00.000000000 UTC
 # --8<-- [end:write_read_oem]
 
 # --8<-- [start:create_trajectory]
@@ -81,7 +77,6 @@ print(f"  Time span: {seg_loaded.start_time} to {seg_loaded.stop_time}")
 traj = oem_loaded.segment_to_trajectory(0)
 traj = traj.with_name("ISS")
 print(f"Created OrbitTrajectory '{traj.get_name()}' with {len(traj)} states")
-# Created OrbitTrajectory 'ISS' with 1441 states
 # --8<-- [end:create_trajectory]
 
 # --8<-- [start:ground_stations]
@@ -97,7 +92,6 @@ london.set_name("London")
 
 stations = [sf, nyc, london]
 print(f"Defined {len(stations)} ground stations")
-# Defined 3 ground stations
 # --8<-- [end:ground_stations]
 
 # --8<-- [start:compute_accesses_oem]

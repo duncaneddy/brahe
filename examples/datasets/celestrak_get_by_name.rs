@@ -34,16 +34,5 @@ fn main() {
     println!("  Inclination: {:.2}°", iss.inclination.unwrap_or(0.0));
     println!("  Eccentricity: {:.6}", iss.eccentricity.unwrap_or(0.0));
 
-    // Expected output:
-    // Found N results for 'ISS'
-    //   ISS (ZARYA) (NORAD ID: 25544)
-    //   ISS DEB (NORAD ID: ...)
-    //   ...
-    //
-    // ISS GP Data:
-    //   Name: ISS (ZARYA)
-    //   NORAD ID: 25544
-    //   Epoch: 2025-11-02T10:09:34.283392
-    //   Inclination: 51.63°
-    //   Eccentricity: 0.000497
 }
+

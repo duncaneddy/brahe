@@ -82,11 +82,5 @@ fn main() {
         "Round-trip: {} vs {}",
         cdm2.object1.metadata.object_name, cdm2.object2.metadata.object_name
     );
-    // Expected output:
-    // CDM: SATELLITE A vs DEBRIS FRAGMENT
-    // Miss distance: 502.3 m
-    // Collision probability: Some(0.00015)
-    //
-    // KVN output (... chars)
-    // Round-trip: SATELLITE A vs DEBRIS FRAGMENT
 }
+

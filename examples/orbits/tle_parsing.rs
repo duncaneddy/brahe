@@ -32,12 +32,5 @@ fn main() {
     println!("  Arg of Perigee: {:.4} deg", argp);
     println!("  Mean Anomaly: {:.4} deg", mean_anom);
 
-    // Expected output:
-    // ISS Orbital Elements (Epoch: 2025-10-29T11:44:55.766182400 UTC)
-    //   Semi-major axis: 6795.445 km
-    //   Eccentricity: 0.000481
-    //   Inclination: 51.6347 deg
-    //   RAAN: 1.5519 deg
-    //   Arg of Perigee: 353.3325 deg
-    //   Mean Anomaly: 6.7599 deg
 }
+

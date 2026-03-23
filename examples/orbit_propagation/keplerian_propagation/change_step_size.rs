@@ -15,15 +15,13 @@ fn main() {
     );
 
     println!("Initial step size: {} seconds", prop.step_size());
-    // Initial step size: 60 seconds
 
     // Change step size
     prop.set_step_size(120.0);
     println!("New step size: {} seconds", prop.step_size());
-    // New step size: 120 seconds
 
     // Subsequent steps use new step size
     prop.step();  // Advances 120 seconds
     println!("After step: {:.1} seconds elapsed", prop.current_epoch() - epoch);
-    // After step: 120.0 seconds elapsed
 }
+

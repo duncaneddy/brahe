@@ -32,6 +32,3 @@ fn main() {
     println!("Timespan: {:.1} seconds", traj.timespan().unwrap());
 }
 
-// Output:
-// Trajectory length: 3
-// Timespan: 120.0 seconds

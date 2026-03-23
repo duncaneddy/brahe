@@ -18,6 +18,17 @@ The simplest access computation requires: a location, a propagator, time bounds,
     --8<-- "./examples/access/computation/basic_workflow.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/computation/basic_workflow.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/computation/basic_workflow.rs.txt"
+        ```
+
 ## Multiple Locations and Satellites
 
 Compute access for multiple locations and satellites simultaneously:
@@ -33,6 +44,17 @@ Compute access for multiple locations and satellites simultaneously:
     ``` rust
     --8<-- "./examples/access/computation/multiple_locations_satellites.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/computation/multiple_locations_satellites.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/computation/multiple_locations_satellites.rs.txt"
+        ```
 
 ## Algorithm Explanation
 
@@ -71,6 +93,17 @@ The `AccessSearchConfig` struct controls algorithm behavior:
     ``` rust
     --8<-- "./examples/access/computation/custom_configuration.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/access/computation/custom_configuration.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/access/computation/custom_configuration.rs.txt"
+        ```
 
 ### Parameter Guidance
 

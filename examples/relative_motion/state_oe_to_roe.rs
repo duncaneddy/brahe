@@ -39,11 +39,5 @@ fn main() {
     println!("dey (rel ecc y-comp):     {:.6e}", roe[3]);
     println!("dix (rel inc x-comp):     {:.6}°", roe[4]);
     println!("diy (rel inc y-comp):     {:.6}°", roe[5]);
-    // Relative Orbital Elements (ROE):
-    // da (relative SMA):        1.412801e-4
-    // dλ (relative mean long):  0.093214°
-    // dex (rel ecc x-comp):     4.323577e-4
-    // dey (rel ecc y-comp):     2.511333e-4
-    // dix (rel inc x-comp):     0.050000°
-    // diy (rel inc y-comp):     0.049537°
 }
+

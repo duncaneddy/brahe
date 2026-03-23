@@ -44,20 +44,3 @@ print("\nRound-trip verification:")
 print(f"  Original period: {period_leo:.3f} s")
 print(f"  Computed period: {period_verify:.3f} s")
 print(f"  Difference: {abs(period_leo - period_verify):.2e} s")
-
-# Expected output:
-# LEO Satellite (98 min period):
-#   Semi-major axis: 7041160.278 m
-#   Altitude: 663.024 km
-
-# Geosynchronous Orbit (24 hour period):
-#   Semi-major axis: 42241095.664 m
-#   Altitude: 35862.959 km
-
-# Moon's orbit (27.3 day period):
-#   Semi-major axis: 382980.745 km
-
-# Round-trip verification:
-#   Original period: 5880.000 s
-#   Computed period: 5880.000 s
-#   Difference: 8.19e-12 s

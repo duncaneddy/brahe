@@ -23,3 +23,4 @@ fn main() {
         Some(AngleFormat::Degrees)
     );
 }
+

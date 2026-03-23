@@ -20,11 +20,5 @@ fn main() {
     println!("RAAN: {:.4} degrees", elements_deg[3]);
     println!("Argument of perigee: {:.4} degrees", elements_deg[4]);
     println!("Mean anomaly: {:.4} degrees", elements_deg[5]);
-    // Expected output:
-    // Semi-major axis: 6758.7 km
-    // Eccentricity: 0.000670
-    // Inclination: 51.6416 degrees
-    // RAAN: 247.4627 degrees
-    // Argument of perigee: 130.5360 degrees
-    // Mean anomaly: 325.0288 degrees
 }
+

@@ -35,8 +35,6 @@ fn main() {
     println!("GCRF state vector:");
     println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_gcrf[0], state_gcrf[1], state_gcrf[2]);
     println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s\n", state_gcrf[3], state_gcrf[4], state_gcrf[5]);
-    // Position: [1848964.106, -434937.468, 6560410.530] m
-    // Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
     // Transform to ITRF
     let state_itrf = bh::state_gcrf_to_itrf(epc, state_gcrf);
@@ -44,8 +42,6 @@ fn main() {
     println!("ITRF state vector:");
     println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_itrf[0], state_itrf[1], state_itrf[2]);
     println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s\n", state_itrf[3], state_itrf[4], state_itrf[5]);
-    // Position: [757164.267, 1725863.563, 6564672.302] m
-    // Velocity: [989.350643, -7432.740021, 1896.768934] m/s
 
     // Transform back to GCRF
     let state_gcrf_back = bh::state_itrf_to_gcrf(epc, state_itrf);
@@ -53,10 +49,7 @@ fn main() {
     println!("\nGCRF state vector (transformed from ITRF):");
     println!("  Position: [{:.3}, {:.3}, {:.3}] m", state_gcrf_back[0], state_gcrf_back[1], state_gcrf_back[2]);
     println!("  Velocity: [{:.6}, {:.6}, {:.6}] m/s", state_gcrf_back[3], state_gcrf_back[4], state_gcrf_back[5]);
-    // Position: [1848964.106, -434937.468, 6560410.530] m
-    // Velocity: [-7098.379734, -2173.344867, 1913.333385] m/s
 
-    // Verify round-trip transformation
     let diff_pos = (na::Vector3::new(state_gcrf[0], state_gcrf[1], state_gcrf[2]) -
                     na::Vector3::new(state_gcrf_back[0], state_gcrf_back[1], state_gcrf_back[2])).norm();
     let diff_vel = (na::Vector3::new(state_gcrf[3], state_gcrf[4], state_gcrf[5]) -
@@ -65,7 +58,5 @@ fn main() {
     println!("  Position: {:.6e} m", diff_pos);
     println!("  Velocity: {:.6e} m/s", diff_vel);
 
-    // Expected output:
-    //   Position: 9.617484e-10 m
-    //   Velocity: 9.094947e-13 m/s
 }
+

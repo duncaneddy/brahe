@@ -50,6 +50,17 @@ The examples below demonstrate building CDM queries. Each query constructs a URL
     --8<-- "./examples/spacetrack/cdm_high_probability.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/spacetrack/cdm_high_probability.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/spacetrack/cdm_high_probability.rs.txt"
+        ```
+
 ### Working with CDM Results
 
 After executing a CDM query with `query_json()`, each element in the returned list is a dictionary with string keys matching the field names above:

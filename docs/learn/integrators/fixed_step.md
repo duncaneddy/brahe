@@ -54,6 +54,17 @@ The following example demonstrates using the RK4 fixed-step integrator to  integ
     --8<-- "./examples/integrators/fixed_step_demo.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/fixed_step_demo.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/fixed_step_demo.rs.txt"
+        ```
+
 
 ## See Also
 

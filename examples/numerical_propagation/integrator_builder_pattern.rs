@@ -19,8 +19,5 @@ fn main() {
     println!("abs_tol: {:e}", config.integrator.abs_tol);
     println!("rel_tol: {:e}", config.integrator.rel_tol);
     println!("max_step: {:?}", config.integrator.max_step);
-    // Method: DP54
-    // abs_tol: 1e-9
-    // rel_tol: 1e-6
-    // max_step: Some(300.0)
 }
+

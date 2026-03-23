@@ -60,6 +60,17 @@ When working with human-readable orbital parameters, degrees are more intuitive:
     --8<-- "./examples/coordinates/elements_to_cartesian_deg.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/elements_to_cartesian_deg.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/elements_to_cartesian_deg.rs.txt"
+        ```
+
 ### Using Radians
 
 For mathematical consistency or when working with data already in radians:
@@ -75,6 +86,17 @@ For mathematical consistency or when working with data already in radians:
     ``` rust
     --8<-- "./examples/coordinates/elements_to_cartesian_rad.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/elements_to_cartesian_rad.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/elements_to_cartesian_rad.rs.txt"
+        ```
 
 !!! info
     The `AngleFormat` parameter only affects the three angular elements (i, Ω, ω, M). Semi-major axis is always in meters, and eccentricity is always dimensionless.
@@ -94,6 +116,17 @@ After propagating or receiving Cartesian state data, you often want to convert b
     ``` rust
     --8<-- "./examples/coordinates/cartesian_to_orbital_elements.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/coordinates/cartesian_to_orbital_elements.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/coordinates/cartesian_to_orbital_elements.rs.txt"
+        ```
 
 
 ---

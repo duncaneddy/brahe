@@ -41,19 +41,3 @@ print(f"  GEO:          {n_geo_deg * 86400:.3f} deg/day")
 n_leo_general = bh.mean_motion_general(a_leo, bh.GM_EARTH, bh.AngleFormat.RADIANS)
 print(f"\nVerification (general function): {n_leo_general:.6f} rad/s")
 print(f"Difference: {abs(n_leo_rad - n_leo_general):.2e} rad/s")
-
-# Expected output:
-# Mean Motion in radians/second:
-#   LEO (500 km): 0.001107 rad/s
-#   GEO:          0.000073 rad/s
-
-# Mean Motion in degrees/second:
-#   LEO (500 km): 0.063414 deg/s
-#   GEO:          0.004178 deg/s
-
-# Mean Motion in degrees/day:
-#   LEO (500 km): 5478.972 deg/day
-#   GEO:          360.986 deg/day
-
-# Verification (general function): 0.001107 rad/s
-# Difference: 0.00e+00 rad/s

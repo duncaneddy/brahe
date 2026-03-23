@@ -31,6 +31,17 @@ The following example demonstrates propagating a simple harmonic oscillator (SHO
     --8<-- "./examples/numerical_propagation/generic_dynamics.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/generic_dynamics.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/generic_dynamics.rs.txt"
+        ```
+
 ### SHO Visualization
 
 The following plot shows the position and velocity of the SHO over 3 periods, comparing numerical and analytical solutions:
@@ -192,6 +203,17 @@ The following example shows a damped harmonic oscillator where damping is implem
     --8<-- "./examples/numerical_propagation/generic_dynamics_control.rs:4"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/generic_dynamics_control.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/generic_dynamics_control.rs.txt"
+        ```
+
 ## Event Detection
 
 The generic propagator supports the same event detection system as `NumericalOrbitPropagator`. Events can detect when computed quantities cross threshold values:
@@ -207,6 +229,17 @@ The generic propagator supports the same event detection system as `NumericalOrb
     ``` rust
     --8<-- "./examples/numerical_propagation/generic_dynamics_events.rs:4"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/generic_dynamics_events.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/generic_dynamics_events.rs.txt"
+        ```
 
 ## Extended State Vectors
 

@@ -131,6 +131,17 @@ To use a fixed-step integrator like RK4, you create an instance with the desired
     --8<-- "./examples/integrators/pattern_fixed_step.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_fixed_step.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_fixed_step.rs.txt"
+        ```
+
 ### Adaptive Integration
 
 To use an adaptive-step integrator like RKF45, you create it with an `IntegratorConfig` specifying tolerances, then call `step`. The adaptive integrator returns an [`AdaptiveStepResult`](../../library_api/integrators/config.md) containing the new state and recommended next step size.
@@ -148,6 +159,17 @@ To use an adaptive-step integrator like RKF45, you create it with an `Integrator
     --8<-- "./examples/integrators/pattern_adaptive_step.rs:7"
     ```
 
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_adaptive_step.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_adaptive_step.rs.txt"
+        ```
+
 To take multiple steps until a final time, you can use a loop that updates the time and state based on the `dt_used` and `dt_next` values from the result.
 
 === "Python"
@@ -161,6 +183,17 @@ To take multiple steps until a final time, you can use a loop that updates the t
     ``` rust
     --8<-- "./examples/integrators/pattern_multi_step.rs:8"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_multi_step.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_multi_step.rs.txt"
+        ```
 
 ## State Transition Matrix Propagation
 
@@ -187,6 +220,17 @@ They can be propagated by integrating the variational equations alongside the st
     ``` rust
     --8<-- "./examples/integrators/pattern_stm.rs:7"
     ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_stm.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/integrators/pattern_stm.rs.txt"
+        ```
 
 ## Module Contents
 

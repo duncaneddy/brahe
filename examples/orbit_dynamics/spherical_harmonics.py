@@ -69,27 +69,3 @@ print(f"  Δax = {accel_pert[0]:.9f} m/s²")
 print(f"  Δay = {accel_pert[1]:.9f} m/s²")
 print(f"  Δaz = {accel_pert[2]:.9f} m/s²")
 print(f"  Magnitude: {np.linalg.norm(accel_pert):.9f} m/s²")
-
-# Expected output:
-# Satellite position (ECI, m):
-#   x = 651307.572
-#   y = -668157.599
-#   z = 6811086.322
-
-# Gravity model: GGM05S (max degree 180, max order 180)
-
-# Spherical harmonic acceleration (degree 10, order 10):
-#   ax = -0.794811805 m/s²
-#   ay = 0.815141691 m/s²
-#   az = -8.333760910 m/s²
-
-# Point-mass acceleration:
-#   ax = -0.799028363 m/s²
-#   ay = 0.819700085 m/s²
-#   az = -8.355884974 m/s²
-
-# Perturbation (spherical harmonics - point mass):
-#   Δax = 0.004216558 m/s²
-#   Δay = -0.004558395 m/s²
-#   Δaz = 0.022124064 m/s²
-#   Magnitude: 0.022978958 m/s²

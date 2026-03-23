@@ -31,22 +31,7 @@
 <span class=normal><a href=#__codelineno-0-31>31</a></span>
 <span class=normal><a href=#__codelineno-0-32>32</a></span>
 <span class=normal><a href=#__codelineno-0-33>33</a></span>
-<span class=normal><a href=#__codelineno-0-34>34</a></span>
-<span class=normal><a href=#__codelineno-0-35>35</a></span>
-<span class=normal><a href=#__codelineno-0-36>36</a></span>
-<span class=normal><a href=#__codelineno-0-37>37</a></span>
-<span class=normal><a href=#__codelineno-0-38>38</a></span>
-<span class=normal><a href=#__codelineno-0-39>39</a></span>
-<span class=normal><a href=#__codelineno-0-40>40</a></span>
-<span class=normal><a href=#__codelineno-0-41>41</a></span>
-<span class=normal><a href=#__codelineno-0-42>42</a></span>
-<span class=normal><a href=#__codelineno-0-43>43</a></span>
-<span class=normal><a href=#__codelineno-0-44>44</a></span>
-<span class=normal><a href=#__codelineno-0-45>45</a></span>
-<span class=normal><a href=#__codelineno-0-46>46</a></span>
-<span class=normal><a href=#__codelineno-0-47>47</a></span>
-<span class=normal><a href=#__codelineno-0-48>48</a></span>
-<span class=normal><a href=#__codelineno-0-49>49</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-0-1><a id=__codelineno-0-1 name=__codelineno-0-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-0-34>34</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-0-1><a id=__codelineno-0-1 name=__codelineno-0-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-0-2><a id=__codelineno-0-2 name=__codelineno-0-2></a><span class=kn>import</span><span class=w> </span><span class=nn>numpy</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>np</span>
 </span><span id=__span-0-3><a id=__codelineno-0-3 name=__codelineno-0-3></a><span class=kn>import</span><span class=w> </span><span class=nn>time</span>
 </span><span id=__span-0-4><a id=__codelineno-0-4 name=__codelineno-0-4></a>
@@ -80,21 +65,6 @@
 </span><span id=__span-0-32><a id=__codelineno-0-32 name=__codelineno-0-32></a><span class=k>for</span> <span class=n>i</span><span class=p>,</span> <span class=n>prop</span> <span class=ow>in</span> <span class=nb>enumerate</span><span class=p>(</span><span class=n>propagators</span><span class=p>):</span>
 </span><span id=__span-0-33><a id=__codelineno-0-33 name=__codelineno-0-33></a>    <span class=n>state</span> <span class=o>=</span> <span class=n>prop</span><span class=o>.</span><span class=n>current_state</span><span class=p>()</span>
 </span><span id=__span-0-34><a id=__codelineno-0-34 name=__codelineno-0-34></a>    <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  Satellite </span><span class=si>{</span><span class=n>i</span><span class=si>}</span><span class=s2>: r = </span><span class=si>{</span><span class=n>np</span><span class=o>.</span><span class=n>linalg</span><span class=o>.</span><span class=n>norm</span><span class=p>(</span><span class=n>state</span><span class=p>[:</span><span class=mi>3</span><span class=p>])</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>1e3</span><span class=si>:</span><span class=s2>.1f</span><span class=si>}</span><span class=s2> km&quot;</span><span class=p>)</span>
-</span><span id=__span-0-35><a id=__codelineno-0-35 name=__codelineno-0-35></a>
-</span><span id=__span-0-36><a id=__codelineno-0-36 name=__codelineno-0-36></a><span class=c1># Output:</span>
-</span><span id=__span-0-37><a id=__codelineno-0-37 name=__codelineno-0-37></a><span class=c1># Propagated 10 satellites in parallel: 0.0026 seconds</span>
-</span><span id=__span-0-38><a id=__codelineno-0-38 name=__codelineno-0-38></a>
-</span><span id=__span-0-39><a id=__codelineno-0-39 name=__codelineno-0-39></a><span class=c1># Final states:</span>
-</span><span id=__span-0-40><a id=__codelineno-0-40 name=__codelineno-0-40></a><span class=c1>#   Satellite 0: r = 6876.8 km</span>
-</span><span id=__span-0-41><a id=__codelineno-0-41 name=__codelineno-0-41></a><span class=c1>#   Satellite 1: r = 6889.7 km</span>
-</span><span id=__span-0-42><a id=__codelineno-0-42 name=__codelineno-0-42></a><span class=c1>#   Satellite 2: r = 6902.3 km</span>
-</span><span id=__span-0-43><a id=__codelineno-0-43 name=__codelineno-0-43></a><span class=c1>#   Satellite 3: r = 6914.2 km</span>
-</span><span id=__span-0-44><a id=__codelineno-0-44 name=__codelineno-0-44></a><span class=c1>#   Satellite 4: r = 6925.0 km</span>
-</span><span id=__span-0-45><a id=__codelineno-0-45 name=__codelineno-0-45></a><span class=c1>#   Satellite 5: r = 6934.7 km</span>
-</span><span id=__span-0-46><a id=__codelineno-0-46 name=__codelineno-0-46></a><span class=c1>#   Satellite 6: r = 6943.1 km</span>
-</span><span id=__span-0-47><a id=__codelineno-0-47 name=__codelineno-0-47></a><span class=c1>#   Satellite 7: r = 6950.7 km</span>
-</span><span id=__span-0-48><a id=__codelineno-0-48 name=__codelineno-0-48></a><span class=c1>#   Satellite 8: r = 6957.8 km</span>
-</span><span id=__span-0-49><a id=__codelineno-0-49 name=__codelineno-0-49></a><span class=c1>#   Satellite 9: r = 6965.0 km</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-1-1> 1</a></span>
 <span class=normal><a href=#__codelineno-1-2> 2</a></span>
 <span class=normal><a href=#__codelineno-1-3> 3</a></span>
@@ -144,22 +114,7 @@
 <span class=normal><a href=#__codelineno-1-47>47</a></span>
 <span class=normal><a href=#__codelineno-1-48>48</a></span>
 <span class=normal><a href=#__codelineno-1-49>49</a></span>
-<span class=normal><a href=#__codelineno-1-50>50</a></span>
-<span class=normal><a href=#__codelineno-1-51>51</a></span>
-<span class=normal><a href=#__codelineno-1-52>52</a></span>
-<span class=normal><a href=#__codelineno-1-53>53</a></span>
-<span class=normal><a href=#__codelineno-1-54>54</a></span>
-<span class=normal><a href=#__codelineno-1-55>55</a></span>
-<span class=normal><a href=#__codelineno-1-56>56</a></span>
-<span class=normal><a href=#__codelineno-1-57>57</a></span>
-<span class=normal><a href=#__codelineno-1-58>58</a></span>
-<span class=normal><a href=#__codelineno-1-59>59</a></span>
-<span class=normal><a href=#__codelineno-1-60>60</a></span>
-<span class=normal><a href=#__codelineno-1-61>61</a></span>
-<span class=normal><a href=#__codelineno-1-62>62</a></span>
-<span class=normal><a href=#__codelineno-1-63>63</a></span>
-<span class=normal><a href=#__codelineno-1-64>64</a></span>
-<span class=normal><a href=#__codelineno-1-65>65</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-1-1><a id=__codelineno-1-1 name=__codelineno-1-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+<span class=normal><a href=#__codelineno-1-50>50</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-1-1><a id=__codelineno-1-1 name=__codelineno-1-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-1-2><a id=__codelineno-1-2 name=__codelineno-1-2></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=p>::</span><span class=n>traits</span><span class=p>::</span><span class=n>SStatePropagator</span><span class=p>;</span>
 </span><span id=__span-1-3><a id=__codelineno-1-3 name=__codelineno-1-3></a><span class=k>use</span><span class=w> </span><span class=n>nalgebra</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>na</span><span class=p>;</span>
 </span><span id=__span-1-4><a id=__codelineno-1-4 name=__codelineno-1-4></a>
@@ -209,34 +164,69 @@
 </span><span id=__span-1-48><a id=__codelineno-1-48 name=__codelineno-1-48></a><span class=w>        </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Satellite {}: r = {:.1} km&quot;</span><span class=p>,</span><span class=w> </span><span class=n>i</span><span class=p>,</span><span class=w> </span><span class=n>r</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>1e3</span><span class=p>);</span>
 </span><span id=__span-1-49><a id=__codelineno-1-49 name=__codelineno-1-49></a><span class=w>    </span><span class=p>}</span>
 </span><span id=__span-1-50><a id=__codelineno-1-50 name=__codelineno-1-50></a><span class=p>}</span>
-</span><span id=__span-1-51><a id=__codelineno-1-51 name=__codelineno-1-51></a>
-</span><span id=__span-1-52><a id=__codelineno-1-52 name=__codelineno-1-52></a><span class=c1>// Output:</span>
-</span><span id=__span-1-53><a id=__codelineno-1-53 name=__codelineno-1-53></a><span class=c1>// Propagated 10 satellites in parallel: 0.0026 seconds</span>
-</span><span id=__span-1-54><a id=__codelineno-1-54 name=__codelineno-1-54></a>
-</span><span id=__span-1-55><a id=__codelineno-1-55 name=__codelineno-1-55></a><span class=c1>// Final states:</span>
-</span><span id=__span-1-56><a id=__codelineno-1-56 name=__codelineno-1-56></a><span class=c1>//   Satellite 0: r = 6876.8 km</span>
-</span><span id=__span-1-57><a id=__codelineno-1-57 name=__codelineno-1-57></a><span class=c1>//   Satellite 1: r = 6889.7 km</span>
-</span><span id=__span-1-58><a id=__codelineno-1-58 name=__codelineno-1-58></a><span class=c1>//   Satellite 2: r = 6902.3 km</span>
-</span><span id=__span-1-59><a id=__codelineno-1-59 name=__codelineno-1-59></a><span class=c1>//   Satellite 3: r = 6914.2 km</span>
-</span><span id=__span-1-60><a id=__codelineno-1-60 name=__codelineno-1-60></a><span class=c1>//   Satellite 4: r = 6925.0 km</span>
-</span><span id=__span-1-61><a id=__codelineno-1-61 name=__codelineno-1-61></a><span class=c1>//   Satellite 5: r = 6934.7 km</span>
-</span><span id=__span-1-62><a id=__codelineno-1-62 name=__codelineno-1-62></a><span class=c1>//   Satellite 6: r = 6943.1 km</span>
-</span><span id=__span-1-63><a id=__codelineno-1-63 name=__codelineno-1-63></a><span class=c1>//   Satellite 7: r = 6950.7 km</span>
-</span><span id=__span-1-64><a id=__codelineno-1-64 name=__codelineno-1-64></a><span class=c1>//   Satellite 8: r = 6957.8 km</span>
-</span><span id=__span-1-65><a id=__codelineno-1-65 name=__codelineno-1-65></a><span class=c1>//   Satellite 9: r = 6965.0 km</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <h2 id=mixing-propagator-types>Mixing Propagator Types<a class=headerlink href=#mixing-propagator-types title="Permanent link">&para;</a></h2> <p>All propagators in the list must be the same type (either all <code>KeplerianPropagator</code> or all <code>SGPPropagator</code>). Mixing types will raise a <code>TypeError</code>:</p> <div class="tabbed-set tabbed-alternate" data-tabs=2:1><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>Python</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-2-1>1</a></span>
-<span class=normal><a href=#__codelineno-2-2>2</a></span>
-<span class=normal><a href=#__codelineno-2-3>3</a></span>
-<span class=normal><a href=#__codelineno-2-4>4</a></span>
-<span class=normal><a href=#__codelineno-2-5>5</a></span>
-<span class=normal><a href=#__codelineno-2-6>6</a></span>
-<span class=normal><a href=#__codelineno-2-7>7</a></span>
-<span class=normal><a href=#__codelineno-2-8>8</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=2:2><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><input id=__tabbed_2_2 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>Python</label><label for=__tabbed_2_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-2-1> 1</a></span>
+<span class=normal><a href=#__codelineno-2-2> 2</a></span>
+<span class=normal><a href=#__codelineno-2-3> 3</a></span>
+<span class=normal><a href=#__codelineno-2-4> 4</a></span>
+<span class=normal><a href=#__codelineno-2-5> 5</a></span>
+<span class=normal><a href=#__codelineno-2-6> 6</a></span>
+<span class=normal><a href=#__codelineno-2-7> 7</a></span>
+<span class=normal><a href=#__codelineno-2-8> 8</a></span>
+<span class=normal><a href=#__codelineno-2-9> 9</a></span>
+<span class=normal><a href=#__codelineno-2-10>10</a></span>
+<span class=normal><a href=#__codelineno-2-11>11</a></span>
+<span class=normal><a href=#__codelineno-2-12>12</a></span>
+<span class=normal><a href=#__codelineno-2-13>13</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a>Propagated 10 satellites in parallel: 0.0117 seconds
 </span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>
-</span><span id=__span-2-3><a id=__codelineno-2-3 name=__codelineno-2-3></a><span class=c1># Example propgator intiailization</span>
-</span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a><span class=n>kep_prop</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>KeplerianPropagator</span><span class=o>.</span><span class=n>from_eci</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span> <span class=n>state</span><span class=p>,</span> <span class=mf>60.0</span><span class=p>)</span>
-</span><span id=__span-2-5><a id=__codelineno-2-5 name=__codelineno-2-5></a><span class=n>sgp_prop</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SGPPropagator</span><span class=o>.</span><span class=n>from_tle</span><span class=p>(</span><span class=n>line1</span><span class=p>,</span> <span class=n>line2</span><span class=p>,</span> <span class=mf>60.0</span><span class=p>)</span>
-</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a>
-</span><span id=__span-2-7><a id=__codelineno-2-7 name=__codelineno-2-7></a><span class=c1># This will raise TypeError</span>
-</span><span id=__span-2-8><a id=__codelineno-2-8 name=__codelineno-2-8></a><span class=n>bh</span><span class=o>.</span><span class=n>par_propagate_to</span><span class=p>([</span><span class=n>kep_prop</span><span class=p>,</span> <span class=n>sgp_prop</span><span class=p>],</span> <span class=n>target</span><span class=p>)</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <h2 id=memory-considerations>Memory Considerations<a class=headerlink href=#memory-considerations title="Permanent link">&para;</a></h2> <p>The parallel function clones each propagator before propagation, then updates the originals with final states. Memory usage scales linearly with the number of propagators.</p> <p>For very large constellations (1000s of satellites), consider processing in batches and monitoring memory usage to avoid crashes from memory exhaustion.</p> <h2 id=error-handling>Error Handling<a class=headerlink href=#error-handling title="Permanent link">&para;</a></h2> <p>If any propagator fails during parallel propagation, the function will panic (Rust) or raise an exception (Python). This can occur with SGP4 propagators when satellites decay below Earth's surface.</p> <h2 id=see-also>See Also<a class=headerlink href=#see-also title="Permanent link">&para;</a></h2> <ul> <li><a href=../../library_api/propagators/keplerian_propagator.html>Keplerian Propagator</a> - Two-body orbital propagation</li> <li><a href=../../library_api/propagators/sgp_propagator.html>SGP4 Propagator</a> - TLE-based propagation</li> <li><a href=../../library_api/propagators/functions.html#par_propagate_to>API Reference: par_propagate_to</a></li> </ul> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 14, 2025 06:36:44 UTC">2025-11-14</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 11, 2025 18:28:34 UTC">2025-11-11</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=../../assets/javascripts/bundle.79ae519e.min.js></script> <script src=../../javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=../../javascripts/tablesort.ae6fa2.min.js></script> </body> </html>
+</span><span id=__span-2-3><a id=__codelineno-2-3 name=__codelineno-2-3></a>Final states:
+</span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a>  Satellite 0: r = 6876.8 km
+</span><span id=__span-2-5><a id=__codelineno-2-5 name=__codelineno-2-5></a>  Satellite 1: r = 6889.7 km
+</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a>  Satellite 2: r = 6902.3 km
+</span><span id=__span-2-7><a id=__codelineno-2-7 name=__codelineno-2-7></a>  Satellite 3: r = 6914.2 km
+</span><span id=__span-2-8><a id=__codelineno-2-8 name=__codelineno-2-8></a>  Satellite 4: r = 6925.0 km
+</span><span id=__span-2-9><a id=__codelineno-2-9 name=__codelineno-2-9></a>  Satellite 5: r = 6934.7 km
+</span><span id=__span-2-10><a id=__codelineno-2-10 name=__codelineno-2-10></a>  Satellite 6: r = 6943.1 km
+</span><span id=__span-2-11><a id=__codelineno-2-11 name=__codelineno-2-11></a>  Satellite 7: r = 6950.7 km
+</span><span id=__span-2-12><a id=__codelineno-2-12 name=__codelineno-2-12></a>  Satellite 8: r = 6957.8 km
+</span><span id=__span-2-13><a id=__codelineno-2-13 name=__codelineno-2-13></a>  Satellite 9: r = 6965.0 km
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1> 1</a></span>
+<span class=normal><a href=#__codelineno-3-2> 2</a></span>
+<span class=normal><a href=#__codelineno-3-3> 3</a></span>
+<span class=normal><a href=#__codelineno-3-4> 4</a></span>
+<span class=normal><a href=#__codelineno-3-5> 5</a></span>
+<span class=normal><a href=#__codelineno-3-6> 6</a></span>
+<span class=normal><a href=#__codelineno-3-7> 7</a></span>
+<span class=normal><a href=#__codelineno-3-8> 8</a></span>
+<span class=normal><a href=#__codelineno-3-9> 9</a></span>
+<span class=normal><a href=#__codelineno-3-10>10</a></span>
+<span class=normal><a href=#__codelineno-3-11>11</a></span>
+<span class=normal><a href=#__codelineno-3-12>12</a></span>
+<span class=normal><a href=#__codelineno-3-13>13</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a>Propagated 10 satellites in parallel: 0.0084 seconds
+</span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a>
+</span><span id=__span-3-3><a id=__codelineno-3-3 name=__codelineno-3-3></a>Final states:
+</span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a>  Satellite 0: r = 6876.8 km
+</span><span id=__span-3-5><a id=__codelineno-3-5 name=__codelineno-3-5></a>  Satellite 1: r = 6889.7 km
+</span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a>  Satellite 2: r = 6902.3 km
+</span><span id=__span-3-7><a id=__codelineno-3-7 name=__codelineno-3-7></a>  Satellite 3: r = 6914.2 km
+</span><span id=__span-3-8><a id=__codelineno-3-8 name=__codelineno-3-8></a>  Satellite 4: r = 6925.0 km
+</span><span id=__span-3-9><a id=__codelineno-3-9 name=__codelineno-3-9></a>  Satellite 5: r = 6934.7 km
+</span><span id=__span-3-10><a id=__codelineno-3-10 name=__codelineno-3-10></a>  Satellite 6: r = 6943.1 km
+</span><span id=__span-3-11><a id=__codelineno-3-11 name=__codelineno-3-11></a>  Satellite 7: r = 6950.7 km
+</span><span id=__span-3-12><a id=__codelineno-3-12 name=__codelineno-3-12></a>  Satellite 8: r = 6957.8 km
+</span><span id=__span-3-13><a id=__codelineno-3-13 name=__codelineno-3-13></a>  Satellite 9: r = 6965.0 km
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h2 id=mixing-propagator-types>Mixing Propagator Types<a class=headerlink href=#mixing-propagator-types title="Permanent link">&para;</a></h2> <p>All propagators in the list must be the same type (either all <code>KeplerianPropagator</code> or all <code>SGPPropagator</code>). Mixing types will raise a <code>TypeError</code>:</p> <div class="tabbed-set tabbed-alternate" data-tabs=3:1><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>Python</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1>1</a></span>
+<span class=normal><a href=#__codelineno-4-2>2</a></span>
+<span class=normal><a href=#__codelineno-4-3>3</a></span>
+<span class=normal><a href=#__codelineno-4-4>4</a></span>
+<span class=normal><a href=#__codelineno-4-5>5</a></span>
+<span class=normal><a href=#__codelineno-4-6>6</a></span>
+<span class=normal><a href=#__codelineno-4-7>7</a></span>
+<span class=normal><a href=#__codelineno-4-8>8</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-4-1><a id=__codelineno-4-1 name=__codelineno-4-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+</span><span id=__span-4-2><a id=__codelineno-4-2 name=__codelineno-4-2></a>
+</span><span id=__span-4-3><a id=__codelineno-4-3 name=__codelineno-4-3></a><span class=c1># Example propgator intiailization</span>
+</span><span id=__span-4-4><a id=__codelineno-4-4 name=__codelineno-4-4></a><span class=n>kep_prop</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>KeplerianPropagator</span><span class=o>.</span><span class=n>from_eci</span><span class=p>(</span><span class=n>epoch</span><span class=p>,</span> <span class=n>state</span><span class=p>,</span> <span class=mf>60.0</span><span class=p>)</span>
+</span><span id=__span-4-5><a id=__codelineno-4-5 name=__codelineno-4-5></a><span class=n>sgp_prop</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SGPPropagator</span><span class=o>.</span><span class=n>from_tle</span><span class=p>(</span><span class=n>line1</span><span class=p>,</span> <span class=n>line2</span><span class=p>,</span> <span class=mf>60.0</span><span class=p>)</span>
+</span><span id=__span-4-6><a id=__codelineno-4-6 name=__codelineno-4-6></a>
+</span><span id=__span-4-7><a id=__codelineno-4-7 name=__codelineno-4-7></a><span class=c1># This will raise TypeError</span>
+</span><span id=__span-4-8><a id=__codelineno-4-8 name=__codelineno-4-8></a><span class=n>bh</span><span class=o>.</span><span class=n>par_propagate_to</span><span class=p>([</span><span class=n>kep_prop</span><span class=p>,</span> <span class=n>sgp_prop</span><span class=p>],</span> <span class=n>target</span><span class=p>)</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <h2 id=memory-considerations>Memory Considerations<a class=headerlink href=#memory-considerations title="Permanent link">&para;</a></h2> <p>The parallel function clones each propagator before propagation, then updates the originals with final states. Memory usage scales linearly with the number of propagators.</p> <p>For very large constellations (1000s of satellites), consider processing in batches and monitoring memory usage to avoid crashes from memory exhaustion.</p> <h2 id=error-handling>Error Handling<a class=headerlink href=#error-handling title="Permanent link">&para;</a></h2> <p>If any propagator fails during parallel propagation, the function will panic (Rust) or raise an exception (Python). This can occur with SGP4 propagators when satellites decay below Earth's surface.</p> <h2 id=see-also>See Also<a class=headerlink href=#see-also title="Permanent link">&para;</a></h2> <ul> <li><a href=../../library_api/propagators/keplerian_propagator.html>Keplerian Propagator</a> - Two-body orbital propagation</li> <li><a href=../../library_api/propagators/sgp_propagator.html>SGP4 Propagator</a> - TLE-based propagation</li> <li><a href=../../library_api/propagators/functions.html#par_propagate_to>API Reference: par_propagate_to</a></li> </ul> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="March 23, 2026 02:03:11 UTC">2026-03-23</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 11, 2025 18:28:34 UTC">2025-11-11</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=../../assets/javascripts/bundle.79ae519e.min.js></script> <script src=../../javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=../../javascripts/tablesort.ae6fa2.min.js></script> </body> </html>

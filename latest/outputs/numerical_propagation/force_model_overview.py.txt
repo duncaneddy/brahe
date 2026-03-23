@@ -1,0 +1,6 @@
+Gravity: GravityConfiguration.spherical_harmonic(degree=20, order=20)
+Drag: DragConfiguration(model=HarrisPriester, area=ParameterIndex(1), cd=ParameterIndex(2))
+SRP: SolarRadiationPressureConfiguration(area=ParameterIndex(3), cr=ParameterIndex(4), eclipse_model=Conical)
+Third-body: ThirdBodyConfiguration(ephemeris_source=DE440s, bodies=[Sun, Moon])
+Relativity: True
+Mass: ParameterSource.value(1000)

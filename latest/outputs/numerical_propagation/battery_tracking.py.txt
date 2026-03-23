@@ -1,0 +1,20 @@
+Power system parameters:
+  Battery capacity: 100.0 Wh
+  Initial charge: 80.0 Wh (80% SOC)
+  Solar panel power: 50.0 W
+  Load power: 30.0 W
+  Net charging rate (sunlit): 20.0 W
+  Net discharge rate (eclipse): 30.0 W
+
+Orbital period: 5677.0 s (94.6 min)
+Propagating for 3 orbits (283.8 min)
+
+Final battery state:
+  Final charge: 86.82 Wh (86.8% SOC)
+  Charge change: +6.82 Wh
+
+Eclipse statistics:
+  Sunlit time: 179.0 min (63.0%)
+  Eclipse time: 105.0 min (37.0%)
+
+Example validated successfully!

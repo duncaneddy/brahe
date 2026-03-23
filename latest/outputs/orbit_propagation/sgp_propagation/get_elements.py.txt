@@ -1,0 +1,6 @@
+Semi-major axis: 6731.0 km
+Eccentricity: 0.000670
+Inclination: 51.6416 degrees
+RAAN: 247.4627 degrees
+Argument of perigee: 130.5360 degrees
+Mean anomaly: 325.0288 degrees

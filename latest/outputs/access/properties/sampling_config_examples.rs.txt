@@ -1,0 +1,4 @@
+Midpoint: Midpoint
+Relative points: RelativePoints([0.0, 0.25, 0.5, 0.75, 1.0])
+Fixed interval (1s): FixedInterval { interval: 1.0, offset: 0.0 }
+Fixed count (50): FixedCount(50)

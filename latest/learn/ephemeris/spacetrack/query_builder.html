@@ -15,36 +15,24 @@
 <span class=normal><a href=#__codelineno-0-15>15</a></span>
 <span class=normal><a href=#__codelineno-0-16>16</a></span>
 <span class=normal><a href=#__codelineno-0-17>17</a></span>
-<span class=normal><a href=#__codelineno-0-18>18</a></span>
-<span class=normal><a href=#__codelineno-0-19>19</a></span>
-<span class=normal><a href=#__codelineno-0-20>20</a></span>
-<span class=normal><a href=#__codelineno-0-21>21</a></span>
-<span class=normal><a href=#__codelineno-0-22>22</a></span>
-<span class=normal><a href=#__codelineno-0-23>23</a></span>
-<span class=normal><a href=#__codelineno-0-24>24</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-0-1><a id=__codelineno-0-1 name=__codelineno-0-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-0-18>18</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-0-1><a id=__codelineno-0-1 name=__codelineno-0-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-0-2><a id=__codelineno-0-2 name=__codelineno-0-2></a>
 </span><span id=__span-0-3><a id=__codelineno-0-3 name=__codelineno-0-3></a><span class=c1># Build a GP query for the ISS by NORAD catalog ID</span>
 </span><span id=__span-0-4><a id=__codelineno-0-4 name=__codelineno-0-4></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
 </span><span id=__span-0-5><a id=__codelineno-0-5 name=__codelineno-0-5></a>
 </span><span id=__span-0-6><a id=__codelineno-0-6 name=__codelineno-0-6></a><span class=n>url_path</span> <span class=o>=</span> <span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span>
 </span><span id=__span-0-7><a id=__codelineno-0-7 name=__codelineno-0-7></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;GP query URL path:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>url_path</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-0-8><a id=__codelineno-0-8 name=__codelineno-0-8></a><span class=c1># GP query URL path:</span>
-</span><span id=__span-0-9><a id=__codelineno-0-9 name=__codelineno-0-9></a><span class=c1>#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json</span>
-</span><span id=__span-0-10><a id=__codelineno-0-10 name=__codelineno-0-10></a>
-</span><span id=__span-0-11><a id=__codelineno-0-11 name=__codelineno-0-11></a><span class=c1># Build a SATCAT query for US-owned objects</span>
-</span><span id=__span-0-12><a id=__codelineno-0-12 name=__codelineno-0-12></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;COUNTRY&quot;</span><span class=p>,</span> <span class=s2>&quot;US&quot;</span><span class=p>)</span>
-</span><span id=__span-0-13><a id=__codelineno-0-13 name=__codelineno-0-13></a>
-</span><span id=__span-0-14><a id=__codelineno-0-14 name=__codelineno-0-14></a><span class=n>url_path</span> <span class=o>=</span> <span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span>
-</span><span id=__span-0-15><a id=__codelineno-0-15 name=__codelineno-0-15></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>SATCAT query URL path:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>url_path</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-0-16><a id=__codelineno-0-16 name=__codelineno-0-16></a><span class=c1># SATCAT query URL path:</span>
-</span><span id=__span-0-17><a id=__codelineno-0-17 name=__codelineno-0-17></a><span class=c1>#   /basicspacedata/query/class/satcat/COUNTRY/US/format/json</span>
-</span><span id=__span-0-18><a id=__codelineno-0-18 name=__codelineno-0-18></a>
-</span><span id=__span-0-19><a id=__codelineno-0-19 name=__codelineno-0-19></a><span class=c1># The default controller is inferred from the request class</span>
-</span><span id=__span-0-20><a id=__codelineno-0-20 name=__codelineno-0-20></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>CDM_PUBLIC</span><span class=p>)</span>
-</span><span id=__span-0-21><a id=__codelineno-0-21 name=__codelineno-0-21></a><span class=n>url_path</span> <span class=o>=</span> <span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span>
-</span><span id=__span-0-22><a id=__codelineno-0-22 name=__codelineno-0-22></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>CDM query URL path (uses expandedspacedata controller):</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>url_path</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-0-23><a id=__codelineno-0-23 name=__codelineno-0-23></a><span class=c1># CDM query URL path (uses expandedspacedata controller):</span>
-</span><span id=__span-0-24><a id=__codelineno-0-24 name=__codelineno-0-24></a><span class=c1>#   /expandedspacedata/query/class/cdm_public/format/json</span>
+</span><span id=__span-0-8><a id=__codelineno-0-8 name=__codelineno-0-8></a>
+</span><span id=__span-0-9><a id=__codelineno-0-9 name=__codelineno-0-9></a><span class=c1># Build a SATCAT query for US-owned objects</span>
+</span><span id=__span-0-10><a id=__codelineno-0-10 name=__codelineno-0-10></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;COUNTRY&quot;</span><span class=p>,</span> <span class=s2>&quot;US&quot;</span><span class=p>)</span>
+</span><span id=__span-0-11><a id=__codelineno-0-11 name=__codelineno-0-11></a>
+</span><span id=__span-0-12><a id=__codelineno-0-12 name=__codelineno-0-12></a><span class=n>url_path</span> <span class=o>=</span> <span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span>
+</span><span id=__span-0-13><a id=__codelineno-0-13 name=__codelineno-0-13></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>SATCAT query URL path:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>url_path</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-0-14><a id=__codelineno-0-14 name=__codelineno-0-14></a>
+</span><span id=__span-0-15><a id=__codelineno-0-15 name=__codelineno-0-15></a><span class=c1># The default controller is inferred from the request class</span>
+</span><span id=__span-0-16><a id=__codelineno-0-16 name=__codelineno-0-16></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>CDM_PUBLIC</span><span class=p>)</span>
+</span><span id=__span-0-17><a id=__codelineno-0-17 name=__codelineno-0-17></a><span class=n>url_path</span> <span class=o>=</span> <span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span>
+</span><span id=__span-0-18><a id=__codelineno-0-18 name=__codelineno-0-18></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>CDM query URL path (uses expandedspacedata controller):</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>url_path</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-1-1> 1</a></span>
 <span class=normal><a href=#__codelineno-1-2> 2</a></span>
 <span class=normal><a href=#__codelineno-1-3> 3</a></span>
@@ -67,13 +55,7 @@
 <span class=normal><a href=#__codelineno-1-20>20</a></span>
 <span class=normal><a href=#__codelineno-1-21>21</a></span>
 <span class=normal><a href=#__codelineno-1-22>22</a></span>
-<span class=normal><a href=#__codelineno-1-23>23</a></span>
-<span class=normal><a href=#__codelineno-1-24>24</a></span>
-<span class=normal><a href=#__codelineno-1-25>25</a></span>
-<span class=normal><a href=#__codelineno-1-26>26</a></span>
-<span class=normal><a href=#__codelineno-1-27>27</a></span>
-<span class=normal><a href=#__codelineno-1-28>28</a></span>
-<span class=normal><a href=#__codelineno-1-29>29</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-1-1><a id=__codelineno-1-1 name=__codelineno-1-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+<span class=normal><a href=#__codelineno-1-23>23</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-1-1><a id=__codelineno-1-1 name=__codelineno-1-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-1-2><a id=__codelineno-1-2 name=__codelineno-1-2></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>spacetrack</span><span class=p>::{</span><span class=n>SpaceTrackQuery</span><span class=p>,</span><span class=w> </span><span class=n>RequestClass</span><span class=p>};</span>
 </span><span id=__span-1-3><a id=__codelineno-1-3 name=__codelineno-1-3></a>
 </span><span id=__span-1-4><a id=__codelineno-1-4 name=__codelineno-1-4></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
@@ -83,194 +65,50 @@
 </span><span id=__span-1-8><a id=__codelineno-1-8 name=__codelineno-1-8></a>
 </span><span id=__span-1-9><a id=__codelineno-1-9 name=__codelineno-1-9></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>url_path</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>();</span>
 </span><span id=__span-1-10><a id=__codelineno-1-10 name=__codelineno-1-10></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;GP query URL path:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>url_path</span><span class=p>);</span>
-</span><span id=__span-1-11><a id=__codelineno-1-11 name=__codelineno-1-11></a><span class=w>    </span><span class=c1>// GP query URL path:</span>
-</span><span id=__span-1-12><a id=__codelineno-1-12 name=__codelineno-1-12></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json</span>
-</span><span id=__span-1-13><a id=__codelineno-1-13 name=__codelineno-1-13></a>
-</span><span id=__span-1-14><a id=__codelineno-1-14 name=__codelineno-1-14></a><span class=w>    </span><span class=c1>// Build a SATCAT query for US-owned objects</span>
-</span><span id=__span-1-15><a id=__codelineno-1-15 name=__codelineno-1-15></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
-</span><span id=__span-1-16><a id=__codelineno-1-16 name=__codelineno-1-16></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;COUNTRY&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;US&quot;</span><span class=p>);</span>
-</span><span id=__span-1-17><a id=__codelineno-1-17 name=__codelineno-1-17></a>
-</span><span id=__span-1-18><a id=__codelineno-1-18 name=__codelineno-1-18></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>url_path</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>();</span>
-</span><span id=__span-1-19><a id=__codelineno-1-19 name=__codelineno-1-19></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>SATCAT query URL path:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>url_path</span><span class=p>);</span>
-</span><span id=__span-1-20><a id=__codelineno-1-20 name=__codelineno-1-20></a><span class=w>    </span><span class=c1>// SATCAT query URL path:</span>
-</span><span id=__span-1-21><a id=__codelineno-1-21 name=__codelineno-1-21></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/satcat/COUNTRY/US/format/json</span>
-</span><span id=__span-1-22><a id=__codelineno-1-22 name=__codelineno-1-22></a>
-</span><span id=__span-1-23><a id=__codelineno-1-23 name=__codelineno-1-23></a><span class=w>    </span><span class=c1>// The default controller is inferred from the request class</span>
-</span><span id=__span-1-24><a id=__codelineno-1-24 name=__codelineno-1-24></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>CDMPublic</span><span class=p>);</span>
-</span><span id=__span-1-25><a id=__codelineno-1-25 name=__codelineno-1-25></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>url_path</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>();</span>
-</span><span id=__span-1-26><a id=__codelineno-1-26 name=__codelineno-1-26></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>CDM query URL path (uses expandedspacedata controller):</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>url_path</span><span class=p>);</span>
-</span><span id=__span-1-27><a id=__codelineno-1-27 name=__codelineno-1-27></a><span class=w>    </span><span class=c1>// CDM query URL path (uses expandedspacedata controller):</span>
-</span><span id=__span-1-28><a id=__codelineno-1-28 name=__codelineno-1-28></a><span class=w>    </span><span class=c1>//   /expandedspacedata/query/class/cdm_public/format/json</span>
-</span><span id=__span-1-29><a id=__codelineno-1-29 name=__codelineno-1-29></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <h2 id=filters-and-operators>Filters and Operators<a class=headerlink href=#filters-and-operators title="Permanent link">&para;</a></h2> <p>The <code>operators</code> module provides functions that generate operator-prefixed strings for filter values. These compose naturally -- <code>greater_than(now_offset(-7))</code> nests the time offset inside the comparison operator.</p> <div class="tabbed-set tabbed-alternate" data-tabs=2:2><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><input id=__tabbed_2_2 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>Python</label><label for=__tabbed_2_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-2-1> 1</a></span>
-<span class=normal><a href=#__codelineno-2-2> 2</a></span>
-<span class=normal><a href=#__codelineno-2-3> 3</a></span>
-<span class=normal><a href=#__codelineno-2-4> 4</a></span>
-<span class=normal><a href=#__codelineno-2-5> 5</a></span>
-<span class=normal><a href=#__codelineno-2-6> 6</a></span>
-<span class=normal><a href=#__codelineno-2-7> 7</a></span>
-<span class=normal><a href=#__codelineno-2-8> 8</a></span>
-<span class=normal><a href=#__codelineno-2-9> 9</a></span>
-<span class=normal><a href=#__codelineno-2-10>10</a></span>
-<span class=normal><a href=#__codelineno-2-11>11</a></span>
-<span class=normal><a href=#__codelineno-2-12>12</a></span>
-<span class=normal><a href=#__codelineno-2-13>13</a></span>
-<span class=normal><a href=#__codelineno-2-14>14</a></span>
-<span class=normal><a href=#__codelineno-2-15>15</a></span>
-<span class=normal><a href=#__codelineno-2-16>16</a></span>
-<span class=normal><a href=#__codelineno-2-17>17</a></span>
-<span class=normal><a href=#__codelineno-2-18>18</a></span>
-<span class=normal><a href=#__codelineno-2-19>19</a></span>
-<span class=normal><a href=#__codelineno-2-20>20</a></span>
-<span class=normal><a href=#__codelineno-2-21>21</a></span>
-<span class=normal><a href=#__codelineno-2-22>22</a></span>
-<span class=normal><a href=#__codelineno-2-23>23</a></span>
-<span class=normal><a href=#__codelineno-2-24>24</a></span>
-<span class=normal><a href=#__codelineno-2-25>25</a></span>
-<span class=normal><a href=#__codelineno-2-26>26</a></span>
-<span class=normal><a href=#__codelineno-2-27>27</a></span>
-<span class=normal><a href=#__codelineno-2-28>28</a></span>
-<span class=normal><a href=#__codelineno-2-29>29</a></span>
-<span class=normal><a href=#__codelineno-2-30>30</a></span>
-<span class=normal><a href=#__codelineno-2-31>31</a></span>
-<span class=normal><a href=#__codelineno-2-32>32</a></span>
-<span class=normal><a href=#__codelineno-2-33>33</a></span>
-<span class=normal><a href=#__codelineno-2-34>34</a></span>
-<span class=normal><a href=#__codelineno-2-35>35</a></span>
-<span class=normal><a href=#__codelineno-2-36>36</a></span>
-<span class=normal><a href=#__codelineno-2-37>37</a></span>
-<span class=normal><a href=#__codelineno-2-38>38</a></span>
-<span class=normal><a href=#__codelineno-2-39>39</a></span>
-<span class=normal><a href=#__codelineno-2-40>40</a></span>
-<span class=normal><a href=#__codelineno-2-41>41</a></span>
-<span class=normal><a href=#__codelineno-2-42>42</a></span>
-<span class=normal><a href=#__codelineno-2-43>43</a></span>
-<span class=normal><a href=#__codelineno-2-44>44</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
-</span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a><span class=kn>from</span><span class=w> </span><span class=nn>brahe.spacetrack</span><span class=w> </span><span class=kn>import</span> <span class=n>operators</span> <span class=k>as</span> <span class=n>op</span>
+</span><span id=__span-1-11><a id=__codelineno-1-11 name=__codelineno-1-11></a>
+</span><span id=__span-1-12><a id=__codelineno-1-12 name=__codelineno-1-12></a><span class=w>    </span><span class=c1>// Build a SATCAT query for US-owned objects</span>
+</span><span id=__span-1-13><a id=__codelineno-1-13 name=__codelineno-1-13></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
+</span><span id=__span-1-14><a id=__codelineno-1-14 name=__codelineno-1-14></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;COUNTRY&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;US&quot;</span><span class=p>);</span>
+</span><span id=__span-1-15><a id=__codelineno-1-15 name=__codelineno-1-15></a>
+</span><span id=__span-1-16><a id=__codelineno-1-16 name=__codelineno-1-16></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>url_path</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>();</span>
+</span><span id=__span-1-17><a id=__codelineno-1-17 name=__codelineno-1-17></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>SATCAT query URL path:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>url_path</span><span class=p>);</span>
+</span><span id=__span-1-18><a id=__codelineno-1-18 name=__codelineno-1-18></a>
+</span><span id=__span-1-19><a id=__codelineno-1-19 name=__codelineno-1-19></a><span class=w>    </span><span class=c1>// The default controller is inferred from the request class</span>
+</span><span id=__span-1-20><a id=__codelineno-1-20 name=__codelineno-1-20></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>CDMPublic</span><span class=p>);</span>
+</span><span id=__span-1-21><a id=__codelineno-1-21 name=__codelineno-1-21></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>url_path</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>();</span>
+</span><span id=__span-1-22><a id=__codelineno-1-22 name=__codelineno-1-22></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>CDM query URL path (uses expandedspacedata controller):</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>url_path</span><span class=p>);</span>
+</span><span id=__span-1-23><a id=__codelineno-1-23 name=__codelineno-1-23></a><span class=p>}</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=2:2><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><input id=__tabbed_2_2 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>Python</label><label for=__tabbed_2_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-2-1>1</a></span>
+<span class=normal><a href=#__codelineno-2-2>2</a></span>
+<span class=normal><a href=#__codelineno-2-3>3</a></span>
+<span class=normal><a href=#__codelineno-2-4>4</a></span>
+<span class=normal><a href=#__codelineno-2-5>5</a></span>
+<span class=normal><a href=#__codelineno-2-6>6</a></span>
+<span class=normal><a href=#__codelineno-2-7>7</a></span>
+<span class=normal><a href=#__codelineno-2-8>8</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a>GP query URL path:
+</span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json
 </span><span id=__span-2-3><a id=__codelineno-2-3 name=__codelineno-2-3></a>
-</span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a><span class=c1># Filter by NORAD ID range using inclusive_range</span>
-</span><span id=__span-2-5><a id=__codelineno-2-5 name=__codelineno-2-5></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span>
-</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a>    <span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>inclusive_range</span><span class=p>(</span><span class=s2>&quot;25544&quot;</span><span class=p>,</span> <span class=s2>&quot;25600&quot;</span><span class=p>)</span>
-</span><span id=__span-2-7><a id=__codelineno-2-7 name=__codelineno-2-7></a><span class=p>)</span>
-</span><span id=__span-2-8><a id=__codelineno-2-8 name=__codelineno-2-8></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Range filter:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-2-9><a id=__codelineno-2-9 name=__codelineno-2-9></a><span class=c1># Range filter:</span>
-</span><span id=__span-2-10><a id=__codelineno-2-10 name=__codelineno-2-10></a><span class=c1>#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544--25600/format/json</span>
-</span><span id=__span-2-11><a id=__codelineno-2-11 name=__codelineno-2-11></a>
-</span><span id=__span-2-12><a id=__codelineno-2-12 name=__codelineno-2-12></a><span class=c1># Filter for objects with low eccentricity using less_than</span>
-</span><span id=__span-2-13><a id=__codelineno-2-13 name=__codelineno-2-13></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
-</span><span id=__span-2-14><a id=__codelineno-2-14 name=__codelineno-2-14></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-2-15><a id=__codelineno-2-15 name=__codelineno-2-15></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;ECCENTRICITY&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>less_than</span><span class=p>(</span><span class=s2>&quot;0.01&quot;</span><span class=p>))</span>
-</span><span id=__span-2-16><a id=__codelineno-2-16 name=__codelineno-2-16></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;OBJECT_TYPE&quot;</span><span class=p>,</span> <span class=s2>&quot;PAYLOAD&quot;</span><span class=p>)</span>
-</span><span id=__span-2-17><a id=__codelineno-2-17 name=__codelineno-2-17></a><span class=p>)</span>
-</span><span id=__span-2-18><a id=__codelineno-2-18 name=__codelineno-2-18></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Multiple filters:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-2-19><a id=__codelineno-2-19 name=__codelineno-2-19></a><span class=c1># Multiple filters:</span>
-</span><span id=__span-2-20><a id=__codelineno-2-20 name=__codelineno-2-20></a><span class=c1>#   /basicspacedata/query/class/gp/ECCENTRICITY/&lt;0.01/OBJECT_TYPE/PAYLOAD/format/json</span>
-</span><span id=__span-2-21><a id=__codelineno-2-21 name=__codelineno-2-21></a>
-</span><span id=__span-2-22><a id=__codelineno-2-22 name=__codelineno-2-22></a><span class=c1># Filter for recently launched objects using greater_than + now_offset</span>
-</span><span id=__span-2-23><a id=__codelineno-2-23 name=__codelineno-2-23></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span>
-</span><span id=__span-2-24><a id=__codelineno-2-24 name=__codelineno-2-24></a>    <span class=s2>&quot;LAUNCH&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>greater_than</span><span class=p>(</span><span class=n>op</span><span class=o>.</span><span class=n>now_offset</span><span class=p>(</span><span class=o>-</span><span class=mi>30</span><span class=p>))</span>
-</span><span id=__span-2-25><a id=__codelineno-2-25 name=__codelineno-2-25></a><span class=p>)</span>
-</span><span id=__span-2-26><a id=__codelineno-2-26 name=__codelineno-2-26></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Recent launches (last 30 days):</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-2-27><a id=__codelineno-2-27 name=__codelineno-2-27></a><span class=c1># Recent launches (last 30 days):</span>
-</span><span id=__span-2-28><a id=__codelineno-2-28 name=__codelineno-2-28></a><span class=c1>#   /basicspacedata/query/class/satcat/LAUNCH/&gt;now-30/format/json</span>
-</span><span id=__span-2-29><a id=__codelineno-2-29 name=__codelineno-2-29></a>
-</span><span id=__span-2-30><a id=__codelineno-2-30 name=__codelineno-2-30></a><span class=c1># Search by name pattern using like</span>
-</span><span id=__span-2-31><a id=__codelineno-2-31 name=__codelineno-2-31></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span>
-</span><span id=__span-2-32><a id=__codelineno-2-32 name=__codelineno-2-32></a>    <span class=s2>&quot;SATNAME&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>like</span><span class=p>(</span><span class=s2>&quot;STARLINK&quot;</span><span class=p>)</span>
-</span><span id=__span-2-33><a id=__codelineno-2-33 name=__codelineno-2-33></a><span class=p>)</span>
-</span><span id=__span-2-34><a id=__codelineno-2-34 name=__codelineno-2-34></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Name pattern match:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-2-35><a id=__codelineno-2-35 name=__codelineno-2-35></a><span class=c1># Name pattern match:</span>
-</span><span id=__span-2-36><a id=__codelineno-2-36 name=__codelineno-2-36></a><span class=c1>#   /basicspacedata/query/class/satcat/SATNAME/~~STARLINK/format/json</span>
-</span><span id=__span-2-37><a id=__codelineno-2-37 name=__codelineno-2-37></a>
-</span><span id=__span-2-38><a id=__codelineno-2-38 name=__codelineno-2-38></a><span class=c1># Filter for multiple NORAD IDs using or_list</span>
-</span><span id=__span-2-39><a id=__codelineno-2-39 name=__codelineno-2-39></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span>
-</span><span id=__span-2-40><a id=__codelineno-2-40 name=__codelineno-2-40></a>    <span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>or_list</span><span class=p>([</span><span class=s2>&quot;25544&quot;</span><span class=p>,</span> <span class=s2>&quot;48274&quot;</span><span class=p>,</span> <span class=s2>&quot;54216&quot;</span><span class=p>])</span>
-</span><span id=__span-2-41><a id=__codelineno-2-41 name=__codelineno-2-41></a><span class=p>)</span>
-</span><span id=__span-2-42><a id=__codelineno-2-42 name=__codelineno-2-42></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Multiple IDs:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-2-43><a id=__codelineno-2-43 name=__codelineno-2-43></a><span class=c1># Multiple IDs:</span>
-</span><span id=__span-2-44><a id=__codelineno-2-44 name=__codelineno-2-44></a><span class=c1>#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544,48274,54216/format/json</span>
-</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1> 1</a></span>
-<span class=normal><a href=#__codelineno-3-2> 2</a></span>
-<span class=normal><a href=#__codelineno-3-3> 3</a></span>
-<span class=normal><a href=#__codelineno-3-4> 4</a></span>
-<span class=normal><a href=#__codelineno-3-5> 5</a></span>
-<span class=normal><a href=#__codelineno-3-6> 6</a></span>
-<span class=normal><a href=#__codelineno-3-7> 7</a></span>
-<span class=normal><a href=#__codelineno-3-8> 8</a></span>
-<span class=normal><a href=#__codelineno-3-9> 9</a></span>
-<span class=normal><a href=#__codelineno-3-10>10</a></span>
-<span class=normal><a href=#__codelineno-3-11>11</a></span>
-<span class=normal><a href=#__codelineno-3-12>12</a></span>
-<span class=normal><a href=#__codelineno-3-13>13</a></span>
-<span class=normal><a href=#__codelineno-3-14>14</a></span>
-<span class=normal><a href=#__codelineno-3-15>15</a></span>
-<span class=normal><a href=#__codelineno-3-16>16</a></span>
-<span class=normal><a href=#__codelineno-3-17>17</a></span>
-<span class=normal><a href=#__codelineno-3-18>18</a></span>
-<span class=normal><a href=#__codelineno-3-19>19</a></span>
-<span class=normal><a href=#__codelineno-3-20>20</a></span>
-<span class=normal><a href=#__codelineno-3-21>21</a></span>
-<span class=normal><a href=#__codelineno-3-22>22</a></span>
-<span class=normal><a href=#__codelineno-3-23>23</a></span>
-<span class=normal><a href=#__codelineno-3-24>24</a></span>
-<span class=normal><a href=#__codelineno-3-25>25</a></span>
-<span class=normal><a href=#__codelineno-3-26>26</a></span>
-<span class=normal><a href=#__codelineno-3-27>27</a></span>
-<span class=normal><a href=#__codelineno-3-28>28</a></span>
-<span class=normal><a href=#__codelineno-3-29>29</a></span>
-<span class=normal><a href=#__codelineno-3-30>30</a></span>
-<span class=normal><a href=#__codelineno-3-31>31</a></span>
-<span class=normal><a href=#__codelineno-3-32>32</a></span>
-<span class=normal><a href=#__codelineno-3-33>33</a></span>
-<span class=normal><a href=#__codelineno-3-34>34</a></span>
-<span class=normal><a href=#__codelineno-3-35>35</a></span>
-<span class=normal><a href=#__codelineno-3-36>36</a></span>
-<span class=normal><a href=#__codelineno-3-37>37</a></span>
-<span class=normal><a href=#__codelineno-3-38>38</a></span>
-<span class=normal><a href=#__codelineno-3-39>39</a></span>
-<span class=normal><a href=#__codelineno-3-40>40</a></span>
-<span class=normal><a href=#__codelineno-3-41>41</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
-</span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>spacetrack</span><span class=p>::{</span><span class=n>SpaceTrackQuery</span><span class=p>,</span><span class=w> </span><span class=n>RequestClass</span><span class=p>};</span>
-</span><span id=__span-3-3><a id=__codelineno-3-3 name=__codelineno-3-3></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>spacetrack</span><span class=p>::</span><span class=n>operators</span><span class=p>;</span>
-</span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a>
-</span><span id=__span-3-5><a id=__codelineno-3-5 name=__codelineno-3-5></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a><span class=w>    </span><span class=c1>// Filter by NORAD ID range using inclusive_range</span>
-</span><span id=__span-3-7><a id=__codelineno-3-7 name=__codelineno-3-7></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-3-8><a id=__codelineno-3-8 name=__codelineno-3-8></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>inclusive_range</span><span class=p>(</span><span class=s>&quot;25544&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25600&quot;</span><span class=p>));</span>
-</span><span id=__span-3-9><a id=__codelineno-3-9 name=__codelineno-3-9></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Range filter:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-3-10><a id=__codelineno-3-10 name=__codelineno-3-10></a><span class=w>    </span><span class=c1>// Range filter:</span>
-</span><span id=__span-3-11><a id=__codelineno-3-11 name=__codelineno-3-11></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544--25600/format/json</span>
-</span><span id=__span-3-12><a id=__codelineno-3-12 name=__codelineno-3-12></a>
-</span><span id=__span-3-13><a id=__codelineno-3-13 name=__codelineno-3-13></a><span class=w>    </span><span class=c1>// Filter for objects with low eccentricity using less_than</span>
-</span><span id=__span-3-14><a id=__codelineno-3-14 name=__codelineno-3-14></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-3-15><a id=__codelineno-3-15 name=__codelineno-3-15></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;ECCENTRICITY&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>less_than</span><span class=p>(</span><span class=s>&quot;0.01&quot;</span><span class=p>))</span>
-</span><span id=__span-3-16><a id=__codelineno-3-16 name=__codelineno-3-16></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;OBJECT_TYPE&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;PAYLOAD&quot;</span><span class=p>);</span>
-</span><span id=__span-3-17><a id=__codelineno-3-17 name=__codelineno-3-17></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Multiple filters:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-3-18><a id=__codelineno-3-18 name=__codelineno-3-18></a><span class=w>    </span><span class=c1>// Multiple filters:</span>
-</span><span id=__span-3-19><a id=__codelineno-3-19 name=__codelineno-3-19></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/ECCENTRICITY/&lt;0.01/OBJECT_TYPE/PAYLOAD/format/json</span>
-</span><span id=__span-3-20><a id=__codelineno-3-20 name=__codelineno-3-20></a>
-</span><span id=__span-3-21><a id=__codelineno-3-21 name=__codelineno-3-21></a><span class=w>    </span><span class=c1>// Filter for recently launched objects using greater_than + now_offset</span>
-</span><span id=__span-3-22><a id=__codelineno-3-22 name=__codelineno-3-22></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
-</span><span id=__span-3-23><a id=__codelineno-3-23 name=__codelineno-3-23></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;LAUNCH&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>greater_than</span><span class=p>(</span><span class=n>operators</span><span class=p>::</span><span class=n>now_offset</span><span class=p>(</span><span class=o>-</span><span class=mi>30</span><span class=p>)));</span>
-</span><span id=__span-3-24><a id=__codelineno-3-24 name=__codelineno-3-24></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Recent launches (last 30 days):</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-3-25><a id=__codelineno-3-25 name=__codelineno-3-25></a><span class=w>    </span><span class=c1>// Recent launches (last 30 days):</span>
-</span><span id=__span-3-26><a id=__codelineno-3-26 name=__codelineno-3-26></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/satcat/LAUNCH/&gt;now-30/format/json</span>
-</span><span id=__span-3-27><a id=__codelineno-3-27 name=__codelineno-3-27></a>
-</span><span id=__span-3-28><a id=__codelineno-3-28 name=__codelineno-3-28></a><span class=w>    </span><span class=c1>// Search by name pattern using like</span>
-</span><span id=__span-3-29><a id=__codelineno-3-29 name=__codelineno-3-29></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
-</span><span id=__span-3-30><a id=__codelineno-3-30 name=__codelineno-3-30></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;SATNAME&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>like</span><span class=p>(</span><span class=s>&quot;STARLINK&quot;</span><span class=p>));</span>
-</span><span id=__span-3-31><a id=__codelineno-3-31 name=__codelineno-3-31></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Name pattern match:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-3-32><a id=__codelineno-3-32 name=__codelineno-3-32></a><span class=w>    </span><span class=c1>// Name pattern match:</span>
-</span><span id=__span-3-33><a id=__codelineno-3-33 name=__codelineno-3-33></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/satcat/SATNAME/~~STARLINK/format/json</span>
-</span><span id=__span-3-34><a id=__codelineno-3-34 name=__codelineno-3-34></a>
-</span><span id=__span-3-35><a id=__codelineno-3-35 name=__codelineno-3-35></a><span class=w>    </span><span class=c1>// Filter for multiple NORAD IDs using or_list</span>
-</span><span id=__span-3-36><a id=__codelineno-3-36 name=__codelineno-3-36></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-3-37><a id=__codelineno-3-37 name=__codelineno-3-37></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>or_list</span><span class=p>(</span><span class=o>&amp;</span><span class=p>[</span><span class=s>&quot;25544&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;48274&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;54216&quot;</span><span class=p>]));</span>
-</span><span id=__span-3-38><a id=__codelineno-3-38 name=__codelineno-3-38></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Multiple IDs:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-3-39><a id=__codelineno-3-39 name=__codelineno-3-39></a><span class=w>    </span><span class=c1>// Multiple IDs:</span>
-</span><span id=__span-3-40><a id=__codelineno-3-40 name=__codelineno-3-40></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544,48274,54216/format/json</span>
-</span><span id=__span-3-41><a id=__codelineno-3-41 name=__codelineno-3-41></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <div class="admonition tip"> <p class=admonition-title>Operator Composition</p> <p>Operators are string-generating functions. You can compose them by nesting:</p> <ul> <li><code>greater_than(now_offset(-7))</code> produces <code>"&gt;now-7"</code> (epoch after 7 days ago)</li> <li><code>inclusive_range(now_offset(-30), now())</code> produces <code>"now-30--now"</code> (within last 30 days)</li> </ul> </div> <h2 id=ordering-limits-and-options>Ordering, Limits, and Options<a class=headerlink href=#ordering-limits-and-options title="Permanent link">&para;</a></h2> <p>Control result ordering, pagination, and field selection. Multiple <code>order_by</code> calls are cumulative -- results are sorted by the first field, then by subsequent fields for ties.</p> <div class="tabbed-set tabbed-alternate" data-tabs=3:2><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><input id=__tabbed_3_2 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>Python</label><label for=__tabbed_3_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1> 1</a></span>
+</span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a>SATCAT query URL path:
+</span><span id=__span-2-5><a id=__codelineno-2-5 name=__codelineno-2-5></a>  /basicspacedata/query/class/satcat/COUNTRY/US/format/json
+</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a>
+</span><span id=__span-2-7><a id=__codelineno-2-7 name=__codelineno-2-7></a>CDM query URL path (uses expandedspacedata controller):
+</span><span id=__span-2-8><a id=__codelineno-2-8 name=__codelineno-2-8></a>  /basicspacedata/query/class/cdm_public/format/json
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1>1</a></span>
+<span class=normal><a href=#__codelineno-3-2>2</a></span>
+<span class=normal><a href=#__codelineno-3-3>3</a></span>
+<span class=normal><a href=#__codelineno-3-4>4</a></span>
+<span class=normal><a href=#__codelineno-3-5>5</a></span>
+<span class=normal><a href=#__codelineno-3-6>6</a></span>
+<span class=normal><a href=#__codelineno-3-7>7</a></span>
+<span class=normal><a href=#__codelineno-3-8>8</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a>GP query URL path:
+</span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json
+</span><span id=__span-3-3><a id=__codelineno-3-3 name=__codelineno-3-3></a>
+</span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a>SATCAT query URL path:
+</span><span id=__span-3-5><a id=__codelineno-3-5 name=__codelineno-3-5></a>  /basicspacedata/query/class/satcat/COUNTRY/US/format/json
+</span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a>
+</span><span id=__span-3-7><a id=__codelineno-3-7 name=__codelineno-3-7></a>CDM query URL path (uses expandedspacedata controller):
+</span><span id=__span-3-8><a id=__codelineno-3-8 name=__codelineno-3-8></a>  /basicspacedata/query/class/cdm_public/format/json
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h2 id=filters-and-operators>Filters and Operators<a class=headerlink href=#filters-and-operators title="Permanent link">&para;</a></h2> <p>The <code>operators</code> module provides functions that generate operator-prefixed strings for filter values. These compose naturally -- <code>greater_than(now_offset(-7))</code> nests the time offset inside the comparison operator.</p> <div class="tabbed-set tabbed-alternate" data-tabs=3:2><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><input id=__tabbed_3_2 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>Python</label><label for=__tabbed_3_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1> 1</a></span>
 <span class=normal><a href=#__codelineno-4-2> 2</a></span>
 <span class=normal><a href=#__codelineno-4-3> 3</a></span>
 <span class=normal><a href=#__codelineno-4-4> 4</a></span>
@@ -303,60 +141,40 @@
 <span class=normal><a href=#__codelineno-4-31>31</a></span>
 <span class=normal><a href=#__codelineno-4-32>32</a></span>
 <span class=normal><a href=#__codelineno-4-33>33</a></span>
-<span class=normal><a href=#__codelineno-4-34>34</a></span>
-<span class=normal><a href=#__codelineno-4-35>35</a></span>
-<span class=normal><a href=#__codelineno-4-36>36</a></span>
-<span class=normal><a href=#__codelineno-4-37>37</a></span>
-<span class=normal><a href=#__codelineno-4-38>38</a></span>
-<span class=normal><a href=#__codelineno-4-39>39</a></span>
-<span class=normal><a href=#__codelineno-4-40>40</a></span>
-<span class=normal><a href=#__codelineno-4-41>41</a></span>
-<span class=normal><a href=#__codelineno-4-42>42</a></span>
-<span class=normal><a href=#__codelineno-4-43>43</a></span>
-<span class=normal><a href=#__codelineno-4-44>44</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-4-1><a id=__codelineno-4-1 name=__codelineno-4-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
-</span><span id=__span-4-2><a id=__codelineno-4-2 name=__codelineno-4-2></a>
-</span><span id=__span-4-3><a id=__codelineno-4-3 name=__codelineno-4-3></a><span class=c1># Order results by epoch descending and limit to 5 records</span>
-</span><span id=__span-4-4><a id=__codelineno-4-4 name=__codelineno-4-4></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
-</span><span id=__span-4-5><a id=__codelineno-4-5 name=__codelineno-4-5></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-4-6><a id=__codelineno-4-6 name=__codelineno-4-6></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
-</span><span id=__span-4-7><a id=__codelineno-4-7 name=__codelineno-4-7></a>    <span class=o>.</span><span class=n>order_by</span><span class=p>(</span><span class=s2>&quot;EPOCH&quot;</span><span class=p>,</span> <span class=n>bh</span><span class=o>.</span><span class=n>SortOrder</span><span class=o>.</span><span class=n>DESC</span><span class=p>)</span>
-</span><span id=__span-4-8><a id=__codelineno-4-8 name=__codelineno-4-8></a>    <span class=o>.</span><span class=n>limit</span><span class=p>(</span><span class=mi>5</span><span class=p>)</span>
-</span><span id=__span-4-9><a id=__codelineno-4-9 name=__codelineno-4-9></a><span class=p>)</span>
-</span><span id=__span-4-10><a id=__codelineno-4-10 name=__codelineno-4-10></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Ordered and limited:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-4-11><a id=__codelineno-4-11 name=__codelineno-4-11></a><span class=c1># Ordered and limited:</span>
-</span><span id=__span-4-12><a id=__codelineno-4-12 name=__codelineno-4-12></a><span class=c1>#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH desc/limit/5/format/json</span>
-</span><span id=__span-4-13><a id=__codelineno-4-13 name=__codelineno-4-13></a>
-</span><span id=__span-4-14><a id=__codelineno-4-14 name=__codelineno-4-14></a><span class=c1># Use limit with offset for pagination</span>
-</span><span id=__span-4-15><a id=__codelineno-4-15 name=__codelineno-4-15></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
-</span><span id=__span-4-16><a id=__codelineno-4-16 name=__codelineno-4-16></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-4-17><a id=__codelineno-4-17 name=__codelineno-4-17></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;OBJECT_TYPE&quot;</span><span class=p>,</span> <span class=s2>&quot;PAYLOAD&quot;</span><span class=p>)</span>
-</span><span id=__span-4-18><a id=__codelineno-4-18 name=__codelineno-4-18></a>    <span class=o>.</span><span class=n>order_by</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=n>bh</span><span class=o>.</span><span class=n>SortOrder</span><span class=o>.</span><span class=n>ASC</span><span class=p>)</span>
-</span><span id=__span-4-19><a id=__codelineno-4-19 name=__codelineno-4-19></a>    <span class=o>.</span><span class=n>limit_offset</span><span class=p>(</span><span class=mi>10</span><span class=p>,</span> <span class=mi>20</span><span class=p>)</span>
-</span><span id=__span-4-20><a id=__codelineno-4-20 name=__codelineno-4-20></a><span class=p>)</span>
-</span><span id=__span-4-21><a id=__codelineno-4-21 name=__codelineno-4-21></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Paginated results:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-4-22><a id=__codelineno-4-22 name=__codelineno-4-22></a><span class=c1># Paginated results:</span>
-</span><span id=__span-4-23><a id=__codelineno-4-23 name=__codelineno-4-23></a><span class=c1>#   /basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/orderby/NORAD_CAT_ID asc/limit/10,20/format/json</span>
-</span><span id=__span-4-24><a id=__codelineno-4-24 name=__codelineno-4-24></a>
-</span><span id=__span-4-25><a id=__codelineno-4-25 name=__codelineno-4-25></a><span class=c1># Select specific fields with predicates_filter</span>
-</span><span id=__span-4-26><a id=__codelineno-4-26 name=__codelineno-4-26></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
-</span><span id=__span-4-27><a id=__codelineno-4-27 name=__codelineno-4-27></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-4-28><a id=__codelineno-4-28 name=__codelineno-4-28></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
-</span><span id=__span-4-29><a id=__codelineno-4-29 name=__codelineno-4-29></a>    <span class=o>.</span><span class=n>predicates_filter</span><span class=p>([</span><span class=s2>&quot;OBJECT_NAME&quot;</span><span class=p>,</span> <span class=s2>&quot;EPOCH&quot;</span><span class=p>,</span> <span class=s2>&quot;INCLINATION&quot;</span><span class=p>,</span> <span class=s2>&quot;PERIOD&quot;</span><span class=p>])</span>
-</span><span id=__span-4-30><a id=__codelineno-4-30 name=__codelineno-4-30></a><span class=p>)</span>
-</span><span id=__span-4-31><a id=__codelineno-4-31 name=__codelineno-4-31></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Filtered fields:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-4-32><a id=__codelineno-4-32 name=__codelineno-4-32></a><span class=c1># Filtered fields:</span>
-</span><span id=__span-4-33><a id=__codelineno-4-33 name=__codelineno-4-33></a><span class=c1>#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/predicates/OBJECT_NAME,EPOCH,INCLINATION,PERIOD/format/json</span>
-</span><span id=__span-4-34><a id=__codelineno-4-34 name=__codelineno-4-34></a>
-</span><span id=__span-4-35><a id=__codelineno-4-35 name=__codelineno-4-35></a><span class=c1># Enable metadata and distinct results</span>
-</span><span id=__span-4-36><a id=__codelineno-4-36 name=__codelineno-4-36></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
-</span><span id=__span-4-37><a id=__codelineno-4-37 name=__codelineno-4-37></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span>
-</span><span id=__span-4-38><a id=__codelineno-4-38 name=__codelineno-4-38></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;COUNTRY&quot;</span><span class=p>,</span> <span class=s2>&quot;US&quot;</span><span class=p>)</span>
-</span><span id=__span-4-39><a id=__codelineno-4-39 name=__codelineno-4-39></a>    <span class=o>.</span><span class=n>distinct</span><span class=p>(</span><span class=kc>True</span><span class=p>)</span>
-</span><span id=__span-4-40><a id=__codelineno-4-40 name=__codelineno-4-40></a>    <span class=o>.</span><span class=n>metadata</span><span class=p>(</span><span class=kc>True</span><span class=p>)</span>
-</span><span id=__span-4-41><a id=__codelineno-4-41 name=__codelineno-4-41></a><span class=p>)</span>
-</span><span id=__span-4-42><a id=__codelineno-4-42 name=__codelineno-4-42></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Distinct with metadata:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-4-43><a id=__codelineno-4-43 name=__codelineno-4-43></a><span class=c1># Distinct with metadata:</span>
-</span><span id=__span-4-44><a id=__codelineno-4-44 name=__codelineno-4-44></a><span class=c1>#   /basicspacedata/query/class/satcat/COUNTRY/US/metadata/true/distinct/true/format/json</span>
+<span class=normal><a href=#__codelineno-4-34>34</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-4-1><a id=__codelineno-4-1 name=__codelineno-4-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+</span><span id=__span-4-2><a id=__codelineno-4-2 name=__codelineno-4-2></a><span class=kn>from</span><span class=w> </span><span class=nn>brahe.spacetrack</span><span class=w> </span><span class=kn>import</span> <span class=n>operators</span> <span class=k>as</span> <span class=n>op</span>
+</span><span id=__span-4-3><a id=__codelineno-4-3 name=__codelineno-4-3></a>
+</span><span id=__span-4-4><a id=__codelineno-4-4 name=__codelineno-4-4></a><span class=c1># Filter by NORAD ID range using inclusive_range</span>
+</span><span id=__span-4-5><a id=__codelineno-4-5 name=__codelineno-4-5></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span>
+</span><span id=__span-4-6><a id=__codelineno-4-6 name=__codelineno-4-6></a>    <span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>inclusive_range</span><span class=p>(</span><span class=s2>&quot;25544&quot;</span><span class=p>,</span> <span class=s2>&quot;25600&quot;</span><span class=p>)</span>
+</span><span id=__span-4-7><a id=__codelineno-4-7 name=__codelineno-4-7></a><span class=p>)</span>
+</span><span id=__span-4-8><a id=__codelineno-4-8 name=__codelineno-4-8></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Range filter:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-4-9><a id=__codelineno-4-9 name=__codelineno-4-9></a>
+</span><span id=__span-4-10><a id=__codelineno-4-10 name=__codelineno-4-10></a><span class=c1># Filter for objects with low eccentricity using less_than</span>
+</span><span id=__span-4-11><a id=__codelineno-4-11 name=__codelineno-4-11></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
+</span><span id=__span-4-12><a id=__codelineno-4-12 name=__codelineno-4-12></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-4-13><a id=__codelineno-4-13 name=__codelineno-4-13></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;ECCENTRICITY&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>less_than</span><span class=p>(</span><span class=s2>&quot;0.01&quot;</span><span class=p>))</span>
+</span><span id=__span-4-14><a id=__codelineno-4-14 name=__codelineno-4-14></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;OBJECT_TYPE&quot;</span><span class=p>,</span> <span class=s2>&quot;PAYLOAD&quot;</span><span class=p>)</span>
+</span><span id=__span-4-15><a id=__codelineno-4-15 name=__codelineno-4-15></a><span class=p>)</span>
+</span><span id=__span-4-16><a id=__codelineno-4-16 name=__codelineno-4-16></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Multiple filters:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-4-17><a id=__codelineno-4-17 name=__codelineno-4-17></a>
+</span><span id=__span-4-18><a id=__codelineno-4-18 name=__codelineno-4-18></a><span class=c1># Filter for recently launched objects using greater_than + now_offset</span>
+</span><span id=__span-4-19><a id=__codelineno-4-19 name=__codelineno-4-19></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span>
+</span><span id=__span-4-20><a id=__codelineno-4-20 name=__codelineno-4-20></a>    <span class=s2>&quot;LAUNCH&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>greater_than</span><span class=p>(</span><span class=n>op</span><span class=o>.</span><span class=n>now_offset</span><span class=p>(</span><span class=o>-</span><span class=mi>30</span><span class=p>))</span>
+</span><span id=__span-4-21><a id=__codelineno-4-21 name=__codelineno-4-21></a><span class=p>)</span>
+</span><span id=__span-4-22><a id=__codelineno-4-22 name=__codelineno-4-22></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Recent launches (last 30 days):</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-4-23><a id=__codelineno-4-23 name=__codelineno-4-23></a>
+</span><span id=__span-4-24><a id=__codelineno-4-24 name=__codelineno-4-24></a><span class=c1># Search by name pattern using like</span>
+</span><span id=__span-4-25><a id=__codelineno-4-25 name=__codelineno-4-25></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span>
+</span><span id=__span-4-26><a id=__codelineno-4-26 name=__codelineno-4-26></a>    <span class=s2>&quot;SATNAME&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>like</span><span class=p>(</span><span class=s2>&quot;STARLINK&quot;</span><span class=p>)</span>
+</span><span id=__span-4-27><a id=__codelineno-4-27 name=__codelineno-4-27></a><span class=p>)</span>
+</span><span id=__span-4-28><a id=__codelineno-4-28 name=__codelineno-4-28></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Name pattern match:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-4-29><a id=__codelineno-4-29 name=__codelineno-4-29></a>
+</span><span id=__span-4-30><a id=__codelineno-4-30 name=__codelineno-4-30></a><span class=c1># Filter for multiple NORAD IDs using or_list</span>
+</span><span id=__span-4-31><a id=__codelineno-4-31 name=__codelineno-4-31></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span>
+</span><span id=__span-4-32><a id=__codelineno-4-32 name=__codelineno-4-32></a>    <span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=n>op</span><span class=o>.</span><span class=n>or_list</span><span class=p>([</span><span class=s2>&quot;25544&quot;</span><span class=p>,</span> <span class=s2>&quot;48274&quot;</span><span class=p>,</span> <span class=s2>&quot;54216&quot;</span><span class=p>])</span>
+</span><span id=__span-4-33><a id=__codelineno-4-33 name=__codelineno-4-33></a><span class=p>)</span>
+</span><span id=__span-4-34><a id=__codelineno-4-34 name=__codelineno-4-34></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Multiple IDs:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-5-1> 1</a></span>
 <span class=normal><a href=#__codelineno-5-2> 2</a></span>
 <span class=normal><a href=#__codelineno-5-3> 3</a></span>
@@ -387,54 +205,38 @@
 <span class=normal><a href=#__codelineno-5-28>28</a></span>
 <span class=normal><a href=#__codelineno-5-29>29</a></span>
 <span class=normal><a href=#__codelineno-5-30>30</a></span>
-<span class=normal><a href=#__codelineno-5-31>31</a></span>
-<span class=normal><a href=#__codelineno-5-32>32</a></span>
-<span class=normal><a href=#__codelineno-5-33>33</a></span>
-<span class=normal><a href=#__codelineno-5-34>34</a></span>
-<span class=normal><a href=#__codelineno-5-35>35</a></span>
-<span class=normal><a href=#__codelineno-5-36>36</a></span>
-<span class=normal><a href=#__codelineno-5-37>37</a></span>
-<span class=normal><a href=#__codelineno-5-38>38</a></span>
-<span class=normal><a href=#__codelineno-5-39>39</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
-</span><span id=__span-5-2><a id=__codelineno-5-2 name=__codelineno-5-2></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>spacetrack</span><span class=p>::{</span><span class=n>SpaceTrackQuery</span><span class=p>,</span><span class=w> </span><span class=n>RequestClass</span><span class=p>,</span><span class=w> </span><span class=n>SortOrder</span><span class=p>};</span>
-</span><span id=__span-5-3><a id=__codelineno-5-3 name=__codelineno-5-3></a>
-</span><span id=__span-5-4><a id=__codelineno-5-4 name=__codelineno-5-4></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-5-5><a id=__codelineno-5-5 name=__codelineno-5-5></a><span class=w>    </span><span class=c1>// Order results by epoch descending and limit to 5 records</span>
-</span><span id=__span-5-6><a id=__codelineno-5-6 name=__codelineno-5-6></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-5-7><a id=__codelineno-5-7 name=__codelineno-5-7></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>)</span>
-</span><span id=__span-5-8><a id=__codelineno-5-8 name=__codelineno-5-8></a><span class=w>        </span><span class=p>.</span><span class=n>order_by</span><span class=p>(</span><span class=s>&quot;EPOCH&quot;</span><span class=p>,</span><span class=w> </span><span class=n>SortOrder</span><span class=p>::</span><span class=n>Desc</span><span class=p>)</span>
-</span><span id=__span-5-9><a id=__codelineno-5-9 name=__codelineno-5-9></a><span class=w>        </span><span class=p>.</span><span class=n>limit</span><span class=p>(</span><span class=mi>5</span><span class=p>);</span>
-</span><span id=__span-5-10><a id=__codelineno-5-10 name=__codelineno-5-10></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Ordered and limited:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-5-11><a id=__codelineno-5-11 name=__codelineno-5-11></a><span class=w>    </span><span class=c1>// Ordered and limited:</span>
-</span><span id=__span-5-12><a id=__codelineno-5-12 name=__codelineno-5-12></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH desc/limit/5/format/json</span>
-</span><span id=__span-5-13><a id=__codelineno-5-13 name=__codelineno-5-13></a>
-</span><span id=__span-5-14><a id=__codelineno-5-14 name=__codelineno-5-14></a><span class=w>    </span><span class=c1>// Use limit with offset for pagination</span>
-</span><span id=__span-5-15><a id=__codelineno-5-15 name=__codelineno-5-15></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-5-16><a id=__codelineno-5-16 name=__codelineno-5-16></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;OBJECT_TYPE&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;PAYLOAD&quot;</span><span class=p>)</span>
-</span><span id=__span-5-17><a id=__codelineno-5-17 name=__codelineno-5-17></a><span class=w>        </span><span class=p>.</span><span class=n>order_by</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=n>SortOrder</span><span class=p>::</span><span class=n>Asc</span><span class=p>)</span>
-</span><span id=__span-5-18><a id=__codelineno-5-18 name=__codelineno-5-18></a><span class=w>        </span><span class=p>.</span><span class=n>limit_offset</span><span class=p>(</span><span class=mi>10</span><span class=p>,</span><span class=w> </span><span class=mi>20</span><span class=p>);</span>
-</span><span id=__span-5-19><a id=__codelineno-5-19 name=__codelineno-5-19></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Paginated results:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-5-20><a id=__codelineno-5-20 name=__codelineno-5-20></a><span class=w>    </span><span class=c1>// Paginated results:</span>
-</span><span id=__span-5-21><a id=__codelineno-5-21 name=__codelineno-5-21></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/orderby/NORAD_CAT_ID asc/limit/10,20/format/json</span>
-</span><span id=__span-5-22><a id=__codelineno-5-22 name=__codelineno-5-22></a>
-</span><span id=__span-5-23><a id=__codelineno-5-23 name=__codelineno-5-23></a><span class=w>    </span><span class=c1>// Select specific fields with predicates_filter</span>
-</span><span id=__span-5-24><a id=__codelineno-5-24 name=__codelineno-5-24></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-5-25><a id=__codelineno-5-25 name=__codelineno-5-25></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>)</span>
-</span><span id=__span-5-26><a id=__codelineno-5-26 name=__codelineno-5-26></a><span class=w>        </span><span class=p>.</span><span class=n>predicates_filter</span><span class=p>(</span><span class=o>&amp;</span><span class=p>[</span><span class=s>&quot;OBJECT_NAME&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;EPOCH&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;INCLINATION&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;PERIOD&quot;</span><span class=p>]);</span>
-</span><span id=__span-5-27><a id=__codelineno-5-27 name=__codelineno-5-27></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Filtered fields:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-5-28><a id=__codelineno-5-28 name=__codelineno-5-28></a><span class=w>    </span><span class=c1>// Filtered fields:</span>
-</span><span id=__span-5-29><a id=__codelineno-5-29 name=__codelineno-5-29></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/predicates/OBJECT_NAME,EPOCH,INCLINATION,PERIOD/format/json</span>
-</span><span id=__span-5-30><a id=__codelineno-5-30 name=__codelineno-5-30></a>
-</span><span id=__span-5-31><a id=__codelineno-5-31 name=__codelineno-5-31></a><span class=w>    </span><span class=c1>// Enable metadata and distinct results</span>
-</span><span id=__span-5-32><a id=__codelineno-5-32 name=__codelineno-5-32></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
-</span><span id=__span-5-33><a id=__codelineno-5-33 name=__codelineno-5-33></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;COUNTRY&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;US&quot;</span><span class=p>)</span>
-</span><span id=__span-5-34><a id=__codelineno-5-34 name=__codelineno-5-34></a><span class=w>        </span><span class=p>.</span><span class=n>distinct</span><span class=p>(</span><span class=kc>true</span><span class=p>)</span>
-</span><span id=__span-5-35><a id=__codelineno-5-35 name=__codelineno-5-35></a><span class=w>        </span><span class=p>.</span><span class=n>metadata</span><span class=p>(</span><span class=kc>true</span><span class=p>);</span>
-</span><span id=__span-5-36><a id=__codelineno-5-36 name=__codelineno-5-36></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Distinct with metadata:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-5-37><a id=__codelineno-5-37 name=__codelineno-5-37></a><span class=w>    </span><span class=c1>// Distinct with metadata:</span>
-</span><span id=__span-5-38><a id=__codelineno-5-38 name=__codelineno-5-38></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/satcat/COUNTRY/US/metadata/true/distinct/true/format/json</span>
-</span><span id=__span-5-39><a id=__codelineno-5-39 name=__codelineno-5-39></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <h2 id=output-formats>Output Formats<a class=headerlink href=#output-formats title="Permanent link">&para;</a></h2> <p>The default output format is JSON, which works with <code>query_json()</code>, <code>query_gp()</code>, and <code>query_satcat()</code>. Other formats like TLE, CSV, and KVN are useful with <code>query_raw()</code> for direct text output.</p> <div class="tabbed-set tabbed-alternate" data-tabs=4:2><input checked=checked id=__tabbed_4_1 name=__tabbed_4 type=radio><input id=__tabbed_4_2 name=__tabbed_4 type=radio><div class=tabbed-labels><label for=__tabbed_4_1>Python</label><label for=__tabbed_4_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1> 1</a></span>
+<span class=normal><a href=#__codelineno-5-31>31</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+</span><span id=__span-5-2><a id=__codelineno-5-2 name=__codelineno-5-2></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>spacetrack</span><span class=p>::{</span><span class=n>SpaceTrackQuery</span><span class=p>,</span><span class=w> </span><span class=n>RequestClass</span><span class=p>};</span>
+</span><span id=__span-5-3><a id=__codelineno-5-3 name=__codelineno-5-3></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>spacetrack</span><span class=p>::</span><span class=n>operators</span><span class=p>;</span>
+</span><span id=__span-5-4><a id=__codelineno-5-4 name=__codelineno-5-4></a>
+</span><span id=__span-5-5><a id=__codelineno-5-5 name=__codelineno-5-5></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-5-6><a id=__codelineno-5-6 name=__codelineno-5-6></a><span class=w>    </span><span class=c1>// Filter by NORAD ID range using inclusive_range</span>
+</span><span id=__span-5-7><a id=__codelineno-5-7 name=__codelineno-5-7></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-5-8><a id=__codelineno-5-8 name=__codelineno-5-8></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>inclusive_range</span><span class=p>(</span><span class=s>&quot;25544&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25600&quot;</span><span class=p>));</span>
+</span><span id=__span-5-9><a id=__codelineno-5-9 name=__codelineno-5-9></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Range filter:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-5-10><a id=__codelineno-5-10 name=__codelineno-5-10></a>
+</span><span id=__span-5-11><a id=__codelineno-5-11 name=__codelineno-5-11></a><span class=w>    </span><span class=c1>// Filter for objects with low eccentricity using less_than</span>
+</span><span id=__span-5-12><a id=__codelineno-5-12 name=__codelineno-5-12></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-5-13><a id=__codelineno-5-13 name=__codelineno-5-13></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;ECCENTRICITY&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>less_than</span><span class=p>(</span><span class=s>&quot;0.01&quot;</span><span class=p>))</span>
+</span><span id=__span-5-14><a id=__codelineno-5-14 name=__codelineno-5-14></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;OBJECT_TYPE&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;PAYLOAD&quot;</span><span class=p>);</span>
+</span><span id=__span-5-15><a id=__codelineno-5-15 name=__codelineno-5-15></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Multiple filters:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-5-16><a id=__codelineno-5-16 name=__codelineno-5-16></a>
+</span><span id=__span-5-17><a id=__codelineno-5-17 name=__codelineno-5-17></a><span class=w>    </span><span class=c1>// Filter for recently launched objects using greater_than + now_offset</span>
+</span><span id=__span-5-18><a id=__codelineno-5-18 name=__codelineno-5-18></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
+</span><span id=__span-5-19><a id=__codelineno-5-19 name=__codelineno-5-19></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;LAUNCH&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>greater_than</span><span class=p>(</span><span class=n>operators</span><span class=p>::</span><span class=n>now_offset</span><span class=p>(</span><span class=o>-</span><span class=mi>30</span><span class=p>)));</span>
+</span><span id=__span-5-20><a id=__codelineno-5-20 name=__codelineno-5-20></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Recent launches (last 30 days):</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-5-21><a id=__codelineno-5-21 name=__codelineno-5-21></a>
+</span><span id=__span-5-22><a id=__codelineno-5-22 name=__codelineno-5-22></a><span class=w>    </span><span class=c1>// Search by name pattern using like</span>
+</span><span id=__span-5-23><a id=__codelineno-5-23 name=__codelineno-5-23></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
+</span><span id=__span-5-24><a id=__codelineno-5-24 name=__codelineno-5-24></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;SATNAME&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>like</span><span class=p>(</span><span class=s>&quot;STARLINK&quot;</span><span class=p>));</span>
+</span><span id=__span-5-25><a id=__codelineno-5-25 name=__codelineno-5-25></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Name pattern match:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-5-26><a id=__codelineno-5-26 name=__codelineno-5-26></a>
+</span><span id=__span-5-27><a id=__codelineno-5-27 name=__codelineno-5-27></a><span class=w>    </span><span class=c1>// Filter for multiple NORAD IDs using or_list</span>
+</span><span id=__span-5-28><a id=__codelineno-5-28 name=__codelineno-5-28></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-5-29><a id=__codelineno-5-29 name=__codelineno-5-29></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=n>operators</span><span class=p>::</span><span class=n>or_list</span><span class=p>(</span><span class=o>&amp;</span><span class=p>[</span><span class=s>&quot;25544&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;48274&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;54216&quot;</span><span class=p>]));</span>
+</span><span id=__span-5-30><a id=__codelineno-5-30 name=__codelineno-5-30></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Multiple IDs:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-5-31><a id=__codelineno-5-31 name=__codelineno-5-31></a><span class=p>}</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=4:2><input checked=checked id=__tabbed_4_1 name=__tabbed_4 type=radio><input id=__tabbed_4_2 name=__tabbed_4 type=radio><div class=tabbed-labels><label for=__tabbed_4_1>Python</label><label for=__tabbed_4_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1> 1</a></span>
 <span class=normal><a href=#__codelineno-6-2> 2</a></span>
 <span class=normal><a href=#__codelineno-6-3> 3</a></span>
 <span class=normal><a href=#__codelineno-6-4> 4</a></span>
@@ -447,69 +249,21 @@
 <span class=normal><a href=#__codelineno-6-11>11</a></span>
 <span class=normal><a href=#__codelineno-6-12>12</a></span>
 <span class=normal><a href=#__codelineno-6-13>13</a></span>
-<span class=normal><a href=#__codelineno-6-14>14</a></span>
-<span class=normal><a href=#__codelineno-6-15>15</a></span>
-<span class=normal><a href=#__codelineno-6-16>16</a></span>
-<span class=normal><a href=#__codelineno-6-17>17</a></span>
-<span class=normal><a href=#__codelineno-6-18>18</a></span>
-<span class=normal><a href=#__codelineno-6-19>19</a></span>
-<span class=normal><a href=#__codelineno-6-20>20</a></span>
-<span class=normal><a href=#__codelineno-6-21>21</a></span>
-<span class=normal><a href=#__codelineno-6-22>22</a></span>
-<span class=normal><a href=#__codelineno-6-23>23</a></span>
-<span class=normal><a href=#__codelineno-6-24>24</a></span>
-<span class=normal><a href=#__codelineno-6-25>25</a></span>
-<span class=normal><a href=#__codelineno-6-26>26</a></span>
-<span class=normal><a href=#__codelineno-6-27>27</a></span>
-<span class=normal><a href=#__codelineno-6-28>28</a></span>
-<span class=normal><a href=#__codelineno-6-29>29</a></span>
-<span class=normal><a href=#__codelineno-6-30>30</a></span>
-<span class=normal><a href=#__codelineno-6-31>31</a></span>
-<span class=normal><a href=#__codelineno-6-32>32</a></span>
-<span class=normal><a href=#__codelineno-6-33>33</a></span>
-<span class=normal><a href=#__codelineno-6-34>34</a></span>
-<span class=normal><a href=#__codelineno-6-35>35</a></span>
-<span class=normal><a href=#__codelineno-6-36>36</a></span>
-<span class=normal><a href=#__codelineno-6-37>37</a></span>
-<span class=normal><a href=#__codelineno-6-38>38</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-6-1><a id=__codelineno-6-1 name=__codelineno-6-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
-</span><span id=__span-6-2><a id=__codelineno-6-2 name=__codelineno-6-2></a>
-</span><span id=__span-6-3><a id=__codelineno-6-3 name=__codelineno-6-3></a><span class=c1># Default format is JSON</span>
-</span><span id=__span-6-4><a id=__codelineno-6-4 name=__codelineno-6-4></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
-</span><span id=__span-6-5><a id=__codelineno-6-5 name=__codelineno-6-5></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Default (JSON):</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-6-6><a id=__codelineno-6-6 name=__codelineno-6-6></a><span class=c1># Default (JSON):</span>
-</span><span id=__span-6-7><a id=__codelineno-6-7 name=__codelineno-6-7></a><span class=c1>#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json</span>
-</span><span id=__span-6-8><a id=__codelineno-6-8 name=__codelineno-6-8></a>
-</span><span id=__span-6-9><a id=__codelineno-6-9 name=__codelineno-6-9></a><span class=c1># Request TLE format for direct TLE text output</span>
-</span><span id=__span-6-10><a id=__codelineno-6-10 name=__codelineno-6-10></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
-</span><span id=__span-6-11><a id=__codelineno-6-11 name=__codelineno-6-11></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-6-12><a id=__codelineno-6-12 name=__codelineno-6-12></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
-</span><span id=__span-6-13><a id=__codelineno-6-13 name=__codelineno-6-13></a>    <span class=o>.</span><span class=n>format</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>OutputFormat</span><span class=o>.</span><span class=n>TLE</span><span class=p>)</span>
-</span><span id=__span-6-14><a id=__codelineno-6-14 name=__codelineno-6-14></a><span class=p>)</span>
-</span><span id=__span-6-15><a id=__codelineno-6-15 name=__codelineno-6-15></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>TLE format:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-6-16><a id=__codelineno-6-16 name=__codelineno-6-16></a><span class=c1># TLE format:</span>
-</span><span id=__span-6-17><a id=__codelineno-6-17 name=__codelineno-6-17></a><span class=c1>#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/tle</span>
-</span><span id=__span-6-18><a id=__codelineno-6-18 name=__codelineno-6-18></a>
-</span><span id=__span-6-19><a id=__codelineno-6-19 name=__codelineno-6-19></a><span class=c1># Request CSV format for spreadsheet-compatible output</span>
-</span><span id=__span-6-20><a id=__codelineno-6-20 name=__codelineno-6-20></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
-</span><span id=__span-6-21><a id=__codelineno-6-21 name=__codelineno-6-21></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span>
-</span><span id=__span-6-22><a id=__codelineno-6-22 name=__codelineno-6-22></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;COUNTRY&quot;</span><span class=p>,</span> <span class=s2>&quot;US&quot;</span><span class=p>)</span>
-</span><span id=__span-6-23><a id=__codelineno-6-23 name=__codelineno-6-23></a>    <span class=o>.</span><span class=n>limit</span><span class=p>(</span><span class=mi>10</span><span class=p>)</span>
-</span><span id=__span-6-24><a id=__codelineno-6-24 name=__codelineno-6-24></a>    <span class=o>.</span><span class=n>format</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>OutputFormat</span><span class=o>.</span><span class=n>CSV</span><span class=p>)</span>
-</span><span id=__span-6-25><a id=__codelineno-6-25 name=__codelineno-6-25></a><span class=p>)</span>
-</span><span id=__span-6-26><a id=__codelineno-6-26 name=__codelineno-6-26></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>CSV format:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-6-27><a id=__codelineno-6-27 name=__codelineno-6-27></a><span class=c1># CSV format:</span>
-</span><span id=__span-6-28><a id=__codelineno-6-28 name=__codelineno-6-28></a><span class=c1>#   /basicspacedata/query/class/satcat/COUNTRY/US/limit/10/format/csv</span>
-</span><span id=__span-6-29><a id=__codelineno-6-29 name=__codelineno-6-29></a>
-</span><span id=__span-6-30><a id=__codelineno-6-30 name=__codelineno-6-30></a><span class=c1># Request KVN (CCSDS Keyword-Value Notation) format</span>
-</span><span id=__span-6-31><a id=__codelineno-6-31 name=__codelineno-6-31></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
-</span><span id=__span-6-32><a id=__codelineno-6-32 name=__codelineno-6-32></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-6-33><a id=__codelineno-6-33 name=__codelineno-6-33></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
-</span><span id=__span-6-34><a id=__codelineno-6-34 name=__codelineno-6-34></a>    <span class=o>.</span><span class=n>format</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>OutputFormat</span><span class=o>.</span><span class=n>KVN</span><span class=p>)</span>
-</span><span id=__span-6-35><a id=__codelineno-6-35 name=__codelineno-6-35></a><span class=p>)</span>
-</span><span id=__span-6-36><a id=__codelineno-6-36 name=__codelineno-6-36></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>KVN format:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-6-37><a id=__codelineno-6-37 name=__codelineno-6-37></a><span class=c1># KVN format:</span>
-</span><span id=__span-6-38><a id=__codelineno-6-38 name=__codelineno-6-38></a><span class=c1>#   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/kvn</span>
-</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-7-1> 1</a></span>
+<span class=normal><a href=#__codelineno-6-14>14</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-6-1><a id=__codelineno-6-1 name=__codelineno-6-1></a>Range filter:
+</span><span id=__span-6-2><a id=__codelineno-6-2 name=__codelineno-6-2></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544--25600/format/json
+</span><span id=__span-6-3><a id=__codelineno-6-3 name=__codelineno-6-3></a>
+</span><span id=__span-6-4><a id=__codelineno-6-4 name=__codelineno-6-4></a>Multiple filters:
+</span><span id=__span-6-5><a id=__codelineno-6-5 name=__codelineno-6-5></a>  /basicspacedata/query/class/gp/ECCENTRICITY/%3C0.01/OBJECT_TYPE/PAYLOAD/format/json
+</span><span id=__span-6-6><a id=__codelineno-6-6 name=__codelineno-6-6></a>
+</span><span id=__span-6-7><a id=__codelineno-6-7 name=__codelineno-6-7></a>Recent launches (last 30 days):
+</span><span id=__span-6-8><a id=__codelineno-6-8 name=__codelineno-6-8></a>  /basicspacedata/query/class/satcat/LAUNCH/%3Enow-30/format/json
+</span><span id=__span-6-9><a id=__codelineno-6-9 name=__codelineno-6-9></a>
+</span><span id=__span-6-10><a id=__codelineno-6-10 name=__codelineno-6-10></a>Name pattern match:
+</span><span id=__span-6-11><a id=__codelineno-6-11 name=__codelineno-6-11></a>  /basicspacedata/query/class/satcat/SATNAME/~~STARLINK/format/json
+</span><span id=__span-6-12><a id=__codelineno-6-12 name=__codelineno-6-12></a>
+</span><span id=__span-6-13><a id=__codelineno-6-13 name=__codelineno-6-13></a>Multiple IDs:
+</span><span id=__span-6-14><a id=__codelineno-6-14 name=__codelineno-6-14></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544,48274,54216/format/json
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-7-1> 1</a></span>
 <span class=normal><a href=#__codelineno-7-2> 2</a></span>
 <span class=normal><a href=#__codelineno-7-3> 3</a></span>
 <span class=normal><a href=#__codelineno-7-4> 4</a></span>
@@ -522,62 +276,348 @@
 <span class=normal><a href=#__codelineno-7-11>11</a></span>
 <span class=normal><a href=#__codelineno-7-12>12</a></span>
 <span class=normal><a href=#__codelineno-7-13>13</a></span>
-<span class=normal><a href=#__codelineno-7-14>14</a></span>
-<span class=normal><a href=#__codelineno-7-15>15</a></span>
-<span class=normal><a href=#__codelineno-7-16>16</a></span>
-<span class=normal><a href=#__codelineno-7-17>17</a></span>
-<span class=normal><a href=#__codelineno-7-18>18</a></span>
-<span class=normal><a href=#__codelineno-7-19>19</a></span>
-<span class=normal><a href=#__codelineno-7-20>20</a></span>
-<span class=normal><a href=#__codelineno-7-21>21</a></span>
-<span class=normal><a href=#__codelineno-7-22>22</a></span>
-<span class=normal><a href=#__codelineno-7-23>23</a></span>
-<span class=normal><a href=#__codelineno-7-24>24</a></span>
-<span class=normal><a href=#__codelineno-7-25>25</a></span>
-<span class=normal><a href=#__codelineno-7-26>26</a></span>
-<span class=normal><a href=#__codelineno-7-27>27</a></span>
-<span class=normal><a href=#__codelineno-7-28>28</a></span>
-<span class=normal><a href=#__codelineno-7-29>29</a></span>
-<span class=normal><a href=#__codelineno-7-30>30</a></span>
-<span class=normal><a href=#__codelineno-7-31>31</a></span>
-<span class=normal><a href=#__codelineno-7-32>32</a></span>
-<span class=normal><a href=#__codelineno-7-33>33</a></span>
-<span class=normal><a href=#__codelineno-7-34>34</a></span>
-<span class=normal><a href=#__codelineno-7-35>35</a></span>
-<span class=normal><a href=#__codelineno-7-36>36</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-7-1><a id=__codelineno-7-1 name=__codelineno-7-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
-</span><span id=__span-7-2><a id=__codelineno-7-2 name=__codelineno-7-2></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>spacetrack</span><span class=p>::{</span><span class=n>SpaceTrackQuery</span><span class=p>,</span><span class=w> </span><span class=n>RequestClass</span><span class=p>,</span><span class=w> </span><span class=n>OutputFormat</span><span class=p>};</span>
+<span class=normal><a href=#__codelineno-7-14>14</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-7-1><a id=__codelineno-7-1 name=__codelineno-7-1></a>Range filter:
+</span><span id=__span-7-2><a id=__codelineno-7-2 name=__codelineno-7-2></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544--25600/format/json
 </span><span id=__span-7-3><a id=__codelineno-7-3 name=__codelineno-7-3></a>
-</span><span id=__span-7-4><a id=__codelineno-7-4 name=__codelineno-7-4></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-7-5><a id=__codelineno-7-5 name=__codelineno-7-5></a><span class=w>    </span><span class=c1>// Default format is JSON</span>
-</span><span id=__span-7-6><a id=__codelineno-7-6 name=__codelineno-7-6></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-7-7><a id=__codelineno-7-7 name=__codelineno-7-7></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>);</span>
-</span><span id=__span-7-8><a id=__codelineno-7-8 name=__codelineno-7-8></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Default (JSON):</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-7-9><a id=__codelineno-7-9 name=__codelineno-7-9></a><span class=w>    </span><span class=c1>// Default (JSON):</span>
-</span><span id=__span-7-10><a id=__codelineno-7-10 name=__codelineno-7-10></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json</span>
-</span><span id=__span-7-11><a id=__codelineno-7-11 name=__codelineno-7-11></a>
-</span><span id=__span-7-12><a id=__codelineno-7-12 name=__codelineno-7-12></a><span class=w>    </span><span class=c1>// Request TLE format for direct TLE text output</span>
-</span><span id=__span-7-13><a id=__codelineno-7-13 name=__codelineno-7-13></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-7-14><a id=__codelineno-7-14 name=__codelineno-7-14></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>)</span>
-</span><span id=__span-7-15><a id=__codelineno-7-15 name=__codelineno-7-15></a><span class=w>        </span><span class=p>.</span><span class=n>format</span><span class=p>(</span><span class=n>OutputFormat</span><span class=p>::</span><span class=n>TLE</span><span class=p>);</span>
-</span><span id=__span-7-16><a id=__codelineno-7-16 name=__codelineno-7-16></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>TLE format:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-7-17><a id=__codelineno-7-17 name=__codelineno-7-17></a><span class=w>    </span><span class=c1>// TLE format:</span>
-</span><span id=__span-7-18><a id=__codelineno-7-18 name=__codelineno-7-18></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/tle</span>
-</span><span id=__span-7-19><a id=__codelineno-7-19 name=__codelineno-7-19></a>
-</span><span id=__span-7-20><a id=__codelineno-7-20 name=__codelineno-7-20></a><span class=w>    </span><span class=c1>// Request CSV format for spreadsheet-compatible output</span>
-</span><span id=__span-7-21><a id=__codelineno-7-21 name=__codelineno-7-21></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
-</span><span id=__span-7-22><a id=__codelineno-7-22 name=__codelineno-7-22></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;COUNTRY&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;US&quot;</span><span class=p>)</span>
-</span><span id=__span-7-23><a id=__codelineno-7-23 name=__codelineno-7-23></a><span class=w>        </span><span class=p>.</span><span class=n>limit</span><span class=p>(</span><span class=mi>10</span><span class=p>)</span>
-</span><span id=__span-7-24><a id=__codelineno-7-24 name=__codelineno-7-24></a><span class=w>        </span><span class=p>.</span><span class=n>format</span><span class=p>(</span><span class=n>OutputFormat</span><span class=p>::</span><span class=n>CSV</span><span class=p>);</span>
-</span><span id=__span-7-25><a id=__codelineno-7-25 name=__codelineno-7-25></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>CSV format:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-7-26><a id=__codelineno-7-26 name=__codelineno-7-26></a><span class=w>    </span><span class=c1>// CSV format:</span>
-</span><span id=__span-7-27><a id=__codelineno-7-27 name=__codelineno-7-27></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/satcat/COUNTRY/US/limit/10/format/csv</span>
-</span><span id=__span-7-28><a id=__codelineno-7-28 name=__codelineno-7-28></a>
-</span><span id=__span-7-29><a id=__codelineno-7-29 name=__codelineno-7-29></a><span class=w>    </span><span class=c1>// Request KVN (CCSDS Keyword-Value Notation) format</span>
-</span><span id=__span-7-30><a id=__codelineno-7-30 name=__codelineno-7-30></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
-</span><span id=__span-7-31><a id=__codelineno-7-31 name=__codelineno-7-31></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>)</span>
-</span><span id=__span-7-32><a id=__codelineno-7-32 name=__codelineno-7-32></a><span class=w>        </span><span class=p>.</span><span class=n>format</span><span class=p>(</span><span class=n>OutputFormat</span><span class=p>::</span><span class=n>KVN</span><span class=p>);</span>
-</span><span id=__span-7-33><a id=__codelineno-7-33 name=__codelineno-7-33></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>KVN format:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
-</span><span id=__span-7-34><a id=__codelineno-7-34 name=__codelineno-7-34></a><span class=w>    </span><span class=c1>// KVN format:</span>
-</span><span id=__span-7-35><a id=__codelineno-7-35 name=__codelineno-7-35></a><span class=w>    </span><span class=c1>//   /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/kvn</span>
-</span><span id=__span-7-36><a id=__codelineno-7-36 name=__codelineno-7-36></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <div class="admonition note"> <p class=admonition-title>Format and Query Method Compatibility</p> <p>The typed query methods (<code>query_gp()</code>, <code>query_satcat()</code>, <code>query_json()</code>) require JSON format. If you set a non-JSON format, use <code>query_raw()</code> to get the raw response string.</p> </div> <hr> <h2 id=see-also>See Also<a class=headerlink href=#see-also title="Permanent link">&para;</a></h2> <ul> <li><a href=index.html>Space-Track API Overview</a> -- Module architecture and type catalog</li> <li><a href=client.html>Client Usage</a> -- Authentication and query execution</li> <li><a href=../../../library_api/ephemeris/spacetrack/query.html>SpaceTrackQuery Reference</a> -- Complete method documentation</li> <li><a href=../../../library_api/ephemeris/spacetrack/operators.html>Operators Reference</a> -- All operator functions</li> <li><a href=../../../library_api/ephemeris/spacetrack/enums.html>Enumerations Reference</a> -- RequestClass, OutputFormat, etc.</li> </ul> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="February 7, 2026 06:53:00 UTC">2026-02-07</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="February 7, 2026 06:53:00 UTC">2026-02-07</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=../../../assets/javascripts/bundle.79ae519e.min.js></script> <script src=../../../javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=../../../javascripts/tablesort.ae6fa2.min.js></script> </body> </html>
+</span><span id=__span-7-4><a id=__codelineno-7-4 name=__codelineno-7-4></a>Multiple filters:
+</span><span id=__span-7-5><a id=__codelineno-7-5 name=__codelineno-7-5></a>  /basicspacedata/query/class/gp/ECCENTRICITY/%3C0.01/OBJECT_TYPE/PAYLOAD/format/json
+</span><span id=__span-7-6><a id=__codelineno-7-6 name=__codelineno-7-6></a>
+</span><span id=__span-7-7><a id=__codelineno-7-7 name=__codelineno-7-7></a>Recent launches (last 30 days):
+</span><span id=__span-7-8><a id=__codelineno-7-8 name=__codelineno-7-8></a>  /basicspacedata/query/class/satcat/LAUNCH/%3Enow-30/format/json
+</span><span id=__span-7-9><a id=__codelineno-7-9 name=__codelineno-7-9></a>
+</span><span id=__span-7-10><a id=__codelineno-7-10 name=__codelineno-7-10></a>Name pattern match:
+</span><span id=__span-7-11><a id=__codelineno-7-11 name=__codelineno-7-11></a>  /basicspacedata/query/class/satcat/SATNAME/~~STARLINK/format/json
+</span><span id=__span-7-12><a id=__codelineno-7-12 name=__codelineno-7-12></a>
+</span><span id=__span-7-13><a id=__codelineno-7-13 name=__codelineno-7-13></a>Multiple IDs:
+</span><span id=__span-7-14><a id=__codelineno-7-14 name=__codelineno-7-14></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544,48274,54216/format/json
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <div class="admonition tip"> <p class=admonition-title>Operator Composition</p> <p>Operators are string-generating functions. You can compose them by nesting:</p> <ul> <li><code>greater_than(now_offset(-7))</code> produces <code>"&gt;now-7"</code> (epoch after 7 days ago)</li> <li><code>inclusive_range(now_offset(-30), now())</code> produces <code>"now-30--now"</code> (within last 30 days)</li> </ul> </div> <h2 id=ordering-limits-and-options>Ordering, Limits, and Options<a class=headerlink href=#ordering-limits-and-options title="Permanent link">&para;</a></h2> <p>Control result ordering, pagination, and field selection. Multiple <code>order_by</code> calls are cumulative -- results are sorted by the first field, then by subsequent fields for ties.</p> <div class="tabbed-set tabbed-alternate" data-tabs=5:2><input checked=checked id=__tabbed_5_1 name=__tabbed_5 type=radio><input id=__tabbed_5_2 name=__tabbed_5 type=radio><div class=tabbed-labels><label for=__tabbed_5_1>Python</label><label for=__tabbed_5_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-8-1> 1</a></span>
+<span class=normal><a href=#__codelineno-8-2> 2</a></span>
+<span class=normal><a href=#__codelineno-8-3> 3</a></span>
+<span class=normal><a href=#__codelineno-8-4> 4</a></span>
+<span class=normal><a href=#__codelineno-8-5> 5</a></span>
+<span class=normal><a href=#__codelineno-8-6> 6</a></span>
+<span class=normal><a href=#__codelineno-8-7> 7</a></span>
+<span class=normal><a href=#__codelineno-8-8> 8</a></span>
+<span class=normal><a href=#__codelineno-8-9> 9</a></span>
+<span class=normal><a href=#__codelineno-8-10>10</a></span>
+<span class=normal><a href=#__codelineno-8-11>11</a></span>
+<span class=normal><a href=#__codelineno-8-12>12</a></span>
+<span class=normal><a href=#__codelineno-8-13>13</a></span>
+<span class=normal><a href=#__codelineno-8-14>14</a></span>
+<span class=normal><a href=#__codelineno-8-15>15</a></span>
+<span class=normal><a href=#__codelineno-8-16>16</a></span>
+<span class=normal><a href=#__codelineno-8-17>17</a></span>
+<span class=normal><a href=#__codelineno-8-18>18</a></span>
+<span class=normal><a href=#__codelineno-8-19>19</a></span>
+<span class=normal><a href=#__codelineno-8-20>20</a></span>
+<span class=normal><a href=#__codelineno-8-21>21</a></span>
+<span class=normal><a href=#__codelineno-8-22>22</a></span>
+<span class=normal><a href=#__codelineno-8-23>23</a></span>
+<span class=normal><a href=#__codelineno-8-24>24</a></span>
+<span class=normal><a href=#__codelineno-8-25>25</a></span>
+<span class=normal><a href=#__codelineno-8-26>26</a></span>
+<span class=normal><a href=#__codelineno-8-27>27</a></span>
+<span class=normal><a href=#__codelineno-8-28>28</a></span>
+<span class=normal><a href=#__codelineno-8-29>29</a></span>
+<span class=normal><a href=#__codelineno-8-30>30</a></span>
+<span class=normal><a href=#__codelineno-8-31>31</a></span>
+<span class=normal><a href=#__codelineno-8-32>32</a></span>
+<span class=normal><a href=#__codelineno-8-33>33</a></span>
+<span class=normal><a href=#__codelineno-8-34>34</a></span>
+<span class=normal><a href=#__codelineno-8-35>35</a></span>
+<span class=normal><a href=#__codelineno-8-36>36</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-8-1><a id=__codelineno-8-1 name=__codelineno-8-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+</span><span id=__span-8-2><a id=__codelineno-8-2 name=__codelineno-8-2></a>
+</span><span id=__span-8-3><a id=__codelineno-8-3 name=__codelineno-8-3></a><span class=c1># Order results by epoch descending and limit to 5 records</span>
+</span><span id=__span-8-4><a id=__codelineno-8-4 name=__codelineno-8-4></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
+</span><span id=__span-8-5><a id=__codelineno-8-5 name=__codelineno-8-5></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-8-6><a id=__codelineno-8-6 name=__codelineno-8-6></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
+</span><span id=__span-8-7><a id=__codelineno-8-7 name=__codelineno-8-7></a>    <span class=o>.</span><span class=n>order_by</span><span class=p>(</span><span class=s2>&quot;EPOCH&quot;</span><span class=p>,</span> <span class=n>bh</span><span class=o>.</span><span class=n>SortOrder</span><span class=o>.</span><span class=n>DESC</span><span class=p>)</span>
+</span><span id=__span-8-8><a id=__codelineno-8-8 name=__codelineno-8-8></a>    <span class=o>.</span><span class=n>limit</span><span class=p>(</span><span class=mi>5</span><span class=p>)</span>
+</span><span id=__span-8-9><a id=__codelineno-8-9 name=__codelineno-8-9></a><span class=p>)</span>
+</span><span id=__span-8-10><a id=__codelineno-8-10 name=__codelineno-8-10></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Ordered and limited:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-8-11><a id=__codelineno-8-11 name=__codelineno-8-11></a>
+</span><span id=__span-8-12><a id=__codelineno-8-12 name=__codelineno-8-12></a><span class=c1># Use limit with offset for pagination</span>
+</span><span id=__span-8-13><a id=__codelineno-8-13 name=__codelineno-8-13></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
+</span><span id=__span-8-14><a id=__codelineno-8-14 name=__codelineno-8-14></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-8-15><a id=__codelineno-8-15 name=__codelineno-8-15></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;OBJECT_TYPE&quot;</span><span class=p>,</span> <span class=s2>&quot;PAYLOAD&quot;</span><span class=p>)</span>
+</span><span id=__span-8-16><a id=__codelineno-8-16 name=__codelineno-8-16></a>    <span class=o>.</span><span class=n>order_by</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=n>bh</span><span class=o>.</span><span class=n>SortOrder</span><span class=o>.</span><span class=n>ASC</span><span class=p>)</span>
+</span><span id=__span-8-17><a id=__codelineno-8-17 name=__codelineno-8-17></a>    <span class=o>.</span><span class=n>limit_offset</span><span class=p>(</span><span class=mi>10</span><span class=p>,</span> <span class=mi>20</span><span class=p>)</span>
+</span><span id=__span-8-18><a id=__codelineno-8-18 name=__codelineno-8-18></a><span class=p>)</span>
+</span><span id=__span-8-19><a id=__codelineno-8-19 name=__codelineno-8-19></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Paginated results:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-8-20><a id=__codelineno-8-20 name=__codelineno-8-20></a>
+</span><span id=__span-8-21><a id=__codelineno-8-21 name=__codelineno-8-21></a><span class=c1># Select specific fields with predicates_filter</span>
+</span><span id=__span-8-22><a id=__codelineno-8-22 name=__codelineno-8-22></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
+</span><span id=__span-8-23><a id=__codelineno-8-23 name=__codelineno-8-23></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-8-24><a id=__codelineno-8-24 name=__codelineno-8-24></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
+</span><span id=__span-8-25><a id=__codelineno-8-25 name=__codelineno-8-25></a>    <span class=o>.</span><span class=n>predicates_filter</span><span class=p>([</span><span class=s2>&quot;OBJECT_NAME&quot;</span><span class=p>,</span> <span class=s2>&quot;EPOCH&quot;</span><span class=p>,</span> <span class=s2>&quot;INCLINATION&quot;</span><span class=p>,</span> <span class=s2>&quot;PERIOD&quot;</span><span class=p>])</span>
+</span><span id=__span-8-26><a id=__codelineno-8-26 name=__codelineno-8-26></a><span class=p>)</span>
+</span><span id=__span-8-27><a id=__codelineno-8-27 name=__codelineno-8-27></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Filtered fields:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-8-28><a id=__codelineno-8-28 name=__codelineno-8-28></a>
+</span><span id=__span-8-29><a id=__codelineno-8-29 name=__codelineno-8-29></a><span class=c1># Enable metadata and distinct results</span>
+</span><span id=__span-8-30><a id=__codelineno-8-30 name=__codelineno-8-30></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
+</span><span id=__span-8-31><a id=__codelineno-8-31 name=__codelineno-8-31></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span>
+</span><span id=__span-8-32><a id=__codelineno-8-32 name=__codelineno-8-32></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;COUNTRY&quot;</span><span class=p>,</span> <span class=s2>&quot;US&quot;</span><span class=p>)</span>
+</span><span id=__span-8-33><a id=__codelineno-8-33 name=__codelineno-8-33></a>    <span class=o>.</span><span class=n>distinct</span><span class=p>(</span><span class=kc>True</span><span class=p>)</span>
+</span><span id=__span-8-34><a id=__codelineno-8-34 name=__codelineno-8-34></a>    <span class=o>.</span><span class=n>metadata</span><span class=p>(</span><span class=kc>True</span><span class=p>)</span>
+</span><span id=__span-8-35><a id=__codelineno-8-35 name=__codelineno-8-35></a><span class=p>)</span>
+</span><span id=__span-8-36><a id=__codelineno-8-36 name=__codelineno-8-36></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Distinct with metadata:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-9-1> 1</a></span>
+<span class=normal><a href=#__codelineno-9-2> 2</a></span>
+<span class=normal><a href=#__codelineno-9-3> 3</a></span>
+<span class=normal><a href=#__codelineno-9-4> 4</a></span>
+<span class=normal><a href=#__codelineno-9-5> 5</a></span>
+<span class=normal><a href=#__codelineno-9-6> 6</a></span>
+<span class=normal><a href=#__codelineno-9-7> 7</a></span>
+<span class=normal><a href=#__codelineno-9-8> 8</a></span>
+<span class=normal><a href=#__codelineno-9-9> 9</a></span>
+<span class=normal><a href=#__codelineno-9-10>10</a></span>
+<span class=normal><a href=#__codelineno-9-11>11</a></span>
+<span class=normal><a href=#__codelineno-9-12>12</a></span>
+<span class=normal><a href=#__codelineno-9-13>13</a></span>
+<span class=normal><a href=#__codelineno-9-14>14</a></span>
+<span class=normal><a href=#__codelineno-9-15>15</a></span>
+<span class=normal><a href=#__codelineno-9-16>16</a></span>
+<span class=normal><a href=#__codelineno-9-17>17</a></span>
+<span class=normal><a href=#__codelineno-9-18>18</a></span>
+<span class=normal><a href=#__codelineno-9-19>19</a></span>
+<span class=normal><a href=#__codelineno-9-20>20</a></span>
+<span class=normal><a href=#__codelineno-9-21>21</a></span>
+<span class=normal><a href=#__codelineno-9-22>22</a></span>
+<span class=normal><a href=#__codelineno-9-23>23</a></span>
+<span class=normal><a href=#__codelineno-9-24>24</a></span>
+<span class=normal><a href=#__codelineno-9-25>25</a></span>
+<span class=normal><a href=#__codelineno-9-26>26</a></span>
+<span class=normal><a href=#__codelineno-9-27>27</a></span>
+<span class=normal><a href=#__codelineno-9-28>28</a></span>
+<span class=normal><a href=#__codelineno-9-29>29</a></span>
+<span class=normal><a href=#__codelineno-9-30>30</a></span>
+<span class=normal><a href=#__codelineno-9-31>31</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-9-1><a id=__codelineno-9-1 name=__codelineno-9-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+</span><span id=__span-9-2><a id=__codelineno-9-2 name=__codelineno-9-2></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>spacetrack</span><span class=p>::{</span><span class=n>SpaceTrackQuery</span><span class=p>,</span><span class=w> </span><span class=n>RequestClass</span><span class=p>,</span><span class=w> </span><span class=n>SortOrder</span><span class=p>};</span>
+</span><span id=__span-9-3><a id=__codelineno-9-3 name=__codelineno-9-3></a>
+</span><span id=__span-9-4><a id=__codelineno-9-4 name=__codelineno-9-4></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-9-5><a id=__codelineno-9-5 name=__codelineno-9-5></a><span class=w>    </span><span class=c1>// Order results by epoch descending and limit to 5 records</span>
+</span><span id=__span-9-6><a id=__codelineno-9-6 name=__codelineno-9-6></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-9-7><a id=__codelineno-9-7 name=__codelineno-9-7></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>)</span>
+</span><span id=__span-9-8><a id=__codelineno-9-8 name=__codelineno-9-8></a><span class=w>        </span><span class=p>.</span><span class=n>order_by</span><span class=p>(</span><span class=s>&quot;EPOCH&quot;</span><span class=p>,</span><span class=w> </span><span class=n>SortOrder</span><span class=p>::</span><span class=n>Desc</span><span class=p>)</span>
+</span><span id=__span-9-9><a id=__codelineno-9-9 name=__codelineno-9-9></a><span class=w>        </span><span class=p>.</span><span class=n>limit</span><span class=p>(</span><span class=mi>5</span><span class=p>);</span>
+</span><span id=__span-9-10><a id=__codelineno-9-10 name=__codelineno-9-10></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Ordered and limited:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-9-11><a id=__codelineno-9-11 name=__codelineno-9-11></a>
+</span><span id=__span-9-12><a id=__codelineno-9-12 name=__codelineno-9-12></a><span class=w>    </span><span class=c1>// Use limit with offset for pagination</span>
+</span><span id=__span-9-13><a id=__codelineno-9-13 name=__codelineno-9-13></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-9-14><a id=__codelineno-9-14 name=__codelineno-9-14></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;OBJECT_TYPE&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;PAYLOAD&quot;</span><span class=p>)</span>
+</span><span id=__span-9-15><a id=__codelineno-9-15 name=__codelineno-9-15></a><span class=w>        </span><span class=p>.</span><span class=n>order_by</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=n>SortOrder</span><span class=p>::</span><span class=n>Asc</span><span class=p>)</span>
+</span><span id=__span-9-16><a id=__codelineno-9-16 name=__codelineno-9-16></a><span class=w>        </span><span class=p>.</span><span class=n>limit_offset</span><span class=p>(</span><span class=mi>10</span><span class=p>,</span><span class=w> </span><span class=mi>20</span><span class=p>);</span>
+</span><span id=__span-9-17><a id=__codelineno-9-17 name=__codelineno-9-17></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Paginated results:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-9-18><a id=__codelineno-9-18 name=__codelineno-9-18></a>
+</span><span id=__span-9-19><a id=__codelineno-9-19 name=__codelineno-9-19></a><span class=w>    </span><span class=c1>// Select specific fields with predicates_filter</span>
+</span><span id=__span-9-20><a id=__codelineno-9-20 name=__codelineno-9-20></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-9-21><a id=__codelineno-9-21 name=__codelineno-9-21></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>)</span>
+</span><span id=__span-9-22><a id=__codelineno-9-22 name=__codelineno-9-22></a><span class=w>        </span><span class=p>.</span><span class=n>predicates_filter</span><span class=p>(</span><span class=o>&amp;</span><span class=p>[</span><span class=s>&quot;OBJECT_NAME&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;EPOCH&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;INCLINATION&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;PERIOD&quot;</span><span class=p>]);</span>
+</span><span id=__span-9-23><a id=__codelineno-9-23 name=__codelineno-9-23></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Filtered fields:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-9-24><a id=__codelineno-9-24 name=__codelineno-9-24></a>
+</span><span id=__span-9-25><a id=__codelineno-9-25 name=__codelineno-9-25></a><span class=w>    </span><span class=c1>// Enable metadata and distinct results</span>
+</span><span id=__span-9-26><a id=__codelineno-9-26 name=__codelineno-9-26></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
+</span><span id=__span-9-27><a id=__codelineno-9-27 name=__codelineno-9-27></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;COUNTRY&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;US&quot;</span><span class=p>)</span>
+</span><span id=__span-9-28><a id=__codelineno-9-28 name=__codelineno-9-28></a><span class=w>        </span><span class=p>.</span><span class=n>distinct</span><span class=p>(</span><span class=kc>true</span><span class=p>)</span>
+</span><span id=__span-9-29><a id=__codelineno-9-29 name=__codelineno-9-29></a><span class=w>        </span><span class=p>.</span><span class=n>metadata</span><span class=p>(</span><span class=kc>true</span><span class=p>);</span>
+</span><span id=__span-9-30><a id=__codelineno-9-30 name=__codelineno-9-30></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Distinct with metadata:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-9-31><a id=__codelineno-9-31 name=__codelineno-9-31></a><span class=p>}</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=6:2><input checked=checked id=__tabbed_6_1 name=__tabbed_6 type=radio><input id=__tabbed_6_2 name=__tabbed_6 type=radio><div class=tabbed-labels><label for=__tabbed_6_1>Python</label><label for=__tabbed_6_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-10-1> 1</a></span>
+<span class=normal><a href=#__codelineno-10-2> 2</a></span>
+<span class=normal><a href=#__codelineno-10-3> 3</a></span>
+<span class=normal><a href=#__codelineno-10-4> 4</a></span>
+<span class=normal><a href=#__codelineno-10-5> 5</a></span>
+<span class=normal><a href=#__codelineno-10-6> 6</a></span>
+<span class=normal><a href=#__codelineno-10-7> 7</a></span>
+<span class=normal><a href=#__codelineno-10-8> 8</a></span>
+<span class=normal><a href=#__codelineno-10-9> 9</a></span>
+<span class=normal><a href=#__codelineno-10-10>10</a></span>
+<span class=normal><a href=#__codelineno-10-11>11</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-10-1><a id=__codelineno-10-1 name=__codelineno-10-1></a>Ordered and limited:
+</span><span id=__span-10-2><a id=__codelineno-10-2 name=__codelineno-10-2></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH%20desc/limit/5/format/json
+</span><span id=__span-10-3><a id=__codelineno-10-3 name=__codelineno-10-3></a>
+</span><span id=__span-10-4><a id=__codelineno-10-4 name=__codelineno-10-4></a>Paginated results:
+</span><span id=__span-10-5><a id=__codelineno-10-5 name=__codelineno-10-5></a>  /basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/orderby/NORAD_CAT_ID%20asc/limit/10,20/format/json
+</span><span id=__span-10-6><a id=__codelineno-10-6 name=__codelineno-10-6></a>
+</span><span id=__span-10-7><a id=__codelineno-10-7 name=__codelineno-10-7></a>Filtered fields:
+</span><span id=__span-10-8><a id=__codelineno-10-8 name=__codelineno-10-8></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/predicates/OBJECT_NAME,EPOCH,INCLINATION,PERIOD/format/json
+</span><span id=__span-10-9><a id=__codelineno-10-9 name=__codelineno-10-9></a>
+</span><span id=__span-10-10><a id=__codelineno-10-10 name=__codelineno-10-10></a>Distinct with metadata:
+</span><span id=__span-10-11><a id=__codelineno-10-11 name=__codelineno-10-11></a>  /basicspacedata/query/class/satcat/COUNTRY/US/metadata/true/distinct/true/format/json
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-11-1> 1</a></span>
+<span class=normal><a href=#__codelineno-11-2> 2</a></span>
+<span class=normal><a href=#__codelineno-11-3> 3</a></span>
+<span class=normal><a href=#__codelineno-11-4> 4</a></span>
+<span class=normal><a href=#__codelineno-11-5> 5</a></span>
+<span class=normal><a href=#__codelineno-11-6> 6</a></span>
+<span class=normal><a href=#__codelineno-11-7> 7</a></span>
+<span class=normal><a href=#__codelineno-11-8> 8</a></span>
+<span class=normal><a href=#__codelineno-11-9> 9</a></span>
+<span class=normal><a href=#__codelineno-11-10>10</a></span>
+<span class=normal><a href=#__codelineno-11-11>11</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a>Ordered and limited:
+</span><span id=__span-11-2><a id=__codelineno-11-2 name=__codelineno-11-2></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH%20desc/limit/5/format/json
+</span><span id=__span-11-3><a id=__codelineno-11-3 name=__codelineno-11-3></a>
+</span><span id=__span-11-4><a id=__codelineno-11-4 name=__codelineno-11-4></a>Paginated results:
+</span><span id=__span-11-5><a id=__codelineno-11-5 name=__codelineno-11-5></a>  /basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/orderby/NORAD_CAT_ID%20asc/limit/10,20/format/json
+</span><span id=__span-11-6><a id=__codelineno-11-6 name=__codelineno-11-6></a>
+</span><span id=__span-11-7><a id=__codelineno-11-7 name=__codelineno-11-7></a>Filtered fields:
+</span><span id=__span-11-8><a id=__codelineno-11-8 name=__codelineno-11-8></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/predicates/OBJECT_NAME,EPOCH,INCLINATION,PERIOD/format/json
+</span><span id=__span-11-9><a id=__codelineno-11-9 name=__codelineno-11-9></a>
+</span><span id=__span-11-10><a id=__codelineno-11-10 name=__codelineno-11-10></a>Distinct with metadata:
+</span><span id=__span-11-11><a id=__codelineno-11-11 name=__codelineno-11-11></a>  /basicspacedata/query/class/satcat/COUNTRY/US/metadata/true/distinct/true/format/json
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h2 id=output-formats>Output Formats<a class=headerlink href=#output-formats title="Permanent link">&para;</a></h2> <p>The default output format is JSON, which works with <code>query_json()</code>, <code>query_gp()</code>, and <code>query_satcat()</code>. Other formats like TLE, CSV, and KVN are useful with <code>query_raw()</code> for direct text output.</p> <div class="tabbed-set tabbed-alternate" data-tabs=7:2><input checked=checked id=__tabbed_7_1 name=__tabbed_7 type=radio><input id=__tabbed_7_2 name=__tabbed_7 type=radio><div class=tabbed-labels><label for=__tabbed_7_1>Python</label><label for=__tabbed_7_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-12-1> 1</a></span>
+<span class=normal><a href=#__codelineno-12-2> 2</a></span>
+<span class=normal><a href=#__codelineno-12-3> 3</a></span>
+<span class=normal><a href=#__codelineno-12-4> 4</a></span>
+<span class=normal><a href=#__codelineno-12-5> 5</a></span>
+<span class=normal><a href=#__codelineno-12-6> 6</a></span>
+<span class=normal><a href=#__codelineno-12-7> 7</a></span>
+<span class=normal><a href=#__codelineno-12-8> 8</a></span>
+<span class=normal><a href=#__codelineno-12-9> 9</a></span>
+<span class=normal><a href=#__codelineno-12-10>10</a></span>
+<span class=normal><a href=#__codelineno-12-11>11</a></span>
+<span class=normal><a href=#__codelineno-12-12>12</a></span>
+<span class=normal><a href=#__codelineno-12-13>13</a></span>
+<span class=normal><a href=#__codelineno-12-14>14</a></span>
+<span class=normal><a href=#__codelineno-12-15>15</a></span>
+<span class=normal><a href=#__codelineno-12-16>16</a></span>
+<span class=normal><a href=#__codelineno-12-17>17</a></span>
+<span class=normal><a href=#__codelineno-12-18>18</a></span>
+<span class=normal><a href=#__codelineno-12-19>19</a></span>
+<span class=normal><a href=#__codelineno-12-20>20</a></span>
+<span class=normal><a href=#__codelineno-12-21>21</a></span>
+<span class=normal><a href=#__codelineno-12-22>22</a></span>
+<span class=normal><a href=#__codelineno-12-23>23</a></span>
+<span class=normal><a href=#__codelineno-12-24>24</a></span>
+<span class=normal><a href=#__codelineno-12-25>25</a></span>
+<span class=normal><a href=#__codelineno-12-26>26</a></span>
+<span class=normal><a href=#__codelineno-12-27>27</a></span>
+<span class=normal><a href=#__codelineno-12-28>28</a></span>
+<span class=normal><a href=#__codelineno-12-29>29</a></span>
+<span class=normal><a href=#__codelineno-12-30>30</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-12-1><a id=__codelineno-12-1 name=__codelineno-12-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+</span><span id=__span-12-2><a id=__codelineno-12-2 name=__codelineno-12-2></a>
+</span><span id=__span-12-3><a id=__codelineno-12-3 name=__codelineno-12-3></a><span class=c1># Default format is JSON</span>
+</span><span id=__span-12-4><a id=__codelineno-12-4 name=__codelineno-12-4></a><span class=n>query</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
+</span><span id=__span-12-5><a id=__codelineno-12-5 name=__codelineno-12-5></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Default (JSON):</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-12-6><a id=__codelineno-12-6 name=__codelineno-12-6></a>
+</span><span id=__span-12-7><a id=__codelineno-12-7 name=__codelineno-12-7></a><span class=c1># Request TLE format for direct TLE text output</span>
+</span><span id=__span-12-8><a id=__codelineno-12-8 name=__codelineno-12-8></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
+</span><span id=__span-12-9><a id=__codelineno-12-9 name=__codelineno-12-9></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-12-10><a id=__codelineno-12-10 name=__codelineno-12-10></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
+</span><span id=__span-12-11><a id=__codelineno-12-11 name=__codelineno-12-11></a>    <span class=o>.</span><span class=n>format</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>OutputFormat</span><span class=o>.</span><span class=n>TLE</span><span class=p>)</span>
+</span><span id=__span-12-12><a id=__codelineno-12-12 name=__codelineno-12-12></a><span class=p>)</span>
+</span><span id=__span-12-13><a id=__codelineno-12-13 name=__codelineno-12-13></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>TLE format:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-12-14><a id=__codelineno-12-14 name=__codelineno-12-14></a>
+</span><span id=__span-12-15><a id=__codelineno-12-15 name=__codelineno-12-15></a><span class=c1># Request CSV format for spreadsheet-compatible output</span>
+</span><span id=__span-12-16><a id=__codelineno-12-16 name=__codelineno-12-16></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
+</span><span id=__span-12-17><a id=__codelineno-12-17 name=__codelineno-12-17></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>SATCAT</span><span class=p>)</span>
+</span><span id=__span-12-18><a id=__codelineno-12-18 name=__codelineno-12-18></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;COUNTRY&quot;</span><span class=p>,</span> <span class=s2>&quot;US&quot;</span><span class=p>)</span>
+</span><span id=__span-12-19><a id=__codelineno-12-19 name=__codelineno-12-19></a>    <span class=o>.</span><span class=n>limit</span><span class=p>(</span><span class=mi>10</span><span class=p>)</span>
+</span><span id=__span-12-20><a id=__codelineno-12-20 name=__codelineno-12-20></a>    <span class=o>.</span><span class=n>format</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>OutputFormat</span><span class=o>.</span><span class=n>CSV</span><span class=p>)</span>
+</span><span id=__span-12-21><a id=__codelineno-12-21 name=__codelineno-12-21></a><span class=p>)</span>
+</span><span id=__span-12-22><a id=__codelineno-12-22 name=__codelineno-12-22></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>CSV format:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-12-23><a id=__codelineno-12-23 name=__codelineno-12-23></a>
+</span><span id=__span-12-24><a id=__codelineno-12-24 name=__codelineno-12-24></a><span class=c1># Request KVN (CCSDS Keyword-Value Notation) format</span>
+</span><span id=__span-12-25><a id=__codelineno-12-25 name=__codelineno-12-25></a><span class=n>query</span> <span class=o>=</span> <span class=p>(</span>
+</span><span id=__span-12-26><a id=__codelineno-12-26 name=__codelineno-12-26></a>    <span class=n>bh</span><span class=o>.</span><span class=n>SpaceTrackQuery</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>RequestClass</span><span class=o>.</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-12-27><a id=__codelineno-12-27 name=__codelineno-12-27></a>    <span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=s2>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span> <span class=s2>&quot;25544&quot;</span><span class=p>)</span>
+</span><span id=__span-12-28><a id=__codelineno-12-28 name=__codelineno-12-28></a>    <span class=o>.</span><span class=n>format</span><span class=p>(</span><span class=n>bh</span><span class=o>.</span><span class=n>OutputFormat</span><span class=o>.</span><span class=n>KVN</span><span class=p>)</span>
+</span><span id=__span-12-29><a id=__codelineno-12-29 name=__codelineno-12-29></a><span class=p>)</span>
+</span><span id=__span-12-30><a id=__codelineno-12-30 name=__codelineno-12-30></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>KVN format:</span><span class=se>\n</span><span class=s2>  </span><span class=si>{</span><span class=n>query</span><span class=o>.</span><span class=n>build</span><span class=p>()</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-13-1> 1</a></span>
+<span class=normal><a href=#__codelineno-13-2> 2</a></span>
+<span class=normal><a href=#__codelineno-13-3> 3</a></span>
+<span class=normal><a href=#__codelineno-13-4> 4</a></span>
+<span class=normal><a href=#__codelineno-13-5> 5</a></span>
+<span class=normal><a href=#__codelineno-13-6> 6</a></span>
+<span class=normal><a href=#__codelineno-13-7> 7</a></span>
+<span class=normal><a href=#__codelineno-13-8> 8</a></span>
+<span class=normal><a href=#__codelineno-13-9> 9</a></span>
+<span class=normal><a href=#__codelineno-13-10>10</a></span>
+<span class=normal><a href=#__codelineno-13-11>11</a></span>
+<span class=normal><a href=#__codelineno-13-12>12</a></span>
+<span class=normal><a href=#__codelineno-13-13>13</a></span>
+<span class=normal><a href=#__codelineno-13-14>14</a></span>
+<span class=normal><a href=#__codelineno-13-15>15</a></span>
+<span class=normal><a href=#__codelineno-13-16>16</a></span>
+<span class=normal><a href=#__codelineno-13-17>17</a></span>
+<span class=normal><a href=#__codelineno-13-18>18</a></span>
+<span class=normal><a href=#__codelineno-13-19>19</a></span>
+<span class=normal><a href=#__codelineno-13-20>20</a></span>
+<span class=normal><a href=#__codelineno-13-21>21</a></span>
+<span class=normal><a href=#__codelineno-13-22>22</a></span>
+<span class=normal><a href=#__codelineno-13-23>23</a></span>
+<span class=normal><a href=#__codelineno-13-24>24</a></span>
+<span class=normal><a href=#__codelineno-13-25>25</a></span>
+<span class=normal><a href=#__codelineno-13-26>26</a></span>
+<span class=normal><a href=#__codelineno-13-27>27</a></span>
+<span class=normal><a href=#__codelineno-13-28>28</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-13-1><a id=__codelineno-13-1 name=__codelineno-13-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+</span><span id=__span-13-2><a id=__codelineno-13-2 name=__codelineno-13-2></a><span class=k>use</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>spacetrack</span><span class=p>::{</span><span class=n>SpaceTrackQuery</span><span class=p>,</span><span class=w> </span><span class=n>RequestClass</span><span class=p>,</span><span class=w> </span><span class=n>OutputFormat</span><span class=p>};</span>
+</span><span id=__span-13-3><a id=__codelineno-13-3 name=__codelineno-13-3></a>
+</span><span id=__span-13-4><a id=__codelineno-13-4 name=__codelineno-13-4></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-13-5><a id=__codelineno-13-5 name=__codelineno-13-5></a><span class=w>    </span><span class=c1>// Default format is JSON</span>
+</span><span id=__span-13-6><a id=__codelineno-13-6 name=__codelineno-13-6></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-13-7><a id=__codelineno-13-7 name=__codelineno-13-7></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>);</span>
+</span><span id=__span-13-8><a id=__codelineno-13-8 name=__codelineno-13-8></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Default (JSON):</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-13-9><a id=__codelineno-13-9 name=__codelineno-13-9></a>
+</span><span id=__span-13-10><a id=__codelineno-13-10 name=__codelineno-13-10></a><span class=w>    </span><span class=c1>// Request TLE format for direct TLE text output</span>
+</span><span id=__span-13-11><a id=__codelineno-13-11 name=__codelineno-13-11></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-13-12><a id=__codelineno-13-12 name=__codelineno-13-12></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>)</span>
+</span><span id=__span-13-13><a id=__codelineno-13-13 name=__codelineno-13-13></a><span class=w>        </span><span class=p>.</span><span class=n>format</span><span class=p>(</span><span class=n>OutputFormat</span><span class=p>::</span><span class=n>TLE</span><span class=p>);</span>
+</span><span id=__span-13-14><a id=__codelineno-13-14 name=__codelineno-13-14></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>TLE format:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-13-15><a id=__codelineno-13-15 name=__codelineno-13-15></a>
+</span><span id=__span-13-16><a id=__codelineno-13-16 name=__codelineno-13-16></a><span class=w>    </span><span class=c1>// Request CSV format for spreadsheet-compatible output</span>
+</span><span id=__span-13-17><a id=__codelineno-13-17 name=__codelineno-13-17></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>SATCAT</span><span class=p>)</span>
+</span><span id=__span-13-18><a id=__codelineno-13-18 name=__codelineno-13-18></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;COUNTRY&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;US&quot;</span><span class=p>)</span>
+</span><span id=__span-13-19><a id=__codelineno-13-19 name=__codelineno-13-19></a><span class=w>        </span><span class=p>.</span><span class=n>limit</span><span class=p>(</span><span class=mi>10</span><span class=p>)</span>
+</span><span id=__span-13-20><a id=__codelineno-13-20 name=__codelineno-13-20></a><span class=w>        </span><span class=p>.</span><span class=n>format</span><span class=p>(</span><span class=n>OutputFormat</span><span class=p>::</span><span class=n>CSV</span><span class=p>);</span>
+</span><span id=__span-13-21><a id=__codelineno-13-21 name=__codelineno-13-21></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>CSV format:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-13-22><a id=__codelineno-13-22 name=__codelineno-13-22></a>
+</span><span id=__span-13-23><a id=__codelineno-13-23 name=__codelineno-13-23></a><span class=w>    </span><span class=c1>// Request KVN (CCSDS Keyword-Value Notation) format</span>
+</span><span id=__span-13-24><a id=__codelineno-13-24 name=__codelineno-13-24></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>query</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>SpaceTrackQuery</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>RequestClass</span><span class=p>::</span><span class=n>GP</span><span class=p>)</span>
+</span><span id=__span-13-25><a id=__codelineno-13-25 name=__codelineno-13-25></a><span class=w>        </span><span class=p>.</span><span class=n>filter</span><span class=p>(</span><span class=s>&quot;NORAD_CAT_ID&quot;</span><span class=p>,</span><span class=w> </span><span class=s>&quot;25544&quot;</span><span class=p>)</span>
+</span><span id=__span-13-26><a id=__codelineno-13-26 name=__codelineno-13-26></a><span class=w>        </span><span class=p>.</span><span class=n>format</span><span class=p>(</span><span class=n>OutputFormat</span><span class=p>::</span><span class=n>KVN</span><span class=p>);</span>
+</span><span id=__span-13-27><a id=__codelineno-13-27 name=__codelineno-13-27></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>KVN format:</span><span class=se>\n</span><span class=s>  {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>query</span><span class=p>.</span><span class=n>build</span><span class=p>());</span>
+</span><span id=__span-13-28><a id=__codelineno-13-28 name=__codelineno-13-28></a><span class=p>}</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=8:2><input checked=checked id=__tabbed_8_1 name=__tabbed_8 type=radio><input id=__tabbed_8_2 name=__tabbed_8 type=radio><div class=tabbed-labels><label for=__tabbed_8_1>Python</label><label for=__tabbed_8_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-14-1> 1</a></span>
+<span class=normal><a href=#__codelineno-14-2> 2</a></span>
+<span class=normal><a href=#__codelineno-14-3> 3</a></span>
+<span class=normal><a href=#__codelineno-14-4> 4</a></span>
+<span class=normal><a href=#__codelineno-14-5> 5</a></span>
+<span class=normal><a href=#__codelineno-14-6> 6</a></span>
+<span class=normal><a href=#__codelineno-14-7> 7</a></span>
+<span class=normal><a href=#__codelineno-14-8> 8</a></span>
+<span class=normal><a href=#__codelineno-14-9> 9</a></span>
+<span class=normal><a href=#__codelineno-14-10>10</a></span>
+<span class=normal><a href=#__codelineno-14-11>11</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-14-1><a id=__codelineno-14-1 name=__codelineno-14-1></a>Default (JSON):
+</span><span id=__span-14-2><a id=__codelineno-14-2 name=__codelineno-14-2></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json
+</span><span id=__span-14-3><a id=__codelineno-14-3 name=__codelineno-14-3></a>
+</span><span id=__span-14-4><a id=__codelineno-14-4 name=__codelineno-14-4></a>TLE format:
+</span><span id=__span-14-5><a id=__codelineno-14-5 name=__codelineno-14-5></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/tle
+</span><span id=__span-14-6><a id=__codelineno-14-6 name=__codelineno-14-6></a>
+</span><span id=__span-14-7><a id=__codelineno-14-7 name=__codelineno-14-7></a>CSV format:
+</span><span id=__span-14-8><a id=__codelineno-14-8 name=__codelineno-14-8></a>  /basicspacedata/query/class/satcat/COUNTRY/US/limit/10/format/csv
+</span><span id=__span-14-9><a id=__codelineno-14-9 name=__codelineno-14-9></a>
+</span><span id=__span-14-10><a id=__codelineno-14-10 name=__codelineno-14-10></a>KVN format:
+</span><span id=__span-14-11><a id=__codelineno-14-11 name=__codelineno-14-11></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/kvn
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-15-1> 1</a></span>
+<span class=normal><a href=#__codelineno-15-2> 2</a></span>
+<span class=normal><a href=#__codelineno-15-3> 3</a></span>
+<span class=normal><a href=#__codelineno-15-4> 4</a></span>
+<span class=normal><a href=#__codelineno-15-5> 5</a></span>
+<span class=normal><a href=#__codelineno-15-6> 6</a></span>
+<span class=normal><a href=#__codelineno-15-7> 7</a></span>
+<span class=normal><a href=#__codelineno-15-8> 8</a></span>
+<span class=normal><a href=#__codelineno-15-9> 9</a></span>
+<span class=normal><a href=#__codelineno-15-10>10</a></span>
+<span class=normal><a href=#__codelineno-15-11>11</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-15-1><a id=__codelineno-15-1 name=__codelineno-15-1></a>Default (JSON):
+</span><span id=__span-15-2><a id=__codelineno-15-2 name=__codelineno-15-2></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json
+</span><span id=__span-15-3><a id=__codelineno-15-3 name=__codelineno-15-3></a>
+</span><span id=__span-15-4><a id=__codelineno-15-4 name=__codelineno-15-4></a>TLE format:
+</span><span id=__span-15-5><a id=__codelineno-15-5 name=__codelineno-15-5></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/tle
+</span><span id=__span-15-6><a id=__codelineno-15-6 name=__codelineno-15-6></a>
+</span><span id=__span-15-7><a id=__codelineno-15-7 name=__codelineno-15-7></a>CSV format:
+</span><span id=__span-15-8><a id=__codelineno-15-8 name=__codelineno-15-8></a>  /basicspacedata/query/class/satcat/COUNTRY/US/limit/10/format/csv
+</span><span id=__span-15-9><a id=__codelineno-15-9 name=__codelineno-15-9></a>
+</span><span id=__span-15-10><a id=__codelineno-15-10 name=__codelineno-15-10></a>KVN format:
+</span><span id=__span-15-11><a id=__codelineno-15-11 name=__codelineno-15-11></a>  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/kvn
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <div class="admonition note"> <p class=admonition-title>Format and Query Method Compatibility</p> <p>The typed query methods (<code>query_gp()</code>, <code>query_satcat()</code>, <code>query_json()</code>) require JSON format. If you set a non-JSON format, use <code>query_raw()</code> to get the raw response string.</p> </div> <hr> <h2 id=see-also>See Also<a class=headerlink href=#see-also title="Permanent link">&para;</a></h2> <ul> <li><a href=index.html>Space-Track API Overview</a> -- Module architecture and type catalog</li> <li><a href=client.html>Client Usage</a> -- Authentication and query execution</li> <li><a href=../../../library_api/ephemeris/spacetrack/query.html>SpaceTrackQuery Reference</a> -- Complete method documentation</li> <li><a href=../../../library_api/ephemeris/spacetrack/operators.html>Operators Reference</a> -- All operator functions</li> <li><a href=../../../library_api/ephemeris/spacetrack/enums.html>Enumerations Reference</a> -- RequestClass, OutputFormat, etc.</li> </ul> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="March 23, 2026 02:03:11 UTC">2026-03-23</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="February 7, 2026 06:53:00 UTC">2026-02-07</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=../../../assets/javascripts/bundle.79ae519e.min.js></script> <script src=../../../javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=../../../javascripts/tablesort.ae6fa2.min.js></script> </body> </html>

@@ -1,0 +1,12 @@
+Low-Thrust Orbit Raising (10 orbits):
+  Thrust: 100.0 mN
+  Spacecraft mass: 500 kg
+  Acceleration: 200.00 micro-m/s^2
+
+After 15.4 hours:
+  Reference altitude: 400.000 km
+  With thrust altitude: 421.474 km
+  Altitude gain: 21.474 km
+  Total delta-v applied: 11.107 m/s
+
+Example validated successfully!

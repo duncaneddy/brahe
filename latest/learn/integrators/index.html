@@ -564,135 +564,17 @@
 </span><span id=__span-5-34><a id=__codelineno-5-34 name=__codelineno-5-34></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;State after 10s: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>new_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]);</span>
 </span><span id=__span-5-35><a id=__codelineno-5-35 name=__codelineno-5-35></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Analytical: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>initial_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=mf>10.0_</span><span class=k>f64</span><span class=p>).</span><span class=n>exp</span><span class=p>());</span>
 </span><span id=__span-5-36><a id=__codelineno-5-36 name=__codelineno-5-36></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <h3 id=adaptive-integration>Adaptive Integration<a class=headerlink href=#adaptive-integration title="Permanent link">&para;</a></h3> <p>To use an adaptive-step integrator like RKF45, you create it with an <code>IntegratorConfig</code> specifying tolerances, then call <code>step</code>. The adaptive integrator returns an <a href=../../library_api/integrators/config.html><code>AdaptiveStepResult</code></a> containing the new state and recommended next step size.</p> <div class="tabbed-set tabbed-alternate" data-tabs=3:2><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><input id=__tabbed_3_2 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>Python</label><label for=__tabbed_3_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1> 1</a></span>
-<span class=normal><a href=#__codelineno-6-2> 2</a></span>
-<span class=normal><a href=#__codelineno-6-3> 3</a></span>
-<span class=normal><a href=#__codelineno-6-4> 4</a></span>
-<span class=normal><a href=#__codelineno-6-5> 5</a></span>
-<span class=normal><a href=#__codelineno-6-6> 6</a></span>
-<span class=normal><a href=#__codelineno-6-7> 7</a></span>
-<span class=normal><a href=#__codelineno-6-8> 8</a></span>
-<span class=normal><a href=#__codelineno-6-9> 9</a></span>
-<span class=normal><a href=#__codelineno-6-10>10</a></span>
-<span class=normal><a href=#__codelineno-6-11>11</a></span>
-<span class=normal><a href=#__codelineno-6-12>12</a></span>
-<span class=normal><a href=#__codelineno-6-13>13</a></span>
-<span class=normal><a href=#__codelineno-6-14>14</a></span>
-<span class=normal><a href=#__codelineno-6-15>15</a></span>
-<span class=normal><a href=#__codelineno-6-16>16</a></span>
-<span class=normal><a href=#__codelineno-6-17>17</a></span>
-<span class=normal><a href=#__codelineno-6-18>18</a></span>
-<span class=normal><a href=#__codelineno-6-19>19</a></span>
-<span class=normal><a href=#__codelineno-6-20>20</a></span>
-<span class=normal><a href=#__codelineno-6-21>21</a></span>
-<span class=normal><a href=#__codelineno-6-22>22</a></span>
-<span class=normal><a href=#__codelineno-6-23>23</a></span>
-<span class=normal><a href=#__codelineno-6-24>24</a></span>
-<span class=normal><a href=#__codelineno-6-25>25</a></span>
-<span class=normal><a href=#__codelineno-6-26>26</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-6-1><a id=__codelineno-6-1 name=__codelineno-6-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
-</span><span id=__span-6-2><a id=__codelineno-6-2 name=__codelineno-6-2></a><span class=kn>import</span><span class=w> </span><span class=nn>numpy</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>np</span>
-</span><span id=__span-6-3><a id=__codelineno-6-3 name=__codelineno-6-3></a>
-</span><span id=__span-6-4><a id=__codelineno-6-4 name=__codelineno-6-4></a>
-</span><span id=__span-6-5><a id=__codelineno-6-5 name=__codelineno-6-5></a><span class=k>def</span><span class=w> </span><span class=nf>dynamics</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=n>state</span><span class=p>):</span>
-</span><span id=__span-6-6><a id=__codelineno-6-6 name=__codelineno-6-6></a><span class=w>    </span><span class=sd>&quot;&quot;&quot;Exponential decay dynamics: dx/dt = -k*x&quot;&quot;&quot;</span>
-</span><span id=__span-6-7><a id=__codelineno-6-7 name=__codelineno-6-7></a>    <span class=n>k</span> <span class=o>=</span> <span class=mf>0.1</span>
-</span><span id=__span-6-8><a id=__codelineno-6-8 name=__codelineno-6-8></a>    <span class=k>return</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=o>-</span><span class=n>k</span> <span class=o>*</span> <span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
-</span><span id=__span-6-9><a id=__codelineno-6-9 name=__codelineno-6-9></a>
-</span><span id=__span-6-10><a id=__codelineno-6-10 name=__codelineno-6-10></a>
-</span><span id=__span-6-11><a id=__codelineno-6-11 name=__codelineno-6-11></a><span class=c1># Create adaptive integrator</span>
-</span><span id=__span-6-12><a id=__codelineno-6-12 name=__codelineno-6-12></a><span class=n>config</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>IntegratorConfig</span><span class=o>.</span><span class=n>adaptive</span><span class=p>(</span><span class=n>abs_tol</span><span class=o>=</span><span class=mf>1e-10</span><span class=p>,</span> <span class=n>rel_tol</span><span class=o>=</span><span class=mf>1e-9</span><span class=p>)</span>
-</span><span id=__span-6-13><a id=__codelineno-6-13 name=__codelineno-6-13></a><span class=n>integrator</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>DP54Integrator</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=n>dynamics</span><span class=p>,</span> <span class=n>config</span><span class=o>=</span><span class=n>config</span><span class=p>)</span>
-</span><span id=__span-6-14><a id=__codelineno-6-14 name=__codelineno-6-14></a>
-</span><span id=__span-6-15><a id=__codelineno-6-15 name=__codelineno-6-15></a><span class=c1># Integrate with automatic step control</span>
-</span><span id=__span-6-16><a id=__codelineno-6-16 name=__codelineno-6-16></a><span class=n>t</span> <span class=o>=</span> <span class=mf>0.0</span>
-</span><span id=__span-6-17><a id=__codelineno-6-17 name=__codelineno-6-17></a><span class=n>initial_state</span> <span class=o>=</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=mf>1.0</span><span class=p>])</span>
-</span><span id=__span-6-18><a id=__codelineno-6-18 name=__codelineno-6-18></a><span class=n>dt</span> <span class=o>=</span> <span class=mf>60.0</span>  <span class=c1># Initial guess</span>
-</span><span id=__span-6-19><a id=__codelineno-6-19 name=__codelineno-6-19></a>
-</span><span id=__span-6-20><a id=__codelineno-6-20 name=__codelineno-6-20></a><span class=n>result</span> <span class=o>=</span> <span class=n>integrator</span><span class=o>.</span><span class=n>step</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=n>initial_state</span><span class=p>,</span> <span class=n>dt</span><span class=p>)</span>
-</span><span id=__span-6-21><a id=__codelineno-6-21 name=__codelineno-6-21></a>
-</span><span id=__span-6-22><a id=__codelineno-6-22 name=__codelineno-6-22></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Initial state: </span><span class=si>{</span><span class=n>initial_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-6-23><a id=__codelineno-6-23 name=__codelineno-6-23></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;State after step: </span><span class=si>{</span><span class=n>result</span><span class=o>.</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-6-24><a id=__codelineno-6-24 name=__codelineno-6-24></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Step used: </span><span class=si>{</span><span class=n>result</span><span class=o>.</span><span class=n>dt_used</span><span class=si>:</span><span class=s2>.2f</span><span class=si>}</span><span class=s2>s&quot;</span><span class=p>)</span>
-</span><span id=__span-6-25><a id=__codelineno-6-25 name=__codelineno-6-25></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Recommended next step: </span><span class=si>{</span><span class=n>result</span><span class=o>.</span><span class=n>dt_next</span><span class=si>:</span><span class=s2>.2f</span><span class=si>}</span><span class=s2>s&quot;</span><span class=p>)</span>
-</span><span id=__span-6-26><a id=__codelineno-6-26 name=__codelineno-6-26></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Error estimate: </span><span class=si>{</span><span class=n>result</span><span class=o>.</span><span class=n>error_estimate</span><span class=si>:</span><span class=s2>.2e</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-7-1> 1</a></span>
-<span class=normal><a href=#__codelineno-7-2> 2</a></span>
-<span class=normal><a href=#__codelineno-7-3> 3</a></span>
-<span class=normal><a href=#__codelineno-7-4> 4</a></span>
-<span class=normal><a href=#__codelineno-7-5> 5</a></span>
-<span class=normal><a href=#__codelineno-7-6> 6</a></span>
-<span class=normal><a href=#__codelineno-7-7> 7</a></span>
-<span class=normal><a href=#__codelineno-7-8> 8</a></span>
-<span class=normal><a href=#__codelineno-7-9> 9</a></span>
-<span class=normal><a href=#__codelineno-7-10>10</a></span>
-<span class=normal><a href=#__codelineno-7-11>11</a></span>
-<span class=normal><a href=#__codelineno-7-12>12</a></span>
-<span class=normal><a href=#__codelineno-7-13>13</a></span>
-<span class=normal><a href=#__codelineno-7-14>14</a></span>
-<span class=normal><a href=#__codelineno-7-15>15</a></span>
-<span class=normal><a href=#__codelineno-7-16>16</a></span>
-<span class=normal><a href=#__codelineno-7-17>17</a></span>
-<span class=normal><a href=#__codelineno-7-18>18</a></span>
-<span class=normal><a href=#__codelineno-7-19>19</a></span>
-<span class=normal><a href=#__codelineno-7-20>20</a></span>
-<span class=normal><a href=#__codelineno-7-21>21</a></span>
-<span class=normal><a href=#__codelineno-7-22>22</a></span>
-<span class=normal><a href=#__codelineno-7-23>23</a></span>
-<span class=normal><a href=#__codelineno-7-24>24</a></span>
-<span class=normal><a href=#__codelineno-7-25>25</a></span>
-<span class=normal><a href=#__codelineno-7-26>26</a></span>
-<span class=normal><a href=#__codelineno-7-27>27</a></span>
-<span class=normal><a href=#__codelineno-7-28>28</a></span>
-<span class=normal><a href=#__codelineno-7-29>29</a></span>
-<span class=normal><a href=#__codelineno-7-30>30</a></span>
-<span class=normal><a href=#__codelineno-7-31>31</a></span>
-<span class=normal><a href=#__codelineno-7-32>32</a></span>
-<span class=normal><a href=#__codelineno-7-33>33</a></span>
-<span class=normal><a href=#__codelineno-7-34>34</a></span>
-<span class=normal><a href=#__codelineno-7-35>35</a></span>
-<span class=normal><a href=#__codelineno-7-36>36</a></span>
-<span class=normal><a href=#__codelineno-7-37>37</a></span>
-<span class=normal><a href=#__codelineno-7-38>38</a></span>
-<span class=normal><a href=#__codelineno-7-39>39</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-7-1><a id=__codelineno-7-1 name=__codelineno-7-1></a><span class=sd>//! Simple adaptive-step integration pattern example.</span>
-</span><span id=__span-7-2><a id=__codelineno-7-2 name=__codelineno-7-2></a><span class=sd>//!</span>
-</span><span id=__span-7-3><a id=__codelineno-7-3 name=__codelineno-7-3></a><span class=sd>//! Demonstrates the basic pattern for using an adaptive-step integrator</span>
-</span><span id=__span-7-4><a id=__codelineno-7-4 name=__codelineno-7-4></a><span class=sd>//! with exponential decay dynamics.</span>
-</span><span id=__span-7-5><a id=__codelineno-7-5 name=__codelineno-7-5></a>
-</span><span id=__span-7-6><a id=__codelineno-7-6 name=__codelineno-7-6></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=p>::</span><span class=n>integrators</span><span class=p>::</span><span class=o>*</span><span class=p>;</span>
-</span><span id=__span-7-7><a id=__codelineno-7-7 name=__codelineno-7-7></a><span class=k>use</span><span class=w> </span><span class=n>nalgebra</span><span class=p>::</span><span class=n>DVector</span><span class=p>;</span>
-</span><span id=__span-7-8><a id=__codelineno-7-8 name=__codelineno-7-8></a>
-</span><span id=__span-7-9><a id=__codelineno-7-9 name=__codelineno-7-9></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-7-10><a id=__codelineno-7-10 name=__codelineno-7-10></a><span class=w>    </span><span class=c1>// Dynamics function: Exponential decay dx/dt = -k*x</span>
-</span><span id=__span-7-11><a id=__codelineno-7-11 name=__codelineno-7-11></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>k</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.1</span><span class=p>;</span>
-</span><span id=__span-7-12><a id=__codelineno-7-12 name=__codelineno-7-12></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dynamics</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>move</span><span class=w> </span><span class=o>|</span><span class=n>_t</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>:</span><span class=w> </span><span class=kp>&amp;</span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=p>,</span><span class=w> </span><span class=n>_params</span><span class=p>:</span><span class=w> </span><span class=nb>Option</span><span class=o>&lt;&amp;</span><span class=n>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;&gt;|</span><span class=w> </span><span class=p>-&gt;</span><span class=w> </span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-7-13><a id=__codelineno-7-13 name=__codelineno-7-13></a><span class=w>        </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=o>-</span><span class=n>k</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
-</span><span id=__span-7-14><a id=__codelineno-7-14 name=__codelineno-7-14></a><span class=w>    </span><span class=p>};</span>
-</span><span id=__span-7-15><a id=__codelineno-7-15 name=__codelineno-7-15></a>
-</span><span id=__span-7-16><a id=__codelineno-7-16 name=__codelineno-7-16></a><span class=w>    </span><span class=c1>// Create adaptive integrator</span>
-</span><span id=__span-7-17><a id=__codelineno-7-17 name=__codelineno-7-17></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>config</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>IntegratorConfig</span><span class=p>::</span><span class=n>adaptive</span><span class=p>(</span><span class=mf>1e-10</span><span class=p>,</span><span class=w> </span><span class=mf>1e-9</span><span class=p>);</span>
-</span><span id=__span-7-18><a id=__codelineno-7-18 name=__codelineno-7-18></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>integrator</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DormandPrince54DIntegrator</span><span class=p>::</span><span class=n>with_config</span><span class=p>(</span>
-</span><span id=__span-7-19><a id=__codelineno-7-19 name=__codelineno-7-19></a><span class=w>        </span><span class=mi>1</span><span class=p>,</span>
-</span><span id=__span-7-20><a id=__codelineno-7-20 name=__codelineno-7-20></a><span class=w>        </span><span class=nb>Box</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>dynamics</span><span class=p>),</span>
-</span><span id=__span-7-21><a id=__codelineno-7-21 name=__codelineno-7-21></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-7-22><a id=__codelineno-7-22 name=__codelineno-7-22></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-7-23><a id=__codelineno-7-23 name=__codelineno-7-23></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-7-24><a id=__codelineno-7-24 name=__codelineno-7-24></a><span class=w>        </span><span class=n>config</span>
-</span><span id=__span-7-25><a id=__codelineno-7-25 name=__codelineno-7-25></a><span class=w>    </span><span class=p>);</span>
-</span><span id=__span-7-26><a id=__codelineno-7-26 name=__codelineno-7-26></a>
-</span><span id=__span-7-27><a id=__codelineno-7-27 name=__codelineno-7-27></a><span class=w>    </span><span class=c1>// Integrate with automatic step control</span>
-</span><span id=__span-7-28><a id=__codelineno-7-28 name=__codelineno-7-28></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.0</span><span class=p>;</span>
-</span><span id=__span-7-29><a id=__codelineno-7-29 name=__codelineno-7-29></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>initial_state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=mf>1.0</span><span class=p>]);</span>
-</span><span id=__span-7-30><a id=__codelineno-7-30 name=__codelineno-7-30></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dt</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>60.0</span><span class=p>;</span><span class=w> </span><span class=c1>// Initial guess</span>
-</span><span id=__span-7-31><a id=__codelineno-7-31 name=__codelineno-7-31></a>
-</span><span id=__span-7-32><a id=__codelineno-7-32 name=__codelineno-7-32></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>result</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>integrator</span><span class=p>.</span><span class=n>step</span><span class=p>(</span><span class=n>t</span><span class=p>,</span><span class=w> </span><span class=n>initial_state</span><span class=p>.</span><span class=n>clone</span><span class=p>(),</span><span class=w> </span><span class=nb>None</span><span class=p>,</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>dt</span><span class=p>));</span>
-</span><span id=__span-7-33><a id=__codelineno-7-33 name=__codelineno-7-33></a>
-</span><span id=__span-7-34><a id=__codelineno-7-34 name=__codelineno-7-34></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Initial state: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>initial_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]);</span>
-</span><span id=__span-7-35><a id=__codelineno-7-35 name=__codelineno-7-35></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;State after step: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]);</span>
-</span><span id=__span-7-36><a id=__codelineno-7-36 name=__codelineno-7-36></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Step used: {:.2}s&quot;</span><span class=p>,</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_used</span><span class=p>);</span>
-</span><span id=__span-7-37><a id=__codelineno-7-37 name=__codelineno-7-37></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Recommended next step: {:.2}s&quot;</span><span class=p>,</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_next</span><span class=p>);</span>
-</span><span id=__span-7-38><a id=__codelineno-7-38 name=__codelineno-7-38></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Error estimate: {:.2e}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>error_estimate</span><span class=p>.</span><span class=n>unwrap</span><span class=p>());</span>
-</span><span id=__span-7-39><a id=__codelineno-7-39 name=__codelineno-7-39></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <p>To take multiple steps until a final time, you can use a loop that updates the time and state based on the <code>dt_used</code> and <code>dt_next</code> values from the result.</p> <div class="tabbed-set tabbed-alternate" data-tabs=4:2><input checked=checked id=__tabbed_4_1 name=__tabbed_4 type=radio><input id=__tabbed_4_2 name=__tabbed_4 type=radio><div class=tabbed-labels><label for=__tabbed_4_1>Python</label><label for=__tabbed_4_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-8-1> 1</a></span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=3:2><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><input id=__tabbed_3_2 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>Python</label><label for=__tabbed_3_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1>1</a></span>
+<span class=normal><a href=#__codelineno-6-2>2</a></span>
+<span class=normal><a href=#__codelineno-6-3>3</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-6-1><a id=__codelineno-6-1 name=__codelineno-6-1></a>Initial state: 1.000000
+</span><span id=__span-6-2><a id=__codelineno-6-2 name=__codelineno-6-2></a>State after 10s: 0.375000
+</span><span id=__span-6-3><a id=__codelineno-6-3 name=__codelineno-6-3></a>Analytical: 0.367879
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-7-1>1</a></span>
+<span class=normal><a href=#__codelineno-7-2>2</a></span>
+<span class=normal><a href=#__codelineno-7-3>3</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-7-1><a id=__codelineno-7-1 name=__codelineno-7-1></a>Initial state: 1.000000
+</span><span id=__span-7-2><a id=__codelineno-7-2 name=__codelineno-7-2></a>State after 10s: 0.375000
+</span><span id=__span-7-3><a id=__codelineno-7-3 name=__codelineno-7-3></a>Analytical: 0.367879
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h3 id=adaptive-integration>Adaptive Integration<a class=headerlink href=#adaptive-integration title="Permanent link">&para;</a></h3> <p>To use an adaptive-step integrator like RKF45, you create it with an <code>IntegratorConfig</code> specifying tolerances, then call <code>step</code>. The adaptive integrator returns an <a href=../../library_api/integrators/config.html><code>AdaptiveStepResult</code></a> containing the new state and recommended next step size.</p> <div class="tabbed-set tabbed-alternate" data-tabs=4:2><input checked=checked id=__tabbed_4_1 name=__tabbed_4 type=radio><input id=__tabbed_4_2 name=__tabbed_4 type=radio><div class=tabbed-labels><label for=__tabbed_4_1>Python</label><label for=__tabbed_4_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-8-1> 1</a></span>
 <span class=normal><a href=#__codelineno-8-2> 2</a></span>
 <span class=normal><a href=#__codelineno-8-3> 3</a></span>
 <span class=normal><a href=#__codelineno-8-4> 4</a></span>
@@ -717,13 +599,7 @@
 <span class=normal><a href=#__codelineno-8-23>23</a></span>
 <span class=normal><a href=#__codelineno-8-24>24</a></span>
 <span class=normal><a href=#__codelineno-8-25>25</a></span>
-<span class=normal><a href=#__codelineno-8-26>26</a></span>
-<span class=normal><a href=#__codelineno-8-27>27</a></span>
-<span class=normal><a href=#__codelineno-8-28>28</a></span>
-<span class=normal><a href=#__codelineno-8-29>29</a></span>
-<span class=normal><a href=#__codelineno-8-30>30</a></span>
-<span class=normal><a href=#__codelineno-8-31>31</a></span>
-<span class=normal><a href=#__codelineno-8-32>32</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-8-1><a id=__codelineno-8-1 name=__codelineno-8-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-8-26>26</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-8-1><a id=__codelineno-8-1 name=__codelineno-8-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-8-2><a id=__codelineno-8-2 name=__codelineno-8-2></a><span class=kn>import</span><span class=w> </span><span class=nn>numpy</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>np</span>
 </span><span id=__span-8-3><a id=__codelineno-8-3 name=__codelineno-8-3></a>
 </span><span id=__span-8-4><a id=__codelineno-8-4 name=__codelineno-8-4></a>
@@ -737,24 +613,18 @@
 </span><span id=__span-8-12><a id=__codelineno-8-12 name=__codelineno-8-12></a><span class=n>config</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>IntegratorConfig</span><span class=o>.</span><span class=n>adaptive</span><span class=p>(</span><span class=n>abs_tol</span><span class=o>=</span><span class=mf>1e-10</span><span class=p>,</span> <span class=n>rel_tol</span><span class=o>=</span><span class=mf>1e-9</span><span class=p>)</span>
 </span><span id=__span-8-13><a id=__codelineno-8-13 name=__codelineno-8-13></a><span class=n>integrator</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>DP54Integrator</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=n>dynamics</span><span class=p>,</span> <span class=n>config</span><span class=o>=</span><span class=n>config</span><span class=p>)</span>
 </span><span id=__span-8-14><a id=__codelineno-8-14 name=__codelineno-8-14></a>
-</span><span id=__span-8-15><a id=__codelineno-8-15 name=__codelineno-8-15></a><span class=c1># Propagate from t=0 to t_end</span>
+</span><span id=__span-8-15><a id=__codelineno-8-15 name=__codelineno-8-15></a><span class=c1># Integrate with automatic step control</span>
 </span><span id=__span-8-16><a id=__codelineno-8-16 name=__codelineno-8-16></a><span class=n>t</span> <span class=o>=</span> <span class=mf>0.0</span>
-</span><span id=__span-8-17><a id=__codelineno-8-17 name=__codelineno-8-17></a><span class=n>t_end</span> <span class=o>=</span> <span class=mf>86400.0</span>  <span class=c1># One day</span>
-</span><span id=__span-8-18><a id=__codelineno-8-18 name=__codelineno-8-18></a><span class=n>state</span> <span class=o>=</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=mf>1.0</span><span class=p>])</span>
-</span><span id=__span-8-19><a id=__codelineno-8-19 name=__codelineno-8-19></a><span class=n>dt</span> <span class=o>=</span> <span class=mf>60.0</span>
-</span><span id=__span-8-20><a id=__codelineno-8-20 name=__codelineno-8-20></a>
-</span><span id=__span-8-21><a id=__codelineno-8-21 name=__codelineno-8-21></a><span class=n>step_count</span> <span class=o>=</span> <span class=mi>0</span>
-</span><span id=__span-8-22><a id=__codelineno-8-22 name=__codelineno-8-22></a><span class=k>while</span> <span class=n>t</span> <span class=o>&lt;</span> <span class=n>t_end</span><span class=p>:</span>
-</span><span id=__span-8-23><a id=__codelineno-8-23 name=__codelineno-8-23></a>    <span class=n>result</span> <span class=o>=</span> <span class=n>integrator</span><span class=o>.</span><span class=n>step</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=n>state</span><span class=p>,</span> <span class=nb>min</span><span class=p>(</span><span class=n>dt</span><span class=p>,</span> <span class=n>t_end</span> <span class=o>-</span> <span class=n>t</span><span class=p>))</span>
-</span><span id=__span-8-24><a id=__codelineno-8-24 name=__codelineno-8-24></a>    <span class=n>t</span> <span class=o>+=</span> <span class=n>result</span><span class=o>.</span><span class=n>dt_used</span>
-</span><span id=__span-8-25><a id=__codelineno-8-25 name=__codelineno-8-25></a>    <span class=n>state</span> <span class=o>=</span> <span class=n>result</span><span class=o>.</span><span class=n>state</span>
-</span><span id=__span-8-26><a id=__codelineno-8-26 name=__codelineno-8-26></a>    <span class=n>dt</span> <span class=o>=</span> <span class=n>result</span><span class=o>.</span><span class=n>dt_next</span>
-</span><span id=__span-8-27><a id=__codelineno-8-27 name=__codelineno-8-27></a>    <span class=n>step_count</span> <span class=o>+=</span> <span class=mi>1</span>
-</span><span id=__span-8-28><a id=__codelineno-8-28 name=__codelineno-8-28></a>
-</span><span id=__span-8-29><a id=__codelineno-8-29 name=__codelineno-8-29></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Propagated from 0 to </span><span class=si>{</span><span class=n>t_end</span><span class=si>}</span><span class=s2>s in </span><span class=si>{</span><span class=n>step_count</span><span class=si>}</span><span class=s2> steps&quot;</span><span class=p>)</span>
-</span><span id=__span-8-30><a id=__codelineno-8-30 name=__codelineno-8-30></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Final state: </span><span class=si>{</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6e</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-8-31><a id=__codelineno-8-31 name=__codelineno-8-31></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Analytical: </span><span class=si>{</span><span class=n>np</span><span class=o>.</span><span class=n>exp</span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>t_end</span><span class=p>)</span><span class=si>:</span><span class=s2>.6e</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-8-32><a id=__codelineno-8-32 name=__codelineno-8-32></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Error: </span><span class=si>{</span><span class=nb>abs</span><span class=p>(</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>np</span><span class=o>.</span><span class=n>exp</span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>t_end</span><span class=p>))</span><span class=si>:</span><span class=s2>.2e</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-8-17><a id=__codelineno-8-17 name=__codelineno-8-17></a><span class=n>initial_state</span> <span class=o>=</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=mf>1.0</span><span class=p>])</span>
+</span><span id=__span-8-18><a id=__codelineno-8-18 name=__codelineno-8-18></a><span class=n>dt</span> <span class=o>=</span> <span class=mf>60.0</span>  <span class=c1># Initial guess</span>
+</span><span id=__span-8-19><a id=__codelineno-8-19 name=__codelineno-8-19></a>
+</span><span id=__span-8-20><a id=__codelineno-8-20 name=__codelineno-8-20></a><span class=n>result</span> <span class=o>=</span> <span class=n>integrator</span><span class=o>.</span><span class=n>step</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=n>initial_state</span><span class=p>,</span> <span class=n>dt</span><span class=p>)</span>
+</span><span id=__span-8-21><a id=__codelineno-8-21 name=__codelineno-8-21></a>
+</span><span id=__span-8-22><a id=__codelineno-8-22 name=__codelineno-8-22></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Initial state: </span><span class=si>{</span><span class=n>initial_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-8-23><a id=__codelineno-8-23 name=__codelineno-8-23></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;State after step: </span><span class=si>{</span><span class=n>result</span><span class=o>.</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-8-24><a id=__codelineno-8-24 name=__codelineno-8-24></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Step used: </span><span class=si>{</span><span class=n>result</span><span class=o>.</span><span class=n>dt_used</span><span class=si>:</span><span class=s2>.2f</span><span class=si>}</span><span class=s2>s&quot;</span><span class=p>)</span>
+</span><span id=__span-8-25><a id=__codelineno-8-25 name=__codelineno-8-25></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Recommended next step: </span><span class=si>{</span><span class=n>result</span><span class=o>.</span><span class=n>dt_next</span><span class=si>:</span><span class=s2>.2f</span><span class=si>}</span><span class=s2>s&quot;</span><span class=p>)</span>
+</span><span id=__span-8-26><a id=__codelineno-8-26 name=__codelineno-8-26></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Error estimate: </span><span class=si>{</span><span class=n>result</span><span class=o>.</span><span class=n>error_estimate</span><span class=si>:</span><span class=s2>.2e</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-9-1> 1</a></span>
 <span class=normal><a href=#__codelineno-9-2> 2</a></span>
 <span class=normal><a href=#__codelineno-9-3> 3</a></span>
@@ -793,18 +663,10 @@
 <span class=normal><a href=#__codelineno-9-36>36</a></span>
 <span class=normal><a href=#__codelineno-9-37>37</a></span>
 <span class=normal><a href=#__codelineno-9-38>38</a></span>
-<span class=normal><a href=#__codelineno-9-39>39</a></span>
-<span class=normal><a href=#__codelineno-9-40>40</a></span>
-<span class=normal><a href=#__codelineno-9-41>41</a></span>
-<span class=normal><a href=#__codelineno-9-42>42</a></span>
-<span class=normal><a href=#__codelineno-9-43>43</a></span>
-<span class=normal><a href=#__codelineno-9-44>44</a></span>
-<span class=normal><a href=#__codelineno-9-45>45</a></span>
-<span class=normal><a href=#__codelineno-9-46>46</a></span>
-<span class=normal><a href=#__codelineno-9-47>47</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-9-1><a id=__codelineno-9-1 name=__codelineno-9-1></a><span class=sd>//!</span>
-</span><span id=__span-9-2><a id=__codelineno-9-2 name=__codelineno-9-2></a><span class=sd>//! Demonstrates the pattern for propagating over an extended time period</span>
-</span><span id=__span-9-3><a id=__codelineno-9-3 name=__codelineno-9-3></a><span class=sd>//! using an adaptive integrator, using the recommended step size from</span>
-</span><span id=__span-9-4><a id=__codelineno-9-4 name=__codelineno-9-4></a><span class=sd>//! each step for the next step.</span>
+<span class=normal><a href=#__codelineno-9-39>39</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-9-1><a id=__codelineno-9-1 name=__codelineno-9-1></a><span class=sd>//! Simple adaptive-step integration pattern example.</span>
+</span><span id=__span-9-2><a id=__codelineno-9-2 name=__codelineno-9-2></a><span class=sd>//!</span>
+</span><span id=__span-9-3><a id=__codelineno-9-3 name=__codelineno-9-3></a><span class=sd>//! Demonstrates the basic pattern for using an adaptive-step integrator</span>
+</span><span id=__span-9-4><a id=__codelineno-9-4 name=__codelineno-9-4></a><span class=sd>//! with exponential decay dynamics.</span>
 </span><span id=__span-9-5><a id=__codelineno-9-5 name=__codelineno-9-5></a>
 </span><span id=__span-9-6><a id=__codelineno-9-6 name=__codelineno-9-6></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=p>::</span><span class=n>integrators</span><span class=p>::</span><span class=o>*</span><span class=p>;</span>
 </span><span id=__span-9-7><a id=__codelineno-9-7 name=__codelineno-9-7></a><span class=k>use</span><span class=w> </span><span class=n>nalgebra</span><span class=p>::</span><span class=n>DVector</span><span class=p>;</span>
@@ -827,195 +689,393 @@
 </span><span id=__span-9-24><a id=__codelineno-9-24 name=__codelineno-9-24></a><span class=w>        </span><span class=n>config</span>
 </span><span id=__span-9-25><a id=__codelineno-9-25 name=__codelineno-9-25></a><span class=w>    </span><span class=p>);</span>
 </span><span id=__span-9-26><a id=__codelineno-9-26 name=__codelineno-9-26></a>
-</span><span id=__span-9-27><a id=__codelineno-9-27 name=__codelineno-9-27></a><span class=w>    </span><span class=c1>// Propagate from t=0 to t_end</span>
-</span><span id=__span-9-28><a id=__codelineno-9-28 name=__codelineno-9-28></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.0</span><span class=p>;</span>
-</span><span id=__span-9-29><a id=__codelineno-9-29 name=__codelineno-9-29></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>t_end</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>86400.0</span><span class=p>;</span><span class=w> </span><span class=c1>// One day</span>
-</span><span id=__span-9-30><a id=__codelineno-9-30 name=__codelineno-9-30></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=mf>1.0</span><span class=p>]);</span>
-</span><span id=__span-9-31><a id=__codelineno-9-31 name=__codelineno-9-31></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>dt</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>60.0</span><span class=p>;</span>
-</span><span id=__span-9-32><a id=__codelineno-9-32 name=__codelineno-9-32></a>
-</span><span id=__span-9-33><a id=__codelineno-9-33 name=__codelineno-9-33></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>step_count</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>0</span><span class=p>;</span>
-</span><span id=__span-9-34><a id=__codelineno-9-34 name=__codelineno-9-34></a><span class=w>    </span><span class=k>while</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>&lt;</span><span class=w> </span><span class=n>t_end</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-9-35><a id=__codelineno-9-35 name=__codelineno-9-35></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>result</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>integrator</span><span class=p>.</span><span class=n>step</span><span class=p>(</span><span class=n>t</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>,</span><span class=w> </span><span class=nb>None</span><span class=p>,</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>dt</span><span class=p>.</span><span class=n>min</span><span class=p>(</span><span class=n>t_end</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>t</span><span class=p>)));</span>
-</span><span id=__span-9-36><a id=__codelineno-9-36 name=__codelineno-9-36></a><span class=w>        </span><span class=n>t</span><span class=w> </span><span class=o>+=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_used</span><span class=p>;</span>
-</span><span id=__span-9-37><a id=__codelineno-9-37 name=__codelineno-9-37></a><span class=w>        </span><span class=n>state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>state</span><span class=p>;</span>
-</span><span id=__span-9-38><a id=__codelineno-9-38 name=__codelineno-9-38></a><span class=w>        </span><span class=n>dt</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_next</span><span class=p>;</span>
-</span><span id=__span-9-39><a id=__codelineno-9-39 name=__codelineno-9-39></a><span class=w>        </span><span class=n>step_count</span><span class=w> </span><span class=o>+=</span><span class=w> </span><span class=mi>1</span><span class=p>;</span>
-</span><span id=__span-9-40><a id=__codelineno-9-40 name=__codelineno-9-40></a><span class=w>    </span><span class=p>}</span>
-</span><span id=__span-9-41><a id=__codelineno-9-41 name=__codelineno-9-41></a>
-</span><span id=__span-9-42><a id=__codelineno-9-42 name=__codelineno-9-42></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>analytical</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>t_end</span><span class=p>).</span><span class=n>exp</span><span class=p>();</span>
-</span><span id=__span-9-43><a id=__codelineno-9-43 name=__codelineno-9-43></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Propagated from 0 to {}s in {} steps&quot;</span><span class=p>,</span><span class=w> </span><span class=n>t_end</span><span class=p>,</span><span class=w> </span><span class=n>step_count</span><span class=p>);</span>
-</span><span id=__span-9-44><a id=__codelineno-9-44 name=__codelineno-9-44></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Final state: {:.6e}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]);</span>
-</span><span id=__span-9-45><a id=__codelineno-9-45 name=__codelineno-9-45></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Analytical: {:.6e}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>analytical</span><span class=p>);</span>
-</span><span id=__span-9-46><a id=__codelineno-9-46 name=__codelineno-9-46></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Error: {:.2e}&quot;</span><span class=p>,</span><span class=w> </span><span class=p>(</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>analytical</span><span class=p>).</span><span class=n>abs</span><span class=p>());</span>
-</span><span id=__span-9-47><a id=__codelineno-9-47 name=__codelineno-9-47></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <h2 id=state-transition-matrix-propagation>State Transition Matrix Propagation<a class=headerlink href=#state-transition-matrix-propagation title="Permanent link">&para;</a></h2> <p>For orbit determination and covariance propagation, you often need to propagate the state transition matrix (STM) alongside the state. The STM <span class=arithmatex>\(\Phi(t, t_0)\)</span> maps perturbations in initial state to perturbations in final state:</p> <div class=arithmatex>\[\delta\mathbf{x}(t) = \Phi(t, t_0) \cdot \delta\mathbf{x}(t_0)\]</div> <p>State transition matrices are needed for a few key aspects of astrodynamics including:</p> <ul> <li><strong>Covariance propagation</strong>: <span class=arithmatex>\(P(t) = \Phi(t, t_0) P(t_0) \Phi(t, t_0)^T\)</span></li> <li><strong>Sensitivity analysis</strong>: How errors in initial conditions affect trajectory</li> <li><strong>Orbit determination</strong>: Computing measurement sensitivities</li> </ul> <p>They can be propagated by integrating the variational equations alongside the state, which requires computing the Jacobian of the dynamics. Brahe's integrators support this via the <code>step_with_varmat</code> method. You can learn more about defining Jacobians in the <a href=../mathematics/jacobian.html>Jacobian Computation</a> guide.</p> <div class="tabbed-set tabbed-alternate" data-tabs=5:2><input checked=checked id=__tabbed_5_1 name=__tabbed_5 type=radio><input id=__tabbed_5_2 name=__tabbed_5 type=radio><div class=tabbed-labels><label for=__tabbed_5_1>Python</label><label for=__tabbed_5_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-10-1> 1</a></span>
-<span class=normal><a href=#__codelineno-10-2> 2</a></span>
-<span class=normal><a href=#__codelineno-10-3> 3</a></span>
-<span class=normal><a href=#__codelineno-10-4> 4</a></span>
-<span class=normal><a href=#__codelineno-10-5> 5</a></span>
-<span class=normal><a href=#__codelineno-10-6> 6</a></span>
-<span class=normal><a href=#__codelineno-10-7> 7</a></span>
-<span class=normal><a href=#__codelineno-10-8> 8</a></span>
-<span class=normal><a href=#__codelineno-10-9> 9</a></span>
-<span class=normal><a href=#__codelineno-10-10>10</a></span>
-<span class=normal><a href=#__codelineno-10-11>11</a></span>
-<span class=normal><a href=#__codelineno-10-12>12</a></span>
-<span class=normal><a href=#__codelineno-10-13>13</a></span>
-<span class=normal><a href=#__codelineno-10-14>14</a></span>
-<span class=normal><a href=#__codelineno-10-15>15</a></span>
-<span class=normal><a href=#__codelineno-10-16>16</a></span>
-<span class=normal><a href=#__codelineno-10-17>17</a></span>
-<span class=normal><a href=#__codelineno-10-18>18</a></span>
-<span class=normal><a href=#__codelineno-10-19>19</a></span>
-<span class=normal><a href=#__codelineno-10-20>20</a></span>
-<span class=normal><a href=#__codelineno-10-21>21</a></span>
-<span class=normal><a href=#__codelineno-10-22>22</a></span>
-<span class=normal><a href=#__codelineno-10-23>23</a></span>
-<span class=normal><a href=#__codelineno-10-24>24</a></span>
-<span class=normal><a href=#__codelineno-10-25>25</a></span>
-<span class=normal><a href=#__codelineno-10-26>26</a></span>
-<span class=normal><a href=#__codelineno-10-27>27</a></span>
-<span class=normal><a href=#__codelineno-10-28>28</a></span>
-<span class=normal><a href=#__codelineno-10-29>29</a></span>
-<span class=normal><a href=#__codelineno-10-30>30</a></span>
-<span class=normal><a href=#__codelineno-10-31>31</a></span>
-<span class=normal><a href=#__codelineno-10-32>32</a></span>
-<span class=normal><a href=#__codelineno-10-33>33</a></span>
-<span class=normal><a href=#__codelineno-10-34>34</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-10-1><a id=__codelineno-10-1 name=__codelineno-10-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
-</span><span id=__span-10-2><a id=__codelineno-10-2 name=__codelineno-10-2></a><span class=kn>import</span><span class=w> </span><span class=nn>numpy</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>np</span>
-</span><span id=__span-10-3><a id=__codelineno-10-3 name=__codelineno-10-3></a>
-</span><span id=__span-10-4><a id=__codelineno-10-4 name=__codelineno-10-4></a>
-</span><span id=__span-10-5><a id=__codelineno-10-5 name=__codelineno-10-5></a><span class=k>def</span><span class=w> </span><span class=nf>dynamics</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=n>state</span><span class=p>):</span>
-</span><span id=__span-10-6><a id=__codelineno-10-6 name=__codelineno-10-6></a><span class=w>    </span><span class=sd>&quot;&quot;&quot;Exponential decay dynamics: dx/dt = -k*x&quot;&quot;&quot;</span>
-</span><span id=__span-10-7><a id=__codelineno-10-7 name=__codelineno-10-7></a>    <span class=n>k</span> <span class=o>=</span> <span class=mf>0.1</span>
-</span><span id=__span-10-8><a id=__codelineno-10-8 name=__codelineno-10-8></a>    <span class=k>return</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=o>-</span><span class=n>k</span> <span class=o>*</span> <span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
-</span><span id=__span-10-9><a id=__codelineno-10-9 name=__codelineno-10-9></a>
-</span><span id=__span-10-10><a id=__codelineno-10-10 name=__codelineno-10-10></a>
-</span><span id=__span-10-11><a id=__codelineno-10-11 name=__codelineno-10-11></a><span class=c1># Create Jacobian for variational equations</span>
-</span><span id=__span-10-12><a id=__codelineno-10-12 name=__codelineno-10-12></a><span class=n>jacobian</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>NumericalJacobian</span><span class=o>.</span><span class=n>central</span><span class=p>(</span><span class=n>dynamics</span><span class=p>)</span><span class=o>.</span><span class=n>with_adaptive</span><span class=p>(</span>
-</span><span id=__span-10-13><a id=__codelineno-10-13 name=__codelineno-10-13></a>    <span class=n>scale_factor</span><span class=o>=</span><span class=mf>1e-8</span><span class=p>,</span> <span class=n>min_value</span><span class=o>=</span><span class=mf>1e-6</span>
-</span><span id=__span-10-14><a id=__codelineno-10-14 name=__codelineno-10-14></a><span class=p>)</span>
-</span><span id=__span-10-15><a id=__codelineno-10-15 name=__codelineno-10-15></a>
-</span><span id=__span-10-16><a id=__codelineno-10-16 name=__codelineno-10-16></a><span class=c1># Create integrator with Jacobian</span>
-</span><span id=__span-10-17><a id=__codelineno-10-17 name=__codelineno-10-17></a><span class=n>config</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>IntegratorConfig</span><span class=o>.</span><span class=n>adaptive</span><span class=p>(</span><span class=n>abs_tol</span><span class=o>=</span><span class=mf>1e-12</span><span class=p>,</span> <span class=n>rel_tol</span><span class=o>=</span><span class=mf>1e-11</span><span class=p>)</span>
-</span><span id=__span-10-18><a id=__codelineno-10-18 name=__codelineno-10-18></a><span class=n>integrator</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>DP54Integrator</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=n>dynamics</span><span class=p>,</span> <span class=n>jacobian</span><span class=o>=</span><span class=n>jacobian</span><span class=p>,</span> <span class=n>config</span><span class=o>=</span><span class=n>config</span><span class=p>)</span>
-</span><span id=__span-10-19><a id=__codelineno-10-19 name=__codelineno-10-19></a>
-</span><span id=__span-10-20><a id=__codelineno-10-20 name=__codelineno-10-20></a><span class=c1># Propagate state and STM</span>
-</span><span id=__span-10-21><a id=__codelineno-10-21 name=__codelineno-10-21></a><span class=n>t</span> <span class=o>=</span> <span class=mf>0.0</span>
-</span><span id=__span-10-22><a id=__codelineno-10-22 name=__codelineno-10-22></a><span class=n>state</span> <span class=o>=</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=mf>1.0</span><span class=p>])</span>
-</span><span id=__span-10-23><a id=__codelineno-10-23 name=__codelineno-10-23></a><span class=n>phi</span> <span class=o>=</span> <span class=n>np</span><span class=o>.</span><span class=n>eye</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>  <span class=c1># Identity matrix</span>
-</span><span id=__span-10-24><a id=__codelineno-10-24 name=__codelineno-10-24></a><span class=n>dt</span> <span class=o>=</span> <span class=mf>60.0</span>
-</span><span id=__span-10-25><a id=__codelineno-10-25 name=__codelineno-10-25></a>
-</span><span id=__span-10-26><a id=__codelineno-10-26 name=__codelineno-10-26></a><span class=n>new_state</span><span class=p>,</span> <span class=n>new_phi</span><span class=p>,</span> <span class=n>dt_used</span><span class=p>,</span> <span class=n>error_est</span><span class=p>,</span> <span class=n>dt_next</span> <span class=o>=</span> <span class=n>integrator</span><span class=o>.</span><span class=n>step_with_varmat</span><span class=p>(</span>
-</span><span id=__span-10-27><a id=__codelineno-10-27 name=__codelineno-10-27></a>    <span class=n>t</span><span class=p>,</span> <span class=n>state</span><span class=p>,</span> <span class=n>phi</span><span class=p>,</span> <span class=n>dt</span>
-</span><span id=__span-10-28><a id=__codelineno-10-28 name=__codelineno-10-28></a><span class=p>)</span>
-</span><span id=__span-10-29><a id=__codelineno-10-29 name=__codelineno-10-29></a>
-</span><span id=__span-10-30><a id=__codelineno-10-30 name=__codelineno-10-30></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Initial state: </span><span class=si>{</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-10-31><a id=__codelineno-10-31 name=__codelineno-10-31></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;State after </span><span class=si>{</span><span class=n>dt_used</span><span class=si>:</span><span class=s2>.2f</span><span class=si>}</span><span class=s2>s: </span><span class=si>{</span><span class=n>new_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-10-32><a id=__codelineno-10-32 name=__codelineno-10-32></a><span class=nb>print</span><span class=p>(</span><span class=s2>&quot;State transition matrix:&quot;</span><span class=p>)</span>
-</span><span id=__span-10-33><a id=__codelineno-10-33 name=__codelineno-10-33></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  Φ = </span><span class=si>{</span><span class=n>new_phi</span><span class=p>[</span><span class=mi>0</span><span class=p>,</span><span class=w> </span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-10-34><a id=__codelineno-10-34 name=__codelineno-10-34></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  (Analytical Φ = </span><span class=si>{</span><span class=n>np</span><span class=o>.</span><span class=n>exp</span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>dt_used</span><span class=p>)</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>)&quot;</span><span class=p>)</span>
-</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-11-1> 1</a></span>
-<span class=normal><a href=#__codelineno-11-2> 2</a></span>
-<span class=normal><a href=#__codelineno-11-3> 3</a></span>
-<span class=normal><a href=#__codelineno-11-4> 4</a></span>
-<span class=normal><a href=#__codelineno-11-5> 5</a></span>
-<span class=normal><a href=#__codelineno-11-6> 6</a></span>
-<span class=normal><a href=#__codelineno-11-7> 7</a></span>
-<span class=normal><a href=#__codelineno-11-8> 8</a></span>
-<span class=normal><a href=#__codelineno-11-9> 9</a></span>
-<span class=normal><a href=#__codelineno-11-10>10</a></span>
-<span class=normal><a href=#__codelineno-11-11>11</a></span>
-<span class=normal><a href=#__codelineno-11-12>12</a></span>
-<span class=normal><a href=#__codelineno-11-13>13</a></span>
-<span class=normal><a href=#__codelineno-11-14>14</a></span>
-<span class=normal><a href=#__codelineno-11-15>15</a></span>
-<span class=normal><a href=#__codelineno-11-16>16</a></span>
-<span class=normal><a href=#__codelineno-11-17>17</a></span>
-<span class=normal><a href=#__codelineno-11-18>18</a></span>
-<span class=normal><a href=#__codelineno-11-19>19</a></span>
-<span class=normal><a href=#__codelineno-11-20>20</a></span>
-<span class=normal><a href=#__codelineno-11-21>21</a></span>
-<span class=normal><a href=#__codelineno-11-22>22</a></span>
-<span class=normal><a href=#__codelineno-11-23>23</a></span>
-<span class=normal><a href=#__codelineno-11-24>24</a></span>
-<span class=normal><a href=#__codelineno-11-25>25</a></span>
-<span class=normal><a href=#__codelineno-11-26>26</a></span>
-<span class=normal><a href=#__codelineno-11-27>27</a></span>
-<span class=normal><a href=#__codelineno-11-28>28</a></span>
-<span class=normal><a href=#__codelineno-11-29>29</a></span>
-<span class=normal><a href=#__codelineno-11-30>30</a></span>
-<span class=normal><a href=#__codelineno-11-31>31</a></span>
-<span class=normal><a href=#__codelineno-11-32>32</a></span>
-<span class=normal><a href=#__codelineno-11-33>33</a></span>
-<span class=normal><a href=#__codelineno-11-34>34</a></span>
-<span class=normal><a href=#__codelineno-11-35>35</a></span>
-<span class=normal><a href=#__codelineno-11-36>36</a></span>
-<span class=normal><a href=#__codelineno-11-37>37</a></span>
-<span class=normal><a href=#__codelineno-11-38>38</a></span>
-<span class=normal><a href=#__codelineno-11-39>39</a></span>
-<span class=normal><a href=#__codelineno-11-40>40</a></span>
-<span class=normal><a href=#__codelineno-11-41>41</a></span>
-<span class=normal><a href=#__codelineno-11-42>42</a></span>
-<span class=normal><a href=#__codelineno-11-43>43</a></span>
-<span class=normal><a href=#__codelineno-11-44>44</a></span>
-<span class=normal><a href=#__codelineno-11-45>45</a></span>
-<span class=normal><a href=#__codelineno-11-46>46</a></span>
-<span class=normal><a href=#__codelineno-11-47>47</a></span>
-<span class=normal><a href=#__codelineno-11-48>48</a></span>
-<span class=normal><a href=#__codelineno-11-49>49</a></span>
-<span class=normal><a href=#__codelineno-11-50>50</a></span>
-<span class=normal><a href=#__codelineno-11-51>51</a></span>
-<span class=normal><a href=#__codelineno-11-52>52</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a><span class=sd>//! State Transition Matrix propagation pattern example.</span>
-</span><span id=__span-11-2><a id=__codelineno-11-2 name=__codelineno-11-2></a><span class=sd>//!</span>
-</span><span id=__span-11-3><a id=__codelineno-11-3 name=__codelineno-11-3></a><span class=sd>//! Demonstrates the basic pattern for propagating a state transition matrix</span>
-</span><span id=__span-11-4><a id=__codelineno-11-4 name=__codelineno-11-4></a><span class=sd>//! alongside the state using variational equations.</span>
-</span><span id=__span-11-5><a id=__codelineno-11-5 name=__codelineno-11-5></a>
-</span><span id=__span-11-6><a id=__codelineno-11-6 name=__codelineno-11-6></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=p>::</span><span class=n>integrators</span><span class=p>::</span><span class=o>*</span><span class=p>;</span>
-</span><span id=__span-11-7><a id=__codelineno-11-7 name=__codelineno-11-7></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=p>::</span><span class=n>math</span><span class=p>::</span><span class=n>jacobian</span><span class=p>::</span><span class=o>*</span><span class=p>;</span>
-</span><span id=__span-11-8><a id=__codelineno-11-8 name=__codelineno-11-8></a><span class=k>use</span><span class=w> </span><span class=n>nalgebra</span><span class=p>::{</span><span class=n>DMatrix</span><span class=p>,</span><span class=w> </span><span class=n>DVector</span><span class=p>};</span>
-</span><span id=__span-11-9><a id=__codelineno-11-9 name=__codelineno-11-9></a>
-</span><span id=__span-11-10><a id=__codelineno-11-10 name=__codelineno-11-10></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-11-11><a id=__codelineno-11-11 name=__codelineno-11-11></a><span class=w>    </span><span class=c1>// Dynamics function: Exponential decay dx/dt = -k*x</span>
-</span><span id=__span-11-12><a id=__codelineno-11-12 name=__codelineno-11-12></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>k</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.1</span><span class=p>;</span>
-</span><span id=__span-11-13><a id=__codelineno-11-13 name=__codelineno-11-13></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dynamics</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>move</span><span class=w> </span><span class=o>|</span><span class=n>_t</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>:</span><span class=w> </span><span class=kp>&amp;</span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=p>,</span><span class=w> </span><span class=n>_params</span><span class=p>:</span><span class=w> </span><span class=nb>Option</span><span class=o>&lt;&amp;</span><span class=n>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;&gt;|</span><span class=w> </span><span class=p>-&gt;</span><span class=w> </span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-11-14><a id=__codelineno-11-14 name=__codelineno-11-14></a><span class=w>        </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=o>-</span><span class=n>k</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
-</span><span id=__span-11-15><a id=__codelineno-11-15 name=__codelineno-11-15></a><span class=w>    </span><span class=p>};</span>
-</span><span id=__span-11-16><a id=__codelineno-11-16 name=__codelineno-11-16></a><span class=w>    </span><span class=c1>// Clone for Jacobian computation</span>
-</span><span id=__span-11-17><a id=__codelineno-11-17 name=__codelineno-11-17></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dynamics_for_jac</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>move</span><span class=w> </span><span class=o>|</span><span class=n>_t</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>:</span><span class=w> </span><span class=kp>&amp;</span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=p>,</span><span class=w> </span><span class=n>_params</span><span class=p>:</span><span class=w> </span><span class=nb>Option</span><span class=o>&lt;&amp;</span><span class=n>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;&gt;|</span><span class=w> </span><span class=p>-&gt;</span><span class=w> </span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span>
-</span><span id=__span-11-18><a id=__codelineno-11-18 name=__codelineno-11-18></a><span class=w>        </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=o>-</span><span class=n>k</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
-</span><span id=__span-11-19><a id=__codelineno-11-19 name=__codelineno-11-19></a><span class=w>    </span><span class=p>};</span>
-</span><span id=__span-11-20><a id=__codelineno-11-20 name=__codelineno-11-20></a>
-</span><span id=__span-11-21><a id=__codelineno-11-21 name=__codelineno-11-21></a><span class=w>    </span><span class=c1>// Create Jacobian for variational equations</span>
-</span><span id=__span-11-22><a id=__codelineno-11-22 name=__codelineno-11-22></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>jacobian</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DNumericalJacobian</span><span class=p>::</span><span class=n>central</span><span class=p>(</span><span class=nb>Box</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>dynamics_for_jac</span><span class=p>))</span>
-</span><span id=__span-11-23><a id=__codelineno-11-23 name=__codelineno-11-23></a><span class=w>        </span><span class=p>.</span><span class=n>with_adaptive</span><span class=p>(</span><span class=mf>1e-8</span><span class=p>,</span><span class=w> </span><span class=mf>1e-6</span><span class=p>);</span>
-</span><span id=__span-11-24><a id=__codelineno-11-24 name=__codelineno-11-24></a>
-</span><span id=__span-11-25><a id=__codelineno-11-25 name=__codelineno-11-25></a><span class=w>    </span><span class=c1>// Create integrator with Jacobian</span>
-</span><span id=__span-11-26><a id=__codelineno-11-26 name=__codelineno-11-26></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>config</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>IntegratorConfig</span><span class=p>::</span><span class=n>adaptive</span><span class=p>(</span><span class=mf>1e-12</span><span class=p>,</span><span class=w> </span><span class=mf>1e-11</span><span class=p>);</span>
-</span><span id=__span-11-27><a id=__codelineno-11-27 name=__codelineno-11-27></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>integrator</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DormandPrince54DIntegrator</span><span class=p>::</span><span class=n>with_config</span><span class=p>(</span>
-</span><span id=__span-11-28><a id=__codelineno-11-28 name=__codelineno-11-28></a><span class=w>        </span><span class=mi>1</span><span class=p>,</span>
-</span><span id=__span-11-29><a id=__codelineno-11-29 name=__codelineno-11-29></a><span class=w>        </span><span class=nb>Box</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>dynamics</span><span class=p>),</span>
-</span><span id=__span-11-30><a id=__codelineno-11-30 name=__codelineno-11-30></a><span class=w>        </span><span class=nb>Some</span><span class=p>(</span><span class=nb>Box</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>jacobian</span><span class=p>)),</span>
-</span><span id=__span-11-31><a id=__codelineno-11-31 name=__codelineno-11-31></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-11-32><a id=__codelineno-11-32 name=__codelineno-11-32></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
-</span><span id=__span-11-33><a id=__codelineno-11-33 name=__codelineno-11-33></a><span class=w>        </span><span class=n>config</span>
-</span><span id=__span-11-34><a id=__codelineno-11-34 name=__codelineno-11-34></a><span class=w>    </span><span class=p>);</span>
-</span><span id=__span-11-35><a id=__codelineno-11-35 name=__codelineno-11-35></a>
-</span><span id=__span-11-36><a id=__codelineno-11-36 name=__codelineno-11-36></a><span class=w>    </span><span class=c1>// Propagate state and STM</span>
-</span><span id=__span-11-37><a id=__codelineno-11-37 name=__codelineno-11-37></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.0</span><span class=p>;</span>
-</span><span id=__span-11-38><a id=__codelineno-11-38 name=__codelineno-11-38></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=mf>1.0</span><span class=p>]);</span>
-</span><span id=__span-11-39><a id=__codelineno-11-39 name=__codelineno-11-39></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>phi</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DMatrix</span><span class=p>::</span><span class=n>identity</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span><span class=w> </span><span class=mi>1</span><span class=p>);</span><span class=w> </span><span class=c1>// 1x1 identity matrix</span>
-</span><span id=__span-11-40><a id=__codelineno-11-40 name=__codelineno-11-40></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dt</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>60.0</span><span class=p>;</span>
-</span><span id=__span-11-41><a id=__codelineno-11-41 name=__codelineno-11-41></a>
-</span><span id=__span-11-42><a id=__codelineno-11-42 name=__codelineno-11-42></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>result</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>integrator</span><span class=p>.</span><span class=n>step_with_varmat</span><span class=p>(</span><span class=n>t</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>,</span><span class=w> </span><span class=nb>None</span><span class=p>,</span><span class=w> </span><span class=n>phi</span><span class=p>,</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>dt</span><span class=p>));</span>
-</span><span id=__span-11-43><a id=__codelineno-11-43 name=__codelineno-11-43></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>new_state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>state</span><span class=p>;</span>
-</span><span id=__span-11-44><a id=__codelineno-11-44 name=__codelineno-11-44></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>new_phi</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>phi</span><span class=p>.</span><span class=n>unwrap</span><span class=p>();</span>
-</span><span id=__span-11-45><a id=__codelineno-11-45 name=__codelineno-11-45></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dt_used</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_used</span><span class=p>;</span>
-</span><span id=__span-11-46><a id=__codelineno-11-46 name=__codelineno-11-46></a>
-</span><span id=__span-11-47><a id=__codelineno-11-47 name=__codelineno-11-47></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Initial state: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=mf>1.0</span><span class=p>);</span>
-</span><span id=__span-11-48><a id=__codelineno-11-48 name=__codelineno-11-48></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;State after {:.2}s: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>dt_used</span><span class=p>,</span><span class=w> </span><span class=n>new_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]);</span>
-</span><span id=__span-11-49><a id=__codelineno-11-49 name=__codelineno-11-49></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;State transition matrix:&quot;</span><span class=p>);</span>
-</span><span id=__span-11-50><a id=__codelineno-11-50 name=__codelineno-11-50></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Φ = {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>new_phi</span><span class=p>[(</span><span class=mi>0</span><span class=p>,</span><span class=w> </span><span class=mi>0</span><span class=p>)]);</span>
-</span><span id=__span-11-51><a id=__codelineno-11-51 name=__codelineno-11-51></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  (Analytical Φ = {:.6})&quot;</span><span class=p>,</span><span class=w> </span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>dt_used</span><span class=p>).</span><span class=n>exp</span><span class=p>());</span>
-</span><span id=__span-11-52><a id=__codelineno-11-52 name=__codelineno-11-52></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <h2 id=module-contents>Module Contents<a class=headerlink href=#module-contents title="Permanent link">&para;</a></h2> <ul> <li><strong><a href=fixed_step.html>Fixed-Step Integrators</a></strong> - RK4 and fixed-step integration</li> <li><strong><a href=adaptive_step.html>Adaptive-Step Integrators</a></strong> - RKF45, DP54, and RKN1210</li> <li><strong><a href=variational_equations.html>Variational Equations</a></strong> - State Transition Matrix propagation and theory</li> <li><strong><a href=configuration.html>Configuration Guide</a></strong> - Choosing tolerances and tuning parameters</li> </ul> <h2 id=see-also>See Also<a class=headerlink href=#see-also title="Permanent link">&para;</a></h2> <ul> <li><strong><a href=../../examples/using_different_integrators.html>Comparing Integrator Performance</a></strong> - Complete example comparing all integrators on a 7-day orbit propagation</li> <li><strong><a href=../../library_api/integrators/index.html>Integrators API Reference</a></strong> - Complete API documentation</li> <li><strong><a href=../mathematics/jacobian.html>Jacobian Computation</a></strong> - Required for variational equations</li> <li><strong><a href=../orbit_propagation/keplerian_propagation.html>Keplerian Propagation</a></strong> - Analytical propagation alternative</li> </ul> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 28, 2025 20:55:28 UTC">2025-11-28</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 17, 2025 10:26:57 UTC">2025-11-17</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=../../assets/javascripts/bundle.79ae519e.min.js></script> <script src=../../javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=../../javascripts/tablesort.ae6fa2.min.js></script> </body> </html>
+</span><span id=__span-9-27><a id=__codelineno-9-27 name=__codelineno-9-27></a><span class=w>    </span><span class=c1>// Integrate with automatic step control</span>
+</span><span id=__span-9-28><a id=__codelineno-9-28 name=__codelineno-9-28></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.0</span><span class=p>;</span>
+</span><span id=__span-9-29><a id=__codelineno-9-29 name=__codelineno-9-29></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>initial_state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=mf>1.0</span><span class=p>]);</span>
+</span><span id=__span-9-30><a id=__codelineno-9-30 name=__codelineno-9-30></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dt</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>60.0</span><span class=p>;</span><span class=w> </span><span class=c1>// Initial guess</span>
+</span><span id=__span-9-31><a id=__codelineno-9-31 name=__codelineno-9-31></a>
+</span><span id=__span-9-32><a id=__codelineno-9-32 name=__codelineno-9-32></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>result</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>integrator</span><span class=p>.</span><span class=n>step</span><span class=p>(</span><span class=n>t</span><span class=p>,</span><span class=w> </span><span class=n>initial_state</span><span class=p>.</span><span class=n>clone</span><span class=p>(),</span><span class=w> </span><span class=nb>None</span><span class=p>,</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>dt</span><span class=p>));</span>
+</span><span id=__span-9-33><a id=__codelineno-9-33 name=__codelineno-9-33></a>
+</span><span id=__span-9-34><a id=__codelineno-9-34 name=__codelineno-9-34></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Initial state: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>initial_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]);</span>
+</span><span id=__span-9-35><a id=__codelineno-9-35 name=__codelineno-9-35></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;State after step: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]);</span>
+</span><span id=__span-9-36><a id=__codelineno-9-36 name=__codelineno-9-36></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Step used: {:.2}s&quot;</span><span class=p>,</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_used</span><span class=p>);</span>
+</span><span id=__span-9-37><a id=__codelineno-9-37 name=__codelineno-9-37></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Recommended next step: {:.2}s&quot;</span><span class=p>,</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_next</span><span class=p>);</span>
+</span><span id=__span-9-38><a id=__codelineno-9-38 name=__codelineno-9-38></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Error estimate: {:.2e}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>error_estimate</span><span class=p>.</span><span class=n>unwrap</span><span class=p>());</span>
+</span><span id=__span-9-39><a id=__codelineno-9-39 name=__codelineno-9-39></a><span class=p>}</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=5:2><input checked=checked id=__tabbed_5_1 name=__tabbed_5 type=radio><input id=__tabbed_5_2 name=__tabbed_5 type=radio><div class=tabbed-labels><label for=__tabbed_5_1>Python</label><label for=__tabbed_5_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-10-1>1</a></span>
+<span class=normal><a href=#__codelineno-10-2>2</a></span>
+<span class=normal><a href=#__codelineno-10-3>3</a></span>
+<span class=normal><a href=#__codelineno-10-4>4</a></span>
+<span class=normal><a href=#__codelineno-10-5>5</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-10-1><a id=__codelineno-10-1 name=__codelineno-10-1></a>Initial state: 1.000000
+</span><span id=__span-10-2><a id=__codelineno-10-2 name=__codelineno-10-2></a>State after step: 0.953134
+</span><span id=__span-10-3><a id=__codelineno-10-3 name=__codelineno-10-3></a>Step used: 0.48s
+</span><span id=__span-10-4><a id=__codelineno-10-4 name=__codelineno-10-4></a>Recommended next step: 0.60s
+</span><span id=__span-10-5><a id=__codelineno-10-5 name=__codelineno-10-5></a>Error estimate: 1.91e-01
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-11-1>1</a></span>
+<span class=normal><a href=#__codelineno-11-2>2</a></span>
+<span class=normal><a href=#__codelineno-11-3>3</a></span>
+<span class=normal><a href=#__codelineno-11-4>4</a></span>
+<span class=normal><a href=#__codelineno-11-5>5</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a>Initial state: 1.000000
+</span><span id=__span-11-2><a id=__codelineno-11-2 name=__codelineno-11-2></a>State after step: 0.953134
+</span><span id=__span-11-3><a id=__codelineno-11-3 name=__codelineno-11-3></a>Step used: 0.48s
+</span><span id=__span-11-4><a id=__codelineno-11-4 name=__codelineno-11-4></a>Recommended next step: 0.60s
+</span><span id=__span-11-5><a id=__codelineno-11-5 name=__codelineno-11-5></a>Error estimate: 1.91e-1
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <p>To take multiple steps until a final time, you can use a loop that updates the time and state based on the <code>dt_used</code> and <code>dt_next</code> values from the result.</p> <div class="tabbed-set tabbed-alternate" data-tabs=6:2><input checked=checked id=__tabbed_6_1 name=__tabbed_6 type=radio><input id=__tabbed_6_2 name=__tabbed_6 type=radio><div class=tabbed-labels><label for=__tabbed_6_1>Python</label><label for=__tabbed_6_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-12-1> 1</a></span>
+<span class=normal><a href=#__codelineno-12-2> 2</a></span>
+<span class=normal><a href=#__codelineno-12-3> 3</a></span>
+<span class=normal><a href=#__codelineno-12-4> 4</a></span>
+<span class=normal><a href=#__codelineno-12-5> 5</a></span>
+<span class=normal><a href=#__codelineno-12-6> 6</a></span>
+<span class=normal><a href=#__codelineno-12-7> 7</a></span>
+<span class=normal><a href=#__codelineno-12-8> 8</a></span>
+<span class=normal><a href=#__codelineno-12-9> 9</a></span>
+<span class=normal><a href=#__codelineno-12-10>10</a></span>
+<span class=normal><a href=#__codelineno-12-11>11</a></span>
+<span class=normal><a href=#__codelineno-12-12>12</a></span>
+<span class=normal><a href=#__codelineno-12-13>13</a></span>
+<span class=normal><a href=#__codelineno-12-14>14</a></span>
+<span class=normal><a href=#__codelineno-12-15>15</a></span>
+<span class=normal><a href=#__codelineno-12-16>16</a></span>
+<span class=normal><a href=#__codelineno-12-17>17</a></span>
+<span class=normal><a href=#__codelineno-12-18>18</a></span>
+<span class=normal><a href=#__codelineno-12-19>19</a></span>
+<span class=normal><a href=#__codelineno-12-20>20</a></span>
+<span class=normal><a href=#__codelineno-12-21>21</a></span>
+<span class=normal><a href=#__codelineno-12-22>22</a></span>
+<span class=normal><a href=#__codelineno-12-23>23</a></span>
+<span class=normal><a href=#__codelineno-12-24>24</a></span>
+<span class=normal><a href=#__codelineno-12-25>25</a></span>
+<span class=normal><a href=#__codelineno-12-26>26</a></span>
+<span class=normal><a href=#__codelineno-12-27>27</a></span>
+<span class=normal><a href=#__codelineno-12-28>28</a></span>
+<span class=normal><a href=#__codelineno-12-29>29</a></span>
+<span class=normal><a href=#__codelineno-12-30>30</a></span>
+<span class=normal><a href=#__codelineno-12-31>31</a></span>
+<span class=normal><a href=#__codelineno-12-32>32</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-12-1><a id=__codelineno-12-1 name=__codelineno-12-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+</span><span id=__span-12-2><a id=__codelineno-12-2 name=__codelineno-12-2></a><span class=kn>import</span><span class=w> </span><span class=nn>numpy</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>np</span>
+</span><span id=__span-12-3><a id=__codelineno-12-3 name=__codelineno-12-3></a>
+</span><span id=__span-12-4><a id=__codelineno-12-4 name=__codelineno-12-4></a>
+</span><span id=__span-12-5><a id=__codelineno-12-5 name=__codelineno-12-5></a><span class=k>def</span><span class=w> </span><span class=nf>dynamics</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=n>state</span><span class=p>):</span>
+</span><span id=__span-12-6><a id=__codelineno-12-6 name=__codelineno-12-6></a><span class=w>    </span><span class=sd>&quot;&quot;&quot;Exponential decay dynamics: dx/dt = -k*x&quot;&quot;&quot;</span>
+</span><span id=__span-12-7><a id=__codelineno-12-7 name=__codelineno-12-7></a>    <span class=n>k</span> <span class=o>=</span> <span class=mf>0.1</span>
+</span><span id=__span-12-8><a id=__codelineno-12-8 name=__codelineno-12-8></a>    <span class=k>return</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=o>-</span><span class=n>k</span> <span class=o>*</span> <span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
+</span><span id=__span-12-9><a id=__codelineno-12-9 name=__codelineno-12-9></a>
+</span><span id=__span-12-10><a id=__codelineno-12-10 name=__codelineno-12-10></a>
+</span><span id=__span-12-11><a id=__codelineno-12-11 name=__codelineno-12-11></a><span class=c1># Create adaptive integrator</span>
+</span><span id=__span-12-12><a id=__codelineno-12-12 name=__codelineno-12-12></a><span class=n>config</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>IntegratorConfig</span><span class=o>.</span><span class=n>adaptive</span><span class=p>(</span><span class=n>abs_tol</span><span class=o>=</span><span class=mf>1e-10</span><span class=p>,</span> <span class=n>rel_tol</span><span class=o>=</span><span class=mf>1e-9</span><span class=p>)</span>
+</span><span id=__span-12-13><a id=__codelineno-12-13 name=__codelineno-12-13></a><span class=n>integrator</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>DP54Integrator</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=n>dynamics</span><span class=p>,</span> <span class=n>config</span><span class=o>=</span><span class=n>config</span><span class=p>)</span>
+</span><span id=__span-12-14><a id=__codelineno-12-14 name=__codelineno-12-14></a>
+</span><span id=__span-12-15><a id=__codelineno-12-15 name=__codelineno-12-15></a><span class=c1># Propagate from t=0 to t_end</span>
+</span><span id=__span-12-16><a id=__codelineno-12-16 name=__codelineno-12-16></a><span class=n>t</span> <span class=o>=</span> <span class=mf>0.0</span>
+</span><span id=__span-12-17><a id=__codelineno-12-17 name=__codelineno-12-17></a><span class=n>t_end</span> <span class=o>=</span> <span class=mf>86400.0</span>  <span class=c1># One day</span>
+</span><span id=__span-12-18><a id=__codelineno-12-18 name=__codelineno-12-18></a><span class=n>state</span> <span class=o>=</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=mf>1.0</span><span class=p>])</span>
+</span><span id=__span-12-19><a id=__codelineno-12-19 name=__codelineno-12-19></a><span class=n>dt</span> <span class=o>=</span> <span class=mf>60.0</span>
+</span><span id=__span-12-20><a id=__codelineno-12-20 name=__codelineno-12-20></a>
+</span><span id=__span-12-21><a id=__codelineno-12-21 name=__codelineno-12-21></a><span class=n>step_count</span> <span class=o>=</span> <span class=mi>0</span>
+</span><span id=__span-12-22><a id=__codelineno-12-22 name=__codelineno-12-22></a><span class=k>while</span> <span class=n>t</span> <span class=o>&lt;</span> <span class=n>t_end</span><span class=p>:</span>
+</span><span id=__span-12-23><a id=__codelineno-12-23 name=__codelineno-12-23></a>    <span class=n>result</span> <span class=o>=</span> <span class=n>integrator</span><span class=o>.</span><span class=n>step</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=n>state</span><span class=p>,</span> <span class=nb>min</span><span class=p>(</span><span class=n>dt</span><span class=p>,</span> <span class=n>t_end</span> <span class=o>-</span> <span class=n>t</span><span class=p>))</span>
+</span><span id=__span-12-24><a id=__codelineno-12-24 name=__codelineno-12-24></a>    <span class=n>t</span> <span class=o>+=</span> <span class=n>result</span><span class=o>.</span><span class=n>dt_used</span>
+</span><span id=__span-12-25><a id=__codelineno-12-25 name=__codelineno-12-25></a>    <span class=n>state</span> <span class=o>=</span> <span class=n>result</span><span class=o>.</span><span class=n>state</span>
+</span><span id=__span-12-26><a id=__codelineno-12-26 name=__codelineno-12-26></a>    <span class=n>dt</span> <span class=o>=</span> <span class=n>result</span><span class=o>.</span><span class=n>dt_next</span>
+</span><span id=__span-12-27><a id=__codelineno-12-27 name=__codelineno-12-27></a>    <span class=n>step_count</span> <span class=o>+=</span> <span class=mi>1</span>
+</span><span id=__span-12-28><a id=__codelineno-12-28 name=__codelineno-12-28></a>
+</span><span id=__span-12-29><a id=__codelineno-12-29 name=__codelineno-12-29></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Propagated from 0 to </span><span class=si>{</span><span class=n>t_end</span><span class=si>}</span><span class=s2>s in </span><span class=si>{</span><span class=n>step_count</span><span class=si>}</span><span class=s2> steps&quot;</span><span class=p>)</span>
+</span><span id=__span-12-30><a id=__codelineno-12-30 name=__codelineno-12-30></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Final state: </span><span class=si>{</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6e</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-12-31><a id=__codelineno-12-31 name=__codelineno-12-31></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Analytical: </span><span class=si>{</span><span class=n>np</span><span class=o>.</span><span class=n>exp</span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>t_end</span><span class=p>)</span><span class=si>:</span><span class=s2>.6e</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-12-32><a id=__codelineno-12-32 name=__codelineno-12-32></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Error: </span><span class=si>{</span><span class=nb>abs</span><span class=p>(</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>np</span><span class=o>.</span><span class=n>exp</span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>t_end</span><span class=p>))</span><span class=si>:</span><span class=s2>.2e</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-13-1> 1</a></span>
+<span class=normal><a href=#__codelineno-13-2> 2</a></span>
+<span class=normal><a href=#__codelineno-13-3> 3</a></span>
+<span class=normal><a href=#__codelineno-13-4> 4</a></span>
+<span class=normal><a href=#__codelineno-13-5> 5</a></span>
+<span class=normal><a href=#__codelineno-13-6> 6</a></span>
+<span class=normal><a href=#__codelineno-13-7> 7</a></span>
+<span class=normal><a href=#__codelineno-13-8> 8</a></span>
+<span class=normal><a href=#__codelineno-13-9> 9</a></span>
+<span class=normal><a href=#__codelineno-13-10>10</a></span>
+<span class=normal><a href=#__codelineno-13-11>11</a></span>
+<span class=normal><a href=#__codelineno-13-12>12</a></span>
+<span class=normal><a href=#__codelineno-13-13>13</a></span>
+<span class=normal><a href=#__codelineno-13-14>14</a></span>
+<span class=normal><a href=#__codelineno-13-15>15</a></span>
+<span class=normal><a href=#__codelineno-13-16>16</a></span>
+<span class=normal><a href=#__codelineno-13-17>17</a></span>
+<span class=normal><a href=#__codelineno-13-18>18</a></span>
+<span class=normal><a href=#__codelineno-13-19>19</a></span>
+<span class=normal><a href=#__codelineno-13-20>20</a></span>
+<span class=normal><a href=#__codelineno-13-21>21</a></span>
+<span class=normal><a href=#__codelineno-13-22>22</a></span>
+<span class=normal><a href=#__codelineno-13-23>23</a></span>
+<span class=normal><a href=#__codelineno-13-24>24</a></span>
+<span class=normal><a href=#__codelineno-13-25>25</a></span>
+<span class=normal><a href=#__codelineno-13-26>26</a></span>
+<span class=normal><a href=#__codelineno-13-27>27</a></span>
+<span class=normal><a href=#__codelineno-13-28>28</a></span>
+<span class=normal><a href=#__codelineno-13-29>29</a></span>
+<span class=normal><a href=#__codelineno-13-30>30</a></span>
+<span class=normal><a href=#__codelineno-13-31>31</a></span>
+<span class=normal><a href=#__codelineno-13-32>32</a></span>
+<span class=normal><a href=#__codelineno-13-33>33</a></span>
+<span class=normal><a href=#__codelineno-13-34>34</a></span>
+<span class=normal><a href=#__codelineno-13-35>35</a></span>
+<span class=normal><a href=#__codelineno-13-36>36</a></span>
+<span class=normal><a href=#__codelineno-13-37>37</a></span>
+<span class=normal><a href=#__codelineno-13-38>38</a></span>
+<span class=normal><a href=#__codelineno-13-39>39</a></span>
+<span class=normal><a href=#__codelineno-13-40>40</a></span>
+<span class=normal><a href=#__codelineno-13-41>41</a></span>
+<span class=normal><a href=#__codelineno-13-42>42</a></span>
+<span class=normal><a href=#__codelineno-13-43>43</a></span>
+<span class=normal><a href=#__codelineno-13-44>44</a></span>
+<span class=normal><a href=#__codelineno-13-45>45</a></span>
+<span class=normal><a href=#__codelineno-13-46>46</a></span>
+<span class=normal><a href=#__codelineno-13-47>47</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-13-1><a id=__codelineno-13-1 name=__codelineno-13-1></a><span class=sd>//!</span>
+</span><span id=__span-13-2><a id=__codelineno-13-2 name=__codelineno-13-2></a><span class=sd>//! Demonstrates the pattern for propagating over an extended time period</span>
+</span><span id=__span-13-3><a id=__codelineno-13-3 name=__codelineno-13-3></a><span class=sd>//! using an adaptive integrator, using the recommended step size from</span>
+</span><span id=__span-13-4><a id=__codelineno-13-4 name=__codelineno-13-4></a><span class=sd>//! each step for the next step.</span>
+</span><span id=__span-13-5><a id=__codelineno-13-5 name=__codelineno-13-5></a>
+</span><span id=__span-13-6><a id=__codelineno-13-6 name=__codelineno-13-6></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=p>::</span><span class=n>integrators</span><span class=p>::</span><span class=o>*</span><span class=p>;</span>
+</span><span id=__span-13-7><a id=__codelineno-13-7 name=__codelineno-13-7></a><span class=k>use</span><span class=w> </span><span class=n>nalgebra</span><span class=p>::</span><span class=n>DVector</span><span class=p>;</span>
+</span><span id=__span-13-8><a id=__codelineno-13-8 name=__codelineno-13-8></a>
+</span><span id=__span-13-9><a id=__codelineno-13-9 name=__codelineno-13-9></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-13-10><a id=__codelineno-13-10 name=__codelineno-13-10></a><span class=w>    </span><span class=c1>// Dynamics function: Exponential decay dx/dt = -k*x</span>
+</span><span id=__span-13-11><a id=__codelineno-13-11 name=__codelineno-13-11></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>k</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.1</span><span class=p>;</span>
+</span><span id=__span-13-12><a id=__codelineno-13-12 name=__codelineno-13-12></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dynamics</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>move</span><span class=w> </span><span class=o>|</span><span class=n>_t</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>:</span><span class=w> </span><span class=kp>&amp;</span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=p>,</span><span class=w> </span><span class=n>_params</span><span class=p>:</span><span class=w> </span><span class=nb>Option</span><span class=o>&lt;&amp;</span><span class=n>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;&gt;|</span><span class=w> </span><span class=p>-&gt;</span><span class=w> </span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-13-13><a id=__codelineno-13-13 name=__codelineno-13-13></a><span class=w>        </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=o>-</span><span class=n>k</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
+</span><span id=__span-13-14><a id=__codelineno-13-14 name=__codelineno-13-14></a><span class=w>    </span><span class=p>};</span>
+</span><span id=__span-13-15><a id=__codelineno-13-15 name=__codelineno-13-15></a>
+</span><span id=__span-13-16><a id=__codelineno-13-16 name=__codelineno-13-16></a><span class=w>    </span><span class=c1>// Create adaptive integrator</span>
+</span><span id=__span-13-17><a id=__codelineno-13-17 name=__codelineno-13-17></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>config</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>IntegratorConfig</span><span class=p>::</span><span class=n>adaptive</span><span class=p>(</span><span class=mf>1e-10</span><span class=p>,</span><span class=w> </span><span class=mf>1e-9</span><span class=p>);</span>
+</span><span id=__span-13-18><a id=__codelineno-13-18 name=__codelineno-13-18></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>integrator</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DormandPrince54DIntegrator</span><span class=p>::</span><span class=n>with_config</span><span class=p>(</span>
+</span><span id=__span-13-19><a id=__codelineno-13-19 name=__codelineno-13-19></a><span class=w>        </span><span class=mi>1</span><span class=p>,</span>
+</span><span id=__span-13-20><a id=__codelineno-13-20 name=__codelineno-13-20></a><span class=w>        </span><span class=nb>Box</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>dynamics</span><span class=p>),</span>
+</span><span id=__span-13-21><a id=__codelineno-13-21 name=__codelineno-13-21></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
+</span><span id=__span-13-22><a id=__codelineno-13-22 name=__codelineno-13-22></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
+</span><span id=__span-13-23><a id=__codelineno-13-23 name=__codelineno-13-23></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
+</span><span id=__span-13-24><a id=__codelineno-13-24 name=__codelineno-13-24></a><span class=w>        </span><span class=n>config</span>
+</span><span id=__span-13-25><a id=__codelineno-13-25 name=__codelineno-13-25></a><span class=w>    </span><span class=p>);</span>
+</span><span id=__span-13-26><a id=__codelineno-13-26 name=__codelineno-13-26></a>
+</span><span id=__span-13-27><a id=__codelineno-13-27 name=__codelineno-13-27></a><span class=w>    </span><span class=c1>// Propagate from t=0 to t_end</span>
+</span><span id=__span-13-28><a id=__codelineno-13-28 name=__codelineno-13-28></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.0</span><span class=p>;</span>
+</span><span id=__span-13-29><a id=__codelineno-13-29 name=__codelineno-13-29></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>t_end</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>86400.0</span><span class=p>;</span><span class=w> </span><span class=c1>// One day</span>
+</span><span id=__span-13-30><a id=__codelineno-13-30 name=__codelineno-13-30></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=mf>1.0</span><span class=p>]);</span>
+</span><span id=__span-13-31><a id=__codelineno-13-31 name=__codelineno-13-31></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>dt</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>60.0</span><span class=p>;</span>
+</span><span id=__span-13-32><a id=__codelineno-13-32 name=__codelineno-13-32></a>
+</span><span id=__span-13-33><a id=__codelineno-13-33 name=__codelineno-13-33></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>step_count</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>0</span><span class=p>;</span>
+</span><span id=__span-13-34><a id=__codelineno-13-34 name=__codelineno-13-34></a><span class=w>    </span><span class=k>while</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>&lt;</span><span class=w> </span><span class=n>t_end</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-13-35><a id=__codelineno-13-35 name=__codelineno-13-35></a><span class=w>        </span><span class=kd>let</span><span class=w> </span><span class=n>result</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>integrator</span><span class=p>.</span><span class=n>step</span><span class=p>(</span><span class=n>t</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>,</span><span class=w> </span><span class=nb>None</span><span class=p>,</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>dt</span><span class=p>.</span><span class=n>min</span><span class=p>(</span><span class=n>t_end</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>t</span><span class=p>)));</span>
+</span><span id=__span-13-36><a id=__codelineno-13-36 name=__codelineno-13-36></a><span class=w>        </span><span class=n>t</span><span class=w> </span><span class=o>+=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_used</span><span class=p>;</span>
+</span><span id=__span-13-37><a id=__codelineno-13-37 name=__codelineno-13-37></a><span class=w>        </span><span class=n>state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>state</span><span class=p>;</span>
+</span><span id=__span-13-38><a id=__codelineno-13-38 name=__codelineno-13-38></a><span class=w>        </span><span class=n>dt</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_next</span><span class=p>;</span>
+</span><span id=__span-13-39><a id=__codelineno-13-39 name=__codelineno-13-39></a><span class=w>        </span><span class=n>step_count</span><span class=w> </span><span class=o>+=</span><span class=w> </span><span class=mi>1</span><span class=p>;</span>
+</span><span id=__span-13-40><a id=__codelineno-13-40 name=__codelineno-13-40></a><span class=w>    </span><span class=p>}</span>
+</span><span id=__span-13-41><a id=__codelineno-13-41 name=__codelineno-13-41></a>
+</span><span id=__span-13-42><a id=__codelineno-13-42 name=__codelineno-13-42></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>analytical</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>t_end</span><span class=p>).</span><span class=n>exp</span><span class=p>();</span>
+</span><span id=__span-13-43><a id=__codelineno-13-43 name=__codelineno-13-43></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Propagated from 0 to {}s in {} steps&quot;</span><span class=p>,</span><span class=w> </span><span class=n>t_end</span><span class=p>,</span><span class=w> </span><span class=n>step_count</span><span class=p>);</span>
+</span><span id=__span-13-44><a id=__codelineno-13-44 name=__codelineno-13-44></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Final state: {:.6e}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]);</span>
+</span><span id=__span-13-45><a id=__codelineno-13-45 name=__codelineno-13-45></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Analytical: {:.6e}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>analytical</span><span class=p>);</span>
+</span><span id=__span-13-46><a id=__codelineno-13-46 name=__codelineno-13-46></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Error: {:.2e}&quot;</span><span class=p>,</span><span class=w> </span><span class=p>(</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>analytical</span><span class=p>).</span><span class=n>abs</span><span class=p>());</span>
+</span><span id=__span-13-47><a id=__codelineno-13-47 name=__codelineno-13-47></a><span class=p>}</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=7:2><input checked=checked id=__tabbed_7_1 name=__tabbed_7 type=radio><input id=__tabbed_7_2 name=__tabbed_7 type=radio><div class=tabbed-labels><label for=__tabbed_7_1>Python</label><label for=__tabbed_7_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-14-1>1</a></span>
+<span class=normal><a href=#__codelineno-14-2>2</a></span>
+<span class=normal><a href=#__codelineno-14-3>3</a></span>
+<span class=normal><a href=#__codelineno-14-4>4</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-14-1><a id=__codelineno-14-1 name=__codelineno-14-1></a>Propagated from 0 to 86400.0s in 2729 steps
+</span><span id=__span-14-2><a id=__codelineno-14-2 name=__codelineno-14-2></a>Final state: 7.569974e-12
+</span><span id=__span-14-3><a id=__codelineno-14-3 name=__codelineno-14-3></a>Analytical: 0.000000e+00
+</span><span id=__span-14-4><a id=__codelineno-14-4 name=__codelineno-14-4></a>Error: 7.57e-12
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-15-1>1</a></span>
+<span class=normal><a href=#__codelineno-15-2>2</a></span>
+<span class=normal><a href=#__codelineno-15-3>3</a></span>
+<span class=normal><a href=#__codelineno-15-4>4</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-15-1><a id=__codelineno-15-1 name=__codelineno-15-1></a>Propagated from 0 to 86400s in 2729 steps
+</span><span id=__span-15-2><a id=__codelineno-15-2 name=__codelineno-15-2></a>Final state: 7.569974e-12
+</span><span id=__span-15-3><a id=__codelineno-15-3 name=__codelineno-15-3></a>Analytical: 0.000000e0
+</span><span id=__span-15-4><a id=__codelineno-15-4 name=__codelineno-15-4></a>Error: 7.57e-12
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h2 id=state-transition-matrix-propagation>State Transition Matrix Propagation<a class=headerlink href=#state-transition-matrix-propagation title="Permanent link">&para;</a></h2> <p>For orbit determination and covariance propagation, you often need to propagate the state transition matrix (STM) alongside the state. The STM <span class=arithmatex>\(\Phi(t, t_0)\)</span> maps perturbations in initial state to perturbations in final state:</p> <div class=arithmatex>\[\delta\mathbf{x}(t) = \Phi(t, t_0) \cdot \delta\mathbf{x}(t_0)\]</div> <p>State transition matrices are needed for a few key aspects of astrodynamics including:</p> <ul> <li><strong>Covariance propagation</strong>: <span class=arithmatex>\(P(t) = \Phi(t, t_0) P(t_0) \Phi(t, t_0)^T\)</span></li> <li><strong>Sensitivity analysis</strong>: How errors in initial conditions affect trajectory</li> <li><strong>Orbit determination</strong>: Computing measurement sensitivities</li> </ul> <p>They can be propagated by integrating the variational equations alongside the state, which requires computing the Jacobian of the dynamics. Brahe's integrators support this via the <code>step_with_varmat</code> method. You can learn more about defining Jacobians in the <a href=../mathematics/jacobian.html>Jacobian Computation</a> guide.</p> <div class="tabbed-set tabbed-alternate" data-tabs=8:2><input checked=checked id=__tabbed_8_1 name=__tabbed_8 type=radio><input id=__tabbed_8_2 name=__tabbed_8 type=radio><div class=tabbed-labels><label for=__tabbed_8_1>Python</label><label for=__tabbed_8_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-16-1> 1</a></span>
+<span class=normal><a href=#__codelineno-16-2> 2</a></span>
+<span class=normal><a href=#__codelineno-16-3> 3</a></span>
+<span class=normal><a href=#__codelineno-16-4> 4</a></span>
+<span class=normal><a href=#__codelineno-16-5> 5</a></span>
+<span class=normal><a href=#__codelineno-16-6> 6</a></span>
+<span class=normal><a href=#__codelineno-16-7> 7</a></span>
+<span class=normal><a href=#__codelineno-16-8> 8</a></span>
+<span class=normal><a href=#__codelineno-16-9> 9</a></span>
+<span class=normal><a href=#__codelineno-16-10>10</a></span>
+<span class=normal><a href=#__codelineno-16-11>11</a></span>
+<span class=normal><a href=#__codelineno-16-12>12</a></span>
+<span class=normal><a href=#__codelineno-16-13>13</a></span>
+<span class=normal><a href=#__codelineno-16-14>14</a></span>
+<span class=normal><a href=#__codelineno-16-15>15</a></span>
+<span class=normal><a href=#__codelineno-16-16>16</a></span>
+<span class=normal><a href=#__codelineno-16-17>17</a></span>
+<span class=normal><a href=#__codelineno-16-18>18</a></span>
+<span class=normal><a href=#__codelineno-16-19>19</a></span>
+<span class=normal><a href=#__codelineno-16-20>20</a></span>
+<span class=normal><a href=#__codelineno-16-21>21</a></span>
+<span class=normal><a href=#__codelineno-16-22>22</a></span>
+<span class=normal><a href=#__codelineno-16-23>23</a></span>
+<span class=normal><a href=#__codelineno-16-24>24</a></span>
+<span class=normal><a href=#__codelineno-16-25>25</a></span>
+<span class=normal><a href=#__codelineno-16-26>26</a></span>
+<span class=normal><a href=#__codelineno-16-27>27</a></span>
+<span class=normal><a href=#__codelineno-16-28>28</a></span>
+<span class=normal><a href=#__codelineno-16-29>29</a></span>
+<span class=normal><a href=#__codelineno-16-30>30</a></span>
+<span class=normal><a href=#__codelineno-16-31>31</a></span>
+<span class=normal><a href=#__codelineno-16-32>32</a></span>
+<span class=normal><a href=#__codelineno-16-33>33</a></span>
+<span class=normal><a href=#__codelineno-16-34>34</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-16-1><a id=__codelineno-16-1 name=__codelineno-16-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+</span><span id=__span-16-2><a id=__codelineno-16-2 name=__codelineno-16-2></a><span class=kn>import</span><span class=w> </span><span class=nn>numpy</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>np</span>
+</span><span id=__span-16-3><a id=__codelineno-16-3 name=__codelineno-16-3></a>
+</span><span id=__span-16-4><a id=__codelineno-16-4 name=__codelineno-16-4></a>
+</span><span id=__span-16-5><a id=__codelineno-16-5 name=__codelineno-16-5></a><span class=k>def</span><span class=w> </span><span class=nf>dynamics</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=n>state</span><span class=p>):</span>
+</span><span id=__span-16-6><a id=__codelineno-16-6 name=__codelineno-16-6></a><span class=w>    </span><span class=sd>&quot;&quot;&quot;Exponential decay dynamics: dx/dt = -k*x&quot;&quot;&quot;</span>
+</span><span id=__span-16-7><a id=__codelineno-16-7 name=__codelineno-16-7></a>    <span class=n>k</span> <span class=o>=</span> <span class=mf>0.1</span>
+</span><span id=__span-16-8><a id=__codelineno-16-8 name=__codelineno-16-8></a>    <span class=k>return</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=o>-</span><span class=n>k</span> <span class=o>*</span> <span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
+</span><span id=__span-16-9><a id=__codelineno-16-9 name=__codelineno-16-9></a>
+</span><span id=__span-16-10><a id=__codelineno-16-10 name=__codelineno-16-10></a>
+</span><span id=__span-16-11><a id=__codelineno-16-11 name=__codelineno-16-11></a><span class=c1># Create Jacobian for variational equations</span>
+</span><span id=__span-16-12><a id=__codelineno-16-12 name=__codelineno-16-12></a><span class=n>jacobian</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>NumericalJacobian</span><span class=o>.</span><span class=n>central</span><span class=p>(</span><span class=n>dynamics</span><span class=p>)</span><span class=o>.</span><span class=n>with_adaptive</span><span class=p>(</span>
+</span><span id=__span-16-13><a id=__codelineno-16-13 name=__codelineno-16-13></a>    <span class=n>scale_factor</span><span class=o>=</span><span class=mf>1e-8</span><span class=p>,</span> <span class=n>min_value</span><span class=o>=</span><span class=mf>1e-6</span>
+</span><span id=__span-16-14><a id=__codelineno-16-14 name=__codelineno-16-14></a><span class=p>)</span>
+</span><span id=__span-16-15><a id=__codelineno-16-15 name=__codelineno-16-15></a>
+</span><span id=__span-16-16><a id=__codelineno-16-16 name=__codelineno-16-16></a><span class=c1># Create integrator with Jacobian</span>
+</span><span id=__span-16-17><a id=__codelineno-16-17 name=__codelineno-16-17></a><span class=n>config</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>IntegratorConfig</span><span class=o>.</span><span class=n>adaptive</span><span class=p>(</span><span class=n>abs_tol</span><span class=o>=</span><span class=mf>1e-12</span><span class=p>,</span> <span class=n>rel_tol</span><span class=o>=</span><span class=mf>1e-11</span><span class=p>)</span>
+</span><span id=__span-16-18><a id=__codelineno-16-18 name=__codelineno-16-18></a><span class=n>integrator</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>DP54Integrator</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=n>dynamics</span><span class=p>,</span> <span class=n>jacobian</span><span class=o>=</span><span class=n>jacobian</span><span class=p>,</span> <span class=n>config</span><span class=o>=</span><span class=n>config</span><span class=p>)</span>
+</span><span id=__span-16-19><a id=__codelineno-16-19 name=__codelineno-16-19></a>
+</span><span id=__span-16-20><a id=__codelineno-16-20 name=__codelineno-16-20></a><span class=c1># Propagate state and STM</span>
+</span><span id=__span-16-21><a id=__codelineno-16-21 name=__codelineno-16-21></a><span class=n>t</span> <span class=o>=</span> <span class=mf>0.0</span>
+</span><span id=__span-16-22><a id=__codelineno-16-22 name=__codelineno-16-22></a><span class=n>state</span> <span class=o>=</span> <span class=n>np</span><span class=o>.</span><span class=n>array</span><span class=p>([</span><span class=mf>1.0</span><span class=p>])</span>
+</span><span id=__span-16-23><a id=__codelineno-16-23 name=__codelineno-16-23></a><span class=n>phi</span> <span class=o>=</span> <span class=n>np</span><span class=o>.</span><span class=n>eye</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>  <span class=c1># Identity matrix</span>
+</span><span id=__span-16-24><a id=__codelineno-16-24 name=__codelineno-16-24></a><span class=n>dt</span> <span class=o>=</span> <span class=mf>60.0</span>
+</span><span id=__span-16-25><a id=__codelineno-16-25 name=__codelineno-16-25></a>
+</span><span id=__span-16-26><a id=__codelineno-16-26 name=__codelineno-16-26></a><span class=n>new_state</span><span class=p>,</span> <span class=n>new_phi</span><span class=p>,</span> <span class=n>dt_used</span><span class=p>,</span> <span class=n>error_est</span><span class=p>,</span> <span class=n>dt_next</span> <span class=o>=</span> <span class=n>integrator</span><span class=o>.</span><span class=n>step_with_varmat</span><span class=p>(</span>
+</span><span id=__span-16-27><a id=__codelineno-16-27 name=__codelineno-16-27></a>    <span class=n>t</span><span class=p>,</span> <span class=n>state</span><span class=p>,</span> <span class=n>phi</span><span class=p>,</span> <span class=n>dt</span>
+</span><span id=__span-16-28><a id=__codelineno-16-28 name=__codelineno-16-28></a><span class=p>)</span>
+</span><span id=__span-16-29><a id=__codelineno-16-29 name=__codelineno-16-29></a>
+</span><span id=__span-16-30><a id=__codelineno-16-30 name=__codelineno-16-30></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Initial state: </span><span class=si>{</span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-16-31><a id=__codelineno-16-31 name=__codelineno-16-31></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;State after </span><span class=si>{</span><span class=n>dt_used</span><span class=si>:</span><span class=s2>.2f</span><span class=si>}</span><span class=s2>s: </span><span class=si>{</span><span class=n>new_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-16-32><a id=__codelineno-16-32 name=__codelineno-16-32></a><span class=nb>print</span><span class=p>(</span><span class=s2>&quot;State transition matrix:&quot;</span><span class=p>)</span>
+</span><span id=__span-16-33><a id=__codelineno-16-33 name=__codelineno-16-33></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  Φ = </span><span class=si>{</span><span class=n>new_phi</span><span class=p>[</span><span class=mi>0</span><span class=p>,</span><span class=w> </span><span class=mi>0</span><span class=p>]</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
+</span><span id=__span-16-34><a id=__codelineno-16-34 name=__codelineno-16-34></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  (Analytical Φ = </span><span class=si>{</span><span class=n>np</span><span class=o>.</span><span class=n>exp</span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>dt_used</span><span class=p>)</span><span class=si>:</span><span class=s2>.6f</span><span class=si>}</span><span class=s2>)&quot;</span><span class=p>)</span>
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-17-1> 1</a></span>
+<span class=normal><a href=#__codelineno-17-2> 2</a></span>
+<span class=normal><a href=#__codelineno-17-3> 3</a></span>
+<span class=normal><a href=#__codelineno-17-4> 4</a></span>
+<span class=normal><a href=#__codelineno-17-5> 5</a></span>
+<span class=normal><a href=#__codelineno-17-6> 6</a></span>
+<span class=normal><a href=#__codelineno-17-7> 7</a></span>
+<span class=normal><a href=#__codelineno-17-8> 8</a></span>
+<span class=normal><a href=#__codelineno-17-9> 9</a></span>
+<span class=normal><a href=#__codelineno-17-10>10</a></span>
+<span class=normal><a href=#__codelineno-17-11>11</a></span>
+<span class=normal><a href=#__codelineno-17-12>12</a></span>
+<span class=normal><a href=#__codelineno-17-13>13</a></span>
+<span class=normal><a href=#__codelineno-17-14>14</a></span>
+<span class=normal><a href=#__codelineno-17-15>15</a></span>
+<span class=normal><a href=#__codelineno-17-16>16</a></span>
+<span class=normal><a href=#__codelineno-17-17>17</a></span>
+<span class=normal><a href=#__codelineno-17-18>18</a></span>
+<span class=normal><a href=#__codelineno-17-19>19</a></span>
+<span class=normal><a href=#__codelineno-17-20>20</a></span>
+<span class=normal><a href=#__codelineno-17-21>21</a></span>
+<span class=normal><a href=#__codelineno-17-22>22</a></span>
+<span class=normal><a href=#__codelineno-17-23>23</a></span>
+<span class=normal><a href=#__codelineno-17-24>24</a></span>
+<span class=normal><a href=#__codelineno-17-25>25</a></span>
+<span class=normal><a href=#__codelineno-17-26>26</a></span>
+<span class=normal><a href=#__codelineno-17-27>27</a></span>
+<span class=normal><a href=#__codelineno-17-28>28</a></span>
+<span class=normal><a href=#__codelineno-17-29>29</a></span>
+<span class=normal><a href=#__codelineno-17-30>30</a></span>
+<span class=normal><a href=#__codelineno-17-31>31</a></span>
+<span class=normal><a href=#__codelineno-17-32>32</a></span>
+<span class=normal><a href=#__codelineno-17-33>33</a></span>
+<span class=normal><a href=#__codelineno-17-34>34</a></span>
+<span class=normal><a href=#__codelineno-17-35>35</a></span>
+<span class=normal><a href=#__codelineno-17-36>36</a></span>
+<span class=normal><a href=#__codelineno-17-37>37</a></span>
+<span class=normal><a href=#__codelineno-17-38>38</a></span>
+<span class=normal><a href=#__codelineno-17-39>39</a></span>
+<span class=normal><a href=#__codelineno-17-40>40</a></span>
+<span class=normal><a href=#__codelineno-17-41>41</a></span>
+<span class=normal><a href=#__codelineno-17-42>42</a></span>
+<span class=normal><a href=#__codelineno-17-43>43</a></span>
+<span class=normal><a href=#__codelineno-17-44>44</a></span>
+<span class=normal><a href=#__codelineno-17-45>45</a></span>
+<span class=normal><a href=#__codelineno-17-46>46</a></span>
+<span class=normal><a href=#__codelineno-17-47>47</a></span>
+<span class=normal><a href=#__codelineno-17-48>48</a></span>
+<span class=normal><a href=#__codelineno-17-49>49</a></span>
+<span class=normal><a href=#__codelineno-17-50>50</a></span>
+<span class=normal><a href=#__codelineno-17-51>51</a></span>
+<span class=normal><a href=#__codelineno-17-52>52</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-17-1><a id=__codelineno-17-1 name=__codelineno-17-1></a><span class=sd>//! State Transition Matrix propagation pattern example.</span>
+</span><span id=__span-17-2><a id=__codelineno-17-2 name=__codelineno-17-2></a><span class=sd>//!</span>
+</span><span id=__span-17-3><a id=__codelineno-17-3 name=__codelineno-17-3></a><span class=sd>//! Demonstrates the basic pattern for propagating a state transition matrix</span>
+</span><span id=__span-17-4><a id=__codelineno-17-4 name=__codelineno-17-4></a><span class=sd>//! alongside the state using variational equations.</span>
+</span><span id=__span-17-5><a id=__codelineno-17-5 name=__codelineno-17-5></a>
+</span><span id=__span-17-6><a id=__codelineno-17-6 name=__codelineno-17-6></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=p>::</span><span class=n>integrators</span><span class=p>::</span><span class=o>*</span><span class=p>;</span>
+</span><span id=__span-17-7><a id=__codelineno-17-7 name=__codelineno-17-7></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=p>::</span><span class=n>math</span><span class=p>::</span><span class=n>jacobian</span><span class=p>::</span><span class=o>*</span><span class=p>;</span>
+</span><span id=__span-17-8><a id=__codelineno-17-8 name=__codelineno-17-8></a><span class=k>use</span><span class=w> </span><span class=n>nalgebra</span><span class=p>::{</span><span class=n>DMatrix</span><span class=p>,</span><span class=w> </span><span class=n>DVector</span><span class=p>};</span>
+</span><span id=__span-17-9><a id=__codelineno-17-9 name=__codelineno-17-9></a>
+</span><span id=__span-17-10><a id=__codelineno-17-10 name=__codelineno-17-10></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-17-11><a id=__codelineno-17-11 name=__codelineno-17-11></a><span class=w>    </span><span class=c1>// Dynamics function: Exponential decay dx/dt = -k*x</span>
+</span><span id=__span-17-12><a id=__codelineno-17-12 name=__codelineno-17-12></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>k</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.1</span><span class=p>;</span>
+</span><span id=__span-17-13><a id=__codelineno-17-13 name=__codelineno-17-13></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dynamics</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>move</span><span class=w> </span><span class=o>|</span><span class=n>_t</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>:</span><span class=w> </span><span class=kp>&amp;</span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=p>,</span><span class=w> </span><span class=n>_params</span><span class=p>:</span><span class=w> </span><span class=nb>Option</span><span class=o>&lt;&amp;</span><span class=n>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;&gt;|</span><span class=w> </span><span class=p>-&gt;</span><span class=w> </span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-17-14><a id=__codelineno-17-14 name=__codelineno-17-14></a><span class=w>        </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=o>-</span><span class=n>k</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
+</span><span id=__span-17-15><a id=__codelineno-17-15 name=__codelineno-17-15></a><span class=w>    </span><span class=p>};</span>
+</span><span id=__span-17-16><a id=__codelineno-17-16 name=__codelineno-17-16></a><span class=w>    </span><span class=c1>// Clone for Jacobian computation</span>
+</span><span id=__span-17-17><a id=__codelineno-17-17 name=__codelineno-17-17></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dynamics_for_jac</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>move</span><span class=w> </span><span class=o>|</span><span class=n>_t</span><span class=p>:</span><span class=w> </span><span class=kt>f64</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>:</span><span class=w> </span><span class=kp>&amp;</span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=p>,</span><span class=w> </span><span class=n>_params</span><span class=p>:</span><span class=w> </span><span class=nb>Option</span><span class=o>&lt;&amp;</span><span class=n>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;&gt;|</span><span class=w> </span><span class=p>-&gt;</span><span class=w> </span><span class=nc>DVector</span><span class=o>&lt;</span><span class=kt>f64</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span>
+</span><span id=__span-17-18><a id=__codelineno-17-18 name=__codelineno-17-18></a><span class=w>        </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=o>-</span><span class=n>k</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>state</span><span class=p>[</span><span class=mi>0</span><span class=p>]])</span>
+</span><span id=__span-17-19><a id=__codelineno-17-19 name=__codelineno-17-19></a><span class=w>    </span><span class=p>};</span>
+</span><span id=__span-17-20><a id=__codelineno-17-20 name=__codelineno-17-20></a>
+</span><span id=__span-17-21><a id=__codelineno-17-21 name=__codelineno-17-21></a><span class=w>    </span><span class=c1>// Create Jacobian for variational equations</span>
+</span><span id=__span-17-22><a id=__codelineno-17-22 name=__codelineno-17-22></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>jacobian</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DNumericalJacobian</span><span class=p>::</span><span class=n>central</span><span class=p>(</span><span class=nb>Box</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>dynamics_for_jac</span><span class=p>))</span>
+</span><span id=__span-17-23><a id=__codelineno-17-23 name=__codelineno-17-23></a><span class=w>        </span><span class=p>.</span><span class=n>with_adaptive</span><span class=p>(</span><span class=mf>1e-8</span><span class=p>,</span><span class=w> </span><span class=mf>1e-6</span><span class=p>);</span>
+</span><span id=__span-17-24><a id=__codelineno-17-24 name=__codelineno-17-24></a>
+</span><span id=__span-17-25><a id=__codelineno-17-25 name=__codelineno-17-25></a><span class=w>    </span><span class=c1>// Create integrator with Jacobian</span>
+</span><span id=__span-17-26><a id=__codelineno-17-26 name=__codelineno-17-26></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>config</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>IntegratorConfig</span><span class=p>::</span><span class=n>adaptive</span><span class=p>(</span><span class=mf>1e-12</span><span class=p>,</span><span class=w> </span><span class=mf>1e-11</span><span class=p>);</span>
+</span><span id=__span-17-27><a id=__codelineno-17-27 name=__codelineno-17-27></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>integrator</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DormandPrince54DIntegrator</span><span class=p>::</span><span class=n>with_config</span><span class=p>(</span>
+</span><span id=__span-17-28><a id=__codelineno-17-28 name=__codelineno-17-28></a><span class=w>        </span><span class=mi>1</span><span class=p>,</span>
+</span><span id=__span-17-29><a id=__codelineno-17-29 name=__codelineno-17-29></a><span class=w>        </span><span class=nb>Box</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>dynamics</span><span class=p>),</span>
+</span><span id=__span-17-30><a id=__codelineno-17-30 name=__codelineno-17-30></a><span class=w>        </span><span class=nb>Some</span><span class=p>(</span><span class=nb>Box</span><span class=p>::</span><span class=n>new</span><span class=p>(</span><span class=n>jacobian</span><span class=p>)),</span>
+</span><span id=__span-17-31><a id=__codelineno-17-31 name=__codelineno-17-31></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
+</span><span id=__span-17-32><a id=__codelineno-17-32 name=__codelineno-17-32></a><span class=w>        </span><span class=nb>None</span><span class=p>,</span>
+</span><span id=__span-17-33><a id=__codelineno-17-33 name=__codelineno-17-33></a><span class=w>        </span><span class=n>config</span>
+</span><span id=__span-17-34><a id=__codelineno-17-34 name=__codelineno-17-34></a><span class=w>    </span><span class=p>);</span>
+</span><span id=__span-17-35><a id=__codelineno-17-35 name=__codelineno-17-35></a>
+</span><span id=__span-17-36><a id=__codelineno-17-36 name=__codelineno-17-36></a><span class=w>    </span><span class=c1>// Propagate state and STM</span>
+</span><span id=__span-17-37><a id=__codelineno-17-37 name=__codelineno-17-37></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>t</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>0.0</span><span class=p>;</span>
+</span><span id=__span-17-38><a id=__codelineno-17-38 name=__codelineno-17-38></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DVector</span><span class=p>::</span><span class=n>from_vec</span><span class=p>(</span><span class=fm>vec!</span><span class=p>[</span><span class=mf>1.0</span><span class=p>]);</span>
+</span><span id=__span-17-39><a id=__codelineno-17-39 name=__codelineno-17-39></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>phi</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>DMatrix</span><span class=p>::</span><span class=n>identity</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span><span class=w> </span><span class=mi>1</span><span class=p>);</span><span class=w> </span><span class=c1>// 1x1 identity matrix</span>
+</span><span id=__span-17-40><a id=__codelineno-17-40 name=__codelineno-17-40></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dt</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mf>60.0</span><span class=p>;</span>
+</span><span id=__span-17-41><a id=__codelineno-17-41 name=__codelineno-17-41></a>
+</span><span id=__span-17-42><a id=__codelineno-17-42 name=__codelineno-17-42></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>result</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>integrator</span><span class=p>.</span><span class=n>step_with_varmat</span><span class=p>(</span><span class=n>t</span><span class=p>,</span><span class=w> </span><span class=n>state</span><span class=p>,</span><span class=w> </span><span class=nb>None</span><span class=p>,</span><span class=w> </span><span class=n>phi</span><span class=p>,</span><span class=w> </span><span class=nb>Some</span><span class=p>(</span><span class=n>dt</span><span class=p>));</span>
+</span><span id=__span-17-43><a id=__codelineno-17-43 name=__codelineno-17-43></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>new_state</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>state</span><span class=p>;</span>
+</span><span id=__span-17-44><a id=__codelineno-17-44 name=__codelineno-17-44></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>new_phi</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>phi</span><span class=p>.</span><span class=n>unwrap</span><span class=p>();</span>
+</span><span id=__span-17-45><a id=__codelineno-17-45 name=__codelineno-17-45></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>dt_used</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>result</span><span class=p>.</span><span class=n>dt_used</span><span class=p>;</span>
+</span><span id=__span-17-46><a id=__codelineno-17-46 name=__codelineno-17-46></a>
+</span><span id=__span-17-47><a id=__codelineno-17-47 name=__codelineno-17-47></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Initial state: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=mf>1.0</span><span class=p>);</span>
+</span><span id=__span-17-48><a id=__codelineno-17-48 name=__codelineno-17-48></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;State after {:.2}s: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>dt_used</span><span class=p>,</span><span class=w> </span><span class=n>new_state</span><span class=p>[</span><span class=mi>0</span><span class=p>]);</span>
+</span><span id=__span-17-49><a id=__codelineno-17-49 name=__codelineno-17-49></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;State transition matrix:&quot;</span><span class=p>);</span>
+</span><span id=__span-17-50><a id=__codelineno-17-50 name=__codelineno-17-50></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Φ = {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>new_phi</span><span class=p>[(</span><span class=mi>0</span><span class=p>,</span><span class=w> </span><span class=mi>0</span><span class=p>)]);</span>
+</span><span id=__span-17-51><a id=__codelineno-17-51 name=__codelineno-17-51></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  (Analytical Φ = {:.6})&quot;</span><span class=p>,</span><span class=w> </span><span class=p>(</span><span class=o>-</span><span class=mf>0.1</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=n>dt_used</span><span class=p>).</span><span class=n>exp</span><span class=p>());</span>
+</span><span id=__span-17-52><a id=__codelineno-17-52 name=__codelineno-17-52></a><span class=p>}</span>
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=9:2><input checked=checked id=__tabbed_9_1 name=__tabbed_9 type=radio><input id=__tabbed_9_2 name=__tabbed_9 type=radio><div class=tabbed-labels><label for=__tabbed_9_1>Python</label><label for=__tabbed_9_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-18-1>1</a></span>
+<span class=normal><a href=#__codelineno-18-2>2</a></span>
+<span class=normal><a href=#__codelineno-18-3>3</a></span>
+<span class=normal><a href=#__codelineno-18-4>4</a></span>
+<span class=normal><a href=#__codelineno-18-5>5</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-18-1><a id=__codelineno-18-1 name=__codelineno-18-1></a>Initial state: 1.000000
+</span><span id=__span-18-2><a id=__codelineno-18-2 name=__codelineno-18-2></a>State after 0.21s: 0.979544
+</span><span id=__span-18-3><a id=__codelineno-18-3 name=__codelineno-18-3></a>State transition matrix:
+</span><span id=__span-18-4><a id=__codelineno-18-4 name=__codelineno-18-4></a>  Φ = 0.990547
+</span><span id=__span-18-5><a id=__codelineno-18-5 name=__codelineno-18-5></a>  (Analytical Φ = 0.979544)
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-19-1>1</a></span>
+<span class=normal><a href=#__codelineno-19-2>2</a></span>
+<span class=normal><a href=#__codelineno-19-3>3</a></span>
+<span class=normal><a href=#__codelineno-19-4>4</a></span>
+<span class=normal><a href=#__codelineno-19-5>5</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-19-1><a id=__codelineno-19-1 name=__codelineno-19-1></a>Initial state: 1.000000
+</span><span id=__span-19-2><a id=__codelineno-19-2 name=__codelineno-19-2></a>State after 0.21s: 0.979544
+</span><span id=__span-19-3><a id=__codelineno-19-3 name=__codelineno-19-3></a>State transition matrix:
+</span><span id=__span-19-4><a id=__codelineno-19-4 name=__codelineno-19-4></a>  Φ = 0.990547
+</span><span id=__span-19-5><a id=__codelineno-19-5 name=__codelineno-19-5></a>  (Analytical Φ = 0.979544)
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <h2 id=module-contents>Module Contents<a class=headerlink href=#module-contents title="Permanent link">&para;</a></h2> <ul> <li><strong><a href=fixed_step.html>Fixed-Step Integrators</a></strong> - RK4 and fixed-step integration</li> <li><strong><a href=adaptive_step.html>Adaptive-Step Integrators</a></strong> - RKF45, DP54, and RKN1210</li> <li><strong><a href=variational_equations.html>Variational Equations</a></strong> - State Transition Matrix propagation and theory</li> <li><strong><a href=configuration.html>Configuration Guide</a></strong> - Choosing tolerances and tuning parameters</li> </ul> <h2 id=see-also>See Also<a class=headerlink href=#see-also title="Permanent link">&para;</a></h2> <ul> <li><strong><a href=../../examples/using_different_integrators.html>Comparing Integrator Performance</a></strong> - Complete example comparing all integrators on a 7-day orbit propagation</li> <li><strong><a href=../../library_api/integrators/index.html>Integrators API Reference</a></strong> - Complete API documentation</li> <li><strong><a href=../mathematics/jacobian.html>Jacobian Computation</a></strong> - Required for variational equations</li> <li><strong><a href=../orbit_propagation/keplerian_propagation.html>Keplerian Propagation</a></strong> - Analytical propagation alternative</li> </ul> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="March 23, 2026 02:03:11 UTC">2026-03-23</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="November 17, 2025 10:26:57 UTC">2025-11-17</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=../../assets/javascripts/bundle.79ae519e.min.js></script> <script src=../../javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=../../javascripts/tablesort.ae6fa2.min.js></script> </body> </html>

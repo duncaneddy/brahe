@@ -20,12 +20,7 @@
 <span class=normal><a href=#__codelineno-2-12>12</a></span>
 <span class=normal><a href=#__codelineno-2-13>13</a></span>
 <span class=normal><a href=#__codelineno-2-14>14</a></span>
-<span class=normal><a href=#__codelineno-2-15>15</a></span>
-<span class=normal><a href=#__codelineno-2-16>16</a></span>
-<span class=normal><a href=#__codelineno-2-17>17</a></span>
-<span class=normal><a href=#__codelineno-2-18>18</a></span>
-<span class=normal><a href=#__codelineno-2-19>19</a></span>
-<span class=normal><a href=#__codelineno-2-20>20</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-2-15>15</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>
 </span><span id=__span-2-3><a id=__codelineno-2-3 name=__codelineno-2-3></a><span class=c1># ISS TLE (NORAD ID 25544)</span>
 </span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a><span class=n>line1</span> <span class=o>=</span> <span class=s2>&quot;1 25544U 98067A   25302.48953544  .00013618  00000-0  24977-3 0  9995&quot;</span>
@@ -40,11 +35,6 @@
 </span><span id=__span-2-13><a id=__codelineno-2-13 name=__codelineno-2-13></a><span class=n>line2_valid</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>validate_tle_line</span><span class=p>(</span><span class=n>line2</span><span class=p>)</span>
 </span><span id=__span-2-14><a id=__codelineno-2-14 name=__codelineno-2-14></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Line 1 valid: </span><span class=si>{</span><span class=n>line1_valid</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
 </span><span id=__span-2-15><a id=__codelineno-2-15 name=__codelineno-2-15></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Line 2 valid: </span><span class=si>{</span><span class=n>line2_valid</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-2-16><a id=__codelineno-2-16 name=__codelineno-2-16></a>
-</span><span id=__span-2-17><a id=__codelineno-2-17 name=__codelineno-2-17></a><span class=c1># Expected output:</span>
-</span><span id=__span-2-18><a id=__codelineno-2-18 name=__codelineno-2-18></a><span class=c1># TLE set valid: True</span>
-</span><span id=__span-2-19><a id=__codelineno-2-19 name=__codelineno-2-19></a><span class=c1># Line 1 valid: True</span>
-</span><span id=__span-2-20><a id=__codelineno-2-20 name=__codelineno-2-20></a><span class=c1># Line 2 valid: True</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1> 1</a></span>
 <span class=normal><a href=#__codelineno-3-2> 2</a></span>
 <span class=normal><a href=#__codelineno-3-3> 3</a></span>
@@ -64,11 +54,7 @@
 <span class=normal><a href=#__codelineno-3-17>17</a></span>
 <span class=normal><a href=#__codelineno-3-18>18</a></span>
 <span class=normal><a href=#__codelineno-3-19>19</a></span>
-<span class=normal><a href=#__codelineno-3-20>20</a></span>
-<span class=normal><a href=#__codelineno-3-21>21</a></span>
-<span class=normal><a href=#__codelineno-3-22>22</a></span>
-<span class=normal><a href=#__codelineno-3-23>23</a></span>
-<span class=normal><a href=#__codelineno-3-24>24</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+<span class=normal><a href=#__codelineno-3-20>20</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a>
 </span><span id=__span-3-3><a id=__codelineno-3-3 name=__codelineno-3-3></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
 </span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_eop</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
@@ -87,11 +73,7 @@
 </span><span id=__span-3-17><a id=__codelineno-3-17 name=__codelineno-3-17></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Line 1 valid: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>line1_valid</span><span class=p>);</span>
 </span><span id=__span-3-18><a id=__codelineno-3-18 name=__codelineno-3-18></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Line 2 valid: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>line2_valid</span><span class=p>);</span>
 </span><span id=__span-3-19><a id=__codelineno-3-19 name=__codelineno-3-19></a>
-</span><span id=__span-3-20><a id=__codelineno-3-20 name=__codelineno-3-20></a><span class=w>    </span><span class=c1>// Expected output:</span>
-</span><span id=__span-3-21><a id=__codelineno-3-21 name=__codelineno-3-21></a><span class=w>    </span><span class=c1>// TLE set valid: true</span>
-</span><span id=__span-3-22><a id=__codelineno-3-22 name=__codelineno-3-22></a><span class=w>    </span><span class=c1>// Line 1 valid: true</span>
-</span><span id=__span-3-23><a id=__codelineno-3-23 name=__codelineno-3-23></a><span class=w>    </span><span class=c1>// Line 2 valid: true</span>
-</span><span id=__span-3-24><a id=__codelineno-3-24 name=__codelineno-3-24></a><span class=p>}</span>
+</span><span id=__span-3-20><a id=__codelineno-3-20 name=__codelineno-3-20></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <p>The <code>validate_tle_lines</code> function checks that both lines have the correct format, valid checksums, and matching NORAD catalog numbers.</p> <h3 id=calculating-checksums>Calculating Checksums<a class=headerlink href=#calculating-checksums title="Permanent link">&para;</a></h3> <p>Each TLE line ends with a modulo-10 checksum. You can calculate this checksum to verify data integrity or when creating custom TLEs:</p> <div class="tabbed-set tabbed-alternate" data-tabs=2:2><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><input id=__tabbed_2_2 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>Python</label><label for=__tabbed_2_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1> 1</a></span>
 <span class=normal><a href=#__codelineno-4-2> 2</a></span>
 <span class=normal><a href=#__codelineno-4-3> 3</a></span>
@@ -109,13 +91,7 @@
 <span class=normal><a href=#__codelineno-4-15>15</a></span>
 <span class=normal><a href=#__codelineno-4-16>16</a></span>
 <span class=normal><a href=#__codelineno-4-17>17</a></span>
-<span class=normal><a href=#__codelineno-4-18>18</a></span>
-<span class=normal><a href=#__codelineno-4-19>19</a></span>
-<span class=normal><a href=#__codelineno-4-20>20</a></span>
-<span class=normal><a href=#__codelineno-4-21>21</a></span>
-<span class=normal><a href=#__codelineno-4-22>22</a></span>
-<span class=normal><a href=#__codelineno-4-23>23</a></span>
-<span class=normal><a href=#__codelineno-4-24>24</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-4-1><a id=__codelineno-4-1 name=__codelineno-4-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-4-18>18</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-4-1><a id=__codelineno-4-1 name=__codelineno-4-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-4-2><a id=__codelineno-4-2 name=__codelineno-4-2></a>
 </span><span id=__span-4-3><a id=__codelineno-4-3 name=__codelineno-4-3></a><span class=c1># ISS TLE (NORAD ID 25544)</span>
 </span><span id=__span-4-4><a id=__codelineno-4-4 name=__codelineno-4-4></a><span class=n>line1</span> <span class=o>=</span> <span class=s2>&quot;1 25544U 98067A   25302.48953544  .00013618  00000-0  24977-3 0  9995&quot;</span>
@@ -133,12 +109,6 @@
 </span><span id=__span-4-16><a id=__codelineno-4-16 name=__codelineno-4-16></a><span class=p>)</span>
 </span><span id=__span-4-17><a id=__codelineno-4-17 name=__codelineno-4-17></a><span class=n>is_corrupted_valid</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>validate_tle_line</span><span class=p>(</span><span class=n>corrupted_line1</span><span class=p>)</span>
 </span><span id=__span-4-18><a id=__codelineno-4-18 name=__codelineno-4-18></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;</span><span class=se>\n</span><span class=s2>Corrupted line valid: </span><span class=si>{</span><span class=n>is_corrupted_valid</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-4-19><a id=__codelineno-4-19 name=__codelineno-4-19></a>
-</span><span id=__span-4-20><a id=__codelineno-4-20 name=__codelineno-4-20></a><span class=c1># Expected output:</span>
-</span><span id=__span-4-21><a id=__codelineno-4-21 name=__codelineno-4-21></a><span class=c1># Line 1 checksum: 5</span>
-</span><span id=__span-4-22><a id=__codelineno-4-22 name=__codelineno-4-22></a><span class=c1># Line 2 checksum: 9</span>
-</span><span id=__span-4-23><a id=__codelineno-4-23 name=__codelineno-4-23></a><span class=c1>#</span>
-</span><span id=__span-4-24><a id=__codelineno-4-24 name=__codelineno-4-24></a><span class=c1># Corrupted line valid: False</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-5-1> 1</a></span>
 <span class=normal><a href=#__codelineno-5-2> 2</a></span>
 <span class=normal><a href=#__codelineno-5-3> 3</a></span>
@@ -159,12 +129,7 @@
 <span class=normal><a href=#__codelineno-5-18>18</a></span>
 <span class=normal><a href=#__codelineno-5-19>19</a></span>
 <span class=normal><a href=#__codelineno-5-20>20</a></span>
-<span class=normal><a href=#__codelineno-5-21>21</a></span>
-<span class=normal><a href=#__codelineno-5-22>22</a></span>
-<span class=normal><a href=#__codelineno-5-23>23</a></span>
-<span class=normal><a href=#__codelineno-5-24>24</a></span>
-<span class=normal><a href=#__codelineno-5-25>25</a></span>
-<span class=normal><a href=#__codelineno-5-26>26</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+<span class=normal><a href=#__codelineno-5-21>21</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-5-2><a id=__codelineno-5-2 name=__codelineno-5-2></a>
 </span><span id=__span-5-3><a id=__codelineno-5-3 name=__codelineno-5-3></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
 </span><span id=__span-5-4><a id=__codelineno-5-4 name=__codelineno-5-4></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_eop</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
@@ -184,12 +149,7 @@
 </span><span id=__span-5-18><a id=__codelineno-5-18 name=__codelineno-5-18></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>is_corrupted_valid</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>validate_tle_line</span><span class=p>(</span><span class=n>corrupted_line1</span><span class=p>);</span>
 </span><span id=__span-5-19><a id=__codelineno-5-19 name=__codelineno-5-19></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;</span><span class=se>\n</span><span class=s>Corrupted line valid: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>is_corrupted_valid</span><span class=p>);</span>
 </span><span id=__span-5-20><a id=__codelineno-5-20 name=__codelineno-5-20></a>
-</span><span id=__span-5-21><a id=__codelineno-5-21 name=__codelineno-5-21></a><span class=w>    </span><span class=c1>// Expected output:</span>
-</span><span id=__span-5-22><a id=__codelineno-5-22 name=__codelineno-5-22></a><span class=w>    </span><span class=c1>// Line 1 checksum: 5</span>
-</span><span id=__span-5-23><a id=__codelineno-5-23 name=__codelineno-5-23></a><span class=w>    </span><span class=c1>// Line 2 checksum: 9</span>
-</span><span id=__span-5-24><a id=__codelineno-5-24 name=__codelineno-5-24></a><span class=w>    </span><span class=c1>//</span>
-</span><span id=__span-5-25><a id=__codelineno-5-25 name=__codelineno-5-25></a><span class=w>    </span><span class=c1>// Corrupted line valid: false</span>
-</span><span id=__span-5-26><a id=__codelineno-5-26 name=__codelineno-5-26></a><span class=p>}</span>
+</span><span id=__span-5-21><a id=__codelineno-5-21 name=__codelineno-5-21></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <div class="admonition info"> <p class=admonition-title>Checksum Algorithm</p> <p>The checksum is calculated by summing all digits in the line (treating minus signs as 1) and taking the result modulo 10. All other characters (letters, spaces, periods) are ignored in the checksum calculation.</p> </div> <h2 id=parsing-tles>Parsing TLEs<a class=headerlink href=#parsing-tles title="Permanent link">&para;</a></h2> <h3 id=extracting-orbital-elements>Extracting Orbital Elements<a class=headerlink href=#extracting-orbital-elements title="Permanent link">&para;</a></h3> <p>The most common operation is parsing a TLE to extract the epoch and orbital elements:</p> <div class="tabbed-set tabbed-alternate" data-tabs=3:2><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><input id=__tabbed_3_2 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>Python</label><label for=__tabbed_3_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1> 1</a></span>
 <span class=normal><a href=#__codelineno-6-2> 2</a></span>
 <span class=normal><a href=#__codelineno-6-3> 3</a></span>
@@ -214,16 +174,7 @@
 <span class=normal><a href=#__codelineno-6-22>22</a></span>
 <span class=normal><a href=#__codelineno-6-23>23</a></span>
 <span class=normal><a href=#__codelineno-6-24>24</a></span>
-<span class=normal><a href=#__codelineno-6-25>25</a></span>
-<span class=normal><a href=#__codelineno-6-26>26</a></span>
-<span class=normal><a href=#__codelineno-6-27>27</a></span>
-<span class=normal><a href=#__codelineno-6-28>28</a></span>
-<span class=normal><a href=#__codelineno-6-29>29</a></span>
-<span class=normal><a href=#__codelineno-6-30>30</a></span>
-<span class=normal><a href=#__codelineno-6-31>31</a></span>
-<span class=normal><a href=#__codelineno-6-32>32</a></span>
-<span class=normal><a href=#__codelineno-6-33>33</a></span>
-<span class=normal><a href=#__codelineno-6-34>34</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-6-1><a id=__codelineno-6-1 name=__codelineno-6-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-6-25>25</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-6-1><a id=__codelineno-6-1 name=__codelineno-6-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-6-2><a id=__codelineno-6-2 name=__codelineno-6-2></a>
 </span><span id=__span-6-3><a id=__codelineno-6-3 name=__codelineno-6-3></a><span class=c1># ISS TLE (NORAD ID 25544)</span>
 </span><span id=__span-6-4><a id=__codelineno-6-4 name=__codelineno-6-4></a><span class=n>line1</span> <span class=o>=</span> <span class=s2>&quot;1 25544U 98067A   25302.48953544  .00013618  00000-0  24977-3 0  9995&quot;</span>
@@ -248,15 +199,6 @@
 </span><span id=__span-6-23><a id=__codelineno-6-23 name=__codelineno-6-23></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  RAAN: </span><span class=si>{</span><span class=n>raan</span><span class=si>:</span><span class=s2>.4f</span><span class=si>}</span><span class=s2> deg&quot;</span><span class=p>)</span>
 </span><span id=__span-6-24><a id=__codelineno-6-24 name=__codelineno-6-24></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  Arg of Perigee: </span><span class=si>{</span><span class=n>argp</span><span class=si>:</span><span class=s2>.4f</span><span class=si>}</span><span class=s2> deg&quot;</span><span class=p>)</span>
 </span><span id=__span-6-25><a id=__codelineno-6-25 name=__codelineno-6-25></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  Mean Anomaly: </span><span class=si>{</span><span class=n>M</span><span class=si>:</span><span class=s2>.4f</span><span class=si>}</span><span class=s2> deg&quot;</span><span class=p>)</span>
-</span><span id=__span-6-26><a id=__codelineno-6-26 name=__codelineno-6-26></a>
-</span><span id=__span-6-27><a id=__codelineno-6-27 name=__codelineno-6-27></a><span class=c1># Expected output:</span>
-</span><span id=__span-6-28><a id=__codelineno-6-28 name=__codelineno-6-28></a><span class=c1># ISS Orbital Elements (Epoch: 2025-10-29 11:44:55.862 UTC)</span>
-</span><span id=__span-6-29><a id=__codelineno-6-29 name=__codelineno-6-29></a><span class=c1>#   Semi-major axis: 6796.092 km</span>
-</span><span id=__span-6-30><a id=__codelineno-6-30 name=__codelineno-6-30></a><span class=c1>#   Eccentricity: 0.000481</span>
-</span><span id=__span-6-31><a id=__codelineno-6-31 name=__codelineno-6-31></a><span class=c1>#   Inclination: 51.6347 deg</span>
-</span><span id=__span-6-32><a id=__codelineno-6-32 name=__codelineno-6-32></a><span class=c1>#   RAAN: 1.5519 deg</span>
-</span><span id=__span-6-33><a id=__codelineno-6-33 name=__codelineno-6-33></a><span class=c1>#   Arg of Perigee: 353.3325 deg</span>
-</span><span id=__span-6-34><a id=__codelineno-6-34 name=__codelineno-6-34></a><span class=c1>#   Mean Anomaly: 6.7599 deg</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-7-1> 1</a></span>
 <span class=normal><a href=#__codelineno-7-2> 2</a></span>
 <span class=normal><a href=#__codelineno-7-3> 3</a></span>
@@ -285,15 +227,7 @@
 <span class=normal><a href=#__codelineno-7-26>26</a></span>
 <span class=normal><a href=#__codelineno-7-27>27</a></span>
 <span class=normal><a href=#__codelineno-7-28>28</a></span>
-<span class=normal><a href=#__codelineno-7-29>29</a></span>
-<span class=normal><a href=#__codelineno-7-30>30</a></span>
-<span class=normal><a href=#__codelineno-7-31>31</a></span>
-<span class=normal><a href=#__codelineno-7-32>32</a></span>
-<span class=normal><a href=#__codelineno-7-33>33</a></span>
-<span class=normal><a href=#__codelineno-7-34>34</a></span>
-<span class=normal><a href=#__codelineno-7-35>35</a></span>
-<span class=normal><a href=#__codelineno-7-36>36</a></span>
-<span class=normal><a href=#__codelineno-7-37>37</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-7-1><a id=__codelineno-7-1 name=__codelineno-7-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+<span class=normal><a href=#__codelineno-7-29>29</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-7-1><a id=__codelineno-7-1 name=__codelineno-7-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-7-2><a id=__codelineno-7-2 name=__codelineno-7-2></a>
 </span><span id=__span-7-3><a id=__codelineno-7-3 name=__codelineno-7-3></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
 </span><span id=__span-7-4><a id=__codelineno-7-4 name=__codelineno-7-4></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_eop</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
@@ -321,15 +255,7 @@
 </span><span id=__span-7-26><a id=__codelineno-7-26 name=__codelineno-7-26></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Arg of Perigee: {:.4} deg&quot;</span><span class=p>,</span><span class=w> </span><span class=n>argp</span><span class=p>);</span>
 </span><span id=__span-7-27><a id=__codelineno-7-27 name=__codelineno-7-27></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Mean Anomaly: {:.4} deg&quot;</span><span class=p>,</span><span class=w> </span><span class=n>mean_anom</span><span class=p>);</span>
 </span><span id=__span-7-28><a id=__codelineno-7-28 name=__codelineno-7-28></a>
-</span><span id=__span-7-29><a id=__codelineno-7-29 name=__codelineno-7-29></a><span class=w>    </span><span class=c1>// Expected output:</span>
-</span><span id=__span-7-30><a id=__codelineno-7-30 name=__codelineno-7-30></a><span class=w>    </span><span class=c1>// ISS Orbital Elements (Epoch: 2025-10-29 11:44:55.862 UTC)</span>
-</span><span id=__span-7-31><a id=__codelineno-7-31 name=__codelineno-7-31></a><span class=w>    </span><span class=c1>//   Semi-major axis: 6796.092 km</span>
-</span><span id=__span-7-32><a id=__codelineno-7-32 name=__codelineno-7-32></a><span class=w>    </span><span class=c1>//   Eccentricity: 0.000481</span>
-</span><span id=__span-7-33><a id=__codelineno-7-33 name=__codelineno-7-33></a><span class=w>    </span><span class=c1>//   Inclination: 51.6347 deg</span>
-</span><span id=__span-7-34><a id=__codelineno-7-34 name=__codelineno-7-34></a><span class=w>    </span><span class=c1>//   RAAN: 1.5519 deg</span>
-</span><span id=__span-7-35><a id=__codelineno-7-35 name=__codelineno-7-35></a><span class=w>    </span><span class=c1>//   Arg of Perigee: 353.3325 deg</span>
-</span><span id=__span-7-36><a id=__codelineno-7-36 name=__codelineno-7-36></a><span class=w>    </span><span class=c1>//   Mean Anomaly: 6.7599 deg</span>
-</span><span id=__span-7-37><a id=__codelineno-7-37 name=__codelineno-7-37></a><span class=p>}</span>
+</span><span id=__span-7-29><a id=__codelineno-7-29 name=__codelineno-7-29></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <p>The returned elements follow the standard Brahe order: <code>[a, e, i, Ω, ω, M]</code> where:</p> <ul> <li><span class=arithmatex>\(a\)</span> - Semi-major axis (meters)</li> <li><span class=arithmatex>\(e\)</span> - Eccentricity (dimensionless)</li> <li><span class=arithmatex>\(i\)</span> - Inclination (degrees)</li> <li><span class=arithmatex>\(\Omega\)</span> - Right Ascension of Ascending Node (degrees)</li> <li><span class=arithmatex>\(\omega\)</span> - Argument of Periapsis (degrees)</li> <li><span class=arithmatex>\(M\)</span> - Mean Anomaly (degrees)</li> </ul> <div class="admonition tip"> <p class=admonition-title>Angle Units Convention</p> <p>TLE functions use <strong>degrees</strong> for all angles. This matches the TLE format standard and makes it easier to work with TLE data directly.</p> </div> <h3 id=extracting-just-the-epoch>Extracting Just the Epoch<a class=headerlink href=#extracting-just-the-epoch title="Permanent link">&para;</a></h3> <p>If you only need the epoch timestamp without the full orbital elements:</p> <div class="tabbed-set tabbed-alternate" data-tabs=4:2><input checked=checked id=__tabbed_4_1 name=__tabbed_4 type=radio><input id=__tabbed_4_2 name=__tabbed_4 type=radio><div class=tabbed-labels><label for=__tabbed_4_1>Python</label><label for=__tabbed_4_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-8-1> 1</a></span>
 <span class=normal><a href=#__codelineno-8-2> 2</a></span>
 <span class=normal><a href=#__codelineno-8-3> 3</a></span>
@@ -339,11 +265,7 @@
 <span class=normal><a href=#__codelineno-8-7> 7</a></span>
 <span class=normal><a href=#__codelineno-8-8> 8</a></span>
 <span class=normal><a href=#__codelineno-8-9> 9</a></span>
-<span class=normal><a href=#__codelineno-8-10>10</a></span>
-<span class=normal><a href=#__codelineno-8-11>11</a></span>
-<span class=normal><a href=#__codelineno-8-12>12</a></span>
-<span class=normal><a href=#__codelineno-8-13>13</a></span>
-<span class=normal><a href=#__codelineno-8-14>14</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-8-1><a id=__codelineno-8-1 name=__codelineno-8-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-8-10>10</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-8-1><a id=__codelineno-8-1 name=__codelineno-8-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-8-2><a id=__codelineno-8-2 name=__codelineno-8-2></a>
 </span><span id=__span-8-3><a id=__codelineno-8-3 name=__codelineno-8-3></a><span class=c1># ISS TLE (NORAD ID 25544)</span>
 </span><span id=__span-8-4><a id=__codelineno-8-4 name=__codelineno-8-4></a><span class=n>line1</span> <span class=o>=</span> <span class=s2>&quot;1 25544U 98067A   25302.48953544  .00013618  00000-0  24977-3 0  9995&quot;</span>
@@ -353,10 +275,6 @@
 </span><span id=__span-8-8><a id=__codelineno-8-8 name=__codelineno-8-8></a>
 </span><span id=__span-8-9><a id=__codelineno-8-9 name=__codelineno-8-9></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;TLE Epoch: </span><span class=si>{</span><span class=n>epoch</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
 </span><span id=__span-8-10><a id=__codelineno-8-10 name=__codelineno-8-10></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Time System: </span><span class=si>{</span><span class=n>epoch</span><span class=o>.</span><span class=n>time_system</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-8-11><a id=__codelineno-8-11 name=__codelineno-8-11></a>
-</span><span id=__span-8-12><a id=__codelineno-8-12 name=__codelineno-8-12></a><span class=c1># Expected output:</span>
-</span><span id=__span-8-13><a id=__codelineno-8-13 name=__codelineno-8-13></a><span class=c1># TLE Epoch: 2025-10-29 11:44:55.862 UTC</span>
-</span><span id=__span-8-14><a id=__codelineno-8-14 name=__codelineno-8-14></a><span class=c1># Time System: UTC</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-9-1> 1</a></span>
 <span class=normal><a href=#__codelineno-9-2> 2</a></span>
 <span class=normal><a href=#__codelineno-9-3> 3</a></span>
@@ -371,10 +289,7 @@
 <span class=normal><a href=#__codelineno-9-12>12</a></span>
 <span class=normal><a href=#__codelineno-9-13>13</a></span>
 <span class=normal><a href=#__codelineno-9-14>14</a></span>
-<span class=normal><a href=#__codelineno-9-15>15</a></span>
-<span class=normal><a href=#__codelineno-9-16>16</a></span>
-<span class=normal><a href=#__codelineno-9-17>17</a></span>
-<span class=normal><a href=#__codelineno-9-18>18</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-9-1><a id=__codelineno-9-1 name=__codelineno-9-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+<span class=normal><a href=#__codelineno-9-15>15</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-9-1><a id=__codelineno-9-1 name=__codelineno-9-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-9-2><a id=__codelineno-9-2 name=__codelineno-9-2></a>
 </span><span id=__span-9-3><a id=__codelineno-9-3 name=__codelineno-9-3></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
 </span><span id=__span-9-4><a id=__codelineno-9-4 name=__codelineno-9-4></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_eop</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
@@ -388,10 +303,7 @@
 </span><span id=__span-9-12><a id=__codelineno-9-12 name=__codelineno-9-12></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;TLE Epoch: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>epoch</span><span class=p>);</span>
 </span><span id=__span-9-13><a id=__codelineno-9-13 name=__codelineno-9-13></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Time System: {:?}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>epoch</span><span class=p>.</span><span class=n>time_system</span><span class=p>);</span>
 </span><span id=__span-9-14><a id=__codelineno-9-14 name=__codelineno-9-14></a>
-</span><span id=__span-9-15><a id=__codelineno-9-15 name=__codelineno-9-15></a><span class=w>    </span><span class=c1>// Expected output:</span>
-</span><span id=__span-9-16><a id=__codelineno-9-16 name=__codelineno-9-16></a><span class=w>    </span><span class=c1>// TLE Epoch: 2025-10-29 11:44:55.862 UTC</span>
-</span><span id=__span-9-17><a id=__codelineno-9-17 name=__codelineno-9-17></a><span class=w>    </span><span class=c1>// Time System: UTC</span>
-</span><span id=__span-9-18><a id=__codelineno-9-18 name=__codelineno-9-18></a><span class=p>}</span>
+</span><span id=__span-9-15><a id=__codelineno-9-15 name=__codelineno-9-15></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <p>The epoch is always returned in the UTC time system.</p> <h2 id=creating-tles>Creating TLEs<a class=headerlink href=#creating-tles title="Permanent link">&para;</a></h2> <h3 id=from-keplerian-elements>From Keplerian Elements<a class=headerlink href=#from-keplerian-elements title="Permanent link">&para;</a></h3> <p>You can generate TLE lines from an epoch and mean orbital elements:</p> <div class="tabbed-set tabbed-alternate" data-tabs=5:2><input checked=checked id=__tabbed_5_1 name=__tabbed_5 type=radio><input id=__tabbed_5_2 name=__tabbed_5 type=radio><div class=tabbed-labels><label for=__tabbed_5_1>Python</label><label for=__tabbed_5_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-10-1> 1</a></span>
 <span class=normal><a href=#__codelineno-10-2> 2</a></span>
 <span class=normal><a href=#__codelineno-10-3> 3</a></span>
@@ -418,12 +330,7 @@
 <span class=normal><a href=#__codelineno-10-24>24</a></span>
 <span class=normal><a href=#__codelineno-10-25>25</a></span>
 <span class=normal><a href=#__codelineno-10-26>26</a></span>
-<span class=normal><a href=#__codelineno-10-27>27</a></span>
-<span class=normal><a href=#__codelineno-10-28>28</a></span>
-<span class=normal><a href=#__codelineno-10-29>29</a></span>
-<span class=normal><a href=#__codelineno-10-30>30</a></span>
-<span class=normal><a href=#__codelineno-10-31>31</a></span>
-<span class=normal><a href=#__codelineno-10-32>32</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-10-1><a id=__codelineno-10-1 name=__codelineno-10-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-10-27>27</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-10-1><a id=__codelineno-10-1 name=__codelineno-10-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-10-2><a id=__codelineno-10-2 name=__codelineno-10-2></a><span class=kn>import</span><span class=w> </span><span class=nn>numpy</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>np</span>
 </span><span id=__span-10-3><a id=__codelineno-10-3 name=__codelineno-10-3></a>
 </span><span id=__span-10-4><a id=__codelineno-10-4 name=__codelineno-10-4></a><span class=c1># Define orbital epoch</span>
@@ -450,11 +357,6 @@
 </span><span id=__span-10-25><a id=__codelineno-10-25 name=__codelineno-10-25></a><span class=nb>print</span><span class=p>(</span><span class=s2>&quot;Generated TLE:&quot;</span><span class=p>)</span>
 </span><span id=__span-10-26><a id=__codelineno-10-26 name=__codelineno-10-26></a><span class=nb>print</span><span class=p>(</span><span class=n>line1</span><span class=p>)</span>
 </span><span id=__span-10-27><a id=__codelineno-10-27 name=__codelineno-10-27></a><span class=nb>print</span><span class=p>(</span><span class=n>line2</span><span class=p>)</span>
-</span><span id=__span-10-28><a id=__codelineno-10-28 name=__codelineno-10-28></a>
-</span><span id=__span-10-29><a id=__codelineno-10-29 name=__codelineno-10-29></a><span class=c1># Expected output:</span>
-</span><span id=__span-10-30><a id=__codelineno-10-30 name=__codelineno-10-30></a><span class=c1># Generated TLE:</span>
-</span><span id=__span-10-31><a id=__codelineno-10-31 name=__codelineno-10-31></a><span class=c1># 1 25544U          25302.48953433  .00000000  00000+0  00000+0 0 00002</span>
-</span><span id=__span-10-32><a id=__codelineno-10-32 name=__codelineno-10-32></a><span class=c1># 2 25544  51.6347   1.5519 0004808 353.3325   6.7599 15.49800901000006</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-11-1> 1</a></span>
 <span class=normal><a href=#__codelineno-11-2> 2</a></span>
 <span class=normal><a href=#__codelineno-11-3> 3</a></span>
@@ -486,11 +388,7 @@
 <span class=normal><a href=#__codelineno-11-29>29</a></span>
 <span class=normal><a href=#__codelineno-11-30>30</a></span>
 <span class=normal><a href=#__codelineno-11-31>31</a></span>
-<span class=normal><a href=#__codelineno-11-32>32</a></span>
-<span class=normal><a href=#__codelineno-11-33>33</a></span>
-<span class=normal><a href=#__codelineno-11-34>34</a></span>
-<span class=normal><a href=#__codelineno-11-35>35</a></span>
-<span class=normal><a href=#__codelineno-11-36>36</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
+<span class=normal><a href=#__codelineno-11-32>32</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
 </span><span id=__span-11-2><a id=__codelineno-11-2 name=__codelineno-11-2></a><span class=k>use</span><span class=w> </span><span class=n>nalgebra</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>na</span><span class=p>;</span>
 </span><span id=__span-11-3><a id=__codelineno-11-3 name=__codelineno-11-3></a>
 </span><span id=__span-11-4><a id=__codelineno-11-4 name=__codelineno-11-4></a><span class=k>fn</span><span class=w> </span><span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span>
@@ -521,11 +419,7 @@
 </span><span id=__span-11-29><a id=__codelineno-11-29 name=__codelineno-11-29></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;{}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>line1</span><span class=p>);</span>
 </span><span id=__span-11-30><a id=__codelineno-11-30 name=__codelineno-11-30></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;{}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>line2</span><span class=p>);</span>
 </span><span id=__span-11-31><a id=__codelineno-11-31 name=__codelineno-11-31></a>
-</span><span id=__span-11-32><a id=__codelineno-11-32 name=__codelineno-11-32></a><span class=w>    </span><span class=c1>// Expected output:</span>
-</span><span id=__span-11-33><a id=__codelineno-11-33 name=__codelineno-11-33></a><span class=w>    </span><span class=c1>// Generated TLE:</span>
-</span><span id=__span-11-34><a id=__codelineno-11-34 name=__codelineno-11-34></a><span class=w>    </span><span class=c1>// 1 25544U          25302.48953433  .00000000  00000+0  00000+0 0 00002</span>
-</span><span id=__span-11-35><a id=__codelineno-11-35 name=__codelineno-11-35></a><span class=w>    </span><span class=c1>// 2 25544  51.6347   1.5519 0004808 353.3325   6.7599 15.49800901000006</span>
-</span><span id=__span-11-36><a id=__codelineno-11-36 name=__codelineno-11-36></a><span class=p>}</span>
+</span><span id=__span-11-32><a id=__codelineno-11-32 name=__codelineno-11-32></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <div class="admonition info"> <p class=admonition-title>Default Values</p> <p>The <code>keplerian_elements_to_tle</code> function uses zero for fields like drag terms and derivatives. For complete control over all TLE fields, use the <code>create_tle_lines</code> function with its full parameter set.</p> </div> <div class="admonition warning"> <p class=admonition-title>Mean Element Representation</p> <p>The TLE format encodes the orbital state as <em>mean orbital elements</em> estimated from orbit propgation using the SGP4/SDP4 models.</p> <p>While the package allows for direclty creating TLEs from arbitrary Keplerian elements, the resulting TLEs <strong>WILL NOT</strong> accurate propagation results with the SGP4/SDP4 models unless the input elements are already mean elements derived from those models.</p> <p>If you need to create TLEs for real satellites it's best to estimate the mean elements from observed data using orbit determination techniques using the SGP4/SDP4 models.</p> </div> <p>You can verify generated TLEs by parsing them back:</p> <div class="tabbed-set tabbed-alternate" data-tabs=6:2><input checked=checked id=__tabbed_6_1 name=__tabbed_6 type=radio><input id=__tabbed_6_2 name=__tabbed_6 type=radio><div class=tabbed-labels><label for=__tabbed_6_1>Python</label><label for=__tabbed_6_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-12-1> 1</a></span>
 <span class=normal><a href=#__codelineno-12-2> 2</a></span>
 <span class=normal><a href=#__codelineno-12-3> 3</a></span>
@@ -617,7 +511,7 @@
 </span><span id=__span-13-28><a id=__codelineno-13-28 name=__codelineno-13-28></a><span class=w>        </span><span class=p>.</span><span class=n>all</span><span class=p>(</span><span class=o>|</span><span class=p>(</span><span class=n>a</span><span class=p>,</span><span class=w> </span><span class=n>b</span><span class=p>)</span><span class=o>|</span><span class=w> </span><span class=p>(</span><span class=n>a</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=n>b</span><span class=p>).</span><span class=n>abs</span><span class=p>()</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=n>a</span><span class=p>.</span><span class=n>abs</span><span class=p>().</span><span class=n>max</span><span class=p>(</span><span class=mf>1e-10</span><span class=p>)</span><span class=w> </span><span class=o>&lt;</span><span class=w> </span><span class=mf>1e-5</span><span class=p>);</span>
 </span><span id=__span-13-29><a id=__codelineno-13-29 name=__codelineno-13-29></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;Elements match: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>elements_match</span><span class=p>);</span>
 </span><span id=__span-13-30><a id=__codelineno-13-30 name=__codelineno-13-30></a>
-</span><span id=__span-13-31><a id=__codelineno-13-31 name=__codelineno-13-31></a><span class=w>    </span><span class=c1>// Expected output:</span>
+</span><span id=__span-13-31><a id=__codelineno-13-31 name=__codelineno-13-31></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <h2 id=norad-id-formats>NORAD ID Formats<a class=headerlink href=#norad-id-formats title="Permanent link">&para;</a></h2> <p>TLEs support two formats for NORAD catalog numbers:</p> <ul> <li><strong>Numeric</strong>: 5-digit numbers (00001-99999)</li> <li><strong>Alpha-5</strong>: 5-character alphanumeric (A0000-Z9999)</li> </ul> <p>The Alpha-5 format extends the catalog beyond 99,999 satellites by using letters A-Z (excluding I and O to avoid confusion with 1 and 0).</p> <h3 id=converting-between-formats>Converting Between Formats<a class=headerlink href=#converting-between-formats title="Permanent link">&para;</a></h3> <div class="tabbed-set tabbed-alternate" data-tabs=7:2><input checked=checked id=__tabbed_7_1 name=__tabbed_7 type=radio><input id=__tabbed_7_2 name=__tabbed_7 type=radio><div class=tabbed-labels><label for=__tabbed_7_1>Python</label><label for=__tabbed_7_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-14-1> 1</a></span>
 <span class=normal><a href=#__codelineno-14-2> 2</a></span>
 <span class=normal><a href=#__codelineno-14-3> 3</a></span>
@@ -647,11 +541,7 @@
 <span class=normal><a href=#__codelineno-14-27>27</a></span>
 <span class=normal><a href=#__codelineno-14-28>28</a></span>
 <span class=normal><a href=#__codelineno-14-29>29</a></span>
-<span class=normal><a href=#__codelineno-14-30>30</a></span>
-<span class=normal><a href=#__codelineno-14-31>31</a></span>
-<span class=normal><a href=#__codelineno-14-32>32</a></span>
-<span class=normal><a href=#__codelineno-14-33>33</a></span>
-<span class=normal><a href=#__codelineno-14-34>34</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-14-1><a id=__codelineno-14-1 name=__codelineno-14-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
+<span class=normal><a href=#__codelineno-14-30>30</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-14-1><a id=__codelineno-14-1 name=__codelineno-14-1></a><span class=kn>import</span><span class=w> </span><span class=nn>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=nn>bh</span>
 </span><span id=__span-14-2><a id=__codelineno-14-2 name=__codelineno-14-2></a>
 </span><span id=__span-14-3><a id=__codelineno-14-3 name=__codelineno-14-3></a><span class=nb>print</span><span class=p>(</span><span class=s2>&quot;NORAD ID Format Conversions</span><span class=se>\n</span><span class=s2>&quot;</span><span class=p>)</span>
 </span><span id=__span-14-4><a id=__codelineno-14-4 name=__codelineno-14-4></a>
@@ -681,10 +571,6 @@
 </span><span id=__span-14-28><a id=__codelineno-14-28 name=__codelineno-14-28></a><span class=n>back_to_numeric</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>norad_id_alpha5_to_numeric</span><span class=p>(</span><span class=n>alpha5</span><span class=p>)</span>
 </span><span id=__span-14-29><a id=__codelineno-14-29 name=__codelineno-14-29></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  </span><span class=si>{</span><span class=n>original</span><span class=si>}</span><span class=s2> -&gt; &#39;</span><span class=si>{</span><span class=n>alpha5</span><span class=si>}</span><span class=s2>&#39; -&gt; </span><span class=si>{</span><span class=n>back_to_numeric</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
 </span><span id=__span-14-30><a id=__codelineno-14-30 name=__codelineno-14-30></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;  Match: </span><span class=si>{</span><span class=n>original</span><span class=w> </span><span class=o>==</span><span class=w> </span><span class=n>back_to_numeric</span><span class=si>}</span><span class=s2>&quot;</span><span class=p>)</span>
-</span><span id=__span-14-31><a id=__codelineno-14-31 name=__codelineno-14-31></a>
-</span><span id=__span-14-32><a id=__codelineno-14-32 name=__codelineno-14-32></a><span class=c1># Expected output:</span>
-</span><span id=__span-14-33><a id=__codelineno-14-33 name=__codelineno-14-33></a><span class=c1># NORAD ID Format Conversions</span>
-</span><span id=__span-14-34><a id=__codelineno-14-34 name=__codelineno-14-34></a><span class=c1>#</span>
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-rust highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-15-1> 1</a></span>
 <span class=normal><a href=#__codelineno-15-2> 2</a></span>
 <span class=normal><a href=#__codelineno-15-3> 3</a></span>
@@ -716,12 +602,7 @@
 <span class=normal><a href=#__codelineno-15-29>29</a></span>
 <span class=normal><a href=#__codelineno-15-30>30</a></span>
 <span class=normal><a href=#__codelineno-15-31>31</a></span>
-<span class=normal><a href=#__codelineno-15-32>32</a></span>
-<span class=normal><a href=#__codelineno-15-33>33</a></span>
-<span class=normal><a href=#__codelineno-15-34>34</a></span>
-<span class=normal><a href=#__codelineno-15-35>35</a></span>
-<span class=normal><a href=#__codelineno-15-36>36</a></span>
-<span class=normal><a href=#__codelineno-15-37>37</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-15-1><a id=__codelineno-15-1 name=__codelineno-15-1></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_eop</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
+<span class=normal><a href=#__codelineno-15-32>32</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-15-1><a id=__codelineno-15-1 name=__codelineno-15-1></a><span class=w>    </span><span class=n>bh</span><span class=p>::</span><span class=n>initialize_eop</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-15-2><a id=__codelineno-15-2 name=__codelineno-15-2></a>
 </span><span id=__span-15-3><a id=__codelineno-15-3 name=__codelineno-15-3></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;NORAD ID Format Conversions</span><span class=se>\n</span><span class=s>&quot;</span><span class=p>);</span>
 </span><span id=__span-15-4><a id=__codelineno-15-4 name=__codelineno-15-4></a>
@@ -752,12 +633,7 @@
 </span><span id=__span-15-29><a id=__codelineno-15-29 name=__codelineno-15-29></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  {} -&gt; &#39;{}&#39; -&gt; {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>original</span><span class=p>,</span><span class=w> </span><span class=n>alpha5</span><span class=p>,</span><span class=w> </span><span class=n>back_to_numeric</span><span class=p>);</span>
 </span><span id=__span-15-30><a id=__codelineno-15-30 name=__codelineno-15-30></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Match: {}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>original</span><span class=w> </span><span class=o>==</span><span class=w> </span><span class=n>back_to_numeric</span><span class=p>);</span>
 </span><span id=__span-15-31><a id=__codelineno-15-31 name=__codelineno-15-31></a>
-</span><span id=__span-15-32><a id=__codelineno-15-32 name=__codelineno-15-32></a><span class=w>    </span><span class=c1>// Expected output:</span>
-</span><span id=__span-15-33><a id=__codelineno-15-33 name=__codelineno-15-33></a><span class=w>    </span><span class=c1>// NORAD ID Format Conversions</span>
-</span><span id=__span-15-34><a id=__codelineno-15-34 name=__codelineno-15-34></a><span class=w>    </span><span class=c1>//</span>
-</span><span id=__span-15-35><a id=__codelineno-15-35 name=__codelineno-15-35></a><span class=w>    </span><span class=c1>// Numeric to Alpha-5:</span>
-</span><span id=__span-15-36><a id=__codelineno-15-36 name=__codelineno-15-36></a><span class=w>    </span><span class=c1>//   25544 -&gt; 25544</span>
-</span><span id=__span-15-37><a id=__codelineno-15-37 name=__codelineno-15-37></a><span class=w>    </span><span class=c1>//   100000 -&gt; A0000</span>
+</span><span id=__span-15-32><a id=__codelineno-15-32 name=__codelineno-15-32></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <div class="admonition info"> <p class=admonition-title>Alpha-5 Range</p> <p>Alpha-5 format is only valid for NORAD IDs &gt;= 100,000. The range is 100,000 (A0000) to 339,999 (Z9999).</p> </div> <h3 id=parsing-mixed-formats>Parsing Mixed Formats<a class=headerlink href=#parsing-mixed-formats title="Permanent link">&para;</a></h3> <p>The <code>parse_norad_id</code> function automatically detects whether a NORAD ID is in numeric or Alpha-5 format:</p> <div class="tabbed-set tabbed-alternate" data-tabs=8:2><input checked=checked id=__tabbed_8_1 name=__tabbed_8 type=radio><input id=__tabbed_8_2 name=__tabbed_8 type=radio><div class=tabbed-labels><label for=__tabbed_8_1>Python</label><label for=__tabbed_8_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-16-1>1</a></span>
 <span class=normal><a href=#__codelineno-16-2>2</a></span>
 <span class=normal><a href=#__codelineno-16-3>3</a></span>

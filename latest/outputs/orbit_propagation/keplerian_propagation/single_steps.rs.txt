@@ -1,0 +1,3 @@
+After 1 step: 2024-01-01 00:01:00.000 UTC
+After custom step: 2024-01-01 00:03:00.000 UTC
+Trajectory length: 3

@@ -1,0 +1,4 @@
+Quick:     abs=0.001, rel=0.1
+Standard:  abs=1e-06, rel=0.001
+Precision: abs=1e-09, rel=1e-06
+Maximum:   abs=1e-10, rel=1e-08

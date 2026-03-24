@@ -557,6 +557,7 @@ include!("earth_models.rs");
 include!("spacetrack.rs");
 include!("celestrak.rs");
 include!("ccsds.rs");
+include!("estimation.rs");
 
 // Define Module
 
@@ -1192,6 +1193,20 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCDMObject>()?;
     module.add_class::<PyCDMStateVector>()?;
     module.add_class::<PyCDMRTNCovariance>()?;
+
+    //* Estimation *//
+    module.add_class::<PyProcessNoiseConfig>()?;
+    module.add_class::<PyEKFConfig>()?;
+    module.add_class::<PyObservation>()?;
+    module.add_class::<PyFilterRecord>()?;
+    module.add_class::<PyMeasurementModel>()?;
+    module.add_class::<PyInertialPositionMeasurementModel>()?;
+    module.add_class::<PyInertialVelocityMeasurementModel>()?;
+    module.add_class::<PyInertialStateMeasurementModel>()?;
+    module.add_class::<PyEcefPositionMeasurementModel>()?;
+    module.add_class::<PyEcefVelocityMeasurementModel>()?;
+    module.add_class::<PyEcefStateMeasurementModel>()?;
+    module.add_class::<PyExtendedKalmanFilter>()?;
 
     Ok(())
 }

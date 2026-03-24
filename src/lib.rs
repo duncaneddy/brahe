@@ -131,6 +131,7 @@ pub mod coordinates;
 pub mod datasets;
 pub mod earth_models;
 pub mod eop;
+pub mod estimation;
 pub mod events;
 pub mod frames;
 pub mod integrators;

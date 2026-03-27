@@ -70,9 +70,11 @@ The current release includes two sequential filters:
   functions without linearization. More robust for strongly nonlinear problems, at the cost
   of 2n+1 propagations per step.
 
-Both filters share the same measurement models, observation types, filter records, and
-Python API. Future releases will add **(Weighted) Batch Least Squares** (BLS) for offline
-orbit determination.
+- **Batch Least Squares (BLS)** -- processes all observations simultaneously, iterating to
+  minimize the weighted sum of squared residuals. Best for offline orbit determination with
+  complete observation arcs. Supports two solver formulations and consider parameters.
+
+All estimators share the same measurement models, observation types, and Python API.
 
 ---
 
@@ -82,5 +84,6 @@ orbit determination.
 - [Extended Kalman Filter](extended_kalman_filter.md) -- EKF setup, processing, and diagnostics
 - [Unscented Kalman Filter](unscented_kalman_filter.md) -- UKF sigma points and EKF comparison
 - [Custom Models](custom_models.md) -- Defining measurement models in Python
+- [Batch Least Squares](batch_least_squares.md) -- BLS offline orbit determination
 - [Estimation API Reference](../../library_api/estimation/index.md) -- Complete type and method documentation
 - [Covariance and Sensitivity](../orbit_propagation/numerical_propagation/covariance_sensitivity.md) -- STM propagation used by the EKF

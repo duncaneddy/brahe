@@ -242,6 +242,7 @@ nav:
           - Extended Kalman Filter: learn/estimation/extended_kalman_filter.md
           - Unscented Kalman Filter: learn/estimation/unscented_kalman_filter.md
           - Measurement Models: learn/estimation/measurement_models.md
+          - Batch Least Squares: learn/estimation/batch_least_squares.md
           - Custom Models: learn/estimation/custom_models.md
       - Mathematics:
           - learn/mathematics/index.md
@@ -385,6 +386,7 @@ nav:
           - Common Types: library_api/estimation/common_types.md
           - Extended Kalman Filter: library_api/estimation/extended_kalman_filter.md
           - Unscented Kalman Filter: library_api/estimation/unscented_kalman_filter.md
+          - Batch Least Squares: library_api/estimation/batch_least_squares.md
           - Measurement Models: library_api/estimation/measurement_models.md
       - Event Detection:
           - library_api/events/index.md

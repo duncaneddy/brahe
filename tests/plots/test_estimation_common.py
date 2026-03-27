@@ -122,19 +122,19 @@ class TestComputeTimeAxis:
         assert len(times) == 5
         assert times[0] == pytest.approx(0.0)
         assert times[1] == pytest.approx(60.0)
-        assert "second" in label.lower()
+        assert label == "Time [s]"
 
     def test_minutes_preset(self):
         epochs = self._make_epochs(5, dt=60.0)
         times, label = compute_time_axis(epochs, time_units="minutes")
         assert times[1] == pytest.approx(1.0)
-        assert "minute" in label.lower()
+        assert label == "Time [min]"
 
     def test_hours_preset(self):
         epochs = self._make_epochs(5, dt=3600.0)
         times, label = compute_time_axis(epochs, time_units="hours")
         assert times[1] == pytest.approx(1.0)
-        assert "hour" in label.lower()
+        assert label == "Time [hr]"
 
     def test_orbits_preset(self):
         period = 5600.0
@@ -143,7 +143,7 @@ class TestComputeTimeAxis:
             epochs, time_units="orbits", orbital_period=period
         )
         assert times[1] == pytest.approx(1.0)
-        assert "orbit" in label.lower()
+        assert label == "Time [orbits]"
 
     def test_orbits_raises_without_period(self):
         epochs = self._make_epochs(5)
@@ -153,18 +153,20 @@ class TestComputeTimeAxis:
     def test_callable_time_units(self):
         epochs = self._make_epochs(5, dt=60.0)
 
-        def to_milliseconds(seconds):
-            return seconds * 1000.0
+        def custom_transform(eps):
+            return (np.arange(len(eps)) * 2.0, "Custom")
 
-        times, label = compute_time_axis(epochs, time_units=to_milliseconds)
-        assert times[1] == pytest.approx(60000.0)
+        times, label = compute_time_axis(epochs, time_units=custom_transform)
+        assert times[1] == pytest.approx(2.0)
+        assert label == "Custom"
 
     def test_epoch_mode(self):
         epochs = self._make_epochs(5, dt=60.0)
         times, label = compute_time_axis(epochs, time_units="epoch")
-        # Should return the epochs themselves (or numeric representation)
+        assert label == "Epoch"
         assert len(times) == 5
-        assert "epoch" in label.lower()
+        # Returns raw Epoch objects
+        assert hasattr(times[0], "jd")
 
     def test_unknown_string_raises(self):
         epochs = self._make_epochs(3)

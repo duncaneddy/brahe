@@ -46,31 +46,28 @@ def compute_time_axis(epochs, time_units="seconds", orbital_period=None):
     if len(epochs) == 0:
         return np.array([]), "Time"
 
+    if callable(time_units):
+        return time_units(epochs)
+
     t0 = epochs[0]
     elapsed = np.array([float(ep - t0) for ep in epochs])
 
-    if callable(time_units):
-        times = time_units(elapsed)
-        label = "Time"
-        return np.asarray(times, dtype=float), label
-
     if time_units == "seconds":
-        return elapsed, "Time (seconds)"
+        return elapsed, "Time [s]"
 
     if time_units == "minutes":
-        return elapsed / 60.0, "Time (minutes)"
+        return elapsed / 60.0, "Time [min]"
 
     if time_units == "hours":
-        return elapsed / 3600.0, "Time (hours)"
+        return elapsed / 3600.0, "Time [hr]"
 
     if time_units == "orbits":
         if orbital_period is None:
             raise ValueError("orbital_period must be provided when time_units='orbits'")
-        return elapsed / orbital_period, "Time (orbits)"
+        return elapsed / orbital_period, "Time [orbits]"
 
     if time_units == "epoch":
-        # Return elapsed seconds but label as epoch-relative time
-        return elapsed, "Time (epoch)"
+        return epochs, "Epoch"
 
     if isinstance(time_units, str):
         raise ValueError(

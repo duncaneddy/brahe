@@ -1,8 +1,8 @@
 /*!
- * Data structures for observations and filter records.
+ * Data structures for observations, filter records, and batch estimation records.
  *
- * Defines the core types used to represent observations and filter update records
- * for sequential (EKF/UKF) estimators.
+ * Defines the core types used to represent observations, sequential filter update
+ * records (EKF/UKF), and batch estimation diagnostic records (BLS).
  */
 
 use nalgebra::{DMatrix, DVector};
@@ -76,4 +76,85 @@ pub struct FilterRecord {
 
     /// Measurement model name
     pub measurement_name: String,
+}
+
+/// Record of a single batch least squares iteration.
+#[derive(Clone, Debug)]
+pub struct BLSIterationRecord {
+    /// Iteration number (0-indexed)
+    pub iteration: usize,
+    /// Reference epoch for this iteration
+    pub epoch: Epoch,
+    /// State estimate at this iteration
+    pub state: DVector<f64>,
+    /// Covariance at this iteration (formal, solve-for only)
+    pub covariance: DMatrix<f64>,
+    /// State correction δx applied at this iteration
+    pub state_correction: DVector<f64>,
+    /// Norm of the state correction ||δx||
+    pub state_correction_norm: f64,
+    /// Cost function value J at this iteration
+    pub cost: f64,
+    /// RMS of all pre-fit residuals at this iteration
+    pub rms_prefit_residual: f64,
+    /// RMS of all post-fit residuals at this iteration
+    pub rms_postfit_residual: f64,
+}
+
+/// Per-observation residual from a batch least squares iteration.
+#[derive(Clone, Debug)]
+pub struct BLSObservationResidual {
+    /// Epoch of the observation
+    pub epoch: Epoch,
+    /// Name of the measurement model used
+    pub model_name: String,
+    /// Pre-fit residual: y - h(x_k, t) before state correction
+    pub prefit_residual: DVector<f64>,
+    /// Post-fit residual: y - h(x_{k+1}, t) after state correction
+    pub postfit_residual: DVector<f64>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::time::TimeSystem;
+    use nalgebra::{DMatrix, DVector};
+
+    #[test]
+    fn test_bls_iteration_record_construction() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+        let cov = DMatrix::identity(6, 6);
+        let correction = DVector::from_vec(vec![100.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+
+        let record = BLSIterationRecord {
+            iteration: 0,
+            epoch,
+            state: state.clone(),
+            covariance: cov,
+            state_correction: correction.clone(),
+            state_correction_norm: correction.norm(),
+            cost: 1234.5,
+            rms_prefit_residual: 50.0,
+            rms_postfit_residual: 5.0,
+        };
+
+        assert_eq!(record.iteration, 0);
+        assert_eq!(record.state_correction_norm, 100.0);
+        assert_eq!(record.cost, 1234.5);
+    }
+
+    #[test]
+    fn test_bls_observation_residual_construction() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let residual = BLSObservationResidual {
+            epoch,
+            model_name: "InertialPosition".to_string(),
+            prefit_residual: DVector::from_vec(vec![10.0, 20.0, 30.0]),
+            postfit_residual: DVector::from_vec(vec![0.1, 0.2, 0.3]),
+        };
+
+        assert_eq!(residual.model_name, "InertialPosition");
+        assert_eq!(residual.prefit_residual.len(), 3);
+    }
 }

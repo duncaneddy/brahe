@@ -56,5 +56,5 @@ pub use measurement::{
 pub use traits::MeasurementModel;
 #[cfg(feature = "python")]
 pub(crate) use traits::measurement_jacobian_numerical;
-pub use types::{FilterRecord, Observation};
+pub use types::{BLSIterationRecord, BLSObservationResidual, FilterRecord, Observation};
 pub use ukf::UnscentedKalmanFilter;

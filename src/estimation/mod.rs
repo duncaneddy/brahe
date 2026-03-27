@@ -43,7 +43,9 @@ mod traits;
 mod types;
 mod ukf;
 
-pub use config::{BLSConfig, EKFConfig, ProcessNoiseConfig, UKFConfig};
+pub use config::{
+    BLSConfig, BLSSolverMethod, ConsiderParameterConfig, EKFConfig, ProcessNoiseConfig, UKFConfig,
+};
 pub use dynamics_source::DynamicsSource;
 pub use ekf::ExtendedKalmanFilter;
 pub use measurement::{

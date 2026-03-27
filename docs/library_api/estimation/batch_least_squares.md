@@ -2,13 +2,6 @@
 
 Iterative batch least squares estimator for offline orbit determination.
 
-## See Also
-
-- [Batch Least Squares (Learn)](../../learn/estimation/batch_least_squares.md) -- conceptual guide
-- [Measurement Models](measurement_models.md) -- built-in and custom models
-
----
-
 ::: brahe.BatchLeastSquares
     options:
       show_root_heading: true
@@ -48,3 +41,8 @@ Iterative batch least squares estimator for offline orbit determination.
     options:
       show_root_heading: true
       show_root_full_path: false
+
+## See Also
+
+- [Batch Least Squares (Learn)](../../learn/estimation/batch_least_squares.md) -- conceptual guide
+- [Measurement Models](measurement_models.md) -- built-in and custom models

@@ -37,7 +37,7 @@ def plot_measurement_residual_from_arrays(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot measurement residuals as a scatter overlay from raw numpy arrays.
 
     Each column of ``residuals`` is one measurement component and is drawn as
@@ -55,11 +55,10 @@ def plot_measurement_residual_from_arrays(
         backend_config (dict or None): Backend-specific configuration.
             Matplotlib keys: ``figsize``, ``legend_loc``, ``dark_mode``,
             ``ylabel_pad``.  Plotly keys: ``width``, ``height``.
-        **kwargs: Ignored.
+        **kwargs (dict): Ignored.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_measurement_residual_from_arrays backend={backend}")
@@ -100,7 +99,7 @@ def plot_measurement_residual_grid_from_arrays(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot measurement residuals in a subplot grid from raw numpy arrays.
 
     One subplot is created per measurement component.  Each subplot contains
@@ -120,11 +119,10 @@ def plot_measurement_residual_grid_from_arrays(
         backend_config (dict or None): Backend-specific configuration.
             Matplotlib keys: ``figsize``, ``legend_loc``, ``dark_mode``,
             ``ylabel_pad``.  Plotly keys: ``width``, ``height``.
-        **kwargs: Ignored.
+        **kwargs (dict): Ignored.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_measurement_residual_grid_from_arrays backend={backend}")
@@ -176,7 +174,7 @@ def plot_measurement_residual_rms_from_arrays(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot the per-epoch RMS of measurement residuals from raw numpy arrays.
 
     Computes ``rms[i] = sqrt(mean(residuals[i, :]**2))`` and draws a single
@@ -190,11 +188,10 @@ def plot_measurement_residual_rms_from_arrays(
         backend_config (dict or None): Backend-specific configuration.
             Matplotlib keys: ``figsize``, ``legend_loc``, ``dark_mode``,
             ``ylabel_pad``.  Plotly keys: ``width``, ``height``.
-        **kwargs: Ignored.
+        **kwargs (dict): Ignored.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_measurement_residual_rms_from_arrays backend={backend}")
@@ -231,7 +228,7 @@ def plot_measurement_residual(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot measurement residuals from a solved estimator.
 
     Extracts residuals from the solver and delegates to
@@ -240,7 +237,7 @@ def plot_measurement_residual(
     same axes using different markers and alpha levels.
 
     Args:
-        solver: A solved BatchLeastSquares, ExtendedKalmanFilter, or
+        solver (object): A solved BatchLeastSquares, ExtendedKalmanFilter, or
             UnscentedKalmanFilter instance.
         iteration (int): Iteration index for BLS (default -1, last).
             Ignored for sequential filters.
@@ -257,11 +254,10 @@ def plot_measurement_residual(
             when time_units="orbits".  Default: None.
         backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
         backend_config (dict or None): Backend-specific configuration.
-        **kwargs: Forwarded to the array-API function.
+        **kwargs (dict): Forwarded to the array-API function.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_measurement_residual backend={backend} type={residual_type}")
@@ -316,14 +312,14 @@ def plot_measurement_residual_grid(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot measurement residuals in a subplot grid from a solved estimator.
 
     Extracts residuals from the solver and delegates to
     :func:`plot_measurement_residual_grid_from_arrays`.
 
     Args:
-        solver: A solved BatchLeastSquares, ExtendedKalmanFilter, or
+        solver (object): A solved BatchLeastSquares, ExtendedKalmanFilter, or
             UnscentedKalmanFilter instance.
         iteration (int): Iteration index for BLS (default -1, last).
             Ignored for sequential filters.
@@ -336,11 +332,10 @@ def plot_measurement_residual_grid(
         orbital_period (float or None): Orbital period in seconds.  Default: None.
         backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
         backend_config (dict or None): Backend-specific configuration.
-        **kwargs: Forwarded to the array-API function.
+        **kwargs (dict): Forwarded to the array-API function.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_measurement_residual_grid backend={backend}")
@@ -380,14 +375,14 @@ def plot_measurement_residual_rms(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot the per-epoch RMS of measurement residuals from a solved estimator.
 
     When ``residual_type="both"``, prefit and postfit RMS lines are overlaid on
     the same axes.
 
     Args:
-        solver: A solved BatchLeastSquares, ExtendedKalmanFilter, or
+        solver (object): A solved BatchLeastSquares, ExtendedKalmanFilter, or
             UnscentedKalmanFilter instance.
         residual_type (str): "prefit", "postfit", or "both".
             Default: "postfit".
@@ -397,11 +392,10 @@ def plot_measurement_residual_rms(
         orbital_period (float or None): Orbital period in seconds.  Default: None.
         backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
         backend_config (dict or None): Backend-specific configuration.
-        **kwargs: Ignored.
+        **kwargs (dict): Ignored.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_measurement_residual_rms backend={backend} type={residual_type}")
@@ -516,12 +510,15 @@ def _residual_rms_both(solver, model_name, time_units, orbital_period, backend, 
 
 def _residual_single_matplotlib(times, residuals, labels, colors, time_label, cfg):
     """Matplotlib implementation for single-panel residual scatter."""
-    apply_scienceplots_style()
-    if cfg.get("dark_mode", False):
-        plt.style.use("dark_background")
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
 
     figsize = cfg.get("figsize", (10, 6))
     fig, ax = plt.subplots(figsize=figsize)
+
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        ax.set_facecolor("#1c1e24")
 
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.5)
 
@@ -537,6 +534,8 @@ def _residual_single_matplotlib(times, residuals, labels, colors, time_label, cf
             alpha=0.7,
         )
 
+    if len(times) > 1:
+        ax.set_xlim(times[0], times[-1])
     ax.set_xlabel(time_label)
     ax.set_ylabel("Residual")
     ax.yaxis.labelpad = cfg.get("ylabel_pad", 10)
@@ -551,14 +550,19 @@ def _residual_grid_matplotlib(
     times, residuals, labels, colors, n_components, ncols, time_label, cfg
 ):
     """Matplotlib implementation for grid residual scatter."""
-    apply_scienceplots_style()
-    if cfg.get("dark_mode", False):
-        plt.style.use("dark_background")
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
 
     nrows, ncols = compute_grid_layout(n_components, ncols)
     figsize = cfg.get("figsize", (15, 10))
 
     fig, axes_2d = plt.subplots(nrows, ncols, figsize=figsize)
+
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        for ax_row in np.atleast_2d(axes_2d):
+            for ax in ax_row:
+                ax.set_facecolor("#1c1e24")
     axes_2d = np.atleast_2d(axes_2d)
 
     for comp_idx in range(n_components):
@@ -594,15 +598,21 @@ def _residual_grid_matplotlib(
 
 def _residual_rms_matplotlib(times, rms, time_label, cfg):
     """Matplotlib implementation for RMS line plot."""
-    apply_scienceplots_style()
-    if cfg.get("dark_mode", False):
-        plt.style.use("dark_background")
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
 
     figsize = cfg.get("figsize", (10, 6))
     fig, ax = plt.subplots(figsize=figsize)
 
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        ax.set_facecolor("#1c1e24")
+
     ax.plot(times, rms, color="#1f77b4", label="RMS")
 
+    ax.set_ylim(bottom=0)
+    if len(times) > 1:
+        ax.set_xlim(times[0], times[-1])
     ax.set_xlabel(time_label)
     ax.set_ylabel("Residual RMS")
     ax.yaxis.labelpad = cfg.get("ylabel_pad", 10)
@@ -625,19 +635,22 @@ def _residual_both_matplotlib(
     cfg,
 ):
     """Matplotlib implementation for prefit/postfit overlay scatter."""
-    apply_scienceplots_style()
-    if cfg.get("dark_mode", False):
-        plt.style.use("dark_background")
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
 
     figsize = cfg.get("figsize", (10, 6))
     fig, ax = plt.subplots(figsize=figsize)
 
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        ax.set_facecolor("#1c1e24")
+
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.5)
 
-    for comp_idx in range(n_components):
-        color = colors[comp_idx]
-        lbl = labels[comp_idx]
+    color_pre = "#ff7f0e"  # orange — raw/unfiltered
+    color_post = "#1f77b4"  # blue  — filtered
 
+    for comp_idx in range(n_components):
         pre_data = (
             residuals_pre[:, comp_idx] if residuals_pre.ndim == 2 else residuals_pre
         )
@@ -648,27 +661,52 @@ def _residual_both_matplotlib(
         ax.scatter(
             time_pre,
             pre_data,
-            color=color,
+            color=color_pre,
             marker="o",
             s=15,
             alpha=0.5,
-            label=f"{lbl} (prefit)",
         )
         ax.scatter(
             time_post,
             post_data,
-            color=color,
+            color=color_post,
             marker="x",
             s=20,
             alpha=0.9,
-            label=f"{lbl} (postfit)",
         )
 
+    ax.legend(
+        handles=[
+            plt.Line2D(
+                [],
+                [],
+                color=color_pre,
+                marker="o",
+                linestyle="None",
+                markersize=5,
+                alpha=0.5,
+                label="Prefit",
+            ),
+            plt.Line2D(
+                [],
+                [],
+                color=color_post,
+                marker="x",
+                linestyle="None",
+                markersize=6,
+                alpha=0.9,
+                label="Postfit",
+            ),
+        ],
+        loc=cfg.get("legend_loc", "best"),
+    )
+
+    all_t = np.concatenate([time_pre, time_post])
+    if len(all_t) > 1:
+        ax.set_xlim(all_t.min(), all_t.max())
     ax.set_xlabel(time_label)
     ax.set_ylabel("Residual")
     ax.yaxis.labelpad = cfg.get("ylabel_pad", 10)
-    legend_loc = cfg.get("legend_loc", "best")
-    ax.legend(loc=legend_loc)
 
     plt.tight_layout()
     return fig
@@ -676,16 +714,23 @@ def _residual_both_matplotlib(
 
 def _rms_both_matplotlib(time_pre, rms_pre, time_post, rms_post, time_label, cfg):
     """Matplotlib implementation for prefit + postfit RMS overlay."""
-    apply_scienceplots_style()
-    if cfg.get("dark_mode", False):
-        plt.style.use("dark_background")
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
 
     figsize = cfg.get("figsize", (10, 6))
     fig, ax = plt.subplots(figsize=figsize)
 
-    ax.plot(time_pre, rms_pre, color="#1f77b4", label="Prefit RMS")
-    ax.plot(time_post, rms_post, color="#d62728", label="Postfit RMS")
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        ax.set_facecolor("#1c1e24")
 
+    ax.plot(time_pre, rms_pre, color="#ff7f0e", label="Prefit RMS")
+    ax.plot(time_post, rms_post, color="#1f77b4", label="Postfit RMS")
+
+    ax.set_ylim(bottom=0)
+    all_t = np.concatenate([time_pre, time_post])
+    if len(all_t) > 1:
+        ax.set_xlim(all_t.min(), all_t.max())
     ax.set_xlabel(time_label)
     ax.set_ylabel("Residual RMS")
     ax.yaxis.labelpad = cfg.get("ylabel_pad", 10)
@@ -817,6 +862,9 @@ def _residual_rms_plotly(times, rms, time_label, cfg):
         width=width,
         height=height,
     )
+    fig.update_yaxes(rangemode="tozero")
+    if len(times) > 1:
+        fig.update_xaxes(range=[times[0], times[-1]])
     return fig
 
 
@@ -846,10 +894,10 @@ def _residual_both_plotly(
             )
         )
 
-    for comp_idx in range(n_components):
-        color = colors[comp_idx]
-        lbl = labels[comp_idx]
+    color_pre = "#ff7f0e"  # orange — raw/unfiltered
+    color_post = "#1f77b4"  # blue  — filtered
 
+    for comp_idx in range(n_components):
         pre_data = (
             residuals_pre[:, comp_idx] if residuals_pre.ndim == 2 else residuals_pre
         )
@@ -862,8 +910,15 @@ def _residual_both_plotly(
                 x=time_pre,
                 y=pre_data,
                 mode="markers",
-                marker={"color": color, "symbol": "circle", "size": 5, "opacity": 0.5},
-                name=f"{lbl} (prefit)",
+                marker={
+                    "color": color_pre,
+                    "symbol": "circle",
+                    "size": 5,
+                    "opacity": 0.5,
+                },
+                name="Prefit",
+                legendgroup="prefit",
+                showlegend=(comp_idx == 0),
             )
         )
         fig.add_trace(
@@ -871,8 +926,10 @@ def _residual_both_plotly(
                 x=time_post,
                 y=post_data,
                 mode="markers",
-                marker={"color": color, "symbol": "x", "size": 6, "opacity": 0.9},
-                name=f"{lbl} (postfit)",
+                marker={"color": color_post, "symbol": "x", "size": 6, "opacity": 0.9},
+                name="Postfit",
+                legendgroup="postfit",
+                showlegend=(comp_idx == 0),
             )
         )
 
@@ -884,6 +941,9 @@ def _residual_both_plotly(
         width=width,
         height=height,
     )
+    all_t = list(time_pre) + list(time_post)
+    if len(all_t) > 1:
+        fig.update_xaxes(range=[min(all_t), max(all_t)])
     return fig
 
 
@@ -897,7 +957,7 @@ def _rms_both_plotly(time_pre, rms_pre, time_post, rms_post, time_label, cfg):
             y=rms_pre,
             mode="lines",
             name="Prefit RMS",
-            line={"color": "#1f77b4"},
+            line={"color": "#ff7f0e"},
         )
     )
     fig.add_trace(
@@ -906,7 +966,7 @@ def _rms_both_plotly(time_pre, rms_pre, time_post, rms_post, time_label, cfg):
             y=rms_post,
             mode="lines",
             name="Postfit RMS",
-            line={"color": "#d62728"},
+            line={"color": "#1f77b4"},
         )
     )
 
@@ -918,4 +978,8 @@ def _rms_both_plotly(time_pre, rms_pre, time_post, rms_post, time_label, cfg):
         width=width,
         height=height,
     )
+    fig.update_yaxes(rangemode="tozero")
+    all_t = list(time_pre) + list(time_post)
+    if len(all_t) > 1:
+        fig.update_xaxes(range=[min(all_t), max(all_t)])
     return fig

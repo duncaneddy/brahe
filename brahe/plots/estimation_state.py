@@ -48,7 +48,7 @@ def plot_estimator_state_error_from_arrays(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot estimator state error time series from raw numpy arrays.
 
     Draws one error line per series with optional ±sigma covariance bands and
@@ -72,11 +72,10 @@ def plot_estimator_state_error_from_arrays(
         backend_config (dict or None): Backend-specific configuration keys.
             Matplotlib keys: ``figsize``, ``legend_loc``, ``dark_mode``,
             ``ylabel_pad``.  Plotly keys: ``width``, ``height``.
-        **kwargs: Ignored (reserved for forward-compatibility).
+        **kwargs (dict): Ignored (reserved for forward-compatibility).
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_estimator_state_error_from_arrays backend={backend}")
@@ -139,7 +138,7 @@ def plot_estimator_state_value_from_arrays(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot estimator state value time series from raw numpy arrays.
 
     Draws one estimated-value line per series with an optional truth reference
@@ -162,11 +161,10 @@ def plot_estimator_state_value_from_arrays(
         backend_config (dict or None): Backend-specific configuration.
             Matplotlib keys: ``figsize``, ``legend_loc``, ``dark_mode``,
             ``ylabel_pad``.  Plotly keys: ``width``, ``height``.
-        **kwargs: Ignored.
+        **kwargs (dict): Ignored.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_estimator_state_value_from_arrays backend={backend}")
@@ -229,7 +227,7 @@ def plot_estimator_state_error_grid_from_arrays(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot a grid of state error time series from raw numpy arrays.
 
     Each subplot corresponds to one state component.  One line (and optional
@@ -251,11 +249,10 @@ def plot_estimator_state_error_grid_from_arrays(
         backend_config (dict or None): Backend-specific configuration.
             Matplotlib keys: ``figsize``, ``legend_subplot``, ``legend_loc``,
             ``dark_mode``, ``ylabel_pad``.  Plotly keys: ``width``, ``height``.
-        **kwargs: Ignored.
+        **kwargs (dict): Ignored.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_estimator_state_error_grid_from_arrays backend={backend}")
@@ -324,7 +321,7 @@ def plot_estimator_state_value_grid_from_arrays(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot a grid of state value time series from raw numpy arrays.
 
     Each subplot corresponds to one state component.  An optional truth
@@ -348,11 +345,10 @@ def plot_estimator_state_value_grid_from_arrays(
         backend_config (dict or None): Backend-specific configuration.
             Matplotlib keys: ``figsize``, ``legend_subplot``, ``legend_loc``,
             ``dark_mode``, ``ylabel_pad``.  Plotly keys: ``width``, ``height``.
-        **kwargs: Ignored.
+        **kwargs (dict): Ignored.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_estimator_state_value_grid_from_arrays backend={backend}")
@@ -424,7 +420,7 @@ def plot_estimator_state_error(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot state error time series for one or more solved estimators.
 
     Extracts state estimates and truth from solver objects, computes errors,
@@ -433,7 +429,7 @@ def plot_estimator_state_error(
     Args:
         solvers (list): List of solved estimator objects (BatchLeastSquares,
             ExtendedKalmanFilter, or UnscentedKalmanFilter).
-        true_trajectory: An OrbitTrajectory instance representing ground truth.
+        true_trajectory (object): An OrbitTrajectory instance representing ground truth.
         state_index (int): Which state component to plot.  Default: 0.
         sigma (float or None): Sigma multiplier for covariance bands.  None
             means no bands are drawn.  Default: None.
@@ -450,11 +446,10 @@ def plot_estimator_state_error(
             overlay as scatter markers at state_index.  Default: None.
         backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
         backend_config (dict or None): Backend-specific configuration.
-        **kwargs: Forwarded to the array-API function.
+        **kwargs (dict): Forwarded to the array-API function.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     all_times = []
     all_errors = []
@@ -511,7 +506,7 @@ def plot_estimator_state_value(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot state value time series for one or more solved estimators with truth overlay.
 
     Extracts estimated state history and truth from solver objects, then
@@ -519,7 +514,7 @@ def plot_estimator_state_value(
 
     Args:
         solvers (list): List of solved estimator objects.
-        true_trajectory: An OrbitTrajectory instance representing ground truth.
+        true_trajectory (object): An OrbitTrajectory instance representing ground truth.
         state_index (int): Which state component to plot.  Default: 0.
         sigma (float or None): Sigma multiplier for covariance bands.  None
             means no bands are drawn.  Default: None.
@@ -532,11 +527,10 @@ def plot_estimator_state_value(
             when time_units="orbits".  Default: None.
         backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
         backend_config (dict or None): Backend-specific configuration.
-        **kwargs: Forwarded to the array-API function.
+        **kwargs (dict): Forwarded to the array-API function.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     all_times = []
     all_values = []
@@ -593,7 +587,7 @@ def plot_estimator_state_error_grid(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot a grid of state error time series for one or more solved estimators.
 
     Extracts state errors for all (or selected) state components and delegates
@@ -601,7 +595,7 @@ def plot_estimator_state_error_grid(
 
     Args:
         solvers (list): List of solved estimator objects.
-        true_trajectory: An OrbitTrajectory instance representing ground truth.
+        true_trajectory (object): An OrbitTrajectory instance representing ground truth.
         state_indices (list[int] or None): State components to include.  None
             means all components.  Default: None.
         sigma (float or None): Sigma multiplier for covariance bands.  Default: None.
@@ -614,11 +608,10 @@ def plot_estimator_state_error_grid(
         orbital_period (float or None): Orbital period in seconds.  Default: None.
         backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
         backend_config (dict or None): Backend-specific configuration.
-        **kwargs: Forwarded to the array-API function.
+        **kwargs (dict): Forwarded to the array-API function.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     all_times = []
     all_errors = []
@@ -675,7 +668,7 @@ def plot_estimator_state_value_grid(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot a grid of state value time series for one or more solved estimators.
 
     Extracts estimated state history and truth for all (or selected) state
@@ -684,7 +677,7 @@ def plot_estimator_state_value_grid(
 
     Args:
         solvers (list): List of solved estimator objects.
-        true_trajectory: An OrbitTrajectory instance representing ground truth.
+        true_trajectory (object): An OrbitTrajectory instance representing ground truth.
         state_indices (list[int] or None): State components to include.  None
             means all components.  Default: None.
         sigma (float or None): Sigma multiplier for covariance bands.  Default: None.
@@ -697,11 +690,10 @@ def plot_estimator_state_value_grid(
         orbital_period (float or None): Orbital period in seconds.  Default: None.
         backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
         backend_config (dict or None): Backend-specific configuration.
-        **kwargs: Forwarded to the array-API function.
+        **kwargs (dict): Forwarded to the array-API function.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     all_times = []
     all_values = []
@@ -766,12 +758,15 @@ def _state_error_single_matplotlib(
     sigma_level=None,
 ):
     """Matplotlib implementation for single-state error plot."""
-    apply_scienceplots_style()
-    if cfg.get("dark_mode", False):
-        plt.style.use("dark_background")
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
 
     figsize = cfg.get("figsize", (10, 6))
     fig, ax = plt.subplots(figsize=figsize)
+
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        ax.set_facecolor("#1c1e24")
 
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.5)
 
@@ -828,12 +823,15 @@ def _state_value_single_matplotlib(
     sigma_level=None,
 ):
     """Matplotlib implementation for single-state value plot."""
-    apply_scienceplots_style()
-    if cfg.get("dark_mode", False):
-        plt.style.use("dark_background")
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
 
     figsize = cfg.get("figsize", (10, 6))
     fig, ax = plt.subplots(figsize=figsize)
+
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        ax.set_facecolor("#1c1e24")
 
     for i, (t, v) in enumerate(zip(times, values)):
         color = colors[i]
@@ -884,9 +882,8 @@ def _state_error_grid_matplotlib(
     sigma_level=None,
 ):
     """Matplotlib implementation for multi-state error grid."""
-    apply_scienceplots_style()
-    if cfg.get("dark_mode", False):
-        plt.style.use("dark_background")
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
 
     n_states = len(state_labels)
     nrows, ncols = compute_grid_layout(n_states, ncols)
@@ -897,6 +894,12 @@ def _state_error_grid_matplotlib(
     fig, axes_2d = plt.subplots(nrows, ncols, figsize=figsize)
     # Normalise to 2-D array regardless of nrows/ncols
     axes_2d = np.atleast_2d(axes_2d)
+
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        for ax_row in axes_2d:
+            for ax in np.atleast_1d(ax_row):
+                ax.set_facecolor("#1c1e24")
 
     for state_idx in range(n_states):
         row = state_idx // ncols
@@ -955,9 +958,8 @@ def _state_value_grid_matplotlib(
     sigma_level=None,
 ):
     """Matplotlib implementation for multi-state value grid."""
-    apply_scienceplots_style()
-    if cfg.get("dark_mode", False):
-        plt.style.use("dark_background")
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
 
     n_states = len(state_labels)
     nrows, ncols = compute_grid_layout(n_states, ncols)
@@ -967,6 +969,12 @@ def _state_value_grid_matplotlib(
 
     fig, axes_2d = plt.subplots(nrows, ncols, figsize=figsize)
     axes_2d = np.atleast_2d(axes_2d)
+
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        for ax_row in axes_2d:
+            for ax in np.atleast_1d(ax_row):
+                ax.set_facecolor("#1c1e24")
 
     for state_idx in range(n_states):
         row = state_idx // ncols

@@ -59,35 +59,43 @@ def is_latex_available():
     return shutil.which("latex") is not None or shutil.which("pdflatex") is not None
 
 
-def apply_scienceplots_style():
-    """Apply scienceplots styling if available.
+def apply_scienceplots_style(dark_mode=False):
+    """Apply scienceplots styling if available, with optional dark mode.
 
-    Automatically detects if LaTeX is available and applies the appropriate style:
-    - If LaTeX is available: applies 'science' style (with LaTeX rendering)
-    - If LaTeX is not available: applies 'science' and 'no-latex' styles
+    Composes all requested styles as a single list so they layer properly.
+    When *dark_mode* is ``True`` the ``"dark_background"`` style is appended
+    **after** the scienceplots styles, preserving the science formatting while
+    switching to a dark colour scheme.
+
+    Args:
+        dark_mode (bool): If True, append ``"dark_background"`` to the style
+            list so it composes with scienceplots rather than overriding it.
 
     Returns:
-        bool: True if scienceplots was applied, False otherwise
+        bool: True if any styles were applied, False otherwise.
     """
+    import matplotlib.pyplot as plt
+
+    styles = []
+
     if is_scienceplots_available() and is_matplotlib_available():
         try:
-            import matplotlib.pyplot as plt
             import scienceplots  # noqa: F401 - Import to register styles with matplotlib
 
-            if is_latex_available():
-                # LaTeX is available, use full science style
-                plt.style.use("science")
-                logger.debug("Applied scienceplots style with LaTeX support.")
-            else:
-                # No LaTeX, use no-latex variant
-                plt.style.use(["science", "no-latex"])
-                logger.debug("Applied scienceplots style without LaTeX support.")
-
-            return True
+            styles.append("science")
+            if not is_latex_available():
+                styles.append("no-latex")
+            styles.append("ieee")
         except Exception as e:
-            logger.debug(f"Failed to apply scienceplots style: {e}")
-            return False
-    else:
-        if not is_scienceplots_available():
-            logger.debug("scienceplots not installed, skipping style application.")
-        return False
+            logger.debug(f"Failed to load scienceplots: {e}")
+
+    if dark_mode:
+        styles.append("dark_background")
+
+    if styles:
+        plt.style.use(styles)
+        logger.debug(f"Applied matplotlib styles: {styles}")
+        return True
+
+    logger.debug("No matplotlib styles applied.")
+    return False

@@ -99,7 +99,8 @@ def _marginal_matplotlib(
     cfg,
 ):
     """Matplotlib implementation for marginal distribution plot."""
-    apply_scienceplots_style()
+    dark_mode = cfg.get("dark_mode", False)
+    apply_scienceplots_style(dark_mode=dark_mode)
     figsize = cfg.get("figsize", (8, 8))
 
     if show_marginals:
@@ -117,8 +118,22 @@ def _marginal_matplotlib(
         ax_right = fig.add_subplot(gs[1, 1], sharey=ax_main)
         ax_top.tick_params(labelbottom=False)
         ax_right.tick_params(labelleft=False)
+
+        # Remove unnecessary spines — keep only the labeled scale axes
+        for spine in ("top", "right", "left"):
+            ax_top.spines[spine].set_visible(False)
+        ax_top.tick_params(left=False)
+
+        for spine in ("top", "right", "bottom"):
+            ax_right.spines[spine].set_visible(False)
+        ax_right.tick_params(bottom=False)
     else:
         fig, ax_main = plt.subplots(1, 1, figsize=figsize)
+
+    if dark_mode:
+        fig.patch.set_facecolor("#1c1e24")
+        for ax in fig.get_axes():
+            ax.set_facecolor("#1c1e24")
 
     # Scatter overlay
     if scatter_points is not None:
@@ -184,7 +199,7 @@ def _marginal_plotly(
     cfg,
 ):
     """Plotly implementation for marginal distribution plot."""
-    width = cfg.get("width", 800)
+    width = cfg.get("width", None)
     height = cfg.get("height", 800)
 
     x_label, y_label = state_labels
@@ -215,7 +230,8 @@ def _marginal_plotly(
             mode="markers",
             marker=dict(color="gray", size=4, opacity=0.3),
             showlegend=False,
-            name="_scatter",
+            text=[f"Obs {i}" for i in range(len(scatter_points))],
+            hovertemplate="%{text}<br>x: %{x:.4g}<br>y: %{y:.4g}<extra></extra>",
         )
         if show_marginals:
             fig.add_trace(scatter_trace, row=main_row, col=main_col)
@@ -294,13 +310,23 @@ def _marginal_plotly(
     if show_marginals:
         fig.update_xaxes(title_text=x_label, row=main_row, col=main_col)
         fig.update_yaxes(title_text=y_label, row=main_row, col=main_col)
+
+        # Hide top and right axis lines on marginal density subplots
+        fig.update_xaxes(showline=False, row=top_row, col=top_col)
+        fig.update_yaxes(showline=False, row=top_row, col=top_col)
+        fig.update_xaxes(showline=False, row=right_row, col=right_col)
+        fig.update_yaxes(showline=False, row=right_row, col=right_col)
     else:
         fig.update_layout(
             xaxis_title=x_label,
             yaxis_title=y_label,
         )
 
-    fig.update_layout(width=width, height=height)
+    fig.update_layout(
+        width=width,
+        height=height,
+        margin=dict(l=60, r=20, t=20, b=60),
+    )
     return fig
 
 
@@ -321,7 +347,7 @@ def plot_estimator_marginal_from_arrays(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot 2D covariance ellipses with optional marginal density curves from arrays.
 
     Each entry in ``means`` / ``covariances`` represents one estimator series.
@@ -346,11 +372,10 @@ def plot_estimator_marginal_from_arrays(
         backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
         backend_config (dict or None): Backend-specific configuration.
             Matplotlib keys: ``figsize``.  Plotly keys: ``width``, ``height``.
-        **kwargs: Ignored (reserved for forward-compatibility).
+        **kwargs (dict): Ignored (reserved for forward-compatibility).
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_estimator_marginal_from_arrays backend={backend}")
@@ -415,7 +440,7 @@ def plot_estimator_marginal(
     backend="matplotlib",
     backend_config=None,
     **kwargs,
-):
+) -> object:
     """Plot 2D covariance ellipses with optional marginals from solved estimators.
 
     Extracts the 2x2 sub-covariance and 2D sub-state from each solver using the
@@ -439,11 +464,10 @@ def plot_estimator_marginal(
             Default: True.
         backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
         backend_config (dict or None): Backend-specific configuration.
-        **kwargs: Ignored.
+        **kwargs (dict): Ignored.
 
     Returns:
-        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
-        figure object.
+        Generated matplotlib or plotly figure object.
     """
     start = _time.time()
     logger.info(f"plot_estimator_marginal backend={backend} n_solvers={len(solvers)}")

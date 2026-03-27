@@ -46,6 +46,10 @@ initial_state = true_state.copy()
 initial_state[0] += 1000.0
 p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 
+# Process noise prevents covariance collapse in unobserved states
+q = np.diag([1e-4, 1e-4, 1e-4, 1e-6, 1e-6, 1e-6])
+ekf_config = bh.EKFConfig(process_noise=bh.ProcessNoiseConfig(q, scale_with_dt=True))
+
 ekf = bh.ExtendedKalmanFilter(
     epoch,
     initial_state,
@@ -53,6 +57,7 @@ ekf = bh.ExtendedKalmanFilter(
     measurement_models=[bh.ECEFPositionMeasurementModel(5.0)],
     propagation_config=bh.NumericalPropagationConfig.default(),
     force_config=bh.ForceModelConfig.two_body(),
+    config=ekf_config,
 )
 
 for obs in observations:

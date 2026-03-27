@@ -752,13 +752,16 @@ def _state_error_single_matplotlib(
 
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.5)
 
+    sigma_label_shown = False
     for i, (t, e) in enumerate(zip(times, errors)):
         color = colors[i]
         label = labels[i]
         ax.plot(t, e, color=color, label=label)
         if sigmas is not None and i < len(sigmas):
             s = sigmas[i]
-            ax.fill_between(t, e - s, e + s, color=color, alpha=0.2)
+            band_label = f"{label} ±σ" if not sigma_label_shown else None
+            ax.fill_between(t, -s, s, color=color, alpha=0.2, label=band_label)
+            sigma_label_shown = True
 
     if measurements is not None:
         meas_t, meas_v = measurements
@@ -771,6 +774,11 @@ def _state_error_single_matplotlib(
             zorder=5,
             label="Measurements",
         )
+
+    # Set x-limits to data extent
+    all_t = np.concatenate(times)
+    if all_t.max() > all_t.min():
+        ax.set_xlim(all_t.min(), all_t.max())
 
     ax.set_xlabel(time_label)
     ax.set_ylabel(state_label)
@@ -869,9 +877,13 @@ def _state_error_grid_matplotlib(
             ax.plot(t, e[:, state_idx], color=color, label=label)
             if sigmas is not None and series_idx < len(sigmas):
                 s = sigmas[series_idx][:, state_idx]
-                ax.fill_between(
-                    t, e[:, state_idx] - s, e[:, state_idx] + s, color=color, alpha=0.2
-                )
+                band_label = f"{label} ±σ" if state_idx == 0 else None
+                ax.fill_between(t, -s, s, color=color, alpha=0.2, label=band_label)
+
+        # Set x-limits to data extent
+        all_t = np.concatenate(times)
+        if all_t.max() > all_t.min():
+            ax.set_xlim(all_t.min(), all_t.max())
 
         ax.set_ylabel(state_labels[state_idx])
         ax.yaxis.labelpad = cfg.get("ylabel_pad", 10)
@@ -1017,7 +1029,7 @@ def _state_error_single_plotly(
         if sigmas is not None and i < len(sigmas):
             s = sigmas[i]
             fig.add_trace(
-                _make_plotly_band(t, e - s, e + s, color, f"{label} ±σ", label, False)
+                _make_plotly_band(t, -s, s, color, f"{label} ±σ", label, i == 0)
             )
 
     # Zero reference line
@@ -1160,12 +1172,12 @@ def _state_error_grid_plotly(
                 s = sigmas[series_idx][:, state_idx]
                 band = _make_plotly_band(
                     t,
-                    e[:, state_idx] - s,
-                    e[:, state_idx] + s,
+                    -s,
+                    s,
                     color,
                     f"{label} ±σ",
                     label,
-                    False,
+                    is_first_state,
                 )
                 fig.add_trace(band, row=row, col=col)
 

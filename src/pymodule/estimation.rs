@@ -24,14 +24,6 @@ use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy};
 ///
 /// Controls how process noise Q is applied to the predicted covariance.
 ///
-/// Args:
-///     q_matrix (numpy.ndarray): Process noise matrix Q (state_dim x state_dim).
-///     scale_with_dt (bool): If True, Q scales with time step (continuous-time model).
-///         Defaults to False.
-///
-/// Returns:
-///     ProcessNoiseConfig: New process noise configuration.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -49,6 +41,15 @@ pub struct PyProcessNoiseConfig {
 
 #[pymethods]
 impl PyProcessNoiseConfig {
+    /// Create a new ProcessNoiseConfig.
+    ///
+    /// Args:
+    ///     q_matrix (numpy.ndarray): Process noise matrix Q (state_dim x state_dim).
+    ///     scale_with_dt (bool): If True, Q scales with time step (continuous-time model).
+    ///         Defaults to False.
+    ///
+    /// Returns:
+    ///     ProcessNoiseConfig: New process noise configuration.
     #[new]
     #[pyo3(signature = (q_matrix, scale_with_dt=false))]
     fn new(q_matrix: PyReadonlyArray2<f64>, scale_with_dt: bool) -> PyResult<Self> {
@@ -106,13 +107,6 @@ impl PyProcessNoiseConfig {
 
 /// Configuration for the Extended Kalman Filter.
 ///
-/// Args:
-///     process_noise (ProcessNoiseConfig or None): Optional process noise. Defaults to None.
-///     store_records (bool): Whether to store filter records. Defaults to True.
-///
-/// Returns:
-///     EKFConfig: New EKF configuration.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -130,6 +124,14 @@ pub struct PyEKFConfig {
 
 #[pymethods]
 impl PyEKFConfig {
+    /// Create a new EKFConfig.
+    ///
+    /// Args:
+    ///     process_noise (ProcessNoiseConfig or None): Optional process noise. Defaults to None.
+    ///     store_records (bool): Whether to store filter records. Defaults to True.
+    ///
+    /// Returns:
+    ///     EKFConfig: New EKF configuration.
     #[new]
     #[pyo3(signature = (process_noise=None, store_records=true))]
     fn new(process_noise: Option<PyProcessNoiseConfig>, store_records: bool) -> Self {
@@ -177,14 +179,6 @@ impl PyEKFConfig {
 
 /// A single observation (measurement) at a specific epoch.
 ///
-/// Args:
-///     epoch (Epoch): Time of the observation.
-///     measurement (numpy.ndarray): Measurement vector z in SI units.
-///     model_index (int): Index into the estimator's measurement model list.
-///
-/// Returns:
-///     Observation: New observation instance.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -201,6 +195,15 @@ pub struct PyObservation {
 
 #[pymethods]
 impl PyObservation {
+    /// Create a new Observation.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Time of the observation.
+    ///     measurement (numpy.ndarray): Measurement vector z in SI units.
+    ///     model_index (int): Index into the estimator's measurement model list.
+    ///
+    /// Returns:
+    ///     Observation: New observation instance.
     #[new]
     #[pyo3(signature = (epoch, measurement, model_index=0))]
     fn new(
@@ -1137,10 +1140,11 @@ impl PyMeasurementModel {
     ///
     /// Returns:
     ///     numpy.ndarray: Predicted measurement vector.
+    #[allow(unused_variables)]
     fn predict(
         &self,
-        _epoch: &PyEpoch,
-        _state: PyReadonlyArray1<f64>,
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
     ) -> PyResult<Py<PyAny>> {
         Err(exceptions::PyNotImplementedError::new_err(
             "Subclasses must implement predict()",
@@ -1158,10 +1162,11 @@ impl PyMeasurementModel {
     ///
     /// Returns:
     ///     numpy.ndarray or None: Jacobian matrix, or None for finite-diff.
+    #[allow(unused_variables)]
     fn jacobian(
         &self,
-        _epoch: &PyEpoch,
-        _state: PyReadonlyArray1<f64>,
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
     ) -> PyResult<Py<PyAny>> {
         // Default: return None to signal finite-diff fallback
         Python::attach(|py| Ok(py.None()))
@@ -1481,21 +1486,6 @@ fn process_measurement_models(
 /// between observation epochs using a numerical propagator. Supports both
 /// built-in and custom Python measurement models.
 ///
-/// Args:
-///     epoch (Epoch): Initial epoch.
-///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
-///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
-///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-///     force_config (ForceModelConfig): Force model configuration.
-///     measurement_models (list): List of measurement models (built-in or custom).
-///     config (EKFConfig or None): EKF configuration. Defaults to EKFConfig.default().
-///     params (numpy.ndarray or None): Parameter vector for force models.
-///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
-///     control_input (callable or None): Control input function f(t, state, params) -> acceleration.
-///
-/// Returns:
-///     ExtendedKalmanFilter: New EKF instance.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -1522,6 +1512,22 @@ pub struct PyExtendedKalmanFilter {
 
 #[pymethods]
 impl PyExtendedKalmanFilter {
+    /// Create a new ExtendedKalmanFilter.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+    ///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
+    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+    ///     force_config (ForceModelConfig): Force model configuration.
+    ///     measurement_models (list): List of measurement models (built-in or custom).
+    ///     config (EKFConfig or None): EKF configuration. Defaults to EKFConfig.default().
+    ///     params (numpy.ndarray or None): Parameter vector for force models.
+    ///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
+    ///     control_input (callable or None): Control input function f(t, state, params) -> acceleration.
+    ///
+    /// Returns:
+    ///     ExtendedKalmanFilter: New EKF instance.
     #[new]
     #[pyo3(signature = (
         epoch, state, initial_covariance,
@@ -1776,17 +1782,6 @@ impl PyExtendedKalmanFilter {
 
 /// Configuration for the Unscented Kalman Filter.
 ///
-/// Args:
-///     state_dim (int): State vector dimension. Defaults to 6.
-///     alpha (float): Sigma point spread parameter (typically 1e-3). Defaults to 1e-3.
-///     beta (float): Distribution parameter (2.0 for Gaussian). Defaults to 2.0.
-///     kappa (float): Secondary scaling parameter (typically 0.0). Defaults to 0.0.
-///     process_noise (ProcessNoiseConfig or None): Optional process noise. Defaults to None.
-///     store_records (bool): Whether to store filter records. Defaults to True.
-///
-/// Returns:
-///     UKFConfig: New UKF configuration.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -1801,6 +1796,18 @@ pub struct PyUKFConfig {
 
 #[pymethods]
 impl PyUKFConfig {
+    /// Create a new UKFConfig.
+    ///
+    /// Args:
+    ///     state_dim (int): State vector dimension. Defaults to 6.
+    ///     alpha (float): Sigma point spread parameter (typically 1e-3). Defaults to 1e-3.
+    ///     beta (float): Distribution parameter (2.0 for Gaussian). Defaults to 2.0.
+    ///     kappa (float): Secondary scaling parameter (typically 0.0). Defaults to 0.0.
+    ///     process_noise (ProcessNoiseConfig or None): Optional process noise. Defaults to None.
+    ///     store_records (bool): Whether to store filter records. Defaults to True.
+    ///
+    /// Returns:
+    ///     UKFConfig: New UKF configuration.
     #[new]
     #[pyo3(signature = (state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0, process_noise=None, store_records=true))]
     fn new(
@@ -1881,21 +1888,6 @@ impl PyUKFConfig {
 /// and measurement models without linearization. Does not require Jacobians
 /// or STM propagation.
 ///
-/// Args:
-///     epoch (Epoch): Initial epoch.
-///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
-///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
-///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-///     force_config (ForceModelConfig): Force model configuration.
-///     measurement_models (list): List of measurement models (built-in or custom).
-///     config (UKFConfig or None): UKF configuration. Defaults to UKFConfig.default().
-///     params (numpy.ndarray or None): Parameter vector for force models.
-///     additional_dynamics (callable or None): Additional dynamics function.
-///     control_input (callable or None): Control input function.
-///
-/// Returns:
-///     UnscentedKalmanFilter: New UKF instance.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -1922,6 +1914,22 @@ pub struct PyUnscentedKalmanFilter {
 
 #[pymethods]
 impl PyUnscentedKalmanFilter {
+    /// Create a new UnscentedKalmanFilter.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial epoch.
+    ///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+    ///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
+    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+    ///     force_config (ForceModelConfig): Force model configuration.
+    ///     measurement_models (list): List of measurement models (built-in or custom).
+    ///     config (UKFConfig or None): UKF configuration. Defaults to UKFConfig.default().
+    ///     params (numpy.ndarray or None): Parameter vector for force models.
+    ///     additional_dynamics (callable or None): Additional dynamics function.
+    ///     control_input (callable or None): Control input function.
+    ///
+    /// Returns:
+    ///     UnscentedKalmanFilter: New UKF instance.
     #[new]
     #[pyo3(signature = (
         epoch, state, initial_covariance,
@@ -2224,14 +2232,6 @@ fn map_solver_method(value: u8) -> PyResult<estimation::BLSSolverMethod> {
 /// consider (remaining elements) parameters. The consider parameters are
 /// not estimated but their uncertainty is accounted for in the covariance.
 ///
-/// Args:
-///     n_solve (int): Number of solve-for parameters (first n elements of state).
-///     consider_covariance (numpy.ndarray): A priori covariance for the consider
-///         parameters (n_c x n_c), where n_c = state_dim - n_solve.
-///
-/// Returns:
-///     ConsiderParameterConfig: New consider parameter configuration.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -2250,6 +2250,15 @@ pub struct PyConsiderParameterConfig {
 
 #[pymethods]
 impl PyConsiderParameterConfig {
+    /// Create a new ConsiderParameterConfig.
+    ///
+    /// Args:
+    ///     n_solve (int): Number of solve-for parameters (first n elements of state).
+    ///     consider_covariance (numpy.ndarray): A priori covariance for the consider
+    ///         parameters (n_c x n_c), where n_c = state_dim - n_solve.
+    ///
+    /// Returns:
+    ///     ConsiderParameterConfig: New consider parameter configuration.
     #[new]
     fn new(n_solve: usize, consider_covariance: PyReadonlyArray2<f64>) -> PyResult<Self> {
         let shape = consider_covariance.shape();
@@ -2304,22 +2313,6 @@ impl PyConsiderParameterConfig {
 
 /// Configuration for the Batch Least Squares estimator.
 ///
-/// Args:
-///     solver_method (int): Solver formulation. Use ``BLSSolverMethod.NORMAL_EQUATIONS`` (0)
-///         or ``BLSSolverMethod.STACKED_OBSERVATION_MATRIX`` (1). Defaults to 0.
-///     max_iterations (int): Maximum Gauss-Newton iterations. Defaults to 10.
-///     state_correction_threshold (float or None): Convergence threshold on ||delta_x||.
-///         Defaults to 1e-8.
-///     cost_convergence_threshold (float or None): Convergence threshold on relative cost change.
-///         Defaults to None.
-///     consider_params (ConsiderParameterConfig or None): Consider parameter configuration.
-///         Defaults to None.
-///     store_iteration_records (bool): Whether to store per-iteration diagnostics. Defaults to True.
-///     store_observation_residuals (bool): Whether to store per-observation residuals. Defaults to True.
-///
-/// Returns:
-///     BLSConfig: New BLS configuration.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -2336,6 +2329,23 @@ pub struct PyBLSConfig {
 
 #[pymethods]
 impl PyBLSConfig {
+    /// Create a new BLSConfig.
+    ///
+    /// Args:
+    ///     solver_method (int): Solver formulation. Use ``BLSSolverMethod.NORMAL_EQUATIONS`` (0)
+    ///         or ``BLSSolverMethod.STACKED_OBSERVATION_MATRIX`` (1). Defaults to 0.
+    ///     max_iterations (int): Maximum Gauss-Newton iterations. Defaults to 10.
+    ///     state_correction_threshold (float or None): Convergence threshold on ||delta_x||.
+    ///         Defaults to 1e-8.
+    ///     cost_convergence_threshold (float or None): Convergence threshold on relative cost change.
+    ///         Defaults to None.
+    ///     consider_params (ConsiderParameterConfig or None): Consider parameter configuration.
+    ///         Defaults to None.
+    ///     store_iteration_records (bool): Whether to store per-iteration diagnostics. Defaults to True.
+    ///     store_observation_residuals (bool): Whether to store per-observation residuals. Defaults to True.
+    ///
+    /// Returns:
+    ///     BLSConfig: New BLS configuration.
     #[new]
     #[pyo3(signature = (
         solver_method=0,
@@ -2644,21 +2654,6 @@ impl PyBLSObservationResidual {
 /// Gauss-Newton algorithm. Supports both normal equations and stacked
 /// observation matrix solver formulations.
 ///
-/// Args:
-///     epoch (Epoch): Initial (reference) epoch.
-///     initial_state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
-///     initial_covariance (numpy.ndarray): A priori covariance matrix (n x n).
-///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-///     force_config (ForceModelConfig): Force model configuration.
-///     measurement_models (list): List of measurement models (built-in or custom).
-///     config (BLSConfig or None): BLS configuration. Defaults to BLSConfig.default().
-///     params (numpy.ndarray or None): Parameter vector for force models.
-///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
-///     control_input (callable or None): Control input function f(t, state, params) -> acceleration.
-///
-/// Returns:
-///     BatchLeastSquares: New BLS instance.
-///
 /// Example:
 ///     ```python
 ///     import brahe as bh
@@ -2685,6 +2680,22 @@ pub struct PyBatchLeastSquares {
 
 #[pymethods]
 impl PyBatchLeastSquares {
+    /// Create a new BatchLeastSquares estimator.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Initial (reference) epoch.
+    ///     initial_state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+    ///     initial_covariance (numpy.ndarray): A priori covariance matrix (n x n).
+    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+    ///     force_config (ForceModelConfig): Force model configuration.
+    ///     measurement_models (list): List of measurement models (built-in or custom).
+    ///     config (BLSConfig or None): BLS configuration. Defaults to BLSConfig.default().
+    ///     params (numpy.ndarray or None): Parameter vector for force models.
+    ///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
+    ///     control_input (callable or None): Control input function f(t, state, params) -> acceleration.
+    ///
+    /// Returns:
+    ///     BatchLeastSquares: New BLS instance.
     #[new]
     #[pyo3(signature = (
         epoch, initial_state, initial_covariance,

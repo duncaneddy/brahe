@@ -1,4 +1,4 @@
-"""Tests for estimation_state array-API plotting functions."""
+"""Tests for estimation_state array-API and solver-API plotting functions."""
 
 import matplotlib
 
@@ -9,11 +9,17 @@ import pytest
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
+import brahe as bh
+
 from brahe.plots.estimation_state import (
     plot_estimator_state_error_from_arrays,
     plot_estimator_state_value_from_arrays,
     plot_estimator_state_error_grid_from_arrays,
     plot_estimator_state_value_grid_from_arrays,
+    plot_estimator_state_error,
+    plot_estimator_state_value,
+    plot_estimator_state_error_grid,
+    plot_estimator_state_value_grid,
 )
 
 
@@ -668,3 +674,372 @@ class TestInvalidBackend:
             plot_estimator_state_value_grid_from_arrays(
                 [times], [values], backend="bokeh"
             )
+
+
+# =============================================================================
+# Solver-API fixtures
+# =============================================================================
+
+
+@pytest.fixture(scope="module")
+def solved_bls():
+    """Solve a BLS with a perturbed LEO initial state against position observations.
+
+    Returns (bls, truth_trajectory) where truth_trajectory is an OrbitTrajectory
+    built from the propagated truth orbit.
+    """
+    bh.initialize_eop()
+
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    r = bh.R_EARTH + 500e3
+    v = (bh.GM_EARTH / r) ** 0.5
+    true_state = np.array([r, 0.0, 0.0, 0.0, v, 0.0])
+
+    # Propagate truth and build OrbitTrajectory
+    prop_truth = bh.NumericalOrbitPropagator(
+        epoch,
+        true_state,
+        bh.NumericalPropagationConfig.default(),
+        bh.ForceModelConfig.two_body(),
+    )
+
+    traj = bh.OrbitTrajectory(
+        6,
+        bh.OrbitFrame.ECI,
+        bh.OrbitRepresentation.CARTESIAN,
+        None,
+    )
+    traj.add(epoch, true_state)
+
+    observations = []
+    for i in range(1, 21):
+        t = epoch + i * 30.0
+        prop_truth.propagate_to(t)
+        state_at_t = prop_truth.current_state()
+        traj.add(t, state_at_t)
+        pos = state_at_t[:3]
+        observations.append(bh.Observation(t, pos, 0))
+
+    # Create BLS with perturbed initial state (+1000m in X)
+    initial_state = true_state.copy()
+    initial_state[0] += 1000.0
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    bls = bh.BatchLeastSquares(
+        epoch,
+        initial_state,
+        p0,
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+    )
+    bls.solve(observations)
+
+    return bls, traj
+
+
+# =============================================================================
+# plot_estimator_state_error — solver API
+# =============================================================================
+
+
+class TestSolverStateError:
+    def test_matplotlib_returns_figure(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error(
+            solvers=[bls], true_trajectory=traj, state_index=0, backend="matplotlib"
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_plotly_returns_figure(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error(
+            solvers=[bls], true_trajectory=traj, state_index=0, backend="plotly"
+        )
+        assert isinstance(fig, go.Figure)
+
+    def test_with_sigma_bands_matplotlib(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_index=0,
+            sigma=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_with_sigma_bands_plotly(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_index=0,
+            sigma=3,
+            backend="plotly",
+        )
+        assert isinstance(fig, go.Figure)
+
+    def test_custom_state_label(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_index=0,
+            state_label="X Position Error [m]",
+            backend="matplotlib",
+        )
+        ax = fig.axes[0]
+        assert ax.get_ylabel() == "X Position Error [m]"
+        plt.close(fig)
+
+    def test_time_units_minutes(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_index=0,
+            time_units="minutes",
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_velocity_state_index(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_index=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+
+# =============================================================================
+# plot_estimator_state_value — solver API
+# =============================================================================
+
+
+class TestSolverStateValue:
+    def test_matplotlib_returns_figure(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value(
+            solvers=[bls], true_trajectory=traj, state_index=0, backend="matplotlib"
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_plotly_returns_figure(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value(
+            solvers=[bls], true_trajectory=traj, state_index=0, backend="plotly"
+        )
+        assert isinstance(fig, go.Figure)
+
+    def test_with_sigma_bands_matplotlib(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_index=0,
+            sigma=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_with_sigma_bands_plotly(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_index=0,
+            sigma=3,
+            backend="plotly",
+        )
+        assert isinstance(fig, go.Figure)
+
+    def test_custom_state_label(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_index=0,
+            state_label="X Position [m]",
+            backend="matplotlib",
+        )
+        ax = fig.axes[0]
+        assert ax.get_ylabel() == "X Position [m]"
+        plt.close(fig)
+
+    def test_time_units_minutes(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_index=0,
+            time_units="minutes",
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+
+# =============================================================================
+# plot_estimator_state_error_grid — solver API
+# =============================================================================
+
+
+class TestSolverStateErrorGrid:
+    def test_matplotlib_all_states(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error_grid(
+            solvers=[bls], true_trajectory=traj, ncols=3, backend="matplotlib"
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_plotly_all_states(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error_grid(
+            solvers=[bls], true_trajectory=traj, ncols=3, backend="plotly"
+        )
+        assert isinstance(fig, go.Figure)
+
+    def test_with_sigma_matplotlib(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error_grid(
+            solvers=[bls],
+            true_trajectory=traj,
+            sigma=3,
+            ncols=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_with_sigma_plotly(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error_grid(
+            solvers=[bls], true_trajectory=traj, sigma=3, ncols=3, backend="plotly"
+        )
+        assert isinstance(fig, go.Figure)
+
+    def test_selected_state_indices(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error_grid(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_indices=[0, 1, 2],
+            ncols=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_custom_state_labels(self, solved_bls):
+        bls, traj = solved_bls
+        labels = ["x [m]", "y [m]", "z [m]", "vx [m/s]", "vy [m/s]", "vz [m/s]"]
+        fig = plot_estimator_state_error_grid(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_labels=labels,
+            ncols=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_time_units_minutes(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_error_grid(
+            solvers=[bls],
+            true_trajectory=traj,
+            time_units="minutes",
+            ncols=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+
+# =============================================================================
+# plot_estimator_state_value_grid — solver API
+# =============================================================================
+
+
+class TestSolverStateValueGrid:
+    def test_matplotlib_all_states(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value_grid(
+            solvers=[bls], true_trajectory=traj, ncols=3, backend="matplotlib"
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_plotly_all_states(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value_grid(
+            solvers=[bls], true_trajectory=traj, ncols=3, backend="plotly"
+        )
+        assert isinstance(fig, go.Figure)
+
+    def test_with_sigma_matplotlib(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value_grid(
+            solvers=[bls],
+            true_trajectory=traj,
+            sigma=3,
+            ncols=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_with_sigma_plotly(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value_grid(
+            solvers=[bls], true_trajectory=traj, sigma=3, ncols=3, backend="plotly"
+        )
+        assert isinstance(fig, go.Figure)
+
+    def test_selected_state_indices(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value_grid(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_indices=[0, 1, 2],
+            ncols=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_custom_state_labels(self, solved_bls):
+        bls, traj = solved_bls
+        labels = ["x [m]", "y [m]", "z [m]", "vx [m/s]", "vy [m/s]", "vz [m/s]"]
+        fig = plot_estimator_state_value_grid(
+            solvers=[bls],
+            true_trajectory=traj,
+            state_labels=labels,
+            ncols=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_time_units_minutes(self, solved_bls):
+        bls, traj = solved_bls
+        fig = plot_estimator_state_value_grid(
+            solvers=[bls],
+            true_trajectory=traj,
+            time_units="minutes",
+            ncols=3,
+            backend="matplotlib",
+        )
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)

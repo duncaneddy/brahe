@@ -18,10 +18,10 @@ from brahe.plots.estimation_common import (
     resolve_colors,
     resolve_labels,
     compute_grid_layout,
-    compute_time_axis,  # noqa: F401 – used by Task 3 solver-API wrappers
-    extract_state_errors,  # noqa: F401
-    extract_state_history,  # noqa: F401
-    extract_covariance_sigmas,  # noqa: F401
+    compute_time_axis,
+    extract_state_errors,
+    extract_state_history,
+    extract_covariance_sigmas,
 )
 
 
@@ -385,6 +385,345 @@ def plot_estimator_state_value_grid_from_arrays(
         f"plot_estimator_state_value_grid_from_arrays done in {_time.time() - start:.2f}s"
     )
     return fig
+
+
+# =============================================================================
+# Public API — solver wrappers: single-state error
+# =============================================================================
+
+
+def plot_estimator_state_error(
+    solvers,
+    true_trajectory,
+    state_index=0,
+    sigma=None,
+    labels=None,
+    colors=None,
+    state_label=None,
+    time_units="seconds",
+    orbital_period=None,
+    measurements=None,
+    backend="matplotlib",
+    backend_config=None,
+    **kwargs,
+):
+    """Plot state error time series for one or more solved estimators.
+
+    Extracts state estimates and truth from solver objects, computes errors,
+    and delegates to :func:`plot_estimator_state_error_from_arrays`.
+
+    Args:
+        solvers (list): List of solved estimator objects (BatchLeastSquares,
+            ExtendedKalmanFilter, or UnscentedKalmanFilter).
+        true_trajectory: An OrbitTrajectory instance representing ground truth.
+        state_index (int): Which state component to plot.  Default: 0.
+        sigma (float or None): Sigma multiplier for covariance bands.  None
+            means no bands are drawn.  Default: None.
+        labels (list[str] or None): Legend label per solver.  Default: generated
+            labels.
+        colors (list[str] or None): Colour per solver.  Default: colour cycle.
+        state_label (str or None): Y-axis label.  Default: "State Error".
+        time_units (str or callable): Time axis units.  One of "seconds",
+            "minutes", "hours", "orbits", "epoch", or a callable.
+            Default: "seconds".
+        orbital_period (float or None): Orbital period in seconds.  Required
+            when time_units="orbits".  Default: None.
+        measurements (list or None): Optional list of Observation objects to
+            overlay as scatter markers at state_index.  Default: None.
+        backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
+        backend_config (dict or None): Backend-specific configuration.
+        **kwargs: Forwarded to the array-API function.
+
+    Returns:
+        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
+        figure object.
+    """
+    all_times = []
+    all_errors = []
+    all_sigmas = [] if sigma is not None else None
+
+    time_lbl = "Time [s]"
+    for solver in solvers:
+        epochs, errors = extract_state_errors(solver, true_trajectory)
+        time_vals, time_lbl = compute_time_axis(epochs, time_units, orbital_period)
+        all_times.append(time_vals)
+        all_errors.append(errors[:, state_index])
+        if sigma is not None:
+            sigma_vals = extract_covariance_sigmas(solver, sigma)
+            all_sigmas.append(sigma_vals[:, state_index])
+
+    meas_overlay = None
+    if measurements is not None:
+        meas_epochs = [m.epoch for m in measurements]
+        meas_time_vals, _ = compute_time_axis(meas_epochs, time_units, orbital_period)
+        meas_values = np.array([m.measurement[state_index] for m in measurements])
+        meas_overlay = (meas_time_vals, meas_values)
+
+    return plot_estimator_state_error_from_arrays(
+        times=all_times,
+        errors=all_errors,
+        sigmas=all_sigmas,
+        labels=labels,
+        colors=colors,
+        state_label=state_label,
+        time_label=time_lbl,
+        measurements=meas_overlay,
+        backend=backend,
+        backend_config=backend_config,
+        **kwargs,
+    )
+
+
+# =============================================================================
+# Public API — solver wrappers: single-state value
+# =============================================================================
+
+
+def plot_estimator_state_value(
+    solvers,
+    true_trajectory,
+    state_index=0,
+    sigma=None,
+    labels=None,
+    colors=None,
+    state_label=None,
+    time_units="seconds",
+    orbital_period=None,
+    backend="matplotlib",
+    backend_config=None,
+    **kwargs,
+):
+    """Plot state value time series for one or more solved estimators with truth overlay.
+
+    Extracts estimated state history and truth from solver objects, then
+    delegates to :func:`plot_estimator_state_value_from_arrays`.
+
+    Args:
+        solvers (list): List of solved estimator objects.
+        true_trajectory: An OrbitTrajectory instance representing ground truth.
+        state_index (int): Which state component to plot.  Default: 0.
+        sigma (float or None): Sigma multiplier for covariance bands.  None
+            means no bands are drawn.  Default: None.
+        labels (list[str] or None): Legend label per solver.  Default: generated
+            labels.
+        colors (list[str] or None): Colour per solver.  Default: colour cycle.
+        state_label (str or None): Y-axis label.  Default: "State Value".
+        time_units (str or callable): Time axis units.  Default: "seconds".
+        orbital_period (float or None): Orbital period in seconds.  Required
+            when time_units="orbits".  Default: None.
+        backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
+        backend_config (dict or None): Backend-specific configuration.
+        **kwargs: Forwarded to the array-API function.
+
+    Returns:
+        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
+        figure object.
+    """
+    all_times = []
+    all_values = []
+    all_sigmas = [] if sigma is not None else None
+
+    time_lbl = "Time [s]"
+    for solver in solvers:
+        epochs, states = extract_state_history(solver)
+        time_vals, time_lbl = compute_time_axis(epochs, time_units, orbital_period)
+        all_times.append(time_vals)
+        all_values.append(states[:, state_index])
+        if sigma is not None:
+            sigma_vals = extract_covariance_sigmas(solver, sigma)
+            all_sigmas.append(sigma_vals[:, state_index])
+
+    # Build truth array aligned with the first solver's epochs
+    first_epochs, _ = extract_state_history(solvers[0])
+    true_values = np.array(
+        [true_trajectory.interpolate(ep)[state_index] for ep in first_epochs]
+    )
+
+    return plot_estimator_state_value_from_arrays(
+        times=all_times,
+        values=all_values,
+        true_values=true_values,
+        sigmas=all_sigmas,
+        labels=labels,
+        colors=colors,
+        state_label=state_label,
+        time_label=time_lbl,
+        backend=backend,
+        backend_config=backend_config,
+        **kwargs,
+    )
+
+
+# =============================================================================
+# Public API — solver wrappers: multi-state error grid
+# =============================================================================
+
+
+def plot_estimator_state_error_grid(
+    solvers,
+    true_trajectory,
+    state_indices=None,
+    sigma=None,
+    labels=None,
+    colors=None,
+    state_labels=None,
+    ncols=3,
+    time_units="seconds",
+    orbital_period=None,
+    backend="matplotlib",
+    backend_config=None,
+    **kwargs,
+):
+    """Plot a grid of state error time series for one or more solved estimators.
+
+    Extracts state errors for all (or selected) state components and delegates
+    to :func:`plot_estimator_state_error_grid_from_arrays`.
+
+    Args:
+        solvers (list): List of solved estimator objects.
+        true_trajectory: An OrbitTrajectory instance representing ground truth.
+        state_indices (list[int] or None): State components to include.  None
+            means all components.  Default: None.
+        sigma (float or None): Sigma multiplier for covariance bands.  Default: None.
+        labels (list[str] or None): Legend label per solver.  Default: generated.
+        colors (list[str] or None): Colour per solver.  Default: colour cycle.
+        state_labels (list[str] or None): Y-axis label per state subplot.
+            Default: generated.
+        ncols (int): Number of subplot columns.  Default: 3.
+        time_units (str or callable): Time axis units.  Default: "seconds".
+        orbital_period (float or None): Orbital period in seconds.  Default: None.
+        backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
+        backend_config (dict or None): Backend-specific configuration.
+        **kwargs: Forwarded to the array-API function.
+
+    Returns:
+        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
+        figure object.
+    """
+    all_times = []
+    all_errors = []
+    all_sigmas = [] if sigma is not None else None
+
+    time_lbl = "Time [s]"
+    for solver in solvers:
+        epochs, errors = extract_state_errors(solver, true_trajectory)
+        time_vals, time_lbl = compute_time_axis(epochs, time_units, orbital_period)
+        all_times.append(time_vals)
+        if state_indices is not None:
+            all_errors.append(errors[:, state_indices])
+        else:
+            all_errors.append(errors)
+        if sigma is not None:
+            sigma_vals = extract_covariance_sigmas(solver, sigma)
+            if state_indices is not None:
+                all_sigmas.append(sigma_vals[:, state_indices])
+            else:
+                all_sigmas.append(sigma_vals)
+
+    return plot_estimator_state_error_grid_from_arrays(
+        times=all_times,
+        errors=all_errors,
+        sigmas=all_sigmas,
+        labels=labels,
+        colors=colors,
+        state_labels=state_labels,
+        ncols=ncols,
+        time_label=time_lbl,
+        backend=backend,
+        backend_config=backend_config,
+        **kwargs,
+    )
+
+
+# =============================================================================
+# Public API — solver wrappers: multi-state value grid
+# =============================================================================
+
+
+def plot_estimator_state_value_grid(
+    solvers,
+    true_trajectory,
+    state_indices=None,
+    sigma=None,
+    labels=None,
+    colors=None,
+    state_labels=None,
+    ncols=3,
+    time_units="seconds",
+    orbital_period=None,
+    backend="matplotlib",
+    backend_config=None,
+    **kwargs,
+):
+    """Plot a grid of state value time series for one or more solved estimators.
+
+    Extracts estimated state history and truth for all (or selected) state
+    components and delegates to
+    :func:`plot_estimator_state_value_grid_from_arrays`.
+
+    Args:
+        solvers (list): List of solved estimator objects.
+        true_trajectory: An OrbitTrajectory instance representing ground truth.
+        state_indices (list[int] or None): State components to include.  None
+            means all components.  Default: None.
+        sigma (float or None): Sigma multiplier for covariance bands.  Default: None.
+        labels (list[str] or None): Legend label per solver.  Default: generated.
+        colors (list[str] or None): Colour per solver.  Default: colour cycle.
+        state_labels (list[str] or None): Y-axis label per state subplot.
+            Default: generated.
+        ncols (int): Number of subplot columns.  Default: 3.
+        time_units (str or callable): Time axis units.  Default: "seconds".
+        orbital_period (float or None): Orbital period in seconds.  Default: None.
+        backend (str): "matplotlib" or "plotly".  Default: "matplotlib".
+        backend_config (dict or None): Backend-specific configuration.
+        **kwargs: Forwarded to the array-API function.
+
+    Returns:
+        matplotlib.figure.Figure or plotly.graph_objects.Figure: The generated
+        figure object.
+    """
+    all_times = []
+    all_values = []
+    all_sigmas = [] if sigma is not None else None
+
+    time_lbl = "Time [s]"
+    for solver in solvers:
+        epochs, states = extract_state_history(solver)
+        time_vals, time_lbl = compute_time_axis(epochs, time_units, orbital_period)
+        all_times.append(time_vals)
+        if state_indices is not None:
+            all_values.append(states[:, state_indices])
+        else:
+            all_values.append(states)
+        if sigma is not None:
+            sigma_vals = extract_covariance_sigmas(solver, sigma)
+            if state_indices is not None:
+                all_sigmas.append(sigma_vals[:, state_indices])
+            else:
+                all_sigmas.append(sigma_vals)
+
+    # Build truth matrix aligned with the first solver's epochs
+    first_epochs, _ = extract_state_history(solvers[0])
+    all_truth = np.array([true_trajectory.interpolate(ep) for ep in first_epochs])
+    if state_indices is not None:
+        true_values = all_truth[:, state_indices]
+    else:
+        true_values = all_truth
+
+    return plot_estimator_state_value_grid_from_arrays(
+        times=all_times,
+        values=all_values,
+        true_values=true_values,
+        sigmas=all_sigmas,
+        labels=labels,
+        colors=colors,
+        state_labels=state_labels,
+        ncols=ncols,
+        time_label=time_lbl,
+        backend=backend,
+        backend_config=backend_config,
+        **kwargs,
+    )
 
 
 # =============================================================================

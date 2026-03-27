@@ -2,11 +2,12 @@
 // Python bindings for the estimation module.
 //
 // Provides Python wrappers for:
-// - Configuration types: ProcessNoiseConfig, EKFConfig
+// - Configuration types: ProcessNoiseConfig, EKFConfig, UKFConfig
 // - Data types: Observation, FilterRecord
 // - Built-in measurement models (6 types, inertial + ECEF)
 // - MeasurementModel base class for Python-defined custom models
 // - ExtendedKalmanFilter
+// - UnscentedKalmanFilter
 // =============================================================================
 
 use crate::estimation;
@@ -520,6 +521,54 @@ impl_measurement_model_binding!(
                 model: estimation::InertialPositionMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
         }
+
+        /// Create from a full 3x3 noise covariance matrix.
+        ///
+        /// Allows specifying correlated measurement noise (off-diagonal terms).
+        ///
+        /// Args:
+        ///     noise_cov (numpy.ndarray): 3x3 noise covariance matrix (meters²).
+        ///
+        /// Returns:
+        ///     InertialPositionMeasurementModel: New model instance.
+        ///
+        /// Example:
+        ///     ```python
+        ///     import brahe as bh
+        ///     import numpy as np
+        ///     cov = np.diag([100.0, 225.0, 400.0])
+        ///     model = bh.InertialPositionMeasurementModel.from_covariance(cov)
+        ///     ```
+        #[staticmethod]
+        fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
+            let shape = noise_cov.shape();
+            let data = noise_cov.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
+            let model = estimation::InertialPositionMeasurementModel::from_covariance(mat)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyInertialPositionMeasurementModel { model })
+        }
+
+        /// Create from upper-triangular covariance elements.
+        ///
+        /// Elements in row-major packed order: [c00, c01, c02, c11, c12, c22].
+        ///
+        /// Args:
+        ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
+        ///
+        /// Returns:
+        ///     InertialPositionMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
+            let data = upper.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let model = estimation::InertialPositionMeasurementModel::from_upper_triangular(data)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyInertialPositionMeasurementModel { model })
+        }
     ],
     doc: "Inertial position measurement model (3D ECI position).\n\nDirectly observes [x, y, z] from the state vector with Gaussian noise."
 );
@@ -563,6 +612,42 @@ impl_measurement_model_binding!(
             PyInertialVelocityMeasurementModel {
                 model: estimation::InertialVelocityMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
+        }
+
+        /// Create from a full 3x3 noise covariance matrix.
+        ///
+        /// Args:
+        ///     noise_cov (numpy.ndarray): 3x3 noise covariance matrix ((m/s)²).
+        ///
+        /// Returns:
+        ///     InertialVelocityMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
+            let shape = noise_cov.shape();
+            let data = noise_cov.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
+            let model = estimation::InertialVelocityMeasurementModel::from_covariance(mat)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyInertialVelocityMeasurementModel { model })
+        }
+
+        /// Create from upper-triangular covariance elements.
+        ///
+        /// Args:
+        ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
+        ///
+        /// Returns:
+        ///     InertialVelocityMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
+            let data = upper.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let model = estimation::InertialVelocityMeasurementModel::from_upper_triangular(data)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyInertialVelocityMeasurementModel { model })
         }
     ],
     doc: "Inertial velocity measurement model (3D ECI velocity).\n\nDirectly observes [vx, vy, vz] from the state vector with Gaussian noise."
@@ -618,6 +703,45 @@ impl_measurement_model_binding!(
                 ),
             }
         }
+
+        /// Create from a full 6x6 noise covariance matrix.
+        ///
+        /// Allows specifying correlated noise including position-velocity
+        /// cross-correlations.
+        ///
+        /// Args:
+        ///     noise_cov (numpy.ndarray): 6x6 noise covariance matrix.
+        ///
+        /// Returns:
+        ///     InertialStateMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
+            let shape = noise_cov.shape();
+            let data = noise_cov.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
+            let model = estimation::InertialStateMeasurementModel::from_covariance(mat)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyInertialStateMeasurementModel { model })
+        }
+
+        /// Create from upper-triangular covariance elements.
+        ///
+        /// Args:
+        ///     upper (numpy.ndarray): Upper-triangular elements (21 for 6x6).
+        ///
+        /// Returns:
+        ///     InertialStateMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
+            let data = upper.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let model = estimation::InertialStateMeasurementModel::from_upper_triangular(data)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyInertialStateMeasurementModel { model })
+        }
     ],
     doc: "Inertial state measurement model (6D ECI state).\n\nDirectly observes [x, y, z, vx, vy, vz] from the state vector with Gaussian noise."
 );
@@ -662,6 +786,42 @@ impl_measurement_model_binding!(
                 model: estimation::EcefPositionMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
         }
+
+        /// Create from a full 3x3 noise covariance matrix.
+        ///
+        /// Args:
+        ///     noise_cov (numpy.ndarray): 3x3 noise covariance matrix (meters²).
+        ///
+        /// Returns:
+        ///     ECEFPositionMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
+            let shape = noise_cov.shape();
+            let data = noise_cov.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
+            let model = estimation::EcefPositionMeasurementModel::from_covariance(mat)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyEcefPositionMeasurementModel { model })
+        }
+
+        /// Create from upper-triangular covariance elements.
+        ///
+        /// Args:
+        ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
+        ///
+        /// Returns:
+        ///     ECEFPositionMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
+            let data = upper.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let model = estimation::EcefPositionMeasurementModel::from_upper_triangular(data)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyEcefPositionMeasurementModel { model })
+        }
     ],
     doc: "ECEF position measurement model (3D ECEF position from GNSS).\n\nInternally converts ECI state to ECEF position."
 );
@@ -705,6 +865,42 @@ impl_measurement_model_binding!(
             PyEcefVelocityMeasurementModel {
                 model: estimation::EcefVelocityMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
+        }
+
+        /// Create from a full 3x3 noise covariance matrix.
+        ///
+        /// Args:
+        ///     noise_cov (numpy.ndarray): 3x3 noise covariance matrix ((m/s)²).
+        ///
+        /// Returns:
+        ///     ECEFVelocityMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
+            let shape = noise_cov.shape();
+            let data = noise_cov.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
+            let model = estimation::EcefVelocityMeasurementModel::from_covariance(mat)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyEcefVelocityMeasurementModel { model })
+        }
+
+        /// Create from upper-triangular covariance elements.
+        ///
+        /// Args:
+        ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
+        ///
+        /// Returns:
+        ///     ECEFVelocityMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
+            let data = upper.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let model = estimation::EcefVelocityMeasurementModel::from_upper_triangular(data)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyEcefVelocityMeasurementModel { model })
         }
     ],
     doc: "ECEF velocity measurement model (3D ECEF velocity from GNSS).\n\nInternally converts ECI state to ECEF velocity."
@@ -760,9 +956,123 @@ impl_measurement_model_binding!(
                 ),
             }
         }
+
+        /// Create from a full 6x6 noise covariance matrix.
+        ///
+        /// Args:
+        ///     noise_cov (numpy.ndarray): 6x6 noise covariance matrix.
+        ///
+        /// Returns:
+        ///     ECEFStateMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
+            let shape = noise_cov.shape();
+            let data = noise_cov.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
+            let model = estimation::EcefStateMeasurementModel::from_covariance(mat)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyEcefStateMeasurementModel { model })
+        }
+
+        /// Create from upper-triangular covariance elements.
+        ///
+        /// Args:
+        ///     upper (numpy.ndarray): Upper-triangular elements (21 for 6x6).
+        ///
+        /// Returns:
+        ///     ECEFStateMeasurementModel: New model instance.
+        #[staticmethod]
+        fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
+            let data = upper.as_slice().map_err(|e| {
+                exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+            })?;
+            let model = estimation::EcefStateMeasurementModel::from_upper_triangular(data)
+                .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(PyEcefStateMeasurementModel { model })
+        }
     ],
     doc: "ECEF state measurement model (6D ECEF state from GNSS).\n\nInternally converts ECI state to ECEF state."
 );
+
+// =============================================================================
+// Covariance Matrix Helper Functions
+// =============================================================================
+
+/// Create an isotropic covariance matrix: sigma^2 * I.
+///
+/// Builds a dim x dim diagonal matrix where every diagonal element is sigma^2.
+///
+/// Args:
+///     dim (int): Matrix dimension.
+///     sigma (float): Standard deviation applied to all axes.
+///
+/// Returns:
+///     numpy.ndarray: dim x dim diagonal covariance matrix.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     r = bh.isotropic_covariance(3, 10.0)
+///     # r = diag([100, 100, 100])
+///     ```
+#[pyfunction]
+#[pyo3(name = "isotropic_covariance")]
+fn py_isotropic_covariance<'py>(
+    py: Python<'py>,
+    dim: usize,
+    sigma: f64,
+) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
+    let mat = crate::math::covariance::isotropic_covariance(dim, sigma);
+    let rows = mat.nrows();
+    let cols = mat.ncols();
+    let mut flat = Vec::with_capacity(rows * cols);
+    for i in 0..rows {
+        for j in 0..cols {
+            flat.push(mat[(i, j)]);
+        }
+    }
+    flat.into_pyarray(py).reshape([rows, cols]).unwrap()
+}
+
+/// Create a diagonal covariance matrix from per-axis standard deviations.
+///
+/// Each sigma value is squared to produce the corresponding diagonal element.
+///
+/// Args:
+///     sigmas (numpy.ndarray): Array of standard deviations, one per axis.
+///
+/// Returns:
+///     numpy.ndarray: n x n diagonal covariance matrix.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///     r = bh.diagonal_covariance(np.array([5.0, 10.0, 15.0]))
+///     # r = diag([25, 100, 225])
+///     ```
+#[pyfunction]
+#[pyo3(name = "diagonal_covariance")]
+fn py_diagonal_covariance<'py>(
+    py: Python<'py>,
+    sigmas: PyReadonlyArray1<f64>,
+) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix2>>> {
+    let data = sigmas.as_slice().map_err(|e| {
+        exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
+    })?;
+    let mat = crate::math::covariance::diagonal_covariance(data);
+    let rows = mat.nrows();
+    let cols = mat.ncols();
+    let mut flat = Vec::with_capacity(rows * cols);
+    for i in 0..rows {
+        for j in 0..cols {
+            flat.push(mat[(i, j)]);
+        }
+    }
+    Ok(flat.into_pyarray(py).reshape([rows, cols]).unwrap())
+}
 
 // =============================================================================
 // Custom Measurement Model Support (Python subclassing)
@@ -1170,16 +1480,13 @@ fn process_measurement_models(
 /// between observation epochs using a numerical propagator. Supports both
 /// built-in and custom Python measurement models.
 ///
-/// The constructor creates an EKF with orbit propagator dynamics (force models).
-/// Use ``from_dynamics()`` for a generic propagator with user-defined dynamics.
-///
 /// Args:
 ///     epoch (Epoch): Initial epoch.
 ///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
 ///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
-///     measurement_models (list): List of measurement models (built-in or custom).
 ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
 ///     force_config (ForceModelConfig): Force model configuration.
+///     measurement_models (list): List of measurement models (built-in or custom).
 ///     config (EKFConfig or None): EKF configuration. Defaults to EKFConfig.default().
 ///     params (numpy.ndarray or None): Parameter vector for force models.
 ///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
@@ -1201,9 +1508,9 @@ fn process_measurement_models(
 ///
 ///     ekf = bh.ExtendedKalmanFilter(
 ///         epoch, state, p0,
-///         measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
 ///         propagation_config=bh.NumericalPropagationConfig.default(),
 ///         force_config=bh.ForceModelConfig.two_body_gravity(),
+///         measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
 ///     )
 ///     ```
 #[pyclass(module = "brahe._brahe")]
@@ -1216,8 +1523,9 @@ pub struct PyExtendedKalmanFilter {
 impl PyExtendedKalmanFilter {
     #[new]
     #[pyo3(signature = (
-        epoch, state, initial_covariance, measurement_models,
+        epoch, state, initial_covariance,
         propagation_config, force_config,
+        measurement_models,
         config=None, params=None, additional_dynamics=None, control_input=None
     ))]
     #[allow(clippy::too_many_arguments)]
@@ -1226,9 +1534,9 @@ impl PyExtendedKalmanFilter {
         epoch: &PyEpoch,
         state: PyReadonlyArray1<f64>,
         initial_covariance: PyReadonlyArray2<f64>,
-        measurement_models: Vec<Py<PyAny>>,
         propagation_config: &PyNumericalPropagationConfig,
         force_config: &PyForceModelConfig,
+        measurement_models: Vec<Py<PyAny>>,
         config: Option<&PyEKFConfig>,
         params: Option<PyReadonlyArray1<f64>>,
         additional_dynamics: Option<Py<PyAny>>,
@@ -1360,181 +1668,8 @@ impl PyExtendedKalmanFilter {
             .map(|c| c.config.clone())
             .unwrap_or_default();
 
-        let ekf = estimation::ExtendedKalmanFilter::new(dynamics, models, ekf_config)
+        let ekf = estimation::ExtendedKalmanFilter::from_propagator(dynamics, models, ekf_config)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        Ok(PyExtendedKalmanFilter { ekf })
-    }
-
-    /// Create an EKF with user-defined dynamics (generic propagator).
-    ///
-    /// Args:
-    ///     epoch (Epoch): Initial epoch.
-    ///     state (numpy.ndarray): Initial state vector.
-    ///     initial_covariance (numpy.ndarray): Initial covariance matrix.
-    ///     measurement_models (list): List of measurement models.
-    ///     dynamics (callable): Dynamics function f(t, state, params) -> derivative.
-    ///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-    ///     config (EKFConfig or None): EKF configuration.
-    ///     params (numpy.ndarray or None): Parameter vector.
-    ///     control_input (callable or None): Control input function.
-    ///
-    /// Returns:
-    ///     ExtendedKalmanFilter: New EKF instance with generic dynamics.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///     import numpy as np
-    ///
-    ///     def two_body(t, state, params):
-    ///         r = state[:3]
-    ///         v = state[3:6]
-    ///         r_mag = np.linalg.norm(r)
-    ///         a = -bh.GM_EARTH / r_mag**3 * r
-    ///         return np.concatenate([v, a])
-    ///
-    ///     ekf = bh.ExtendedKalmanFilter.from_dynamics(
-    ///         epoch, state, p0,
-    ///         measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
-    ///         dynamics=two_body,
-    ///         propagation_config=bh.NumericalPropagationConfig.default(),
-    ///     )
-    ///     ```
-    #[staticmethod]
-    #[pyo3(signature = (
-        epoch, state, initial_covariance, measurement_models,
-        dynamics, propagation_config,
-        config=None, params=None, control_input=None
-    ))]
-    #[allow(clippy::too_many_arguments)]
-    fn from_dynamics(
-        py: Python<'_>,
-        epoch: &PyEpoch,
-        state: PyReadonlyArray1<f64>,
-        initial_covariance: PyReadonlyArray2<f64>,
-        measurement_models: Vec<Py<PyAny>>,
-        dynamics: Py<PyAny>,
-        propagation_config: &PyNumericalPropagationConfig,
-        config: Option<&PyEKFConfig>,
-        params: Option<PyReadonlyArray1<f64>>,
-        control_input: Option<Py<PyAny>>,
-    ) -> PyResult<Self> {
-        let state_vec = DVector::from_column_slice(state.as_slice()?);
-        let state_dim = state_vec.len();
-
-        // Parse covariance
-        let cov_shape = initial_covariance.shape();
-        if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
-            return Err(exceptions::PyValueError::new_err(format!(
-                "initial_covariance must be {}x{}, got {}x{}",
-                state_dim, state_dim, cov_shape[0], cov_shape[1]
-            )));
-        }
-        let cov_data: Vec<f64> = initial_covariance.as_slice()?.to_vec();
-        let cov_matrix = DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
-
-        // Clone config and force STM
-        let mut prop_config = propagation_config.config.clone();
-        prop_config.variational.enable_stm = true;
-
-        let params_vec =
-            params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
-
-        // Wrap dynamics callable
-        let dynamics_py = dynamics.clone_ref(py);
-        let dynamics_fn: crate::integrators::traits::DStateDynamics = Box::new(
-            move |t: f64, x: &DVector<f64>, p: Option<&DVector<f64>>| -> DVector<f64> {
-                Python::attach(|py| {
-                    let x_np = x.as_slice().to_pyarray(py);
-                    let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
-                        p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
-
-                    let result = match p_np {
-                        Some(params_arr) => dynamics_py.call1(py, (t, x_np, params_arr)),
-                        None => dynamics_py.call1(py, (t, x_np, py.None())),
-                    };
-
-                    match result {
-                        Ok(res) => {
-                            let res_arr: PyReadonlyArray1<f64> = res.extract(py).unwrap();
-                            DVector::from_column_slice(res_arr.as_slice().unwrap())
-                        }
-                        Err(e) => {
-                            eprintln!("Error calling dynamics: {}", e);
-                            DVector::zeros(x.len())
-                        }
-                    }
-                })
-            },
-        );
-
-        // Wrap control_input callable
-        let control_input_fn: crate::integrators::traits::DControlInput =
-            control_input.map(|ctrl_py| {
-                let ctrl_py = ctrl_py.clone_ref(py);
-                Box::new(
-                    move |t: f64,
-                          x: &DVector<f64>,
-                          p: Option<&DVector<f64>>|
-                          -> DVector<f64> {
-                        Python::attach(|py| {
-                            let x_np = x.as_slice().to_pyarray(py);
-                            let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
-                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
-
-                            let result = match p_np {
-                                Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
-                                None => ctrl_py.call1(py, (t, x_np, py.None())),
-                            };
-
-                            match result {
-                                Ok(res) => {
-                                    let res_arr: PyReadonlyArray1<f64> =
-                                        res.extract(py).unwrap();
-                                    DVector::from_column_slice(
-                                        res_arr.as_slice().unwrap(),
-                                    )
-                                }
-                                Err(e) => {
-                                    eprintln!("Error calling control_input: {}", e);
-                                    DVector::zeros(x.len())
-                                }
-                            }
-                        })
-                    },
-                )
-                    as Box<
-                        dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64>
-                            + Send
-                            + Sync,
-                    >
-            });
-
-        // Build the generic propagator
-        let prop = propagators::DNumericalPropagator::new(
-            epoch.obj,
-            state_vec,
-            dynamics_fn,
-            prop_config,
-            params_vec,
-            control_input_fn,
-            Some(cov_matrix),
-        )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        let dynamics_source = DynamicsSource::GenericPropagator(prop);
-
-        // Process measurement models
-        let models = process_measurement_models(py, measurement_models)?;
-
-        let ekf_config = config
-            .map(|c| c.config.clone())
-            .unwrap_or_default();
-
-        let ekf =
-            estimation::ExtendedKalmanFilter::new(dynamics_source, models, ekf_config)
-                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         Ok(PyExtendedKalmanFilter { ekf })
     }
@@ -1630,6 +1765,402 @@ impl PyExtendedKalmanFilter {
             self.ekf.current_epoch(),
             self.ekf.current_state().len(),
             self.ekf.records().len(),
+        )
+    }
+}
+
+// =============================================================================
+// UKFConfig
+// =============================================================================
+
+/// Configuration for the Unscented Kalman Filter.
+///
+/// Args:
+///     state_dim (int): State vector dimension. Defaults to 6.
+///     alpha (float): Sigma point spread parameter (typically 1e-3). Defaults to 1e-3.
+///     beta (float): Distribution parameter (2.0 for Gaussian). Defaults to 2.0.
+///     kappa (float): Secondary scaling parameter (typically 0.0). Defaults to 0.0.
+///     process_noise (ProcessNoiseConfig or None): Optional process noise. Defaults to None.
+///     store_records (bool): Whether to store filter records. Defaults to True.
+///
+/// Returns:
+///     UKFConfig: New UKF configuration.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     config = bh.UKFConfig(state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0)
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "UKFConfig")]
+#[derive(Clone)]
+pub struct PyUKFConfig {
+    pub(crate) config: estimation::UKFConfig,
+}
+
+#[pymethods]
+impl PyUKFConfig {
+    #[new]
+    #[pyo3(signature = (state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0, process_noise=None, store_records=true))]
+    fn new(
+        state_dim: usize,
+        alpha: f64,
+        beta: f64,
+        kappa: f64,
+        process_noise: Option<PyProcessNoiseConfig>,
+        store_records: bool,
+    ) -> Self {
+        PyUKFConfig {
+            config: estimation::UKFConfig {
+                process_noise: process_noise.map(|pn| pn.config),
+                state_dim,
+                alpha,
+                beta,
+                kappa,
+                store_records,
+            },
+        }
+    }
+
+    /// Create a default UKF configuration.
+    ///
+    /// Returns:
+    ///     UKFConfig: Default configuration (state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0).
+    #[staticmethod]
+    #[pyo3(name = "default")]
+    fn py_default() -> Self {
+        PyUKFConfig {
+            config: estimation::UKFConfig::default(),
+        }
+    }
+
+    #[getter]
+    fn state_dim(&self) -> usize {
+        self.config.state_dim
+    }
+
+    #[getter]
+    fn alpha(&self) -> f64 {
+        self.config.alpha
+    }
+
+    #[getter]
+    fn beta(&self) -> f64 {
+        self.config.beta
+    }
+
+    #[getter]
+    fn kappa(&self) -> f64 {
+        self.config.kappa
+    }
+
+    #[getter]
+    fn store_records(&self) -> bool {
+        self.config.store_records
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "UKFConfig(state_dim={}, alpha={}, beta={}, kappa={})",
+            self.config.state_dim,
+            self.config.alpha,
+            self.config.beta,
+            self.config.kappa,
+        )
+    }
+}
+
+// =============================================================================
+// UnscentedKalmanFilter
+// =============================================================================
+
+/// Unscented Kalman Filter for sequential state estimation.
+///
+/// Uses sigma points to propagate state statistics through nonlinear dynamics
+/// and measurement models without linearization. Does not require Jacobians
+/// or STM propagation.
+///
+/// Args:
+///     epoch (Epoch): Initial epoch.
+///     state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+///     initial_covariance (numpy.ndarray): Initial covariance matrix (n x n).
+///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+///     force_config (ForceModelConfig): Force model configuration.
+///     measurement_models (list): List of measurement models (built-in or custom).
+///     config (UKFConfig or None): UKF configuration. Defaults to UKFConfig.default().
+///     params (numpy.ndarray or None): Parameter vector for force models.
+///     additional_dynamics (callable or None): Additional dynamics function.
+///     control_input (callable or None): Control input function.
+///
+/// Returns:
+///     UnscentedKalmanFilter: New UKF instance.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+///     state = np.array([6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+///     p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+///
+///     ukf = bh.UnscentedKalmanFilter(
+///         epoch, state, p0,
+///         propagation_config=bh.NumericalPropagationConfig.default(),
+///         force_config=bh.ForceModelConfig.two_body(),
+///         measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "UnscentedKalmanFilter")]
+pub struct PyUnscentedKalmanFilter {
+    ukf: estimation::UnscentedKalmanFilter,
+}
+
+#[pymethods]
+impl PyUnscentedKalmanFilter {
+    #[new]
+    #[pyo3(signature = (
+        epoch, state, initial_covariance,
+        propagation_config, force_config,
+        measurement_models,
+        config=None, params=None, additional_dynamics=None, control_input=None
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        py: Python<'_>,
+        epoch: &PyEpoch,
+        state: PyReadonlyArray1<f64>,
+        initial_covariance: PyReadonlyArray2<f64>,
+        propagation_config: &PyNumericalPropagationConfig,
+        force_config: &PyForceModelConfig,
+        measurement_models: Vec<Py<PyAny>>,
+        config: Option<&PyUKFConfig>,
+        params: Option<PyReadonlyArray1<f64>>,
+        additional_dynamics: Option<Py<PyAny>>,
+        control_input: Option<Py<PyAny>>,
+    ) -> PyResult<Self> {
+        let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
+        let state_dim = state_vec.len();
+
+        let cov_shape = initial_covariance.shape();
+        if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "initial_covariance must be {}x{}, got {}x{}",
+                state_dim, state_dim, cov_shape[0], cov_shape[1]
+            )));
+        }
+        let cov_data: Vec<f64> = initial_covariance.as_slice()?.to_vec();
+        let cov_matrix =
+            nalgebra::DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
+
+        // UKF does not need STM — use propagation config as-is
+        let prop_config = propagation_config.config.clone();
+
+        let params_vec =
+            params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
+
+        // Wrap additional_dynamics callable
+        let additional_dynamics_fn: Option<crate::integrators::traits::DStateDynamics> =
+            additional_dynamics.map(|dyn_py| {
+                let dyn_py = dyn_py.clone_ref(py);
+                Box::new(
+                    move |t: f64,
+                          x: &nalgebra::DVector<f64>,
+                          p: Option<&nalgebra::DVector<f64>>|
+                          -> nalgebra::DVector<f64> {
+                        Python::attach(|py| {
+                            let x_np = x.as_slice().to_pyarray(py);
+                            let p_np: Option<Bound<'_, numpy::PyArray<f64, numpy::Ix1>>> =
+                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+                            let result = match p_np {
+                                Some(params_arr) => dyn_py.call1(py, (t, x_np, params_arr)),
+                                None => dyn_py.call1(py, (t, x_np, py.None())),
+                            };
+                            match result {
+                                Ok(res) => {
+                                    let res_arr: PyReadonlyArray1<f64> =
+                                        res.extract(py).unwrap();
+                                    nalgebra::DVector::from_column_slice(
+                                        res_arr.as_slice().unwrap(),
+                                    )
+                                }
+                                Err(e) => {
+                                    eprintln!("Error calling additional_dynamics: {}", e);
+                                    nalgebra::DVector::zeros(x.len())
+                                }
+                            }
+                        })
+                    },
+                ) as crate::integrators::traits::DStateDynamics
+            });
+
+        // Wrap control_input callable
+        let control_input_fn: crate::integrators::traits::DControlInput =
+            control_input.map(|ctrl_py| {
+                let ctrl_py = ctrl_py.clone_ref(py);
+                Box::new(
+                    move |t: f64,
+                          x: &nalgebra::DVector<f64>,
+                          p: Option<&nalgebra::DVector<f64>>|
+                          -> nalgebra::DVector<f64> {
+                        Python::attach(|py| {
+                            let x_np = x.as_slice().to_pyarray(py);
+                            let p_np: Option<Bound<'_, numpy::PyArray<f64, numpy::Ix1>>> =
+                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+                            let result = match p_np {
+                                Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
+                                None => ctrl_py.call1(py, (t, x_np, py.None())),
+                            };
+                            match result {
+                                Ok(res) => {
+                                    let res_arr: PyReadonlyArray1<f64> =
+                                        res.extract(py).unwrap();
+                                    nalgebra::DVector::from_column_slice(
+                                        res_arr.as_slice().unwrap(),
+                                    )
+                                }
+                                Err(e) => {
+                                    eprintln!("Error calling control_input: {}", e);
+                                    nalgebra::DVector::zeros(3)
+                                }
+                            }
+                        })
+                    },
+                )
+                    as Box<
+                        dyn Fn(
+                                f64,
+                                &nalgebra::DVector<f64>,
+                                Option<&nalgebra::DVector<f64>>,
+                            ) -> nalgebra::DVector<f64>
+                            + Send
+                            + Sync,
+                    >
+            });
+
+        let prop = propagators::DNumericalOrbitPropagator::new(
+            epoch.obj,
+            state_vec,
+            prop_config,
+            force_config.config.clone(),
+            params_vec,
+            additional_dynamics_fn,
+            control_input_fn,
+            Some(cov_matrix),
+        )
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        let dynamics = DynamicsSource::OrbitPropagator(prop);
+        let models = process_measurement_models(py, measurement_models)?;
+
+        let ukf_config = config
+            .map(|c| {
+                let mut cfg = c.config.clone();
+                cfg.state_dim = state_dim;
+                cfg
+            })
+            .unwrap_or(estimation::UKFConfig {
+                state_dim,
+                ..estimation::UKFConfig::default()
+            });
+
+        let ukf = estimation::UnscentedKalmanFilter::from_propagator(dynamics, models, ukf_config)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        Ok(PyUnscentedKalmanFilter { ukf })
+    }
+
+    /// Process a single observation.
+    ///
+    /// Args:
+    ///     observation (Observation): The observation to process.
+    ///
+    /// Returns:
+    ///     FilterRecord: Record containing pre/post-fit residuals, gain, etc.
+    fn process_observation(
+        &mut self,
+        observation: &PyObservation,
+    ) -> PyResult<PyFilterRecord> {
+        let record = self
+            .ukf
+            .process_observation(&observation.observation)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(PyFilterRecord { record })
+    }
+
+    /// Process multiple observations (auto-sorted by epoch).
+    ///
+    /// Args:
+    ///     observations (list[Observation]): List of observations.
+    fn process_observations(
+        &mut self,
+        observations: Vec<PyRef<PyObservation>>,
+    ) -> PyResult<()> {
+        let obs_vec: Vec<estimation::Observation> = observations
+            .iter()
+            .map(|o| o.observation.clone())
+            .collect();
+        self.ukf
+            .process_observations(&obs_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Get current state estimate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Current state vector.
+    fn current_state<'py>(&self, py: Python<'py>) -> Bound<'py, numpy::PyArray<f64, numpy::Ix1>> {
+        let state = self.ukf.current_state();
+        let n = state.len();
+        vector_to_numpy!(py, state, n, f64)
+    }
+
+    /// Get current covariance estimate.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Current covariance matrix.
+    fn current_covariance<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Bound<'py, numpy::PyArray<f64, numpy::Ix2>> {
+        let cov = self.ukf.current_covariance();
+        let r = cov.nrows();
+        let c = cov.ncols();
+        matrix_to_numpy!(py, cov, r, c, f64)
+    }
+
+    /// Get current epoch.
+    ///
+    /// Returns:
+    ///     Epoch: Current filter epoch.
+    fn current_epoch(&self) -> PyEpoch {
+        PyEpoch {
+            obj: self.ukf.current_epoch(),
+        }
+    }
+
+    /// Get all stored filter records.
+    ///
+    /// Returns:
+    ///     list[FilterRecord]: List of filter records.
+    fn records(&self) -> Vec<PyFilterRecord> {
+        self.ukf
+            .records()
+            .iter()
+            .map(|r| PyFilterRecord { record: r.clone() })
+            .collect()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "UnscentedKalmanFilter(epoch={}, state_dim={}, records={})",
+            self.ukf.current_epoch(),
+            self.ukf.current_state().len(),
+            self.ukf.records().len(),
         )
     }
 }

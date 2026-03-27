@@ -2,17 +2,15 @@
 # dependencies = ["brahe", "numpy"]
 # ///
 """
-Track a satellite with an Extended Kalman Filter using position measurements.
+Track a satellite with an Unscented Kalman Filter using position measurements.
 
-Demonstrates the core EKF workflow: create a filter with a perturbed initial
-state, process position observations from a truth propagator, and show
-convergence of the state estimate.
+Same scenario as the EKF example, but using the UKF which propagates sigma
+points through the nonlinear dynamics instead of linearizing with STM.
 """
 
 import numpy as np
 import brahe as bh
 
-# Initialize EOP data for frame transformations
 bh.initialize_eop()
 
 # Define a LEO circular orbit
@@ -37,8 +35,8 @@ initial_state[4] += 1.0
 # Initial covariance reflecting our uncertainty
 p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 
-# Create the EKF with inertial position measurements (10 m noise)
-ekf = bh.ExtendedKalmanFilter(
+# Create the UKF with inertial position measurements (10 m noise)
+ukf = bh.UnscentedKalmanFilter(
     epoch,
     initial_state,
     p0,
@@ -53,24 +51,23 @@ for i in range(1, 31):
     obs_epoch = epoch + dt * i
     truth_prop.propagate_to(obs_epoch)
     truth_pos = truth_prop.current_state()[:3]
-
     obs = bh.Observation(obs_epoch, truth_pos, model_index=0)
-    ekf.process_observation(obs)
+    ukf.process_observation(obs)
 
 # Compare final state to truth
-truth_prop.propagate_to(ekf.current_epoch())
+truth_prop.propagate_to(ukf.current_epoch())
 truth_final = truth_prop.current_state()
-final_state = ekf.current_state()
+final_state = ukf.current_state()
 pos_error = np.linalg.norm(final_state[:3] - truth_final[:3])
 vel_error = np.linalg.norm(final_state[3:6] - truth_final[3:6])
 
 print("Initial position error: 1000.0 m")
 print(f"Final position error:   {pos_error:.2f} m")
 print(f"Final velocity error:   {vel_error:.4f} m/s")
-print(f"Observations processed: {len(ekf.records())}")
+print(f"Observations processed: {len(ukf.records())}")
 
 # Show final covariance diagonal (1-sigma uncertainties)
-cov = ekf.current_covariance()
+cov = ukf.current_covariance()
 sigma = np.sqrt(np.diag(cov))
 print("\n1-sigma uncertainties:")
 print(f"  Position: [{sigma[0]:.1f}, {sigma[1]:.1f}, {sigma[2]:.1f}] m")

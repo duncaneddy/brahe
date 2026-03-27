@@ -6,6 +6,7 @@ The mathematics module provides mathematical utilities for numerical computation
 
 ## Module Contents
 
+- [Covariance Matrix Utilities](covariance.md) - Construction and validation of covariance matrices
 - [Jacobian Computation](jacobian.md) - Analytical and numerical Jacobian matrix computation
 - [Sensitivity Computation](sensitivity.md) - Analytical and numerical sensitivity matrix computation
 

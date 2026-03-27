@@ -239,8 +239,9 @@ nav:
           - Tessellation: learn/access_computation/tessellation.md
       - Estimation:
           - learn/estimation/index.md
-          - Measurement Models: learn/estimation/measurement_models.md
           - Extended Kalman Filter: learn/estimation/extended_kalman_filter.md
+          - Unscented Kalman Filter: learn/estimation/unscented_kalman_filter.md
+          - Measurement Models: learn/estimation/measurement_models.md
           - Custom Models: learn/estimation/custom_models.md
       - Mathematics:
           - learn/mathematics/index.md
@@ -383,6 +384,7 @@ nav:
           - library_api/estimation/index.md
           - Common Types: library_api/estimation/common_types.md
           - Extended Kalman Filter: library_api/estimation/extended_kalman_filter.md
+          - Unscented Kalman Filter: library_api/estimation/unscented_kalman_filter.md
           - Measurement Models: library_api/estimation/measurement_models.md
       - Event Detection:
           - library_api/events/index.md
@@ -406,6 +408,7 @@ nav:
           - Enumerations: library_api/access/enums.md
       - Mathematics:
           - library_api/mathematics/index.md
+          - Covariance Utilities: library_api/mathematics/covariance.md
           - Jacobian: library_api/mathematics/jacobian.md
           - Sensitivity Matrices: library_api/mathematics/sensitivity.md
       - Integrators:

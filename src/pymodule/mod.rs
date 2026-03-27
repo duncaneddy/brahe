@@ -1207,6 +1207,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEcefVelocityMeasurementModel>()?;
     module.add_class::<PyEcefStateMeasurementModel>()?;
     module.add_class::<PyExtendedKalmanFilter>()?;
+    module.add_class::<PyUKFConfig>()?;
+    module.add_class::<PyUnscentedKalmanFilter>()?;
+    module.add_function(wrap_pyfunction!(py_isotropic_covariance, module)?)?;
+    module.add_function(wrap_pyfunction!(py_diagonal_covariance, module)?)?;
 
     Ok(())
 }

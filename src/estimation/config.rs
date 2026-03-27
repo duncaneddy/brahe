@@ -64,6 +64,10 @@ pub struct UKFConfig {
 
     /// Kappa parameter (typically 0.0 or 3 - state_dim)
     pub kappa: f64,
+
+    /// Whether to store filter records in memory for each processed observation.
+    /// Defaults to `true`.
+    pub store_records: bool,
 }
 
 impl Default for UKFConfig {
@@ -74,6 +78,7 @@ impl Default for UKFConfig {
             alpha: 1e-3,
             beta: 2.0,
             kappa: 0.0,
+            store_records: true,
         }
     }
 }

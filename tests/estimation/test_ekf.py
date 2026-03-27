@@ -160,32 +160,3 @@ def test_ekf_with_config(two_body_leo):
     )
 
     assert len(ekf.current_state()) == 6
-
-
-def test_ekf_from_dynamics(two_body_leo):
-    """Test EKF with user-defined dynamics via from_dynamics()."""
-    epoch, state = two_body_leo
-    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
-
-    def two_body_dynamics(t, x, params):
-        r = x[:3]
-        v = x[3:6]
-        r_mag = np.linalg.norm(r)
-        a = -bh.GM_EARTH / r_mag**3 * r
-        return np.concatenate([v, a])
-
-    ekf = bh.ExtendedKalmanFilter.from_dynamics(
-        epoch,
-        state,
-        p0,
-        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
-        dynamics=two_body_dynamics,
-        propagation_config=bh.NumericalPropagationConfig.default(),
-    )
-
-    assert len(ekf.current_state()) == 6
-
-    # Process one observation
-    obs = bh.Observation(epoch + 60.0, state[:3], model_index=0)
-    record = ekf.process_observation(obs)
-    assert len(record.prefit_residual) == 3

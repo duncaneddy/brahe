@@ -12,10 +12,20 @@ override.
     --8<-- "./examples/estimation/custom_range_model.py:11"
     ```
 
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/estimation/custom_range_model.rs:4"
+    ```
+
 ??? example "Output"
     === "Python"
         ```
         --8<-- "./docs/outputs/estimation/custom_range_model.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/estimation/custom_range_model.rs.txt"
         ```
 
 The `RangeModel` above measures the Euclidean distance from a ground station to the

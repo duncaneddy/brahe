@@ -4,7 +4,9 @@
  * The EKF linearizes the dynamics and measurement models around the current
  * state estimate. It uses the propagator's built-in STM for the state
  * prediction (time update) and the measurement model's Jacobian for the
- * measurement update.
+ * measurement update. Use [`ExtendedKalmanFilter::new()`] for the common
+ * orbit-propagator case, or [`ExtendedKalmanFilter::from_propagator()`]
+ * when you have a pre-built propagator with custom dynamics.
  *
  * # Algorithm
  *
@@ -25,6 +27,9 @@
 
 use nalgebra::{DMatrix, DVector};
 
+use crate::integrators::traits::{DControlInput, DStateDynamics};
+use crate::propagators::force_model_config::ForceModelConfig;
+use crate::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig};
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
@@ -51,9 +56,14 @@ use super::types::{FilterRecord, Observation};
 /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
 /// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
 ///
-/// // ... setup propagator with STM enabled and initial covariance ...
-/// // let mut ekf = ExtendedKalmanFilter::new(dynamics, models, config)?;
-/// // let result = ekf.process_observations(&observations)?;
+/// // let mut ekf = ExtendedKalmanFilter::new(
+/// //     epoch, state, p0,
+/// //     NumericalPropagationConfig::default(),
+/// //     ForceModelConfig::two_body_gravity(),
+/// //     None, None, None,
+/// //     models, EKFConfig::default(),
+/// // )?;
+/// // ekf.process_observations(&observations)?;
 /// ```
 pub struct ExtendedKalmanFilter {
     /// Dynamics source (propagator). Holds the current epoch, state, and
@@ -71,15 +81,68 @@ pub struct ExtendedKalmanFilter {
 }
 
 impl ExtendedKalmanFilter {
-    /// Create a new Extended Kalman Filter.
+    /// Create an Extended Kalman Filter with orbit propagator dynamics.
     ///
-    /// The initial epoch, state, and covariance are read from the propagator
-    /// inside `dynamics`. The propagator must have STM enabled and an initial
-    /// covariance set.
+    /// Builds a numerical orbit propagator internally with STM enabled for
+    /// covariance propagation.
     ///
     /// # Arguments
     ///
-    /// * `dynamics` - Propagator for state prediction (must have STM and covariance enabled)
+    /// * `epoch` - Initial epoch
+    /// * `state` - Initial state vector (meters, m/s)
+    /// * `initial_covariance` - Initial covariance matrix
+    /// * `propagation_config` - Numerical propagation configuration
+    /// * `force_config` - Force model configuration
+    /// * `params` - Optional parameter vector for force models
+    /// * `additional_dynamics` - Optional additional dynamics function
+    /// * `control_input` - Optional control input function
+    /// * `measurement_models` - List of measurement models
+    /// * `config` - EKF configuration
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        epoch: Epoch,
+        state: DVector<f64>,
+        initial_covariance: DMatrix<f64>,
+        propagation_config: NumericalPropagationConfig,
+        force_config: ForceModelConfig,
+        params: Option<DVector<f64>>,
+        additional_dynamics: Option<DStateDynamics>,
+        control_input: DControlInput,
+        measurement_models: Vec<Box<dyn MeasurementModel>>,
+        config: EKFConfig,
+    ) -> Result<Self, BraheError> {
+        // Force STM enabled for EKF covariance propagation
+        let mut prop_config = propagation_config;
+        prop_config.variational.enable_stm = true;
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            prop_config,
+            force_config,
+            params,
+            additional_dynamics,
+            control_input,
+            Some(initial_covariance),
+        )
+        .map_err(|e| BraheError::Error(format!("Failed to create propagator: {}", e)))?;
+
+        Self::from_propagator(
+            DynamicsSource::OrbitPropagator(prop),
+            measurement_models,
+            config,
+        )
+    }
+
+    /// Create an Extended Kalman Filter from an existing propagator.
+    ///
+    /// Use this when you have a pre-built propagator with custom dynamics
+    /// (e.g., `NumericalPropagator`) or need full control over propagator
+    /// configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `propagator` - Pre-built dynamics source (must have STM and covariance enabled)
     /// * `measurement_models` - List of measurement models
     /// * `config` - EKF configuration
     ///
@@ -87,13 +150,13 @@ impl ExtendedKalmanFilter {
     ///
     /// Returns error if the propagator does not have STM enabled, has no
     /// initial covariance, or if no measurement models are provided.
-    pub fn new(
-        dynamics: DynamicsSource,
+    pub fn from_propagator(
+        propagator: DynamicsSource,
         measurement_models: Vec<Box<dyn MeasurementModel>>,
         config: EKFConfig,
     ) -> Result<Self, BraheError> {
         // Validate propagation mode includes STM
-        if !dynamics.has_stm() {
+        if !propagator.has_stm() {
             return Err(BraheError::Error(
                 "ExtendedKalmanFilter requires STM propagation to be enabled. \
                  Set propagation_config.variational.enable_stm = true or provide \
@@ -103,7 +166,7 @@ impl ExtendedKalmanFilter {
         }
 
         // Validate initial covariance is set on the propagator
-        if dynamics.current_covariance().is_none() {
+        if propagator.current_covariance().is_none() {
             return Err(BraheError::Error(
                 "ExtendedKalmanFilter requires an initial covariance on the propagator. \
                  Provide initial_covariance when constructing the propagator."
@@ -118,7 +181,7 @@ impl ExtendedKalmanFilter {
         }
 
         Ok(Self {
-            dynamics,
+            dynamics: propagator,
             measurement_models,
             config,
             records: Vec::new(),
@@ -411,23 +474,15 @@ mod tests {
         models: Vec<Box<dyn MeasurementModel>>,
         process_noise: Option<ProcessNoiseConfig>,
     ) -> ExtendedKalmanFilter {
-        let mut cfg = NumericalPropagationConfig::default();
-        cfg.variational.enable_stm = true;
-
-        let prop = DNumericalOrbitPropagator::new(
+        ExtendedKalmanFilter::new(
             epoch,
-            state.clone(),
-            cfg,
+            state,
+            p0,
+            NumericalPropagationConfig::default(),
             ForceModelConfig::two_body_gravity(),
             None,
             None,
             None,
-            Some(p0.clone()),
-        )
-        .unwrap();
-
-        ExtendedKalmanFilter::new(
-            DynamicsSource::OrbitPropagator(prop),
             models,
             EKFConfig {
                 process_noise,
@@ -492,7 +547,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = ExtendedKalmanFilter::new(
+        let result = ExtendedKalmanFilter::from_propagator(
             DynamicsSource::OrbitPropagator(prop),
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             EKFConfig::default(),
@@ -838,7 +893,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut ekf = ExtendedKalmanFilter::new(
+        let mut ekf = ExtendedKalmanFilter::from_propagator(
             DynamicsSource::OrbitPropagator(prop),
             vec![Box::new(InertialPositionMeasurementModel::new(50.0))],
             EKFConfig {

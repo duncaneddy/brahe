@@ -60,10 +60,19 @@ analysis of filter performance, consistency checks, and residual monitoring.
 
 ## What's Available
 
-The current release includes the **Extended Kalman Filter** for sequential state
-estimation. Future releases will add the **Unscented Kalman Filter** (UKF) for strongly
-nonlinear problems and **(Weighted) Batch Least Squares** (BLS) for offline orbit
-determination.
+The current release includes two sequential filters:
+
+- **Extended Kalman Filter (EKF)** -- linearizes dynamics and measurements using STM and
+  Jacobians. Efficient (one propagation per step) and well-suited for mildly nonlinear
+  problems.
+
+- **Unscented Kalman Filter (UKF)** -- propagates sigma points through true nonlinear
+  functions without linearization. More robust for strongly nonlinear problems, at the cost
+  of 2n+1 propagations per step.
+
+Both filters share the same measurement models, observation types, filter records, and
+Python API. Future releases will add **(Weighted) Batch Least Squares** (BLS) for offline
+orbit determination.
 
 ---
 
@@ -71,6 +80,7 @@ determination.
 
 - [Measurement Models](measurement_models.md) -- Built-in GPS-like measurement types
 - [Extended Kalman Filter](extended_kalman_filter.md) -- EKF setup, processing, and diagnostics
+- [Unscented Kalman Filter](unscented_kalman_filter.md) -- UKF sigma points and EKF comparison
 - [Custom Models](custom_models.md) -- Defining measurement models in Python
 - [Estimation API Reference](../../library_api/estimation/index.md) -- Complete type and method documentation
 - [Covariance and Sensitivity](../orbit_propagation/numerical_propagation/covariance_sensitivity.md) -- STM propagation used by the EKF

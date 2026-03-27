@@ -9,7 +9,6 @@ measurement from a ground station, then mix it with a built-in model.
 """
 
 import numpy as np
-
 import brahe as bh
 
 bh.initialize_eop()

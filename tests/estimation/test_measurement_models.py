@@ -213,3 +213,113 @@ class TestEKFConfig:
     def test_custom(self):
         config = bh.EKFConfig(store_records=False)
         assert config.store_records is False
+
+
+# =============================================================================
+# from_covariance / from_upper_triangular constructors
+# =============================================================================
+
+
+class TestFromCovariance:
+    def test_inertial_position_from_covariance(self):
+        cov = np.array([[100.0, 5.0, 0.0], [5.0, 225.0, 10.0], [0.0, 10.0, 400.0]])
+        model = bh.InertialPositionMeasurementModel.from_covariance(cov)
+        r = model.noise_covariance()
+        assert r.shape == (3, 3)
+        np.testing.assert_allclose(r, cov)
+        assert model.measurement_dim() == 3
+
+    def test_inertial_position_from_covariance_wrong_dim(self):
+        cov = np.eye(6) * 100.0
+        with pytest.raises(ValueError):
+            bh.InertialPositionMeasurementModel.from_covariance(cov)
+
+    def test_inertial_state_from_covariance(self):
+        cov = np.eye(6) * 50.0
+        model = bh.InertialStateMeasurementModel.from_covariance(cov)
+        r = model.noise_covariance()
+        assert r.shape == (6, 6)
+        np.testing.assert_allclose(r, cov)
+
+    def test_inertial_state_from_covariance_wrong_dim(self):
+        cov = np.eye(3) * 100.0
+        with pytest.raises(ValueError):
+            bh.InertialStateMeasurementModel.from_covariance(cov)
+
+    def test_ecef_position_from_covariance(self):
+        cov = np.diag([25.0, 25.0, 100.0])
+        model = bh.ECEFPositionMeasurementModel.from_covariance(cov)
+        r = model.noise_covariance()
+        np.testing.assert_allclose(r[(2, 2)], 100.0)
+
+    def test_ecef_state_from_covariance(self):
+        cov = np.eye(6) * 10.0
+        model = bh.ECEFStateMeasurementModel.from_covariance(cov)
+        assert model.measurement_dim() == 6
+
+    def test_inertial_velocity_from_covariance(self):
+        cov = np.diag([0.01, 0.04, 0.09])
+        model = bh.InertialVelocityMeasurementModel.from_covariance(cov)
+        r = model.noise_covariance()
+        np.testing.assert_allclose(r, cov)
+
+    def test_ecef_velocity_from_covariance(self):
+        cov = np.diag([0.01, 0.04, 0.09])
+        model = bh.ECEFVelocityMeasurementModel.from_covariance(cov)
+        r = model.noise_covariance()
+        np.testing.assert_allclose(r, cov)
+
+
+class TestFromUpperTriangular:
+    def test_inertial_position_from_upper_triangular(self):
+        # [c00, c01, c02, c11, c12, c22]
+        upper = np.array([100.0, 5.0, 0.0, 225.0, 10.0, 400.0])
+        model = bh.InertialPositionMeasurementModel.from_upper_triangular(upper)
+        r = model.noise_covariance()
+        assert r.shape == (3, 3)
+        np.testing.assert_allclose(r[0, 0], 100.0)
+        np.testing.assert_allclose(r[0, 1], 5.0)
+        np.testing.assert_allclose(r[1, 0], 5.0)  # symmetric
+
+    def test_ecef_state_from_upper_triangular(self):
+        # 6x6 -> 21 elements, diagonal only
+        upper = np.zeros(21)
+        upper[0] = 100.0  # (0,0)
+        upper[6] = 100.0  # (1,1)
+        upper[11] = 400.0  # (2,2)
+        upper[15] = 0.01  # (3,3)
+        upper[18] = 0.01  # (4,4)
+        upper[20] = 0.04  # (5,5)
+        model = bh.ECEFStateMeasurementModel.from_upper_triangular(upper)
+        r = model.noise_covariance()
+        assert r.shape == (6, 6)
+        np.testing.assert_allclose(r[0, 0], 100.0)
+        np.testing.assert_allclose(r[5, 5], 0.04)
+
+    def test_wrong_element_count(self):
+        with pytest.raises(ValueError):
+            bh.InertialPositionMeasurementModel.from_upper_triangular(
+                np.array([1.0, 2.0])
+            )
+
+
+# =============================================================================
+# Standalone covariance helper functions
+# =============================================================================
+
+
+class TestCovarianceHelpers:
+    def test_isotropic_covariance(self):
+        r = bh.isotropic_covariance(3, 10.0)
+        assert r.shape == (3, 3)
+        np.testing.assert_allclose(r[0, 0], 100.0)
+        np.testing.assert_allclose(r[1, 1], 100.0)
+        np.testing.assert_allclose(r[0, 1], 0.0)
+
+    def test_diagonal_covariance(self):
+        r = bh.diagonal_covariance(np.array([5.0, 10.0, 15.0]))
+        assert r.shape == (3, 3)
+        np.testing.assert_allclose(r[0, 0], 25.0)
+        np.testing.assert_allclose(r[1, 1], 100.0)
+        np.testing.assert_allclose(r[2, 2], 225.0)
+        np.testing.assert_allclose(r[0, 1], 0.0)

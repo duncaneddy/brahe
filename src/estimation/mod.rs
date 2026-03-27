@@ -41,6 +41,7 @@ mod ekf;
 mod measurement;
 mod traits;
 mod types;
+mod ukf;
 
 pub use config::{BLSConfig, EKFConfig, ProcessNoiseConfig, UKFConfig};
 pub use dynamics_source::DynamicsSource;
@@ -54,3 +55,4 @@ pub use traits::MeasurementModel;
 #[cfg(feature = "python")]
 pub(crate) use traits::measurement_jacobian_numerical;
 pub use types::{FilterRecord, Observation};
+pub use ukf::UnscentedKalmanFilter;

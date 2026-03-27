@@ -376,4 +376,100 @@ mod tests {
         let epoch = test_epoch();
         assert!(model.predict(&epoch, &state, None).is_err());
     }
+
+    // =========================================================================
+    // from_covariance / from_upper_triangular tests
+    // =========================================================================
+
+    #[test]
+    fn test_inertial_position_from_covariance() {
+        // Build a 3×3 covariance with off-diagonal terms
+        let mut cov = DMatrix::zeros(3, 3);
+        cov[(0, 0)] = 100.0;
+        cov[(1, 1)] = 225.0;
+        cov[(2, 2)] = 400.0;
+        cov[(0, 1)] = 5.0;
+        cov[(1, 0)] = 5.0;
+
+        let model = InertialPositionMeasurementModel::from_covariance(cov.clone()).unwrap();
+        let r = model.noise_covariance();
+        assert_eq!(r.nrows(), 3);
+        assert_abs_diff_eq!(r[(0, 0)], 100.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(0, 1)], 5.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(1, 0)], 5.0, epsilon = 1e-10);
+        assert_eq!(model.measurement_dim(), 3);
+    }
+
+    #[test]
+    fn test_inertial_position_from_covariance_wrong_dim() {
+        let cov = DMatrix::from_diagonal_element(6, 6, 100.0);
+        assert!(InertialPositionMeasurementModel::from_covariance(cov).is_err());
+    }
+
+    #[test]
+    fn test_inertial_position_from_upper_triangular() {
+        // [c00, c01, c02, c11, c12, c22]
+        let model = InertialPositionMeasurementModel::from_upper_triangular(&[
+            100.0, 5.0, 0.0, 225.0, 10.0, 400.0,
+        ])
+        .unwrap();
+        let r = model.noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 100.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(0, 1)], 5.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(1, 0)], 5.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(1, 2)], 10.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(2, 1)], 10.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_inertial_state_from_covariance() {
+        let cov = DMatrix::from_diagonal_element(6, 6, 50.0);
+        let model = InertialStateMeasurementModel::from_covariance(cov).unwrap();
+        let r = model.noise_covariance();
+        assert_eq!(r.nrows(), 6);
+        assert_abs_diff_eq!(r[(0, 0)], 50.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(5, 5)], 50.0, epsilon = 1e-10);
+        assert_eq!(model.measurement_dim(), 6);
+    }
+
+    #[test]
+    fn test_inertial_state_from_covariance_wrong_dim() {
+        let cov = DMatrix::from_diagonal_element(3, 3, 100.0);
+        assert!(InertialStateMeasurementModel::from_covariance(cov).is_err());
+    }
+
+    #[test]
+    fn test_ecef_position_from_covariance() {
+        let mut cov = DMatrix::zeros(3, 3);
+        cov[(0, 0)] = 25.0;
+        cov[(1, 1)] = 25.0;
+        cov[(2, 2)] = 100.0; // larger vertical uncertainty
+        cov[(0, 1)] = 2.0;
+        cov[(1, 0)] = 2.0;
+
+        let model = EcefPositionMeasurementModel::from_covariance(cov).unwrap();
+        let r = model.noise_covariance();
+        assert_abs_diff_eq!(r[(2, 2)], 100.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(0, 1)], 2.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_ecef_state_from_upper_triangular() {
+        // 6×6 → 21 elements, all diagonal
+        let mut upper = vec![0.0; 21];
+        // Diagonal indices: 0, 6, 11, 15, 18, 20
+        upper[0] = 100.0;
+        upper[6] = 100.0;
+        upper[11] = 400.0;
+        upper[15] = 0.01;
+        upper[18] = 0.01;
+        upper[20] = 0.04;
+
+        let model = EcefStateMeasurementModel::from_upper_triangular(&upper).unwrap();
+        let r = model.noise_covariance();
+        assert_eq!(r.nrows(), 6);
+        assert_abs_diff_eq!(r[(0, 0)], 100.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(2, 2)], 400.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(r[(5, 5)], 0.04, epsilon = 1e-10);
+    }
 }

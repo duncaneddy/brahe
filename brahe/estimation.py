@@ -5,6 +5,7 @@ State estimation filters and measurement models for orbit determination.
 
 **Filters:**
 - ExtendedKalmanFilter: Sequential filter using linearized dynamics and measurements
+- UnscentedKalmanFilter: Sequential filter using sigma points (no linearization)
 
 **Measurement Models (Inertial):**
 - InertialPositionMeasurementModel: 3D ECI position observations
@@ -21,17 +22,18 @@ State estimation filters and measurement models for orbit determination.
 
 **Configuration:**
 - EKFConfig: EKF configuration
+- UKFConfig: UKF configuration
 - ProcessNoiseConfig: Process noise specification
 
 **Data Types:**
 - Observation: Single measurement at an epoch
 - FilterRecord: Record of a filter update step
-- EstimationResult: Complete estimation run results
 """
 
 from brahe._brahe import (
     # Filters
     ExtendedKalmanFilter,
+    UnscentedKalmanFilter,
     # Base class for custom models
     MeasurementModel,
     # Built-in measurement models
@@ -41,8 +43,12 @@ from brahe._brahe import (
     ECEFPositionMeasurementModel,
     ECEFVelocityMeasurementModel,
     ECEFStateMeasurementModel,
+    # Covariance matrix helpers
+    isotropic_covariance,
+    diagonal_covariance,
     # Configuration
     EKFConfig,
+    UKFConfig,
     ProcessNoiseConfig,
     # Data types
     Observation,
@@ -51,6 +57,7 @@ from brahe._brahe import (
 
 __all__ = [
     "ExtendedKalmanFilter",
+    "UnscentedKalmanFilter",
     "MeasurementModel",
     "InertialPositionMeasurementModel",
     "InertialVelocityMeasurementModel",
@@ -58,7 +65,10 @@ __all__ = [
     "ECEFPositionMeasurementModel",
     "ECEFVelocityMeasurementModel",
     "ECEFStateMeasurementModel",
+    "isotropic_covariance",
+    "diagonal_covariance",
     "EKFConfig",
+    "UKFConfig",
     "ProcessNoiseConfig",
     "Observation",
     "FilterRecord",

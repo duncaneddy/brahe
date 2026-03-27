@@ -72,6 +72,8 @@ records = ekf.records()             # list of FilterRecord
 
 Each `FilterRecord` captures the complete diagnostic state of a single update:
 
+<div class="center-table" markdown="1">
+
 | Field | Description |
 |-------|-------------|
 | `state_predicted` | State after propagation, before measurement update |
@@ -82,6 +84,8 @@ Each `FilterRecord` captures the complete diagnostic state of a single update:
 | `postfit_residual` | $\mathbf{z} - h(\mathbf{x}_{upd})$ -- should be small |
 | `kalman_gain` | $K$ matrix used for the update |
 | `measurement_name` | Name of the measurement model used |
+
+</div>
 
 Pre-fit residuals indicate how well the predicted state matches the observation. Post-fit
 residuals should be smaller, confirming the update improved the estimate. Monitoring these
@@ -112,28 +116,101 @@ model). When `False`, $Q$ is applied as-is at each step (discrete-time model).
 
 ## Using Custom Dynamics
 
-For systems beyond standard orbital mechanics, use `ExtendedKalmanFilter.from_dynamics()`
-with a user-defined dynamics function:
+For systems beyond standard orbital mechanics, you can supply custom dynamics. In Python,
+pass an `additional_dynamics` callable to the EKF constructor. In Rust, build a
+`DNumericalPropagator` with your dynamics function and pass it to `from_propagator()`:
 
-```python
-def my_dynamics(t, state, params):
-    r = state[:3]
-    v = state[3:6]
-    r_mag = np.linalg.norm(r)
-    a = -bh.GM_EARTH / r_mag**3 * r
-    return np.concatenate([v, a])
+=== "Python"
+    ``` python
+    --8<-- "./examples/estimation/ekf_custom_dynamics.py:11"
+    ```
 
-ekf = bh.ExtendedKalmanFilter.from_dynamics(
-    epoch, state, p0,
-    measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
-    dynamics=my_dynamics,
-    propagation_config=bh.NumericalPropagationConfig.default(),
-)
-```
+=== "Rust"
+    ``` rust
+    --8<-- "./examples/estimation/ekf_custom_dynamics.rs:4"
+    ```
 
-This constructs a generic `NumericalPropagator` internally. See
-[General Dynamics Propagation](../orbit_propagation/numerical_propagation/generic_dynamics.md)
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_custom_dynamics.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/estimation/ekf_custom_dynamics.rs.txt"
+        ```
+
+See [General Dynamics Propagation](../orbit_propagation/numerical_propagation/generic_dynamics.md)
 for details on the dynamics function signature.
+
+## Filter Equations
+
+The EKF alternates between a **predict** step (propagate to the next observation) and an
+**update** step (incorporate the measurement). Below are the equations implemented by
+Brahe's EKF.
+
+### Predict
+
+The state is propagated from $t_{k-1}$ to $t_k$ using the nonlinear dynamics
+$f(\mathbf{x}, t)$, and the covariance is propagated using the State Transition
+Matrix $\Phi$:
+
+$$
+\mathbf{x}_{k}^{-} = f(\mathbf{x}_{k-1}^{+},\; t_{k-1} \to t_k)
+$$
+
+$$
+P_{k}^{-} = \Phi_k \, P_{k-1}^{+} \, \Phi_k^T + Q_k
+$$
+
+where $\Phi_k$ is the STM integrated alongside the state, and $Q_k$ is the process
+noise matrix (optionally scaled by $\Delta t$).
+
+### Update
+
+Given observation $\mathbf{z}_k$ and measurement model $h(\mathbf{x})$ with noise
+covariance $R$:
+
+**Innovation (pre-fit residual):**
+
+$$
+\mathbf{y}_k = \mathbf{z}_k - h(\mathbf{x}_{k}^{-})
+$$
+
+**Measurement Jacobian:**
+
+$$
+H_k = \frac{\partial h}{\partial \mathbf{x}} \bigg|_{\mathbf{x}_{k}^{-}}
+$$
+
+**Innovation covariance:**
+
+$$
+S_k = H_k \, P_{k}^{-} \, H_k^T + R
+$$
+
+**Kalman gain:**
+
+$$
+K_k = P_{k}^{-} \, H_k^T \, S_k^{-1}
+$$
+
+**State update:**
+
+$$
+\mathbf{x}_{k}^{+} = \mathbf{x}_{k}^{-} + K_k \, \mathbf{y}_k
+$$
+
+**Covariance update (Joseph form):**
+
+$$
+P_{k}^{+} = (I - K_k H_k) \, P_{k}^{-} \, (I - K_k H_k)^T + K_k \, R \, K_k^T
+$$
+
+The Joseph form is numerically more stable than the simpler
+$P^{+} = (I - KH) P^{-}$ and guarantees the updated covariance remains symmetric
+positive semi-definite.
 
 ---
 

@@ -35,6 +35,7 @@
  * in Rust or by subclassing `MeasurementModel` in Python.
  */
 
+mod bls;
 mod config;
 mod dynamics_source;
 mod ekf;
@@ -43,6 +44,7 @@ mod traits;
 mod types;
 mod ukf;
 
+pub use bls::BatchLeastSquares;
 pub use config::{
     BLSConfig, BLSSolverMethod, ConsiderParameterConfig, EKFConfig, ProcessNoiseConfig, UKFConfig,
 };

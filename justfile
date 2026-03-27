@@ -192,12 +192,12 @@ lint-fix: _setup
 # Build documentation
 docs: _setup
     ./scripts/generate_stubs.sh
-    uv run mkdocs build
+    uv run properdocs build
 
 # Serve documentation locally
 docs-serve: _setup
     ./scripts/generate_stubs.sh
-    uv run mkdocs serve
+    uv run properdocs serve
 
 # ───── Plots & Figures ─────
 

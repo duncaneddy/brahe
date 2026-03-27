@@ -25,6 +25,12 @@ from brahe.plots.trajectories import (
 )
 from brahe.plots.trajectory_3d import plot_trajectory_3d
 from brahe.plots.gabbard import plot_gabbard_diagram
+from brahe.plots.estimation_state import (
+    plot_estimator_state_error_from_arrays,
+    plot_estimator_state_value_from_arrays,
+    plot_estimator_state_error_grid_from_arrays,
+    plot_estimator_state_value_grid_from_arrays,
+)
 
 __all__ = [
     "plot_groundtrack",
@@ -36,4 +42,8 @@ __all__ = [
     "plot_keplerian_trajectory",
     "plot_trajectory_3d",
     "plot_gabbard_diagram",
+    "plot_estimator_state_error_from_arrays",
+    "plot_estimator_state_value_from_arrays",
+    "plot_estimator_state_error_grid_from_arrays",
+    "plot_estimator_state_value_grid_from_arrays",
 ]

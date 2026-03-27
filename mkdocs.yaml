@@ -292,6 +292,7 @@ nav:
           - Ground Tracks: learn/plots/ground_tracks.md
           - Access Geometry: learn/plots/access_geometry.md
           - Gabbard Plots: learn/plots/gabbard_plot.md
+          - Estimation Plots: learn/plots/estimation.md
       - Command Line Interface:
           - learn/cli/index.md
           - EOP: learn/cli/eop.md
@@ -465,6 +466,9 @@ nav:
           - 3D Trajectory: library_api/plots/3d_trajectory.md
           - Access Geometry: library_api/plots/access_geometry.md
           - Gabbard Diagram: library_api/plots/gabbard.md
+          - Estimation State Plots: library_api/plots/estimation_state.md
+          - Measurement Residual Plots: library_api/plots/estimation_residuals.md
+          - Marginal Distribution Plots: library_api/plots/estimation_marginal.md
   - Rust API Reference: https://docs.rs/brahe
   - About Me: https://duncaneddy.com
 

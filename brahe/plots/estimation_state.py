@@ -25,6 +25,12 @@ from brahe.plots.estimation_common import (
 )
 
 
+def _sigma_band_label(series_label, sigma_level):
+    """Format the legend label for a covariance band."""
+    level = sigma_level if sigma_level is not None else 3
+    return f"{series_label} ±{level}σ"
+
+
 # =============================================================================
 # Public API — single-state error
 # =============================================================================
@@ -81,6 +87,7 @@ def plot_estimator_state_error_from_arrays(
     resolved_labels = resolve_labels(n, labels)
     resolved_state_label = state_label if state_label is not None else "State Error"
     cfg = backend_config or {}
+    sigma_level = kwargs.get("sigma_level", None)
 
     if backend == "matplotlib":
         fig = _state_error_single_matplotlib(
@@ -93,6 +100,7 @@ def plot_estimator_state_error_from_arrays(
             time_label,
             measurements,
             cfg,
+            sigma_level,
         )
     else:
         fig = _state_error_single_plotly(
@@ -105,6 +113,7 @@ def plot_estimator_state_error_from_arrays(
             time_label,
             measurements,
             cfg,
+            sigma_level,
         )
 
     logger.info(
@@ -168,6 +177,7 @@ def plot_estimator_state_value_from_arrays(
     resolved_labels = resolve_labels(n, labels)
     resolved_state_label = state_label if state_label is not None else "State Value"
     cfg = backend_config or {}
+    sigma_level = kwargs.get("sigma_level", None)
 
     if backend == "matplotlib":
         fig = _state_value_single_matplotlib(
@@ -180,6 +190,7 @@ def plot_estimator_state_value_from_arrays(
             resolved_state_label,
             time_label,
             cfg,
+            sigma_level,
         )
     else:
         fig = _state_value_single_plotly(
@@ -192,6 +203,7 @@ def plot_estimator_state_value_from_arrays(
             resolved_state_label,
             time_label,
             cfg,
+            sigma_level,
         )
 
     logger.info(
@@ -259,6 +271,7 @@ def plot_estimator_state_error_grid_from_arrays(
         else [f"State {i}" for i in range(n_states)]
     )
     cfg = backend_config or {}
+    sigma_level = kwargs.get("sigma_level", None)
 
     if backend == "matplotlib":
         fig = _state_error_grid_matplotlib(
@@ -271,6 +284,7 @@ def plot_estimator_state_error_grid_from_arrays(
             ncols,
             time_label,
             cfg,
+            sigma_level,
         )
     else:
         fig = _state_error_grid_plotly(
@@ -283,6 +297,7 @@ def plot_estimator_state_error_grid_from_arrays(
             ncols,
             time_label,
             cfg,
+            sigma_level,
         )
 
     logger.info(
@@ -353,6 +368,7 @@ def plot_estimator_state_value_grid_from_arrays(
         else [f"State {i}" for i in range(n_states)]
     )
     cfg = backend_config or {}
+    sigma_level = kwargs.get("sigma_level", None)
 
     if backend == "matplotlib":
         fig = _state_value_grid_matplotlib(
@@ -366,6 +382,7 @@ def plot_estimator_state_value_grid_from_arrays(
             ncols,
             time_label,
             cfg,
+            sigma_level,
         )
     else:
         fig = _state_value_grid_plotly(
@@ -379,6 +396,7 @@ def plot_estimator_state_value_grid_from_arrays(
             ncols,
             time_label,
             cfg,
+            sigma_level,
         )
 
     logger.info(
@@ -470,6 +488,7 @@ def plot_estimator_state_error(
         measurements=meas_overlay,
         backend=backend,
         backend_config=backend_config,
+        sigma_level=sigma,
         **kwargs,
     )
 
@@ -550,6 +569,7 @@ def plot_estimator_state_value(
         time_label=time_lbl,
         backend=backend,
         backend_config=backend_config,
+        sigma_level=sigma,
         **kwargs,
     )
 
@@ -631,6 +651,7 @@ def plot_estimator_state_error_grid(
         time_label=time_lbl,
         backend=backend,
         backend_config=backend_config,
+        sigma_level=sigma,
         **kwargs,
     )
 
@@ -722,6 +743,7 @@ def plot_estimator_state_value_grid(
         time_label=time_lbl,
         backend=backend,
         backend_config=backend_config,
+        sigma_level=sigma,
         **kwargs,
     )
 
@@ -741,6 +763,7 @@ def _state_error_single_matplotlib(
     time_label,
     measurements,
     cfg,
+    sigma_level=None,
 ):
     """Matplotlib implementation for single-state error plot."""
     apply_scienceplots_style()
@@ -759,7 +782,9 @@ def _state_error_single_matplotlib(
         ax.plot(t, e, color=color, label=label)
         if sigmas is not None and i < len(sigmas):
             s = sigmas[i]
-            band_label = f"{label} ±σ" if not sigma_label_shown else None
+            band_label = (
+                _sigma_band_label(label, sigma_level) if not sigma_label_shown else None
+            )
             ax.fill_between(t, -s, s, color=color, alpha=0.2, label=band_label)
             sigma_label_shown = True
 
@@ -800,6 +825,7 @@ def _state_value_single_matplotlib(
     state_label,
     time_label,
     cfg,
+    sigma_level=None,
 ):
     """Matplotlib implementation for single-state value plot."""
     apply_scienceplots_style()
@@ -815,7 +841,14 @@ def _state_value_single_matplotlib(
         ax.plot(t, v, color=color, label=label)
         if sigmas is not None and i < len(sigmas):
             s = sigmas[i]
-            ax.fill_between(t, v - s, v + s, color=color, alpha=0.2)
+            ax.fill_between(
+                t,
+                v - s,
+                v + s,
+                color=color,
+                alpha=0.2,
+                label=_sigma_band_label(label, sigma_level),
+            )
 
     if true_values is not None:
         # Use the time axis of the first series for truth
@@ -848,6 +881,7 @@ def _state_error_grid_matplotlib(
     ncols,
     time_label,
     cfg,
+    sigma_level=None,
 ):
     """Matplotlib implementation for multi-state error grid."""
     apply_scienceplots_style()
@@ -877,7 +911,9 @@ def _state_error_grid_matplotlib(
             ax.plot(t, e[:, state_idx], color=color, label=label)
             if sigmas is not None and series_idx < len(sigmas):
                 s = sigmas[series_idx][:, state_idx]
-                band_label = f"{label} ±σ" if state_idx == 0 else None
+                band_label = (
+                    _sigma_band_label(label, sigma_level) if state_idx == 0 else None
+                )
                 ax.fill_between(t, -s, s, color=color, alpha=0.2, label=band_label)
 
         # Set x-limits to data extent
@@ -916,6 +952,7 @@ def _state_value_grid_matplotlib(
     ncols,
     time_label,
     cfg,
+    sigma_level=None,
 ):
     """Matplotlib implementation for multi-state value grid."""
     apply_scienceplots_style()
@@ -943,7 +980,14 @@ def _state_value_grid_matplotlib(
             if sigmas is not None and series_idx < len(sigmas):
                 s = sigmas[series_idx][:, state_idx]
                 ax.fill_between(
-                    t, v[:, state_idx] - s, v[:, state_idx] + s, color=color, alpha=0.2
+                    t,
+                    v[:, state_idx] - s,
+                    v[:, state_idx] + s,
+                    color=color,
+                    alpha=0.2,
+                    label=_sigma_band_label(label, sigma_level)
+                    if state_idx == 0
+                    else None,
                 )
 
         if true_values is not None:
@@ -1009,6 +1053,7 @@ def _state_error_single_plotly(
     time_label,
     measurements,
     cfg,
+    sigma_level=None,
 ):
     """Plotly implementation for single-state error plot."""
     fig = go.Figure()
@@ -1029,7 +1074,15 @@ def _state_error_single_plotly(
         if sigmas is not None and i < len(sigmas):
             s = sigmas[i]
             fig.add_trace(
-                _make_plotly_band(t, -s, s, color, f"{label} ±σ", label, i == 0)
+                _make_plotly_band(
+                    t,
+                    -s,
+                    s,
+                    color,
+                    _sigma_band_label(label, sigma_level),
+                    label,
+                    i == 0,
+                )
             )
 
     # Zero reference line
@@ -1078,6 +1131,7 @@ def _state_value_single_plotly(
     state_label,
     time_label,
     cfg,
+    sigma_level=None,
 ):
     """Plotly implementation for single-state value plot."""
     fig = go.Figure()
@@ -1098,7 +1152,15 @@ def _state_value_single_plotly(
         if sigmas is not None and i < len(sigmas):
             s = sigmas[i]
             fig.add_trace(
-                _make_plotly_band(t, v - s, v + s, color, f"{label} ±σ", label, False)
+                _make_plotly_band(
+                    t,
+                    v - s,
+                    v + s,
+                    color,
+                    _sigma_band_label(label, sigma_level),
+                    label,
+                    False,
+                )
             )
 
     if true_values is not None:
@@ -1133,6 +1195,7 @@ def _state_error_grid_plotly(
     ncols,
     time_label,
     cfg,
+    sigma_level=None,
 ):
     """Plotly implementation for multi-state error grid."""
     n_states = len(state_labels)
@@ -1175,7 +1238,7 @@ def _state_error_grid_plotly(
                     -s,
                     s,
                     color,
-                    f"{label} ±σ",
+                    _sigma_band_label(label, sigma_level),
                     label,
                     is_first_state,
                 )
@@ -1213,6 +1276,7 @@ def _state_value_grid_plotly(
     ncols,
     time_label,
     cfg,
+    sigma_level=None,
 ):
     """Plotly implementation for multi-state value grid."""
     n_states = len(state_labels)
@@ -1255,7 +1319,7 @@ def _state_value_grid_plotly(
                     v[:, state_idx] - s,
                     v[:, state_idx] + s,
                     color,
-                    f"{label} ±σ",
+                    _sigma_band_label(label, sigma_level),
                     label,
                     False,
                 )

@@ -1209,6 +1209,12 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyExtendedKalmanFilter>()?;
     module.add_class::<PyUKFConfig>()?;
     module.add_class::<PyUnscentedKalmanFilter>()?;
+    module.add_class::<PyBLSSolverMethod>()?;
+    module.add_class::<PyConsiderParameterConfig>()?;
+    module.add_class::<PyBLSConfig>()?;
+    module.add_class::<PyBLSIterationRecord>()?;
+    module.add_class::<PyBLSObservationResidual>()?;
+    module.add_class::<PyBatchLeastSquares>()?;
     module.add_function(wrap_pyfunction!(py_isotropic_covariance, module)?)?;
     module.add_function(wrap_pyfunction!(py_diagonal_covariance, module)?)?;
 

@@ -824,7 +824,9 @@ impl BatchLeastSquares {
                 "Cholesky decomposition of a priori information matrix failed".to_string(),
             )
         })?;
-        let sqrt_p0_inv = p0_chol.l();
+        // Use L^T (upper factor) so that (L^T)^T * L^T = L * L^T = P0_inv
+        // when accumulated via H^T H in the stacked system
+        let sqrt_p0_inv = p0_chol.l().transpose();
 
         h_stacked
             .view_mut((row, 0), (n_solve, n_solve))
@@ -856,7 +858,12 @@ impl BatchLeastSquares {
         let consider_info = if has_consider {
             let mut lambda_sc = DMatrix::zeros(n_solve, n_consider);
             for i in 0..residuals.len() {
-                let r_inv = r_matrices[i].clone().try_inverse().unwrap();
+                let r_inv = r_matrices[i].clone().try_inverse().ok_or_else(|| {
+                    BraheError::NumericalError(
+                        "Measurement noise covariance R is singular (consider cross-term)"
+                            .to_string(),
+                    )
+                })?;
                 let h_s_t = h_solve[i].transpose();
                 let h_c = h_full[i].columns(n_solve, n_consider);
                 lambda_sc += &h_s_t * &r_inv * h_c;

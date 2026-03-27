@@ -2,12 +2,13 @@
 // Python bindings for the estimation module.
 //
 // Provides Python wrappers for:
-// - Configuration types: ProcessNoiseConfig, EKFConfig, UKFConfig
-// - Data types: Observation, FilterRecord
+// - Configuration types: ProcessNoiseConfig, EKFConfig, UKFConfig, BLSConfig
+// - Data types: Observation, FilterRecord, BLSIterationRecord, BLSObservationResidual
 // - Built-in measurement models (6 types, inertial + ECEF)
 // - MeasurementModel base class for Python-defined custom models
 // - ExtendedKalmanFilter
 // - UnscentedKalmanFilter
+// - BatchLeastSquares
 // =============================================================================
 
 use crate::estimation;
@@ -2161,6 +2162,831 @@ impl PyUnscentedKalmanFilter {
             self.ukf.current_epoch(),
             self.ukf.current_state().len(),
             self.ukf.records().len(),
+        )
+    }
+}
+
+// =============================================================================
+// BLSSolverMethod
+// =============================================================================
+
+/// Solver formulation for Batch Least Squares.
+///
+/// Available methods:
+///     - ``BLSSolverMethod.NORMAL_EQUATIONS`` (0): Accumulate information matrix,
+///       solve via Cholesky. Memory-efficient O(n^2).
+///     - ``BLSSolverMethod.STACKED_OBSERVATION_MATRIX`` (1): Build full H matrix,
+///       better numerical conditioning. Memory O(m*n).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     method = bh.BLSSolverMethod.NORMAL_EQUATIONS
+///     config = bh.BLSConfig(solver_method=method)
+///     ```
+#[pyclass(module = "brahe._brahe", skip_from_py_object)]
+#[pyo3(name = "BLSSolverMethod")]
+#[derive(Clone)]
+pub struct PyBLSSolverMethod {}
+
+#[pymethods]
+impl PyBLSSolverMethod {
+    #[classattr]
+    const NORMAL_EQUATIONS: u8 = 0;
+    #[classattr]
+    const STACKED_OBSERVATION_MATRIX: u8 = 1;
+
+    fn __repr__(&self) -> String {
+        "BLSSolverMethod".to_string()
+    }
+}
+
+/// Map a u8 solver method value to the Rust enum.
+fn map_solver_method(value: u8) -> PyResult<estimation::BLSSolverMethod> {
+    match value {
+        0 => Ok(estimation::BLSSolverMethod::NormalEquations),
+        1 => Ok(estimation::BLSSolverMethod::StackedObservationMatrix),
+        _ => Err(exceptions::PyValueError::new_err(format!(
+            "Invalid solver_method: {}. Use BLSSolverMethod.NORMAL_EQUATIONS (0) or \
+             BLSSolverMethod.STACKED_OBSERVATION_MATRIX (1)",
+            value
+        ))),
+    }
+}
+
+// =============================================================================
+// ConsiderParameterConfig
+// =============================================================================
+
+/// Configuration for consider parameters in batch estimation.
+///
+/// Partitions the state into solve-for (first ``n_solve`` elements) and
+/// consider (remaining elements) parameters. The consider parameters are
+/// not estimated but their uncertainty is accounted for in the covariance.
+///
+/// Args:
+///     n_solve (int): Number of solve-for parameters (first n elements of state).
+///     consider_covariance (numpy.ndarray): A priori covariance for the consider
+///         parameters (n_c x n_c), where n_c = state_dim - n_solve.
+///
+/// Returns:
+///     ConsiderParameterConfig: New consider parameter configuration.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # 6D state: first 6 are solve-for, next 1 is consider (e.g., Cd)
+///     consider_cov = np.array([[0.01]])
+///     config = bh.ConsiderParameterConfig(n_solve=6, consider_covariance=consider_cov)
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "ConsiderParameterConfig")]
+#[derive(Clone)]
+pub struct PyConsiderParameterConfig {
+    pub(crate) config: estimation::ConsiderParameterConfig,
+}
+
+#[pymethods]
+impl PyConsiderParameterConfig {
+    #[new]
+    fn new(n_solve: usize, consider_covariance: PyReadonlyArray2<f64>) -> PyResult<Self> {
+        let shape = consider_covariance.shape();
+        if shape[0] != shape[1] {
+            return Err(exceptions::PyValueError::new_err(
+                "consider_covariance must be a square matrix",
+            ));
+        }
+        let data: Vec<f64> = consider_covariance.as_slice()?.to_vec();
+        let cov = DMatrix::from_row_slice(shape[0], shape[1], &data);
+
+        Ok(PyConsiderParameterConfig {
+            config: estimation::ConsiderParameterConfig {
+                n_solve,
+                consider_covariance: cov,
+            },
+        })
+    }
+
+    /// Number of solve-for parameters.
+    ///
+    /// Returns:
+    ///     int: Number of solve-for parameters.
+    #[getter]
+    fn n_solve(&self) -> usize {
+        self.config.n_solve
+    }
+
+    /// A priori covariance for consider parameters.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Consider covariance matrix (n_c x n_c).
+    #[getter]
+    fn consider_covariance<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
+        let r = self.config.consider_covariance.nrows();
+        let c = self.config.consider_covariance.ncols();
+        matrix_to_numpy!(py, self.config.consider_covariance, r, c, f64)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ConsiderParameterConfig(n_solve={}, consider_dim={})",
+            self.config.n_solve,
+            self.config.consider_covariance.nrows(),
+        )
+    }
+}
+
+// =============================================================================
+// BLSConfig
+// =============================================================================
+
+/// Configuration for the Batch Least Squares estimator.
+///
+/// Args:
+///     solver_method (int): Solver formulation. Use ``BLSSolverMethod.NORMAL_EQUATIONS`` (0)
+///         or ``BLSSolverMethod.STACKED_OBSERVATION_MATRIX`` (1). Defaults to 0.
+///     max_iterations (int): Maximum Gauss-Newton iterations. Defaults to 10.
+///     state_correction_threshold (float or None): Convergence threshold on ||delta_x||.
+///         Defaults to 1e-8.
+///     cost_convergence_threshold (float or None): Convergence threshold on relative cost change.
+///         Defaults to None.
+///     consider_params (ConsiderParameterConfig or None): Consider parameter configuration.
+///         Defaults to None.
+///     store_iteration_records (bool): Whether to store per-iteration diagnostics. Defaults to True.
+///     store_observation_residuals (bool): Whether to store per-observation residuals. Defaults to True.
+///
+/// Returns:
+///     BLSConfig: New BLS configuration.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     config = bh.BLSConfig()  # All defaults
+///     config = bh.BLSConfig(max_iterations=20, solver_method=bh.BLSSolverMethod.STACKED_OBSERVATION_MATRIX)
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "BLSConfig")]
+#[derive(Clone)]
+pub struct PyBLSConfig {
+    pub(crate) config: estimation::BLSConfig,
+}
+
+#[pymethods]
+impl PyBLSConfig {
+    #[new]
+    #[pyo3(signature = (
+        solver_method=0,
+        max_iterations=10,
+        state_correction_threshold=Some(1e-8),
+        cost_convergence_threshold=None,
+        consider_params=None,
+        store_iteration_records=true,
+        store_observation_residuals=true
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        solver_method: u8,
+        max_iterations: usize,
+        state_correction_threshold: Option<f64>,
+        cost_convergence_threshold: Option<f64>,
+        consider_params: Option<PyConsiderParameterConfig>,
+        store_iteration_records: bool,
+        store_observation_residuals: bool,
+    ) -> PyResult<Self> {
+        let method = map_solver_method(solver_method)?;
+        Ok(PyBLSConfig {
+            config: estimation::BLSConfig {
+                solver_method: method,
+                max_iterations,
+                state_correction_threshold,
+                cost_convergence_threshold,
+                consider_params: consider_params.map(|cp| cp.config),
+                store_iteration_records,
+                store_observation_residuals,
+            },
+        })
+    }
+
+    /// Create a default BLS configuration.
+    ///
+    /// Returns:
+    ///     BLSConfig: Default configuration (normal equations, 10 iterations, threshold 1e-8).
+    #[staticmethod]
+    #[pyo3(name = "default")]
+    fn py_default() -> Self {
+        PyBLSConfig {
+            config: estimation::BLSConfig::default(),
+        }
+    }
+
+    /// Solver method (0 = NormalEquations, 1 = StackedObservationMatrix).
+    ///
+    /// Returns:
+    ///     int: Solver method identifier.
+    #[getter]
+    fn solver_method(&self) -> u8 {
+        match self.config.solver_method {
+            estimation::BLSSolverMethod::NormalEquations => 0,
+            estimation::BLSSolverMethod::StackedObservationMatrix => 1,
+        }
+    }
+
+    /// Maximum number of iterations.
+    ///
+    /// Returns:
+    ///     int: Maximum iterations.
+    #[getter]
+    fn max_iterations(&self) -> usize {
+        self.config.max_iterations
+    }
+
+    /// State correction convergence threshold.
+    ///
+    /// Returns:
+    ///     float or None: Threshold value.
+    #[getter]
+    fn state_correction_threshold(&self) -> Option<f64> {
+        self.config.state_correction_threshold
+    }
+
+    /// Cost convergence threshold.
+    ///
+    /// Returns:
+    ///     float or None: Threshold value.
+    #[getter]
+    fn cost_convergence_threshold(&self) -> Option<f64> {
+        self.config.cost_convergence_threshold
+    }
+
+    /// Whether iteration records are stored.
+    ///
+    /// Returns:
+    ///     bool: True if records are stored.
+    #[getter]
+    fn store_iteration_records(&self) -> bool {
+        self.config.store_iteration_records
+    }
+
+    /// Whether observation residuals are stored.
+    ///
+    /// Returns:
+    ///     bool: True if residuals are stored.
+    #[getter]
+    fn store_observation_residuals(&self) -> bool {
+        self.config.store_observation_residuals
+    }
+
+    fn __repr__(&self) -> String {
+        let method_str = match self.config.solver_method {
+            estimation::BLSSolverMethod::NormalEquations => "NormalEquations",
+            estimation::BLSSolverMethod::StackedObservationMatrix => "StackedObservationMatrix",
+        };
+        format!(
+            "BLSConfig(solver={}, max_iter={}, state_thresh={:?}, cost_thresh={:?})",
+            method_str,
+            self.config.max_iterations,
+            self.config.state_correction_threshold,
+            self.config.cost_convergence_threshold,
+        )
+    }
+}
+
+// =============================================================================
+// BLSIterationRecord
+// =============================================================================
+
+/// Record of a single BLS iteration.
+///
+/// Contains the state estimate, covariance, state correction, cost, and
+/// residual statistics at each Gauss-Newton iteration.
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "BLSIterationRecord")]
+#[derive(Clone)]
+pub struct PyBLSIterationRecord {
+    pub(crate) record: estimation::BLSIterationRecord,
+}
+
+#[pymethods]
+impl PyBLSIterationRecord {
+    /// Iteration number (0-indexed).
+    ///
+    /// Returns:
+    ///     int: Iteration number.
+    #[getter]
+    fn iteration(&self) -> usize {
+        self.record.iteration
+    }
+
+    /// Reference epoch for this iteration.
+    ///
+    /// Returns:
+    ///     Epoch: Iteration epoch.
+    #[getter]
+    fn epoch(&self) -> PyEpoch {
+        PyEpoch {
+            obj: self.record.epoch,
+        }
+    }
+
+    /// State estimate at this iteration.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector.
+    #[getter]
+    fn state<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        let n = self.record.state.len();
+        vector_to_numpy!(py, self.record.state, n, f64)
+    }
+
+    /// Covariance at this iteration (formal, solve-for only).
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Covariance matrix.
+    #[getter]
+    fn covariance<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
+        let r = self.record.covariance.nrows();
+        let c = self.record.covariance.ncols();
+        matrix_to_numpy!(py, self.record.covariance, r, c, f64)
+    }
+
+    /// State correction applied at this iteration.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State correction vector delta_x.
+    #[getter]
+    fn state_correction<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        let n = self.record.state_correction.len();
+        vector_to_numpy!(py, self.record.state_correction, n, f64)
+    }
+
+    /// Norm of the state correction ||delta_x||.
+    ///
+    /// Returns:
+    ///     float: State correction norm.
+    #[getter]
+    fn state_correction_norm(&self) -> f64 {
+        self.record.state_correction_norm
+    }
+
+    /// Cost function value J at this iteration.
+    ///
+    /// Returns:
+    ///     float: Cost function value.
+    #[getter]
+    fn cost(&self) -> f64 {
+        self.record.cost
+    }
+
+    /// RMS of all pre-fit residuals at this iteration.
+    ///
+    /// Returns:
+    ///     float: Pre-fit RMS.
+    #[getter]
+    fn rms_prefit_residual(&self) -> f64 {
+        self.record.rms_prefit_residual
+    }
+
+    /// RMS of all post-fit residuals at this iteration.
+    ///
+    /// Returns:
+    ///     float: Post-fit RMS.
+    #[getter]
+    fn rms_postfit_residual(&self) -> f64 {
+        self.record.rms_postfit_residual
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "BLSIterationRecord(iter={}, cost={:.6e}, dx_norm={:.6e}, rms_prefit={:.3e}, rms_postfit={:.3e})",
+            self.record.iteration,
+            self.record.cost,
+            self.record.state_correction_norm,
+            self.record.rms_prefit_residual,
+            self.record.rms_postfit_residual,
+        )
+    }
+}
+
+// =============================================================================
+// BLSObservationResidual
+// =============================================================================
+
+/// Per-observation residual from a BLS iteration.
+///
+/// Contains pre-fit and post-fit residuals for a single observation.
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "BLSObservationResidual")]
+#[derive(Clone)]
+pub struct PyBLSObservationResidual {
+    pub(crate) record: estimation::BLSObservationResidual,
+}
+
+#[pymethods]
+impl PyBLSObservationResidual {
+    /// Epoch of the observation.
+    ///
+    /// Returns:
+    ///     Epoch: Observation epoch.
+    #[getter]
+    fn epoch(&self) -> PyEpoch {
+        PyEpoch {
+            obj: self.record.epoch,
+        }
+    }
+
+    /// Name of the measurement model used.
+    ///
+    /// Returns:
+    ///     str: Model name.
+    #[getter]
+    fn model_name(&self) -> &str {
+        &self.record.model_name
+    }
+
+    /// Pre-fit residual: y - h(x_k, t) before state correction.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Pre-fit residual vector.
+    #[getter]
+    fn prefit_residual<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        let n = self.record.prefit_residual.len();
+        vector_to_numpy!(py, self.record.prefit_residual, n, f64)
+    }
+
+    /// Post-fit residual: y - h(x_{k+1}, t) after state correction.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Post-fit residual vector.
+    #[getter]
+    fn postfit_residual<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        let n = self.record.postfit_residual.len();
+        vector_to_numpy!(py, self.record.postfit_residual, n, f64)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "BLSObservationResidual(epoch={}, model={})",
+            self.record.epoch, self.record.model_name,
+        )
+    }
+}
+
+// =============================================================================
+// BatchLeastSquares
+// =============================================================================
+
+/// Batch Least Squares estimator for orbit determination.
+///
+/// Processes all observations simultaneously through an iterative
+/// Gauss-Newton algorithm. Supports both normal equations and stacked
+/// observation matrix solver formulations.
+///
+/// Args:
+///     epoch (Epoch): Initial (reference) epoch.
+///     initial_state (numpy.ndarray): Initial state vector in ECI [x,y,z,vx,vy,vz,...] (meters, m/s).
+///     initial_covariance (numpy.ndarray): A priori covariance matrix (n x n).
+///     propagation_config (NumericalPropagationConfig): Propagation configuration.
+///     force_config (ForceModelConfig): Force model configuration.
+///     measurement_models (list): List of measurement models (built-in or custom).
+///     config (BLSConfig or None): BLS configuration. Defaults to BLSConfig.default().
+///     params (numpy.ndarray or None): Parameter vector for force models.
+///     additional_dynamics (callable or None): Additional dynamics function f(t, state, params) -> derivative.
+///     control_input (callable or None): Control input function f(t, state, params) -> acceleration.
+///
+/// Returns:
+///     BatchLeastSquares: New BLS instance.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///
+///     epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+///     state = np.array([6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+///     p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+///
+///     bls = bh.BatchLeastSquares(
+///         epoch, state, p0,
+///         propagation_config=bh.NumericalPropagationConfig.default(),
+///         force_config=bh.ForceModelConfig.two_body_gravity(),
+///         measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "BatchLeastSquares")]
+pub struct PyBatchLeastSquares {
+    bls: estimation::BatchLeastSquares,
+}
+
+#[pymethods]
+impl PyBatchLeastSquares {
+    #[new]
+    #[pyo3(signature = (
+        epoch, initial_state, initial_covariance,
+        propagation_config, force_config,
+        measurement_models,
+        config=None, params=None, additional_dynamics=None, control_input=None
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        py: Python<'_>,
+        epoch: &PyEpoch,
+        initial_state: PyReadonlyArray1<f64>,
+        initial_covariance: PyReadonlyArray2<f64>,
+        propagation_config: &PyNumericalPropagationConfig,
+        force_config: &PyForceModelConfig,
+        measurement_models: Vec<Py<PyAny>>,
+        config: Option<&PyBLSConfig>,
+        params: Option<PyReadonlyArray1<f64>>,
+        additional_dynamics: Option<Py<PyAny>>,
+        control_input: Option<Py<PyAny>>,
+    ) -> PyResult<Self> {
+        let state_vec = DVector::from_column_slice(initial_state.as_slice()?);
+        let state_dim = state_vec.len();
+
+        // Parse covariance
+        let cov_shape = initial_covariance.shape();
+        if cov_shape[0] != state_dim || cov_shape[1] != state_dim {
+            return Err(exceptions::PyValueError::new_err(format!(
+                "initial_covariance must be {}x{}, got {}x{}",
+                state_dim, state_dim, cov_shape[0], cov_shape[1]
+            )));
+        }
+        let cov_data: Vec<f64> = initial_covariance.as_slice()?.to_vec();
+        let cov_matrix = DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
+
+        let params_vec =
+            params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
+
+        // Wrap additional_dynamics callable
+        let additional_dynamics_fn: Option<crate::integrators::traits::DStateDynamics> =
+            additional_dynamics.map(|dyn_py| {
+                let dyn_py = dyn_py.clone_ref(py);
+                Box::new(
+                    move |t: f64,
+                          x: &DVector<f64>,
+                          p: Option<&DVector<f64>>|
+                          -> DVector<f64> {
+                        Python::attach(|py| {
+                            let x_np = x.as_slice().to_pyarray(py);
+                            let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
+                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+
+                            let result = match p_np {
+                                Some(params_arr) => dyn_py.call1(py, (t, x_np, params_arr)),
+                                None => dyn_py.call1(py, (t, x_np, py.None())),
+                            };
+
+                            match result {
+                                Ok(res) => {
+                                    let res_arr: PyReadonlyArray1<f64> =
+                                        res.extract(py).unwrap();
+                                    DVector::from_column_slice(
+                                        res_arr.as_slice().unwrap(),
+                                    )
+                                }
+                                Err(e) => {
+                                    eprintln!(
+                                        "Error calling additional_dynamics: {}",
+                                        e
+                                    );
+                                    DVector::zeros(x.len())
+                                }
+                            }
+                        })
+                    },
+                ) as crate::integrators::traits::DStateDynamics
+            });
+
+        // Wrap control_input callable
+        let control_input_fn: crate::integrators::traits::DControlInput =
+            control_input.map(|ctrl_py| {
+                let ctrl_py = ctrl_py.clone_ref(py);
+                Box::new(
+                    move |t: f64,
+                          x: &DVector<f64>,
+                          p: Option<&DVector<f64>>|
+                          -> DVector<f64> {
+                        Python::attach(|py| {
+                            let x_np = x.as_slice().to_pyarray(py);
+                            let p_np: Option<Bound<'_, PyArray<f64, Ix1>>> =
+                                p.map(|pv| pv.as_slice().to_pyarray(py).to_owned());
+
+                            let result = match p_np {
+                                Some(params_arr) => ctrl_py.call1(py, (t, x_np, params_arr)),
+                                None => ctrl_py.call1(py, (t, x_np, py.None())),
+                            };
+
+                            match result {
+                                Ok(res) => {
+                                    let res_arr: PyReadonlyArray1<f64> =
+                                        res.extract(py).unwrap();
+                                    DVector::from_column_slice(
+                                        res_arr.as_slice().unwrap(),
+                                    )
+                                }
+                                Err(e) => {
+                                    eprintln!("Error calling control_input: {}", e);
+                                    DVector::zeros(3)
+                                }
+                            }
+                        })
+                    },
+                )
+                    as Box<
+                        dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64>
+                            + Send
+                            + Sync,
+                    >
+            });
+
+        // Process measurement models
+        let models = process_measurement_models(py, measurement_models)?;
+
+        // Build BLS config
+        let bls_config = config
+            .map(|c| c.config.clone())
+            .unwrap_or_default();
+
+        // Build BLS (this internally creates the propagator with STM enabled)
+        let bls = estimation::BatchLeastSquares::new(
+            epoch.obj,
+            state_vec,
+            cov_matrix,
+            propagation_config.config.clone(),
+            force_config.config.clone(),
+            params_vec,
+            additional_dynamics_fn,
+            control_input_fn,
+            models,
+            bls_config,
+        )
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        Ok(PyBatchLeastSquares { bls })
+    }
+
+    /// Solve the batch least squares problem.
+    ///
+    /// Iteratively processes all observations to find the state that minimizes
+    /// the weighted sum of squared residuals.
+    ///
+    /// Args:
+    ///     observations (list[Observation]): List of observations to process.
+    ///
+    /// Example:
+    ///     ```python
+    ///     bls.solve(observations)
+    ///     print(f"Converged: {bls.converged()}")
+    ///     print(f"Iterations: {bls.iterations_completed()}")
+    ///     ```
+    fn solve(&mut self, observations: Vec<PyRef<PyObservation>>) -> PyResult<()> {
+        let obs_vec: Vec<estimation::Observation> = observations
+            .iter()
+            .map(|o| o.observation.clone())
+            .collect();
+        self.bls
+            .solve(&obs_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Get current state estimate at the reference epoch.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Current state vector.
+    fn current_state<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+        let state = self.bls.current_state();
+        let n = state.len();
+        vector_to_numpy!(py, state, n, f64)
+    }
+
+    /// Get current total covariance (formal + consider contribution).
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Total covariance matrix (n x n).
+    fn current_covariance<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
+        let cov = self.bls.total_covariance();
+        let r = cov.nrows();
+        let c = cov.ncols();
+        let cov_ref = &cov;
+        matrix_to_numpy!(py, cov_ref, r, c, f64)
+    }
+
+    /// Get current epoch (reference epoch for the batch).
+    ///
+    /// Returns:
+    ///     Epoch: Current epoch.
+    fn current_epoch(&self) -> PyEpoch {
+        PyEpoch {
+            obj: self.bls.current_epoch(),
+        }
+    }
+
+    /// Whether the solver has converged.
+    ///
+    /// Returns:
+    ///     bool: True if converged.
+    fn converged(&self) -> bool {
+        self.bls.converged()
+    }
+
+    /// Number of Gauss-Newton iterations completed.
+    ///
+    /// Returns:
+    ///     int: Number of iterations.
+    fn iterations_completed(&self) -> usize {
+        self.bls.iterations_completed()
+    }
+
+    /// Final cost function value J.
+    ///
+    /// Returns:
+    ///     float: Final cost.
+    fn final_cost(&self) -> f64 {
+        self.bls.final_cost()
+    }
+
+    /// Formal covariance (solve-for partition only).
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Formal covariance matrix.
+    fn formal_covariance<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
+        let cov = self.bls.formal_covariance();
+        let r = cov.nrows();
+        let c = cov.ncols();
+        matrix_to_numpy!(py, cov, r, c, f64)
+    }
+
+    /// Consider covariance contribution.
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: Consider covariance matrix, or None if
+    ///         consider parameters are not configured.
+    fn consider_covariance<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Option<Bound<'py, PyArray<f64, numpy::Ix2>>> {
+        self.bls.consider_covariance().map(|cov| {
+            let r = cov.nrows();
+            let c = cov.ncols();
+            let cov_ref = &cov;
+            matrix_to_numpy!(py, cov_ref, r, c, f64)
+        })
+    }
+
+    /// Per-iteration diagnostic records.
+    ///
+    /// Only populated when ``config.store_iteration_records`` is True.
+    ///
+    /// Returns:
+    ///     list[BLSIterationRecord]: List of iteration records.
+    fn iteration_records(&self) -> Vec<PyBLSIterationRecord> {
+        self.bls
+            .iteration_records()
+            .iter()
+            .map(|r| PyBLSIterationRecord { record: r.clone() })
+            .collect()
+    }
+
+    /// Per-observation residuals for each iteration.
+    ///
+    /// Only populated when ``config.store_observation_residuals`` is True.
+    /// Outer list is indexed by iteration, inner list by observation.
+    ///
+    /// Returns:
+    ///     list[list[BLSObservationResidual]]: Nested list of observation residuals.
+    fn observation_residuals(&self) -> Vec<Vec<PyBLSObservationResidual>> {
+        self.bls
+            .observation_residuals()
+            .iter()
+            .map(|iter_residuals| {
+                iter_residuals
+                    .iter()
+                    .map(|r| PyBLSObservationResidual { record: r.clone() })
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "BatchLeastSquares(epoch={}, state_dim={}, converged={}, iterations={})",
+            self.bls.current_epoch(),
+            self.bls.current_state().len(),
+            self.bls.converged(),
+            self.bls.iterations_completed(),
         )
     }
 }

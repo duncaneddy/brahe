@@ -209,6 +209,8 @@ nav:
           - Atmospheric Drag: learn/orbital_dynamics/drag.md
           - Solar Radiation Pressure: learn/orbital_dynamics/solar_radiation_pressure.md
           - Relativistic Effects: learn/orbital_dynamics/relativity.md
+      - Earth Models:
+          - Magnetic Field Models: learn/earth_models/magnetic_field.md
       - Orbit Propagation:
           - learn/orbit_propagation/index.md
           - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
@@ -431,6 +433,8 @@ nav:
           - library_api/earth_models/index.md
           - Harris-Priester: library_api/earth_models/harris_priester.md
           - NRLMSISE-00: library_api/earth_models/nrlmsise00.md
+          - IGRF-14: library_api/earth_models/igrf.md
+          - WMMHR-2025: library_api/earth_models/wmmhr.md
       - Datasets:
           - library_api/datasets/index.md
           - Groundstations: library_api/datasets/groundstations.md

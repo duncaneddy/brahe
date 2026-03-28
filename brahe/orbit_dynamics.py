@@ -101,6 +101,13 @@ from brahe._brahe import (
     density_harris_priester,
     density_nrlmsise00,
     density_nrlmsise00_geod,
+    # Magnetic Field Models
+    igrf_geodetic_enz,
+    igrf_geocentric_enz,
+    igrf_ecef,
+    wmmhr_geodetic_enz,
+    wmmhr_geocentric_enz,
+    wmmhr_ecef,
     # Drag, SRP, and Relativity
     accel_drag,
     accel_solar_radiation_pressure,
@@ -151,6 +158,13 @@ __all__ = [
     "density_harris_priester",
     "density_nrlmsise00",
     "density_nrlmsise00_geod",
+    # Magnetic Field Models
+    "igrf_geodetic_enz",
+    "igrf_geocentric_enz",
+    "igrf_ecef",
+    "wmmhr_geodetic_enz",
+    "wmmhr_geocentric_enz",
+    "wmmhr_ecef",
     # Drag, SRP, and Relativity
     "accel_drag",
     "accel_solar_radiation_pressure",

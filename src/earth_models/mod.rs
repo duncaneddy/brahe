@@ -27,8 +27,11 @@ pub use harris_priester::*;
 pub use nrlmsise00::*;
 
 pub mod harris_priester;
+pub mod magnetic_field;
 #[allow(clippy::assign_op_pattern)]
 #[allow(clippy::needless_range_loop)]
 #[allow(clippy::type_complexity)]
 pub mod nrlmsise00;
 pub mod nrlmsise00_data;
+
+pub use magnetic_field::*;

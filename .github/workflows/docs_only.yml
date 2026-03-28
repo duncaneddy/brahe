@@ -1,5 +1,5 @@
 # Fast-path workflow for documentation-only changes
-# Triggers only when changes are exclusively in docs/, examples/, plots/, or mkdocs.yaml
+# Triggers only when changes are exclusively in docs/, examples/, plots/, or properdocs.yml
 # The 'paths' filter ensures this only runs for docs changes
 # The 'paths-ignore' in commit.yml ensures full CI doesn't run for docs-only changes
 
@@ -13,7 +13,7 @@ on:
       - 'docs/**'
       - 'examples/**'
       - 'plots/**'
-      - 'mkdocs.yaml'
+      - 'properdocs.yml'
   workflow_dispatch: # Allow manual triggering
 
 # Prevent concurrent gh-pages deployments

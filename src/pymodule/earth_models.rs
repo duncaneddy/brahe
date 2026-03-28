@@ -126,3 +126,254 @@ fn py_density_nrlmsise00_geod(epc: &PyEpoch, geod: PyReadonlyArray1<f64>) -> PyR
     crate::earth_models::density_nrlmsise00_geod(&epc.obj, &geod_arr)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
 }
+
+// ============================================================================
+// Magnetic Field Model Python Bindings
+// ============================================================================
+
+/// Compute IGRF-14 magnetic field in the geodetic ENZ frame.
+///
+/// The geodetic ENZ frame has zenith perpendicular to the WGS84 ellipsoid surface.
+///
+/// Args:
+///     epc (Epoch): Epoch of computation
+///     x_geod (numpy.ndarray): Geodetic position [longitude, latitude, altitude_m].
+///         Angle units controlled by angle_format. Altitude always in meters.
+///     angle_format (AngleFormat): Whether longitude/latitude are in degrees or radians
+///
+/// Returns:
+///     numpy.ndarray: Magnetic field [B_east, B_north, B_zenith] in nT
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     x_geod = np.array([0.0, 80.0, 0.0])  # lon=0, lat=80 deg, alt=0 m
+///     b = bh.igrf_geodetic_enz(epc, x_geod, bh.AngleFormat.DEGREES)
+///     print(f"B_east={b[0]:.1f}, B_north={b[1]:.1f}, B_zenith={b[2]:.1f} nT")
+///     ```
+#[pyfunction]
+#[pyo3(name = "igrf_geodetic_enz")]
+fn py_igrf_geodetic_enz<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_geod: PyReadonlyArray1<f64>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let geod = numpy_to_vector3!(x_geod);
+    let result = crate::earth_models::magnetic_field::igrf_geodetic_enz(
+        &epc.obj,
+        geod,
+        angle_format.value,
+    )
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    Ok(vector_to_numpy!(py, result, 3, f64))
+}
+
+/// Compute IGRF-14 magnetic field in the geocentric ENZ frame.
+///
+/// The geocentric ENZ frame has zenith along the geocentric radial direction.
+///
+/// Args:
+///     epc (Epoch): Epoch of computation
+///     x_geod (numpy.ndarray): Geodetic position [longitude, latitude, altitude_m].
+///         Angle units controlled by angle_format. Altitude always in meters.
+///     angle_format (AngleFormat): Whether longitude/latitude are in degrees or radians
+///
+/// Returns:
+///     numpy.ndarray: Magnetic field [B_east, B_north, B_zenith] in nT
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     x_geod = np.array([0.0, 80.0, 0.0])
+///     b = bh.igrf_geocentric_enz(epc, x_geod, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(name = "igrf_geocentric_enz")]
+fn py_igrf_geocentric_enz<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_geod: PyReadonlyArray1<f64>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let geod = numpy_to_vector3!(x_geod);
+    let result = crate::earth_models::magnetic_field::igrf_geocentric_enz(
+        &epc.obj,
+        geod,
+        angle_format.value,
+    )
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    Ok(vector_to_numpy!(py, result, 3, f64))
+}
+
+/// Compute IGRF-14 magnetic field in the ECEF frame.
+///
+/// Args:
+///     epc (Epoch): Epoch of computation
+///     x_geod (numpy.ndarray): Geodetic position [longitude, latitude, altitude_m].
+///         Angle units controlled by angle_format. Altitude always in meters.
+///     angle_format (AngleFormat): Whether longitude/latitude are in degrees or radians
+///
+/// Returns:
+///     numpy.ndarray: Magnetic field [B_x, B_y, B_z] in ECEF frame, in nT
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     x_geod = np.array([0.0, 80.0, 0.0])
+///     b = bh.igrf_ecef(epc, x_geod, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(name = "igrf_ecef")]
+fn py_igrf_ecef<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_geod: PyReadonlyArray1<f64>,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let geod = numpy_to_vector3!(x_geod);
+    let result = crate::earth_models::magnetic_field::igrf_ecef(
+        &epc.obj,
+        geod,
+        angle_format.value,
+    )
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    Ok(vector_to_numpy!(py, result, 3, f64))
+}
+
+/// Compute WMMHR-2025 magnetic field in the geodetic ENZ frame.
+///
+/// The geodetic ENZ frame has zenith perpendicular to the WGS84 ellipsoid surface.
+///
+/// Args:
+///     epc (Epoch): Epoch of computation
+///     x_geod (numpy.ndarray): Geodetic position [longitude, latitude, altitude_m].
+///         Angle units controlled by angle_format. Altitude always in meters.
+///     angle_format (AngleFormat): Whether longitude/latitude are in degrees or radians
+///     nmax (int, optional): Maximum spherical harmonic degree (1-133). Default: 133 (full resolution).
+///
+/// Returns:
+///     numpy.ndarray: Magnetic field [B_east, B_north, B_zenith] in nT
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     x_geod = np.array([0.0, 80.0, 0.0])
+///     b = bh.wmmhr_geodetic_enz(epc, x_geod, bh.AngleFormat.DEGREES)
+///     print(f"B_east={b[0]:.1f}, B_north={b[1]:.1f}, B_zenith={b[2]:.1f} nT")
+///     ```
+#[pyfunction]
+#[pyo3(name = "wmmhr_geodetic_enz", signature = (epc, x_geod, angle_format, nmax=None))]
+fn py_wmmhr_geodetic_enz<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_geod: PyReadonlyArray1<f64>,
+    angle_format: &PyAngleFormat,
+    nmax: Option<usize>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let geod = numpy_to_vector3!(x_geod);
+    let result = crate::earth_models::magnetic_field::wmmhr_geodetic_enz(
+        &epc.obj,
+        geod,
+        angle_format.value,
+        nmax,
+    )
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    Ok(vector_to_numpy!(py, result, 3, f64))
+}
+
+/// Compute WMMHR-2025 magnetic field in the geocentric ENZ frame.
+///
+/// The geocentric ENZ frame has zenith along the geocentric radial direction.
+///
+/// Args:
+///     epc (Epoch): Epoch of computation
+///     x_geod (numpy.ndarray): Geodetic position [longitude, latitude, altitude_m].
+///         Angle units controlled by angle_format. Altitude always in meters.
+///     angle_format (AngleFormat): Whether longitude/latitude are in degrees or radians
+///     nmax (int, optional): Maximum spherical harmonic degree (1-133). Default: 133 (full resolution).
+///
+/// Returns:
+///     numpy.ndarray: Magnetic field [B_east, B_north, B_zenith] in nT
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     x_geod = np.array([0.0, 80.0, 0.0])
+///     b = bh.wmmhr_geocentric_enz(epc, x_geod, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(name = "wmmhr_geocentric_enz", signature = (epc, x_geod, angle_format, nmax=None))]
+fn py_wmmhr_geocentric_enz<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_geod: PyReadonlyArray1<f64>,
+    angle_format: &PyAngleFormat,
+    nmax: Option<usize>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let geod = numpy_to_vector3!(x_geod);
+    let result = crate::earth_models::magnetic_field::wmmhr_geocentric_enz(
+        &epc.obj,
+        geod,
+        angle_format.value,
+        nmax,
+    )
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    Ok(vector_to_numpy!(py, result, 3, f64))
+}
+
+/// Compute WMMHR-2025 magnetic field in the ECEF frame.
+///
+/// Args:
+///     epc (Epoch): Epoch of computation
+///     x_geod (numpy.ndarray): Geodetic position [longitude, latitude, altitude_m].
+///         Angle units controlled by angle_format. Altitude always in meters.
+///     angle_format (AngleFormat): Whether longitude/latitude are in degrees or radians
+///     nmax (int, optional): Maximum spherical harmonic degree (1-133). Default: 133 (full resolution).
+///
+/// Returns:
+///     numpy.ndarray: Magnetic field [B_x, B_y, B_z] in ECEF frame, in nT
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     x_geod = np.array([0.0, 80.0, 0.0])
+///     b = bh.wmmhr_ecef(epc, x_geod, bh.AngleFormat.DEGREES)
+///     ```
+#[pyfunction]
+#[pyo3(name = "wmmhr_ecef", signature = (epc, x_geod, angle_format, nmax=None))]
+fn py_wmmhr_ecef<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_geod: PyReadonlyArray1<f64>,
+    angle_format: &PyAngleFormat,
+    nmax: Option<usize>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let geod = numpy_to_vector3!(x_geod);
+    let result = crate::earth_models::magnetic_field::wmmhr_ecef(
+        &epc.obj,
+        geod,
+        angle_format.value,
+        nmax,
+    )
+    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    Ok(vector_to_numpy!(py, result, 3, f64))
+}

@@ -2,6 +2,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
+use brahe::estimation::MeasurementModel;
 use nalgebra::DMatrix;
 
 fn main() {

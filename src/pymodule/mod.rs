@@ -1019,6 +1019,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_density_nrlmsise00, module)?)?;
     module.add_function(wrap_pyfunction!(py_density_nrlmsise00_geod, module)?)?;
 
+    // Magnetic Field Models
+    module.add_function(wrap_pyfunction!(py_igrf_geodetic_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_igrf_geocentric_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_igrf_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_wmmhr_geodetic_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_wmmhr_geocentric_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_wmmhr_ecef, module)?)?;
+
     // Drag, SRP, and Relativity
     module.add_function(wrap_pyfunction!(py_accel_drag, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_solar_radiation_pressure, module)?)?;

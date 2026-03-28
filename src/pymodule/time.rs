@@ -976,6 +976,31 @@ impl PyEpoch {
         })
     }
 
+    /// Create an Epoch from a Unix timestamp (seconds since 1970-01-01 00:00:00 UTC).
+    ///
+    /// The resulting epoch is always in the UTC time system.
+    ///
+    /// Args:
+    ///     timestamp (float): Unix timestamp in seconds (fractional for sub-second precision)
+    ///
+    /// Returns:
+    ///     Epoch: The epoch corresponding to the given Unix timestamp in UTC
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_unix_timestamp(946728000.0)
+    ///     print(f"Epoch: {epc}")
+    ///     # Output: Epoch: 2000-01-01 12:00:00.000 UTC
+    ///     ```
+    #[classmethod]
+    pub fn from_unix_timestamp(_cls: &Bound<'_, PyType>, timestamp: f64) -> PyResult<PyEpoch> {
+        Ok(PyEpoch {
+            obj: time::Epoch::from_unix_timestamp(timestamp),
+        })
+    }
+
     /// Create an Epoch representing the current UTC instant.
     ///
     /// This method uses the system clock to get the current time and creates an Epoch
@@ -1233,6 +1258,26 @@ impl PyEpoch {
     ///     ```
     pub fn gps_nanoseconds(&self) -> f64 {
         self.obj.gps_nanoseconds()
+    }
+
+    /// Get the Unix timestamp (seconds since 1970-01-01 00:00:00 UTC).
+    ///
+    /// The timestamp is always relative to UTC, regardless of the epoch's time system.
+    ///
+    /// Returns:
+    ///     float: Unix timestamp in seconds (fractional for sub-second precision)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     ts = epc.unix_timestamp()
+    ///     print(f"Unix timestamp: {ts:.1f}")
+    ///     # Output: Unix timestamp: 946728000.0
+    ///     ```
+    pub fn unix_timestamp(&self) -> f64 {
+        self.obj.unix_timestamp()
     }
 
     /// Convert the epoch to an ISO 8601 formatted string.

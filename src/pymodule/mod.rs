@@ -594,6 +594,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("TAI_GST", constants::TAI_GST)?;
     module.add("BDT_ZERO", constants::BDT_ZERO)?;
     module.add("GST_ZERO", constants::GST_ZERO)?;
+    module.add("UNIX_EPOCH_JD", constants::UNIX_EPOCH_JD)?;
+    module.add("UNIX_EPOCH_MJD", constants::UNIX_EPOCH_MJD)?;
     module.add("C_LIGHT", constants::C_LIGHT)?;
     module.add("AU", constants::AU)?;
     module.add("R_EARTH", constants::R_EARTH)?;

@@ -443,6 +443,52 @@ def test_gps_nanoseconds(eop):
     assert epc.gps_nanoseconds() == 86401.0 * 1.0e9
 
 
+def test_unix_timestamp(eop):
+    # J2000: 2000-01-01 12:00:00 UTC
+    epc = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    assert epc.unix_timestamp() == pytest.approx(946728000.0, abs=1e-6)
+
+    # Known date: 2024-01-01 00:00:00 UTC
+    epc = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    assert epc.unix_timestamp() == pytest.approx(1704067200.0, abs=1e-6)
+
+    # Non-UTC epoch still returns UTC-based timestamp
+    epc_tai = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.TAI)
+    epc_utc = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    assert epc_tai.unix_timestamp() != epc_utc.unix_timestamp()
+
+
+def test_unix_timestamp_zero_epoch(eop):
+    # Unix epoch zero: 1970-01-01 00:00:00 UTC must be exactly 0.0
+    epc = bh.Epoch.from_datetime(1970, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    assert epc.unix_timestamp() == pytest.approx(0.0, abs=1e-6)
+
+
+def test_from_unix_timestamp(eop):
+    # Unix epoch zero: verify round-trip since to_datetime() for pre-1972 dates
+    # is affected by SOFA's UTC-TAI handling
+    epc = bh.Epoch.from_unix_timestamp(0.0)
+    assert epc.time_system == bh.TimeSystem.UTC
+    assert epc.unix_timestamp() == pytest.approx(0.0, abs=1e-6)
+
+    # J2000: 946728000.0 = 2000-01-01 12:00:00 UTC
+    epc = bh.Epoch.from_unix_timestamp(946728000.0)
+    (year, month, day, hour, minute, second, _) = epc.to_datetime()
+    assert (year, month, day, hour, minute) == (2000, 1, 1, 12, 0)
+    assert second == pytest.approx(0.0, abs=1e-6)
+
+    # Known date: 1704067200.0 = 2024-01-01 00:00:00 UTC
+    epc = bh.Epoch.from_unix_timestamp(1704067200.0)
+    (year, month, day, hour, minute, second, _) = epc.to_datetime()
+    assert (year, month, day, hour, minute) == (2024, 1, 1, 0, 0)
+    assert second == pytest.approx(0.0, abs=1e-6)
+
+    # Round-trip: from_unix_timestamp -> unix_timestamp (with fractional seconds)
+    ts = 1609459200.123456
+    epc = bh.Epoch.from_unix_timestamp(ts)
+    assert epc.unix_timestamp() == pytest.approx(ts, abs=1e-3)
+
+
 def test_isostring(eop):
     # Confirm Before the leap second
     epc = bh.Epoch.from_datetime(2016, 12, 31, 23, 59, 59.0, 0.0, bh.UTC)

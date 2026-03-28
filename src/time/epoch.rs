@@ -13,7 +13,7 @@ use regex::Regex;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::constants::{AngleFormat, GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY};
+use crate::constants::{AngleFormat, GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY, UNIX_EPOCH_JD};
 use crate::math::linalg::split_float;
 use crate::time::conversions::time_system_offset;
 use crate::time::time_types::TimeSystem;
@@ -385,9 +385,6 @@ impl Epoch {
         // Convert to total seconds
         let total_seconds = duration.as_secs() as f64;
 
-        // Unix epoch in Julian Date: 2440587.5 (Jan 1, 1970 00:00:00 UTC)
-        // Convert Unix time (seconds) to Julian Date
-        const UNIX_EPOCH_JD: f64 = 2440587.5;
         let jd = UNIX_EPOCH_JD + (total_seconds / SECONDS_PER_DAY);
 
         // Create Epoch from Julian Date in UTC time system and add fractional seconds
@@ -746,6 +743,49 @@ impl Epoch {
             days: days as u64,
             seconds: f64::trunc(seconds) as u32,
             nanoseconds: ns,
+            nanoseconds_kc: 0.0,
+        }
+    }
+
+    /// Create an `Epoch` from a Unix timestamp (seconds since 1970-01-01 00:00:00 UTC).
+    ///
+    /// The resulting epoch is always in the UTC time system.
+    ///
+    /// # Arguments
+    ///
+    /// * `timestamp` - Unix timestamp in seconds (fractional for sub-second precision)
+    ///
+    /// # Returns
+    ///
+    /// * `Epoch` - The epoch corresponding to the given Unix timestamp in UTC
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// let epc = Epoch::from_unix_timestamp(946728000.0);
+    /// assert_eq!(epc.time_system, TimeSystem::UTC);
+    /// let (year, month, day, hour, _, _, _) = epc.to_datetime();
+    /// assert_eq!((year, month, day, hour), (2000, 1, 1, 12));
+    /// ```
+    pub fn from_unix_timestamp(timestamp: f64) -> Self {
+        let jd = UNIX_EPOCH_JD + (timestamp / SECONDS_PER_DAY).floor();
+        let mut days = f64::trunc(jd);
+        let fd = (timestamp % SECONDS_PER_DAY) / SECONDS_PER_DAY + f64::fract(jd);
+        let time_system_offset = time_system_offset(days, fd, TimeSystem::UTC, TimeSystem::TAI);
+
+        let mut seconds =
+            timestamp % SECONDS_PER_DAY + f64::fract(jd) * SECONDS_PER_DAY + time_system_offset;
+
+        while seconds < 0.0 {
+            days -= 1.0;
+            seconds += SECONDS_PER_DAY;
+        }
+
+        Epoch {
+            time_system: TimeSystem::UTC,
+            days: days as u64,
+            seconds: f64::trunc(seconds) as u32,
+            nanoseconds: f64::fract(seconds) * NANOSECONDS_PER_SECOND_FLOAT,
             nanoseconds_kc: 0.0,
         }
     }
@@ -1328,6 +1368,25 @@ impl Epoch {
     /// ```
     pub fn gps_nanoseconds(&self) -> f64 {
         self.gps_seconds() * 1_000_000_000.0
+    }
+
+    /// Returns the Unix timestamp (seconds since 1970-01-01 00:00:00 UTC) for this epoch.
+    ///
+    /// The Unix timestamp is always computed relative to UTC, regardless of the
+    /// epoch's time system.
+    ///
+    /// # Returns
+    ///
+    /// * `f64` - Unix timestamp in seconds (fractional for sub-second precision)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// assert!((epc.unix_timestamp() - 946728000.0).abs() < 1e-6);
+    /// ```
+    pub fn unix_timestamp(&self) -> f64 {
+        (self.jd_as_time_system(TimeSystem::UTC) - UNIX_EPOCH_JD) * SECONDS_PER_DAY
     }
 
     /// Convert an `Epoch` into an ISO8061 formatted time string with no
@@ -2037,8 +2096,6 @@ mod tests {
         let system_seconds =
             system_duration.as_secs() as f64 + (system_duration.subsec_nanos() as f64 / 1.0e9);
 
-        // Convert to Julian Date the same way as the implementation
-        const UNIX_EPOCH_JD: f64 = 2440587.5;
         let expected_jd = UNIX_EPOCH_JD + (system_seconds / 86400.0);
         let expected_epoch = Epoch::from_jd(expected_jd, TimeSystem::UTC);
 
@@ -2440,6 +2497,59 @@ mod tests {
 
         let epc = Epoch::from_datetime(1980, 1, 7, 0, 0, 1.0, 0.0, TimeSystem::GPS);
         assert_eq!(epc.gps_nanoseconds(), 86401.0 * 1.0e9);
+    }
+
+    #[test]
+    fn test_unix_timestamp() {
+        setup_global_test_eop();
+
+        // J2000 epoch: 2000-01-01 12:00:00 UTC = 946728000.0
+        let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epc.unix_timestamp(), 946728000.0, epsilon = 1e-6);
+
+        // Known date: 2024-01-01 00:00:00 UTC = 1704067200.0
+        let epc = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epc.unix_timestamp(), 1704067200.0, epsilon = 1e-6);
+
+        // From non-UTC time system (should still return UTC-based Unix timestamp)
+        let epc_tai = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TAI);
+        let epc_utc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(epc_tai.unix_timestamp() != epc_utc.unix_timestamp());
+    }
+
+    #[test]
+    fn test_unix_timestamp_zero_epoch() {
+        // Unix epoch zero: 1970-01-01 00:00:00 UTC must be exactly 0.0
+        let epc = Epoch::from_datetime(1970, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(epc.unix_timestamp(), 0.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_from_unix_timestamp() {
+        setup_global_test_eop();
+
+        // Unix epoch zero: verify round-trip since to_datetime() for pre-1972 dates
+        // is affected by SOFA's UTC-TAI handling (same behavior as from_datetime)
+        let epc = Epoch::from_unix_timestamp(0.0);
+        assert_eq!(epc.time_system, TimeSystem::UTC);
+        assert_abs_diff_eq!(epc.unix_timestamp(), 0.0, epsilon = 1e-6);
+
+        // J2000 epoch: 946728000.0 = 2000-01-01 12:00:00 UTC
+        let epc = Epoch::from_unix_timestamp(946728000.0);
+        let (year, month, day, hour, minute, second, _) = epc.to_datetime();
+        assert_eq!((year, month, day, hour, minute), (2000, 1, 1, 12, 0));
+        assert_abs_diff_eq!(second, 0.0, epsilon = 1e-6);
+
+        // Known date: 1704067200.0 = 2024-01-01 00:00:00 UTC
+        let epc = Epoch::from_unix_timestamp(1704067200.0);
+        let (year, month, day, hour, minute, second, _) = epc.to_datetime();
+        assert_eq!((year, month, day, hour, minute), (2024, 1, 1, 0, 0));
+        assert_abs_diff_eq!(second, 0.0, epsilon = 1e-6);
+
+        // Round-trip: from_unix_timestamp -> unix_timestamp (with fractional seconds)
+        let ts = 1609459200.123456;
+        let epc = Epoch::from_unix_timestamp(ts);
+        assert_abs_diff_eq!(epc.unix_timestamp(), ts, epsilon = 1e-3);
     }
 
     #[test]

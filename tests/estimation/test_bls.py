@@ -145,6 +145,55 @@ class TestBatchLeastSquares:
                 assert len(r.postfit_residual) == 3
                 assert r.model_name == "InertialPosition"
 
+    def test_convergence_cost_threshold(self, two_body_leo, position_observations):
+        """BLS with cost_convergence_threshold only (no state correction threshold)."""
+        epoch, true_state = two_body_leo
+        initial_state = true_state.copy()
+        initial_state[0] += 500.0
+
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+        config = bh.BLSConfig(
+            solver_method=bh.BLSSolverMethod.NORMAL_EQUATIONS,
+            state_correction_threshold=None,
+            cost_convergence_threshold=1e-6,
+            max_iterations=20,
+        )
+
+        bls = bh.BatchLeastSquares(
+            epoch,
+            initial_state,
+            p0,
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+            config=config,
+        )
+        bls.solve(position_observations)
+
+        assert bls.converged()
+        assert bls.final_cost() < 1.0
+
+    def test_bls_config_properties(self):
+        """Verify BLSConfig default values and custom properties."""
+        default = bh.BLSConfig.default()
+        assert default.solver_method == bh.BLSSolverMethod.NORMAL_EQUATIONS
+        assert default.max_iterations == 10
+        assert default.store_iteration_records is True
+        assert default.store_observation_residuals is True
+
+        custom = bh.BLSConfig(
+            solver_method=bh.BLSSolverMethod.STACKED_OBSERVATION_MATRIX,
+            max_iterations=5,
+            state_correction_threshold=1e-8,
+            cost_convergence_threshold=1e-4,
+            store_iteration_records=False,
+            store_observation_residuals=False,
+        )
+        assert custom.solver_method == bh.BLSSolverMethod.STACKED_OBSERVATION_MATRIX
+        assert custom.max_iterations == 5
+        assert custom.store_iteration_records is False
+        assert custom.store_observation_residuals is False
+
     def test_custom_measurement_model(self, two_body_leo, position_observations):
         """BLS should work with Python-defined custom measurement models."""
         epoch, true_state = two_body_leo

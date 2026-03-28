@@ -4330,8 +4330,7 @@ impl PyNumericalOrbitPropagator {
                                     nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling additional_dynamics function: {}", e);
-                                    nalgebra::DVector::zeros(x.len())
+                                    panic!("Error calling additional_dynamics: {e}")
                                 }
                             }
                         })
@@ -4361,8 +4360,7 @@ impl PyNumericalOrbitPropagator {
                                     nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling control_input function: {}", e);
-                                    nalgebra::DVector::zeros(3) // Control should return 3D acceleration
+                                    panic!("Error calling control_input: {e}")
                                 }
                             }
                         })
@@ -5677,8 +5675,7 @@ impl PyNumericalPropagator {
                             nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
                         }
                         Err(e) => {
-                            eprintln!("Error calling dynamics function: {}", e);
-                            nalgebra::DVector::zeros(x.len())
+                            panic!("Error calling dynamics function: {e}")
                         }
                     }
                 })
@@ -5707,8 +5704,7 @@ impl PyNumericalPropagator {
                                     nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling control_input function: {}", e);
-                                    nalgebra::DVector::zeros(x.len())
+                                    panic!("Error calling control_input: {e}")
                                 }
                             }
                         })

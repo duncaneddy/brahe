@@ -220,3 +220,149 @@ pub trait MeasurementModel: Send + Sync {
     /// Human-readable name for this measurement model.
     fn name(&self) -> &str;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::estimation::InertialPositionMeasurementModel;
+    use crate::time::TimeSystem;
+    use approx::assert_abs_diff_eq;
+
+    fn test_epoch() -> Epoch {
+        Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC)
+    }
+
+    /// A 6D state vector at LEO altitude
+    fn test_state() -> DVector<f64> {
+        DVector::from_vec(vec![6878.0e3, 1000.0e3, 500.0e3, 0.0, 7500.0, 100.0])
+    }
+
+    /// Analytical Jacobian for InertialPositionMeasurementModel is [I_3 | 0_3]
+    fn expected_jacobian() -> DMatrix<f64> {
+        let mut h = DMatrix::zeros(3, 6);
+        h[(0, 0)] = 1.0;
+        h[(1, 1)] = 1.0;
+        h[(2, 2)] = 1.0;
+        h
+    }
+
+    #[test]
+    fn test_numerical_jacobian_central_difference() {
+        let model = InertialPositionMeasurementModel::new(10.0);
+        let epoch = test_epoch();
+        let state = test_state();
+        let expected = expected_jacobian();
+
+        let h = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_value: 1.0,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(h.nrows(), 3);
+        assert_eq!(h.ncols(), 6);
+        assert_abs_diff_eq!(h, expected, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_numerical_jacobian_forward_difference() {
+        let model = InertialPositionMeasurementModel::new(10.0);
+        let epoch = test_epoch();
+        let state = test_state();
+        let expected = expected_jacobian();
+
+        let h = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Forward,
+            PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_value: 1.0,
+            },
+        )
+        .unwrap();
+
+        assert_abs_diff_eq!(h, expected, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_numerical_jacobian_backward_difference() {
+        let model = InertialPositionMeasurementModel::new(10.0);
+        let epoch = test_epoch();
+        let state = test_state();
+        let expected = expected_jacobian();
+
+        let h = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Backward,
+            PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_value: 1.0,
+            },
+        )
+        .unwrap();
+
+        assert_abs_diff_eq!(h, expected, epsilon = 1e-8);
+    }
+
+    #[test]
+    fn test_numerical_jacobian_perturbation_strategies() {
+        let model = InertialPositionMeasurementModel::new(10.0);
+        let epoch = test_epoch();
+        let state = test_state();
+        let expected = expected_jacobian();
+
+        // Fixed perturbation
+        let h_fixed = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Fixed(1.0),
+        )
+        .unwrap();
+        assert_abs_diff_eq!(h_fixed, expected, epsilon = 1e-8);
+
+        // Percentage perturbation (needs all non-zero state components to avoid 0/0)
+        let nonzero_state =
+            DVector::from_vec(vec![6878.0e3, 1000.0e3, 500.0e3, 100.0, 7500.0, 100.0]);
+        let h_pct = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &nonzero_state,
+            None,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Percentage(1e-6),
+        )
+        .unwrap();
+        assert_abs_diff_eq!(h_pct, expected, epsilon = 1e-8);
+
+        // Adaptive perturbation with different parameters
+        let h_adaptive = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Adaptive {
+                scale_factor: 2.0,
+                min_value: 0.1,
+            },
+        )
+        .unwrap();
+        assert_abs_diff_eq!(h_adaptive, expected, epsilon = 1e-8);
+    }
+}

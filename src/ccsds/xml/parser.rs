@@ -1448,7 +1448,15 @@ pub fn parse_cdm_xml(content: &str) -> Result<crate::ccsds::cdm::CDM, BraheError
                 }
             }
             Ok(Event::Text(e)) => {
-                let text = String::from_utf8_lossy(e.as_ref()).trim().to_string();
+                let decoded = e.decode().map_err(|err| {
+                    ccsds_parse_error("CDM", &format!("XML text decode error: {}", err))
+                })?;
+                let text = quick_xml::escape::unescape(&decoded)
+                    .map_err(|err| {
+                        ccsds_parse_error("CDM", &format!("XML entity decode error: {}", err))
+                    })?
+                    .trim()
+                    .to_string();
                 if text.is_empty() {
                     continue;
                 }

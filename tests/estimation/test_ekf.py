@@ -160,3 +160,56 @@ def test_ekf_with_config(two_body_leo):
     )
 
     assert len(ekf.current_state()) == 6
+
+
+def test_ekf_with_process_noise_no_scale(two_body_leo):
+    """EKF construction with process noise that doesn't scale with dt."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    q = np.diag([1e-6] * 3 + [1e-8] * 3)
+    pn = bh.ProcessNoiseConfig(q, scale_with_dt=False)
+    config = bh.EKFConfig(process_noise=pn, store_records=False)
+
+    ekf = bh.ExtendedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+        config=config,
+    )
+
+    assert len(ekf.current_state()) == 6
+    # Records should be empty since store_records=False
+    assert len(ekf.records()) == 0
+
+
+def test_ekf_with_multiple_measurement_models(two_body_leo):
+    """EKF with both position and velocity measurement models."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    ekf = bh.ExtendedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[
+            bh.InertialPositionMeasurementModel(10.0),
+            bh.InertialVelocityMeasurementModel(0.1),
+        ],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+    )
+
+    assert len(ekf.current_state()) == 6
+
+    # Process observations with different model indices
+    obs_pos = bh.Observation(epoch + 60.0, state[:3], model_index=0)
+    record = ekf.process_observation(obs_pos)
+    assert record.measurement_name == "InertialPosition"
+
+    obs_vel = bh.Observation(epoch + 120.0, state[3:6], model_index=1)
+    record = ekf.process_observation(obs_vel)
+    assert record.measurement_name == "InertialVelocity"

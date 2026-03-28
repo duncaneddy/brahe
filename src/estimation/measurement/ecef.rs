@@ -52,7 +52,7 @@ use crate::utils::errors::BraheError;
 /// let model = EcefPositionMeasurementModel::new(5.0);
 /// assert_eq!(model.measurement_dim(), 3);
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EcefPositionMeasurementModel {
     noise_cov: DMatrix<f64>,
 }
@@ -176,7 +176,7 @@ impl MeasurementModel for EcefPositionMeasurementModel {
 /// let model = EcefVelocityMeasurementModel::new(0.05);
 /// assert_eq!(model.measurement_dim(), 3);
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EcefVelocityMeasurementModel {
     noise_cov: DMatrix<f64>,
 }
@@ -300,7 +300,7 @@ impl MeasurementModel for EcefVelocityMeasurementModel {
 /// let model = EcefStateMeasurementModel::new(5.0, 0.05);
 /// assert_eq!(model.measurement_dim(), 6);
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EcefStateMeasurementModel {
     noise_cov: DMatrix<f64>,
 }
@@ -411,5 +411,268 @@ impl MeasurementModel for EcefStateMeasurementModel {
 
     fn name(&self) -> &str {
         "EcefState"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
+    use crate::frames::{position_eci_to_ecef, state_eci_to_ecef};
+    use crate::time::TimeSystem;
+    use approx::assert_abs_diff_eq;
+    use serial_test::serial;
+
+    fn setup_global_test_eop() {
+        let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+        set_global_eop_provider(eop);
+    }
+
+    fn test_epoch() -> Epoch {
+        Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC)
+    }
+
+    /// A 6D ECI state for a LEO orbit (r ≈ 6878 km, circular)
+    fn test_eci_state() -> DVector<f64> {
+        let r = 6878.0e3;
+        let v = (crate::constants::physical::GM_EARTH / r).sqrt();
+        DVector::from_vec(vec![r, 0.0, 0.0, 0.0, v, 0.0])
+    }
+
+    // =========================================================================
+    // Position model tests
+    // =========================================================================
+
+    #[test]
+    fn test_ecef_position_model_constructors() {
+        // Isotropic
+        let m = EcefPositionMeasurementModel::new(5.0);
+        assert_eq!(m.measurement_dim(), 3);
+        assert_eq!(m.name(), "EcefPosition");
+        let r = m.noise_covariance();
+        assert_eq!(r.nrows(), 3);
+        assert_abs_diff_eq!(r[(0, 0)], 25.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(1, 1)], 25.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(0, 1)], 0.0, epsilon = 1e-12);
+
+        // Per-axis
+        let m = EcefPositionMeasurementModel::new_per_axis(1.0, 2.0, 3.0);
+        let r = m.noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(1, 1)], 4.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(2, 2)], 9.0, epsilon = 1e-12);
+
+        // From covariance
+        let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![4.0, 9.0, 16.0]));
+        let m = EcefPositionMeasurementModel::from_covariance(cov).unwrap();
+        let r = m.noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 4.0, epsilon = 1e-12);
+
+        // From upper triangular
+        let m =
+            EcefPositionMeasurementModel::from_upper_triangular(&[4.0, 0.0, 0.0, 9.0, 0.0, 16.0])
+                .unwrap();
+        let r = m.noise_covariance();
+        assert_abs_diff_eq!(r[(2, 2)], 16.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ecef_position_model_predict() {
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        let state = test_eci_state();
+
+        let model = EcefPositionMeasurementModel::new(5.0);
+        let z = model.predict(&epoch, &state, None).unwrap();
+        assert_eq!(z.len(), 3);
+
+        // Verify against direct frame conversion
+        let pos_eci = nalgebra::Vector3::new(state[0], state[1], state[2]);
+        let pos_ecef = position_eci_to_ecef(epoch, pos_eci);
+        assert_abs_diff_eq!(z[0], pos_ecef[0], epsilon = 1e-6);
+        assert_abs_diff_eq!(z[1], pos_ecef[1], epsilon = 1e-6);
+        assert_abs_diff_eq!(z[2], pos_ecef[2], epsilon = 1e-6);
+
+        // ECEF position norm should equal ECI position norm (rotation preserves magnitude)
+        let eci_norm = pos_eci.norm();
+        let ecef_norm = z.norm();
+        assert_abs_diff_eq!(eci_norm, ecef_norm, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_ecef_position_model_from_covariance_wrong_dim() {
+        // 2x2 instead of 3x3
+        let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0, 1.0]));
+        let result = EcefPositionMeasurementModel::from_covariance(cov);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("3x3"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_ecef_position_model_jacobian() {
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        let state = test_eci_state();
+
+        let model = EcefPositionMeasurementModel::new(5.0);
+        let h = model.jacobian(&epoch, &state, None).unwrap();
+
+        // H should be 3x6 (3 measurement dims, 6 state dims)
+        assert_eq!(h.nrows(), 3);
+        assert_eq!(h.ncols(), 6);
+
+        // Position columns should be non-zero (rotation matrix entries)
+        let pos_block_norm = h.view((0, 0), (3, 3)).norm();
+        assert!(
+            pos_block_norm > 0.1,
+            "Position Jacobian block should be non-zero"
+        );
+
+        // Velocity columns should be ~zero (position doesn't depend on velocity)
+        let vel_block_norm = h.view((0, 3), (3, 3)).norm();
+        assert!(
+            vel_block_norm < 1e-6,
+            "Velocity Jacobian block should be ~zero, got {}",
+            vel_block_norm
+        );
+    }
+
+    // =========================================================================
+    // Velocity model tests
+    // =========================================================================
+
+    #[test]
+    fn test_ecef_velocity_model_constructors() {
+        let m = EcefVelocityMeasurementModel::new(0.05);
+        assert_eq!(m.measurement_dim(), 3);
+        assert_eq!(m.name(), "EcefVelocity");
+        let r = m.noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 0.0025, epsilon = 1e-12);
+
+        let m = EcefVelocityMeasurementModel::new_per_axis(0.01, 0.02, 0.03);
+        let r = m.noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 0.0001, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(1, 1)], 0.0004, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(2, 2)], 0.0009, epsilon = 1e-12);
+
+        let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![0.01, 0.02, 0.03]));
+        let m = EcefVelocityMeasurementModel::from_covariance(cov).unwrap();
+        assert_abs_diff_eq!(m.noise_covariance()[(2, 2)], 0.03, epsilon = 1e-12);
+
+        let m =
+            EcefVelocityMeasurementModel::from_upper_triangular(&[0.01, 0.0, 0.0, 0.02, 0.0, 0.03])
+                .unwrap();
+        assert_abs_diff_eq!(m.noise_covariance()[(1, 1)], 0.02, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ecef_velocity_model_predict() {
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        let state = test_eci_state();
+
+        let model = EcefVelocityMeasurementModel::new(0.05);
+        let z = model.predict(&epoch, &state, None).unwrap();
+        assert_eq!(z.len(), 3);
+
+        // Verify against direct frame conversion
+        let state_eci = SVector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
+        let state_ecef = state_eci_to_ecef(epoch, state_eci);
+        assert_abs_diff_eq!(z[0], state_ecef[3], epsilon = 1e-6);
+        assert_abs_diff_eq!(z[1], state_ecef[4], epsilon = 1e-6);
+        assert_abs_diff_eq!(z[2], state_ecef[5], epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_ecef_velocity_model_from_covariance_wrong_dim() {
+        let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0; 6]));
+        let result = EcefVelocityMeasurementModel::from_covariance(cov);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("3x3"));
+    }
+
+    #[test]
+    fn test_ecef_velocity_model_predict_short_state_errors() {
+        let model = EcefVelocityMeasurementModel::new(0.05);
+        let short_state = DVector::from_vec(vec![1.0, 2.0, 3.0]); // only 3 elements
+        let epoch = test_epoch();
+        let result = model.predict(&epoch, &short_state, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains(">= 6"));
+    }
+
+    // =========================================================================
+    // State model tests
+    // =========================================================================
+
+    #[test]
+    fn test_ecef_state_model_constructors() {
+        let m = EcefStateMeasurementModel::new(5.0, 0.05);
+        assert_eq!(m.measurement_dim(), 6);
+        assert_eq!(m.name(), "EcefState");
+        let r = m.noise_covariance();
+        assert_eq!(r.nrows(), 6);
+        assert_abs_diff_eq!(r[(0, 0)], 25.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(3, 3)], 0.0025, epsilon = 1e-12);
+
+        let m = EcefStateMeasurementModel::new_per_axis(1.0, 2.0, 3.0, 0.1, 0.2, 0.3);
+        let r = m.noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(5, 5)], 0.09, epsilon = 1e-12);
+
+        let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0; 6]));
+        let m = EcefStateMeasurementModel::from_covariance(cov).unwrap();
+        assert_eq!(m.noise_covariance().nrows(), 6);
+
+        let upper: Vec<f64> = vec![
+            1.0, 0.0, 0.0, 0.0, 0.0, 0.0, // row 0
+            1.0, 0.0, 0.0, 0.0, 0.0, // row 1
+            1.0, 0.0, 0.0, 0.0, // row 2
+            1.0, 0.0, 0.0, // row 3
+            1.0, 0.0, // row 4
+            1.0, // row 5
+        ];
+        let m = EcefStateMeasurementModel::from_upper_triangular(&upper).unwrap();
+        assert_eq!(m.noise_covariance().nrows(), 6);
+    }
+
+    #[test]
+    #[serial]
+    fn test_ecef_state_model_predict() {
+        setup_global_test_eop();
+        let epoch = test_epoch();
+        let state = test_eci_state();
+
+        let model = EcefStateMeasurementModel::new(5.0, 0.05);
+        let z = model.predict(&epoch, &state, None).unwrap();
+        assert_eq!(z.len(), 6);
+
+        // Verify against direct frame conversion
+        let state_eci = SVector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
+        let state_ecef = state_eci_to_ecef(epoch, state_eci);
+        for i in 0..6 {
+            assert_abs_diff_eq!(z[i], state_ecef[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_ecef_state_model_from_covariance_wrong_dim() {
+        let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0; 3]));
+        let result = EcefStateMeasurementModel::from_covariance(cov);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("6x6"));
+    }
+
+    #[test]
+    fn test_ecef_state_model_predict_short_state_errors() {
+        let model = EcefStateMeasurementModel::new(5.0, 0.05);
+        let short_state = DVector::from_vec(vec![1.0, 2.0, 3.0]); // only 3 elements
+        let epoch = test_epoch();
+        let result = model.predict(&epoch, &short_state, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains(">= 6"));
     }
 }

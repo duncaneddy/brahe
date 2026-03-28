@@ -1320,31 +1320,55 @@ impl MeasurementModel for RustMeasurementModelWrapper {
         params: Option<&DVector<f64>>,
     ) -> Result<DMatrix<f64>, crate::utils::errors::BraheError> {
         // Try calling Python jacobian() first
-        let py_result: Option<DMatrix<f64>> = Python::attach(|py| {
-            let py_epoch = Py::new(py, PyEpoch { obj: *epoch }).ok()?;
-            let state_np = state.as_slice().to_pyarray(py);
+        let py_result: Result<Option<DMatrix<f64>>, crate::utils::errors::BraheError> =
+            Python::attach(|py| {
+                let py_epoch = Py::new(py, PyEpoch { obj: *epoch }).map_err(|e| {
+                    crate::utils::errors::BraheError::Error(format!(
+                        "Failed to create PyEpoch: {}",
+                        e
+                    ))
+                })?;
+                let state_np = state.as_slice().to_pyarray(py);
 
-            let result = self
-                .py_model
-                .bind(py)
-                .call_method1("jacobian", (py_epoch, state_np))
-                .ok()?;
+                let result = self
+                    .py_model
+                    .bind(py)
+                    .call_method1("jacobian", (py_epoch, state_np))
+                    .map_err(|e| {
+                        crate::utils::errors::BraheError::Error(format!(
+                            "Python jacobian() raised an exception: {}",
+                            e
+                        ))
+                    })?;
 
-            // If the Python method returned None, use finite-diff fallback
-            if result.is_none() {
-                return None;
-            }
+                // If the Python method returned None, use finite-diff fallback
+                if result.is_none() {
+                    return Ok(None);
+                }
 
-            // Try extracting as 2D numpy array
-            let arr: PyReadonlyArray2<f64> = result.extract().ok()?;
-            let shape = arr.shape();
-            let data: Vec<f64> = arr.as_slice().ok()?.to_vec();
-            Some(DMatrix::from_row_slice(shape[0], shape[1], &data))
-        });
+                // Extract as 2D numpy array
+                let arr: PyReadonlyArray2<f64> = result.extract().map_err(|e| {
+                    crate::utils::errors::BraheError::Error(format!(
+                        "jacobian() must return a 2D numpy array or None: {}",
+                        e
+                    ))
+                })?;
+                let shape = arr.shape();
+                let data: Vec<f64> = arr
+                    .as_slice()
+                    .map_err(|e| {
+                        crate::utils::errors::BraheError::Error(format!(
+                            "Failed to read jacobian array data: {}",
+                            e
+                        ))
+                    })?
+                    .to_vec();
+                Ok(Some(DMatrix::from_row_slice(shape[0], shape[1], &data)))
+            });
 
         match py_result {
-            Some(jacobian) => Ok(jacobian),
-            None => {
+            Ok(Some(jacobian)) => Ok(jacobian),
+            Ok(None) => {
                 // Fall back to numerical Jacobian using the math::jacobian infrastructure
                 estimation::measurement_jacobian_numerical(
                     self,
@@ -1358,6 +1382,7 @@ impl MeasurementModel for RustMeasurementModelWrapper {
                     },
                 )
             }
+            Err(e) => Err(e),
         }
     }
 
@@ -1598,11 +1623,7 @@ impl PyExtendedKalmanFilter {
                                     )
                                 }
                                 Err(e) => {
-                                    eprintln!(
-                                        "Error calling additional_dynamics: {}",
-                                        e
-                                    );
-                                    DVector::zeros(x.len())
+                                    panic!("Error calling additional_dynamics: {e}")
                                 }
                             }
                         })
@@ -1638,8 +1659,7 @@ impl PyExtendedKalmanFilter {
                                     )
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling control_input: {}", e);
-                                    DVector::zeros(3)
+                                    panic!("Error calling control_input: {e}")
                                 }
                             }
                         })
@@ -1997,8 +2017,7 @@ impl PyUnscentedKalmanFilter {
                                     )
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling additional_dynamics: {}", e);
-                                    nalgebra::DVector::zeros(x.len())
+                                    panic!("Error calling additional_dynamics: {e}")
                                 }
                             }
                         })
@@ -2032,8 +2051,7 @@ impl PyUnscentedKalmanFilter {
                                     )
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling control_input: {}", e);
-                                    nalgebra::DVector::zeros(3)
+                                    panic!("Error calling control_input: {e}")
                                 }
                             }
                         })
@@ -2762,11 +2780,7 @@ impl PyBatchLeastSquares {
                                     )
                                 }
                                 Err(e) => {
-                                    eprintln!(
-                                        "Error calling additional_dynamics: {}",
-                                        e
-                                    );
-                                    DVector::zeros(x.len())
+                                    panic!("Error calling additional_dynamics: {e}")
                                 }
                             }
                         })
@@ -2802,8 +2816,7 @@ impl PyBatchLeastSquares {
                                     )
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling control_input: {}", e);
-                                    DVector::zeros(3)
+                                    panic!("Error calling control_input: {e}")
                                 }
                             }
                         })

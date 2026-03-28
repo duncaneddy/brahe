@@ -169,3 +169,45 @@ def test_ukf_config_defaults():
     assert config.beta == pytest.approx(2.0)
     assert config.kappa == pytest.approx(0.0)
     assert config.store_records is True
+
+
+def test_ukf_config_custom_all_params():
+    """UKFConfig with all custom parameters."""
+    q = np.diag([1e-6] * 3 + [1e-8] * 3)
+    pn = bh.ProcessNoiseConfig(q)
+    config = bh.UKFConfig(
+        alpha=0.5,
+        beta=3.0,
+        kappa=1.0,
+        state_dim=6,
+        process_noise=pn,
+        store_records=False,
+    )
+
+    assert config.alpha == pytest.approx(0.5)
+    assert config.beta == pytest.approx(3.0)
+    assert config.kappa == pytest.approx(1.0)
+    assert config.state_dim == 6
+    assert config.store_records is False
+
+
+def test_ukf_with_process_noise(two_body_leo):
+    """UKF with process noise configuration."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    q = np.diag([1e-4] * 3 + [1e-6] * 3)
+    pn = bh.ProcessNoiseConfig(q, scale_with_dt=True)
+    config = bh.UKFConfig(process_noise=pn, store_records=True)
+
+    ukf = bh.UnscentedKalmanFilter(
+        epoch,
+        state,
+        p0,
+        measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+        propagation_config=bh.NumericalPropagationConfig.default(),
+        force_config=bh.ForceModelConfig.two_body(),
+        config=config,
+    )
+
+    assert len(ukf.current_state()) == 6

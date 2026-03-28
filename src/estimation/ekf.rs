@@ -563,6 +563,79 @@ mod tests {
         }
     }
 
+    #[test]
+    #[serial]
+    fn test_ekf_from_propagator_no_covariance_errors() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+
+        let mut prop_config = NumericalPropagationConfig::default();
+        prop_config.variational.enable_stm = true;
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            prop_config,
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            None, // No covariance
+        )
+        .unwrap();
+
+        let result = ExtendedKalmanFilter::from_propagator(
+            DynamicsSource::OrbitPropagator(prop),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            EKFConfig::default(),
+        );
+        match result {
+            Err(e) => assert!(
+                e.to_string().contains("initial covariance"),
+                "Error should mention initial covariance: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for no covariance"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ekf_from_propagator_no_models_errors() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+
+        let mut prop_config = NumericalPropagationConfig::default();
+        prop_config.variational.enable_stm = true;
+
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            prop_config,
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            Some(p0),
+        )
+        .unwrap();
+
+        let result = ExtendedKalmanFilter::from_propagator(
+            DynamicsSource::OrbitPropagator(prop),
+            vec![], // no models
+            EKFConfig::default(),
+        );
+        match result {
+            Err(e) => assert!(
+                e.to_string().contains("measurement model"),
+                "Error should mention measurement model: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for no models"),
+        }
+    }
+
     // =========================================================================
     // Convergence tests — two-body point-mass, noise-free measurements
     //

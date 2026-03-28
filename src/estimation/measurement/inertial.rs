@@ -441,3 +441,205 @@ impl MeasurementModel for InertialStateMeasurementModel {
         "InertialState"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::estimation::traits::measurement_jacobian_numerical;
+    use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy};
+    use crate::time::TimeSystem;
+    use approx::assert_abs_diff_eq;
+
+    fn test_epoch() -> Epoch {
+        Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC)
+    }
+
+    fn test_state() -> DVector<f64> {
+        DVector::from_vec(vec![6878.0e3, 1000.0e3, 500.0e3, 100.0, 7500.0, 200.0])
+    }
+
+    #[test]
+    fn test_inertial_position_jacobian_matches_numerical() {
+        let model = InertialPositionMeasurementModel::new(10.0);
+        let epoch = test_epoch();
+        let state = test_state();
+
+        let analytical = model.jacobian(&epoch, &state, None).unwrap();
+        let numerical = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Fixed(1.0),
+        )
+        .unwrap();
+
+        assert_eq!(analytical.nrows(), 3);
+        assert_eq!(analytical.ncols(), 6);
+        assert_abs_diff_eq!(analytical, numerical, epsilon = 1e-8);
+
+        // Verify structure: [I_3 | 0_3]
+        assert_abs_diff_eq!(analytical[(0, 0)], 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(analytical[(1, 1)], 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(analytical[(2, 2)], 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(analytical[(0, 3)], 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_inertial_velocity_jacobian_matches_numerical() {
+        let model = InertialVelocityMeasurementModel::new(0.05);
+        let epoch = test_epoch();
+        let state = test_state();
+
+        let analytical = model.jacobian(&epoch, &state, None).unwrap();
+        let numerical = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Fixed(1.0),
+        )
+        .unwrap();
+
+        assert_eq!(analytical.nrows(), 3);
+        assert_eq!(analytical.ncols(), 6);
+        assert_abs_diff_eq!(analytical, numerical, epsilon = 1e-8);
+
+        // Verify structure: [0_3 | I_3]
+        assert_abs_diff_eq!(analytical[(0, 0)], 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(analytical[(0, 3)], 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(analytical[(1, 4)], 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(analytical[(2, 5)], 1.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_inertial_state_jacobian_matches_numerical() {
+        let model = InertialStateMeasurementModel::new(5.0, 0.05);
+        let epoch = test_epoch();
+        let state = test_state();
+
+        let analytical = model.jacobian(&epoch, &state, None).unwrap();
+        let numerical = measurement_jacobian_numerical(
+            &model,
+            &epoch,
+            &state,
+            None,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Fixed(1.0),
+        )
+        .unwrap();
+
+        assert_eq!(analytical.nrows(), 6);
+        assert_eq!(analytical.ncols(), 6);
+        assert_abs_diff_eq!(analytical, numerical, epsilon = 1e-8);
+
+        // Verify structure: I_6
+        for i in 0..6 {
+            assert_abs_diff_eq!(analytical[(i, i)], 1.0, epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    fn test_inertial_position_constructors() {
+        let m = InertialPositionMeasurementModel::new(10.0);
+        assert_eq!(m.measurement_dim(), 3);
+        assert_eq!(m.name(), "InertialPosition");
+
+        let m = InertialPositionMeasurementModel::new_per_axis(1.0, 2.0, 3.0);
+        let r = m.noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(1, 1)], 4.0, epsilon = 1e-12);
+
+        let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0, 2.0, 3.0]));
+        let m = InertialPositionMeasurementModel::from_covariance(cov).unwrap();
+        assert_eq!(m.noise_covariance().nrows(), 3);
+
+        let m = InertialPositionMeasurementModel::from_upper_triangular(&[
+            1.0, 0.0, 0.0, 2.0, 0.0, 3.0,
+        ])
+        .unwrap();
+        assert_abs_diff_eq!(m.noise_covariance()[(1, 1)], 2.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_inertial_velocity_constructors() {
+        let m = InertialVelocityMeasurementModel::new(0.05);
+        assert_eq!(m.measurement_dim(), 3);
+        assert_eq!(m.name(), "InertialVelocity");
+
+        let m = InertialVelocityMeasurementModel::new_per_axis(0.01, 0.02, 0.03);
+        let r = m.noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 0.0001, epsilon = 1e-12);
+
+        let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![0.01, 0.02, 0.03]));
+        let m = InertialVelocityMeasurementModel::from_covariance(cov).unwrap();
+        assert_eq!(m.noise_covariance().nrows(), 3);
+
+        let m = InertialVelocityMeasurementModel::from_upper_triangular(&[
+            0.01, 0.0, 0.0, 0.02, 0.0, 0.03,
+        ])
+        .unwrap();
+        assert_abs_diff_eq!(m.noise_covariance()[(2, 2)], 0.03, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_inertial_state_constructors() {
+        let m = InertialStateMeasurementModel::new(5.0, 0.05);
+        assert_eq!(m.measurement_dim(), 6);
+        assert_eq!(m.name(), "InertialState");
+
+        let m = InertialStateMeasurementModel::new_per_axis(1.0, 2.0, 3.0, 0.1, 0.2, 0.3);
+        let r = m.noise_covariance();
+        assert_abs_diff_eq!(r[(0, 0)], 1.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[(5, 5)], 0.09, epsilon = 1e-12);
+
+        let cov = DMatrix::from_diagonal(&DVector::from_vec(vec![1.0; 6]));
+        let m = InertialStateMeasurementModel::from_covariance(cov).unwrap();
+        assert_eq!(m.noise_covariance().nrows(), 6);
+
+        let upper: Vec<f64> = vec![
+            1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+            0.0, 1.0, 0.0, 1.0,
+        ];
+        let m = InertialStateMeasurementModel::from_upper_triangular(&upper).unwrap();
+        assert_eq!(m.noise_covariance().nrows(), 6);
+    }
+
+    #[test]
+    fn test_inertial_position_predict() {
+        let model = InertialPositionMeasurementModel::new(10.0);
+        let epoch = test_epoch();
+        let state = test_state();
+        let z = model.predict(&epoch, &state, None).unwrap();
+        assert_eq!(z.len(), 3);
+        assert_abs_diff_eq!(z[0], state[0], epsilon = 1e-12);
+        assert_abs_diff_eq!(z[1], state[1], epsilon = 1e-12);
+        assert_abs_diff_eq!(z[2], state[2], epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_inertial_velocity_predict() {
+        let model = InertialVelocityMeasurementModel::new(0.05);
+        let epoch = test_epoch();
+        let state = test_state();
+        let z = model.predict(&epoch, &state, None).unwrap();
+        assert_eq!(z.len(), 3);
+        assert_abs_diff_eq!(z[0], state[3], epsilon = 1e-12);
+        assert_abs_diff_eq!(z[1], state[4], epsilon = 1e-12);
+        assert_abs_diff_eq!(z[2], state[5], epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_inertial_state_predict() {
+        let model = InertialStateMeasurementModel::new(5.0, 0.05);
+        let epoch = test_epoch();
+        let state = test_state();
+        let z = model.predict(&epoch, &state, None).unwrap();
+        assert_eq!(z.len(), 6);
+        for i in 0..6 {
+            assert_abs_diff_eq!(z[i], state[i], epsilon = 1e-12);
+        }
+    }
+}

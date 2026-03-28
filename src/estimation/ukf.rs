@@ -625,6 +625,79 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[test]
+    #[serial]
+    fn test_ukf_from_propagator_no_models_errors() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            Some(p0),
+        )
+        .unwrap();
+
+        let result = UnscentedKalmanFilter::from_propagator(
+            DynamicsSource::OrbitPropagator(prop),
+            vec![], // no models
+            UKFConfig::default(),
+        );
+        match result {
+            Err(e) => assert!(
+                e.to_string().contains("measurement model"),
+                "Error should mention measurement model: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for no models"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_from_propagator_state_dim_mismatch_errors() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            Some(p0),
+        )
+        .unwrap();
+
+        // state_dim=3 doesn't match propagator's 6
+        let config = UKFConfig {
+            state_dim: 3,
+            ..UKFConfig::default()
+        };
+        let result = UnscentedKalmanFilter::from_propagator(
+            DynamicsSource::OrbitPropagator(prop),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            config,
+        );
+        match result {
+            Err(e) => assert!(
+                e.to_string().contains("state_dim"),
+                "Error should mention state_dim: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for state_dim mismatch"),
+        }
+    }
+
     // =========================================================================
     // Convergence tests
     // =========================================================================

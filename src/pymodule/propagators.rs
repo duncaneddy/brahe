@@ -1560,14 +1560,6 @@ impl PySGPPropagator {
 /// perturbations. It's fast and accurate for short time spans but doesn't account
 /// for real-world effects like drag, J2, solar radiation pressure, etc.
 ///
-/// Args:
-///     epoch (Epoch): Initial epoch.
-///     state (numpy.ndarray): 6-element state vector.
-///     frame (OrbitFrame): Reference frame (ECI or ECEF).
-///     representation (OrbitRepresentation): State representation (Cartesian or Keplerian).
-///     angle_format (AngleFormat): Angle format for Keplerian elements.
-///     step_size (float): Step size in seconds for propagation.
-///
 /// Attributes:
 ///     current_epoch (Epoch): Current propagation time
 ///     initial_epoch (Epoch): Initial epoch from propagator creation
@@ -4198,20 +4190,6 @@ impl PyForceModelConfig {
 /// - Third-body perturbations (Sun, Moon, planets)
 /// - Relativistic corrections
 ///
-/// Args:
-///     epoch (Epoch): Initial epoch.
-///     state (numpy.ndarray): Initial state vector in ECI Cartesian [x, y, z, vx, vy, vz] (meters, m/s).
-///         Can be 6D or 6+N dimensional for extended state.
-///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-///     force_config (ForceModelConfig): Force model configuration.
-///     params (numpy.ndarray or None): Parameter vector [mass, drag_area, Cd, srp_area, Cr, ...].
-///         Required if force_config references parameter indices.
-///     initial_covariance (numpy.ndarray or None): Optional 6x6 initial covariance matrix (enables STM).
-///     additional_dynamics (callable or None): Optional function for extended state dynamics.
-///         Signature: f(t, state, params) -> derivative.
-///     control_input (callable or None): Optional control input function for thrust accelerations.
-///         Signature: f(t, state, params) -> 3D acceleration vector.
-///
 /// Attributes:
 ///     current_epoch (Epoch): Current propagation time
 ///     initial_epoch (Epoch): Initial epoch from propagator creation
@@ -4352,8 +4330,7 @@ impl PyNumericalOrbitPropagator {
                                     nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling additional_dynamics function: {}", e);
-                                    nalgebra::DVector::zeros(x.len())
+                                    panic!("Error calling additional_dynamics: {e}")
                                 }
                             }
                         })
@@ -4383,8 +4360,7 @@ impl PyNumericalOrbitPropagator {
                                     nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling control_input function: {}", e);
-                                    nalgebra::DVector::zeros(3) // Control should return 3D acceleration
+                                    panic!("Error calling control_input: {e}")
                                 }
                             }
                         })
@@ -5589,15 +5565,6 @@ impl PyTrajectoryMode {
 /// applied to any system of ODEs: attitude dynamics, chemical kinetics, population
 /// models, control systems, etc.
 ///
-/// Args:
-///     epoch (Epoch): Initial epoch.
-///     state (numpy.ndarray): Initial state vector (N-dimensional).
-///     dynamics (callable): Dynamics function: f(t, state, params) -> derivative.
-///         Should accept (float, np.ndarray, Optional[np.ndarray]) and return np.ndarray.
-///     propagation_config (NumericalPropagationConfig): Propagation configuration.
-///     params (numpy.ndarray or None): Optional parameter vector for the dynamics function.
-///     initial_covariance (numpy.ndarray or None): Optional initial covariance matrix (enables STM).
-///
 /// Attributes:
 ///     current_epoch (Epoch): Current propagation time
 ///     initial_epoch (Epoch): Initial epoch from propagator creation
@@ -5708,8 +5675,7 @@ impl PyNumericalPropagator {
                             nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
                         }
                         Err(e) => {
-                            eprintln!("Error calling dynamics function: {}", e);
-                            nalgebra::DVector::zeros(x.len())
+                            panic!("Error calling dynamics function: {e}")
                         }
                     }
                 })
@@ -5738,8 +5704,7 @@ impl PyNumericalPropagator {
                                     nalgebra::DVector::from_column_slice(res_arr.as_slice().unwrap())
                                 }
                                 Err(e) => {
-                                    eprintln!("Error calling control_input function: {}", e);
-                                    nalgebra::DVector::zeros(x.len())
+                                    panic!("Error calling control_input: {e}")
                                 }
                             }
                         })

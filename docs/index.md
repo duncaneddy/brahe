@@ -61,38 +61,6 @@ If you want to learn more about how to use the package the documentation is stru
 - **[Python API Reference](https://duncaneddy.github.io/brahe/latest/library_api/)**: Provides detailed reference documentation of the Python API.
 - **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API.
 
-## Citing Brahe
-
-If you use Brahe in your work, please cite the following paper:
-
-```bibtex
-@article{eddy2026brahe,
-      title={{Brahe: A Modern Astrodynamics Library for Research and Engineering Applications}}, 
-      author={Duncan Eddy and Mykel J. Kochenderfer},
-      year={2026},
-      eprint={2601.06452},
-      archivePrefix={arXiv},
-      primaryClass={astro-ph.IM},
-      url={https://arxiv.org/abs/2601.06452}, 
-}
-```
-
-## License
-
-The project is licensed under the MIT License - see the [LICENSE](./about/license.md) for details.
-
-We want to make it easy for people to use and build on the work without worrying about licensing restrictions.
-
-## Versioning
-
-Brahe generally follows [SemVer](https://semver.org/). New patch versions should be rare. Public facing APIs should not significantly change, though may still change, especially for new features that are still being refined based on user feedback. We want to avoid the forever "0.x" versioning trap that many Rust and scientific software projects fall into, which can deter users from adopting the software for use.
-
-If you need guaranteed stability you should pin your project to a specific major.minor.patch version (e.g., `1.2.3`) rather than using a floating version specifier (e.g., `^1.2.0` or `>=1.2.0`).
-
-## Contributing
-
-If you find a bug, have a feature request, want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it. We are building software to help everyone on this planet explore the universe. We encourage you to bring your unique perspective to help make us stronger. We appreciate contributions from everyone, no prior space experience is needed to participate.
-
 ## Quick Start
 
 To install the latest release of brahe for Python, simply run:
@@ -118,6 +86,56 @@ or find the when the ISS will next pass overhead:
 ``` python
 --8<-- "./examples/common/simple_access.py:9"
 ```
+
+## Citing Brahe
+
+If you use Brahe in your work, please cite the following paper:
+
+```bibtex
+@article{eddy2026brahe,
+      title={{Brahe: A Modern Astrodynamics Library for Research and Engineering Applications}}, 
+      author={Duncan Eddy and Mykel J. Kochenderfer},
+      year={2026},
+      eprint={2601.06452},
+      archivePrefix={arXiv},
+      primaryClass={astro-ph.IM},
+      url={https://arxiv.org/abs/2601.06452}, 
+}
+```
+
+## Versioning
+
+!!! warning "Versioning"
+
+    Brahe generally follows [SemVer](https://semver.org/). New patch versions should be rare. Public facing APIs should not significantly change, though may still change, especially for new features that are still being refined based on user feedback. We want to avoid the forever "0.x" versioning trap that many Rust and scientific software projects fall into, which can deter users from adopting the software.
+
+    If you need guaranteed stability you should pin your project to a specific major.minor.patch version (e.g., `1.2.3`) rather than using a floating version specifier (e.g., `^1.2.0` or `>=1.2.0`).
+
+## License
+
+The project is licensed under the MIT License - see the [LICENSE](./about/license.md) for details.
+
+We want to make it easy for people to use and build on the work without worrying about licensing restrictions.
+
+## Contributing
+
+If you find a bug, have a feature request, want to contribute, please open an issue or a pull request on the GitHub repository. Contributions are welcome and encouraged! If you see something missing, but don't know how to start contributing, please open an issue and we can discuss it. We are building software to help everyone on this planet explore the universe. We encourage you to bring your unique perspective to help make us stronger. We appreciate contributions from everyone, no prior space experience is needed to participate.
+
+## AI Usage
+
+The development of Brahe has roots in 2014 when I first started writing astrodynamics software for my PhD. The main algorithms and code structure evolved over the years based on my own experience applying the software to both research problems and operational space missions. The core functionality of the library (time handling, reference frames, reference frame transformations, coordinate transformations) were all developed before the usage of AI tools. AI tools have since been sparingly adopted to help with improving and expanding capabilities that were on the nice-to-have feature list. They have also been used to help with writing documentation and improve code coverage. However, all results and outputs are manually reviewed, run, tested, and verified manually before being merged into the main branch. 
+
+For new contributions, we allow the use of AI-assited coding, however we expect that PRs will be manually reviewed and tested before being submitted and that all PRs follow the same standards of code clarity, modularity, and correctness as the rest of the codebase.
+
+## Sponsors
+
+We are pleased to acknowledge the following sponsors for their support:
+
+<p align="center">
+    <a href="https://www.northwoodspace.io/">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Northwood_Space_logo.svg" alt="Northwood Space" width="200">
+    </a>
+</p>
 
 ---
 

@@ -33,6 +33,8 @@ from brahe._brahe import (
     TAI_GST,
     BDT_ZERO,
     GST_ZERO,
+    UNIX_EPOCH_JD,
+    UNIX_EPOCH_MJD,
     # Physical constants
     C_LIGHT,
     AU,
@@ -84,6 +86,8 @@ __all__ = [
     "TAI_GST",
     "BDT_ZERO",
     "GST_ZERO",
+    "UNIX_EPOCH_JD",
+    "UNIX_EPOCH_MJD",
     # Physical constants
     "C_LIGHT",
     "AU",

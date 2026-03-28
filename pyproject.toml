@@ -68,6 +68,8 @@ test = [
     "coverage>=7.0.0",
 ]
 docs = [
+    "mkdocs<2.0.0",
+    "properdocs",
     "mike>=2.0.0",
     "mkdocs-awesome-nav>=3.2.0",
     "mkdocs-git-revision-date-localized-plugin>=1.4.7",

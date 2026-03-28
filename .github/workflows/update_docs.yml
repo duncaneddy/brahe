@@ -92,7 +92,7 @@ jobs:
         run: cp CHANGELOG.md docs/changelog.md
 
       - name: Build documentation site
-        run: uv run mkdocs build
+        run: uv run properdocs build
 
       - name: Fetch gh-pages branch
         run: git fetch origin gh-pages:gh-pages || true

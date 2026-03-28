@@ -1361,6 +1361,87 @@ impl DNumericalOrbitPropagator {
         self.trajectory.sensitivity_at(epoch)
     }
 
+    /// Reinitialize the propagator with a new state at a new epoch.
+    ///
+    /// Unlike [`reset()`], which reverts to the original construction-time initial
+    /// conditions, this method sets new initial conditions while preserving the
+    /// dynamics model, integrator, and force configuration. This is designed for
+    /// estimation filters that need to restart propagation from an updated state
+    /// after each filter update step.
+    ///
+    /// Internally, this uses the same time-offset technique as event restart
+    /// processing: `t_rel` is set to `epoch - epoch_initial` so that the shared
+    /// dynamics closure (which captures the original `epoch_initial`) computes
+    /// the correct absolute epoch. The STM is reset to identity and the
+    /// sensitivity matrix to zero.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - New epoch to start propagation from
+    /// * `state` - New state vector (ECI Cartesian, SI units)
+    /// * `covariance` - Optional covariance matrix to propagate alongside state.
+    ///   If provided, the propagator will compute `P(t) = Φ·P₀·Φᵀ` during propagation.
+    pub fn reinitialize(
+        &mut self,
+        epoch: Epoch,
+        state: DVector<f64>,
+        covariance: Option<DMatrix<f64>>,
+    ) {
+        // Use epoch offset trick (same pattern as event restart)
+        // shared_dynamics computes: epoch_initial + t_rel = correct absolute epoch
+        self.t_rel = epoch - self.epoch_initial;
+        self.epoch_current = epoch;
+        self.x_curr = state;
+
+        // Keep dt/dt_next (preserve step size)
+        // Keep shared_dynamics, integrator, Jacobian/sensitivity providers unchanged
+
+        // Reset STM to identity, sensitivity to zero
+        match self.propagation_mode {
+            PropagationMode::StateOnly => {
+                // No STM or sensitivity to reset
+            }
+            PropagationMode::WithSTM => {
+                self.stm = Some(DMatrix::identity(self.state_dim, self.state_dim));
+            }
+            PropagationMode::WithSensitivity => {
+                let param_dim = self.params.len();
+                self.sensitivity = Some(DMatrix::zeros(self.state_dim, param_dim));
+            }
+            PropagationMode::WithSTMAndSensitivity => {
+                self.stm = Some(DMatrix::identity(self.state_dim, self.state_dim));
+                let param_dim = self.params.len();
+                self.sensitivity = Some(DMatrix::zeros(self.state_dim, param_dim));
+            }
+        }
+
+        // Reset integrator FSAL cache (derivative at new state is different)
+        self.integrator.reset_cache();
+
+        // Set covariance for propagation (P₀ for Φ·P₀·Φᵀ computation)
+        self.initial_covariance = covariance.clone();
+        self.current_covariance = covariance;
+
+        // Clear event state
+        self.terminated = false;
+    }
+
+    /// Get current covariance matrix P(t).
+    ///
+    /// Returns `None` if covariance propagation was not enabled (no initial
+    /// covariance provided at construction or via [`reinitialize`]).
+    pub fn current_covariance(&self) -> Option<&DMatrix<f64>> {
+        self.current_covariance.as_ref()
+    }
+
+    /// Returns true if this propagator has STM propagation enabled.
+    pub fn has_stm(&self) -> bool {
+        matches!(
+            self.propagation_mode,
+            PropagationMode::WithSTM | PropagationMode::WithSTMAndSensitivity
+        )
+    }
+
     /// Check if propagation was terminated
     pub fn terminated(&self) -> bool {
         self.terminated
@@ -10490,5 +10571,177 @@ mod tests {
             "Position magnitude: {}",
             pos_mag
         );
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_reinitialize_epoch_and_state() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![
+            6878.0e3, 0.0, 0.0, // position [m]
+            0.0, 7612.0, 0.0, // velocity [m/s]
+        ]);
+
+        let config = NumericalPropagationConfig::default();
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            config,
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Propagate forward 60 seconds
+        prop.propagate_to(epoch + 60.0);
+        let state_at_60 = prop.current_state();
+        assert_ne!(
+            state_at_60, state,
+            "State should have changed after propagation"
+        );
+
+        // Reinitialize with a new state at 60s
+        let new_state = DVector::from_vec(vec![
+            6900.0e3, 100.0e3, 0.0, // slightly different position
+            0.0, 7600.0, 0.0,
+        ]);
+        let new_epoch = epoch + 60.0;
+        prop.reinitialize(new_epoch, new_state.clone(), None);
+
+        // Verify reinitialize set correct epoch and state
+        assert_eq!(prop.current_epoch(), new_epoch);
+        assert_eq!(prop.current_state(), new_state);
+
+        // Propagate forward another 60 seconds from the new state
+        prop.propagate_to(new_epoch + 60.0);
+        let state_at_120 = prop.current_state();
+
+        // Verify the state changed (propagation is working after reinitialize)
+        assert_ne!(
+            state_at_120, new_state,
+            "State should change after propagation from reinitialize"
+        );
+
+        // Verify epoch advanced correctly
+        let expected_epoch = epoch + 120.0;
+        let epoch_diff: f64 = prop.current_epoch() - expected_epoch;
+        assert!(epoch_diff.abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_reinitialize_stm_reset() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![6878.0e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            config,
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            Some(p0),
+        )
+        .unwrap();
+
+        // Verify STM starts as identity
+        let stm_initial = prop.stm().unwrap().clone();
+        assert_eq!(stm_initial, DMatrix::identity(6, 6));
+
+        // Propagate forward - STM should change
+        prop.propagate_to(epoch + 60.0);
+        let stm_at_60 = prop.stm().unwrap().clone();
+        assert_ne!(
+            stm_at_60,
+            DMatrix::identity(6, 6),
+            "STM should not be identity after propagation"
+        );
+
+        // Reinitialize - STM should reset to identity
+        let new_state = prop.current_state();
+        prop.reinitialize(epoch + 60.0, new_state, None);
+        let stm_after_reinit = prop.stm().unwrap().clone();
+        assert_eq!(
+            stm_after_reinit,
+            DMatrix::identity(6, 6),
+            "STM should be identity after reinitialize"
+        );
+
+        // Propagate again - STM should change from identity
+        prop.propagate_to(epoch + 120.0);
+        let stm_at_120 = prop.stm().unwrap().clone();
+        assert_ne!(
+            stm_at_120,
+            DMatrix::identity(6, 6),
+            "STM should change after propagation from reinitialize"
+        );
+    }
+
+    #[test]
+    fn test_dnumericalorbitpropagator_reinitialize_preserves_dynamics() {
+        // Verify that reinitialize produces the same result as constructing a fresh propagator
+        // at the same epoch/state (for time-independent dynamics like point mass gravity)
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![6878.0e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+        let config = NumericalPropagationConfig::default();
+
+        // Propagator 1: propagate 60s, then reinitialize at 60s, then propagate 60s more
+        let mut prop1 = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            config.clone(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        prop1.propagate_to(epoch + 60.0);
+        let state_at_60 = prop1.current_state();
+        prop1.reinitialize(epoch + 60.0, state_at_60.clone(), None);
+        prop1.propagate_to(epoch + 120.0);
+        let result_reinit = prop1.current_state();
+
+        // Propagator 2: construct fresh at epoch+60s with state_at_60, propagate 60s
+        let mut prop2 = DNumericalOrbitPropagator::new(
+            epoch + 60.0,
+            state_at_60,
+            config,
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        prop2.propagate_to(epoch + 120.0);
+        let result_fresh = prop2.current_state();
+
+        // Results should be very close (not exact due to floating-point, but within integration tolerance)
+        for i in 0..6 {
+            assert!(
+                (result_reinit[i] - result_fresh[i]).abs() < 1.0, // within 1m position, 1m/s velocity
+                "Component {}: reinit={}, fresh={}, diff={}",
+                i,
+                result_reinit[i],
+                result_fresh[i],
+                (result_reinit[i] - result_fresh[i]).abs()
+            );
+        }
     }
 }

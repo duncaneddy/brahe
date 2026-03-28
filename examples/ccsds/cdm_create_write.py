@@ -6,7 +6,6 @@ Build a CDM message from scratch and write it to KVN format.
 """
 
 import numpy as np
-
 import brahe as bh
 from brahe.ccsds import CDM, CDMObject, CDMRTNCovariance, CDMStateVector
 

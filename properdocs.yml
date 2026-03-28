@@ -209,6 +209,8 @@ nav:
           - Atmospheric Drag: learn/orbital_dynamics/drag.md
           - Solar Radiation Pressure: learn/orbital_dynamics/solar_radiation_pressure.md
           - Relativistic Effects: learn/orbital_dynamics/relativity.md
+      - Earth Models:
+          - Magnetic Field Models: learn/earth_models/magnetic_field.md
       - Orbit Propagation:
           - learn/orbit_propagation/index.md
           - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
@@ -237,6 +239,13 @@ nav:
           - Properties: learn/access_computation/properties.md
           - Computation: learn/access_computation/computation.md
           - Tessellation: learn/access_computation/tessellation.md
+      - Estimation:
+          - learn/estimation/index.md
+          - Extended Kalman Filter: learn/estimation/extended_kalman_filter.md
+          - Unscented Kalman Filter: learn/estimation/unscented_kalman_filter.md
+          - Measurement Models: learn/estimation/measurement_models.md
+          - Batch Least Squares: learn/estimation/batch_least_squares.md
+          - Custom Models: learn/estimation/custom_models.md
       - Mathematics:
           - learn/mathematics/index.md
           - Jacobian Computation: learn/mathematics/jacobian.md
@@ -285,6 +294,7 @@ nav:
           - Ground Tracks: learn/plots/ground_tracks.md
           - Access Geometry: learn/plots/access_geometry.md
           - Gabbard Plots: learn/plots/gabbard_plot.md
+          - Estimation Plots: learn/plots/estimation.md
       - Command Line Interface:
           - learn/cli/index.md
           - EOP: learn/cli/eop.md
@@ -374,6 +384,13 @@ nav:
           - Numerical Propagation Config: library_api/propagators/numerical_propagation_config.md
           - Force Model Config: library_api/propagators/force_model_config.md
           - Functions: library_api/propagators/functions.md
+      - Estimation:
+          - library_api/estimation/index.md
+          - Common Types: library_api/estimation/common_types.md
+          - Extended Kalman Filter: library_api/estimation/extended_kalman_filter.md
+          - Unscented Kalman Filter: library_api/estimation/unscented_kalman_filter.md
+          - Batch Least Squares: library_api/estimation/batch_least_squares.md
+          - Measurement Models: library_api/estimation/measurement_models.md
       - Event Detection:
           - library_api/events/index.md
           - Event Detectors: library_api/events/detectors.md
@@ -396,6 +413,7 @@ nav:
           - Enumerations: library_api/access/enums.md
       - Mathematics:
           - library_api/mathematics/index.md
+          - Covariance Utilities: library_api/mathematics/covariance.md
           - Jacobian: library_api/mathematics/jacobian.md
           - Sensitivity Matrices: library_api/mathematics/sensitivity.md
       - Integrators:
@@ -415,6 +433,8 @@ nav:
           - library_api/earth_models/index.md
           - Harris-Priester: library_api/earth_models/harris_priester.md
           - NRLMSISE-00: library_api/earth_models/nrlmsise00.md
+          - IGRF-14: library_api/earth_models/igrf.md
+          - WMMHR-2025: library_api/earth_models/wmmhr.md
       - Datasets:
           - library_api/datasets/index.md
           - Groundstations: library_api/datasets/groundstations.md
@@ -450,6 +470,9 @@ nav:
           - 3D Trajectory: library_api/plots/3d_trajectory.md
           - Access Geometry: library_api/plots/access_geometry.md
           - Gabbard Diagram: library_api/plots/gabbard.md
+          - Estimation State Plots: library_api/plots/estimation_state.md
+          - Measurement Residual Plots: library_api/plots/estimation_residuals.md
+          - Marginal Distribution Plots: library_api/plots/estimation_marginal.md
   - Rust API Reference: https://docs.rs/brahe
   - About Me: https://duncaneddy.com
 

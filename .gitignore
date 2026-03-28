@@ -11,6 +11,7 @@ digest.txt
 CLAUDE.md
 .claude/*
 .devcontainer
+.superpowers
 
 # Coverage
 lcov.info

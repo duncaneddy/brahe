@@ -984,6 +984,84 @@ impl DNumericalPropagator {
         self.trajectory.sensitivity_at(epoch)
     }
 
+    /// Reinitialize the propagator with a new state at a new epoch.
+    ///
+    /// Unlike [`reset()`], which reverts to the original construction-time initial
+    /// conditions, this method sets new initial conditions while preserving the
+    /// dynamics function, integrator, and configuration. This is designed for
+    /// estimation filters that need to restart propagation from an updated state
+    /// after each filter update step.
+    ///
+    /// Internally, `t_rel` is set to `epoch - epoch_initial` so that the dynamics
+    /// function receives the correct relative time offset. The STM is reset to
+    /// identity and the sensitivity matrix to zero.
+    ///
+    /// # Arguments
+    ///
+    /// * `epoch` - New epoch to start propagation from
+    /// * `state` - New state vector (SI units)
+    /// * `covariance` - Optional covariance matrix to propagate alongside state.
+    ///   If provided, the propagator will compute `P(t) = Φ·P₀·Φᵀ` during propagation.
+    pub fn reinitialize(
+        &mut self,
+        epoch: Epoch,
+        state: DVector<f64>,
+        covariance: Option<DMatrix<f64>>,
+    ) {
+        // Use epoch offset trick (same pattern as event restart)
+        self.t_rel = epoch - self.epoch_initial;
+        self.epoch_current = epoch;
+        self.x_curr = state;
+
+        // Keep dt/dt_next (preserve step size)
+        // Keep dynamics, integrator unchanged
+
+        // Reset STM to identity, sensitivity to zero
+        match self.propagation_mode {
+            PropagationMode::StateOnly => {
+                // No STM or sensitivity to reset
+            }
+            PropagationMode::WithSTM => {
+                self.stm = Some(DMatrix::identity(self.state_dim, self.state_dim));
+            }
+            PropagationMode::WithSensitivity => {
+                let param_dim = self.params.len();
+                self.sensitivity = Some(DMatrix::zeros(self.state_dim, param_dim));
+            }
+            PropagationMode::WithSTMAndSensitivity => {
+                self.stm = Some(DMatrix::identity(self.state_dim, self.state_dim));
+                let param_dim = self.params.len();
+                self.sensitivity = Some(DMatrix::zeros(self.state_dim, param_dim));
+            }
+        }
+
+        // Reset integrator FSAL cache (derivative at new state is different)
+        self.integrator.reset_cache();
+
+        // Set covariance for propagation (P₀ for Φ·P₀·Φᵀ computation)
+        self.initial_covariance = covariance.clone();
+        self.current_covariance = covariance;
+
+        // Clear event state
+        self.terminated = false;
+    }
+
+    /// Get current covariance matrix P(t).
+    ///
+    /// Returns `None` if covariance propagation was not enabled (no initial
+    /// covariance provided at construction or via [`reinitialize`]).
+    pub fn current_covariance(&self) -> Option<&DMatrix<f64>> {
+        self.current_covariance.as_ref()
+    }
+
+    /// Returns true if this propagator has STM propagation enabled.
+    pub fn has_stm(&self) -> bool {
+        matches!(
+            self.propagation_mode,
+            PropagationMode::WithSTM | PropagationMode::WithSTMAndSensitivity
+        )
+    }
+
     /// Check if propagation was terminated
     pub fn terminated(&self) -> bool {
         self.terminated
@@ -3489,5 +3567,104 @@ mod tests {
         // Now event should be detected
         assert_eq!(prop.event_log().len(), 1);
         assert!(prop.event_log()[0].name.contains("RoundtripEvent"));
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_reinitialize_epoch_and_state() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]); // x=1, v=0
+
+        let dynamics = sho_dynamics(1.0);
+        let config = NumericalPropagationConfig::default();
+
+        let mut prop =
+            DNumericalPropagator::new(epoch, state.clone(), dynamics, config, None, None, None)
+                .unwrap();
+
+        // Propagate forward
+        prop.propagate_to(epoch + 1.0);
+        let state_at_1 = prop.current_state();
+        assert_ne!(state_at_1[0], 1.0, "State should have changed");
+
+        // Reinitialize with a new state
+        let new_state = DVector::from_vec(vec![2.0, 0.0]);
+        let new_epoch = epoch + 1.0;
+        prop.reinitialize(new_epoch, new_state.clone(), None);
+
+        assert_eq!(prop.current_epoch(), new_epoch);
+        assert_eq!(prop.current_state(), new_state);
+
+        // Propagate forward again
+        prop.propagate_to(new_epoch + 1.0);
+        let state_at_2 = prop.current_state();
+        assert_ne!(
+            state_at_2, new_state,
+            "State should change after propagation from reinitialize"
+        );
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_reinitialize_stm_reset() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+
+        let dynamics = sho_dynamics(1.0);
+        let mut config = NumericalPropagationConfig::default();
+        config.variational.enable_stm = true;
+
+        let mut prop =
+            DNumericalPropagator::new(epoch, state.clone(), dynamics, config, None, None, None)
+                .unwrap();
+
+        // STM should start as identity
+        let stm = prop.stm().unwrap().clone();
+        assert_eq!(stm, DMatrix::identity(2, 2));
+
+        // Propagate - STM should change
+        prop.propagate_to(epoch + 1.0);
+        let stm_after = prop.stm().unwrap().clone();
+        assert_ne!(stm_after, DMatrix::identity(2, 2));
+
+        // Reinitialize - STM should reset to identity
+        let current_state = prop.current_state();
+        prop.reinitialize(epoch + 1.0, current_state, None);
+        let stm_reinit = prop.stm().unwrap().clone();
+        assert_eq!(stm_reinit, DMatrix::identity(2, 2));
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_reinitialize_preserves_dynamics() {
+        // For the simple harmonic oscillator with ω=1:
+        // x(t) = cos(t), v(t) = -sin(t) starting from (1, 0)
+        // Reinitializing at t=π/2 with (0, -1) and propagating π/2 more
+        // should give approximately (-1, 0) at t=π
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+
+        let dynamics = sho_dynamics(1.0);
+        let config = NumericalPropagationConfig::default();
+
+        let mut prop =
+            DNumericalPropagator::new(epoch, state, dynamics, config, None, None, None).unwrap();
+
+        // Propagate to π/2
+        let half_pi = PI / 2.0;
+        prop.propagate_to(epoch + half_pi);
+        let state_half_pi = prop.current_state();
+
+        // Should be approximately (0, -1)
+        assert_abs_diff_eq!(state_half_pi[0], 0.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(state_half_pi[1], -1.0, epsilon = 1e-3);
+
+        // Reinitialize at π/2 with current state
+        prop.reinitialize(epoch + half_pi, state_half_pi.clone(), None);
+
+        // Propagate another π/2 to reach t=π
+        prop.propagate_to(epoch + PI);
+        let state_pi = prop.current_state();
+
+        // Should be approximately (-1, 0) at t=π
+        assert_abs_diff_eq!(state_pi[0], -1.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(state_pi[1], 0.0, epsilon = 1e-3);
     }
 }

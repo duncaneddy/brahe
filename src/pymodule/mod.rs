@@ -557,6 +557,7 @@ include!("earth_models.rs");
 include!("spacetrack.rs");
 include!("celestrak.rs");
 include!("ccsds.rs");
+include!("estimation.rs");
 
 // Define Module
 
@@ -593,6 +594,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("TAI_GST", constants::TAI_GST)?;
     module.add("BDT_ZERO", constants::BDT_ZERO)?;
     module.add("GST_ZERO", constants::GST_ZERO)?;
+    module.add("UNIX_EPOCH_JD", constants::UNIX_EPOCH_JD)?;
+    module.add("UNIX_EPOCH_MJD", constants::UNIX_EPOCH_MJD)?;
     module.add("C_LIGHT", constants::C_LIGHT)?;
     module.add("AU", constants::AU)?;
     module.add("R_EARTH", constants::R_EARTH)?;
@@ -1016,6 +1019,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_density_nrlmsise00, module)?)?;
     module.add_function(wrap_pyfunction!(py_density_nrlmsise00_geod, module)?)?;
 
+    // Magnetic Field Models
+    module.add_function(wrap_pyfunction!(py_igrf_geodetic_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_igrf_geocentric_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_igrf_ecef, module)?)?;
+    module.add_function(wrap_pyfunction!(py_wmmhr_geodetic_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_wmmhr_geocentric_enz, module)?)?;
+    module.add_function(wrap_pyfunction!(py_wmmhr_ecef, module)?)?;
+
     // Drag, SRP, and Relativity
     module.add_function(wrap_pyfunction!(py_accel_drag, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_solar_radiation_pressure, module)?)?;
@@ -1192,6 +1203,30 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCDMObject>()?;
     module.add_class::<PyCDMStateVector>()?;
     module.add_class::<PyCDMRTNCovariance>()?;
+
+    //* Estimation *//
+    module.add_class::<PyProcessNoiseConfig>()?;
+    module.add_class::<PyEKFConfig>()?;
+    module.add_class::<PyObservation>()?;
+    module.add_class::<PyFilterRecord>()?;
+    module.add_class::<PyMeasurementModel>()?;
+    module.add_class::<PyInertialPositionMeasurementModel>()?;
+    module.add_class::<PyInertialVelocityMeasurementModel>()?;
+    module.add_class::<PyInertialStateMeasurementModel>()?;
+    module.add_class::<PyEcefPositionMeasurementModel>()?;
+    module.add_class::<PyEcefVelocityMeasurementModel>()?;
+    module.add_class::<PyEcefStateMeasurementModel>()?;
+    module.add_class::<PyExtendedKalmanFilter>()?;
+    module.add_class::<PyUKFConfig>()?;
+    module.add_class::<PyUnscentedKalmanFilter>()?;
+    module.add_class::<PyBLSSolverMethod>()?;
+    module.add_class::<PyConsiderParameterConfig>()?;
+    module.add_class::<PyBLSConfig>()?;
+    module.add_class::<PyBLSIterationRecord>()?;
+    module.add_class::<PyBLSObservationResidual>()?;
+    module.add_class::<PyBatchLeastSquares>()?;
+    module.add_function(wrap_pyfunction!(py_isotropic_covariance, module)?)?;
+    module.add_function(wrap_pyfunction!(py_diagonal_covariance, module)?)?;
 
     Ok(())
 }

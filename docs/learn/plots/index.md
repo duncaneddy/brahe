@@ -123,6 +123,16 @@ fig = bh.plot_gabbard_diagram(
 )
 ```
 
+### [Estimation Plots](estimation.md)
+
+Visualize estimation filter performance with state error grids, covariance bounds, measurement residuals, and marginal distributions.
+
+```python
+fig = bh.plot_estimator_state_error_grid(
+    solvers=[ekf], true_trajectory=truth_traj, sigma=3
+)
+```
+
 ## Common Features
 
 All plotting functions share consistent design patterns:

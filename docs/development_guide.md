@@ -75,7 +75,7 @@ When adding new functionality to Brahe, follow this sequence:
 **6. Documentation**
 - Update or create documentation in `docs/`
 - Reference examples using snippet includes (see template below)
-- Build Locally: `uv run mkdocs serve`
+- Build Locally: `uv run properdocs serve`
 
 **7. Final Checks**
 ```bash
@@ -89,8 +89,8 @@ uv pip install -e ".[all]" && ./scripts/generate_stubs.sh && uv run pytest
 # Documentation
 just test-examples
 just make-plots
-uv run mkdocs build --strict
-uv run mkdocs serve
+uv run properdocs build --strict
+uv run properdocs serve
 ```
 
 ## Rust Standards and Guidelines
@@ -463,7 +463,7 @@ Before creating a release:
 
 2. **Run quality checks**:
    ```bash
-   ruff check && cargo fmt -- --check && cargo test && uv pip install -e ".[all]" && uv run pytest && just test-examples && just make-plots && uv run mkdocs build --strict
+   ruff check && cargo fmt -- --check && cargo test && uv pip install -e ".[all]" && uv run pytest && just test-examples && just make-plots && uv run properdocs build --strict
    ```
 
 3. **Push version tag**:

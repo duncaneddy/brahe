@@ -170,4 +170,4 @@ jobs:
           path: docs/figures/
 
       - name: Build documentation (verify only, no deployment)
-        run: uv run mkdocs build
+        run: uv run properdocs build

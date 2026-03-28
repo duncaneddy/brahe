@@ -84,7 +84,7 @@ repos:
   #     - id: mkdocs-check
   #       name: mkdocs build
   #       language: system
-  #       entry: uv run mkdocs build --strict
+  #       entry: uv run properdocs build --strict
 
   # Additional useful hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks

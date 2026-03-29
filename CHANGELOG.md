@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.3.1] - 2026-03-29
+### Added
+
+- Added retry logic and exponential back-off to Celestrak client
+  Added process-based rate-limiting to Celestrak client [#244](https://github.com/duncaneddy/brahe/pull/244)
+
+### Changed
+
+- Set default celestrak client cache age to 2 hours. [#244](https://github.com/duncaneddy/brahe/pull/244)
+- Bump version for `v1.3.1` [#248](https://github.com/duncaneddy/brahe/pull/248)
+
+### Fixed
+
+- Pointed `mike` documentation deployment to use `properdocs.yml` [#244](https://github.com/duncaneddy/brahe/pull/244)
+- Fix `mike set-default` invocation to use `properdocs.yml` config [#246](https://github.com/duncaneddy/brahe/pull/246)
+
 ## [1.3.0] - 2026-03-29
 ### Added
 

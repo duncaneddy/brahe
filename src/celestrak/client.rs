@@ -21,8 +21,8 @@ use crate::utils::{BraheError, atomic_write, get_celestrak_cache_dir};
 /// Default base URL for the CelestrakClient API.
 const DEFAULT_BASE_URL: &str = "https://celestrak.org";
 
-/// Default maximum cache age in seconds (6 hours).
-const DEFAULT_MAX_CACHE_AGE: f64 = 21600.0;
+/// Default maximum cache age in seconds (a hours).
+const DEFAULT_MAX_CACHE_AGE: f64 = 7200.0;
 
 /// Default maximum number of retries for transient HTTP errors.
 const DEFAULT_MAX_RETRIES: u32 = 3;

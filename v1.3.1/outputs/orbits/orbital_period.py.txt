@@ -1,0 +1,6 @@
+Orbital period (Earth): 5676.977 s
+Orbital period (Earth): 94.616 min
+Orbital period (general): 5676.977 s
+Difference: 0.00e+00 s
+
+GEO orbital period: 23.934 hours

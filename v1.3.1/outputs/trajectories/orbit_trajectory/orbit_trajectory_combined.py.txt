@@ -1,0 +1,16 @@
+Original:
+  Frame: ECI
+  Representation: Cartesian
+
+After to_ecef():
+  Frame: ECEF
+  Representation: Cartesian
+
+After to_eci():
+  Frame: ECI
+  Representation: Cartesian
+
+After to_keplerian():
+  Frame: ECI
+  Representation: Keplerian
+  Angle format: Degrees

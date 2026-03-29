@@ -1,0 +1,2 @@
+Trajectory length: 100
+Trajectory length after age policy: 61

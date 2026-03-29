@@ -1,0 +1,7 @@
+GEO Force Model (after 7 days):
+  Initial eccentricity: 0.000100
+  Final eccentricity:   0.000118
+  Eccentricity change:  0.000018
+  Inclination change:   0.082726 deg
+
+Example validated successfully!

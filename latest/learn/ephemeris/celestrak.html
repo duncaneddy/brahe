@@ -97,10 +97,10 @@
 <span class=normal><a href=#__codelineno-2-7>7</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a>ISS GP Data:
 </span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>  Name: ISS (ZARYA)
 </span><span id=__span-2-3><a id=__codelineno-2-3 name=__codelineno-2-3></a>  NORAD ID: 25544
-</span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a>  Epoch: 2026-03-28T11:41:48.111360
+</span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a>  Epoch: 2026-03-28T20:59:21.130368
 </span><span id=__span-2-5><a id=__codelineno-2-5 name=__codelineno-2-5></a>  Inclination: 51.63°
-</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a>  RAAN: 339.43°
-</span><span id=__span-2-7><a id=__codelineno-2-7 name=__codelineno-2-7></a>  Eccentricity: 0.000623
+</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a>  RAAN: 337.52°
+</span><span id=__span-2-7><a id=__codelineno-2-7 name=__codelineno-2-7></a>  Eccentricity: 0.000622
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1>1</a></span>
 <span class=normal><a href=#__codelineno-3-2>2</a></span>
 <span class=normal><a href=#__codelineno-3-3>3</a></span>
@@ -110,10 +110,10 @@
 <span class=normal><a href=#__codelineno-3-7>7</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a>ISS GP Data:
 </span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a>  Name: ISS (ZARYA)
 </span><span id=__span-3-3><a id=__codelineno-3-3 name=__codelineno-3-3></a>  NORAD ID: 25544
-</span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a>  Epoch: 2026-03-28T11:41:48.111360
+</span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a>  Epoch: 2026-03-28T20:59:21.130368
 </span><span id=__span-3-5><a id=__codelineno-3-5 name=__codelineno-3-5></a>  Inclination: 51.63°
-</span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a>  RAAN: 339.43°
-</span><span id=__span-3-7><a id=__codelineno-3-7 name=__codelineno-3-7></a>  Eccentricity: 0.000623
+</span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a>  RAAN: 337.52°
+</span><span id=__span-3-7><a id=__codelineno-3-7 name=__codelineno-3-7></a>  Eccentricity: 0.000622
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <p>Other common lookup patterns include querying by group name (<code>group="stations"</code>), object name (<code>name="ISS"</code>), or international designator (<code>intdes="1998-067A"</code>). All of these are available as keyword arguments to <code>get_gp</code> or as builder methods on <code>CelestrakQuery.gp</code>.</p> <h2 id=client-side-filtering>Client-Side Filtering<a class=headerlink href=#client-side-filtering title="Permanent link">&para;</a></h2> <p>CelesTrak's API only supports a few server-side filters (group, catalog number, name, international designator). For more complex filtering, brahe provides client-side operators that use the same syntax as the SpaceTrack query interface. These filters are applied after downloading the full dataset, so they work on any field in the response:</p> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1> 1</a></span>
 <span class=normal><a href=#__codelineno-4-2> 2</a></span>
 <span class=normal><a href=#__codelineno-4-3> 3</a></span>

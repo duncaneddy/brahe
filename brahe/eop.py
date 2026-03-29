@@ -27,6 +27,11 @@ from brahe._brahe import (
     set_global_eop_provider_from_file_provider,
     set_global_eop_provider_from_caching_provider,
     initialize_eop,
+    # Thread-local provider management
+    set_thread_local_eop_provider,
+    clear_thread_local_eop_provider,
+    # Table-based provider
+    TableEOPProvider,
     # Global EOP data access
     get_global_ut1_utc,
     get_global_pm,
@@ -59,6 +64,11 @@ __all__ = [
     "set_global_eop_provider_from_file_provider",
     "set_global_eop_provider_from_caching_provider",
     "initialize_eop",
+    # Thread-local provider management
+    "set_thread_local_eop_provider",
+    "clear_thread_local_eop_provider",
+    # Table-based provider
+    "TableEOPProvider",
     # Global EOP data access
     "get_global_ut1_utc",
     "get_global_pm",

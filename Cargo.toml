@@ -53,6 +53,7 @@ num_cpus = "1.17"
 dirs = "6.0.0"
 polars = { version = "0.53", default-features = false, features = ["lazy"] }
 anise = "0.9.3"
+rand = "0.9"
 
 [dependencies.pyo3]
 version = "0.28.2"
@@ -68,7 +69,6 @@ tempfile = "3.24.0"
 cargo-deny = "0.19.0"
 mockall = "0.14.0"
 rv = "0.19"
-rand = "0.9"
 criterion = { version = "0.8", features = ["html_reports"] }
 
 [features]

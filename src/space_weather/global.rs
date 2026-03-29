@@ -3,6 +3,7 @@
  */
 
 use once_cell::sync::Lazy;
+use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 
 use crate::space_weather::provider::SpaceWeatherProvider;
@@ -16,6 +17,126 @@ use serial_test::serial;
 
 static GLOBAL_SW: Lazy<Arc<RwLock<Box<dyn SpaceWeatherProvider + Sync + Send>>>> =
     Lazy::new(|| Arc::new(RwLock::new(Box::new(StaticSpaceWeatherProvider::new()))));
+
+thread_local! {
+    static THREAD_LOCAL_SW: RefCell<Option<Arc<dyn SpaceWeatherProvider + Sync + Send>>> = const { RefCell::new(None) };
+}
+
+/// Wrapper that implements `SpaceWeatherProvider` by delegating to an inner `Arc`.
+///
+/// This is used internally to bridge `Arc<dyn SpaceWeatherProvider>` into a
+/// `Box<dyn SpaceWeatherProvider>` context (e.g., the global provider).
+struct ArcSWWrapper(Arc<dyn SpaceWeatherProvider + Sync + Send>);
+
+impl SpaceWeatherProvider for ArcSWWrapper {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn sw_type(&self) -> SpaceWeatherType {
+        self.0.sw_type()
+    }
+
+    fn is_initialized(&self) -> bool {
+        self.0.is_initialized()
+    }
+
+    fn extrapolation(&self) -> SpaceWeatherExtrapolation {
+        self.0.extrapolation()
+    }
+
+    fn mjd_min(&self) -> f64 {
+        self.0.mjd_min()
+    }
+
+    fn mjd_max(&self) -> f64 {
+        self.0.mjd_max()
+    }
+
+    fn mjd_last_observed(&self) -> f64 {
+        self.0.mjd_last_observed()
+    }
+
+    fn mjd_last_daily_predicted(&self) -> f64 {
+        self.0.mjd_last_daily_predicted()
+    }
+
+    fn mjd_last_monthly_predicted(&self) -> f64 {
+        self.0.mjd_last_monthly_predicted()
+    }
+
+    fn get_kp(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_kp(mjd)
+    }
+
+    fn get_kp_all(&self, mjd: f64) -> Result<[f64; 8], BraheError> {
+        self.0.get_kp_all(mjd)
+    }
+
+    fn get_kp_daily(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_kp_daily(mjd)
+    }
+
+    fn get_ap(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_ap(mjd)
+    }
+
+    fn get_ap_all(&self, mjd: f64) -> Result<[f64; 8], BraheError> {
+        self.0.get_ap_all(mjd)
+    }
+
+    fn get_ap_daily(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_ap_daily(mjd)
+    }
+
+    fn get_f107_observed(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_f107_observed(mjd)
+    }
+
+    fn get_f107_adjusted(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_f107_adjusted(mjd)
+    }
+
+    fn get_f107_obs_avg81(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_f107_obs_avg81(mjd)
+    }
+
+    fn get_f107_adj_avg81(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_f107_adj_avg81(mjd)
+    }
+
+    fn get_sunspot_number(&self, mjd: f64) -> Result<u32, BraheError> {
+        self.0.get_sunspot_number(mjd)
+    }
+
+    fn get_last_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+        self.0.get_last_kp(mjd, n)
+    }
+
+    fn get_last_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+        self.0.get_last_ap(mjd, n)
+    }
+
+    fn get_last_daily_kp(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+        self.0.get_last_daily_kp(mjd, n)
+    }
+
+    fn get_last_daily_ap(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+        self.0.get_last_daily_ap(mjd, n)
+    }
+
+    fn get_last_f107(&self, mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
+        self.0.get_last_f107(mjd, n)
+    }
+
+    fn get_last_kpap_epochs(&self, mjd: f64, n: usize) -> Result<Vec<Epoch>, BraheError> {
+        self.0.get_last_kpap_epochs(mjd, n)
+    }
+
+    fn get_last_daily_epochs(&self, mjd: f64, n: usize) -> Result<Vec<Epoch>, BraheError> {
+        self.0.get_last_daily_epochs(mjd, n)
+    }
+}
 
 /// Set the crate-wide static space weather data provider.
 ///
@@ -43,7 +164,53 @@ static GLOBAL_SW: Lazy<Arc<RwLock<Box<dyn SpaceWeatherProvider + Sync + Send>>>>
 pub fn set_global_space_weather_provider<T: SpaceWeatherProvider + Sync + Send + 'static>(
     provider: T,
 ) {
-    *GLOBAL_SW.write().unwrap() = Box::new(provider);
+    let arc: Arc<dyn SpaceWeatherProvider + Sync + Send> = Arc::new(provider);
+    *GLOBAL_SW.write().unwrap() = Box::new(ArcSWWrapper(Arc::clone(&arc)));
+    THREAD_LOCAL_SW.with(|tl| {
+        *tl.borrow_mut() = Some(arc);
+    });
+}
+
+/// Set a thread-local space weather provider override.
+///
+/// When set, all `get_global_*` accessor functions on this thread will use
+/// this provider instead of the global one. This is useful for Monte Carlo
+/// simulations where each thread needs independent space weather data.
+///
+/// # Arguments
+///
+/// - `provider`: Object which implements the `SpaceWeatherProvider` trait
+///
+/// # Examples
+///
+/// ```
+/// use brahe::space_weather::*;
+///
+/// let sw = StaticSpaceWeatherProvider::from_values(3.0, 15.0, 150.0, 148.0, 100);
+/// set_thread_local_space_weather_provider(sw);
+///
+/// // This thread now uses the thread-local provider
+/// assert_eq!(get_global_kp(60000.0).unwrap(), 3.0);
+///
+/// // Clean up
+/// clear_thread_local_space_weather_provider();
+/// ```
+pub fn set_thread_local_space_weather_provider<T: SpaceWeatherProvider + Sync + Send + 'static>(
+    provider: T,
+) {
+    THREAD_LOCAL_SW.with(|tl| {
+        *tl.borrow_mut() = Some(Arc::new(provider));
+    });
+}
+
+/// Clear the thread-local space weather provider override.
+///
+/// After calling this, `get_global_*` accessor functions on this thread will
+/// fall back to the global provider.
+pub fn clear_thread_local_space_weather_provider() {
+    THREAD_LOCAL_SW.with(|tl| {
+        *tl.borrow_mut() = None;
+    });
 }
 
 /// Get Kp index for the specified MJD from the global provider.
@@ -56,17 +223,38 @@ pub fn set_global_space_weather_provider<T: SpaceWeatherProvider + Sync + Send +
 /// # Returns
 /// - Kp index (0.0-9.0 scale)
 pub fn get_global_kp(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_SW.read().unwrap().get_kp(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_kp(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_kp(mjd)
+    })
 }
 
 /// Get all eight 3-hourly Kp indices for the day containing the given MJD.
 pub fn get_global_kp_all(mjd: f64) -> Result<[f64; 8], BraheError> {
-    GLOBAL_SW.read().unwrap().get_kp_all(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_kp_all(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_kp_all(mjd)
+    })
 }
 
 /// Get the daily average Kp index for the given MJD.
 pub fn get_global_kp_daily(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_SW.read().unwrap().get_kp_daily(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_kp_daily(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_kp_daily(mjd)
+    })
 }
 
 /// Get Ap index for the specified MJD from the global provider.
@@ -79,17 +267,38 @@ pub fn get_global_kp_daily(mjd: f64) -> Result<f64, BraheError> {
 /// # Returns
 /// - Ap index
 pub fn get_global_ap(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_SW.read().unwrap().get_ap(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_ap(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_ap(mjd)
+    })
 }
 
 /// Get all eight 3-hourly Ap indices for the day containing the given MJD.
 pub fn get_global_ap_all(mjd: f64) -> Result<[f64; 8], BraheError> {
-    GLOBAL_SW.read().unwrap().get_ap_all(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_ap_all(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_ap_all(mjd)
+    })
 }
 
 /// Get the daily average Ap index for the given MJD.
 pub fn get_global_ap_daily(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_SW.read().unwrap().get_ap_daily(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_ap_daily(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_ap_daily(mjd)
+    })
 }
 
 /// Get observed F10.7 solar flux for the specified MJD.
@@ -100,72 +309,170 @@ pub fn get_global_ap_daily(mjd: f64) -> Result<f64, BraheError> {
 /// # Returns
 /// - F10.7 flux in solar flux units (sfu)
 pub fn get_global_f107_observed(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_SW.read().unwrap().get_f107_observed(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_f107_observed(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_f107_observed(mjd)
+    })
 }
 
 /// Get adjusted F10.7 solar flux for the specified MJD.
 pub fn get_global_f107_adjusted(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_SW.read().unwrap().get_f107_adjusted(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_f107_adjusted(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_f107_adjusted(mjd)
+    })
 }
 
 /// Get observed 81-day centered average F10.7 flux.
 pub fn get_global_f107_obs_avg81(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_SW.read().unwrap().get_f107_obs_avg81(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_f107_obs_avg81(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_f107_obs_avg81(mjd)
+    })
 }
 
 /// Get adjusted 81-day centered average F10.7 flux.
 pub fn get_global_f107_adj_avg81(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_SW.read().unwrap().get_f107_adj_avg81(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_f107_adj_avg81(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_f107_adj_avg81(mjd)
+    })
 }
 
 /// Get International Sunspot Number for the specified MJD.
 pub fn get_global_sunspot_number(mjd: f64) -> Result<u32, BraheError> {
-    GLOBAL_SW.read().unwrap().get_sunspot_number(mjd)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_sunspot_number(mjd);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_sunspot_number(mjd)
+    })
 }
 
 /// Returns initialization state of global space weather provider.
 pub fn get_global_sw_initialization() -> bool {
-    GLOBAL_SW.read().unwrap().is_initialized()
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.is_initialized();
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().is_initialized()
+    })
 }
 
 /// Return length of loaded global space weather data.
 pub fn get_global_sw_len() -> usize {
-    GLOBAL_SW.read().unwrap().len()
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.len();
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().len()
+    })
 }
 
 /// Returns the type of loaded space weather data.
 pub fn get_global_sw_type() -> SpaceWeatherType {
-    GLOBAL_SW.read().unwrap().sw_type()
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.sw_type();
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().sw_type()
+    })
 }
 
 /// Return extrapolation setting of loaded space weather provider.
 pub fn get_global_sw_extrapolation() -> SpaceWeatherExtrapolation {
-    GLOBAL_SW.read().unwrap().extrapolation()
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.extrapolation();
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().extrapolation()
+    })
 }
 
 /// Returns the earliest MJD available in the loaded space weather data.
 pub fn get_global_sw_mjd_min() -> f64 {
-    GLOBAL_SW.read().unwrap().mjd_min()
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.mjd_min();
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().mjd_min()
+    })
 }
 
 /// Returns the latest MJD available in the loaded space weather data.
 pub fn get_global_sw_mjd_max() -> f64 {
-    GLOBAL_SW.read().unwrap().mjd_max()
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.mjd_max();
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().mjd_max()
+    })
 }
 
 /// Returns the last MJD with observed data.
 pub fn get_global_sw_mjd_last_observed() -> f64 {
-    GLOBAL_SW.read().unwrap().mjd_last_observed()
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.mjd_last_observed();
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().mjd_last_observed()
+    })
 }
 
 /// Returns the last MJD with daily predicted data.
 pub fn get_global_sw_mjd_last_daily_predicted() -> f64 {
-    GLOBAL_SW.read().unwrap().mjd_last_daily_predicted()
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.mjd_last_daily_predicted();
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().mjd_last_daily_predicted()
+    })
 }
 
 /// Returns the last MJD with monthly predicted data.
 pub fn get_global_sw_mjd_last_monthly_predicted() -> f64 {
-    GLOBAL_SW.read().unwrap().mjd_last_monthly_predicted()
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.mjd_last_monthly_predicted();
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().mjd_last_monthly_predicted()
+    })
 }
 
 /// Get the last N 3-hourly Kp values from the global provider.
@@ -179,7 +486,14 @@ pub fn get_global_sw_mjd_last_monthly_predicted() -> f64 {
 /// # Returns
 /// - Vector of Kp indices (0.0-9.0 scale), oldest first
 pub fn get_global_last_kp(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
-    GLOBAL_SW.read().unwrap().get_last_kp(mjd, n)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_last_kp(mjd, n);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_last_kp(mjd, n)
+    })
 }
 
 /// Get the last N 3-hourly Ap values from the global provider.
@@ -193,7 +507,14 @@ pub fn get_global_last_kp(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
 /// # Returns
 /// - Vector of Ap indices, oldest first
 pub fn get_global_last_ap(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
-    GLOBAL_SW.read().unwrap().get_last_ap(mjd, n)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_last_ap(mjd, n);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_last_ap(mjd, n)
+    })
 }
 
 /// Get the last N daily average Kp values from the global provider.
@@ -207,7 +528,14 @@ pub fn get_global_last_ap(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
 /// # Returns
 /// - Vector of daily average Kp indices, oldest first
 pub fn get_global_last_daily_kp(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
-    GLOBAL_SW.read().unwrap().get_last_daily_kp(mjd, n)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_last_daily_kp(mjd, n);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_last_daily_kp(mjd, n)
+    })
 }
 
 /// Get the last N daily average Ap values from the global provider.
@@ -221,7 +549,14 @@ pub fn get_global_last_daily_kp(mjd: f64, n: usize) -> Result<Vec<f64>, BraheErr
 /// # Returns
 /// - Vector of daily average Ap indices, oldest first
 pub fn get_global_last_daily_ap(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
-    GLOBAL_SW.read().unwrap().get_last_daily_ap(mjd, n)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_last_daily_ap(mjd, n);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_last_daily_ap(mjd, n)
+    })
 }
 
 /// Get the last N daily observed F10.7 values from the global provider.
@@ -235,7 +570,14 @@ pub fn get_global_last_daily_ap(mjd: f64, n: usize) -> Result<Vec<f64>, BraheErr
 /// # Returns
 /// - Vector of F10.7 values in sfu, oldest first
 pub fn get_global_last_f107(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> {
-    GLOBAL_SW.read().unwrap().get_last_f107(mjd, n)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_last_f107(mjd, n);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_last_f107(mjd, n)
+    })
 }
 
 /// Get the epochs for the last N 3-hourly Kp/Ap intervals from the global provider.
@@ -250,7 +592,14 @@ pub fn get_global_last_f107(mjd: f64, n: usize) -> Result<Vec<f64>, BraheError> 
 /// # Returns
 /// - Vector of Epoch objects, oldest first
 pub fn get_global_last_kpap_epochs(mjd: f64, n: usize) -> Result<Vec<Epoch>, BraheError> {
-    GLOBAL_SW.read().unwrap().get_last_kpap_epochs(mjd, n)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_last_kpap_epochs(mjd, n);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_last_kpap_epochs(mjd, n)
+    })
 }
 
 /// Get the epochs for the last N daily values from the global provider.
@@ -265,7 +614,14 @@ pub fn get_global_last_kpap_epochs(mjd: f64, n: usize) -> Result<Vec<Epoch>, Bra
 /// # Returns
 /// - Vector of Epoch objects, oldest first
 pub fn get_global_last_daily_epochs(mjd: f64, n: usize) -> Result<Vec<Epoch>, BraheError> {
-    GLOBAL_SW.read().unwrap().get_last_daily_epochs(mjd, n)
+    THREAD_LOCAL_SW.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_last_daily_epochs(mjd, n);
+        }
+        drop(borrow);
+        GLOBAL_SW.read().unwrap().get_last_daily_epochs(mjd, n)
+    })
 }
 
 /// Initialize the global space weather provider with recommended default settings.
@@ -584,5 +940,165 @@ mod tests {
         assert!(get_global_sw_initialization());
         assert_eq!(get_global_sw_type(), SpaceWeatherType::CssiSpaceWeather);
         assert!(get_global_sw_len() > 0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_thread_local_sw_override() {
+        // Set global to file-based provider
+        setup_global_test_space_weather();
+
+        // Set thread-local to a static provider with known values
+        let sw = StaticSpaceWeatherProvider::from_values(5.0, 25.0, 200.0, 198.0, 150);
+        set_thread_local_space_weather_provider(sw);
+
+        // Thread-local should override
+        assert_eq!(get_global_kp(60000.0).unwrap(), 5.0);
+        assert_eq!(get_global_ap(60000.0).unwrap(), 25.0);
+        assert_eq!(get_global_ap_daily(60000.0).unwrap(), 25.0);
+        assert_eq!(get_global_f107_observed(60000.0).unwrap(), 200.0);
+        assert_eq!(get_global_f107_adjusted(60000.0).unwrap(), 198.0);
+        assert_eq!(get_global_sunspot_number(60000.0).unwrap(), 150);
+        assert_eq!(get_global_sw_type(), SpaceWeatherType::Static);
+        assert_eq!(get_global_sw_len(), 1);
+
+        // Clean up
+        clear_thread_local_space_weather_provider();
+    }
+
+    #[test]
+    #[serial]
+    fn test_thread_local_sw_clear_falls_back_to_global() {
+        // Set global to file-based provider
+        setup_global_test_space_weather();
+
+        // Set thread-local to a static provider
+        let sw = StaticSpaceWeatherProvider::from_values(5.0, 25.0, 200.0, 198.0, 150);
+        set_thread_local_space_weather_provider(sw);
+
+        // Verify thread-local is active
+        assert_eq!(get_global_kp(60000.0).unwrap(), 5.0);
+
+        // Clear thread-local
+        clear_thread_local_space_weather_provider();
+
+        // Should fall back to global (file-based) provider
+        assert_eq!(get_global_sw_type(), SpaceWeatherType::CssiSpaceWeather);
+        // Kp from file should NOT be 5.0 (our static value)
+        let kp = get_global_kp(36114.0).unwrap();
+        assert!((0.0..=9.0).contains(&kp));
+    }
+
+    #[test]
+    #[serial]
+    fn test_thread_local_sw_kp_all_and_daily() {
+        let sw = StaticSpaceWeatherProvider::from_values(4.0, 20.0, 170.0, 168.0, 120);
+        set_thread_local_space_weather_provider(sw);
+
+        let kp_all = get_global_kp_all(60000.0).unwrap();
+        assert_eq!(kp_all, [4.0; 8]);
+
+        let kp_daily = get_global_kp_daily(60000.0).unwrap();
+        assert_eq!(kp_daily, 4.0);
+
+        clear_thread_local_space_weather_provider();
+    }
+
+    #[test]
+    #[serial]
+    fn test_thread_local_sw_ap_all() {
+        let sw = StaticSpaceWeatherProvider::from_values(4.0, 20.0, 170.0, 168.0, 120);
+        set_thread_local_space_weather_provider(sw);
+
+        let ap_all = get_global_ap_all(60000.0).unwrap();
+        assert_eq!(ap_all, [20.0; 8]);
+
+        clear_thread_local_space_weather_provider();
+    }
+
+    #[test]
+    #[serial]
+    fn test_thread_local_sw_f107_averages() {
+        let sw = StaticSpaceWeatherProvider::from_values(4.0, 20.0, 170.0, 168.0, 120);
+        set_thread_local_space_weather_provider(sw);
+
+        let f107_obs_avg = get_global_f107_obs_avg81(60000.0).unwrap();
+        assert_eq!(f107_obs_avg, 170.0);
+
+        let f107_adj_avg = get_global_f107_adj_avg81(60000.0).unwrap();
+        assert_eq!(f107_adj_avg, 168.0);
+
+        clear_thread_local_space_weather_provider();
+    }
+
+    #[test]
+    #[serial]
+    fn test_thread_local_sw_metadata() {
+        let sw = StaticSpaceWeatherProvider::from_values(4.0, 20.0, 170.0, 168.0, 120);
+        set_thread_local_space_weather_provider(sw);
+
+        assert!(get_global_sw_initialization());
+        assert_eq!(
+            get_global_sw_extrapolation(),
+            SpaceWeatherExtrapolation::Hold
+        );
+        assert_eq!(get_global_sw_mjd_min(), 0.0);
+        assert_eq!(get_global_sw_mjd_max(), f64::MAX);
+        assert_eq!(get_global_sw_mjd_last_observed(), f64::MAX);
+        assert_eq!(get_global_sw_mjd_last_daily_predicted(), f64::MAX);
+        assert_eq!(get_global_sw_mjd_last_monthly_predicted(), f64::MAX);
+
+        clear_thread_local_space_weather_provider();
+    }
+
+    #[test]
+    #[serial]
+    fn test_thread_local_sw_last_values() {
+        let sw = StaticSpaceWeatherProvider::from_values(4.0, 20.0, 170.0, 168.0, 120);
+        set_thread_local_space_weather_provider(sw);
+
+        let last_kp = get_global_last_kp(60000.0, 3).unwrap();
+        assert_eq!(last_kp.len(), 3);
+        for kp in &last_kp {
+            assert_eq!(*kp, 4.0);
+        }
+
+        let last_ap = get_global_last_ap(60000.0, 3).unwrap();
+        assert_eq!(last_ap.len(), 3);
+        for ap in &last_ap {
+            assert_eq!(*ap, 20.0);
+        }
+
+        let last_daily_kp = get_global_last_daily_kp(60000.0, 3).unwrap();
+        assert_eq!(last_daily_kp.len(), 3);
+
+        let last_daily_ap = get_global_last_daily_ap(60000.0, 3).unwrap();
+        assert_eq!(last_daily_ap.len(), 3);
+
+        let last_f107 = get_global_last_f107(60000.0, 3).unwrap();
+        assert_eq!(last_f107.len(), 3);
+
+        clear_thread_local_space_weather_provider();
+    }
+
+    #[test]
+    #[serial]
+    fn test_thread_local_sw_last_epochs() {
+        let sw = StaticSpaceWeatherProvider::from_values(4.0, 20.0, 170.0, 168.0, 120);
+        set_thread_local_space_weather_provider(sw);
+
+        let kpap_epochs = get_global_last_kpap_epochs(60000.0, 3).unwrap();
+        assert_eq!(kpap_epochs.len(), 3);
+        for i in 0..kpap_epochs.len() - 1 {
+            assert!(kpap_epochs[i].mjd() < kpap_epochs[i + 1].mjd());
+        }
+
+        let daily_epochs = get_global_last_daily_epochs(60000.0, 3).unwrap();
+        assert_eq!(daily_epochs.len(), 3);
+        for i in 0..daily_epochs.len() - 1 {
+            assert!(daily_epochs[i].mjd() < daily_epochs[i + 1].mjd());
+        }
+
+        clear_thread_local_space_weather_provider();
     }
 }

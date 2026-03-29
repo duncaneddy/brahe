@@ -13,6 +13,7 @@ mod file_provider;
 mod global;
 mod standard_parser;
 mod static_provider;
+mod table_provider;
 
 pub use caching_provider::*;
 pub use download::*;
@@ -21,3 +22,4 @@ pub use eop_types::*;
 pub use file_provider::*;
 pub use global::*;
 pub use static_provider::*;
+pub use table_provider::*;

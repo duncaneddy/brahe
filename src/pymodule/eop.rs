@@ -1635,3 +1635,201 @@ pub fn py_get_global_eop_mjd_last_dxdy() -> f64 {
 pub fn py_initialize_eop() -> Result<(), RustBraheError> {
     eop::initialize_eop()
 }
+
+/// Set a thread-local EOP provider override for the current thread.
+///
+/// When set, all global EOP accessor functions on this thread will read from
+/// this provider instead of the global one. This is used internally by
+/// Monte Carlo orbit propagation to provide per-thread EOP data, and can
+/// also be used for testing.
+///
+/// Args:
+///     provider: An EOP provider instance (StaticEOPProvider, FileEOPProvider,
+///         CachingEOPProvider, or TableEOPProvider)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Set thread-local provider for testing
+///     eop = bh.StaticEOPProvider.from_zero()
+///     bh.set_thread_local_eop_provider(eop)
+///
+///     # Now EOP calls on this thread use the thread-local provider
+///     ut1_utc = bh.get_global_ut1_utc(60000.0)
+///
+///     # Clean up when done
+///     bh.clear_thread_local_eop_provider()
+///     ```
+#[pyfunction]
+#[pyo3(name = "set_thread_local_eop_provider")]
+pub fn py_set_thread_local_eop_provider(provider: &Bound<'_, PyAny>) -> PyResult<()> {
+    if let Ok(p) = provider.extract::<PyRef<'_, PyStaticEOPProvider>>() {
+        eop::set_thread_local_eop_provider(Arc::new(p.obj));
+        Ok(())
+    } else if let Ok(p) = provider.extract::<PyRef<'_, PyFileEOPProvider>>() {
+        eop::set_thread_local_eop_provider(Arc::new(p.obj.clone()));
+        Ok(())
+    } else if let Ok(p) = provider.extract::<PyRef<'_, PyTableEOPProvider>>() {
+        eop::set_thread_local_eop_provider(Arc::new(p.inner.clone()));
+        Ok(())
+    } else {
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "Expected a StaticEOPProvider, FileEOPProvider, or TableEOPProvider",
+        ))
+    }
+}
+
+/// Clear the thread-local EOP provider override for the current thread.
+///
+/// After calling this, EOP accessor functions on this thread will fall
+/// back to the global provider.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.clear_thread_local_eop_provider()
+///     ```
+#[pyfunction]
+#[pyo3(name = "clear_thread_local_eop_provider")]
+pub fn py_clear_thread_local_eop_provider() {
+    eop::clear_thread_local_eop_provider();
+}
+
+/// Table-based Earth Orientation Parameter provider.
+///
+/// Stores EOP data in an internal sorted map, supporting interpolation and
+/// extrapolation. Useful for Monte Carlo simulations with perturbed EOP
+/// parameters or testing with programmatic control over EOP values.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Create from entries: [(mjd, pm_x, pm_y, ut1_utc, lod, dX, dY), ...]
+///     entries = [
+///         (59000.0, 0.1, 0.2, 0.3, 0.001, 0.0001, 0.0002),
+///         (59001.0, 0.11, 0.21, 0.31, 0.0011, 0.00011, 0.00021),
+///     ]
+///     provider = bh.TableEOPProvider(entries, interpolate=True, extrapolate="Hold")
+///     bh.set_thread_local_eop_provider(provider)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "TableEOPProvider")]
+pub(crate) struct PyTableEOPProvider {
+    pub(crate) inner: eop::TableEOPProvider,
+}
+
+#[pymethods]
+impl PyTableEOPProvider {
+    /// Create a new table-based EOP provider from data entries.
+    ///
+    /// Each entry is a tuple of (mjd, pm_x, pm_y, ut1_utc, lod, dX, dY) where
+    /// lod, dX, and dY are optional (pass None). Units: polar motion in radians,
+    /// ut1_utc and lod in seconds, dX/dY in radians.
+    ///
+    /// Args:
+    ///     entries (list[tuple]): List of EOP data entries. Each tuple contains
+    ///         (mjd: float, pm_x: float, pm_y: float, ut1_utc: float,
+    ///         lod: float | None, dx: float | None, dy: float | None)
+    ///     interpolate (bool): Whether to enable interpolation. Defaults to True.
+    ///     extrapolate (str): Extrapolation method: "Hold", "Zero", or "Error".
+    ///         Defaults to "Hold".
+    ///
+    /// Returns:
+    ///     TableEOPProvider: A new table-based EOP provider
+    ///
+    /// Raises:
+    ///     BraheError: If entries are empty or extrapolation string is invalid
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     entries = [
+    ///         (59000.0, 0.1, 0.2, 0.3, 0.001, 0.0001, 0.0002),
+    ///         (59001.0, 0.11, 0.21, 0.31, 0.0011, 0.00011, 0.00021),
+    ///     ]
+    ///     provider = bh.TableEOPProvider(entries, interpolate=True, extrapolate="Hold")
+    ///     ```
+    #[new]
+    #[pyo3(signature = (entries, interpolate=true, extrapolate="Hold"))]
+    #[allow(clippy::type_complexity)]
+    pub fn new(
+        entries: Vec<(f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>)>,
+        interpolate: bool,
+        extrapolate: &str,
+    ) -> PyResult<Self> {
+        let extrap = string_to_eop_extrapolation(extrapolate)?;
+        let provider = eop::TableEOPProvider::from_entries(entries, interpolate, extrap)
+            .map_err(|e| BraheError::new_err(e.to_string()))?;
+        Ok(PyTableEOPProvider { inner: provider })
+    }
+
+    /// Check if the provider is initialized.
+    ///
+    /// Returns:
+    ///     bool: True if initialized
+    pub fn is_initialized(&self) -> bool {
+        self.inner.is_initialized()
+    }
+
+    /// Get the number of EOP data points.
+    ///
+    /// Returns:
+    ///     int: Number of data points
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Get the EOP data type.
+    ///
+    /// Returns:
+    ///     str: EOP type string
+    pub fn eop_type(&self) -> String {
+        eop_type_to_string(self.inner.eop_type())
+    }
+
+    /// Get the extrapolation method.
+    ///
+    /// Returns:
+    ///     str: Extrapolation method string
+    pub fn extrapolation(&self) -> String {
+        eop_extrapolation_to_string(self.inner.extrapolation())
+    }
+
+    /// Check if interpolation is enabled.
+    ///
+    /// Returns:
+    ///     bool: True if interpolation is enabled
+    pub fn interpolation(&self) -> bool {
+        self.inner.interpolation()
+    }
+
+    /// Get UT1-UTC for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     float: UT1-UTC in seconds
+    pub fn get_ut1_utc(&self, mjd: f64) -> Result<f64, RustBraheError> {
+        self.inner.get_ut1_utc(mjd)
+    }
+
+    /// Get polar motion for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     tuple[float, float]: Polar motion (x, y) in radians
+    pub fn get_pm(&self, mjd: f64) -> Result<(f64, f64), RustBraheError> {
+        self.inner.get_pm(mjd)
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("{}", self.inner)
+    }
+}

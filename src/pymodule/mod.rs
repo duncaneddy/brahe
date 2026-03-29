@@ -558,6 +558,7 @@ include!("spacetrack.rs");
 include!("celestrak.rs");
 include!("ccsds.rs");
 include!("estimation.rs");
+include!("monte_carlo.rs");
 
 // Define Module
 
@@ -1227,6 +1228,34 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyBatchLeastSquares>()?;
     module.add_function(wrap_pyfunction!(py_isotropic_covariance, module)?)?;
     module.add_function(wrap_pyfunction!(py_diagonal_covariance, module)?)?;
+
+    //* Monte Carlo *//
+    module.add_class::<PyGaussian>()?;
+    module.add_class::<PyUniformDist>()?;
+    module.add_class::<PyTruncatedGaussian>()?;
+    module.add_class::<PyMultivariateNormal>()?;
+    module.add_class::<PyMonteCarloVariableId>()?;
+    module.add_class::<PyMonteCarloStoppingCondition>()?;
+    module.add_class::<PyMonteCarloSimulation>()?;
+    module.add_class::<PyMonteCarloResults>()?;
+    module.add_class::<PyMonteCarloRun>()?;
+
+    // Thread-local EOP/SW providers
+    module.add_function(wrap_pyfunction!(py_set_thread_local_eop_provider, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_clear_thread_local_eop_provider,
+        module
+    )?)?;
+    module.add_class::<PyTableEOPProvider>()?;
+    module.add_function(wrap_pyfunction!(
+        py_set_thread_local_space_weather_provider,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_clear_thread_local_space_weather_provider,
+        module
+    )?)?;
+    module.add_class::<PyTableSpaceWeatherProvider>()?;
 
     Ok(())
 }

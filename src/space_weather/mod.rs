@@ -17,6 +17,7 @@ mod iterator;
 mod parser;
 mod provider;
 mod static_provider;
+mod table_provider;
 pub mod types;
 
 pub use caching_provider::*;
@@ -26,4 +27,5 @@ pub use iterator::*;
 pub use parser::*;
 pub use provider::*;
 pub use static_provider::*;
+pub use table_provider::*;
 pub use types::*;

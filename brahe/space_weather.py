@@ -20,6 +20,11 @@ from brahe._brahe import (
     # Global provider management
     set_global_space_weather_provider,
     initialize_sw,
+    # Thread-local provider management
+    set_thread_local_space_weather_provider,
+    clear_thread_local_space_weather_provider,
+    # Table-based provider
+    TableSpaceWeatherProvider,
     # Global Kp data access
     get_global_kp,
     get_global_kp_all,
@@ -63,6 +68,11 @@ __all__ = [
     # Global provider management
     "set_global_space_weather_provider",
     "initialize_sw",
+    # Thread-local provider management
+    "set_thread_local_space_weather_provider",
+    "clear_thread_local_space_weather_provider",
+    # Table-based provider
+    "TableSpaceWeatherProvider",
     # Global Kp data access
     "get_global_kp",
     "get_global_kp_all",

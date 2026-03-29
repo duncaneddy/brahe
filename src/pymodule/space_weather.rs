@@ -2685,3 +2685,214 @@ pub fn py_get_global_sw_mjd_last_monthly_predicted() -> f64 {
 pub fn py_initialize_sw() -> Result<(), RustBraheError> {
     space_weather::initialize_sw()
 }
+
+/// Set a thread-local space weather provider override for the current thread.
+///
+/// When set, all global space weather accessor functions on this thread will
+/// read from this provider instead of the global one. This is used internally
+/// by Monte Carlo orbit propagation to provide per-thread space weather data.
+///
+/// Args:
+///     provider: A space weather provider instance (StaticSpaceWeatherProvider,
+///         FileSpaceWeatherProvider, or TableSpaceWeatherProvider)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     sw = bh.StaticSpaceWeatherProvider.from_values(3.0, 15.0, 150.0, 148.0, 100)
+///     bh.set_thread_local_space_weather_provider(sw)
+///
+///     # Now space weather calls on this thread use the thread-local provider
+///     kp = bh.get_global_kp(60000.0)
+///
+///     # Clean up when done
+///     bh.clear_thread_local_space_weather_provider()
+///     ```
+#[pyfunction]
+#[pyo3(name = "set_thread_local_space_weather_provider")]
+pub fn py_set_thread_local_space_weather_provider(provider: &Bound<'_, PyAny>) -> PyResult<()> {
+    if let Ok(p) = provider.extract::<PyRef<'_, PyStaticSpaceWeatherProvider>>() {
+        space_weather::set_thread_local_space_weather_provider(p.obj.clone());
+        Ok(())
+    } else if let Ok(p) = provider.extract::<PyRef<'_, PyFileSpaceWeatherProvider>>() {
+        space_weather::set_thread_local_space_weather_provider(p.obj.clone());
+        Ok(())
+    } else if let Ok(p) = provider.extract::<PyRef<'_, PyTableSpaceWeatherProvider>>() {
+        space_weather::set_thread_local_space_weather_provider(p.inner.clone());
+        Ok(())
+    } else {
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "Expected a StaticSpaceWeatherProvider, FileSpaceWeatherProvider, or TableSpaceWeatherProvider",
+        ))
+    }
+}
+
+/// Clear the thread-local space weather provider override for the current thread.
+///
+/// After calling this, space weather accessor functions on this thread will
+/// fall back to the global provider.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.clear_thread_local_space_weather_provider()
+///     ```
+#[pyfunction]
+#[pyo3(name = "clear_thread_local_space_weather_provider")]
+pub fn py_clear_thread_local_space_weather_provider() {
+    space_weather::clear_thread_local_space_weather_provider();
+}
+
+/// Table-based space weather provider.
+///
+/// Stores space weather data in an internal sorted map. Useful for Monte Carlo
+/// simulations with perturbed space weather parameters or testing.
+///
+/// Note:
+///     Creating a ``TableSpaceWeatherProvider`` from Python requires constructing
+///     ``SpaceWeatherData`` entries. For most use cases, using a
+///     ``StaticSpaceWeatherProvider`` is simpler.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # For simple use cases, prefer StaticSpaceWeatherProvider
+///     sw = bh.StaticSpaceWeatherProvider.from_values(3.0, 15.0, 150.0, 148.0, 100)
+///     bh.set_thread_local_space_weather_provider(sw)
+///     ```
+#[pyclass(module = "brahe._brahe")]
+#[pyo3(name = "TableSpaceWeatherProvider")]
+pub(crate) struct PyTableSpaceWeatherProvider {
+    pub(crate) inner: space_weather::TableSpaceWeatherProvider,
+}
+
+#[pymethods]
+impl PyTableSpaceWeatherProvider {
+    /// Create a new table-based space weather provider from simplified entries.
+    ///
+    /// Each entry is a tuple of (year, month, day, kp, ap, f107_obs, f107_adj, sunspot_number).
+    /// This is a simplified interface that creates ``SpaceWeatherData`` entries internally.
+    ///
+    /// Args:
+    ///     entries (list[tuple]): List of space weather data entries. Each tuple contains
+    ///         (year: int, month: int, day: int, kp: float, ap: float,
+    ///         f107_obs: float, f107_adj: float, sunspot_number: int)
+    ///     extrapolate (str): Extrapolation method: "Hold", "Zero", or "Error".
+    ///         Defaults to "Hold".
+    ///
+    /// Returns:
+    ///     TableSpaceWeatherProvider: A new table-based space weather provider
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     entries = [
+    ///         (2024, 1, 1, 3.0, 15.0, 150.0, 148.0, 100),
+    ///         (2024, 1, 2, 2.7, 12.0, 149.0, 147.0, 98),
+    ///     ]
+    ///     provider = bh.TableSpaceWeatherProvider(entries, extrapolate="Hold")
+    ///     bh.set_thread_local_space_weather_provider(provider)
+    ///     ```
+    #[new]
+    #[pyo3(signature = (entries, extrapolate="Hold"))]
+    #[allow(clippy::type_complexity)]
+    pub fn new(
+        entries: Vec<(u32, u8, u8, f64, f64, f64, f64, u32)>,
+        extrapolate: &str,
+    ) -> PyResult<Self> {
+        let extrap = match extrapolate {
+            "Hold" => space_weather::SpaceWeatherExtrapolation::Hold,
+            "Zero" => space_weather::SpaceWeatherExtrapolation::Zero,
+            "Error" => space_weather::SpaceWeatherExtrapolation::Error,
+            _ => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown extrapolation method: '{}'. Expected 'Hold', 'Zero', or 'Error'",
+                    extrapolate
+                )));
+            }
+        };
+
+        let sw_entries: Vec<space_weather::SpaceWeatherData> = entries
+            .iter()
+            .map(|(year, month, day, kp, ap, f107_obs, f107_adj, isn)| {
+                space_weather::SpaceWeatherData {
+                    year: *year,
+                    month: *month,
+                    day: *day,
+                    kp: [*kp; 8],
+                    kp_sum: kp * 8.0,
+                    ap: [*ap; 8],
+                    ap_avg: *ap,
+                    f107_obs: *f107_obs,
+                    f107_adj_ctr81: *f107_adj,
+                    f107_adj_lst81: *f107_adj,
+                    f107_obs_ctr81: *f107_obs,
+                    f107_obs_lst81: *f107_obs,
+                    isn: *isn,
+                    section: space_weather::SpaceWeatherSection::Observed,
+                    ..space_weather::SpaceWeatherData::default()
+                }
+            })
+            .collect();
+
+        let provider = space_weather::TableSpaceWeatherProvider::from_entries(sw_entries, extrap);
+        Ok(PyTableSpaceWeatherProvider { inner: provider })
+    }
+
+    /// Check if the provider is initialized.
+    ///
+    /// Returns:
+    ///     bool: True if initialized
+    pub fn is_initialized(&self) -> bool {
+        self.inner.is_initialized()
+    }
+
+    /// Get the number of space weather data points.
+    ///
+    /// Returns:
+    ///     int: Number of data points
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Get Kp index for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     float: Kp index value
+    pub fn get_kp(&self, mjd: f64) -> Result<f64, RustBraheError> {
+        self.inner.get_kp(mjd)
+    }
+
+    /// Get daily Ap index for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     float: Daily Ap index value
+    pub fn get_ap_daily(&self, mjd: f64) -> Result<f64, RustBraheError> {
+        self.inner.get_ap_daily(mjd)
+    }
+
+    /// Get observed F10.7 solar flux for a given MJD.
+    ///
+    /// Args:
+    ///     mjd (float): Modified Julian Date
+    ///
+    /// Returns:
+    ///     float: Observed F10.7 in sfu
+    pub fn get_f107_observed(&self, mjd: f64) -> Result<f64, RustBraheError> {
+        self.inner.get_f107_observed(mjd)
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("{}", self.inner)
+    }
+}

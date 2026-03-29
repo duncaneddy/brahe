@@ -56,6 +56,7 @@ from brahe import (
     spacetrack,
     celestrak,
     estimation,
+    monte_carlo,
 )
 
 # Re-export everything from submodules
@@ -80,6 +81,7 @@ from brahe.orbit_dynamics import *
 from brahe.events import *
 from brahe.spacetrack import *
 from brahe.estimation import *
+from brahe.monte_carlo import *
 
 # Define what's available when doing 'from brahe import *'
 __all__ = [
@@ -107,6 +109,7 @@ __all__ = [
     "spacetrack",
     "celestrak",
     "estimation",
+    "monte_carlo",
     # Exceptions
     "BraheError",
     "PanicException",
@@ -134,6 +137,7 @@ __all__.extend(orbit_dynamics.__all__)
 __all__.extend(events.__all__)
 __all__.extend(spacetrack.__all__)
 __all__.extend(estimation.__all__)
+__all__.extend(monte_carlo.__all__)
 
 # Import version from native module (set from Cargo.toml at build time)
 __version__ = _brahe.__version__

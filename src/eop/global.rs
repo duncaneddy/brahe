@@ -2,6 +2,8 @@
  * Defines crate-wide EOP loading functionality
  */
 
+use std::cell::RefCell;
+
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};
 
@@ -15,6 +17,94 @@ use serial_test::serial;
 
 static GLOBAL_EOP: Lazy<Arc<RwLock<Box<dyn EarthOrientationProvider + Sync + Send>>>> =
     Lazy::new(|| Arc::new(RwLock::new(Box::new(StaticEOPProvider::new()))));
+
+thread_local! {
+    static THREAD_LOCAL_EOP: RefCell<Option<Arc<dyn EarthOrientationProvider + Sync + Send>>> = const { RefCell::new(None) };
+}
+
+/// Wrapper around an `Arc<dyn EarthOrientationProvider>` that implements
+/// `EarthOrientationProvider` by delegating to the inner provider. This allows
+/// storing an `Arc`-based provider in the global `Box<dyn ...>` slot.
+struct ArcEOPWrapper(Arc<dyn EarthOrientationProvider + Sync + Send>);
+
+impl EarthOrientationProvider for ArcEOPWrapper {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn eop_type(&self) -> EOPType {
+        self.0.eop_type()
+    }
+
+    fn is_initialized(&self) -> bool {
+        self.0.is_initialized()
+    }
+
+    fn extrapolation(&self) -> EOPExtrapolation {
+        self.0.extrapolation()
+    }
+
+    fn interpolation(&self) -> bool {
+        self.0.interpolation()
+    }
+
+    fn mjd_min(&self) -> f64 {
+        self.0.mjd_min()
+    }
+
+    fn mjd_max(&self) -> f64 {
+        self.0.mjd_max()
+    }
+
+    fn mjd_last_lod(&self) -> f64 {
+        self.0.mjd_last_lod()
+    }
+
+    fn mjd_last_dxdy(&self) -> f64 {
+        self.0.mjd_last_dxdy()
+    }
+
+    fn get_ut1_utc(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_ut1_utc(mjd)
+    }
+
+    fn get_pm(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+        self.0.get_pm(mjd)
+    }
+
+    fn get_dxdy(&self, mjd: f64) -> Result<(f64, f64), BraheError> {
+        self.0.get_dxdy(mjd)
+    }
+
+    fn get_lod(&self, mjd: f64) -> Result<f64, BraheError> {
+        self.0.get_lod(mjd)
+    }
+
+    fn get_eop(&self, mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
+        self.0.get_eop(mjd)
+    }
+}
+
+/// Set a thread-local EOP provider override. When set, all `get_global_*`
+/// functions on this thread will read from this provider instead of the
+/// global one. This avoids RwLock contention on the hot path.
+///
+/// # Arguments
+///
+/// - `provider`: An `Arc`-wrapped provider to use on this thread
+pub fn set_thread_local_eop_provider(provider: Arc<dyn EarthOrientationProvider + Sync + Send>) {
+    THREAD_LOCAL_EOP.with(|tl| {
+        *tl.borrow_mut() = Some(provider);
+    });
+}
+
+/// Clear the thread-local EOP provider override, reverting this thread
+/// to using the global provider.
+pub fn clear_thread_local_eop_provider() {
+    THREAD_LOCAL_EOP.with(|tl| {
+        *tl.borrow_mut() = None;
+    });
+}
 
 /// Set the crate-wide static Earth orientation data provider. This function should be called
 /// before any other function in the crate which accesses the global Earth orientation data.
@@ -46,7 +136,15 @@ static GLOBAL_EOP: Lazy<Arc<RwLock<Box<dyn EarthOrientationProvider + Sync + Sen
 /// set_global_eop_provider(eop);
 /// ```
 pub fn set_global_eop_provider<T: EarthOrientationProvider + Sync + Send + 'static>(provider: T) {
-    *GLOBAL_EOP.write().unwrap() = Box::new(provider);
+    let arc_provider: Arc<dyn EarthOrientationProvider + Sync + Send> = Arc::new(provider);
+
+    // Set thread-local for calling thread (fast path)
+    THREAD_LOCAL_EOP.with(|tl| {
+        *tl.borrow_mut() = Some(Arc::clone(&arc_provider));
+    });
+
+    // Set global (fallback for other threads)
+    *GLOBAL_EOP.write().unwrap() = Box::new(ArcEOPWrapper(arc_provider));
 }
 
 /// Get UT1-UTC offset set for specified date from the crate-wide static Earth orientation data
@@ -86,7 +184,14 @@ pub fn set_global_eop_provider<T: EarthOrientationProvider + Sync + Send + 'stat
 /// let ut1_utc = get_global_ut1_utc(59422.0).unwrap();
 /// ```
 pub fn get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_EOP.read().unwrap().get_ut1_utc(mjd)
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_ut1_utc(mjd);
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().get_ut1_utc(mjd)
+    })
 }
 
 /// Get polar motion offset set for specified date from the crate-wide static Earth orientation data
@@ -127,7 +232,14 @@ pub fn get_global_ut1_utc(mjd: f64) -> Result<f64, BraheError> {
 /// let (pm_x, pm_y) = get_global_pm(59422.0).unwrap();
 /// ```
 pub fn get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
-    GLOBAL_EOP.read().unwrap().get_pm(mjd)
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_pm(mjd);
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().get_pm(mjd)
+    })
 }
 
 /// Get precession-nutation for specified date from the crate-wide static Earth orientation data
@@ -168,7 +280,14 @@ pub fn get_global_pm(mjd: f64) -> Result<(f64, f64), BraheError> {
 /// let (dx, dy) = get_global_dxdy(59422.0).unwrap();
 /// ```
 pub fn get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
-    GLOBAL_EOP.read().unwrap().get_dxdy(mjd)
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_dxdy(mjd);
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().get_dxdy(mjd)
+    })
 }
 
 /// Get length of day offset set for specified date from the crate-wide static Earth orientation data
@@ -209,7 +328,14 @@ pub fn get_global_dxdy(mjd: f64) -> Result<(f64, f64), BraheError> {
 /// let lod = get_global_lod(59422.0).unwrap();
 /// ```
 pub fn get_global_lod(mjd: f64) -> Result<f64, BraheError> {
-    GLOBAL_EOP.read().unwrap().get_lod(mjd)
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_lod(mjd);
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().get_lod(mjd)
+    })
 }
 
 /// Get Earth orientation parameter set for specified date from the crate-wide static Earth orientation data
@@ -258,7 +384,14 @@ pub fn get_global_lod(mjd: f64) -> Result<f64, BraheError> {
 /// ```
 #[allow(non_snake_case)]
 pub fn get_global_eop(mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheError> {
-    GLOBAL_EOP.read().unwrap().get_eop(mjd)
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.get_eop(mjd);
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().get_eop(mjd)
+    })
 }
 
 /// Returns initialzation state of global Earth orientation data provider.
@@ -279,7 +412,14 @@ pub fn get_global_eop(mjd: f64) -> Result<(f64, f64, f64, f64, f64, f64), BraheE
 /// assert_eq!(get_global_eop_initialization(), true);
 /// ```
 pub fn get_global_eop_initialization() -> bool {
-    GLOBAL_EOP.read().unwrap().is_initialized()
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.is_initialized();
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().is_initialized()
+    })
 }
 
 /// Return length of loaded global Earth orientation data provider.
@@ -301,7 +441,14 @@ pub fn get_global_eop_initialization() -> bool {
 /// assert!(get_global_eop_len() >= 10000);
 /// ```
 pub fn get_global_eop_len() -> usize {
-    GLOBAL_EOP.read().unwrap().len()
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.len();
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().len()
+    })
 }
 
 /// Returns the type of loaded EarthOrientationData provider in the global Earth orientation data provider.
@@ -324,7 +471,14 @@ pub fn get_global_eop_len() -> usize {
 /// assert_eq!(get_global_eop_type(), EOPType::StandardBulletinA);
 /// ```
 pub fn get_global_eop_type() -> EOPType {
-    GLOBAL_EOP.read().unwrap().eop_type()
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.eop_type();
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().eop_type()
+    })
 }
 
 /// Return extrapolation setting of loaded EarthOrientationData provider in the global Earth orientation data provider.
@@ -347,7 +501,14 @@ pub fn get_global_eop_type() -> EOPType {
 /// assert_eq!(get_global_eop_extrapolation(), EOPExtrapolation::Zero);
 /// ```
 pub fn get_global_eop_extrapolation() -> EOPExtrapolation {
-    GLOBAL_EOP.read().unwrap().extrapolation()
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.extrapolation();
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().extrapolation()
+    })
 }
 
 /// Return interpolation status of the global Earth orientation data provider.
@@ -374,7 +535,14 @@ pub fn get_global_eop_extrapolation() -> EOPExtrapolation {
 /// assert_eq!(get_global_eop_interpolation(), true);
 /// ```
 pub fn get_global_eop_interpolation() -> bool {
-    GLOBAL_EOP.read().unwrap().interpolation()
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.interpolation();
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().interpolation()
+    })
 }
 
 /// Returns the earliest Modified Julian Date (MJD) available in the loaded EarthOrientationData
@@ -398,7 +566,14 @@ pub fn get_global_eop_interpolation() -> bool {
 /// assert!(get_global_eop_mjd_min() < 99999.0);
 /// ```
 pub fn get_global_eop_mjd_min() -> f64 {
-    GLOBAL_EOP.read().unwrap().mjd_min()
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.mjd_min();
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().mjd_min()
+    })
 }
 
 /// Returns the latest Modified Julian Date (MJD) available in the loaded EarthOrientationData
@@ -423,7 +598,14 @@ pub fn get_global_eop_mjd_min() -> f64 {
 /// assert!(get_global_eop_mjd_max() < 99999.0);
 /// ```
 pub fn get_global_eop_mjd_max() -> f64 {
-    GLOBAL_EOP.read().unwrap().mjd_max()
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.mjd_max();
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().mjd_max()
+    })
 }
 
 /// Returns the Modified Julian Date (MJD) of the last data point with a valid length of day
@@ -448,7 +630,14 @@ pub fn get_global_eop_mjd_max() -> f64 {
 /// assert!(get_global_eop_mjd_last_lod() < 99999.0);
 /// ```
 pub fn get_global_eop_mjd_last_lod() -> f64 {
-    GLOBAL_EOP.read().unwrap().mjd_last_lod()
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.mjd_last_lod();
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().mjd_last_lod()
+    })
 }
 
 /// Returns the Modified Julian Date (MJD) of the last data point with a valid celestial
@@ -473,7 +662,14 @@ pub fn get_global_eop_mjd_last_lod() -> f64 {
 /// assert!(get_global_eop_mjd_last_dxdy() < 99999.0);
 /// ```
 pub fn get_global_eop_mjd_last_dxdy() -> f64 {
-    GLOBAL_EOP.read().unwrap().mjd_last_dxdy()
+    THREAD_LOCAL_EOP.with(|tl| {
+        let borrow = tl.borrow();
+        if let Some(ref provider) = *borrow {
+            return provider.mjd_last_dxdy();
+        }
+        drop(borrow);
+        GLOBAL_EOP.read().unwrap().mjd_last_dxdy()
+    })
 }
 
 /// Initialize the global EOP provider with recommended default settings.
@@ -945,5 +1141,86 @@ mod tests {
         let (pm_x, pm_y) = get_global_pm(mjd).unwrap();
         assert!(pm_x.is_finite());
         assert!(pm_y.is_finite());
+    }
+
+    #[test]
+    #[serial]
+    fn test_thread_local_eop_override() {
+        // Set global to static zero
+        clear_test_global_eop();
+        let zero_eop = StaticEOPProvider::from_zero();
+        set_global_eop_provider(zero_eop);
+        assert!(get_global_eop_initialization());
+
+        // Now set a thread-local override with different values
+        let override_provider = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+        let arc_provider: Arc<dyn EarthOrientationProvider + Sync + Send> =
+            Arc::new(override_provider);
+        set_thread_local_eop_provider(arc_provider);
+
+        // Thread-local should be used for all accessor functions
+        assert_eq!(get_global_ut1_utc(59950.0).unwrap(), 0.3);
+        assert_eq!(get_global_pm(59950.0).unwrap(), (0.1, 0.2));
+        assert_eq!(get_global_dxdy(59950.0).unwrap(), (0.4, 0.5));
+        assert_eq!(get_global_lod(59950.0).unwrap(), 0.6);
+        assert_eq!(
+            get_global_eop(59950.0).unwrap(),
+            (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)
+        );
+
+        // Metadata functions should also use thread-local
+        assert_eq!(get_global_eop_type(), EOPType::Static);
+        assert_eq!(get_global_eop_len(), 1);
+
+        // Clear the thread-local override
+        clear_thread_local_eop_provider();
+
+        // Should fall back to the global (which was set via set_global_eop_provider
+        // with a zero provider, but set_global also sets thread-local... so we need
+        // to clear thread-local again after the clear_test_global_eop + set_global sequence)
+        // Since set_global_eop_provider sets thread-local too, clear it to test fallback
+        clear_thread_local_eop_provider();
+
+        // Now the global should respond - it was set to zero_eop
+        assert_eq!(get_global_ut1_utc(59950.0).unwrap(), 0.0);
+        assert_eq!(get_global_pm(59950.0).unwrap(), (0.0, 0.0));
+    }
+
+    #[test]
+    #[serial]
+    fn test_set_global_eop_provider_sets_thread_local() {
+        clear_test_global_eop();
+        clear_thread_local_eop_provider();
+
+        // set_global_eop_provider should set thread-local for calling thread
+        let provider = StaticEOPProvider::from_values((0.01, 0.02, 0.03, 0.04, 0.05, 0.06));
+        set_global_eop_provider(provider);
+
+        // Values should be accessible via thread-local path
+        assert_eq!(get_global_ut1_utc(59950.0).unwrap(), 0.03);
+        assert!(get_global_eop_initialization());
+    }
+
+    #[test]
+    #[serial]
+    fn test_clear_thread_local_eop_provider() {
+        clear_test_global_eop();
+
+        // Set global provider with specific values
+        let provider = StaticEOPProvider::from_values((0.1, 0.2, 0.3, 0.4, 0.5, 0.6));
+        set_global_eop_provider(provider);
+
+        // Set a different thread-local override
+        let override_provider = StaticEOPProvider::from_values((1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
+        let arc_provider: Arc<dyn EarthOrientationProvider + Sync + Send> =
+            Arc::new(override_provider);
+        set_thread_local_eop_provider(arc_provider);
+
+        // Should see override values
+        assert_eq!(get_global_ut1_utc(59950.0).unwrap(), 3.0);
+
+        // Clear override, should fall back to global
+        clear_thread_local_eop_provider();
+        assert_eq!(get_global_ut1_utc(59950.0).unwrap(), 0.3);
     }
 }

@@ -136,6 +136,7 @@ pub mod events;
 pub mod frames;
 pub mod integrators;
 pub mod math;
+pub mod monte_carlo;
 pub mod orbit_dynamics;
 pub mod orbits;
 pub mod propagators;

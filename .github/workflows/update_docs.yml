@@ -149,7 +149,7 @@ jobs:
 
       - name: Set default version redirect (versioned release)
         if: inputs.version != ''
-        run: uv run --frozen mike set-default --push latest
+        run: uv run --frozen mike set-default --config-file properdocs.yml --push latest
 
       - name: Deploy documentation (latest from main)
         if: inputs.version == ''
@@ -157,4 +157,4 @@ jobs:
 
       - name: Set default version redirect (latest)
         if: inputs.version == ''
-        run: uv run --frozen mike set-default --push latest
+        run: uv run --frozen mike set-default --config-file properdocs.yml --push latest

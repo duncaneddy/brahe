@@ -101,4 +101,4 @@ jobs:
         run: uv run --frozen mike deploy --config-file properdocs.yml --push --update-aliases latest
 
       - name: Set default version redirect
-        run: uv run --frozen mike set-default --push latest
+        run: uv run --frozen mike set-default --config-file properdocs.yml --push latest

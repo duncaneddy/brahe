@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.3.0] - 2026-03-29
+### Added
+
+- Added python constructors for CCSDS OPM and OMM file types [#225](https://github.com/duncaneddy/brahe/pull/225)
+- Added dedicated `celestrak` and `spacetrack` submodules to the brahe CLI for querying and interfacing with space track.
+  Added `to_dict()` and `to_json()` methods for GPRecord python module to enable easy interoperability [#227](https://github.com/duncaneddy/brahe/pull/227)
+- Added additional python test coverage [#228](https://github.com/duncaneddy/brahe/pull/228)
+- Added `estimation` module with support for `EKF`, `UKF`, and `BLS` (batched least-squares) filters
+  Added estimation plotting routines
+  Added implementations of magnetic field models. In particular the IGRF and WMMHR models.
+  Added `from_unix_timestamp` and `unix_timestamp` methods to support interoperability with native unix time systems
+  Added sponsor logo [#241](https://github.com/duncaneddy/brahe/pull/241)
+
+### Changed
+
+- Added additional test coverage [#225](https://github.com/duncaneddy/brahe/pull/225)
+- Renamed `MJD2000` constant to `MJD_J2000` to align with `JD_J2000` naming [#231](https://github.com/duncaneddy/brahe/pull/231)
+- Improved documentation code samples by auto-generating, capturing, and rendering script outputs so values are guaranteed to be kept up to date. [#234](https://github.com/duncaneddy/brahe/pull/234)
+- Migrated to `properdocs` from `mkdocs` for documentation due to instability in project. [#241](https://github.com/duncaneddy/brahe/pull/241)
+
+### Fixed
+
+- Fixed issue with anomaly conversion CLI not properly using `use_degrees` [#225](https://github.com/duncaneddy/brahe/pull/225)
+
 ## [1.2.0] - 2026-03-21
 ### Added
 

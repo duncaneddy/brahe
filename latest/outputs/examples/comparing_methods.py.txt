@@ -38,8 +38,8 @@ Angular momentum error: 2.999e+03 m²/s
 Configuration: abs_tol=1e-12, rel_tol=1e-11
 Steps taken: 945
 Final altitude: 506.707 km
-Energy error: 4.827e-05 J/kg
-Angular momentum error: 4.366e-02 m²/s
+Energy error: 4.842e-05 J/kg
+Angular momentum error: 4.379e-02 m²/s
 
 ======================================================================
 COMPARISON SUMMARY (7 days / 106.5 orbits)
@@ -50,7 +50,7 @@ Integrator   Type            Steps    Energy Error    |h| Error
 RK4          Fixed-step      60480    8.951e-02       8.085e+01      
 RKF45        Adaptive        15687    1.665e+01       1.504e+04      
 DP54         Adaptive        14268    3.319e+00       2.999e+03      
-RKN1210      High-precision  945      4.827e-05       4.366e-02      
+RKN1210      High-precision  945      4.842e-05       4.379e-02      
 
 Key Observations:
 • RK4 requires many steps with accumulated drift in conserved quantities

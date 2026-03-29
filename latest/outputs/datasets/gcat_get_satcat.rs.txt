@@ -1,4 +1,4 @@
-Loaded 68349 SATCAT records
+Loaded 68405 SATCAT records
 
 ISS (by SATCAT number 25544):
   JCAT:    S25544

@@ -835,6 +835,7 @@ impl PyCelestrakSATCATRecord {
 /// Args:
 ///     base_url (str, optional): Custom base URL for testing.
 ///     cache_max_age (float, optional): Cache TTL in seconds. Default: 21600.0 (6 hours).
+///     max_retries (int, optional): Maximum retries for transient HTTP errors. Default: 3.
 ///
 /// Example:
 ///     ```python
@@ -866,9 +867,13 @@ pub struct PyCelestrakClient {
 #[pymethods]
 impl PyCelestrakClient {
     #[new]
-    #[pyo3(signature = (base_url=None, cache_max_age=None))]
-    fn new(base_url: Option<&str>, cache_max_age: Option<f64>) -> Self {
-        let client = match (base_url, cache_max_age) {
+    #[pyo3(signature = (base_url=None, cache_max_age=None, max_retries=None))]
+    fn new(
+        base_url: Option<&str>,
+        cache_max_age: Option<f64>,
+        max_retries: Option<u32>,
+    ) -> Self {
+        let mut client = match (base_url, cache_max_age) {
             (Some(url), Some(age)) => {
                 celestrak::CelestrakClient::with_base_url_and_cache_age(url, age)
             }
@@ -876,6 +881,9 @@ impl PyCelestrakClient {
             (None, Some(age)) => celestrak::CelestrakClient::with_cache_age(age),
             (None, None) => celestrak::CelestrakClient::new(),
         };
+        if let Some(n) = max_retries {
+            client = client.max_retries(n);
+        }
         PyCelestrakClient { inner: client }
     }
 

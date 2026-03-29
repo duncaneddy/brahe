@@ -7,7 +7,8 @@
 
 use std::fs;
 use std::path::Path;
-use std::time::SystemTime;
+use std::sync::{LazyLock, Mutex};
+use std::time::{Duration, Instant, SystemTime};
 
 use crate::celestrak::filter::{apply_filters, apply_limit, apply_order_by};
 use crate::celestrak::query::CelestrakQuery;
@@ -22,6 +23,16 @@ const DEFAULT_BASE_URL: &str = "https://celestrak.org";
 
 /// Default maximum cache age in seconds (6 hours).
 const DEFAULT_MAX_CACHE_AGE: f64 = 21600.0;
+
+/// Default maximum number of retries for transient HTTP errors.
+const DEFAULT_MAX_RETRIES: u32 = 3;
+
+/// Minimum interval between HTTP requests to avoid overwhelming the server.
+const MIN_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
+
+/// Process-global tracker for the last HTTP request time, shared across all
+/// `CelestrakClient` instances to enforce rate limiting.
+static LAST_REQUEST_TIME: LazyLock<Mutex<Option<Instant>>> = LazyLock::new(|| Mutex::new(None));
 
 /// CelestrakClient API client with caching.
 ///
@@ -46,6 +57,7 @@ const DEFAULT_MAX_CACHE_AGE: f64 = 21600.0;
 pub struct CelestrakClient {
     base_url: String,
     cache_max_age: f64,
+    max_retries: u32,
     agent: ureq::Agent,
 }
 
@@ -66,6 +78,7 @@ impl CelestrakClient {
         CelestrakClient {
             base_url: DEFAULT_BASE_URL.to_string(),
             cache_max_age: DEFAULT_MAX_CACHE_AGE,
+            max_retries: DEFAULT_MAX_RETRIES,
             agent: ureq::Agent::new_with_defaults(),
         }
     }
@@ -79,6 +92,7 @@ impl CelestrakClient {
         CelestrakClient {
             base_url: DEFAULT_BASE_URL.to_string(),
             cache_max_age,
+            max_retries: DEFAULT_MAX_RETRIES,
             agent: ureq::Agent::new_with_defaults(),
         }
     }
@@ -94,6 +108,7 @@ impl CelestrakClient {
         CelestrakClient {
             base_url: base_url.trim_end_matches('/').to_string(),
             cache_max_age: DEFAULT_MAX_CACHE_AGE,
+            max_retries: DEFAULT_MAX_RETRIES,
             agent: ureq::Agent::new_with_defaults(),
         }
     }
@@ -108,8 +123,27 @@ impl CelestrakClient {
         CelestrakClient {
             base_url: base_url.trim_end_matches('/').to_string(),
             cache_max_age,
+            max_retries: DEFAULT_MAX_RETRIES,
             agent: ureq::Agent::new_with_defaults(),
         }
+    }
+
+    /// Set the maximum number of retries for transient HTTP errors.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_retries` - Maximum retry attempts (0 disables retries)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::celestrak::CelestrakClient;
+    ///
+    /// let client = CelestrakClient::new().max_retries(5);
+    /// ```
+    pub fn max_retries(mut self, max_retries: u32) -> Self {
+        self.max_retries = max_retries;
+        self
     }
 
     /// Execute a query and return the raw response body as a string.
@@ -542,15 +576,76 @@ impl CelestrakClient {
     }
 
     /// Execute an HTTP GET request and return the response body.
+    ///
+    /// Retries on transient errors (server errors, connection resets, timeouts)
+    /// with exponential backoff and jitter. Enforces a minimum interval between
+    /// requests via a process-global rate limiter.
     fn execute_get(&self, url: &str) -> Result<String, BraheError> {
-        let mut response =
-            self.agent.get(url).call().map_err(|e| {
-                BraheError::IoError(format!("CelestrakClient request failed: {}", e))
-            })?;
+        let mut last_error = None;
 
-        response.body_mut().read_to_string().map_err(|e| {
-            BraheError::IoError(format!("Failed to read CelestrakClient response: {}", e))
-        })
+        for attempt in 0..=self.max_retries {
+            Self::rate_limit_wait();
+
+            if attempt > 0 {
+                let base_delay = Duration::from_secs(1) * 2u32.pow(attempt - 1);
+                let nanos = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .subsec_nanos();
+                let jitter = Duration::from_millis((nanos % 500) as u64);
+                std::thread::sleep(base_delay + jitter);
+            }
+
+            match self.agent.get(url).call() {
+                Ok(mut response) => {
+                    return response.body_mut().read_to_string().map_err(|e| {
+                        BraheError::IoError(format!(
+                            "Failed to read CelestrakClient response: {}",
+                            e
+                        ))
+                    });
+                }
+                Err(e) => {
+                    if attempt < self.max_retries && Self::is_retryable_error(&e) {
+                        last_error = Some(e);
+                        continue;
+                    }
+                    return Err(BraheError::IoError(format!(
+                        "CelestrakClient request failed: {}",
+                        e
+                    )));
+                }
+            }
+        }
+
+        // Only reachable if max_retries > 0 and all attempts were retryable errors
+        Err(BraheError::IoError(format!(
+            "CelestrakClient request failed: {}",
+            last_error.unwrap()
+        )))
+    }
+
+    /// Check whether an HTTP error is transient and worth retrying.
+    fn is_retryable_error(e: &ureq::Error) -> bool {
+        matches!(
+            e,
+            ureq::Error::StatusCode(429 | 500 | 502 | 503 | 504)
+                | ureq::Error::Io(_)
+                | ureq::Error::Timeout(_)
+                | ureq::Error::ConnectionFailed
+        )
+    }
+
+    /// Enforce a minimum interval between HTTP requests process-wide.
+    fn rate_limit_wait() {
+        let mut last_time = LAST_REQUEST_TIME.lock().unwrap();
+        if let Some(last) = *last_time {
+            let elapsed = last.elapsed();
+            if elapsed < MIN_REQUEST_INTERVAL {
+                std::thread::sleep(MIN_REQUEST_INTERVAL - elapsed);
+            }
+        }
+        *last_time = Some(Instant::now());
     }
 }
 
@@ -1050,6 +1145,71 @@ mod tests {
                 .to_string()
                 .contains("No GP records found")
         );
+    }
+
+    // -- Retry behavior tests --
+
+    #[test]
+    fn test_retry_on_503() {
+        let server = MockServer::start();
+
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(503);
+        });
+
+        let client =
+            CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0).max_retries(1);
+
+        let query = CelestrakQuery::gp().group("stations");
+        let result = client.query_raw(&query);
+        assert!(result.is_err());
+        mock.assert_calls(2); // 1 initial + 1 retry
+    }
+
+    #[test]
+    fn test_no_retry_on_404() {
+        let server = MockServer::start();
+
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(404);
+        });
+
+        let client =
+            CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0).max_retries(3);
+
+        let query = CelestrakQuery::gp().group("nonexistent");
+        let result = client.query_raw(&query);
+        assert!(result.is_err());
+        mock.assert_calls(1); // No retry for 404
+    }
+
+    #[test]
+    fn test_max_retries_zero_no_retry() {
+        let server = MockServer::start();
+
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/NORAD/elements/gp.php");
+            then.status(503);
+        });
+
+        let client =
+            CelestrakClient::with_base_url_and_cache_age(&server.base_url(), 0.0).max_retries(0);
+
+        let query = CelestrakQuery::gp().group("stations");
+        let result = client.query_raw(&query);
+        assert!(result.is_err());
+        mock.assert_calls(1); // No retries with max_retries=0
+    }
+
+    #[test]
+    fn test_max_retries_builder() {
+        let client = CelestrakClient::new().max_retries(5);
+        assert_eq!(client.max_retries, 5);
+
+        let client = CelestrakClient::new().max_retries(0);
+        assert_eq!(client.max_retries, 0);
     }
 
     // -- CI-gated live integration tests --

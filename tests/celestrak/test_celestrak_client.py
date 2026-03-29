@@ -26,6 +26,18 @@ class TestCelestrakClientConstruction:
         )
         assert client is not None
 
+    def test_with_max_retries(self):
+        client = bh.celestrak.CelestrakClient(max_retries=5)
+        assert client is not None
+
+    def test_with_max_retries_zero(self):
+        client = bh.celestrak.CelestrakClient(max_retries=0)
+        assert client is not None
+
+    def test_with_all_options(self):
+        client = bh.celestrak.CelestrakClient(cache_max_age=3600.0, max_retries=2)
+        assert client is not None
+
 
 class TestCelestrakQueryClassattrs:
     """Tests for CelestrakQuery class attribute constructors."""

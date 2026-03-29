@@ -98,7 +98,7 @@ jobs:
         run: git fetch origin gh-pages:gh-pages || true
 
       - name: Deploy documentation (latest from main)
-        run: uv run --frozen mike deploy --push --update-aliases latest
+        run: uv run --frozen mike deploy --config-file properdocs.yml --push --update-aliases latest
 
       - name: Set default version redirect
         run: uv run --frozen mike set-default --push latest

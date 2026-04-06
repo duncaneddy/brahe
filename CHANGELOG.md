@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.3.2] - 2026-04-06
+### Changed
+
+- Updated JOSS manuscript to comply with latest guidelines [#256](https://github.com/duncaneddy/brahe/pull/256)
+
+### Fixed
+
+- Fixed issue with SGP4 propagators erroring during parallel propagation on satellite reentry. Addressed by adding a `termination_error` field to SGPPropagators which will be documented and stop propagation rather than erroring all propagation.
+  Issued with documentation builds in CI failing due to dependency changes. Fixed by updating `uv.lock` [#256](https://github.com/duncaneddy/brahe/pull/256)
+
 ## [1.3.1] - 2026-03-29
 ### Added
 

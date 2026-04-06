@@ -338,6 +338,79 @@ mod tests {
         }
     }
 
+    /// Create an SGPPropagator for a decaying/reentering satellite (STARLINK-31304)
+    /// that triggers SGP4 eccentricity divergence when propagated ~24 hours.
+    fn make_decaying_propagator(step_size: f64) -> SGPPropagator {
+        SGPPropagator::from_omm_elements(
+            "2026-04-06T00:15:48.265056",
+            16.25673795,
+            0.00191239,
+            42.9658,
+            302.8224,
+            303.9951,
+            55.9119,
+            59231,
+            step_size,
+            Some("STARLINK-31304"),
+            Some("2024-049A"),
+            Some('U'),
+            Some(0.0038650148),
+            Some(0.13132014),
+            Some(9.155391e-06),
+            Some(0),
+            Some(999),
+            Some(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_par_propagate_with_divergent_propagator() {
+        setup_global_test_eop();
+
+        // ISS TLE - well-behaved orbit
+        let iss_line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
+        let iss_line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
+
+        // Use large step size since each SGP4 evaluation is independent
+        let step = 3600.0;
+
+        let mut propagators = vec![
+            make_decaying_propagator(step),
+            make_decaying_propagator(step),
+        ];
+        let epoch = propagators[0].initial_epoch();
+
+        // Target 2 days — this satellite diverges within ~24 hours
+        let target = epoch + 2.0 * 86400.0;
+        par_propagate_to_s(&mut propagators, target);
+
+        // Both propagators should have terminated due to divergence
+        // The key test is that NO PANIC occurred - the batch completed
+        for prop in &propagators {
+            assert!(prop.is_terminated());
+            assert!(prop.termination_error().is_some());
+        }
+
+        // Test mixed case: good orbit (ISS) propagated short, decaying orbit propagated past divergence
+        let mut prop_good = SGPPropagator::from_tle(iss_line1, iss_line2, step).unwrap();
+        let mut prop_decay = make_decaying_propagator(step);
+
+        let short_target = prop_good.initial_epoch() + 3600.0; // 1 hour
+        prop_good.propagate_to(short_target);
+        prop_decay.propagate_to(target);
+
+        // Short propagation of good orbit should succeed
+        assert!(!prop_good.is_terminated());
+        assert!(prop_good.termination_error().is_none());
+        assert_eq!(prop_good.current_epoch(), short_target);
+
+        // Decaying orbit should terminate with error
+        assert!(prop_decay.is_terminated());
+        assert!(prop_decay.termination_error().is_some());
+        assert!(prop_decay.current_epoch() < target);
+    }
+
     // =========================================================================
     // par_propagate_to_d Tests (Dynamic State Propagators)
     // =========================================================================

@@ -1,0 +1,3 @@
+Native state (Keplerian): a=6878.1 km
+ECI position magnitude: 6877.7 km
+ECEF position magnitude: 6877.7 km

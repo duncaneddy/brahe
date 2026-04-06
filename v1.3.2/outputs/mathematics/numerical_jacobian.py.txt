@@ -1,0 +1,10 @@
+Numerical Jacobian (central differences):
+[[ 0.  1.]
+ [-1.  0.]]
+
+Error vs analytical: 0.00e+00
+
+Numerical Jacobian at different state:
+[[ 0.  1.]
+ [-1.  0.]]
+Error vs analytical: 0.00e+00

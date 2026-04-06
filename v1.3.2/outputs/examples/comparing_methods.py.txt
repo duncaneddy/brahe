@@ -1,0 +1,66 @@
+======================================================================
+COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS
+======================================================================
+Orbit altitude: 500.0 km
+Inclination: 97.8°
+Orbital period: 94.62 minutes
+Initial energy: -2.897590e+07 J/kg
+Initial |h|: 5.236053e+10 m²/s
+Integration duration: 7 days (106.5 orbits)
+======================================================================
+
+1. RK4 - Fourth-order Runge-Kutta (Fixed-step)
+----------------------------------------------------------------------
+Configuration: Fixed step size = 10.0 seconds
+Steps taken: 60480
+Final altitude: 506.707 km
+Energy error: 8.951e-02 J/kg
+Angular momentum error: 8.085e+01 m²/s
+
+2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)
+----------------------------------------------------------------------
+Configuration: abs_tol=1e-10, rel_tol=1e-09
+Steps taken: 15687
+Final altitude: 506.703 km
+Energy error: 1.665e+01 J/kg
+Angular momentum error: 1.504e+04 m²/s
+
+3. DP54 - Dormand-Prince 5(4) (Adaptive)
+----------------------------------------------------------------------
+Configuration: abs_tol=1e-10, rel_tol=1e-09
+Steps taken: 14268
+Final altitude: 506.708 km
+Energy error: 3.319e+00 J/kg
+Angular momentum error: 2.999e+03 m²/s
+
+4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)
+----------------------------------------------------------------------
+Configuration: abs_tol=1e-12, rel_tol=1e-11
+Steps taken: 945
+Final altitude: 506.707 km
+Energy error: 4.842e-05 J/kg
+Angular momentum error: 4.379e-02 m²/s
+
+======================================================================
+COMPARISON SUMMARY (7 days / 106.5 orbits)
+======================================================================
+
+Integrator   Type            Steps    Energy Error    |h| Error      
+----------------------------------------------------------------------
+RK4          Fixed-step      60480    8.951e-02       8.085e+01      
+RKF45        Adaptive        15687    1.665e+01       1.504e+04      
+DP54         Adaptive        14268    3.319e+00       2.999e+03      
+RKN1210      High-precision  945      4.842e-05       4.379e-02      
+
+Key Observations:
+• RK4 requires many steps with accumulated drift in conserved quantities
+• RKF45 and DP54 adapt step size but show energy/momentum drift
+• RKN1210 maintains best conservation with far fewer steps
+• Angular momentum conservation indicates integration quality
+======================================================================
+
+Generating angular momentum conservation plot...
+Comparison complete!
+
+✓ Generated docs/figures/comparing_methods_angular_momentum_light.html
+✓ Generated docs/figures/comparing_methods_angular_momentum_dark.html

@@ -1,0 +1,15 @@
+WMMHR-2025 at (lon=120, lat=0, alt=0) -- Full resolution (nmax=133)
+  B_east:       -100.3 nT
+  B_north:     39643.1 nT
+  B_zenith:    10580.7 nT
+
+  Total intensity:    41030.9 nT
+  Inclination:         -14.94 deg
+  Declination:          -0.14 deg
+
+Truncated resolution (nmax=13):
+  B_east:       -115.3 nT
+  B_north:     39677.8 nT
+  B_zenith:    10579.4 nT
+
+  Difference from full resolution: 37.9 nT

@@ -1,0 +1,43 @@
+ZYX Euler angles (yaw-pitch-roll):
+  Yaw (Z):   45.0°
+  Pitch (Y): 30.0°
+  Roll (X):  15.0°
+  Order: ZYX::321
+
+XYZ Euler angles (from vector):
+  Angle 1 (X): 15.0°
+  Angle 2 (Y): 30.0°
+  Angle 3 (Z): 45.0°
+  Order: XYZ::123
+
+Single-axis rotation (45° about Z using ZYX):
+  Yaw (Z):   45.0°
+  Pitch (Y): 0.0°
+  Roll (X):  0.0°
+
+From quaternion (45° about Z):
+  Yaw (Z):   45.0°
+  Pitch (Y): 0.0°
+  Roll (X):  -0.0°
+
+From rotation matrix (45° about Z):
+  Yaw (Z):   45.0°
+  Pitch (Y): 0.0°
+  Roll (X):  -0.0°
+
+From Euler axis (45° about Z):
+  Yaw (Z):   45.0°
+  Pitch (Y): 0.0°
+  Roll (X):  -0.0°
+
+XZY Euler angles from ZYX:
+  Angle 1 (X): 20.8°
+  Angle 2 (Z): 50.8°
+  Angle 3 (Y): 14.5°
+  Order: XZY::132
+
+Converted back to ZYX order (same rotation):
+  Angle 1 (Z): 45.0°
+  Angle 2 (Y): 30.0°
+  Angle 3 (X): 15.0°
+  Order: ZYX::321

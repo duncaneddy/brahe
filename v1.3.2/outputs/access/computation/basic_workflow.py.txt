@@ -1,0 +1,19 @@
+Found 35 access windows
+
+Window 1:
+  Start: 2025-11-02 05:39:28.342 UTC
+  End:   2025-11-02 05:44:19.001 UTC
+  Duration: 4.84 minutes
+  Max elevation: 18.8°
+
+Window 2:
+  Start: 2025-11-02 07:15:16.026 UTC
+  End:   2025-11-02 07:21:37.632 UTC
+  Duration: 6.36 minutes
+  Max elevation: 40.0°
+
+Window 3:
+  Start: 2025-11-02 08:54:59.615 UTC
+  End:   2025-11-02 08:56:52.722 UTC
+  Duration: 1.89 minutes
+  Max elevation: 10.9°

@@ -1,0 +1,5 @@
+Latest GP for ISS:
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/orderby/EPOCH%20desc/limit/1/format/json
+
+Latest GP for Starlink-2541:
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/48274/orderby/EPOCH%20desc/limit/1/format/json

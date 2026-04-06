@@ -411,7 +411,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in PEF frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_pef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_pef(epoch.obj);
+        let state = self.propagator.state_pef(epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
@@ -1517,18 +1517,28 @@ impl PySGPPropagator {
             .collect()
     }
 
-    /// Check if propagation was terminated by an event.
+    /// Check if propagation was terminated by an event or propagation error.
     ///
     /// Returns:
-    ///     bool: True if propagation was stopped by a terminal event.
+    ///     bool: True if propagation was stopped by a terminal event or error.
     #[getter]
     pub fn terminated(&self) -> bool {
         self.propagator.is_terminated()
     }
 
+    /// Get the error that caused propagation termination, if any.
+    ///
+    /// Returns:
+    ///     str or None: Error message if terminated due to propagation error,
+    ///         None if terminated by an event or not terminated.
+    #[getter]
+    pub fn termination_error(&self) -> Option<String> {
+        self.propagator.termination_error().map(|e| e.to_string())
+    }
+
     /// Reset the termination flag.
     ///
-    /// Call this to allow propagation to continue after a terminal event.
+    /// Call this to allow propagation to continue after a terminal event or error.
     #[pyo3(text_signature = "()")]
     pub fn reset_termination(&mut self) {
         self.propagator.reset_termination();
@@ -2665,6 +2675,7 @@ fn py_par_propagate_to(
             let detectors = props[i].take_event_detectors();
             let event_log = props[i].take_event_log();
             let terminated = props[i].is_terminated();
+            let termination_error = props[i].take_termination_error();
 
             // Transfer full propagator state (trajectory, epoch_current, state_current, etc.)
             py_prop.propagator = props[i].clone();
@@ -2673,6 +2684,7 @@ fn py_par_propagate_to(
             py_prop.propagator.set_event_detectors(detectors);
             py_prop.propagator.set_event_log(event_log);
             py_prop.propagator.set_terminated(terminated);
+            py_prop.propagator.set_termination_error(termination_error);
         }
 
         Ok(())

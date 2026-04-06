@@ -211,8 +211,11 @@ pub struct SGPPropagator {
     /// Log of detected events
     event_log: Vec<DDetectedEvent>,
 
-    /// Termination flag (set by terminal events)
+    /// Termination flag (set by terminal events or propagation errors)
     terminated: bool,
+
+    /// Error that caused propagation termination, if any
+    termination_error: Option<BraheError>,
 }
 
 impl Clone for SGPPropagator {
@@ -248,6 +251,7 @@ impl Clone for SGPPropagator {
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
+            termination_error: None,
         }
     }
 }
@@ -279,6 +283,7 @@ impl std::fmt::Debug for SGPPropagator {
             )
             .field("event_log", &self.event_log)
             .field("terminated", &self.terminated)
+            .field("termination_error", &self.termination_error)
             .finish()
     }
 }
@@ -443,6 +448,7 @@ impl SGPPropagator {
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
+            termination_error: None,
         });
 
         // Auto-generate UUID and sync to trajectory
@@ -703,6 +709,7 @@ impl SGPPropagator {
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
+            termination_error: None,
         });
 
         // Auto-generate UUID and sync to trajectory
@@ -894,7 +901,7 @@ impl SGPPropagator {
 
     /// Internal propagation to target epoch, returning state in the internal
     /// TEME frame that is the output of SGP4.
-    fn propagate_internal(&self, target_epoch: Epoch) -> Vector6<f64> {
+    fn propagate_internal(&self, target_epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Calculate minutes since TLE epoch
         let dt = (target_epoch - self.epoch) / 60.0; // Convert seconds to minutes
 
@@ -902,17 +909,22 @@ impl SGPPropagator {
         let prediction = self
             .constants
             .propagate(sgp4::MinutesSinceEpoch(dt))
-            .expect("SGP4 propagation failed");
+            .map_err(|e| {
+                BraheError::PropagatorError(format!(
+                    "SGP4 propagation failed at {}: {}",
+                    target_epoch, e
+                ))
+            })?;
 
         // Convert from km to m and km/s to m/s
-        Vector6::new(
+        Ok(Vector6::new(
             prediction.position[0] * 1000.0,
             prediction.position[1] * 1000.0,
             prediction.position[2] * 1000.0,
             prediction.velocity[0] * 1000.0,
             prediction.velocity[1] * 1000.0,
             prediction.velocity[2] * 1000.0,
-        )
+        ))
     }
 
     /// Get propagated state in Pseudo-Earth-Fixed (PEF) frame.
@@ -926,8 +938,8 @@ impl SGPPropagator {
     ///
     /// # Returns
     /// State vector [x, y, z, vx, vy, vz] in PEF frame. Units: meters, meters/second.
-    pub fn state_pef(&self, epoch: Epoch) -> Vector6<f64> {
-        let tle_state = self.propagate_internal(epoch);
+    pub fn state_pef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let tle_state = self.propagate_internal(epoch)?;
         // SGP4 outputs state in TEME
         // Conversion chain is TEME -> PEF
 
@@ -941,7 +953,9 @@ impl SGPPropagator {
         let v_pef: Vector3<f64> =
             R * Vector3::<f64>::from(tle_state.fixed_rows::<3>(3)) - omega_earth.cross(&r_pef);
 
-        Vector6::new(r_pef[0], r_pef[1], r_pef[2], v_pef[0], v_pef[1], v_pef[2])
+        Ok(Vector6::new(
+            r_pef[0], r_pef[1], r_pef[2], v_pef[0], v_pef[1], v_pef[2],
+        ))
     }
 
     /// Get Keplerian orbital elements from TLE data
@@ -1196,15 +1210,15 @@ impl SGPPropagator {
     /// This internal method always returns the state in ECI Cartesian format,
     /// regardless of the configured output format. This is used for event detection
     /// since all event detectors expect ECI Cartesian state.
-    fn state_eci_cartesian(&self, epoch: Epoch) -> Vector6<f64> {
-        let tle_state = self.propagate_internal(epoch);
-        convert_state_from_spg4_frame(
+    fn state_eci_cartesian(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let tle_state = self.propagate_internal(epoch)?;
+        Ok(convert_state_from_spg4_frame(
             epoch,
             tle_state,
             OrbitFrame::ECI,
             OrbitRepresentation::Cartesian,
             None,
-        )
+        ))
     }
 
     /// Scan all event detectors for events in the interval [epoch_prev, epoch_curr]
@@ -1221,8 +1235,14 @@ impl SGPPropagator {
 
         // Create state function for bisection - uses exact SGP4 propagation
         // (no interpolation needed since SGP4 is analytical)
-        let state_fn =
-            |epoch: Epoch| -> DVector<f64> { svec6_to_dvec(&self.state_eci_cartesian(epoch)) };
+        // Falls back to boundary state if propagation fails at bisection point
+        // (both boundary states were already validated by the caller)
+        let state_fn = |epoch: Epoch| -> DVector<f64> {
+            match self.state_eci_cartesian(epoch) {
+                Ok(state) => svec6_to_dvec(&state),
+                Err(_) => state_curr.clone(),
+            }
+        };
 
         // No parameters for SGP4
         let params: Option<&DVector<f64>> = None;
@@ -1468,15 +1488,34 @@ impl SGPPropagator {
 
     /// Reset the termination flag
     ///
-    /// Allows propagation to continue after a terminal event. The event log
-    /// is not cleared.
+    /// Allows propagation to continue after a terminal event or propagation error.
+    /// The event log is not cleared.
     pub fn reset_termination(&mut self) {
         self.terminated = false;
+        self.termination_error = None;
     }
 
-    /// Check if propagation was terminated by an event
+    /// Check if propagation was terminated by an event or propagation error
     pub fn is_terminated(&self) -> bool {
         self.terminated
+    }
+
+    /// Get the error that caused propagation termination, if any
+    ///
+    /// Returns `None` if propagation was terminated by a terminal event
+    /// rather than a propagation error, or if propagation has not been terminated.
+    pub fn termination_error(&self) -> Option<&BraheError> {
+        self.termination_error.as_ref()
+    }
+
+    /// Set the termination error
+    pub fn set_termination_error(&mut self, error: Option<BraheError>) {
+        self.termination_error = error;
+    }
+
+    /// Take the termination error, leaving `None` in its place
+    pub fn take_termination_error(&mut self) -> Option<BraheError> {
+        self.termination_error.take()
     }
 }
 
@@ -1491,8 +1530,25 @@ impl SStatePropagator for SGPPropagator {
         let target_epoch = current_epoch + step_size; // step_size is in seconds
 
         // Get ECI Cartesian states as DVector for event detection
-        let state_prev_eci = svec6_to_dvec(&self.state_eci_cartesian(current_epoch));
-        let state_curr_eci = svec6_to_dvec(&self.state_eci_cartesian(target_epoch));
+        // If target state computation fails, terminate gracefully
+        let state_prev_eci = match self.state_eci_cartesian(current_epoch) {
+            Ok(state) => svec6_to_dvec(&state),
+            Err(e) => {
+                self.terminated = true;
+                self.termination_error = Some(e);
+                return;
+            }
+        };
+        let state_curr_eci = match self.state_eci_cartesian(target_epoch) {
+            Ok(state) => svec6_to_dvec(&state),
+            Err(e) => {
+                // Target epoch is invalid — satellite orbit has diverged.
+                // Keep current state as the last valid state.
+                self.terminated = true;
+                self.termination_error = Some(e);
+                return;
+            }
+        };
 
         // Scan for events if we have any detectors
         if !self.event_detectors.is_empty() {
@@ -1531,9 +1587,17 @@ impl SStatePropagator for SGPPropagator {
                 self.event_log.push(logged_event);
 
                 // Add event state to trajectory at exact event time (in user's output format)
+                let event_tle_state = match self.propagate_internal(event.window_open) {
+                    Ok(state) => state,
+                    Err(e) => {
+                        self.terminated = true;
+                        self.termination_error = Some(e);
+                        return;
+                    }
+                };
                 let event_state_output = convert_state_from_spg4_frame(
                     event.window_open,
-                    self.propagate_internal(event.window_open),
+                    event_tle_state,
                     self.frame,
                     self.representation,
                     self.angle_format,
@@ -1558,7 +1622,14 @@ impl SStatePropagator for SGPPropagator {
         }
 
         // If not terminated, compute the target state
-        let tle_state = self.propagate_internal(target_epoch);
+        let tle_state = match self.propagate_internal(target_epoch) {
+            Ok(state) => state,
+            Err(e) => {
+                self.terminated = true;
+                self.termination_error = Some(e);
+                return;
+            }
+        };
         let new_state = convert_state_from_spg4_frame(
             target_epoch,
             tle_state,
@@ -1617,6 +1688,7 @@ impl SStatePropagator for SGPPropagator {
         // Clear event detection state
         self.event_log.clear();
         self.terminated = false;
+        self.termination_error = None;
 
         // Reset processed state on all detectors (for one-shot events)
         for detector in &self.event_detectors {
@@ -1673,7 +1745,7 @@ impl SStatePropagator for SGPPropagator {
 
 impl SStateProvider for SGPPropagator {
     fn state(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        Ok(self.propagate_internal(epoch))
+        self.propagate_internal(epoch)
     }
 }
 
@@ -1690,7 +1762,7 @@ impl SOrbitStateProvider for SGPPropagator {
     }
 
     fn state_itrf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        let state_pef = self.state_pef(epoch);
+        let state_pef = self.state_pef(epoch)?;
 
         // Step 2: PEF to ECEF
         #[allow(non_snake_case)]
@@ -2655,7 +2727,7 @@ mod tests {
         let epoch = prop.initial_epoch();
 
         // State in TEME frame (native SGP4 output)
-        let state = prop.state_pef(epoch);
+        let state = prop.state_pef(epoch).unwrap();
 
         assert_eq!(state.len(), 6);
         // TEME is the native SGP4 output frame
@@ -3752,5 +3824,118 @@ mod tests {
 
         // Trajectory mode should be preserved across reset
         assert_eq!(prop.trajectory_mode(), TrajectoryMode::Disabled);
+    }
+
+    // =========================================================================
+    // Graceful Propagation Error Handling Tests
+    // =========================================================================
+
+    /// Create an SGPPropagator for a decaying/reentering satellite (STARLINK-31304)
+    /// that triggers SGP4 eccentricity divergence when propagated ~24 hours.
+    fn make_decaying_propagator(step_size: f64) -> SGPPropagator {
+        SGPPropagator::from_omm_elements(
+            "2026-04-06T00:15:48.265056",
+            16.25673795, // mean_motion (rev/day) - very high, decaying orbit
+            0.00191239,  // eccentricity
+            42.9658,     // inclination (degrees)
+            302.8224,    // ra_of_asc_node (degrees)
+            303.9951,    // arg_of_pericenter (degrees)
+            55.9119,     // mean_anomaly (degrees)
+            59231,       // norad_cat_id (STARLINK-31304)
+            step_size,
+            Some("STARLINK-31304"),
+            Some("2024-049A"),
+            Some('U'),
+            Some(0.0038650148), // bstar - high drag
+            Some(0.13132014),   // mean_motion_dot - rapidly increasing
+            Some(9.155391e-06), // mean_motion_ddot
+            Some(0),
+            Some(999),
+            Some(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_sgppropagator_propagation_error_terminates() {
+        setup_global_test_eop();
+
+        // Use large step size since each SGP4 evaluation is independent
+        let mut prop = make_decaying_propagator(3600.0);
+        let initial_epoch = prop.initial_epoch();
+
+        // Propagate 2 days — this satellite diverges within ~24 hours
+        let target_epoch = initial_epoch + 2.0 * 86400.0;
+        prop.propagate_to(target_epoch);
+
+        // Propagator should have terminated due to error
+        assert!(prop.is_terminated());
+        assert!(prop.termination_error().is_some());
+        assert!(
+            prop.termination_error()
+                .unwrap()
+                .to_string()
+                .contains("SGP4 propagation failed")
+        );
+
+        // Current state should be finite (last valid state)
+        let state = prop.current_state();
+        for i in 0..6 {
+            assert!(state[i].is_finite(), "State component {} is not finite", i);
+        }
+
+        // Current epoch should be before target (stopped early)
+        assert!(prop.current_epoch() < target_epoch);
+    }
+
+    #[test]
+    fn test_sgppropagator_state_returns_error_on_diverged_epoch() {
+        setup_global_test_eop();
+
+        let prop = make_decaying_propagator(3600.0);
+        let initial_epoch = prop.initial_epoch();
+
+        // Requesting state at epoch past divergence should return Err, not panic
+        let far_epoch = initial_epoch + 2.0 * 86400.0;
+        let result = prop.state(far_epoch);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sgppropagator_reset_clears_termination_error() {
+        setup_global_test_eop();
+
+        let mut prop = make_decaying_propagator(3600.0);
+        let initial_epoch = prop.initial_epoch();
+
+        // Trigger termination via propagation error
+        let target_epoch = initial_epoch + 2.0 * 86400.0;
+        prop.propagate_to(target_epoch);
+        assert!(prop.is_terminated());
+        assert!(prop.termination_error().is_some());
+
+        // Reset should clear both flags
+        prop.reset();
+        assert!(!prop.is_terminated());
+        assert!(prop.termination_error().is_none());
+    }
+
+    #[test]
+    fn test_sgppropagator_reset_termination_clears_error() {
+        setup_global_test_eop();
+
+        let mut prop = make_decaying_propagator(3600.0);
+        let initial_epoch = prop.initial_epoch();
+
+        // Trigger termination via propagation error
+        let target_epoch = initial_epoch + 2.0 * 86400.0;
+        prop.propagate_to(target_epoch);
+        assert!(prop.is_terminated());
+        assert!(prop.termination_error().is_some());
+
+        // reset_termination should clear both flags
+        prop.reset_termination();
+        assert!(!prop.is_terminated());
+        assert!(prop.termination_error().is_none());
     }
 }

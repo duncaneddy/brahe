@@ -11,7 +11,7 @@ fn main() {
     let prop = bh::SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
 
     // Get state in PEF frame (TEME rotated by GMST)
-    let state_pef = prop.state_pef(prop.epoch);
+    let state_pef = prop.state_pef(prop.epoch).unwrap();
     println!("PEF position: {:?}", state_pef.fixed_rows::<3>(0) / 1e3);
 }
 

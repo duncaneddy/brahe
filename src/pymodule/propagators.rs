@@ -411,9 +411,7 @@ impl PySGPPropagator {
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in PEF frame.
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_pef<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_pef(epoch.obj).map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(e.to_string())
-        })?;
+        let state = self.propagator.state_pef(epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 

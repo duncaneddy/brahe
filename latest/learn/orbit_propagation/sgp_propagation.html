@@ -118,22 +118,22 @@
 <span class=normal><a href=#__codelineno-2-4>4</a></span>
 <span class=normal><a href=#__codelineno-2-5>5</a></span>
 <span class=normal><a href=#__codelineno-2-6>6</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a>Created propagator: ISS (ZARYA)
-</span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>Epoch: 2026-03-28 20:59:21.130 UTC
+</span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>Epoch: 2026-04-06 00:07:10.853 UTC
 </span><span id=__span-2-3><a id=__codelineno-2-3 name=__codelineno-2-3></a>
 </span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a>State after 1 orbit:
-</span><span id=__span-2-5><a id=__codelineno-2-5 name=__codelineno-2-5></a>  Position: [6261213.4, -2656520.9, 6224.8] m
-</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a>  Velocity: [1850.8, 4382.2, 6000.8] m/s
+</span><span id=__span-2-5><a id=__codelineno-2-5 name=__codelineno-2-5></a>  Position: [3065517.6, -6068187.6, 14529.4] m
+</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a>  Velocity: [4248.0, 2162.4, 5996.9] m/s
 </span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1>1</a></span>
 <span class=normal><a href=#__codelineno-3-2>2</a></span>
 <span class=normal><a href=#__codelineno-3-3>3</a></span>
 <span class=normal><a href=#__codelineno-3-4>4</a></span>
 <span class=normal><a href=#__codelineno-3-5>5</a></span>
 <span class=normal><a href=#__codelineno-3-6>6</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a>Created propagator: ISS (ZARYA)
-</span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a>Epoch: 2026-03-28 20:59:21.130 UTC
+</span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a>Epoch: 2026-04-06 00:07:10.853 UTC
 </span><span id=__span-3-3><a id=__codelineno-3-3 name=__codelineno-3-3></a>
 </span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a>State after 1 orbit:
-</span><span id=__span-3-5><a id=__codelineno-3-5 name=__codelineno-3-5></a>  Position: [6261213.4, -2656520.9, 6224.8] m
-</span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a>  Velocity: [1850.8, 4382.2, 6000.8] m/s
+</span><span id=__span-3-5><a id=__codelineno-3-5 name=__codelineno-3-5></a>  Position: [3065517.6, -6068187.6, 14529.4] m
+</span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a>  Velocity: [4248.0, 2162.4, 5996.9] m/s
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <p>For details on querying satellite data, see <a href=../ephemeris/index.html>Ephemeris Data Sources</a>.</p> <h2 id=initialization>Initialization<a class=headerlink href=#initialization title="Permanent link">&para;</a></h2> <p>The <code>SGPPropagator</code> can also be initialized directly from TLE data. The TLE lines contain all orbital parameters needed for propagation.</p> <h3 id=from-two-line-elements-tle>From Two Line Elements (TLE)<a class=headerlink href=#from-two-line-elements-tle title="Permanent link">&para;</a></h3> <p>The most common initialization uses two lines of TLE data.</p> <div class="tabbed-set tabbed-alternate" data-tabs=3:2><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><input id=__tabbed_3_2 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>Python</label><label for=__tabbed_3_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1> 1</a></span>
 <span class=normal><a href=#__codelineno-4-2> 2</a></span>
 <span class=normal><a href=#__codelineno-4-3> 3</a></span>
@@ -799,7 +799,7 @@
 </span><span id=__span-33-8><a id=__codelineno-33-8 name=__codelineno-33-8></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>prop</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>bh</span><span class=p>::</span><span class=n>SGPPropagator</span><span class=p>::</span><span class=n>from_tle</span><span class=p>(</span><span class=n>line1</span><span class=p>,</span><span class=w> </span><span class=n>line2</span><span class=p>,</span><span class=w> </span><span class=mf>60.0</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-33-9><a id=__codelineno-33-9 name=__codelineno-33-9></a>
 </span><span id=__span-33-10><a id=__codelineno-33-10 name=__codelineno-33-10></a><span class=w>    </span><span class=c1>// Get state in PEF frame (TEME rotated by GMST)</span>
-</span><span id=__span-33-11><a id=__codelineno-33-11 name=__codelineno-33-11></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>state_pef</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop</span><span class=p>.</span><span class=n>state_pef</span><span class=p>(</span><span class=n>prop</span><span class=p>.</span><span class=n>epoch</span><span class=p>);</span>
+</span><span id=__span-33-11><a id=__codelineno-33-11 name=__codelineno-33-11></a><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=n>state_pef</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>prop</span><span class=p>.</span><span class=n>state_pef</span><span class=p>(</span><span class=n>prop</span><span class=p>.</span><span class=n>epoch</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span>
 </span><span id=__span-33-12><a id=__codelineno-33-12 name=__codelineno-33-12></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;PEF position: {:?}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>state_pef</span><span class=p>.</span><span class=n>fixed_rows</span><span class=p>::</span><span class=o>&lt;</span><span class=mi>3</span><span class=o>&gt;</span><span class=p>(</span><span class=mi>0</span><span class=p>)</span><span class=w> </span><span class=o>/</span><span class=w> </span><span class=mf>1e3</span><span class=p>);</span>
 </span><span id=__span-33-13><a id=__codelineno-33-13 name=__codelineno-33-13></a><span class=p>}</span>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=18:2><input checked=checked id=__tabbed_18_1 name=__tabbed_18 type=radio><input id=__tabbed_18_2 name=__tabbed_18 type=radio><div class=tabbed-labels><label for=__tabbed_18_1>Python</label><label for=__tabbed_18_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-34-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-34-1><a id=__codelineno-34-1 name=__codelineno-34-1></a>PEF position: [-3953.20574821  1427.51460044  5243.61453697]

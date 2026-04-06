@@ -1,5 +1,5 @@
 Downloading Capella satellite TLEs from CelesTrak...
-Found 8 Capella satellites in 0.32 seconds
+Found 8 Capella satellites in 7.17 seconds
   - CAPELLA-11 (ACADIA-1)
   - CAPELLA-14 (ACADIA-4)
   - CAPELLA-13 (ACADIA-3)
@@ -52,21 +52,21 @@ Using 33 external stations for downlink:
   - Weilheim (11.08, 47.88)
 
 Computing AOI exit events...
-Found 287 AOI exit events in 11.65 seconds
+Found 284 AOI exit events in 10.49 seconds
 
 Computing ground station contacts...
-Computed 10202 ground contact windows in 16.06 seconds
+Computed 10208 ground contact windows in 14.78 seconds
 
 Computing imaging data latencies...
-Computed 287 latency values in 0.06 seconds
+Computed 284 latency values in 0.03 seconds
 
 ====================================================================================================
 Imaging Data Latency Statistics
 ====================================================================================================
-  Worst (Max):  54 minutes and 24.38 seconds
-  Best (Min):   12.29 seconds
-  Average:      14 minutes and 48.15 seconds
-  Median:       5 minutes and 47.47 seconds
+  Worst (Max):  54 minutes and 29.30 seconds
+  Best (Min):   3.51 seconds
+  Average:      13 minutes and 58.09 seconds
+  Median:       5 minutes and 12.15 seconds
 ====================================================================================================
 
 ========================================================================================================================
@@ -74,21 +74,21 @@ Top 5 Worst Imaging Data Latencies
 ========================================================================================================================
 Satellite                 AOI Exit Time                Contact Start                Station                      Latency
 ------------------------------------------------------------------------------------------------------------------------
-CAPELLA-19 (ACADIA-9)     2026-03-30 11:28:02          2026-03-30 12:22:27          Bangalore            54 minutes and 24.38 seconds
-CAPELLA-17 (ACADIA-7)     2026-03-29 19:11:15          2026-03-29 20:05:40          Bangalore            54 minutes and 24.30 seconds
-CAPELLA-18 (ACADIA-8)     2026-03-28 11:26:46          2026-03-28 12:21:06          Bangalore            54 minutes and 19.17 seconds
-CAPELLA-16 (ACADIA-6)     2026-03-29 16:39:53          2026-03-29 17:30:36          Mauritius            50 minutes and 43.48 seconds
-CAPELLA-15 (ACADIA-5)     2026-03-28 16:39:09          2026-03-28 17:28:49          Mauritius            49 minutes and 40.54 seconds
+CAPELLA-15 (ACADIA-5)     2026-04-08 16:32:35          2026-04-08 17:27:05          Bangalore            54 minutes and 29.30 seconds
+CAPELLA-19 (ACADIA-9)     2026-04-06 11:28:02          2026-04-06 12:22:27          Bangalore            54 minutes and 24.59 seconds
+CAPELLA-17 (ACADIA-7)     2026-04-08 19:07:29          2026-04-08 20:01:43          Bangalore            54 minutes and 14.35 seconds
+CAPELLA-18 (ACADIA-8)     2026-04-11 11:22:56          2026-04-11 12:17:07          Bangalore            54 minutes and 11.46 seconds
+CAPELLA-15 (ACADIA-5)     2026-04-07 16:24:47          2026-04-07 17:18:57          Bangalore            54 minutes and 9.73 seconds
 ========================================================================================================================
 
 ✓ Exported top 5 latencies to docs/figures/imaging_data_latency_top5.csv
 ✓ Exported statistics to docs/figures/imaging_data_latency_stats.csv
 
 Creating ground track visualization for top 3 worst latencies...
-  Gap 1: 56 points, 2 segments, latency=54m 24s
+  Gap 1: 55 points, 2 segments, latency=54m 29s
   Gap 2: 55 points, 2 segments, latency=54m 24s
-  Gap 3: 55 points, 2 segments, latency=54m 19s
-Created ground track visualization in 0.27 seconds.
+  Gap 3: 56 points, 2 segments, latency=54m 14s
+Created ground track visualization in 0.22 seconds.
 
 ✓ Generated imaging_data_latency_groundtrack_light.svg
 ✓ Generated imaging_data_latency_groundtrack_dark.svg

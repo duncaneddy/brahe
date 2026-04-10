@@ -86,7 +86,7 @@ jobs:
         run: uv python install 3.14
 
       - name: Install just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
 
       - name: Build and validate Rust package
         run: just build --lang rust
@@ -120,7 +120,7 @@ jobs:
         run: uv python install 3.14
 
       - name: Install just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
 
       - name: Build and validate Python package
         run: just build --lang python

@@ -30,6 +30,10 @@ def test_MJD_J2000():
     assert brahe.MJD_J2000 == 51544.5
 
 
+def test_JD_J2000():
+    assert brahe.JD_J2000 == 2451545.0
+
+
 def test_GPS_TAI():
     assert brahe.GPS_TAI == -19.0
 

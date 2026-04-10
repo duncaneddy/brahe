@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.3.3] - 2026-04-10
+### Added
+
+- Add JD_J2000 constant to python bindings [#264](https://github.com/duncaneddy/brahe/pull/264)
+
 ## [1.3.2] - 2026-04-06
 ### Changed
 

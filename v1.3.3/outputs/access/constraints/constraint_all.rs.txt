@@ -1,0 +1,1 @@
+Created: ElevationConstraint(>= 10.00°) && LocalTimeConstraint(08:00-18:00)

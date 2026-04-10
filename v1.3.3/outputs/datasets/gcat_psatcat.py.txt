@@ -1,0 +1,12 @@
+Loaded 26656 PSATCAT records
+Active payloads: 15307
+
+Communications payloads: 16380
+Civil payloads: 3264
+
+ISS Payload Details:
+  Name:       Zarya Cargo Block
+  Program:    TsM
+  Category:   SS
+  Class:      C
+  Result:     S

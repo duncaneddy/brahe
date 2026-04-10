@@ -1,0 +1,10 @@
+High-precision config:
+  Method: RKN1210 (Runge-Kutta-Nystrom 12(10))
+  Tolerances: Very tight (1e-10 rel, 1e-8 abs)
+
+After 10 orbits (15.8 hours):
+  High-precision error: 0.000001031 m
+  Standard error:       11.560767001 m
+  Improvement factor:   11214195.3x
+
+Example validated successfully!

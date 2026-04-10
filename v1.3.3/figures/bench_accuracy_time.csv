@@ -1,0 +1,11 @@
+Task,Comparison,Max Abs Error,RMS Error
+Epoch Creation,Java vs Python,0.0 nm,0.0 nm
+Epoch Creation,Java vs Rust,0.0 nm,0.0 nm
+UTC To GPS,Java vs Python,0.0 nm,0.0 nm
+UTC To GPS,Java vs Rust,0.0 nm,0.0 nm
+UTC To TAI,Java vs Python,0.0 nm,0.0 nm
+UTC To TAI,Java vs Rust,0.0 nm,0.0 nm
+UTC To TT,Java vs Python,0.0 nm,0.0 nm
+UTC To TT,Java vs Rust,0.0 nm,0.0 nm
+UTC To UT1,Java vs Python,1.0 µm,449 nm
+UTC To UT1,Java vs Rust,1.0 µm,449 nm

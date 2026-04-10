@@ -1,0 +1,8 @@
+Downloaded 10161 Starlink GP records
+
+First record:
+  Name: STARLINK-1008
+  NORAD ID: 44714
+  Epoch: 2026-04-10T04:57:06.901632
+  Inclination: 53.16°
+  Eccentricity: 0.000322

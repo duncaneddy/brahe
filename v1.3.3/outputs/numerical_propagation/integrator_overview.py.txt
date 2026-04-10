@@ -1,0 +1,4 @@
+Method: IntegrationMethod.DP54
+abs_tol: 1e-09
+rel_tol: 1e-06
+Variational: VariationalConfig(enable_stm=true, enable_sensitivity=false, store_stm_history=true, store_sensitivity_history=false)

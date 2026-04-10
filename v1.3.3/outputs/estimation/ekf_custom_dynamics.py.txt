@@ -1,0 +1,4 @@
+Custom dynamics EKF:
+  Prefit residual norm: 456672.591 m
+  Postfit residual norm: 33.698475 m
+  State dim: 6

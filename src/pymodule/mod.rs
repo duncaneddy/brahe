@@ -581,6 +581,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("RAD2AS", constants::RAD2AS)?;
     module.add("MJD_ZERO", constants::MJD_ZERO)?;
     module.add("MJD_J2000", constants::MJD_J2000)?;
+    module.add("JD_J2000", constants::JD_J2000)?;
     module.add("GPS_TAI", constants::GPS_TAI)?;
     module.add("TAI_GPS", constants::TAI_GPS)?;
     module.add("TT_TAI", constants::TT_TAI)?;

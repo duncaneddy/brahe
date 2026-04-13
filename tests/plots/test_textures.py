@@ -1,5 +1,6 @@
 """Tests for texture utility functions."""
 
+from importlib.resources import files
 import pytest
 from pathlib import Path
 from PIL import Image
@@ -34,6 +35,15 @@ def test_get_blue_marble_texture_path():
     assert texture_path.is_file()
     assert texture_path.suffix == ".png"
     assert "world.topo" in texture_path.name
+
+
+def test_blue_marble_resource_is_packaged():
+    """Test that the Blue Marble texture is present as a package resource."""
+    texture_resource = files("brahe.plots.data").joinpath(
+        "world.topo.200410.3x5400x2700.png"
+    )
+
+    assert texture_resource.is_file()
 
 
 def test_load_earth_texture_simple():

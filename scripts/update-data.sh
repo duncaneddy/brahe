@@ -13,5 +13,5 @@ curl -L https://datacenter.iers.org/data/latestVersion/finals.all.iau2000.txt -o
 curl -L https://datacenter.iers.org/data/latestVersion/EOP_20_C04_one_file_1962-now.txt -o ./data/eop/EOP_20_C04_one_file_1962-now.txt
 
 # Space Weather Data
-curl -L https://celestrak.com/SpaceData/sw19571001.txt -o ./data/space_weather/sw19571001.txt
+curl -L https://celestrak.org/SpaceData/sw19571001.txt -o ./data/space_weather/sw19571001.txt
 curl -L https://www.spaceweather.gc.ca/solar_flux_data/daily_flux_values/fluxtable.txt -o ./data/space_weather/fluxtable.txt

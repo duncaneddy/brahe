@@ -16,7 +16,7 @@ use crate::utils::atomic_write;
 use crate::utils::cache::get_space_weather_cache_dir;
 
 /// Default URL for downloading space weather data from CelesTrak
-const DEFAULT_SW_URL: &str = "https://celestrak.com/SpaceData/sw19571001.txt";
+const DEFAULT_SW_URL: &str = "https://celestrak.org/SpaceData/sw19571001.txt";
 
 /// Default filename for cached space weather data
 const DEFAULT_SW_FILENAME: &str = "sw19571001.txt";

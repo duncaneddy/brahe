@@ -42,7 +42,7 @@ The approximately 11-year solar cycle is clearly visible in the data, with peaks
 **Kp** and **Ap** indices measure geomagnetic activity caused by solar wind interactions with Earth's magnetosphere.
 ## Data Source
 
-Brahe uses CSSI space weather data files provided by [CelesTrak](https://celestrak.com/SpaceData/). The data includes:
+Brahe uses CSSI space weather data files provided by [CelesTrak](https://celestrak.org/SpaceData/). The data includes:
 
 - **Historical observations** from October 1957 to present
 - **Daily predictions** for the near term

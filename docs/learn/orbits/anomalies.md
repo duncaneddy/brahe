@@ -201,4 +201,4 @@ provided for convenience. These methods simply wrap successive calls to two
     ```
 
 [^1]: D. Vallado, *Fundamentals of Astrodynamics and Applications (4th Ed.)*, 2010  
-[https://celestrak.com/software/vallado-sw.php](https://celestrak.com/software/vallado-sw.php)
+[https://celestrak.org/software/vallado-sw.php](https://celestrak.org/software/vallado-sw.php)

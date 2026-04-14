@@ -1,5 +1,5 @@
 Downloading Capella satellite TLEs from CelesTrak...
-Found 8 Capella satellites in 0.37 seconds
+Found 8 Capella satellites in 3.32 seconds
   - CAPELLA-11 (ACADIA-1)
   - CAPELLA-14 (ACADIA-4)
   - CAPELLA-13 (ACADIA-3)
@@ -52,21 +52,21 @@ Using 33 external stations for downlink:
   - Weilheim (11.08, 47.88)
 
 Computing AOI exit events...
-Found 293 AOI exit events in 12.22 seconds
+Found 291 AOI exit events in 10.40 seconds
 
 Computing ground station contacts...
-Computed 10225 ground contact windows in 16.13 seconds
+Computed 10227 ground contact windows in 15.70 seconds
 
 Computing imaging data latencies...
-Computed 293 latency values in 0.06 seconds
+Computed 290 latency values in 0.07 seconds
 
 ====================================================================================================
 Imaging Data Latency Statistics
 ====================================================================================================
-  Worst (Max):  54 minutes and 25.55 seconds
-  Best (Min):   0.55 seconds
-  Average:      14 minutes and 54.77 seconds
-  Median:       5 minutes and 39.66 seconds
+  Worst (Max):  54 minutes and 24.74 seconds
+  Best (Min):   9.60 seconds
+  Average:      14 minutes and 24.81 seconds
+  Median:       5 minutes and 32.99 seconds
 ====================================================================================================
 
 ========================================================================================================================
@@ -74,21 +74,21 @@ Top 5 Worst Imaging Data Latencies
 ========================================================================================================================
 Satellite                 AOI Exit Time                Contact Start                Station                      Latency
 ------------------------------------------------------------------------------------------------------------------------
-CAPELLA-16 (ACADIA-6)     2026-04-12 16:37:36          2026-04-12 17:32:01          Bangalore            54 minutes and 25.55 seconds
-CAPELLA-19 (ACADIA-9)     2026-04-13 11:28:10          2026-04-13 12:22:36          Bangalore            54 minutes and 25.47 seconds
-CAPELLA-18 (ACADIA-8)     2026-04-11 11:24:39          2026-04-11 12:18:54          Bangalore            54 minutes and 15.55 seconds
-CAPELLA-16 (ACADIA-6)     2026-04-11 16:31:14          2026-04-11 17:25:23          Bangalore            54 minutes and 9.66 seconds
-CAPELLA-16 (ACADIA-6)     2026-04-10 16:24:51          2026-04-10 17:18:47          Bangalore            53 minutes and 56.00 seconds
+CAPELLA-19 (ACADIA-9)     2026-04-20 11:27:49          2026-04-20 12:22:14          Bangalore            54 minutes and 24.74 seconds
+CAPELLA-17 (ACADIA-7)     2026-04-19 19:10:58          2026-04-19 20:05:22          Bangalore            54 minutes and 23.76 seconds
+CAPELLA-18 (ACADIA-8)     2026-04-18 11:24:47          2026-04-18 12:19:04          Bangalore            54 minutes and 16.33 seconds
+CAPELLA-15 (ACADIA-5)     2026-04-19 16:26:40          2026-04-19 17:20:54          Bangalore            54 minutes and 14.46 seconds
+CAPELLA-17 (ACADIA-7)     2026-04-18 19:02:15          2026-04-18 19:56:18          Bangalore            54 minutes and 2.97 seconds
 ========================================================================================================================
 
 ✓ Exported top 5 latencies to docs/figures/imaging_data_latency_top5.csv
 ✓ Exported statistics to docs/figures/imaging_data_latency_stats.csv
 
 Creating ground track visualization for top 3 worst latencies...
-  Gap 1: 56 points, 2 segments, latency=54m 25s
-  Gap 2: 56 points, 2 segments, latency=54m 25s
-  Gap 3: 55 points, 2 segments, latency=54m 15s
-Created ground track visualization in 0.30 seconds.
+  Gap 1: 55 points, 2 segments, latency=54m 24s
+  Gap 2: 56 points, 2 segments, latency=54m 23s
+  Gap 3: 55 points, 2 segments, latency=54m 16s
+Created ground track visualization in 0.31 seconds.
 
 ✓ Generated imaging_data_latency_groundtrack_light.svg
 ✓ Generated imaging_data_latency_groundtrack_dark.svg

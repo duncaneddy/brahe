@@ -5,6 +5,7 @@ Handles loading packaged textures and downloading/caching external texture data.
 """
 
 import zipfile
+from importlib.resources import files
 from pathlib import Path
 from typing import Optional
 import httpx
@@ -44,21 +45,17 @@ def get_blue_marble_texture_path() -> Path:
     Raises:
         FileNotFoundError: If the packaged texture is not found
     """
-    # Get the package root directory
-    import brahe
-
-    package_root = Path(brahe.__file__).parent.parent
-    texture_path = (
-        package_root / "data" / "textures" / "world.topo.200410.3x5400x2700.png"
+    texture_resource = files("brahe.plots.data").joinpath(
+        "world.topo.200410.3x5400x2700.png"
     )
 
-    if not texture_path.exists():
+    if not texture_resource.is_file():
         raise FileNotFoundError(
-            f"Blue Marble texture not found at {texture_path}. "
+            f"Blue Marble texture not found at {texture_resource}. "
             "This may indicate a corrupted installation."
         )
 
-    return texture_path
+    return Path(str(texture_resource))
 
 
 def download_natural_earth_texture(resolution: str = "50m") -> Path:

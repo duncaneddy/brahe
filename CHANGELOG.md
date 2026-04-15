@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [1.3.4] - 2026-04-15
+### Fixed
+
+- Fix failing celestrak queries by migrating from celestrak.com to celestrak.org [#272](https://github.com/duncaneddy/brahe/pull/272)
+
 ## [1.3.3] - 2026-04-10
 ### Added
 

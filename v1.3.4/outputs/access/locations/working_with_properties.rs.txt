@@ -1,0 +1,3 @@
+Antenna Gain: 42.5
+Operator: "NOAA"
+Uplink Enabled: true

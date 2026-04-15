@@ -1,0 +1,8 @@
+GP query URL path:
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544/format/json
+
+SATCAT query URL path:
+  /basicspacedata/query/class/satcat/COUNTRY/US/format/json
+
+CDM query URL path (uses expandedspacedata controller):
+  /basicspacedata/query/class/cdm_public/format/json

@@ -1,0 +1,33 @@
+=== Variational Propagation Overview ===
+
+Initial State:
+  Semi-major axis: 6878.1 km
+  Position std: 10.0 m
+  Velocity std: 10.00 mm/s
+
+--- State Transition Matrix (STM) ---
+STM shape: (6, 6)
+STM determinant: 0.999999 (should be ~1 for conservative forces)
+STM at t/2 available: true
+
+--- Covariance Propagation ---
+Position std (GCRF frame):
+  X: 12.3 m, Y: 184.2 m, Z: 184.4 m
+Position std (RTN frame):
+  R: 10.0 m, T: 260.5 m, N: 10.0 m
+
+--- Parameter Sensitivity ---
+Sensitivity matrix shape: (6, 5)
+
+Position sensitivity to 1% parameter uncertainty:
+  mass      : 0.08 m
+  drag_area : 0.08 m
+  Cd        : 0.08 m
+  srp_area  : 0.00 m
+  Cr        : 0.00 m
+
+--- Summary ---
+Total position uncertainty: 17.3 m -> 260.9 m
+Uncertainty growth factor: 15.1x
+
+Example validated successfully!

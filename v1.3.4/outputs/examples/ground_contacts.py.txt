@@ -1,0 +1,71 @@
+Downloading NISAR TLE from CelesTrak...
+Downloaded NISAR TLE in 0.50 seconds.
+Epoch: 2026-04-14 20:03:14.484 UTC
+Semi-major axis: 7128.4 km
+
+Loading NASA Near Earth Network ground stations...
+Loaded 18 NASA NEN ground stations in 0.00 seconds.
+
+Propagating NISAR for 3 orbits...
+Orbital period: 99.8 minutes
+Propagated NISAR for 3 orbits in 0.06 seconds.
+
+Creating ground track visualization with communication cones...
+Created ground track visualization in 0.12 seconds.
+
+Computing 7-day ground contacts...
+Computed 902 contact windows in 3.81 seconds.
+
+================================================================================
+Sample Contact Windows (first 10)
+================================================================================
+Station              Start Time                End Time                    Duration   Max Elev
+--------------------------------------------------------------------------------
+Svalbard             2026-04-14 20:24:04       2026-04-14 20:36:13           12.1 m     80.5°
+Kiruna               2026-04-14 20:26:01       2026-04-14 20:36:39           10.6 m     26.1°
+Santiago             2026-04-14 20:59:36       2026-04-14 21:08:10            8.6 m     14.2°
+Troll                2026-04-14 21:13:31       2026-04-14 21:15:44            2.2 m      5.4°
+McMurdo              2026-04-14 21:14:39       2026-04-14 21:27:00           12.4 m     80.4°
+Awarua               2026-04-14 21:24:18       2026-04-14 21:30:27            6.1 m      8.9°
+Dongara              2026-04-14 21:30:42       2026-04-14 21:40:26            9.7 m     18.5°
+Singapore            2026-04-14 21:42:17       2026-04-14 21:47:13            4.9 m      7.4°
+Svalbard             2026-04-14 22:02:46       2026-04-14 22:14:47           12.0 m     62.6°
+Kiruna               2026-04-14 22:04:02       2026-04-14 22:13:35            9.6 m     18.5°
+================================================================================
+✓ Exported first 20 contact windows to docs/figures/ground_contacts_windows.csv
+
+Analyzing contact statistics...
+
+Average Daily Contacts per Station:
+----------------------------------------
+Svalbard            :  14.4 contacts/day (101 total)
+McMurdo             :  14.4 contacts/day (101 total)
+Troll               :  11.4 contacts/day (80 total)
+Kiruna              :  10.6 contacts/day (74 total)
+Gilmore Creek       :  10.1 contacts/day (71 total)
+North Pole          :  10.1 contacts/day (71 total)
+Alaska Satellite Facility:  10.1 contacts/day (71 total)
+Awarua              :   5.7 contacts/day (40 total)
+Wallops             :   4.7 contacts/day (33 total)
+Matjiesfontein      :   4.6 contacts/day (32 total)
+White Sands         :   4.4 contacts/day (31 total)
+Santiago            :   4.3 contacts/day (30 total)
+Dongara             :   4.1 contacts/day (29 total)
+Ponce de Leon       :   4.1 contacts/day (29 total)
+Merrit Island       :   4.1 contacts/day (29 total)
+Hartebeesthoek      :   4.1 contacts/day (29 total)
+South Point         :   3.9 contacts/day (27 total)
+Singapore           :   3.4 contacts/day (24 total)
+
+Contact Duration Statistics:
+  Mean: 9.9 minutes
+  Median: 10.9 minutes
+  Min: 1.5 minutes
+  Max: 12.4 minutes
+
+✓ Generated docs/figures/ground_contacts_groundtrack_light.html
+✓ Generated docs/figures/ground_contacts_groundtrack_dark.html
+✓ Generated docs/figures/ground_contacts_daily_contacts_light.html
+✓ Generated docs/figures/ground_contacts_daily_contacts_dark.html
+✓ Generated docs/figures/ground_contacts_duration_dist_light.html
+✓ Generated docs/figures/ground_contacts_duration_dist_dark.html

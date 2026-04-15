@@ -1,0 +1,30 @@
+Demonstrating different Earth texture options...
+
+1. Creating plot with 'simple' texture (solid sphere)...
+   ✓ Simple texture plot created
+
+2. Creating plot with 'blue_marble' texture (packaged)...
+   ✓ Blue Marble texture plot created
+
+3. Creating plotly plot (defaults to blue_marble)...
+   ✓ Plotly plot with blue marble created
+
+4. Natural Earth 50m texture option available:
+   - Use earth_texture='natural_earth_50m' to download and use
+   - First use downloads ~20MB to ~/.cache/brahe/textures/
+   - Subsequent uses load from cache
+
+5. Natural Earth 10m texture option available:
+   - Use earth_texture='natural_earth_10m' for highest quality
+   - First use downloads ~180MB to ~/.cache/brahe/textures/
+   - Best for high-resolution figures
+
+Summary of texture options:
+  • 'simple'           - Fast solid sphere (matplotlib default)
+  • 'blue_marble'      - NASA Blue Marble (packaged, plotly default)
+  • 'natural_earth_50m' - Natural Earth 50m (auto-downloads)
+  • 'natural_earth_10m' - Natural Earth 10m HR (auto-downloads)
+
+All plots created successfully!
+
+To display plots, add plt.show() or fig.show() to the script.

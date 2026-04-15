@@ -1,0 +1,19 @@
+Found 38 imaging opportunities
+
+Opportunity 1:
+  Start: 2008-09-20 03:31:47.704 UTC
+  Duration: 6.4 min
+  Off-nadir: 70.7°
+  Local time: 31333:21
+
+Opportunity 2:
+  Start: 2008-09-20 05:05:29.200 UTC
+  Duration: 9.4 min
+  Off-nadir: 56.0°
+  Local time: 37059:01
+
+Opportunity 3:
+  Start: 2008-09-20 16:31:15.535 UTC
+  Duration: 9.8 min
+  Off-nadir: 3.7°
+  Local time: 78331:02

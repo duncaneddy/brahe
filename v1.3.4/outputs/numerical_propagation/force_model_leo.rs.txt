@@ -1,0 +1,6 @@
+LEO Force Model (ISS-like orbit after 1 day):
+  Initial altitude: 400.000 km
+  Final altitude:   400.059 km
+  Altitude decay:   -59.362 m
+
+Example validated successfully!

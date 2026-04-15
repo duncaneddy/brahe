@@ -1,0 +1,3 @@
+Matrix type: <class 'numpy.ndarray'>
+Matrix shape: (3, 6)
+First state velocity: 7600.0 m/s

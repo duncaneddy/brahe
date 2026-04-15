@@ -1,0 +1,9 @@
+Task,Comparison,Max Abs Error,RMS Error
+Euler Angle To Quaternion,Java vs Python,0.669 m,0.248 m
+Euler Angle To Quaternion,Java vs Rust,0.669 m,0.248 m
+Quaternion To Euler Angle,Java vs Python,0.0 nm,0.0 nm
+Quaternion To Euler Angle,Java vs Rust,0.0 nm,0.0 nm
+Quaternion To Rotation Matrix,Java vs Python,0.0 nm,0.0 nm
+Quaternion To Rotation Matrix,Java vs Rust,0.0 nm,0.0 nm
+Rotation Matrix To Quaternion,Java vs Python,0.0 nm,0.0 nm
+Rotation Matrix To Quaternion,Java vs Rust,0.0 nm,0.0 nm

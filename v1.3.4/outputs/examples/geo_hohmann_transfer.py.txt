@@ -1,0 +1,46 @@
+LEO radius: 6778.1 km (altitude: 400 km)
+GEO radius: 42164.1 km (altitude: 35786 km)
+
+Hohmann Transfer Parameters:
+  Transfer semi-major axis: 24471.1 km
+  Transfer eccentricity:    0.7230
+  LEO circular velocity:    7.669 km/s
+  GEO circular velocity:    3.075 km/s
+  First burn (perigee):     2.397 km/s
+  Second burn (apogee):     1.456 km/s
+  Total delta-v:            3.854 km/s
+  Transfer time:            5.29 hours
+
+Initial State (ECI):
+  Position: [6777.5, 0.0, 0.0] km
+  Velocity: [-0.000, 7.669, 0.000] km/s
+
+Propagation Timeline:
+  Burn 1 at t = 1.0 s
+  Burn 2 at t = 5.29 hours
+  Total simulation: 29.23 hours
+
+Propagating...
+First burn applied: dv = 2.397 km/s (prograde)
+Second burn applied: dv = 1.456 km/s (prograde)
+  Complete!
+
+Final GEO Orbit:
+  Semi-major axis: 42174.2 km
+  Altitude:        35796.1 km (target: 35786 km)
+  Eccentricity:    0.000648
+
+Sampled 1754 trajectory points
+
+Example validated successfully!
+  Altitude gain: 35396 km
+  Final eccentricity: 0.000648
+
+✓ Generated docs/figures/geo_hohmann_transfer_geometry_light.html
+✓ Generated docs/figures/geo_hohmann_transfer_geometry_dark.html
+✓ Generated docs/figures/geo_hohmann_transfer_altitude_light.html
+✓ Generated docs/figures/geo_hohmann_transfer_altitude_dark.html
+✓ Generated docs/figures/geo_hohmann_transfer_velocity_light.html
+✓ Generated docs/figures/geo_hohmann_transfer_velocity_dark.html
+
+GEO Hohmann Transfer Example Complete!

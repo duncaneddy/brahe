@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [Unreleased]
+### Changed
+
+- `pyo3` and `numpy` are now optional dependencies, activated via the `python` feature flag. Pure-Rust consumers that do not need the Python bindings no longer compile these crates. Existing Python users (pip/maturin installs) are unaffected; maturin already passes `--features python` via `pyproject.toml`.
+
 ## [1.3.4] - 2026-04-15
 ### Fixed
 

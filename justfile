@@ -51,7 +51,7 @@ coverage-combined: _setup
     cargo llvm-cov clean --workspace
     eval "$(cargo llvm-cov show-env --export-prefix)"
     uv pip install maturin --quiet
-    uv run maturin develop --uv --features pyo3/extension-module,python
+    uv run maturin develop --uv --features pyo3/extension-module
     {{python}} -m pytest tests/ \
         --cov=brahe \
         --cov-report=html \

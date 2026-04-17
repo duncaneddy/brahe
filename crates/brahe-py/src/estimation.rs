@@ -11,10 +11,10 @@
 // - BatchLeastSquares
 // =============================================================================
 
-use crate::estimation;
-use crate::estimation::MeasurementModel;
-use crate::estimation::DynamicsSource;
-use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy};
+use brahe::estimation;
+use brahe::estimation::MeasurementModel;
+use brahe::estimation::DynamicsSource;
+use brahe::math::jacobian::{DifferenceMethod, PerturbationStrategy};
 
 // =============================================================================
 // ProcessNoiseConfig
@@ -1028,7 +1028,7 @@ fn py_isotropic_covariance<'py>(
     dim: usize,
     sigma: f64,
 ) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
-    let mat = crate::math::covariance::isotropic_covariance(dim, sigma);
+    let mat = brahe::math::covariance::isotropic_covariance(dim, sigma);
     let rows = mat.nrows();
     let cols = mat.ncols();
     let mut flat = Vec::with_capacity(rows * cols);
@@ -1066,7 +1066,7 @@ fn py_diagonal_covariance<'py>(
     let data = sigmas.as_slice().map_err(|e| {
         exceptions::PyValueError::new_err(format!("Failed to read array: {}", e))
     })?;
-    let mat = crate::math::covariance::diagonal_covariance(data);
+    let mat = brahe::math::covariance::diagonal_covariance(data);
     let rows = mat.nrows();
     let cols = mat.ncols();
     let mut flat = Vec::with_capacity(rows * cols);
@@ -1278,13 +1278,13 @@ impl RustMeasurementModelWrapper {
 impl MeasurementModel for RustMeasurementModelWrapper {
     fn predict(
         &self,
-        epoch: &crate::time::Epoch,
+        epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
         _params: Option<&DVector<f64>>,
-    ) -> Result<DVector<f64>, crate::utils::errors::BraheError> {
+    ) -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
         Python::attach(|py| {
             let py_epoch = Py::new(py, PyEpoch { obj: *epoch })
-                .map_err(|e| crate::utils::errors::BraheError::Error(e.to_string()))?;
+                .map_err(|e| brahe::utils::errors::BraheError::Error(e.to_string()))?;
             let state_np = state.as_slice().to_pyarray(py);
 
             let result = self
@@ -1292,14 +1292,14 @@ impl MeasurementModel for RustMeasurementModelWrapper {
                 .bind(py)
                 .call_method1("predict", (py_epoch, state_np))
                 .map_err(|e| {
-                    crate::utils::errors::BraheError::Error(format!(
+                    brahe::utils::errors::BraheError::Error(format!(
                         "Python predict() failed: {}",
                         e
                     ))
                 })?;
 
             let res_arr: PyReadonlyArray1<f64> = result.extract().map_err(|e| {
-                crate::utils::errors::BraheError::Error(format!(
+                brahe::utils::errors::BraheError::Error(format!(
                     "predict() must return a numpy array: {}",
                     e
                 ))
@@ -1308,22 +1308,22 @@ impl MeasurementModel for RustMeasurementModelWrapper {
             Ok(DVector::from_column_slice(
                 res_arr
                     .as_slice()
-                    .map_err(|e| crate::utils::errors::BraheError::Error(e.to_string()))?,
+                    .map_err(|e| brahe::utils::errors::BraheError::Error(e.to_string()))?,
             ))
         })
     }
 
     fn jacobian(
         &self,
-        epoch: &crate::time::Epoch,
+        epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
         params: Option<&DVector<f64>>,
-    ) -> Result<DMatrix<f64>, crate::utils::errors::BraheError> {
+    ) -> Result<DMatrix<f64>, brahe::utils::errors::BraheError> {
         // Try calling Python jacobian() first
-        let py_result: Result<Option<DMatrix<f64>>, crate::utils::errors::BraheError> =
+        let py_result: Result<Option<DMatrix<f64>>, brahe::utils::errors::BraheError> =
             Python::attach(|py| {
                 let py_epoch = Py::new(py, PyEpoch { obj: *epoch }).map_err(|e| {
-                    crate::utils::errors::BraheError::Error(format!(
+                    brahe::utils::errors::BraheError::Error(format!(
                         "Failed to create PyEpoch: {}",
                         e
                     ))
@@ -1335,7 +1335,7 @@ impl MeasurementModel for RustMeasurementModelWrapper {
                     .bind(py)
                     .call_method1("jacobian", (py_epoch, state_np))
                     .map_err(|e| {
-                        crate::utils::errors::BraheError::Error(format!(
+                        brahe::utils::errors::BraheError::Error(format!(
                             "Python jacobian() raised an exception: {}",
                             e
                         ))
@@ -1348,7 +1348,7 @@ impl MeasurementModel for RustMeasurementModelWrapper {
 
                 // Extract as 2D numpy array
                 let arr: PyReadonlyArray2<f64> = result.extract().map_err(|e| {
-                    crate::utils::errors::BraheError::Error(format!(
+                    brahe::utils::errors::BraheError::Error(format!(
                         "jacobian() must return a 2D numpy array or None: {}",
                         e
                     ))
@@ -1357,7 +1357,7 @@ impl MeasurementModel for RustMeasurementModelWrapper {
                 let data: Vec<f64> = arr
                     .as_slice()
                     .map_err(|e| {
-                        crate::utils::errors::BraheError::Error(format!(
+                        brahe::utils::errors::BraheError::Error(format!(
                             "Failed to read jacobian array data: {}",
                             e
                         ))
@@ -1411,10 +1411,10 @@ enum MeasurementModelHolder {
 impl MeasurementModel for MeasurementModelHolder {
     fn predict(
         &self,
-        epoch: &crate::time::Epoch,
+        epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
         params: Option<&DVector<f64>>,
-    ) -> Result<DVector<f64>, crate::utils::errors::BraheError> {
+    ) -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
         match self {
             MeasurementModelHolder::RustNative(m) => m.predict(epoch, state, params),
             MeasurementModelHolder::PythonWrapper(m) => m.predict(epoch, state, params),
@@ -1423,10 +1423,10 @@ impl MeasurementModel for MeasurementModelHolder {
 
     fn jacobian(
         &self,
-        epoch: &crate::time::Epoch,
+        epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
         params: Option<&DVector<f64>>,
-    ) -> Result<DMatrix<f64>, crate::utils::errors::BraheError> {
+    ) -> Result<DMatrix<f64>, brahe::utils::errors::BraheError> {
         match self {
             MeasurementModelHolder::RustNative(m) => m.jacobian(epoch, state, params),
             MeasurementModelHolder::PythonWrapper(m) => m.jacobian(epoch, state, params),
@@ -1596,7 +1596,7 @@ impl PyExtendedKalmanFilter {
             params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
 
         // Wrap additional_dynamics callable
-        let additional_dynamics_fn: Option<crate::integrators::traits::DStateDynamics> =
+        let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
             additional_dynamics.map(|dyn_py| {
                 let dyn_py = dyn_py.clone_ref(py);
                 Box::new(
@@ -1628,11 +1628,11 @@ impl PyExtendedKalmanFilter {
                             }
                         })
                     },
-                ) as crate::integrators::traits::DStateDynamics
+                ) as brahe::integrators::traits::DStateDynamics
             });
 
         // Wrap control_input callable
-        let control_input_fn: crate::integrators::traits::DControlInput =
+        let control_input_fn: brahe::integrators::traits::DControlInput =
             control_input.map(|ctrl_py| {
                 let ctrl_py = ctrl_py.clone_ref(py);
                 Box::new(
@@ -1992,7 +1992,7 @@ impl PyUnscentedKalmanFilter {
             params.map(|p| nalgebra::DVector::from_column_slice(p.as_slice().unwrap()));
 
         // Wrap additional_dynamics callable
-        let additional_dynamics_fn: Option<crate::integrators::traits::DStateDynamics> =
+        let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
             additional_dynamics.map(|dyn_py| {
                 let dyn_py = dyn_py.clone_ref(py);
                 Box::new(
@@ -2022,11 +2022,11 @@ impl PyUnscentedKalmanFilter {
                             }
                         })
                     },
-                ) as crate::integrators::traits::DStateDynamics
+                ) as brahe::integrators::traits::DStateDynamics
             });
 
         // Wrap control_input callable
-        let control_input_fn: crate::integrators::traits::DControlInput =
+        let control_input_fn: brahe::integrators::traits::DControlInput =
             control_input.map(|ctrl_py| {
                 let ctrl_py = ctrl_py.clone_ref(py);
                 Box::new(
@@ -2753,7 +2753,7 @@ impl PyBatchLeastSquares {
             params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
 
         // Wrap additional_dynamics callable
-        let additional_dynamics_fn: Option<crate::integrators::traits::DStateDynamics> =
+        let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
             additional_dynamics.map(|dyn_py| {
                 let dyn_py = dyn_py.clone_ref(py);
                 Box::new(
@@ -2785,11 +2785,11 @@ impl PyBatchLeastSquares {
                             }
                         })
                     },
-                ) as crate::integrators::traits::DStateDynamics
+                ) as brahe::integrators::traits::DStateDynamics
             });
 
         // Wrap control_input callable
-        let control_input_fn: crate::integrators::traits::DControlInput =
+        let control_input_fn: brahe::integrators::traits::DControlInput =
             control_input.map(|ctrl_py| {
                 let ctrl_py = ctrl_py.clone_ref(py);
                 Box::new(

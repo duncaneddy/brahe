@@ -363,7 +363,7 @@ impl PyRK4DIntegrator {
         };
 
         // Create Rust closure for control input if provided
-        let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
+        let control: brahe::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
             Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::attach(|py| {
@@ -405,26 +405,26 @@ impl PyRK4DIntegrator {
                     };
 
                     let mut provider = match jac_method {
-                        crate::math::jacobian::DifferenceMethod::Forward => {
-                            crate::math::jacobian::DNumericalJacobian::forward(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::jacobian::DNumericalJacobian::forward(Box::new(jac_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Central => {
-                            crate::math::jacobian::DNumericalJacobian::central(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::jacobian::DNumericalJacobian::central(Box::new(jac_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Backward => {
-                            crate::math::jacobian::DNumericalJacobian::backward(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
+                            brahe::math::jacobian::DNumericalJacobian::backward(Box::new(jac_closure))
                         }
                     };
 
                     provider = match jac_pert {
-                        crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
                         } => provider.with_adaptive(scale_factor, min_value),
-                        crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
-                        crate::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
                             provider.with_percentage(pct)
                         }
                     };
@@ -453,7 +453,7 @@ impl PyRK4DIntegrator {
                         })
                     };
 
-                    let provider = crate::math::jacobian::DAnalyticJacobian::new(Box::new(jac_closure));
+                    let provider = brahe::math::jacobian::DAnalyticJacobian::new(Box::new(jac_closure));
                     Ok(Some(Box::new(provider) as Box<dyn DJacobianProvider>))
                 } else {
                     Err(exceptions::PyTypeError::new_err(
@@ -490,31 +490,31 @@ impl PyRK4DIntegrator {
                     };
 
                     let mut provider = match sens_method {
-                        crate::math::jacobian::DifferenceMethod::Forward => {
-                            crate::math::sensitivity::DNumericalSensitivity::forward(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::sensitivity::DNumericalSensitivity::forward(Box::new(sens_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Central => {
-                            crate::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Backward => {
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
                             // Backward not implemented for sensitivity, use central
-                            crate::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
                         }
                     };
 
                     provider = match sens_pert {
-                        crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
-                        } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        } => provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
                         }),
-                        crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
-                            provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Fixed(offset))
                         }
-                        crate::math::jacobian::PerturbationStrategy::Percentage(pct) => {
-                            provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Percentage(pct))
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Percentage(pct))
                         }
                     };
 
@@ -545,7 +545,7 @@ impl PyRK4DIntegrator {
                         })
                     };
 
-                    let provider = crate::math::sensitivity::DAnalyticSensitivity::new(Box::new(sens_closure));
+                    let provider = brahe::math::sensitivity::DAnalyticSensitivity::new(Box::new(sens_closure));
                     Ok(Some(Box::new(provider) as Box<dyn DSensitivityProvider>))
                 } else {
                     Err(exceptions::PyTypeError::new_err(
@@ -938,7 +938,7 @@ impl PyRKF45DIntegrator {
         };
 
         // Create Rust closure for control input if provided
-        let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
+        let control: brahe::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
             Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::attach(|py| {
@@ -978,26 +978,26 @@ impl PyRKF45DIntegrator {
                     };
 
                     let mut provider = match jac_method {
-                        crate::math::jacobian::DifferenceMethod::Forward => {
-                            crate::math::jacobian::DNumericalJacobian::forward(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::jacobian::DNumericalJacobian::forward(Box::new(jac_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Central => {
-                            crate::math::jacobian::DNumericalJacobian::central(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::jacobian::DNumericalJacobian::central(Box::new(jac_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Backward => {
-                            crate::math::jacobian::DNumericalJacobian::backward(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
+                            brahe::math::jacobian::DNumericalJacobian::backward(Box::new(jac_closure))
                         }
                     };
 
                     provider = match jac_pert {
-                        crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
                         } => provider.with_adaptive(scale_factor, min_value),
-                        crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
-                        crate::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
                             provider.with_percentage(pct)
                         }
                     };
@@ -1026,7 +1026,7 @@ impl PyRKF45DIntegrator {
                         })
                     };
 
-                    let provider = crate::math::jacobian::DAnalyticJacobian::new(Box::new(jac_closure));
+                    let provider = brahe::math::jacobian::DAnalyticJacobian::new(Box::new(jac_closure));
                     Ok(Some(Box::new(provider) as Box<dyn DJacobianProvider>))
                 } else {
                     Err(exceptions::PyTypeError::new_err(
@@ -1063,30 +1063,30 @@ impl PyRKF45DIntegrator {
                     };
 
                     let mut provider = match sens_method {
-                        crate::math::jacobian::DifferenceMethod::Forward => {
-                            crate::math::sensitivity::DNumericalSensitivity::forward(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::sensitivity::DNumericalSensitivity::forward(Box::new(sens_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Central => {
-                            crate::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Backward => {
-                            crate::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
                         }
                     };
 
                     provider = match sens_pert {
-                        crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
-                        } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        } => provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
                         }),
-                        crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
-                            provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Fixed(offset))
                         }
-                        crate::math::jacobian::PerturbationStrategy::Percentage(pct) => {
-                            provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Percentage(pct))
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Percentage(pct))
                         }
                     };
 
@@ -1117,7 +1117,7 @@ impl PyRKF45DIntegrator {
                         })
                     };
 
-                    let provider = crate::math::sensitivity::DAnalyticSensitivity::new(Box::new(sens_closure));
+                    let provider = brahe::math::sensitivity::DAnalyticSensitivity::new(Box::new(sens_closure));
                     Ok(Some(Box::new(provider) as Box<dyn DSensitivityProvider>))
                 } else {
                     Err(exceptions::PyTypeError::new_err(
@@ -1513,7 +1513,7 @@ impl PyDP54DIntegrator {
         };
 
         // Create Rust closure for control input if provided
-        let control: crate::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
+        let control: brahe::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
             let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
             Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
                 Python::attach(|py| {
@@ -1553,26 +1553,26 @@ impl PyDP54DIntegrator {
                     };
 
                     let mut provider = match jac_method {
-                        crate::math::jacobian::DifferenceMethod::Forward => {
-                            crate::math::jacobian::DNumericalJacobian::forward(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::jacobian::DNumericalJacobian::forward(Box::new(jac_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Central => {
-                            crate::math::jacobian::DNumericalJacobian::central(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::jacobian::DNumericalJacobian::central(Box::new(jac_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Backward => {
-                            crate::math::jacobian::DNumericalJacobian::backward(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
+                            brahe::math::jacobian::DNumericalJacobian::backward(Box::new(jac_closure))
                         }
                     };
 
                     provider = match jac_pert {
-                        crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
                         } => provider.with_adaptive(scale_factor, min_value),
-                        crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
-                        crate::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
                             provider.with_percentage(pct)
                         }
                     };
@@ -1601,7 +1601,7 @@ impl PyDP54DIntegrator {
                         })
                     };
 
-                    let provider = crate::math::jacobian::DAnalyticJacobian::new(Box::new(jac_closure));
+                    let provider = brahe::math::jacobian::DAnalyticJacobian::new(Box::new(jac_closure));
                     Ok(Some(Box::new(provider) as Box<dyn DJacobianProvider>))
                 } else {
                     Err(exceptions::PyTypeError::new_err(
@@ -1637,30 +1637,30 @@ impl PyDP54DIntegrator {
                     };
 
                     let mut provider = match sens_method {
-                        crate::math::jacobian::DifferenceMethod::Forward => {
-                            crate::math::sensitivity::DNumericalSensitivity::forward(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::sensitivity::DNumericalSensitivity::forward(Box::new(sens_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Central => {
-                            crate::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Backward => {
-                            crate::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
                         }
                     };
 
                     provider = match sens_pert {
-                        crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
-                        } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        } => provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
                         }),
-                        crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
-                            provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Fixed(offset))
                         }
-                        crate::math::jacobian::PerturbationStrategy::Percentage(pct) => {
-                            provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Percentage(pct))
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Percentage(pct))
                         }
                     };
 
@@ -1691,7 +1691,7 @@ impl PyDP54DIntegrator {
                         })
                     };
 
-                    let provider = crate::math::sensitivity::DAnalyticSensitivity::new(Box::new(sens_closure));
+                    let provider = brahe::math::sensitivity::DAnalyticSensitivity::new(Box::new(sens_closure));
                     Ok(Some(Box::new(provider) as Box<dyn DSensitivityProvider>))
                 } else {
                     Err(exceptions::PyTypeError::new_err(
@@ -2118,26 +2118,26 @@ impl PyRKN1210DIntegrator {
                     };
 
                     let mut provider = match jac_method {
-                        crate::math::jacobian::DifferenceMethod::Forward => {
-                            crate::math::jacobian::DNumericalJacobian::forward(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::jacobian::DNumericalJacobian::forward(Box::new(jac_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Central => {
-                            crate::math::jacobian::DNumericalJacobian::central(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::jacobian::DNumericalJacobian::central(Box::new(jac_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Backward => {
-                            crate::math::jacobian::DNumericalJacobian::backward(Box::new(jac_closure))
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
+                            brahe::math::jacobian::DNumericalJacobian::backward(Box::new(jac_closure))
                         }
                     };
 
                     provider = match jac_pert {
-                        crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
                         } => provider.with_adaptive(scale_factor, min_value),
-                        crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
                             provider.with_fixed_offset(offset)
                         }
-                        crate::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
                             provider.with_percentage(pct)
                         }
                     };
@@ -2166,7 +2166,7 @@ impl PyRKN1210DIntegrator {
                         })
                     };
 
-                    let provider = crate::math::jacobian::DAnalyticJacobian::new(Box::new(jac_closure));
+                    let provider = brahe::math::jacobian::DAnalyticJacobian::new(Box::new(jac_closure));
                     Ok(Some(Box::new(provider) as Box<dyn DJacobianProvider>))
                 } else {
                     Err(exceptions::PyTypeError::new_err(
@@ -2202,30 +2202,30 @@ impl PyRKN1210DIntegrator {
                     };
 
                     let mut provider = match sens_method {
-                        crate::math::jacobian::DifferenceMethod::Forward => {
-                            crate::math::sensitivity::DNumericalSensitivity::forward(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::sensitivity::DNumericalSensitivity::forward(Box::new(sens_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Central => {
-                            crate::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
                         }
-                        crate::math::jacobian::DifferenceMethod::Backward => {
-                            crate::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
                         }
                     };
 
                     provider = match sens_pert {
-                        crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
-                        } => provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Adaptive {
+                        } => provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Adaptive {
                             scale_factor,
                             min_value,
                         }),
-                        crate::math::jacobian::PerturbationStrategy::Fixed(offset) => {
-                            provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Fixed(offset))
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Fixed(offset))
                         }
-                        crate::math::jacobian::PerturbationStrategy::Percentage(pct) => {
-                            provider.with_strategy(crate::math::jacobian::PerturbationStrategy::Percentage(pct))
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Percentage(pct))
                         }
                     };
 
@@ -2256,7 +2256,7 @@ impl PyRKN1210DIntegrator {
                         })
                     };
 
-                    let provider = crate::math::sensitivity::DAnalyticSensitivity::new(Box::new(sens_closure));
+                    let provider = brahe::math::sensitivity::DAnalyticSensitivity::new(Box::new(sens_closure));
                     Ok(Some(Box::new(provider) as Box<dyn DSensitivityProvider>))
                 } else {
                     Err(exceptions::PyTypeError::new_err(

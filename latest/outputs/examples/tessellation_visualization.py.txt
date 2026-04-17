@@ -1,5 +1,5 @@
 Downloading NISAR TLE from CelesTrak...
-Found NISAR: NISAR in 4.94s
+Found NISAR: NISAR in 18.90s
 
 Ireland polygon: 27 vertices
 
@@ -10,7 +10,7 @@ NISAR tessellation: 4 tiles
   Tile 3: width=242 km, length=480 km
 
 Computing collection opportunities...
-Found 644 collection windows in 0.08s
+Found 644 collection windows in 0.07s
 
 ======================================================================
 Collection Opportunity Summary (7-day period)

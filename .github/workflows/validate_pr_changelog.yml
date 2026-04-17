@@ -24,14 +24,15 @@ jobs:
             const prBody = context.payload.pull_request.body || '';
             const prNumber = context.payload.pull_request.number;
 
-            // Define changelog sections to check
-            const sections = ['Added', 'Changed', 'Fixed', 'Removed'];
+            // Define changelog sections to check (Keep a Changelog order)
+            const sections = ['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed'];
             let hasValidEntry = false;
             const foundEntries = [];
 
             for (const section of sections) {
-              // Match section header followed by list items (not HTML comments)
-              const pattern = new RegExp(`###\\s+${section}\\s*\\n((?:- (?!<!--).*\\n?)*)`, 'i');
+              // Match section header followed by list items (not HTML comments).
+              // `[^\\n]*` tolerates header suffixes like "Deprecated / Future Warning".
+              const pattern = new RegExp(`###\\s+${section}[^\\n]*\\n((?:- (?!<!--).*\\n?)*)`, 'i');
               const match = prBody.match(pattern);
 
               if (match) {
@@ -56,8 +57,9 @@ jobs:
 
             - **Added** - for new features
             - **Changed** - for changes in existing functionality
+            - **Deprecated** - for APIs still present but scheduled for removal (must emit \`DeprecationWarning\` or \`FutureWarning\`)
+            - **Removed** - for APIs that have now been removed (should reference the release in which they were deprecated)
             - **Fixed** - for bug fixes
-            - **Removed** - for removed features
 
             ### Example:
             \`\`\`markdown

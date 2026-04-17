@@ -2,8 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Brahe's versioning and deprecation policy is modeled on [NumPy's policy](https://numpy.org/doc/stable/dev/depending_on_numpy.html) rather than strict SemVer — see the [versioning documentation](https://duncaneddy.github.io/brahe/latest/about/versioning/) for the full policy, including the transitional deprecation window currently in effect.
+
+Each release groups entries under the Keep a Changelog section headings in the order **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**. Entries in **Deprecated** correspond to APIs that still work in this release but emit a `DeprecationWarning` or `FutureWarning`; entries in **Removed** list APIs that previous releases had deprecated.
 
 <!-- towncrier release notes start -->
 

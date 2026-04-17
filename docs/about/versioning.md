@@ -23,6 +23,8 @@ We recommend configuring your CI to treat `DeprecationWarning` and `FutureWarnin
 python -W error::DeprecationWarning -W error::FutureWarning -m pytest
 ```
 
+Deprecations and removals are tracked in the [changelog](../changelog.md) under the **Deprecated** and **Removed** section headings. Every entry in **Deprecated** corresponds to a `DeprecationWarning` or `FutureWarning` emitted at runtime; entries in **Removed** reference the prior release in which the API was first deprecated, so the deprecation horizon is auditable directly from release notes.
+
 ## Experimental Features
 
 Some features in Brahe are currently marked as experimental. These features are functional but are likely to undergo breaking changes in minor releases as we refine their design and implementation. Experimental features are indicated in the documentation with a warning box, and they are explicitly excluded from the backwards-compatibility expectations described above.

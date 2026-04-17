@@ -74,7 +74,10 @@ jobs:
             -   name: Install cargo-llvm-cov
                 uses: taiki-e/install-action@cargo-llvm-cov
             -   name: Run Rust tests with coverage
-                run: cargo llvm-cov --workspace --lcov --output-path lcov.info ${{ !inputs.is-fork-pr && '--features ci' || '' }}
+                # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
+                # workspace member has no Rust unit tests (it's exercised by pytest),
+                # so its coverage is measured in the python-rust combined flag below.
+                run: cargo llvm-cov -p brahe --lcov --output-path lcov.info ${{ !inputs.is-fork-pr && '--features ci' || '' }}
             -   name: Upload coverage to Codecov
                 if: matrix.os == 'ubuntu-latest'
                 uses: codecov/codecov-action@v6.0.0

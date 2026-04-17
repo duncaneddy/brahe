@@ -33,7 +33,7 @@ jobs:
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_rust.yml
     with:
-      is-fork-pr: ${{ github.event.pull_request.head.repo.fork == true }}
+      is-fork-pr: ${{ github.event.pull_request.head.repo.fork == true || github.actor == 'dependabot[bot]' }}
     secrets: inherit
 
   delay-python:
@@ -49,7 +49,7 @@ jobs:
     if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
     with:
-      is-fork-pr: ${{ github.event.pull_request.head.repo.fork == true }}
+      is-fork-pr: ${{ github.event.pull_request.head.repo.fork == true || github.actor == 'dependabot[bot]' }}
     secrets: inherit
 
   test-examples:

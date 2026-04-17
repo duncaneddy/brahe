@@ -407,7 +407,7 @@ impl PyQuaternion {
     /// Returns:
     ///     numpy.ndarray: 4-element array containing quaternion components
     pub unsafe fn data<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
-        vector_to_numpy!(py, self.obj.data, 4, f64)
+        vector_to_numpy!(py, self.obj, 4, f64)
     }
 
     #[getter]

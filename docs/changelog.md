@@ -7,6 +7,122 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [Unreleased]
+### Changed
+
+- `pyo3` and `numpy` are now optional dependencies, activated via the `python` feature flag. Pure-Rust consumers that do not need the Python bindings no longer compile these crates.
+- Split the repository into a Cargo workspace so the PyO3 bindings live in a dedicated `brahe-py` member crate at `crates/brahe-py/`. The published `brahe` crate now builds only an `rlib`, eliminating the unnecessary `cdylib` artifact previously produced for every pure-Rust consumer. Rust downstream (`use brahe::*`) and Python downstream (`import brahe`) are unchanged.
+
+## [1.3.4] - 2026-04-15
+### Fixed
+
+- Fix failing celestrak queries by migrating from celestrak.com to celestrak.org [#272](https://github.com/duncaneddy/brahe/pull/272)
+
+## [1.3.3] - 2026-04-10
+### Added
+
+- Add JD_J2000 constant to python bindings [#264](https://github.com/duncaneddy/brahe/pull/264)
+
+## [1.3.2] - 2026-04-06
+### Changed
+
+- Updated JOSS manuscript to comply with latest guidelines [#256](https://github.com/duncaneddy/brahe/pull/256)
+
+### Fixed
+
+- Fixed issue with SGP4 propagators erroring during parallel propagation on satellite reentry. Addressed by adding a `termination_error` field to SGPPropagators which will be documented and stop propagation rather than erroring all propagation.
+  Issued with documentation builds in CI failing due to dependency changes. Fixed by updating `uv.lock` [#256](https://github.com/duncaneddy/brahe/pull/256)
+
+## [1.3.1] - 2026-03-29
+### Added
+
+- Added retry logic and exponential back-off to Celestrak client
+  Added process-based rate-limiting to Celestrak client [#244](https://github.com/duncaneddy/brahe/pull/244)
+
+### Changed
+
+- Set default celestrak client cache age to 2 hours. [#244](https://github.com/duncaneddy/brahe/pull/244)
+- Bump version for `v1.3.1` [#248](https://github.com/duncaneddy/brahe/pull/248)
+
+### Fixed
+
+- Pointed `mike` documentation deployment to use `properdocs.yml` [#244](https://github.com/duncaneddy/brahe/pull/244)
+- Fix `mike set-default` invocation to use `properdocs.yml` config [#246](https://github.com/duncaneddy/brahe/pull/246)
+
+## [1.3.0] - 2026-03-29
+### Added
+
+- Added python constructors for CCSDS OPM and OMM file types [#225](https://github.com/duncaneddy/brahe/pull/225)
+- Added dedicated `celestrak` and `spacetrack` submodules to the brahe CLI for querying and interfacing with space track.
+  Added `to_dict()` and `to_json()` methods for GPRecord python module to enable easy interoperability [#227](https://github.com/duncaneddy/brahe/pull/227)
+- Added additional python test coverage [#228](https://github.com/duncaneddy/brahe/pull/228)
+- Added `estimation` module with support for `EKF`, `UKF`, and `BLS` (batched least-squares) filters
+  Added estimation plotting routines
+  Added implementations of magnetic field models. In particular the IGRF and WMMHR models.
+  Added `from_unix_timestamp` and `unix_timestamp` methods to support interoperability with native unix time systems
+  Added sponsor logo [#241](https://github.com/duncaneddy/brahe/pull/241)
+
+### Changed
+
+- Added additional test coverage [#225](https://github.com/duncaneddy/brahe/pull/225)
+- Renamed `MJD2000` constant to `MJD_J2000` to align with `JD_J2000` naming [#231](https://github.com/duncaneddy/brahe/pull/231)
+- Improved documentation code samples by auto-generating, capturing, and rendering script outputs so values are guaranteed to be kept up to date. [#234](https://github.com/duncaneddy/brahe/pull/234)
+- Migrated to `properdocs` from `mkdocs` for documentation due to instability in project. [#241](https://github.com/duncaneddy/brahe/pull/241)
+
+### Fixed
+
+- Fixed issue with anomaly conversion CLI not properly using `use_degrees` [#225](https://github.com/duncaneddy/brahe/pull/225)
+
+## [1.2.0] - 2026-03-21
+### Added
+
+- Added polygon tessellation for large area access computation [#199](https://github.com/duncaneddy/brahe/pull/199)
+- Added additional benchmarks and comparisons to OreKit in `benchmarks/comparisons` [#209](https://github.com/duncaneddy/brahe/pull/209)
+- Add support for CCSDS OEM, OMM, OPM (blue-book) and CDM (pinkbook) types. Methods exist to load, access, modify, and create these data objects. [#214](https://github.com/duncaneddy/brahe/pull/214)
+- Add full support for XML and JSON output across OEM, OPM, and OMM files. [#222](https://github.com/duncaneddy/brahe/pull/222)
+
+### Changed
+
+- Have Propagators set a UUID by default
+  Have Locations set a UUID by default
+  Migrated default-generated UUIDs to UUIDv7 [#202](https://github.com/duncaneddy/brahe/pull/202)
+- Removed `release` environment flag from github release workflows
+  Only retain last 3 minor documentation verions to prevent unbounded growth of github pages deployments. [#209](https://github.com/duncaneddy/brahe/pull/209)
+- Cleaned up space-track and celestrak documentation to improve readability and understandability [#214](https://github.com/duncaneddy/brahe/pull/214)
+- Added coverage reporting for python bindings and module [#218](https://github.com/duncaneddy/brahe/pull/218)
+- Improved CCSDS module round trip test coverage
+  Ensures that default OEM to Trajectory conversion returns a `DOrbitTrajectory` so that it can immediately be used with access computation. [#222](https://github.com/duncaneddy/brahe/pull/222)
+
+### Fixed
+
+- Reverted compilation regression due to dependabot update. Ignored packages to prevent future regressions [#194](https://github.com/duncaneddy/brahe/pull/194)
+- Skip running CI-related tests on fork-PRs so that tests pass. [#204](https://github.com/duncaneddy/brahe/pull/204)
+- Changes access module type annotations from `List` to `Sequence` so that LSPs don't erroneously report a warning that `location_accesses` and other functions might mutate the list.
+  Fix issue where python bindings for access properties would return a copy of the underlying data so mutations would not persist. Introduce `AccessPropertyView` so that it is now properly possible to access, set, and modify access properties in python. [#206](https://github.com/duncaneddy/brahe/pull/206)
+- Fixed issue with Gabbard plots not generating properly [#218](https://github.com/duncaneddy/brahe/pull/218)
+- Fix coverage reporting [#220](https://github.com/duncaneddy/brahe/pull/220)
+
+## [1.1.4] - 2026-03-05
+### Fixed
+
+- Fix regression from dependabot update
+  Included type annotations in package generation [#188](https://github.com/duncaneddy/brahe/pull/188)
+
+## [1.1.3] - 2026-03-04
+### Added
+
+- Added `SubdivisionConfig` a subfield of `AccessSearchConfig` to control how subdivisions are created [#181](https://github.com/duncaneddy/brahe/pull/181)
+
+### Changed
+
+- Migrated to PyO3 `v0.28`
+  Update Cargo dependencies [#179](https://github.com/duncaneddy/brahe/pull/179)
+- Removed `time_step` parameter from internal `find_access_windows` method. Configuration of stepping and subdivision is now unified as a property of `AccessSearchConfig` [#181](https://github.com/duncaneddy/brahe/pull/181)
+
+### Fixed
+
+- Fixed issue in dataframe creation from dependabot update. [#179](https://github.com/duncaneddy/brahe/pull/179)
+
 ## [1.1.2] - 2026-02-14
 ### Fixed
 

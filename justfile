@@ -34,9 +34,10 @@ test-example *args: _setup
 
 # ───── Coverage ─────
 
-# Run Rust tests with coverage
+# Run Rust tests with coverage (core crate only — `brahe-py` has no unit tests;
+# its Rust coverage is captured by `just coverage-combined` via pytest).
 coverage-rust:
-    cargo llvm-cov --workspace --lcov --output-path lcov.info
+    cargo llvm-cov -p brahe --lcov --output-path lcov.info
     @echo "Rust coverage → lcov.info"
 
 # Run Python tests with coverage
@@ -51,7 +52,7 @@ coverage-combined: _setup
     cargo llvm-cov clean --workspace
     eval "$(cargo llvm-cov show-env --export-prefix)"
     uv pip install maturin --quiet
-    uv run maturin develop --uv --features pyo3/extension-module,python
+    uv run maturin develop --uv --features pyo3/extension-module
     {{python}} -m pytest tests/ \
         --cov=brahe \
         --cov-report=html \

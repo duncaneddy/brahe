@@ -1013,10 +1013,8 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
                     "CENTER_NAME" => {
                         center_name = Some(val.to_string());
                     }
-                    "REF_FRAME" => {
-                        if ref_frame.is_none() {
-                            ref_frame = Some(CCSDSRefFrame::parse(val));
-                        }
+                    "REF_FRAME" if ref_frame.is_none() => {
+                        ref_frame = Some(CCSDSRefFrame::parse(val));
                     }
                     "REF_FRAME_EPOCH" => {
                         ref_frame_epoch =
@@ -1079,37 +1077,29 @@ pub fn parse_opm(content: &str) -> Result<OPM, BraheError> {
                                 * 1000.0,
                         );
                     } // km → m
-                    "ECCENTRICITY" => {
-                        if kep_sma.is_some() || kep_ecc.is_none() {
-                            kep_ecc = Some(
-                                val.parse()
-                                    .map_err(|_| ccsds_parse_error("OPM", "invalid ECC"))?,
-                            );
-                        }
+                    "ECCENTRICITY" if kep_sma.is_some() || kep_ecc.is_none() => {
+                        kep_ecc = Some(
+                            val.parse()
+                                .map_err(|_| ccsds_parse_error("OPM", "invalid ECC"))?,
+                        );
                     }
-                    "INCLINATION" => {
-                        if kep_sma.is_some() {
-                            kep_inc = Some(
-                                val.parse()
-                                    .map_err(|_| ccsds_parse_error("OPM", "invalid INC"))?,
-                            );
-                        }
+                    "INCLINATION" if kep_sma.is_some() => {
+                        kep_inc = Some(
+                            val.parse()
+                                .map_err(|_| ccsds_parse_error("OPM", "invalid INC"))?,
+                        );
                     }
-                    "RA_OF_ASC_NODE" => {
-                        if kep_sma.is_some() {
-                            kep_raan = Some(
-                                val.parse()
-                                    .map_err(|_| ccsds_parse_error("OPM", "invalid RAAN"))?,
-                            );
-                        }
+                    "RA_OF_ASC_NODE" if kep_sma.is_some() => {
+                        kep_raan = Some(
+                            val.parse()
+                                .map_err(|_| ccsds_parse_error("OPM", "invalid RAAN"))?,
+                        );
                     }
-                    "ARG_OF_PERICENTER" => {
-                        if kep_sma.is_some() {
-                            kep_argp = Some(
-                                val.parse()
-                                    .map_err(|_| ccsds_parse_error("OPM", "invalid ARGP"))?,
-                            );
-                        }
+                    "ARG_OF_PERICENTER" if kep_sma.is_some() => {
+                        kep_argp = Some(
+                            val.parse()
+                                .map_err(|_| ccsds_parse_error("OPM", "invalid ARGP"))?,
+                        );
                     }
                     "TRUE_ANOMALY" => {
                         kep_ta = Some(

@@ -104,11 +104,9 @@ mod tests {
         let mut epcv: Vec<Epoch> = Vec::new();
         let epcs = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
         let epcf = Epoch::from_datetime(2022, 1, 2, 0, 0, 0.0, 0.0, TimeSystem::TAI);
-        let mut epc = Epoch::from_datetime(2022, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
 
-        for e in TimeRange::new(epcs, epcf, 1.0) {
-            assert_eq!(epc, e);
-            epc += 1;
+        for (i, e) in TimeRange::new(epcs, epcf, 1.0).enumerate() {
+            assert_eq!(epcs + i as f64, e);
             epcv.push(e);
         }
 

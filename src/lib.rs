@@ -149,6 +149,3 @@ pub mod types;
 pub mod utils;
 // Centralized traits module - re-exports all public traits
 pub mod traits;
-
-#[cfg(feature = "python")]
-mod pymodule;

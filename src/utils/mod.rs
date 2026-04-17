@@ -16,6 +16,8 @@ pub mod formatting;
 pub mod fs;
 pub mod identifiable;
 pub mod operators;
+#[cfg(feature = "python")]
+pub mod python_interop;
 pub mod state_providers;
 pub mod threading;
 

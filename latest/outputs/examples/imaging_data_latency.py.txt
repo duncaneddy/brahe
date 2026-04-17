@@ -1,5 +1,5 @@
 Downloading Capella satellite TLEs from CelesTrak...
-Found 8 Capella satellites in 1.42 seconds
+Found 8 Capella satellites in 0.38 seconds
   - CAPELLA-11 (ACADIA-1)
   - CAPELLA-14 (ACADIA-4)
   - CAPELLA-13 (ACADIA-3)
@@ -52,10 +52,10 @@ Using 33 external stations for downlink:
   - Weilheim (11.08, 47.88)
 
 Computing AOI exit events...
-Found 294 AOI exit events in 11.13 seconds
+Found 294 AOI exit events in 11.74 seconds
 
 Computing ground station contacts...
-Computed 10218 ground contact windows in 14.59 seconds
+Computed 10218 ground contact windows in 15.48 seconds
 
 Computing imaging data latencies...
 Computed 293 latency values in 0.03 seconds

@@ -1,4 +1,4 @@
-Downloaded 10148 Starlink GP records
+Downloaded 10146 Starlink GP records
 
 First record:
   Name: STARLINK-1008

@@ -500,23 +500,32 @@ impl DormandPrince54DIntegrator {
                 }
             }
 
-            // Stages 1-6
+            // Stages 1-6 — allocate scratch buffers once and reuse across stages
+            let mut ksum = DVector::<f64>::zeros(self.dimension);
+            let mut state_i = state.clone();
+            let mut k_phi_sum = if compute_phi {
+                DMatrix::<f64>::zeros(self.dimension, self.dimension)
+            } else {
+                DMatrix::zeros(0, 0)
+            };
+            let mut k_sens_sum = if compute_sens {
+                DMatrix::<f64>::zeros(self.dimension, num_params)
+            } else {
+                DMatrix::zeros(0, 0)
+            };
+
             for i in 1..7 {
-                let mut ksum = DVector::<f64>::zeros(self.dimension);
-                let mut k_phi_sum = if compute_phi {
-                    DMatrix::<f64>::zeros(self.dimension, self.dimension)
-                } else {
-                    DMatrix::zeros(0, 0)
-                };
-                let mut k_sens_sum = if compute_sens {
-                    DMatrix::<f64>::zeros(self.dimension, num_params)
-                } else {
-                    DMatrix::zeros(0, 0)
-                };
+                ksum.fill(0.0);
+                if compute_phi {
+                    k_phi_sum.fill(0.0);
+                }
+                if compute_sens {
+                    k_sens_sum.fill(0.0);
+                }
 
                 #[allow(clippy::needless_range_loop)]
                 for j in 0..i {
-                    ksum += self.bt.a[(i, j)] * k.column(j);
+                    ksum.axpy(self.bt.a[(i, j)], &k.column(j), 1.0);
                     if compute_phi {
                         k_phi_sum += self.bt.a[(i, j)] * &k_phi[j];
                     }
@@ -525,7 +534,9 @@ impl DormandPrince54DIntegrator {
                     }
                 }
 
-                let state_i = &state + h * &ksum;
+                // state_i = state + h * ksum, reusing the pre-allocated buffer
+                state_i.copy_from(&state);
+                state_i.axpy(h, &ksum, 1.0);
                 let t_i = t + self.bt.c[i] * h;
                 let mut k_i = (self.f)(t_i, &state_i, params);
                 // Apply control input if present
@@ -537,7 +548,7 @@ impl DormandPrince54DIntegrator {
                 if compute_phi || compute_sens {
                     let a_i = self.varmat.as_ref().unwrap().compute(t_i, &state_i, params);
                     if compute_phi {
-                        k_phi[i] = &a_i * (&current_phi + h * k_phi_sum);
+                        k_phi[i] = &a_i * (&current_phi + h * &k_phi_sum);
                     }
                     if compute_sens {
                         let b_i =

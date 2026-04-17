@@ -1366,9 +1366,10 @@ impl DNumericalPropagator {
         match self.propagation_mode {
             PropagationMode::StateOnly => {
                 // Basic state propagation only
+                let x = std::mem::replace(&mut self.x_curr, DVector::zeros(0));
                 let result = self.integrator.step(
                     self.t_rel,
-                    self.x_curr.clone(),
+                    x,
                     params_ref,
                     Some(dt_requested),
                 );
@@ -1380,10 +1381,11 @@ impl DNumericalPropagator {
             PropagationMode::WithSTM => {
                 // Propagate state and STM (variational matrix)
                 let phi = self.stm.take().unwrap();
+                let x = std::mem::replace(&mut self.x_curr, DVector::zeros(0));
 
                 let result = self.integrator.step_with_varmat(
                     self.t_rel,
-                    self.x_curr.clone(),
+                    x,
                     params_ref,
                     phi,
                     Some(dt_requested),
@@ -1406,10 +1408,11 @@ impl DNumericalPropagator {
             PropagationMode::WithSensitivity => {
                 // Propagate state and sensitivity
                 let sens = self.sensitivity.take().unwrap();
+                let x = std::mem::replace(&mut self.x_curr, DVector::zeros(0));
 
                 let result = self.integrator.step_with_sensmat(
                     self.t_rel,
-                    self.x_curr.clone(),
+                    x,
                     sens,
                     &self.params,
                     Some(dt_requested),
@@ -1424,10 +1427,11 @@ impl DNumericalPropagator {
                 // Propagate state, STM, and sensitivity
                 let phi = self.stm.take().unwrap();
                 let sens = self.sensitivity.take().unwrap();
+                let x = std::mem::replace(&mut self.x_curr, DVector::zeros(0));
 
                 let result = self.integrator.step_with_varmat_sensmat(
                     self.t_rel,
-                    self.x_curr.clone(),
+                    x,
                     phi,
                     sens,
                     &self.params,
@@ -1435,7 +1439,7 @@ impl DNumericalPropagator {
                 );
 
                 self.x_curr = result.state;
-                self.stm = result.phi.clone();
+                self.stm = result.phi;
                 self.sensitivity = result.sens;
                 self.dt = result.dt_used;
                 self.dt_next = result.dt_next;

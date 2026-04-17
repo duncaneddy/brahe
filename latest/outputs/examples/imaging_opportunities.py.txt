@@ -1,22 +1,22 @@
 Downloading ICEYE constellation TLEs from CelesTrak...
-Loaded 46 ICEYE satellites in 0.19 seconds.
+Loaded 46 ICEYE satellites in 8.88 seconds.
 
 ICEYE Constellation:
   1. ICEYE-X2
-     Epoch: 2026-04-16 06:47:34.978 UTC
+     Epoch: 2026-04-17 06:32:23.387 UTC
      Semi-major axis: 6893.2 km
   2. ICEYE-X5
-     Epoch: 2026-04-16 06:41:41.205 UTC
-     Semi-major axis: 6793.3 km
+     Epoch: 2026-04-17 07:28:34.449 UTC
+     Semi-major axis: 6793.2 km
   3. ICEYE-X4
-     Epoch: 2026-04-16 08:04:07.661 UTC
+     Epoch: 2026-04-17 07:38:43.280 UTC
      Semi-major axis: 6860.2 km
   4. ICEYE-X7
-     Epoch: 2026-04-16 07:18:56.111 UTC
-     Semi-major axis: 6853.5 km
+     Epoch: 2026-04-17 06:51:26.762 UTC
+     Semi-major axis: 6853.4 km
   5. ICEYE-X6
-     Epoch: 2026-04-16 06:22:40.494 UTC
-     Semi-major axis: 6932.2 km
+     Epoch: 2026-04-17 06:19:33.646 UTC
+     Semi-major axis: 6932.1 km
   ... and 41 more
 
 Propagating constellation for visualization...
@@ -24,7 +24,7 @@ Downloading Natural Earth 50m shaded relief texture...
 This may take a moment depending on your connection.
 Downloaded 84.3 MB
 Extracted to /home/runner/.cache/brahe/textures/ne_50m_sr
-Created 3D visualization in 46.09 seconds.
+Created 3D visualization in 40.25 seconds.
 
 Resetting propagators for access computation...
 
@@ -38,31 +38,31 @@ Defining imaging constraints:
   - Off-nadir angle: 35-45 degrees
 
 Computing 7-day imaging opportunities...
-Computed 2609 imaging opportunities in 79.08 seconds.
+Computed 2598 imaging opportunities in 89.28 seconds.
 
 ==========================================================================================
 Sample Imaging Opportunities (first 10)
 ==========================================================================================
 Spacecraft           Start Time                End Time                    Duration  Off-Nadir
 ------------------------------------------------------------------------------------------
-ICEYE-X7             2026-04-16 06:47:34       2026-04-16 06:47:47           13.0 s     35.1°
-ICEYE-X45            2026-04-16 06:47:34       2026-04-16 06:51:54          259.6 s     38.8°
-ICEYE-X46            2026-04-16 06:47:34       2026-04-16 06:48:01           26.9 s     40.5°
-ICEYE-X64            2026-04-16 06:47:34       2026-04-16 06:54:11          396.0 s     37.5°
-ICEYE-X48            2026-04-16 06:51:10       2026-04-16 06:51:37           27.5 s     40.0°
-ICEYE-X31            2026-04-16 06:56:46       2026-04-16 07:02:23          337.1 s     40.0°
-ICEYE-X66            2026-04-16 07:02:14       2026-04-16 07:08:22          367.2 s     40.0°
-ICEYE-X4             2026-04-16 07:04:00       2026-04-16 07:12:28          508.8 s     40.0°
-ICEYE-X21            2026-04-16 07:06:39       2026-04-16 07:11:56          317.2 s     40.0°
-ICEYE-X6             2026-04-16 07:08:32       2026-04-16 07:22:01          808.5 s     40.0°
+ICEYE-X5             2026-04-17 06:32:23       2026-04-17 06:33:30           67.5 s     35.9°
+ICEYE-X31            2026-04-17 06:32:23       2026-04-17 06:33:01           38.3 s     35.6°
+ICEYE-X4             2026-04-17 06:37:49       2026-04-17 06:45:34          464.2 s     40.0°
+ICEYE-X51            2026-04-17 06:45:16       2026-04-17 06:45:55           38.6 s     40.0°
+ICEYE-X45            2026-04-17 06:46:52       2026-04-17 06:51:59          306.6 s     39.5°
+ICEYE-X51            2026-04-17 06:46:57       2026-04-17 06:47:36           38.8 s     40.0°
+ICEYE-X50            2026-04-17 06:49:58       2026-04-17 06:50:27           28.7 s     40.0°
+ICEYE-X46            2026-04-17 06:50:21       2026-04-17 06:50:49           28.0 s     40.0°
+ICEYE-X66            2026-04-17 06:53:31       2026-04-17 06:59:38          367.1 s     40.0°
+ICEYE-X64            2026-04-17 06:55:19       2026-04-17 07:08:34          795.8 s     40.0°
 ==========================================================================================
 ✓ Exported first 10 imaging opportunities to docs/figures/imaging_opportunities_windows.csv
 
 Imaging Opportunity Statistics:
-  Total opportunities: 2609
+  Total opportunities: 2598
   Spacecraft with opportunities: 46
-  Average duration: 451.9 seconds
-  Total imaging time: 1178998.8 seconds
+  Average duration: 452.8 seconds
+  Total imaging time: 1176406.2 seconds
 
 ✓ Generated docs/figures/imaging_opportunities_constellation_light.html
 ✓ Generated docs/figures/imaging_opportunities_constellation_dark.html

@@ -120,7 +120,7 @@ fn py_download_standard_eop_file(filepath: &str) -> PyResult<()> {
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "StaticEOPProvider")]
-pub(crate) struct PyStaticEOPProvider {
+pub struct PyStaticEOPProvider {
     obj: eop::StaticEOPProvider,
 }
 
@@ -491,7 +491,7 @@ impl PyStaticEOPProvider {
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "FileEOPProvider")]
-pub(crate) struct PyFileEOPProvider {
+pub struct PyFileEOPProvider {
     obj: eop::FileEOPProvider,
 }
 
@@ -970,7 +970,7 @@ impl PyFileEOPProvider {
 ///     ```
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "CachingEOPProvider")]
-pub(crate) struct PyCachingEOPProvider {
+pub struct PyCachingEOPProvider {
     obj: eop::CachingEOPProvider,
 }
 

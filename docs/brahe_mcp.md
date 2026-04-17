@@ -1,6 +1,6 @@
 # Brahe MCP
 
-[Brahe MCP](https://github.com/duncaneddy/brahe-mcp) is a [Model Context Protocol](https://modelcontextprotocol.io) server that exposes Brahe's astrodynamics capabilities to language models and AI-assisted development tools. Once connected, a model can call Brahe functions directly — time conversions, coordinate and frame transformations, orbit propagation, access computation, and TLE/ephemeris lookups — without the user having to write or run Brahe code manually.
+[Brahe MCP](https://github.com/duncaneddy/brahe-mcp) is a [Model Context Protocol](https://modelcontextprotocol.io) server that exposes Brahe's astrodynamics capabilities to language models and AI-assisted development tools. Once connected, a model can call Brahe functions directly — time conversions, coordinate and frame transformations, orbit propagation, access computation, and TLE/ephemeris lookups — without the model having to write or run Brahe code manually. This can significantly improve the accuracy of astrodynamics-related responses and enable new use cases like interactive analysis and natural language querying of satellite data.
 
 The server is published to PyPI as [`brahe-mcp`](https://pypi.org/project/brahe-mcp/). It runs locally over stdio and works with any MCP-compatible client, including Claude Desktop, Claude Code, Gemini CLI, and the OpenAI Codex CLI.
 

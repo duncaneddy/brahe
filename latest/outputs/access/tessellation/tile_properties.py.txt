@@ -3,5 +3,5 @@ tile_direction: [-0.4755, 0.6135, 0.6305]
 tile_width: 5000 m
 tile_length: 5000 m
 tile_area: 25000000 m^2
-tile_group_id: c55ea172...
+tile_group_id: 6412cf6a...
 spacecraft_ids: ['ISS']

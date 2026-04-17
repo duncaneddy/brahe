@@ -58,7 +58,7 @@ fn bench_numerical_conservative_24hour(c: &mut Criterion) {
     let dstate = DVector::from_column_slice(state.as_slice());
 
     let mut group = c.benchmark_group("propagator_numerical");
-    group.sample_size(10);
+    // group.sample_size(10);
 
     group.bench_function("numerical_conservative_24h", |b| {
         b.iter(|| {

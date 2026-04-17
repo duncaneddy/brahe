@@ -1,0 +1,5 @@
+Initial state: 1.000000
+State after step: 0.953134
+Step used: 0.48s
+Recommended next step: 0.60s
+Error estimate: 1.91e-1

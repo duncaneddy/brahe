@@ -1,0 +1,51 @@
+Integrator Configuration Examples
+
+======================================================================
+
+1. CONSERVATIVE Configuration (Mission-Critical)
+----------------------------------------------------------------------
+  abs_tol: 1e-12
+  rel_tol: 1e-11
+  max_step: 100 s
+  safety_factor: 0.85
+  Use case: Critical operations, high-precision ephemeris
+
+2. BALANCED Configuration (Recommended)
+----------------------------------------------------------------------
+  abs_tol: 1e-10
+  rel_tol: 1e-09
+  max_step: 9e+02 s
+  safety_factor: 0.9
+  Use case: Most applications, ~1-10m accuracy
+
+3. AGGRESSIVE Configuration (Fast Computation)
+----------------------------------------------------------------------
+  abs_tol: 1e-08
+  rel_tol: 1e-07
+  max_step: 1000 s
+  safety_factor: 0.95
+  Use case: Fast trajectory analysis, ~10-100m accuracy
+
+4. HIGH PRECISION Configuration (Sub-meter)
+----------------------------------------------------------------------
+  abs_tol: 1e-14
+  rel_tol: 1e-13
+  max_step: 200 s
+  safety_factor: 0.9
+  Use case: High-precision orbit determination, <1m accuracy
+  Requires: RKN1210 integrator
+
+5. FIXED-STEP Configuration
+----------------------------------------------------------------------
+  step_size: 60.0 s
+  Note: Step size can be overridden with dt parameter in integrator.step()
+  Use case: Regular output intervals, predictable cost
+
+======================================================================
+
+Recommendations:
+• Start with BALANCED for most applications
+• Use CONSERVATIVE for mission-critical operations
+• Use AGGRESSIVE only when accuracy can be sacrificed for speed
+• Use HIGH PRECISION with RKN1210 for sub-meter accuracy
+• Use FIXED-STEP when regular output intervals are required

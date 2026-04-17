@@ -1,0 +1,2 @@
+CI-ONLY flag test: This should only run with --ci-only flag
+If you see this during normal test runs, the flag system is broken!

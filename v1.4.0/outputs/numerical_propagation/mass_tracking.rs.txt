@@ -1,0 +1,22 @@
+Thruster parameters:
+  Thrust: 10 N
+  Isp: 300 s
+  Mass flow rate: 3.40 g/s
+  Burn duration: 600 s
+  Burn window: 300 - 900 s
+  Expected fuel consumption: 2.04 kg
+
+Initial state:
+  Mass: 1000.0 kg
+  Semi-major axis: 6878.1 km
+
+Final state:
+  Mass: 998.0 kg
+  Fuel consumed: 2.04 kg
+  Semi-major axis: 6880.6 km
+  Delta-a: 2.4 km
+
+Tsiolkovsky verification:
+  Expected delta-v: 6.0 m/s
+
+Example validated successfully!

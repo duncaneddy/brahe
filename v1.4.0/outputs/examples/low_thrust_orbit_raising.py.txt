@@ -1,0 +1,59 @@
+Orbion Aurora Hall Thruster Specifications:
+
+100W Configuration:
+  Thrust:     5.7 mN
+  Isp:        950 s
+  Mass flow:  0.53 mg/s (datasheet)
+              0.61 mg/s (computed from F/Isp*g0)
+
+300W Configuration:
+  Thrust:     19.0 mN
+  Isp:        1370 s
+  Mass flow:  1.30 mg/s (datasheet)
+              1.41 mg/s (computed from F/Isp*g0)
+
+Spacecraft Configuration:
+  Spacecraft bus:      50 kg
+  Aurora system:       8.3 kg
+  Propellant (Xe):     4.0 kg (max: 6.0 kg)
+  Total dry mass:      58.3 kg
+  Total wet mass:      62.3 kg
+
+Initial Orbit:
+  Altitude:       400 km
+  Semi-major axis: 6778.1 km
+  Inclination:    51.6 deg (ISS-like)
+  Orbital period: 92.6 minutes
+
+Simulation:
+  Duration: 24 hours
+  Orbits:   ~16
+
+Propagating 100W configuration...
+  Complete!
+Propagating 300W configuration...
+  Complete!
+
+Analyzing results...
+
+============================================================
+Results Summary (24 hours continuous thrust)
+============================================================
+
+Parameter                              100W         300W
+------------------------------------------------------------
+Initial altitude (km)                 400.0        400.0
+Final altitude (km)                   422.0        457.7
+Altitude gain (km)                     22.0         57.7
+Propellant used (g)                    45.8        112.3
+Final mass (kg)                       62.25        62.19
+Delta-v applied (m/s)                   7.9         26.4
+Theoretical delta-v (m/s)               6.9         24.2
+Thrust-to-weight (mN/kg)              0.091        0.305
+
+Example validated successfully!
+
+✓ Generated docs/figures/low_thrust_orbit_raising_comparison_light.html
+✓ Generated docs/figures/low_thrust_orbit_raising_comparison_dark.html
+
+Orbion Aurora Orbit Raising Example Complete!

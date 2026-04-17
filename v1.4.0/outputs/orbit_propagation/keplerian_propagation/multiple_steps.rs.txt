@@ -1,0 +1,2 @@
+After 10 steps: 600.0 seconds elapsed
+Trajectory length: 11

@@ -1,0 +1,5 @@
+Found 35 access windows
+
+Window 1: Min range = 1099.6 km
+Window 2: Min range = 460.5 km
+Window 3: Min range = 1464.3 km

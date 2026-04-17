@@ -1,0 +1,8 @@
+ECEF Cartesian state [x, y, z, vx, vy, vz] (m, m/s):
+Position: [-735665.465, -1838913.314, 6586801.432]
+Velocity: [-1060.370171, 7357.551468, 1935.662061]
+
+Geodetic coordinates (WGS84 ellipsoid model):
+Longitude: -111.8041° = -1.951350 rad
+Latitude:  73.3622° = 1.280412 rad
+Altitude:  519618.1 m

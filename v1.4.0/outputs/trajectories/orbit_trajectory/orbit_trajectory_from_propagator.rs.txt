@@ -1,0 +1,3 @@
+Trajectory length: 11
+Frame: ECI
+Representation: Keplerian

@@ -17,16 +17,13 @@ Each release groups entries under the Keep a Changelog section headings in the o
 ### Changed
 
 - Refactored repository structure to use a Rust workspace to breakup the python module from the core rust module. This pure-rust package consumers to avoid having to build the `cdylib`, which is only needed for python module builds. [#278](https://github.com/duncaneddy/brahe/pull/278)
+- `pyo3` and `numpy` are now optional dependencies, activated via the `python` feature flag. Pure-Rust consumers that do not need the Python bindings no longer compile these crates.
+- Split the repository into a Cargo workspace so the PyO3 bindings live in a dedicated `brahe-py` member crate at `crates/brahe-py/`. The published `brahe` crate now builds only an `rlib`, eliminating the unnecessary `cdylib` artifact previously produced for every pure-Rust consumer. Rust downstream (`use brahe::*`) and Python downstream (`import brahe`) are unchanged.
+
 
 ### Fixed
 
 - Fixed issue that would cause tests and auto-merge to not run on dependabot PRs [#278](https://github.com/duncaneddy/brahe/pull/278)
-
-## [Unreleased]
-### Changed
-
-- `pyo3` and `numpy` are now optional dependencies, activated via the `python` feature flag. Pure-Rust consumers that do not need the Python bindings no longer compile these crates.
-- Split the repository into a Cargo workspace so the PyO3 bindings live in a dedicated `brahe-py` member crate at `crates/brahe-py/`. The published `brahe` crate now builds only an `rlib`, eliminating the unnecessary `cdylib` artifact previously produced for every pure-Rust consumer. Rust downstream (`use brahe::*`) and Python downstream (`import brahe`) are unchanged.
 
 ## [1.3.4] - 2026-04-15
 ### Fixed

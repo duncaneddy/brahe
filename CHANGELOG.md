@@ -9,6 +9,19 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- towncrier release notes start -->
 
+## [1.4.0] - 2026-04-17
+### Added
+
+- Added [brahe-mcp](https://github.com/duncaneddy/brahe-mcp) information to docs [#278](https://github.com/duncaneddy/brahe/pull/278)
+
+### Changed
+
+- Refactored repository structure to use a Rust workspace to breakup the python module from the core rust module. This pure-rust package consumers to avoid having to build the `cdylib`, which is only needed for python module builds. [#278](https://github.com/duncaneddy/brahe/pull/278)
+
+### Fixed
+
+- Fixed issue that would cause tests and auto-merge to not run on dependabot PRs [#278](https://github.com/duncaneddy/brahe/pull/278)
+
 ## [Unreleased]
 ### Changed
 

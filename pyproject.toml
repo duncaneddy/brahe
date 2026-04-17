@@ -164,11 +164,16 @@ name = "Changed"
 showcontent = true
 
 [[tool.towncrier.type]]
-directory = "fixed"
-name = "Fixed"
+directory = "deprecated"
+name = "Deprecated"
 showcontent = true
 
 [[tool.towncrier.type]]
 directory = "removed"
 name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
 showcontent = true

@@ -14,6 +14,10 @@ use brahe::time::{Epoch, TimeSystem};
 use brahe::traits::{DStatePropagator, SStatePropagator};
 use nalgebra::DVector;
 
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
 fn setup_providers() {
     let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
     set_global_eop_provider(eop);
@@ -43,6 +47,9 @@ fn bench_sgp4_24hour(c: &mut Criterion) {
 }
 
 fn bench_numerical_conservative_24hour(c: &mut Criterion) {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+    
     setup_providers();
 
     let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);

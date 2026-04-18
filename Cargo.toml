@@ -63,6 +63,7 @@ version = "0.28.2"
 optional = true
 
 [dev-dependencies]
+dhat = "0.3.3"
 approx = "0.5.1"
 rstest = "0.26.1"
 serial_test = "3.3.1"
@@ -78,6 +79,8 @@ criterion = { version = "0.8", features = ["html_reports"] }
 ci = []
 manual = []  # For tests requiring network downloads (run with: cargo test --features manual)
 python = ["dep:pyo3", "dep:numpy"]
+dhat-heap = []    # if you are doing heap profiling
+dhat-ad-hoc = []  # if you are doing ad hoc profiling
 
 # Build Profiles
 [profile.dev]
@@ -88,6 +91,10 @@ lto = "off"
 opt-level = 3
 codegen-units = 1
 lto = "fat"
+
+[profile.profiling]
+inherits = "release"
+debug = 1
 
 # Benchmark Profiles
 [profile.bench]

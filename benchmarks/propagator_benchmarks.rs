@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::Criterion;
 
 use brahe::constants::AngleFormat;
 use brahe::coordinates::state_koe_to_eci;
@@ -47,9 +47,6 @@ fn bench_sgp4_24hour(c: &mut Criterion) {
 }
 
 fn bench_numerical_conservative_24hour(c: &mut Criterion) {
-    #[cfg(feature = "dhat-heap")]
-    let _profiler = dhat::Profiler::new_heap();
-    
     setup_providers();
 
     let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -88,9 +85,14 @@ fn bench_numerical_conservative_24hour(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    bench_sgp4_24hour,
-    bench_numerical_conservative_24hour,
-);
-criterion_main!(benches);
+// Custom main instead of criterion_main! so the dhat profiler runs when enabled
+// Run bench with --features dhat-heap to profile memory allocations
+fn main() {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
+    let mut c = criterion::Criterion::default().configure_from_args();
+    bench_sgp4_24hour(&mut c);
+    bench_numerical_conservative_24hour(&mut c);
+    c.final_summary();
+}

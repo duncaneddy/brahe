@@ -282,6 +282,21 @@ pub struct GravityModel {
     pub model_errors: GravityModelErrors,
     /// Normalization convention used for spherical harmonic coefficients (fully normalized or unnormalized).
     pub normalization: GravityModelNormalization,
+    /// Denormalized cosine coefficients `C_{n,m}` indexed as `coeff_c[(n, m)]`.
+    /// Precomputed from `data` and `normalization` to hoist the per-call sqrt
+    /// and factorial work out of the spherical harmonic acceleration loop.
+    /// Rebuilt by `precompute_coefficients` whenever `data`, `n_max`, `m_max`,
+    /// or `normalization` change.
+    coeff_c: DMatrix<f64>,
+    /// Denormalized sine coefficients `S_{n,m}` indexed as `coeff_s[(n, m)]`.
+    /// Entries with `m == 0` are unused (sine terms vanish for zonal harmonics).
+    /// See `coeff_c` for invalidation rules.
+    coeff_s: DMatrix<f64>,
+    /// Precomputed degree/order factor `0.5 * (n - m + 1) * (n - m + 2)` used
+    /// by the tesseral/sectoral branch of the acceleration recursion. Only
+    /// entries with `m >= 1` are populated and read. See `coeff_c` for
+    /// invalidation rules.
+    fac: DMatrix<f64>,
 }
 
 impl GravityModel {
@@ -298,7 +313,65 @@ impl GravityModel {
             model_name: String::from("Unknown"),
             model_errors: GravityModelErrors::No,
             normalization: GravityModelNormalization::FullyNormalized,
+            coeff_c: DMatrix::zeros(1, 1),
+            coeff_s: DMatrix::zeros(1, 1),
+            fac: DMatrix::zeros(1, 1),
         }
+    }
+
+    /// Precompute denormalized `C_{n,m}`, `S_{n,m}`, and degree/order factor
+    /// matrices used by the spherical harmonic acceleration recursion.
+    ///
+    /// For fully-normalized models this applies the denormalization
+    /// factor `sqrt((2 - δ_{0,m}) * (2n + 1) * (n - m)! / (n + m)!)` once
+    /// per coefficient so the hot propagation loop in
+    /// `compute_spherical_harmonics` can read the denormalized values directly.
+    /// The `fac` matrix caches the recursion term
+    /// `0.5 * (n - m + 1) * (n - m + 2)`.
+    ///
+    /// This must be called whenever `data`, `n_max`, `m_max`, or
+    /// `normalization` changes. It sizes the output matrices to
+    /// `(n_max + 1) × (n_max + 1)`, so calling it after a truncation also
+    /// reclaims memory from the previous allocation.
+    fn precompute_coefficients(&mut self) {
+        let size = self.n_max + 1;
+        let mut coeff_c = DMatrix::zeros(size, size);
+        let mut coeff_s = DMatrix::zeros(size, size);
+        let mut fac = DMatrix::zeros(size, size);
+
+        for n in 0..=self.n_max {
+            let nf = n as f64;
+            // m = 0
+            let c_raw = self.data[(n, 0)];
+            coeff_c[(n, 0)] = if self.normalization == GravityModelNormalization::FullyNormalized {
+                (2.0 * nf + 1.0).sqrt() * c_raw
+            } else {
+                c_raw
+            };
+
+            // m > 0
+            for m in 1..=n.min(self.m_max) {
+                let mf = m as f64;
+                let c_raw = self.data[(n, m)];
+                let s_raw = self.data[(m - 1, n)];
+                let (c, s) = if self.normalization == GravityModelNormalization::FullyNormalized {
+                    let norm = ((2 - kronecker_delta(0, m)) as f64
+                        * (2.0 * nf + 1.0)
+                        * factorial_product(n, m))
+                    .sqrt();
+                    (norm * c_raw, norm * s_raw)
+                } else {
+                    (c_raw, s_raw)
+                };
+                coeff_c[(n, m)] = c;
+                coeff_s[(n, m)] = s;
+                fac[(n, m)] = 0.5 * (nf - mf + 1.0) * (nf - mf + 2.0);
+            }
+        }
+
+        self.coeff_c = coeff_c;
+        self.coeff_s = coeff_s;
+        self.fac = fac;
     }
 
     fn from_bufreader<T: Read>(reader: BufReader<T>) -> Result<Self, BraheError> {
@@ -406,7 +479,7 @@ impl GravityModel {
             }
         }
 
-        Ok(Self {
+        let mut model = Self {
             data,
             tide_system,
             n_max,
@@ -416,7 +489,12 @@ impl GravityModel {
             model_name,
             model_errors,
             normalization,
-        })
+            coeff_c: DMatrix::zeros(1, 1),
+            coeff_s: DMatrix::zeros(1, 1),
+            fac: DMatrix::zeros(1, 1),
+        };
+        model.precompute_coefficients();
+        Ok(model)
     }
 
     /// Load a gravity model from a file.
@@ -577,6 +655,10 @@ impl GravityModel {
         self.n_max = n;
         self.m_max = m;
 
+        // Rebuild precomputed coefficient matrices against the resized data so
+        // stored values stay consistent and oversized allocations are reclaimed.
+        self.precompute_coefficients();
+
         Ok(())
     }
 
@@ -661,6 +743,7 @@ impl GravityModel {
                 V[(n, m)] = ((2.0 * nf - 1.0) * z0 * V[(n - 1, m)]
                     - (nf + mf - 1.0) * rho * V[(n - 2, m)])
                     / (nf - mf);
+
                 W[(n, m)] = ((2.0 * nf - 1.0) * z0 * W[(n - 1, m)]
                     - (nf + mf - 1.0) * rho * W[(n - 2, m)])
                     / (nf - mf);
@@ -676,35 +759,17 @@ impl GravityModel {
             let mf = m as f64;
             for n in m..n_max + 1 {
                 let nf = n as f64;
+                // Consider only zonal harmonics, ignore longitude coeff S
                 if m == 0 {
-                    // Denormalize coefficients, if required
-                    let C = if self.normalization == GravityModelNormalization::FullyNormalized {
-                        let N = (2.0 * nf + 1.0).sqrt();
-                        N * self.data[(n, 0)]
-                    } else {
-                        self.data[(n, 0)]
-                    };
-
+                    let C = self.coeff_c[(n, 0)];
                     ax -= C * V[(n + 1, 1)];
                     ay -= C * W[(n + 1, 1)];
                     az -= (nf + 1.0) * C * V[(n + 1, 0)];
                 } else {
-                    let C;
-                    let S;
-                    // Denormalize coefficients, if required
-                    if self.normalization == GravityModelNormalization::FullyNormalized {
-                        let N = ((2 - kronecker_delta(0, m)) as f64
-                            * (2.0 * nf + 1.0)
-                            * factorial_product(n, m))
-                        .sqrt();
-                        C = N * self.data[(n, m)];
-                        S = N * self.data[(m - 1, n)];
-                    } else {
-                        C = self.data[(n, m)];
-                        S = self.data[(m - 1, n)];
-                    }
-
-                    let Fac = 0.5 * (nf - mf + 1.0) * (nf - mf + 2.0);
+                    // sectoral / tesseral, use coeff S
+                    let C = self.coeff_c[(n, m)];
+                    let S = self.coeff_s[(n, m)];
+                    let Fac = self.fac[(n, m)];
                     ax += 0.5 * (-C * V[(n + 1, m + 1)] - S * W[(n + 1, m + 1)])
                         + Fac * (C * V[(n + 1, m - 1)] + S * W[(n + 1, m - 1)]);
                     ay += 0.5 * (-C * W[(n + 1, m + 1)] + S * V[(n + 1, m + 1)])

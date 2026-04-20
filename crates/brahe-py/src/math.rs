@@ -566,7 +566,7 @@ impl PyDAnalyticJacobian {
 // Sensitivity Providers
 // ============================================================================
 
-use crate::math::sensitivity;
+use brahe::math::sensitivity;
 
 /// Numerical sensitivity provider for dynamic-sized systems using finite differences.
 ///

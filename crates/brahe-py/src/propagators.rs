@@ -2717,7 +2717,7 @@ fn py_par_propagate_to(
         // Each propagator (DNumericalOrbitPropagator) is accessed by exactly one thread,
         // and the borrow_guards are kept alive throughout this scope to ensure validity.
         let target = target_epoch.obj;
-        crate::utils::threading::get_thread_pool().install(|| {
+        brahe::utils::threading::get_thread_pool().install(|| {
             prop_ptrs.par_iter().for_each(|SendPtr(ptr)| {
                 // SAFETY: ptr is valid because it points to data owned by borrow_guards
                 // which are still alive in the outer scope
@@ -3209,7 +3209,7 @@ impl PyGravityConfiguration {
                 } else {
                     let model = model_type
                         .map(|mt| mt.model.clone())
-                        .unwrap_or(crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
+                        .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
                     propagators::GravityModelSource::ModelType(model)
                 };
                 PyGravityConfiguration {
@@ -3266,7 +3266,7 @@ impl PyGravityConfiguration {
         } else {
             let model = model_type
                 .map(|mt| mt.model.clone())
-                .unwrap_or(crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
+                .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
             propagators::GravityModelSource::ModelType(model)
         };
         PyGravityConfiguration {
@@ -4321,7 +4321,7 @@ impl PyNumericalOrbitPropagator {
         };
 
         // Wrap additional_dynamics Python callable if provided
-        let additional_dynamics_fn: Option<crate::integrators::traits::DStateDynamics> =
+        let additional_dynamics_fn: Option<brahe::integrators::traits::DStateDynamics> =
             additional_dynamics.map(|dyn_py| {
                 let dyn_py = dyn_py.clone_ref(py);
                 Box::new(
@@ -4347,11 +4347,11 @@ impl PyNumericalOrbitPropagator {
                             }
                         })
                     },
-                ) as crate::integrators::traits::DStateDynamics
+                ) as brahe::integrators::traits::DStateDynamics
             });
 
         // Wrap control_input Python callable if provided
-        let control_input_fn: crate::integrators::traits::DControlInput =
+        let control_input_fn: brahe::integrators::traits::DControlInput =
             control_input.map(|ctrl_py| {
                 let ctrl_py = ctrl_py.clone_ref(py);
                 Box::new(
@@ -5665,7 +5665,7 @@ impl PyNumericalPropagator {
 
         // Create a wrapper that calls the Python dynamics function
         let dynamics_py = dynamics.clone_ref(py);
-        let dynamics_fn: crate::integrators::traits::DStateDynamics = Box::new(
+        let dynamics_fn: brahe::integrators::traits::DStateDynamics = Box::new(
             move |t: f64, x: &nalgebra::DVector<f64>, p: Option<&nalgebra::DVector<f64>>| {
                 Python::attach(|py| {
                     // Convert state to numpy array
@@ -5695,7 +5695,7 @@ impl PyNumericalPropagator {
         );
 
         // Wrap control_input Python callable if provided
-        let control_input_fn: crate::integrators::traits::DControlInput =
+        let control_input_fn: brahe::integrators::traits::DControlInput =
             control_input.map(|ctrl_py| {
                 let ctrl_py = ctrl_py.clone_ref(py);
                 Box::new(

@@ -5020,8 +5020,8 @@ fn py_location_accesses(
 
     // Extract propagators as vectors (for cloneable propagators: SGP, Keplerian)
     enum PropagatorVec {
-        Sgp(Vec<crate::propagators::sgp_propagator::SGPPropagator>),
-        Keplerian(Vec<crate::propagators::keplerian_propagator::KeplerianPropagator>),
+        Sgp(Vec<brahe::propagators::sgp_propagator::SGPPropagator>),
+        Keplerian(Vec<brahe::propagators::keplerian_propagator::KeplerianPropagator>),
     }
 
     let propagators_vec = if prop_is_list {

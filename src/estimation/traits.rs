@@ -24,7 +24,7 @@ use crate::utils::errors::BraheError;
 /// which differs from dynamics Jacobians (n × n). We implement the finite-diff loop
 /// directly but reuse `PerturbationStrategy` for offset computation to keep
 /// perturbation sizing consistent across the library.
-pub(crate) fn measurement_jacobian_numerical(
+pub fn measurement_jacobian_numerical(
     model: &dyn MeasurementModel,
     epoch: &Epoch,
     state: &DVector<f64>,

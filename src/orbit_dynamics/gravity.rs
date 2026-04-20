@@ -282,11 +282,20 @@ pub struct GravityModel {
     pub model_errors: GravityModelErrors,
     /// Normalization convention used for spherical harmonic coefficients (fully normalized or unnormalized).
     pub normalization: GravityModelNormalization,
-    /// Precompute C coeffs
+    /// Denormalized cosine coefficients `C_{n,m}` indexed as `coeff_c[(n, m)]`.
+    /// Precomputed from `data` and `normalization` to hoist the per-call sqrt
+    /// and factorial work out of the spherical harmonic acceleration loop.
+    /// Rebuilt by `precompute_coefficients` whenever `data`, `n_max`, `m_max`,
+    /// or `normalization` change.
     coeff_c: DMatrix<f64>,
-    /// Precompute S coeffs
+    /// Denormalized sine coefficients `S_{n,m}` indexed as `coeff_s[(n, m)]`.
+    /// Entries with `m == 0` are unused (sine terms vanish for zonal harmonics).
+    /// See `coeff_c` for invalidation rules.
     coeff_s: DMatrix<f64>,
-    /// Precomputed Fac coeffs
+    /// Precomputed degree/order factor `0.5 * (n - m + 1) * (n - m + 2)` used
+    /// by the tesseral/sectoral branch of the acceleration recursion. Only
+    /// entries with `m >= 1` are populated and read. See `coeff_c` for
+    /// invalidation rules.
     fac: DMatrix<f64>,
 }
 
@@ -310,7 +319,20 @@ impl GravityModel {
         }
     }
 
-    // Precompute C_n,m and S_n,m model parameters. Moves repeated calc out of propagation hot path
+    /// Precompute denormalized `C_{n,m}`, `S_{n,m}`, and degree/order factor
+    /// matrices used by the spherical harmonic acceleration recursion.
+    ///
+    /// For fully-normalized models this applies the denormalization
+    /// factor `sqrt((2 - δ_{0,m}) * (2n + 1) * (n - m)! / (n + m)!)` once
+    /// per coefficient so the hot propagation loop in
+    /// `compute_spherical_harmonics` can read the denormalized values directly.
+    /// The `fac` matrix caches the recursion term
+    /// `0.5 * (n - m + 1) * (n - m + 2)`.
+    ///
+    /// This must be called whenever `data`, `n_max`, `m_max`, or
+    /// `normalization` changes. It sizes the output matrices to
+    /// `(n_max + 1) × (n_max + 1)`, so calling it after a truncation also
+    /// reclaims memory from the previous allocation.
     fn precompute_coefficients(&mut self) {
         let size = self.n_max + 1;
         let mut coeff_c = DMatrix::zeros(size, size);
@@ -633,6 +655,10 @@ impl GravityModel {
         self.n_max = n;
         self.m_max = m;
 
+        // Rebuild precomputed coefficient matrices against the resized data so
+        // stored values stay consistent and oversized allocations are reclaimed.
+        self.precompute_coefficients();
+
         Ok(())
     }
 
@@ -717,7 +743,7 @@ impl GravityModel {
                 V[(n, m)] = ((2.0 * nf - 1.0) * z0 * V[(n - 1, m)]
                     - (nf + mf - 1.0) * rho * V[(n - 2, m)])
                     / (nf - mf);
-                
+
                 W[(n, m)] = ((2.0 * nf - 1.0) * z0 * W[(n - 1, m)]
                     - (nf + mf - 1.0) * rho * W[(n - 2, m)])
                     / (nf - mf);

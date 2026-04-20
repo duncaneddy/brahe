@@ -2,7 +2,11 @@
 
 use std::hint::black_box;
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::Criterion;
+
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
 
 use brahe::eop::{EOPExtrapolation, EarthOrientationProvider, FileEOPProvider};
 use brahe::space_weather::{FileSpaceWeatherProvider, SpaceWeatherProvider};
@@ -108,15 +112,20 @@ fn bench_sw_f107_repeated(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    bench_eop_ut1_utc_repeated,
-    bench_eop_ut1_utc_sequential,
-    bench_eop_get_eop_repeated,
-    bench_eop_get_eop_sequential,
-    bench_eop_frame_transform_pattern,
-    bench_sw_kp_repeated,
-    bench_sw_kp_sequential,
-    bench_sw_f107_repeated,
-);
-criterion_main!(benches);
+// Custom main instead of criterion_main! so the dhat profiler runs when enabled.
+// Run with --features dhat-heap to profile memory allocations.
+fn main() {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
+    let mut c = criterion::Criterion::default().configure_from_args();
+    bench_eop_ut1_utc_repeated(&mut c);
+    bench_eop_ut1_utc_sequential(&mut c);
+    bench_eop_get_eop_repeated(&mut c);
+    bench_eop_get_eop_sequential(&mut c);
+    bench_eop_frame_transform_pattern(&mut c);
+    bench_sw_kp_repeated(&mut c);
+    bench_sw_kp_sequential(&mut c);
+    bench_sw_f107_repeated(&mut c);
+    c.final_summary();
+}

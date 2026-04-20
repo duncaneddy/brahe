@@ -12,6 +12,8 @@ CLAUDE.md
 .claude/*
 .devcontainer
 .superpowers
+*.dSYM/
+*dSYM/
 
 # Coverage
 lcov.info
@@ -21,7 +23,6 @@ python-rust-coverage.lcov
 *.profraw
 *.profdata
 .coverage
-*.dSYM
 
 # Build Artifacts - Rust
 /target

@@ -143,15 +143,23 @@ If you use Brahe in your work, please cite the following paper:
 ## Versioning
 
 > [!WARNING]
-> Brahe generally follows [SemVer](https://semver.org/). New patch versions should be rare. Public facing APIs should not significantly change, though may still change, especially for new features that are still being refined based on user feedback. We want to avoid the forever "0.x" versioning trap that many Rust and scientific software projects fall into, which can deter users from adopting the software.
-> 
-> If you need guaranteed stability you should pin your project to a specific major.minor.patch version (e.g., `1.2.3`) rather than using a floating version specifier (e.g., `^1.2.0` or `>=1.2.0`).
+> Brahe follows a versioning scheme modeled on [NumPy's policy](https://numpy.org/doc/stable/dev/depending_on_numpy.html) rather than strict [SemVer](https://semver.org/). Versions are PEP 440 compliant and take the form `major.minor.bugfix`:
+>
+> - **Major** releases (`X.0.0`) are rare and signal significant API or ABI breaks.
+> - **Minor** releases (`1.Y.0`) contain new features, deprecations, and removals of previously deprecated code.
+> - **Bugfix** releases (`1.2.Z`) contain only fixes — no new features, deprecations, or removals.
+>
+> **Deprecation policy (transitional):** The long-term target — matching NumPy — is that backwards-incompatible API changes emit a `DeprecationWarning` for at least two minor releases before removal. **While Brahe is in its early adoption phase, a deprecation may occur and be removed within a single minor release.** This window will expand to multiple minor releases with deprecation warnings as adoption grows.
+>
+> **Pinning:** For most projects `brahe>=1.2` is sufficient. If you need guaranteed stability during the transitional deprecation period, pin to a specific `major.minor.patch` version (e.g., `1.2.3`) rather than using a floating specifier (e.g., `^1.2.0` or `>=1.2.0`). See [the versioning docs](https://duncaneddy.github.io/brahe/latest/about/versioning/) for details, including guidance on treating `DeprecationWarning` as an error in CI.
 
 ## License
 
 The project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 We want to make it easy for people to use and build on the work without worrying about licensing restrictions!
+
+Additionally, brahe uses [cargo-deny](https://github.com/embarkstudios/cargo-deny) to confirm that all dependencies are permissively licensed and compatible with commercial use. The permitted licenses can be found in the [cargo-deny configuration file](https://github.com/duncaneddy/brahe/blob/main/deny.toml).
 
 ## Contributing
 

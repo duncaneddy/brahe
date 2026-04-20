@@ -38,20 +38,22 @@ jobs:
           pr_number = os.environ['PR_NUMBER']
           pr_body = os.environ.get('PR_BODY', '')
 
-          # Define changelog sections to extract
+          # Define changelog sections to extract (Keep a Changelog order)
           sections = {
               'added': 'Added',
               'changed': 'Changed',
+              'deprecated': 'Deprecated',
+              'removed': 'Removed',
               'fixed': 'Fixed',
-              'removed': 'Removed'
           }
 
           fragments_created = []
 
           for section_key, section_name in sections.items():
-              # Match section header followed by list items
+              # Match section header followed by list items.
               # Pattern: ### Added\n- item1\n- item2
-              pattern = rf'###\s+{section_name}\s*\n((?:- (?!<!--).*\n?)*)'
+              # `[^\n]*` tolerates header suffixes like "Deprecated / Future Warning".
+              pattern = rf'###\s+{section_name}[^\n]*\n((?:- (?!<!--).*\n?)*)'
               match = re.search(pattern, pr_body, re.MULTILINE | re.IGNORECASE)
 
               if match:

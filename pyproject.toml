@@ -94,13 +94,17 @@ dev = [
 ]
 
 [tool.maturin]
+# The cdylib that backs `brahe._brahe` lives in the `brahe-py` workspace crate.
+# The pure-Rust `brahe` crate at the repo root is published to crates.io and
+# builds only an rlib, avoiding an unnecessary cdylib artifact for Rust consumers.
+manifest-path = "crates/brahe-py/Cargo.toml"
 # We name the rust module with a leading underscore to avoid a name conflict with the python module
 # This is a workaround for IDEs to avoid confusion in function naming.
 #
 # See: https://www.maturin.rs/project_layout#import-rust-as-a-submodule-of-your-project
 module-name = "brahe._brahe"
 # "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
-features = ["pyo3/extension-module", "python"]
+features = ["pyo3/extension-module"]
 # Include type stub file in distribution
 include = [
     "brahe/_brahe.pyi",
@@ -160,11 +164,16 @@ name = "Changed"
 showcontent = true
 
 [[tool.towncrier.type]]
-directory = "fixed"
-name = "Fixed"
+directory = "deprecated"
+name = "Deprecated"
 showcontent = true
 
 [[tool.towncrier.type]]
 directory = "removed"
 name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
 showcontent = true

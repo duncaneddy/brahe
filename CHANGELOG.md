@@ -2,15 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Brahe's versioning and deprecation policy is modeled on [NumPy's policy](https://numpy.org/doc/stable/dev/depending_on_numpy.html) rather than strict SemVer — see the [versioning documentation](https://duncaneddy.github.io/brahe/latest/about/versioning/) for the full policy, including the transitional deprecation window currently in effect.
+
+Each release groups entries under the Keep a Changelog section headings in the order **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**. Entries in **Deprecated** correspond to APIs that still work in this release but emit a `DeprecationWarning` or `FutureWarning`; entries in **Removed** list APIs that previous releases had deprecated.
 
 <!-- towncrier release notes start -->
 
-## [Unreleased]
+## [1.4.0] - 2026-04-17
+### Added
+
+- Added [brahe-mcp](https://github.com/duncaneddy/brahe-mcp) information to docs [#278](https://github.com/duncaneddy/brahe/pull/278)
+
 ### Changed
 
-- `pyo3` and `numpy` are now optional dependencies, activated via the `python` feature flag. Pure-Rust consumers that do not need the Python bindings no longer compile these crates. Existing Python users (pip/maturin installs) are unaffected; maturin already passes `--features python` via `pyproject.toml`.
+- Refactored repository structure to use a Rust workspace to breakup the python module from the core rust module. This pure-rust package consumers to avoid having to build the `cdylib`, which is only needed for python module builds. [#278](https://github.com/duncaneddy/brahe/pull/278)
+- `pyo3` and `numpy` are now optional dependencies, activated via the `python` feature flag. Pure-Rust consumers that do not need the Python bindings no longer compile these crates.
+- Split the repository into a Cargo workspace so the PyO3 bindings live in a dedicated `brahe-py` member crate at `crates/brahe-py/`. The published `brahe` crate now builds only an `rlib`, eliminating the unnecessary `cdylib` artifact previously produced for every pure-Rust consumer. Rust downstream (`use brahe::*`) and Python downstream (`import brahe`) are unchanged.
+
+
+### Fixed
+
+- Fixed issue that would cause tests and auto-merge to not run on dependabot PRs [#278](https://github.com/duncaneddy/brahe/pull/278)
 
 ## [1.3.4] - 2026-04-15
 ### Fixed

@@ -93,7 +93,8 @@ pub fn set_ludicrous_speed() {
 /// # Note
 /// Returns a clone of the thread pool Arc. The pool is initialized with default
 /// settings if it hasn't been configured yet.
-pub(crate) fn get_thread_pool() -> Arc<ThreadPool> {
+#[doc(hidden)]
+pub fn get_thread_pool() -> Arc<ThreadPool> {
     let mut pool_guard = THREAD_POOL.lock().expect("Thread pool mutex poisoned");
 
     if pool_guard.is_none() {

@@ -77,7 +77,7 @@ fn py_density_nrlmsise00(epc: &PyEpoch, x_ecef: PyReadonlyArray1<f64>) -> PyResu
     }
     let pos = numpy_to_vector3!(x_ecef);
 
-    crate::earth_models::density_nrlmsise00(&epc.obj, pos)
+    brahe::earth_models::density_nrlmsise00(&epc.obj, pos)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
 }
 
@@ -123,7 +123,7 @@ fn py_density_nrlmsise00_geod(epc: &PyEpoch, geod: PyReadonlyArray1<f64>) -> PyR
     let g = geod.as_array();
     let geod_arr = [g[0], g[1], g[2]];
 
-    crate::earth_models::density_nrlmsise00_geod(&epc.obj, &geod_arr)
+    brahe::earth_models::density_nrlmsise00_geod(&epc.obj, &geod_arr)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
 }
 
@@ -163,7 +163,7 @@ fn py_igrf_geodetic_enz<'py>(
     angle_format: &PyAngleFormat,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let geod = numpy_to_vector3!(x_geod);
-    let result = crate::earth_models::magnetic_field::igrf_geodetic_enz(
+    let result = brahe::earth_models::magnetic_field::igrf_geodetic_enz(
         &epc.obj,
         geod,
         angle_format.value,
@@ -203,7 +203,7 @@ fn py_igrf_geocentric_enz<'py>(
     angle_format: &PyAngleFormat,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let geod = numpy_to_vector3!(x_geod);
-    let result = crate::earth_models::magnetic_field::igrf_geocentric_enz(
+    let result = brahe::earth_models::magnetic_field::igrf_geocentric_enz(
         &epc.obj,
         geod,
         angle_format.value,
@@ -241,7 +241,7 @@ fn py_igrf_ecef<'py>(
     angle_format: &PyAngleFormat,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let geod = numpy_to_vector3!(x_geod);
-    let result = crate::earth_models::magnetic_field::igrf_ecef(
+    let result = brahe::earth_models::magnetic_field::igrf_ecef(
         &epc.obj,
         geod,
         angle_format.value,
@@ -284,7 +284,7 @@ fn py_wmmhr_geodetic_enz<'py>(
     nmax: Option<usize>,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let geod = numpy_to_vector3!(x_geod);
-    let result = crate::earth_models::magnetic_field::wmmhr_geodetic_enz(
+    let result = brahe::earth_models::magnetic_field::wmmhr_geodetic_enz(
         &epc.obj,
         geod,
         angle_format.value,
@@ -327,7 +327,7 @@ fn py_wmmhr_geocentric_enz<'py>(
     nmax: Option<usize>,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let geod = numpy_to_vector3!(x_geod);
-    let result = crate::earth_models::magnetic_field::wmmhr_geocentric_enz(
+    let result = brahe::earth_models::magnetic_field::wmmhr_geocentric_enz(
         &epc.obj,
         geod,
         angle_format.value,
@@ -368,7 +368,7 @@ fn py_wmmhr_ecef<'py>(
     nmax: Option<usize>,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let geod = numpy_to_vector3!(x_geod);
-    let result = crate::earth_models::magnetic_field::wmmhr_ecef(
+    let result = brahe::earth_models::magnetic_field::wmmhr_ecef(
         &epc.obj,
         geod,
         angle_format.value,

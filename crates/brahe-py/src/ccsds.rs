@@ -7,22 +7,22 @@
 // This ensures mutations on proxy sub-objects reflect back to the owning message,
 // while standalone objects can be constructed independently and appended.
 
-use crate::ccsds::cdm::{
+use brahe::ccsds::cdm::{
     CDM as RustCDM, CDMObject, CDMObjectMetadata, CDMRTNCovariance, CDMStateVector,
 };
-use crate::ccsds::common::{
+use brahe::ccsds::common::{
     CCSDSFormat, CCSDSRefFrame, CCSDSTimeSystem, ODMHeader,
 };
-use crate::ccsds::interop::ccsds_ref_frame_to_orbit_frame;
-use crate::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
-use crate::ccsds::omm::OMM as RustOMM;
-use crate::ccsds::opm::{OPM as RustOPM, OPMManeuver};
-use crate::trajectories::DOrbitTrajectory;
-use crate::trajectories::traits::OrbitFrame;
+use brahe::ccsds::interop::ccsds_ref_frame_to_orbit_frame;
+use brahe::ccsds::oem::{OEM as RustOEM, OEMMetadata, OEMSegment, OEMStateVector};
+use brahe::ccsds::omm::OMM as RustOMM;
+use brahe::ccsds::opm::{OPM as RustOPM, OPMManeuver};
+use brahe::trajectories::DOrbitTrajectory;
+use brahe::trajectories::traits::OrbitFrame;
 
 /// Push all states from a trajectory into an OEM segment, converting to the
 /// segment's declared reference frame using the trajectory's frame-aware methods.
-fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), crate::utils::BraheError> {
+fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Result<(), brahe::utils::BraheError> {
     let orbit_frame = ccsds_ref_frame_to_orbit_frame(&seg.metadata.ref_frame)?;
     for epoch in traj.epochs.iter() {
         let state = match orbit_frame {
@@ -1279,7 +1279,7 @@ impl PyOEM {
                 header: ODMHeader {
                     format_version,
                     classification,
-                    creation_date: crate::time::Epoch::now(),
+                    creation_date: brahe::time::Epoch::now(),
                     originator,
                     message_id: None,
                     comments: Vec::new(),
@@ -1343,9 +1343,9 @@ impl PyOEM {
     #[pyo3(signature = (uppercase_keys=false))]
     fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
         let key_case = if uppercase_keys {
-            crate::ccsds::common::CCSDSJsonKeyCase::Upper
+            brahe::ccsds::common::CCSDSJsonKeyCase::Upper
         } else {
-            crate::ccsds::common::CCSDSJsonKeyCase::Lower
+            brahe::ccsds::common::CCSDSJsonKeyCase::Lower
         };
         let result = self.inner.to_json_string(key_case)?;
         Ok(result)
@@ -1380,7 +1380,7 @@ impl PyOEM {
         )?;
         header.set_item(
             "creation_date",
-            crate::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
+            brahe::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         header.set_item("message_id", self.inner.header.message_id.as_deref())?;
@@ -1401,11 +1401,11 @@ impl PyOEM {
             meta.set_item("time_system", format!("{}", seg.metadata.time_system))?;
             meta.set_item(
                 "start_time",
-                crate::ccsds::common::format_ccsds_datetime(&seg.metadata.start_time),
+                brahe::ccsds::common::format_ccsds_datetime(&seg.metadata.start_time),
             )?;
             meta.set_item(
                 "stop_time",
-                crate::ccsds::common::format_ccsds_datetime(&seg.metadata.stop_time),
+                brahe::ccsds::common::format_ccsds_datetime(&seg.metadata.stop_time),
             )?;
             meta.set_item("interpolation", seg.metadata.interpolation.as_deref())?;
             meta.set_item("interpolation_degree", seg.metadata.interpolation_degree)?;
@@ -1418,7 +1418,7 @@ impl PyOEM {
                 let sv_dict = pyo3::types::PyDict::new(py);
                 sv_dict.set_item(
                     "epoch",
-                    crate::ccsds::common::format_ccsds_datetime(&sv.epoch),
+                    brahe::ccsds::common::format_ccsds_datetime(&sv.epoch),
                 )?;
                 sv_dict.set_item("position", sv.position.to_vec())?;
                 sv_dict.set_item("velocity", sv.velocity.to_vec())?;
@@ -2491,7 +2491,7 @@ impl PyOMM {
             pyo3::exceptions::PyValueError::new_err(format!("Invalid time_system: {}", e))
         })?;
 
-        use crate::ccsds::omm::{OMMMetadata, OMMeanElements};
+        use brahe::ccsds::omm::{OMMMetadata, OMMeanElements};
         let metadata = OMMMetadata::new(object_name, object_id, center_name, rf, ts, mean_element_theory);
         let mut elements = OMMeanElements::new(epoch.obj, eccentricity, inclination, ra_of_asc_node, arg_of_pericenter, mean_anomaly);
         if let Some(mm) = mean_motion {
@@ -2598,7 +2598,7 @@ impl PyOMM {
         header.set_item("format_version", self.inner.header.format_version)?;
         header.set_item(
             "creation_date",
-            crate::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
+            brahe::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         dict.set_item("header", header)?;
@@ -2623,7 +2623,7 @@ impl PyOMM {
         let me = pyo3::types::PyDict::new(py);
         me.set_item(
             "epoch",
-            crate::ccsds::common::format_ccsds_datetime(&self.inner.mean_elements.epoch),
+            brahe::ccsds::common::format_ccsds_datetime(&self.inner.mean_elements.epoch),
         )?;
         me.set_item("mean_motion", self.inner.mean_elements.mean_motion)?;
         me.set_item(
@@ -2708,9 +2708,9 @@ impl PyOMM {
     #[pyo3(signature = (uppercase_keys=false))]
     fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
         let key_case = if uppercase_keys {
-            crate::ccsds::common::CCSDSJsonKeyCase::Upper
+            brahe::ccsds::common::CCSDSJsonKeyCase::Upper
         } else {
-            crate::ccsds::common::CCSDSJsonKeyCase::Lower
+            brahe::ccsds::common::CCSDSJsonKeyCase::Lower
         };
         let result = self.inner.to_json_string(key_case)?;
         Ok(result)
@@ -3328,7 +3328,7 @@ impl PyOPM {
         let pos = pyany_to_array3(position, "position")?;
         let vel = pyany_to_array3(velocity, "velocity")?;
 
-        use crate::ccsds::opm::{OPMMetadata, OPMStateVector};
+        use brahe::ccsds::opm::{OPMMetadata, OPMStateVector};
         let metadata = OPMMetadata::new(object_name, object_id, center_name, rf, ts);
         let state_vector = OPMStateVector::new(epoch.obj, pos, vel);
         let inner = RustOPM::new(originator, metadata, state_vector);
@@ -3387,9 +3387,9 @@ impl PyOPM {
     #[pyo3(signature = (uppercase_keys=false))]
     fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
         let key_case = if uppercase_keys {
-            crate::ccsds::common::CCSDSJsonKeyCase::Upper
+            brahe::ccsds::common::CCSDSJsonKeyCase::Upper
         } else {
-            crate::ccsds::common::CCSDSJsonKeyCase::Lower
+            brahe::ccsds::common::CCSDSJsonKeyCase::Lower
         };
         let result = self.inner.to_json_string(key_case)?;
         Ok(result)
@@ -3420,7 +3420,7 @@ impl PyOPM {
         header.set_item("format_version", self.inner.header.format_version)?;
         header.set_item(
             "creation_date",
-            crate::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
+            brahe::ccsds::common::format_ccsds_datetime(&self.inner.header.creation_date),
         )?;
         header.set_item("originator", &self.inner.header.originator)?;
         header.set_item("comments", &self.inner.header.comments)?;
@@ -3442,7 +3442,7 @@ impl PyOPM {
         let sv = pyo3::types::PyDict::new(py);
         sv.set_item(
             "epoch",
-            crate::ccsds::common::format_ccsds_datetime(&self.inner.state_vector.epoch),
+            brahe::ccsds::common::format_ccsds_datetime(&self.inner.state_vector.epoch),
         )?;
         sv.set_item("position", self.inner.state_vector.position.to_vec())?;
         sv.set_item("velocity", self.inner.state_vector.velocity.to_vec())?;
@@ -3480,7 +3480,7 @@ impl PyOPM {
                 let m_dict = pyo3::types::PyDict::new(py);
                 m_dict.set_item(
                     "epoch_ignition",
-                    crate::ccsds::common::format_ccsds_datetime(&m.epoch_ignition),
+                    brahe::ccsds::common::format_ccsds_datetime(&m.epoch_ignition),
                 )?;
                 m_dict.set_item("duration", m.duration)?;
                 m_dict.set_item("delta_mass", m.delta_mass)?;
@@ -4474,9 +4474,9 @@ impl PyCDM {
     #[pyo3(signature = (uppercase_keys=false))]
     fn to_json_string(&self, uppercase_keys: bool) -> PyResult<String> {
         let key_case = if uppercase_keys {
-            crate::ccsds::common::CCSDSJsonKeyCase::Upper
+            brahe::ccsds::common::CCSDSJsonKeyCase::Upper
         } else {
-            crate::ccsds::common::CCSDSJsonKeyCase::Lower
+            brahe::ccsds::common::CCSDSJsonKeyCase::Lower
         };
         let result = self.inner.to_json_string(key_case)?;
         Ok(result)
@@ -4658,7 +4658,7 @@ impl PyCDM {
     fn __repr__(&self) -> String {
         format!(
             "CDM(tca={}, miss_distance={:.1}m, obj1='{}', obj2='{}')",
-            crate::ccsds::common::format_ccsds_datetime(self.inner.tca()),
+            brahe::ccsds::common::format_ccsds_datetime(self.inner.tca()),
             self.inner.miss_distance(),
             self.inner.object1.metadata.object_name,
             self.inner.object2.metadata.object_name,

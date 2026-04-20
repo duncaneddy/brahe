@@ -1,6 +1,9 @@
+[workspace]
+members = ["crates/brahe-py"]
+
 [package]
 name = "brahe"
-version = "1.3.4"
+version = "1.4.0"
 authors = ["Duncan Eddy <duncan.eddy@gmail.com>"]
 edition = "2024"
 description = "Brahe is a modern satellite dynamics library for research and engineering applications designed to be easy-to-learn, high-performance, and quick-to-deploy. The north-star of the development is enabling users to solve meaningful problems and answer questions quickly, easily, and correctly."
@@ -17,6 +20,7 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
     "/scripts",
     "/docs",
     "/brahe",
+    "/crates",
     ".github",
     "/examples",
     "/plots",
@@ -29,13 +33,10 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
 
 [lib]
 name = "brahe"
-# "cdylib" is necessary to produce a shared library for Python to import from.
-crate-type = ["cdylib", "lib"]
 
 [dependencies]
 rsofa = "0.5.0"
 nalgebra = { version = "0.34.1", features = ["serde-serialize"] }
-numpy = { version = "0.28.0", optional = true }
 once_cell = "1.21.3"
 num-traits = "0.2.19"
 regex = "1.12.3"
@@ -54,12 +55,11 @@ dirs = "6.0.0"
 polars = { version = "0.53", default-features = false, features = ["lazy"] }
 anise = "0.9.3"
 
+# pyo3 is an optional dependency used only by the `python` feature, which enables
+# the `python_interop` module holding the `BraheError` PyErr conversion. The
+# extension module itself is built from the `brahe-py` workspace crate.
 [dependencies.pyo3]
 version = "0.28.2"
-# "extension-module" is intentionally NOT set here; maturin passes it via pyproject.toml's
-# [tool.maturin] features list ("pyo3/extension-module"). This lets pure-Rust consumers use
-# `cargo build/test --features python` without requiring a Python runtime to link against,
-# while maturin still produces a correct extension module for Python wheels.
 optional = true
 
 [dev-dependencies]
@@ -78,9 +78,13 @@ criterion = { version = "0.8", features = ["html_reports"] }
 [features]
 ci = []
 manual = []  # For tests requiring network downloads (run with: cargo test --features manual)
+<<<<<<< dev/dhat-heap-profiling
 python = ["dep:pyo3", "dep:numpy"]
 dhat-heap = []    # if you are doing heap profiling
 dhat-ad-hoc = []  # if you are doing ad hoc profiling
+=======
+python = ["dep:pyo3"]
+>>>>>>> main
 
 # Build Profiles
 [profile.dev]

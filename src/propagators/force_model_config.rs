@@ -521,6 +521,35 @@ impl Default for GravityModelSource {
     }
 }
 
+/// Supported max degrees for zonal harmonics. J_N will use J_2..J_N
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[allow(missing_docs)]
+pub enum ZonalHarmonicsDegrees {
+    J2,
+    J3,
+    J4,
+    J5,
+    J6,
+}
+
+impl From<&ZonalHarmonicsDegrees> for usize {
+    fn from(value: &ZonalHarmonicsDegrees) -> Self {
+        match value {
+            ZonalHarmonicsDegrees::J2 => 2,
+            ZonalHarmonicsDegrees::J3 => 3,
+            ZonalHarmonicsDegrees::J4 => 4,
+            ZonalHarmonicsDegrees::J5 => 5,
+            ZonalHarmonicsDegrees::J6 => 6,
+        }
+    }
+}
+
+impl From<ZonalHarmonicsDegrees> for usize {
+    fn from(value: ZonalHarmonicsDegrees) -> Self {
+        (&value).into()
+    }
+}
+
 /// Gravity model configuration
 ///
 /// Specifies the gravity model to use for computing gravitational acceleration.
@@ -544,6 +573,14 @@ pub enum GravityConfiguration {
         degree: usize,
         /// Maximum order (m) of expansion
         order: usize,
+    },
+
+    /// Uses zonal terms (J_2..J_n) only.
+    /// Has the same effect as setting m = 0 in SphericalHarmonic,
+    /// By making it an explicit invariant, we can write code that the compiler can optimize for a ~50% speedup
+    Zonal {
+        /// Maximum degree (n) of expansion, order (m) is 0
+        degree: ZonalHarmonicsDegrees,
     },
 }
 

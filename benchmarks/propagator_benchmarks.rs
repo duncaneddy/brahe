@@ -1,5 +1,6 @@
 #![allow(missing_docs)]
 
+use brahe::{GravityConfiguration, GravityModelSource, ZonalHarmonicsDegrees};
 use criterion::Criterion;
 
 use brahe::constants::AngleFormat;
@@ -85,6 +86,109 @@ fn bench_numerical_conservative_24hour(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_numerical_fast_j6_zonal_24hour(c: &mut Criterion) {
+    setup_providers();
+
+    let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    let oe = SVector6::new(
+        brahe::constants::R_EARTH + 500e3,
+        0.01,
+        97.8,
+        15.0,
+        30.0,
+        45.0,
+    );
+
+    let degree = ZonalHarmonicsDegrees::J6;
+    let state = state_koe_to_eci(oe, AngleFormat::Degrees);
+    let dstate = DVector::from_column_slice(state.as_slice());
+    let force = ForceModelConfig {
+        gravity: GravityConfiguration::Zonal { degree },
+        drag: None,
+        srp: None,
+        third_body: None,
+        relativity: false,
+        mass: None,
+    };
+
+    let mut group = c.benchmark_group("propagator_numerical");
+    group.sample_size(10);
+
+    group.bench_function("numerical_fast_j6_zonal_24hour", |b| {
+        b.iter(|| {
+            let mut prop = DNumericalOrbitPropagator::new(
+                epoch,
+                dstate.clone(),
+                NumericalPropagationConfig::default(),
+                force.clone(),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            let target = epoch + 86400.0;
+            prop.propagate_to(target);
+        })
+    });
+
+    group.finish();
+}
+
+fn bench_spherical_harmonic_numerical_j6_equivalent_24hour(c: &mut Criterion) {
+    setup_providers();
+
+    let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    let oe = SVector6::new(
+        brahe::constants::R_EARTH + 500e3,
+        0.01,
+        97.8,
+        15.0,
+        30.0,
+        45.0,
+    );
+    let state = state_koe_to_eci(oe, AngleFormat::Degrees);
+    let dstate = DVector::from_column_slice(state.as_slice());
+    let force = ForceModelConfig {
+        gravity: GravityConfiguration::SphericalHarmonic {
+            source: GravityModelSource::default(),
+            degree: ZonalHarmonicsDegrees::J6.into(),
+            order: 0,
+        },
+        drag: None,
+        srp: None,
+        third_body: None,
+        relativity: false,
+        mass: None,
+    };
+
+    let mut group = c.benchmark_group("propagator_numerical");
+    group.sample_size(10);
+
+    group.bench_function(
+        "numerical_spherical_harmonic_numerical_j6_equivalent_24hour",
+        |b| {
+            b.iter(|| {
+                let mut prop = DNumericalOrbitPropagator::new(
+                    epoch,
+                    dstate.clone(),
+                    NumericalPropagationConfig::default(),
+                    force.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                let target = epoch + 86400.0;
+                prop.propagate_to(target);
+            })
+        },
+    );
+
+    group.finish();
+}
+
 // Custom main instead of criterion_main! so the dhat profiler runs when enabled
 // Run bench with --features dhat-heap to profile memory allocations
 fn main() {
@@ -94,5 +198,7 @@ fn main() {
     let mut c = criterion::Criterion::default().configure_from_args();
     bench_sgp4_24hour(&mut c);
     bench_numerical_conservative_24hour(&mut c);
+    bench_numerical_fast_j6_zonal_24hour(&mut c);
+    bench_spherical_harmonic_numerical_j6_equivalent_24hour(&mut c);
     c.final_summary();
 }

@@ -577,13 +577,15 @@ fn format_exponential(value: f64) -> String {
     let sign = if value >= 0.0 { " " } else { "-" };
 
     // Calculate exponent using TLE standard format
-    // TLE uses scientific notation where mantissa is between 0.1 and 1.0
+    // TLE uses scientific notation with an implied leading decimal point,
+    // so 12345-3 means 0.12345 * 10^-3. The mantissa is therefore between
+    // 0.1 and 1.0, and the exponent is floor(log10(value)) + 1.
     let log_val = abs_val.log10();
-    let exponent = log_val.floor() as i32;
+    let exponent = log_val.floor() as i32 + 1;
 
     // Calculate 5-digit mantissa
     let mantissa = abs_val / 10_f64.powi(exponent);
-    let body = (mantissa * 10000.0).round() as u32;
+    let body = (mantissa * 100000.0).round() as u32;
 
     // Format exponent sign
     let exp_sign = if exponent >= 0 { "+" } else { "-" };
@@ -839,7 +841,7 @@ mod tests {
 
         assert_eq!(
             line1,
-            "1 25544U 98067A   21001.50000000 -.00001764 -67899-7 -12345-4 0 09995"
+            "1 25544U 98067A   21001.50000000 -.00001764 -67899-6 -12345-3 0 09993"
         );
         assert_eq!(
             line2,
@@ -868,7 +870,7 @@ mod tests {
 
         assert_eq!(
             line1,
-            "1 25544U 98067A   21001.50000000  .00001764  67899-7  12345-4 0 09992"
+            "1 25544U 98067A   21001.50000000  .00001764  67899-6  12345-3 0 09990"
         );
         assert_eq!(
             line2,
@@ -909,12 +911,31 @@ mod tests {
 
     #[rstest]
     #[case(0.0, " 00000+0")]
-    #[case(0.00012345, " 12345-4")]
-    #[case(-0.00012345, "-12345-4")]
-    #[case(12345.0, " 12345+4")]
-    #[case(-12345.0, "-12345+4")]
+    #[case(0.00012345, " 12345-3")]
+    #[case(-0.00012345, "-12345-3")]
+    #[case(12345.0, " 12345+5")]
+    #[case(-12345.0, "-12345+5")]
     fn test_format_exponential(#[case] value: f64, #[case] expected: &str) {
         assert_eq!(format_exponential(value), expected);
+    }
+
+    #[test]
+    fn test_format_exponential_against_sgp4_parsed_tle() {
+        // Real TLE from Celestrak (used in examples/access/computation/basic_workflow.py)
+        let line1 = "1 25544U 98067A   25306.42331346  .00010070  00000-0  18610-3 0  9999";
+        let line2 = "2 25544  51.6344 342.0717 0004969   8.9436 351.1640 15.49700017536601";
+
+        let elements = sgp4::Elements::from_tle(
+            Some("25544".to_string()),
+            line1.as_bytes(),
+            line2.as_bytes(),
+        )
+        .unwrap();
+
+        // The BSTAR field is non-zero and will catch the exponent bug.
+        // Columns 53-60 of line 1 (0-indexed: 53..61) contain the BSTAR term.
+        let bstar_expected = &line1[53..61];
+        assert_eq!(format_exponential(elements.drag_term), bstar_expected);
     }
 
     #[rstest]

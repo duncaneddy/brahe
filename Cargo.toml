@@ -1,9 +1,15 @@
 [workspace]
 members = ["crates/brahe-py"]
 
+# Single source of truth for the release version. Workspace members inherit via
+# `version.workspace = true` so `brahe-py` (the Python extension) stays in sync
+# with the root `brahe` crate.
+[workspace.package]
+version = "1.4.2"
+
 [package]
 name = "brahe"
-version = "1.4.1"
+version.workspace = true
 authors = ["Duncan Eddy <duncan.eddy@gmail.com>"]
 edition = "2024"
 description = "Brahe is a modern satellite dynamics library for research and engineering applications designed to be easy-to-learn, high-performance, and quick-to-deploy. The north-star of the development is enabling users to solve meaningful problems and answer questions quickly, easily, and correctly."

@@ -1,6 +1,6 @@
 [package]
 name = "brahe-py"
-version = "1.4.0"
+version.workspace = true
 authors = ["Duncan Eddy <duncan.eddy@gmail.com>"]
 edition = "2024"
 description = "PyO3 bindings for the brahe astrodynamics library. Built by maturin into the `brahe._brahe` Python extension module; not published to crates.io."

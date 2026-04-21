@@ -172,6 +172,8 @@ pub fn accel_point_mass_gravity<P: IntoPosition>(
 /// but this implementation avoids matrix operations that are hard to optimive for the compiler
 /// 
 /// Benchmarks show this to be ~1.5 - 2x faster then the equivalent call to compute_spherical_harmonics(n, m=0)
+/// 
+/// Formulas taken from [Vallado], J values from [Wakker]
 pub fn fast_spherical_zonal_harmonics_accel<P: IntoPosition>(
     r_object: P,
     r_central_body: Vector3<f64>,

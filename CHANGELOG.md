@@ -9,6 +9,17 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- towncrier release notes start -->
 
+## [1.4.1] - 2026-04-21
+### Changed
+
+- Improve documentation around versioning practices. [#282](https://github.com/duncaneddy/brahe/pull/282)
+- Add deprecation section to changelog [#284](https://github.com/duncaneddy/brahe/pull/284)
+- Bump version for v1.4.1 release [#295](https://github.com/duncaneddy/brahe/pull/295)
+
+### Fixed
+
+- Fix a permissions issue that pervented CHANGELOG validation from running on fork PRs [#293](https://github.com/duncaneddy/brahe/pull/293)
+
 ## [1.4.0] - 2026-04-17
 ### Added
 

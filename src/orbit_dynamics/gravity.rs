@@ -1273,7 +1273,7 @@ mod tests {
         let z_state = prop_zonal_fast.current_state();
         print!("{} <> {}", s_state, z_state);
 
-        // Allow disagreement for position and velocity after 24h: 3km for pos, 10km/s for vel
+        // Allow disagreement for position and velocity after 24h: 3000m for pos, 10m/s for vel
         // TODO(mz): Investigate where disparity comes from
         let eps_pos = 3_000.;
         let eps_v = 10.;

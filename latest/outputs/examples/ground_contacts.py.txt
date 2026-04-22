@@ -1,6 +1,6 @@
 Downloading NISAR TLE from CelesTrak...
-Downloaded NISAR TLE in 0.34 seconds.
-Epoch: 2026-04-20 12:33:45.567 UTC
+Downloaded NISAR TLE in 0.28 seconds.
+Epoch: 2026-04-22 06:10:52.023 UTC
 Semi-major axis: 7128.4 km
 
 Loading NASA Near Earth Network ground stations...
@@ -8,29 +8,29 @@ Loaded 18 NASA NEN ground stations in 0.00 seconds.
 
 Propagating NISAR for 3 orbits...
 Orbital period: 99.8 minutes
-Propagated NISAR for 3 orbits in 0.07 seconds.
+Propagated NISAR for 3 orbits in 0.06 seconds.
 
 Creating ground track visualization with communication cones...
-Created ground track visualization in 0.15 seconds.
+Created ground track visualization in 0.11 seconds.
 
 Computing 7-day ground contacts...
-Computed 907 contact windows in 2.88 seconds.
+Computed 903 contact windows in 3.26 seconds.
 
 ================================================================================
 Sample Contact Windows (first 10)
 ================================================================================
 Station              Start Time                End Time                    Duration   Max Elev
 --------------------------------------------------------------------------------
-White Sands          2026-04-20 12:36:52       2026-04-20 12:48:55           12.1 m     82.7°
-Ponce de Leon        2026-04-20 12:38:57       2026-04-20 12:43:18            4.3 m      6.7°
-Merrit Island        2026-04-20 12:38:58       2026-04-20 12:42:58            4.0 m      6.4°
-Gilmore Creek        2026-04-20 12:48:19       2026-04-20 12:59:17           11.0 m     30.0°
-North Pole           2026-04-20 12:48:19       2026-04-20 12:59:14           10.9 m     29.5°
-Alaska Satellite Facility 2026-04-20 12:48:20       2026-04-20 12:59:16           10.9 m     29.4°
-Svalbard             2026-04-20 12:56:58       2026-04-20 13:03:56            7.0 m      9.8°
-Troll                2026-04-20 13:40:28       2026-04-20 13:52:03           11.6 m     37.6°
-McMurdo              2026-04-20 13:46:41       2026-04-20 13:52:18            5.6 m      7.8°
-White Sands          2026-04-20 14:19:29       2026-04-20 14:24:35            5.1 m      7.4°
+Kiruna               2026-04-22 06:26:22       2026-04-22 06:33:37            7.3 m     10.4°
+Svalbard             2026-04-22 06:27:35       2026-04-22 06:37:45           10.2 m     20.2°
+Gilmore Creek        2026-04-22 06:35:18       2026-04-22 06:46:26           11.1 m     32.4°
+Alaska Satellite Facility 2026-04-22 06:35:21       2026-04-22 06:46:29           11.1 m     32.5°
+North Pole           2026-04-22 06:35:21       2026-04-22 06:46:28           11.1 m     32.1°
+Awarua               2026-04-22 07:07:52       2026-04-22 07:18:50           11.0 m     26.8°
+McMurdo              2026-04-22 07:16:38       2026-04-22 07:27:57           11.3 m     29.5°
+Troll                2026-04-22 07:24:06       2026-04-22 07:36:27           12.3 m     84.4°
+Svalbard             2026-04-22 08:09:21       2026-04-22 08:17:23            8.0 m     12.0°
+Gilmore Creek        2026-04-22 08:13:52       2026-04-22 08:22:56            9.1 m     16.3°
 ================================================================================
 ✓ Exported first 20 contact windows to docs/figures/ground_contacts_windows.csv
 
@@ -41,26 +41,26 @@ Average Daily Contacts per Station:
 Svalbard            :  14.4 contacts/day (101 total)
 McMurdo             :  14.4 contacts/day (101 total)
 Troll               :  11.4 contacts/day (80 total)
-Kiruna              :  10.6 contacts/day (74 total)
+Kiruna              :  10.4 contacts/day (73 total)
 Gilmore Creek       :  10.3 contacts/day (72 total)
-North Pole          :  10.3 contacts/day (72 total)
 Alaska Satellite Facility:  10.3 contacts/day (72 total)
+North Pole          :  10.3 contacts/day (72 total)
 Awarua              :   5.6 contacts/day (39 total)
+Wallops             :   4.7 contacts/day (33 total)
 Santiago            :   4.6 contacts/day (32 total)
-Wallops             :   4.6 contacts/day (32 total)
 White Sands         :   4.4 contacts/day (31 total)
 Matjiesfontein      :   4.4 contacts/day (31 total)
-Ponce de Leon       :   4.3 contacts/day (30 total)
-Merrit Island       :   4.3 contacts/day (30 total)
 Dongara             :   4.1 contacts/day (29 total)
+Merrit Island       :   4.1 contacts/day (29 total)
+Ponce de Leon       :   4.1 contacts/day (29 total)
 Hartebeesthoek      :   4.0 contacts/day (28 total)
-South Point         :   3.9 contacts/day (27 total)
 Singapore           :   3.7 contacts/day (26 total)
+South Point         :   3.6 contacts/day (25 total)
 
 Contact Duration Statistics:
   Mean: 9.9 minutes
   Median: 10.8 minutes
-  Min: 0.7 minutes
+  Min: 0.9 minutes
   Max: 12.4 minutes
 
 ✓ Generated docs/figures/ground_contacts_groundtrack_light.html

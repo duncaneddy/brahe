@@ -1,5 +1,5 @@
 Downloading Capella satellite TLEs from CelesTrak...
-Found 8 Capella satellites in 0.51 seconds
+Found 8 Capella satellites in 0.30 seconds
   - CAPELLA-11 (ACADIA-1)
   - CAPELLA-14 (ACADIA-4)
   - CAPELLA-13 (ACADIA-3)
@@ -52,21 +52,21 @@ Using 33 external stations for downlink:
   - Weilheim (11.08, 47.88)
 
 Computing AOI exit events...
-Found 300 AOI exit events in 12.91 seconds
+Found 314 AOI exit events in 12.57 seconds
 
 Computing ground station contacts...
-Computed 10232 ground contact windows in 15.92 seconds
+Computed 10229 ground contact windows in 18.09 seconds
 
 Computing imaging data latencies...
-Computed 299 latency values in 0.06 seconds
+Computed 314 latency values in 0.07 seconds
 
 ====================================================================================================
 Imaging Data Latency Statistics
 ====================================================================================================
-  Worst (Max):  54 minutes and 25.03 seconds
-  Best (Min):   6.81 seconds
-  Average:      14 minutes and 36.85 seconds
-  Median:       5 minutes and 31.60 seconds
+  Worst (Max):  54 minutes and 31.49 seconds
+  Best (Min):   6.79 seconds
+  Average:      14 minutes and 14.92 seconds
+  Median:       5 minutes and 34.83 seconds
 ====================================================================================================
 
 ========================================================================================================================
@@ -74,20 +74,20 @@ Top 5 Worst Imaging Data Latencies
 ========================================================================================================================
 Satellite                 AOI Exit Time                Contact Start                Station                      Latency
 ------------------------------------------------------------------------------------------------------------------------
-CAPELLA-19 (ACADIA-9)     2026-04-20 11:27:58          2026-04-20 12:22:23          Bangalore            54 minutes and 25.03 seconds
-CAPELLA-18 (ACADIA-8)     2026-04-25 11:24:57          2026-04-25 12:19:14          Bangalore            54 minutes and 17.03 seconds
-CAPELLA-16 (ACADIA-6)     2026-04-26 16:33:10          2026-04-26 17:27:26          Bangalore            54 minutes and 15.39 seconds
-CAPELLA-16 (ACADIA-6)     2026-04-25 16:26:55          2026-04-25 17:20:56          Bangalore            54 minutes and 1.36 seconds
-CAPELLA-15 (ACADIA-5)     2026-04-20 16:34:38          2026-04-20 17:24:53          Mauritius            50 minutes and 14.50 seconds
+CAPELLA-16 (ACADIA-6)     2026-04-27 16:39:24          2026-04-27 17:33:56          Bangalore            54 minutes and 31.49 seconds
+CAPELLA-19 (ACADIA-9)     2026-04-27 11:27:48          2026-04-27 12:22:13          Bangalore            54 minutes and 24.98 seconds
+CAPELLA-18 (ACADIA-8)     2026-04-25 11:24:58          2026-04-25 12:19:15          Bangalore            54 minutes and 17.02 seconds
+CAPELLA-16 (ACADIA-6)     2026-04-26 16:33:10          2026-04-26 17:27:25          Bangalore            54 minutes and 15.27 seconds
+CAPELLA-16 (ACADIA-6)     2026-04-25 16:26:54          2026-04-25 17:20:56          Bangalore            54 minutes and 1.24 seconds
 ========================================================================================================================
 
 ✓ Exported top 5 latencies to docs/figures/imaging_data_latency_top5.csv
 ✓ Exported statistics to docs/figures/imaging_data_latency_stats.csv
 
 Creating ground track visualization for top 3 worst latencies...
-  Gap 1: 56 points, 2 segments, latency=54m 25s
-  Gap 2: 55 points, 2 segments, latency=54m 17s
-  Gap 3: 55 points, 2 segments, latency=54m 15s
+  Gap 1: 56 points, 2 segments, latency=54m 31s
+  Gap 2: 55 points, 2 segments, latency=54m 24s
+  Gap 3: 56 points, 2 segments, latency=54m 17s
 Created ground track visualization in 0.31 seconds.
 
 ✓ Generated imaging_data_latency_groundtrack_light.svg

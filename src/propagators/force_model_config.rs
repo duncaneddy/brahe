@@ -524,7 +524,7 @@ impl Default for GravityModelSource {
 /// Supported max degrees for zonal harmonics. J_N will use J_2..J_N
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(missing_docs)]
-pub enum ZonalHarmonicsDegrees {
+pub enum ZonalHarmonicsDegree {
     J2,
     J3,
     J4,
@@ -532,20 +532,20 @@ pub enum ZonalHarmonicsDegrees {
     J6,
 }
 
-impl From<&ZonalHarmonicsDegrees> for usize {
-    fn from(value: &ZonalHarmonicsDegrees) -> Self {
+impl From<&ZonalHarmonicsDegree> for usize {
+    fn from(value: &ZonalHarmonicsDegree) -> Self {
         match value {
-            ZonalHarmonicsDegrees::J2 => 2,
-            ZonalHarmonicsDegrees::J3 => 3,
-            ZonalHarmonicsDegrees::J4 => 4,
-            ZonalHarmonicsDegrees::J5 => 5,
-            ZonalHarmonicsDegrees::J6 => 6,
+            ZonalHarmonicsDegree::J2 => 2,
+            ZonalHarmonicsDegree::J3 => 3,
+            ZonalHarmonicsDegree::J4 => 4,
+            ZonalHarmonicsDegree::J5 => 5,
+            ZonalHarmonicsDegree::J6 => 6,
         }
     }
 }
 
-impl From<ZonalHarmonicsDegrees> for usize {
-    fn from(value: ZonalHarmonicsDegrees) -> Self {
+impl From<ZonalHarmonicsDegree> for usize {
+    fn from(value: ZonalHarmonicsDegree) -> Self {
         (&value).into()
     }
 }
@@ -580,7 +580,7 @@ pub enum GravityConfiguration {
     /// By making it an explicit invariant, we can write code that the compiler can optimize for a ~50% speedup
     Zonal {
         /// Maximum degree (n) of expansion, order (m) is 0
-        degree: ZonalHarmonicsDegrees,
+        degree: ZonalHarmonicsDegree,
     },
 }
 

@@ -229,7 +229,6 @@ pub fn fast_spherical_zonal_harmonics_accel<P: IntoPosition>(
 
         let j4_xy_factor = 1. - (14. * k_r2) + (21. * k_r4);
         let j4_z_factor = 5. - (70. / 3. * k_r2) + (21. * k_r4);
-
         accel.x += j4_coeff * j4_xy_factor * i;
         accel.y += j4_coeff * j4_xy_factor * j;
         accel.z += j4_coeff * j4_z_factor * k;
@@ -241,7 +240,6 @@ pub fn fast_spherical_zonal_harmonics_accel<P: IntoPosition>(
 
         let j5_xy_factor = 35. - (210. * k_r2) + (231. * k_r4);
         let j5_z_factor = 105. - (315. * k_r2) + (231. * k_r4);
-
         accel.x += j5_coeff * j5_xy_factor * i * k;
         accel.y += j5_coeff * j5_xy_factor * j * k;
         accel.z += j5_coeff * j5_z_factor * k.powi(2) - (15. * J5 * gm * re_5 / (8. * r.powi(7)));
@@ -1024,7 +1022,7 @@ mod tests {
     use crate::{
         AngleFormat, DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
         FileSpaceWeatherProvider, ForceModelConfig, GravityConfiguration, GravityModelSource,
-        NumericalPropagationConfig, SVector6, TimeSystem, ZonalHarmonicsDegrees,
+        NumericalPropagationConfig, SVector6, TimeSystem, ZonalHarmonicsDegree,
         set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci,
     };
 
@@ -1221,7 +1219,7 @@ mod tests {
         let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let dstate = DVector::from_column_slice(state.as_slice());
         let target = epoch + 86400.0;
-        let degree = ZonalHarmonicsDegrees::J6;
+        let degree = ZonalHarmonicsDegree::J6;
 
         let mut prop_spherical = DNumericalOrbitPropagator::new(
             epoch,
@@ -1252,7 +1250,7 @@ mod tests {
             NumericalPropagationConfig::default(),
             ForceModelConfig {
                 gravity: GravityConfiguration::Zonal {
-                    degree: ZonalHarmonicsDegrees::J6,
+                    degree: ZonalHarmonicsDegree::J6,
                 },
                 drag: None,
                 srp: None,

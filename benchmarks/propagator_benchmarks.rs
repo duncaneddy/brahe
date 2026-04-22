@@ -38,12 +38,9 @@ fn bench_sgp4_24hour(c: &mut Criterion) {
 
     group.bench_function("sgp4_24h_propagation", |b| {
         b.iter(|| {
-            let mut prop = SGPPropagator::from_tle(
-                black_box(line1),
-                black_box(line2),
-                black_box(60.0),
-            )
-            .unwrap();
+            let mut prop =
+                SGPPropagator::from_tle(black_box(line1), black_box(line2), black_box(60.0))
+                    .unwrap();
             let target = prop.current_epoch() + black_box(86400.0);
             prop.propagate_to(target);
         })
@@ -83,7 +80,9 @@ fn bench_numerical_fast_j6_zonal_24hour(
     degree: &ZonalHarmonicsDegree,
 ) {
     let force = ForceModelConfig {
-        gravity: GravityConfiguration::Zonal { degree: degree.clone() },
+        gravity: GravityConfiguration::Zonal {
+            degree: degree.clone(),
+        },
         drag: None,
         srp: None,
         third_body: None,
@@ -157,7 +156,14 @@ fn main() {
     setup_providers();
 
     let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-    let oe = SVector6::new(brahe::constants::R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0);
+    let oe = SVector6::new(
+        brahe::constants::R_EARTH + 500e3,
+        0.01,
+        97.8,
+        15.0,
+        30.0,
+        45.0,
+    );
     let dstate = DVector::from_column_slice(state_koe_to_eci(oe, AngleFormat::Degrees).as_slice());
     let degree = ZonalHarmonicsDegree::J6;
 

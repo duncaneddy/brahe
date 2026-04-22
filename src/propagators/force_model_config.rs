@@ -10,6 +10,8 @@
  * - Relativistic corrections
  */
 
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::orbit_dynamics::gravity::GravityModelType;
@@ -530,6 +532,12 @@ pub enum ZonalHarmonicsDegree {
     J4,
     J5,
     J6,
+}
+
+impl Display for ZonalHarmonicsDegree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", usize::from(self))
+    }
 }
 
 impl From<&ZonalHarmonicsDegree> for usize {

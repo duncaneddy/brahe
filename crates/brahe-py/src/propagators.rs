@@ -3312,6 +3312,9 @@ impl PyGravityConfiguration {
             propagators::GravityConfiguration::SphericalHarmonic { degree, order, .. } => {
                 format!("GravityConfiguration.spherical_harmonic(degree={}, order={})", degree, order)
             }
+            propagators::GravityConfiguration::Zonal { degree } => {
+                format!("GravityConfiguration.zonal(degree={})", degree)
+            }
         }
     }
 }

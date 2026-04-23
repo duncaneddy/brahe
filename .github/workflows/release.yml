@@ -136,8 +136,15 @@ jobs:
         if: steps.check-fragments.outputs.has_fragments == 'true'
         run: |
           VERSION=${{ needs.validate-version.outputs.version }}
-          # Extract the section for this version from CHANGELOG.md
-          awk "/^## \\[$VERSION\\]/,/^## /" CHANGELOG.md | head -n -1 > release_notes.md
+          # Extract the section for this version from CHANGELOG.md. The target
+          # header uses `next` to skip the generic `^## ` rule that would
+          # otherwise immediately clear the flag we just set. Portable across
+          # gawk and BSD awk (avoids `!/regex/` as an && operand).
+          awk "/^## \\[$VERSION\\]/{flag=1; print; next} /^## /{flag=0} flag" CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "ERROR: release_notes.md is empty - could not find section for version $VERSION in CHANGELOG.md"
+            exit 1
+          fi
           echo "Extracted release notes:"
           cat release_notes.md
 

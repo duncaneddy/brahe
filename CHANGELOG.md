@@ -9,6 +9,11 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- towncrier release notes start -->
 
+## [1.4.2] - 2026-04-23
+### Fixed
+
+- Fix `brahe-py` Crate not using root `Cargo.toml` as single-source-of-truth for package version. [#298](https://github.com/duncaneddy/brahe/pull/298)
+
 ## [1.4.1] - 2026-04-21
 ### Changed
 

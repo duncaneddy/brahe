@@ -405,6 +405,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # WORKFLOW_TOKEN has `workflow` scope; required because moving the
+          # `latest` tag forward can sweep in commits that modified workflow
+          # files, which the default GITHUB_TOKEN is not allowed to do.
+          token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8

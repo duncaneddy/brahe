@@ -13,6 +13,8 @@ Each release groups entries under the Keep a Changelog section headings in the o
 ### Fixed
 
 - Fix `brahe-py` Crate not using root `Cargo.toml` as single-source-of-truth for package version. [#298](https://github.com/duncaneddy/brahe/pull/298)
+- Corrected `format_exponential` exponent offset in TLE generation ([#300](https://github.com/duncaneddy/brahe/issues/300)). BSTAR and second time derivative values are no longer 10x too small.
+
 
 ## [1.4.1] - 2026-04-21
 ### Changed

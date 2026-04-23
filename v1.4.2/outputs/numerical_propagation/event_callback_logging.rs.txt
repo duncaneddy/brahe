@@ -1,0 +1,17 @@
+Propagating with logging callbacks:
+  Event #1:
+    Epoch: 2024-01-01 12:16:40.000 UTC
+    Altitude: 500.0 km
+    True anomaly: 63.4 deg
+  Event #2:
+    Epoch: 2024-01-01 12:33:20.000 UTC
+    Altitude: 500.0 km
+    True anomaly: 126.8 deg
+
+Callback invoked 2 times
+
+Demonstrating STOP action:
+  Stopping at 2024-01-01 12:08:20.000 UTC
+  Requested duration: 5677.0s
+  Actual duration: 500.0s
+  Stopped early: true

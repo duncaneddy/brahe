@@ -1,0 +1,22 @@
+Scalar (5 m isotropic):
+[[25.  0.  0.]
+ [ 0. 25.  0.]
+ [ 0.  0. 25.]]
+
+Per-axis (3, 3, 8 m):
+[[ 9.  0.  0.]
+ [ 0.  9.  0.]
+ [ 0.  0. 64.]]
+
+Full covariance (with correlations):
+[[ 9.  1.  0.]
+ [ 1.  9.  0.]
+ [ 0.  0. 64.]]
+
+Upper-triangular packed:
+[[ 9.  1.  0.]
+ [ 1.  9.  0.]
+ [ 0.  0. 64.]]
+
+isotropic_covariance(3, 10.0) diagonal: [100. 100. 100.]
+diagonal_covariance([5, 10, 15]) diagonal: [ 25. 100. 225.]

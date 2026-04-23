@@ -1,0 +1,19 @@
+Standalone segment: TEST SAT, 0 states
+After add_state x3: 3 states
+  States list length: 3
+  First: epoch=2024-01-01 00:00:00.000 UTC, pos=[7000000.       0.       0.]
+
+OEM segments: 1
+Proxy segment states: 2
+After extend: 3
+After del [1]: 2 states
+
+After append standalone segment: 2 segments
+  Segment 1: TEST SAT, 3 states
+After del segment[0]: 1 segment(s)
+  Remaining: TEST SAT
+After extend segments: 2
+
+Round-trip: 2 segments
+  [0] TEST SAT: 3 states
+  [1] TEST SAT: 0 states

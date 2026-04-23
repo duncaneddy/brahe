@@ -1,0 +1,11 @@
+Equator crossings over 3 orbits:
+  Ascending nodes: 3
+  Descending nodes: 3
+  'Descending Node' at t+2337.1s (z=-0.0 m)
+  'Ascending Node' at t+5186.5s (z=-0.0 m)
+  'Descending Node' at t+8003.2s (z=-0.0 m)
+  'Ascending Node' at t+10852.8s (z=-0.0 m)
+  'Descending Node' at t+13669.2s (z=-0.0 m)
+  'Ascending Node' at t+16519.0s (z=-0.0 m)
+
+Example validated successfully!

@@ -1,0 +1,12 @@
+Detected 6 altitude events:
+  '500km crossing' at t+1204.3s (altitude: 489.6 km)
+  '600km ascending' at t+1583.8s (altitude: 589.9 km)
+  '500km crossing' at t+4525.5s (altitude: 489.7 km)
+  '500km crossing' at t+6934.5s (altitude: 489.6 km)
+  '600km ascending' at t+7314.2s (altitude: 589.9 km)
+  '500km crossing' at t+10255.4s (altitude: 489.7 km)
+
+500 km crossings (any direction): 4
+600 km ascending crossings: 2
+
+Example validated successfully!

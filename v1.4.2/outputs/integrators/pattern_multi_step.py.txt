@@ -1,0 +1,4 @@
+Propagated from 0 to 86400.0s in 2729 steps
+Final state: 7.569974e-12
+Analytical: 0.000000e+00
+Error: 7.57e-12

@@ -1,0 +1,7 @@
+TLE set valid: true
+Line 1 valid: true
+Line 2 valid: true
+Line 1 checksum: 5
+Line 2 checksum: 9
+
+Corrupted line valid: false

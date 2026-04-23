@@ -1,0 +1,9 @@
+Relative state in RTN frame:
+Radial (R):      -1508.659 m
+Along-track (T): 11576.951 m
+Cross-track (N): 4401.874 m
+Velocity R:      2.652354 m/s
+Velocity T:      3.716975 m/s
+Velocity N:      7.959939 m/s
+
+Total relative distance: 12477.113 m

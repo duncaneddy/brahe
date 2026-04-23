@@ -1,0 +1,8 @@
+High-probability CDMs:
+  /basicspacedata/query/class/cdm_public/PC/%3E1.0e-3/orderby/TCA%20desc/limit/25/format/json
+
+CDMs involving ISS:
+  /basicspacedata/query/class/cdm_public/SAT_1_ID/25544/orderby/TCA%20desc/limit/10/format/json
+
+Upcoming conjunctions (next 7 days):
+  /basicspacedata/query/class/cdm_public/TCA/now--now+7/orderby/TCA%20asc/format/json

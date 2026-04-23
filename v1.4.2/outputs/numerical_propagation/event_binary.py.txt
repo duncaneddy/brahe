@@ -1,0 +1,11 @@
+Hemisphere crossings over 2 orbits:
+  Entered northern: 2 times
+  Exited northern:  2 times
+
+Event timeline:
+  t+ 1646.7s: Exit Northern    (z = -0.0 km)
+  t+ 4503.3s: Enter Northern   (z = -0.0 km)
+  t+ 7323.7s: Exit Northern    (z = -0.0 km)
+  t+10180.2s: Enter Northern   (z = -0.0 km)
+
+Example validated successfully!

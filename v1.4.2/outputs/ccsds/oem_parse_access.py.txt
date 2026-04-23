@@ -1,0 +1,32 @@
+Format version: 3.0
+Originator:     NASA/JPL
+Classification: public, test-data
+Creation date:  1996-11-04 17:22:31.000 UTC
+
+Number of segments: 3
+
+Segment 0:
+  Object name:   MARS GLOBAL SURVEYOR
+  Object ID:     1996-062A
+  Center name:   MARS BARYCENTER
+  Ref frame:     J2000
+  Time system:   UTC
+  Start time:    1996-12-18 12:00:00.331 UTC
+  Stop time:     1996-12-28 21:28:00.331 UTC
+  Interpolation: HERMITE
+  States:        4
+  Covariances:   0
+
+First state vector:
+  Epoch:    1996-12-18 12:00:00.331 UTC
+  Position: [2789619.000, -280045.000, -1746755.000] m
+  Velocity: [4733.72000, -2495.86000, -1041.95000] m/s
+
+All states in segment 0:
+  [0] 1996-12-18 12:00:00.331 UTC  pos=(2789.619, -280.045, -1746.755) km
+  [1] 1996-12-18 12:01:00.331 UTC  pos=(2783.419, -308.143, -1877.071) km
+  [2] 1996-12-18 12:02:00.331 UTC  pos=(2776.033, -336.859, -2008.682) km
+  [3] 1996-12-28 21:28:00.331 UTC  pos=(-3881.024, 563.959, -682.773) km
+
+KVN output length: 4372 characters
+Dict keys: ['header', 'segments']

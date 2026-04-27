@@ -33,8 +33,9 @@ fn main() {
         .expect("Failed to fetch Starlink GP records");
     let mut propagators: Vec<_> = records
         .iter()
-        .filter_map(|record| SGPPropagator::from_gp_record(record, 60.0).ok())
-        .collect();
+        .map(|record| SGPPropagator::from_gp_record(record, 60.0))
+        .collect::<Result<Vec<_>, _>>()
+        .expect("Failed to create propagators from Starlink GP records");
 
     // Propagate all satellites forward by 24 hours in parallel
     propagators.par_iter_mut().for_each(|sat| {

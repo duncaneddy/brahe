@@ -27,7 +27,7 @@ bh.initialize_eop()
 # Download GP data for all Starlink satellites from CelesTrak
 # Uses CelestrakClient to query the "starlink" group, then converts
 # each GP record into an SGP4 propagator with a 60-second step size
-print("Downloading Starlink TLEs from CelesTrak...")
+print("Downloading Starlink GP records from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_starlink]
 client = bh.celestrak.CelestrakClient()

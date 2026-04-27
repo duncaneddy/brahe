@@ -17,7 +17,7 @@ Before starting, we need to import brahe and ensure that we have Earth orientati
 
 ## Download Starlink TLEs
 
-We'll use the [CelesTrak dataset](../library_api/ephemeris/celestrak.md) to fetch the latest TLE data for all Starlink satellites. The `get_tles_as_propagators` function downloads the data and creates SGP4 propagators in one step:
+We'll use the [CelesTrak client](../library_api/ephemeris/celestrak.md) to fetch the latest GP data for all Starlink satellites, then convert each record into an SGP4 propagator:
 
 ``` python
 --8<-- "./examples/examples/visualizing_starlink.py:download_starlink"

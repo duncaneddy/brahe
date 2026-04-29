@@ -1,8 +1,8 @@
-Loaded 26786 PSATCAT records
-Active payloads: 15388
+Loaded 26827 PSATCAT records
+Active payloads: 15427
 
-Communications payloads: 16487
-Civil payloads: 3266
+Communications payloads: 16516
+Civil payloads: 3270
 
 ISS Payload Details:
   Name:       Zarya Cargo Block

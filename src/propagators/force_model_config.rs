@@ -10,6 +10,8 @@
  * - Relativistic corrections
  */
 
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::orbit_dynamics::gravity::GravityModelType;
@@ -521,6 +523,41 @@ impl Default for GravityModelSource {
     }
 }
 
+/// Supported max degrees for zonal harmonics. J_N will use J_2..J_N
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[allow(missing_docs)]
+pub enum ZonalHarmonicsDegree {
+    J2,
+    J3,
+    J4,
+    J5,
+    J6,
+}
+
+impl Display for ZonalHarmonicsDegree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", usize::from(self))
+    }
+}
+
+impl From<&ZonalHarmonicsDegree> for usize {
+    fn from(value: &ZonalHarmonicsDegree) -> Self {
+        match value {
+            ZonalHarmonicsDegree::J2 => 2,
+            ZonalHarmonicsDegree::J3 => 3,
+            ZonalHarmonicsDegree::J4 => 4,
+            ZonalHarmonicsDegree::J5 => 5,
+            ZonalHarmonicsDegree::J6 => 6,
+        }
+    }
+}
+
+impl From<ZonalHarmonicsDegree> for usize {
+    fn from(value: ZonalHarmonicsDegree) -> Self {
+        (&value).into()
+    }
+}
+
 /// Gravity model configuration
 ///
 /// Specifies the gravity model to use for computing gravitational acceleration.
@@ -544,6 +581,14 @@ pub enum GravityConfiguration {
         degree: usize,
         /// Maximum order (m) of expansion
         order: usize,
+    },
+
+    /// Uses zonal terms (J_2..J_n) only.
+    /// Has the same effect as setting m = 0 in SphericalHarmonic,
+    /// By making it an explicit invariant, we can write code that the compiler can optimize for a ~50% speedup
+    Zonal {
+        /// Maximum degree (n) of expansion, order (m) is 0
+        degree: ZonalHarmonicsDegree,
     },
 }
 

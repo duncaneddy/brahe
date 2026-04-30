@@ -1,6 +1,9 @@
 #![allow(missing_docs)]
 
-use criterion::Criterion;
+use brahe::{GravityConfiguration, GravityModelSource, ZonalHarmonicsDegree};
+use criterion::measurement::WallTime;
+use criterion::{BenchmarkGroup, Criterion};
+use std::hint::black_box;
 
 use brahe::constants::AngleFormat;
 use brahe::coordinates::state_koe_to_eci;
@@ -27,8 +30,6 @@ fn setup_providers() {
 }
 
 fn bench_sgp4_24hour(c: &mut Criterion) {
-    setup_providers();
-
     let line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927";
     let line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537";
 
@@ -37,8 +38,10 @@ fn bench_sgp4_24hour(c: &mut Criterion) {
 
     group.bench_function("sgp4_24h_propagation", |b| {
         b.iter(|| {
-            let mut prop = SGPPropagator::from_tle(line1, line2, 60.0).unwrap();
-            let target = prop.current_epoch() + 86400.0;
+            let mut prop =
+                SGPPropagator::from_tle(black_box(line1), black_box(line2), black_box(60.0))
+                    .unwrap();
+            let target = prop.current_epoch() + black_box(86400.0);
             prop.propagate_to(target);
         })
     });
@@ -46,7 +49,110 @@ fn bench_sgp4_24hour(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_numerical_conservative_24hour(c: &mut Criterion) {
+fn bench_numerical_conservative_24hour(
+    group: &mut BenchmarkGroup<'_, WallTime>,
+    epoch: Epoch,
+    dstate: &DVector<f64>,
+) {
+    group.bench_function("numerical_conservative_24h", |b| {
+        b.iter(|| {
+            let mut prop = DNumericalOrbitPropagator::new(
+                black_box(epoch),
+                black_box(dstate.clone()),
+                NumericalPropagationConfig::default(),
+                ForceModelConfig::conservative_forces(),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            let target = black_box(epoch + 86400.0);
+            prop.propagate_to(target);
+        })
+    });
+}
+
+fn bench_numerical_fast_j6_zonal_24hour(
+    group: &mut BenchmarkGroup<'_, WallTime>,
+    epoch: Epoch,
+    dstate: &DVector<f64>,
+    degree: &ZonalHarmonicsDegree,
+) {
+    let force = ForceModelConfig {
+        gravity: GravityConfiguration::Zonal {
+            degree: degree.clone(),
+        },
+        drag: None,
+        srp: None,
+        third_body: None,
+        relativity: false,
+        mass: None,
+    };
+
+    group.bench_function("numerical_fast_j6_zonal_24hour", |b| {
+        b.iter(|| {
+            let mut prop = DNumericalOrbitPropagator::new(
+                black_box(epoch),
+                black_box(dstate.clone()),
+                NumericalPropagationConfig::default(),
+                black_box(force.clone()),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            let target = black_box(epoch + 86400.0);
+            prop.propagate_to(target);
+        })
+    });
+}
+
+fn bench_spherical_harmonic_j6_equivalent_24hour(
+    group: &mut BenchmarkGroup<'_, WallTime>,
+    epoch: Epoch,
+    dstate: &DVector<f64>,
+    degree: &ZonalHarmonicsDegree,
+) {
+    let force = ForceModelConfig {
+        gravity: GravityConfiguration::SphericalHarmonic {
+            source: GravityModelSource::default(),
+            degree: degree.into(),
+            order: 0,
+        },
+        drag: None,
+        srp: None,
+        third_body: None,
+        relativity: false,
+        mass: None,
+    };
+
+    group.bench_function("numerical_spherical_harmonic_j6_equivalent_24hour", |b| {
+        b.iter(|| {
+            let mut prop = DNumericalOrbitPropagator::new(
+                black_box(epoch),
+                black_box(dstate.clone()),
+                NumericalPropagationConfig::default(),
+                black_box(force.clone()),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            let target = black_box(epoch + 86400.0);
+            prop.propagate_to(target);
+        })
+    });
+}
+
+// Custom main instead of criterion_main! so the dhat profiler runs when enabled
+// Run bench with --features dhat-heap to profile memory allocations
+fn main() {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
     setup_providers();
 
     let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -58,41 +164,19 @@ fn bench_numerical_conservative_24hour(c: &mut Criterion) {
         30.0,
         45.0,
     );
-    let state = state_koe_to_eci(oe, AngleFormat::Degrees);
-    let dstate = DVector::from_column_slice(state.as_slice());
-
-    let mut group = c.benchmark_group("propagator_numerical");
-    group.sample_size(10);
-
-    group.bench_function("numerical_conservative_24h", |b| {
-        b.iter(|| {
-            let mut prop = DNumericalOrbitPropagator::new(
-                epoch,
-                dstate.clone(),
-                NumericalPropagationConfig::default(),
-                ForceModelConfig::conservative_forces(),
-                None,
-                None,
-                None,
-                None,
-            )
-            .unwrap();
-            let target = epoch + 86400.0;
-            prop.propagate_to(target);
-        })
-    });
-
-    group.finish();
-}
-
-// Custom main instead of criterion_main! so the dhat profiler runs when enabled
-// Run bench with --features dhat-heap to profile memory allocations
-fn main() {
-    #[cfg(feature = "dhat-heap")]
-    let _profiler = dhat::Profiler::new_heap();
+    let dstate = DVector::from_column_slice(state_koe_to_eci(oe, AngleFormat::Degrees).as_slice());
+    let degree = ZonalHarmonicsDegree::J6;
 
     let mut c = criterion::Criterion::default().configure_from_args();
+
     bench_sgp4_24hour(&mut c);
-    bench_numerical_conservative_24hour(&mut c);
+
+    let mut group = c.benchmark_group("propagator_numerical");
+    group.sample_size(100);
+    bench_numerical_conservative_24hour(&mut group, epoch, &dstate);
+    bench_numerical_fast_j6_zonal_24hour(&mut group, epoch, &dstate, &degree);
+    bench_spherical_harmonic_j6_equivalent_24hour(&mut group, epoch, &dstate, &degree);
+    group.finish();
+
     c.final_summary();
 }

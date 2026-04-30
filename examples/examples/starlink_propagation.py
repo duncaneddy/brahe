@@ -10,7 +10,9 @@ ts = time.time()
 
 bh.initialize_eop()
 
-starlink = bh.datasets.celestrak.get_tles_as_propagators("starlink", 60.0)
+client = bh.celestrak.CelestrakClient()
+records = client.get_gp(group="starlink")
+starlink = [record.to_sgp_propagator(60.0) for record in records]
 
 for sat in starlink:
     sat.propagate_to(sat.epoch + 86400.0)  # Propagate one orbit (24 hours)

@@ -25,10 +25,10 @@ import brahe as bh
 bh.initialize_eop()
 # --8<-- [end:preamble]
 
-# Download TLE data for all GPS satellites from CelesTrak
+# Download GP data for all GPS satellites from CelesTrak
 # Uses CelestrakClient to query the "gps-ops" group, then converts
 # each GP record into an SGP4 propagator with a 60-second step size
-print("Downloading GPS TLEs from CelesTrak...")
+print("Downloading GPS GP records from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_gps]
 client = bh.celestrak.CelestrakClient()

@@ -77,7 +77,7 @@ jobs:
               rustup default ${{ env.RUST_TOOLCHAIN }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v8.0.0
+        uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
 
@@ -136,8 +136,15 @@ jobs:
         if: steps.check-fragments.outputs.has_fragments == 'true'
         run: |
           VERSION=${{ needs.validate-version.outputs.version }}
-          # Extract the section for this version from CHANGELOG.md
-          awk "/^## \\[$VERSION\\]/,/^## /" CHANGELOG.md | head -n -1 > release_notes.md
+          # Extract the section for this version from CHANGELOG.md. The target
+          # header uses `next` to skip the generic `^## ` rule that would
+          # otherwise immediately clear the flag we just set. Portable across
+          # gawk and BSD awk (avoids `!/regex/` as an && operand).
+          awk "/^## \\[$VERSION\\]/{flag=1; print; next} /^## /{flag=0} flag" CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "ERROR: release_notes.md is empty - could not find section for version $VERSION in CHANGELOG.md"
+            exit 1
+          fi
           echo "Extracted release notes:"
           cat release_notes.md
 
@@ -175,7 +182,7 @@ jobs:
         rustup default ${{ env.RUST_TOOLCHAIN }}
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v8.0.0
+      uses: astral-sh/setup-uv@v8.1.0
       with:
         enable-cache: true
 
@@ -234,7 +241,7 @@ jobs:
         rustup default ${{ matrix.rust-toolchain }}
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v8.0.0
+      uses: astral-sh/setup-uv@v8.1.0
       with:
         enable-cache: true
 
@@ -289,7 +296,7 @@ jobs:
         rustup default ${{ matrix.rust-toolchain }}
 
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v8.0.0
+      uses: astral-sh/setup-uv@v8.1.0
       with:
         enable-cache: true
 
@@ -405,6 +412,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # WORKFLOW_TOKEN has `workflow` scope; required because moving the
+          # `latest` tag forward can sweep in commits that modified workflow
+          # files, which the default GITHUB_TOKEN is not allowed to do.
+          token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8

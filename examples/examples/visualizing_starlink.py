@@ -24,15 +24,15 @@ import brahe as bh
 bh.initialize_eop()
 # --8<-- [end:preamble]
 
-# Download TLE data for all Starlink satellites from CelesTrak
-# The get_tles_as_propagators function:
-#   - Downloads latest TLE data (cached for 6 hours)
-#   - Parses each TLE into an SGP4 propagator
-#   - Sets default propagation step size (60 seconds)
-print("Downloading Starlink TLEs from CelesTrak...")
+# Download GP data for all Starlink satellites from CelesTrak
+# Uses CelestrakClient to query the "starlink" group, then converts
+# each GP record into an SGP4 propagator with a 60-second step size
+print("Downloading Starlink GP records from CelesTrak...")
 start_time = time.time()
 # --8<-- [start:download_starlink]
-propagators = bh.datasets.celestrak.get_tles_as_propagators("starlink", 60.0)
+client = bh.celestrak.CelestrakClient()
+records = client.get_gp(group="starlink")
+propagators = [record.to_sgp_propagator(60.0) for record in records]
 
 # Filter out any re-enerting spacecraft with < 350 km semi-major axis
 # This can sometimes cause numerical issues with the propagator for very low orbit

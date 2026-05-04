@@ -1346,10 +1346,7 @@ mod tests {
         let s = prop_spherical.current_state();
         let z = prop_zonal.current_state();
 
-        // Both propagators now evaluate in the same Earth-fixed frame; residual
-        // is purely floating-point difference between the two formula implementations.
-        // 1 m / 1e-3 m/s is a conservative upper bound — TODO: tighten after measuring.
-        let eps_pos = 1.0;
+        let eps_pos = 1e-3;
         let eps_v = 1e-3;
         
         assert_abs_diff_eq!(s[0], z[0], epsilon = eps_pos);

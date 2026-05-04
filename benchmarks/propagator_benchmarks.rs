@@ -1,6 +1,8 @@
 #![allow(missing_docs)]
 
-use brahe::{GravityConfiguration, GravityModelSource, ZonalHarmonicsDegree};
+use brahe::{
+    FrameTransformationModel, GravityConfiguration, GravityModelSource, ZonalHarmonicsDegree,
+};
 use criterion::measurement::WallTime;
 use criterion::{BenchmarkGroup, Criterion};
 use std::hint::black_box;
@@ -73,7 +75,7 @@ fn bench_numerical_conservative_24hour(
     });
 }
 
-fn bench_numerical_fast_j6_zonal_24hour(
+fn bench_numerical_fast_j6_zonal_earth_rotation_only_24hour(
     group: &mut BenchmarkGroup<'_, WallTime>,
     epoch: Epoch,
     dstate: &DVector<f64>,
@@ -82,6 +84,7 @@ fn bench_numerical_fast_j6_zonal_24hour(
     let force = ForceModelConfig {
         gravity: GravityConfiguration::Zonal {
             degree: degree.clone(),
+            frame_transform: FrameTransformationModel::EarthRotationOnly,
         },
         drag: None,
         srp: None,
@@ -90,7 +93,44 @@ fn bench_numerical_fast_j6_zonal_24hour(
         mass: None,
     };
 
-    group.bench_function("numerical_fast_j6_zonal_24hour", |b| {
+    group.bench_function("numerical_fast_j6_zonal_earth_rotation_only_24hour", |b| {
+        b.iter(|| {
+            let mut prop = DNumericalOrbitPropagator::new(
+                black_box(epoch),
+                black_box(dstate.clone()),
+                NumericalPropagationConfig::default(),
+                black_box(force.clone()),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            let target = black_box(epoch + 86400.0);
+            prop.propagate_to(target);
+        })
+    });
+}
+
+fn bench_numerical_fast_j6_zonal_full_rotation_24hour(
+    group: &mut BenchmarkGroup<'_, WallTime>,
+    epoch: Epoch,
+    dstate: &DVector<f64>,
+    degree: &ZonalHarmonicsDegree,
+) {
+    let force = ForceModelConfig {
+        gravity: GravityConfiguration::Zonal {
+            degree: degree.clone(),
+            frame_transform: FrameTransformationModel::FullEarthRotation,
+        },
+        drag: None,
+        srp: None,
+        third_body: None,
+        relativity: false,
+        mass: None,
+    };
+
+    group.bench_function("numerical_fast_j6_zonal_full_rotation_24hour", |b| {
         b.iter(|| {
             let mut prop = DNumericalOrbitPropagator::new(
                 black_box(epoch),
@@ -174,7 +214,8 @@ fn main() {
     let mut group = c.benchmark_group("propagator_numerical");
     group.sample_size(100);
     bench_numerical_conservative_24hour(&mut group, epoch, &dstate);
-    bench_numerical_fast_j6_zonal_24hour(&mut group, epoch, &dstate, &degree);
+    bench_numerical_fast_j6_zonal_earth_rotation_only_24hour(&mut group, epoch, &dstate, &degree);
+    bench_numerical_fast_j6_zonal_full_rotation_24hour(&mut group, epoch, &dstate, &degree);
     bench_spherical_harmonic_j6_equivalent_24hour(&mut group, epoch, &dstate, &degree);
     group.finish();
 

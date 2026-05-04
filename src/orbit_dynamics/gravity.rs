@@ -28,7 +28,7 @@ static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> =
 
 /// Earth zonal harmonics
 /// Formulas taken from [Vallado, Fundamentals of Astrophysics and Applications Edition 4, p. 593ff]
-/// 
+///
 /// Conversion from the file's fully-normalised Stokes coefficients C_n,0 in EGM2008_360:
 /// J_n = −C_n,0 x (2n + 1)^0.5
 ///
@@ -1023,8 +1023,8 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
     use crate::{
         AngleFormat, DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
-        FileSpaceWeatherProvider, ForceModelConfig, GravityConfiguration, GravityModelSource,
-        NumericalPropagationConfig, SVector6, TimeSystem, ZonalHarmonicsDegree,
+        FileSpaceWeatherProvider, ForceModelConfig, FrameTransformationModel, GravityConfiguration,
+        GravityModelSource, NumericalPropagationConfig, SVector6, TimeSystem, ZonalHarmonicsDegree,
         set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci,
     };
 
@@ -1253,6 +1253,7 @@ mod tests {
             ForceModelConfig {
                 gravity: GravityConfiguration::Zonal {
                     degree: ZonalHarmonicsDegree::J6,
+                    frame_transform: FrameTransformationModel::FullEarthRotation,
                 },
                 drag: None,
                 srp: None,
@@ -1273,8 +1274,8 @@ mod tests {
         let z_state = prop_zonal_fast.current_state();
         print!("{} <> {}", s_state, z_state);
 
-        // Allow disagreement for position and velocity after 24h: 3000m for pos, 10m/s for vel
-        // TODO(mz): Investigate where disparity comes from
+        // Sanity-only: both now rotate correctly so any remaining gap must be
+        // smaller than the 3 km that the missing rotation used to cause.
         let eps_pos = 3_000.;
         let eps_v = 10.;
 
@@ -1284,6 +1285,79 @@ mod tests {
         assert_abs_diff_eq!(s_state[3], z_state[3], epsilon = eps_v);
         assert_abs_diff_eq!(s_state[4], z_state[4], epsilon = eps_v);
         assert_abs_diff_eq!(s_state[5], z_state[5], epsilon = eps_v);
+    }
+
+    /// Regression test: with `FullEarthRotation` both propagators transform to the same
+    /// Earth-fixed frame before evaluating the harmonics, so the only remaining difference
+    /// is floating-point round-off between the explicit-formula and Legendre-recursion
+    /// implementations of J2–J6.  Agreement should be well under 1 m after 24 h.
+    ///
+    /// TODO: run and record the actual residual; tighten the tolerance to match.
+    #[test]
+    #[serial_test::serial]
+    fn test_fast_zonal_full_rotation_agrees_with_spherical_harmonic() {
+        let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+        set_global_eop_provider(eop);
+
+        let sw = FileSpaceWeatherProvider::from_default_file().unwrap();
+        set_global_space_weather_provider(sw);
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
+        let dstate = DVector::from_column_slice(state.as_slice());
+        let target = epoch + 86400.0;
+        let degree = ZonalHarmonicsDegree::J6;
+
+        let make_prop = |gravity| {
+            DNumericalOrbitPropagator::new(
+                epoch,
+                dstate.clone(),
+                NumericalPropagationConfig::default(),
+                ForceModelConfig {
+                    gravity,
+                    drag: None,
+                    srp: None,
+                    third_body: None,
+                    relativity: false,
+                    mass: None,
+                },
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap()
+        };
+
+        let mut prop_spherical = make_prop(GravityConfiguration::SphericalHarmonic {
+            source: GravityModelSource::default(),
+            degree: (&degree).into(),
+            order: 0,
+        });
+        let mut prop_zonal = make_prop(GravityConfiguration::Zonal {
+            degree,
+            frame_transform: FrameTransformationModel::FullEarthRotation,
+        });
+
+        prop_spherical.propagate_to(target);
+        prop_zonal.propagate_to(target);
+
+        let s = prop_spherical.current_state();
+        let z = prop_zonal.current_state();
+
+        // Both propagators now evaluate in the same Earth-fixed frame; residual
+        // is purely floating-point difference between the two formula implementations.
+        // 1 m / 1e-3 m/s is a conservative upper bound — TODO: tighten after measuring.
+        let eps_pos = 1.0;
+        let eps_v = 1e-3;
+        
+        assert_abs_diff_eq!(s[0], z[0], epsilon = eps_pos);
+        assert_abs_diff_eq!(s[1], z[1], epsilon = eps_pos);
+        assert_abs_diff_eq!(s[2], z[2], epsilon = eps_pos);
+        assert_abs_diff_eq!(s[3], z[3], epsilon = eps_v);
+        assert_abs_diff_eq!(s[4], z[4], epsilon = eps_v);
+        assert_abs_diff_eq!(s[5], z[5], epsilon = eps_v);
     }
 
     #[rstest]

@@ -15,7 +15,7 @@ use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 
 use crate::constants::{GM_EARTH, R_EARTH};
 use crate::earth_models::{density_harris_priester, density_nrlmsise00};
-use crate::frames::rotation_eci_to_ecef;
+use crate::frames::{earth_rotation, rotation_eci_to_ecef};
 use crate::integrators::traits::DIntegrator;
 use crate::math::interpolation::{
     CovarianceInterpolationConfig, CovarianceInterpolationMethod, InterpolationConfig,
@@ -30,7 +30,8 @@ use crate::orbit_dynamics::{
     eclipse_cylindrical, get_global_gravity_model, sun_position,
 };
 use crate::propagators::{
-    AtmosphericModel, EclipseModel, ForceModelConfig, GravityConfiguration, GravityModelSource,
+    AtmosphericModel, EclipseModel, ForceModelConfig, FrameTransformationModel,
+    GravityConfiguration, GravityModelSource,
 };
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
@@ -1109,13 +1110,24 @@ impl DNumericalOrbitPropagator {
             GravityConfiguration::PointMass => {
                 a_total += accel_point_mass_gravity(r, Vector3::zeros(), GM_EARTH);
             }
-            GravityConfiguration::Zonal { degree } => {
-                a_total += fast_spherical_zonal_harmonics_accel(
-                    r,
+            GravityConfiguration::Zonal {
+                degree,
+                frame_transform,
+            } => {
+                // Rotate ECI position into Earth's body-fixed frame so that the zonal
+                // acceleration is evaluated relative to the true pole, not the J2000 pole.
+                let r_i2b = match frame_transform {
+                    FrameTransformationModel::FullEarthRotation => rotation_eci_to_ecef(epoch),
+                    FrameTransformationModel::EarthRotationOnly => earth_rotation(epoch),
+                };
+                let r_ecef = r_i2b * r;
+                let a_ecef = fast_spherical_zonal_harmonics_accel(
+                    r_ecef,
                     Vector3::zeros(),
                     GM_EARTH,
                     degree.into(),
                 );
+                a_total += r_i2b.transpose() * a_ecef;
             }
             GravityConfiguration::SphericalHarmonic {
                 source,

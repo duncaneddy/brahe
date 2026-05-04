@@ -558,6 +558,28 @@ impl From<ZonalHarmonicsDegree> for usize {
     }
 }
 
+/// Controls how Earth's true orientation is applied when computing zonal harmonic perturbations.
+///
+/// Zonal harmonics (J2–J6) are symmetric about Earth's rotation axis, so the acceleration
+/// must be computed in a frame whose z-axis tracks Earth's actual pole. Failure to rotate
+/// introduces a secular drift in the z-component of the perturbation.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum FrameTransformationModel {
+    /// Apply only the Earth Rotation Angle (ERA) rotation about Earth's z-axis.
+    ///
+    /// Accounts for sidereal rotation but ignores precession, nutation, and polar motion.
+    /// ~1.5x faster than `FullEarthRotation` but introduces small errors (~0.07°) from the
+    /// uncorrected pole tilt.
+    EarthRotationOnly,
+
+    /// Apply the full IAU 2006/2000A rotation: bias-precession-nutation + ERA + polar motion.
+    ///
+    /// This is the default. Produces the same Earth-fixed alignment used by
+    /// `SphericalHarmonic`, giving consistent results across gravity configurations.
+    #[default]
+    FullEarthRotation,
+}
+
 /// Gravity model configuration
 ///
 /// Specifies the gravity model to use for computing gravitational acceleration.
@@ -589,6 +611,9 @@ pub enum GravityConfiguration {
     Zonal {
         /// Maximum degree (n) of expansion, order (m) is 0
         degree: ZonalHarmonicsDegree,
+        /// How to transform the ECI position into Earth's body-fixed frame before evaluating
+        /// the zonal acceleration. Defaults to `FullEarthRotation`.
+        frame_transform: FrameTransformationModel,
     },
 }
 

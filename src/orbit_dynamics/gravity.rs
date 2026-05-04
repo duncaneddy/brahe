@@ -27,19 +27,21 @@ static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> =
     Lazy::new(|| Arc::new(RwLock::new(Box::new(GravityModel::new()))));
 
 /// Earth zonal harmonics
-/// J values taken from [Wakker, FUNDAMENTALS OF ASTRODYNAMICS, p. 529]
 /// Formulas taken from [Vallado, Fundamentals of Astrophysics and Applications Edition 4, p. 593ff]
+/// 
+/// Conversion from the file's fully-normalised Stokes coefficients C_n,0 in EGM2008_360:
+/// J_n = −C_n,0 x (2n + 1)^0.5
 ///
 /// J_2,0
-pub const J2: f64 = 1.0826357e-3;
+pub const J2: f64 = 1.0826261738522227e-03;
 /// J_3,0
-pub const J3: f64 = -2.5324737e-6;
+pub const J3: f64 = -2.5324105185677225e-06;
 /// J_4,0
-pub const J4: f64 = -1.6199743e-6;
+pub const J4: f64 = -1.6198975999169731e-06;
 /// J_5,0
-pub const J5: f64 = -0.2279051e-6;
+pub const J5: f64 = -0.22775359073083618e-06;
 /// J_6,0
-pub const J6: f64 = 0.5406168e-6;
+pub const J6: f64 = 0.5406665762838132e-06;
 
 /// Set the global gravity model to a new gravity model. A global gravity model is useful as it
 /// allows for a single gravity model to be used throughout a program. This is useful when multiple

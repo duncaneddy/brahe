@@ -1028,6 +1028,58 @@ fn py_accel_point_mass_gravity<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
+/// Compute Earth gravitational acceleration including zonal harmonic terms (J2-J6).
+///
+/// Evaluates the closed-form perturbation acceleration arising from Earth's zonal
+/// (axially-symmetric) gravity coefficients summed onto the central two-body term.
+/// The position must be expressed in an Earth-fixed frame whose z-axis is aligned
+/// with Earth's rotation pole; callers are responsible for the ECI→ECEF rotation.
+///
+/// This is a faster axially-symmetric alternative to
+/// :func:`accel_gravity_spherical_harmonics` evaluated with ``m_max = 0``.
+///
+/// Args:
+///     r_object (np.ndarray): Earth-fixed position (length 3) or state (length 6) of
+///         the object. Units: (m, m/s)
+///     n (int): Maximum zonal degree to include. Clamped to ``2..=6``; values
+///         below 2 return only the two-body acceleration.
+///
+/// Returns:
+///     np.ndarray: Acceleration in the same Earth-fixed frame. Units: (m/s²)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Equatorial position in an Earth-fixed frame
+///     r_object = np.array([bh.R_EARTH, 0.0, 0.0])
+///
+///     # Acceleration including J2 through J4 zonal terms
+///     a_grav = bh.accel_earth_zonal_gravity(r_object, 4)
+///     ```
+#[pyfunction]
+#[pyo3(name = "accel_earth_zonal_gravity")]
+fn py_accel_earth_zonal_gravity<'py>(
+    py: Python<'py>,
+    r_object: PyReadonlyArray1<f64>,
+    n: usize,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let len = r_object.len();
+    let a = if len == 3 {
+        let r_obj = numpy_to_vector3!(r_object);
+        orbit_dynamics::accel_earth_zonal_gravity(r_obj, n)
+    } else if len == 6 {
+        let x_obj = numpy_to_vector6!(r_object);
+        orbit_dynamics::accel_earth_zonal_gravity(x_obj, n)
+    } else {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "r_object must be length 3 (position) or 6 (state)"
+        ));
+    };
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
 // ============================================================================
 // Spherical Harmonic Gravity Model Enums
 // ============================================================================

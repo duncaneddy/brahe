@@ -79,6 +79,83 @@ class TestGravity:
         assert np.allclose(a_from_pos, a_from_state, atol=1e-15)
 
 
+class TestEarthZonalGravity:
+    """Tests for Earth zonal harmonics (J2-J6) acceleration."""
+
+    def test_accel_earth_zonal_gravity_below_two_returns_two_body(self):
+        """n < 2 should reduce to the two-body acceleration."""
+        r_object = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+
+        a_zonal = bh.accel_earth_zonal_gravity(r_object, 0)
+        a_point = bh.accel_point_mass_gravity(
+            r_object, np.zeros(3), bh.GM_EARTH
+        )
+
+        assert np.allclose(a_zonal, a_point, atol=1e-15)
+
+    def test_accel_earth_zonal_gravity_j2_equator_pole_perturbation(self):
+        """J2 perturbations follow the closed-form sign and ~2:1 ratio.
+
+        Mirrors the Rust test in src/orbit_dynamics/gravity.rs: at r = R_EARTH,
+        J2 strengthens the inward pull at the equator (a_j2[0] more negative
+        than the two-body value) and weakens it at the pole (a_j2[2] less
+        negative). The polar perturbation is roughly twice the equatorial one.
+        """
+        r_eq = np.array([bh.R_EARTH, 0.0, 0.0])
+        r_pole = np.array([0.0, 0.0, bh.R_EARTH])
+        center = np.zeros(3)
+
+        a_point_eq = bh.accel_point_mass_gravity(r_eq, center, bh.GM_EARTH)
+        a_j2_eq = bh.accel_earth_zonal_gravity(r_eq, 2)
+        a_point_pole = bh.accel_point_mass_gravity(r_pole, center, bh.GM_EARTH)
+        a_j2_pole = bh.accel_earth_zonal_gravity(r_pole, 2)
+
+        assert a_j2_eq[0] < a_point_eq[0]
+        assert a_j2_pole[2] > a_point_pole[2]
+
+        eq_pert = abs(a_j2_eq[0] - a_point_eq[0])
+        pole_pert = abs(a_j2_pole[2] - a_point_pole[2])
+        assert pole_pert / eq_pert == pytest.approx(2.0, abs=0.1)
+
+    def test_accel_earth_zonal_gravity_state_matches_position(self):
+        """6D state input must match 3D position input."""
+        r_pos = np.array([bh.R_EARTH + 500e3, 1000e3, 2000e3])
+        x_state = np.array(
+            [bh.R_EARTH + 500e3, 1000e3, 2000e3, 7500.0, 1000.0, -500.0]
+        )
+
+        a_from_pos = bh.accel_earth_zonal_gravity(r_pos, 4)
+        a_from_state = bh.accel_earth_zonal_gravity(x_state, 4)
+
+        assert np.allclose(a_from_pos, a_from_state, atol=1e-15)
+
+    def test_accel_earth_zonal_gravity_n_clamped_above_six(self):
+        """n > 6 should be clamped to n=6 (no error, identical result)."""
+        r_object = np.array([bh.R_EARTH + 500e3, 1000e3, 2000e3])
+
+        a_six = bh.accel_earth_zonal_gravity(r_object, 6)
+        a_huge = bh.accel_earth_zonal_gravity(r_object, 100)
+
+        assert np.allclose(a_six, a_huge, atol=1e-15)
+
+    def test_accel_earth_zonal_gravity_matches_spherical_harmonics(self):
+        """Closed-form zonal must agree with spherical harmonics at m_max=0.
+
+        The hand-rolled J2-J6 routine is documented as mirroring
+        accel_gravity_spherical_harmonics evaluated with m_max = 0. Both
+        functions take Earth-fixed inputs, so we use the identity rotation.
+        """
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        r_body = np.array([6525.919e3, 1710.416e3, 2508.886e3])
+
+        a_zonal = bh.accel_earth_zonal_gravity(r_body, 6)
+        a_sh = bh.accel_gravity_spherical_harmonics(r_body, np.eye(3), model, 6, 0)
+
+        # Both methods evaluate the same axially-symmetric expansion, so they
+        # should agree to within a small fraction of the J2 perturbation.
+        assert np.allclose(a_zonal, a_sh, rtol=1e-4, atol=1e-4)
+
+
 class TestSphericalHarmonicGravity:
     """Tests for spherical harmonic gravity models."""
 

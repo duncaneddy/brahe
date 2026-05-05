@@ -35,6 +35,11 @@ fn main() {
         relativity: true,
         // Spacecraft mass (can also use ParameterIndex for estimation)
         mass: Some(bh::ParameterSource::Value(1000.0)), // kg
+        // ECI<->ECEF rotation precision used by gravity, drag, and density models.
+        // FullEarthRotation is the default and applies the full IAU 2006/2000A
+        // bias-precession-nutation + Earth rotation + polar motion. Use
+        // EarthRotationOnly for a faster, slightly less accurate alternative.
+        frame_transform: bh::FrameTransformationModel::FullEarthRotation,
     };
 
     println!("Gravity: {:?}", force_config.gravity);
@@ -43,5 +48,6 @@ fn main() {
     println!("Third-body: {:?}", force_config.third_body);
     println!("Relativity: {:?}", force_config.relativity);
     println!("Mass: {:?}", force_config.mass);
+    println!("Frame transform: {:?}", force_config.frame_transform);
 }
 

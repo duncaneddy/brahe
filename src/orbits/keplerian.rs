@@ -974,7 +974,7 @@ mod tests {
     #[test]
     fn test_sun_synchronous_inclination() {
         let inc = sun_synchronous_inclination(R_EARTH + 500e3, 0.001, DEGREES);
-        assert_abs_diff_eq!(inc, 97.40172901366881, epsilon = 1e-12);
+        assert_abs_diff_eq!(inc, 97.40179532653737, epsilon = 1e-12);
     }
 
     #[test]

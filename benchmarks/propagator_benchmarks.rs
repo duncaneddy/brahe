@@ -84,13 +84,13 @@ fn bench_numerical_fast_j6_zonal_earth_rotation_only_24hour(
     let force = ForceModelConfig {
         gravity: GravityConfiguration::Zonal {
             degree: degree.clone(),
-            frame_transform: FrameTransformationModel::EarthRotationOnly,
         },
         drag: None,
         srp: None,
         third_body: None,
         relativity: false,
         mass: None,
+        frame_transform: FrameTransformationModel::EarthRotationOnly,
     };
 
     group.bench_function("numerical_fast_j6_zonal_earth_rotation_only_24hour", |b| {
@@ -121,13 +121,13 @@ fn bench_numerical_fast_j6_zonal_full_rotation_24hour(
     let force = ForceModelConfig {
         gravity: GravityConfiguration::Zonal {
             degree: degree.clone(),
-            frame_transform: FrameTransformationModel::FullEarthRotation,
         },
         drag: None,
         srp: None,
         third_body: None,
         relativity: false,
         mass: None,
+        frame_transform: FrameTransformationModel::FullEarthRotation,
     };
 
     group.bench_function("numerical_fast_j6_zonal_full_rotation_24hour", |b| {
@@ -166,6 +166,7 @@ fn bench_spherical_harmonic_j6_equivalent_24hour(
         third_body: None,
         relativity: false,
         mass: None,
+        frame_transform: FrameTransformationModel::default(),
     };
 
     group.bench_function("numerical_spherical_harmonic_j6_equivalent_24hour", |b| {
@@ -211,8 +212,12 @@ fn main() {
 
     bench_sgp4_24hour(&mut c);
 
+    // Each 24 h numerical propagation runs ~0.5–1.0 s, so 100 samples won't fit
+    // in Criterion's default 5 s measurement window. Give it the budget it needs
+    // to actually collect 100 samples per bench without warnings.
     let mut group = c.benchmark_group("propagator_numerical");
     group.sample_size(100);
+    group.measurement_time(std::time::Duration::from_secs(90));
     bench_numerical_conservative_24hour(&mut group, epoch, &dstate);
     bench_numerical_fast_j6_zonal_earth_rotation_only_24hour(&mut group, epoch, &dstate, &degree);
     bench_numerical_fast_j6_zonal_full_rotation_24hour(&mut group, epoch, &dstate, &degree);

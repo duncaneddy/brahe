@@ -15,6 +15,8 @@ This module provides:
 - IntegrationMethod: Integration method selection (RK4, RKF45, DP54, RKN1210)
 - AtmosphericModel: Atmospheric density model selection
 - EclipseModel: Eclipse model for SRP calculations
+- ZonalHarmonicsDegree: Maximum zonal harmonic degree (J2..=J6)
+- FrameTransformationModel: ECI-to-body-fixed rotation precision selector
 - NumericalPropagationConfig: Configuration for numerical integration
 - VariationalConfig: STM/sensitivity configuration
 - ForceModelConfig: Force model configuration for orbit propagation
@@ -43,6 +45,8 @@ from brahe._brahe import (
     IntegrationMethod,
     AtmosphericModel,
     EclipseModel,
+    ZonalHarmonicsDegree,
+    FrameTransformationModel,
     NumericalPropagationConfig,
     VariationalConfig,
     ForceModelConfig,
@@ -67,6 +71,8 @@ __all__ = [
     "IntegrationMethod",
     "AtmosphericModel",
     "EclipseModel",
+    "ZonalHarmonicsDegree",
+    "FrameTransformationModel",
     "NumericalPropagationConfig",
     "VariationalConfig",
     "ForceModelConfig",

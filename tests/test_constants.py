@@ -91,7 +91,23 @@ def test_ECC_EARTH():
 
 
 def test_J2_EARTH():
-    assert brahe.J2_EARTH == 0.0010826358191967
+    assert brahe.J2_EARTH == 1.0826261738522227e-03
+
+
+def test_J3_EARTH():
+    assert brahe.J3_EARTH == -2.5324105185677225e-06
+
+
+def test_J4_EARTH():
+    assert brahe.J4_EARTH == -1.6198975999169731e-06
+
+
+def test_J5_EARTH():
+    assert brahe.J5_EARTH == -0.22775359073083618e-06
+
+
+def test_J6_EARTH():
+    assert brahe.J6_EARTH == 0.5406665762838132e-06
 
 
 def test_OMEGA_EARTH():

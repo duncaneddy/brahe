@@ -2985,6 +2985,102 @@ impl PyAtmosphericModel {
     }
 }
 
+/// Maximum zonal harmonic degree for `GravityConfiguration.zonal`.
+///
+/// Selects the highest J_n term retained when evaluating the closed-form zonal
+/// gravity model. The expansion always starts at J_2.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     degree = bh.ZonalHarmonicsDegree.J2
+///     degree = bh.ZonalHarmonicsDegree.J6
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "ZonalHarmonicsDegree")]
+#[derive(Clone)]
+pub struct PyZonalHarmonicsDegree {
+    pub degree: propagators::ZonalHarmonicsDegree,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyZonalHarmonicsDegree {
+    /// J2 only (oblateness term)
+    #[classattr]
+    fn J2() -> Self {
+        PyZonalHarmonicsDegree { degree: propagators::ZonalHarmonicsDegree::J2 }
+    }
+
+    /// Through J3
+    #[classattr]
+    fn J3() -> Self {
+        PyZonalHarmonicsDegree { degree: propagators::ZonalHarmonicsDegree::J3 }
+    }
+
+    /// Through J4
+    #[classattr]
+    fn J4() -> Self {
+        PyZonalHarmonicsDegree { degree: propagators::ZonalHarmonicsDegree::J4 }
+    }
+
+    /// Through J5
+    #[classattr]
+    fn J5() -> Self {
+        PyZonalHarmonicsDegree { degree: propagators::ZonalHarmonicsDegree::J5 }
+    }
+
+    /// Through J6
+    #[classattr]
+    fn J6() -> Self {
+        PyZonalHarmonicsDegree { degree: propagators::ZonalHarmonicsDegree::J6 }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ZonalHarmonicsDegree.J{}", usize::from(&self.degree))
+    }
+}
+
+/// ECI-to-body-fixed rotation model used by the numerical propagator's force evaluation.
+///
+/// Selects the precision/speed trade-off for every body-fixed force term (spherical-harmonic
+/// and zonal gravity, NRLMSISE-00 density, drag).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     transform = bh.FrameTransformationModel.FULL_EARTH_ROTATION
+///     transform = bh.FrameTransformationModel.EARTH_ROTATION_ONLY
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "FrameTransformationModel")]
+#[derive(Clone)]
+pub struct PyFrameTransformationModel {
+    pub model: propagators::FrameTransformationModel,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyFrameTransformationModel {
+    /// Full IAU 2006/2000A rotation: bias-precession-nutation + ERA + polar motion (default).
+    #[classattr]
+    fn FULL_EARTH_ROTATION() -> Self {
+        PyFrameTransformationModel { model: propagators::FrameTransformationModel::FullEarthRotation }
+    }
+
+    /// Earth Rotation Angle only — ~1.5x faster but ignores precession, nutation, and polar motion.
+    #[classattr]
+    fn EARTH_ROTATION_ONLY() -> Self {
+        PyFrameTransformationModel { model: propagators::FrameTransformationModel::EarthRotationOnly }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("FrameTransformationModel.{:?}", self.model)
+    }
+}
+
 /// Eclipse model for solar radiation pressure calculations.
 ///
 /// Example:
@@ -3159,6 +3255,7 @@ impl PyParameterSource {
 ///     # Alternative: use class methods
 ///     gravity = bh.GravityConfiguration.point_mass()
 ///     gravity = bh.GravityConfiguration.spherical_harmonic(degree=20, order=20)
+///     gravity = bh.GravityConfiguration.zonal(bh.ZonalHarmonicsDegree.J6)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "GravityConfiguration")]
@@ -3274,6 +3371,33 @@ impl PyGravityConfiguration {
         }
     }
 
+    /// Create a zonal-only gravity configuration (J_2..=J_n, m=0).
+    ///
+    /// Equivalent to `spherical_harmonic` with `m = 0`, but evaluated via an
+    /// explicit closed-form expansion that the compiler can vectorise — ~50%
+    /// faster for the same axially-symmetric expansion.
+    ///
+    /// Args:
+    ///     degree (ZonalHarmonicsDegree): Maximum zonal degree (J_2 through J_6).
+    ///
+    /// Returns:
+    ///     GravityConfiguration: Zonal gravity.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     gravity = bh.GravityConfiguration.zonal(bh.ZonalHarmonicsDegree.J6)
+    ///     ```
+    #[classmethod]
+    fn zonal(_cls: &Bound<'_, PyType>, degree: &PyZonalHarmonicsDegree) -> Self {
+        PyGravityConfiguration {
+            config: propagators::GravityConfiguration::Zonal {
+                degree: degree.degree.clone(),
+            },
+        }
+    }
+
     /// Check if this is point mass gravity.
     fn is_point_mass(&self) -> bool {
         matches!(self.config, propagators::GravityConfiguration::PointMass)
@@ -3282,6 +3406,11 @@ impl PyGravityConfiguration {
     /// Check if this is spherical harmonic gravity.
     fn is_spherical_harmonic(&self) -> bool {
         matches!(self.config, propagators::GravityConfiguration::SphericalHarmonic { .. })
+    }
+
+    /// Check if this is zonal gravity.
+    fn is_zonal(&self) -> bool {
+        matches!(self.config, propagators::GravityConfiguration::Zonal { .. })
     }
 
     /// Get the degree (for spherical harmonic).
@@ -3302,6 +3431,19 @@ impl PyGravityConfiguration {
     fn get_order(&self) -> Option<usize> {
         match &self.config {
             propagators::GravityConfiguration::SphericalHarmonic { order, .. } => Some(*order),
+            _ => None,
+        }
+    }
+
+    /// Get the zonal degree (for zonal gravity).
+    ///
+    /// Returns:
+    ///     ZonalHarmonicsDegree or None: Zonal degree if zonal gravity, None otherwise.
+    fn get_zonal_degree(&self) -> Option<PyZonalHarmonicsDegree> {
+        match &self.config {
+            propagators::GravityConfiguration::Zonal { degree } => {
+                Some(PyZonalHarmonicsDegree { degree: degree.clone() })
+            }
             _ => None,
         }
     }
@@ -3944,6 +4086,8 @@ impl PyNumericalPropagationConfig {
 ///         Default is None (disabled).
 ///     relativity (bool): Enable relativistic corrections. Default is False.
 ///     mass (ParameterSource, optional): Spacecraft mass source. Default is None.
+///     frame_transform (FrameTransformationModel, optional): ECI-to-body-fixed rotation
+///         used by every body-fixed force term. Defaults to ``FULL_EARTH_ROTATION``.
 ///
 /// Attributes:
 ///     gravity (GravityConfiguration): Gravity model configuration
@@ -3952,6 +4096,7 @@ impl PyNumericalPropagationConfig {
 ///     third_body (ThirdBodyConfiguration or None): Third-body perturbations configuration
 ///     relativity (bool): Enable relativistic corrections
 ///     mass (ParameterSource or None): Spacecraft mass source
+///     frame_transform (FrameTransformationModel): ECI-to-body-fixed rotation model
 ///
 /// Example:
 ///     ```python
@@ -4000,7 +4145,7 @@ impl PyForceModelConfig {
     ///     )
     ///     ```
     #[new]
-    #[pyo3(signature = (gravity=None, drag=None, srp=None, third_body=None, relativity=false, mass=None))]
+    #[pyo3(signature = (gravity=None, drag=None, srp=None, third_body=None, relativity=false, mass=None, frame_transform=None))]
     fn new(
         gravity: Option<&PyGravityConfiguration>,
         drag: Option<&PyDragConfiguration>,
@@ -4008,6 +4153,7 @@ impl PyForceModelConfig {
         third_body: Option<&PyThirdBodyConfiguration>,
         relativity: bool,
         mass: Option<&PyParameterSource>,
+        frame_transform: Option<&PyFrameTransformationModel>,
     ) -> Self {
         PyForceModelConfig {
             config: propagators::ForceModelConfig {
@@ -4017,6 +4163,7 @@ impl PyForceModelConfig {
                 third_body: third_body.map(|t| t.config.clone()),
                 relativity,
                 mass: mass.map(|m| m.source.clone()),
+                frame_transform: frame_transform.map(|f| f.model.clone()).unwrap_or_default(),
             },
         }
     }
@@ -4187,8 +4334,24 @@ impl PyForceModelConfig {
         self.config.mass = mass.map(|m| m.source.clone());
     }
 
+    /// Get the ECI-to-body-fixed frame transformation model.
+    #[getter]
+    fn frame_transform(&self) -> PyFrameTransformationModel {
+        PyFrameTransformationModel { model: self.config.frame_transform.clone() }
+    }
+
+    /// Set the ECI-to-body-fixed frame transformation model.
+    #[setter]
+    fn set_frame_transform(&mut self, frame_transform: &PyFrameTransformationModel) {
+        self.config.frame_transform = frame_transform.model.clone();
+    }
+
     fn __repr__(&self) -> String {
-        format!("ForceModelConfig(requires_params={})", self.config.requires_params())
+        format!(
+            "ForceModelConfig(requires_params={}, frame_transform={:?})",
+            self.config.requires_params(),
+            self.config.frame_transform,
+        )
     }
 }
 

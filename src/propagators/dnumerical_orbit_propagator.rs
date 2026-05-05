@@ -45,7 +45,7 @@ use crate::utils::identifiable::Identifiable;
 use crate::utils::state_providers::{
     DCovarianceProvider, DOrbitCovarianceProvider, DOrbitStateProvider, DStateProvider,
 };
-use crate::{AngleFormat, fast_spherical_zonal_harmonics_accel, state_eci_to_koe};
+use crate::{AngleFormat, spherical_zonal_harmonic_accel, state_eci_to_koe};
 
 use super::TrajectoryMode;
 use super::traits::DStatePropagator;
@@ -1105,23 +1105,22 @@ impl DNumericalOrbitPropagator {
         // Accumulate total acceleration
         let mut a_total = Vector3::zeros();
 
+        // Single ECI->body-fixed rotation reused by every body-fixed force term in
+        // this dynamics step. Selected by the propagator-wide `frame_transform`
+        // setting; defaults to the full IAU 2006/2000A rotation.
+        let r_i2b = match force_config.frame_transform {
+            FrameTransformationModel::FullEarthRotation => rotation_eci_to_ecef(epoch),
+            FrameTransformationModel::EarthRotationOnly => earth_rotation(epoch),
+        };
+
         // ===== GRAVITY =====
         match &force_config.gravity {
             GravityConfiguration::PointMass => {
                 a_total += accel_point_mass_gravity(r, Vector3::zeros(), GM_EARTH);
             }
-            GravityConfiguration::Zonal {
-                degree,
-                frame_transform,
-            } => {
-                // Rotate ECI position into Earth's body-fixed frame so that the zonal
-                // acceleration is evaluated relative to the true pole, not the J2000 pole.
-                let r_i2b = match frame_transform {
-                    FrameTransformationModel::FullEarthRotation => rotation_eci_to_ecef(epoch),
-                    FrameTransformationModel::EarthRotationOnly => earth_rotation(epoch),
-                };
+            GravityConfiguration::Zonal { degree } => {
                 let r_ecef = r_i2b * r;
-                let a_ecef = fast_spherical_zonal_harmonics_accel(
+                let a_ecef = spherical_zonal_harmonic_accel(
                     r_ecef,
                     Vector3::zeros(),
                     GM_EARTH,
@@ -1134,9 +1133,6 @@ impl DNumericalOrbitPropagator {
                 degree,
                 order,
             } => {
-                // Get rotation matrix from ECI to ECEF
-                let r_i2b = rotation_eci_to_ecef(epoch);
-
                 // Use gravity model based on source
                 match source {
                     GravityModelSource::Global => {
@@ -1188,7 +1184,6 @@ impl DNumericalOrbitPropagator {
                 }
                 AtmosphericModel::NRLMSISE00 => {
                     // NRLMSISE00 requires ECEF position
-                    let r_i2b = rotation_eci_to_ecef(epoch);
                     let r_ecef = r_i2b * r;
                     density_nrlmsise00(&epoch, r_ecef).unwrap_or(0.0)
                 }
@@ -1204,7 +1199,6 @@ impl DNumericalOrbitPropagator {
             };
 
             // Compute drag acceleration
-            let r_i2b = rotation_eci_to_ecef(epoch);
             a_total += accel_drag(x_eci, density, mass, drag_area, cd, r_i2b);
         }
 
@@ -2522,6 +2516,7 @@ mod tests {
             third_body: None,
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
         }
     }
 
@@ -7082,6 +7077,7 @@ mod tests {
             third_body: None,
             relativity: false,
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -7287,6 +7283,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -7341,6 +7338,7 @@ mod tests {
         // Test with 4x4 spherical harmonic
         let force_config = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 4,
@@ -7395,6 +7393,7 @@ mod tests {
         // Use J2-only gravity model (2x0 spherical harmonic)
         let force_config = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 2,
@@ -7463,6 +7462,7 @@ mod tests {
         for (degree, order) in configs {
             let force_config = ForceModelConfig {
                 mass: None,
+                frame_transform: FrameTransformationModel::default(),
                 gravity: GravityConfiguration::SphericalHarmonic {
                     source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                     degree,
@@ -7523,6 +7523,7 @@ mod tests {
         // Test 1: Using ModelType source
         let force_config_modeltype = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 4,
@@ -7549,6 +7550,7 @@ mod tests {
         // Test 2: Using Global source (should use same model if loaded)
         let force_config_global = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::Global,
                 degree: 4,
@@ -7617,6 +7619,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -7666,6 +7669,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::Exponential {
@@ -7716,6 +7720,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::NRLMSISE00,
@@ -7777,6 +7782,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -7838,6 +7844,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -7908,6 +7915,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -7951,6 +7959,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -7991,6 +8000,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -8032,6 +8042,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -8088,6 +8099,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -8125,6 +8137,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -8162,6 +8175,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -8199,6 +8213,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -8240,6 +8255,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -8279,6 +8295,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -8378,6 +8395,7 @@ mod tests {
         // Configure with all force models enabled for high-fidelity propagation
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)), // 1000 kg satellite
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,   // Use point mass to avoid data dependency
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -8448,6 +8466,7 @@ mod tests {
         // Configure with Cd from parameter vector
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -9336,6 +9355,7 @@ mod tests {
         use crate::orbit_dynamics::gravity::GravityModelType;
         let force_config_j2 = ForceModelConfig {
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 2,
@@ -9506,6 +9526,7 @@ mod tests {
         // Configure drag to use mass parameter
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
+            frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
@@ -9599,6 +9620,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
+            frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
@@ -9657,6 +9679,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(500.0)), // Fixed mass
+            frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
@@ -9722,6 +9745,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)),
+            frame_transform: FrameTransformationModel::default(),
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
                 area: ParameterSource::Value(20.0),
@@ -9821,6 +9845,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
+            frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
@@ -9875,6 +9900,7 @@ mod tests {
 
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
+            frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),

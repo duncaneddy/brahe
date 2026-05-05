@@ -11,7 +11,7 @@ use nalgebra::{DMatrix, Vector3};
 use crate::math::{SMatrix3, traits::IntoPosition};
 use once_cell::sync::Lazy;
 
-use crate::constants::R_EARTH;
+use crate::constants::{J2_EARTH, J3_EARTH, J4_EARTH, J5_EARTH, J6_EARTH, R_EARTH};
 use crate::math::kronecker_delta;
 use crate::utils::BraheError;
 
@@ -25,23 +25,6 @@ static PACKAGED_GGM05S: &[u8] = include_bytes!("../../data/gravity_models/GGM05S
 static PACKAGED_JGM3: &[u8] = include_bytes!("../../data/gravity_models/JGM3.gfc");
 static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> =
     Lazy::new(|| Arc::new(RwLock::new(Box::new(GravityModel::new()))));
-
-/// Earth zonal harmonics
-/// Formulas taken from [Vallado, Fundamentals of Astrophysics and Applications Edition 4, p. 593ff]
-///
-/// Conversion from the file's fully-normalised Stokes coefficients C_n,0 in EGM2008_360:
-/// J_n = −C_n,0 x (2n + 1)^0.5
-///
-/// J_2,0
-pub const J2: f64 = 1.0826261738522227e-03;
-/// J_3,0
-pub const J3: f64 = -2.5324105185677225e-06;
-/// J_4,0
-pub const J4: f64 = -1.6198975999169731e-06;
-/// J_5,0
-pub const J5: f64 = -0.22775359073083618e-06;
-/// J_6,0
-pub const J6: f64 = 0.5406665762838132e-06;
 
 /// Set the global gravity model to a new gravity model. A global gravity model is useful as it
 /// allows for a single gravity model to be used throughout a program. This is useful when multiple
@@ -169,14 +152,60 @@ pub fn accel_point_mass_gravity<P: IntoPosition>(
     }
 }
 
-/// A hand-crafted, compiler-friendly propagator that only consider zonal terms up to degree 6 (J_2..=J_6)
-/// Results match compute_spherical_harmonics(n, m=0) to <3km over 24h,
-/// but this implementation avoids matrix operations that are hard to optimive for the compiler
+/// Compute the gravitational acceleration due to Earth's zonal harmonic terms.
 ///
-/// Benchmarks show this to be ~1.5 - 2x faster then the equivalent call to compute_spherical_harmonics(n, m=0)
+/// Evaluates the closed-form perturbation acceleration arising from the zonal
+/// (axially-symmetric, order-zero) coefficients J₂ through J₆ of Earth's gravity
+/// field, summed onto the central two-body acceleration. The position is assumed
+/// to already be expressed in an Earth-fixed frame whose z-axis is aligned with
+/// the rotation pole; callers responsible for that ECI→ECEF rotation.
 ///
-/// Formulas taken from [Vallado], J values from [Wakker]
-pub fn fast_spherical_zonal_harmonics_accel<P: IntoPosition>(
+/// This routine is a hand-rolled, branch-on-degree implementation that mirrors
+/// the result of [`accel_gravity_spherical_harmonics`] with `m = 0`, but evaluates
+/// each term as an explicit polynomial in `z/r` instead of via Legendre-polynomial
+/// recursion. Benchmarks show ~1.5–2x faster evaluation than the general
+/// spherical-harmonic routine for the same axially-symmetric expansion, with
+/// agreement to <3 km over a 24 h LEO propagation when both routines are driven
+/// in the same Earth-fixed frame.
+///
+/// # Arguments
+///
+/// - `r_object`: Earth-fixed position vector of the object (or 6D state vector;
+///   only the position component is used). The frame must have z aligned with
+///   Earth's rotation axis.
+/// - `r_central_body`: Position vector of the central body. Use the zero vector
+///   if the central body is at the origin.
+/// - `gm`: Product of the gravitational constant and the central-body mass [m³/s²].
+/// - `n`: Maximum zonal degree to include (clamped to the supported range
+///   `2..=6`). For `n < 2` only the two-body term is returned.
+///
+/// # Returns
+///
+/// - `a_grav`: Acceleration vector in the same frame as `r_object`.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::constants::{R_EARTH, GM_EARTH};
+/// use brahe::orbit_dynamics::spherical_zonal_harmonic_accel;
+/// use nalgebra::Vector3;
+///
+/// // Equatorial position in an Earth-fixed frame.
+/// let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
+/// let r_central_body = Vector3::new(0.0, 0.0, 0.0);
+///
+/// // Acceleration including the J2 zonal term.
+/// let a_grav = spherical_zonal_harmonic_accel(r_object, r_central_body, GM_EARTH, 2);
+///
+/// // Magnitude is dominated by the two-body pull (~9.8 m/s²) with a small J2 perturbation.
+/// assert!((a_grav.norm() - 9.8).abs() < 1e-1);
+/// ```
+///
+/// # References
+///
+/// - Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., pp. 593.
+/// - Wakker, *Fundamentals of Astrodynamics*, Earth zonal-harmonic coefficients., 
+pub fn spherical_zonal_harmonic_accel<P: IntoPosition>(
     r_object: P,
     r_central_body: Vector3<f64>,
     gm: f64,
@@ -205,7 +234,7 @@ pub fn fast_spherical_zonal_harmonics_accel<P: IntoPosition>(
     // Explicit math based on [Vallado, p.593ff], leave optimization to compiler
     if n >= 2 {
         // Shared term for J2: (-3 * J2 * GM *  (R_e / r)^2 ) / 2
-        let j2_coeff = (-3. * J2 * gm * R_EARTH.powi(2)) / (2. * r.powi(5));
+        let j2_coeff = (-3. * J2_EARTH * gm * R_EARTH.powi(2)) / (2. * r.powi(5));
 
         let j2_xy_factor = 1.0 - 5.0 * k_r2;
         let j2_z_factor = 3.0 - 5.0 * k_r2;
@@ -216,7 +245,7 @@ pub fn fast_spherical_zonal_harmonics_accel<P: IntoPosition>(
     }
 
     if n >= 3 {
-        let j3_coeff = (-5. * J3 * gm * R_EARTH.powi(3)) / (2. * r.powi(7));
+        let j3_coeff = (-5. * J3_EARTH * gm * R_EARTH.powi(3)) / (2. * r.powi(7));
 
         let j3_xy_factor = 3. * k - (7. * k * k_r2);
         let j3_z_factor = 6. * k.powi(2) - (7. * k.powi(2) * k_r2) - (3. / 5. * r.powi(2));
@@ -227,7 +256,7 @@ pub fn fast_spherical_zonal_harmonics_accel<P: IntoPosition>(
     }
 
     if n >= 4 {
-        let j4_coeff = (15. * J4 * gm * R_EARTH.powi(4)) / (8. * r.powi(7));
+        let j4_coeff = (15. * J4_EARTH * gm * R_EARTH.powi(4)) / (8. * r.powi(7));
 
         let j4_xy_factor = 1. - (14. * k_r2) + (21. * k_r4);
         let j4_z_factor = 5. - (70. / 3. * k_r2) + (21. * k_r4);
@@ -238,17 +267,18 @@ pub fn fast_spherical_zonal_harmonics_accel<P: IntoPosition>(
 
     if n >= 5 {
         let re_5 = R_EARTH.powi(5);
-        let j5_coeff = (3. * J5 * gm * re_5) / (8. * r.powi(9));
+        let j5_coeff = (3. * J5_EARTH * gm * re_5) / (8. * r.powi(9));
 
         let j5_xy_factor = 35. - (210. * k_r2) + (231. * k_r4);
         let j5_z_factor = 105. - (315. * k_r2) + (231. * k_r4);
         accel.x += j5_coeff * j5_xy_factor * i * k;
         accel.y += j5_coeff * j5_xy_factor * j * k;
-        accel.z += j5_coeff * j5_z_factor * k.powi(2) - (15. * J5 * gm * re_5 / (8. * r.powi(7)));
+        accel.z +=
+            j5_coeff * j5_z_factor * k.powi(2) - (15. * J5_EARTH * gm * re_5 / (8. * r.powi(7)));
     }
 
     if n >= 6 {
-        let j6_coeff = (-J6 * gm * R_EARTH.powi(6)) / (16. * r.powi(9));
+        let j6_coeff = (-J6_EARTH * gm * R_EARTH.powi(6)) / (16. * r.powi(9));
 
         let j6_xy_factor = 35. - (945. * k_r2) + (3465. * k_r4) - (3003. * k_r6);
         let j6_z_factor = 245. - (2205. * k_r2) + (4851. * k_r4) - (3003. * k_r6);
@@ -1155,7 +1185,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fast_spherical_zonal_harmonics_accel() {
+    fn test_spherical_zonal_harmonic_accel() {
         let earth_center = Vector3::new(0.0, 0.0, 0.0);
 
         // Equatorial surface position (z=0, so k/r=0)
@@ -1164,23 +1194,25 @@ mod tests {
         let r_pole_radius = 6356752.0;
         let r_polar = Vector3::new(0.0, 0.0, r_pole_radius);
 
-        // J2 should modify the acceleration relative to pure two-body
+        // J2 should modify the acceleration relative to pure two-body.
         let a_point_mass_equator = accel_point_mass_gravity(r_equator, earth_center, GM_EARTH);
-        let a_j2_equator =
-            fast_spherical_zonal_harmonics_accel(r_equator, earth_center, GM_EARTH, 2);
+        let a_j2_equator = spherical_zonal_harmonic_accel(r_equator, earth_center, GM_EARTH, 2);
 
-        // J2 adds to the inward pull
+        // At the equator the xy-factor (1 - 5(z/r)^2) is +1 and the J2 coefficient is negative,
+        // so J2 strengthens the inward pull along x (a_j2 is more negative than the point-mass value).
         assert!(a_j2_equator[0] < a_point_mass_equator[0]);
 
         let a_point_mass_polar = accel_point_mass_gravity(r_polar, earth_center, GM_EARTH);
-        let a_j2_polar = fast_spherical_zonal_harmonics_accel(r_polar, earth_center, GM_EARTH, 2);
+        let a_j2_polar = spherical_zonal_harmonic_accel(r_polar, earth_center, GM_EARTH, 2);
 
-        // J2 adds to the inward pull
-        assert!(a_j2_polar[2] < a_point_mass_polar[2]);
+        // At the pole the z-factor (3 - 5(z/r)^2) = -2 flips the sign, so J2 *weakens* the inward
+        // pull along z (a_j2 is less negative than the point-mass value).
+        assert!(a_j2_polar[2] > a_point_mass_polar[2]);
 
-        // (3sin^2ϕ−1) -> Added pull is higher near the poles
-        let pole_pert = a_j2_polar[2].abs() - a_point_mass_polar[2].abs();
-        let equator_pert = a_j2_equator[0].abs() - a_point_mass_equator[0].abs();
+        // The z-factor magnitude at the pole (2) is twice the xy-factor magnitude at the equator (1),
+        // so the |J2 perturbation| should be larger at the pole than at the equator at comparable r.
+        let pole_pert = (a_j2_polar[2] - a_point_mass_polar[2]).abs();
+        let equator_pert = (a_j2_equator[0] - a_point_mass_equator[0]).abs();
         assert!(pole_pert > equator_pert);
     }
 
@@ -1238,6 +1270,7 @@ mod tests {
                 third_body: None,
                 relativity: false,
                 mass: None,
+                frame_transform: FrameTransformationModel::FullEarthRotation,
             },
             None,
             None,
@@ -1253,13 +1286,13 @@ mod tests {
             ForceModelConfig {
                 gravity: GravityConfiguration::Zonal {
                     degree: ZonalHarmonicsDegree::J6,
-                    frame_transform: FrameTransformationModel::FullEarthRotation,
                 },
                 drag: None,
                 srp: None,
                 third_body: None,
                 relativity: false,
                 mass: None,
+                frame_transform: FrameTransformationModel::FullEarthRotation,
             },
             None,
             None,
@@ -1321,6 +1354,7 @@ mod tests {
                     third_body: None,
                     relativity: false,
                     mass: None,
+                    frame_transform: FrameTransformationModel::FullEarthRotation,
                 },
                 None,
                 None,
@@ -1335,10 +1369,7 @@ mod tests {
             degree: (&degree).into(),
             order: 0,
         });
-        let mut prop_zonal = make_prop(GravityConfiguration::Zonal {
-            degree,
-            frame_transform: FrameTransformationModel::FullEarthRotation,
-        });
+        let mut prop_zonal = make_prop(GravityConfiguration::Zonal { degree });
 
         prop_spherical.propagate_to(target);
         prop_zonal.propagate_to(target);

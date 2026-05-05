@@ -57,12 +57,53 @@ pub const GM_EARTH: f64 = 3.986004415e14;
 ///  1. NIMA Technical Report TR8350.2
 pub const ECC_EARTH: f64 = 8.1819190842622e-2;
 
-/// Earth's first zonal harmonic. Units: (dimensionless)
+/// Earth's J2 zonal harmonic (oblateness). Units: (dimensionless)
+///
+/// Derived from the EGM2008 fully-normalized Stokes coefficient C_2,0 via
+/// `J_n = -C_n,0 * sqrt(2n + 1)`.
 ///
 /// # References:
 ///
-///  1. GGM05s Gravity Model.
-pub const J2_EARTH: f64 = 0.0010826358191967;
+///  1. N. K. Pavlis, S. A. Holmes, S. C. Kenyon, J. K. Factor, *The development
+///     and evaluation of the Earth Gravitational Model 2008 (EGM2008)*, J. Geophys.
+///     Res., 117, B04406, 2012.
+pub const J2_EARTH: f64 = 1.0826261738522227e-03;
+
+/// Earth's J3 zonal harmonic (pear-shape). Units: (dimensionless)
+///
+/// Derived from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)`.
+///
+/// # References:
+///
+///  1. Pavlis et al., *EGM2008*, J. Geophys. Res., 117, B04406, 2012.
+pub const J3_EARTH: f64 = -2.5324105185677225e-06;
+
+/// Earth's J4 zonal harmonic. Units: (dimensionless)
+///
+/// Derived from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)`.
+///
+/// # References:
+///
+///  1. Pavlis et al., *EGM2008*, J. Geophys. Res., 117, B04406, 2012.
+pub const J4_EARTH: f64 = -1.6198975999169731e-06;
+
+/// Earth's J5 zonal harmonic. Units: (dimensionless)
+///
+/// Derived from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)`.
+///
+/// # References:
+///
+///  1. Pavlis et al., *EGM2008*, J. Geophys. Res., 117, B04406, 2012.
+pub const J5_EARTH: f64 = -0.22775359073083618e-06;
+
+/// Earth's J6 zonal harmonic. Units: (dimensionless)
+///
+/// Derived from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)`.
+///
+/// # References:
+///
+///  1. Pavlis et al., *EGM2008*, J. Geophys. Res., 117, B04406, 2012.
+pub const J6_EARTH: f64 = 0.5406665762838132e-06;
 
 /// Earth axial rotation rate. Units: Units: [rad/s]
 ///

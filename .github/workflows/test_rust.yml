@@ -8,38 +8,6 @@ on:
                 type: boolean
                 default: false
 jobs:
-    build-rust:
-        runs-on: ${{ matrix.os }}
-        strategy:
-            matrix:
-                # os: [ubuntu-latest]
-                os: [ubuntu-latest, macos-latest, windows-latest]
-                rust-toolchain: [stable]
-        env:
-            CARGO_TERM_COLOR: always
-        steps:
-            -   uses: actions/checkout@v6
-            -   name: Set up Rust toolchain with cache
-                uses: actions-rust-lang/setup-rust-toolchain@v1
-                with:
-                    toolchain: ${{ matrix.rust-toolchain }}
-            -   name: Set default Rust toolchain
-                run: |
-                    rustup update ${{ matrix.rust-toolchain }}
-                    rustup default ${{ matrix.rust-toolchain }}
-            -   name: Build Rust package
-                run: cargo build
-            -   name: Upload Rust build artifacts
-                uses: actions/upload-artifact@v7
-                with:
-                    name: rust-build-artifacts-${{ runner.os }}
-                    path: |
-                        target/debug/
-                        !target/debug/incremental/
-                        !target/debug/deps/*.d
-                        !target/debug/deps/*.rmeta
-                        !target/debug/.fingerprint/
-                    retention-days: 3
     test-rust:
         runs-on: ${{ matrix.os }}
         strategy:
@@ -47,7 +15,6 @@ jobs:
                 # os: [ubuntu-latest]
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [stable]
-        needs: build-rust
         environment: ${{ !inputs.is-fork-pr && 'release' || '' }}
         permissions:
             id-token: write
@@ -66,11 +33,6 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   name: Download Rust build artifacts
-                uses: actions/download-artifact@v8
-                with:
-                    name: rust-build-artifacts-${{ runner.os }}
-                    path: target/debug/
             -   name: Install cargo-llvm-cov
                 uses: taiki-e/install-action@cargo-llvm-cov
             -   name: Run Rust tests with coverage
@@ -113,7 +75,6 @@ jobs:
                 # os: [ubuntu-latest]
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 rust-toolchain: [stable]
-        needs: build-rust
         steps:
             -   uses: actions/checkout@v6
             -   name: Set up Rust toolchain with cache
@@ -124,11 +85,6 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   name: Download Rust build artifacts
-                uses: actions/download-artifact@v8
-                with:
-                    name: rust-build-artifacts-${{ runner.os }}
-                    path: target/debug/
             -   name: Run Rust doc tests
                 run: cargo test --doc ${{ !inputs.is-fork-pr && '--features ci' || '' }} -- --test-threads=1
     

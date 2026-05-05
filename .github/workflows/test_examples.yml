@@ -53,41 +53,11 @@ jobs:
             echo "Copied de440s.bsp test asset to cache"
           fi
 
-      # Try to download pre-built Rust artifacts
-      - name: Download Rust build artifacts
-        id: download-rust
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          name: rust-build-artifacts
-          path: target/debug/
-
-      - name: Build Rust package (if no cached artifacts)
-        if: steps.download-rust.outcome == 'failure'
+      - name: Build Rust package
         run: cargo build
 
-      # Try to download pre-built Python extension
-      - name: Download Python extension artifact
-        id: download-extension
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          name: python-extension
-          path: ./cached-extension
-
-      - name: Use cached extension or build new one
-        run: |
-          if [ -d "./cached-extension" ] && [ -f "./cached-extension/libbrahe"* ]; then
-              echo "Using cached Python extension"
-              mkdir -p target/release
-              cp ./cached-extension/libbrahe* target/release/
-              # Install maturin for --no-build-isolation
-              uv pip install maturin
-              uv pip install -e . --no-build-isolation
-          else
-              echo "Building Python extension (no cache available)"
-              uv pip install -e .
-          fi
+      - name: Build Python extension
+        run: uv pip install -e .
 
       - name: Install just
         uses: extractions/setup-just@v4

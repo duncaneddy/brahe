@@ -200,7 +200,6 @@ pub fn accel_point_mass_gravity<P: IntoPosition>(
 /// # References
 ///
 /// - Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., pp. 593.
-/// - Wakker, *Fundamentals of Astrodynamics*, Earth zonal-harmonic coefficients.,
 pub fn accel_earth_zonal_gravity<P: IntoPosition>(
     r_object: P,
     n: usize,

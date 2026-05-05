@@ -67,6 +67,7 @@ pub const ECC_EARTH: f64 = 8.1819190842622e-2;
 ///  1. N. K. Pavlis, S. A. Holmes, S. C. Kenyon, J. K. Factor, *The development
 ///     and evaluation of the Earth Gravitational Model 2008 (EGM2008)*, J. Geophys.
 ///     Res., 117, B04406, 2012.
+// TODO: Derive from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)` instead of hardcoding value when const-sqrt is stabilized in Rust
 pub const J2_EARTH: f64 = 1.0826261738522227e-03;
 
 /// Earth's J3 zonal harmonic (pear-shape). Units: (dimensionless)
@@ -215,3 +216,68 @@ pub const GM_NEPTUNE: f64 = 6836527.100580 * 1e9;
 ///  1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and
 //     Applications*, 2012.
 pub const GM_PLUTO: f64 = 977.000000 * 1e9;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_abs_diff_eq;
+
+    // EGM2008 fully-normalized Stokes coefficients C_n,0
+    // Source: data/gravity_models/EGM2008_360.gfc (degree n, order m=0 entries)
+    const EGM2008_C_2_0: f64 = -0.484165143790815e-03;
+    const EGM2008_C_3_0: f64 = 0.957161207093473e-06;
+    const EGM2008_C_4_0: f64 = 0.539965866638991e-06;
+    const EGM2008_C_5_0: f64 = 0.686702913736681e-07;
+    const EGM2008_C_6_0: f64 = -0.149953927978527e-06;
+
+    /// Convert a fully-normalized zonal Stokes coefficient C_n,0 to the
+    /// conventional unnormalized zonal J_n via J_n = -C_n,0 * sqrt(2n + 1).
+    fn unnormalize_zonal(c_n0: f64, n: u32) -> f64 {
+        -c_n0 * f64::sqrt(2.0 * n as f64 + 1.0)
+    }
+
+    #[test]
+    fn test_j2_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J2_EARTH,
+            unnormalize_zonal(EGM2008_C_2_0, 2),
+            epsilon = 1e-18
+        );
+    }
+
+    #[test]
+    fn test_j3_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J3_EARTH,
+            unnormalize_zonal(EGM2008_C_3_0, 3),
+            epsilon = 1e-21
+        );
+    }
+
+    #[test]
+    fn test_j4_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J4_EARTH,
+            unnormalize_zonal(EGM2008_C_4_0, 4),
+            epsilon = 1e-21
+        );
+    }
+
+    #[test]
+    fn test_j5_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J5_EARTH,
+            unnormalize_zonal(EGM2008_C_5_0, 5),
+            epsilon = 1e-22
+        );
+    }
+
+    #[test]
+    fn test_j6_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J6_EARTH,
+            unnormalize_zonal(EGM2008_C_6_0, 6),
+            epsilon = 1e-21
+        );
+    }
+}

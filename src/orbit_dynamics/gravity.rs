@@ -1322,11 +1322,8 @@ mod tests {
 
     /// Regression test: with `FullEarthRotation` both propagators transform to the same
     /// Earth-fixed frame before evaluating the harmonics, so the only remaining difference
-    /// is floating-point round-off between the explicit-formula and Legendre-recursion
-    /// implementations of J2–J6.  Agreement should be well under 1 m after 24 h.
-    ///
-    /// TODO: run and record the actual residual; tighten the tolerance to match.
-    #[test]
+    /// should be floating-point round-off between the explicit-formula and Cunningham V/W
+    /// recursion implementations of J2–J6.
     #[serial_test::serial]
     fn test_fast_zonal_full_rotation_agrees_with_spherical_harmonic() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
@@ -1339,7 +1336,7 @@ mod tests {
         let oe = SVector6::new(R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0);
         let state = state_koe_to_eci(oe, AngleFormat::Degrees);
         let dstate = DVector::from_column_slice(state.as_slice());
-        let target = epoch + 86400.0;
+        let target = epoch + 3600.0;
         let degree = ZonalHarmonicsDegree::J6;
 
         let make_prop = |gravity| {

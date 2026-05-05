@@ -45,7 +45,7 @@ use crate::utils::identifiable::Identifiable;
 use crate::utils::state_providers::{
     DCovarianceProvider, DOrbitCovarianceProvider, DOrbitStateProvider, DStateProvider,
 };
-use crate::{AngleFormat, spherical_zonal_harmonic_accel, state_eci_to_koe};
+use crate::{AngleFormat, accel_earth_zonal_gravity, state_eci_to_koe};
 
 use super::TrajectoryMode;
 use super::traits::DStatePropagator;
@@ -1118,14 +1118,9 @@ impl DNumericalOrbitPropagator {
             GravityConfiguration::PointMass => {
                 a_total += accel_point_mass_gravity(r, Vector3::zeros(), GM_EARTH);
             }
-            GravityConfiguration::Zonal { degree } => {
+            GravityConfiguration::EarthZonal { degree } => {
                 let r_ecef = r_i2b * r;
-                let a_ecef = spherical_zonal_harmonic_accel(
-                    r_ecef,
-                    Vector3::zeros(),
-                    GM_EARTH,
-                    degree.into(),
-                );
+                let a_ecef = accel_earth_zonal_gravity(r_ecef, degree.into());
                 a_total += r_i2b.transpose() * a_ecef;
             }
             GravityConfiguration::SphericalHarmonic {

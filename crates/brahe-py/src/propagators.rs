@@ -2985,7 +2985,7 @@ impl PyAtmosphericModel {
     }
 }
 
-/// Maximum zonal harmonic degree for `GravityConfiguration.zonal`.
+/// Maximum zonal harmonic degree for `GravityConfiguration.earth_zonal`.
 ///
 /// Selects the highest J_n term retained when evaluating the closed-form zonal
 /// gravity model. The expansion always starts at J_2.
@@ -3255,7 +3255,7 @@ impl PyParameterSource {
 ///     # Alternative: use class methods
 ///     gravity = bh.GravityConfiguration.point_mass()
 ///     gravity = bh.GravityConfiguration.spherical_harmonic(degree=20, order=20)
-///     gravity = bh.GravityConfiguration.zonal(bh.ZonalHarmonicsDegree.J6)
+///     gravity = bh.GravityConfiguration.earth_zonal(bh.ZonalHarmonicsDegree.J6)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "GravityConfiguration")]
@@ -3371,28 +3371,30 @@ impl PyGravityConfiguration {
         }
     }
 
-    /// Create a zonal-only gravity configuration (J_2..=J_n, m=0).
+    /// Create an Earth zonal-only gravity configuration (J_2..=J_n, m=0).
     ///
-    /// Equivalent to `spherical_harmonic` with `m = 0`, but evaluated via an
-    /// explicit closed-form expansion that the compiler can vectorise — ~50%
-    /// faster for the same axially-symmetric expansion.
+    /// Equivalent to `spherical_harmonic` with `m = 0` against the packaged
+    /// Earth gravity model, but evaluated via an explicit closed-form
+    /// expansion that the compiler can vectorise — ~50% faster for the same
+    /// axially-symmetric expansion. Earth-specific because the J_n
+    /// coefficients and reference radius are baked into the implementation.
     ///
     /// Args:
     ///     degree (ZonalHarmonicsDegree): Maximum zonal degree (J_2 through J_6).
     ///
     /// Returns:
-    ///     GravityConfiguration: Zonal gravity.
+    ///     GravityConfiguration: Earth zonal gravity.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     gravity = bh.GravityConfiguration.zonal(bh.ZonalHarmonicsDegree.J6)
+    ///     gravity = bh.GravityConfiguration.earth_zonal(bh.ZonalHarmonicsDegree.J6)
     ///     ```
     #[classmethod]
-    fn zonal(_cls: &Bound<'_, PyType>, degree: &PyZonalHarmonicsDegree) -> Self {
+    fn earth_zonal(_cls: &Bound<'_, PyType>, degree: &PyZonalHarmonicsDegree) -> Self {
         PyGravityConfiguration {
-            config: propagators::GravityConfiguration::Zonal {
+            config: propagators::GravityConfiguration::EarthZonal {
                 degree: degree.degree.clone(),
             },
         }
@@ -3408,9 +3410,9 @@ impl PyGravityConfiguration {
         matches!(self.config, propagators::GravityConfiguration::SphericalHarmonic { .. })
     }
 
-    /// Check if this is zonal gravity.
-    fn is_zonal(&self) -> bool {
-        matches!(self.config, propagators::GravityConfiguration::Zonal { .. })
+    /// Check if this is Earth zonal gravity.
+    fn is_earth_zonal(&self) -> bool {
+        matches!(self.config, propagators::GravityConfiguration::EarthZonal { .. })
     }
 
     /// Get the degree (for spherical harmonic).
@@ -3435,13 +3437,13 @@ impl PyGravityConfiguration {
         }
     }
 
-    /// Get the zonal degree (for zonal gravity).
+    /// Get the zonal degree (for Earth zonal gravity).
     ///
     /// Returns:
-    ///     ZonalHarmonicsDegree or None: Zonal degree if zonal gravity, None otherwise.
-    fn get_zonal_degree(&self) -> Option<PyZonalHarmonicsDegree> {
+    ///     ZonalHarmonicsDegree or None: Zonal degree if Earth zonal gravity, None otherwise.
+    fn get_earth_zonal_degree(&self) -> Option<PyZonalHarmonicsDegree> {
         match &self.config {
-            propagators::GravityConfiguration::Zonal { degree } => {
+            propagators::GravityConfiguration::EarthZonal { degree } => {
                 Some(PyZonalHarmonicsDegree { degree: degree.clone() })
             }
             _ => None,
@@ -3454,8 +3456,8 @@ impl PyGravityConfiguration {
             propagators::GravityConfiguration::SphericalHarmonic { degree, order, .. } => {
                 format!("GravityConfiguration.spherical_harmonic(degree={}, order={})", degree, order)
             }
-            propagators::GravityConfiguration::Zonal { degree, .. } => {
-                format!("GravityConfiguration.zonal(degree={})", degree)
+            propagators::GravityConfiguration::EarthZonal { degree, .. } => {
+                format!("GravityConfiguration.earth_zonal(degree={})", degree)
             }
         }
     }

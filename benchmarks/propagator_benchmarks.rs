@@ -82,7 +82,7 @@ fn bench_numerical_fast_j6_zonal_earth_rotation_only_24hour(
     degree: &ZonalHarmonicsDegree,
 ) {
     let force = ForceModelConfig {
-        gravity: GravityConfiguration::Zonal {
+        gravity: GravityConfiguration::EarthZonal {
             degree: degree.clone(),
         },
         drag: None,
@@ -119,7 +119,7 @@ fn bench_numerical_fast_j6_zonal_full_rotation_24hour(
     degree: &ZonalHarmonicsDegree,
 ) {
     let force = ForceModelConfig {
-        gravity: GravityConfiguration::Zonal {
+        gravity: GravityConfiguration::EarthZonal {
             degree: degree.clone(),
         },
         drag: None,

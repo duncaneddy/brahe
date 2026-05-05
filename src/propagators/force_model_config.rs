@@ -626,10 +626,13 @@ pub enum GravityConfiguration {
         order: usize,
     },
 
-    /// Uses zonal terms (J_2..J_n) only.
-    /// Has the same effect as setting m = 0 in SphericalHarmonic,
-    /// By making it an explicit invariant, we can write code that the compiler can optimize for a ~50% speedup
-    Zonal {
+    /// Earth zonal harmonics (J_2..J_n) only.
+    ///
+    /// Has the same effect as setting m = 0 in SphericalHarmonic with the
+    /// packaged Earth gravity model, but is evaluated via a closed-form
+    /// expansion the compiler can vectorise (~50% speedup). Earth-specific
+    /// because the J_n coefficients and reference radius are baked in.
+    EarthZonal {
         /// Maximum degree (n) of expansion, order (m) is 0
         degree: ZonalHarmonicsDegree,
     },

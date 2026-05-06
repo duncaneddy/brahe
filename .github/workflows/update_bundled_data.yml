@@ -3,32 +3,36 @@ name: Update Bundled Data
 on:
   schedule:
     - cron: '0 2 */3 * *'  # Every 3 days at 2 AM UTC
-  workflow_call:
+  workflow_dispatch:
 
 jobs:
   update-eop-data:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     steps:
-      - uses: actions/checkout@v6
-      - name: Update package data
-        run: ./scripts/update-data.sh
-      - name: Create Pull Request with updated data
-        uses: peter-evans/create-pull-request@v8
+      - name: Checkout main
+        # WORKFLOW_TOKEN allows pushing to main even when branch protection
+        # requires a PR for ordinary contributors.
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
-          commit-message: "Update bundled EOP and space weather data"
-          branch: bundled-data-update-${{ github.run_id }}
-          delete-branch: true
-          title: "Update bundled EOP and space weather data"
-          body: |
-            Automated update of bundled data files from IERS and Celestrak.
+          ref: main
+          fetch-depth: 1
 
-            Updated files:
-            - IERS EOP data: `finals.all.iau2000.txt`, `EOP_20_C04_one_file_1962-now.txt`
-            - Space Weather: `sw19571001.txt`, `fluxtable.txt`
+      - name: Refresh bundled EOP and space weather data
+        run: ./scripts/update-data.sh
 
-            This PR can be auto-merged.
-          labels: automated,data-update
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Restrict to the data we manage to avoid accidentally pushing other
+          # working-tree changes.
+          git add data/eop data/space_weather
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+            exit 0
+          fi
+          git commit -m "Update bundled EOP and space weather data"
+          git push origin HEAD:main

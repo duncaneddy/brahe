@@ -48,6 +48,9 @@ dist/
 /build
 site/*
 
+# Release artifacts
+release_notes.md
+
 # Documentation
 docs/*/site/*
 docs/*/docs/figures/*

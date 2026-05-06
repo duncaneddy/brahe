@@ -10,20 +10,33 @@ Each release groups entries under the Keep a Changelog section headings in the o
 <!-- towncrier release notes start -->
 
 ## [1.5.0] - 2026-05-06
+
+### Added
+
+- Added `accel_earth_zonal_gravity` — a hand-rolled closed-form J2–J6 zonal acceleration that mirrors `accel_gravity_spherical_harmonics` with `m = 0` but evaluates ~1.5–2x faster, with agreement to <3 km over a 24 h LEO propagation when both are driven in the same Earth-fixed frame. [@markusz](https://github.com/markusz) ([#302](https://github.com/duncaneddy/brahe/pull/302))
+- Added `GravityConfiguration::EarthZonal { degree }` variant and supporting `ZonalHarmonicsDegree` enum (`J2`..`J6`) so the numerical propagator can use the fast zonal path directly. [@markusz](https://github.com/markusz) ([#302](https://github.com/duncaneddy/brahe/pull/302))
+- Added `FrameTransformationModel` (variants `FullEarthRotation`, `EarthRotationOnly`) and a `frame_transform` field on `ForceModelConfig`. `EarthRotationOnly` skips precession, nutation, and polar motion for ~1.5x faster ECI↔ECEF rotations at the cost of ~0.07° pole-tilt accuracy; `FullEarthRotation` (default) preserves prior behavior. [@markusz](https://github.com/markusz) ([#302](https://github.com/duncaneddy/brahe/pull/302))
+- Added `J3_EARTH`, `J4_EARTH`, `J5_EARTH`, and `J6_EARTH` constants derived from EGM2008. [@markusz](https://github.com/markusz) ([#302](https://github.com/duncaneddy/brahe/pull/302))
+- Added Python bindings for `accel_earth_zonal_gravity`, `ZonalHarmonicsDegree`, `FrameTransformationModel`, `GravityConfiguration.earth_zonal(...)`, and the new `J3_EARTH`–`J6_EARTH` constants. [@markusz](https://github.com/markusz) ([#302](https://github.com/duncaneddy/brahe/pull/302))
+- Added coefficient-derivation tests verifying each `J_n_EARTH` constant matches `-C_n,0 * sqrt(2n + 1)` against the EGM2008 fully-normalized Stokes coefficients. [@markusz](https://github.com/markusz) ([#302](https://github.com/duncaneddy/brahe/pull/302))
+
 ### Changed
 
-- Update package lockfile [#306](https://github.com/duncaneddy/brahe/pull/306)
+- Refined `J2_EARTH` to be derived from the EGM2008 `C_2,0` Stokes coefficient (`1.0826261738522227e-3`) instead of GGM05s. Downstream values change in the 5th significant digit. [@markusz](https://github.com/markusz) ([#302](https://github.com/duncaneddy/brahe/pull/302))
+- Reused a single ECI→body-fixed rotation per dynamics step across gravity, NRLMSISE-00 density, and drag inside `DNumericalOrbitPropagator` rather than recomputing the rotation per force term. [@markusz](https://github.com/markusz) ([#302](https://github.com/duncaneddy/brahe/pull/302))
+- Update package lockfile. [@duncaneddy](https://github.com/duncaneddy) ([#306](https://github.com/duncaneddy/brahe/pull/306))
 
 ### Removed
 
-- Removed rust artifact caching from CI since existing rust environment already provides (working) caching. [#315](https://github.com/duncaneddy/brahe/pull/315)
+- Removed rust artifact caching from CI since existing rust environment already provides (working) caching. [@duncaneddy](https://github.com/duncaneddy) ([#315](https://github.com/duncaneddy/brahe/pull/315))
 
 ### Fixed
 
-- Add missing `CHANGELOG.md` release entries
-  Fix error with release note generation step of release workflow
-  Fix issue with awk-based release-note generation step of release workflow not populating release note contents. [#306](https://github.com/duncaneddy/brahe/pull/306)
-- Fix 3rd party changes PRs not generating changelog fragments. [#317](https://github.com/duncaneddy/brahe/pull/317)
+- Add missing `CHANGELOG.md` release entries. [@duncaneddy](https://github.com/duncaneddy) ([#306](https://github.com/duncaneddy/brahe/pull/306))
+- Fix error with release note generation step of release workflow. [@duncaneddy](https://github.com/duncaneddy) ([#306](https://github.com/duncaneddy/brahe/pull/306))
+- Fix issue with awk-based release-note generation step of release workflow not populating release note contents. [@duncaneddy](https://github.com/duncaneddy) ([#306](https://github.com/duncaneddy/brahe/pull/306))
+- Fixed Starlink examples and documentation prose that still referenced the removed `bh.datasets.celestrak` / `bh::datasets::celestrak` API. [@Mtrya](https://github.com/Mtrya) ([#310](https://github.com/duncaneddy/brahe/pull/310))
+- Fix 3rd party changes PRs not generating changelog fragments. [@duncaneddy](https://github.com/duncaneddy) ([#317](https://github.com/duncaneddy/brahe/pull/317))
 
 ## [1.4.2] - 2026-04-23
 ### Fixed

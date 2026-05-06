@@ -59,7 +59,7 @@ It also contains many new features, improvements to core functionality, and bett
     - [x] Runge-Kutta-Nyström 12(10) (RKN1210)
 - [x] State Transition Matrix (STM) propagation support
 - [x] Package Maintenance
-    - [x] Add `towncrier` for automated PR-request changelogs
+    - [x] Automated PR-driven changelog generation
 - [x] Documentation for Numerical Integration Module
 
 ## v0.3.0 - Orbital Perturbations

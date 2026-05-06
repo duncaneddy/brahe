@@ -6,7 +6,7 @@
 
 ## Changelog
 
-**Fill in at least one section below.** Entries will be automatically converted to changelog fragments when this PR is merged. Sections follow the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) convention; see the [versioning policy](https://duncaneddy.github.io/brahe/latest/about/versioning/) for how deprecations and removals flow across releases.
+**Fill in at least one section below.** At release time, these entries are aggregated across all merged PRs to produce `CHANGELOG.md` and the GitHub Release notes; each is attributed to its author and PR. Sections follow the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) convention; see the [versioning policy](https://duncaneddy.github.io/brahe/latest/about/versioning/) for how deprecations and removals flow across releases.
 
 ### Added
 - <!-- New features added in this PR -->

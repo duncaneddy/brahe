@@ -9,6 +9,22 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- towncrier release notes start -->
 
+## [1.5.0] - 2026-05-06
+### Changed
+
+- Update package lockfile [#306](https://github.com/duncaneddy/brahe/pull/306)
+
+### Removed
+
+- Removed rust artifact caching from CI since existing rust environment already provides (working) caching. [#315](https://github.com/duncaneddy/brahe/pull/315)
+
+### Fixed
+
+- Add missing `CHANGELOG.md` release entries
+  Fix error with release note generation step of release workflow
+  Fix issue with awk-based release-note generation step of release workflow not populating release note contents. [#306](https://github.com/duncaneddy/brahe/pull/306)
+- Fix 3rd party changes PRs not generating changelog fragments. [#317](https://github.com/duncaneddy/brahe/pull/317)
+
 ## [1.4.2] - 2026-04-23
 ### Fixed
 

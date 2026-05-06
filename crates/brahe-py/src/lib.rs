@@ -592,6 +592,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("GM_EARTH", constants::GM_EARTH)?;
     module.add("ECC_EARTH", constants::ECC_EARTH)?;
     module.add("J2_EARTH", constants::J2_EARTH)?;
+    module.add("J3_EARTH", constants::J3_EARTH)?;
+    module.add("J4_EARTH", constants::J4_EARTH)?;
+    module.add("J5_EARTH", constants::J5_EARTH)?;
+    module.add("J6_EARTH", constants::J6_EARTH)?;
     module.add("OMEGA_EARTH", constants::OMEGA_EARTH)?;
     module.add("GM_SUN", constants::GM_SUN)?;
     module.add("R_SUN", constants::R_SUN)?;
@@ -878,6 +882,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyIntegrationMethod>()?;
     module.add_class::<PyAtmosphericModel>()?;
     module.add_class::<PyEclipseModel>()?;
+    module.add_class::<PyZonalHarmonicsDegree>()?;
+    module.add_class::<PyFrameTransformationModel>()?;
     module.add_class::<PyNumericalPropagationConfig>()?;
     module.add_class::<PyVariationalConfig>()?;
     module.add_class::<PyParameterSource>()?;
@@ -992,6 +998,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Gravity Accelerations
     module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_earth_zonal_gravity, module)?)?;
     module.add_class::<PyGravityModelType>()?;
     module.add_class::<PyGravityModelTideSystem>()?;
     module.add_class::<PyGravityModelErrors>()?;

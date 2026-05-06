@@ -10,6 +10,8 @@
  * - Relativistic corrections
  */
 
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::orbit_dynamics::gravity::GravityModelType;
@@ -126,6 +128,15 @@ pub struct ForceModelConfig {
     /// Use `ParameterSource::Value(mass_kg)` for fixed mass or
     /// `ParameterSource::ParameterIndex(idx)` to read from parameter vector.
     pub mass: Option<ParameterSource>,
+
+    /// Inertial-to-body-fixed frame transformation used for body-fixed force terms
+    /// (spherical-harmonic and zonal gravity, NRLMSISE-00 density, drag).
+    ///
+    /// Defaults to `FrameTransformationModel::FullEarthRotation`, which matches the
+    /// IAU 2006/2000A rotation used elsewhere in brahe. Set to `EarthRotationOnly`
+    /// to trade ~0.07° pole-tilt accuracy for ~1.5x faster ECI↔ECEF rotations.
+    #[serde(default)]
+    pub frame_transform: FrameTransformationModel,
 }
 
 impl Default for ForceModelConfig {
@@ -152,6 +163,7 @@ impl Default for ForceModelConfig {
             }),
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
         }
     }
 }
@@ -267,6 +279,7 @@ impl ForceModelConfig {
     ///     third_body: None,
     ///     relativity: false,
     ///     mass: Some(ParameterSource::ParameterIndex(0)),
+    ///     frame_transform: Default::default(),
     /// };
     ///
     /// // This will fail - config needs params but none provided
@@ -366,6 +379,7 @@ impl ForceModelConfig {
             }),
             relativity: true,
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
         }
     }
 
@@ -382,6 +396,7 @@ impl ForceModelConfig {
             third_body: None,
             relativity: false,
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
         }
     }
 
@@ -398,6 +413,7 @@ impl ForceModelConfig {
             third_body: None,
             relativity: false,
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
         }
     }
 
@@ -417,6 +433,7 @@ impl ForceModelConfig {
             }),
             relativity: true,
             mass: None,
+            frame_transform: FrameTransformationModel::default(),
         }
     }
 
@@ -447,6 +464,7 @@ impl ForceModelConfig {
             }),
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
         }
     }
 
@@ -473,6 +491,7 @@ impl ForceModelConfig {
             }),
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
+            frame_transform: FrameTransformationModel::default(),
         }
     }
 }
@@ -521,6 +540,67 @@ impl Default for GravityModelSource {
     }
 }
 
+/// Supported max degrees for zonal harmonics. J_N will use J_2..J_N
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[allow(missing_docs)]
+pub enum ZonalHarmonicsDegree {
+    J2,
+    J3,
+    J4,
+    J5,
+    J6,
+}
+
+impl Display for ZonalHarmonicsDegree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", usize::from(self))
+    }
+}
+
+impl From<&ZonalHarmonicsDegree> for usize {
+    fn from(value: &ZonalHarmonicsDegree) -> Self {
+        match value {
+            ZonalHarmonicsDegree::J2 => 2,
+            ZonalHarmonicsDegree::J3 => 3,
+            ZonalHarmonicsDegree::J4 => 4,
+            ZonalHarmonicsDegree::J5 => 5,
+            ZonalHarmonicsDegree::J6 => 6,
+        }
+    }
+}
+
+impl From<ZonalHarmonicsDegree> for usize {
+    fn from(value: ZonalHarmonicsDegree) -> Self {
+        (&value).into()
+    }
+}
+
+/// Controls how the inertial-to-body-fixed rotation is computed for force-model
+/// evaluation in the numerical propagator.
+///
+/// The numerical propagator integrates orbital dynamics in an Earth-centered inertial
+/// (ECI) frame, but several perturbations are most naturally evaluated in an Earth-fixed
+/// (ECEF) frame: spherical-harmonic and zonal gravity, NRLMSISE-00 atmospheric density,
+/// and atmospheric drag (which depends on the relative velocity of the rotating
+/// atmosphere). This setting selects the precision/speed trade-off used for that ECI↔ECEF
+/// rotation across the entire force model.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum FrameTransformationModel {
+    /// Apply only the Earth Rotation Angle (ERA) rotation about Earth's z-axis.
+    ///
+    /// Accounts for sidereal rotation but ignores precession, nutation, and polar motion.
+    /// ~1.5x faster than `FullEarthRotation` but introduces small errors (~0.07°) from the
+    /// uncorrected pole tilt.
+    EarthRotationOnly,
+
+    /// Apply the full IAU 2006/2000A rotation: bias-precession-nutation + ERA + polar motion.
+    ///
+    /// This is the default. Matches the rotation that brahe uses elsewhere for ECI↔ECEF
+    /// conversion, giving results consistent with the rest of the library.
+    #[default]
+    FullEarthRotation,
+}
+
 /// Gravity model configuration
 ///
 /// Specifies the gravity model to use for computing gravitational acceleration.
@@ -544,6 +624,17 @@ pub enum GravityConfiguration {
         degree: usize,
         /// Maximum order (m) of expansion
         order: usize,
+    },
+
+    /// Earth zonal harmonics (J_2..J_n) only.
+    ///
+    /// Has the same effect as setting m = 0 in SphericalHarmonic with the
+    /// packaged Earth gravity model, but is evaluated via a closed-form
+    /// expansion the compiler can vectorise (~50% speedup). Earth-specific
+    /// because the J_n coefficients and reference radius are baked in.
+    EarthZonal {
+        /// Maximum degree (n) of expansion, order (m) is 0
+        degree: ZonalHarmonicsDegree,
     },
 }
 

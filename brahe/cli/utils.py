@@ -84,6 +84,10 @@ def parse_numeric_expression(expr: Union[str, float]) -> float:
         "GM_EARTH": brahe.GM_EARTH,
         "ECC_EARTH": brahe.ECC_EARTH,
         "J2_EARTH": brahe.J2_EARTH,
+        "J3_EARTH": brahe.J3_EARTH,
+        "J4_EARTH": brahe.J4_EARTH,
+        "J5_EARTH": brahe.J5_EARTH,
+        "J6_EARTH": brahe.J6_EARTH,
         "OMEGA_EARTH": brahe.OMEGA_EARTH,
         # Brahe constants - solar
         "GM_SUN": brahe.GM_SUN,

@@ -14,6 +14,7 @@ fn main() {
         third_body: None,
         relativity: false,
         mass: None,
+        frame_transform: bh::FrameTransformationModel::default(),
     };
 }
 

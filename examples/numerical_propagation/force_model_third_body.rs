@@ -61,6 +61,7 @@ fn main() {
         third_body: Some(third_body_de440s),
         relativity: false,
         mass: None,
+        frame_transform: bh::FrameTransformationModel::default(),
     };
 }
 

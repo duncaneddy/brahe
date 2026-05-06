@@ -1,6 +1,8 @@
 import brahe
 import math
 
+import pytest
+
 
 def test_deg2rad():
     assert brahe.DEG2RAD == math.pi / 180.0
@@ -90,8 +92,39 @@ def test_ECC_EARTH():
     assert brahe.ECC_EARTH == 8.1819190842622e-2
 
 
+# EGM2008 fully-normalized Stokes coefficients C_n,0
+# Source: data/gravity_models/EGM2008_360.gfc (degree n, order m=0 entries)
+EGM2008_C_2_0 = -0.484165143790815e-03
+EGM2008_C_3_0 = 0.957161207093473e-06
+EGM2008_C_4_0 = 0.539965866638991e-06
+EGM2008_C_5_0 = 0.686702913736681e-07
+EGM2008_C_6_0 = -0.149953927978527e-06
+
+
+def _unnormalize_zonal(c_n0: float, n: int) -> float:
+    """Convert a fully-normalized zonal Stokes coefficient C_n,0 to the
+    conventional unnormalized zonal J_n via J_n = -C_n,0 * sqrt(2n + 1)."""
+    return -c_n0 * math.sqrt(2.0 * n + 1.0)
+
+
 def test_J2_EARTH():
-    assert brahe.J2_EARTH == 0.0010826358191967
+    assert brahe.J2_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_2_0, 2), abs=1e-18)
+
+
+def test_J3_EARTH():
+    assert brahe.J3_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_3_0, 3), abs=1e-21)
+
+
+def test_J4_EARTH():
+    assert brahe.J4_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_4_0, 4), abs=1e-21)
+
+
+def test_J5_EARTH():
+    assert brahe.J5_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_5_0, 5), abs=1e-22)
+
+
+def test_J6_EARTH():
+    assert brahe.J6_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_6_0, 6), abs=1e-21)
 
 
 def test_OMEGA_EARTH():

@@ -38,6 +38,7 @@ Third-Body Perturbations:
 
 Gravity:
 - accel_point_mass_gravity: Point-mass gravity acceleration
+- accel_earth_zonal_gravity: Earth zonal harmonics (J2-J6) acceleration
 - GravityModelType: Enum for gravity model types (packaged or from file)
 - GravityModelTideSystem: Enum for tide system conventions
 - GravityModelErrors: Enum for error estimation types
@@ -91,6 +92,7 @@ from brahe._brahe import (
     accel_third_body_neptune_de,
     # Gravity
     accel_point_mass_gravity,
+    accel_earth_zonal_gravity,
     GravityModelType,
     GravityModelTideSystem,
     GravityModelErrors,
@@ -148,6 +150,7 @@ __all__ = [
     "accel_third_body_neptune_de",
     # Gravity
     "accel_point_mass_gravity",
+    "accel_earth_zonal_gravity",
     "GravityModelType",
     "GravityModelTideSystem",
     "GravityModelErrors",

@@ -57,12 +57,54 @@ pub const GM_EARTH: f64 = 3.986004415e14;
 ///  1. NIMA Technical Report TR8350.2
 pub const ECC_EARTH: f64 = 8.1819190842622e-2;
 
-/// Earth's first zonal harmonic. Units: (dimensionless)
+/// Earth's J2 zonal harmonic (oblateness). Units: (dimensionless)
+///
+/// Derived from the EGM2008 fully-normalized Stokes coefficient C_2,0 via
+/// `J_n = -C_n,0 * sqrt(2n + 1)`.
 ///
 /// # References:
 ///
-///  1. GGM05s Gravity Model.
-pub const J2_EARTH: f64 = 0.0010826358191967;
+///  1. N. K. Pavlis, S. A. Holmes, S. C. Kenyon, J. K. Factor, *The development
+///     and evaluation of the Earth Gravitational Model 2008 (EGM2008)*, J. Geophys.
+///     Res., 117, B04406, 2012.
+// TODO: Derive from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)` instead of hardcoding value when const-sqrt is stabilized in Rust
+pub const J2_EARTH: f64 = 1.0826261738522227e-03;
+
+/// Earth's J3 zonal harmonic (pear-shape). Units: (dimensionless)
+///
+/// Derived from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)`.
+///
+/// # References:
+///
+///  1. Pavlis et al., *EGM2008*, J. Geophys. Res., 117, B04406, 2012.
+pub const J3_EARTH: f64 = -2.5324105185677225e-06;
+
+/// Earth's J4 zonal harmonic. Units: (dimensionless)
+///
+/// Derived from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)`.
+///
+/// # References:
+///
+///  1. Pavlis et al., *EGM2008*, J. Geophys. Res., 117, B04406, 2012.
+pub const J4_EARTH: f64 = -1.6198975999169731e-06;
+
+/// Earth's J5 zonal harmonic. Units: (dimensionless)
+///
+/// Derived from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)`.
+///
+/// # References:
+///
+///  1. Pavlis et al., *EGM2008*, J. Geophys. Res., 117, B04406, 2012.
+pub const J5_EARTH: f64 = -0.22775359073083618e-06;
+
+/// Earth's J6 zonal harmonic. Units: (dimensionless)
+///
+/// Derived from EGM2008 via `J_n = -C_n,0 * sqrt(2n + 1)`.
+///
+/// # References:
+///
+///  1. Pavlis et al., *EGM2008*, J. Geophys. Res., 117, B04406, 2012.
+pub const J6_EARTH: f64 = 0.5406665762838132e-06;
 
 /// Earth axial rotation rate. Units: Units: [rad/s]
 ///
@@ -174,3 +216,68 @@ pub const GM_NEPTUNE: f64 = 6836527.100580 * 1e9;
 ///  1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and
 //     Applications*, 2012.
 pub const GM_PLUTO: f64 = 977.000000 * 1e9;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_abs_diff_eq;
+
+    // EGM2008 fully-normalized Stokes coefficients C_n,0
+    // Source: data/gravity_models/EGM2008_360.gfc (degree n, order m=0 entries)
+    const EGM2008_C_2_0: f64 = -0.484165143790815e-03;
+    const EGM2008_C_3_0: f64 = 0.957161207093473e-06;
+    const EGM2008_C_4_0: f64 = 0.539965866638991e-06;
+    const EGM2008_C_5_0: f64 = 0.686702913736681e-07;
+    const EGM2008_C_6_0: f64 = -0.149953927978527e-06;
+
+    /// Convert a fully-normalized zonal Stokes coefficient C_n,0 to the
+    /// conventional unnormalized zonal J_n via J_n = -C_n,0 * sqrt(2n + 1).
+    fn unnormalize_zonal(c_n0: f64, n: u32) -> f64 {
+        -c_n0 * f64::sqrt(2.0 * n as f64 + 1.0)
+    }
+
+    #[test]
+    fn test_j2_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J2_EARTH,
+            unnormalize_zonal(EGM2008_C_2_0, 2),
+            epsilon = 1e-18
+        );
+    }
+
+    #[test]
+    fn test_j3_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J3_EARTH,
+            unnormalize_zonal(EGM2008_C_3_0, 3),
+            epsilon = 1e-21
+        );
+    }
+
+    #[test]
+    fn test_j4_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J4_EARTH,
+            unnormalize_zonal(EGM2008_C_4_0, 4),
+            epsilon = 1e-21
+        );
+    }
+
+    #[test]
+    fn test_j5_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J5_EARTH,
+            unnormalize_zonal(EGM2008_C_5_0, 5),
+            epsilon = 1e-22
+        );
+    }
+
+    #[test]
+    fn test_j6_earth_derived_from_egm2008() {
+        assert_abs_diff_eq!(
+            J6_EARTH,
+            unnormalize_zonal(EGM2008_C_6_0, 6),
+            epsilon = 1e-21
+        );
+    }
+}

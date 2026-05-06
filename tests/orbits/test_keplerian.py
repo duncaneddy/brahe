@@ -167,7 +167,7 @@ def test_sun_synchronous_inclination():
     vp = brahe.sun_synchronous_inclination(
         brahe.R_EARTH + 500e3, 0.001, angle_format=AngleFormat.DEGREES
     )
-    assert vp == pytest.approx(97.40172901366881, abs=1e-12)
+    assert vp == pytest.approx(97.40179532653737, abs=1e-12)
 
 
 def test_geo_sma():

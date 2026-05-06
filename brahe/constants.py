@@ -46,6 +46,10 @@ from brahe._brahe import (
     GM_EARTH,
     ECC_EARTH,
     J2_EARTH,
+    J3_EARTH,
+    J4_EARTH,
+    J5_EARTH,
+    J6_EARTH,
     OMEGA_EARTH,
     # Solar constants
     GM_SUN,
@@ -100,6 +104,10 @@ __all__ = [
     "GM_EARTH",
     "ECC_EARTH",
     "J2_EARTH",
+    "J3_EARTH",
+    "J4_EARTH",
+    "J5_EARTH",
+    "J6_EARTH",
     "OMEGA_EARTH",
     # Solar constants
     "GM_SUN",

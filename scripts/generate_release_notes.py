@@ -39,7 +39,12 @@ class PRInfo:
 
 
 def run(cmd: list[str]) -> str:
-    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if res.returncode != 0:
+        raise SystemExit(
+            f"command failed (exit {res.returncode}): {' '.join(cmd)}\n"
+            f"stderr: {res.stderr.strip() or '<empty>'}"
+        )
     return res.stdout
 
 
@@ -123,6 +128,9 @@ def format_entry(text: str, pr: PRInfo, repo: str) -> str:
     return f"- {text} [@{pr.author}]({author_url}) ([#{pr.number}]({pr_url}))"
 
 
+EMPTY_RELEASE_NOTE = "_No notable changes for this release._"
+
+
 def build_release_section(version: str, prs: list[PRInfo], repo: str, today: str) -> str:
     aggregated: dict[str, list[str]] = {s: [] for s in SECTIONS}
     for pr in prs:
@@ -131,6 +139,14 @@ def build_release_section(version: str, prs: list[PRInfo], repo: str, today: str
                 aggregated[section].append(format_entry(entry, pr, repo))
 
     lines: list[str] = [f"## [{version}] - {today}"]
+    if not any(aggregated.values()):
+        # Maintenance releases (only bot/data/dependency PRs, or no merges at all)
+        # still need a non-empty body so the GitHub Release draft and CHANGELOG
+        # entry render legibly.
+        lines.append("")
+        lines.append(EMPTY_RELEASE_NOTE)
+        return "\n".join(lines) + "\n"
+
     for section in SECTIONS:
         if not aggregated[section]:
             continue
@@ -174,8 +190,10 @@ def main() -> int:
     args = parse_args()
     prs = [p for p in fetch_prs_since(args.prev_tag, args.repo) if not is_skip(p)]
     if not prs:
-        print(f"No contributor PRs merged since {args.prev_tag}", file=sys.stderr)
-        return 1
+        # Not a failure: maintenance releases that contain only skipped PRs
+        # (dependabot, bundled-data updates, etc.) still need a release block.
+        print(f"No contributor PRs since {args.prev_tag}; "
+              f"emitting empty release note.", file=sys.stderr)
     section = build_release_section(args.version, prs, args.repo, args.date)
 
     if args.dry_run:

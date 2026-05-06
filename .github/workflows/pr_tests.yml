@@ -4,7 +4,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths-ignore:
-      - 'news/**'
       - 'CHANGELOG.md'
 
 concurrency:
@@ -19,14 +18,7 @@ jobs:
     steps:
       - id: skip_check
         run: |
-          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'changelog') }}" == "true" ]] || \
-             [[ "${{ contains(github.event.pull_request.labels.*.name, 'automated') }}" == "true" && "${{ github.actor }}" == "github-actions[bot]" ]]; then
-            echo "Skipping tests for automated changelog PR"
-            echo "should_skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "Running tests for normal PR"
-            echo "should_skip=false" >> $GITHUB_OUTPUT
-          fi
+          echo "should_skip=false" >> $GITHUB_OUTPUT
 
   test-rust:
     needs: [check-skip]

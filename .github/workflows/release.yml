@@ -51,102 +51,62 @@ jobs:
     needs: [validate-version]
     secrets: inherit
 
-  # Generate release notes using towncrier
+  # Generate release notes from PRs merged since the previous release tag, update
+  # CHANGELOG.md if needed, and publish artifacts consumed by downstream jobs.
   generate-release-notes:
     runs-on: ubuntu-latest
-    env:
-      RUST_TOOLCHAIN: stable
-      PYTHON_VERSION: 3.12
     needs: [validate-version, test-rust, test-python, test-examples]
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - name: Checkout code
+        # WORKFLOW_TOKEN so the subsequent push to main is allowed by branch
+        # protection. The default GITHUB_TOKEN cannot bypass required reviews.
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      -   name: Set up Rust toolchain with cache
-          uses: actions-rust-lang/setup-rust-toolchain@v1
-          with:
-              toolchain: ${{ env.RUST_TOOLCHAIN }}
-      -   name: Set default Rust toolchain
-          run: |
-              rustup update ${{ env.RUST_TOOLCHAIN }}
-              rustup default ${{ env.RUST_TOOLCHAIN }}
-
-      - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v8.1.0
-        with:
-          enable-cache: true
-
-      - name: Install Python
-        run: uv python install ${{ env.PYTHON_VERSION }}
-
-      - name: Create virtual environment
-        run: uv venv -p ${{ env.PYTHON_VERSION }}
-
-      - name: Install towncrier
-        run: uv pip install towncrier
-
-      - name: Check for changelog fragments
-        id: check-fragments
-        run: |
-          if [ -n "$(find news/ -maxdepth 1 -name '*.md' ! -name '.template.md' ! -name 'README.md' -type f)" ]; then
-            echo "has_fragments=true" >> $GITHUB_OUTPUT
-            echo "Found changelog fragments"
-          else
-            echo "has_fragments=false" >> $GITHUB_OUTPUT
-            echo "No changelog fragments found"
-          fi
-
-      - name: Generate release notes
-        if: steps.check-fragments.outputs.has_fragments == 'true'
-        run: |
-          VERSION=${{ needs.validate-version.outputs.version }}
-          uv run towncrier build --version $VERSION --yes
-          echo "Release notes generated for version $VERSION"
-
-      - name: Create empty release notes
-        if: steps.check-fragments.outputs.has_fragments == 'false'
-        run: |
-          VERSION=${{ needs.validate-version.outputs.version }}
-          echo "No significant changes for this release." > release_notes.md
-          echo "No changelog fragments found - created empty release notes"
-
-      - name: Create Pull Request for CHANGELOG update
-        uses: peter-evans/create-pull-request@v8
-        with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
-          base: main
-          commit-message: "Update CHANGELOG for v${{ needs.validate-version.outputs.version }}"
-          branch: release-changelog-v${{ needs.validate-version.outputs.version }}
-          delete-branch: true
-          title: "Update CHANGELOG for v${{ needs.validate-version.outputs.version }}"
-          body: |
-            Auto-generated CHANGELOG update for release v${{ needs.validate-version.outputs.version }}
 
-            This PR updates the CHANGELOG and removes consumed changelog fragments.
-
-            This PR can be auto-merged.
-          labels: changelog,automated,release
-
-      - name: Extract release notes for this version
-        if: steps.check-fragments.outputs.has_fragments == 'true'
+      - name: Determine previous release tag
+        id: prev-tag
         run: |
           VERSION=${{ needs.validate-version.outputs.version }}
-          # Extract the section for this version from CHANGELOG.md. The target
-          # header uses `next` to skip the generic `^## ` rule that would
-          # otherwise immediately clear the flag we just set. Portable across
-          # gawk and BSD awk (avoids `!/regex/` as an && operand).
-          awk "/^## \\[$VERSION\\]/{flag=1; print; next} /^## /{flag=0} flag" CHANGELOG.md > release_notes.md
-          if [ ! -s release_notes.md ]; then
-            echo "ERROR: release_notes.md is empty - could not find section for version $VERSION in CHANGELOG.md"
+          PREV=$(git describe --tags --abbrev=0 "v${VERSION}^" 2>/dev/null || true)
+          if [ -z "$PREV" ]; then
+            echo "ERROR: Could not determine previous release tag preceding v${VERSION}"
             exit 1
           fi
-          echo "Extracted release notes:"
+          echo "Previous release tag: $PREV"
+          echo "prev_tag=$PREV" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes and update CHANGELOG
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: |
+          VERSION=${{ needs.validate-version.outputs.version }}
+          python3 scripts/generate_release_notes.py \
+            --version "$VERSION" \
+            --prev-tag "${{ steps.prev-tag.outputs.prev_tag }}" \
+            --release-notes release_notes.md \
+            --changelog CHANGELOG.md
+          echo "----- release_notes.md -----"
           cat release_notes.md
+
+      - name: Commit CHANGELOG update to main
+        run: |
+          VERSION=${{ needs.validate-version.outputs.version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "CHANGELOG.md already up to date for v${VERSION}; nothing to commit."
+            exit 0
+          fi
+          git add CHANGELOG.md
+          git commit -m "Update CHANGELOG for v${VERSION}"
+          # The tag points at the previous tip; push the CHANGELOG commit to main
+          # so the live history stays in sync. The released artifacts use the
+          # in-job CHANGELOG.md content via the uploaded artifact below.
+          git push origin HEAD:main
 
       - name: Upload release notes artifact
         uses: actions/upload-artifact@v7

@@ -11,8 +11,6 @@ permissions:
 jobs:
   validate:
     if: |
-      !contains(github.event.pull_request.labels.*.name, 'changelog') &&
-      !contains(github.event.pull_request.labels.*.name, 'automated') &&
       !contains(github.event.pull_request.labels.*.name, 'dependencies') &&
       github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
@@ -68,7 +66,7 @@ jobs:
             - Corrected EOP data loading for edge cases
             \`\`\`
 
-            These entries will be automatically converted to changelog fragments when the PR is merged.`;
+            These entries will be aggregated into the CHANGELOG and GitHub Release notes at release time, attributed to you and this PR.`;
 
               // Find existing bot comments
               const { data: comments } = await github.rest.issues.listComments({

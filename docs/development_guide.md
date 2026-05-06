@@ -365,89 +365,47 @@ This will:
 
 ## Pull Request Changelog
 
-### Automatic Changelog Generation
+When you open a pull request, fill in the `## Changelog` section of the PR description with entries under the appropriate [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) headings:
 
-When you create a pull request, you must fill in the changelog section in the PR description. The changelog uses [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format with four categories:
+- **Added** - new features
+- **Changed** - changes to existing functionality
+- **Deprecated** - APIs still present but scheduled for removal
+- **Removed** - APIs that have been removed
+- **Fixed** - bug fixes
 
-- **Added** - New features
-- **Changed** - Changes to existing functionality
-- **Fixed** - Bug fixes
-- **Removed** - Removed features or functionality
+A single PR may contribute to multiple sections. The PR description is the single source of truth — there is no separate fragment file to maintain.
 
-### How It Works
-
-1. **Fill in PR description**: When opening a PR, add entries under the appropriate changelog section(s)
-   ```markdown
-   ### Fixed
-   - Fixed memory leak in trajectory interpolation
-   - Corrected EOP data loading for edge cases
-   ```
-
-2. **Validation**: A GitHub Action checks that at least one changelog section has entries
-   - PR will fail validation if all sections are empty
-   - You'll receive a comment with instructions if validation fails
-
-3. **Automatic fragment creation**: When the PR is merged:
-   - A GitHub Action parses your changelog entries
-   - Creates fragment files in `news/` directory (e.g., `123.added.md`, `123.fixed.md`)
-   - Commits the fragments to the main branch
-
-4. **Release compilation**: During release:
-   - Towncrier collects all fragments from `news/`
-   - Generates formatted release notes
-   - Updates `CHANGELOG.md` with the new version section
-   - Deletes fragment files
-
-### Example PR Changelog
+### Example
 
 ```markdown
 ## Changelog
 
 ### Added
 - Support for new SGP4 propagation mode
-- EOP data caching to improve performance
 
 ### Fixed
 - Memory leak in trajectory interpolation
 - Edge case in geodetic coordinate conversion
 ```
 
-This will automatically create:
-- `news/123.added.md` with both Added items
-- `news/123.fixed.md` with both Fixed items
+### How It Works
 
-### Manual Fragment Creation (Rare)
+1. **Validation on open**: a GitHub Action checks that the PR description has at least one non-empty section. It posts a comment with instructions if validation fails. Dependabot PRs are exempt.
+2. **At release time**: `scripts/generate_release_notes.py` walks every PR merged into `main` since the previous release tag, parses each PR's `### Section` blocks, aggregates them under the version heading in `CHANGELOG.md`, and writes the same content to `release_notes.md` for use as the GitHub Release body. Each entry is attributed as `[@author](url) ([#PR](url))`.
+3. **Skipped PRs**: PRs labeled `automated`, `data-update`, or `dependencies`, and any PR opened by a bot account, are excluded from the generated changelog.
 
-In rare cases where you need to create fragments manually, see `news/README.md` for instructions. Fragment files use the format `<PR#>.<type>.md` where type is one of: `added`, `changed`, `fixed`, `removed`.
+### Previewing the Changelog Locally
 
-### Previewing the Changelog
-
-To see what changelog fragments are currently queued:
+To see what the next release's changelog would look like without writing any files:
 
 ```bash
-# List all fragment files
-ls -la news/*.md
-
-# Or see just the fragment names
-find news/ -name '*.md' ! -name '.template.md' ! -name 'README.md'
+python3 scripts/generate_release_notes.py \
+    --version 1.5.1 \
+    --prev-tag v1.5.0 \
+    --dry-run
 ```
 
-To see what the next release changelog would look like without making changes:
-
-```bash
-# Preview the changelog for the next release
-uv run towncrier build --version 1.2.3 --draft
-```
-
-This shows the formatted output without modifying `CHANGELOG.md` or deleting fragments.
-
-### Releases Without Changelog Fragments
-
-If you create a release when there are no changelog fragments in `news/`:
-
-- The release workflow will succeed
-- A minimal release will be created with "No significant changes"
-- This is useful for releases that only contain dependency updates or internal changes
+This requires the `gh` CLI to be authenticated (`gh auth status`).
 
 ## Release Process
 
@@ -477,13 +435,11 @@ Before creating a release:
 
 ### Automated Workflow
 
-**Note**: Changelog fragments are automatically created from PR descriptions. You don't need to manually create fragment files.
-
 Once the tag is pushed, GitHub Actions automatically:
 
 1. Validates version matches between tag and `Cargo.toml`
 2. Runs all tests (Rust, Python, examples)
-3. Generates release notes with towncrier (commits CHANGELOG.md)
+3. Generates `release_notes.md` and updates `CHANGELOG.md` from PRs merged since the previous tag (via `scripts/generate_release_notes.py`), then pushes the CHANGELOG update directly to `main`
 4. Builds documentation and deploys to GitHub Pages
 5. Builds Python wheels and source distribution
 6. Publishes to PyPI and crates.io

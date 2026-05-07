@@ -11144,6 +11144,55 @@ mod tests {
     }
 
     #[test]
+    fn test_dnumericalorbitpropagator_builder_with_additional_dynamics_and_control_input() {
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // 6D orbital state + 1 mass state
+        let state = DVector::from_vec(vec![
+            R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0,
+            1000.0, // mass [kg]
+        ]);
+
+        let additional_dynamics: DStateDynamics = Box::new(|_t, state, _params| {
+            let mut dx = DVector::zeros(state.len());
+            dx[6] = -0.1; // dm/dt = -0.1 kg/s
+            dx
+        });
+
+        let control: Box<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync> =
+            Box::new(|_t, state, _params| {
+                // Small tangential thrust
+                let v = Vector3::new(state[3], state[4], state[5]);
+                let v_mag = v.norm();
+                let mut dx = DVector::zeros(state.len());
+                if v_mag > 1e-6 {
+                    let a = v * (0.0001 / v_mag);
+                    dx[3] = a[0];
+                    dx[4] = a[1];
+                    dx[5] = a[2];
+                }
+                dx
+            });
+
+        let prop = DNumericalOrbitPropagator::builder()
+            .epoch(epoch)
+            .state(state)
+            .force_config(ForceModelConfig::earth_gravity())
+            .additional_dynamics(additional_dynamics)
+            .control_input(control)
+            .build();
+
+        assert!(prop.is_ok());
+        let mut prop = prop.unwrap();
+        assert_eq!(DStatePropagator::state_dim(&prop), 7);
+
+        let initial_mass = prop.current_state()[6];
+        prop.step_by(10.0);
+        assert!((prop.current_state()[6] - (initial_mass - 1.0)).abs() < 1e-3);
+    }
+
+    #[test]
     fn test_dnumericalorbitpropagator_builder_matches_new() {
         setup_global_test_eop();
 

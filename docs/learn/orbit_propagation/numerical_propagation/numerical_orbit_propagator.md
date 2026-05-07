@@ -49,6 +49,21 @@ The simplest setup uses default configurations:
         ```
 
 
+### Builder API (Rust)
+
+`DNumericalOrbitPropagator::builder()` is a idiomatic Rust alternative to `new()` that lets you name only the fields you care about and omit the rest. This is particularly useful when only a subset of optional fields are needed, keeping construction readable without sacrificing access to the full configuration surface.
+
+``` rust
+--8<-- "./examples/numerical_propagation/propagator_builder.rs:4"
+```
+
+??? example "Output"
+    ```
+    --8<-- "./docs/outputs/numerical_propagation/propagator_builder.rs.txt"
+    ```
+
+Python uses keyword arguments natively, so no separate builder is needed there.
+
 ## Stepping Through Time
 
 The propagator provides several methods for advancing through time, following the same interface as analytical propagators.

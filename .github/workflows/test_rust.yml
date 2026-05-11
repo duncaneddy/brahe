@@ -26,7 +26,7 @@ jobs:
         steps:
             -   uses: actions/checkout@v6
             -   name: Set up Rust toolchain with cache
-                uses: actions-rust-lang/setup-rust-toolchain@v1
+                uses: actions-rust-lang/setup-rust-toolchain@v1.16.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
             -   name: Set default Rust toolchain
@@ -78,7 +78,7 @@ jobs:
         steps:
             -   uses: actions/checkout@v6
             -   name: Set up Rust toolchain with cache
-                uses: actions-rust-lang/setup-rust-toolchain@v1
+                uses: actions-rust-lang/setup-rust-toolchain@v1.16.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
             -   name: Set default Rust toolchain

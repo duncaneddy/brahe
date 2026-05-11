@@ -25,7 +25,7 @@ jobs:
             TEST_SPACETRACK_PASS: ${{ !inputs.is-fork-pr && secrets.TEST_SPACETRACK_PASS || '' }}
         steps:
             -   name: Set up Rust toolchain
-                uses: actions-rust-lang/setup-rust-toolchain@v1
+                uses: actions-rust-lang/setup-rust-toolchain@v1.16.0
                 with:
                     toolchain: ${{ matrix.rust-toolchain }}
             -   name: Set default Rust toolchain

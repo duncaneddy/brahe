@@ -60,7 +60,7 @@ rayon = "1.11"
 num_cpus = "1.17"
 dirs = "6.0.0"
 polars = { version = "0.53", default-features = false, features = ["lazy"] }
-anise = "0.9.3"
+anise = "0.10.0"
 
 # pyo3 is an optional dependency used only by the `python` feature, which enables
 # the `python_interop` module holding the `BraheError` PyErr conversion. The

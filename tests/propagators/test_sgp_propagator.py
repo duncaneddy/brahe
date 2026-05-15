@@ -1729,3 +1729,40 @@ class TestSGPPropagatorAdditionalMethods:
         for i in range(3):
             assert mean_list_rad[i][0] == pytest.approx(mean_list[i][0], rel=1e-10)
             assert mean_list_rad[i][1] == pytest.approx(mean_list[i][1], rel=1e-10)
+
+    def test_states_ecef(self, iss_tle):
+        """Test states_ecef returns ECEF state vectors at multiple epochs."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+        epochs = [initial_epoch + i * 60.0 for i in range(5)]
+
+        states = prop.states_ecef(epochs)
+
+        assert len(states) == 5
+        for i, state in enumerate(states):
+            assert len(state) == 6
+            assert all(np.isfinite(state))
+            # Verify magnitude is roughly LEO altitude
+            r_mag = np.linalg.norm(state[:3])
+            assert 6.3e6 < r_mag < 7.0e6
+            # Verify states_ecef matches state_ecef at each epoch
+            single = prop.state_ecef(epochs[i])
+            assert state == pytest.approx(single, rel=1e-10)
+
+    def test_states_eme2000(self, iss_tle):
+        """Test states_eme2000 returns EME2000 state vectors at multiple epochs."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+        epochs = [initial_epoch + i * 60.0 for i in range(3)]
+
+        states = prop.states_eme2000(epochs)
+
+        assert len(states) == 3
+        for i, state in enumerate(states):
+            assert len(state) == 6
+            assert all(np.isfinite(state))
+            r_mag = np.linalg.norm(state[:3])
+            assert 6.3e6 < r_mag < 7.0e6
+            # Verify states_eme2000 matches state_eme2000 at each epoch
+            single = prop.state_eme2000(epochs[i])
+            assert state == pytest.approx(single, rel=1e-10)

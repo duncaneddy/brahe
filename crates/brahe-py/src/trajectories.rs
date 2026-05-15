@@ -43,8 +43,8 @@ impl PyInterpolationMethod {
     /// Quintic Hermite interpolation method.
     ///
     /// Uses position, velocity, and acceleration at two bracketing points for C2
-    /// continuous interpolation. Uses stored accelerations if available, otherwise
-    /// estimates via finite differences.
+    /// continuous interpolation. Requires the trajectory to carry per-sample
+    /// accelerations — interpolation fails if accelerations are not stored.
     ///
     /// Returns:
     ///     InterpolationMethod: Quintic Hermite interpolation constant

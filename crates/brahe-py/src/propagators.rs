@@ -4067,6 +4067,21 @@ impl PyNumericalPropagationConfig {
         self.config.interpolation_method = value.method;
     }
 
+    /// Validate that the configuration is internally consistent.
+    ///
+    /// Called automatically by the propagator constructors. Can also be called
+    /// directly to pre-flight a configuration before propagation.
+    ///
+    /// Raises:
+    ///     RuntimeError: If interpolation_method is HermiteQuintic but
+    ///         store_accelerations is False. The message names the two fixes
+    ///         (enable acceleration storage, or pick a different method).
+    fn validate(&self) -> PyResult<()> {
+        self.config
+            .validate()
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    }
+
     fn __repr__(&self) -> String {
         format!("NumericalPropagationConfig(method={:?}, abs_tol={}, rel_tol={})",
                 self.config.method, self.config.integrator.abs_tol, self.config.integrator.rel_tol)

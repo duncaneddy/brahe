@@ -28,7 +28,7 @@ from brahe.plots.estimation_common import (
 def _sigma_band_label(series_label, sigma_level):
     """Format the legend label for a covariance band."""
     level = sigma_level if sigma_level is not None else 3
-    return f"{series_label} ±{level}σ"
+    return rf"{series_label} ±{level}$\sigma$"
 
 
 # =============================================================================

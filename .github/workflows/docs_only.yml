@@ -39,7 +39,7 @@ jobs:
           git config user.email github-actions[bot]@users.noreply.github.com
 
       - name: Set up Rust toolchain with cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.16.0
+        uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
 

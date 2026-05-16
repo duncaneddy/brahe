@@ -508,6 +508,20 @@ impl PySGPPropagator {
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
+    /// Compute states at multiple epochs in ECEF coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of ECEF state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = SOrbitStateProvider::states_ecef(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
     /// Compute states at multiple epochs in GCRF coordinates.
     ///
     /// Args:
@@ -533,6 +547,20 @@ impl PySGPPropagator {
     pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = SOrbitStateProvider::states_itrf(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
+    /// Compute states at multiple epochs in EME2000 coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of EME2000 state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_eme2000<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = SOrbitStateProvider::states_eme2000(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
@@ -2241,6 +2269,20 @@ impl PyKeplerianPropagator {
     pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = DOrbitStateProvider::states_itrf(&self.propagator, &epoch_vec)?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
+    /// Compute states at multiple epochs in EME2000 coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of EME2000 state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_eme2000<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_eme2000(&self.propagator, &epoch_vec)?;
         Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
@@ -4796,6 +4838,81 @@ impl PyNumericalOrbitPropagator {
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
+    /// Compute states at multiple epochs in ECI coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of ECI state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_eci<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_eci(&self.propagator, &epoch_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
+    /// Compute states at multiple epochs in ECEF coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of ECEF state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_ecef<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_ecef(&self.propagator, &epoch_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
+    /// Compute states at multiple epochs in GCRF coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of GCRF state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_gcrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_gcrf(&self.propagator, &epoch_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
+    /// Compute states at multiple epochs in ITRF coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of ITRF state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_itrf<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_itrf(&self.propagator, &epoch_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
+    /// Compute states at multiple epochs in EME2000 coordinates.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of EME2000 state vectors.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_eme2000<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_eme2000(&self.propagator, &epoch_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states.iter().map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned()).collect())
+    }
+
     /// Compute state as osculating Keplerian elements at a specific epoch.
     ///
     /// Args:
@@ -6014,6 +6131,21 @@ impl PyNumericalPropagator {
         let state = DStateProvider::state(&self.propagator, epoch.obj)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute states at multiple epochs.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of state vectors in the propagator's current output format.
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states<'a>(&self, py: Python<'a>, epochs: Vec<PyRef<PyEpoch>>) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DStateProvider::states(&self.propagator, &epoch_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states.iter().map(|s| s.as_slice().to_pyarray(py).to_owned()).collect())
     }
 
     // =========================================================================

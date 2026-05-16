@@ -1381,16 +1381,34 @@ impl DNumericalOrbitPropagator {
                 let epoch = epoch_initial + t;
                 let r_i2b = rotation_cache.lock().unwrap().get_or_compute(t, epoch);
 
-                // Compute orbital dynamics (first 6 elements)
-                let mut dx = Self::compute_dynamics(
+                // Compute orbital dynamics (first 6 elements) on the stack.
+                // `compute_dynamics` returns a `Vector6<f64>` so the inner
+                // force-model evaluation doesn't have to allocate; we widen
+                // it into the full state-dim `DVector` here.
+                let dx_orbital = Self::compute_dynamics(
                     t,
-                    state.clone(),
+                    state,
                     epoch_initial,
                     &force_config,
                     params_opt.or(Some(&params)),
                     gravity_model.as_ref(),
                     r_i2b,
                 );
+
+                // Widen the orbital derivative to the full state dimension.
+                // This is the one heap allocation we cannot avoid without
+                // changing the `DStateDynamics` Fn signature to accept an
+                // `&mut DVector<f64>` out-parameter (a much bigger change
+                // touching every integrator method and downstream caller).
+                // For `state.len() == 6` (the common orbital-only case)
+                // this is the only DVector allocation per stage.
+                let mut dx = DVector::zeros(state.len());
+                dx[0] = dx_orbital[0];
+                dx[1] = dx_orbital[1];
+                dx[2] = dx_orbital[2];
+                dx[3] = dx_orbital[3];
+                dx[4] = dx_orbital[4];
+                dx[5] = dx_orbital[5];
 
                 // If additional dynamics provided and state dimension > 6, compute extended state derivatives
                 if let Some(ref add_dyn) = additional_dynamics
@@ -1491,25 +1509,22 @@ impl DNumericalOrbitPropagator {
     /// This is the actual force model evaluation logic.
     fn compute_dynamics(
         t: f64,
-        state: DVector<f64>,
+        state: &DVector<f64>,
         epoch_initial: Epoch,
         force_config: &ForceModelConfig,
         params_opt: Option<&DVector<f64>>,
         gravity_model: Option<&Arc<GravityModel>>,
         r_i2b: SMatrix3,
-    ) -> DVector<f64> {
+    ) -> Vector6<f64> {
         // Convert relative time to absolute Epoch
         let epoch = epoch_initial + t;
 
-        // Extract position and velocity (first 6 elements always orbital state)
+        // Extract position and velocity (first 6 elements always orbital state).
+        // Reading by index against `&DVector<f64>` is a bounds-checked load —
+        // no clone, no heap traffic on the way into the dynamics function.
         let r = Vector3::new(state[0], state[1], state[2]);
         let v = Vector3::new(state[3], state[4], state[5]);
-        let x_eci: nalgebra::Matrix<
-            f64,
-            nalgebra::Const<6>,
-            nalgebra::Const<1>,
-            nalgebra::ArrayStorage<f64, 6, 1>,
-        > = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
+        let x_eci = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
 
         // Accumulate total acceleration
         let mut a_total = Vector3::zeros();
@@ -1648,19 +1663,14 @@ impl DNumericalOrbitPropagator {
             a_total += accel_relativity(x_eci);
         }
 
-        // Build state derivative: [vx, vy, vz, ax, ay, az, ...]
-        let mut dx = DVector::zeros(state.len());
-        dx[0] = v[0];
-        dx[1] = v[1];
-        dx[2] = v[2];
-        dx[3] = a_total[0];
-        dx[4] = a_total[1];
-        dx[5] = a_total[2];
-
-        // Additional state elements (if any) have zero derivative by default
-        // These will be overridden if additional_dynamics is provided
-
-        dx
+        // Build the orbital state derivative `[vx, vy, vz, ax, ay, az]` on
+        // the stack. The caller (the dynamics closure in
+        // `build_shared_dynamics`) widens this into a `DVector<f64>` of the
+        // full state dimension and applies any `additional_dynamics` for
+        // indices ≥ 6. Returning a stack-allocated `Vector6<f64>` here
+        // eliminates one heap allocation per integrator stage (the prior
+        // `DVector::zeros(state.len())` + element writes).
+        Vector6::new(v[0], v[1], v[2], a_total[0], a_total[1], a_total[2])
     }
 
     // =========================================================================

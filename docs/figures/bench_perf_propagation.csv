@@ -1,9 +1,9 @@
 Task,Java,Python,Rust,Python Speedup,Rust Speedup
-Keplerian Single,673.8 µs,926.3 µs,880.0 µs,0.73×,0.77×
-Keplerian Trajectory,361.5 µs,302.1 µs,270.4 µs,1.20×,1.34×
-RK4 + 20x20 + Sun/Moon,7.57 ms,89.24 ms,89.20 ms,0.08×,0.08×
-RK4 + 5x5 Gravity,5.50 ms,81.70 ms,81.07 ms,0.07×,0.07×
-RK4 + 80x80 + Drag + SRP,45.42 ms,115.65 ms,114.47 ms,0.39×,0.40×
-Numerical Two-Body,3.10 ms,15.95 ms,15.09 ms,0.19×,0.21×
-SGP4 Single,512.4 µs,2.52 ms,2.04 ms,0.20×,0.25×
-SGP4 Trajectory,3.42 ms,63.52 ms,60.15 ms,0.05×,0.06×
+Keplerian Single,414.6 µs,919.6 µs,912.9 µs,0.45×,0.45×
+Keplerian Trajectory,364.9 µs,303.1 µs,270.1 µs,1.20×,1.35×
+RK4 + 20x20 + Sun/Moon,8.38 ms,13.81 ms,13.81 ms,0.61×,0.61×
+RK4 + 5x5 Gravity,5.47 ms,6.47 ms,6.41 ms,0.85×,0.85×
+RK4 + 80x80 + Drag + SRP,47.05 ms,39.57 ms,39.65 ms,1.19×,1.19×
+Numerical Two-Body,2.96 ms,4.98 ms,4.89 ms,0.59×,0.60×
+SGP4 Single,574.2 µs,1.89 ms,1.87 ms,0.30×,0.31×
+SGP4 Trajectory,3.38 ms,60.71 ms,60.04 ms,0.06×,0.06×

@@ -1,5 +1,5 @@
 Task,Java,Python,Rust,Python Speedup,Rust Speedup
-Euler Angle To Quaternion,215.4 µs,23.1 µs,2.5 µs,9.33×,85.0×
-Quaternion To Euler Angle,389.1 µs,16.7 µs,2.9 µs,23.4×,132.3×
-Quaternion To Rotation Matrix,175.7 µs,88.2 µs,1.2 µs,1.99×,145.1×
-Rotation Matrix To Quaternion,337.0 µs,163.8 µs,2.3 µs,2.06×,149.6×
+Euler Angle To Quaternion,208.2 µs,21.7 µs,2.5 µs,9.58×,83.2×
+Quaternion To Euler Angle,219.2 µs,16.9 µs,2.6 µs,12.9×,85.9×
+Quaternion To Rotation Matrix,189.4 µs,91.5 µs,1.2 µs,2.07×,155.4×
+Rotation Matrix To Quaternion,325.6 µs,164.6 µs,2.2 µs,1.98×,148.9×

@@ -1,6 +1,6 @@
 Task,Java,Python,Rust,Python Speedup,Rust Speedup
-Epoch Creation,435.7 µs,28.8 µs,14.1 µs,15.1×,30.8×
-UTC To GPS,57.1 µs,3.4 µs,199.6 ns,16.6×,286.1×
-UTC To TAI,33.4 µs,3.4 µs,196.3 ns,9.84×,169.9×
-UTC To TT,36.5 µs,3.4 µs,200.4 ns,10.8×,181.9×
-UTC To UT1,2.00 ms,15.2 µs,11.2 µs,131.9×,179.1×
+Epoch Creation,419.2 µs,27.3 µs,12.7 µs,15.4×,33.0×
+UTC To GPS,34.1 µs,4.7 µs,197.9 ns,7.28×,172.4×
+UTC To TAI,58.5 µs,3.4 µs,208.7 ns,17.0×,280.4×
+UTC To TT,37.8 µs,3.6 µs,206.2 ns,10.5×,183.1×
+UTC To UT1,2.02 ms,14.5 µs,10.2 µs,139.3×,198.4×

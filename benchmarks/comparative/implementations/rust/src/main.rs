@@ -2,6 +2,13 @@
 //!
 //! Reads JSON task input from stdin, runs the benchmark, outputs JSON to stdout.
 
+// Use mimalloc to match brahe-py's allocator choice. Without this the Rust
+// bench would use the macOS system allocator while the Python bench uses
+// mimalloc (via brahe-py), so per-language comparisons would be biased by
+// the allocator difference rather than reflecting actual library work.
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 mod access;
 mod attitude;
 mod coordinates;

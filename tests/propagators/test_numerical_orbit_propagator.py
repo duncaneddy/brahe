@@ -1137,6 +1137,114 @@ def test_numericalorbitpropagator_dorbitstateprovider_state_eme2000():
     assert pos_mag > R_EARTH and pos_mag < R_EARTH + 1000e3
 
 
+# =============================================================================
+# NumericalOrbitPropagator states_* (bulk frame conversion) Tests
+# =============================================================================
+
+
+@pytest.fixture
+def propagated_orbit_prop():
+    """Create a NumericalOrbitPropagator that has propagated through one full orbit."""
+    epoch = create_test_epoch()
+    state = create_leo_state()
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.two_body(),
+        None,
+    )
+
+    prop.propagate_to(epoch + orbital_period(R_EARTH + 500e3))
+    return prop, epoch
+
+
+def test_numericalorbitpropagator_dorbitstateprovider_states_eci(propagated_orbit_prop):
+    """Test states_eci() returns ECI state vectors at multiple epochs."""
+    prop, epoch = propagated_orbit_prop
+    epochs = [epoch + i * 120.0 for i in range(5)]
+
+    states = prop.states_eci(epochs)
+
+    assert len(states) == 5
+    for i, state in enumerate(states):
+        assert len(state) == 6
+        assert all(np.isfinite(state))
+        # LEO altitude check
+        pos_norm = np.linalg.norm(state[:3])
+        assert R_EARTH < pos_norm < R_EARTH + 1000e3
+        # Bulk must match single-epoch result
+        single = prop.state_eci(epochs[i])
+        np.testing.assert_allclose(state, single, rtol=1e-10)
+
+
+def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(propagated_orbit_prop):
+    """Test states_ecef() returns ECEF state vectors at multiple epochs."""
+    prop, epoch = propagated_orbit_prop
+    epochs = [epoch + i * 120.0 for i in range(5)]
+
+    states = prop.states_ecef(epochs)
+
+    assert len(states) == 5
+    for i, state in enumerate(states):
+        assert len(state) == 6
+        assert all(np.isfinite(state))
+        pos_norm = np.linalg.norm(state[:3])
+        assert R_EARTH < pos_norm < R_EARTH + 1000e3
+        single = prop.state_ecef(epochs[i])
+        np.testing.assert_allclose(state, single, rtol=1e-10)
+
+
+def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(propagated_orbit_prop):
+    """Test states_gcrf() returns GCRF state vectors at multiple epochs."""
+    prop, epoch = propagated_orbit_prop
+    epochs = [epoch + i * 120.0 for i in range(5)]
+
+    states = prop.states_gcrf(epochs)
+
+    assert len(states) == 5
+    for i, state in enumerate(states):
+        single = prop.state_gcrf(epochs[i])
+        np.testing.assert_allclose(state, single, rtol=1e-10)
+
+
+def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(propagated_orbit_prop):
+    """Test states_itrf() returns ITRF state vectors at multiple epochs."""
+    prop, epoch = propagated_orbit_prop
+    epochs = [epoch + i * 120.0 for i in range(5)]
+
+    states = prop.states_itrf(epochs)
+
+    assert len(states) == 5
+    for i, state in enumerate(states):
+        single = prop.state_itrf(epochs[i])
+        np.testing.assert_allclose(state, single, rtol=1e-10)
+
+
+def test_numericalorbitpropagator_dorbitstateprovider_states_eme2000(propagated_orbit_prop):
+    """Test states_eme2000() returns EME2000 state vectors at multiple epochs."""
+    prop, epoch = propagated_orbit_prop
+    epochs = [epoch + i * 120.0 for i in range(5)]
+
+    states = prop.states_eme2000(epochs)
+
+    assert len(states) == 5
+    for i, state in enumerate(states):
+        single = prop.state_eme2000(epochs[i])
+        np.testing.assert_allclose(state, single, rtol=1e-10)
+
+
+def test_numericalorbitpropagator_states_empty_epochs(propagated_orbit_prop):
+    """Bulk state methods should return an empty list when given no epochs."""
+    prop, _ = propagated_orbit_prop
+    assert prop.states_eci([]) == []
+    assert prop.states_ecef([]) == []
+    assert prop.states_gcrf([]) == []
+    assert prop.states_itrf([]) == []
+    assert prop.states_eme2000([]) == []
+
+
 def test_numericalorbitpropagator_dorbitstateprovider_osculating_elements_radians():
     """Test state_koe_osc() with radians (mirrors Rust test)"""
     epoch = create_test_epoch()

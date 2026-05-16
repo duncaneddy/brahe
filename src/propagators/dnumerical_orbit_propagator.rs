@@ -564,17 +564,29 @@ impl DNumericalOrbitPropagator {
             ));
         }
 
-        // Load gravity model if using ModelType source, truncating to requested degree/order
+        // Load gravity model if using ModelType source, truncating to requested degree/order.
+        //
+        // Uses the process-wide cache via `GravityModel::shared`:
+        //   - First propagator for a given `GravityModelType` pays the disk
+        //     parse (~60 ms for EGM2008_360); the model lands in the cache.
+        //   - Subsequent propagators get an `Arc::clone` (a few ns).
+        //   - When the requested (degree, order) matches the full cached
+        //     model, the propagator and the cache share the same allocation
+        //     — true zero-copy fan-out across many propagators.
+        //   - When truncation is required, `Arc::make_mut` does a
+        //     copy-on-write so we can truncate without disturbing the cached
+        //     full-resolution model.
         let gravity_model = match &force_config.gravity {
             GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(model_type),
                 degree,
                 order,
             } => {
-                let mut model = GravityModel::from_model_type(model_type)?;
-                // Truncate model to save memory (only keep coefficients we'll use)
-                model.set_max_degree_order(*degree, *order)?;
-                Some(Arc::new(model))
+                let mut arc = GravityModel::shared(model_type)?;
+                if *degree < arc.n_max || *order < arc.m_max {
+                    Arc::make_mut(&mut arc).set_max_degree_order(*degree, *order)?;
+                }
+                Some(arc)
             }
             _ => None,
         };
@@ -2806,6 +2818,130 @@ mod tests {
         );
 
         assert!(prop.is_ok());
+    }
+
+    // ----- Gravity model cache wiring -----
+    //
+    // The two tests below prove that the propagator constructor goes through
+    // the process-wide gravity-model cache instead of disk-loading on every
+    // construction. They observe the `Arc` strong count of the cached model
+    // before and after constructing a propagator — if the propagator did its
+    // own load (or got an owned clone instead of the cached `Arc`), the
+    // strong count wouldn't include the propagator's reference.
+
+    /// Build a minimal force config requesting `JGM3` at the requested
+    /// degree/order. JGM3 is small (~70x70) so this test is fast, and it
+    /// exercises the same code path as larger models.
+    fn jgm3_force_config(degree: usize, order: usize) -> ForceModelConfig {
+        ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(
+                    crate::orbit_dynamics::GravityModelType::JGM3,
+                ),
+                degree,
+                order,
+            },
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        }
+    }
+
+    fn jgm3_initial_state() -> DVector<f64> {
+        DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_propagator_uses_gravity_model_cache_without_truncation() {
+        // When the requested (degree, order) matches the full cached model,
+        // the propagator should hold a clone of the cached `Arc` rather than
+        // its own freshly-cloned copy of the coefficients. That's the
+        // zero-copy fan-out case the cache exists to enable.
+        setup_global_test_eop();
+        crate::orbit_dynamics::clear_gravity_model_cache();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // JGM3 is 70x70 — request the full resolution to skip the truncation branch.
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            jgm3_initial_state(),
+            NumericalPropagationConfig::default(),
+            jgm3_force_config(70, 70),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Pull the cached Arc from outside the propagator. Strong count is now:
+        //   cache (1) + propagator (1) + this test binding (1) = 3
+        let from_cache = crate::orbit_dynamics::GravityModel::shared(
+            &crate::orbit_dynamics::GravityModelType::JGM3,
+        )
+        .unwrap();
+        assert_eq!(
+            std::sync::Arc::strong_count(&from_cache),
+            3,
+            "no-truncation propagator should share the cached Arc \
+             (cache + propagator + test binding = 3)"
+        );
+
+        // Drop the propagator and the count must fall by exactly 1.
+        drop(prop);
+        assert_eq!(
+            std::sync::Arc::strong_count(&from_cache),
+            2,
+            "dropping the propagator should release its Arc clone, \
+             leaving cache + this test binding"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_propagator_clones_gravity_model_when_truncating() {
+        // When the requested (degree, order) is smaller than the cached
+        // model's n_max/m_max, the propagator must `Arc::make_mut` a private
+        // copy so it can truncate without disturbing the cache.
+        setup_global_test_eop();
+        crate::orbit_dynamics::clear_gravity_model_cache();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // Truncate JGM3 from 70x70 down to 10x10 to force the make_mut branch.
+        let _prop = DNumericalOrbitPropagator::new(
+            epoch,
+            jgm3_initial_state(),
+            NumericalPropagationConfig::default(),
+            jgm3_force_config(10, 10),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // The cached Arc is not shared with the propagator (propagator owns
+        // its truncated copy). Strong count: cache (1) + test binding (1) = 2.
+        let from_cache = crate::orbit_dynamics::GravityModel::shared(
+            &crate::orbit_dynamics::GravityModelType::JGM3,
+        )
+        .unwrap();
+        assert_eq!(
+            std::sync::Arc::strong_count(&from_cache),
+            2,
+            "truncating propagator should own a separate Arc, \
+             not share the cached one"
+        );
+
+        // The cached model is undisturbed at full resolution — proving the
+        // propagator's truncation didn't bleed through `Arc::make_mut` into
+        // the cache entry.
+        assert_eq!(from_cache.n_max, 70);
+        assert_eq!(from_cache.m_max, 70);
     }
 
     #[test]

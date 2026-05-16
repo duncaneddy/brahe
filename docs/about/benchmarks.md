@@ -163,7 +163,7 @@ Five tasks covering Keplerian (two-body analytical), numerical (RK4/RK78 two-bod
   <iframe class="only-dark"  src="../figures/fig_bench_propagation_dark.html"  loading="lazy"></iframe>
 </div>
 
-Propagation is the one area where OreKit outperforms Brahe, particularly for SGP4 trajectory generation. OreKit's SGP4 implementation benefits from decades of optimization and a mature numerical integration framework. The SGP4 trajectory benchmark shows OreKit ~20× faster — this reflects architectural differences in how each library handles batch propagation, not fundamental algorithmic limitations.
+Propagation is one area where OreKit sometimes currently outperforms Brahe, particularly for SGP4 trajectory generation. OreKit's SGP4 implementation benefits from decades of optimization.
 
 **Accuracy**:
 

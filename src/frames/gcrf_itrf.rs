@@ -55,7 +55,9 @@ pub fn bias_precession_nutation(epc: Epoch) -> SMatrix3 {
     let mut s = 0.0;
 
     unsafe {
-        rsofa::iauXys06a(
+        // iauXys06a is the full-precision IAU 2006/2000A model, while iauXys00b is a truncated version that is sufficient for nearly all astrodynamics applications and significantly faster to compute.
+        // For now we switch to using the truncated version (all tests still pass). In the future we might want to consider a way to allow users to select/customize the model behind the function.
+        rsofa::iauXys00b(
             MJD_ZERO,
             epc.mjd_as_time_system(TimeSystem::TT),
             &mut x,

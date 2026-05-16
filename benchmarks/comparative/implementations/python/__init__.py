@@ -24,9 +24,19 @@ from benchmarks.comparative.implementations.python.frames import (
 from benchmarks.comparative.implementations.python.propagation import (
     keplerian_single,
     keplerian_trajectory,
+    numerical_rk4_grav5x5,
+    numerical_rk4_grav20x20_sun_moon,
+    numerical_rk4_grav80x80_full,
     numerical_twobody,
     sgp4_single,
     sgp4_trajectory,
+)
+from benchmarks.comparative.implementations.python.force_model import (
+    accel_point_mass_gravity,
+    accel_spherical_harmonics_20,
+    accel_spherical_harmonics_80,
+    accel_third_body_moon,
+    accel_third_body_sun,
 )
 from benchmarks.comparative.implementations.python.orbits import (
     cartesian_to_keplerian,
@@ -69,6 +79,14 @@ _DISPATCH_TABLE: dict = {
     "propagation.sgp4_single": sgp4_single,
     "propagation.sgp4_trajectory": sgp4_trajectory,
     "propagation.numerical_twobody": numerical_twobody,
+    "propagation.numerical_rk4_grav5x5": numerical_rk4_grav5x5,
+    "propagation.numerical_rk4_grav20x20_sun_moon": numerical_rk4_grav20x20_sun_moon,
+    "propagation.numerical_rk4_grav80x80_full": numerical_rk4_grav80x80_full,
+    "force_model.accel_point_mass_gravity": accel_point_mass_gravity,
+    "force_model.accel_spherical_harmonics_20": accel_spherical_harmonics_20,
+    "force_model.accel_spherical_harmonics_80": accel_spherical_harmonics_80,
+    "force_model.accel_third_body_sun": accel_third_body_sun,
+    "force_model.accel_third_body_moon": accel_third_body_moon,
     "access.sgp4_access": sgp4_access,
 }
 

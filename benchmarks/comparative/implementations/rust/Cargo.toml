@@ -3,6 +3,13 @@ name = "bench_comparative"
 version = "0.1.0"
 edition = "2024"
 
+# Standalone crate: the brahe repo root has its own workspace
+# (for `crates/brahe-py`), and this benchmark lives inside the repo tree
+# but is not a workspace member. The empty [workspace] table tells cargo
+# to treat this manifest as its own workspace root instead of inheriting
+# the repo-root workspace.
+[workspace]
+
 [[bin]]
 name = "bench_comparative"
 path = "src/main.rs"

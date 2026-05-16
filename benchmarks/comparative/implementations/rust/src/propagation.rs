@@ -1,11 +1,14 @@
 use brahe::AngleFormat;
 use brahe::coordinates::state_koe_to_eci;
+use brahe::integrators::IntegratorConfig;
 use brahe::propagators::traits::{DStatePropagator, SStatePropagator, SStateProvider};
-use brahe::traits::DOrbitStateProvider;
 use brahe::propagators::{
-    DNumericalOrbitPropagator, ForceModelConfig, KeplerianPropagator, NumericalPropagationConfig,
-    SGPPropagator,
+    AtmosphericModel, DNumericalOrbitPropagator, DragConfiguration, EclipseModel,
+    EphemerisSource, ForceModelConfig, GravityConfiguration, GravityModelSource,
+    IntegratorMethod, KeplerianPropagator, NumericalPropagationConfig, ParameterSource,
+    SGPPropagator, SolarRadiationPressureConfiguration, ThirdBody, ThirdBodyConfiguration,
 };
+use brahe::traits::DOrbitStateProvider;
 use brahe::time::{Epoch, TimeSystem};
 use brahe::TrajectoryMode;
 use nalgebra::{DVector, SVector};
@@ -236,4 +239,171 @@ pub fn numerical_twobody(
     }
 
     (all_times, serde_json::to_value(first_results).unwrap())
+}
+
+#[derive(serde::Deserialize)]
+struct Rk4ForceParams {
+    jd: f64,
+    elements_deg: Vec<f64>,
+    step_size: f64,
+    n_steps: usize,
+    params: Vec<f64>,
+    gravity_degree: usize,
+    gravity_order: usize,
+    #[serde(default)]
+    third_body_sun: bool,
+    #[serde(default)]
+    third_body_moon: bool,
+    #[serde(default)]
+    drag: bool,
+    #[serde(default)]
+    srp: bool,
+}
+
+fn force_config_from_params(p: &Rk4ForceParams) -> ForceModelConfig {
+    let gravity = GravityConfiguration::SphericalHarmonic {
+        source: GravityModelSource::default(),
+        degree: p.gravity_degree,
+        order: p.gravity_order,
+    };
+
+    let mut bodies = Vec::new();
+    if p.third_body_sun {
+        bodies.push(ThirdBody::Sun);
+    }
+    if p.third_body_moon {
+        bodies.push(ThirdBody::Moon);
+    }
+    let third_body = if !bodies.is_empty() {
+        Some(ThirdBodyConfiguration {
+            ephemeris_source: EphemerisSource::DE440s,
+            bodies,
+        })
+    } else {
+        None
+    };
+
+    let drag = if p.drag {
+        Some(DragConfiguration {
+            model: AtmosphericModel::NRLMSISE00,
+            area: ParameterSource::ParameterIndex(1),
+            cd: ParameterSource::ParameterIndex(2),
+        })
+    } else {
+        None
+    };
+
+    let srp = if p.srp {
+        Some(SolarRadiationPressureConfiguration {
+            area: ParameterSource::ParameterIndex(3),
+            cr: ParameterSource::ParameterIndex(4),
+            eclipse_model: EclipseModel::Conical,
+        })
+    } else {
+        None
+    };
+
+    let mass = if drag.is_some() || srp.is_some() {
+        Some(ParameterSource::ParameterIndex(0))
+    } else {
+        None
+    };
+
+    ForceModelConfig {
+        gravity,
+        drag,
+        srp,
+        third_body,
+        relativity: false,
+        mass,
+        frame_transform: Default::default(),
+    }
+}
+
+fn numerical_rk4_run(
+    params: &serde_json::Value,
+    iterations: usize,
+) -> (Vec<f64>, serde_json::Value) {
+    let p: Rk4ForceParams = serde_json::from_value(params.clone()).unwrap();
+
+    let epc = Epoch::from_jd(p.jd, TimeSystem::UTC);
+    let oe = SVector::<f64, 6>::new(
+        p.elements_deg[0],
+        p.elements_deg[1],
+        p.elements_deg[2],
+        p.elements_deg[3],
+        p.elements_deg[4],
+        p.elements_deg[5],
+    );
+    let cart = state_koe_to_eci(oe, AngleFormat::Degrees);
+    let state_dv = DVector::from_vec(vec![cart[0], cart[1], cart[2], cart[3], cart[4], cart[5]]);
+    let param_vec = DVector::from_vec(p.params.clone());
+
+    let force_config = force_config_from_params(&p);
+    let prop_config = NumericalPropagationConfig::new(
+        IntegratorMethod::RK4,
+        IntegratorConfig::fixed_step(p.step_size),
+        Default::default(),
+    );
+
+    let mut all_times = Vec::with_capacity(iterations);
+    let mut first_results = Vec::new();
+
+    for iter in 0..iterations {
+        let start = Instant::now();
+        let mut prop = DNumericalOrbitPropagator::new(
+            epc,
+            state_dv.clone(),
+            prop_config.clone(),
+            force_config.clone(),
+            Some(param_vec.clone()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        prop.set_trajectory_mode(TrajectoryMode::Disabled);
+
+        let mut results = Vec::with_capacity(p.n_steps);
+        // Use step_by rather than propagate_to: with fixed-step RK4,
+        // propagate_to can hit a float-drift path in brahe that
+        // permanently shrinks dt_next when the target epoch isn't exactly
+        // representable as a multiple of step_size.
+        for _ in 0..p.n_steps {
+            prop.step_by(p.step_size);
+            let state = prop.current_state();
+            results.push(vec![
+                state[0], state[1], state[2], state[3], state[4], state[5],
+            ]);
+        }
+
+        all_times.push(start.elapsed().as_secs_f64());
+
+        if iter == 0 {
+            first_results = results;
+        }
+    }
+
+    (all_times, serde_json::to_value(first_results).unwrap())
+}
+
+pub fn numerical_rk4_grav5x5(
+    params: &serde_json::Value,
+    iterations: usize,
+) -> (Vec<f64>, serde_json::Value) {
+    numerical_rk4_run(params, iterations)
+}
+
+pub fn numerical_rk4_grav20x20_sun_moon(
+    params: &serde_json::Value,
+    iterations: usize,
+) -> (Vec<f64>, serde_json::Value) {
+    numerical_rk4_run(params, iterations)
+}
+
+pub fn numerical_rk4_grav80x80_full(
+    params: &serde_json::Value,
+    iterations: usize,
+) -> (Vec<f64>, serde_json::Value) {
+    numerical_rk4_run(params, iterations)
 }

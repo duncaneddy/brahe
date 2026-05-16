@@ -1,5 +1,5 @@
 Task,Comparison,Max Abs Error,RMS Error
-State ECEF To ECI,Java vs Python,199334.4 m,44347.7 m
-State ECEF To ECI,Java vs Rust,199334.4 m,44347.7 m
-State ECI To ECEF,Java vs Python,224775.2 m,44337.2 m
-State ECI To ECEF,Java vs Rust,224775.2 m,44337.2 m
+State ECEF To ECI,Java vs Python,0.093 m,0.018 m
+State ECEF To ECI,Java vs Rust,0.093 m,0.018 m
+State ECI To ECEF,Java vs Python,0.097 m,0.018 m
+State ECI To ECEF,Java vs Rust,0.097 m,0.018 m

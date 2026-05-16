@@ -8,9 +8,19 @@ from benchmarks.comparative.tasks.coordinates_tasks import (
 from benchmarks.comparative.tasks.propagation_tasks import (
     KeplerianSingleTask,
     KeplerianTrajectoryTask,
+    NumericalRk4Grav5x5Task,
+    NumericalRk4Grav20x20SunMoonTask,
+    NumericalRk4Grav80x80FullTask,
     NumericalTwobodyTask,
     Sgp4SingleTask,
     Sgp4TrajectoryTask,
+)
+from benchmarks.comparative.tasks.force_model_tasks import (
+    AccelPointMassGravityTask,
+    AccelSphericalHarmonics20Task,
+    AccelSphericalHarmonics80Task,
+    AccelThirdBodyMoonTask,
+    AccelThirdBodySunTask,
 )
 from benchmarks.comparative.tasks.orbits_tasks import (
     CartesianToKeplerianTask,
@@ -67,6 +77,15 @@ ALL_TASKS = [
     Sgp4SingleTask(),
     Sgp4TrajectoryTask(),
     NumericalTwobodyTask(),
+    NumericalRk4Grav5x5Task(),
+    NumericalRk4Grav20x20SunMoonTask(),
+    NumericalRk4Grav80x80FullTask(),
+    # Force model (function-level acceleration)
+    AccelPointMassGravityTask(),
+    AccelSphericalHarmonics20Task(),
+    AccelSphericalHarmonics80Task(),
+    AccelThirdBodySunTask(),
+    AccelThirdBodyMoonTask(),
     # Access
     Sgp4AccessTask(),
 ]
@@ -96,5 +115,13 @@ __all__ = [
     "Sgp4SingleTask",
     "Sgp4TrajectoryTask",
     "NumericalTwobodyTask",
+    "NumericalRk4Grav5x5Task",
+    "NumericalRk4Grav20x20SunMoonTask",
+    "NumericalRk4Grav80x80FullTask",
+    "AccelPointMassGravityTask",
+    "AccelSphericalHarmonics20Task",
+    "AccelSphericalHarmonics80Task",
+    "AccelThirdBodySunTask",
+    "AccelThirdBodyMoonTask",
     "Sgp4AccessTask",
 ]

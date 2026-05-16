@@ -2309,7 +2309,7 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
             self.step_once();
 
             // Restore suggested dt_next for subsequent steps
-            if self.dt_next.abs() > saved_dt_next.abs() {
+            if self.dt_next.abs() >= saved_dt_next.abs() {
                 self.dt_next = saved_dt_next;
             }
         }

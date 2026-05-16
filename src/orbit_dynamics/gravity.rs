@@ -924,6 +924,12 @@ impl GravityModel {
     /// Higher degrees/orders provide more accurate representation of Earth's gravitational
     /// field but increase computational cost.
     ///
+    /// Each call heap-allocates two `(n_max + 2) × (n_max + 2)` matrices for
+    /// the recurrence calcualtion. For hot-path workloads (numerical
+    /// propagation, where the integrator calls this 4-17 times per step) use
+    /// [`Self::compute_spherical_harmonics_with_workspace`] to reuse the
+    /// allocations across calls.
+    ///
     /// # Arguments
     /// - `r_body`: Position vector in body-fixed frame (e.g., ECEF). Units: meters.
     /// - `n_max`: Maximum degree of expansion (zonal terms). Must not exceed model's n_max.
@@ -935,12 +941,52 @@ impl GravityModel {
     /// # Errors
     /// - OutOfBoundsError if requested n_max or m_max exceeds loaded model's limits
     /// - OutOfBoundsError if m_max > n_max
-    #[allow(non_snake_case)]
     pub fn compute_spherical_harmonics(
         &self,
         r_body: Vector3<f64>,
         n_max: usize,
         m_max: usize,
+    ) -> Result<Vector3<f64>, BraheError> {
+        let mut v_workspace = DMatrix::<f64>::zeros(n_max + 2, n_max + 2);
+        let mut w_workspace = DMatrix::<f64>::zeros(n_max + 2, n_max + 2);
+        self.compute_spherical_harmonics_with_workspace(
+            r_body,
+            n_max,
+            m_max,
+            &mut v_workspace,
+            &mut w_workspace,
+        )
+    }
+
+    /// Variant of [`Self::compute_spherical_harmonics`] that operates on
+    /// caller-supplied work matrices.
+    ///
+    /// Designed for hot paths (numerical propagation) where avoiding the
+    /// per-call `DMatrix::zeros((n_max + 2)²)` allocation is worthwhile.
+    /// Callers typically construct the workspace once at the highest
+    /// `n_max` they'll need, then reuse it across many calls — the
+    /// recurrence only writes-then-reads cells in `[0..n_max+2, 0..m_max+2]`,
+    /// so leftover values in unused cells from previous calls are never
+    /// observed and the workspace doesn't need to be zeroed between calls.
+    ///
+    /// If the workspace is smaller than required it is resized in-place
+    /// (`DMatrix::resize_mut`); the resize allocates only when growing, so
+    /// steady-state use at a stable `n_max` is allocation-free.
+    ///
+    /// # Arguments
+    /// - `r_body`: Position vector in body-fixed frame.
+    /// - `n_max`, `m_max`: Same constraints as [`Self::compute_spherical_harmonics`].
+    /// - `v_workspace`, `w_workspace`: Mutable references to the V and W
+    ///   recurrence buffers. Must be at least `(n_max + 2) × (n_max + 2)`;
+    ///   will be grown if smaller.
+    #[allow(non_snake_case)]
+    pub fn compute_spherical_harmonics_with_workspace(
+        &self,
+        r_body: Vector3<f64>,
+        n_max: usize,
+        m_max: usize,
+        v_workspace: &mut DMatrix<f64>,
+        w_workspace: &mut DMatrix<f64>,
     ) -> Result<Vector3<f64>, BraheError> {
         if n_max > self.n_max || m_max > self.m_max {
             return Err(BraheError::OutOfBoundsError(format!(
@@ -964,9 +1010,18 @@ impl GravityModel {
         let y0 = self.radius * r_body[1] / r_sqr;
         let z0 = self.radius * r_body[2] / r_sqr;
 
-        // Initialize V and W intemetidary matrices
-        let mut V = DMatrix::<f64>::zeros(n_max + 2, n_max + 2);
-        let mut W = DMatrix::<f64>::zeros(n_max + 2, n_max + 2);
+        // Grow workspace if needed. The recurrence only reads cells it has
+        // explicitly written this call, so any pre-existing values in larger
+        // workspaces are harmless.
+        let needed = n_max + 2;
+        if v_workspace.nrows() < needed || v_workspace.ncols() < needed {
+            v_workspace.resize_mut(needed, needed, 0.0);
+        }
+        if w_workspace.nrows() < needed || w_workspace.ncols() < needed {
+            w_workspace.resize_mut(needed, needed, 0.0);
+        }
+        let V = v_workspace;
+        let W = w_workspace;
 
         // Calculate zonal terms V(n,0); set W(n,0)=0.0
         V[(0, 0)] = self.radius / r_sqr.sqrt();
@@ -1154,6 +1209,42 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
         .unwrap();
 
     // Inertial acceleration
+    R_i2b.transpose() * a_ecef
+}
+
+/// Variant of [`accel_gravity_spherical_harmonics`] that reuses caller-supplied
+/// V and W work matrices to avoid per-call heap allocation.
+///
+/// Functionally identical to [`accel_gravity_spherical_harmonics`] — see that
+/// function's docs for argument semantics. The only difference is that the
+/// inner `compute_spherical_harmonics_with_workspace` call routes through
+/// caller-supplied workspaces instead of allocating fresh ones each invocation.
+/// Hot-path callers (the numerical propagator's dynamics closure) capture a
+/// pair of `DMatrix<f64>` once at construction and reuse them across every
+/// integrator stage.
+#[allow(non_snake_case)]
+pub fn accel_gravity_spherical_harmonics_with_workspace<P: IntoPosition>(
+    r_eci: P,
+    R_i2b: SMatrix3,
+    gravity_model: &GravityModel,
+    n_max: usize,
+    m_max: usize,
+    v_workspace: &mut DMatrix<f64>,
+    w_workspace: &mut DMatrix<f64>,
+) -> Vector3<f64> {
+    let r = r_eci.position();
+    let r_bf = R_i2b * r;
+
+    let a_ecef = gravity_model
+        .compute_spherical_harmonics_with_workspace(
+            r_bf,
+            n_max,
+            m_max,
+            v_workspace,
+            w_workspace,
+        )
+        .unwrap();
+
     R_i2b.transpose() * a_ecef
 }
 

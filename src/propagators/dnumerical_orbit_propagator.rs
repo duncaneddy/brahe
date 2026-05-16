@@ -26,9 +26,9 @@ use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
 use crate::orbit_dynamics::{
-    GravityModel, accel_drag, accel_gravity_spherical_harmonics, accel_point_mass_gravity,
-    accel_relativity, accel_solar_radiation_pressure, accel_third_body, eclipse_conical,
-    eclipse_cylindrical, get_global_gravity_model, sun_position,
+    GravityModel, accel_drag, accel_gravity_spherical_harmonics_with_workspace,
+    accel_point_mass_gravity, accel_relativity, accel_solar_radiation_pressure, accel_third_body,
+    eclipse_conical, eclipse_cylindrical, get_global_gravity_model, sun_position,
 };
 use crate::propagators::{
     AtmosphericModel, EclipseModel, ForceModelConfig, FrameTransformationModel,
@@ -218,6 +218,39 @@ impl RotationCache {
         self.entries[self.next] = Some((t, r));
         self.next = (self.next + 1) % ROTATION_CACHE_CAPACITY;
         r
+    }
+}
+
+/// Per-propagator scratch state captured by the dynamics closure.
+///
+/// Bundles the [`RotationCache`] and the V/W recurrence buffers used by
+/// `compute_spherical_harmonics_with_workspace` into a single lock target
+/// so each dynamics invocation acquires only one mutex. The two used to be
+/// stored separately but are touched together on every call — folding them
+/// in one struct saves a lock acquisition and keeps related state colocated
+/// for the next reader to reason about.
+///
+/// The V/W matrices start at zero size; the SH workspace path resizes them
+/// on first use to `(n_max + 2) × (n_max + 2)` and then reuses them at that
+/// size for the propagator's lifetime. Force-model configs that don't use
+/// spherical harmonics (PointMass, EarthZonal) leave the matrices empty —
+/// the lock acquisition is still paid but is essentially free (~10 ns).
+struct DynamicsWorkspace {
+    rotation_cache: RotationCache,
+    sh_v: DMatrix<f64>,
+    sh_w: DMatrix<f64>,
+}
+
+impl DynamicsWorkspace {
+    fn new(frame_transform: FrameTransformationModel) -> Self {
+        Self {
+            rotation_cache: RotationCache::new(frame_transform),
+            // Zero-size; resized lazily on first SH call. We don't pre-size
+            // to (n_max + 2)² at construction because the propagator may use
+            // a PointMass / EarthZonal config that never touches these.
+            sh_v: DMatrix::<f64>::zeros(0, 0),
+            sh_w: DMatrix::<f64>::zeros(0, 0),
+        }
     }
 }
 
@@ -1358,16 +1391,15 @@ impl DNumericalOrbitPropagator {
         additional_dynamics: Option<DStateDynamics>,
         gravity_model: Option<Arc<GravityModel>>,
     ) -> SharedDynamics {
-        // Per-propagator ECI→body-fixed rotation cache. Hits when RK4 reuses
-        // a stage epoch (stage 1 == stage 2, or stage 3 of step N ==
-        // stage 0 of step N+1). See `RotationCache` doc-comment for the
-        // hit-pattern analysis and why `f64` equality on `t` is safe.
-        //
-        // Mutex (not RefCell) because `SharedDynamics: Send + Sync` — even
-        // though the dynamics function is only ever driven by one thread at
-        // a time (serialised through `&mut self` on the propagator), the
-        // type system needs the conservative bound.
-        let rotation_cache = Arc::new(Mutex::new(RotationCache::new(
+        // Per-propagator scratch state: rotation cache + SH V/W work
+        // matrices, bundled under one Mutex so each dynamics invocation
+        // takes a single lock. Mutex (not RefCell) because
+        // `SharedDynamics: Send + Sync` — even though the dynamics function
+        // is only ever driven by one thread at a time (serialised through
+        // `&mut self` on the propagator), the type system needs the
+        // conservative bound. Lock acquisition on this uncontended Mutex is
+        // ~10 ns; the work it saves dwarfs that.
+        let workspace = Arc::new(Mutex::new(DynamicsWorkspace::new(
             force_config.frame_transform.clone(),
         )));
         Arc::new(
@@ -1375,11 +1407,19 @@ impl DNumericalOrbitPropagator {
                   state: &DVector<f64>,
                   params_opt: Option<&DVector<f64>>|
                   -> DVector<f64> {
-                // Resolve the rotation once per dynamics invocation, then
-                // hand it to `compute_dynamics` so the inner force-model
-                // branches don't each recompute it.
+                // One lock covers the rotation lookup and the SH workspace.
+                // Destructure through the MutexGuard so the borrow checker
+                // sees the field borrows on `sh_v` and `sh_w` as disjoint —
+                // a plain `&mut ws.sh_v` followed by `&mut ws.sh_w` won't
+                // compile because Rust can't see through `MutexGuard::Target`.
+                let mut ws = workspace.lock().unwrap();
+                let DynamicsWorkspace {
+                    rotation_cache,
+                    sh_v,
+                    sh_w,
+                } = &mut *ws;
                 let epoch = epoch_initial + t;
-                let r_i2b = rotation_cache.lock().unwrap().get_or_compute(t, epoch);
+                let r_i2b = rotation_cache.get_or_compute(t, epoch);
 
                 // Compute orbital dynamics (first 6 elements) on the stack.
                 // `compute_dynamics` returns a `Vector6<f64>` so the inner
@@ -1393,7 +1433,13 @@ impl DNumericalOrbitPropagator {
                     params_opt.or(Some(&params)),
                     gravity_model.as_ref(),
                     r_i2b,
+                    sh_v,
+                    sh_w,
                 );
+                // Release the lock before the additional_dynamics callback
+                // so the user closure (which may allocate or call Python)
+                // doesn't run while we're holding the propagator's mutex.
+                drop(ws);
 
                 // Widen the orbital derivative to the full state dimension.
                 // This is the one heap allocation we cannot avoid without
@@ -1515,6 +1561,8 @@ impl DNumericalOrbitPropagator {
         params_opt: Option<&DVector<f64>>,
         gravity_model: Option<&Arc<GravityModel>>,
         r_i2b: SMatrix3,
+        sh_v: &mut DMatrix<f64>,
+        sh_w: &mut DMatrix<f64>,
     ) -> Vector6<f64> {
         // Convert relative time to absolute Epoch
         let epoch = epoch_initial + t;
@@ -1552,29 +1600,36 @@ impl DNumericalOrbitPropagator {
                 degree,
                 order,
             } => {
-                // Use gravity model based on source
+                // Use the per-propagator V/W workspace so the spherical-
+                // harmonic recurrence doesn't allocate two `DMatrix`es of
+                // size (degree+2)² on every integrator stage. Cost saved
+                // at 80×80: ~15 µs/stage = ~11 ms per 180-step propagation.
                 match source {
                     GravityModelSource::Global => {
                         // Use global gravity model
                         let global_model: std::sync::RwLockReadGuard<'_, Box<GravityModel>> =
                             get_global_gravity_model();
-                        a_total += accel_gravity_spherical_harmonics(
+                        a_total += accel_gravity_spherical_harmonics_with_workspace(
                             r,
                             r_i2b,
                             &global_model,
                             *degree,
                             *order,
+                            sh_v,
+                            sh_w,
                         );
                     }
                     GravityModelSource::ModelType(_) => {
                         // Use the model loaded at construction (passed in)
                         if let Some(model) = gravity_model {
-                            a_total += accel_gravity_spherical_harmonics(
+                            a_total += accel_gravity_spherical_harmonics_with_workspace(
                                 r,
                                 r_i2b,
                                 model.as_ref(),
                                 *degree,
                                 *order,
+                                sh_v,
+                                sh_w,
                             );
                         }
                     }

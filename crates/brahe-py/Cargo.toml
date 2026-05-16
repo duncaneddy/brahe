@@ -23,3 +23,9 @@ nalgebra = "0.34.1"
 rayon = "1.11"
 serde_json = "1.0.149"
 uuid = { version = "1.20.0", features = ["v4", "v7", "serde"] }
+# Faster global allocator. The brahe core library is allocator-agnostic
+# (downstream Rust consumers pick their own), but the Python extension is
+# a cdylib whose Rust-side allocations all flow through `#[global_allocator]`.
+# mimalloc is ~2-3× faster than the macOS system allocator for the small
+# DVector/DMatrix allocations that dominate the propagator hot path.
+mimalloc = { version = "0.1", default-features = false }

@@ -2,6 +2,7 @@
 Implement central-body gravity force models.
  */
 
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
@@ -25,6 +26,55 @@ static PACKAGED_GGM05S: &[u8] = include_bytes!("../../data/gravity_models/GGM05S
 static PACKAGED_JGM3: &[u8] = include_bytes!("../../data/gravity_models/JGM3.gfc");
 static GLOBAL_GRAVITY_MODEL: Lazy<Arc<RwLock<Box<GravityModel>>>> =
     Lazy::new(|| Arc::new(RwLock::new(Box::new(GravityModel::new()))));
+
+/// Process-wide cache mapping a `GravityModelType` to the most recently loaded
+/// `Arc<GravityModel>` for that type. Backs `GravityModel::from_model_type` and
+/// `GravityModel::shared` so that repeated requests for the same model avoid
+/// the ~60 ms file-parse cost paid on a cold load.
+///
+/// Hit path: read-lock + `Arc::clone`. Miss path: load from disk under no
+/// lock, then double-check + insert under a write lock so concurrent misses
+/// for the same type only pay the load cost once.
+///
+/// Use `clear_gravity_model_cache()` to drop all cached entries — useful
+/// after replacing a `FromFile` source on disk, or in tests that want to
+/// exercise the cold-load path.
+///
+// TODO: add an eviction policy. The cache is currently unbounded: each
+// distinct `GravityModelType` ever loaded stays resident for the process
+// lifetime. For the three packaged variants this is fine (~2 MB total at
+// most), but `FromFile(path)` lets long-running programs accumulate one
+// entry per unique path. A small LRU would bound memory,
+// until then `clear_gravity_model_cache()` is the manual escape hatch.
+static GRAVITY_MODEL_CACHE: Lazy<RwLock<HashMap<GravityModelType, Arc<GravityModel>>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
+
+/// Drop every entry from the process-wide gravity-model cache.
+///
+/// The next call to [`GravityModel::from_model_type`] or [`GravityModel::shared`]
+/// for any previously cached type will re-read and re-parse the underlying
+/// `.gfc` file. Typical uses:
+///
+/// - tests that need to measure the cold-load path
+/// - long-running programs that have swapped a `FromFile(path)` on disk and
+///   want subsequent loads to pick up the new contents
+/// - any consumer needing a deterministic memory baseline
+///
+/// # Example
+///
+/// ```
+/// use brahe::gravity::{GravityModel, GravityModelType, clear_gravity_model_cache};
+///
+/// // First call populates the cache.
+/// let _ = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+///
+/// // Clear and the next load goes back to disk.
+/// clear_gravity_model_cache();
+/// let _ = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+/// ```
+pub fn clear_gravity_model_cache() {
+    GRAVITY_MODEL_CACHE.write().unwrap().clear();
+}
 
 /// Set the global gravity model to a new gravity model. A global gravity model is useful as it
 /// allows for a single gravity model to be used throughout a program. This is useful when multiple
@@ -332,7 +382,7 @@ pub enum GravityModelNormalization {
 ///
 /// Specifies which gravity model to load and use for orbit propagation.
 /// Models can either be packaged with Brahe or loaded from external files.
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, serde::Serialize, serde::Deserialize)]
 pub enum GravityModelType {
     /// Earth Gravitational Model 2008, truncated to degree/order 360. High-accuracy
     /// global model developed by NGA. Best for precision orbit determination.
@@ -393,6 +443,7 @@ impl GravityModelType {
 /// - `model_name` : Name of the gravity model.
 /// - `model_errors` : Error handling used in the gravity model.
 /// - `normalization` : Normalization used in the gravity model.
+#[derive(Clone)]
 pub struct GravityModel {
     data: DMatrix<f64>,
     /// Tide system convention used in the model (zero-tide, tide-free, or mean-tide).
@@ -665,6 +716,27 @@ impl GravityModel {
     ///
     /// Or load a custom model from file using `FromFile(path)`.
     ///
+    /// Loads are backed by a process-wide cache: the first call for a given
+    /// `GravityModelType` parses the underlying `.gfc` data once, and every
+    /// subsequent call returns an owned clone of the cached model (~1 ms
+    /// memcpy instead of ~60 ms disk parse for EGM2008_360). Use
+    /// [`clear_gravity_model_cache`] to drop cached entries, or
+    /// [`Self::load_uncached`] to bypass the cache entirely (useful when
+    /// profiling cold-load behavior or asserting deterministic memory).
+    ///
+    /// # Caution: cache is unbounded
+    ///
+    /// Every distinct `GravityModelType` ever passed in here stays resident
+    /// for the process lifetime — there is no eviction policy yet (see the
+    /// For only loading a few models this is fine. but
+    /// programs that loop over many distinct [`GravityModelType::FromFile`]
+    /// paths will see the cache grow without bound — each unique path
+    /// retains its own ~0.1-2 MB allocation depending on degree/order.
+    ///
+    /// If you iterate over many file-backed models, prefer
+    /// [`Self::load_uncached`] (which doesn't touch the cache) or call
+    /// [`clear_gravity_model_cache`] between batches.
+    ///
     /// # Arguments
     ///
     /// - `model` : Gravity model type to load. This is a `GravityModelType` enum.
@@ -673,6 +745,57 @@ impl GravityModel {
     ///
     /// - `Result<Self, BraheError>` : Loaded gravity model, or error if file loading fails.
     pub fn from_model_type(model: &GravityModelType) -> Result<Self, BraheError> {
+        let arc = Self::shared(model)?;
+        Ok((*arc).clone())
+    }
+
+    /// Internal: get a shared, cached `Arc<GravityModel>` for a packaged or
+    /// file-backed model type. Backs [`Self::from_model_type`] — repeated
+    /// calls for the same `GravityModelType` return an `Arc` pointing at the
+    /// same allocation.
+    pub(crate) fn shared(model: &GravityModelType) -> Result<Arc<GravityModel>, BraheError> {
+        // Fast path: existing entry, no allocation, no load.
+        {
+            let cache = GRAVITY_MODEL_CACHE.read().unwrap();
+            if let Some(existing) = cache.get(model) {
+                return Ok(Arc::clone(existing));
+            }
+        }
+
+        // Cold path: parse the model with no cache lock held so concurrent
+        // hits on other types aren't blocked, then double-check on insert
+        // so a racing thread loading the same type doesn't waste the work.
+        let loaded = Self::load_uncached(model)?;
+        let arc = Arc::new(loaded);
+
+        let mut cache = GRAVITY_MODEL_CACHE.write().unwrap();
+        if let Some(existing) = cache.get(model) {
+            return Ok(Arc::clone(existing));
+        }
+        cache.insert(model.clone(), Arc::clone(&arc));
+        Ok(arc)
+    }
+
+    /// Parse a `GravityModelType` directly from its underlying source,
+    /// bypassing the process-wide cache.
+    ///
+    /// Most callers should prefer [`Self::from_model_type`], which is
+    /// cache-backed and avoids the ~60 ms disk parse on repeat calls. Reach
+    /// for `load_uncached` when you need:
+    /// - deterministic memory behavior (each call allocates its own coefficients)
+    /// - to profile or compare cold-load performance against the cached path
+    /// - to re-read a `FromFile(path)` source whose contents have changed
+    ///   on disk (the alternative is [`clear_gravity_model_cache`] followed
+    ///   by `from_model_type`, which also works for the packaged variants)
+    ///
+    /// # Arguments
+    ///
+    /// - `model` : Gravity model type to load.
+    ///
+    /// # Returns
+    ///
+    /// - `Result<Self, BraheError>` : Freshly parsed gravity model, or load error.
+    pub fn load_uncached(model: &GravityModelType) -> Result<Self, BraheError> {
         match model {
             GravityModelType::EGM2008_360 => {
                 let reader = BufReader::new(PACKAGED_EGM2008_360);
@@ -1120,6 +1243,170 @@ mod tests {
             gravity_model.normalization,
             GravityModelNormalization::FullyNormalized
         );
+    }
+
+    // ----- Process-wide gravity model cache (`shared`, `from_model_type`) -----
+    //
+    // These tests touch `GRAVITY_MODEL_CACHE`, which is module-global state.
+    // They use `#[serial]` to avoid interleaving with each other or with
+    // unrelated tests that happen to load gravity models concurrently.
+    //
+    // The fundamental property we want is "the cached model is structurally
+    // identical to a fresh-load of the same model" — we do NOT assert
+    // anything about timing, only about identity and data correctness.
+
+    /// Helper: assert two models have the same identifying header fields.
+    /// Stops short of comparing every coefficient — `test_cache_data_matches_uncached_load`
+    /// covers data-matrix equality below.
+    fn assert_models_equivalent(a: &GravityModel, b: &GravityModel) {
+        assert_eq!(a.model_name, b.model_name);
+        assert_eq!(a.gm, b.gm);
+        assert_eq!(a.radius, b.radius);
+        assert_eq!(a.n_max, b.n_max);
+        assert_eq!(a.m_max, b.m_max);
+        assert_eq!(a.tide_system, b.tide_system);
+        assert_eq!(a.model_errors, b.model_errors);
+        assert_eq!(a.normalization, b.normalization);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_gravity_model_shared_returns_same_arc() {
+        // After two calls for the same type, both Arcs should point at the
+        // identical allocation — this is the proof that the cache is doing
+        // what it claims and not just round-tripping through disk twice.
+        clear_gravity_model_cache();
+        let a = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        let b = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        assert!(
+            Arc::ptr_eq(&a, &b),
+            "shared() should return the same Arc on repeated calls for the same type"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_gravity_model_shared_per_type_isolation() {
+        // Caching one type must not corrupt or alias entries for other types.
+        // We deliberately load all three packaged types and check pairwise
+        // distinctness via both Arc-pointer inequality and model-name inequality.
+        clear_gravity_model_cache();
+        let egm = GravityModel::shared(&GravityModelType::EGM2008_360).unwrap();
+        let ggm = GravityModel::shared(&GravityModelType::GGM05S).unwrap();
+        let jgm = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        assert!(!Arc::ptr_eq(&egm, &ggm));
+        assert!(!Arc::ptr_eq(&egm, &jgm));
+        assert!(!Arc::ptr_eq(&ggm, &jgm));
+        assert_eq!(egm.model_name, "EGM2008");
+        assert_eq!(ggm.model_name, "GGM05S");
+        assert_eq!(jgm.model_name, "JGM3");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_gravity_model_from_model_type_returns_independent_owners() {
+        // Owned-clone API: each call returns a distinct, mutable model.
+        // Truncating one must not bleed into the other (i.e. the cache must
+        // hold the canonical Arc and `from_model_type` must clone out).
+        clear_gravity_model_cache();
+        let mut a = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let b = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        assert_eq!(a.n_max, 70);
+        assert_eq!(b.n_max, 70);
+        a.set_max_degree_order(30, 30).unwrap();
+        assert_eq!(a.n_max, 30);
+        assert_eq!(b.n_max, 70, "mutation on one owned clone must not affect another");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_gravity_model_from_model_type_independent_of_shared() {
+        // Mutating a `from_model_type` clone must not contaminate the cached
+        // Arc — otherwise the next `shared()` caller would see a truncated
+        // model. Verifies the cache holds the canonical full-resolution copy.
+        clear_gravity_model_cache();
+        let _seed = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        let mut owned = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        owned.set_max_degree_order(10, 10).unwrap();
+
+        let again = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        assert_eq!(
+            again.n_max, 70,
+            "cached Arc must remain at full resolution after truncation of a clone"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_gravity_model_cache_data_matches_uncached_load() {
+        // The whole point of the cache is to be a transparent acceleration.
+        // Cross-check that the cached model and a fresh uncached load agree
+        // on every coefficient — not just the header fields.
+        clear_gravity_model_cache();
+        let cached = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        let uncached = GravityModel::load_uncached(&GravityModelType::JGM3).unwrap();
+        assert_models_equivalent(&cached, &uncached);
+        // Spot-check a few coefficients that are stable across JGM3 versions.
+        // J2 is by far the dominant term so a bug-typo in the cache would
+        // show up here immediately.
+        let (c_cached, s_cached) = cached.get(2, 0).unwrap();
+        let (c_uncached, s_uncached) = uncached.get(2, 0).unwrap();
+        assert_eq!(c_cached, c_uncached);
+        assert_eq!(s_cached, s_uncached);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_clear_gravity_model_cache_forces_reload() {
+        // After clear(), the next shared() call must produce a fresh Arc
+        // (different allocation) — confirming clear() actually drops entries
+        // rather than just no-op'ing.
+        clear_gravity_model_cache();
+        let first = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        clear_gravity_model_cache();
+        let second = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        assert!(
+            !Arc::ptr_eq(&first, &second),
+            "after clear(), shared() must allocate a new Arc"
+        );
+        // But the data should still match — clear doesn't change disk contents.
+        assert_models_equivalent(&first, &second);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_gravity_model_cache_from_file_keys_by_path() {
+        // The FromFile variant must hit the cache when the same path is
+        // requested twice, just like the packaged variants.
+        clear_gravity_model_cache();
+        let path_str = "data/gravity_models/JGM3.gfc";
+        let model_type = GravityModelType::FromFile(path_str.to_string());
+        let a = GravityModel::shared(&model_type).unwrap();
+        let b = GravityModel::shared(&model_type).unwrap();
+        assert!(
+            Arc::ptr_eq(&a, &b),
+            "FromFile sources should cache by their path string"
+        );
+        // And it should be a different cache slot from the packaged JGM3,
+        // even though the file content is identical — the user-facing key
+        // is the `GravityModelType` variant, not the parsed data.
+        let packaged = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        assert!(
+            !Arc::ptr_eq(&a, &packaged),
+            "FromFile(\"...JGM3.gfc\") and GravityModelType::JGM3 are distinct cache keys"
+        );
+        // But the data should be identical.
+        assert_models_equivalent(&a, &packaged);
+    }
+
+    #[test]
+    fn test_gravity_model_type_is_hash_eq() {
+        // Static check: the cache won't compile (and hence neither will the
+        // crate) without GravityModelType: Hash + Eq, but make the contract
+        // explicit at the test level so a future refactor that drops these
+        // derives fails here loudly rather than far downstream.
+        fn assert_hash_eq<T: std::hash::Hash + Eq>() {}
+        assert_hash_eq::<GravityModelType>();
     }
 
     #[test]

@@ -836,6 +836,98 @@ def test_keplerianpropagator_analyticpropagator_states_ecef():
             assert abs(computed_elements[j] - elements[j]) < 1e-6
 
 
+def test_keplerianpropagator_analyticpropagator_states_gcrf():
+    """Test states_gcrf() method"""
+    epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+    elements = create_test_elements()
+
+    propagator = KeplerianPropagator.from_keplerian(
+        epoch,
+        elements,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    epochs = [
+        epoch,
+        epoch + orbital_period(elements[0]),
+        epoch + 2.0 * orbital_period(elements[0]),
+    ]
+
+    states = propagator.states_gcrf(epochs)
+    assert len(states) == 3
+    # GCRF is the modern realization of ECI; round-trip via KOE should match
+    for state in states:
+        computed_elements = state_eci_to_koe(state, angle_format=AngleFormat.DEGREES)
+        for i in range(6):
+            assert abs(computed_elements[i] - elements[i]) < 1e-6
+
+
+def test_keplerianpropagator_analyticpropagator_states_itrf():
+    """Test states_itrf() method"""
+    epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+    elements = create_test_elements()
+
+    propagator = KeplerianPropagator.from_keplerian(
+        epoch,
+        elements,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    epochs = [
+        epoch,
+        epoch + orbital_period(elements[0]),
+        epoch + 2.0 * orbital_period(elements[0]),
+    ]
+
+    states = propagator.states_itrf(epochs)
+    assert len(states) == 3
+    for i, state in enumerate(states):
+        # ITRF == ECEF; round-trip through ECI and confirm round-trip preserves elements
+        eci_state = state_ecef_to_eci(epochs[i], state)
+        computed_elements = state_eci_to_koe(
+            eci_state, angle_format=AngleFormat.DEGREES
+        )
+        for j in range(6):
+            assert abs(computed_elements[j] - elements[j]) < 1e-6
+
+
+def test_keplerianpropagator_analyticpropagator_states_eme2000():
+    """Test states_eme2000() method"""
+    epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+    elements = create_test_elements()
+
+    propagator = KeplerianPropagator.from_keplerian(
+        epoch,
+        elements,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    epochs = [
+        epoch,
+        epoch + orbital_period(elements[0]),
+        epoch + 2.0 * orbital_period(elements[0]),
+    ]
+
+    states = propagator.states_eme2000(epochs)
+    assert len(states) == 3
+    for state in states:
+        # Convert EME2000 -> GCRF (small frame bias rotation, ~mas), then to KOE
+        gcrf_state = state_eme2000_to_gcrf(state)
+        computed_elements = state_eci_to_koe(
+            gcrf_state, angle_format=AngleFormat.DEGREES
+        )
+        for i in range(6):
+            assert abs(computed_elements[i] - elements[i]) < 1e-6
+
+    # Verify per-epoch parity with state_eme2000 single-state method
+    for i, state in enumerate(states):
+        single = propagator.state_eme2000(epochs[i])
+        np.testing.assert_allclose(state, single, rtol=1e-12)
+
+
 def test_keplerianpropagator_analyticpropagator_states_koe_osc():
     """Test states_koe_osc() method"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)

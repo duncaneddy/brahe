@@ -315,6 +315,38 @@ def test_dstateprovider_state_interpolation():
     assert len(result) == 2
 
 
+def test_dstateprovider_states_bulk():
+    """Test states() returns the state vector at every requested epoch."""
+    epoch = create_test_epoch()
+    state = np.array([1.0, 0.0])
+
+    config = NumericalPropagationConfig.default()
+    config.interpolation_method = InterpolationMethod.LINEAR
+
+    prop = NumericalPropagator(epoch, state, sho_dynamics, config)
+    prop.propagate_to(epoch + 2.0)
+
+    epochs = [epoch + 0.0, epoch + 0.5, epoch + 1.0, epoch + 1.5, epoch + 2.0]
+    states = prop.states(epochs)
+
+    assert len(states) == len(epochs)
+    for i, s in enumerate(states):
+        assert len(s) == 2
+        assert all(np.isfinite(s))
+        # Bulk must match single-epoch query
+        np.testing.assert_allclose(s, prop.state(epochs[i]), rtol=1e-12)
+
+
+def test_dstateprovider_states_empty():
+    """states() should accept an empty list and return an empty list."""
+    epoch = create_test_epoch()
+    state = np.array([1.0, 0.0])
+    prop = NumericalPropagator(
+        epoch, state, sho_dynamics, NumericalPropagationConfig.default()
+    )
+    assert prop.states([]) == []
+
+
 # =============================================================================
 # Trajectory Tests
 # =============================================================================

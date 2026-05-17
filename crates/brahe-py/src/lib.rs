@@ -3,6 +3,15 @@
  * all the Python bindings for the core library into a single module.
  */
 
+// Route all Rust-side allocations made by this extension through mimalloc.
+// brahe's hot paths (numerical propagator, gravity evaluation, frame
+// rotations) allocate many small DVector/DMatrix instances per integrator
+// stage; mimalloc is ~2-3× faster than the macOS system allocator for that
+// pattern. Python's own object allocator is unaffected — only allocations
+// crossing into Rust code go through `#[global_allocator]`.
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

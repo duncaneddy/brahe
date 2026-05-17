@@ -5,6 +5,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.orekit.data.DataContext;
 import org.orekit.data.DirectoryCrawler;
+import org.orekit.forces.gravity.potential.GravityFieldFactory;
+import org.orekit.forces.gravity.potential.ICGEMFormatReader;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -102,6 +104,30 @@ public class Main {
             case "propagation.numerical_twobody":
                 output = PropagationBenchmark.numericalTwobody(params, iterations);
                 break;
+            case "propagation.numerical_rk4_grav5x5":
+                output = PropagationBenchmark.numericalRk4Grav5x5(params, iterations);
+                break;
+            case "propagation.numerical_rk4_grav20x20_sun_moon":
+                output = PropagationBenchmark.numericalRk4Grav20x20SunMoon(params, iterations);
+                break;
+            case "propagation.numerical_rk4_grav80x80_full":
+                output = PropagationBenchmark.numericalRk4Grav80x80Full(params, iterations);
+                break;
+            case "force_model.accel_point_mass_gravity":
+                output = ForceModelBenchmark.accelPointMassGravity(params, iterations);
+                break;
+            case "force_model.accel_spherical_harmonics_20":
+                output = ForceModelBenchmark.accelSphericalHarmonics20(params, iterations);
+                break;
+            case "force_model.accel_spherical_harmonics_80":
+                output = ForceModelBenchmark.accelSphericalHarmonics80(params, iterations);
+                break;
+            case "force_model.accel_third_body_sun":
+                output = ForceModelBenchmark.accelThirdBodySun(params, iterations);
+                break;
+            case "force_model.accel_third_body_moon":
+                output = ForceModelBenchmark.accelThirdBodyMoon(params, iterations);
+                break;
             case "access.sgp4_access":
                 output = AccessBenchmark.sgp4Access(params, iterations);
                 break;
@@ -138,5 +164,35 @@ public class Main {
 
         DataContext.getDefault().getDataProvidersManager()
                 .addProvider(new DirectoryCrawler(orekitData));
+
+        // Add brahe's gravity_models directory so we can load the exact same
+        // EGM2008_360 coefficients brahe uses (instead of orekit-data's
+        // eigen-6s.gfc), and register the EGM reader at the front of the chain
+        // so getNormalizedProvider() resolves to it first.
+        File braheGravityDir = resolveBraheGravityDir();
+        if (braheGravityDir != null && braheGravityDir.isDirectory()) {
+            DataContext.getDefault().getDataProvidersManager()
+                    .addProvider(new DirectoryCrawler(braheGravityDir));
+            GravityFieldFactory.addPotentialCoefficientsReader(
+                    new ICGEMFormatReader("^EGM2008_360\\.gfc$", false));
+        }
+    }
+
+    /**
+     * Locate brahe's data/gravity_models directory by walking up from the
+     * Java project root. Honors BRAHE_REPO if set; otherwise expects the
+     * standard repo layout (java project four levels deep under the repo root).
+     */
+    private static File resolveBraheGravityDir() {
+        String envOverride = System.getenv("BRAHE_REPO");
+        if (envOverride != null) {
+            return new File(envOverride, "data/gravity_models");
+        }
+        File cwd = new File(System.getProperty("user.dir"));
+        File candidate = new File(cwd, "../../../../data/gravity_models");
+        if (candidate.isDirectory()) {
+            return candidate;
+        }
+        return null;
     }
 }

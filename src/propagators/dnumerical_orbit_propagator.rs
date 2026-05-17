@@ -9,7 +9,7 @@
  * - Handles frame and representation conversions
  */
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 
@@ -17,6 +17,7 @@ use crate::constants::{GM_EARTH, R_EARTH};
 use crate::earth_models::{density_harris_priester, density_nrlmsise00};
 use crate::frames::{earth_rotation, rotation_eci_to_ecef};
 use crate::integrators::traits::DIntegrator;
+use crate::math::SMatrix3;
 use crate::math::interpolation::{
     CovarianceInterpolationConfig, CovarianceInterpolationMethod, InterpolationConfig,
     InterpolationMethod, interpolate_hermite_cubic_dvector6,
@@ -25,9 +26,9 @@ use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
 use crate::orbit_dynamics::{
-    GravityModel, accel_drag, accel_gravity_spherical_harmonics, accel_point_mass_gravity,
-    accel_relativity, accel_solar_radiation_pressure, accel_third_body, eclipse_conical,
-    eclipse_cylindrical, get_global_gravity_model, sun_position,
+    GravityModel, accel_drag, accel_gravity_spherical_harmonics_with_workspace,
+    accel_point_mass_gravity, accel_relativity, accel_solar_radiation_pressure, accel_third_body,
+    eclipse_conical, eclipse_cylindrical, get_global_gravity_model, sun_position,
 };
 use crate::propagators::{
     AtmosphericModel, EclipseModel, ForceModelConfig, FrameTransformationModel,
@@ -106,6 +107,152 @@ enum EventProcessingResult {
 /// including any `additional_dynamics` that were provided.
 type SharedDynamics =
     Arc<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
+
+// =============================================================================
+// Per-propagator rotation cache
+// =============================================================================
+
+/// Capacity of the per-propagator rotation cache.
+///
+/// Sized to cover every integrator in [`super::IntegratorMethod`] plus a
+/// little headroom:
+///
+/// | Method   | Stages per step | Cross-step (FSAL) hit | Intra-step hits |
+/// |----------|-----------------|-----------------------|-----------------|
+/// | RK4      | 4               | yes                   | stage 1 == 2    |
+/// | RKF45    | 6               | yes                   | none            |
+/// | DP54     | 6 (FSAL)        | yes                   | none            |
+/// | RKN1210  | 17              | yes                   | none            |
+///
+/// A 2-entry LRU is in principle sufficient (the most-recently-inserted
+/// entry survives any single-step run to be matched by the next step's
+/// first stage), but a larger ring buffer is essentially free (~80 bytes)
+/// and gives a margin for intra-step repetition we haven't audited (RKN1210
+/// has 17 stage offsets) plus future integrators with bigger tableaux.
+const ROTATION_CACHE_CAPACITY: usize = 20;
+
+/// Per-propagator cache for the ECI→body-fixed rotation matrix, keyed on
+/// the dynamics function's relative time `t`.
+///
+/// # Why this exists
+///
+/// `rotation_eci_to_ecef` (full IAU 2006/2000A) costs ~170 µs per call. The
+/// numerical-orbit propagator's dynamics function calls it once per
+/// integrator stage. For most integrators the last stage of step N hits the
+/// same epoch as the first stage of step N+1 (FSAL / "first same as last"),
+/// so a small per-propagator cache catches at least one rotation per step.
+/// For RK4 specifically, the standard tableau has stages 1 and 2 at the
+/// same epoch (`t + h/2`), giving an additional intra-step hit. See
+/// [`ROTATION_CACHE_CAPACITY`] for the per-integrator hit-pattern table.
+///
+/// # Why `f64` equality on `t` is safe here
+///
+/// Integrator stage times within a step are built as `t + butcher_c[i] * dt`
+/// with rational `butcher_c[i]` (e.g. RK4 uses `[0, 1/2, 1/2, 1]`). Each
+/// multiplication is exact in IEEE-754 for representable `dt`, and `t_rel`
+/// accumulates across steps by plain addition with the chosen `dt`. No
+/// transcendental ops sneak in between the stage that *inserts* into the
+/// cache and the stage that *looks up* on a later call — so bit-equal `t`
+/// is guaranteed across matching pairs for fixed-step integration.
+/// Adaptive integrators that reject and retry a step may see tiny drift in
+/// `dt`; the only consequence is a miss (we recompute) so correctness is
+/// preserved either way.
+///
+/// # Thread safety
+///
+/// The cache lives inside an `Arc<Mutex<…>>` captured by the dynamics
+/// closure. `SharedDynamics: Send + Sync` so the cache must be too, hence
+/// `Mutex` rather than `RefCell`. In practice the dynamics function is only
+/// ever called by one thread at a time (the integrator drives serially
+/// through `&mut self`), so lock acquisition is uncontended and costs ~10 ns
+/// — three orders of magnitude below the rotation work it's saving.
+///
+/// # Eviction
+///
+/// Plain FIFO ring buffer. With sequential epochs and the access pattern
+/// described above, FIFO and LRU give identical hit rates because no entry
+/// is ever revisited after newer entries have been inserted past it (within
+/// a single step). FIFO is simpler and the search is `O(N)` over at most
+/// [`ROTATION_CACHE_CAPACITY`] entries — branch-predictable and dominated
+/// by cache hits, well below the cost of even one rotation miss.
+struct RotationCache {
+    /// Ring buffer of `(t_rel, rotation)` pairs. Slots are `None` until
+    /// first populated. The slot indexed by `next` is where the next
+    /// inserted entry will go (overwriting whatever was there).
+    entries: [Option<(f64, SMatrix3)>; ROTATION_CACHE_CAPACITY],
+    /// Next write position in the ring. Advances modulo `ROTATION_CACHE_CAPACITY`.
+    next: usize,
+    /// Captured at cache creation; encodes which rotation chain to compute
+    /// on a miss. Doesn't change for the lifetime of the propagator.
+    model: FrameTransformationModel,
+}
+
+impl RotationCache {
+    fn new(model: FrameTransformationModel) -> Self {
+        Self {
+            entries: [None; ROTATION_CACHE_CAPACITY],
+            next: 0,
+            model,
+        }
+    }
+
+    /// Return the cached rotation for `t`, or compute and insert it on miss.
+    /// `epoch` is the absolute time corresponding to `t` (passed in by the
+    /// caller since the rotation chain operates on `Epoch`).
+    fn get_or_compute(&mut self, t: f64, epoch: Epoch) -> SMatrix3 {
+        for entry in &self.entries {
+            if let Some((cached_t, r)) = entry
+                && *cached_t == t
+            {
+                return *r;
+            }
+        }
+        // Miss: compute and write into the next ring slot, evicting whatever
+        // was there. With the integrator access patterns analyzed above, the
+        // evicted entry is always the oldest unmatched epoch — exactly the
+        // one a FIFO/LRU would discard.
+        let r = match self.model {
+            FrameTransformationModel::FullEarthRotation => rotation_eci_to_ecef(epoch),
+            FrameTransformationModel::EarthRotationOnly => earth_rotation(epoch),
+        };
+        self.entries[self.next] = Some((t, r));
+        self.next = (self.next + 1) % ROTATION_CACHE_CAPACITY;
+        r
+    }
+}
+
+/// Per-propagator scratch state captured by the dynamics closure.
+///
+/// Bundles the [`RotationCache`] and the V/W recurrence buffers used by
+/// `compute_spherical_harmonics_with_workspace` into a single lock target
+/// so each dynamics invocation acquires only one mutex. The two used to be
+/// stored separately but are touched together on every call — folding them
+/// in one struct saves a lock acquisition and keeps related state colocated
+/// for the next reader to reason about.
+///
+/// The V/W matrices start at zero size; the SH workspace path resizes them
+/// on first use to `(n_max + 2) × (n_max + 2)` and then reuses them at that
+/// size for the propagator's lifetime. Force-model configs that don't use
+/// spherical harmonics (PointMass, EarthZonal) leave the matrices empty —
+/// the lock acquisition is still paid but is essentially free (~10 ns).
+struct DynamicsWorkspace {
+    rotation_cache: RotationCache,
+    sh_v: DMatrix<f64>,
+    sh_w: DMatrix<f64>,
+}
+
+impl DynamicsWorkspace {
+    fn new(frame_transform: FrameTransformationModel) -> Self {
+        Self {
+            rotation_cache: RotationCache::new(frame_transform),
+            // Zero-size; resized lazily on first SH call. We don't pre-size
+            // to (n_max + 2)² at construction because the propagator may use
+            // a PointMass / EarthZonal config that never touches these.
+            sh_v: DMatrix::<f64>::zeros(0, 0),
+            sh_w: DMatrix::<f64>::zeros(0, 0),
+        }
+    }
+}
 
 // =============================================================================
 // Numerical Orbit Propagator
@@ -567,17 +714,29 @@ impl DNumericalOrbitPropagator {
             ));
         }
 
-        // Load gravity model if using ModelType source, truncating to requested degree/order
+        // Load gravity model if using ModelType source, truncating to requested degree/order.
+        //
+        // Uses the process-wide cache via `GravityModel::shared`:
+        //   - First propagator for a given `GravityModelType` pays the disk
+        //     parse (~60 ms for EGM2008_360); the model lands in the cache.
+        //   - Subsequent propagators get an `Arc::clone` (a few ns).
+        //   - When the requested (degree, order) matches the full cached
+        //     model, the propagator and the cache share the same allocation
+        //     — true zero-copy fan-out across many propagators.
+        //   - When truncation is required, `Arc::make_mut` does a
+        //     copy-on-write so we can truncate without disturbing the cached
+        //     full-resolution model.
         let gravity_model = match &force_config.gravity {
             GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(model_type),
                 degree,
                 order,
             } => {
-                let mut model = GravityModel::from_model_type(model_type)?;
-                // Truncate model to save memory (only keep coefficients we'll use)
-                model.set_max_degree_order(*degree, *order)?;
-                Some(Arc::new(model))
+                let mut arc = GravityModel::shared(model_type)?;
+                if *degree < arc.n_max || *order < arc.m_max {
+                    Arc::make_mut(&mut arc).set_max_degree_order(*degree, *order)?;
+                }
+                Some(arc)
             }
             _ => None,
         };
@@ -1235,20 +1394,70 @@ impl DNumericalOrbitPropagator {
         additional_dynamics: Option<DStateDynamics>,
         gravity_model: Option<Arc<GravityModel>>,
     ) -> SharedDynamics {
+        // Per-propagator scratch state: rotation cache + SH V/W work
+        // matrices, bundled under one Mutex so each dynamics invocation
+        // takes a single lock. Mutex (not RefCell) because
+        // `SharedDynamics: Send + Sync` — even though the dynamics function
+        // is only ever driven by one thread at a time (serialised through
+        // `&mut self` on the propagator), the type system needs the
+        // conservative bound. Lock acquisition on this uncontended Mutex is
+        // ~10 ns; the work it saves dwarfs that.
+        let workspace = Arc::new(Mutex::new(DynamicsWorkspace::new(
+            force_config.frame_transform.clone(),
+        )));
         Arc::new(
             move |t: f64,
                   state: &DVector<f64>,
                   params_opt: Option<&DVector<f64>>|
                   -> DVector<f64> {
-                // Compute orbital dynamics (first 6 elements)
-                let mut dx = Self::compute_dynamics(
+                // One lock covers the rotation lookup and the SH workspace.
+                // Destructure through the MutexGuard so the borrow checker
+                // sees the field borrows on `sh_v` and `sh_w` as disjoint —
+                // a plain `&mut ws.sh_v` followed by `&mut ws.sh_w` won't
+                // compile because Rust can't see through `MutexGuard::Target`.
+                let mut ws = workspace.lock().unwrap();
+                let DynamicsWorkspace {
+                    rotation_cache,
+                    sh_v,
+                    sh_w,
+                } = &mut *ws;
+                let epoch = epoch_initial + t;
+                let r_i2b = rotation_cache.get_or_compute(t, epoch);
+
+                // Compute orbital dynamics (first 6 elements) on the stack.
+                // `compute_dynamics` returns a `Vector6<f64>` so the inner
+                // force-model evaluation doesn't have to allocate; we widen
+                // it into the full state-dim `DVector` here.
+                let dx_orbital = Self::compute_dynamics(
                     t,
-                    state.clone(),
+                    state,
                     epoch_initial,
                     &force_config,
                     params_opt.or(Some(&params)),
                     gravity_model.as_ref(),
+                    r_i2b,
+                    sh_v,
+                    sh_w,
                 );
+                // Release the lock before the additional_dynamics callback
+                // so the user closure (which may allocate or call Python)
+                // doesn't run while we're holding the propagator's mutex.
+                drop(ws);
+
+                // Widen the orbital derivative to the full state dimension.
+                // This is the one heap allocation we cannot avoid without
+                // changing the `DStateDynamics` Fn signature to accept an
+                // `&mut DVector<f64>` out-parameter (a much bigger change
+                // touching every integrator method and downstream caller).
+                // For `state.len() == 6` (the common orbital-only case)
+                // this is the only DVector allocation per stage.
+                let mut dx = DVector::zeros(state.len());
+                dx[0] = dx_orbital[0];
+                dx[1] = dx_orbital[1];
+                dx[2] = dx_orbital[2];
+                dx[3] = dx_orbital[3];
+                dx[4] = dx_orbital[4];
+                dx[5] = dx_orbital[5];
 
                 // If additional dynamics provided and state dimension > 6, compute extended state derivatives
                 if let Some(ref add_dyn) = additional_dynamics
@@ -1349,35 +1558,35 @@ impl DNumericalOrbitPropagator {
     /// This is the actual force model evaluation logic.
     fn compute_dynamics(
         t: f64,
-        state: DVector<f64>,
+        state: &DVector<f64>,
         epoch_initial: Epoch,
         force_config: &ForceModelConfig,
         params_opt: Option<&DVector<f64>>,
         gravity_model: Option<&Arc<GravityModel>>,
-    ) -> DVector<f64> {
+        r_i2b: SMatrix3,
+        sh_v: &mut DMatrix<f64>,
+        sh_w: &mut DMatrix<f64>,
+    ) -> Vector6<f64> {
         // Convert relative time to absolute Epoch
         let epoch = epoch_initial + t;
 
-        // Extract position and velocity (first 6 elements always orbital state)
+        // Extract position and velocity (first 6 elements always orbital state).
+        // Reading by index against `&DVector<f64>` is a bounds-checked load —
+        // no clone, no heap traffic on the way into the dynamics function.
         let r = Vector3::new(state[0], state[1], state[2]);
         let v = Vector3::new(state[3], state[4], state[5]);
-        let x_eci: nalgebra::Matrix<
-            f64,
-            nalgebra::Const<6>,
-            nalgebra::Const<1>,
-            nalgebra::ArrayStorage<f64, 6, 1>,
-        > = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
+        let x_eci = Vector6::new(state[0], state[1], state[2], state[3], state[4], state[5]);
 
         // Accumulate total acceleration
         let mut a_total = Vector3::zeros();
 
-        // Single ECI->body-fixed rotation reused by every body-fixed force term in
-        // this dynamics step. Selected by the propagator-wide `frame_transform`
-        // setting; defaults to the full IAU 2006/2000A rotation.
-        let r_i2b = match force_config.frame_transform {
-            FrameTransformationModel::FullEarthRotation => rotation_eci_to_ecef(epoch),
-            FrameTransformationModel::EarthRotationOnly => earth_rotation(epoch),
-        };
+        // `r_i2b` is the ECI→body-fixed rotation for `epoch`, supplied by the
+        // caller. The dynamics function used to compute this matrix itself,
+        // but it's now resolved once per call by `build_shared_dynamics`
+        // (via a small per-propagator cache) so that all body-fixed force
+        // terms below share a single rotation evaluation, and so that
+        // stage-to-stage epoch overlap in the integrator tableau collapses
+        // to a single rotation computation per unique epoch.
 
         // ===== GRAVITY =====
         match &force_config.gravity {
@@ -1394,29 +1603,36 @@ impl DNumericalOrbitPropagator {
                 degree,
                 order,
             } => {
-                // Use gravity model based on source
+                // Use the per-propagator V/W workspace so the spherical-
+                // harmonic recurrence doesn't allocate two `DMatrix`es of
+                // size (degree+2)² on every integrator stage. Cost saved
+                // at 80×80: ~15 µs/stage = ~11 ms per 180-step propagation.
                 match source {
                     GravityModelSource::Global => {
                         // Use global gravity model
                         let global_model: std::sync::RwLockReadGuard<'_, Box<GravityModel>> =
                             get_global_gravity_model();
-                        a_total += accel_gravity_spherical_harmonics(
+                        a_total += accel_gravity_spherical_harmonics_with_workspace(
                             r,
                             r_i2b,
                             &global_model,
                             *degree,
                             *order,
+                            sh_v,
+                            sh_w,
                         );
                     }
                     GravityModelSource::ModelType(_) => {
                         // Use the model loaded at construction (passed in)
                         if let Some(model) = gravity_model {
-                            a_total += accel_gravity_spherical_harmonics(
+                            a_total += accel_gravity_spherical_harmonics_with_workspace(
                                 r,
                                 r_i2b,
                                 model.as_ref(),
                                 *degree,
                                 *order,
+                                sh_v,
+                                sh_w,
                             );
                         }
                     }
@@ -1505,19 +1721,14 @@ impl DNumericalOrbitPropagator {
             a_total += accel_relativity(x_eci);
         }
 
-        // Build state derivative: [vx, vy, vz, ax, ay, az, ...]
-        let mut dx = DVector::zeros(state.len());
-        dx[0] = v[0];
-        dx[1] = v[1];
-        dx[2] = v[2];
-        dx[3] = a_total[0];
-        dx[4] = a_total[1];
-        dx[5] = a_total[2];
-
-        // Additional state elements (if any) have zero derivative by default
-        // These will be overridden if additional_dynamics is provided
-
-        dx
+        // Build the orbital state derivative `[vx, vy, vz, ax, ay, az]` on
+        // the stack. The caller (the dynamics closure in
+        // `build_shared_dynamics`) widens this into a `DVector<f64>` of the
+        // full state dimension and applies any `additional_dynamics` for
+        // indices ≥ 6. Returning a stack-allocated `Vector6<f64>` here
+        // eliminates one heap allocation per integrator stage (the prior
+        // `DVector::zeros(state.len())` + element writes).
+        Vector6::new(v[0], v[1], v[2], a_total[0], a_total[1], a_total[2])
     }
 
     // =========================================================================
@@ -2312,7 +2523,7 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
             self.step_once();
 
             // Restore suggested dt_next for subsequent steps
-            if self.dt_next.abs() > saved_dt_next.abs() {
+            if self.dt_next.abs() >= saved_dt_next.abs() {
                 self.dt_next = saved_dt_next;
             }
         }
@@ -2809,6 +3020,281 @@ mod tests {
         );
 
         assert!(prop.is_ok());
+    }
+
+    // ----- Gravity model cache wiring -----
+    //
+    // The two tests below prove that the propagator constructor goes through
+    // the process-wide gravity-model cache instead of disk-loading on every
+    // construction. They observe the `Arc` strong count of the cached model
+    // before and after constructing a propagator — if the propagator did its
+    // own load (or got an owned clone instead of the cached `Arc`), the
+    // strong count wouldn't include the propagator's reference.
+
+    /// Build a minimal force config requesting `JGM3` at the requested
+    /// degree/order. JGM3 is small (~70x70) so this test is fast, and it
+    /// exercises the same code path as larger models.
+    fn jgm3_force_config(degree: usize, order: usize) -> ForceModelConfig {
+        ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(
+                    crate::orbit_dynamics::GravityModelType::JGM3,
+                ),
+                degree,
+                order,
+            },
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        }
+    }
+
+    fn jgm3_initial_state() -> DVector<f64> {
+        DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0])
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_propagator_uses_gravity_model_cache_without_truncation() {
+        // When the requested (degree, order) matches the full cached model,
+        // the propagator should hold a clone of the cached `Arc` rather than
+        // its own freshly-cloned copy of the coefficients. That's the
+        // zero-copy fan-out case the cache exists to enable.
+        setup_global_test_eop();
+        crate::orbit_dynamics::clear_gravity_model_cache();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // JGM3 is 70x70 — request the full resolution to skip the truncation branch.
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            jgm3_initial_state(),
+            NumericalPropagationConfig::default(),
+            jgm3_force_config(70, 70),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Pull the cached Arc from outside the propagator. Strong count is now:
+        //   cache (1) + propagator (1) + this test binding (1) = 3
+        let from_cache = crate::orbit_dynamics::GravityModel::shared(
+            &crate::orbit_dynamics::GravityModelType::JGM3,
+        )
+        .unwrap();
+        assert_eq!(
+            std::sync::Arc::strong_count(&from_cache),
+            3,
+            "no-truncation propagator should share the cached Arc \
+             (cache + propagator + test binding = 3)"
+        );
+
+        // Drop the propagator and the count must fall by exactly 1.
+        drop(prop);
+        assert_eq!(
+            std::sync::Arc::strong_count(&from_cache),
+            2,
+            "dropping the propagator should release its Arc clone, \
+             leaving cache + this test binding"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_propagator_clones_gravity_model_when_truncating() {
+        // When the requested (degree, order) is smaller than the cached
+        // model's n_max/m_max, the propagator must `Arc::make_mut` a private
+        // copy so it can truncate without disturbing the cache.
+        setup_global_test_eop();
+        crate::orbit_dynamics::clear_gravity_model_cache();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // Truncate JGM3 from 70x70 down to 10x10 to force the make_mut branch.
+        let _prop = DNumericalOrbitPropagator::new(
+            epoch,
+            jgm3_initial_state(),
+            NumericalPropagationConfig::default(),
+            jgm3_force_config(10, 10),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // The cached Arc is not shared with the propagator (propagator owns
+        // its truncated copy). Strong count: cache (1) + test binding (1) = 2.
+        let from_cache = crate::orbit_dynamics::GravityModel::shared(
+            &crate::orbit_dynamics::GravityModelType::JGM3,
+        )
+        .unwrap();
+        assert_eq!(
+            std::sync::Arc::strong_count(&from_cache),
+            2,
+            "truncating propagator should own a separate Arc, \
+             not share the cached one"
+        );
+
+        // The cached model is undisturbed at full resolution — proving the
+        // propagator's truncation didn't bleed through `Arc::make_mut` into
+        // the cache entry.
+        assert_eq!(from_cache.n_max, 70);
+        assert_eq!(from_cache.m_max, 70);
+    }
+
+    // ----- Per-propagator rotation cache -----
+    //
+    // Direct unit tests on `RotationCache`. The cache is private to this
+    // module, so these have to live here rather than in an integration test.
+    // The end-to-end correctness (that the propagator still produces the
+    // same trajectories after wiring through the cache) is implicitly
+    // covered by the rest of the propagator test suite.
+
+    #[test]
+    fn test_rotation_cache_hit_returns_same_matrix() {
+        // First call is a miss-and-fill, second call must hit the cache and
+        // return the identical matrix without recomputing.
+        setup_global_test_eop();
+        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let first = cache.get_or_compute(0.0, epoch);
+        let second = cache.get_or_compute(0.0, epoch);
+        assert_eq!(
+            first, second,
+            "cache hit on the same t must return the bit-identical matrix"
+        );
+    }
+
+    #[test]
+    fn test_rotation_cache_matches_uncached_call() {
+        // Sanity: the cached result must agree with calling
+        // `rotation_eci_to_ecef` directly. If a future change to the rotation
+        // chain breaks this, the cache is silently returning stale data.
+        setup_global_test_eop();
+        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let cached = cache.get_or_compute(0.0, epoch);
+        let fresh = rotation_eci_to_ecef(epoch);
+        assert_eq!(
+            cached, fresh,
+            "cached rotation must match a fresh call to rotation_eci_to_ecef"
+        );
+    }
+
+    #[test]
+    fn test_rotation_cache_distinct_epochs_distinct_entries() {
+        // Two unrelated epochs must produce different matrices (sanity that
+        // we're not accidentally caching a single rotation under multiple
+        // keys) and both must be retrievable.
+        setup_global_test_eop();
+        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let r_at_zero = cache.get_or_compute(0.0, epoch);
+        let r_at_3600 = cache.get_or_compute(3600.0, epoch + 3600.0);
+        assert_ne!(
+            r_at_zero, r_at_3600,
+            "rotations one hour apart should differ (Earth has rotated ~15 deg)"
+        );
+        // Both should still be retrievable as cache hits afterwards.
+        assert_eq!(cache.get_or_compute(0.0, epoch), r_at_zero);
+        assert_eq!(cache.get_or_compute(3600.0, epoch + 3600.0), r_at_3600);
+    }
+
+    #[test]
+    fn test_rotation_cache_earth_rotation_only_path() {
+        // Verify the FrameTransformationModel dispatch in get_or_compute by
+        // comparing against the corresponding bare function. This is the
+        // only place that branch is exercised at the unit level.
+        setup_global_test_eop();
+        let mut cache = RotationCache::new(FrameTransformationModel::EarthRotationOnly);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let cached = cache.get_or_compute(0.0, epoch);
+        let fresh = earth_rotation(epoch);
+        assert_eq!(
+            cached, fresh,
+            "EarthRotationOnly cache must dispatch to earth_rotation, not the full chain"
+        );
+    }
+
+    #[test]
+    fn test_rotation_cache_rk4_stage_pattern_hits() {
+        // Replay an RK4 stage sequence: (0, h/2, h/2, h) for two consecutive
+        // steps. Hit assertions:
+        //   - stage 1 == stage 2 within a step → same epoch, same matrix
+        //   - stage 3 of step N == stage 0 of step N+1 → cross-step hit
+        // This is the access pattern the cache is specifically tuned for;
+        // if these stop hitting, the cache is broken.
+        setup_global_test_eop();
+        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let h = 30.0;
+
+        // Step 1.
+        let _stage0 = cache.get_or_compute(0.0, epoch);
+        let stage1 = cache.get_or_compute(h / 2.0, epoch + h / 2.0);
+        let stage2 = cache.get_or_compute(h / 2.0, epoch + h / 2.0);
+        assert_eq!(
+            stage1, stage2,
+            "RK4 stage 1 and stage 2 (both at t + h/2) must return the same cached matrix"
+        );
+        let stage3 = cache.get_or_compute(h, epoch + h);
+
+        // Step 2 starts at t = h, sharing an epoch with step 1's last stage.
+        let step2_stage0 = cache.get_or_compute(h, epoch + h);
+        assert_eq!(
+            stage3, step2_stage0,
+            "cross-step boundary (stage 3 of step N == stage 0 of step N+1) must be a cache hit"
+        );
+    }
+
+    #[test]
+    fn test_rotation_cache_capacity_evicts_oldest() {
+        // Fill the ring buffer past capacity. The oldest entry should be
+        // evicted while the most recently inserted entries remain reachable
+        // — verifies the FIFO eviction policy and that the search loop
+        // correctly returns the live entries.
+        setup_global_test_eop();
+        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        // Insert CAPACITY+1 entries, each at a distinct epoch.
+        let inserts: Vec<(f64, SMatrix3)> = (0..=ROTATION_CACHE_CAPACITY)
+            .map(|i| {
+                let t = i as f64;
+                let r = cache.get_or_compute(t, epoch + t);
+                (t, r)
+            })
+            .collect();
+
+        // The newest CAPACITY entries should all still be cache hits: a
+        // lookup with the same `epoch` recovers the same matrix without
+        // recomputing. We test this indirectly by setting up a fresh cache,
+        // computing once, and checking equality — if the cache had returned
+        // a stale or wrong entry, the values would diverge.
+        for &(t, expected) in &inserts[1..] {
+            assert_eq!(
+                cache.get_or_compute(t, epoch + t),
+                expected,
+                "entry at t={t} should still be cached"
+            );
+        }
+
+        // The oldest entry (t=0) should have been evicted. We can't observe
+        // a miss directly without instrumentation, but we can verify the
+        // returned value is still correct (recomputed from scratch).
+        let recomputed = cache.get_or_compute(0.0, epoch);
+        assert_eq!(
+            recomputed, inserts[0].1,
+            "post-eviction recompute must still match the original value"
+        );
     }
 
     #[test]

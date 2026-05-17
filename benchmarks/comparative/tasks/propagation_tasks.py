@@ -199,3 +199,129 @@ class NumericalTwobodyTask(BenchmarkTask):
             "step_size": step_size,
             "n_steps": n_steps,
         }
+
+
+# Shared LEO orbit used for the high-fidelity numerical propagation comparison.
+# Fixed parameters across implementations so brahe and Orekit see identical inputs.
+_NUMERICAL_LEO = {
+    "jd": 2460310.5,  # 2024-01-01T00:00:00 UTC
+    "elements_deg": [R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0],
+    "step_size": 30.0,  # RK4 step size
+    "n_steps": 180,  # ~90 minutes of LEO propagation (~1 orbit)
+    # Spacecraft mass and surfaces, used by drag and SRP.
+    "mass": 1000.0,  # kg
+    "drag_area": 10.0,  # m^2
+    "cd": 2.2,
+    "srp_area": 10.0,  # m^2
+    "cr": 1.3,
+}
+
+
+def _numerical_leo_params() -> dict:
+    """Common parameter dict for the RK4 force-model benchmarks."""
+    p = dict(_NUMERICAL_LEO)
+    # Layout matches brahe's DefaultParameterLayout: [mass, drag_area, Cd, srp_area, Cr]
+    p["params"] = [p["mass"], p["drag_area"], p["cd"], p["srp_area"], p["cr"]]
+    return p
+
+
+class NumericalRk4Grav5x5Task(BenchmarkTask):
+    """RK4 + 5x5 spherical-harmonic gravity over 1 LEO revolution."""
+
+    @property
+    def name(self) -> str:
+        return "propagation.numerical_rk4_grav5x5"
+
+    @property
+    def module(self) -> str:
+        return "propagation"
+
+    @property
+    def description(self) -> str:
+        return "Numerical RK4 propagation with 5x5 spherical-harmonic gravity over ~1 LEO orbit"
+
+    @property
+    def languages(self) -> list[str]:
+        return ["python", "rust", "java"]
+
+    @property
+    def timeout(self) -> int:
+        return 600
+
+    def generate_params(self, seed: int) -> dict:
+        p = _numerical_leo_params()
+        p["gravity_degree"] = 5
+        p["gravity_order"] = 5
+        return p
+
+
+class NumericalRk4Grav20x20SunMoonTask(BenchmarkTask):
+    """RK4 + 20x20 gravity + Sun/Moon third-body over 1 LEO revolution."""
+
+    @property
+    def name(self) -> str:
+        return "propagation.numerical_rk4_grav20x20_sun_moon"
+
+    @property
+    def module(self) -> str:
+        return "propagation"
+
+    @property
+    def description(self) -> str:
+        return (
+            "Numerical RK4 propagation with 20x20 gravity and Sun/Moon third-body "
+            "over ~1 LEO orbit"
+        )
+
+    @property
+    def languages(self) -> list[str]:
+        return ["python", "rust", "java"]
+
+    @property
+    def timeout(self) -> int:
+        return 600
+
+    def generate_params(self, seed: int) -> dict:
+        p = _numerical_leo_params()
+        p["gravity_degree"] = 20
+        p["gravity_order"] = 20
+        p["third_body_sun"] = True
+        p["third_body_moon"] = True
+        return p
+
+
+class NumericalRk4Grav80x80FullTask(BenchmarkTask):
+    """RK4 + 80x80 gravity + Sun/Moon + drag + SRP over 1 LEO revolution."""
+
+    @property
+    def name(self) -> str:
+        return "propagation.numerical_rk4_grav80x80_full"
+
+    @property
+    def module(self) -> str:
+        return "propagation"
+
+    @property
+    def description(self) -> str:
+        return (
+            "Numerical RK4 propagation with 80x80 gravity, Sun/Moon third-body, "
+            "NRLMSISE-00 drag, and SRP over ~1 LEO orbit"
+        )
+
+    @property
+    def languages(self) -> list[str]:
+        return ["python", "rust", "java"]
+
+    @property
+    def timeout(self) -> int:
+        return 1200
+
+    def generate_params(self, seed: int) -> dict:
+        p = _numerical_leo_params()
+        p["gravity_degree"] = 80
+        p["gravity_order"] = 80
+        p["third_body_sun"] = True
+        p["third_body_moon"] = True
+        p["drag"] = True
+        p["srp"] = True
+        return p

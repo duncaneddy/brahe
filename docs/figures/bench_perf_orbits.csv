@@ -1,3 +1,3 @@
 Task,Java,Python,Rust,Python Speedup,Rust Speedup
-Cartesian To Keplerian,433.2 µs,66.1 µs,5.4 µs,6.56×,80.7×
-Keplerian To Cartesian,406.6 µs,69.9 µs,7.6 µs,5.82×,53.5×
+Cartesian To Keplerian,458.3 µs,67.6 µs,5.2 µs,6.78×,88.9×
+Keplerian To Cartesian,398.3 µs,68.6 µs,7.5 µs,5.80×,53.0×

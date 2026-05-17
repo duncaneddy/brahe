@@ -2,9 +2,17 @@
 //!
 //! Reads JSON task input from stdin, runs the benchmark, outputs JSON to stdout.
 
+// Use mimalloc to match brahe-py's allocator choice. Without this the Rust
+// bench would use the macOS system allocator while the Python bench uses
+// mimalloc (via brahe-py), so per-language comparisons would be biased by
+// the allocator difference rather than reflecting actual library work.
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 mod access;
 mod attitude;
 mod coordinates;
+mod force_model;
 mod frames;
 mod orbits;
 mod propagation;
@@ -66,6 +74,12 @@ fn main() {
         // Fallback to zero values
         let eop = brahe::eop::StaticEOPProvider::from_zero();
         brahe::eop::set_global_eop_provider(eop);
+    }
+
+    // Initialize space weather using brahe's packaged file. NRLMSISE-00 drag
+    // requires this; tasks that don't use NRLMSISE-00 are unaffected.
+    if let Ok(provider) = brahe::space_weather::FileSpaceWeatherProvider::from_default_file() {
+        brahe::space_weather::set_global_space_weather_provider(provider);
     }
 
     // Read JSON from stdin
@@ -138,6 +152,39 @@ fn main() {
         }
         "propagation.numerical_twobody" => {
             propagation::numerical_twobody(&bench_input.params, bench_input.iterations)
+        }
+        "propagation.numerical_rk4_grav5x5" => {
+            propagation::numerical_rk4_grav5x5(&bench_input.params, bench_input.iterations)
+        }
+        "propagation.numerical_rk4_grav20x20_sun_moon" => {
+            propagation::numerical_rk4_grav20x20_sun_moon(
+                &bench_input.params,
+                bench_input.iterations,
+            )
+        }
+        "propagation.numerical_rk4_grav80x80_full" => {
+            propagation::numerical_rk4_grav80x80_full(&bench_input.params, bench_input.iterations)
+        }
+        "force_model.accel_point_mass_gravity" => {
+            force_model::accel_point_mass(&bench_input.params, bench_input.iterations)
+        }
+        "force_model.accel_spherical_harmonics_20" => {
+            force_model::accel_spherical_harmonics_20(
+                &bench_input.params,
+                bench_input.iterations,
+            )
+        }
+        "force_model.accel_spherical_harmonics_80" => {
+            force_model::accel_spherical_harmonics_80(
+                &bench_input.params,
+                bench_input.iterations,
+            )
+        }
+        "force_model.accel_third_body_sun" => {
+            force_model::accel_third_body_sun(&bench_input.params, bench_input.iterations)
+        }
+        "force_model.accel_third_body_moon" => {
+            force_model::accel_third_body_moon(&bench_input.params, bench_input.iterations)
         }
         "access.sgp4_access" => {
             access::sgp4_access(&bench_input.params, bench_input.iterations)

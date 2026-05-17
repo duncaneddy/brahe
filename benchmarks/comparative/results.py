@@ -84,9 +84,24 @@ class BenchmarkRun:
     accuracy_comparisons: list[AccuracyComparison] = field(default_factory=list)
 
     def save(self, path: Path) -> Path:
-        """Save benchmark run to JSON file."""
+        """Save benchmark run to JSON file.
+
+        Each run is saved twice:
+          - `run_<ISO-8601 timestamp>.json` — archival, immutable
+          - `run_latest.json`               — overwritten on every save
+
+        The ISO-8601 timestamp (UTC, ``-`` substituted for ``:``) gives
+        filename uniqueness and lexicographic sort-by-recency, replacing
+        the previous UUID-nonce + date-only scheme that wasn't sortable
+        beyond per-day granularity.
+        """
         path.mkdir(parents=True, exist_ok=True)
-        filepath = path / f"run_{self.run_id}_{self.timestamp[:10]}.json"
+        # Filename-safe ISO-8601: 2026-05-16T17-38-42Z (no colons, UTC).
+        ts_for_filename = (
+            self.timestamp.replace(":", "-").replace("+00-00", "Z").split(".")[0]
+        )
+        filepath = path / f"run_{ts_for_filename}.json"
+        latest_path = path / "run_latest.json"
 
         data = {
             "run_id": self.run_id,
@@ -97,6 +112,10 @@ class BenchmarkRun:
         }
 
         with open(filepath, "w") as f:
+            json.dump(data, f, indent=2, default=str)
+        # Overwrite run_latest.json so downstream tooling (plot generators,
+        # docs CI) always has a canonical, stable filename to read.
+        with open(latest_path, "w") as f:
             json.dump(data, f, indent=2, default=str)
         return filepath
 
@@ -119,8 +138,26 @@ class BenchmarkRun:
 
     @classmethod
     def load_latest(cls, results_dir: Path) -> "BenchmarkRun | None":
-        """Load the most recent benchmark run from the results directory."""
-        json_files = sorted(results_dir.glob("run_*.json"), reverse=True)
-        if not json_files:
+        """Load the most recent benchmark run from the results directory.
+
+        Prefers ``run_latest.json`` (always written by ``save()``); falls
+        back to lexicographically-sorted ``run_<timestamp>.json`` files
+        when the canonical name is absent. The fallback explicitly filters
+        out the legacy UUID-prefixed filenames (``run_<8 hex>_*.json``)
+        because they sort *after* digit-prefixed ISO timestamps in ASCII
+        and would otherwise mask newer runs.
+        """
+        latest_path = results_dir / "run_latest.json"
+        if latest_path.exists():
+            return cls.load(latest_path)
+        candidates = [
+            p
+            for p in results_dir.glob("run_*.json")
+            # ISO-8601 timestamps start with a digit; legacy UUID hex starts
+            # with [0-9a-f]. Filter to filenames whose timestamp segment
+            # begins with a 4-digit year (i.e. "run_YYYY-...").
+            if p.stem.startswith("run_") and len(p.stem) > 8 and p.stem[4:8].isdigit()
+        ]
+        if not candidates:
             return None
-        return cls.load(json_files[0])
+        return cls.load(sorted(candidates, reverse=True)[0])

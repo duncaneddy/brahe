@@ -25,10 +25,16 @@ from brahe.plots.estimation_common import (
 )
 
 
-def _sigma_band_label(series_label, sigma_level):
-    """Format the legend label for a covariance band."""
+def _sigma_band_label(series_label, sigma_level, backend="matplotlib"):
+    """Format the legend label for a covariance band.
+
+    Matplotlib uses LaTeX math mode so labels survive scienceplots' usetex=True
+    path (pdfLaTeX rejects Unicode glyphs). Plotly renders Unicode natively.
+    """
     level = sigma_level if sigma_level is not None else 3
-    return rf"{series_label} ±{level}$\sigma$"
+    if backend == "plotly":
+        return f"{series_label} ±{level}σ"
+    return rf"{series_label} $\pm{level}\sigma$"
 
 
 # =============================================================================
@@ -1087,7 +1093,7 @@ def _state_error_single_plotly(
                     -s,
                     s,
                     color,
-                    _sigma_band_label(label, sigma_level),
+                    _sigma_band_label(label, sigma_level, backend="plotly"),
                     label,
                     i == 0,
                 )
@@ -1165,7 +1171,7 @@ def _state_value_single_plotly(
                     v - s,
                     v + s,
                     color,
-                    _sigma_band_label(label, sigma_level),
+                    _sigma_band_label(label, sigma_level, backend="plotly"),
                     label,
                     False,
                 )
@@ -1246,7 +1252,7 @@ def _state_error_grid_plotly(
                     -s,
                     s,
                     color,
-                    _sigma_band_label(label, sigma_level),
+                    _sigma_band_label(label, sigma_level, backend="plotly"),
                     label,
                     is_first_state,
                 )
@@ -1327,7 +1333,7 @@ def _state_value_grid_plotly(
                     v[:, state_idx] - s,
                     v[:, state_idx] + s,
                     color,
-                    _sigma_band_label(label, sigma_level),
+                    _sigma_band_label(label, sigma_level, backend="plotly"),
                     label,
                     False,
                 )

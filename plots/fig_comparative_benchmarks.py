@@ -35,8 +35,15 @@ from benchmarks.comparative.results import BenchmarkRun
 OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
 RESULTS_DIR = pathlib.Path("benchmarks/comparative/results")
 
-# Specific run file with complete results (72 tasks, 48 accuracy comparisons)
-RESULTS_FILE = RESULTS_DIR / "run_a8ef0371_2026-03-16.json"
+# Default to the canonical run_latest.json written by every benchmark save();
+# override with BRAHE_BENCH_RESULTS_FILE (absolute or relative to RESULTS_DIR).
+# Falls back to BenchmarkRun.load_latest() if neither exists.
+RESULTS_FILE_ENV = os.getenv("BRAHE_BENCH_RESULTS_FILE")
+if RESULTS_FILE_ENV:
+    _env_path = pathlib.Path(RESULTS_FILE_ENV)
+    RESULTS_FILE = _env_path if _env_path.is_absolute() else RESULTS_DIR / _env_path
+else:
+    RESULTS_FILE = RESULTS_DIR / "run_latest.json"
 
 # Ensure output directory exists
 os.makedirs(OUTDIR, exist_ok=True)
@@ -49,6 +56,7 @@ MODULE_ORDER = [
     "frames",
     "orbits",
     "propagation",
+    "force_model",
     "access",
 ]
 MODULE_LABELS = {
@@ -58,6 +66,7 @@ MODULE_LABELS = {
     "frames": "Frames",
     "orbits": "Orbits",
     "propagation": "Propagation",
+    "force_model": "Force Model",
     "access": "Access",
 }
 
@@ -84,6 +93,20 @@ def _task_label(task_name: str) -> str:
     """Convert task_name like 'time.utc_to_tai' to 'UTC to TAI'."""
     # Strip module prefix
     _, _, task = task_name.partition(".")
+    # Custom labels for tasks where the automatic title-casing produces
+    # awkward results (high-fidelity propagation and force-model tasks).
+    custom_labels = {
+        "numerical_rk4_grav5x5": "RK4 + 5x5 Gravity",
+        "numerical_rk4_grav20x20_sun_moon": "RK4 + 20x20 + Sun/Moon",
+        "numerical_rk4_grav80x80_full": "RK4 + 80x80 + Drag + SRP",
+        "accel_point_mass_gravity": "Point Mass Gravity",
+        "accel_spherical_harmonics_20": "Spherical Harmonics 20x20",
+        "accel_spherical_harmonics_80": "Spherical Harmonics 80x80",
+        "accel_third_body_sun": "Third Body (Sun)",
+        "accel_third_body_moon": "Third Body (Moon)",
+    }
+    if task in custom_labels:
+        return custom_labels[task]
     # Special case handling for common abbreviations
     label = task.replace("_", " ").title()
     # Fix known abbreviations
@@ -340,6 +363,14 @@ def _format_accuracy(value: float, module: str) -> str:
         if value < 1.0:
             return f"{value * 1e3:.1f} ms"
         return f"{value:.1f} s"
+
+    if module == "force_model":
+        # Force-model errors are accelerations (m/s²), not positions.
+        # Use scientific notation directly — typical magnitudes are 10⁻¹²
+        # to 10⁻¹⁶ m/s², well below any nm/µm-style human-readable range.
+        if value == 0.0:
+            return "0 m/s²"
+        return f"{value:.2e} m/s²"
 
     # Position-based errors (meters) — select unit by magnitude
     if module in ("coordinates", "orbits"):

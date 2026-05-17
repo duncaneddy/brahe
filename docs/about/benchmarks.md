@@ -1,6 +1,6 @@
 ## Benchmarks
 
-Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-source astrodynamics library, across 24 tasks spanning 7 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 100 iterations) and their outputs are compared for both performance and numerical accuracy.
+Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-source astrodynamics library, across 32 tasks spanning 8 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 100 iterations) and their outputs are compared for both performance and numerical accuracy.
 
 !!! tip
 
@@ -16,7 +16,7 @@ Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-s
 
 **Test Environment**: 2021 MacBook Pro, Apple M1 Max, 64 GB RAM
 
-**Protocol**: Each task is run 1000 iterations with a fixed random seed. Mean execution time is reported. Accuracy is measured by comparing outputs element-wise against the Java (OreKit) reference implementation.
+**Protocol**: Each task is run 100 iterations with a fixed random seed. Mean execution time is reported. Accuracy is measured by comparing outputs element-wise against the Java (OreKit) reference implementation.
 
 ### Performance Overview
 
@@ -163,7 +163,7 @@ Five tasks covering Keplerian (two-body analytical), numerical (RK4/RK78 two-bod
   <iframe class="only-dark"  src="../figures/fig_bench_propagation_dark.html"  loading="lazy"></iframe>
 </div>
 
-Propagation is the one area where OreKit outperforms Brahe, particularly for SGP4 trajectory generation. OreKit's SGP4 implementation benefits from decades of optimization and a mature numerical integration framework. The SGP4 trajectory benchmark shows OreKit ~20× faster — this reflects architectural differences in how each library handles batch propagation, not fundamental algorithmic limitations.
+Propagation is one area where OreKit sometimes currently outperforms Brahe, particularly for SGP4 trajectory generation. OreKit's SGP4 implementation benefits from decades of optimization.
 
 **Accuracy**:
 
@@ -174,6 +174,35 @@ Propagation is the one area where OreKit outperforms Brahe, particularly for SGP
 </div>
 
 Keplerian propagation shows nanometer-level agreement. Numerical propagation diverges by ~7 cm due to different integrator implementations and step-size strategies. SGP4 divergence of ~50 m is expected and well-documented across different SGP4 implementations — the original Fortran, OreKit Java, and Brahe Rust implementations all make slightly different numerical choices in the deep-space and near-Earth branch logic.
+
+For the high-fidelity RK4 cases (`RK4 + 5x5 Gravity`, `RK4 + 20x20 + Sun/Moon`, `RK4 + 80x80 + Drag + SRP`), both implementations are fed identical EGM2008 gravity coefficients (brahe's packaged `EGM2008_360.gfc`, loaded on the OreKit side via `ICGEMFormatReader`), DE-440 ephemerides for third-body perturbers, identical spacecraft parameters (1000 kg, 10 m² area, Cd=2.2, Cr=1.3), and matched GCRF↔ITRF rotations (IAU 2006/2000A on both sides). The 5×5 and 20×20+Sun/Moon cases agree to ~13 µm over one LEO revolution, residual that reflects only floating-point summation differences. The 80×80 + drag + SRP case diverges by 3.4 m, dominated by NRLMSISE-00 implementation and SRP eclipse-model differences rather than gravity.
+
+---
+
+### Force Model
+
+Five tasks evaluating a single acceleration term at a fixed spacecraft state and epoch (no integrator, no time stepping). These benchmarks isolate the force-model implementations from the propagator: any disagreement here is attributable to the force-model calculation itself (gravity coefficients, third-body ephemeris, frame transformations), not to numerical integration.
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_perf_force_model.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_bench_force_model_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_bench_force_model_dark.html"  loading="lazy"></iframe>
+</div>
+
+**Accuracy**:
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_accuracy_force_model.csv') }}
+
+</div>
+
+Point-mass gravity agrees to machine epsilon (10⁻¹⁶ m/s²) — both implementations use identical $GM_\\oplus$. Spherical-harmonic gravity agrees to ~10⁻¹² m/s² for both 20×20 and 80×80. Third-body Sun and Moon accelerations agree to ~10⁻¹⁴ m/s², with DE-440 ephemerides used on both sides.
 
 ---
 
@@ -192,7 +221,7 @@ One task: computing all satellite-to-ground-station access windows over a 48-hou
   <iframe class="only-dark"  src="../figures/fig_bench_access_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy**: Access window start/end times differ by a maximum of ~69 seconds between OreKit and Brahe. This is consistent with the ~50 m SGP4 position divergence — at LEO velocities (~7.5 km/s), a 50 m position difference translates to roughly this magnitude of timing difference in pass predictions. Both implementations agree on the total number of access windows.
+**Accuracy**: There are slight variations in access window start/end time. Both implementations agree on the total number of access windows.
 
 ---
 

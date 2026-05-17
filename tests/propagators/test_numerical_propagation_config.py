@@ -4,6 +4,8 @@ Tests for NumericalPropagationConfig and related types Python bindings
 These tests mirror the Rust tests from src/propagators/numerical_propagation_config.rs
 """
 
+import pytest
+
 from brahe import (
     IntegrationMethod,
     IntegratorConfig,
@@ -104,8 +106,8 @@ def test_numericalpropagationconfig_new_with_variational():
 def test_numericalpropagationconfig_default_accelerations():
     """Test NumericalPropagationConfig default acceleration settings"""
     config = NumericalPropagationConfig.default()
-    # store_accelerations defaults to True
-    assert config.store_accelerations is True
+    # store_accelerations defaults to False
+    assert config.store_accelerations is False
     # interpolation_method defaults to Linear (safe for any state dimension)
     assert config.interpolation_method == InterpolationMethod.LINEAR
 
@@ -174,3 +176,45 @@ def test_numericalpropagationconfig_interpolation_method_setter():
     assert config.interpolation_method.degree == 8
     config.interpolation_method = InterpolationMethod.LINEAR
     assert config.interpolation_method == InterpolationMethod.LINEAR
+
+
+# =============================================================================
+# validate() Tests
+# =============================================================================
+
+
+def test_numericalpropagationconfig_validate_default_ok():
+    """Default config is internally consistent."""
+    NumericalPropagationConfig.default().validate()  # no exception
+
+
+def test_numericalpropagationconfig_validate_hermite_quintic_without_accelerations():
+    """HermiteQuintic requires store_accelerations=True."""
+    config = NumericalPropagationConfig.default().with_interpolation_method(
+        InterpolationMethod.HERMITE_QUINTIC
+    )
+    with pytest.raises(
+        Exception,
+        match="HermiteQuintic interpolation requires store_accelerations = true",
+    ) as exc_info:
+        config.validate()
+    # Error should also point users at the fix
+    assert "with_store_accelerations(true)" in str(exc_info.value)
+
+
+def test_numericalpropagationconfig_validate_hermite_quintic_with_accelerations_ok():
+    """HermiteQuintic + store_accelerations=True is valid."""
+    config = (
+        NumericalPropagationConfig.default()
+        .with_interpolation_method(InterpolationMethod.HERMITE_QUINTIC)
+        .with_store_accelerations(True)
+    )
+    config.validate()  # no exception
+
+
+def test_numericalpropagationconfig_validate_hermite_cubic_without_accelerations_ok():
+    """HermiteCubic does not require stored accelerations."""
+    config = NumericalPropagationConfig.default().with_interpolation_method(
+        InterpolationMethod.HERMITE_CUBIC
+    )
+    config.validate()  # no exception

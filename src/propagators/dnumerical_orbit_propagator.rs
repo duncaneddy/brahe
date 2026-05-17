@@ -687,6 +687,9 @@ impl DNumericalOrbitPropagator {
         control_input: DControlInput,
         initial_covariance: Option<DMatrix<f64>>,
     ) -> Result<Self, BraheError> {
+        // Validate propagation config (e.g. HermiteQuintic requires stored accelerations)
+        propagation_config.validate()?;
+
         // Validate parameters against force model requirements
         force_config.validate_params(params.as_ref())?;
 
@@ -4503,6 +4506,40 @@ mod tests {
     // =========================================================================
     // InterpolationConfig Trait Tests
     // =========================================================================
+
+    #[test]
+    fn test_dnumericalorbitpropagator_rejects_hermite_quintic_without_accelerations() {
+        // Propagator construction must surface the config-validation error to the user.
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let config = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::HermiteQuintic);
+        // store_accelerations stays false (the new default)
+
+        let result = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            config,
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        );
+        let err = result.err().expect("expected propagator construction to fail");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("HermiteQuintic interpolation requires store_accelerations = true"),
+            "unexpected error message: {msg}"
+        );
+        assert!(
+            msg.contains("with_store_accelerations(true)"),
+            "error should mention the fix: {msg}"
+        );
+    }
 
     #[test]
     fn test_dnumericalorbitpropagator_interpolationconfig_with_method() {

@@ -41,8 +41,9 @@ pub enum InterpolationMethod {
     HermiteCubic,
 
     /// Quintic Hermite interpolation using position, velocity, and acceleration at 2 points.
-    /// Provides C2 continuity (smooth second derivative). Uses stored accelerations
-    /// if available, otherwise estimates via finite differences.
+    /// Provides C2 continuity (smooth second derivative). Requires the trajectory to
+    /// carry per-sample accelerations — interpolation fails if accelerations are not
+    /// stored.
     HermiteQuintic,
 }
 
@@ -53,7 +54,7 @@ impl InterpolationMethod {
             Self::Linear => 2,
             Self::Lagrange { degree } => degree + 1,
             Self::HermiteCubic => 2,
-            Self::HermiteQuintic => 2, // or 3 for finite difference fallback
+            Self::HermiteQuintic => 2,
         }
     }
 
@@ -728,80 +729,6 @@ pub fn interpolate_hermite_quintic_svector6(
     result
 }
 
-/// Quintic Hermite interpolation with finite difference acceleration estimation.
-///
-/// Uses three neighboring points to estimate accelerations via central differences,
-/// then applies quintic Hermite interpolation.
-///
-/// # Arguments
-/// * `times` - Array of 3 sample times [t0, t1, t2]
-/// * `states` - Array of 3 states at those times
-/// * `t` - Query time for interpolation (must be between times[0] and times[2])
-///
-/// # Returns
-/// Interpolated 6D state at time t
-pub fn interpolate_hermite_quintic_fd_svector6(
-    times: &[f64; 3],
-    states: &[SVector<f64, 6>; 3],
-    t: f64,
-) -> SVector<f64, 6> {
-    // Estimate accelerations via finite differences from velocities
-    // acc[i] ≈ (v[i+1] - v[i-1]) / (t[i+1] - t[i-1])
-    // For endpoints, use forward/backward differences
-
-    let v0 = states[0].fixed_rows::<3>(3);
-    let v1 = states[1].fixed_rows::<3>(3);
-    let v2 = states[2].fixed_rows::<3>(3);
-
-    // Central difference for middle point
-    let acc1: SVector<f64, 3> = (v2 - v0) / (times[2] - times[0]);
-
-    // Forward/backward differences for endpoints
-    let acc0: SVector<f64, 3> = (v1 - v0) / (times[1] - times[0]);
-    let acc2: SVector<f64, 3> = (v2 - v1) / (times[2] - times[1]);
-
-    // Determine which interval to use
-    if t <= times[1] {
-        interpolate_hermite_quintic_svector6(
-            times[0], times[1], states[0], states[1], acc0, acc1, t,
-        )
-    } else {
-        interpolate_hermite_quintic_svector6(
-            times[1], times[2], states[1], states[2], acc1, acc2, t,
-        )
-    }
-}
-
-/// Quintic Hermite interpolation for dynamic vectors using finite difference acceleration.
-///
-/// Uses three states to estimate accelerations via finite differences from velocities.
-/// This allows quintic interpolation without requiring explicitly stored accelerations.
-///
-/// # Arguments
-/// * `times` - Array of three sample times [t0, t1, t2]
-/// * `states` - Array of three 6D states at the sample times
-/// * `t` - Query time for interpolation (should be within [t0, t2])
-///
-/// # Returns
-/// Interpolated 6D state at time t
-///
-/// # Panics
-/// Panics if any state is not 6D
-pub fn interpolate_hermite_quintic_fd_dvector6(
-    times: &[f64; 3],
-    states: &[DVector<f64>; 3],
-    t: f64,
-) -> DVector<f64> {
-    // Convert to static vectors and use existing implementation
-    let s0 = SVector::<f64, 6>::from_iterator(states[0].iter().copied());
-    let s1 = SVector::<f64, 6>::from_iterator(states[1].iter().copied());
-    let s2 = SVector::<f64, 6>::from_iterator(states[2].iter().copied());
-
-    let static_states = [s0, s1, s2];
-    let result = interpolate_hermite_quintic_fd_svector6(times, &static_states, t);
-    DVector::from_iterator(6, result.iter().copied())
-}
-
 /// Quintic Hermite interpolation for dynamic vectors with explicit accelerations.
 ///
 /// # Arguments
@@ -1405,67 +1332,4 @@ mod tests {
         interpolate_hermite_quintic_dvector6(t0, t1, &state0, &state1, &acc0, &acc1, 0.5);
     }
 
-    // =========================================================================
-    // Hermite Quintic with Finite Difference Tests
-    // =========================================================================
-
-    #[test]
-    fn test_hermite_quintic_fd_svector6_constant_velocity() {
-        // With constant velocity, acceleration should be zero and result should be linear
-        let times = [0.0, 1.0, 2.0];
-        let v = SVector::<f64, 3>::new(10.0, 20.0, 30.0);
-        let states = [
-            SVector::<f64, 6>::new(0.0, 0.0, 0.0, v[0], v[1], v[2]),
-            SVector::<f64, 6>::new(v[0], v[1], v[2], v[0], v[1], v[2]),
-            SVector::<f64, 6>::new(2.0 * v[0], 2.0 * v[1], 2.0 * v[2], v[0], v[1], v[2]),
-        ];
-
-        // At t=0.5, position should be 0.5 * v
-        let result = interpolate_hermite_quintic_fd_svector6(&times, &states, 0.5);
-        assert_abs_diff_eq!(result[0], 5.0, epsilon = 1e-6);
-        assert_abs_diff_eq!(result[1], 10.0, epsilon = 1e-6);
-        assert_abs_diff_eq!(result[2], 15.0, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_hermite_quintic_fd_svector6_constant_acceleration() {
-        // Constant acceleration motion
-        let times = [0.0, 1.0, 2.0];
-        // Acceleration in x direction: a = 2.0
-        let states = [
-            // t=0: pos=0, vel=0
-            SVector::<f64, 6>::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-            // t=1: pos=0.5*a*1^2=1, vel=a*1=2
-            SVector::<f64, 6>::new(1.0, 0.0, 0.0, 2.0, 0.0, 0.0),
-            // t=2: pos=0.5*a*2^2=4, vel=a*2=4
-            SVector::<f64, 6>::new(4.0, 0.0, 0.0, 4.0, 0.0, 0.0),
-        ];
-
-        // At t=0.5, pos should be 0.5*a*0.5^2=0.25, vel should be a*0.5=1.0
-        let result = interpolate_hermite_quintic_fd_svector6(&times, &states, 0.5);
-        assert_abs_diff_eq!(result[0], 0.25, epsilon = 1e-4);
-        assert_abs_diff_eq!(result[3], 1.0, epsilon = 1e-4);
-    }
-
-    #[test]
-    fn test_hermite_quintic_fd_svector6_endpoint_values() {
-        let times = [0.0, 1.0, 2.0];
-        let states = [
-            SVector::<f64, 6>::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0),
-            SVector::<f64, 6>::new(7.0, 8.0, 9.0, 10.0, 11.0, 12.0),
-            SVector::<f64, 6>::new(13.0, 14.0, 15.0, 16.0, 17.0, 18.0),
-        ];
-
-        // At first endpoint, should return first state (approximately)
-        let result = interpolate_hermite_quintic_fd_svector6(&times, &states, 0.0);
-        for i in 0..6 {
-            assert_abs_diff_eq!(result[i], states[0][i], epsilon = 1e-6);
-        }
-
-        // At last endpoint, should return last state (approximately)
-        let result = interpolate_hermite_quintic_fd_svector6(&times, &states, 2.0);
-        for i in 0..6 {
-            assert_abs_diff_eq!(result[i], states[2][i], epsilon = 1e-6);
-        }
-    }
 }

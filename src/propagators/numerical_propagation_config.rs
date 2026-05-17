@@ -27,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use crate::integrators::IntegratorConfig;
 use crate::math::interpolation::InterpolationMethod;
 use crate::math::jacobian::DifferenceMethod;
+use crate::utils::BraheError;
 
 // =============================================================================
 // Integrator Method Selection
@@ -307,7 +308,7 @@ pub struct NumericalPropagationConfig {
     /// at each trajectory point. This enables higher-order interpolation
     /// methods like Hermite quintic that use acceleration data.
     ///
-    /// Default: `true`
+    /// Default: `false`
     pub store_accelerations: bool,
 
     /// Interpolation method for trajectory queries
@@ -331,14 +332,14 @@ impl Default for NumericalPropagationConfig {
     /// - Dormand-Prince 5(4) integrator
     /// - Default tolerances (abs=1e-6, rel=1e-3)
     /// - No variational matrix propagation (central differences when enabled)
-    /// - Acceleration storage enabled
+    /// - Acceleration storage disabled
     /// - Linear interpolation (safe for any state dimension)
     fn default() -> Self {
         Self {
             method: IntegratorMethod::default(),
             integrator: IntegratorConfig::default(),
             variational: VariationalConfig::default(),
-            store_accelerations: true,
+            store_accelerations: false,
             interpolation_method: InterpolationMethod::Linear,
         }
     }
@@ -402,8 +403,7 @@ impl NumericalPropagationConfig {
             method,
             integrator,
             variational,
-            store_accelerations: true,
-            interpolation_method: InterpolationMethod::Linear,
+            ..Default::default()
         }
     }
 
@@ -455,6 +455,35 @@ impl NumericalPropagationConfig {
     pub fn with_interpolation_method(mut self, method: InterpolationMethod) -> Self {
         self.interpolation_method = method;
         self
+    }
+
+    /// Validate that the configuration is internally consistent.
+    ///
+    /// Called automatically by `DNumericalPropagator::new` and
+    /// `DNumericalOrbitPropagator::new` before construction. Can also be
+    /// called directly to pre-flight a configuration before propagation.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BraheError::PropagatorError` if:
+    /// - `interpolation_method` is `HermiteQuintic` but `store_accelerations`
+    ///   is `false`. Quintic Hermite interpolation requires the trajectory
+    ///   to carry per-sample accelerations; enable storage with
+    ///   `.with_store_accelerations(true)` or switch to `HermiteCubic`,
+    ///   `Lagrange`, or `Linear` interpolation.
+    pub fn validate(&self) -> Result<(), BraheError> {
+        if matches!(self.interpolation_method, InterpolationMethod::HermiteQuintic)
+            && !self.store_accelerations
+        {
+            return Err(BraheError::PropagatorError(
+                "HermiteQuintic interpolation requires store_accelerations = true, \
+                 but the propagation config has store_accelerations = false. \
+                 Either call .with_store_accelerations(true) on the config, or use \
+                 a different interpolation method (HermiteCubic, Lagrange, or Linear)."
+                    .to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -583,7 +612,7 @@ mod tests {
         assert!(config.variational.enable_stm);
         assert!(!config.variational.enable_sensitivity);
         // New fields should have defaults
-        assert!(config.store_accelerations);
+        assert!(!config.store_accelerations);
         assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
     }
 
@@ -591,8 +620,8 @@ mod tests {
     fn test_numerical_propagation_config_default_accelerations() {
         let config = NumericalPropagationConfig::default();
 
-        // Acceleration storage should be enabled by default
-        assert!(config.store_accelerations);
+        // Acceleration storage should be disabled by default
+        assert!(!config.store_accelerations);
         // Default interpolation is Linear (safe for any state dimension)
         assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
     }
@@ -651,5 +680,43 @@ mod tests {
         assert!(config.store_accelerations);
         // Default interpolation is Linear (safe for any state dimension)
         assert_eq!(config.interpolation_method, InterpolationMethod::Linear);
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_validate_default_ok() {
+        // Default config is valid (Linear interpolation, accelerations off)
+        assert!(NumericalPropagationConfig::default().validate().is_ok());
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_validate_hermite_quintic_without_accelerations() {
+        let config = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::HermiteQuintic);
+        let err = config.validate().unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("HermiteQuintic interpolation requires store_accelerations = true"),
+            "unexpected error message: {msg}"
+        );
+        assert!(
+            msg.contains("with_store_accelerations(true)"),
+            "error should mention the fix: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_validate_hermite_quintic_with_accelerations_ok() {
+        let config = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::HermiteQuintic)
+            .with_store_accelerations(true);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_numerical_propagation_config_validate_hermite_cubic_without_accelerations_ok() {
+        // HermiteCubic does not require accelerations, so it should validate fine.
+        let config = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::HermiteCubic);
+        assert!(config.validate().is_ok());
     }
 }

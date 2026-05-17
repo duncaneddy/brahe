@@ -95,8 +95,7 @@ use crate::frames::{
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_dmatrix,
     interpolate_covariance_two_wasserstein_dmatrix, interpolate_hermite_cubic_dvector6,
-    interpolate_hermite_quintic_dvector6, interpolate_hermite_quintic_fd_dvector6,
-    interpolate_lagrange_dvector,
+    interpolate_hermite_quintic_dvector6, interpolate_lagrange_dvector,
 };
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::time::Epoch;
@@ -1438,11 +1437,9 @@ impl InterpolatableTrajectory for DOrbitTrajectory {
     ///
     /// # Returns
     /// * `Ok(state)` - Interpolated state vector
-    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
-    ///
-    /// # Panics
-    /// - HermiteCubic/HermiteQuintic panic if state dimension is not 6
-    /// - HermiteQuintic panics if no accelerations stored AND fewer than 3 points
+    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range. In
+    ///   particular: HermiteCubic/HermiteQuintic require 6D states, and
+    ///   HermiteQuintic additionally requires that acceleration storage is enabled.
     fn interpolate(&self, epoch: &Epoch) -> Result<DVector<f64>, BraheError> {
         // Bounds checking
         if let Some(start) = self.start_epoch()
@@ -1542,47 +1539,35 @@ impl InterpolatableTrajectory for DOrbitTrajectory {
                     )));
                 }
 
-                // Check if we have stored accelerations
-                if let Some(ref accs) = self.accelerations {
-                    // Use explicit accelerations
-                    let t0 = self.epochs[idx1] - ref_epoch;
-                    let t1 = self.epochs[idx2] - ref_epoch;
-                    let t = *epoch - ref_epoch;
+                // HermiteQuintic requires per-sample accelerations. Enable them via
+                // `enable_acceleration_storage()` on the trajectory, or pass a
+                // `NumericalPropagationConfig` with `store_accelerations = true` to
+                // the propagator that produced this trajectory.
+                let Some(ref accs) = self.accelerations else {
+                    return Err(BraheError::Error(
+                        "HermiteQuintic interpolation requires per-sample accelerations, \
+                         but this trajectory has no acceleration storage. Either call \
+                         `enable_acceleration_storage()` on the trajectory before adding \
+                         states, configure the propagator with \
+                         `NumericalPropagationConfig::with_store_accelerations(true)`, \
+                         or switch to HermiteCubic, Lagrange, or Linear interpolation."
+                            .to_string(),
+                    ));
+                };
 
-                    Ok(interpolate_hermite_quintic_dvector6(
-                        t0,
-                        t1,
-                        &self.states[idx1],
-                        &self.states[idx2],
-                        &accs[idx1],
-                        &accs[idx2],
-                        t,
-                    ))
-                } else if self.len() >= 3 {
-                    // Use finite difference approximation
-                    let (i0, i1, i2) = self.compute_fd_window(idx1, idx2)?;
+                let t0 = self.epochs[idx1] - ref_epoch;
+                let t1 = self.epochs[idx2] - ref_epoch;
+                let t = *epoch - ref_epoch;
 
-                    let times = [
-                        self.epochs[i0] - ref_epoch,
-                        self.epochs[i1] - ref_epoch,
-                        self.epochs[i2] - ref_epoch,
-                    ];
-                    let states = [
-                        self.states[i0].clone(),
-                        self.states[i1].clone(),
-                        self.states[i2].clone(),
-                    ];
-                    let t = *epoch - ref_epoch;
-
-                    Ok(interpolate_hermite_quintic_fd_dvector6(&times, &states, t))
-                } else {
-                    Err(BraheError::Error(format!(
-                        "HermiteQuintic interpolation requires either stored accelerations \
-                         or at least 3 trajectory points. This trajectory has {} points \
-                         and no stored accelerations.",
-                        self.len()
-                    )))
-                }
+                Ok(interpolate_hermite_quintic_dvector6(
+                    t0,
+                    t1,
+                    &self.states[idx1],
+                    &self.states[idx2],
+                    &accs[idx1],
+                    &accs[idx2],
+                    t,
+                ))
             }
         }
     }
@@ -1617,22 +1602,6 @@ impl DOrbitTrajectory {
         Ok((start_idx, end_idx))
     }
 
-    /// Compute the 3-point window for finite difference acceleration estimation.
-    fn compute_fd_window(
-        &self,
-        idx1: usize,
-        idx2: usize,
-    ) -> Result<(usize, usize, usize), BraheError> {
-        if idx1 > 0 {
-            Ok((idx1 - 1, idx1, idx2))
-        } else if idx2 + 1 < self.len() {
-            Ok((idx1, idx2, idx2 + 1))
-        } else {
-            Err(BraheError::Error(
-                "Cannot compute finite difference window with available points".to_string(),
-            ))
-        }
-    }
 }
 
 impl STMStorage for DOrbitTrajectory {
@@ -4623,13 +4592,13 @@ mod tests {
     }
 
     #[test]
-    fn test_dorbittrajectory_interpolate_hermite_quintic_fd_fallback() {
-        // Without accelerations, uses finite difference with 3+ points
+    fn test_dorbittrajectory_interpolate_hermite_quintic_without_accelerations_errors() {
+        // Without enabled acceleration storage, HermiteQuintic must error — even
+        // when many points are available — since the FD fallback has been removed.
         let mut traj =
             DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
                 .with_interpolation_method(InterpolationMethod::HermiteQuintic);
 
-        // Add 3 points for FD fallback
         for i in 0..3 {
             let epoch = Epoch::from_datetime(2024, 1, 1, 12, i * 10, 0.0, 0.0, TimeSystem::UTC);
             let state =
@@ -4638,30 +4607,19 @@ mod tests {
         }
 
         let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
-        let result = traj.interpolate(&mid);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_dorbittrajectory_interpolate_hermite_quintic_error_insufficient() {
-        let mut traj =
-            DOrbitTrajectory::new(6, OrbitFrame::ECI, OrbitRepresentation::Cartesian, None)
-                .with_interpolation_method(InterpolationMethod::HermiteQuintic);
-
-        // Only 2 points and no accelerations
-        let epoch1 = Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
-        let epoch2 = Epoch::from_datetime(2024, 1, 1, 12, 10, 0.0, 0.0, TimeSystem::UTC);
-        let state1 = DVector::from_vec(vec![7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0]);
-        let state2 = DVector::from_vec(vec![7100e3, 0.0, 0.0, 0.0, 7.4e3, 0.0]);
-        traj.add(epoch1, state1);
-        traj.add(epoch2, state2);
-
-        let mid = Epoch::from_datetime(2024, 1, 1, 12, 5, 0.0, 0.0, TimeSystem::UTC);
-        let result = traj.interpolate(&mid);
-        assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
+        let err = traj.interpolate(&mid).unwrap_err();
+        let msg = err.to_string();
         assert!(
-            err_msg.contains("HermiteQuintic interpolation requires either stored accelerations")
+            msg.contains("HermiteQuintic interpolation requires per-sample accelerations"),
+            "unexpected error message: {msg}"
+        );
+        assert!(
+            msg.contains("enable_acceleration_storage"),
+            "error should mention the trajectory-level fix: {msg}"
+        );
+        assert!(
+            msg.contains("with_store_accelerations(true)"),
+            "error should mention the propagator-level fix: {msg}"
         );
     }
 

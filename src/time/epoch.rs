@@ -13,7 +13,7 @@ use regex::Regex;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::constants::{AngleFormat, GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY, UNIX_EPOCH_JD, SECONDS_PER_DAY};
+use crate::constants::{AngleFormat, GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY, UNIX_EPOCH_JD};
 use crate::math::linalg::split_float;
 use crate::time::conversions::time_system_offset;
 use crate::time::time_types::TimeSystem;
@@ -58,8 +58,8 @@ fn align_epoch_data(days: u64, seconds: i64, nanoseconds: f64) -> (u64, u32, f64
     // seconds to [0, 86_400) and days using floored division (handles
     // negative totals correctly).
     let total_seconds = seconds + ns_seconds_carry;
-    let day_carry = total_seconds.div_euclid(SECONDS_PER_DAY);
-    let seconds_normalized = total_seconds.rem_euclid(SECONDS_PER_DAY) as u32;
+    let day_carry = total_seconds.div_euclid(SECONDS_PER_DAY as i64);
+    let seconds_normalized = total_seconds.rem_euclid(SECONDS_PER_DAY as i64) as u32;
     let days_normalized = ((days as i64) + day_carry) as u64;
 
     (days_normalized, seconds_normalized, ns_remainder)

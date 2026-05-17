@@ -292,6 +292,9 @@ impl DNumericalPropagator {
         control_input: DControlInput,
         initial_covariance: Option<DMatrix<f64>>,
     ) -> Result<Self, BraheError> {
+        // Validate propagation config (e.g. HermiteQuintic requires stored accelerations)
+        propagation_config.validate()?;
+
         // Use provided params or create empty vector (only valid if force config doesn't need params)
         let params = params.unwrap_or_else(|| DVector::zeros(0));
 
@@ -2808,9 +2811,11 @@ mod tests {
         assert!(err_msg.contains("HermiteCubic"));
         assert!(err_msg.contains("6D states"));
 
-        // HermiteQuintic should also fail for 2D state
+        // HermiteQuintic should also fail for 2D state. Enable acceleration storage
+        // so the config passes config-level validation and the dimension check fires.
         let config_quintic = NumericalPropagationConfig::default()
-            .with_interpolation_method(InterpolationMethod::HermiteQuintic);
+            .with_interpolation_method(InterpolationMethod::HermiteQuintic)
+            .with_store_accelerations(true);
         let result = DNumericalPropagator::new(
             epoch,
             state,
@@ -2825,6 +2830,33 @@ mod tests {
         let err_msg = err.to_string();
         assert!(err_msg.contains("HermiteQuintic"));
         assert!(err_msg.contains("6D states"));
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_rejects_hermite_quintic_without_accelerations() {
+        // Propagator construction must surface the config-validation error to the user.
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0]);
+
+        let config = NumericalPropagationConfig::default()
+            .with_interpolation_method(InterpolationMethod::HermiteQuintic);
+        // store_accelerations stays false (the new default)
+
+        let result = DNumericalPropagator::new(
+            epoch,
+            state,
+            sho_dynamics(1.0),
+            config,
+            None,
+            None,
+            None,
+        );
+        let err = result.err().expect("expected propagator construction to fail");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("HermiteQuintic interpolation requires store_accelerations = true"),
+            "unexpected error message: {msg}"
+        );
     }
 
     // =============================================================================

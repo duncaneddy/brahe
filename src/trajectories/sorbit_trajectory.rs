@@ -53,8 +53,7 @@ use crate::frames::{
 use crate::math::{
     CovarianceInterpolationConfig, interpolate_covariance_sqrt_smatrix,
     interpolate_covariance_two_wasserstein_smatrix, interpolate_hermite_cubic_svector6,
-    interpolate_hermite_quintic_fd_svector6, interpolate_hermite_quintic_svector6,
-    interpolate_lagrange_svector,
+    interpolate_hermite_quintic_svector6, interpolate_lagrange_svector,
 };
 use crate::propagators::traits::{
     SCovarianceProvider, SOrbitCovarianceProvider, SOrbitStateProvider, SStateProvider,
@@ -1396,11 +1395,9 @@ impl InterpolatableTrajectory for SOrbitTrajectory {
     ///
     /// # Returns
     /// * `Ok(state)` - Interpolated state vector
-    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range
-    ///
-    /// # Panics
-    /// - HermiteCubic/HermiteQuintic panic if states are not 6D (always true for SOrbitTrajectory)
-    /// - HermiteQuintic panics if no accelerations stored AND fewer than 3 points
+    /// * `Err(BraheError)` - If interpolation fails or epoch is out of range. In
+    ///   particular, HermiteQuintic requires that acceleration storage is enabled
+    ///   on the trajectory.
     fn interpolate(&self, epoch: &Epoch) -> Result<SVector<f64, 6>, BraheError> {
         // Bounds checking
         if let Some(start) = self.start_epoch()
@@ -1479,42 +1476,33 @@ impl InterpolatableTrajectory for SOrbitTrajectory {
             }
 
             InterpolationMethod::HermiteQuintic => {
-                // Check if we have stored accelerations
-                if let Some(ref accs) = self.accelerations {
-                    // Use explicit accelerations
-                    let t0 = self.epochs[idx1] - ref_epoch;
-                    let t1 = self.epochs[idx2] - ref_epoch;
-                    let state0 = self.states[idx1];
-                    let state1 = self.states[idx2];
-                    let acc0 = accs[idx1];
-                    let acc1 = accs[idx2];
-                    let t = *epoch - ref_epoch;
+                // HermiteQuintic requires per-sample accelerations. Enable them via
+                // `enable_acceleration_storage()` on the trajectory, or pass a
+                // `NumericalPropagationConfig` with `store_accelerations = true` to
+                // the propagator that produced this trajectory.
+                let Some(ref accs) = self.accelerations else {
+                    return Err(BraheError::Error(
+                        "HermiteQuintic interpolation requires per-sample accelerations, \
+                         but this trajectory has no acceleration storage. Either call \
+                         `enable_acceleration_storage()` on the trajectory before adding \
+                         states, configure the propagator with \
+                         `NumericalPropagationConfig::with_store_accelerations(true)`, \
+                         or switch to HermiteCubic, Lagrange, or Linear interpolation."
+                            .to_string(),
+                    ));
+                };
 
-                    Ok(interpolate_hermite_quintic_svector6(
-                        t0, t1, state0, state1, acc0, acc1, t,
-                    ))
-                } else if self.len() >= 3 {
-                    // Use finite difference approximation
-                    // Need 3 points: find center and surrounding indices
-                    let (i0, i1, i2) = self.compute_fd_window(idx1, idx2)?;
+                let t0 = self.epochs[idx1] - ref_epoch;
+                let t1 = self.epochs[idx2] - ref_epoch;
+                let state0 = self.states[idx1];
+                let state1 = self.states[idx2];
+                let acc0 = accs[idx1];
+                let acc1 = accs[idx2];
+                let t = *epoch - ref_epoch;
 
-                    let times = [
-                        self.epochs[i0] - ref_epoch,
-                        self.epochs[i1] - ref_epoch,
-                        self.epochs[i2] - ref_epoch,
-                    ];
-                    let states = [self.states[i0], self.states[i1], self.states[i2]];
-                    let t = *epoch - ref_epoch;
-
-                    Ok(interpolate_hermite_quintic_fd_svector6(&times, &states, t))
-                } else {
-                    panic!(
-                        "HermiteQuintic interpolation requires either stored accelerations \
-                         or at least 3 trajectory points. This trajectory has {} points \
-                         and no stored accelerations.",
-                        self.len()
-                    );
-                }
+                Ok(interpolate_hermite_quintic_svector6(
+                    t0, t1, state0, state1, acc0, acc1, t,
+                ))
             }
         }
     }
@@ -1556,30 +1544,6 @@ impl SOrbitTrajectory {
         Ok((start_idx, end_idx))
     }
 
-    /// Compute the 3-point window for finite difference acceleration estimation.
-    ///
-    /// Returns indices (i0, i1, i2) where the query point falls between i0-i1 or i1-i2.
-    fn compute_fd_window(
-        &self,
-        idx1: usize,
-        idx2: usize,
-    ) -> Result<(usize, usize, usize), BraheError> {
-        // We need 3 consecutive points. The query is between idx1 and idx2.
-        // Try to use [idx1-1, idx1, idx2] or [idx1, idx2, idx2+1]
-
-        if idx1 > 0 {
-            // Use point before idx1
-            Ok((idx1 - 1, idx1, idx2))
-        } else if idx2 + 1 < self.len() {
-            // Use point after idx2
-            Ok((idx1, idx2, idx2 + 1))
-        } else {
-            // Edge case: only 2 points (shouldn't happen if len >= 3)
-            Err(BraheError::Error(
-                "Cannot compute finite difference window with available points".to_string(),
-            ))
-        }
-    }
 }
 
 // Implementation of CovarianceInterpolationConfig trait
@@ -6204,30 +6168,29 @@ mod tests {
     }
 
     #[test]
-    fn test_orbittrajectory_interpolation_hermite_quintic_finite_difference() {
+    fn test_orbittrajectory_interpolation_hermite_quintic_without_accelerations_errors() {
+        // Without enabled acceleration storage, HermiteQuintic must error — even
+        // when many points are available — since the FD fallback has been removed.
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
-        // No acceleration storage - will use finite differences
         traj.set_interpolation_method(InterpolationMethod::HermiteQuintic);
 
-        // Add 3 points for finite difference approximation
-        // Use parabolic motion in x: x = 7000e3 + 100*t + 0.5*t^2
         for i in 0..3 {
             let dt = (i as f64) * 30.0;
-            let x = 7000e3 + 100.0 * dt + 0.5 * dt * dt;
-            let vx = 100.0 + dt; // velocity = derivative = 100 + t
-            traj.add(t0 + dt, Vector6::new(x, 0.0, 0.0, vx, 7500.0, 0.0));
+            traj.add(t0 + dt, Vector6::new(7000e3, 0.0, 0.0, 100.0, 7500.0, 0.0));
         }
 
-        // Interpolate at t = 45s
-        let t_query = t0 + 45.0;
-        let result = traj.interpolate(&t_query).unwrap();
-
-        // Expected position: 7000e3 + 100*45 + 0.5*45^2 = 7005512.5
-        let expected_x = 7000e3 + 100.0 * 45.0 + 0.5 * 45.0 * 45.0;
-        // Finite difference Hermite quintic should be close to exact value
-        assert_abs_diff_eq!(result[0], expected_x, epsilon = 100.0);
+        let err = traj.interpolate(&(t0 + 45.0)).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("HermiteQuintic interpolation requires per-sample accelerations"),
+            "unexpected error message: {msg}"
+        );
+        assert!(
+            msg.contains("enable_acceleration_storage"),
+            "error should mention the trajectory-level fix: {msg}"
+        );
     }
 
     #[test]
@@ -6374,22 +6337,23 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "HermiteQuintic interpolation requires either stored accelerations or at least 3 trajectory points"
-    )]
-    fn test_orbittrajectory_hermite_quintic_panics_without_accelerations_or_points() {
+    fn test_orbittrajectory_hermite_quintic_errors_with_only_two_points() {
+        // Even with 2 points, HermiteQuintic without acceleration storage must error
+        // (previously this branch panicked; now it returns a structured error).
         let t0 = Epoch::from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let mut traj = SOrbitTrajectory::new(OrbitFrame::ECI, OrbitRepresentation::Cartesian, None);
         traj.set_interpolation_method(InterpolationMethod::HermiteQuintic);
 
-        // Add only 2 points - not enough for finite difference
         traj.add(t0, Vector6::new(7000e3, 0.0, 0.0, 0.0, 7500.0, 0.0));
         traj.add(t0 + 60.0, Vector6::new(7006e3, 0.0, 0.0, 0.0, 7500.0, 0.0));
 
-        // This should panic
-        let t_mid = t0 + 30.0;
-        let _ = traj.interpolate(&t_mid);
+        let err = traj.interpolate(&(t0 + 30.0)).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("HermiteQuintic interpolation requires per-sample accelerations"),
+            "unexpected error message: {err}"
+        );
     }
 
     // ========================

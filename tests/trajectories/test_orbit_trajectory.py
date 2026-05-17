@@ -3580,29 +3580,23 @@ def test_orbittrajectory_hermite_quintic_with_accelerations():
     assert result[0] > 7000e3 and result[0] < 7008e3
 
 
-def test_orbittrajectory_hermite_quintic_finite_difference():
-    """Test HermiteQuintic interpolation with finite difference fallback."""
+def test_orbittrajectory_hermite_quintic_without_accelerations_errors():
+    """HermiteQuintic must error if acceleration storage is not enabled."""
     t0 = Epoch.from_datetime(2023, 1, 1, 12, 0, 0.0, 0.0, brahe.UTC)
 
     traj = OrbitTrajectory(6, OrbitFrame.ECI, OrbitRepresentation.CARTESIAN, None)
-    # No acceleration storage - will use finite differences
+    # Acceleration storage NOT enabled
     traj.set_interpolation_method(InterpolationMethod.HERMITE_QUINTIC)
 
-    # Add 3 points for finite difference approximation
-    # Use parabolic motion in x: x = 7000e3 + 100*t + 0.5*t^2
     for i in range(3):
         dt = i * 30.0
-        x = 7000e3 + 100.0 * dt + 0.5 * dt * dt
-        vx = 100.0 + dt  # velocity = derivative = 100 + t
-        traj.add(t0 + dt, np.array([x, 0.0, 0.0, vx, 7500.0, 0.0]))
+        traj.add(t0 + dt, np.array([7000e3, 0.0, 0.0, 100.0, 7500.0, 0.0]))
 
-    # Interpolate at t = 45s
-    t_query = t0 + 45.0
-    result = traj.interpolate(t_query)
-
-    # Expected position: 7000e3 + 100*45 + 0.5*45^2 = 7005512.5
-    expected_x = 7000e3 + 100.0 * 45.0 + 0.5 * 45.0 * 45.0
-    assert result[0] == pytest.approx(expected_x, abs=100.0)
+    with pytest.raises(
+        Exception,
+        match="HermiteQuintic interpolation requires per-sample accelerations",
+    ):
+        traj.interpolate(t0 + 45.0)
 
 
 def test_orbittrajectory_add_with_acceleration_requires_enabled():

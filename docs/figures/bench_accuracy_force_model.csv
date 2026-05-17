@@ -1,0 +1,11 @@
+Task,Comparison,Max Abs Error,RMS Error
+Point Mass Gravity,Java vs Python,8.88e-16 m/s²,5.73e-16 m/s²
+Point Mass Gravity,Java vs Rust,8.88e-16 m/s²,5.73e-16 m/s²
+Spherical Harmonics 20x20,Java vs Python,2.10e-11 m/s²,1.26e-11 m/s²
+Spherical Harmonics 20x20,Java vs Rust,2.10e-11 m/s²,1.26e-11 m/s²
+Spherical Harmonics 80x80,Java vs Python,2.10e-11 m/s²,1.26e-11 m/s²
+Spherical Harmonics 80x80,Java vs Rust,2.10e-11 m/s²,1.26e-11 m/s²
+Third Body (Moon),Java vs Python,6.83e-14 m/s²,5.09e-14 m/s²
+Third Body (Moon),Java vs Rust,6.83e-14 m/s²,5.09e-14 m/s²
+Third Body (Sun),Java vs Python,2.82e-14 m/s²,1.85e-14 m/s²
+Third Body (Sun),Java vs Rust,2.82e-14 m/s²,1.85e-14 m/s²

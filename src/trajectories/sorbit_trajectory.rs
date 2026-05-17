@@ -1543,7 +1543,6 @@ impl SOrbitTrajectory {
 
         Ok((start_idx, end_idx))
     }
-
 }
 
 // Implementation of CovarianceInterpolationConfig trait

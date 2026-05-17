@@ -4,6 +4,9 @@ Time constants
 
 #![allow(dead_code)]
 
+/// Number of seconds in a day. Units: (s)
+pub const SECONDS_PER_DAY: i64 = 86_400;
+
 /// Offset of Modified Julian Days representation with respect to Julian Days.
 /// For a time, t, MJD_ZERO is equal to:
 ///

@@ -1601,7 +1601,6 @@ impl DOrbitTrajectory {
 
         Ok((start_idx, end_idx))
     }
-
 }
 
 impl STMStorage for DOrbitTrajectory {

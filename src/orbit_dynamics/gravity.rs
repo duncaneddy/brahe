@@ -250,10 +250,7 @@ pub fn accel_point_mass_gravity<P: IntoPosition>(
 /// # References
 ///
 /// - Vallado, *Fundamentals of Astrodynamics and Applications*, 4th ed., pp. 593.
-pub fn accel_earth_zonal_gravity<P: IntoPosition>(
-    r_object: P,
-    n: usize,
-) -> Vector3<f64> {
+pub fn accel_earth_zonal_gravity<P: IntoPosition>(r_object: P, n: usize) -> Vector3<f64> {
     let pos = r_object.position();
 
     let i = pos[0];
@@ -1236,13 +1233,7 @@ pub fn accel_gravity_spherical_harmonics_with_workspace<P: IntoPosition>(
     let r_bf = R_i2b * r;
 
     let a_ecef = gravity_model
-        .compute_spherical_harmonics_with_workspace(
-            r_bf,
-            n_max,
-            m_max,
-            v_workspace,
-            w_workspace,
-        )
+        .compute_spherical_harmonics_with_workspace(r_bf, n_max, m_max, v_workspace, w_workspace)
         .unwrap();
 
     R_i2b.transpose() * a_ecef
@@ -1406,7 +1397,10 @@ mod tests {
         assert_eq!(b.n_max, 70);
         a.set_max_degree_order(30, 30).unwrap();
         assert_eq!(a.n_max, 30);
-        assert_eq!(b.n_max, 70, "mutation on one owned clone must not affect another");
+        assert_eq!(
+            b.n_max, 70,
+            "mutation on one owned clone must not affect another"
+        );
     }
 
     #[test]
@@ -1747,7 +1741,7 @@ mod tests {
 
         let eps_pos = 1e-3;
         let eps_v = 1e-3;
-        
+
         assert_abs_diff_eq!(s[0], z[0], epsilon = eps_pos);
         assert_abs_diff_eq!(s[1], z[1], epsilon = eps_pos);
         assert_abs_diff_eq!(s[2], z[2], epsilon = eps_pos);

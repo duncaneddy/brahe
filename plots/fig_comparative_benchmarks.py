@@ -140,16 +140,27 @@ def _task_label(task_name: str) -> str:
     return label
 
 
+_UNIT_FACTORS = {"ns": 1e9, "\u00b5s": 1e6, "ms": 1e3, "s": 1.0}
+
+
+def _pick_unit(seconds: list[float]) -> str:
+    """Pick a display unit from a set of times (seconds), based on the mean."""
+    nonzero = [t for t in seconds if t > 0]
+    mean = sum(nonzero) / len(nonzero) if nonzero else 0
+    if mean < 1e-6:
+        return "ns"
+    if mean < 1e-3:
+        return "\u00b5s"
+    if mean < 1.0:
+        return "ms"
+    return "s"
+
+
 def _scale_times(seconds: list[float]) -> tuple[list[float], str]:
     """Scale times to appropriate display units."""
-    mean = sum(seconds) / len(seconds) if seconds else 0
-    if mean < 1e-6:
-        return [t * 1e9 for t in seconds], "ns"
-    elif mean < 1e-3:
-        return [t * 1e6 for t in seconds], "\u00b5s"
-    elif mean < 1.0:
-        return [t * 1e3 for t in seconds], "ms"
-    return seconds, "s"
+    unit = _pick_unit(seconds)
+    factor = _UNIT_FACTORS[unit]
+    return [t * factor for t in seconds], unit
 
 
 def _format_time(seconds: float) -> str:
@@ -289,6 +300,18 @@ def make_module_figure(run: BenchmarkRun, module: str):
     task_data = modules[module]
     task_names = sorted(task_data.keys())
 
+    # Pick a single display unit across all languages so the shared Y-axis
+    # isn't lying about Java/Python magnitudes when Rust is fast enough to
+    # land in a smaller unit bucket.
+    all_means = [
+        task_data[t][lang].mean
+        for t in task_names
+        for lang in LANGUAGES
+        if lang in task_data[t]
+    ]
+    unit = _pick_unit(all_means)
+    factor = _UNIT_FACTORS[unit]
+
     def make_fig(theme: str) -> go.Figure:
         lang_colors = _get_language_colors(theme)
         fig = go.Figure()
@@ -304,10 +327,8 @@ def make_module_figure(run: BenchmarkRun, module: str):
                 task_data[t][lang].std if lang in task_data[t] else 0
                 for t in task_names
             ]
-            scaled, unit = _scale_times(means_raw)
-            # Scale the 3-sigma error bars with the same factor as the means
-            scale_factor = scaled[0] / means_raw[0] if means_raw[0] else 1
-            error_upper = [s * scale_factor * 3 for s in stds_raw]
+            scaled = [m * factor for m in means_raw]
+            error_upper = [s * factor * 3 for s in stds_raw]
             # Clamp lower error bars so they don't exceed the bar value
             # (which would go negative/off-screen on a log scale)
             error_lower = [min(e, v * 0.9) for e, v in zip(error_upper, scaled)]

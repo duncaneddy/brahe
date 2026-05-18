@@ -9,6 +9,12 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- towncrier release notes start -->
 
+## [1.5.2] - 2026-05-18
+
+### Fixed
+
+- Fix issue with new release workflow `CHANGELOG` generation that would result in an error causing the release to fail. Release notes now must be manually generated and committed _prior_ to running the release action. [@duncaneddy](https://github.com/duncaneddy) ([#334](https://github.com/duncaneddy/brahe/pull/334))
+
 ## [1.5.1] - 2026-05-18
 
 ### Added

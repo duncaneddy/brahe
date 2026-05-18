@@ -9,6 +9,41 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- towncrier release notes start -->
 
+## [1.5.1] - 2026-05-18
+
+### Added
+
+- `DNumericalOrbitPropagator::builder()` - typestate builder that names required fields and lets optional fields be set by name or omitted. `build()` is only callable once `epoch`, `state`, and `force_config` are all set, enforced via `Set`/`Unset` marker type parameters. [@markusz](https://github.com/markusz) ([#321](https://github.com/duncaneddy/brahe/pull/321))
+- Added `states_ecef` and `states_eme2000` to `SGPPropagator`. [@duncaneddy](https://github.com/duncaneddy) ([#331](https://github.com/duncaneddy/brahe/pull/331))
+- Added `states_eme2000` to `KeplerianPropagator`. [@duncaneddy](https://github.com/duncaneddy) ([#331](https://github.com/duncaneddy/brahe/pull/331))
+- Added `states_eci`, `states_ecef`, `states_gcrf`, `states_itrf`, and `states_eme2000` to `NumericalOrbitPropagator`. [@duncaneddy](https://github.com/duncaneddy) ([#331](https://github.com/duncaneddy/brahe/pull/331))
+- Added `states` to `NumericalPropagator`. [@duncaneddy](https://github.com/duncaneddy) ([#331](https://github.com/duncaneddy/brahe/pull/331))
+- New high-fidelity propagator benchmarks under `benchmarks/comparative/tasks/propagation_tasks.py`: `numerical_rk4_grav5x5`, `numerical_rk4_grav20x20_sun_moon`, `numerical_rk4_grav80x80_full`. Each runs RK4 over one LEO revolution with matched force-model and frame settings on both sides (OreKit loads brahe's `EGM2008_360.gfc` via `ICGEMFormatReader`, GCRF inertial frame, ITRF / IAU 2006/2000A body-fixed rotation, DE-440 third-body ephemerides, identical spacecraft mass / area / Cd / Cr). [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- New function-level acceleration benchmarks under `benchmarks/comparative/tasks/force_model_tasks.py` for point-mass gravity, 20×20 and 80×80 spherical-harmonic gravity, and third-body Sun/Moon. These evaluate a single acceleration at a fixed state and epoch, isolating force-model code from integrator behaviour. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- "Force Model" section in `docs/about/benchmarks.md` documenting the new function-level comparisons. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- `GravityModel::load_uncached(model)` — explicit cold-load primitive for users who need deterministic memory or want to profile the parse path. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- `GravityModel::compute_spherical_harmonics_with_workspace(...)` and `accel_gravity_spherical_harmonics_with_workspace(...)` — variants that accept caller-supplied V/W work matrices, letting hot-path callers (the numerical propagator's dynamics closure, batch orbit-determination residual code) amortize the per-call `DMatrix::zeros((n_max + 2)²)` allocation. At 80×80 the saved allocation+memset is ~15 µs per call. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- `clear_gravity_model_cache()` — manual cache invalidation, useful after replacing a `FromFile(path)` source on disk or in tests. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- `mimalloc` as the global allocator for the `brahe-py` Python extension and the comparative-benchmark Rust binary. The brahe core library remains allocator-agnostic so downstream Rust consumers pick their own. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- Added `SECONDS_PER_DAY` constant. [@duncaneddy](https://github.com/duncaneddy) ([#333](https://github.com/duncaneddy/brahe/pull/333))
+
+### Changed
+
+- `NumericalOrbitPropagator` and `NumericalPropagator` now no longer store accelerations by default to save space and improve performance. [@duncaneddy](https://github.com/duncaneddy) ([#330](https://github.com/duncaneddy/brahe/pull/330))
+- The FD fallback for HermiteQuintic is removed. Previously, calling HermiteQuintic on a trajectory without stored accelerations would silently degrade to finite-difference acceleration estimation if 3+ points were available; now it errors. Combined with the earlier store_accelerations: false default flip, any code path that today uses HermiteQuintic either needs NumericalPropagationConfig::with_store_accelerations(true) (propagator path) or trajectory.enable_acceleration_storage() (direct path). [@duncaneddy](https://github.com/duncaneddy) ([#330](https://github.com/duncaneddy/brahe/pull/330))
+- **Performance, numerical propagator (no behaviour change)**: the `DNumericalOrbitPropagator` hot path now caches the ECI→body-fixed rotation across integrator stages, shares one `Arc<GravityModel>` across propagators with the same gravity config (no more 60 ms `.gfc` reload per construction), borrows the state vector instead of cloning it on every stage call, returns the orbital derivative as a stack-allocated `Vector6<f64>` instead of allocating a fresh `DVector`, and reuses the spherical-harmonic V/W work matrices across stages. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- `GravityModel::from_model_type` is now process-wide cache-backed. Repeated calls for the same `GravityModelType` parse the `.gfc` file once (~60 ms cold), then return owned clones from the cached `Arc` (~1 ms each). The public signature is unchanged. Cache is documented as unbounded — see the `# Caution` block on the function for the growth caveat with many distinct `FromFile(path)` sources, and use `clear_gravity_model_cache()` as the escape hatch. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- `bias_precession_nutation` switched from `iauXys06a` (full IAU 2000A nutation, ~1300 terms) to `iauXys00b` (truncated IAU 2000B, ~77 terms). Per-call cost dropped from ~150 µs to ~2.3 µs; agreement with the full series is sub-milliarcsecond, no regressions in tests. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- Refreshed benchmark plots and docs. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- Changed how adding a flaot second time to an Epoch (`epc + 42.5`) processes the internal addition. Previously, it would loop of remaining nanoseconds and convert them into integer seconds. For large second values, this would result in many loops for a single step, meaning that time addition, a frequent code hot-path, would grow linearly in time. Now it is an O(1) operation. [@duncaneddy](https://github.com/duncaneddy) ([#333](https://github.com/duncaneddy/brahe/pull/333))
+
+### Fixed
+
+- Update urllib3 to mitigate security vulnerability. [@duncaneddy](https://github.com/duncaneddy) ([#326](https://github.com/duncaneddy/brahe/pull/326))
+- Some estimation plots used unicode sigma instead of `$\sigma$`. When latex is installed and defaults to pdfLaTeX compiler, this causes an error. Switch to `$\sigma$` everywhere. [@duncaneddy](https://github.com/duncaneddy) ([#331](https://github.com/duncaneddy/brahe/pull/331))
+- **`DNumericalOrbitPropagator::propagate_to` may hang with fixed-step RK4.** At `src/propagators/dnumerical_orbit_propagator.rs:2312` the restore-`dt_next` guard used `>` instead of `>=`. With `target_epoch = epc + N * step_size` constructed by repeated arithmetic, float drift could leave `target_rel` slightly larger than the integer multiple; Fixed by changing the comparison to `>=` so the restore fires whenever the integrator returned its preferred step. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+- Workspace mismatch in `benchmarks/comparative/implementations/rust/Cargo.toml`: the crate predated the brahe repo-root workspace and would fail with *"current package believes it's in a workspace when it's not"*. Added an empty `[workspace]` table so cargo treats the bench as its own workspace root. [@duncaneddy](https://github.com/duncaneddy) ([#332](https://github.com/duncaneddy/brahe/pull/332))
+
 ## [1.5.0] - 2026-05-06
 
 ### Added

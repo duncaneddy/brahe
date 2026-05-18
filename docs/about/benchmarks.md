@@ -28,7 +28,7 @@ The table below summarizes average speedup relative to Java (OreKit) for each mo
 
 </div>
 
-Brahe's Python bindings are 2–44× faster than OreKit across most modules, and Rust native is 3–225× faster for pure computational tasks. Propagation benchmarks are the exception — OreKit's mature SGP4 and numerical integrator implementations are highly optimized for trajectory generation workloads.
+Per-module average Python speedups (relative to OreKit) range from 1.3× to 46×; Rust ranges from 4.7× to 341×. Force-model and access tasks are closest to parity; time and attitude show the largest separation.
 
 <div class="plotly-embed x-tall">
   <iframe class="only-light" src="../figures/fig_bench_speedup_light.html" loading="lazy"></iframe>
@@ -117,9 +117,15 @@ Two tasks covering full 6-DOF state vector transformations between ECEF and ECI 
   <iframe class="only-dark"  src="../figures/fig_bench_frames_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy**: The raw comparison data shows large apparent errors ($\sim 2 \times 10^5$ m) between OreKit and Brahe frame transformations. This is a **known comparison methodology issue** — the benchmark compares full 6-element state vectors `[x, y, z, vx, vy, vz]` element-wise, where position components (meters) and velocity components (m/s) have vastly different magnitudes. The large max absolute error reflects a small fractional difference in position that appears large in absolute terms due to the ~7000 km orbital radius.
+**Accuracy**:
 
-Both implementations use the IAU 2006/2000A model but differ in EOP interpolation and nutation series truncation. Investigation of position-only and velocity-only errors separately is planned to quantify the true agreement.
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_accuracy_frames.csv') }}
+
+</div>
+
+Both implementations use the IAU 2006/2000A model. Residuals are on the order of tens of centimeters, reflecting EOP interpolation and nutation series truncation differences.
 
 ---
 
@@ -163,7 +169,7 @@ Five tasks covering Keplerian (two-body analytical), numerical (RK4/RK78 two-bod
   <iframe class="only-dark"  src="../figures/fig_bench_propagation_dark.html"  loading="lazy"></iframe>
 </div>
 
-Propagation is one area where OreKit sometimes currently outperforms Brahe, particularly for SGP4 trajectory generation. OreKit's SGP4 implementation benefits from decades of optimization.
+Propagation task speedups (relative to OreKit) range from roughly parity (RK4 + 20×20 + Sun/Moon) to ~32× (SGP4 trajectory generation, Rust). Keplerian and SGP4 trajectory generation are in the 4–32× range; the RK4 + 5×5 case is ~3.6×, and RK4 + 80×80 + drag + SRP is ~1.4×.
 
 **Accuracy**:
 
@@ -173,9 +179,9 @@ Propagation is one area where OreKit sometimes currently outperforms Brahe, part
 
 </div>
 
-Keplerian propagation shows nanometer-level agreement. Numerical propagation diverges by ~7 cm due to different integrator implementations and step-size strategies. SGP4 divergence of ~50 m is expected and well-documented across different SGP4 implementations — the original Fortran, OreKit Java, and Brahe Rust implementations all make slightly different numerical choices in the deep-space and near-Earth branch logic.
+Keplerian propagation agrees at the nanometer level. Numerical propagation diverges at the centimeter level, reflecting different integrator implementations and step-size strategies. SGP4 divergence is on the order of tens of meters; the original Fortran, OreKit Java, and Brahe Rust SGP4 implementations make slightly different numerical choices in the deep-space and near-Earth branch logic.
 
-For the high-fidelity RK4 cases (`RK4 + 5x5 Gravity`, `RK4 + 20x20 + Sun/Moon`, `RK4 + 80x80 + Drag + SRP`), both implementations are fed identical EGM2008 gravity coefficients (brahe's packaged `EGM2008_360.gfc`, loaded on the OreKit side via `ICGEMFormatReader`), DE-440 ephemerides for third-body perturbers, identical spacecraft parameters (1000 kg, 10 m² area, Cd=2.2, Cr=1.3), and matched GCRF↔ITRF rotations (IAU 2006/2000A on both sides). The 5×5 and 20×20+Sun/Moon cases agree to ~13 µm over one LEO revolution, residual that reflects only floating-point summation differences. The 80×80 + drag + SRP case diverges by 3.4 m, dominated by NRLMSISE-00 implementation and SRP eclipse-model differences rather than gravity.
+For the high-fidelity RK4 cases (`RK4 + 5x5 Gravity`, `RK4 + 20x20 + Sun/Moon`, `RK4 + 80x80 + Drag + SRP`), both implementations are fed identical EGM2008 gravity coefficients (brahe's packaged `EGM2008_360.gfc`, loaded on the OreKit side via `ICGEMFormatReader`), DE-440 ephemerides for third-body perturbers, identical spacecraft parameters (1000 kg, 10 m² area, Cd=2.2, Cr=1.3), and matched GCRF↔ITRF rotations (IAU 2006/2000A on both sides). The 5×5 and 20×20+Sun/Moon cases agree at the µm level over one LEO revolution — small enough that the residual reflects only floating-point summation differences. The 80×80 + drag + SRP case diverges at the meter level, dominated by NRLMSISE-00 implementation and SRP eclipse-model differences rather than gravity.
 
 ---
 

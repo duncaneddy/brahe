@@ -4529,7 +4529,9 @@ mod tests {
             None,
             None,
         );
-        let err = result.err().expect("expected propagator construction to fail");
+        let err = result
+            .err()
+            .expect("expected propagator construction to fail");
         let msg = err.to_string();
         assert!(
             msg.contains("HermiteQuintic interpolation requires store_accelerations = true"),
@@ -9177,7 +9179,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)), // 1000 kg satellite
             frame_transform: FrameTransformationModel::default(),
-            gravity: GravityConfiguration::PointMass,   // Use point mass to avoid data dependency
+            gravity: GravityConfiguration::PointMass, // Use point mass to avoid data dependency
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(5.0),
@@ -11673,7 +11675,12 @@ mod tests {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         // 6D orbital state + 1 mass state
         let state = DVector::from_vec(vec![
-            R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0,
+            R_EARTH + 500e3,
+            0.0,
+            0.0,
+            0.0,
+            7500.0,
+            0.0,
             1000.0, // mass [kg]
         ]);
 
@@ -11683,20 +11690,21 @@ mod tests {
             dx
         });
 
-        let control: Box<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync> =
-            Box::new(|_t, state, _params| {
-                // Small tangential thrust
-                let v = Vector3::new(state[3], state[4], state[5]);
-                let v_mag = v.norm();
-                let mut dx = DVector::zeros(state.len());
-                if v_mag > 1e-6 {
-                    let a = v * (0.0001 / v_mag);
-                    dx[3] = a[0];
-                    dx[4] = a[1];
-                    dx[5] = a[2];
-                }
-                dx
-            });
+        let control: Box<
+            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
+        > = Box::new(|_t, state, _params| {
+            // Small tangential thrust
+            let v = Vector3::new(state[3], state[4], state[5]);
+            let v_mag = v.norm();
+            let mut dx = DVector::zeros(state.len());
+            if v_mag > 1e-6 {
+                let a = v * (0.0001 / v_mag);
+                dx[3] = a[0];
+                dx[4] = a[1];
+                dx[5] = a[2];
+            }
+            dx
+        });
 
         let prop = DNumericalOrbitPropagator::builder()
             .epoch(epoch)

@@ -1331,5 +1331,4 @@ mod tests {
         let acc1 = DVector::<f64>::from_vec(vec![0.0, 0.0, 0.0]);
         interpolate_hermite_quintic_dvector6(t0, t1, &state0, &state1, &acc0, &acc1, 0.5);
     }
-
 }

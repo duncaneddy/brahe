@@ -472,8 +472,10 @@ impl NumericalPropagationConfig {
     ///   `.with_store_accelerations(true)` or switch to `HermiteCubic`,
     ///   `Lagrange`, or `Linear` interpolation.
     pub fn validate(&self) -> Result<(), BraheError> {
-        if matches!(self.interpolation_method, InterpolationMethod::HermiteQuintic)
-            && !self.store_accelerations
+        if matches!(
+            self.interpolation_method,
+            InterpolationMethod::HermiteQuintic
+        ) && !self.store_accelerations
         {
             return Err(BraheError::PropagatorError(
                 "HermiteQuintic interpolation requires store_accelerations = true, \

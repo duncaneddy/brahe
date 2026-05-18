@@ -36,34 +36,33 @@ const VALID_EPOCH_REGEX: [&str; 5] = [
 /// - days [0, ∞)
 /// - seconds [0, 86400)
 /// - nanoseconds [0, 1_000_000_000_000)
-fn align_epoch_data(days: u64, seconds: u32, nanoseconds: f64) -> (u64, u32, f64) {
-    let mut d = days;
-    let mut s = seconds;
-    let mut ns = nanoseconds;
+fn align_epoch_data(days: u64, seconds: i64, nanoseconds: f64) -> (u64, u32, f64) {
+    const NS_PER_SEC: f64 = NANOSECONDS_PER_SECOND_FLOAT;
 
-    const SECONDS_IN_DAY_INT: u32 = 86400;
+    // Pull the integer-second carry out of `nanoseconds` in O(1).
+    let ns_seconds_carry_f = (nanoseconds / NS_PER_SEC).floor();
+    let mut ns_remainder = nanoseconds - ns_seconds_carry_f * NS_PER_SEC;
+    let mut ns_seconds_carry = ns_seconds_carry_f as i64;
 
-    while ns < 0.0 {
-        if s == 0 {
-            d -= 1;
-            s += SECONDS_IN_DAY_INT;
-        }
-
-        s -= 1;
-        ns += NANOSECONDS_PER_SECOND_FLOAT;
+    // Snap the remainder back into [0, NS_PER_SEC) in case the subtraction
+    // above lost a ULP at the boundary.
+    if ns_remainder >= NS_PER_SEC {
+        ns_remainder -= NS_PER_SEC;
+        ns_seconds_carry += 1;
+    } else if ns_remainder < 0.0 {
+        ns_remainder += NS_PER_SEC;
+        ns_seconds_carry -= 1;
     }
 
-    while ns >= NANOSECONDS_PER_SECOND_FLOAT {
-        ns -= NANOSECONDS_PER_SECOND_FLOAT;
-        s += 1;
-    }
+    // Carry the integer seconds into the seconds field, then normalize
+    // seconds to [0, 86_400) and days using floored division (handles
+    // negative totals correctly).
+    let total_seconds = seconds + ns_seconds_carry;
+    let day_carry = total_seconds.div_euclid(SECONDS_PER_DAY as i64);
+    let seconds_normalized = total_seconds.rem_euclid(SECONDS_PER_DAY as i64) as u32;
+    let days_normalized = ((days as i64) + day_carry) as u64;
 
-    while s >= SECONDS_IN_DAY_INT {
-        s -= SECONDS_IN_DAY_INT;
-        d += 1;
-    }
-
-    (d, s, ns)
+    (days_normalized, seconds_normalized, ns_remainder)
 }
 
 /// `Epoch` representing a specific instant in time.
@@ -341,7 +340,7 @@ impl Epoch {
         let nanoseconds =
             nanoseconds + (fs + foffset + f64::fract(second)) * NANOSECONDS_PER_SECOND_FLOAT;
 
-        let (d, s, ns) = align_epoch_data(days, seconds, nanoseconds);
+        let (d, s, ns) = align_epoch_data(days, seconds as i64, nanoseconds);
 
         Epoch {
             time_system,
@@ -1598,13 +1597,27 @@ impl Epoch {
 
 impl ops::AddAssign<f64> for Epoch {
     fn add_assign(&mut self, f: f64) {
-        // Kahan summation algorithm to compensate for floating-point arithmetic errors
-        let y = f * NANOSECONDS_PER_SECOND_FLOAT + self.nanoseconds_kc;
+        // Split `f` into integer-second and sub-second parts before
+        // scaling by 1e9. Otherwise `f * 1e9` for a day-sized offset
+        // (~8.64e13 ns) lands entirely in the nanoseconds field, and
+        // align_epoch_data has to carry that overflow back out.
+        //
+        // Splitting up front also keeps the Kahan-summed value 
+        // bounded by ~1e9, which improves the  compensator's 
+        // resolution for the sub-second fraction.
+        let f_seconds = f.trunc();
+        let f_subsec = f - f_seconds;
+
+        // Kahan-compensated addition of just the sub-second part.
+        let y = f_subsec * NANOSECONDS_PER_SECOND_FLOAT + self.nanoseconds_kc;
         let t = self.nanoseconds + y;
         let nanoseconds_kc = y - (t - self.nanoseconds);
         let nanoseconds = t;
 
-        let (days, seconds, nanoseconds) = align_epoch_data(self.days, self.seconds, nanoseconds);
+        // Fold the integer-second part into the seconds field; align
+        // then normalizes everything in O(1).
+        let seconds_signed = self.seconds as i64 + f_seconds as i64;
+        let (days, seconds, nanoseconds) = align_epoch_data(self.days, seconds_signed, nanoseconds);
 
         *self = Self {
             time_system: self.time_system,
@@ -1734,13 +1747,19 @@ impl ops::Add<f64> for Epoch {
     type Output = Epoch;
 
     fn add(self, f: f64) -> Epoch {
-        // Kahan summation algorithm to compensate for floating-point arithmetic errors
-        let y = f * NANOSECONDS_PER_SECOND_FLOAT + self.nanoseconds_kc;
+        // See `AddAssign<f64>` for the rationale behind the split: it
+        // keeps Kahan summation bounded and lets `align_epoch_data`
+        // normalize in O(1) regardless of |f|.
+        let f_seconds = f.trunc();
+        let f_subsec = f - f_seconds;
+
+        let y = f_subsec * NANOSECONDS_PER_SECOND_FLOAT + self.nanoseconds_kc;
         let t = self.nanoseconds + y;
         let nanoseconds_kc = y - (t - self.nanoseconds);
         let nanoseconds = t;
 
-        let (days, seconds, nanoseconds) = align_epoch_data(self.days, self.seconds, nanoseconds);
+        let seconds_signed = self.seconds as i64 + f_seconds as i64;
+        let (days, seconds, nanoseconds) = align_epoch_data(self.days, seconds_signed, nanoseconds);
 
         Epoch {
             time_system: self.time_system,
@@ -2903,6 +2922,68 @@ mod tests {
         assert_eq!(second, 59.0);
         assert_eq!(nanosecond, 0.0);
         assert_eq!(epc.time_system, TimeSystem::TAI);
+    }
+
+    #[test]
+    fn test_ops_add_large_offsets_equivalent_to_chained_small_adds() {
+        // Regression: `Epoch + dt` for day-sized `dt` used to be O(|dt|) because
+        // align_epoch_data unwound the nanoseconds field one second at a time.
+        // The current implementation is O(1); this test pins that a single
+        // large add lands at the same instant as many small adds.
+        setup_global_test_eop();
+        let base = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
+
+        // Cumulative add (60s × 1440 = one day).
+        let mut cumulative = base;
+        for _ in 0..1440 {
+            cumulative += 60.0;
+        }
+
+        // Single large add.
+        let one_shot: Epoch = base + 86_400.0;
+
+        // Both must land exactly on the next day boundary.
+        assert_eq!(one_shot - base, 86_400.0);
+        assert_eq!(cumulative - base, 86_400.0);
+        assert_eq!(one_shot - cumulative, 0.0);
+
+        let (y, m, d, h, mi, s, ns) = one_shot.to_datetime();
+        assert_eq!((y, m, d, h, mi), (2024, 1, 2, 0, 0));
+        assert_eq!(s, 0.0);
+        assert_eq!(ns, 0.0);
+    }
+
+    #[test]
+    fn test_ops_add_negative_day_offset_normalizes_correctly() {
+        // Subtracting a day from a midnight epoch must land on the prior
+        // day at midnight, exactly. Pins the signed-carry path in
+        // align_epoch_data (negative seconds via div_euclid/rem_euclid)
+        // using a base whose constructor doesn't introduce sub-second drift.
+        setup_global_test_eop();
+        let epc = Epoch::from_date(2024, 3, 15, TimeSystem::TAI);
+
+        let epc_back: Epoch = epc - 86_400.0;
+        assert_eq!(epc - epc_back, 86_400.0);
+
+        let (y, m, d, h, mi, s, ns) = epc_back.to_datetime();
+        assert_eq!((y, m, d, h, mi), (2024, 3, 14, 0, 0));
+        assert_eq!(s, 0.0);
+        assert_eq!(ns, 0.0);
+    }
+
+    #[test]
+    fn test_ops_add_fractional_day_offset_preserves_subsecond() {
+        // Day + half-second + sub-nanosecond. Verifies the split between
+        // integer-seconds (folded into the seconds field) and sub-second
+        // parts (kept in the Kahan-summed nanoseconds field).
+        setup_global_test_eop();
+        let base = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
+        let epc: Epoch = base + 86_400.5 + 1.23456789e-9;
+
+        let (y, m, d, h, mi, s, ns) = epc.to_datetime();
+        assert_eq!((y, m, d, h, mi), (2024, 1, 2, 0, 0));
+        assert_eq!(s, 0.0);
+        assert_eq!(ns, 500_000_001.23456789);
     }
 
     #[test]

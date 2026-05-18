@@ -2842,16 +2842,11 @@ mod tests {
             .with_interpolation_method(InterpolationMethod::HermiteQuintic);
         // store_accelerations stays false (the new default)
 
-        let result = DNumericalPropagator::new(
-            epoch,
-            state,
-            sho_dynamics(1.0),
-            config,
-            None,
-            None,
-            None,
-        );
-        let err = result.err().expect("expected propagator construction to fail");
+        let result =
+            DNumericalPropagator::new(epoch, state, sho_dynamics(1.0), config, None, None, None);
+        let err = result
+            .err()
+            .expect("expected propagator construction to fail");
         let msg = err.to_string();
         assert!(
             msg.contains("HermiteQuintic interpolation requires store_accelerations = true"),

@@ -31,6 +31,16 @@ jobs:
           fi
           echo "Cargo.toml version matches: $CARGO_VERSION"
 
+      - name: Validate CHANGELOG entry for this version
+        run: |
+          VERSION="${{ steps.extract.outputs.version }}"
+          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "ERROR: CHANGELOG.md has no '## [${VERSION}]' entry."
+            echo "Run 'just generate-changelog' locally before tagging, then commit and re-tag."
+            exit 1
+          fi
+          echo "CHANGELOG.md contains entry for v${VERSION}"
+
       - name: Validate pyproject.toml version
         run: |
           # pyproject.toml version is dynamic, synced to Cargo.toml, so just verify Cargo.toml is correct
@@ -51,62 +61,27 @@ jobs:
     needs: [validate-version]
     secrets: inherit
 
-  # Generate release notes from PRs merged since the previous release tag, update
-  # CHANGELOG.md if needed, and publish artifacts consumed by downstream jobs.
-  generate-release-notes:
+  # Extract this release's notes from the CHANGELOG.md committed in the tag.
+  # The maintainer runs `just generate-changelog` locally before tagging, so the
+  # CHANGELOG entry is already part of the tagged commit. This job only reads
+  # the file — it does not mutate or push anything, keeping the working tree
+  # clean for downstream publish steps.
+  prepare-release-notes:
     runs-on: ubuntu-latest
     needs: [validate-version, test-rust, test-python, test-examples]
-    permissions:
-      contents: write
     steps:
       - name: Checkout code
-        # WORKFLOW_TOKEN so the subsequent push to main is allowed by branch
-        # protection. The default GITHUB_TOKEN cannot bypass required reviews.
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.WORKFLOW_TOKEN }}
 
-      - name: Determine previous release tag
-        id: prev-tag
+      - name: Extract release notes from CHANGELOG
         run: |
           VERSION=${{ needs.validate-version.outputs.version }}
-          PREV=$(git describe --tags --abbrev=0 "v${VERSION}^" 2>/dev/null || true)
-          if [ -z "$PREV" ]; then
-            echo "ERROR: Could not determine previous release tag preceding v${VERSION}"
-            exit 1
-          fi
-          echo "Previous release tag: $PREV"
-          echo "prev_tag=$PREV" >> "$GITHUB_OUTPUT"
-
-      - name: Generate release notes and update CHANGELOG
-        env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
-        run: |
-          VERSION=${{ needs.validate-version.outputs.version }}
-          python3 scripts/generate_release_notes.py \
+          python3 scripts/extract_release_notes.py \
             --version "$VERSION" \
-            --prev-tag "${{ steps.prev-tag.outputs.prev_tag }}" \
-            --release-notes release_notes.md \
-            --changelog CHANGELOG.md
+            --changelog CHANGELOG.md \
+            --output release_notes.md
           echo "----- release_notes.md -----"
           cat release_notes.md
-
-      - name: Commit CHANGELOG update to main
-        run: |
-          VERSION=${{ needs.validate-version.outputs.version }}
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- CHANGELOG.md; then
-            echo "CHANGELOG.md already up to date for v${VERSION}; nothing to commit."
-            exit 0
-          fi
-          git add CHANGELOG.md
-          git commit -m "Update CHANGELOG for v${VERSION}"
-          # The tag points at the previous tip; push the CHANGELOG commit to main
-          # so the live history stays in sync. The released artifacts use the
-          # in-job CHANGELOG.md content via the uploaded artifact below.
-          git push origin HEAD:main
 
       - name: Upload release notes artifact
         uses: actions/upload-artifact@v7
@@ -114,15 +89,9 @@ jobs:
           name: release-notes
           path: release_notes.md
 
-      - name: Upload CHANGELOG artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: changelog
-          path: CHANGELOG.md
-
   # Generate type stubs once (platform-independent) for inclusion in all packages
   generate-stubs:
-    needs: [generate-release-notes]
+    needs: [prepare-release-notes]
     runs-on: ubuntu-latest
     env:
       RUST_TOOLCHAIN: stable
@@ -167,7 +136,7 @@ jobs:
         path: brahe/_brahe.pyi
 
   python-build-source:
-    needs: [generate-release-notes, generate-stubs]
+    needs: [prepare-release-notes, generate-stubs]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -178,11 +147,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
-
-    - name: Download CHANGELOG
-      uses: actions/download-artifact@v8
-      with:
-        name: changelog
 
     - name: Download type stubs
       uses: actions/download-artifact@v8
@@ -227,7 +191,7 @@ jobs:
         name: brahe-${{ github.ref_name }}-${{ runner.os }}-source
 
   python-build-wheels:
-    needs: [generate-release-notes, generate-stubs]
+    needs: [prepare-release-notes, generate-stubs]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -307,10 +271,6 @@ jobs:
       RUST_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v6
-      - name: Download CHANGELOG
-        uses: actions/download-artifact@v8
-        with:
-          name: changelog
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
         with:
@@ -324,7 +284,7 @@ jobs:
 
   update-docs:
     uses: ./.github/workflows/update_docs.yml
-    needs: [generate-release-notes, release-python, release-rust]
+    needs: [prepare-release-notes, release-python, release-rust]
     with:
       version: ${{ github.ref_name }}
 
@@ -353,13 +313,13 @@ jobs:
         with:
           name: release-notes
 
-      - name: Create draft GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           body_path: release_notes.md
-          draft: true
+          draft: false
           prerelease: false
           files: release-artifacts/*
 

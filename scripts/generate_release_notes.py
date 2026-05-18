@@ -178,7 +178,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prev-tag", required=True, help="Previous release tag, e.g. v1.4.2")
     parser.add_argument("--repo", default="duncaneddy/brahe")
     parser.add_argument("--changelog", default="CHANGELOG.md")
-    parser.add_argument("--release-notes", default="release_notes.md")
+    parser.add_argument("--release-notes", default=None,
+                        help="Optional path to also write the release section to "
+                             "(e.g. release_notes.md). Omit to only update the CHANGELOG.")
     parser.add_argument("--date", default=date.today().isoformat(),
                         help="Release date in ISO format (default: today, UTC)")
     parser.add_argument("--dry-run", action="store_true",
@@ -200,9 +202,10 @@ def main() -> int:
         print(section, end="")
         return 0
 
-    Path(args.release_notes).write_text(section)
+    if args.release_notes:
+        Path(args.release_notes).write_text(section)
+        print(f"Wrote {args.release_notes} ({len(section.splitlines())} lines)")
     inserted = update_changelog(Path(args.changelog), section)
-    print(f"Wrote {args.release_notes} ({len(section.splitlines())} lines)")
     if inserted:
         print(f"Inserted v{args.version} block into {args.changelog}")
     else:

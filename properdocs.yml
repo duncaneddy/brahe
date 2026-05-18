@@ -319,161 +319,163 @@ nav:
       - examples/geo_hohmann_transfer.md
       - examples/low_thrust_orbit_raising.md
   - Python API Reference:
-      - library_api/index.md
+      - library_api/python/index.md
       - Constants:
-          - library_api/constants/index.md
-          - Units: library_api/constants/units.md
-          - Mathematical: library_api/constants/math.md
-          - Time: library_api/constants/time.md
-          - Physical: library_api/constants/physical.md
+          - library_api/python/constants/index.md
+          - Units: library_api/python/constants/units.md
+          - Mathematical: library_api/python/constants/math.md
+          - Time: library_api/python/constants/time.md
+          - Physical: library_api/python/constants/physical.md
       - EOP:
-          - library_api/eop/index.md
-          - CachingEOPProvider: library_api/eop/caching_provider.md
-          - FileEOPProvider: library_api/eop/file_provider.md
-          - StaticEOPProvider: library_api/eop/static_provider.md
-          - Functions: library_api/eop/functions.md
+          - library_api/python/eop/index.md
+          - CachingEOPProvider: library_api/python/eop/caching_provider.md
+          - FileEOPProvider: library_api/python/eop/file_provider.md
+          - StaticEOPProvider: library_api/python/eop/static_provider.md
+          - Functions: library_api/python/eop/functions.md
       - Time:
-          - library_api/time/index.md
-          - Epoch: library_api/time/epoch.md
-          - Conversions: library_api/time/conversions.md
-          - TimeRange: library_api/time/time_range.md
+          - library_api/python/time/index.md
+          - Epoch: library_api/python/time/epoch.md
+          - Conversions: library_api/python/time/conversions.md
+          - TimeRange: library_api/python/time/time_range.md
       - Coordinates:
-          - library_api/coordinates/index.md
-          - Cartesian: library_api/coordinates/cartesian.md
-          - Geodetic & Geocentric: library_api/coordinates/geodetic.md
-          - Topocentric: library_api/coordinates/topocentric.md
-          - Enumerations: library_api/coordinates/enums.md
+          - library_api/python/coordinates/index.md
+          - Cartesian: library_api/python/coordinates/cartesian.md
+          - Geodetic & Geocentric: library_api/python/coordinates/geodetic.md
+          - Topocentric: library_api/python/coordinates/topocentric.md
+          - Enumerations: library_api/python/coordinates/enums.md
       - Frames:
-          - library_api/frames/index.md
-          - ECI ↔ ECEF: library_api/frames/eci_ecef.md
-          - GCRF ↔ ITRF: library_api/frames/gcrf_itrf.md
-          - EME2000 ↔ GCRF: library_api/frames/eme2000_gcrf.md
+          - library_api/python/frames/index.md
+          - ECI ↔ ECEF: library_api/python/frames/eci_ecef.md
+          - GCRF ↔ ITRF: library_api/python/frames/gcrf_itrf.md
+          - EME2000 ↔ GCRF: library_api/python/frames/eme2000_gcrf.md
       - Orbits:
-          - library_api/orbits/index.md
-          - Keplerian Elements: library_api/orbits/keplerian.md
-          - Mean Elements: library_api/orbits/mean_elements.md
-          - Two-Line Elements: library_api/orbits/tle.md
-          - Walker Constellations: library_api/orbits/walker.md
-          - Altitude Functions: library_api/orbits/altitude_functions.md
-          - Enumerations: library_api/orbits/enums.md
+          - library_api/python/orbits/index.md
+          - Keplerian Elements: library_api/python/orbits/keplerian.md
+          - Mean Elements: library_api/python/orbits/mean_elements.md
+          - Two-Line Elements: library_api/python/orbits/tle.md
+          - Walker Constellations: library_api/python/orbits/walker.md
+          - Altitude Functions: library_api/python/orbits/altitude_functions.md
+          - Enumerations: library_api/python/orbits/enums.md
       - Attitude:
-          - library_api/attitude/index.md
-          - Quaternion: library_api/attitude/quaternion.md
-          - Rotation Matrix: library_api/attitude/rotation_matrix.md
-          - Euler Angles: library_api/attitude/euler_angles.md
-          - Euler Axis: library_api/attitude/euler_axis.md
-          - EulerAngleOrder: library_api/attitude/euler_angle_order.md
+          - library_api/python/attitude/index.md
+          - Quaternion: library_api/python/attitude/quaternion.md
+          - Rotation Matrix: library_api/python/attitude/rotation_matrix.md
+          - Euler Angles: library_api/python/attitude/euler_angles.md
+          - Euler Axis: library_api/python/attitude/euler_axis.md
+          - EulerAngleOrder: library_api/python/attitude/euler_angle_order.md
       - Trajectories:
-          - library_api/trajectories/index.md
-          - Trajectory: library_api/trajectories/trajectory.md
-          - OrbitTrajectory: library_api/trajectories/orbit_trajectory.md
+          - library_api/python/trajectories/index.md
+          - Trajectory: library_api/python/trajectories/trajectory.md
+          - OrbitTrajectory: library_api/python/trajectories/orbit_trajectory.md
       - Orbital Dynamics:
-          - library_api/orbit_dynamics/index.md
-          - Gravity Models: library_api/orbit_dynamics/gravity.md
-          - Third-Body: library_api/orbit_dynamics/third_body.md
-          - Atmospheric Drag: library_api/orbit_dynamics/drag.md
-          - Atmospheric Density: library_api/orbit_dynamics/atmospheric_density_models.md
-          - Solar Radiation Pressure: library_api/orbit_dynamics/solar_radiation_pressure.md
-          - Relativistic Effects: library_api/orbit_dynamics/relativity.md
-          - Ephemerides: library_api/orbit_dynamics/ephemerides.md
+          - library_api/python/orbit_dynamics/index.md
+          - Gravity Models: library_api/python/orbit_dynamics/gravity.md
+          - Third-Body: library_api/python/orbit_dynamics/third_body.md
+          - Atmospheric Drag: library_api/python/orbit_dynamics/drag.md
+          - Atmospheric Density: library_api/python/orbit_dynamics/atmospheric_density_models.md
+          - Solar Radiation Pressure: library_api/python/orbit_dynamics/solar_radiation_pressure.md
+          - Relativistic Effects: library_api/python/orbit_dynamics/relativity.md
+          - Ephemerides: library_api/python/orbit_dynamics/ephemerides.md
       - Propagators:
-          - library_api/propagators/index.md
-          - Keplerian Propagator: library_api/propagators/keplerian_propagator.md
-          - SGP Propagator: library_api/propagators/sgp_propagator.md
-          - Numerical Orbit Propagator: library_api/propagators/numerical_orbit_propagator.md
-          - Numerical Propagator: library_api/propagators/numerical_propagator.md
-          - Numerical Propagation Config: library_api/propagators/numerical_propagation_config.md
-          - Force Model Config: library_api/propagators/force_model_config.md
-          - Functions: library_api/propagators/functions.md
+          - library_api/python/propagators/index.md
+          - Keplerian Propagator: library_api/python/propagators/keplerian_propagator.md
+          - SGP Propagator: library_api/python/propagators/sgp_propagator.md
+          - Numerical Orbit Propagator: library_api/python/propagators/numerical_orbit_propagator.md
+          - Numerical Propagator: library_api/python/propagators/numerical_propagator.md
+          - Numerical Propagation Config: library_api/python/propagators/numerical_propagation_config.md
+          - Force Model Config: library_api/python/propagators/force_model_config.md
+          - Functions: library_api/python/propagators/functions.md
       - Estimation:
-          - library_api/estimation/index.md
-          - Common Types: library_api/estimation/common_types.md
-          - Extended Kalman Filter: library_api/estimation/extended_kalman_filter.md
-          - Unscented Kalman Filter: library_api/estimation/unscented_kalman_filter.md
-          - Batch Least Squares: library_api/estimation/batch_least_squares.md
-          - Measurement Models: library_api/estimation/measurement_models.md
+          - library_api/python/estimation/index.md
+          - Common Types: library_api/python/estimation/common_types.md
+          - Extended Kalman Filter: library_api/python/estimation/extended_kalman_filter.md
+          - Unscented Kalman Filter: library_api/python/estimation/unscented_kalman_filter.md
+          - Batch Least Squares: library_api/python/estimation/batch_least_squares.md
+          - Measurement Models: library_api/python/estimation/measurement_models.md
       - Event Detection:
-          - library_api/events/index.md
-          - Event Detectors: library_api/events/detectors.md
-          - Pre-made Events: library_api/events/premade.md
-          - Event Results: library_api/events/results.md
-          - Enumerations: library_api/events/enums.md
+          - library_api/python/events/index.md
+          - Event Detectors: library_api/python/events/detectors.md
+          - Pre-made Events: library_api/python/events/premade.md
+          - Event Results: library_api/python/events/results.md
+          - Enumerations: library_api/python/events/enums.md
       - Relative Motion:
-          - library_api/relative_motion/index.md
-          - RTN Transformations: library_api/relative_motion/rtn_transformations.md
-          - ROE Transformations: library_api/relative_motion/roe_transformations.md
-          - ECI-ROE Transformations: library_api/relative_motion/eci_roe_transformations.md
+          - library_api/python/relative_motion/index.md
+          - RTN Transformations: library_api/python/relative_motion/rtn_transformations.md
+          - ROE Transformations: library_api/python/relative_motion/roe_transformations.md
+          - ECI-ROE Transformations: library_api/python/relative_motion/eci_roe_transformations.md
       - Access:
-          - library_api/access/index.md
-          - Locations: library_api/access/locations.md
-          - Constraints: library_api/access/constraints.md
-          - Constraint Computer: library_api/access/constraint_computer.md
-          - Properties: library_api/access/properties.md
-          - Windows: library_api/access/windows.md
-          - Tessellation: library_api/access/tessellation.md
-          - Enumerations: library_api/access/enums.md
+          - library_api/python/access/index.md
+          - Locations: library_api/python/access/locations.md
+          - Constraints: library_api/python/access/constraints.md
+          - Constraint Computer: library_api/python/access/constraint_computer.md
+          - Properties: library_api/python/access/properties.md
+          - Windows: library_api/python/access/windows.md
+          - Tessellation: library_api/python/access/tessellation.md
+          - Enumerations: library_api/python/access/enums.md
       - Mathematics:
-          - library_api/mathematics/index.md
-          - Covariance Utilities: library_api/mathematics/covariance.md
-          - Jacobian: library_api/mathematics/jacobian.md
-          - Sensitivity Matrices: library_api/mathematics/sensitivity.md
+          - library_api/python/mathematics/index.md
+          - Covariance Utilities: library_api/python/mathematics/covariance.md
+          - Jacobian: library_api/python/mathematics/jacobian.md
+          - Sensitivity Matrices: library_api/python/mathematics/sensitivity.md
       - Integrators:
-          - library_api/integrators/index.md
-          - Configuration: library_api/integrators/config.md
-          - RK4 Integrator: library_api/integrators/rk4.md
-          - RKF45 Integrator: library_api/integrators/rkf45.md
-          - DP54 Integrator: library_api/integrators/dp54.md
-          - RKN1210 Integrator: library_api/integrators/rkn1210.md
+          - library_api/python/integrators/index.md
+          - Configuration: library_api/python/integrators/config.md
+          - RK4 Integrator: library_api/python/integrators/rk4.md
+          - RKF45 Integrator: library_api/python/integrators/rkf45.md
+          - DP54 Integrator: library_api/python/integrators/dp54.md
+          - RKN1210 Integrator: library_api/python/integrators/rkn1210.md
       - Space Weather:
-          - library_api/space_weather/index.md
-          - Functions: library_api/space_weather/functions.md
-          - CachingSpaceWeatherProvider: library_api/space_weather/caching_provider.md
-          - FileSpaceWeatherProvider: library_api/space_weather/file_provider.md
-          - StaticSpaceWeatherProvider: library_api/space_weather/static_provider.md
+          - library_api/python/space_weather/index.md
+          - Functions: library_api/python/space_weather/functions.md
+          - CachingSpaceWeatherProvider: library_api/python/space_weather/caching_provider.md
+          - FileSpaceWeatherProvider: library_api/python/space_weather/file_provider.md
+          - StaticSpaceWeatherProvider: library_api/python/space_weather/static_provider.md
       - Earth Models:
-          - library_api/earth_models/index.md
-          - Harris-Priester: library_api/earth_models/harris_priester.md
-          - NRLMSISE-00: library_api/earth_models/nrlmsise00.md
-          - IGRF-14: library_api/earth_models/igrf.md
-          - WMMHR-2025: library_api/earth_models/wmmhr.md
+          - library_api/python/earth_models/index.md
+          - Harris-Priester: library_api/python/earth_models/harris_priester.md
+          - NRLMSISE-00: library_api/python/earth_models/nrlmsise00.md
+          - IGRF-14: library_api/python/earth_models/igrf.md
+          - WMMHR-2025: library_api/python/earth_models/wmmhr.md
       - Datasets:
-          - library_api/datasets/index.md
-          - Groundstations: library_api/datasets/groundstations.md
-          - NAIF: library_api/datasets/naif.md
-          - GCAT: library_api/datasets/gcat.md
+          - library_api/python/datasets/index.md
+          - Groundstations: library_api/python/datasets/groundstations.md
+          - NAIF: library_api/python/datasets/naif.md
+          - GCAT: library_api/python/datasets/gcat.md
       - Ephemeris Data Sources:
-          - library_api/ephemeris/index.md
-          - Shared Types: library_api/ephemeris/shared_types.md
-          - CelesTrak: library_api/ephemeris/celestrak.md
+          - library_api/python/ephemeris/index.md
+          - Shared Types: library_api/python/ephemeris/shared_types.md
+          - CelesTrak: library_api/python/ephemeris/celestrak.md
           - Space-Track:
-              - library_api/ephemeris/spacetrack/index.md
-              - Client: library_api/ephemeris/spacetrack/client.md
-              - Query Builder: library_api/ephemeris/spacetrack/query.md
-              - Responses: library_api/ephemeris/spacetrack/responses.md
-              - Enumerations: library_api/ephemeris/spacetrack/enums.md
-              - Operators: library_api/ephemeris/spacetrack/operators.md
-              - Rate Limiting: library_api/ephemeris/spacetrack/rate_limiting.md
+              - library_api/python/ephemeris/spacetrack/index.md
+              - Client: library_api/python/ephemeris/spacetrack/client.md
+              - Query Builder: library_api/python/ephemeris/spacetrack/query.md
+              - Responses: library_api/python/ephemeris/spacetrack/responses.md
+              - Enumerations: library_api/python/ephemeris/spacetrack/enums.md
+              - Operators: library_api/python/ephemeris/spacetrack/operators.md
+              - Rate Limiting: library_api/python/ephemeris/spacetrack/rate_limiting.md
       - CCSDS:
-          - library_api/ccsds/index.md
-          - OEM: library_api/ccsds/oem.md
-          - OMM: library_api/ccsds/omm.md
-          - OPM: library_api/ccsds/opm.md
-          - CDM: library_api/ccsds/cdm.md
+          - library_api/python/ccsds/index.md
+          - OEM: library_api/python/ccsds/oem.md
+          - OMM: library_api/python/ccsds/omm.md
+          - OPM: library_api/python/ccsds/opm.md
+          - CDM: library_api/python/ccsds/cdm.md
       - Utilities:
-          - library_api/utils/index.md
-          - Caching: library_api/utils/caching.md
-          - Multithreading: library_api/utils/threading.md
-          - String Formatting: library_api/utils/formatting.md
+          - library_api/python/utils/index.md
+          - Caching: library_api/python/utils/caching.md
+          - Multithreading: library_api/python/utils/threading.md
+          - String Formatting: library_api/python/utils/formatting.md
       - Plots:
-          - library_api/plots/index.md
-          - Ground Tracks: library_api/plots/ground_tracks.md
-          - Orbital Trajectories: library_api/plots/orbital_trajectories.md
-          - 3D Trajectory: library_api/plots/3d_trajectory.md
-          - Access Geometry: library_api/plots/access_geometry.md
-          - Gabbard Diagram: library_api/plots/gabbard.md
-          - Estimation State Plots: library_api/plots/estimation_state.md
-          - Measurement Residual Plots: library_api/plots/estimation_residuals.md
-          - Marginal Distribution Plots: library_api/plots/estimation_marginal.md
+          - library_api/python/plots/index.md
+          - Ground Tracks: library_api/python/plots/ground_tracks.md
+          - Orbital Trajectories: library_api/python/plots/orbital_trajectories.md
+          - 3D Trajectory: library_api/python/plots/3d_trajectory.md
+          - Access Geometry: library_api/python/plots/access_geometry.md
+          - Gabbard Diagram: library_api/python/plots/gabbard.md
+          - Estimation State Plots: library_api/python/plots/estimation_state.md
+          - Measurement Residual Plots: library_api/python/plots/estimation_residuals.md
+          - Marginal Distribution Plots: library_api/python/plots/estimation_marginal.md
+  - WASM API Reference:
+      - library_api/wasm/README.md
   - Rust API Reference: https://docs.rs/brahe
   - About Me: https://duncaneddy.com
 

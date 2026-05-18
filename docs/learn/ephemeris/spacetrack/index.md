@@ -36,5 +36,5 @@ The client includes a built-in rate limiter that prevents exceeding Space-Track'
 
 ## See Also
 
-- [Space-Track API Reference](../../../library_api/ephemeris/spacetrack/index.md) -- Complete function documentation
+- [Space-Track API Reference](../../../library_api/python/ephemeris/spacetrack/index.md) -- Complete function documentation
 - [CelesTrak Data Source](../celestrak.md) -- Alternative TLE data source (no account required)

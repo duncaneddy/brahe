@@ -62,4 +62,4 @@ To compute satellite location from a ground station:
 - [Geocentric Transformations](geocentric_transformations.md) - Spherical Earth coordinates
 - [Geodetic Transformations](geodetic_transformations.md) - WGS84 ellipsoid coordinates
 - [Topocentric Transformations](topocentric_transformations.md) - Local horizon systems
-- [Coordinates API Reference](../../library_api/coordinates/index.md) - Complete API documentation
+- [Coordinates API Reference](../../library_api/python/coordinates/index.md) - Complete API documentation

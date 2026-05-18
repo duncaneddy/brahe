@@ -82,7 +82,7 @@ Generate and analyze Walker constellation patterns:
 
 ## See Also
 
-- [Orbits API Reference](../../library_api/orbits/index.md) - Complete orbital functions documentation
+- [Orbits API Reference](../../library_api/python/orbits/index.md) - Complete orbital functions documentation
 - [Coordinates](../coordinates/index.md) - Cartesian and Keplerian conversions
 - [Orbit Propagation](../orbit_propagation/index.md) - Propagating orbits over time
-- [Physical Constants](../../library_api/constants/physical.md) - Gravitational parameters and radii
+- [Physical Constants](../../library_api/python/constants/physical.md) - Gravitational parameters and radii

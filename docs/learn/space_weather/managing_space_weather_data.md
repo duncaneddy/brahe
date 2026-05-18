@@ -182,7 +182,7 @@ The space weather providers also support querying data over a date range, return
 
 ## See Also
 
-- [StaticSpaceWeatherProvider API Reference](../../library_api/space_weather/static_provider.md)
-- [FileSpaceWeatherProvider API Reference](../../library_api/space_weather/file_provider.md)
-- [CachingSpaceWeatherProvider API Reference](../../library_api/space_weather/caching_provider.md)
-- [Space Weather Functions](../../library_api/space_weather/functions.md)
+- [StaticSpaceWeatherProvider API Reference](../../library_api/python/space_weather/static_provider.md)
+- [FileSpaceWeatherProvider API Reference](../../library_api/python/space_weather/file_provider.md)
+- [CachingSpaceWeatherProvider API Reference](../../library_api/python/space_weather/caching_provider.md)
+- [Space Weather Functions](../../library_api/python/space_weather/functions.md)

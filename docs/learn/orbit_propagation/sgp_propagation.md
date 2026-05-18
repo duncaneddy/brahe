@@ -2,7 +2,7 @@
 
 The `SGPPropagator` implements the SGP4/SDP4 propagation models for orbital prediction. SGP4 is a standard method for satellite tracking and includes simplified perturbations from Earth oblateness and atmospheric drag, making it suitable for operational satellite tracking and near-Earth orbit propagation. It is widely used with Two-Line Element (TLE) data provided by NORAD and other space tracking organizations.
 
-For complete API documentation, see the [SGPPropagator API Reference](../../library_api/propagators/sgp_propagator.md).
+For complete API documentation, see the [SGPPropagator API Reference](../../library_api/python/propagators/sgp_propagator.md).
 
 ## TLE Format Support
 
@@ -383,4 +383,4 @@ Like Keplerian propagators, SGP propagators support identity tracking:
 - [Trajectories](../trajectories/index.md) - Trajectory storage and operations
 - [Two-Line Elements](../orbits/two_line_elements.md) - Working with TLE data
 - [Ephemeris Data Sources](../ephemeris/index.md) - Querying live satellite data from CelesTrak and Space-Track
-- [SGPPropagator API Reference](../../library_api/propagators/sgp_propagator.md)
+- [SGPPropagator API Reference](../../library_api/python/propagators/sgp_propagator.md)

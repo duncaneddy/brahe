@@ -170,4 +170,4 @@ brahe eop get-lod "2024-01-01T00:00:00Z"
 - [Reference Frames](../frames/index.md) - ECI/ECEF transformations
 - [Transform CLI](transform.md) - Frame transformations (use EOP)
 - [Time CLI](time.md) - UT1 time system
-- [EOP API](../../library_api/eop/index.md) - Python EOP provider classes
+- [EOP API](../../library_api/python/eop/index.md) - Python EOP provider classes

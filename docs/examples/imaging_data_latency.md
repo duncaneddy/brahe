@@ -125,5 +125,5 @@ This visualization helps identify geographic regions where additional ground sta
 - [Maximum Communications Gap](max_communications_gap.md) - Related analysis of communication gaps
 - [Predicting Ground Contacts](ground_contacts.md) - Ground contact analysis example
 - [Access Computation](../learn/access_computation/index.md) - Understanding access windows and constraints
-- [AOI Events](../library_api/events/premade.md#area-of-interest-events) - AOIEntryEvent and AOIExitEvent API reference
+- [AOI Events](../library_api/python/events/premade.md#area-of-interest-events) - AOIEntryEvent and AOIExitEvent API reference
 - [KSAT Ground Stations](../learn/datasets/groundstations.md) - Ground station dataset documentation

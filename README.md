@@ -59,7 +59,8 @@ If you want to learn more about how to use the package the documentation is stru
 
 - **[Learn](https://duncaneddy.github.io/brahe/latest/learn/)**: Provides short-form documentation of major concepts of the package.
 - **[Examples](https://duncaneddy.github.io/brahe/latest/examples/)**: Provides longer-form examples of how-to examples of how to accomplish common tasks.
-- **[Python API Reference](https://duncaneddy.github.io/brahe/latest/library_api/)**: Provides detailed reference documentation of the Python API.
+- **[Python API Reference](https://duncaneddy.github.io/brahe/latest/library_api/python/)**: Provides detailed reference documentation of the Python API.
+- **[WASM API Reference](https://duncaneddy.github.io/brahe/latest/library_api/wasm/)**: Provides detailed reference documentation of the JS/TS API (`brahe-wasm` on npm).
 - **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API.
 
 ## Quick Start

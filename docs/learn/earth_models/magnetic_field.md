@@ -2,7 +2,7 @@
 
 Brahe computes Earth's geomagnetic field using spherical harmonic models. You provide a geodetic position and an epoch, and get back a three-component magnetic field vector in your choice of output frame. Two models are available: **IGRF-14** for broad historical coverage and **WMMHR-2025** for high spatial resolution near the current epoch.
 
-For a complete listing of all function signatures and parameters, see the [IGRF API Reference](../../library_api/earth_models/igrf.md) and [WMMHR API Reference](../../library_api/earth_models/wmmhr.md).
+For a complete listing of all function signatures and parameters, see the [IGRF API Reference](../../library_api/python/earth_models/igrf.md) and [WMMHR API Reference](../../library_api/python/earth_models/wmmhr.md).
 
 ## Computing the Field
 
@@ -106,7 +106,7 @@ Satellite positions are often available in ECEF or ECI coordinates rather than g
 
 ## See Also
 
-- [IGRF API Reference](../../library_api/earth_models/igrf.md) -- Full function signatures for IGRF-14
-- [WMMHR API Reference](../../library_api/earth_models/wmmhr.md) -- Full function signatures for WMMHR-2025
+- [IGRF API Reference](../../library_api/python/earth_models/igrf.md) -- Full function signatures for IGRF-14
+- [WMMHR API Reference](../../library_api/python/earth_models/wmmhr.md) -- Full function signatures for WMMHR-2025
 - [Geodetic Coordinates](../coordinates/geodetic_transformations.md) -- Converting between ECEF and geodetic
 - [Reference Frame Transformations](../frames/eci_ecef.md) -- ECI to ECEF conversion for satellite positions

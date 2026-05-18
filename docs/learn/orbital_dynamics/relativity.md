@@ -55,7 +55,7 @@ Calculate the general relativistic correction to a satellite's acceleration.
 
 ## See Also
 
-- [Library API Reference: Relativity](../../library_api/orbit_dynamics/relativity.md)
+- [Library API Reference: Relativity](../../library_api/python/orbit_dynamics/relativity.md)
 - [Orbital Dynamics Overview](index.md)
 
 ## References

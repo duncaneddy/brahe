@@ -19,6 +19,8 @@ on:
             - 'uv.lock'
             - '.github/workflows/unit_tests.yml'
             - '.github/workflows/test_*.yml'
+            - 'crates/brahe-wasm/**'
+            - '.github/workflows/test_wasm.yml'
 
 concurrency:
     group: unit-tests-${{ github.ref }}
@@ -40,6 +42,8 @@ jobs:
     test-examples:
         # needs: [ test-rust ] # Remove this dependency for optimistic parallel execution
         uses: ./.github/workflows/test_examples.yml
+    test-wasm:
+        uses: ./.github/workflows/test_wasm.yml
     update-docs:
-        needs: [ test-rust, test-python, test-examples ]
+        needs: [ test-rust, test-python, test-examples, test-wasm ]
         uses: ./.github/workflows/update_docs.yml

@@ -305,6 +305,6 @@ Nanoseconds since GPS epoch (1980-01-06 00:00:00 UTC):
 ## See Also
 
 - [Earth Orientation Data](../eop/what_is_eop_data.md) - EOP and UT1
-- [Epoch API](../../library_api/time/epoch.md) - Python Epoch class
+- [Epoch API](../../library_api/python/time/epoch.md) - Python Epoch class
 - [EOP CLI](eop.md) - Earth Orientation Parameters
 - [Transform CLI](transform.md) - Coordinate transformations (require epochs)

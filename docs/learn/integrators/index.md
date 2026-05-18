@@ -144,7 +144,7 @@ To use a fixed-step integrator like RK4, you create an instance with the desired
 
 ### Adaptive Integration
 
-To use an adaptive-step integrator like RKF45, you create it with an `IntegratorConfig` specifying tolerances, then call `step`. The adaptive integrator returns an [`AdaptiveStepResult`](../../library_api/integrators/config.md) containing the new state and recommended next step size.
+To use an adaptive-step integrator like RKF45, you create it with an `IntegratorConfig` specifying tolerances, then call `step`. The adaptive integrator returns an [`AdaptiveStepResult`](../../library_api/python/integrators/config.md) containing the new state and recommended next step size.
 
 
 === "Python"
@@ -242,6 +242,6 @@ They can be propagated by integrating the variational equations alongside the st
 ## See Also
 
 - **[Comparing Integrator Performance](../../examples/using_different_integrators.md)** - Complete example comparing all integrators on a 7-day orbit propagation
-- **[Integrators API Reference](../../library_api/integrators/index.md)** - Complete API documentation
+- **[Integrators API Reference](../../library_api/python/integrators/index.md)** - Complete API documentation
 - **[Jacobian Computation](../mathematics/jacobian.md)** - Required for variational equations
 - **[Keplerian Propagation](../orbit_propagation/keplerian_propagation.md)** - Analytical propagation alternative

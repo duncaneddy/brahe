@@ -143,4 +143,4 @@ The `AccessSearchConfig` struct controls algorithm behavior:
 - [Tessellation](tessellation.md) - Dividing areas into satellite imaging tiles
 - [Access Computation Index](index.md) - Overview and usage examples
 - [Example: Predicting Ground Contacts](../../examples/ground_contacts.md) - Complete workflow
-- [API Reference: Access Module](../../library_api/access/index.md) - Complete API documentation
+- [API Reference: Access Module](../../library_api/python/access/index.md) - Complete API documentation

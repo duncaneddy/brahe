@@ -131,7 +131,7 @@ The following example demonstrates propagating a highly elliptical orbit (HEO) u
 
 - **[Configuration Guide](configuration.md)** - Detailed parameter tuning
 - **[Fixed-Step Integrators](fixed_step.md)** - For comparison
-- **[RKF45 API Reference](../../library_api/integrators/rkf45.md)** - RKF45 documentation
-- **[DP54 API Reference](../../library_api/integrators/dp54.md)** - DP54 documentation
-- **[RKN1210 API Reference](../../library_api/integrators/rkn1210.md)** - RKN1210 documentation
+- **[RKF45 API Reference](../../library_api/python/integrators/rkf45.md)** - RKF45 documentation
+- **[DP54 API Reference](../../library_api/python/integrators/dp54.md)** - DP54 documentation
+- **[RKN1210 API Reference](../../library_api/python/integrators/rkn1210.md)** - RKN1210 documentation
 - **[Integrators Overview](index.md)** - Comparison of all integrators

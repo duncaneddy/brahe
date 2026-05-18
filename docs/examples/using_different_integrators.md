@@ -131,5 +131,5 @@ To visualize how each integrator performs over time, we plot the angular momentu
 ## See Also
 
 - [Numerical Integration](../learn/integrators/index.md) - Understanding how integrators work
-- [Integrator API Reference](../library_api/integrators/index.md) - Complete API documentation
+- [Integrator API Reference](../library_api/python/integrators/index.md) - Complete API documentation
 - [Orbit Propagation Examples](../examples/index.md) - More orbital mechanics examples

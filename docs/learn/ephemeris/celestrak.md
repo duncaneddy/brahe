@@ -89,7 +89,7 @@ scientific or special purpose (`science`, `analyst`, `visual`). Group names and 
 missions launch, deorbit, or change status.
 
 For a complete listing of available groups, see the
-[CelesTrak API Reference](../../library_api/ephemeris/celestrak.md#satellite-groups) or visit
+[CelesTrak API Reference](../../library_api/python/ephemeris/celestrak.md#satellite-groups) or visit
 [CelesTrak GP Element Sets](https://celestrak.org/NORAD/elements).
 
 ---
@@ -98,4 +98,4 @@ For a complete listing of available groups, see the
 
 - [Ephemeris Data Sources](index.md) -- Shared types, operators, and source comparison
 - [Two-Line Elements](../orbits/two_line_elements.md) -- TLE and 3LE format details
-- [CelesTrak API Reference](../../library_api/ephemeris/celestrak.md) -- Class and method documentation
+- [CelesTrak API Reference](../../library_api/python/ephemeris/celestrak.md) -- Class and method documentation

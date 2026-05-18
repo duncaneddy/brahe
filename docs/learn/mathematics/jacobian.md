@@ -248,5 +248,5 @@ Jacobians are primarily used with numerical integrators for variational equation
 ## See Also
 
 - **[Mathematics Module](index.md)** - Mathematics module overview
-- **[Jacobian API Reference](../../library_api/mathematics/jacobian.md)** - Complete API documentation
+- **[Jacobian API Reference](../../library_api/python/mathematics/jacobian.md)** - Complete API documentation
 - **[Numerical Integration](../integrators/index.md)** - Using Jacobians with integrators

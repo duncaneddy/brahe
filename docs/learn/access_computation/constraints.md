@@ -411,6 +411,6 @@ Python users can create fully custom constraints by implementing the `AccessCons
 
 - [Locations](locations.md) - Ground location types
 - [Computation](computation.md) - How constraints are evaluated during access search
-- [API Reference: Constraints](../../library_api/access/constraints.md)
+- [API Reference: Constraints](../../library_api/python/access/constraints.md)
 - [Example: Predicting Ground Contacts](../../examples/ground_contacts.md)
 - [Example: Computing Imaging Opportunities](../../examples/imaging_opportunities.md)

@@ -63,4 +63,4 @@ See: [Managing Space Weather Data](managing_space_weather_data.md)
 ## See Also
 
 - [Managing Space Weather Data](managing_space_weather_data.md) - Practical guide to providers
-- [Space Weather API Reference](../../library_api/space_weather/index.md) - Complete API documentation
+- [Space Weather API Reference](../../library_api/python/space_weather/index.md) - Complete API documentation

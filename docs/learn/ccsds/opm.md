@@ -135,6 +135,6 @@ Note the optional unit annotations in square brackets (`[km]`, `[deg]`). Brahe s
 
 ## See Also
 
-- [API Reference — OPM](../../library_api/ccsds/opm.md)
+- [API Reference — OPM](../../library_api/python/ccsds/opm.md)
 - [CCSDS Data Formats](index.md) — Overview of all message types
 - [Keplerian Elements](../orbits/properties.md) — Orbital element definitions

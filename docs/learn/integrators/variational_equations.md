@@ -96,4 +96,4 @@ The following example demonstrates this equivalence:
 
 - [Fixed Step Integration](fixed_step.md) - Constant time step methods
 - [Adaptive Step Integration](adaptive_step.md) - Automatic step size control
-- [Mathematics: Jacobian](../../library_api/mathematics/jacobian.md) - Jacobian provider API reference
+- [Mathematics: Jacobian](../../library_api/python/mathematics/jacobian.md) - Jacobian provider API reference

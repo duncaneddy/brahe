@@ -414,4 +414,4 @@ Output:
 - [Two-Line Elements](../orbits/two_line_elements.md) - Understanding Two-Line Elements
 - [SGP Propagation](../orbit_propagation/sgp_propagation.md) - TLE-based orbit propagation
 - [Access CLI](access.md) - Compute satellite passes (uses TLE data)
-- [Datasets API](../../library_api/datasets/index.md) - Python dataset functions
+- [Datasets API](../../library_api/python/datasets/index.md) - Python dataset functions

@@ -89,7 +89,7 @@ Compute the combined gravitational acceleration from the Sun and Moon on a satel
 
 ## See Also
 
-- [Library API Reference: Third-Body](../../library_api/orbit_dynamics/third_body.md)
+- [Library API Reference: Third-Body](../../library_api/python/orbit_dynamics/third_body.md)
 - [Datasets: NAIF](../datasets/naif.md) - DE440s ephemeris data
 - [Orbital Dynamics Overview](index.md)
 

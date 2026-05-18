@@ -2,7 +2,7 @@
 
 The `ForceModelConfig` (Python) / `ForceModelConfig` (Rust) defines which physical forces affect the spacecraft during propagation. Brahe provides preset configurations for common scenarios and allows custom configurations for specific requirements.
 
-For API details, see the [ForceModelConfig API Reference](../../../library_api/propagators/force_model_config.md).
+For API details, see the [ForceModelConfig API Reference](../../../library_api/python/propagators/force_model_config.md).
 
 ## Full Example
 
@@ -431,4 +431,4 @@ Brahe provides preset configurations for common scenarios:
 
 - [Numerical Propagation Overview](index.md) - Architecture and concepts
 - [Integrator Configuration](integrator_configuration.md) - Integration methods
-- [ForceModelConfig API Reference](../../../library_api/propagators/force_model_config.md)
+- [ForceModelConfig API Reference](../../../library_api/python/propagators/force_model_config.md)

@@ -2,7 +2,7 @@
 
 This guide covers the fundamental operations of the `NumericalOrbitPropagator`: creating propagators, stepping through time, accessing states, and managing trajectories.
 
-For API details, see the [NumericalOrbitPropagator API Reference](../../../library_api/propagators/numerical_orbit_propagator.md).
+For API details, see the [NumericalOrbitPropagator API Reference](../../../library_api/python/propagators/numerical_orbit_propagator.md).
 
 ## Creating a Propagator
 
@@ -183,4 +183,4 @@ For Rust, ensure the dynamics closure captures minimal state and avoids unnecess
 - [Numerical Propagation Overview](index.md) - Architecture and concepts
 - [Force Models](force_models.md) - Configuring force models
 - [Integrator Configuration](integrator_configuration.md) - Integration method selection
-- [NumericalOrbitPropagator API Reference](../../../library_api/propagators/numerical_orbit_propagator.md)
+- [NumericalOrbitPropagator API Reference](../../../library_api/python/propagators/numerical_orbit_propagator.md)

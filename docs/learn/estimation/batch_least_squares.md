@@ -118,5 +118,5 @@ status without inspecting individual records.
 - [Extended Kalman Filter](extended_kalman_filter.md) -- Sequential EKF for real-time estimation
 - [Unscented Kalman Filter](unscented_kalman_filter.md) -- UKF sigma-point estimation
 - [Measurement Models](measurement_models.md) -- Built-in and custom measurement types
-- [BLS API Reference](../../library_api/estimation/batch_least_squares.md) -- Complete method documentation
+- [BLS API Reference](../../library_api/python/estimation/batch_least_squares.md) -- Complete method documentation
 - [Covariance and Sensitivity](../orbit_propagation/numerical_propagation/covariance_sensitivity.md) -- STM propagation details

@@ -127,4 +127,4 @@ models in a single filter, is covered in the [Custom Models](custom_models.md) g
 - [Custom Models](custom_models.md) -- Writing custom measurement models with examples
 - [Extended Kalman Filter](extended_kalman_filter.md) -- Using models with the EKF
 - [Unscented Kalman Filter](unscented_kalman_filter.md) -- Using models with the UKF
-- [Measurement Models API Reference](../../library_api/estimation/measurement_models.md) -- Complete class documentation
+- [Measurement Models API Reference](../../library_api/python/estimation/measurement_models.md) -- Complete class documentation

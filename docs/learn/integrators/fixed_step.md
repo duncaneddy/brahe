@@ -70,5 +70,5 @@ The following example demonstrates using the RK4 fixed-step integrator to  integ
 
 - **[Adaptive-Step Integrators](adaptive_step.md)** - For automatic error control
 - **[Configuration Guide](configuration.md)** - Detailed configuration options
-- **[RK4 API Reference](../../library_api/integrators/rk4.md)** - Complete RK4 documentation
+- **[RK4 API Reference](../../library_api/python/integrators/rk4.md)** - Complete RK4 documentation
 - **[Integrators Overview](index.md)** - Comparison of all integrators

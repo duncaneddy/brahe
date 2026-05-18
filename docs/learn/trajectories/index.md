@@ -172,4 +172,4 @@ The `SOrbitTrajectory` implementation is specialized for orbital mechanics appli
 
 - [Trajectory](trajectory.md) - Dynamic-dimension trajectory implementation
 - [OrbitTrajectory](orbit_trajectory.md) - Orbital mechanics trajectory with frame conversions
-- [API Reference](../../library_api/trajectories/index.md)
+- [API Reference](../../library_api/python/trajectories/index.md)

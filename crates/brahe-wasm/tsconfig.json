@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./js",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "#wasm": ["./pkg-bundler/brahe_wasm.d.ts"]
+    }
+  },
+  "include": ["js/**/*.ts"],
+  "exclude": ["node_modules", "dist", "pkg-bundler", "pkg-node", "tests"]
+}

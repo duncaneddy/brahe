@@ -98,6 +98,6 @@ json_str = cdm.to_string("JSON")
 
 ## See Also
 
-- [CDM API Reference](../../library_api/ccsds/cdm.md) — Full API documentation
+- [CDM API Reference](../../library_api/python/ccsds/cdm.md) — Full API documentation
 - [OPM Format Guide](opm.md) — Single-state messages (closest analog)
 - [CCSDS Module](index.md) — Module overview

@@ -2,7 +2,7 @@
 
 The string formatting utilities provide functions for converting numerical values into human-readable strings. This makes it easier to display results to users in an intuitive format.
 
-For complete API details, see the [String Formatting API Reference](../../library_api/utils/formatting.md).
+For complete API details, see the [String Formatting API Reference](../../library_api/python/utils/formatting.md).
 
 ## Time Duration Formatting
 
@@ -141,4 +141,4 @@ Time formatting is useful for:
 ## See Also
 
 - [Utilities Overview](index.md) - Overview of all utilities
-- [String Formatting API Reference](../../library_api/utils/formatting.md) - Complete formatting function documentation
+- [String Formatting API Reference](../../library_api/python/utils/formatting.md) - Complete formatting function documentation

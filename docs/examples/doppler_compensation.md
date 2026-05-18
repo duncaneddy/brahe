@@ -222,4 +222,4 @@ Below is a table of sampled Doppler compensation values during the access window
 - [Access Computation](../learn/access_computation/computation.md) - Access search algorithms and configuration
 - [Predicting Ground Contacts](ground_contacts.md) - Similar example with statistical analysis
 - [CelesTrak Dataset](../learn/ephemeris/celestrak.md) - Downloading TLE data
-- [Ground Station Datasets](../library_api/datasets/groundstations.md) - Loading ground station networks
+- [Ground Station Datasets](../library_api/python/datasets/groundstations.md) - Loading ground station networks

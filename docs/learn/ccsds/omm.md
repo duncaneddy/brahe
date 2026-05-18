@@ -101,7 +101,7 @@ Note that OMM KVN does not use `META_START`/`META_STOP` markers — all keywords
 
 ## See Also
 
-- [API Reference — OMM](../../library_api/ccsds/omm.md)
+- [API Reference — OMM](../../library_api/python/ccsds/omm.md)
 - [CCSDS Data Formats](index.md) — Overview of all message types
 - [Two-Line Elements](../orbits/two_line_elements.md) — Traditional TLE format
 - [Ephemeris Data Sources](../ephemeris/index.md) — CelesTrak and Space-Track clients

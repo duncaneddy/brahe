@@ -2,7 +2,7 @@
 
 The `NumericalPropagationConfig` controls the numerical integration method, step sizes, and error tolerances. Brahe provides preset configurations for common scenarios and allows custom configurations for specific requirements.
 
-For API details, see the [NumericalPropagationConfig API Reference](../../../library_api/propagators/numerical_propagation_config.md). For detailed information about integrator theory and low-level usage, see the [Numerical Integration](../../integrators/index.md) guide.
+For API details, see the [NumericalPropagationConfig API Reference](../../../library_api/python/propagators/numerical_propagation_config.md). For detailed information about integrator theory and low-level usage, see the [Numerical Integration](../../integrators/index.md) guide.
 
 ## Full Example
 
@@ -275,4 +275,4 @@ See [Covariance and Sensitivity](covariance_sensitivity.md) for detailed usage.
 - [Force Models](force_models.md) - Configuring force models
 - [Covariance and Sensitivity](covariance_sensitivity.md) - Variational equations
 - [Integrators](../../integrators/index.md) - Detailed integrator documentation
-- [NumericalPropagationConfig API Reference](../../../library_api/propagators/numerical_propagation_config.md)
+- [NumericalPropagationConfig API Reference](../../../library_api/python/propagators/numerical_propagation_config.md)

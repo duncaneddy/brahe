@@ -350,4 +350,4 @@ A complete example showing propagation, frame conversion, and analysis:
 
 - [Trajectories Overview](index.md) - Trait hierarchy and implementation guide
 - [Trajectory](trajectory.md) - Dynamic-dimension trajectory
-- [OrbitTrajectory API Reference](../../library_api/trajectories/orbit_trajectory.md)
+- [OrbitTrajectory API Reference](../../library_api/python/trajectories/orbit_trajectory.md)

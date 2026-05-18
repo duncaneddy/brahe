@@ -44,5 +44,5 @@ It is the core type used throughout the brahe package to represent time and prov
 ## See Also
 
 - [Epoch](epoch.md) - Complete guide to the Epoch type
-- [Time API Reference](../../library_api/time/index.md) - Complete time function documentation
-- [Time Constants](../../library_api/constants/time.md) - Important time-related constants
+- [Time API Reference](../../library_api/python/time/index.md) - Complete time function documentation
+- [Time Constants](../../library_api/python/constants/time.md) - Important time-related constants

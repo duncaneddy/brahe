@@ -83,4 +83,4 @@ for cdm in results:
 - [Common Queries](common_queries.md) -- GP, SATCAT, and Decay query patterns
 - [Query Builder](query_builder.md) -- Filters, ordering, limits, and output formats
 - [Client](client.md) -- Authentication and query execution
-- [Operators Reference](../../../library_api/ephemeris/spacetrack/operators.md) -- All operator functions
+- [Operators Reference](../../../library_api/python/ephemeris/spacetrack/operators.md) -- All operator functions

@@ -185,9 +185,9 @@ The `state_indices` parameter selects which pair of state components to visualiz
 
 ## See Also
 
-- [Estimation State Plots API](../../library_api/plots/estimation_state.md) -- Full function signatures and parameters
-- [Measurement Residual Plots API](../../library_api/plots/estimation_residuals.md) -- Residual plot reference
-- [Marginal Distribution Plots API](../../library_api/plots/estimation_marginal.md) -- Marginal plot reference
+- [Estimation State Plots API](../../library_api/python/plots/estimation_state.md) -- Full function signatures and parameters
+- [Measurement Residual Plots API](../../library_api/python/plots/estimation_residuals.md) -- Residual plot reference
+- [Marginal Distribution Plots API](../../library_api/python/plots/estimation_marginal.md) -- Marginal plot reference
 - [Extended Kalman Filter](../estimation/extended_kalman_filter.md) -- EKF setup and usage
 - [Batch Least Squares](../estimation/batch_least_squares.md) -- BLS diagnostics and residuals
 - [Plotting Overview](index.md) -- Backend system and general plotting guide

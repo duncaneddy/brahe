@@ -6,7 +6,7 @@ When an event is detected, the propagator uses a bisection algorithm to precisel
 
 Events provide an extensible mechanism for implementing complex mission scenarios, such as maneuver execution, autonomous operations, and other condition-based actions.
 
-The library also provides a set of premade event detectors for common scenarios, which can be used directly or serve as templates for custom detectors. You can find more details about premade events in the [Premade Events](premade_events.md) documentation with a complete list of available types in the library API docuementation at [Premade Event Detectors](../../../library_api/events/premade.md).
+The library also provides a set of premade event detectors for common scenarios, which can be used directly or serve as templates for custom detectors. You can find more details about premade events in the [Premade Events](premade_events.md) documentation with a complete list of available types in the library API docuementation at [Premade Event Detectors](../../../library_api/python/events/premade.md).
 
 ## Event Types
 

@@ -185,4 +185,4 @@ This example shows how to create a simple LEO orbit and visualize it in 3D. It d
 - [3D Trajectories](3d_trajectory.md) - Orbital paths in 3D space
 - [Access Geometry](access_geometry.md) - Ground station visibility
 - [Orbital Elements](orbital_trajectories.md) - Element evolution over time
-- [API Reference](../../library_api/plots/index.md) - Complete function documentation
+- [API Reference](../../library_api/python/plots/index.md) - Complete function documentation

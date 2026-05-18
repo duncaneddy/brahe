@@ -1,0 +1,19 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./js/index.ts"],
+  "out": "../../docs/library_api/wasm",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "includeVersion": false,
+  "hideGenerator": true,
+  "githubPages": false,
+  "skipErrorChecking": true,
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "navigationLinks": {},
+  "sourceLinkTemplate": "https://github.com/duncaneddy/brahe/blob/main/crates/brahe-wasm/{path}#L{line}",
+  "fileExtension": ".md",
+  "useCodeBlocks": true,
+  "expandObjects": false,
+  "parametersFormat": "table"
+}

@@ -4,7 +4,7 @@ Proper integrator configuration is essential for balancing accuracy, performance
 
 ## IntegratorConfig Class
 
-The [`IntegratorConfig`](../../library_api/integrators/config.md) class encapsulates all settings for adaptive-step integrators. Key parameters include:
+The [`IntegratorConfig`](../../library_api/python/integrators/config.md) class encapsulates all settings for adaptive-step integrators. Key parameters include:
 
 - **Error Tolerances**: `abs_tol`, `rel_tol`
 - **Step Size Limits**: `min_step`, `max_step`
@@ -233,5 +233,5 @@ config = bh.IntegratorConfig.adaptive(
 
 - **[Adaptive-Step Integrators](adaptive_step.md)** - How adaptive integration works
 - **[Fixed-Step Integrators](fixed_step.md)** - Fixed-step integration guide
-- **[Configuration API Reference](../../library_api/integrators/config.md)** - Complete API documentation
+- **[Configuration API Reference](../../library_api/python/integrators/config.md)** - Complete API documentation
 - **[Integrators Overview](index.md)** - Comparison of all integrators

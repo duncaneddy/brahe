@@ -51,5 +51,5 @@ Convert between Euler axis and other attitude representations:
 
 ## See Also
 
-- [Euler Axis API Reference](../../library_api/attitude/euler_axis.md)
+- [Euler Axis API Reference](../../library_api/python/attitude/euler_axis.md)
 - [Attitude Representations Overview](index.md)

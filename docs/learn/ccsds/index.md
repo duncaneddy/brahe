@@ -71,4 +71,4 @@ CCSDS files use **km** and **km/s** for position and velocity. Brahe automatical
 - [OMM — Orbit Mean-elements Message](omm.md)
 - [OPM — Orbit Parameter Message](opm.md)
 - [CDM — Conjunction Data Message](cdm.md)
-- [API Reference](../../library_api/ccsds/index.md) — Python API documentation
+- [API Reference](../../library_api/python/ccsds/index.md) — Python API documentation

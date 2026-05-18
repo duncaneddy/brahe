@@ -322,4 +322,4 @@ Convert trajectory data to matrix format for analysis or export:
 
 - [Trajectories Overview](index.md) - Trait hierarchy and implementation guide
 - [OrbitTrajectory](orbit_trajectory.md) - Orbital trajectory with frame conversions
-- [Trajectory API Reference](../../library_api/trajectories/trajectory.md)
+- [Trajectory API Reference](../../library_api/python/trajectories/trajectory.md)

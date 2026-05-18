@@ -85,5 +85,5 @@ All estimators share the same measurement models, observation types, and Python 
 - [Unscented Kalman Filter](unscented_kalman_filter.md) -- UKF sigma points and EKF comparison
 - [Custom Models](custom_models.md) -- Defining measurement models in Python
 - [Batch Least Squares](batch_least_squares.md) -- BLS offline orbit determination
-- [Estimation API Reference](../../library_api/estimation/index.md) -- Complete type and method documentation
+- [Estimation API Reference](../../library_api/python/estimation/index.md) -- Complete type and method documentation
 - [Covariance and Sensitivity](../orbit_propagation/numerical_propagation/covariance_sensitivity.md) -- STM propagation used by the EKF

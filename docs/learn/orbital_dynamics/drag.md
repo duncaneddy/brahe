@@ -68,7 +68,7 @@ The model requires initialization of both Earth orientation data and space weath
 - Earth orientation data: `bh.initialize_eop()`
 - Space weather data: `bh.initialize_sw()`
 
-For full API details, see the [NRLMSISE-00 API Reference](../../library_api/earth_models/nrlmsise00.md).
+For full API details, see the [NRLMSISE-00 API Reference](../../library_api/python/earth_models/nrlmsise00.md).
 
 ## Usage Examples
 
@@ -101,8 +101,8 @@ Calculate the atmospheric drag acceleration on a satellite using the Harris-Prie
 
 ## See Also
 
-- [Library API Reference: Drag](../../library_api/orbit_dynamics/drag.md)
-- [Library API Reference: Earth Models](../../library_api/earth_models/index.md)
+- [Library API Reference: Drag](../../library_api/python/orbit_dynamics/drag.md)
+- [Library API Reference: Earth Models](../../library_api/python/earth_models/index.md)
 - [Orbital Dynamics Overview](index.md)
 
 ## References

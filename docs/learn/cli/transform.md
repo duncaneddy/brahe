@@ -254,8 +254,8 @@ Output:
 
 - [Coordinate Systems](../coordinates/index.md) - Conceptual overview
 - [Reference Frames](../frames/index.md) - ECI/ECEF details
-- [Coordinates API](../../library_api/coordinates/index.md) - Python API
-- [Frames API](../../library_api/frames/index.md) - Frame conversion functions
-- [Orbits API](../../library_api/orbits/index.md) - Orbital elements
+- [Coordinates API](../../library_api/python/coordinates/index.md) - Python API
+- [Frames API](../../library_api/python/frames/index.md) - Frame conversion functions
+- [Orbits API](../../library_api/python/orbits/index.md) - Orbital elements
 - [Time CLI](time.md) - Time conversions
 - [Orbits CLI](orbits.md) - Orbital mechanics calculations

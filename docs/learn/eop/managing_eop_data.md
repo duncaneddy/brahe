@@ -231,12 +231,12 @@ While not common it is possible to directly access Earth orientation parameters 
         --8<-- "./docs/outputs/eop/accesing_eop_data.rs.txt"
         ```
 
-You can find more functions to access specific subsets of Earth orientation data in the [API Reference](../../library_api/eop/functions.md).
+You can find more functions to access specific subsets of Earth orientation data in the [API Reference](../../library_api/python/eop/functions.md).
 
 ---
 
 ## See Also
 
-- [StaticEOPProvider API Reference](../../library_api/eop/static_provider.md)
-- [FileEOPProvider API Reference](../../library_api/eop/file_provider.md)
-- [CachingEOPProvider API Reference](../../library_api/eop/caching_provider.md)
+- [StaticEOPProvider API Reference](../../library_api/python/eop/static_provider.md)
+- [FileEOPProvider API Reference](../../library_api/python/eop/file_provider.md)
+- [CachingEOPProvider API Reference](../../library_api/python/eop/caching_provider.md)

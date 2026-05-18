@@ -2,7 +2,7 @@
 
 Geodetic longitude, latitude, altitude coordinates represent positions relative to the WGS84 ellipsoidal Earth model. These coordinates can be converted to and from Earth-Centered Earth-Fixed (ECEF) Cartesian coordinates. This coordinate system is more accurate than the geocentric system for near-surface applications because it accounts for Earth's equatorial bulge.
 
-For complete API details, see the [Geodetic Coordinates API Reference](../../library_api/coordinates/geodetic.md).
+For complete API details, see the [Geodetic Coordinates API Reference](../../library_api/python/coordinates/geodetic.md).
 
 ## Geodetic Coordinate System
 
@@ -105,6 +105,6 @@ For most applications, it's best to use geodetic coordinates since any computati
 
 ## See Also
 
-- [Geodetic Coordinates API Reference](../../library_api/coordinates/geodetic.md) - Complete function documentation
+- [Geodetic Coordinates API Reference](../../library_api/python/coordinates/geodetic.md) - Complete function documentation
 - [Geocentric Transformations](geocentric_transformations.md) - Simpler spherical Earth model
 - [Topocentric Transformations](topocentric_transformations.md) - Local horizon coordinate systems

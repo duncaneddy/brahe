@@ -123,4 +123,4 @@ models in Rust via the `MeasurementModel` trait.
 
 - [Measurement Models](measurement_models.md) -- Built-in GPS-like measurement types
 - [Extended Kalman Filter](extended_kalman_filter.md) -- EKF setup and processing
-- [MeasurementModel API Reference](../../library_api/estimation/common_types.md) -- Base class documentation
+- [MeasurementModel API Reference](../../library_api/python/estimation/common_types.md) -- Base class documentation

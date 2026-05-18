@@ -5,4 +5,4 @@ relative motion frames, and relative dynamics models.
 
 ### See Also
 
-- [RTN Transformations API Reference](../../library_api/relative_motion/rtn_transformations.md) - Detailed API documentation
+- [RTN Transformations API Reference](../../library_api/python/relative_motion/rtn_transformations.md) - Detailed API documentation

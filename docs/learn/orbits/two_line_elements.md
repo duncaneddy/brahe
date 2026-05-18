@@ -13,7 +13,7 @@ TLEs are still widely used for satellite tracking and orbit prediction, distribu
 
 For additional information on the TLE format and field definitions, see the [CelesTrak TLE documentation](https://celestrak.org/columns/v04n03/) or the [Wikipedia TLE article](https://en.wikipedia.org/wiki/Two-line_element_set).
 
-For complete API documentation, see the [TLE reference](../../library_api/orbits/tle.md).
+For complete API documentation, see the [TLE reference](../../library_api/python/orbits/tle.md).
 
 !!! warning "TLE Accuracy Limitations"
     TLEs are designed for near-Earth satellites and have limited accuracy due to simplifications in the SGP4/SDP4 models. They **ARE NOT** suitable for high-precision orbit determination or long-term predictions.
@@ -209,7 +209,7 @@ The `parse_norad_id` function automatically detects whether a NORAD ID is in num
 
 ## See Also
 
-- [SGP Propagator](../../library_api/propagators/sgp_propagator.md) - Use TLEs with SGP4/SDP4 propagation
-- [Keplerian Elements](../../library_api/orbits/keplerian.md) - Working with orbital elements
+- [SGP Propagator](../../library_api/python/propagators/sgp_propagator.md) - Use TLEs with SGP4/SDP4 propagation
+- [Keplerian Elements](../../library_api/python/orbits/keplerian.md) - Working with orbital elements
 - [Downloading TLE Data](../../examples/visualizing_starlink.md) - How to fetch current TLEs from online sources
 - [Epoch](../time/epoch.md) - Understanding time representation in Brahe

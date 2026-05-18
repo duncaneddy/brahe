@@ -53,7 +53,7 @@ all JSON values as strings (e.g., `"NORAD_CAT_ID": "25544"`), while CelesTrak re
 numeric fields as native JSON numbers (e.g., `"NORAD_CAT_ID": 25544`). Custom deserializers
 accept both formats, so downstream code works identically regardless of which source
 produced the data. For the complete field listing, see the
-[GPRecord API Reference](../../library_api/ephemeris/shared_types.md).
+[GPRecord API Reference](../../library_api/python/ephemeris/shared_types.md).
 
 ## How the Pieces Connect
 
@@ -89,6 +89,6 @@ or precise control over query results.
 
 - [CelesTrak](celestrak.md) -- Using the CelesTrak client
 - [Space-Track](spacetrack/index.md) -- Using the Space-Track client
-- [Ephemeris API Reference](../../library_api/ephemeris/index.md) -- Complete function and type documentation
+- [Ephemeris API Reference](../../library_api/python/ephemeris/index.md) -- Complete function and type documentation
 - [Two-Line Elements](../orbits/two_line_elements.md) -- TLE and 3LE format details
 - [SGP Propagation](../orbit_propagation/sgp_propagation.md) -- SGP4/SDP4 propagation theory and usage

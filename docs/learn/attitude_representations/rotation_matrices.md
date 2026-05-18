@@ -97,5 +97,5 @@ Convert between rotation matrices and other attitude representations:
 
 ## See Also
 
-- [Rotation Matrix API Reference](../../library_api/attitude/rotation_matrix.md)
+- [Rotation Matrix API Reference](../../library_api/python/attitude/rotation_matrix.md)
 - [Attitude Representations Overview](index.md)

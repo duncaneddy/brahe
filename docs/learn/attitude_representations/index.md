@@ -43,4 +43,4 @@ Brahe provides functions to convert between all attitude representations. You ca
 
 ## See Also
 
-- [API Reference - Attitude](../../library_api/attitude/index.md)
+- [API Reference - Attitude](../../library_api/python/attitude/index.md)

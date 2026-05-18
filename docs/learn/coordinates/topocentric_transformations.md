@@ -4,7 +4,7 @@ Topocentric coordinate systems are local horizon-based reference frames centered
 
 Unlike global coordinate systems (ECEF, ECI), topocentric systems define positions relative to a specific location on Earth, making it easy to determine whether a satellite is visible and where to look in the sky.
 
-For complete API details, see the [Topocentric Coordinates API Reference](../../library_api/coordinates/topocentric.md).
+For complete API details, see the [Topocentric Coordinates API Reference](../../library_api/python/coordinates/topocentric.md).
 
 ## Topocentric Coordinate Systems
 
@@ -218,7 +218,7 @@ The same conversion is available from SEZ coordinates:
 
 ## See Also
 
-- [Topocentric Coordinates API Reference](../../library_api/coordinates/topocentric.md) - Complete function documentation
+- [Topocentric Coordinates API Reference](../../library_api/python/coordinates/topocentric.md) - Complete function documentation
 - [Geodetic Transformations](geodetic_transformations.md) - Converting station locations to ECEF
-- [Frame Transformations](../../library_api/frames/index.md) - Converting satellite positions from ECI to ECEF
+- [Frame Transformations](../../library_api/python/frames/index.md) - Converting satellite positions from ECI to ECEF
 - Access Analysis - Higher-level tools for computing satellite visibility windows

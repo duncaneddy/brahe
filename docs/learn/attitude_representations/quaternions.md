@@ -79,5 +79,5 @@ You can convert quaternions to all other attitude representations and vice versa
 
 ## See Also
 
-- [Quaternion API Reference](../../library_api/attitude/quaternion.md)
+- [Quaternion API Reference](../../library_api/python/attitude/quaternion.md)
 - [Attitude Representations Overview](index.md)

@@ -4,7 +4,7 @@ Tessellation divides geographic areas of interest (AOIs) into smaller rectangula
 
 There are infinitely many ways to tile a large area if entirely unconstrained in the tile placement. Brahe implements an orbit-geometry based tessalator that generates tiles aligned with the orbital ground-track of a satellite. This approach is particular well-suited to satellites with push-broom imaging modes such as radar imaging satellites. The `OrbitGeometryTessellator` uses a satellite's orbital elements and a reference epoch to determine ground-track directions at any latitude. It then tiles the target location perpendicular and parallel to the ground track. Output tiles are `PolygonLocation` instances with metadata properties describing the tile geometry, making them compatible with the rest of the access computation system. The tesselation configuration should be setup such that the maximum width and length remain feasible to collect in a single imaging pass.
 
-For complete API details, see the [API Reference: Tessellation](../../library_api/access/tessellation.md).
+For complete API details, see the [API Reference: Tessellation](../../library_api/python/access/tessellation.md).
 
 ## Configuration
 
@@ -235,5 +235,5 @@ The figure below shows tiles from two spacecraft with slightly different inclina
 
 - [Locations](locations.md) - Ground location types used as tessellation inputs
 - [Computation](computation.md) - Access algorithms for finding observation windows
-- [API Reference: Tessellation](../../library_api/access/tessellation.md)
+- [API Reference: Tessellation](../../library_api/python/access/tessellation.md)
 - [Example: Collection Planning with Tessellation](../../examples/tessellation_visualization.md)

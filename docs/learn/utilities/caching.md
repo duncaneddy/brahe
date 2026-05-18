@@ -2,7 +2,7 @@
 
 Brahe automatically manages a local cache directory to store downloaded data such as Earth Orientation Parameters (EOP) and TLE data. The caching utilities provide functions to locate and manage these cache directories.
 
-For complete API details, see the [Caching API Reference](../../library_api/utils/caching.md).
+For complete API details, see the [Caching API Reference](../../library_api/python/utils/caching.md).
 
 ## Default Cache Location
 
@@ -135,4 +135,4 @@ Here's a complete example demonstrating all cache directory functions:
 ## See Also
 
 - [Utilities Overview](index.md) - Overview of all utilities
-- [Caching API Reference](../../library_api/utils/caching.md) - Complete caching function documentation
+- [Caching API Reference](../../library_api/python/utils/caching.md) - Complete caching function documentation

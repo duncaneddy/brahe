@@ -4,7 +4,7 @@ The functions described here convert between Keplerian orbital elements and Cart
 
 Understanding both representations is essential: Keplerian elements provide intuitive orbital parameters like size, shape, and orientation, while Cartesian states are necessary for numerical orbit propagation and applying perturbations.
 
-For complete API details, see the [Cartesian Coordinates API Reference](../../library_api/coordinates/cartesian.md).
+For complete API details, see the [Cartesian Coordinates API Reference](../../library_api/python/coordinates/cartesian.md).
 
 ## Orbital Representations
 
@@ -22,7 +22,7 @@ Keplerian elements describe an orbit using six classical parameters:
 In brahe, the combined vector has ordering `[a, e, i, Ω, ω, M]`
 
 !!! info
-    Brahe uses **mean anomaly** as the default anomaly representation for Keplerian elements. Other anomaly types (eccentric, true) can be converted using the anomaly conversion functions in the [Orbits module](../../library_api/orbits/index.md).
+    Brahe uses **mean anomaly** as the default anomaly representation for Keplerian elements. Other anomaly types (eccentric, true) can be converted using the anomaly conversion functions in the [Orbits module](../../library_api/python/orbits/index.md).
 
 ### Cartesian State Vectors
 
@@ -133,6 +133,6 @@ After propagating or receiving Cartesian state data, you often want to convert b
 
 ## See Also
 
-- [Cartesian Coordinates API Reference](../../library_api/coordinates/cartesian.md) - Complete function documentation
-- [Orbital Mechanics](../../library_api/orbits/index.md) - Related orbital mechanics functions
+- [Cartesian Coordinates API Reference](../../library_api/python/coordinates/cartesian.md) - Complete function documentation
+- [Orbital Mechanics](../../library_api/python/orbits/index.md) - Related orbital mechanics functions
 - Anomaly Conversions - Converting between mean, eccentric, and true anomaly

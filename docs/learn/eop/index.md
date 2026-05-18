@@ -316,5 +316,5 @@ def test_frame_transformation():
 - [What is EOP Data?](what_is_eop_data.md) - Detailed explanation of EOP parameters and why they matter
 - [Managing EOP Data](managing_eop_data.md) - Practical guide to EOP providers and data management
 - [Frame Transformations](../frames/gcrf_itrf.md) - How EOP is used in coordinate transformations
-- [EOP API Reference](../../library_api/eop/index.md) - Complete EOP provider documentation
+- [EOP API Reference](../../library_api/python/eop/index.md) - Complete EOP provider documentation
 - [IERS Website](https://www.iers.org/) - Official source for EOP data

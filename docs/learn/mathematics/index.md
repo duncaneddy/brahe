@@ -11,5 +11,5 @@ The mathematics module currently only provides Jacobian computation:
 ## See Also
 
 - **[Jacobian Computation](jacobian.md)** - Detailed guide with examples
-- **[Jacobian API Reference](../../library_api/mathematics/jacobian.md)** - Complete API documentation
+- **[Jacobian API Reference](../../library_api/python/mathematics/jacobian.md)** - Complete API documentation
 - **[Numerical Integration](../integrators/index.md)** - Integrators that use Jacobians for variational equations

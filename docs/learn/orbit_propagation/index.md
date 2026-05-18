@@ -78,4 +78,4 @@ Brahe currently provides two propagator implementations:
 - [SGP Propagation](sgp_propagation.md) - TLE-based SGP4/SDP4 propagator
 - [Trajectories](../trajectories/index.md) - Trajectory storage and management
 - [Frame Transformations](../frames/index.md) - ECI/ECEF conversions
-- [API Reference](../../library_api/propagators/index.md) - Complete API documentation
+- [API Reference](../../library_api/python/propagators/index.md) - Complete API documentation

@@ -134,7 +134,7 @@ For high-fidelity Earth gravity modeling, use the spherical harmonic expansion w
 
 ## See Also
 
-- [Library API Reference: Gravity](../../library_api/orbit_dynamics/gravity.md)
+- [Library API Reference: Gravity](../../library_api/python/orbit_dynamics/gravity.md)
 - [Orbital Dynamics Overview](index.md)
 - [Constants: Physical Parameters](../constants.md#physical-constants)
 

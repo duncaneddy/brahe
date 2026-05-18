@@ -64,6 +64,6 @@ If any propagator fails during parallel propagation, the function will panic (Ru
 
 ## See Also
 
-- [Keplerian Propagator](../../library_api/propagators/keplerian_propagator.md) - Two-body orbital propagation
-- [SGP4 Propagator](../../library_api/propagators/sgp_propagator.md) - TLE-based propagation
-- [API Reference: par_propagate_to](../../library_api/propagators/functions.md#par_propagate_to)
+- [Keplerian Propagator](../../library_api/python/propagators/keplerian_propagator.md) - Two-body orbital propagation
+- [SGP4 Propagator](../../library_api/python/propagators/sgp_propagator.md) - TLE-based propagation
+- [API Reference: par_propagate_to](../../library_api/python/propagators/functions.md#par_propagate_to)

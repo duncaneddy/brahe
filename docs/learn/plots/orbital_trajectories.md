@@ -191,8 +191,8 @@ fig = bh.plot_keplerian_trajectory(
 
 ## See Also
 
-- [plot_cartesian_trajectory API Reference](../../library_api/plots/orbital_trajectories.md)
-- [plot_keplerian_trajectory API Reference](../../library_api/plots/orbital_trajectories.md)
+- [plot_cartesian_trajectory API Reference](../../library_api/python/plots/orbital_trajectories.md)
+- [plot_keplerian_trajectory API Reference](../../library_api/python/plots/orbital_trajectories.md)
 - [3D Trajectories](3d_trajectory.md) - Spatial visualization
 - [Orbital Anomalies](../orbits/anomalies.md) - Understanding orbital parameters
-- [Propagators](../../library_api/propagators/index.md) - Orbit propagation
+- [Propagators](../../library_api/python/propagators/index.md) - Orbit propagation

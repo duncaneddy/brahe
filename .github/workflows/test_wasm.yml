@@ -1,0 +1,39 @@
+name: Test WASM
+on:
+    workflow_call:
+
+jobs:
+    test-wasm:
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v6
+            -   name: Set up Rust toolchain
+                uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+                with:
+                    toolchain: stable
+                    target: wasm32-unknown-unknown
+            -   name: Set up Python 3.11 (for version sync script)
+                uses: actions/setup-python@v5
+                with:
+                    python-version: '3.11'
+            -   name: Set up Node
+                uses: actions/setup-node@v4
+                with:
+                    node-version-file: 'crates/brahe-wasm/.nvmrc'
+                    cache: 'npm'
+                    cache-dependency-path: 'crates/brahe-wasm/package-lock.json'
+            -   name: Install wasm-pack
+                uses: taiki-e/install-action@v2
+                with:
+                    tool: wasm-pack
+            -   name: Sync package.json version from Cargo.toml
+                run: python scripts/sync_wasm_version.py
+            -   name: Install JS dependencies
+                working-directory: crates/brahe-wasm
+                run: npm ci
+            -   name: Build WASM (dual target: bundler + nodejs)
+                working-directory: crates/brahe-wasm
+                run: npm run build
+            -   name: Run Vitest
+                working-directory: crates/brahe-wasm
+                run: npm test

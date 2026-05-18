@@ -95,4 +95,4 @@ The `Decay` request class provides reentry predictions and historical decay reco
 - [Query Builder](query_builder.md) -- Filters, ordering, limits, and output formats
 - [Conjunction Data Messages](cdm.md) -- Querying CDM collision risk data
 - [Client](client.md) -- Authentication and query execution
-- [Operators Reference](../../../library_api/ephemeris/spacetrack/operators.md) -- All operator functions
+- [Operators Reference](../../../library_api/python/ephemeris/spacetrack/operators.md) -- All operator functions

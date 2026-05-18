@@ -1,14 +1,21 @@
-# Python API Reference
+# API Reference
 
-This section provides comprehensive documentation for the Brahe Python API. All classes, functions, and modules are documented with detailed descriptions, parameters, return values, and usage examples.
+Brahe ships two language bindings on top of the core Rust library. Pick the one matching how you consume the library.
 
-## Navigation
+## Python API Reference
 
-Use the sidebar to navigate through the detailed API documentation for each module. Each page includes:
+[Browse the Python API →](./python/)
 
-- Complete class and function signatures
-- Detailed parameter descriptions
-- Return value specifications
-- Usage examples
+Detailed reference for the `brahe` Python package (installed via `pip install brahe`).
 
-All documentation is automatically generated from the source code docstrings to ensure accuracy and consistency.
+## WASM API Reference
+
+[Browse the WASM API →](./wasm/)
+
+Detailed reference for the `brahe-wasm` npm package (`npm install brahe-wasm`).
+
+---
+
+## Rust API Reference
+
+The Rust crate documentation lives on [docs.rs/brahe](https://docs.rs/crate/brahe/latest).

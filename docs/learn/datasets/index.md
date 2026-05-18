@@ -68,4 +68,4 @@ Brahe's datasets module aims to:
 - [NAIF Ephemeris Kernels](naif.md) - Planetary ephemeris data
 - [GCAT Satellite Catalogs](gcat.md) - GCAT SATCAT and PSATCAT catalogs
 - [Groundstation Datasets](groundstations.md) - Ground facility locations
-- [Datasets API Reference](../../library_api/datasets/index.md) - Complete function documentation
+- [Datasets API Reference](../../library_api/python/datasets/index.md) - Complete function documentation

@@ -33,4 +33,4 @@ See [String Formatting](string_formatting.md) for complete details.
 - [Caching](caching.md) - Cache directory management
 - [Multithreading](threading.md) - Thread pool configuration
 - [String Formatting](string_formatting.md) - Human-readable output formatting
-- [Utilities API Reference](../../library_api/utils/index.md) - Complete utilities function documentation
+- [Utilities API Reference](../../library_api/python/utils/index.md) - Complete utilities function documentation

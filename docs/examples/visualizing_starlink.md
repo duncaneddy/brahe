@@ -9,7 +9,7 @@ This example demonstrates how to download Two-Line Element (TLE) data from the C
 
 ## Initialize Earth Orientation Parameters
 
-Before starting, we need to import brahe and ensure that we have Earth orientation parameters initialized. We'll use `initialize_eop()`, which provides a [CachingEOPProvider](../library_api/eop/caching_provider.md) to deliver up-to-date Earth orientation parameters.
+Before starting, we need to import brahe and ensure that we have Earth orientation parameters initialized. We'll use `initialize_eop()`, which provides a [CachingEOPProvider](../library_api/python/eop/caching_provider.md) to deliver up-to-date Earth orientation parameters.
 
 ``` python
 --8<-- "./examples/examples/visualizing_starlink.py:preamble"
@@ -17,7 +17,7 @@ Before starting, we need to import brahe and ensure that we have Earth orientati
 
 ## Download Starlink TLEs
 
-We'll use the [CelesTrak client](../library_api/ephemeris/celestrak.md) to fetch the latest GP data for all Starlink satellites, then convert each record into an SGP4 propagator:
+We'll use the [CelesTrak client](../library_api/python/ephemeris/celestrak.md) to fetch the latest GP data for all Starlink satellites, then convert each record into an SGP4 propagator:
 
 ``` python
 --8<-- "./examples/examples/visualizing_starlink.py:download_starlink"

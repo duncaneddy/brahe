@@ -98,54 +98,102 @@ email me at duncan.eddy (at) gmail.com.
 // off erroneous coverage miss reporting in test blocks
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
-// Re-export commonly used types
-pub use access::*;
-pub use attitude::*;
+// Always-available modules: no OS/native/C-FFI dependencies; compile on all targets
+// including wasm32-unknown-unknown.
+pub mod constants;
+pub mod types;
+
 pub use constants::*;
+
+// Native-only modules: depend on OS networking, threading, C FFI (rsofa), or
+// system libraries that are unavailable on wasm32 targets.  Gated behind the
+// `native` feature (enabled by default).
+#[cfg(feature = "native")]
+pub use access::*;
+#[cfg(feature = "native")]
+pub use attitude::*;
+#[cfg(feature = "native")]
 pub use coordinates::*;
+#[cfg(feature = "native")]
 pub use datasets::*;
+#[cfg(feature = "native")]
 pub use earth_models::*;
+#[cfg(feature = "native")]
 pub use eop::*;
+#[cfg(feature = "native")]
 pub use frames::*;
+#[cfg(feature = "native")]
 pub use integrators::*;
+#[cfg(feature = "native")]
 pub use math::*;
+#[cfg(feature = "native")]
 pub use orbit_dynamics::*;
+#[cfg(feature = "native")]
 pub use orbits::*;
+#[cfg(feature = "native")]
 pub use propagators::*;
+#[cfg(feature = "native")]
 pub use relative_motion::*;
+#[cfg(feature = "native")]
 pub use space_weather::*;
+#[cfg(feature = "native")]
 pub use spice::*;
+#[cfg(feature = "native")]
 pub use time::conversions::*;
+#[cfg(feature = "native")]
 pub use time::*;
+#[cfg(feature = "native")]
 pub use trajectories::*;
 
 // Module declarations
+#[cfg(feature = "native")]
 pub mod access;
 // Note: celestrak, spacetrack, and ccsds are not glob-re-exported since they use
 // namespaced patterns that should be accessed via brahe::ccsds::*, brahe::celestrak::*, etc.
+#[cfg(feature = "native")]
 pub mod attitude;
+#[cfg(feature = "native")]
 pub mod ccsds;
+#[cfg(feature = "native")]
 pub mod celestrak;
-pub mod constants;
+#[cfg(feature = "native")]
 pub mod coordinates;
+#[cfg(feature = "native")]
 pub mod datasets;
+#[cfg(feature = "native")]
 pub mod earth_models;
+#[cfg(feature = "native")]
 pub mod eop;
+#[cfg(feature = "native")]
 pub mod estimation;
+#[cfg(feature = "native")]
 pub mod events;
+#[cfg(feature = "native")]
 pub mod frames;
+#[cfg(feature = "native")]
 pub mod integrators;
+#[cfg(feature = "native")]
 pub mod math;
+#[cfg(feature = "native")]
 pub mod orbit_dynamics;
+#[cfg(feature = "native")]
 pub mod orbits;
+#[cfg(feature = "native")]
 pub mod propagators;
+#[cfg(feature = "native")]
 pub mod relative_motion;
+#[cfg(feature = "native")]
 pub mod space_weather;
+#[cfg(feature = "native")]
 pub mod spacetrack;
+#[cfg(feature = "native")]
 pub mod spice;
+#[cfg(feature = "native")]
 pub mod time;
+#[cfg(feature = "native")]
 pub mod trajectories;
-pub mod types;
+#[cfg(feature = "native")]
 pub mod utils;
 // Centralized traits module - re-exports all public traits
+#[cfg(feature = "native")]
 pub mod traits;

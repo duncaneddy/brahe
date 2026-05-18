@@ -218,5 +218,5 @@ positive semi-definite.
 
 - [Measurement Models](measurement_models.md) -- Built-in and custom measurement types
 - [Custom Models](custom_models.md) -- Defining measurement models in Python
-- [EKF API Reference](../../library_api/estimation/extended_kalman_filter.md) -- Complete method documentation
+- [EKF API Reference](../../library_api/python/estimation/extended_kalman_filter.md) -- Complete method documentation
 - [Covariance and Sensitivity](../orbit_propagation/numerical_propagation/covariance_sensitivity.md) -- STM propagation details

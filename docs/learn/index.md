@@ -21,7 +21,7 @@ The Brahe package is organized into several key modules, each providing providin
 These modules provide the basic building blocks for the package, including utilities for time handling, constants, and Earth Orientation Parameters (EOP).
 
 - **Constants**: This module contains physical and mathematical constants used throughout the package.
-- **Time**: This module provides tools for representing and dealing with time. It provides the ubiquitous [Epoch](../library_api/time/epoch.md) class which is the basis for all time handling in Brahe.
+- **Time**: This module provides tools for representing and dealing with time. It provides the ubiquitous [Epoch](../library_api/python/time/epoch.md) class which is the basis for all time handling in Brahe.
 - **EOP**: This module handles Earth Orientation Parameters, which are essential for accurate coordinate transformations and orbit propagation. An Earth Orientation Provider is required for many operations in Brahe. There are multiple kinds provided, but `initialize_eop()` is the easiest way to get started.
 
 ### Orbit & Attitude Representations
@@ -52,4 +52,4 @@ These modules provide higher-level functionalities for specific applications, su
 
 Each of these modules are defined to have composable, interoperable interfaces so that you can easily combine functionality from different modules to accomplish your tasks. As you explore the documentation further, you'll find detailed explanations and examples for each module to help you understand how to use them effectively.
 
-For detailed information on all functions, classes, and methods available in each module, please refer to the [Python API Reference](../library_api/index.md) and [Rust API Reference](https://docs.rs/brahe).
+For detailed information on all functions, classes, and methods available in each module, please refer to the [Python API Reference](../library_api/python/index.md) and [Rust API Reference](https://docs.rs/brahe).

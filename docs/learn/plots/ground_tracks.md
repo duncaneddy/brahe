@@ -226,8 +226,8 @@ fig = bh.plot_groundtrack(
 
 ## See Also
 
-- [plot_groundtrack API Reference](../../library_api/plots/ground_tracks.md) - Complete function documentation
-- [split_ground_track_at_antimeridian API Reference](../../library_api/plots/ground_tracks.md) - Wraparound handling
+- [plot_groundtrack API Reference](../../library_api/python/plots/ground_tracks.md) - Complete function documentation
+- [split_ground_track_at_antimeridian API Reference](../../library_api/python/plots/ground_tracks.md) - Wraparound handling
 - [Access Geometry](access_geometry.md) - Detailed visibility analysis
-- [PointLocation](../../library_api/access/locations.md) - Ground station definitions
-- [PolygonLocation](../../library_api/access/locations.md) - Zone definitions
+- [PointLocation](../../library_api/python/access/locations.md) - Ground station definitions
+- [PolygonLocation](../../library_api/python/access/locations.md) - Zone definitions

@@ -2,7 +2,7 @@
 
 The `NumericalPropagator` provides a general-purpose numerical integrator for arbitrary ordinary differential equations (ODEs). Unlike `NumericalOrbitPropagator` which has built-in orbital force models, the generic propagator accepts user-defined dynamics functions for any dynamical system.
 
-For API details, see the [NumericalPropagator API Reference](../../../library_api/propagators/numerical_propagator.md).
+For API details, see the [NumericalPropagator API Reference](../../../library_api/python/propagators/numerical_propagator.md).
 
 ## When to Use General Dynamics
 
@@ -395,4 +395,4 @@ For Rust, ensure the dynamics closure captures minimal state and avoids unnecess
 - [Extending Spacecraft State](extending_state.md) - Extended state for orbital propagation
 - [Maneuvers](maneuvers.md) - Control inputs for thrust
 - [Event Detection](event_detection.md) - Detecting conditions
-- [NumericalPropagator API Reference](../../../library_api/propagators/numerical_propagator.md)
+- [NumericalPropagator API Reference](../../../library_api/python/propagators/numerical_propagator.md)

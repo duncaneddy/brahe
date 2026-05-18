@@ -2,7 +2,7 @@
 
 The `orbits` module provides functions to compute essential properties of satellite orbits, including orbital period, mean motion, periapsis/apoapsis characteristics, and specialized orbits like sun-synchronous configurations. These properties are fundamental for mission design, orbit determination, and trajectory analysis.
 
-For complete API documentation, see [Orbits API Reference](../../library_api/orbits/index.md).
+For complete API documentation, see [Orbits API Reference](../../library_api/python/orbits/index.md).
 
 ## Orbital Period
 
@@ -373,7 +373,7 @@ Most sun-synchronous Earth observation missions operate at altitudes between 500
 
 ## See Also
 
-- [Orbits API Reference](../../library_api/orbits/index.md) - Complete Python API documentation
+- [Orbits API Reference](../../library_api/python/orbits/index.md) - Complete Python API documentation
 - [Anomaly Conversions](anomalies.md) - Converting between true, eccentric, and mean anomaly
 
 [^1]: D. Vallado, *Fundamentals of Astrodynamics and Applications (4th Ed.)*, 2010

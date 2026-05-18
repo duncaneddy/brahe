@@ -94,4 +94,4 @@ The function validates kernel names before attempting downloads. Invalid kernel 
 
 - [NAIF SPICE System](https://naif.jpl.nasa.gov/naif/toolkit.html) - Full SPICE toolkit documentation
 - [DE Kernel Details](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/aa_summaries.txt) - Detailed descriptions of each DE version
-- [Library API Reference](../../library_api/datasets/naif.md) - Complete function documentation
+- [Library API Reference](../../library_api/python/datasets/naif.md) - Complete function documentation

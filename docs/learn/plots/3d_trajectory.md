@@ -67,7 +67,7 @@ The matplotlib backend produces publication-ready 3D figures with customizable v
 
 ## See Also
 
-- [plot_trajectory_3d API Reference](../../library_api/plots/3d_trajectory.md)
+- [plot_trajectory_3d API Reference](../../library_api/python/plots/3d_trajectory.md)
 - [Ground Tracks](ground_tracks.md) - 2D projection on Earth's surface
 - [Orbital Elements](orbital_trajectories.md) - Element evolution over time
 - [Coordinate Systems](../coordinates/index.md) - Understanding ECI frames

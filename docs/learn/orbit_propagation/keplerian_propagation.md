@@ -2,7 +2,7 @@
 
 The `KeplerianPropagator` provides fast, analytical two-body orbital propagation using Kepler's equations. It assumes only gravitational attraction from a central body (Earth) with no perturbations, making it ideal for rapid trajectory generation, high-altitude orbits, or when perturbations are negligible.
 
-For complete API documentation, see the [KeplerianPropagator API Reference](../../library_api/propagators/keplerian_propagator.md).
+For complete API documentation, see the [KeplerianPropagator API Reference](../../library_api/python/propagators/keplerian_propagator.md).
 
 ## Initialization
 
@@ -407,4 +407,4 @@ Track propagators with names, IDs, or UUIDs for multi-satellite scenarios.
 - [Orbit Propagation Overview](index.md) - Propagation concepts and trait hierarchy
 - [SGP Propagation](sgp_propagation.md) - TLE-based SGP4/SDP4 propagator
 - [Trajectories](../trajectories/index.md) - Trajectory storage and operations
-- [KeplerianPropagator API Reference](../../library_api/propagators/keplerian_propagator.md)
+- [KeplerianPropagator API Reference](../../library_api/python/propagators/keplerian_propagator.md)

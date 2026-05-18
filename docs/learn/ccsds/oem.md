@@ -141,6 +141,6 @@ The data lines contain epoch followed by position (km) and velocity (km/s), spac
 
 ## See Also
 
-- [API Reference — OEM](../../library_api/ccsds/oem.md)
+- [API Reference — OEM](../../library_api/python/ccsds/oem.md)
 - [CCSDS Data Formats](index.md) — Overview of all message types
 - [Trajectories](../trajectories/index.md) — Brahe trajectory containers

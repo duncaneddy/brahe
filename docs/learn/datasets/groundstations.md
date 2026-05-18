@@ -158,4 +158,4 @@ Additional properties may be included in future releases as data becomes availab
 ## See Also
 
 - [Datasets Overview](index.md) - Understanding datasets in Brahe
-- [Groundstation API Reference](../../library_api/datasets/groundstations.md) - Complete function documentation
+- [Groundstation API Reference](../../library_api/python/datasets/groundstations.md) - Complete function documentation

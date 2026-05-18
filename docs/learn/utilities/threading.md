@@ -2,7 +2,7 @@
 
 Brahe uses a global thread pool to parallelize computationally intensive operations, such as computing access windows between satellites and ground locations. The threading utilities allow you to configure the number of threads used by the thread pool.
 
-For complete API details, see the [Threading API Reference](../../library_api/utils/threading.md).
+For complete API details, see the [Threading API Reference](../../library_api/python/utils/threading.md).
 
 ## Default Behavior
 
@@ -138,4 +138,4 @@ Here's a complete example demonstrating all threading configuration functions:
 ## See Also
 
 - [Utilities Overview](index.md) - Overview of all utilities
-- [Threading API Reference](../../library_api/utils/threading.md) - Complete threading function documentation
+- [Threading API Reference](../../library_api/python/utils/threading.md) - Complete threading function documentation

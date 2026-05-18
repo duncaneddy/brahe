@@ -1,0 +1,16 @@
+# wasm-pack build outputs
+/pkg-bundler/
+/pkg-node/
+
+# npm
+/node_modules/
+/package-lock.json.bak
+
+# TypeScript build output
+/dist/
+
+# Vitest coverage
+/coverage/
+
+# TypeDoc output is intentionally NOT ignored here; it's written to
+# ../../docs/library_api/wasm/ (the docs site), not into this crate.

@@ -110,4 +110,4 @@ The `AccessSearchConfig` struct controls algorithm behavior (initial time step, 
 - [Example: Predicting Ground Contacts](../../examples/ground_contacts.md) - Complete ground station example
 - [Example: Computing Imaging Opportunities](../../examples/imaging_opportunities.md) - Imaging scenario
 - [Example: Tessellation Visualization](../../examples/tessellation_visualization.md) - Visualizing tessellation results
-- [API Reference: Access Module](../../library_api/access/index.md) - Complete API documentation
+- [API Reference: Access Module](../../library_api/python/access/index.md) - Complete API documentation

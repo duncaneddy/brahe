@@ -8,6 +8,7 @@
  */
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "native")]
 use std::borrow::Cow;
 
 use super::serde_flex::*;
@@ -17,6 +18,7 @@ use super::serde_flex::*;
 /// Enables the filter engine to work with any record type that can
 /// provide field values by their API field name. Returns `Cow<str>`
 /// so string fields can borrow and numeric fields can convert.
+#[cfg(feature = "native")]
 pub(crate) trait FieldAccessor {
     fn get_field(&self, name: &str) -> Option<Cow<'_, str>>;
 }
@@ -330,6 +332,7 @@ pub struct GPRecord {
     pub tle_line2: Option<String>,
 }
 
+#[cfg(feature = "native")]
 impl FieldAccessor for GPRecord {
     fn get_field(&self, name: &str) -> Option<Cow<'_, str>> {
         match name {

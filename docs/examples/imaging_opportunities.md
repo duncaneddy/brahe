@@ -80,5 +80,5 @@ Below is a table of the first 10 imaging opportunities. Click on any column head
 ## See Also
 
 - [Access Computation](../learn/access_computation/index.md)
-- [Locations](../library_api/access/locations.md)
-- [Constraints](../library_api/access/constraints.md)
+- [Locations](../library_api/python/access/locations.md)
+- [Constraints](../library_api/python/access/constraints.md)

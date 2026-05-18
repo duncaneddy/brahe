@@ -57,5 +57,5 @@ Convert between Euler angles and other attitude representations:
 
 ## See Also
 
-- [Euler Angles API Reference](../../library_api/attitude/euler_angles.md)
+- [Euler Angles API Reference](../../library_api/python/attitude/euler_angles.md)
 - [Attitude Representations Overview](index.md)

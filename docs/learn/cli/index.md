@@ -122,7 +122,7 @@ See the [Constants documentation](../constants.md) for the complete list.
 
 ## See Also
 
-- [Python API Documentation](../../library_api/index.md)
+- [Python API Documentation](../../library_api/python/index.md)
 - [Coordinate Systems](../coordinates/index.md)
 - [Time Systems](../time/index.md)
 - [Orbital Mechanics](../orbits/index.md)

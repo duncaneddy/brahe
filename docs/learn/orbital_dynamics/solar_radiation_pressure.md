@@ -107,7 +107,7 @@ Determine if a satellite is in Earth's shadow using either the conical or cylind
 
 ## See Also
 
-- [Library API Reference: Solar Radiation Pressure](../../library_api/orbit_dynamics/solar_radiation_pressure.md)
+- [Library API Reference: Solar Radiation Pressure](../../library_api/python/orbit_dynamics/solar_radiation_pressure.md)
 - [Third-Body Perturbations](third_body.md) - For Sun position calculation
 - [Orbital Dynamics Overview](index.md)
 

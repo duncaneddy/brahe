@@ -155,9 +155,9 @@ Time-series plots show how elevation angle changes throughout a satellite pass, 
 
 ## See Also
 
-- [plot_access_polar API Reference](../../library_api/plots/access_geometry.md)
-- [plot_access_elevation_azimuth API Reference](../../library_api/plots/access_geometry.md)
-- [plot_access_elevation API Reference](../../library_api/plots/access_geometry.md)
-- [location_accesses](../../library_api/access/index.md) - Computing access windows
+- [plot_access_polar API Reference](../../library_api/python/plots/access_geometry.md)
+- [plot_access_elevation_azimuth API Reference](../../library_api/python/plots/access_geometry.md)
+- [plot_access_elevation API Reference](../../library_api/python/plots/access_geometry.md)
+- [location_accesses](../../library_api/python/access/index.md) - Computing access windows
 - [Ground Tracks](ground_tracks.md) - Visualizing coverage on maps
-- [Access Constraints](../../library_api/access/constraints.md) - Defining visibility rules
+- [Access Constraints](../../library_api/python/access/constraints.md) - Defining visibility rules

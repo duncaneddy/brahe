@@ -10,10 +10,21 @@ _setup:
     @which uv > /dev/null 2>&1 || { echo "Error: uv is not installed. Install from https://docs.astral.sh/uv/"; exit 1; }
     @test -d .venv || uv sync
 
+# ───── Version Management ─────
+
+# Sync brahe-wasm/package.json version from root Cargo.toml workspace version
+sync-wasm-version: _setup
+    @{{python}} scripts/sync_wasm_version.py
+
+# Bump workspace version everywhere (Cargo.toml, brahe-wasm/package.json, Cargo.lock)
+# Usage: just set-version 1.5.2
+set-version VERSION: _setup
+    @{{python}} scripts/set_version.py {{VERSION}}
+
 # ───── Testing ─────
 
-# Run all tests (Rust + Python)
-test *flags: test-rust test-python
+# Run all tests (Rust + Python + WASM)
+test *flags: test-rust test-python test-wasm
 
 # Run Rust tests
 test-rust *flags:
@@ -31,6 +42,25 @@ test-examples *args: _setup
 # Test a specific example (delegates to scripts/test_example.py)
 test-example *args: _setup
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_example.py {{args}}
+
+# ───── WASM ─────
+
+# One-time WASM toolchain setup (also syncs package.json version from Cargo.toml)
+_setup-wasm: _setup sync-wasm-version
+    @which wasm-pack > /dev/null 2>&1 || cargo install wasm-pack
+    @test -d crates/brahe-wasm/node_modules || (cd crates/brahe-wasm && npm install)
+
+# Build the brahe-wasm package (Rust → WASM dual-target + TS → JS)
+build-wasm: _setup-wasm
+    cd crates/brahe-wasm && npm run build
+
+# Run WASM tests
+test-wasm: _setup-wasm
+    cd crates/brahe-wasm && npm run test
+
+# Regenerate WASM API reference markdown (TypeDoc → markdown)
+docs-wasm: _setup-wasm
+    cd crates/brahe-wasm && npm run docs
 
 # ───── Coverage ─────
 
@@ -191,12 +221,12 @@ lint-fix: _setup
 # ───── Documentation ─────
 
 # Build documentation
-docs: _setup
+docs: _setup docs-wasm
     ./scripts/generate_stubs.sh
     uv run properdocs build
 
 # Serve documentation locally
-docs-serve: _setup
+docs-serve: _setup docs-wasm
     ./scripts/generate_stubs.sh
     uv run properdocs serve
 

@@ -2,7 +2,7 @@
 
 The Epoch class is the fundamental time representation in Brahe. It encapsulates a specific instant in time, defined by both a time representation and a time scale. The Epoch class provides methods for converting between different time representations and time scales, as well as for performing arithmetic operations on time instances.
 
-There are even more capabilities and features of the Epoch class beyond what is covered in this guide. For a complete reference of all available methods and properties, please refer to the [Epoch API Reference](../../library_api/time/epoch.md).
+There are even more capabilities and features of the Epoch class beyond what is covered in this guide. For a complete reference of all available methods and properties, please refer to the [Epoch API Reference](../../library_api/python/time/epoch.md).
 
 ## Initialization
 
@@ -294,4 +294,4 @@ Epochs can be converted to human-readable strings in various formats and time sy
 
 ## See Also
 
-- [Epoch API Reference](../../library_api/time/epoch.md)
+- [Epoch API Reference](../../library_api/python/time/epoch.md)

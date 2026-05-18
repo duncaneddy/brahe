@@ -80,4 +80,4 @@ Use an off-nadir constraint (10°–45°) to find all collection windows over a
 - [Learn: Tessellation](../learn/access_computation/tessellation.md) - Conceptual overview and configuration guide
 - [Access Computation](../learn/access_computation/index.md) - Full access computation system
 - [Imaging Data Latency](imaging_data_latency.md) - Related end-to-end analysis with Capella
-- [API Reference: Tessellation](../library_api/access/tessellation.md)
+- [API Reference: Tessellation](../library_api/python/access/tessellation.md)

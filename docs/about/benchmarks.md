@@ -117,9 +117,15 @@ Two tasks covering full 6-DOF state vector transformations between ECEF and ECI 
   <iframe class="only-dark"  src="../figures/fig_bench_frames_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy**: The raw comparison data shows large apparent errors ($\sim 2 \times 10^5$ m) between OreKit and Brahe frame transformations. This is a **known comparison methodology issue** — the benchmark compares full 6-element state vectors `[x, y, z, vx, vy, vz]` element-wise, where position components (meters) and velocity components (m/s) have vastly different magnitudes. The large max absolute error reflects a small fractional difference in position that appears large in absolute terms due to the ~7000 km orbital radius.
+**Accuracy**:
 
-Both implementations use the IAU 2006/2000A model but differ in EOP interpolation and nutation series truncation. Investigation of position-only and velocity-only errors separately is planned to quantify the true agreement.
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_accuracy_frames.csv') }}
+
+</div>
+
+Both implementations use the IAU 2006/2000A model. Residuals are on the order of tens of centimeters, reflecting EOP interpolation and nutation series truncation differences.
 
 ---
 

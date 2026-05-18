@@ -409,24 +409,32 @@ This requires the `gh` CLI to be authenticated (`gh auth status`).
 
 ## Release Process
 
+CHANGELOG generation and version bumps happen **locally before tagging**, so the tagged commit contains everything the published artifacts ship. CI never mutates the repository during a release.
+
 ### Initiating a Release
 
-Before creating a release:
-
-1. **Update version** in `Cargo.toml`:
+1. **Bump the workspace version**:
    ```bash
-   # Edit version in Cargo.toml
-   vim Cargo.toml  # Update version = "1.2.3"
+   just set-version 1.2.3
+   ```
+   This updates `[workspace.package].version` in `Cargo.toml` (inherited by `brahe` and `brahe-py`) and refreshes `Cargo.lock`.
+
+2. **Regenerate the CHANGELOG entry** for this release:
+   ```bash
+   just generate-changelog
+   ```
+   By default, the version is read from `Cargo.toml` and the previous tag from `git describe --tags --abbrev=0`. Override either with `just generate-changelog 1.2.3 v1.2.2`. The script aggregates `### Section` blocks from PR bodies merged since the previous tag — `gh` must be authenticated (`gh auth status`).
+
+   Review the diff to `CHANGELOG.md` and edit if needed; it is the canonical source of release notes.
+
+3. **Run quality checks**:
+   ```bash
+   just check
    ```
 
-2. **Run quality checks**:
+4. **Commit and tag**:
    ```bash
-   ruff check && cargo fmt -- --check && cargo test && uv pip install -e ".[all]" && uv run pytest && just test-examples && just make-plots && uv run properdocs build --strict
-   ```
-
-3. **Push version tag**:
-   ```bash
-   git add Cargo.toml
+   git add Cargo.toml Cargo.lock CHANGELOG.md
    git commit -m "Prepare release v1.2.3"
    git push origin main
    git tag v1.2.3
@@ -437,24 +445,14 @@ Before creating a release:
 
 Once the tag is pushed, GitHub Actions automatically:
 
-1. Validates version matches between tag and `Cargo.toml`
-2. Runs all tests (Rust, Python, examples)
-3. Generates `release_notes.md` and updates `CHANGELOG.md` from PRs merged since the previous tag (via `scripts/generate_release_notes.py`), then pushes the CHANGELOG update directly to `main`
-4. Builds documentation and deploys to GitHub Pages
-5. Builds Python wheels and source distribution
-6. Publishes to PyPI and crates.io
-7. Creates **draft** GitHub Release with artifacts and release notes
-8. Updates "latest" tag and release
-
-### Completing the Release
-
-After automation completes:
-
-1. **Review draft release** at `https://github.com/duncaneddy/brahe/releases`
-2. **Edit release notes** (optional):
-   - Add highlights or breaking changes
-   - Include migration notes if needed
-3. **Publish release** by clicking "Publish release"
+1. Validates the tag version matches `Cargo.toml` **and** that `CHANGELOG.md` contains a `## [1.2.3]` entry (fails fast if `just generate-changelog` was skipped).
+2. Runs all tests (Rust, Python, examples).
+3. Extracts `release_notes.md` from the committed `CHANGELOG.md` (via `scripts/extract_release_notes.py`) for use as the GitHub Release body — no commits or pushes from CI.
+4. Builds documentation and deploys to GitHub Pages.
+5. Builds Python wheels and source distribution.
+6. Publishes to PyPI and crates.io.
+7. Publishes the GitHub Release (non-draft) with artifacts and release notes.
+8. Updates the "latest" tag and release.
 
 ### Verification
 

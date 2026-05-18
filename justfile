@@ -251,6 +251,62 @@ list-plots *args: _setup
 stats: _setup
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/stats.py
 
+# ───── Release ─────
+
+# Set the workspace version in Cargo.toml (single source of truth for all crates)
+set-version version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! [[ "{{version}}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "error: version must be MAJOR.MINOR.PATCH (got '{{version}}')" >&2
+        exit 1
+    fi
+    # Update the [workspace.package] version. The brahe and brahe-py crates
+    # inherit it via `version.workspace = true`.
+    python3 -c "
+    import re, pathlib
+    p = pathlib.Path('Cargo.toml')
+    text = p.read_text()
+    new = re.sub(
+        r'(\[workspace\.package\][^\[]*?\nversion = )\"[^\"]+\"',
+        r'\\g<1>\"{{version}}\"',
+        text,
+        count=1,
+        flags=re.DOTALL,
+    )
+    if new == text:
+        raise SystemExit('error: could not find [workspace.package] version in Cargo.toml')
+    p.write_text(new)
+    "
+    # Refresh Cargo.lock so the workspace version bump is reflected there too.
+    cargo update --workspace --quiet
+    echo "✓ Set workspace version to {{version}}"
+
+# Regenerate the CHANGELOG.md entry for an upcoming release.
+# Defaults: version from Cargo.toml, prev-tag from `git describe --tags`.
+generate-changelog version="" prev_tag="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION="{{version}}"
+    PREV_TAG="{{prev_tag}}"
+    if [ -z "$VERSION" ]; then
+        VERSION=$(grep -E '^version = ' Cargo.toml | head -1 | sed -E 's/version = "(.*)"/\1/')
+        echo "Using version from Cargo.toml: $VERSION"
+    fi
+    if [ -z "$PREV_TAG" ]; then
+        PREV_TAG=$(git describe --tags --abbrev=0)
+        echo "Using previous tag from git: $PREV_TAG"
+    fi
+    if ! command -v gh > /dev/null 2>&1; then
+        echo "error: gh CLI is required (https://cli.github.com/)" >&2
+        exit 1
+    fi
+    python3 scripts/generate_release_notes.py \
+        --version "$VERSION" \
+        --prev-tag "$PREV_TAG" \
+        --changelog CHANGELOG.md
+    echo "✓ CHANGELOG.md updated for v$VERSION. Review the diff, then commit and tag."
+
 # ───── Full Quality Check ─────
 
 # Run full quality check (test + lint + format + stubs + docs)

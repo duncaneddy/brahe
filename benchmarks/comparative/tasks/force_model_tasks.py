@@ -37,7 +37,7 @@ class _AccelTaskBase(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def _base_params(self) -> dict:
         return {

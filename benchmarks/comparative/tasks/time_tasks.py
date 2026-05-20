@@ -52,7 +52,7 @@ class EpochCreationTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
@@ -75,7 +75,7 @@ class UtcToTaiTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
@@ -98,7 +98,7 @@ class UtcToTtTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
@@ -121,7 +121,7 @@ class UtcToGpsTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
@@ -144,7 +144,7 @@ class UtcToUt1Task(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}

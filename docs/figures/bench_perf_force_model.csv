@@ -1,6 +1,6 @@
-Task,Java,Python,Rust,Python Speedup,Rust Speedup
-Point Mass Gravity,32.7 µs,39.8 µs,66.8 ns,0.82×,489.0×
-Spherical Harmonics 20x20,9.24 ms,495.1 µs,426.8 µs,18.7×,21.6×
-Spherical Harmonics 80x80,19.22 ms,3.28 ms,3.17 ms,5.85×,6.07×
-Third Body (Moon),2.07 ms,418.4 µs,2.17 ms,4.95×,0.95×
-Third Body (Sun),4.87 ms,557.2 µs,2.21 ms,8.74×,2.20×
+Task,Java,GMAT,Python,Rust,GMAT Speedup,Python Speedup,Rust Speedup
+Point Mass Gravity,17.6 µs,2.21 ms,51.2 µs,29.1 ns,0.01×,0.34×,606.2×
+Spherical Harmonics 20x20,4.68 ms,64.71 ms,552.7 µs,428.5 µs,0.07×,8.46×,10.9×
+Spherical Harmonics 80x80,12.82 ms,68.01 ms,3.39 ms,3.24 ms,0.19×,3.78×,3.95×
+Third Body (Moon),1.33 ms,2.29 ms,420.6 µs,1.16 ms,0.58×,3.17×,1.15×
+Third Body (Sun),3.08 ms,2.52 ms,1.57 ms,1.50 ms,1.22×,1.96×,2.05×

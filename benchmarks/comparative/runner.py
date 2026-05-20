@@ -36,9 +36,9 @@ from benchmarks.comparative.tasks.base import BenchmarkTask
 app = typer.Typer(help="Comparative benchmark framework for Brahe")
 
 # Java/OreKit is the reference baseline — run it first, use it for speedup and accuracy.
-# Display order matches the published comparison ordering: Orekit, Basilisk, brahe-py,
-# brahe-rs (Java first as baseline; the rest in canonical reporting order).
-LANGUAGE_ORDER = ["java", "basilisk", "python", "rust"]
+# Display order matches the published comparison ordering: Orekit (Java baseline),
+# GMAT, Basilisk, brahe-Python, brahe-Rust.
+LANGUAGE_ORDER = ["java", "gmat", "basilisk", "python", "rust"]
 BASELINE_LANGUAGE = "java"
 
 
@@ -75,6 +75,27 @@ def run(
     )
 
     benchmark_run = BenchmarkRun(system_info=collect_system_info())
+
+    # Pre-import Basilisk before GMAT initializes.
+    #
+    # Both Basilisk and GMAT register a "Spacecraft" type in a shared Python
+    # factory (gmat.Construct / Basilisk.simulation.spacecraft). When Basilisk
+    # simulation modules are imported AFTER gmat.Setup() has run, Basilisk's
+    # Spacecraft type overwrites GMAT's registration, causing every subsequent
+    # gmat.Construct("Spacecraft", ...) call to return a Basilisk Spacecraft
+    # object that lacks SetField — yielding "'Spacecraft' object has no
+    # attribute 'SetField'" for all remaining spacecraft-based GMAT tasks.
+    #
+    # Importing Basilisk BEFORE the first gmat.Setup() call avoids this: GMAT
+    # registers its own Spacecraft factory last and takes precedence.  We do
+    # this eagerly here (silently ignoring ImportError when Basilisk is not
+    # installed) so that the import ordering is deterministic regardless of
+    # which task runs first.
+    if not language or language == "basilisk":
+        try:
+            import benchmarks.comparative.implementations.basilisk  # noqa: F401
+        except (ImportError, Exception):
+            pass  # Basilisk not installed; no pre-import needed
 
     for t in tasks:
         requested = languages_to_run or t.languages
@@ -177,6 +198,8 @@ def _dispatch_task(
         return _run_subprocess(task, language, iterations, seed, _get_java_command())
     elif language == "basilisk":
         return _run_basilisk(task, iterations, seed)
+    elif language == "gmat":
+        return _run_gmat(task, iterations, seed)
     return None
 
 
@@ -213,6 +236,40 @@ def _run_basilisk(
     try:
         input_data = task.to_input_json(iterations, seed)
         return dispatch(input_data)
+    except Exception as e:
+        console.print(f"    [red]Error: {e}[/red]")
+        return None
+
+
+def _run_gmat(
+    task: BenchmarkTask,
+    iterations: int,
+    seed: int,
+) -> TaskResult | None:
+    """Run a benchmark task using GMAT (gmatpy) in-process.
+
+    Catches ImportError from _ensure_gmat() and reports the user-facing skip
+    message. All other task-level exceptions are reported in red.
+    """
+    try:
+        from benchmarks.comparative.implementations.gmat import dispatch
+    except ImportError as e:
+        console.print(
+            f"    [yellow]GMAT not ready ({e}). "
+            f"Set GMAT_ROOT_PATH and run: just bench-compare-setup[/yellow]"
+        )
+        return None
+
+    try:
+        input_data = task.to_input_json(iterations, seed)
+        return dispatch(input_data)
+    except ImportError as e:
+        # _ensure_gmat raises ImportError inside dispatch() on first call.
+        console.print(
+            f"    [yellow]GMAT not ready ({e}). "
+            f"Set GMAT_ROOT_PATH and run: just bench-compare-setup[/yellow]"
+        )
+        return None
     except Exception as e:
         console.print(f"    [red]Error: {e}[/red]")
         return None

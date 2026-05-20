@@ -86,7 +86,7 @@ _orekit_data_url := "https://gitlab.orekit.org/orekit/orekit-data/-/archive/main
 _orekit_data_dir := env("OREKIT_DATA", "~/.orekit/orekit-data")
 
 # Install all comparative benchmark dependencies
-bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-java _bench-compare-build-basilisk _bench-compare-orekit-data
+bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-java _bench-compare-build-basilisk _bench-compare-build-gmat _bench-compare-orekit-data
     uv pip install -e . --quiet
     @echo "✓ Comparative benchmark setup complete. Run: just bench-compare"
 
@@ -142,6 +142,26 @@ _bench-compare-build-basilisk:
         echo "Earth high-precision PCK already present: $BPC"
     fi
     echo "✓ Basilisk installed"
+
+# Generate GMAT's absolute-path API startup file if GMAT_ROOT_PATH is set.
+# Idempotent: re-running overwrites api_startup_file.txt with identical content.
+# Silent skip if GMAT_ROOT_PATH is unset — GMAT is dev-machine-only, not a CI dependency.
+_bench-compare-build-gmat:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "${GMAT_ROOT_PATH:-}" ]; then
+        echo "  GMAT_ROOT_PATH not set; GMAT baseline will be skipped at runtime"
+        exit 0
+    fi
+    if [ ! -f "$GMAT_ROOT_PATH/bin/gmat_startup_file.txt" ]; then
+        echo "  GMAT_ROOT_PATH=$GMAT_ROOT_PATH but bin/gmat_startup_file.txt missing — check install"
+        exit 1
+    fi
+    echo "Generating GMAT api_startup_file.txt..."
+    PYTHON_ABS="$(realpath "{{python}}")"
+    cd "$GMAT_ROOT_PATH/api"
+    "$PYTHON_ABS" BuildApiStartupFile.py
+    echo "✓ GMAT api_startup_file.txt generated at $GMAT_ROOT_PATH/bin/"
 
 # Download OreKit data if not present
 _bench-compare-orekit-data:

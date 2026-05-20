@@ -1,6 +1,6 @@
 ## Benchmarks
 
-Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-source astrodynamics library, across 32 tasks spanning 8 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 100 iterations) and their outputs are compared for both performance and numerical accuracy. Brahe is additionally compared against [**Basilisk**](https://github.com/AVSLab/basilisk) (AVS Lab) on the 14 tasks across four modules (attitude, orbits, frames, coordinates, and propagation) where the two libraries' user-facing APIs overlap.
+Brahe is benchmarked against [**OreKit 12.2**](https://github.com/CS-SI/Orekit) (Java), the most widely used open-source astrodynamics library, across 32 tasks spanning 8 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 100 iterations) and their outputs are compared for both performance and numerical accuracy. Brahe is additionally compared against [**Basilisk**](https://github.com/AVSLab/basilisk) (AVS Lab) on the 14 tasks across four modules (attitude, orbits, frames, coordinates, and propagation) where the two libraries' user-facing APIs overlap. Brahe is additionally compared against [**GMAT R2026a**](https://github.com/nasa/GMAT) (NASA Goddard's General Mission Analysis Tool) on 31 of the 32 benchmark tasks. GMAT comparison is activated by setting the `GMAT_ROOT_PATH` environment variable to a local GMAT install; absent that, GMAT comparisons are skipped without affecting the other baselines.
 
 !!! tip
 
@@ -10,10 +10,11 @@ Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-s
 
 **Languages and Libraries**:
 
-- **Java**: OreKit 12.2 on OpenJDK 21
+- **Java**: [OreKit 12.2](https://github.com/CS-SI/Orekit) on OpenJDK 21
 - **Python**: Brahe Python bindings (PyO3)
 - **Rust**: Brahe native Rust library
-- **Basilisk**: AVS Lab Basilisk (`bsk` Python wheel from PyPI), imported in-process by the Python runner; participates on a 14-task subset.
+- **Basilisk**: [AVS Lab Basilisk](https://github.com/AVSLab/basilisk) (`bsk` Python wheel from PyPI), imported in-process by the Python runner; participates on a 14-task subset.
+- **GMAT**: [GMAT R2026a](https://github.com/nasa/GMAT) (`gmatpy` API), accessed via a local GMAT install pointed to by `GMAT_ROOT_PATH`; participates on a 31-task subset.
 
 **Test Environment**: 2021 MacBook Pro, Apple M1 Max, 64 GB RAM
 
@@ -21,7 +22,7 @@ Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-s
 
 ### Performance Overview
 
-The table below summarizes average speedup relative to Java (OreKit) for each module. Values greater than 1.0× indicate Brahe is faster; values less than 1.0× indicate OreKit is faster.
+The table below summarizes average speedup relative to different baselines. Values greater than 1.0× indicate the library is faster than the baseline; values less than 1.0× indicate the baseline is faster.
 
 <div class="center-table" markdown="1">
 
@@ -43,6 +44,13 @@ The chart below restricts the comparison to the 14 tasks where Basilisk particip
   <iframe class="only-dark"  src="../figures/fig_bench_speedup_vs_basilisk_dark.html"  loading="lazy"></iframe>
 </div>
 
+The chart below restricts the comparison to the tasks where GMAT participates and uses GMAT as the baseline.
+
+<div class="plotly-embed x-tall">
+  <iframe class="only-light" src="../figures/fig_bench_speedup_vs_gmat_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_bench_speedup_vs_gmat_dark.html"  loading="lazy"></iframe>
+</div>
+
 ---
 
 ### Time
@@ -60,8 +68,6 @@ Five tasks covering epoch creation and time system conversions (UTC → TAI, TT,
   <iframe class="only-dark"  src="../figures/fig_bench_time_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy**: TAI, TT, and GPS conversions show **zero error** — all three implementations use identical offset constants. UT1 shows a maximum absolute error of ~1.0 µs, attributable to different Earth Orientation Parameter (EOP) sources and interpolation methods between OreKit and Brahe.
-
 ---
 
 ### Coordinates
@@ -78,8 +84,6 @@ Five tasks covering coordinate system transformations: geodetic/geocentric to/fr
   <iframe class="only-light" src="../figures/fig_bench_coordinates_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../figures/fig_bench_coordinates_dark.html"  loading="lazy"></iframe>
 </div>
-
-**Accuracy**: All coordinate transformations agree to **sub-nanometer** precision (< 2 nm). Maximum absolute errors are on the order of $10^{-9}$ m, reflecting only floating-point representation differences.
 
 <div class="center-table" markdown="1">
 
@@ -133,8 +137,6 @@ Two tasks covering full 6-DOF state vector transformations between ECEF and ECI 
 
 </div>
 
-Both implementations use the IAU 2006/2000A model. Residuals are on the order of tens of centimeters, reflecting EOP interpolation and nutation series truncation differences.
-
 ---
 
 ### Orbits
@@ -151,8 +153,6 @@ Two tasks covering conversions between Keplerian orbital elements and Cartesian 
   <iframe class="only-light" src="../figures/fig_bench_orbits_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../figures/fig_bench_orbits_dark.html"  loading="lazy"></iframe>
 </div>
-
-**Accuracy**: Both conversion directions agree to **sub-millimeter** precision. Maximum absolute errors are on the order of $10^{-8}$ m (~24 nm), with relative errors below $10^{-11}$.
 
 <div class="center-table" markdown="1">
 
@@ -177,8 +177,6 @@ Five tasks covering Keplerian (two-body analytical), numerical (RK4/RK78 two-bod
   <iframe class="only-dark"  src="../figures/fig_bench_propagation_dark.html"  loading="lazy"></iframe>
 </div>
 
-Propagation task speedups (relative to OreKit) range from roughly parity (RK4 + 20×20 + Sun/Moon) to ~32× (SGP4 trajectory generation, Rust). Keplerian and SGP4 trajectory generation are in the 4–32× range; the RK4 + 5×5 case is ~3.6×, and RK4 + 80×80 + drag + SRP is ~1.4×.
-
 **Accuracy**:
 
 <div class="center-table" markdown="1">
@@ -186,10 +184,6 @@ Propagation task speedups (relative to OreKit) range from roughly parity (RK4 + 
 {{ read_csv('figures/bench_accuracy_propagation.csv') }}
 
 </div>
-
-Keplerian propagation agrees at the nanometer level. Numerical propagation diverges at the centimeter level, reflecting different integrator implementations and step-size strategies. SGP4 divergence is on the order of tens of meters; the original Fortran, OreKit Java, and Brahe Rust SGP4 implementations make slightly different numerical choices in the deep-space and near-Earth branch logic.
-
-For the high-fidelity RK4 cases (`RK4 + 5x5 Gravity`, `RK4 + 20x20 + Sun/Moon`, `RK4 + 80x80 + Drag + SRP`), both implementations are fed identical EGM2008 gravity coefficients (brahe's packaged `EGM2008_360.gfc`, loaded on the OreKit side via `ICGEMFormatReader`), DE-440 ephemerides for third-body perturbers, identical spacecraft parameters (1000 kg, 10 m² area, Cd=2.2, Cr=1.3), and matched GCRF↔ITRF rotations (IAU 2006/2000A on both sides). The 5×5 and 20×20+Sun/Moon cases agree at the µm level over one LEO revolution — small enough that the residual reflects only floating-point summation differences. The 80×80 + drag + SRP case diverges at the meter level, dominated by NRLMSISE-00 implementation and SRP eclipse-model differences rather than gravity.
 
 ---
 
@@ -216,8 +210,6 @@ Five tasks evaluating a single acceleration term at a fixed spacecraft state and
 
 </div>
 
-Point-mass gravity agrees to machine epsilon (10⁻¹⁶ m/s²) — both implementations use identical $GM_\\oplus$. Spherical-harmonic gravity agrees to ~10⁻¹² m/s² for both 20×20 and 80×80. Third-body Sun and Moon accelerations agree to ~10⁻¹⁴ m/s², with DE-440 ephemerides used on both sides.
-
 ---
 
 ### Access (Comparative)
@@ -243,19 +235,19 @@ One task: computing all satellite-to-ground-station access windows over a 48-hou
 
 In addition to the OreKit comparison above, Brahe is also benchmarked against **Skyfield**, a popular Python astronomy library, for access computation. This benchmark focuses on Brahe's serial vs parallel execution modes and Python bindings vs native Rust performance.
 
-The benchmark randomly samples 100 ground station locations and computes all satellite accesses over a 48-hour window. Access start and end times agree to within one second between Brahe and Skyfield.
+The benchmark propagates the ISS (from a single, static TLE) over a 2-day (48-hour) window and computes all access intervals against 100 randomly sampled ground station locations with a 5° minimum elevation. Access start and end times agree to within one second between Brahe and Skyfield.
 
 <div class="center-table" markdown="1">
-| Implementation         | Avg Time  | vs Skyfield    | vs Brahe-Py-Serial |
-|------------------------|-----------|----------------|---------------------|
-| Brahe-Rust (parallel)  |   1.37ms  | 3.2x faster    | 23.0x faster        |
-| Brahe-Python (parallel)|   2.40ms  | 1.8x faster    | 13.1x faster        |
-| Brahe-Rust (serial)    |   2.79ms  | 1.6x faster    | 11.2x faster        |
-| Skyfield               |   4.44ms  | baseline       | 7.1x faster         |
-| Brahe-Python (serial)  |  31.41ms  | 7.1x slower    | baseline            |
+| Implementation         | Avg Time  | vs Skyfield     |
+|------------------------|-----------|-----------------|
+| Skyfield               |  32.78ms  | baseline        |
+| Brahe-Python (serial)  |   2.99ms  | 11.0x faster    |
+| Brahe-Python (parallel)|   3.08ms  | 10.6x faster    |
+| Brahe-Rust (serial)    |   2.47ms  | 13.3x faster    |
+| Brahe-Rust (parallel)  |   2.00ms  | 16.4x faster    |
 </div>
 
-The parallel implementations leverage multiple CPU cores to handle multiple ground stations simultaneously. Skyfield's performance is impressive, being only marginally slower than Brahe's serial Rust implementation despite being written in pure Python.
+The parallel rows report the per-location amortized time when all 100 locations are batched into a single call; the serial rows report the mean time for a single location computed in isolation. Brahe's Python bindings dispatch into the same Rust core as the native Rust path, so the serial Python row sits within ~20% of the serial Rust row. For the Python path at this problem size, batching does not improve per-location time because the per-location work is already short relative to the call setup amortized in the serial measurement.
 
 <div class="plotly-embed">
   <iframe class="only-light" src="../figures/fig_access_benchmark_light.html" loading="lazy"></iframe>
@@ -272,7 +264,7 @@ Basilisk participates in 14 of 32 tasks. The gap is API-driven, not capability-d
 
 **Where Basilisk does not participate**: SGP4 propagation (no SGP4 in Basilisk's core), analytical Keplerian propagation (`orbitalMotion.elem2rv` is a single closed-form function call, not a propagator object), atomic force-model accelerations (computed inside dynamics modules), time-scale conversions (Basilisk relies on SPICE's `unitim_c` — would measure SPICE Toolkit, not a peer time-scale library), and access calculations (depend on SGP4).
 
-**Frame definitions**: Basilisk-via-pyswice transforms between `J2000` and `ITRF93` using NAIF's high-precision Earth orientation binary PCK (`earth_latest_high_prec.bpc`, downloaded automatically by `bench-compare-setup`). OreKit uses `EME2000` (≡ J2000 to sub-meter precision) and `ITRF` (IERS 2010 conventions). ITRF93 follows the IERS 1996 conventions, so expect kilometer-scale ECEF position differences vs. the Java baseline — this is a real difference between IERS conventions, not implementation noise.
+**Frame definitions**: Basilisk-via-pyswice transforms between `J2000` and `ITRF93` using NAIF's high-precision Earth orientation binary PCK (`earth_latest_high_prec.bpc`, downloaded automatically by `bench-compare-setup`). OreKit uses `EME2000` (≡ J2000 to sub-meter precision) and `ITRF` (IERS 2010 conventions). ITRF93 follows the IERS 1996 conventions, so expect kilometer-scale ECEF position differences vs. the Java baseline.
 
 **Propagation methodology**: Basilisk's `SimBaseClass` setup cost is included in the per-iteration timing (matches the OreKit / Rust pattern of timing the full `run`). Basilisk's inertial output (`r_BN_N`, `v_BN_N`, J2000-equatorial) is transformed to GCRF inside the benchmark using `brahe.state_eme2000_to_gcrf` before the accuracy comparison. Basilisk's default Earth `mu` is overridden from `3.986004360e14` to `3.986004418e14` so all three baselines see the same central-body parameter. Gravity coefficients come from `GGM03S` (Basilisk-bundled, up to degree 180) versus EIGEN-5C (Orekit) and brahe's native EGM family. The two-body task uses each library's default high-accuracy integrator (Java: DP8(5,3) adaptive; brahe: DP54 adaptive) but Basilisk's default is fixed-step RK4, so the basilisk row shows accumulated truncation error of ~tens of meters over one LEO orbit — intrinsic to RK4-at-60s, not a Basilisk bug. The three RK4 force-model tasks use RK4 at the same step in all four implementations.
 
@@ -282,12 +274,43 @@ Basilisk participates in 14 of 32 tasks. The gap is API-driven, not capability-d
 
 ---
 
+### Notes on GMAT Comparisons
+
+[GMAT R2026a](https://github.com/nasa/GMAT) (the General Mission Analysis Tool, developed by NASA Goddard) participates in 31 of the 32 benchmark tasks. The single exclusion is `coordinates.ecef_to_azel`: GMAT's `GroundStation` exposes no azimuth/elevation accessor via the `gmatpy` API, and the script-based `Topocentric` coordinate system path segfaults under `gmat.RunScript()`. The only working approach is pure-Python ENZ rotation, which doesn't exercise GMAT code and would be dishonest to label as a GMAT comparison.
+
+**Where GMAT participates**: all 5 time tasks, 4 of 5 coordinates tasks, all 4 attitude tasks, both frames tasks, both orbits tasks, all 8 propagation tasks, all 5 force-model tasks, and the access task — 31 tasks in total.
+
+**Setup**: Install GMAT R2026a, export `GMAT_ROOT_PATH` pointing at the install root (the directory containing `bin/`, `data/`, `api/`), and run `just bench-compare-setup`. The setup recipe generates `api_startup_file.txt` via GMAT's bundled `BuildApiStartupFile.py`. When `GMAT_ROOT_PATH` is unset, GMAT comparisons are silently skipped.
+
+**Frame and coordinate disclosure**: GMAT's `EarthFixed` body-fixed frame uses FK5 reference theory with IAU 1980 nutation; brahe and OreKit use the IERS 2010 ITRF realization. Position errors of ~10 m at LEO are attributable to frame-definition choice, not implementation precision. For geodetic coordinate conversions, GMAT uses an Earth equatorial radius of 6378.1363 km versus WGS84's 6378.137 km — accounting for ~0.7 m position error.
+
+**Quaternion convention**: GMAT uses scalar-last `[q1, q2, q3, q4]`; the benchmark canonical is scalar-first `[w, x, y, z]`. Reordering is applied outside the timed region.
+
+**Time scales**: GMAT's `A1ModJulian` epoch is rooted at 1941-01-05 (JD 2430000.0), not the standard MJD epoch of 1858-11-17 (JD 2400000.5). The benchmark applies the appropriate offset for time-conversion inputs. GMAT has no GPS time-system enum; GPS times are derived as TAI − 19 s. GMAT's Gregorian time parser has millisecond precision, contributing ~0.5 ms to time-conversion accuracy comparisons.
+
+**Propagation methodology**: Per-iteration construction of `Spacecraft` + `ForceModel` + `Propagator` is included in the timing — an accurate representation of how a GMAT user would use the API. This matches Basilisk's per-iteration setup methodology. The `EarthMJ2000Eq` → GCRF transform is applied post-timing using `brahe.state_eme2000_to_gcrf`.
+
+**Units**: GMAT uses km / km/s / km/s² internally for position, velocity, and acceleration; the benchmark canonical is SI (m / m/s / m/s²). Scaling by 10³ is applied outside the timed region.
+
+**Gravity coefficients and atmosphere sources**: GMAT uses bundled JGM-2 / EGM-96 coefficients depending on degree; the JGM-2 file supports up to degree 70, so 80×80 tasks use EGM-96. Drag uses MSISE-90 from GMAT's bundled space-weather data. OreKit uses EIGEN-6S, Basilisk uses GGM03S, brahe uses per-task bundled data — differences reflect data-source variation, not implementation precision.
+
+**SGP4 propagation and access tasks**: These tasks are implemented via GMAT's script-based interface (`gmat.LoadScript` + `gmat.RunScript`) because the SGP4 and ContactLocator plugins do not activate cleanly through the direct `gmatpy` API path. This is a GMAT integration detail; results are correct.
+
+---
+
 ### Reproducing These Results
 
-**Comparative benchmarks** (Java/Python/Rust):
+**Comparative benchmarks** (Java/Python/Rust/Basilisk/GMAT):
+
+> **GMAT setup is opt-in via environment variable.** To include GMAT in the comparison, install [GMAT R2026a](https://github.com/nasa/GMAT) locally and export `GMAT_ROOT_PATH` pointing at the install root (the directory containing `bin/`, `data/`, `api/`) before running `just bench-compare-setup`. Example (macOS): `export GMAT_ROOT_PATH="/Applications/GMAT R2026a"`. If `GMAT_ROOT_PATH` is unset, the setup recipe and all benchmark runs skip GMAT silently — the other four baselines run normally.
 
 ```bash
-# One-time setup: build Java/Rust implementations, download OreKit data
+# Optional: point at a local GMAT install to include GMAT in the comparison.
+export GMAT_ROOT_PATH="/Applications/GMAT R2026a"
+
+# One-time setup: build Java/Rust implementations, install Basilisk wheel,
+# download OreKit data, and (if GMAT_ROOT_PATH is set) generate GMAT's
+# api_startup_file.txt via the bundled BuildApiStartupFile.py.
 just bench-compare-setup
 
 # Run benchmarks, generate figures + CSV tables, and stage artifacts for commit

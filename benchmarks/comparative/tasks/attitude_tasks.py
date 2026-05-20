@@ -105,7 +105,7 @@ class QuaternionToRotationMatrixTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"quaternions": _generate_random_quaternions(seed)}
@@ -128,7 +128,7 @@ class RotationMatrixToQuaternionTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         quats = _generate_random_quaternions(seed)
@@ -164,7 +164,7 @@ class QuaternionToEulerAngleTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"quaternions": _generate_random_quaternions(seed)}
@@ -245,7 +245,7 @@ class EulerAngleToQuaternionTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         rng = random.Random(seed)

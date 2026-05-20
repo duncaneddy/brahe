@@ -1,9 +1,9 @@
-Module,Tasks,Avg Basilisk Speedup,Avg Python Speedup,Avg Rust Speedup
-Time,5,—,342.1×,785.9×
-Coordinates,5,8.00×,13.1×,434.4×
-Attitude,4,8.34×,28.9×,1382.2×
-Frames,2,157.2×,574.6×,582.4×
-Orbits,2,17.6×,46.2×,439.7×
-Propagation,8,1.23×,36.0×,83.8×
-Force Model,5,—,7.80×,104.0×
-Access,1,—,4.94×,4.99×
+Module,Tasks,Avg GMAT Speedup,Avg Basilisk Speedup,Avg Python Speedup,Avg Rust Speedup
+Time,5,21.5×,—,259.2×,523.5×
+Coordinates,5,4.05×,6.19×,8.79×,407.1×
+Attitude,4,7.26×,7.03×,23.5×,1089.5×
+Frames,2,0.69×,120.8×,281.9×,361.2×
+Orbits,2,12.3×,10.5×,30.0×,350.6×
+Propagation,8,0.42×,0.90×,24.1×,52.2×
+Force Model,5,0.41×,—,3.54×,124.9×
+Access,1,0.09×,—,4.92×,4.93×

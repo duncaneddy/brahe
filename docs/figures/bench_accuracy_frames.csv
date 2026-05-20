@@ -1,5 +1,7 @@
 Task,Comparison,Max Abs Error,RMS Error
+State ECEF To ECI,Java vs Basilisk,1204.3 m,101.0 m
 State ECEF To ECI,Java vs Python,0.121 m,0.022 m
 State ECEF To ECI,Java vs Rust,0.121 m,0.022 m
+State ECI To ECEF,Java vs Basilisk,973.1 m,101.1 m
 State ECI To ECEF,Java vs Python,0.121 m,0.022 m
 State ECI To ECEF,Java vs Rust,0.121 m,0.022 m

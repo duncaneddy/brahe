@@ -35,8 +35,10 @@ from benchmarks.comparative.tasks.base import BenchmarkTask
 
 app = typer.Typer(help="Comparative benchmark framework for Brahe")
 
-# Java/OreKit is the reference baseline — run it first, use it for speedup and accuracy
-LANGUAGE_ORDER = ["java", "python", "rust"]
+# Java/OreKit is the reference baseline — run it first, use it for speedup and accuracy.
+# Display order matches the published comparison ordering: Orekit, Basilisk, brahe-py,
+# brahe-rs (Java first as baseline; the rest in canonical reporting order).
+LANGUAGE_ORDER = ["java", "basilisk", "python", "rust"]
 BASELINE_LANGUAGE = "java"
 
 
@@ -173,6 +175,8 @@ def _dispatch_task(
         return _run_subprocess(task, language, iterations, seed, _get_rust_command())
     elif language == "java":
         return _run_subprocess(task, language, iterations, seed, _get_java_command())
+    elif language == "basilisk":
+        return _run_basilisk(task, iterations, seed)
     return None
 
 
@@ -183,6 +187,28 @@ def _run_python(
 ) -> TaskResult | None:
     """Run a benchmark task using the Python brahe implementation."""
     from benchmarks.comparative.implementations.python import dispatch
+
+    try:
+        input_data = task.to_input_json(iterations, seed)
+        return dispatch(input_data)
+    except Exception as e:
+        console.print(f"    [red]Error: {e}[/red]")
+        return None
+
+
+def _run_basilisk(
+    task: BenchmarkTask,
+    iterations: int,
+    seed: int,
+) -> TaskResult | None:
+    """Run a benchmark task using Basilisk (bsk) in-process."""
+    try:
+        from benchmarks.comparative.implementations.basilisk import dispatch
+    except ImportError:
+        console.print(
+            "    [yellow]Basilisk not installed. Run: just bench-compare-setup[/yellow]"
+        )
+        return None
 
     try:
         input_data = task.to_input_json(iterations, seed)

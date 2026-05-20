@@ -70,22 +70,24 @@ MODULE_LABELS = {
     "access": "Access",
 }
 
-# Language display order and colors
-LANGUAGES = ["java", "python", "rust"]
+# Language display order and colors (Orekit -> Basilisk -> brahe-py -> brahe-rs)
+LANGUAGES = ["java", "basilisk", "python", "rust"]
 LANGUAGE_LABELS = {
     "java": "Java (OreKit)",
+    "basilisk": "Python (Basilisk)",
     "python": "Python (Brahe)",
     "rust": "Rust (Brahe)",
 }
 
 
 def _get_language_colors(theme: str) -> dict[str, str]:
-    """Get language-specific colors: Java=blue, Python=orange, Rust=green."""
+    """Per-language colors: Java=blue, Python(brahe)=orange, Rust=green, Basilisk=purple."""
     colors = get_theme_colors(theme)
     return {
         "java": colors["primary"],
         "python": colors["secondary"],
         "rust": colors["accent"],
+        "basilisk": colors["quaternary"],
     }
 
 
@@ -209,15 +211,38 @@ def group_by_module(
 # ── Figure: Speedup chart (all tasks, horizontal bars) ─────────────────────
 
 
-def make_speedup_figure(run: BenchmarkRun):
-    """Generate horizontal bar chart showing Python & Rust speedup vs Java."""
+def _speedup_figure(
+    run: BenchmarkRun,
+    *,
+    baseline: str,
+    baseline_label: str,
+    other_langs: list[str],
+    output_name: str,
+    require_baseline_only: bool = False,
+    figure_height: int = 1200,
+):
+    """Build a horizontal-bar speedup figure relative to a given baseline.
+
+    Bars are added in the natural order — Plotly stacks them top-to-bottom
+    per task, so the on-screen visual order matches `other_langs`.
+
+    If require_baseline_only is True (used for vs-Basilisk), tasks where the
+    baseline does not have data are dropped entirely rather than displayed
+    with empty bars.
+
+    figure_height should match the iframe height assigned in the docs CSS
+    (.plotly-embed.{medium=600,tall=800,x-tall=1200}) so the chart fills its
+    frame without internal scrolling or clipping.
+    """
     modules = group_by_module(run)
 
-    # Collect all tasks in module order
     tasks = []
     for module in MODULE_ORDER:
         if module in modules:
             for task in sorted(modules[module].keys()):
+                stats = modules[module][task]
+                if require_baseline_only and baseline not in stats:
+                    continue
                 tasks.append(task)
 
     def make_fig(theme: str) -> go.Figure:
@@ -225,58 +250,46 @@ def make_speedup_figure(run: BenchmarkRun):
         fig = go.Figure()
 
         labels = [_task_label(t) for t in tasks]
-        py_speedups = []
-        rs_speedups = []
+        per_lang_speedups = {lang: [] for lang in other_langs}
 
         for task in tasks:
             module = task.split(".")[0]
             stats = modules[module][task]
-            java_t = stats["java"].mean if "java" in stats else 0
-            py_t = stats["python"].mean if "python" in stats else 0
-            rs_t = stats["rust"].mean if "rust" in stats else 0
-            py_speedups.append(java_t / py_t if py_t else 0)
-            rs_speedups.append(java_t / rs_t if rs_t else 0)
+            base_t = stats[baseline].mean if baseline in stats else 0
+            for lang in other_langs:
+                lang_t = stats[lang].mean if lang in stats else 0
+                per_lang_speedups[lang].append(
+                    base_t / lang_t if (base_t and lang_t) else 0
+                )
 
-        # Reverse for horizontal bar layout (top task at top)
+        # Plotly stacks bars top-to-bottom within a group in the same order
+        # they are added. Reverse the per-task list so the FIRST task in
+        # `tasks` ends up at the TOP of the chart, but add bar series in
+        # the order callers expect to read them (top → bottom).
         labels_rev = labels[::-1]
-        py_rev = py_speedups[::-1]
-        rs_rev = rs_speedups[::-1]
-
-        fig.add_trace(
-            go.Bar(
-                name="Rust (Brahe)",
-                y=labels_rev,
-                x=rs_rev,
-                orientation="h",
-                marker_color=lang_colors["rust"],
-                hovertemplate="%{y}<br>%{x:.1f}x vs Java<extra>Rust</extra>",
+        for lang in reversed(other_langs):
+            fig.add_trace(
+                go.Bar(
+                    name=LANGUAGE_LABELS[lang],
+                    y=labels_rev,
+                    x=per_lang_speedups[lang][::-1],
+                    orientation="h",
+                    marker_color=lang_colors[lang],
+                    hovertemplate=(
+                        f"%{{y}}<br>%{{x:.1f}}x vs {baseline_label}"
+                        f"<extra>{LANGUAGE_LABELS[lang]}</extra>"
+                    ),
+                )
             )
-        )
-        fig.add_trace(
-            go.Bar(
-                name="Python (Brahe)",
-                y=labels_rev,
-                x=py_rev,
-                orientation="h",
-                marker_color=lang_colors["python"],
-                hovertemplate="%{y}<br>%{x:.1f}x vs Java<extra>Python</extra>",
-            )
-        )
 
-        # Add vertical line at x=1 (Java baseline)
-        fig.add_vline(
-            x=1,
-            line_dash="dash",
-            line_color="gray",
-            line_width=1,
-        )
+        fig.add_vline(x=1, line_dash="dash", line_color="gray", line_width=1)
 
         fig.update_layout(
-            title="Speedup vs Java (OreKit 12.2)",
+            title=f"Speedup vs {baseline_label}",
             xaxis_title="Speedup Factor (higher is faster)",
             xaxis_type="log",
             barmode="group",
-            height=1200,
+            height=figure_height,
             margin=dict(l=200, b=60),
             legend=dict(
                 orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5
@@ -284,7 +297,32 @@ def make_speedup_figure(run: BenchmarkRun):
         )
         return fig
 
-    save_themed_html(make_fig, OUTDIR / "fig_bench_speedup")
+    save_themed_html(make_fig, OUTDIR / output_name)
+
+
+def make_speedup_figure(run: BenchmarkRun):
+    """Generate two horizontal-bar speedup charts: vs Java and vs Basilisk.
+
+    Figure heights are pinned to match the .plotly-embed CSS classes used by
+    the docs page so each chart fills its iframe without clipping.
+    """
+    _speedup_figure(
+        run,
+        baseline="java",
+        baseline_label="Java (OreKit 12.2)",
+        other_langs=["basilisk", "python", "rust"],
+        output_name="fig_bench_speedup",
+        figure_height=1200,  # matches .plotly-embed.x-tall
+    )
+    _speedup_figure(
+        run,
+        baseline="basilisk",
+        baseline_label="Python (Basilisk)",
+        other_langs=["java", "python", "rust"],
+        output_name="fig_bench_speedup_vs_basilisk",
+        require_baseline_only=True,
+        figure_height=800,  # matches .plotly-embed.tall
+    )
 
 
 # ── Figure: Per-module grouped bar charts ──────────────────────────────────
@@ -426,7 +464,7 @@ def _format_speedup(speedup: float) -> str:
 
 def _comparison_label(ref: str, comp: str) -> str:
     """Format a comparison label like 'Java vs Python'."""
-    lang_labels = {"java": "Java", "python": "Python", "rust": "Rust"}
+    lang_labels = {"java": "Java", "python": "Python", "rust": "Rust", "basilisk": "Basilisk"}
     return f"{lang_labels.get(ref, ref)} vs {lang_labels.get(comp, comp)}"
 
 
@@ -443,6 +481,8 @@ def generate_csv_tables(run: BenchmarkRun):
     modules = group_by_module(run)
 
     # ── Overview table ─────────────────────────────────────────────────────
+    # Column order: Module, Tasks, then speedups in display order
+    # (Basilisk -> Python -> Rust, relative to the Java baseline).
     overview_rows = []
     for module in MODULE_ORDER:
         if module not in modules:
@@ -451,56 +491,75 @@ def generate_csv_tables(run: BenchmarkRun):
         task_count = len(task_data)
         py_speedups = []
         rs_speedups = []
+        bsk_speedups = []
         for task_stats in task_data.values():
             java_t = task_stats["java"].mean if "java" in task_stats else 0
             py_t = task_stats["python"].mean if "python" in task_stats else 0
             rs_t = task_stats["rust"].mean if "rust" in task_stats else 0
+            bsk_t = task_stats["basilisk"].mean if "basilisk" in task_stats else 0
             if py_t and java_t:
                 py_speedups.append(java_t / py_t)
             if rs_t and java_t:
                 rs_speedups.append(java_t / rs_t)
+            if bsk_t and java_t:
+                bsk_speedups.append(java_t / bsk_t)
         avg_py = sum(py_speedups) / len(py_speedups) if py_speedups else 0
         avg_rs = sum(rs_speedups) / len(rs_speedups) if rs_speedups else 0
+        avg_bsk = sum(bsk_speedups) / len(bsk_speedups) if bsk_speedups else 0
         overview_rows.append(
             [
                 MODULE_LABELS[module],
                 str(task_count),
+                _format_speedup(avg_bsk) if bsk_speedups else "—",
                 _format_speedup(avg_py),
                 _format_speedup(avg_rs),
             ]
         )
     _write_csv(
         OUTDIR / "bench_overview.csv",
-        ["Module", "Tasks", "Avg Python Speedup", "Avg Rust Speedup"],
+        ["Module", "Tasks", "Avg Basilisk Speedup", "Avg Python Speedup", "Avg Rust Speedup"],
         overview_rows,
     )
 
     # ── Per-module performance tables ──────────────────────────────────────
+    # Column order: Task, then time columns and speedup columns in display
+    # order (Java -> Basilisk -> Python -> Rust). Modules without any
+    # Basilisk-participating tasks omit the Basilisk columns entirely.
     for module in MODULE_ORDER:
         if module not in modules:
             continue
         task_data = modules[module]
+        module_has_basilisk = any(
+            "basilisk" in task_data[t] for t in task_data
+        )
         perf_rows = []
         for task_name in sorted(task_data.keys()):
             stats = task_data[task_name]
             java_t = stats["java"].mean if "java" in stats else 0
             py_t = stats["python"].mean if "python" in stats else 0
             rs_t = stats["rust"].mean if "rust" in stats else 0
+            bsk_t = stats["basilisk"].mean if "basilisk" in stats else 0
             py_speedup = java_t / py_t if py_t and java_t else 0
             rs_speedup = java_t / rs_t if rs_t and java_t else 0
-            perf_rows.append(
-                [
-                    _task_label(task_name),
-                    _format_time(java_t),
-                    _format_time(py_t),
-                    _format_time(rs_t),
-                    _format_speedup(py_speedup),
-                    _format_speedup(rs_speedup),
-                ]
-            )
+            bsk_speedup = java_t / bsk_t if bsk_t and java_t else 0
+            row = [_task_label(task_name), _format_time(java_t)]
+            if module_has_basilisk:
+                row.append(_format_time(bsk_t) if bsk_t else "—")
+            row.extend([_format_time(py_t), _format_time(rs_t)])
+            if module_has_basilisk:
+                row.append(_format_speedup(bsk_speedup) if bsk_speedup else "—")
+            row.extend([_format_speedup(py_speedup), _format_speedup(rs_speedup)])
+            perf_rows.append(row)
+        headers = ["Task", "Java"]
+        if module_has_basilisk:
+            headers.append("Basilisk")
+        headers.extend(["Python", "Rust"])
+        if module_has_basilisk:
+            headers.append("Basilisk Speedup")
+        headers.extend(["Python Speedup", "Rust Speedup"])
         _write_csv(
             OUTDIR / f"bench_perf_{module}.csv",
-            ["Task", "Java", "Python", "Rust", "Python Speedup", "Rust Speedup"],
+            headers,
             perf_rows,
         )
 

@@ -86,7 +86,7 @@ _orekit_data_url := "https://gitlab.orekit.org/orekit/orekit-data/-/archive/main
 _orekit_data_dir := env("OREKIT_DATA", "~/.orekit/orekit-data")
 
 # Install all comparative benchmark dependencies
-bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-java _bench-compare-orekit-data
+bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-java _bench-compare-build-basilisk _bench-compare-orekit-data
     uv pip install -e . --quiet
     @echo "✓ Comparative benchmark setup complete. Run: just bench-compare"
 
@@ -113,6 +113,35 @@ _bench-compare-build-java:
         fi
     fi
     ./gradlew build
+
+# Install Basilisk Python wheel, pre-fetch its large data files, and
+# download the high-precision Earth orientation binary PCK so that
+# pyswice-based frame transforms can use ITRF93 (matches Orekit's ITRF much
+# more closely than IAU_EARTH, which is a cartographic frame off by ~tens
+# of km from ITRF).
+_bench-compare-build-basilisk:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Installing Basilisk (bsk) Python wheel..."
+    uv pip install --quiet bsk
+    echo "Pre-fetching Basilisk large data (gravity coefficients, SPICE ephemerides)..."
+    {{python}} - <<'PY' || echo "  (large-data pre-fetch skipped; pooch will fetch lazily on first run)"
+    try:
+        from Basilisk.utilities.supportDataTools.dataFetcher import fetchAll
+        fetchAll()
+    except Exception as exc:
+        raise SystemExit(f"large-data pre-fetch failed: {exc}")
+    PY
+    BSK_DATA_DIR="$HOME/.cache/bsk-data"
+    BPC="$BSK_DATA_DIR/earth_latest_high_prec.bpc"
+    if [ ! -f "$BPC" ]; then
+        mkdir -p "$BSK_DATA_DIR"
+        echo "Downloading high-precision Earth orientation binary PCK (~10 MB)..."
+        curl -fSL "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/earth_latest_high_prec.bpc" -o "$BPC"
+    else
+        echo "Earth high-precision PCK already present: $BPC"
+    fi
+    echo "✓ Basilisk installed"
 
 # Download OreKit data if not present
 _bench-compare-orekit-data:

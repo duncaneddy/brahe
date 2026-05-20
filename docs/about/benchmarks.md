@@ -1,6 +1,6 @@
 ## Benchmarks
 
-Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-source astrodynamics library, across 32 tasks spanning 8 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 100 iterations) and their outputs are compared for both performance and numerical accuracy.
+Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-source astrodynamics library, across 32 tasks spanning 8 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 100 iterations) and their outputs are compared for both performance and numerical accuracy. Brahe is additionally compared against [**Basilisk**](https://github.com/AVSLab/basilisk) (AVS Lab) on the 14 tasks across four modules (attitude, orbits, frames, coordinates, and propagation) where the two libraries' user-facing APIs overlap.
 
 !!! tip
 
@@ -13,6 +13,7 @@ Brahe is benchmarked against **OreKit 12.2** (Java), the most widely used open-s
 - **Java**: OreKit 12.2 on OpenJDK 21
 - **Python**: Brahe Python bindings (PyO3)
 - **Rust**: Brahe native Rust library
+- **Basilisk**: AVS Lab Basilisk (`bsk` Python wheel from PyPI), imported in-process by the Python runner; participates on a 14-task subset.
 
 **Test Environment**: 2021 MacBook Pro, Apple M1 Max, 64 GB RAM
 
@@ -33,6 +34,13 @@ Per-module average Python speedups (relative to OreKit) range from 1.3× to 46×
 <div class="plotly-embed x-tall">
   <iframe class="only-light" src="../figures/fig_bench_speedup_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../figures/fig_bench_speedup_dark.html"  loading="lazy"></iframe>
+</div>
+
+The chart below restricts the comparison to the 14 tasks where Basilisk participates and uses Basilisk as the baseline. See "Notes on Basilisk Comparisons" below for caveats specific to that comparison (gravity coefficient sources, frame definitions, default integrator differences).
+
+<div class="plotly-embed tall">
+  <iframe class="only-light" src="../figures/fig_bench_speedup_vs_basilisk_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_bench_speedup_vs_basilisk_dark.html"  loading="lazy"></iframe>
 </div>
 
 ---
@@ -253,6 +261,24 @@ The parallel implementations leverage multiple CPU cores to handle multiple grou
   <iframe class="only-light" src="../figures/fig_access_benchmark_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../figures/fig_access_benchmark_dark.html"  loading="lazy"></iframe>
 </div>
+
+---
+
+### Notes on Basilisk Comparisons
+
+Basilisk participates in 14 of 32 tasks. The gap is API-driven, not capability-driven: brahe's benchmark suite exercises atomic conversion calls (frame transforms, force-model accelerations, time-scale conversions, single-step Keplerian propagation), and Basilisk does not expose all of those at the user-API level — its dynamics modules compute them internally during simulation.
+
+**Where Basilisk participates**: 4 attitude conversions (`RigidBodyKinematics`), 2 orbital-element conversions (`orbitalMotion.elem2rv` / `rv2elem`), 2 frame transformations (via the bundled `pyswice` SPICE Toolkit, J2000 ↔ ITRF93), 2 geodetic/ECEF coordinate conversions (also `pyswice`), and 4 numerical orbit propagation cases (`spacecraft.Spacecraft` + `simIncludeGravBody` with RK4 default integrator).
+
+**Where Basilisk does not participate**: SGP4 propagation (no SGP4 in Basilisk's core), analytical Keplerian propagation (`orbitalMotion.elem2rv` is a single closed-form function call, not a propagator object), atomic force-model accelerations (computed inside dynamics modules), time-scale conversions (Basilisk relies on SPICE's `unitim_c` — would measure SPICE Toolkit, not a peer time-scale library), and access calculations (depend on SGP4).
+
+**Frame definitions**: Basilisk-via-pyswice transforms between `J2000` and `ITRF93` using NAIF's high-precision Earth orientation binary PCK (`earth_latest_high_prec.bpc`, downloaded automatically by `bench-compare-setup`). OreKit uses `EME2000` (≡ J2000 to sub-meter precision) and `ITRF` (IERS 2010 conventions). ITRF93 follows the IERS 1996 conventions, so expect kilometer-scale ECEF position differences vs. the Java baseline — this is a real difference between IERS conventions, not implementation noise.
+
+**Propagation methodology**: Basilisk's `SimBaseClass` setup cost is included in the per-iteration timing (matches the OreKit / Rust pattern of timing the full `run`). Basilisk's inertial output (`r_BN_N`, `v_BN_N`, J2000-equatorial) is transformed to GCRF inside the benchmark using `brahe.state_eme2000_to_gcrf` before the accuracy comparison. Basilisk's default Earth `mu` is overridden from `3.986004360e14` to `3.986004418e14` so all three baselines see the same central-body parameter. Gravity coefficients come from `GGM03S` (Basilisk-bundled, up to degree 180) versus EIGEN-5C (Orekit) and brahe's native EGM family. The two-body task uses each library's default high-accuracy integrator (Java: DP8(5,3) adaptive; brahe: DP54 adaptive) but Basilisk's default is fixed-step RK4, so the basilisk row shows accumulated truncation error of ~tens of meters over one LEO orbit — intrinsic to RK4-at-60s, not a Basilisk bug. The three RK4 force-model tasks use RK4 at the same step in all four implementations.
+
+**Anomaly convention**: Basilisk's `orbitalMotion.ClassicElements` uses true anomaly in radians; brahe/Orekit use mean anomaly in degrees per the existing benchmark convention. Each library is timed on its native call; conversion happens outside the timed region. Quaternion convention (scalar-first `[w, x, y, z]`) is already consistent across all baselines; Basilisk's `RigidBodyKinematics.EP2C` and brahe's `Quaternion.to_rotation_matrix()` use the same passive-rotation (DCM) convention.
+
+**Atmospheric drag inputs**: For the 80×80 full task, Basilisk's `msisAtmosphere` is driven with representative quiet-Sun space-weather values (Ap=8, F10.7=110), not by interpolating `SpaceWeather-All-v1.2.txt` the way Orekit's `CssiSpaceWeatherData` does. This is what a typical Basilisk user would do without bespoke SW preparation; it contributes additional bounded divergence from the Java baseline on that task.
 
 ---
 

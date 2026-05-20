@@ -1,2 +1,2 @@
 Task,Java,Python,Rust,Python Speedup,Rust Speedup
-SGP4 Access,693.30 ms,146.97 ms,148.58 ms,4.72×,4.67×
+SGP4 Access,675.02 ms,136.62 ms,135.39 ms,4.94×,4.99×

@@ -178,7 +178,7 @@ class NumericalTwobodyTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk"]
 
     def generate_params(self, seed: int) -> dict:
         # Fixed LEO orbit — same as keplerian_trajectory for comparison
@@ -242,7 +242,7 @@ class NumericalRk4Grav5x5Task(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk"]
 
     @property
     def timeout(self) -> int:
@@ -275,7 +275,7 @@ class NumericalRk4Grav20x20SunMoonTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk"]
 
     @property
     def timeout(self) -> int:
@@ -310,7 +310,7 @@ class NumericalRk4Grav80x80FullTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk"]
 
     @property
     def timeout(self) -> int:

@@ -28,7 +28,7 @@ class KeplerianToCartesianTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk"]
 
     def generate_params(self, seed: int) -> dict:
         rng = random.Random(seed)
@@ -61,7 +61,7 @@ class CartesianToKeplerianTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk"]
 
     def compare_results(
         self,

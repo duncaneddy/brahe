@@ -1,9 +1,9 @@
-Task,Java,Python,Rust,Python Speedup,Rust Speedup
-Keplerian Single,541.5 µs,51.9 µs,28.1 µs,10.4×,19.3×
-Keplerian Trajectory,471.5 µs,69.7 µs,14.6 µs,6.76×,32.3×
-RK4 + 20x20 + Sun/Moon,9.11 ms,9.95 ms,9.54 ms,0.92×,0.96×
-RK4 + 5x5 Gravity,7.08 ms,1.98 ms,1.88 ms,3.58×,3.75×
-RK4 + 80x80 + Drag + SRP,49.69 ms,35.56 ms,33.86 ms,1.40×,1.47×
-Numerical Two-Body,3.72 ms,1.27 ms,1.20 ms,2.94×,3.11×
-SGP4 Single,652.5 µs,28.4 µs,13.6 µs,23.0×,47.9×
-SGP4 Trajectory,3.42 ms,904.7 µs,416.9 µs,3.78×,8.20×
+Task,Java,Basilisk,Python,Rust,Basilisk Speedup,Python Speedup,Rust Speedup
+Keplerian Single,4.22 ms,—,110.4 µs,139.1 µs,—,38.3×,30.4×
+Keplerian Trajectory,3.45 ms,—,55.9 µs,17.6 µs,—,61.8×,196.6×
+RK4 + 20x20 + Sun/Moon,44.12 ms,102.44 ms,10.97 ms,21.25 ms,0.43×,4.02×,2.08×
+RK4 + 5x5 Gravity,30.15 ms,103.97 ms,13.41 ms,14.91 ms,0.29×,2.25×,2.02×
+RK4 + 80x80 + Drag + SRP,101.42 ms,125.72 ms,33.97 ms,50.22 ms,0.81×,2.99×,2.02×
+Numerical Two-Body,16.41 ms,4.85 ms,1.34 ms,1.15 ms,3.38×,12.2×,14.3×
+SGP4 Single,5.49 ms,—,35.2 µs,13.8 µs,—,156.1×,399.3×
+SGP4 Trajectory,9.57 ms,—,898.6 µs,404.7 µs,—,10.7×,23.6×

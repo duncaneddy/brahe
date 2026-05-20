@@ -13,6 +13,7 @@ LIGHT_THEME = {
     "primary": "#1f77b4",  # Blue
     "secondary": "#ff7f0e",  # Orange
     "accent": "#2ca02c",  # Green
+    "quaternary": "#9467bd",  # Purple — used for Basilisk in comparative benchmarks
     "error": "#d62728",  # Red
     "grid_color": "LightGrey",
     "line_color": "Grey",
@@ -24,6 +25,7 @@ DARK_THEME = {
     "primary": "#79b8ff",  # Lighter blue for dark mode
     "secondary": "#ffaa44",  # Lighter orange for dark mode
     "accent": "#55cc55",  # Lighter green for dark mode
+    "quaternary": "#b794dc",  # Lighter purple for dark mode
     "error": "#ff6b6b",  # Lighter red for dark mode
     "grid_color": "#444444",
     "line_color": "#666666",

@@ -1881,6 +1881,7 @@ def test_numericalorbitpropagator_construction_multiple_integrators():
     for method in [
         IntegrationMethod.RK4,
         IntegrationMethod.RKF45,
+        IntegrationMethod.RKF78,
         IntegrationMethod.DP54,
     ]:
         config = NumericalPropagationConfig.with_method(method)
@@ -2528,6 +2529,21 @@ def test_numericalorbitpropagator_integrator_rkf45():
     assert prop.current_epoch() == epoch + 600.0
 
 
+def test_numericalorbitpropagator_integrator_rkf78():
+    """Test RKF78 integrator"""
+    epoch = create_test_epoch()
+    state = create_leo_state()
+
+    config = NumericalPropagationConfig.with_method(IntegrationMethod.RKF78)
+    prop = NumericalOrbitPropagator(
+        epoch, state, config, ForceModelConfig.two_body(), None
+    )
+
+    prop.propagate_to(epoch + 600.0)
+
+    assert prop.current_epoch() == epoch + 600.0
+
+
 def test_numericalorbitpropagator_integrator_dp54():
     """Test DP54 integrator (mirrors Rust test)"""
     epoch = create_test_epoch()
@@ -2551,6 +2567,7 @@ def test_numericalorbitpropagator_integrator_comparison():
     integrators = [
         IntegrationMethod.RK4,
         IntegrationMethod.RKF45,
+        IntegrationMethod.RKF78,
         IntegrationMethod.DP54,
     ]
 
@@ -3287,6 +3304,9 @@ def test_numericalpropagationconfig_with_method():
     assert config is not None
 
     config = NumericalPropagationConfig.with_method(IntegrationMethod.RKF45)
+    assert config is not None
+
+    config = NumericalPropagationConfig.with_method(IntegrationMethod.RKF78)
     assert config is not None
 
     config = NumericalPropagationConfig.with_method(IntegrationMethod.DP54)

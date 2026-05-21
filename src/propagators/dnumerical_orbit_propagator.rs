@@ -121,6 +121,7 @@ type SharedDynamics =
 /// |----------|-----------------|-----------------------|-----------------|
 /// | RK4      | 4               | yes                   | stage 1 == 2    |
 /// | RKF45    | 6               | yes                   | none            |
+/// | RKF78    | 13              | yes                   | none            |
 /// | DP54     | 6 (FSAL)        | yes                   | none            |
 /// | RKN1210  | 17              | yes                   | none            |
 ///
@@ -7436,6 +7437,19 @@ mod tests {
             None,
         );
         assert!(prop_rkf45.is_ok());
+
+        // Test with RKF78
+        let prop_rkf78 = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            NumericalPropagationConfig::with_method(IntegratorMethod::RKF78),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(prop_rkf78.is_ok());
 
         // Test with RKN1210
         let prop_rkn = DNumericalOrbitPropagator::new(

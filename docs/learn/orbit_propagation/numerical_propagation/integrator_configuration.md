@@ -42,6 +42,7 @@ NumericalPropagationConfig
 ├── method: IntegratorMethod
 │   ├── RK4 (fixed step)
 │   ├── RKF45 (adaptive)
+│   ├── RKF78 (adaptive)
 │   ├── DP54 (adaptive, default)
 │   └── RKN1210 (adaptive, high precision)
 ├── integrator: IntegratorConfig
@@ -67,6 +68,7 @@ Four integration methods are available:
 |------|-----|--------|--------------|-----------|
 | RK4 | 4 | No | 4 | Classic fixed-step Runge-Kutta |
 | RKF45 | 4(5) | Yes | 6 | Runge-Kutta-Fehlberg adaptive |
+| RKF78 | 7(8) | Yes | 13 | High-order Runge-Kutta-Fehlberg adaptive |
 | DP54 | 5(4) | Yes | 6-7 | Dormand-Prince (MATLAB ode45) |
 | RKN1210 | 12(10) | Yes | 17 | High-precision Runge-Kutta-Nystrom |
 </div>

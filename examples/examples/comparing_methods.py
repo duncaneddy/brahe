@@ -5,7 +5,7 @@
 """
 Compares different numerical integrators on two-body orbital dynamics.
 
-This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+This example demonstrates how to use RK4, RKF45, RKF78, DP54, and RKN1210 integrators
 to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
 Angular momentum conservation is used as a measure of integration quality.
 """

@@ -1,16 +1,11 @@
 Task,Comparison,Samples,p50 Max Abs,p95 Max Abs,p99 Max Abs,Max Abs
-Point Mass Gravity,Orekit vs GMAT,1,8.88e-16 m/s²,8.88e-16 m/s²,8.88e-16 m/s²,8.88e-16 m/s²
-Point Mass Gravity,Orekit vs Brahe (Python),1,8.88e-16 m/s²,8.88e-16 m/s²,8.88e-16 m/s²,8.88e-16 m/s²
-Point Mass Gravity,Orekit vs Brahe (Rust),1,8.88e-16 m/s²,8.88e-16 m/s²,8.88e-16 m/s²,8.88e-16 m/s²
-Spherical Harmonics 20x20,Orekit vs GMAT,1,1.31e-07 m/s²,1.31e-07 m/s²,1.31e-07 m/s²,1.31e-07 m/s²
-Spherical Harmonics 20x20,Orekit vs Brahe (Python),1,2.10e-11 m/s²,2.10e-11 m/s²,2.10e-11 m/s²,2.10e-11 m/s²
-Spherical Harmonics 20x20,Orekit vs Brahe (Rust),1,2.10e-11 m/s²,2.10e-11 m/s²,2.10e-11 m/s²,2.10e-11 m/s²
-Spherical Harmonics 80x80,Orekit vs GMAT,1,2.21e-07 m/s²,2.21e-07 m/s²,2.21e-07 m/s²,2.21e-07 m/s²
-Spherical Harmonics 80x80,Orekit vs Brahe (Python),1,2.10e-11 m/s²,2.10e-11 m/s²,2.10e-11 m/s²,2.10e-11 m/s²
-Spherical Harmonics 80x80,Orekit vs Brahe (Rust),1,2.10e-11 m/s²,2.10e-11 m/s²,2.10e-11 m/s²,2.10e-11 m/s²
-Third Body (Moon),Orekit vs GMAT,1,7.09e-14 m/s²,7.09e-14 m/s²,7.09e-14 m/s²,7.09e-14 m/s²
-Third Body (Moon),Orekit vs Brahe (Python),1,6.82e-14 m/s²,6.82e-14 m/s²,6.82e-14 m/s²,6.82e-14 m/s²
-Third Body (Moon),Orekit vs Brahe (Rust),1,6.82e-14 m/s²,6.82e-14 m/s²,6.82e-14 m/s²,6.82e-14 m/s²
-Third Body (Sun),Orekit vs GMAT,1,4.92e-15 m/s²,4.92e-15 m/s²,4.92e-15 m/s²,4.92e-15 m/s²
-Third Body (Sun),Orekit vs Brahe (Python),1,2.82e-14 m/s²,2.82e-14 m/s²,2.82e-14 m/s²,2.82e-14 m/s²
-Third Body (Sun),Orekit vs Brahe (Rust),1,2.82e-14 m/s²,2.82e-14 m/s²,2.82e-14 m/s²,2.82e-14 m/s²
+Point Mass Gravity,Orekit vs Brahe (Python),100,8.88e-16 m/s²,1.78e-15 m/s²,2.66e-15 m/s²,2.66e-15 m/s²
+Point Mass Gravity,Orekit vs Brahe (Rust),100,8.88e-16 m/s²,1.78e-15 m/s²,2.66e-15 m/s²,2.66e-15 m/s²
+Spherical Harmonics 20x20,Orekit vs Brahe (Python),100,1.61e-11 m/s²,5.10e-11 m/s²,6.68e-11 m/s²,7.13e-11 m/s²
+Spherical Harmonics 20x20,Orekit vs Brahe (Rust),100,1.61e-11 m/s²,5.10e-11 m/s²,6.68e-11 m/s²,7.13e-11 m/s²
+Spherical Harmonics 80x80,Orekit vs Brahe (Python),100,1.60e-11 m/s²,5.10e-11 m/s²,6.69e-11 m/s²,7.14e-11 m/s²
+Spherical Harmonics 80x80,Orekit vs Brahe (Rust),100,1.60e-11 m/s²,5.10e-11 m/s²,6.69e-11 m/s²,7.14e-11 m/s²
+Third Body (Moon),Orekit vs Brahe (Python),100,9.48e-14 m/s²,1.71e-13 m/s²,2.27e-13 m/s²,2.35e-13 m/s²
+Third Body (Moon),Orekit vs Brahe (Rust),100,9.48e-14 m/s²,1.71e-13 m/s²,2.27e-13 m/s²,2.35e-13 m/s²
+Third Body (Sun),Orekit vs Brahe (Python),100,4.34e-14 m/s²,7.42e-14 m/s²,8.81e-14 m/s²,9.40e-14 m/s²
+Third Body (Sun),Orekit vs Brahe (Rust),100,4.34e-14 m/s²,7.42e-14 m/s²,8.81e-14 m/s²,9.40e-14 m/s²

@@ -422,7 +422,10 @@ def make_module_figure(run: BenchmarkRun, module: str):
                 for t in task_names
             ]
             scaled = [m * factor for m in means_raw]
-            error_upper = [s * factor * 3 for s in stds_raw]
+            # Bars show ±1σ (one standard deviation of the per-iteration timing
+            # distribution). Std is communicated up-front in the chart title so
+            # the reader doesn't have to infer it from the bar widths.
+            error_upper = [s * factor for s in stds_raw]
             # Clamp lower error bars so they don't exceed the bar value
             # (which would go negative/off-screen on a log scale)
             error_lower = [min(e, v * 0.9) for e, v in zip(error_upper, scaled)]
@@ -448,7 +451,7 @@ def make_module_figure(run: BenchmarkRun, module: str):
             )
 
         fig.update_layout(
-            title=f"{MODULE_LABELS[module]} Benchmark: Mean Execution Time",
+            title=f"{MODULE_LABELS[module]} Benchmark: Mean Execution Time (±1σ)",
             xaxis_title="Task",
             yaxis_title=f"Time ({unit})<br><sub>(lower is better)</sub>",
             yaxis_type="log",

@@ -43,10 +43,16 @@ class BenchmarkTask(ABC):
 
     @property
     def default_accuracy_samples(self) -> int:
-        """Default sample count for the accuracy harness. Override on tasks
-        whose per-sample cost makes 100 impractical (e.g. propagation with
-        80x80 + drag + SRP)."""
-        return 100
+        """Upper cap on the accuracy harness sample count for this task.
+
+        The harness uses ``min(--samples, default_accuracy_samples)`` per
+        task, so this functions as a ceiling for tasks whose per-sample
+        cost is high (the RK4 80x80 + drag + SRP case overrides this to
+        30). The base default is intentionally large so a ``--samples``
+        request from the CLI is the effective sample count for every
+        ordinary task.
+        """
+        return 1000
 
     @abstractmethod
     def generate_params(self, seed: int) -> dict:

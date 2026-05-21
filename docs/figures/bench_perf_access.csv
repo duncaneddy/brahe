@@ -1,2 +1,2 @@
-Task,Orekit,GMAT,Brahe (Python),Brahe (Rust),GMAT Speedup,Brahe (Python) Speedup,Brahe (Rust) Speedup
-SGP4 Access,762.68 ms,8.603 s,138.44 ms,137.81 ms,0.09×,5.51×,5.53×
+Task,Orekit,Brahe (Python),Brahe (Rust),Brahe (Python) Speedup,Brahe (Rust) Speedup
+SGP4 Access,660.65 ms,140.45 ms,146.31 ms,4.70×,4.52×

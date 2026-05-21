@@ -5,6 +5,13 @@ Rvector6 of [vx, vy, vz, ax, ay, az] in km/s and km/s².  We call it
 `n_samples` times per iteration (matching the python/rust/java pattern) to
 amortize construction overhead and produce comparable per-call timing.
 
+Two input shapes are supported per task:
+
+- Perf (single IC): one fixed state, inner loop of ``n_samples`` repetitions
+  for amortized timing — returns one acceleration vector.
+- Accuracy (multi-IC): a ``cases`` list of {jd, state_eci} ICs, evaluated once
+  each — returns one acceleration per case so the harness can compare per-sample.
+
 Unit conversions:
   - Input state: m / m/s (task params) -> km / km/s (GMAT SetField)
   - Output acceleration: km/s² (GMAT) -> m/s² (task result, elements 3–5)
@@ -25,6 +32,8 @@ ForceModel initialization pattern:
 Note: fm.SetSpacecraft() does NOT exist in gmatpy R2026a; the spacecraft is
 passed directly to GetDerivativesForSpacecraft().
 """
+
+from typing import Callable
 
 from benchmarks.comparative.implementations.gmat.base import (
     build_task_result,
@@ -59,15 +68,12 @@ def _set_spacecraft(sc, state_m: list[float], jd: float) -> None:
     sc.SetField("SRPArea", 1.0)
 
 
-def _extract_accel_m_s2(deriv) -> list[list[float]]:
-    """Extract acceleration from a GetDerivativesForSpacecraft Rvector6.
-
-    Returns [[ax, ay, az]] in m/s² — a one-element list wrapping the 3-vector,
-    matching the result format of the Python/Rust/Java baseline implementations.
-    GMAT stores [vx, vy, vz, ax, ay, az] in elements 0–5; acceleration
-    occupies indices 3–5 in km/s².
+def _extract_accel_m_s2(deriv) -> list[float]:
+    """Extract acceleration from a GetDerivativesForSpacecraft Rvector6 as
+    a flat [ax, ay, az] in m/s². GMAT stores [vx, vy, vz, ax, ay, az] in
+    elements 0–5; acceleration occupies indices 3–5 in km/s².
     """
-    return [[deriv.GetElement(i) * 1000.0 for i in range(3, 6)]]
+    return [deriv.GetElement(i) * 1000.0 for i in range(3, 6)]
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +94,7 @@ def _build_point_mass_fm():
 
 
 def _build_spherical_harmonics_fm(degree: int, order: int):
-    """Build a ForceModel with JGM2 spherical-harmonic gravity."""
+    """Build a ForceModel with EGM96 spherical-harmonic gravity."""
     import gmatpy as gmat
     sc = gmat.Construct("Spacecraft", "Sat")
     fm = gmat.Construct("ForceModel", "FM")
@@ -117,28 +123,48 @@ def _build_third_body_fm(body_name: str):
 
 
 # ---------------------------------------------------------------------------
-# Generic timed evaluator
+# Generic timed evaluator: dispatches between perf single-IC and accuracy
+# multi-IC sweep based on the params shape.
 # ---------------------------------------------------------------------------
 
-def _make_run(state_m: list[float], jd: float, n_samples: int, build_fn):
-    """Return a zero-argument callable that builds + evaluates the force model
-    n_samples times.
+def _make_run(params: dict, build_fn: Callable):
+    """Return a zero-argument callable that builds + evaluates the force model.
 
     The ForceModel and Spacecraft are reconstructed on every call so that
     object-construction cost is included in the timing (consistent with the
-    per-iteration methodology used by the Basilisk and Python baselines).
+    per-iteration methodology used by the Python/Java baselines). On the
+    accuracy path each case rebuilds the spacecraft state but reuses the
+    force-model construction pattern.
     """
-    def run():
+    cases = params.get("cases")
+
+    if cases is None:
+        state_m = params["state_eci"]
+        jd = params["jd"]
+        n_samples = params.get("n_samples", 1)
+
+        def run_perf():
+            gmat_clear()
+            sc, fm = build_fn()
+            _set_spacecraft(sc, state_m, jd)
+            last_deriv = None
+            for _ in range(n_samples):
+                last_deriv = fm.GetDerivativesForSpacecraft(sc)
+            return [_extract_accel_m_s2(last_deriv)]
+
+        return run_perf
+
+    def run_sweep():
         gmat_clear()
         sc, fm = build_fn()
-        _set_spacecraft(sc, state_m, jd)
-        # Evaluate n_samples times; return the last result (all identical).
-        last_deriv = None
-        for _ in range(n_samples):
-            last_deriv = fm.GetDerivativesForSpacecraft(sc)
-        return _extract_accel_m_s2(last_deriv)
+        out = []
+        for case in cases:
+            _set_spacecraft(sc, case["state_eci"], case["jd"])
+            deriv = fm.GetDerivativesForSpacecraft(sc)
+            out.append(_extract_accel_m_s2(deriv))
+        return out
 
-    return run
+    return run_sweep
 
 
 # ---------------------------------------------------------------------------
@@ -146,11 +172,8 @@ def _make_run(state_m: list[float], jd: float, n_samples: int, build_fn):
 # ---------------------------------------------------------------------------
 
 def accel_point_mass_gravity(params: dict, iterations: int):
-    state_m = params["state_eci"]
-    jd = params["jd"]
-    n_samples = params.get("n_samples", 1)
     times, result = time_iterations(
-        _make_run(state_m, jd, n_samples, _build_point_mass_fm),
+        _make_run(params, _build_point_mass_fm),
         iterations,
     )
     return build_task_result(
@@ -159,12 +182,8 @@ def accel_point_mass_gravity(params: dict, iterations: int):
 
 
 def accel_spherical_harmonics_20(params: dict, iterations: int):
-    state_m = params["state_eci"]
-    jd = params["jd"]
-    n_samples = params.get("n_samples", 1)
     times, result = time_iterations(
-        _make_run(state_m, jd, n_samples,
-                  lambda: _build_spherical_harmonics_fm(20, 20)),
+        _make_run(params, lambda: _build_spherical_harmonics_fm(20, 20)),
         iterations,
     )
     return build_task_result(
@@ -173,12 +192,8 @@ def accel_spherical_harmonics_20(params: dict, iterations: int):
 
 
 def accel_spherical_harmonics_80(params: dict, iterations: int):
-    state_m = params["state_eci"]
-    jd = params["jd"]
-    n_samples = params.get("n_samples", 1)
     times, result = time_iterations(
-        _make_run(state_m, jd, n_samples,
-                  lambda: _build_spherical_harmonics_fm(80, 80)),
+        _make_run(params, lambda: _build_spherical_harmonics_fm(80, 80)),
         iterations,
     )
     return build_task_result(
@@ -187,12 +202,8 @@ def accel_spherical_harmonics_80(params: dict, iterations: int):
 
 
 def accel_third_body_sun(params: dict, iterations: int):
-    state_m = params["state_eci"]
-    jd = params["jd"]
-    n_samples = params.get("n_samples", 1)
     times, result = time_iterations(
-        _make_run(state_m, jd, n_samples,
-                  lambda: _build_third_body_fm("Sun")),
+        _make_run(params, lambda: _build_third_body_fm("Sun")),
         iterations,
     )
     return build_task_result(
@@ -201,12 +212,8 @@ def accel_third_body_sun(params: dict, iterations: int):
 
 
 def accel_third_body_moon(params: dict, iterations: int):
-    state_m = params["state_eci"]
-    jd = params["jd"]
-    n_samples = params.get("n_samples", 1)
     times, result = time_iterations(
-        _make_run(state_m, jd, n_samples,
-                  lambda: _build_third_body_fm("Luna")),
+        _make_run(params, lambda: _build_third_body_fm("Luna")),
         iterations,
     )
     return build_task_result(

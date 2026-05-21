@@ -1,6 +1,6 @@
 ## Benchmarks
 
-Brahe is benchmarked against [**OreKit 13.1.5**](https://github.com/CS-SI/Orekit) (Java), the most widely used open-source astrodynamics library, across 32 tasks spanning 8 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 100 iterations) and their outputs are compared for both performance and numerical accuracy. Brahe is additionally compared against [**Basilisk**](https://github.com/AVSLab/basilisk) (AVS Lab) on the 14 tasks across four modules (attitude, orbits, frames, coordinates, and propagation) where the two libraries' user-facing APIs overlap. Brahe is additionally compared against [**GMAT R2026a**](https://github.com/nasa/GMAT) (NASA Goddard's General Mission Analysis Tool) on 31 of the 32 benchmark tasks. GMAT comparison is activated by setting the `GMAT_ROOT_PATH` environment variable to a local GMAT install; absent that, GMAT comparisons are skipped without affecting the other baselines.
+Brahe is benchmarked against [**OreKit 13.1.5**](https://github.com/CS-SI/Orekit) (Java), the most widely used open-source astrodynamics library, across 32 tasks spanning 8 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 200 iterations / 200 IC samples) and their outputs are compared for both performance and numerical accuracy. Brahe is additionally compared against [**Basilisk**](https://github.com/AVSLab/basilisk) (AVS Lab) on the 14 tasks across four modules (attitude, orbits, frames, coordinates, and propagation) where the two libraries' user-facing APIs overlap. Brahe is additionally compared against [**GMAT R2026a**](https://github.com/nasa/GMAT) (NASA Goddard's General Mission Analysis Tool) on 31 of the 32 benchmark tasks. GMAT comparison is activated by setting the `GMAT_ROOT_PATH` environment variable to a local GMAT install; absent that, GMAT comparisons are skipped without affecting the other baselines.
 
 !!! tip
 
@@ -11,19 +11,20 @@ Brahe is benchmarked against [**OreKit 13.1.5**](https://github.com/CS-SI/Orekit
 **Languages and Libraries**:
 
 - **Java**: [OreKit 13.1.5](https://github.com/CS-SI/Orekit) on OpenJDK 21
-- **Python**: Brahe Python bindings (PyO3)
-- **Rust**: Brahe native Rust library
 - **Basilisk**: [AVS Lab Basilisk](https://github.com/AVSLab/basilisk) (`bsk` Python wheel from PyPI), imported in-process by the Python runner; participates on a 14-task subset.
 - **GMAT**: [GMAT R2026a](https://github.com/nasa/GMAT) (`gmatpy` API), accessed via a local GMAT install pointed to by `GMAT_ROOT_PATH`; participates on a 31-task subset.
-
+- **Brahe (Python)**: Brahe Python bindings (PyO3)
+- **Brahe (Rust)**: Brahe native Rust library
 **Test Environment**: 2021 MacBook Pro, Apple M1 Max, 64 GB RAM
 
 **Protocol**: Two independent harnesses share the same task registry:
 
-- **Performance** — each task runs 100 iterations of a single fixed input with a fixed random seed. Mean / median / std / min / max execution time is reported per language.
-- **Accuracy** — each task runs once across a sweep of 100 independent initial conditions (configurable via `--samples`). For every non-baseline language the per-sample max-abs and RMS errors are computed against OreKit, then aggregated to p50 / p95 / p99 / max distributional statistics. Per-module CDFs visualize the full error distribution; per-task scatter plots are emitted where a single scalar (altitude, epoch, …) usefully indexes the sample. Accuracy comparisons take OreKit as the single reference baseline.
+- **Performance** — each task runs 200 iterations of a single fixed input with a fixed random seed. Mean / median / std / min / max execution time is reported per language. Per-module bar charts plot the mean time per task; the error bars span **±1 standard deviation** of the iteration timings (raw spread of a single run, not a confidence interval on the mean).
+- **Accuracy** — each task runs once across a sweep of 200 independent initial conditions (configurable via `--samples`). For every non-baseline language the per-sample max-abs and RMS errors are computed against OreKit, then aggregated to p50 / p95 / p99 / max distributional statistics. Per-module CDFs visualize the full error distribution; per-task scatter plots are emitted where a single scalar (altitude, epoch, …) usefully indexes the sample. Accuracy comparisons take OreKit as the single reference baseline.
 
 The two harnesses write to separate result files (`perf_*` and `accuracy_*.jsonl`) under `benchmarks/comparative/results/`. Quaternion comparisons are performed in rotation-matrix space (Frobenius norm of $R_a - R_b$) so quaternion sign ambiguity does not contribute spurious "errors" — see the Attitude section.
+
+**Numerical propagator trajectory storage**: Brahe's `NumericalOrbitPropagator` defaults to `TrajectoryMode::AllSteps`, which accumulates every integration step into an in-memory buffer. OreKit, Basilisk, and GMAT do not store an in-memory trajectory by default — they only retain the latest state unless the caller asks for the full history. To keep the comparison apples-to-apples, both the Python and Rust benchmark adapters explicitly call `set_trajectory_mode(TrajectoryMode.DISABLED)` on every `NumericalOrbitPropagator` instance they create, so brahe is not paying a per-step buffer-append cost that the other libraries are not paying.
 
 ### Performance Overview
 
@@ -35,7 +36,7 @@ The table below summarizes average speedup relative to different baselines. Valu
 
 </div>
 
-Per-module average Python speedups (relative to OreKit) range from ~2× (force-model) to ~40× (time); Rust ranges from ~6× (access) to ~280× (attitude). Force-model and access tasks are closest to parity; time and attitude show the largest separation.
+Per-module average Python speedups (relative to OreKit) range from ~0.85× (force-model) to ~22× (time); Rust ranges from ~5× (access) to ~210× (attitude). Force-model and access tasks are closest to parity; time and attitude show the largest separation.
 
 <div class="plotly-embed x-tall">
   <iframe class="only-light" src="../figures/fig_bench_speedup_light.html" loading="lazy"></iframe>
@@ -62,6 +63,8 @@ Five tasks covering epoch creation and time system conversions (UTC → TAI, TT,
 </div>
 
 **Accuracy** (initial-condition sweep; sample count per row; p50 / p95 / p99 / max max-abs error vs Orekit):
+
+*Sampling range*: each sample is a random calendar datetime with year uniformly in [2000, 2030], month [1, 12], day [1, 28], hour [0, 23], minute [0, 59], second [0, 60) s, and nanosecond [0, 10⁹) ns. Components are drawn independently per sample.
 
 <div class="center-table" markdown="1">
 
@@ -92,6 +95,8 @@ Five tasks covering coordinate system transformations: geodetic/geocentric to/fr
 </div>
 
 **Accuracy** (initial-condition sweep; sample count per row; p50 / p95 / p99 / max max-abs error vs Orekit):
+
+*Sampling range*: geodetic/geocentric inputs use longitude uniform in [-180°, 180°], latitude uniform in [-90°, 90°], and altitude (or radius offset above the sphere) uniform in [0, 1000] km. The `ecef_to_azel` task additionally samples a satellite point above each station with longitude/latitude offsets in ±10° and satellite altitude uniform in [200, 1000] km; station latitude is restricted to [-70°, 70°] to avoid degeneracies near the poles.
 
 Geodetic and geocentric outputs combine angular and altitude components in different units; the benchmark converts angle residuals to surface-arc distance so each row reports a single position-equivalent error in meters. The Orekit-vs-GMAT row on the geodetic conversions is dominated by GMAT's choice of equatorial radius (6378.1363 km vs WGS84's 6378.137 km, a ~0.7 m offset documented in `docs/about/benchmark-deviations/coordinates_geodetic_to_ecef.md`); the implementation-level agreement on the WGS84 baselines is sub-nanometer.
 
@@ -125,6 +130,8 @@ Four tasks covering conversions between quaternions, rotation matrices, and Eule
 
 **Accuracy**: Quaternion comparisons are performed in rotation-matrix space (Frobenius norm of $R_a - R_b$, where $R$ is the rotation matrix induced by each quaternion). This removes the $q \equiv -q$ sign ambiguity at the comparison boundary, so any residual is a real rotation difference rather than a representation artifact.
 
+*Sampling range*: quaternion inputs are drawn uniformly from the unit 3-sphere by sampling each component i.i.d. from a unit Gaussian and normalizing — this yields a uniform distribution on SO(3) rotations. Rotation-matrix inputs are derived from the same quaternion samples. The `euler_angle_to_quaternion` task samples Euler angles directly with $\phi \in [-\pi, \pi]$, $\theta \in [-\pi/2, \pi/2]$, $\psi \in [-\pi, \pi]$ (ZYX convention).
+
 <div class="center-table" markdown="1">
 
 {{ read_csv('figures/bench_accuracy_attitude.csv') }}
@@ -155,6 +162,8 @@ Two tasks covering full 6-DOF state vector transformations between ECEF and ECI 
 
 **Accuracy** (initial-condition sweep; sample count per row; p50 / p95 / p99 / max max-abs error vs Orekit):
 
+*Sampling range*: each sample is a 6-DOF Cartesian state derived from random Keplerian elements with semi-major axis uniform in $R_\oplus + [200, 36{,}000]$ km, eccentricity uniform in [0.001, 0.3], inclination uniform in [0°, 180°], and RAAN / argument of periapsis / true anomaly uniform in [0°, 360°). Epochs are drawn uniformly in [2024-01-01, 2025-01-01) (Basilisk's bundled ITRF93 PCK does not extend far past the 2024 window, which constrains the swept range).
+
 <div class="center-table" markdown="1">
 
 {{ read_csv('figures/bench_accuracy_frames.csv') }}
@@ -182,6 +191,10 @@ Two tasks covering conversions between Keplerian orbital elements and Cartesian 
   <iframe class="only-light" src="../figures/fig_bench_orbits_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../figures/fig_bench_orbits_dark.html"  loading="lazy"></iframe>
 </div>
+
+**Accuracy** (initial-condition sweep; sample count per row; p50 / p95 / p99 / max max-abs error vs Orekit):
+
+*Sampling range*: Keplerian elements are drawn with semi-major axis uniform in $R_\oplus + [200, 36{,}000]$ km (LEO through GEO), eccentricity uniform in [0.001, 0.5], inclination uniform in [0°, 180°], and RAAN / argument of periapsis / mean anomaly (or true anomaly for the Cartesian-input task) uniform in [0°, 360°). Cartesian-input samples are produced by converting these elements to a state vector via the standard perifocal-to-ECI rotation.
 
 <div class="center-table" markdown="1">
 
@@ -213,6 +226,13 @@ Five tasks covering Keplerian (two-body analytical), numerical (RK4/RK78 two-bod
 
 **Accuracy** (initial-condition sweep; sample count per row; p50 / p95 / p99 / max max-abs error vs Orekit):
 
+*Sampling range*:
+
+- `keplerian_single`: random orbit with $a \in R_\oplus + [200, 36{,}000]$ km, $e \in [0.001, 0.3]$, $i \in [0°, 180°]$, RAAN / $\omega$ / $M$ uniform in [0°, 360°); per-sample propagation duration $\Delta t$ uniform in [1 h, 24 h]; epoch JD spread uniformly over calendar year 2024.
+- `keplerian_trajectory`, `numerical_twobody`, and the three RK4 force-model tasks (`grav5x5`, `grav20x20_sun_moon`, `grav80x80_full`): LEO IC sweep with $a \in R_\oplus + [400, 1500]$ km, $e \in [0.001, 0.02]$, $i \in [0°, 180°]$, angles uniform in [0°, 360°), epoch JD spread over 2024. Altitude floor of 400 km and eccentricity ceiling of 0.02 keep every sampled perigee above ~250 km, where fixed-step RK4 remains well-behaved on every backend; the 80×80 + drag + SRP case otherwise aborted with "accuracy settings violated" errors in GMAT and produced 10¹¹ m state offsets in brahe. Each case is propagated over one nominal LEO orbital period (~90 minutes); only the final state is compared.
+- `sgp4_single`: ISS TLE evaluated at $n$ random time offsets uniformly distributed in [0, 86400] s (sorted).
+- `sgp4_trajectory`: ISS TLE sampled at $n$ uniformly spaced points across a fixed 48-hour horizon — points along a single trajectory rather than statistically independent draws, so this row reads as an error-growth profile rather than an IC distribution.
+
 <div class="center-table" markdown="1">
 
 {{ read_csv('figures/bench_accuracy_propagation.csv') }}
@@ -241,9 +261,9 @@ Five tasks evaluating a single acceleration term at a fixed spacecraft state and
   <iframe class="only-dark"  src="../figures/fig_bench_force_model_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy** (single fixed LEO state; per-pair max-abs error vs Orekit):
+**Accuracy** (LEO IC sweep; per-pair max-abs error distribution vs Orekit):
 
-Force-model tasks evaluate one acceleration at a fixed spacecraft state, so the accuracy comparison reduces to one residual per implementation pair — there is no distribution to plot. The table is the source of truth for this module.
+*Sampling range*: force-model accuracy is swept over the same LEO range used for the propagation accuracy sweep — $a \in R_\oplus + [400, 1500]$ km, $e \in [0.001, 0.02]$, $i \in [0°, 180°]$, angles uniform in [0°, 360°), epoch JD spread over 2024. Each case's Keplerian elements are converted to a Cartesian GCRF state in the task generator so every backend sees the identical state per case (avoiding implementation-drift in KOE→ECI conversion as a source of residual). Each task therefore yields one residual per case, so the harness reports a distribution rather than a single number.
 
 <div class="center-table" markdown="1">
 
@@ -269,6 +289,8 @@ One task: computing all satellite-to-ground-station access windows over a 48-hou
 </div>
 
 **Accuracy** (per-location contact-count and per-window timing residuals vs Orekit):
+
+*Sampling range*: a single fixed SGP4 propagator (ISS TLE) is evaluated against 100 random ground locations sampled with longitude uniform in [-180°, 180°], latitude uniform in [-90°, 90°], altitude fixed at 0 m, 10° minimum elevation, over a 24-hour search window starting at the TLE epoch. The samples here index ground locations rather than orbit initial conditions, so the accuracy distribution describes how access-window detection varies geographically for one orbit, not how it varies across orbits.
 
 The table reports, for each backend pair: how many ground locations produced any contacts, the total contact count each backend found across those locations, the worst per-location count mismatch, and the distribution of matched-window start/end time residuals across all locations. Windows are matched greedily by nearest start time within a 120 s tolerance; unmatched windows contribute to the count difference but not the timing residuals.
 
@@ -363,7 +385,11 @@ export GMAT_ROOT_PATH="/Applications/GMAT R2026a"
 just bench-compare-setup
 
 # Run benchmarks, generate figures + CSV tables, and stage artifacts for commit
-just bench-compare-publish --iterations 100 --seed 42
+# (perf takes --iterations, accuracy takes --samples; both default to 100, but
+#  200 gives noticeably tighter ±1σ bars on the performance charts.)
+just bench-compare --iterations 200 --seed 42
+just bench-compare-accuracy --samples 200 --seed 42
+BRAHE_FIGURE_OUTPUT_DIR=./docs/figures/ uv run python plots/fig_comparative_benchmarks.py
 
 # Review staged changes and commit
 git status
@@ -374,7 +400,8 @@ Individual steps can also be run separately:
 
 ```bash
 # Run benchmarks only (results saved to benchmarks/comparative/results/)
-just bench-compare --iterations 100 --seed 42
+just bench-compare --iterations 200 --seed 42
+just bench-compare-accuracy --samples 200 --seed 42
 
 # Regenerate figures and tables from existing results (without re-running benchmarks)
 python plots/fig_comparative_benchmarks.py

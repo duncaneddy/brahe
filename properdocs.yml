@@ -422,6 +422,7 @@ nav:
           - Configuration: library_api/integrators/config.md
           - RK4 Integrator: library_api/integrators/rk4.md
           - RKF45 Integrator: library_api/integrators/rkf45.md
+          - RKF78 Integrator: library_api/integrators/rkf78.md
           - DP54 Integrator: library_api/integrators/dp54.md
           - RKN1210 Integrator: library_api/integrators/rkn1210.md
       - Space Weather:

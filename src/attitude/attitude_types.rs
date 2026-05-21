@@ -91,6 +91,29 @@ pub enum EulerAngleOrder {
     ZYZ = 323,
 }
 
+impl EulerAngleOrder {
+    /// Returns this order with its axis letters reversed:
+    /// `XYZ ↔ ZYX`, `XZY ↔ YZX`, `YXZ ↔ ZXY`. Symmetric (palindromic) orders
+    /// like `XYX`, `ZYZ`, etc. are fixed points.
+    ///
+    /// Used internally to translate between the convention in which the
+    /// per-order quaternion and rotation-matrix formulas were originally written
+    /// (Diebel 2006, where the label indexes matrix-product position) and the
+    /// convention brahe exposes to users (aerospace standard, where the label
+    /// indexes the rotation *sequence* — first letter applied first).
+    pub(crate) fn reversed(self) -> Self {
+        match self {
+            EulerAngleOrder::XYZ => EulerAngleOrder::ZYX,
+            EulerAngleOrder::ZYX => EulerAngleOrder::XYZ,
+            EulerAngleOrder::XZY => EulerAngleOrder::YZX,
+            EulerAngleOrder::YZX => EulerAngleOrder::XZY,
+            EulerAngleOrder::YXZ => EulerAngleOrder::ZXY,
+            EulerAngleOrder::ZXY => EulerAngleOrder::YXZ,
+            sym => sym,
+        }
+    }
+}
+
 impl fmt::Display for EulerAngleOrder {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

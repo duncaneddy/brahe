@@ -429,12 +429,14 @@ mod tests {
         assert_abs_diff_eq!(q[2], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(q[3], 0.0, epsilon = 1e-12);
 
+        // Aerospace XYZ(30°, 45°, 60°) = rotate 30° about X first, 45° about new Y',
+        // then 60° about newest Z''. Equivalent quaternion: q_x(30°) ⊗ q_y(45°) ⊗ q_z(60°).
         let e = EulerAngle::new(EulerAngleOrder::XYZ, 30.0, 45.0, 60.0, DEGREES);
         let q = e.to_quaternion();
-        assert_abs_diff_eq!(q[0], 0.8223631719059994, epsilon = 1e-12);
-        assert_abs_diff_eq!(q[1], 0.022260026714733844, epsilon = 1e-12);
-        assert_abs_diff_eq!(q[2], 0.43967973954090955, epsilon = 1e-12);
-        assert_abs_diff_eq!(q[3], 0.3604234056503559, epsilon = 1e-12);
+        assert_abs_diff_eq!(q[0], 0.7233174113647118, epsilon = 1e-12);
+        assert_abs_diff_eq!(q[1], 0.39190383732911993, epsilon = 1e-12);
+        assert_abs_diff_eq!(q[2], 0.20056212114657512, epsilon = 1e-12);
+        assert_abs_diff_eq!(q[3], 0.5319756951821668, epsilon = 1e-12);
     }
 
     #[test]

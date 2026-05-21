@@ -6,6 +6,14 @@ Euler angles represent rotations as three sequential rotations about coordinate 
 
 Euler angles describe orientation using three angles representing sequential rotations about specified axes. Brahe supports all 12 possible Euler angle sequences (e.g., XYZ, ZYX, ZYZ).
 
+!!! info "Euler Angle Application Order Conventions"
+
+    Brahe follows standard aerospace engineering conventions for the naming of Euler angle sequences with the application of rotation matrices being applied from _left_ to _right_.
+
+    A 3-2-1 (Z-Y-X) Euler angle sequence is equivalent to the multication by $R$ where $R = R_x(\psi)R_y(\theta)R_z(\phi)$. Note the "3" (Z) is the first rotation applied when a vector $\vec{x}$ is rotated: $R\vec{x}$. Then the "2" (Y) is applied, and finally the "1" (X) is applied.
+
+    This is slightly at odds with the as-written Diebel convention, but is consistent with the aerospace engineering convention. Brahe internally transforms between the aerospace convention to the Diebel convention.
+
 ## Mathematical Representation
 
 An Euler angle rotation is specified by:

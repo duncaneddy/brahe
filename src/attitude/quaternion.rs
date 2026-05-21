@@ -393,15 +393,32 @@ impl FromAttitude for Quaternion {
     }
 
     fn from_euler_angle(e: EulerAngle) -> Self {
-        // Precompute common trigonometric values
-        let cos_phi2 = (e.phi / 2.0).cos();
-        let cos_theta2 = (e.theta / 2.0).cos();
-        let cos_psi2 = (e.psi / 2.0).cos();
-        let sin_phi2 = (e.phi / 2.0).sin();
-        let sin_theta2 = (e.theta / 2.0).sin();
-        let sin_psi2 = (e.psi / 2.0).sin();
+        // Aerospace-convention shim. The per-order quaternion formulas below are
+        // transcribed from Diebel 2006 (eq. 458-469), where `EulerAngleOrder::ABC`
+        // labels the matrix-product *position* of each elementary rotation
+        // (R_A · R_B · R_C) and the angles (phi, theta, psi) bind to that product
+        // by position — phi to the leftmost matrix.
+        //
+        // brahe exposes the aerospace standard, where `EulerAngleOrder::ABC`
+        // labels the rotation *sequence*: phi is applied about A first, theta
+        // about B' second, psi about C'' third. The two conventions are related by
+        //     aerospace_ABC(phi, theta, psi)  ==  Diebel q_CBA(psi, theta, phi)
+        // so we re-express the input here (reverse the order label, swap
+        // phi <-> psi) and feed the existing Diebel formulas unchanged.
+        let order = e.order.reversed();
+        let phi = e.psi;
+        let theta = e.theta;
+        let psi = e.phi;
 
-        let data = match e.order {
+        // Precompute common trigonometric values
+        let cos_phi2 = (phi / 2.0).cos();
+        let cos_theta2 = (theta / 2.0).cos();
+        let cos_psi2 = (psi / 2.0).cos();
+        let sin_phi2 = (phi / 2.0).sin();
+        let sin_theta2 = (theta / 2.0).sin();
+        let sin_psi2 = (psi / 2.0).sin();
+
+        let data = match order {
             EulerAngleOrder::XYX => Vector4::new(
                 cos_phi2 * cos_theta2 * cos_psi2 - sin_phi2 * cos_theta2 * sin_psi2,
                 cos_phi2 * cos_theta2 * sin_psi2 + cos_theta2 * cos_psi2 * sin_phi2,

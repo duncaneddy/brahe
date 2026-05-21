@@ -2,16 +2,16 @@
 
 Conventions:
 - Quaternion (Euler parameter, EP): scalar-first [w, x, y, z]. Matches brahe
-  and Orekit; no reorder needed.
-- Rotation matrix: Basilisk's EP2C and C2EP use the same convention as brahe
-  and OreKit (C = EP2C(q) matches brahe's quaternion_to_rotation_matrix
-  element-for-element). No transposition required.
-- Euler angles: brahe/OreKit decompose C = Rz(phi)@Ry(theta)@Rx(psi) (active
-  left-to-right ZYX), giving C[2,0]=sin(theta), C[1,0]=-sin(phi)*cos(theta),
-  C[2,1]=-cos(theta)*sin(psi). Basilisk's EP2Euler321 uses the Schaub-Junkins
-  passive right-to-left ordering C = Rx(psi)@Ry(theta)@Rz(phi) and produces
-  different angle triplets for the same rotation. We bypass EP2Euler321 and
-  extract the ZYX angles directly from EP2C using brahe's element formulas.
+  and Orekit at the level of `quaternion_to_rotation_matrix` /
+  `rotation_matrix_to_quaternion`; no reorder needed.
+- Rotation matrix: Basilisk's EP2C and C2EP produce passive DCMs that match
+  brahe and Hipparchus element-for-element.
+- Euler angles: brahe exposes aerospace intrinsic ZYX (yaw-pitch-roll) — phi
+  rotates about z first, psi about the body x last — with the passive DCM
+  M = Rx_p(psi) * Ry_p(theta) * Rz_p(phi). We extract those angles directly
+  from EP2C(q) using the aerospace ZYX element formulas. Basilisk's
+  ``euler3212EP`` already returns the active-Hamilton quaternion for the
+  same convention, matching brahe and Orekit at machine precision.
 """
 
 import math
@@ -68,21 +68,19 @@ def quaternion_to_euler_angle(params: dict, iterations: int):
     def run():
         results = []
         for q in quaternions:
-            # EP2Euler321 decomposes C = Rx(psi)@Ry(theta)@Rz(phi) (Schaub-Junkins
-            # passive right-to-left). brahe/OreKit use C = Rz(phi)@Ry(theta)@Rx(psi)
-            # (active left-to-right). For the same rotation matrix C = EP2C(q) the two
-            # conventions yield different angle triplets.
-            #
-            # Correct approach: extract angles analytically from the rotation matrix C
-            # using brahe's ZYX layout where C[2,0] = sin(theta):
-            #   theta = asin(C[2,0])
-            #   phi   = atan2(-C[1,0], C[0,0])
-            #   psi   = atan2(-C[2,1], C[2,2])
+            # Extract aerospace intrinsic ZYX angles from the passive DCM
+            # C = EP2C(q) = Rx_p(psi) * Ry_p(theta) * Rz_p(phi):
+            #   C[0,0] = cos(theta)*cos(phi)   C[0,1] = cos(theta)*sin(phi)
+            #   C[0,2] = -sin(theta)
+            #   C[1,2] = sin(psi)*cos(theta)   C[2,2] = cos(psi)*cos(theta)
+            # Bypasses Basilisk's EP2Euler321 because Schaub-Junkins decomposes
+            # the matrix using the same elements in a different role-mapping;
+            # this extraction matches brahe and the updated Java/Orekit adapter
+            # element-for-element.
             C = rbk.EP2C(q)
-            theta = math.asin(float(C[2][0]))
-            cos_theta = math.cos(theta)
-            phi = math.atan2(-float(C[1][0]) / cos_theta, float(C[0][0]) / cos_theta)
-            psi = math.atan2(-float(C[2][1]) / cos_theta, float(C[2][2]) / cos_theta)
+            phi = math.atan2(float(C[0][1]), float(C[0][0]))
+            theta = -math.asin(float(C[0][2]))
+            psi = math.atan2(float(C[1][2]), float(C[2][2]))
             results.append([phi, theta, psi])
         return results
 
@@ -95,11 +93,10 @@ def quaternion_to_euler_angle(params: dict, iterations: int):
 def euler_angle_to_quaternion(params: dict, iterations: int):
     """Convert Euler angles ZYX [phi, theta, psi] in radians to quaternions [w, x, y, z].
 
-    Basilisk's euler3212EP uses the Schaub-Junkins passive-rotation convention,
-    which matches Hipparchus's Rotation extraction (the Java/Orekit baseline).
-    brahe-Python and brahe-Rust use a different convention on this specific
-    task and show a pre-existing ~0.67 max error against Java; Basilisk
-    matches Java at machine epsilon.
+    Basilisk's ``euler3212EP`` returns the active-Hamilton quaternion for the
+    aerospace intrinsic ZYX sequence (phi about z first, psi about body x
+    last), matching brahe and the updated Java/Orekit adapter element-for-
+    element. No reorder or sign change is needed.
     """
     angles = [np.array(a, dtype=float) for a in params["angles"]]
 

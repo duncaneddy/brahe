@@ -516,7 +516,20 @@ impl ToAttitude for RotationMatrix {
     /// let e = r.to_euler_angle(EulerAngleOrder::XYZ);
     /// ```
     fn to_euler_angle(&self, order: EulerAngleOrder) -> EulerAngle {
-        // The Euler angles from the rotation matrix per the order specific and the equations in Diebel section 8.
+        // Aerospace-convention shim. The per-order extraction formulas below come
+        // from Diebel 2006 (section 8), where `EulerAngleOrder::ABC` labels the
+        // matrix-product *position* of each elementary rotation in the passive
+        // DCM (R_A · R_B · R_C) and the extracted (phi, theta, psi) bind to that
+        // product by position.
+        //
+        // brahe exposes the aerospace standard, where `EulerAngleOrder::ABC`
+        // labels the rotation *sequence* — first letter applied first. The two
+        // are related by
+        //     aerospace_ABC(phi, theta, psi)  ==  Diebel q_CBA(psi, theta, phi)
+        // so we dispatch on the letter-reversed order to pick the right Diebel
+        // extraction, then swap phi <-> psi and stamp the user's original order
+        // on the result.
+        let diebel_order = order.reversed();
 
         // Extract matrix components for easier-to-read correspondence to Diebel's equations
         let r11 = self.data[(0, 0)];
@@ -529,56 +542,24 @@ impl ToAttitude for RotationMatrix {
         let r32 = self.data[(2, 1)];
         let r33 = self.data[(2, 2)];
 
-        match order {
-            EulerAngleOrder::XYX => {
-                EulerAngle::new(order, r21.atan2(r31), r11.acos(), r12.atan2(-r13), RADIANS)
-            }
-            EulerAngleOrder::XYZ => {
-                EulerAngle::new(order, r23.atan2(r33), -r13.asin(), r12.atan2(r11), RADIANS)
-            }
-            EulerAngleOrder::XZX => {
-                EulerAngle::new(order, r31.atan2(-r21), r11.acos(), r13.atan2(r12), RADIANS)
-            }
-            EulerAngleOrder::XZY => EulerAngle::new(
-                order,
-                (-r32).atan2(r22),
-                r12.asin(),
-                (-r13).atan2(r11),
-                RADIANS,
-            ),
-            EulerAngleOrder::YXY => {
-                EulerAngle::new(order, r12.atan2(-r32), r22.acos(), r21.atan2(r23), RADIANS)
-            }
-            EulerAngleOrder::YXZ => EulerAngle::new(
-                order,
-                (-r13).atan2(r33),
-                r23.asin(),
-                (-r21).atan2(r22),
-                RADIANS,
-            ),
-            EulerAngleOrder::YZX => {
-                EulerAngle::new(order, r31.atan2(r11), -r21.asin(), r23.atan2(r22), RADIANS)
-            }
-            EulerAngleOrder::YZY => {
-                EulerAngle::new(order, r32.atan2(r12), r22.acos(), r23.atan2(-r21), RADIANS)
-            }
-            EulerAngleOrder::ZXY => {
-                EulerAngle::new(order, r12.atan2(r22), -r32.asin(), r31.atan2(r33), RADIANS)
-            }
-            EulerAngleOrder::ZXZ => {
-                EulerAngle::new(order, r13.atan2(r23), r33.acos(), r31.atan2(-r32), RADIANS)
-            }
-            EulerAngleOrder::ZYX => EulerAngle::new(
-                order,
-                (-r21).atan2(r11),
-                r31.asin(),
-                (-r32).atan2(r33),
-                RADIANS,
-            ),
-            EulerAngleOrder::ZYZ => {
-                EulerAngle::new(order, r23.atan2(-r13), r33.acos(), r32.atan2(r31), RADIANS)
-            }
-        }
+        let (phi_d, theta_d, psi_d) = match diebel_order {
+            EulerAngleOrder::XYX => (r21.atan2(r31), r11.acos(), r12.atan2(-r13)),
+            EulerAngleOrder::XYZ => (r23.atan2(r33), -r13.asin(), r12.atan2(r11)),
+            EulerAngleOrder::XZX => (r31.atan2(-r21), r11.acos(), r13.atan2(r12)),
+            EulerAngleOrder::XZY => ((-r32).atan2(r22), r12.asin(), (-r13).atan2(r11)),
+            EulerAngleOrder::YXY => (r12.atan2(-r32), r22.acos(), r21.atan2(r23)),
+            EulerAngleOrder::YXZ => ((-r13).atan2(r33), r23.asin(), (-r21).atan2(r22)),
+            EulerAngleOrder::YZX => (r31.atan2(r11), -r21.asin(), r23.atan2(r22)),
+            EulerAngleOrder::YZY => (r32.atan2(r12), r22.acos(), r23.atan2(-r21)),
+            EulerAngleOrder::ZXY => (r12.atan2(r22), -r32.asin(), r31.atan2(r33)),
+            EulerAngleOrder::ZXZ => (r13.atan2(r23), r33.acos(), r31.atan2(-r32)),
+            EulerAngleOrder::ZYX => ((-r21).atan2(r11), r31.asin(), (-r32).atan2(r33)),
+            EulerAngleOrder::ZYZ => (r23.atan2(-r13), r33.acos(), r32.atan2(r31)),
+        };
+
+        // Aerospace: swap phi <-> psi from the Diebel matrix-position labeling,
+        // and stamp the user's original order on the result.
+        EulerAngle::new(order, psi_d, theta_d, phi_d, RADIANS)
     }
 
     /// Convert the `RotationMatrix` to a `RotationMatrix`. This is equivalent to cloning the

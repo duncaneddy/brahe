@@ -8,9 +8,9 @@ ECEF To Geodetic,Orekit vs Basilisk,100,0.71 nm,1.81 nm,2.10 nm,2.37 nm
 ECEF To Geodetic,Orekit vs GMAT,100,600.65 mm,694.08 mm,700.02 mm,701.90 mm
 ECEF To Geodetic,Orekit vs Brahe (Python),100,0.79 nm,1.64 nm,1.98 nm,2.56 nm
 ECEF To Geodetic,Orekit vs Brahe (Rust),100,0.79 nm,1.86 nm,1.98 nm,2.56 nm
-Geocentric To ECEF,Orekit vs GMAT,100,0.47 nm,0.93 nm,1.86 nm,1.86 nm
-Geocentric To ECEF,Orekit vs Brahe (Python),100,0 nm,0.93 nm,0.94 nm,1.40 nm
-Geocentric To ECEF,Orekit vs Brahe (Rust),100,0 nm,1.23 nm,1.51 nm,1.51 nm
+Geocentric To ECEF,Orekit vs GMAT,100,0.47 nm,0.93 nm,0.94 nm,1.86 nm
+Geocentric To ECEF,Orekit vs Brahe (Python),100,0.12 nm,0.93 nm,0.93 nm,0.93 nm
+Geocentric To ECEF,Orekit vs Brahe (Rust),100,0.23 nm,1.17 nm,1.52 nm,1.86 nm
 Geodetic To ECEF,Orekit vs Basilisk,100,0.93 nm,1.86 nm,2.79 nm,2.79 nm
 Geodetic To ECEF,Orekit vs GMAT,100,626.05 mm,711.56 mm,718.09 mm,718.27 mm
 Geodetic To ECEF,Orekit vs Brahe (Python),100,0 nm,0.93 nm,0.93 nm,0.93 nm

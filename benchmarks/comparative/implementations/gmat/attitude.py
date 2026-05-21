@@ -15,13 +15,10 @@ Verified conventions (Step 2 spike):
   - GMAT's ToCosineMatrix returns the PASSIVE (body-to-inertial) DCM, identical
     to Basilisk EP2C and Hipparchus Rotation.getMatrix() — all three agree
     element-for-element.  This is the TRANSPOSE of brahe's active Python formula.
-  - GMAT's ToEulerAngles(rv, 3, 2, 1) does NOT match Java/Basilisk's ZYX
-    extraction despite using the same passive matrix.  The correct approach is to
-    call ToCosineMatrix and then extract angles analytically using the same
-    formula as the Java baseline:
-      theta = asin(C[2][0]), phi = atan2(-C[1][0]/ct, C[0][0]/ct),
-      psi   = atan2(-C[2][1]/ct, C[2][2]/ct)
-    where ct = cos(theta).  This matches Java at machine epsilon.
+  - GMAT's ToEulerAngles(Rvector, 3, 2, 1) is used natively so the timed work
+    is the library's own quaternion-to-Euler decomposition. The 3-2-1 axis
+    sequence returns [phi (yaw, z), theta (pitch, y'), psi (roll, x'')]
+    matching brahe and Hipparchus' ZYX FRAME_TRANSFORM convention.
 
 Convention reconciliation (outside the timed region):
   - Quaternion: GMAT scalar-LAST <-> brahe scalar-FIRST via quat_*_to_* helpers.
@@ -130,47 +127,22 @@ def rotation_matrix_to_quaternion(params: dict, iterations: int):
 def quaternion_to_euler_angle(params: dict, iterations: int):
     """Quaternions [w, x, y, z] -> Euler angles ZYX [phi, theta, psi] (radians).
 
-    GMAT's ToCosineMatrix returns the passive (body-to-inertial) DCM.
-    Java/OreKit (Hipparchus getMatrix()) and Basilisk (EP2C) also return the
-    passive DCM.  All three agree on the matrix element-for-element.
-
-    We extract ZYX Euler angles directly from the passive DCM using the same
-    formula as the Java baseline:
-      theta = asin(C[2][0])
-      phi   = atan2(-C[1][0] / cos(theta), C[0][0] / cos(theta))
-      psi   = atan2(-C[2][1] / cos(theta), C[2][2] / cos(theta))
-
-    Using GMAT's ToEulerAngles(rv, 3, 2, 1) was tried but yields different
-    values because GMAT's internal ZYX decomposition uses a different formula.
-    The direct matrix extraction matches the Java baseline at machine epsilon.
+    Uses GMAT's native ``AttitudeConversionUtility.ToEulerAngles(rv, 3, 2, 1)``
+    so the timed work is GMAT's own quaternion-to-Euler decomposition. The
+    3-2-1 axis sequence returns [phi (yaw, Z), theta (pitch, Y'), psi (roll,
+    X'')] for the same passive (body-to-inertial) DCM that Java/OreKit and
+    Basilisk decompose. Quaternion reorder (scalar-first -> scalar-last)
+    happens outside the timed region via ``quat_brahe_to_gmat``.
     """
-    import math
     acu = _acu()
     gmat_rvecs = [_make_rvector(quat_brahe_to_gmat(q)) for q in params["quaternions"]]
 
-    def _extract_zyx(mat):
-        c20 = mat.GetElement(2, 0)
-        # Clamp to avoid numerical issues with asin
-        c20 = max(-1.0, min(1.0, c20))
-        theta = math.asin(c20)
-        cos_theta = math.cos(theta)
-        if abs(cos_theta) < 1e-10:
-            # Gimbal lock: set phi=0, solve for psi
-            phi = 0.0
-            psi = math.atan2(-mat.GetElement(0, 1), mat.GetElement(1, 1))
-        else:
-            phi = math.atan2(
-                -mat.GetElement(1, 0) / cos_theta,
-                mat.GetElement(0, 0) / cos_theta,
-            )
-            psi = math.atan2(
-                -mat.GetElement(2, 1) / cos_theta,
-                mat.GetElement(2, 2) / cos_theta,
-            )
-        return [phi, theta, psi]
-
     def run():
-        return [_extract_zyx(acu.ToCosineMatrix(rv)) for rv in gmat_rvecs]
+        results = []
+        for rv in gmat_rvecs:
+            ea = acu.ToEulerAngles(rv, 3, 2, 1)
+            results.append([float(ea.GetElement(i)) for i in range(3)])
+        return results
 
     times, results = time_iterations(run, iterations)
     return build_task_result(

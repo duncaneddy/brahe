@@ -1,6 +1,6 @@
 Task,Orekit,GMAT,Basilisk,Brahe (Python),Brahe (Rust),GMAT Speedup,Basilisk Speedup,Brahe (Python) Speedup,Brahe (Rust) Speedup
-ECEF To AzEl,1.67 ms,—,—,145.7 µs,12.0 µs,—,—,11.5×,140.1×
-ECEF To Geocentric,639.8 µs,117.1 µs,—,59.2 µs,1.2 µs,5.46×,—,10.8×,538.8×
-ECEF To Geodetic,599.9 µs,234.5 µs,241.5 µs,111.6 µs,7.2 µs,2.56×,2.48×,5.38×,83.7×
-Geocentric To ECEF,584.7 µs,119.9 µs,—,60.0 µs,862.3 ns,4.88×,—,9.74×,678.1×
-Geodetic To ECEF,552.8 µs,167.1 µs,55.9 µs,84.7 µs,929.0 ns,3.31×,9.89×,6.52×,595.1×
+ECEF To AzEl,425.4 µs,—,—,126.9 µs,11.5 µs,—,—,3.35×,37.1×
+ECEF To Geocentric,147.5 µs,104.5 µs,—,51.0 µs,796.7 ns,1.41×,—,2.89×,185.1×
+ECEF To Geodetic,137.8 µs,173.2 µs,189.4 µs,59.8 µs,5.1 µs,0.80×,0.73×,2.30×,27.0×
+Geocentric To ECEF,164.7 µs,111.2 µs,—,52.6 µs,684.6 ns,1.48×,—,3.13×,240.6×
+Geodetic To ECEF,120.5 µs,137.5 µs,36.4 µs,52.6 µs,799.6 ns,0.88×,3.31×,2.29×,150.7×

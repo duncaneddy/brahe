@@ -1,12 +1,12 @@
 Task,Comparison,Samples,p50 Max Abs,p95 Max Abs,p99 Max Abs,Max Abs
-Euler Angle To Quaternion,Orekit vs Basilisk,100,1.146,1.846,1.887,1.901
-Euler Angle To Quaternion,Orekit vs GMAT,100,1.146,1.846,1.887,1.901
-Euler Angle To Quaternion,Orekit vs Brahe (Python),100,1.778,1.990,2.000,2.000
-Euler Angle To Quaternion,Orekit vs Brahe (Rust),100,1.778,1.990,2.000,2.000
-Quaternion To Euler Angle,Orekit vs Basilisk,100,0,4.44e-16,8.97e-16,1.78e-15
-Quaternion To Euler Angle,Orekit vs GMAT,100,2.78e-17,6.77e-16,1.78e-15,1.78e-15
-Quaternion To Euler Angle,Orekit vs Brahe (Python),100,5.55e-17,6.77e-16,9.06e-16,2.66e-15
-Quaternion To Euler Angle,Orekit vs Brahe (Rust),100,6.94e-17,6.77e-16,9.06e-16,2.66e-15
+Euler Angle To Quaternion,Orekit vs Basilisk,100,2.22e-16,6.66e-16,6.66e-16,6.66e-16
+Euler Angle To Quaternion,Orekit vs GMAT,100,3.33e-16,8.88e-16,8.88e-16,8.88e-16
+Euler Angle To Quaternion,Orekit vs Brahe (Python),100,1.94e-16,8.88e-16,8.93e-16,1.33e-15
+Euler Angle To Quaternion,Orekit vs Brahe (Rust),100,2.22e-16,8.88e-16,1.11e-15,1.33e-15
+Quaternion To Euler Angle,Orekit vs Basilisk,100,0,4.55e-16,8.97e-16,1.78e-15
+Quaternion To Euler Angle,Orekit vs GMAT,100,5.55e-17,8.88e-16,9.02e-16,2.22e-15
+Quaternion To Euler Angle,Orekit vs Brahe (Python),100,0,8.88e-16,1.78e-15,1.78e-15
+Quaternion To Euler Angle,Orekit vs Brahe (Rust),100,1.39e-17,8.88e-16,1.78e-15,1.78e-15
 Quaternion To Rotation Matrix,Orekit vs Basilisk,100,1.46e-16,3.33e-16,4.45e-16,5.55e-16
 Quaternion To Rotation Matrix,Orekit vs GMAT,100,2.22e-16,4.44e-16,5.57e-16,7.77e-16
 Quaternion To Rotation Matrix,Orekit vs Brahe (Python),100,2.22e-16,5.00e-16,7.77e-16,7.77e-16

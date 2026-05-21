@@ -7,14 +7,13 @@ Conventions:
 - Rotation matrix: Basilisk's EP2C and C2EP produce passive DCMs that match
   brahe and Hipparchus element-for-element.
 - Euler angles: brahe exposes aerospace intrinsic ZYX (yaw-pitch-roll) — phi
-  rotates about z first, psi about the body x last — with the passive DCM
-  M = Rx_p(psi) * Ry_p(theta) * Rz_p(phi). We extract those angles directly
-  from EP2C(q) using the aerospace ZYX element formulas. Basilisk's
-  ``euler3212EP`` already returns the active-Hamilton quaternion for the
-  same convention, matching brahe and Orekit at machine precision.
+  rotates about z first, psi about the body x last. Both the forward
+  (quat -> Euler) and reverse (Euler -> quat) paths use Basilisk's native
+  Schaub-Junkins primitives: ``EP2Euler321(q)`` and ``euler3212EP(angles)``.
+  Schaub-Junkins decomposes the 3-2-1 sequence using the passive DCM, the
+  same convention as brahe and Hipparchus' RotationOrder.ZYX +
+  FRAME_TRANSFORM, so values match the other adapters at machine precision.
 """
-
-import math
 
 import numpy as np
 
@@ -62,26 +61,21 @@ def rotation_matrix_to_quaternion(params: dict, iterations: int):
 
 
 def quaternion_to_euler_angle(params: dict, iterations: int):
-    """Convert quaternions [w, x, y, z] to Euler angles ZYX [phi, theta, psi] in radians."""
+    """Convert quaternions [w, x, y, z] to Euler angles ZYX [phi, theta, psi] in radians.
+
+    Uses Basilisk's native ``EP2Euler321`` Schaub-Junkins primitive so the
+    timed work is the library's own quaternion-to-Euler decomposition. The
+    returned ``[theta1, theta2, theta3]`` correspond directly to the
+    aerospace 3-2-1 sequence ``[phi (yaw, z), theta (pitch, y'), psi (roll,
+    x'')]`` that brahe and Hipparchus' RotationOrder.ZYX also report.
+    """
     quaternions = [np.array(q, dtype=float) for q in params["quaternions"]]
 
     def run():
         results = []
         for q in quaternions:
-            # Extract aerospace intrinsic ZYX angles from the passive DCM
-            # C = EP2C(q) = Rx_p(psi) * Ry_p(theta) * Rz_p(phi):
-            #   C[0,0] = cos(theta)*cos(phi)   C[0,1] = cos(theta)*sin(phi)
-            #   C[0,2] = -sin(theta)
-            #   C[1,2] = sin(psi)*cos(theta)   C[2,2] = cos(psi)*cos(theta)
-            # Bypasses Basilisk's EP2Euler321 because Schaub-Junkins decomposes
-            # the matrix using the same elements in a different role-mapping;
-            # this extraction matches brahe and the updated Java/Orekit adapter
-            # element-for-element.
-            C = rbk.EP2C(q)
-            phi = math.atan2(float(C[0][1]), float(C[0][0]))
-            theta = -math.asin(float(C[0][2]))
-            psi = math.atan2(float(C[1][2]), float(C[2][2]))
-            results.append([phi, theta, psi])
+            ea = rbk.EP2Euler321(q)
+            results.append([float(ea[0]), float(ea[1]), float(ea[2])])
         return results
 
     times, results = time_iterations(run, iterations)

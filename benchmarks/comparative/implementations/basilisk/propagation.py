@@ -2,9 +2,12 @@
 
 Pattern: each iteration builds a fresh SimBaseClass, configures gravity /
 third-body / drag / SRP as needed, integrates with RK4 at the requested
-step size, then transforms the recorded J2000 inertial trajectory to GCRF
-for accuracy comparison with brahe/Orekit. Sim setup cost is included in
-the timed region (matches Java/Rust methodology — they time the full run).
+step size, and emits the recorded J2000 inertial trajectory. Sim setup
+cost is included in the timed region (matches Java/Rust methodology —
+they time the full run). The J2000 -> GCRF frame-bias transform happens
+after ``time_iterations`` so the timed work is purely Basilisk; this also
+keeps the GMAT and Basilisk adapters consistent (GMAT applies its own
+``mj2000_to_gcrf`` outside the timer).
 
 The output trajectory drops the IC sample so it matches the existing
 brahe/Orekit trajectories which record post-step states for k=1..n_steps.
@@ -54,16 +57,27 @@ def _classic_elements_deg_to_basilisk(oe_deg):
     return oe
 
 
-def _record_states_gcrf(dataRec, n_steps):
+def _record_states_j2000(dataRec, n_steps):
     """Pull recorded r_BN_N / v_BN_N samples (indices 1..n_steps inclusive)
-    and return them in GCRF. Index 0 is the IC, dropped to match brahe/Orekit.
+    and return them as 6-lists in J2000 (Basilisk's N inertial frame).
+    Index 0 is the IC, dropped to match brahe/Orekit. The J2000 -> GCRF
+    frame-bias transform is applied after ``time_iterations`` so it does
+    not contaminate the per-iteration timing.
     """
     states = []
     for k in range(1, n_steps + 1):
         r = dataRec.r_BN_N[k]
         v = dataRec.v_BN_N[k]
-        states.append(j2000_to_gcrf(r, v))
+        states.append([float(r[0]), float(r[1]), float(r[2]),
+                       float(v[0]), float(v[1]), float(v[2])])
     return states
+
+
+def _states_j2000_to_gcrf(states_j2000):
+    """Apply brahe's EME2000 -> GCRF frame bias to each recorded state.
+    Called outside ``time_iterations`` so the brahe call is not in the timer.
+    """
+    return [j2000_to_gcrf(s[:3], s[3:6]) for s in states_j2000]
 
 
 def _attach_spice_earth(scSim, gf, jd):
@@ -222,7 +236,7 @@ def _run_numerical_rk4(
         scSim.InitializeSimulation()
         scSim.ConfigureStopTime(macros.sec2nano(step_size * n_steps))
         scSim.ExecuteSimulation()
-        return _record_states_gcrf(rec, n_steps)
+        return _record_states_j2000(rec, n_steps)
 
     if cases is None:
         # Perf: one IC, full trajectory.
@@ -237,7 +251,9 @@ def _run_numerical_rk4(
                 finals.append(traj[-1])
             return finals
 
-    times, results = time_iterations(run, iterations)
+    times, raw_states = time_iterations(run, iterations)
+    # Apply J2000 -> GCRF outside the timed region.
+    results = _states_j2000_to_gcrf(raw_states)
     third = [name for name, on in (("sun", third_body_sun), ("moon", third_body_moon)) if on]
     return build_task_result(
         task_name,
@@ -331,7 +347,7 @@ def numerical_twobody(params: dict, iterations: int):
         scSim.ConfigureStopTime(macros.sec2nano(step_size * n_steps))
         scSim.ExecuteSimulation()
 
-        return _record_states_gcrf(rec, n_steps)
+        return _record_states_j2000(rec, n_steps)
 
     if cases is None:
         # Perf: single IC, full trajectory.
@@ -346,7 +362,9 @@ def numerical_twobody(params: dict, iterations: int):
                 finals.append(traj[-1])
             return finals
 
-    times, results = time_iterations(run, iterations)
+    times, raw_states = time_iterations(run, iterations)
+    # Apply J2000 -> GCRF outside the timed region.
+    results = _states_j2000_to_gcrf(raw_states)
     return build_task_result(
         "propagation.numerical_twobody",
         iterations,

@@ -126,17 +126,18 @@ public class CoordinatesBenchmark {
                 double lat = Math.toRadians(pt.get(1).getAsDouble());
                 double alt = pt.get(2).getAsDouble();
 
-                // Geocentric spherical to Cartesian (altitude convention: r = R_EARTH + alt)
+                // Geocentric spherical to Cartesian using Hipparchus' Vector3D
+                // azimuth/elevation constructor: alpha=longitude, delta=latitude
+                // produce a unit vector; scale by r = R_EARTH + alt for the
+                // altitude convention used by all three baselines.
                 double r = Constants.WGS84_EARTH_EQUATORIAL_RADIUS + alt;
-                double x = r * Math.cos(lat) * Math.cos(lon);
-                double y = r * Math.cos(lat) * Math.sin(lon);
-                double z = r * Math.sin(lat);
+                Vector3D pos = new Vector3D(lon, lat).scalarMultiply(r);
 
                 if (iter == 0) {
                     JsonArray result = new JsonArray();
-                    result.add(x);
-                    result.add(y);
-                    result.add(z);
+                    result.add(pos.getX());
+                    result.add(pos.getY());
+                    result.add(pos.getZ());
                     iterResults.add(result);
                 }
             }
@@ -171,9 +172,14 @@ public class CoordinatesBenchmark {
                 double y = pt.get(1).getAsDouble();
                 double z = pt.get(2).getAsDouble();
 
-                double radius = Math.sqrt(x * x + y * y + z * z);
-                double lon = Math.toDegrees(Math.atan2(y, x));
-                double lat = Math.toDegrees(Math.asin(z / radius));
+                // Geocentric Cartesian to spherical via Hipparchus' Vector3D
+                // azimuth/elevation accessors: getAlpha() returns longitude
+                // in (-pi, pi], getDelta() returns geocentric latitude in
+                // [-pi/2, pi/2], getNorm() returns the radius.
+                Vector3D pos = new Vector3D(x, y, z);
+                double radius = pos.getNorm();
+                double lon = Math.toDegrees(pos.getAlpha());
+                double lat = Math.toDegrees(pos.getDelta());
                 double alt = radius - Constants.WGS84_EARTH_EQUATORIAL_RADIUS;
 
                 if (iter == 0) {

@@ -6,6 +6,7 @@ import org.hipparchus.geometry.euclidean.threed.Vector3D;
 import org.orekit.bodies.CelestialBody;
 import org.orekit.bodies.CelestialBodyFactory;
 import org.orekit.forces.gravity.HolmesFeatherstoneAttractionModel;
+import org.orekit.forces.gravity.NewtonianAttraction;
 import org.orekit.forces.gravity.ThirdBodyAttraction;
 import org.orekit.forces.gravity.potential.GravityFieldFactory;
 import org.orekit.forces.gravity.potential.NormalizedSphericalHarmonicsProvider;
@@ -74,10 +75,14 @@ public class ForceModelBenchmark {
         int nSamples = params.get("n_samples").getAsInt();
 
         AbsoluteDate epoch = jdToDate(jd);
-        Vector3D r = new Vector3D(
-                stateArr.get(0).getAsDouble(),
-                stateArr.get(1).getAsDouble(),
-                stateArr.get(2).getAsDouble());
+        SpacecraftState scState = buildState(epoch, stateArr);
+
+        // Use Orekit's native NewtonianAttraction force model so the timed work
+        // is the library's own point-mass evaluation, matching the pattern used
+        // by the spherical-harmonics and third-body tasks below.
+        NewtonianAttraction gravity = new NewtonianAttraction(MU);
+        gravity.init(scState, scState.getDate());
+        double[] modelParams = gravity.getParameters(scState.getDate());
 
         JsonArray timesArray = new JsonArray();
         JsonArray resultsArray = new JsonArray();
@@ -86,10 +91,7 @@ public class ForceModelBenchmark {
             long start = System.nanoTime();
             Vector3D a = Vector3D.ZERO;
             for (int j = 0; j < nSamples; j++) {
-                // a = -mu * r / |r|^3 — direct evaluation, parallels brahe's
-                // accel_point_mass_gravity for r_central_body = 0.
-                double r3 = r.getNorm() * r.getNorm() * r.getNorm();
-                a = r.scalarMultiply(-MU / r3);
+                a = gravity.acceleration(scState, modelParams);
             }
             double elapsed = (System.nanoTime() - start) / 1e9;
             timesArray.add(elapsed);
@@ -98,17 +100,9 @@ public class ForceModelBenchmark {
             }
         }
 
-        // Output uses a 2D array so the comparator can flatten it the same way
-        // as the propagation benchmarks' results.
-        JsonArray wrappedResults = resultsArray;
-        if (resultsArray.size() == 1 && resultsArray.get(0).isJsonArray()) {
-            // already a list-of-lists with single element
-            wrappedResults = resultsArray;
-        }
-
         JsonObject output = new JsonObject();
         output.add("times_seconds", timesArray);
-        output.add("results", wrappedResults);
+        output.add("results", resultsArray);
         return output;
     }
 

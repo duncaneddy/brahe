@@ -123,12 +123,14 @@ def test_euler_angle_to_quaternion():
     assert q[2] == approx(0.0, abs=1e-12)
     assert q[3] == approx(0.0, abs=1e-12)
 
+    # Aerospace XYZ(30°, 45°, 60°) = rotate 30° about X first, 45° about new Y',
+    # then 60° about newest Z''. Equivalent quaternion: q_x(30°) ⊗ q_y(45°) ⊗ q_z(60°).
     e = EulerAngle(EulerAngleOrder.XYZ, 30.0, 45.0, 60.0, AngleFormat.DEGREES)
     q = e.to_quaternion()
-    assert q[0] == approx(0.8223631719059994, abs=1e-12)
-    assert q[1] == approx(0.022260026714733844, abs=1e-12)
-    assert q[2] == approx(0.43967973954090955, abs=1e-12)
-    assert q[3] == approx(0.3604234056503559, abs=1e-12)
+    assert q[0] == approx(0.7233174113647118, abs=1e-12)
+    assert q[1] == approx(0.39190383732911993, abs=1e-12)
+    assert q[2] == approx(0.20056212114657512, abs=1e-12)
+    assert q[3] == approx(0.5319756951821668, abs=1e-12)
 
 
 def test_euler_angle_to_euler_axis():

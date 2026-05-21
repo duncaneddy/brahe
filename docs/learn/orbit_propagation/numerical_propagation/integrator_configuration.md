@@ -61,7 +61,7 @@ The configuration is captured at propagator construction time and remains immuta
 
 ## Integration Methods
 
-Four integration methods are available:
+Five integration methods are available:
 
 <div class="center-table" markdown="1">
 | Method | Order | Adaptive | Function Evals | Description |
@@ -125,6 +125,33 @@ Dormand-Prince 5(4) adaptive method. Uses FSAL (First-Same-As-Last) optimization
     === "Rust"
         ```
         --8<-- "./docs/outputs/numerical_propagation/integrator_method_dp54.rs.txt"
+        ```
+
+### RKF78 (High-Order Adaptive)
+
+Runge-Kutta-Fehlberg 7(8) adaptive method. Uses a 13-stage embedded pair for high-accuracy propagation when tight tolerances justify additional function evaluations.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/integrator_method_rkf78.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/integrator_method_rkf78.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_rkf78.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_rkf78.rs.txt"
         ```
 
 ### RKN1210 (High Precision)

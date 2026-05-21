@@ -1881,7 +1881,9 @@ def test_numericalorbitpropagator_construction_multiple_integrators():
     for method in [
         IntegrationMethod.RK4,
         IntegrationMethod.RKF45,
+        IntegrationMethod.RKF78,
         IntegrationMethod.DP54,
+        IntegrationMethod.RKN1210,
     ]:
         config = NumericalPropagationConfig.with_method(method)
         prop = NumericalOrbitPropagator(
@@ -2566,7 +2568,9 @@ def test_numericalorbitpropagator_integrator_comparison():
     integrators = [
         IntegrationMethod.RK4,
         IntegrationMethod.RKF45,
+        IntegrationMethod.RKF78,
         IntegrationMethod.DP54,
+        IntegrationMethod.RKN1210,
     ]
 
     results = []

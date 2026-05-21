@@ -1,6 +1,6 @@
-Task,Orekit,Brahe (Python),Brahe (Rust),Brahe (Python) Speedup,Brahe (Rust) Speedup
-Point Mass Gravity,7.6 µs,42.8 µs,18.8 ns,0.18×,406.8×
-Spherical Harmonics 20x20,950.8 µs,507.7 µs,430.1 µs,1.87×,2.21×
-Spherical Harmonics 80x80,2.84 ms,3.72 ms,3.33 ms,0.76×,0.85×
-Third Body (Moon),185.9 µs,497.5 µs,416.3 µs,0.37×,0.45×
-Third Body (Sun),417.7 µs,595.0 µs,511.0 µs,0.70×,0.82×
+Task,Orekit,GMAT,Brahe (Python),Brahe (Rust),GMAT Speedup,Brahe (Python) Speedup,Brahe (Rust) Speedup
+Point Mass Gravity,9.9 µs,1.01 ms,39.9 µs,20.0 ns,0.01×,0.25×,494.3×
+Spherical Harmonics 20x20,919.7 µs,65.79 ms,483.8 µs,416.3 µs,0.01×,1.90×,2.21×
+Spherical Harmonics 80x80,2.65 ms,65.78 ms,3.31 ms,3.15 ms,0.04×,0.80×,0.84×
+Third Body (Moon),163.4 µs,999.0 µs,429.9 µs,405.4 µs,0.16×,0.38×,0.40×
+Third Body (Sun),435.4 µs,1.05 ms,536.5 µs,484.1 µs,0.42×,0.81×,0.90×

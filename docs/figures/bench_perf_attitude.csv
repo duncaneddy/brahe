@@ -1,5 +1,5 @@
 Task,Orekit,GMAT,Basilisk,Brahe (Python),Brahe (Rust),GMAT Speedup,Basilisk Speedup,Brahe (Python) Speedup,Brahe (Rust) Speedup
-Euler Angle To Quaternion,132.5 µs,97.5 µs,79.3 µs,21.3 µs,1.3 µs,1.36×,1.67×,6.22×,102.4×
-Quaternion To Euler Angle,150.5 µs,109.8 µs,98.5 µs,16.3 µs,1.6 µs,1.37×,1.53×,9.25×,96.8×
-Quaternion To Rotation Matrix,122.5 µs,177.8 µs,205.9 µs,83.8 µs,332.4 ns,0.69×,0.60×,1.46×,368.6×
-Rotation Matrix To Quaternion,251.3 µs,90.6 µs,250.0 µs,156.5 µs,886.9 ns,2.77×,1.01×,1.61×,283.4×
+Euler Angle To Quaternion,141.9 µs,93.2 µs,69.0 µs,19.6 µs,1.4 µs,1.52×,2.06×,7.25×,103.3×
+Quaternion To Euler Angle,172.0 µs,113.7 µs,83.4 µs,15.1 µs,1.5 µs,1.51×,2.06×,11.4×,115.3×
+Quaternion To Rotation Matrix,142.3 µs,180.4 µs,176.9 µs,77.4 µs,333.8 ns,0.79×,0.80×,1.84×,426.3×
+Rotation Matrix To Quaternion,207.1 µs,83.1 µs,213.7 µs,139.9 µs,1.0 µs,2.49×,0.97×,1.48×,204.0×

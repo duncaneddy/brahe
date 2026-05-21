@@ -1,6 +1,6 @@
 Task,Orekit,GMAT,Brahe (Python),Brahe (Rust),GMAT Speedup,Brahe (Python) Speedup,Brahe (Rust) Speedup
-Epoch Creation,214.1 µs,94.5 µs,28.4 µs,13.2 µs,2.26×,7.54×,16.2×
-UTC To GPS,26.5 µs,38.9 µs,3.4 µs,195.6 ns,0.68×,7.81×,135.5×
-UTC To TAI,25.4 µs,34.9 µs,3.4 µs,188.1 ns,0.73×,7.53×,134.8×
-UTC To TT,26.9 µs,34.7 µs,3.3 µs,193.4 ns,0.78×,8.25×,139.2×
-UTC To UT1,1.11 ms,361.4 µs,13.9 µs,9.7 µs,3.08×,79.8×,114.3×
+Epoch Creation,218.0 µs,87.3 µs,27.3 µs,12.2 µs,2.50×,7.98×,17.8×
+UTC To GPS,25.6 µs,35.0 µs,3.2 µs,189.2 ns,0.73×,7.92×,135.2×
+UTC To TAI,24.3 µs,34.7 µs,3.2 µs,234.8 ns,0.70×,7.57×,103.5×
+UTC To TT,23.5 µs,36.0 µs,3.2 µs,205.0 ns,0.65×,7.40×,114.6×
+UTC To UT1,1.09 ms,321.1 µs,14.6 µs,10.2 µs,3.40×,74.9×,106.5×

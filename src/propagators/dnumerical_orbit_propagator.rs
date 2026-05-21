@@ -108,6 +108,16 @@ enum EventProcessingResult {
 type SharedDynamics =
     Arc<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
 
+struct DynamicsEvaluationContext<'a> {
+    epoch_initial: Epoch,
+    force_config: &'a ForceModelConfig,
+    params_opt: Option<&'a DVector<f64>>,
+    gravity_model: Option<&'a Arc<GravityModel>>,
+    r_i2b: SMatrix3,
+    sh_v: &'a mut DMatrix<f64>,
+    sh_w: &'a mut DMatrix<f64>,
+}
+
 // =============================================================================
 // Per-propagator rotation cache
 // =============================================================================
@@ -566,12 +576,7 @@ impl<E, S, F> DNumericalOrbitPropagatorBuilder<E, S, F> {
     ///
     /// # Returns
     /// Builder for method chaining
-    pub fn control_input(
-        mut self,
-        control: Box<
-            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
-        >,
-    ) -> Self {
+    pub fn control_input(mut self, control: DStateDynamics) -> Self {
         self.data.control_input = Some(control);
         self
     }
@@ -1429,17 +1434,16 @@ impl DNumericalOrbitPropagator {
                 // `compute_dynamics` returns a `Vector6<f64>` so the inner
                 // force-model evaluation doesn't have to allocate; we widen
                 // it into the full state-dim `DVector` here.
-                let dx_orbital = Self::compute_dynamics(
-                    t,
-                    state,
+                let ctx = DynamicsEvaluationContext {
                     epoch_initial,
-                    &force_config,
-                    params_opt.or(Some(&params)),
-                    gravity_model.as_ref(),
+                    force_config: &force_config,
+                    params_opt: params_opt.or(Some(&params)),
+                    gravity_model: gravity_model.as_ref(),
                     r_i2b,
                     sh_v,
                     sh_w,
-                );
+                };
+                let dx_orbital = Self::compute_dynamics(t, state, ctx);
                 // Release the lock before the additional_dynamics callback
                 // so the user closure (which may allocate or call Python)
                 // doesn't run while we're holding the propagator's mutex.
@@ -1560,16 +1564,10 @@ impl DNumericalOrbitPropagator {
     fn compute_dynamics(
         t: f64,
         state: &DVector<f64>,
-        epoch_initial: Epoch,
-        force_config: &ForceModelConfig,
-        params_opt: Option<&DVector<f64>>,
-        gravity_model: Option<&Arc<GravityModel>>,
-        r_i2b: SMatrix3,
-        sh_v: &mut DMatrix<f64>,
-        sh_w: &mut DMatrix<f64>,
+        ctx: DynamicsEvaluationContext<'_>,
     ) -> Vector6<f64> {
         // Convert relative time to absolute Epoch
-        let epoch = epoch_initial + t;
+        let epoch = ctx.epoch_initial + t;
 
         // Extract position and velocity (first 6 elements always orbital state).
         // Reading by index against `&DVector<f64>` is a bounds-checked load —
@@ -1590,14 +1588,14 @@ impl DNumericalOrbitPropagator {
         // to a single rotation computation per unique epoch.
 
         // ===== GRAVITY =====
-        match &force_config.gravity {
+        match &ctx.force_config.gravity {
             GravityConfiguration::PointMass => {
                 a_total += accel_point_mass_gravity(r, Vector3::zeros(), GM_EARTH);
             }
             GravityConfiguration::EarthZonal { degree } => {
-                let r_ecef = r_i2b * r;
+                let r_ecef = ctx.r_i2b * r;
                 let a_ecef = accel_earth_zonal_gravity(r_ecef, degree.into());
-                a_total += r_i2b.transpose() * a_ecef;
+                a_total += ctx.r_i2b.transpose() * a_ecef;
             }
             GravityConfiguration::SphericalHarmonic {
                 source,
@@ -1615,25 +1613,25 @@ impl DNumericalOrbitPropagator {
                             get_global_gravity_model();
                         a_total += accel_gravity_spherical_harmonics_with_workspace(
                             r,
-                            r_i2b,
+                            ctx.r_i2b,
                             &global_model,
                             *degree,
                             *order,
-                            sh_v,
-                            sh_w,
+                            ctx.sh_v,
+                            ctx.sh_w,
                         );
                     }
                     GravityModelSource::ModelType(_) => {
                         // Use the model loaded at construction (passed in)
-                        if let Some(model) = gravity_model {
+                        if let Some(model) = ctx.gravity_model {
                             a_total += accel_gravity_spherical_harmonics_with_workspace(
                                 r,
-                                r_i2b,
+                                ctx.r_i2b,
                                 model.as_ref(),
                                 *degree,
                                 *order,
-                                sh_v,
-                                sh_w,
+                                ctx.sh_v,
+                                ctx.sh_w,
                             );
                         }
                     }
@@ -1642,17 +1640,18 @@ impl DNumericalOrbitPropagator {
         }
 
         // ===== DRAG =====
-        if let Some(drag_config) = &force_config.drag {
+        if let Some(drag_config) = &ctx.force_config.drag {
             // Get mass from configuration
-            let mass = force_config
+            let mass = ctx
+                .force_config
                 .mass
                 .as_ref()
                 .expect("Mass must be configured for drag calculation")
-                .get_value(params_opt);
+                .get_value(ctx.params_opt);
 
             // Get drag parameters (area, Cd)
-            let drag_area = drag_config.area.get_value(params_opt);
-            let cd = drag_config.cd.get_value(params_opt);
+            let drag_area = drag_config.area.get_value(ctx.params_opt);
+            let cd = drag_config.cd.get_value(ctx.params_opt);
 
             // Compute atmospheric density
             let density = match &drag_config.model {
@@ -1662,7 +1661,7 @@ impl DNumericalOrbitPropagator {
                 }
                 AtmosphericModel::NRLMSISE00 => {
                     // NRLMSISE00 requires ECEF position
-                    let r_ecef = r_i2b * r;
+                    let r_ecef = ctx.r_i2b * r;
                     density_nrlmsise00(&epoch, r_ecef).unwrap_or(0.0)
                 }
                 AtmosphericModel::Exponential {
@@ -1677,21 +1676,22 @@ impl DNumericalOrbitPropagator {
             };
 
             // Compute drag acceleration
-            a_total += accel_drag(x_eci, density, mass, drag_area, cd, r_i2b);
+            a_total += accel_drag(x_eci, density, mass, drag_area, cd, ctx.r_i2b);
         }
 
         // ===== SOLAR RADIATION PRESSURE =====
-        if let Some(srp_config) = &force_config.srp {
+        if let Some(srp_config) = &ctx.force_config.srp {
             // Get mass from configuration
-            let mass = force_config
+            let mass = ctx
+                .force_config
                 .mass
                 .as_ref()
                 .expect("Mass must be configured for SRP calculation")
-                .get_value(params_opt);
+                .get_value(ctx.params_opt);
 
             // Get SRP parameters (area, Cr)
-            let srp_area = srp_config.area.get_value(params_opt);
-            let cr = srp_config.cr.get_value(params_opt);
+            let srp_area = srp_config.area.get_value(ctx.params_opt);
+            let cr = srp_config.cr.get_value(ctx.params_opt);
 
             // Get sun position
             let r_sun = sun_position(epoch);
@@ -1711,14 +1711,14 @@ impl DNumericalOrbitPropagator {
         }
 
         // ===== THIRD BODY =====
-        if let Some(tb_config) = &force_config.third_body {
+        if let Some(tb_config) = &ctx.force_config.third_body {
             for body in &tb_config.bodies {
                 a_total += accel_third_body(body.clone(), tb_config.ephemeris_source, epoch, r);
             }
         }
 
         // ===== RELATIVITY =====
-        if force_config.relativity {
+        if ctx.force_config.relativity {
             a_total += accel_relativity(x_eci);
         }
 
@@ -11704,9 +11704,7 @@ mod tests {
             dx
         });
 
-        let control: Box<
-            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
-        > = Box::new(|_t, state, _params| {
+        let control: DStateDynamics = Box::new(|_t, state, _params| {
             // Small tangential thrust
             let v = Vector3::new(state[3], state[4], state[5]);
             let v_mag = v.norm();

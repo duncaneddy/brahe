@@ -55,6 +55,63 @@ class Sgp4AccessTask(BenchmarkTask):
             "search_duration_seconds": 86400.0,
         }
 
+    def detailed_sample_metrics(self, baseline_sample, comparison_sample) -> dict:
+        """Per-location metrics surfaced into ``AccuracySample.sample_key``:
+
+        - ``n_windows_baseline`` / ``n_windows_comparison``: contact counts
+          each backend found for this ground location
+        - ``window_count_diff``: ``|n_baseline - n_comparison|`` (integer
+          difference; missed-detection / spurious-detection count)
+        - ``start_err_s`` / ``end_err_s``: largest residual across matched
+          windows at this location, in seconds
+        - ``mean_start_err_s`` / ``mean_end_err_s``: mean residual across
+          matched windows
+
+        Unmatched windows (no counterpart within the 120 s greedy tolerance)
+        do not contribute to start/end residuals but are reflected in
+        ``window_count_diff``.
+        """
+        windows_a = baseline_sample if isinstance(baseline_sample, list) else []
+        windows_b = comparison_sample if isinstance(comparison_sample, list) else []
+
+        tolerance_jd = 120.0 / 86400.0
+        unmatched_b = list(range(len(windows_b)))
+        start_errs: list[float] = []
+        end_errs: list[float] = []
+
+        for wa in windows_a:
+            best_idx = None
+            best_dist = float("inf")
+            for bi in unmatched_b:
+                wb = windows_b[bi]
+                dist = abs(wa["start_jd"] - wb["start_jd"])
+                if dist < best_dist:
+                    best_dist = dist
+                    best_idx = bi
+            if best_idx is not None and best_dist < tolerance_jd:
+                wb = windows_b[best_idx]
+                unmatched_b.remove(best_idx)
+                start_errs.append(abs(wa["start_jd"] - wb["start_jd"]) * 86400.0)
+                end_errs.append(abs(wa["end_jd"] - wb["end_jd"]) * 86400.0)
+
+        n_a = len(windows_a)
+        n_b = len(windows_b)
+        n_matched = len(start_errs)
+
+        def _mean(xs: list[float]) -> float:
+            return sum(xs) / len(xs) if xs else 0.0
+
+        return {
+            "n_windows_baseline": n_a,
+            "n_windows_comparison": n_b,
+            "n_windows_matched": n_matched,
+            "window_count_diff": abs(n_a - n_b),
+            "start_err_s_max": max(start_errs) if start_errs else 0.0,
+            "end_err_s_max": max(end_errs) if end_errs else 0.0,
+            "start_err_s_mean": _mean(start_errs),
+            "end_err_s_mean": _mean(end_errs),
+        }
+
     def compare_results(
         self,
         results_a: list,

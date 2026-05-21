@@ -57,6 +57,9 @@ class EpochCreationTask(BenchmarkTask):
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
 
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
+
 
 class UtcToTaiTask(BenchmarkTask):
     """Benchmark UTC to TAI time system conversion."""
@@ -79,6 +82,9 @@ class UtcToTaiTask(BenchmarkTask):
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
 
 
 class UtcToTtTask(BenchmarkTask):
@@ -103,6 +109,9 @@ class UtcToTtTask(BenchmarkTask):
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
 
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
+
 
 class UtcToGpsTask(BenchmarkTask):
     """Benchmark UTC to GPS time system conversion."""
@@ -126,6 +135,9 @@ class UtcToGpsTask(BenchmarkTask):
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
 
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
+
 
 class UtcToUt1Task(BenchmarkTask):
     """Benchmark UTC to UT1 time system conversion."""
@@ -148,6 +160,9 @@ class UtcToUt1Task(BenchmarkTask):
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
 
     def compare_results(
         self,

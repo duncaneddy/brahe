@@ -185,10 +185,15 @@ _bench-compare-orekit-data:
     rm -f "$TMP_ZIP"
     echo "✓ OreKit data installed: $OREKIT_DIR"
 
-# Run comparative benchmarks across languages
+# Run comparative performance benchmarks (timing only) across languages
 bench-compare *args: _setup
     @uv pip install -e . --quiet
-    @{{python}} -m benchmarks.comparative.runner run {{args}}
+    @{{python}} -m benchmarks.comparative.runner perf {{args}}
+
+# Run comparative accuracy benchmarks (sweep over initial conditions) vs OreKit
+bench-compare-accuracy *args: _setup
+    @uv pip install -e . --quiet
+    @{{python}} -m benchmarks.comparative.runner accuracy {{args}}
 
 # Generate comparison plots from latest benchmark results
 bench-compare-plot *args: _setup
@@ -198,13 +203,16 @@ bench-compare-plot *args: _setup
 bench-compare-list: _setup
     @{{python}} -m benchmarks.comparative.runner list
 
-# Run comparative benchmarks, generate figures + CSV tables, and stage for commit
+# Run comparative benchmarks (perf + accuracy), generate figures + CSV tables, and stage for commit
 bench-compare-publish *args: _setup
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Running comparative benchmarks..."
+    echo "Running performance benchmarks..."
     uv pip install -e . --quiet
-    {{python}} -m benchmarks.comparative.runner run {{args}}
+    {{python}} -m benchmarks.comparative.runner perf {{args}}
+    echo ""
+    echo "Running accuracy benchmarks..."
+    {{python}} -m benchmarks.comparative.runner accuracy {{args}}
     echo ""
     echo "Generating benchmark figures and CSV tables..."
     BRAHE_FIGURE_OUTPUT_DIR=./docs/figures/ {{python}} plots/fig_comparative_benchmarks.py

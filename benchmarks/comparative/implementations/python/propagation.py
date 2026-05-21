@@ -51,25 +51,51 @@ def keplerian_single(params: dict, iterations: int) -> TaskResult:
 
 
 def keplerian_trajectory(params: dict, iterations: int) -> TaskResult:
-    """Benchmark Keplerian propagation over trajectory steps."""
+    """Benchmark Keplerian propagation over trajectory steps.
+
+    Two input shapes:
+
+    - Single-IC (perf): ``{jd, elements, step_size, n_steps}`` — propagate
+      one orbit and return every step's state, like before.
+    - Multi-IC (accuracy): ``{cases: [{jd, elements}], step_size, n_steps}``
+      — propagate each case over the shared horizon and return the
+      final state per case, so accuracy stats reflect IC variance.
+    """
     ensure_eop()
-    jd = params["jd"]
-    oe = np.array(params["elements"])
     step_size = params["step_size"]
     n_steps = params["n_steps"]
+    cases = params.get("cases")
 
-    epc = brahe.Epoch.from_jd(jd, brahe.TimeSystem.UTC)
+    if cases is None:
+        # Perf path: single IC, full trajectory output.
+        jd = params["jd"]
+        oe = np.array(params["elements"])
+        epc = brahe.Epoch.from_jd(jd, brahe.TimeSystem.UTC)
 
-    def run():
-        prop = brahe.KeplerianPropagator.from_keplerian(
-            epc, oe, brahe.AngleFormat.DEGREES, step_size
-        )
-        results = []
-        for step_idx in range(n_steps):
-            target = epc + (step_idx + 1) * step_size
-            state = prop.state_eci(target)
-            results.append(state.tolist())
-        return results
+        def run():
+            prop = brahe.KeplerianPropagator.from_keplerian(
+                epc, oe, brahe.AngleFormat.DEGREES, step_size
+            )
+            results = []
+            for step_idx in range(n_steps):
+                target = epc + (step_idx + 1) * step_size
+                state = prop.state_eci(target)
+                results.append(state.tolist())
+            return results
+    else:
+        # Accuracy path: IC sweep, return one final state per case.
+        def run():
+            results = []
+            for case in cases:
+                epc = brahe.Epoch.from_jd(case["jd"], brahe.TimeSystem.UTC)
+                oe = np.array(case["elements"])
+                prop = brahe.KeplerianPropagator.from_keplerian(
+                    epc, oe, brahe.AngleFormat.DEGREES, step_size
+                )
+                target = epc + n_steps * step_size
+                state = prop.state_eci(target)
+                results.append(state.tolist())
+            return results
 
     times, results = time_iterations(run, iterations)
 
@@ -162,36 +188,59 @@ def sgp4_trajectory(params: dict, iterations: int) -> TaskResult:
 
 
 def numerical_twobody(params: dict, iterations: int) -> TaskResult:
-    """Benchmark numerical two-body propagation over 1 orbital period."""
+    """Benchmark numerical two-body propagation.
+
+    See keplerian_trajectory for the single-IC vs multi-IC ``cases``
+    parameter shape contract. Single-IC returns every trajectory step;
+    multi-IC returns one final state per IC.
+    """
     ensure_eop()
-    jd = params["jd"]
-    oe = np.array(params["elements"])
     step_size = params["step_size"]
     n_steps = params["n_steps"]
+    cases = params.get("cases")
 
-    epc = brahe.Epoch.from_jd(jd, brahe.TimeSystem.UTC)
-
-    # Convert Keplerian elements to Cartesian state for numerical propagator
-    cart = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
-
-    prop_config = brahe.NumericalPropagationConfig.default()
+    # Fixed-step RK4 to match the Orekit adapter; both sides pinned to the
+    # same integrator + step so the residual is a pure-numerics comparison.
+    prop_config = brahe.NumericalPropagationConfig(
+        brahe.IntegrationMethod.RK4,
+        brahe.IntegratorConfig.fixed_step(step_size),
+        brahe.VariationalConfig(),
+    )
     force_config = brahe.ForceModelConfig.two_body()
 
-    def run():
-        prop = brahe.NumericalOrbitPropagator(
-            epc,
-            cart,
-            prop_config,
-            force_config,
-        )
-        prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
-        results = []
-        for step_idx in range(n_steps):
-            target = epc + (step_idx + 1) * step_size
-            prop.propagate_to(target)
-            state = prop.current_state()
-            results.append(state.tolist())
-        return results
+    if cases is None:
+        # Perf path: single IC, full trajectory.
+        jd = params["jd"]
+        oe = np.array(params["elements"])
+        epc = brahe.Epoch.from_jd(jd, brahe.TimeSystem.UTC)
+        cart = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+
+        def run():
+            prop = brahe.NumericalOrbitPropagator(
+                epc, cart, prop_config, force_config
+            )
+            prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
+            results = []
+            for _ in range(n_steps):
+                prop.step_by(step_size)
+                results.append(prop.current_state().tolist())
+            return results
+    else:
+        # Accuracy path: IC sweep, final state per case.
+        def run():
+            results = []
+            for case in cases:
+                epc = brahe.Epoch.from_jd(case["jd"], brahe.TimeSystem.UTC)
+                oe = np.array(case["elements"])
+                cart = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+                prop = brahe.NumericalOrbitPropagator(
+                    epc, cart, prop_config, force_config
+                )
+                prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
+                for _ in range(n_steps):
+                    prop.step_by(step_size)
+                results.append(prop.current_state().tolist())
+            return results
 
     times, results = time_iterations(run, iterations)
 
@@ -264,19 +313,19 @@ def _force_model_from_params(params: dict) -> "brahe.ForceModelConfig":
 
 
 def _numerical_rk4_run(task_name: str, params: dict, iterations: int) -> TaskResult:
-    """Shared driver for the RK4 force-model propagation tasks."""
+    """Shared driver for the RK4 force-model propagation tasks.
+
+    Accepts the same single-IC/multi-IC parameter contract as the
+    other propagation adapters (see ``keplerian_trajectory``).
+    """
     ensure_eop()
     if params.get("drag") and not brahe.get_global_sw_initialization():
         brahe.initialize_sw()
 
-    jd = params["jd"]
-    oe = np.array(params["elements_deg"])
     step_size = params["step_size"]
     n_steps = params["n_steps"]
     param_vec = np.array(params["params"])
-
-    epc = brahe.Epoch.from_jd(jd, brahe.TimeSystem.UTC)
-    cart = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+    cases = params.get("cases")
 
     force_config = _force_model_from_params(params)
     prop_config = brahe.NumericalPropagationConfig(
@@ -285,22 +334,39 @@ def _numerical_rk4_run(task_name: str, params: dict, iterations: int) -> TaskRes
         brahe.VariationalConfig(),
     )
 
-    def run():
-        prop = brahe.NumericalOrbitPropagator(
-            epc, cart, prop_config, force_config, param_vec
-        )
-        prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
-        results = []
-        # Use step_by rather than propagate_to: with fixed-step RK4,
-        # propagate_to() can hit a known float-drift path in brahe that
-        # permanently shrinks dt_next when the target epoch isn't exactly
-        # representable as a multiple of step_size. step_by avoids that
-        # path entirely.
-        for _ in range(n_steps):
-            prop.step_by(step_size)
-            state = prop.current_state()
-            results.append(state.tolist())
-        return results
+    if cases is None:
+        # Perf path: single IC, full trajectory output.
+        jd = params["jd"]
+        oe = np.array(params["elements_deg"])
+        epc = brahe.Epoch.from_jd(jd, brahe.TimeSystem.UTC)
+        cart = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+
+        def run():
+            prop = brahe.NumericalOrbitPropagator(
+                epc, cart, prop_config, force_config, param_vec
+            )
+            prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
+            results = []
+            for _ in range(n_steps):
+                prop.step_by(step_size)
+                results.append(prop.current_state().tolist())
+            return results
+    else:
+        # Accuracy path: IC sweep, final state per case.
+        def run():
+            results = []
+            for case in cases:
+                epc = brahe.Epoch.from_jd(case["jd"], brahe.TimeSystem.UTC)
+                oe = np.array(case["elements"])
+                cart = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+                prop = brahe.NumericalOrbitPropagator(
+                    epc, cart, prop_config, force_config, param_vec
+                )
+                prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
+                for _ in range(n_steps):
+                    prop.step_by(step_size)
+                results.append(prop.current_state().tolist())
+            return results
 
     times, results = time_iterations(run, iterations)
 

@@ -1,16 +1,16 @@
-Task,Comparison,Max Abs Error,RMS Error
-Epoch Creation,Java vs GMAT,6.1 nm,3.4 nm
-Epoch Creation,Java vs Python,0.0 nm,0.0 nm
-Epoch Creation,Java vs Rust,0.0 nm,0.0 nm
-UTC To GPS,Java vs GMAT,6.1 nm,3.5 nm
-UTC To GPS,Java vs Python,0.0 nm,0.0 nm
-UTC To GPS,Java vs Rust,0.0 nm,0.0 nm
-UTC To TAI,Java vs GMAT,6.1 nm,3.4 nm
-UTC To TAI,Java vs Python,0.0 nm,0.0 nm
-UTC To TAI,Java vs Rust,0.0 nm,0.0 nm
-UTC To TT,Java vs GMAT,5.6 nm,3.4 nm
-UTC To TT,Java vs Python,0.0 nm,0.0 nm
-UTC To TT,Java vs Rust,0.0 nm,0.0 nm
-UTC To UT1,Java vs GMAT,1.1 µm,475 nm
-UTC To UT1,Java vs Python,1.0 µm,449 nm
-UTC To UT1,Java vs Rust,1.0 µm,449 nm
+Task,Comparison,Samples,p50 Max Abs,p95 Max Abs,p99 Max Abs,Max Abs
+Epoch Creation,Orekit vs GMAT,100,3.3 ns,5.6 ns,5.6 ns,6.1 ns
+Epoch Creation,Orekit vs Brahe (Python),100,0 s,0 s,0 s,0 s
+Epoch Creation,Orekit vs Brahe (Rust),100,0 s,0 s,0 s,0 s
+UTC To GPS,Orekit vs GMAT,100,3.0 ns,5.6 ns,5.6 ns,6.1 ns
+UTC To GPS,Orekit vs Brahe (Python),100,0 s,0 s,0 s,0 s
+UTC To GPS,Orekit vs Brahe (Rust),100,0 s,0 s,0 s,0 s
+UTC To TAI,Orekit vs GMAT,100,3.3 ns,5.6 ns,5.6 ns,6.1 ns
+UTC To TAI,Orekit vs Brahe (Python),100,0 s,0 s,0 s,0 s
+UTC To TAI,Orekit vs Brahe (Rust),100,0 s,0 s,0 s,0 s
+UTC To TT,Orekit vs GMAT,100,2.8 ns,5.1 ns,5.6 ns,5.6 ns
+UTC To TT,Orekit vs Brahe (Python),100,0 s,0 s,0 s,0 s
+UTC To TT,Orekit vs Brahe (Rust),100,0 s,0 s,0 s,0 s
+UTC To UT1,Orekit vs GMAT,100,3.3 ns,1.06 µs,1.06 µs,1.06 µs
+UTC To UT1,Orekit vs Brahe (Python),100,0.5 ns,1.00 µs,1.00 µs,1.00 µs
+UTC To UT1,Orekit vs Brahe (Rust),100,0.5 ns,1.00 µs,1.00 µs,1.00 µs

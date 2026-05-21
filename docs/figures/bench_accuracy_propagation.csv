@@ -1,9 +1,29 @@
-Task,Max Abs Error,RMS Error,Notes
-Keplerian Single,4.49 m,1.07 m,Sub-millimeter agreement
-Keplerian Trajectory,0.625 m,0.283 m,Sub-millimeter agreement
-RK4 + 20x20 + Sun/Moon,10.0 m,2.96 m,
-RK4 + 5x5 Gravity,9.46 m,2.87 m,
-RK4 + 80x80 + Drag + SRP,9.37 m,2.82 m,
-Numerical Two-Body,24.8 m,6.56 m,Different integrators (RK4 vs RK78)
-SGP4 Single,49.3 m,12.7 m,Different SGP4 implementations
-SGP4 Trajectory,58.5 m,13.4 m,Different SGP4 implementations
+Task,Comparison,Samples,p50 Max Abs,p95 Max Abs,p99 Max Abs,Max Abs
+Keplerian Single,Orekit vs GMAT,100,1.55 m,3.83 m,4.50 m,4.89 m
+Keplerian Single,Orekit vs Brahe (Python),100,9.5 nm,55 nm,89 nm,117 nm
+Keplerian Single,Orekit vs Brahe (Rust),100,14 nm,68 nm,107 nm,117 nm
+Keplerian Trajectory,Orekit vs GMAT,100,0.514 m,0.683 m,0.766 m,0.779 m
+Keplerian Trajectory,Orekit vs Brahe (Python),100,3.3 nm,8.1 nm,14 nm,16 nm
+Keplerian Trajectory,Orekit vs Brahe (Rust),100,3.7 nm,13 nm,16 nm,22 nm
+SGP4 Single,Orekit vs GMAT,100,0.446 m,0.558 m,0.568 m,0.570 m
+SGP4 Single,Orekit vs Brahe (Python),100,18.7 m,44.8 m,50.4 m,54.4 m
+SGP4 Single,Orekit vs Brahe (Rust),100,18.7 m,44.8 m,50.4 m,54.4 m
+SGP4 Trajectory,Orekit vs GMAT,100,0.479 m,0.593 m,0.611 m,0.613 m
+SGP4 Trajectory,Orekit vs Brahe (Python),100,32.7 m,74.0 m,85.5 m,94.8 m
+SGP4 Trajectory,Orekit vs Brahe (Rust),100,32.7 m,74.0 m,85.5 m,94.8 m
+Numerical Two-Body,Orekit vs Basilisk,100,0.510 m,0.702 m,0.756 m,0.787 m
+Numerical Two-Body,Orekit vs GMAT,100,15.9 m,24.5 m,26.7 m,27.1 m
+Numerical Two-Body,Orekit vs Brahe (Python),100,25 nm,87 nm,100 nm,105 nm
+Numerical Two-Body,Orekit vs Brahe (Rust),100,28 nm,95 nm,105 nm,111 nm
+RK4 + 5x5 Gravity,Orekit vs Basilisk,100,47.4 m,71.3 m,74.3 m,74.4 m
+RK4 + 5x5 Gravity,Orekit vs GMAT,100,1.04 m,1.91 m,2.17 m,2.26 m
+RK4 + 5x5 Gravity,Orekit vs Brahe (Python),100,72.7 µm,326.4 µm,444.3 µm,488.0 µm
+RK4 + 5x5 Gravity,Orekit vs Brahe (Rust),100,72.8 µm,326.4 µm,444.3 µm,488.0 µm
+RK4 + 20x20 + Sun/Moon,Orekit vs Basilisk,100,47.3 m,71.9 m,74.8 m,75.9 m
+RK4 + 20x20 + Sun/Moon,Orekit vs GMAT,100,1.29 m,3.33 m,6.33 m,6.72 m
+RK4 + 20x20 + Sun/Moon,Orekit vs Brahe (Python),100,72.5 µm,329.1 µm,442.5 µm,489.2 µm
+RK4 + 20x20 + Sun/Moon,Orekit vs Brahe (Rust),100,72.5 µm,329.1 µm,442.5 µm,489.2 µm
+RK4 + 80x80 + Drag + SRP,Orekit vs Basilisk,30,47.1 m,70.9 m,223.4 m,285.3 m
+RK4 + 80x80 + Drag + SRP,Orekit vs GMAT,30,1.29 m,12.9 m,47.0 m,59.5 m
+RK4 + 80x80 + Drag + SRP,Orekit vs Brahe (Python),30,2.01 m,12.6 m,43.8 m,55.4 m
+RK4 + 80x80 + Drag + SRP,Orekit vs Brahe (Rust),30,2.01 m,12.6 m,43.8 m,55.4 m

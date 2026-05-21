@@ -29,7 +29,7 @@ from brahe_theme import get_theme_colors, save_themed_html
 
 # Add project root for benchmark results import
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
-from benchmarks.comparative.results import BenchmarkRun
+from benchmarks.comparative.results import BenchmarkRun, read_jsonl
 
 # Configuration
 OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
@@ -47,6 +47,37 @@ else:
 
 # Ensure output directory exists
 os.makedirs(OUTDIR, exist_ok=True)
+
+# Per-module task display order. Tasks listed here render in the given
+# sequence; tasks not listed fall back to alphabetical at the end. The
+# ordering is meant to follow physical reasoning rather than alphabet —
+# propagation walks from analytical to numerical with increasing
+# force-model fidelity, which matches how a reader would step through the
+# fidelity ladder.
+TASK_ORDER: dict[str, list[str]] = {
+    "propagation": [
+        "propagation.keplerian_single",
+        "propagation.keplerian_trajectory",
+        "propagation.sgp4_single",
+        "propagation.sgp4_trajectory",
+        "propagation.numerical_twobody",
+        "propagation.numerical_rk4_grav5x5",
+        "propagation.numerical_rk4_grav20x20_sun_moon",
+        "propagation.numerical_rk4_grav80x80_full",
+    ],
+}
+
+
+def _order_tasks(module: str, tasks: list[str] | set[str]) -> list[str]:
+    """Return ``tasks`` ordered by ``TASK_ORDER[module]`` first, then by
+    alphabetic for anything not in the explicit list. Tasks present in
+    the explicit order but missing from ``tasks`` are silently dropped."""
+    explicit = TASK_ORDER.get(module, [])
+    in_set = set(tasks)
+    ordered = [t for t in explicit if t in in_set]
+    remaining = sorted(in_set - set(ordered))
+    return ordered + remaining
+
 
 # Module display order and human-readable names
 MODULE_ORDER = [
@@ -73,11 +104,11 @@ MODULE_LABELS = {
 # Language display order and colors (Orekit -> GMAT -> Basilisk -> brahe-py -> brahe-rs)
 LANGUAGES = ["java", "gmat", "basilisk", "python", "rust"]
 LANGUAGE_LABELS = {
-    "java": "Java (OreKit)",
+    "java": "Orekit",
     "gmat": "GMAT",
-    "basilisk": "Python (Basilisk)",
-    "python": "Python (Brahe)",
-    "rust": "Rust (Brahe)",
+    "basilisk": "Basilisk",
+    "python": "Brahe (Python)",
+    "rust": "Brahe (Rust)",
 }
 
 
@@ -187,6 +218,25 @@ def load_results() -> BenchmarkRun:
     if run is None:
         raise FileNotFoundError(f"No benchmark results found in {RESULTS_DIR}")
     return run
+
+
+# ── Accuracy JSONL loader ─────────────────────────────────────────────────
+
+
+def load_accuracy_records() -> tuple[list[dict], list[dict]]:
+    """Load summary and sample records from the latest accuracy JSONL run.
+
+    Returns (summaries, samples). Returns ([], []) if no accuracy run has
+    been performed yet, so the plotting pipeline degrades gracefully on
+    repos that haven't run ``bench-compare-accuracy``.
+    """
+    accuracy_file = RESULTS_DIR / "accuracy_latest.jsonl"
+    if not accuracy_file.exists():
+        return [], []
+    records = read_jsonl(accuracy_file)
+    summaries = [r for r in records if r.get("kind") == "summary"]
+    samples = [r for r in records if r.get("kind") == "sample"]
+    return summaries, samples
 
 
 @dataclass
@@ -303,10 +353,12 @@ def _speedup_figure(
 
 
 def make_speedup_figure(run: BenchmarkRun):
-    """Generate two horizontal-bar speedup charts: vs Java and vs Basilisk.
+    """Generate the canonical speedup chart relative to the Orekit baseline.
 
-    Figure heights are pinned to match the .plotly-embed CSS classes used by
-    the docs page so each chart fills its iframe without clipping.
+    Orekit is the single performance reference; per-baseline charts against
+    Basilisk and GMAT were removed in the benchmark accuracy redesign because
+    they are derivable from the Orekit-relative numbers and invited "winner"
+    framing the docs explicitly disavow.
     """
     _speedup_figure(
         run,
@@ -315,24 +367,6 @@ def make_speedup_figure(run: BenchmarkRun):
         other_langs=["gmat", "basilisk", "python", "rust"],
         output_name="fig_bench_speedup",
         figure_height=1200,  # matches .plotly-embed.x-tall
-    )
-    _speedup_figure(
-        run,
-        baseline="basilisk",
-        baseline_label="Python (Basilisk)",
-        other_langs=["java", "gmat", "python", "rust"],
-        output_name="fig_bench_speedup_vs_basilisk",
-        require_baseline_only=True,
-        figure_height=800,  # matches .plotly-embed.tall
-    )
-    _speedup_figure(
-        run,
-        baseline="gmat",
-        baseline_label="GMAT",
-        other_langs=["java", "basilisk", "python", "rust"],
-        output_name="fig_bench_speedup_vs_gmat",
-        require_baseline_only=True,
-        figure_height=1200,  # matches .plotly-embed.x-tall (GMAT participates in 31/32 tasks)
     )
 
 
@@ -347,7 +381,7 @@ def make_module_figure(run: BenchmarkRun, module: str):
         return
 
     task_data = modules[module]
-    task_names = sorted(task_data.keys())
+    task_names = _order_tasks(module, task_data.keys())
 
     # Pick a single display unit across all languages so the shared Y-axis
     # isn't lying about Java/Python magnitudes when Rust is fast enough to
@@ -361,13 +395,24 @@ def make_module_figure(run: BenchmarkRun, module: str):
     unit = _pick_unit(all_means)
     factor = _UNIT_FACTORS[unit]
 
+    # Drop languages that have no data on any task in this module so the
+    # legend doesn't carry a phantom entry. Basilisk participates in only
+    # 14 of 32 tasks; without this filter, modules like force_model and
+    # access still draw a "Basilisk" legend swatch even though no bar
+    # ever appears for it.
+    languages_present = [
+        lang
+        for lang in LANGUAGES
+        if any(lang in task_data[t] for t in task_names)
+    ]
+
     def make_fig(theme: str) -> go.Figure:
         lang_colors = _get_language_colors(theme)
         fig = go.Figure()
 
         labels = [_task_label(t) for t in task_names]
 
-        for lang in LANGUAGES:
+        for lang in languages_present:
             means_raw = [
                 task_data[t][lang].mean if lang in task_data[t] else 0
                 for t in task_names
@@ -418,6 +463,269 @@ def make_module_figure(run: BenchmarkRun, module: str):
     save_themed_html(make_fig, OUTDIR / f"fig_bench_{module}")
 
 
+# ── Accuracy figure generation ─────────────────────────────────────────────
+
+
+def _accuracy_unit_label(module: str) -> tuple[float, str]:
+    """Return (multiplier, axis label suffix) for accuracy errors in a module.
+
+    Errors arrive in SI base units: meters for positions, m/s² for
+    accelerations, radians for angles, seconds for time, dimensionless
+    for attitude. Apply per-module unit normalization so the CDF axis is
+    legible (e.g. "m" for positions, scientific for accelerations).
+    """
+    if module == "force_model":
+        return 1.0, "m/s²"
+    if module == "attitude":
+        return 1.0, "dimensionless"
+    if module == "time":
+        return 1.0, "s"
+    return 1.0, "m"
+
+
+def make_accuracy_cdf_figure(module: str, samples: list[dict]) -> None:
+    """Per-module error CDF rendered as a small-multiples grid.
+
+    Each task gets its own subplot; within a subplot, one ECDF curve per
+    comparison language (Brahe Python, Brahe Rust, GMAT, Basilisk) colored
+    consistently with the rest of the docs. The previous "all curves in one
+    panel" layout produced an unreadable 8-task × 4-language tangle for
+    propagation; faceting per task keeps each panel comparable across
+    languages without losing the ability to compare tasks side-by-side.
+
+    Tasks whose samples are all identical (variance == 0) are skipped
+    silently — these modules (force_model, access) compare a single fixed
+    initial condition and can't meaningfully populate a distribution. The
+    per-module CSV is the source of truth for those.
+    """
+    from plotly.subplots import make_subplots
+
+    module_samples = [s for s in samples if s["task_name"].startswith(f"{module}.")]
+    if not module_samples:
+        return
+
+    _, unit_label = _accuracy_unit_label(module)
+
+    # Group samples by task → language → list of errors. Skip (task, lang)
+    # pairs with zero variance; if all pairs in a task are zero-variance,
+    # skip the whole task subplot.
+    by_task: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    for s in module_samples:
+        by_task[s["task_name"]][s["comparison_language"]].append(
+            float(s["max_abs_error"])
+        )
+
+    drawable_tasks: list[str] = []
+    for task_name, lang_to_vals in by_task.items():
+        # A subplot is worth drawing if any language has at least 2 distinct
+        # values to form a non-degenerate ECDF.
+        has_variance = any(len(set(vals)) > 1 for vals in lang_to_vals.values())
+        if has_variance:
+            drawable_tasks.append(task_name)
+    drawable_tasks = _order_tasks(module, drawable_tasks)
+
+    if not drawable_tasks:
+        # All samples are identical; the per-task table communicates this.
+        # Do not emit a placeholder file — the docs page is responsible for
+        # not embedding a CDF iframe when the module has no plottable data
+        # (e.g. force_model). Returning here leaves the docs to fall back
+        # to "no embed at all" rather than a placeholder card.
+        return
+
+    n_tasks = len(drawable_tasks)
+    # Grid sizing rule: 2 columns for 1–4 tasks, 3 columns for 5+. The
+    # height is then tuned to match the docs CSS iframe heights
+    # (default 500, tall 800, x-tall 1200) so the figure fills its
+    # iframe without leaving white space or being cropped.
+    if n_tasks <= 4:
+        n_cols = 2 if n_tasks > 1 else 1
+    else:
+        n_cols = 3
+    n_rows = (n_tasks + n_cols - 1) // n_cols
+
+    def make_fig(theme: str) -> go.Figure:
+        lang_colors = _get_language_colors(theme)
+        subplot_titles = [_task_label(t) for t in drawable_tasks]
+        fig = make_subplots(
+            rows=n_rows,
+            cols=n_cols,
+            subplot_titles=subplot_titles,
+            horizontal_spacing=0.12,
+            vertical_spacing=0.16,
+        )
+
+        # Track which languages have appeared so each one shows in the
+        # legend exactly once across all subplots.
+        seen_langs: set[str] = set()
+
+        for idx, task_name in enumerate(drawable_tasks):
+            row = idx // n_cols + 1
+            col = idx % n_cols + 1
+            lang_to_vals = by_task[task_name]
+            for lang in sorted(lang_to_vals.keys()):
+                vals = sorted(lang_to_vals[lang])
+                n = len(vals)
+                if n < 2 or len(set(vals)) == 1:
+                    continue
+                y_vals = [(i + 1) / n for i in range(n)]
+                show_in_legend = lang not in seen_langs
+                seen_langs.add(lang)
+                fig.add_trace(
+                    go.Scatter(
+                        x=vals,
+                        y=y_vals,
+                        mode="lines",
+                        name=LANGUAGE_LABELS.get(lang, lang),
+                        legendgroup=lang,
+                        showlegend=show_in_legend,
+                        line=dict(color=lang_colors.get(lang, "#888"), width=2),
+                        hovertemplate=(
+                            f"{_task_label(task_name)}<br>"
+                            f"{LANGUAGE_LABELS.get(lang, lang)}<br>"
+                            "Error: %{x}<br>P(error ≤ x): %{y:.2%}<extra></extra>"
+                        ),
+                    ),
+                    row=row,
+                    col=col,
+                )
+            fig.update_xaxes(
+                type="log",
+                title_text=f"Max abs error ({unit_label})",
+                row=row,
+                col=col,
+            )
+            fig.update_yaxes(
+                range=[0, 1.05],
+                tickformat=".0%",
+                title_text="P(error ≤ x)" if col == 1 else "",
+                row=row,
+                col=col,
+            )
+
+        # Compute the figure height dynamically from the row count.
+        # The docs page picks up the actual rendered height via the
+        # postMessage handshake injected by ``brahe_theme.save_themed_html``
+        # and resizes the iframe to fit, so this number doesn't have to
+        # line up with a fixed iframe CSS class.
+        #
+        # Layout budget: ~110 px for the title + legend band at the
+        # top, ~70 px for the X-axis title band at the bottom of each
+        # row, and ~250 px of plot area per row. The plot area gets
+        # bigger automatically when there are more rows because the
+        # title/X-axis bands stay fixed.
+        figure_height = 180 + 320 * n_rows
+
+        # The title goes at the very top of the figure (container
+        # coords, not paper coords) so it sits in the top margin
+        # rather than competing with subplot content. The legend
+        # goes between the title and the subplot grid — putting it
+        # below the lowest row inevitably collides with that row's
+        # X-axis tick labels and axis-title text (the previous
+        # ``y=-0.02`` layout sandwiched the legend between them).
+        # Top placement is also the convention for grids of subplots.
+        fig.update_layout(
+            title=dict(
+                text=f"{MODULE_LABELS[module]} Accuracy: Error CDF vs Orekit",
+                x=0.5,
+                xanchor="center",
+                y=0.985,
+                yanchor="top",
+                yref="container",
+            ),
+            height=figure_height,
+            margin=dict(t=110, b=70, l=70, r=30),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.03,
+                xanchor="center",
+                x=0.5,
+            ),
+        )
+        return fig
+
+    save_themed_html(make_fig, OUTDIR / f"fig_bench_accuracy_{module}")
+
+
+def make_accuracy_scatter_figure(task_name: str, samples: list[dict]) -> None:
+    """Error-vs-sample-key scatter for a single task.
+
+    Only emitted when at least one sample carries a non-empty
+    ``sample_key`` with a single scalar; otherwise the CDF figure
+    stands alone for this task.
+    """
+    task_samples = [s for s in samples if s["task_name"] == task_name]
+    if not task_samples:
+        return
+
+    # Inspect first sample with a non-empty sample_key to pick an x-axis.
+    x_field: str | None = None
+    for s in task_samples:
+        sk = s.get("sample_key") or {}
+        if sk:
+            # Pick the first numeric scalar key
+            for k, v in sk.items():
+                if isinstance(v, (int, float)):
+                    x_field = k
+                    break
+        if x_field:
+            break
+    if x_field is None:
+        return
+
+    module = task_name.split(".")[0]
+    _, unit_label = _accuracy_unit_label(module)
+
+    # Group by comparison_language; each language is a scatter trace.
+    grouped: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    for s in task_samples:
+        sk = s.get("sample_key") or {}
+        if x_field not in sk or not isinstance(sk[x_field], (int, float)):
+            continue
+        grouped[s["comparison_language"]].append(
+            (float(sk[x_field]), float(s["max_abs_error"]))
+        )
+
+    if not grouped:
+        return
+
+    def make_fig(theme: str) -> go.Figure:
+        lang_colors = _get_language_colors(theme)
+        fig = go.Figure()
+        for lang in sorted(grouped.keys()):
+            pts = grouped[lang]
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            fig.add_trace(
+                go.Scatter(
+                    x=xs,
+                    y=ys,
+                    mode="markers",
+                    name=LANGUAGE_LABELS.get(lang, lang),
+                    marker=dict(color=lang_colors.get(lang, "#888"), size=6),
+                    hovertemplate=(
+                        f"{x_field}: %{{x}}<br>error: %{{y}}<extra>"
+                        + LANGUAGE_LABELS.get(lang, lang)
+                        + "</extra>"
+                    ),
+                )
+            )
+        fig.update_layout(
+            title=f"{_task_label(task_name)}: Error vs {x_field.replace('_', ' ')}",
+            xaxis_title=x_field.replace("_", " "),
+            yaxis_title=f"Max abs error ({unit_label})",
+            yaxis_type="log",
+            height=420,
+            legend=dict(
+                orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5
+            ),
+        )
+        return fig
+
+    safe = task_name.replace(".", "_")
+    save_themed_html(make_fig, OUTDIR / f"fig_bench_accuracy_{safe}_scatter")
+
+
 # ── CSV table generation ───────────────────────────────────────────────────
 
 
@@ -442,16 +750,45 @@ def _format_accuracy(value: float, module: str) -> str:
             return "0 m/s²"
         return f"{value:.2e} m/s²"
 
-    # Position-based errors (meters) — select unit by magnitude
+    if module == "attitude":
+        # Attitude comparisons are dimensionless: either quaternion-component
+        # residuals (bounded by 2) or rotation-matrix Frobenius residuals
+        # (bounded by ~2√2). Render in scientific notation when small,
+        # decimal when human-scale.
+        if value == 0.0:
+            return "0"
+        if value < 1e-6:
+            return f"{value:.2e}"
+        if value < 1.0:
+            return f"{value:.3g}"
+        return f"{value:.3f}"
+
+    if module == "time":
+        # Time-scale conversions yield residuals in seconds.
+        if value == 0.0:
+            return "0 s"
+        if value < 1e-6:
+            return f"{value * 1e9:.1f} ns"
+        if value < 1e-3:
+            return f"{value * 1e6:.2f} µs"
+        if value < 1.0:
+            return f"{value * 1e3:.3f} ms"
+        return f"{value:.3f} s"
+
+    # Position-based errors (meters) — select unit by magnitude.
+    # Coordinates and orbits are typically nanometer-scale, but outliers
+    # (e.g. GMAT's geodetic equatorial-radius offset → ~0.7 m) need to
+    # escalate cleanly through µm/mm/m rather than printing "700 million nm".
     if module in ("coordinates", "orbits"):
-        # These are typically nanometer-scale
-        nm = value * 1e9
-        if nm >= 100:
-            return f"{nm:.0f} nm"
-        elif nm >= 1:
-            return f"{nm:.2f} nm"
-        else:
-            return f"{nm:.2f} nm"
+        if value == 0.0:
+            return "0 nm"
+        if value < 1e-6:
+            return f"{value * 1e9:.2f} nm"
+        if value < 1e-3:
+            return f"{value * 1e6:.2f} µm"
+        if value < 1.0:
+            return f"{value * 1e3:.2f} mm"
+        return f"{value:.3f} m"
 
     # Propagation and others: auto-select based on magnitude
     if value < 1e-6:
@@ -474,9 +811,21 @@ def _format_speedup(speedup: float) -> str:
 
 
 def _comparison_label(ref: str, comp: str) -> str:
-    """Format a comparison label like 'Java vs Python'."""
-    lang_labels = {"java": "Java", "gmat": "GMAT", "python": "Python", "rust": "Rust", "basilisk": "Basilisk"}
-    return f"{lang_labels.get(ref, ref)} vs {lang_labels.get(comp, comp)}"
+    """Format a comparison label.
+
+    The benchmark vocabulary uses language tokens (``java``, ``python``,
+    ``rust``) but the docs read more clearly when written in terms of
+    *libraries*: Orekit is the Java library being measured against the
+    brahe library (in its Python or Rust binding), GMAT, or Basilisk.
+    """
+    label = {
+        "java": "Orekit",
+        "gmat": "GMAT",
+        "basilisk": "Basilisk",
+        "python": "Brahe (Python)",
+        "rust": "Brahe (Rust)",
+    }
+    return f"{label.get(ref, ref)} vs {label.get(comp, comp)}"
 
 
 def _write_csv(filepath: pathlib.Path, headers: list[str], rows: list[list[str]]):
@@ -534,7 +883,14 @@ def generate_csv_tables(run: BenchmarkRun):
         )
     _write_csv(
         OUTDIR / "bench_overview.csv",
-        ["Module", "Tasks", "Avg GMAT Speedup", "Avg Basilisk Speedup", "Avg Python Speedup", "Avg Rust Speedup"],
+        [
+            "Module",
+            "Tasks",
+            "Avg GMAT Speedup",
+            "Avg Basilisk Speedup",
+            "Avg Brahe (Python) Speedup",
+            "Avg Brahe (Rust) Speedup",
+        ],
         overview_rows,
     )
 
@@ -549,7 +905,7 @@ def generate_csv_tables(run: BenchmarkRun):
         module_has_gmat = any("gmat" in task_data[t] for t in task_data)
         module_has_basilisk = any("basilisk" in task_data[t] for t in task_data)
         perf_rows = []
-        for task_name in sorted(task_data.keys()):
+        for task_name in _order_tasks(module, task_data.keys()):
             stats = task_data[task_name]
             java_t = stats["java"].mean if "java" in stats else 0
             py_t = stats["python"].mean if "python" in stats else 0
@@ -572,17 +928,17 @@ def generate_csv_tables(run: BenchmarkRun):
                 row.append(_format_speedup(bsk_speedup) if bsk_speedup else "—")
             row.extend([_format_speedup(py_speedup), _format_speedup(rs_speedup)])
             perf_rows.append(row)
-        headers = ["Task", "Java"]
+        headers = ["Task", "Orekit"]
         if module_has_gmat:
             headers.append("GMAT")
         if module_has_basilisk:
             headers.append("Basilisk")
-        headers.extend(["Python", "Rust"])
+        headers.extend(["Brahe (Python)", "Brahe (Rust)"])
         if module_has_gmat:
             headers.append("GMAT Speedup")
         if module_has_basilisk:
             headers.append("Basilisk Speedup")
-        headers.extend(["Python Speedup", "Rust Speedup"])
+        headers.extend(["Brahe (Python) Speedup", "Brahe (Rust) Speedup"])
         _write_csv(
             OUTDIR / f"bench_perf_{module}.csv",
             headers,
@@ -590,80 +946,198 @@ def generate_csv_tables(run: BenchmarkRun):
         )
 
     # ── Per-module accuracy tables ─────────────────────────────────────────
-    # Group accuracy comparisons by module
-    accuracy_by_module: dict[str, list] = defaultdict(list)
+    # Per-module fallback: if the accuracy JSONL has data for a module, use
+    # the distribution-summary format; otherwise fall back to the legacy
+    # single-sample AccuracyComparison format. This lets a partial accuracy
+    # sweep (e.g. just one module rerun) coexist with full-suite legacy
+    # data without one starving the other.
+    accuracy_summaries, _ = load_accuracy_records()
+    jsonl_by_module: dict[str, list[dict]] = defaultdict(list)
+    for s in accuracy_summaries:
+        jsonl_by_module[s["task_name"].split(".")[0]].append(s)
+
+    legacy_by_module: dict[str, list] = defaultdict(list)
     for ac in run.accuracy_comparisons:
-        mod = ac.task_name.split(".")[0]
-        accuracy_by_module[mod].append(ac)
+        legacy_by_module[ac.task_name.split(".")[0]].append(ac)
+
+    # Access uses a richer per-sample metric set (contact counts +
+    # per-window start/end residuals) populated by
+    # ``Sgp4AccessTask.detailed_sample_metrics`` — route it to a
+    # custom writer that reads the per-sample JSONL records rather
+    # than the rolled-up summaries.
+    _, all_samples = load_accuracy_records()
 
     for module in MODULE_ORDER:
-        if module not in accuracy_by_module:
+        if module == "access" and any(
+            s["task_name"].startswith("access.") for s in all_samples
+        ):
+            _write_accuracy_csv_access(all_samples)
+        elif module in jsonl_by_module:
+            _write_accuracy_csv_from_jsonl(module, jsonl_by_module[module])
+        elif module in legacy_by_module:
+            _write_accuracy_csv_legacy(module, legacy_by_module[module])
+
+
+def _write_accuracy_csv_from_jsonl(module: str, summaries: list[dict]) -> None:
+    """Per-module accuracy table built from the JSONL distribution summaries.
+
+    Columns: Task, Comparison, Samples, p50/p95/p99/max Max Abs (all in
+    module-appropriate units via :func:`_format_accuracy`).
+    """
+    task_order = _order_tasks(module, {s["task_name"] for s in summaries})
+    task_rank = {name: i for i, name in enumerate(task_order)}
+    rows = []
+    for s in sorted(
+        summaries,
+        key=lambda x: (task_rank.get(x["task_name"], 1_000_000), x["comparison_language"]),
+    ):
+        rows.append(
+            [
+                _task_label(s["task_name"]),
+                _comparison_label(s["reference_language"], s["comparison_language"]),
+                str(s["n_samples"]),
+                _format_accuracy(float(s["max_abs_p50"]), module),
+                _format_accuracy(float(s["max_abs_p95"]), module),
+                _format_accuracy(float(s["max_abs_p99"]), module),
+                _format_accuracy(float(s["max_abs_max"]), module),
+            ]
+        )
+    _write_csv(
+        OUTDIR / f"bench_accuracy_{module}.csv",
+        ["Task", "Comparison", "Samples", "p50 Max Abs", "p95 Max Abs", "p99 Max Abs", "Max Abs"],
+        rows,
+    )
+
+
+def _write_accuracy_csv_access(samples: list[dict]) -> None:
+    """Per-comparison breakdown for the access module.
+
+    Reads the per-sample JSONL records (each represents one ground
+    location's contact set vs OreKit) and groups by comparison language.
+    For each comparison emits:
+
+    - **Contacts found** by each backend (mean / max across locations).
+    - **Contact count diff**: per-location ``|n_baseline - n_comparison|``
+      (max across locations) — a per-location detection-mismatch count.
+    - **Window start residual**: distribution across all matched windows
+      at all locations (p50 / p95 / p99 / max).
+    - **Window end residual**: same, for window end times.
+
+    Time residuals come from ``Sgp4AccessTask.detailed_sample_metrics``
+    via the sample_key dict written into each JSONL record.
+    """
+    by_lang: dict[str, list[dict]] = defaultdict(list)
+    for s in samples:
+        if s["task_name"] != "access.sgp4_access":
             continue
-        comparisons = accuracy_by_module[module]
+        by_lang[s["comparison_language"]].append(s)
 
-        # Determine table format based on module
-        if module == "propagation":
-            # Propagation accuracy table has a different format: no comparison
-            # column, and includes notes. Group by task, take max across comparisons.
-            task_accuracy: dict[str, dict] = {}
-            for ac in comparisons:
-                task = ac.task_name
-                if task not in task_accuracy:
-                    task_accuracy[task] = {
-                        "max_abs": ac.max_abs_error,
-                        "rms": ac.rms_error,
-                    }
-                else:
-                    existing = task_accuracy[task]
-                    existing["max_abs"] = max(existing["max_abs"], ac.max_abs_error)
-                    existing["rms"] = max(existing["rms"], ac.rms_error)
+    if not by_lang:
+        return
 
-            # Notes for propagation tasks
-            prop_notes = {
-                "propagation.keplerian_single": "Sub-millimeter agreement",
-                "propagation.keplerian_trajectory": "Sub-millimeter agreement",
-                "propagation.numerical_twobody": "Different integrators (RK4 vs RK78)",
-                "propagation.sgp4_single": "Different SGP4 implementations",
-                "propagation.sgp4_trajectory": "Different SGP4 implementations",
-            }
+    def _format_seconds(value: float) -> str:
+        if value == 0.0:
+            return "0 s"
+        if value < 1e-6:
+            return f"{value * 1e9:.1f} ns"
+        if value < 1e-3:
+            return f"{value * 1e6:.2f} µs"
+        if value < 1.0:
+            return f"{value * 1e3:.3f} ms"
+        return f"{value:.3f} s"
 
-            acc_rows = []
-            for task_name in sorted(task_accuracy.keys()):
-                vals = task_accuracy[task_name]
-                acc_rows.append(
-                    [
-                        _task_label(task_name),
-                        _format_accuracy(vals["max_abs"], module),
-                        _format_accuracy(vals["rms"], module),
-                        prop_notes.get(task_name, ""),
-                    ]
-                )
-            _write_csv(
-                OUTDIR / f"bench_accuracy_{module}.csv",
-                ["Task", "Max Abs Error", "RMS Error", "Notes"],
-                acc_rows,
-            )
-        else:
-            # Standard accuracy table with comparison column
-            acc_rows = []
-            for ac in sorted(
-                comparisons, key=lambda a: (a.task_name, a.comparison_language)
-            ):
-                acc_rows.append(
-                    [
-                        _task_label(ac.task_name),
-                        _comparison_label(
-                            ac.reference_language, ac.comparison_language
-                        ),
-                        _format_accuracy(ac.max_abs_error, module),
-                        _format_accuracy(ac.rms_error, module),
-                    ]
-                )
-            _write_csv(
-                OUTDIR / f"bench_accuracy_{module}.csv",
-                ["Task", "Comparison", "Max Abs Error", "RMS Error"],
-                acc_rows,
-            )
+    headers = [
+        "Comparison",
+        "Locations",
+        "Contacts (Orekit)",
+        "Contacts (Comparison)",
+        "Contact Count Diff (max per loc)",
+        "Start Err p50",
+        "Start Err p95",
+        "Start Err p99",
+        "Start Err max",
+        "End Err p50",
+        "End Err p95",
+        "End Err p99",
+        "End Err max",
+    ]
+    rows = []
+    for lang in sorted(by_lang.keys()):
+        recs = by_lang[lang]
+        n_loc = len(recs)
+        n_base_total = sum(int(r.get("sample_key", {}).get("n_windows_baseline", 0)) for r in recs)
+        n_comp_total = sum(int(r.get("sample_key", {}).get("n_windows_comparison", 0)) for r in recs)
+        max_count_diff = max(
+            int(r.get("sample_key", {}).get("window_count_diff", 0)) for r in recs
+        )
+        start_errs = [
+            float(r.get("sample_key", {}).get("start_err_s_max", 0.0)) for r in recs
+        ]
+        end_errs = [
+            float(r.get("sample_key", {}).get("end_err_s_max", 0.0)) for r in recs
+        ]
+        rows.append(
+            [
+                _comparison_label("java", lang),
+                str(n_loc),
+                str(n_base_total),
+                str(n_comp_total),
+                str(max_count_diff),
+                _format_seconds(_percentile(start_errs, 50)),
+                _format_seconds(_percentile(start_errs, 95)),
+                _format_seconds(_percentile(start_errs, 99)),
+                _format_seconds(max(start_errs) if start_errs else 0.0),
+                _format_seconds(_percentile(end_errs, 50)),
+                _format_seconds(_percentile(end_errs, 95)),
+                _format_seconds(_percentile(end_errs, 99)),
+                _format_seconds(max(end_errs) if end_errs else 0.0),
+            ]
+        )
+
+    _write_csv(OUTDIR / "bench_accuracy_access.csv", headers, rows)
+
+
+def _percentile(values: list[float], pct: float) -> float:
+    """Linear-interpolation percentile (matches accuracy.py's helper)."""
+    if not values:
+        return float("nan")
+    sorted_vals = sorted(values)
+    if len(sorted_vals) == 1:
+        return sorted_vals[0]
+    pos = (pct / 100.0) * (len(sorted_vals) - 1)
+    import math as _math
+    lower = int(_math.floor(pos))
+    upper = int(_math.ceil(pos))
+    if lower == upper:
+        return sorted_vals[lower]
+    fraction = pos - lower
+    return sorted_vals[lower] + (sorted_vals[upper] - sorted_vals[lower]) * fraction
+
+
+def _write_accuracy_csv_legacy(module: str, comparisons: list) -> None:
+    """Fallback per-module accuracy CSV for a module that has no JSONL data
+    yet. Uses the legacy single-sample format from the perf run's
+    ``accuracy_comparisons`` list, but routed through the current
+    :func:`_format_accuracy` so unit fixes (time → seconds, attitude →
+    dimensionless, etc.) apply consistently.
+    """
+    acc_rows = []
+    for ac in sorted(
+        comparisons, key=lambda a: (a.task_name, a.comparison_language)
+    ):
+        acc_rows.append(
+            [
+                _task_label(ac.task_name),
+                _comparison_label(ac.reference_language, ac.comparison_language),
+                _format_accuracy(ac.max_abs_error, module),
+                _format_accuracy(ac.rms_error, module),
+            ]
+        )
+    _write_csv(
+        OUTDIR / f"bench_accuracy_{module}.csv",
+        ["Task", "Comparison", "Max Abs Error", "RMS Error"],
+        acc_rows,
+    )
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
@@ -680,8 +1154,24 @@ if __name__ == "__main__":
     make_speedup_figure(run)
 
     for module in MODULE_ORDER:
-        print(f"Generating {module} chart...")
+        print(f"Generating {module} performance chart...")
         make_module_figure(run, module)
+
+    summaries, samples = load_accuracy_records()
+    if samples:
+        print(
+            f"Generating accuracy figures from {len(samples)} sample records "
+            f"across {len(summaries)} summaries..."
+        )
+        modules_with_samples = {s["task_name"].split(".")[0] for s in samples}
+        for module in MODULE_ORDER:
+            if module in modules_with_samples:
+                make_accuracy_cdf_figure(module, samples)
+        task_names = sorted({s["task_name"] for s in samples})
+        for task_name in task_names:
+            make_accuracy_scatter_figure(task_name, samples)
+    else:
+        print("No accuracy JSONL found; skipping accuracy figures.")
 
     print("Generating CSV tables...")
     generate_csv_tables(run)

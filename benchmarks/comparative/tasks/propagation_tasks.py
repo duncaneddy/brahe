@@ -11,6 +11,54 @@ R_EARTH = 6378137.0  # meters
 GM = 3.986004418e14  # m^3/s^2
 
 
+def _random_leo_ic(rng: random.Random) -> dict:
+    """Generate one random LEO initial condition.
+
+    Sweeps altitude (400–1500 km), eccentricity (0.001–0.02),
+    inclination (0–180°), and the orientation angles uniformly. The
+    altitude floor avoids drag-dominated orbits whose perigee dips
+    deep enough into the atmosphere that fixed-step RK4 propagators
+    (and GMAT's adaptive-tolerance check) can't maintain accuracy
+    over one orbital period — empirically, sub-300 km perigees
+    caused GMAT 80x80 + drag + SRP runs to abort with
+    "Accuracy settings will be violated" and brahe runs to produce
+    state magnitudes 10¹¹ m off the baseline. The 400 km floor and
+    eccentricity ceiling of 0.02 keep every sampled orbit's perigee
+    above ~250 km, where the integrator stays well behaved across
+    every backend.
+    """
+    a = R_EARTH + rng.uniform(400e3, 1500e3)
+    return {
+        "jd": 2460310.5 + rng.uniform(0.0, 365.0),
+        "elements": [
+            a,
+            rng.uniform(0.001, 0.02),
+            rng.uniform(0.0, 180.0),
+            rng.uniform(0.0, 360.0),
+            rng.uniform(0.0, 360.0),
+            rng.uniform(0.0, 360.0),
+        ],
+    }
+
+
+def _ic_swept_params(seed: int, n: int, base: dict) -> dict:
+    """Build accuracy-sweep params: N random LEO ICs share the same
+    horizon and force-model configuration drawn from ``base``.
+
+    The backend loops over ``cases``, propagating each from its own
+    ``jd`` and ``elements`` across the shared ``step_size`` and
+    ``n_steps``, and reports one final state per case.
+    """
+    rng = random.Random(seed)
+    cases = [_random_leo_ic(rng) for _ in range(n)]
+    out = dict(base)
+    out.pop("jd", None)
+    out.pop("elements", None)
+    out.pop("elements_deg", None)
+    out["cases"] = cases
+    return out
+
+
 class KeplerianSingleTask(BenchmarkTask):
     """Benchmark Keplerian propagation of multiple orbits to a single future epoch."""
 
@@ -31,12 +79,19 @@ class KeplerianSingleTask(BenchmarkTask):
         return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
+        return self._gen_cases(seed, 20)
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return self._gen_cases(seed, n)
+
+    @staticmethod
+    def _gen_cases(seed: int, n: int) -> dict:
         rng = random.Random(seed)
         cases = []
         # Base epoch: 2024-01-01T00:00:00 UTC = JD 2460310.5
         base_jd = 2460310.5
 
-        for _ in range(20):
+        for _ in range(n):
             jd = base_jd + rng.uniform(0.0, 365.0)
             a = R_EARTH + rng.uniform(200e3, 36000e3)
             e = rng.uniform(0.001, 0.3)
@@ -78,7 +133,7 @@ class KeplerianTrajectoryTask(BenchmarkTask):
         return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
-        # Fixed LEO orbit
+        # Fixed LEO orbit (perf path: one IC, time the inner loop)
         a = R_EARTH + 500e3
         e = 0.01
         i = 97.8  # degrees
@@ -97,6 +152,24 @@ class KeplerianTrajectoryTask(BenchmarkTask):
             "step_size": step_size,
             "n_steps": n_steps,
         }
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        # Accuracy path: N random ICs, propagate one orbital period each
+        # from the IC's own epoch, return final state per case.
+        step_size = 60.0
+        # Use a representative LEO period for the shared horizon. Each
+        # case still gets propagated over the same physical duration
+        # (n_steps * step_size), which keeps the final-state error
+        # comparable across cases regardless of their individual
+        # semi-major axes.
+        a_ref = R_EARTH + 500e3
+        period = 2.0 * math.pi * math.sqrt(a_ref**3 / GM)
+        n_steps = int(period / step_size)
+        return _ic_swept_params(
+            seed,
+            n,
+            {"step_size": step_size, "n_steps": n_steps},
+        )
 
 
 # ISS TLE for SGP4 benchmarks (well-known, stable orbit)
@@ -124,8 +197,15 @@ class Sgp4SingleTask(BenchmarkTask):
         return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
+        return self._gen_offsets(seed, 50)
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return self._gen_offsets(seed, n)
+
+    @staticmethod
+    def _gen_offsets(seed: int, n: int) -> dict:
         rng = random.Random(seed)
-        offsets = sorted([rng.uniform(0.0, 86400.0) for _ in range(50)])
+        offsets = sorted([rng.uniform(0.0, 86400.0) for _ in range(n)])
         return {
             "line1": ISS_TLE_LINE1,
             "line2": ISS_TLE_LINE2,
@@ -153,11 +233,30 @@ class Sgp4TrajectoryTask(BenchmarkTask):
         return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
+        # Perf path: original 48-hour window at 60s cadence (1440 steps).
         return {
             "line1": ISS_TLE_LINE1,
             "line2": ISS_TLE_LINE2,
             "step_size": 60.0,
             "n_steps": 1440,
+        }
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        # Accuracy path: same 48-hour window, but subsample to N evenly
+        # spaced points so this task reports the same per-row sample
+        # count as the IC-swept tasks. We can't easily sweep over
+        # independent SGP4 ICs (we have one ISS TLE; randomly perturbing
+        # its mean elements would produce non-physical TLEs), so the
+        # samples here remain points along a single TLE's trajectory —
+        # treat them as a one-orbit error-growth profile rather than
+        # statistically independent draws.
+        horizon_seconds = 86400.0 * 2.0  # 48 hours
+        step_size = horizon_seconds / float(n)
+        return {
+            "line1": ISS_TLE_LINE1,
+            "line2": ISS_TLE_LINE2,
+            "step_size": step_size,
+            "n_steps": n,
         }
 
 
@@ -199,6 +298,17 @@ class NumericalTwobodyTask(BenchmarkTask):
             "step_size": step_size,
             "n_steps": n_steps,
         }
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        step_size = 60.0
+        a_ref = R_EARTH + 500e3
+        period = 2.0 * math.pi * math.sqrt(a_ref**3 / GM)
+        n_steps = int(period / step_size)
+        return _ic_swept_params(
+            seed,
+            n,
+            {"step_size": step_size, "n_steps": n_steps},
+        )
 
 
 # Shared LEO orbit used for the high-fidelity numerical propagation comparison.
@@ -254,6 +364,12 @@ class NumericalRk4Grav5x5Task(BenchmarkTask):
         p["gravity_order"] = 5
         return p
 
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        base = _numerical_leo_params()
+        base["gravity_degree"] = 5
+        base["gravity_order"] = 5
+        return _ic_swept_params(seed, n, base)
+
 
 class NumericalRk4Grav20x20SunMoonTask(BenchmarkTask):
     """RK4 + 20x20 gravity + Sun/Moon third-body over 1 LEO revolution."""
@@ -288,6 +404,14 @@ class NumericalRk4Grav20x20SunMoonTask(BenchmarkTask):
         p["third_body_sun"] = True
         p["third_body_moon"] = True
         return p
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        base = _numerical_leo_params()
+        base["gravity_degree"] = 20
+        base["gravity_order"] = 20
+        base["third_body_sun"] = True
+        base["third_body_moon"] = True
+        return _ic_swept_params(seed, n, base)
 
 
 class NumericalRk4Grav80x80FullTask(BenchmarkTask):
@@ -325,3 +449,22 @@ class NumericalRk4Grav80x80FullTask(BenchmarkTask):
         p["drag"] = True
         p["srp"] = True
         return p
+
+    @property
+    def default_accuracy_samples(self) -> int:
+        # 80x80 gravity + drag + SRP is the most expensive RK4 case;
+        # cap accuracy IC sweeps at 30 (vs the framework default of 100)
+        # so a full benchmark run finishes in reasonable time. With
+        # ~180 RK4 steps per case at this fidelity, even 30 cases per
+        # language adds non-trivial wall time.
+        return 30
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        base = _numerical_leo_params()
+        base["gravity_degree"] = 80
+        base["gravity_order"] = 80
+        base["third_body_sun"] = True
+        base["third_body_moon"] = True
+        base["drag"] = True
+        base["srp"] = True
+        return _ic_swept_params(seed, n, base)

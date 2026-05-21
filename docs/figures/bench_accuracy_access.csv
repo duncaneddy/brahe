@@ -1,4 +1,4 @@
-Task,Comparison,Max Abs Error,RMS Error
-SGP4 Access,Java vs GMAT,32.0 s,7.4 s
-SGP4 Access,Java vs Python,5.0 s,5.0 s
-SGP4 Access,Java vs Rust,5.0 s,5.0 s
+Comparison,Locations,Contacts (Orekit),Contacts (Comparison),Contact Count Diff (max per loc),Start Err p50,Start Err p95,Start Err p99,Start Err max,End Err p50,End Err p95,End Err p99,End Err max
+Orekit vs GMAT,73,277,297,2,5.747 s,11.564 s,19.559 s,20.375 s,10.700 s,21.816 s,27.866 s,31.962 s
+Orekit vs Brahe (Python),73,277,277,1,5.005 s,5.014 s,5.017 s,5.018 s,5.006 s,5.021 s,5.034 s,5.049 s
+Orekit vs Brahe (Rust),73,277,277,1,5.005 s,5.014 s,5.017 s,5.018 s,5.006 s,5.021 s,5.034 s,5.049 s

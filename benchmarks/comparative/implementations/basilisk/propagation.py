@@ -110,8 +110,6 @@ def _run_numerical_rk4(
       - jd, elements_deg, step_size, n_steps
       - params: [mass, drag_area, Cd, srp_area, Cr]
     """
-    jd = params["jd"]
-    oe_deg = params["elements_deg"]
     step_size = float(params["step_size"])
     n_steps = int(params["n_steps"])
     param_vec = params["params"]
@@ -121,7 +119,13 @@ def _run_numerical_rk4(
     srp_area = float(param_vec[3])
     cr = float(param_vec[4])
 
-    def run():
+    # perf:     {jd, elements_deg, step_size, n_steps, params, ...}
+    # accuracy: {cases:[{jd, elements}], step_size, n_steps, params, ...}
+    # In accuracy mode we propagate each case from its own IC and return
+    # only the final state per case.
+    cases = params.get("cases")
+
+    def _propagate_one(jd: float, oe_deg: list[float]) -> list:
         scSim = SimulationBaseClass.SimBaseClass()
         dyn = scSim.CreateNewProcess("benchProc")
         dt_ns = macros.sec2nano(step_size)
@@ -220,6 +224,19 @@ def _run_numerical_rk4(
         scSim.ExecuteSimulation()
         return _record_states_gcrf(rec, n_steps)
 
+    if cases is None:
+        # Perf: one IC, full trajectory.
+        def run():
+            return _propagate_one(params["jd"], params["elements_deg"])
+    else:
+        # Accuracy: per-case final state.
+        def run():
+            finals = []
+            for case in cases:
+                traj = _propagate_one(case["jd"], case["elements"])
+                finals.append(traj[-1])
+            return finals
+
     times, results = time_iterations(run, iterations)
     third = [name for name, on in (("sun", third_body_sun), ("moon", third_body_moon)) if on]
     return build_task_result(
@@ -279,12 +296,11 @@ def numerical_twobody(params: dict, iterations: int):
     accumulated truncation error vs. the adaptive baselines over one LEO
     revolution; this is intrinsic to RK4-at-60s, not a Basilisk bug.
     """
-    jd = params["jd"]
-    oe_deg = params["elements"]
     step_size = float(params["step_size"])
     n_steps = int(params["n_steps"])
+    cases = params.get("cases")
 
-    def run():
+    def _propagate_one(jd: float, oe_deg: list[float]) -> list:
         scSim = SimulationBaseClass.SimBaseClass()
         dyn = scSim.CreateNewProcess("benchProc")
         dt_ns = macros.sec2nano(step_size)
@@ -316,6 +332,19 @@ def numerical_twobody(params: dict, iterations: int):
         scSim.ExecuteSimulation()
 
         return _record_states_gcrf(rec, n_steps)
+
+    if cases is None:
+        # Perf: single IC, full trajectory.
+        def run():
+            return _propagate_one(params["jd"], params["elements"])
+    else:
+        # Accuracy: per-case final state.
+        def run():
+            finals = []
+            for case in cases:
+                traj = _propagate_one(case["jd"], case["elements"])
+                finals.append(traj[-1])
+            return finals
 
     times, results = time_iterations(run, iterations)
     return build_task_result(

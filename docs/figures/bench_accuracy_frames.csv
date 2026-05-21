@@ -1,9 +1,9 @@
-Task,Comparison,Max Abs Error,RMS Error
-State ECEF To ECI,Java vs Basilisk,1204.3 m,101.0 m
-State ECEF To ECI,Java vs GMAT,10.2 m,1.81 m
-State ECEF To ECI,Java vs Python,0.121 m,0.022 m
-State ECEF To ECI,Java vs Rust,0.121 m,0.022 m
-State ECI To ECEF,Java vs Basilisk,973.1 m,101.1 m
-State ECI To ECEF,Java vs GMAT,8.03 m,1.75 m
-State ECI To ECEF,Java vs Python,0.121 m,0.022 m
-State ECI To ECEF,Java vs Rust,0.121 m,0.022 m
+Task,Comparison,Samples,p50 Max Abs,p95 Max Abs,p99 Max Abs,Max Abs
+State ECEF To ECI,Orekit vs Basilisk,100,1.17 m,324.7 m,956.6 m,1204.3 m
+State ECEF To ECI,Orekit vs GMAT,100,3.32 m,7.51 m,8.71 m,10.2 m
+State ECEF To ECI,Orekit vs Brahe (Python),100,0.030 m,0.107 m,0.173 m,0.191 m
+State ECEF To ECI,Orekit vs Brahe (Rust),100,0.030 m,0.107 m,0.173 m,0.191 m
+State ECI To ECEF,Orekit vs Basilisk,100,0.995 m,307.8 m,816.3 m,973.1 m
+State ECI To ECEF,Orekit vs GMAT,100,3.37 m,7.50 m,8.04 m,8.52 m
+State ECI To ECEF,Orekit vs Brahe (Python),100,0.031 m,0.100 m,0.153 m,0.184 m
+State ECI To ECEF,Orekit vs Brahe (Rust),100,0.031 m,0.100 m,0.153 m,0.184 m

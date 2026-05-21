@@ -1,5 +1,15 @@
 """
 Result dataclasses and JSON serialization for comparative benchmarks.
+
+Two output families:
+
+- Performance: dataclasses :class:`TaskResult` and :class:`BenchmarkRun`
+  serialized as one pretty-printed JSON file per run (legacy format).
+- Accuracy: dataclasses :class:`AccuracySample` and :class:`AccuracySummary`
+  serialized as JSONL (one JSON object per line) with kind discriminators.
+  This keeps per-sample detail recoverable without bloating a single JSON
+  document, and stays append-friendly so resuming or splitting accuracy
+  runs across languages stays straightforward.
 """
 
 import json
@@ -8,6 +18,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterable
 
 
 @dataclass
@@ -61,7 +72,12 @@ class TaskResult:
 
 @dataclass
 class AccuracyComparison:
-    """Numerical accuracy comparison between two implementations."""
+    """Numerical accuracy comparison between two implementations.
+
+    Used by the legacy performance run (a single sample per task). New code
+    should prefer :class:`AccuracySummary` / :class:`AccuracySample`, which
+    capture distribution information across an initial-condition sweep.
+    """
 
     task_name: str
     reference_language: str
@@ -69,6 +85,73 @@ class AccuracyComparison:
     max_abs_error: float
     max_rel_error: float
     rms_error: float
+
+
+@dataclass
+class AccuracySample:
+    """One initial-condition sample's accuracy result against the baseline."""
+
+    task_name: str
+    reference_language: str
+    comparison_language: str
+    sample_index: int
+    max_abs_error: float
+    rms_error: float
+    sample_key: dict = field(default_factory=dict)
+
+    def to_jsonl_dict(self) -> dict:
+        d = asdict(self)
+        d["kind"] = "sample"
+        return d
+
+
+@dataclass
+class AccuracySummary:
+    """Distribution summary of accuracy across an IC sweep."""
+
+    task_name: str
+    reference_language: str
+    comparison_language: str
+    n_samples: int
+    n_failed: int
+    max_abs_p50: float
+    max_abs_p95: float
+    max_abs_p99: float
+    max_abs_max: float
+    rms_p50: float
+    rms_p95: float
+    rms_p99: float
+    rms_max: float
+
+    def to_jsonl_dict(self) -> dict:
+        d = asdict(self)
+        d["kind"] = "summary"
+        return d
+
+
+def write_jsonl(filepath: Path, records: Iterable[dict]) -> None:
+    """Write an iterable of records as one JSON object per line.
+
+    Uses compact separators — accuracy JSONL is read by tooling, not by
+    humans, so dropping the pretty indent saves disk and parse time.
+    """
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    with open(filepath, "w") as f:
+        for record in records:
+            f.write(json.dumps(record, default=str, separators=(",", ":")))
+            f.write("\n")
+
+
+def read_jsonl(filepath: Path) -> list[dict]:
+    """Read a JSONL file into a list of dicts. Skips blank lines."""
+    records: list[dict] = []
+    with open(filepath) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            records.append(json.loads(line))
+    return records
 
 
 @dataclass

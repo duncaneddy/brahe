@@ -1,4 +1,4 @@
-Module,Tasks,Avg GMAT Speedup,Avg Basilisk Speedup,Avg Python Speedup,Avg Rust Speedup
+Module,Tasks,Avg GMAT Speedup,Avg Basilisk Speedup,Avg Brahe (Python) Speedup,Avg Brahe (Rust) Speedup
 Time,5,21.5×,—,259.2×,523.5×
 Coordinates,5,4.05×,6.19×,8.79×,407.1×
 Attitude,4,7.26×,7.03×,23.5×,1089.5×

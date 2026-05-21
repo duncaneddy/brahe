@@ -1,10 +1,23 @@
 """
 Comparative benchmark orchestrator CLI.
 
+Two harnesses share this CLI:
+
+- ``perf`` (alias: ``run`` for backward compatibility) — times each task
+  with a single fixed input across N iterations. This is the legacy
+  behavior, kept verbatim for the speedup-vs-OreKit chart.
+- ``accuracy`` — runs each task once across a sweep of N initial
+  conditions and reports the distribution of element-wise errors versus
+  OreKit. Output is JSONL (see ``benchmarks.comparative.accuracy``).
+
 Usage:
     python -m benchmarks.comparative.runner list
-    python -m benchmarks.comparative.runner run [--module coordinates] [--language python] [--iterations 100]
+    python -m benchmarks.comparative.runner perf [--module coordinates] [--language python] [--iterations 100]
+    python -m benchmarks.comparative.runner accuracy [--module coordinates] [--samples 100]
     python -m benchmarks.comparative.runner plot
+
+The legacy ``run`` subcommand is preserved as an alias of ``perf`` so
+existing tooling (``just bench-compare``) does not break mid-refactor.
 """
 
 import json
@@ -61,7 +74,10 @@ def run(
     seed: int = typer.Option(DEFAULT_SEED, help="Random seed for parameter generation"),
     output: Optional[Path] = typer.Option(None, help="Output directory for results"),
 ):
-    """Run comparative benchmarks."""
+    """Run comparative performance benchmarks (timing only).
+
+    Alias: ``perf`` — see the ``perf`` command which delegates here.
+    """
     tasks = filter_tasks(module=module, task_name=task)
     if not tasks:
         console.print("[red]No matching tasks found.[/red]")
@@ -76,26 +92,10 @@ def run(
 
     benchmark_run = BenchmarkRun(system_info=collect_system_info())
 
-    # Pre-import Basilisk before GMAT initializes.
-    #
-    # Both Basilisk and GMAT register a "Spacecraft" type in a shared Python
-    # factory (gmat.Construct / Basilisk.simulation.spacecraft). When Basilisk
-    # simulation modules are imported AFTER gmat.Setup() has run, Basilisk's
-    # Spacecraft type overwrites GMAT's registration, causing every subsequent
-    # gmat.Construct("Spacecraft", ...) call to return a Basilisk Spacecraft
-    # object that lacks SetField — yielding "'Spacecraft' object has no
-    # attribute 'SetField'" for all remaining spacecraft-based GMAT tasks.
-    #
-    # Importing Basilisk BEFORE the first gmat.Setup() call avoids this: GMAT
-    # registers its own Spacecraft factory last and takes precedence.  We do
-    # this eagerly here (silently ignoring ImportError when Basilisk is not
-    # installed) so that the import ordering is deterministic regardless of
-    # which task runs first.
-    if not language or language == "basilisk":
-        try:
-            import benchmarks.comparative.implementations.basilisk  # noqa: F401
-        except (ImportError, Exception):
-            pass  # Basilisk not installed; no pre-import needed
+    # No Basilisk/GMAT pre-import dance: GMAT now runs in a subprocess
+    # per task, so there is no shared Python process where Basilisk and
+    # GMAT could fight over the "Spacecraft" type registration. The two
+    # libraries are isolated by process boundary.
 
     for t in tasks:
         requested = languages_to_run or t.languages
@@ -183,13 +183,72 @@ def plot(
         console.print(f"[green]Generated:[/green] {p}")
 
 
+@app.command("perf")
+def perf(
+    module: Optional[str] = typer.Option(None, help="Filter by module"),
+    task: Optional[str] = typer.Option(None, help="Run specific task by name"),
+    language: Optional[str] = typer.Option(None, help="Run only this language"),
+    iterations: int = typer.Option(DEFAULT_ITERATIONS, help="Number of iterations"),
+    seed: int = typer.Option(DEFAULT_SEED, help="Random seed for parameter generation"),
+    output: Optional[Path] = typer.Option(None, help="Output directory for results"),
+):
+    """Alias for ``run``. Times each task across N iterations of one input."""
+    run(
+        module=module,
+        task=task,
+        language=language,
+        iterations=iterations,
+        seed=seed,
+        output=output,
+    )
+
+
+@app.command("accuracy")
+def accuracy_cmd(
+    module: Optional[str] = typer.Option(None, help="Filter by module"),
+    task: Optional[str] = typer.Option(None, help="Run specific task by name"),
+    samples: int = typer.Option(
+        100, help="Initial-condition samples per task (default 100)"
+    ),
+    seed: int = typer.Option(DEFAULT_SEED, help="Random seed for sample generation"),
+    output: Optional[Path] = typer.Option(None, help="Output directory for results"),
+    quick: bool = typer.Option(
+        False, help="Smoke mode: 5 samples per task regardless of --samples"
+    ),
+):
+    """Sweep initial conditions and compare every language to OreKit.
+
+    Writes JSONL — one summary record per (task, comparison-language) plus
+    one detail record per (task, comparison-language, sample) — to
+    ``benchmarks/comparative/results/accuracy_<timestamp>.jsonl`` and the
+    canonical ``accuracy_latest.jsonl``.
+    """
+    from benchmarks.comparative.accuracy import run_accuracy
+
+    run_accuracy(
+        module=module,
+        task=task,
+        samples=samples,
+        seed=seed,
+        output=output,
+        quick=quick,
+    )
+
+
 def _dispatch_task(
     task: BenchmarkTask,
     language: str,
     iterations: int,
     seed: int,
 ) -> TaskResult | None:
-    """Dispatch a task to the appropriate language implementation."""
+    """Dispatch a task to the appropriate language implementation.
+
+    GMAT goes through the subprocess path (like Java and Rust) rather than
+    the in-process import. Running GMAT in-process accumulates C++ library
+    state across tasks and reliably segfaults on
+    ``force_model.accel_point_mass_gravity`` after a long sequence of
+    other tasks. A fresh subprocess per task guarantees clean state.
+    """
     if language == "python":
         return _run_python(task, iterations, seed)
     elif language == "rust":
@@ -199,7 +258,7 @@ def _dispatch_task(
     elif language == "basilisk":
         return _run_basilisk(task, iterations, seed)
     elif language == "gmat":
-        return _run_gmat(task, iterations, seed)
+        return _run_subprocess(task, language, iterations, seed, _get_gmat_command())
     return None
 
 
@@ -241,38 +300,20 @@ def _run_basilisk(
         return None
 
 
-def _run_gmat(
-    task: BenchmarkTask,
-    iterations: int,
-    seed: int,
-) -> TaskResult | None:
-    """Run a benchmark task using GMAT (gmatpy) in-process.
+def _get_gmat_command() -> list[str] | None:
+    """Return the command used to spawn a GMAT subprocess.
 
-    Catches ImportError from _ensure_gmat() and reports the user-facing skip
-    message. All other task-level exceptions are reported in red.
+    Returns None if ``GMAT_ROOT_PATH`` is unset (so the runner can render
+    the usual "GMAT not ready" skip line consistent with the legacy
+    in-process behavior). The actual ``gmatpy`` import — which can raise
+    cleanly inside the subprocess — is deferred to the child.
     """
-    try:
-        from benchmarks.comparative.implementations.gmat import dispatch
-    except ImportError as e:
-        console.print(
-            f"    [yellow]GMAT not ready ({e}). "
-            f"Set GMAT_ROOT_PATH and run: just bench-compare-setup[/yellow]"
-        )
-        return None
+    import os
+    import sys
 
-    try:
-        input_data = task.to_input_json(iterations, seed)
-        return dispatch(input_data)
-    except ImportError as e:
-        # _ensure_gmat raises ImportError inside dispatch() on first call.
-        console.print(
-            f"    [yellow]GMAT not ready ({e}). "
-            f"Set GMAT_ROOT_PATH and run: just bench-compare-setup[/yellow]"
-        )
+    if not os.environ.get("GMAT_ROOT_PATH"):
         return None
-    except Exception as e:
-        console.print(f"    [red]Error: {e}[/red]")
-        return None
+    return [sys.executable, "-m", "benchmarks.comparative.implementations.gmat"]
 
 
 def _get_rust_command() -> list[str] | None:
@@ -328,6 +369,15 @@ def _run_subprocess(
             timeout=task_timeout,
         )
 
+        if result.returncode == 2 and language == "gmat":
+            # GMAT subprocess uses exit 2 for "not configured" — render the
+            # same skip line as the legacy in-process path so the runner
+            # behaves identically when GMAT_ROOT_PATH is unset or invalid.
+            console.print(
+                f"    [yellow]GMAT not ready ({result.stderr.strip()[:200]}). "
+                f"Set GMAT_ROOT_PATH and run: just bench-compare-setup[/yellow]"
+            )
+            return None
         if result.returncode != 0:
             console.print(f"    [red]Subprocess error: {result.stderr[:200]}[/red]")
             return None

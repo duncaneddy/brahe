@@ -142,7 +142,7 @@ public class Main {
 
         JsonObject metadata = new JsonObject();
         metadata.addProperty("library", "orekit");
-        metadata.addProperty("version", "12.2");
+        metadata.addProperty("version", "13.1.5");
         metadata.addProperty("language", "java");
         output.add("metadata", metadata);
 

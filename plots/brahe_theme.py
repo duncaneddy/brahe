@@ -171,6 +171,38 @@ body {
 </style>
 """
 
+    # Auto-size script: after the figure body has laid out, post the
+    # content height to the parent window. The docs page listens for
+    # this in ``javascripts/iframe-autosize.js`` and resizes the iframe
+    # to match, so each embed self-sizes without the docs author having
+    # to pick a CSS class per chart. The fallback fixed-size CSS class
+    # (``plotly-embed``) still applies for environments where the
+    # script can't run (PDF export, isolated previews).
+    autosize_script = """
+<script>
+(function () {
+  function report() {
+    if (!window.parent || window.parent === window) {
+      return;
+    }
+    var h = document.body && document.body.scrollHeight;
+    if (!h) {
+      return;
+    }
+    window.parent.postMessage(
+      { type: 'brahe-fig-height', height: h },
+      '*'
+    );
+  }
+  if (document.readyState === 'complete') {
+    setTimeout(report, 0);
+  } else {
+    window.addEventListener('load', function () { setTimeout(report, 0); });
+  }
+})();
+</script>
+"""
+
     # Determine if fig_generator is callable or a figure
     is_callable = callable(fig_generator)
 
@@ -188,7 +220,7 @@ body {
         auto_play=False,
         config={"responsive": True},
     )
-    html_light = custom_css + html_light
+    html_light = custom_css + html_light + autosize_script
     with open(light_path, "w") as f:
         f.write(html_light)
 
@@ -206,7 +238,7 @@ body {
         auto_play=False,
         config={"responsive": True},
     )
-    html_dark = custom_css + html_dark
+    html_dark = custom_css + html_dark + autosize_script
     with open(dark_path, "w") as f:
         f.write(html_dark)
 

@@ -1,6 +1,6 @@
 ## Benchmarks
 
-Brahe is benchmarked against [**OreKit 12.2**](https://github.com/CS-SI/Orekit) (Java), the most widely used open-source astrodynamics library, across 32 tasks spanning 8 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 100 iterations) and their outputs are compared for both performance and numerical accuracy. Brahe is additionally compared against [**Basilisk**](https://github.com/AVSLab/basilisk) (AVS Lab) on the 14 tasks across four modules (attitude, orbits, frames, coordinates, and propagation) where the two libraries' user-facing APIs overlap. Brahe is additionally compared against [**GMAT R2026a**](https://github.com/nasa/GMAT) (NASA Goddard's General Mission Analysis Tool) on 31 of the 32 benchmark tasks. GMAT comparison is activated by setting the `GMAT_ROOT_PATH` environment variable to a local GMAT install; absent that, GMAT comparisons are skipped without affecting the other baselines.
+Brahe is benchmarked against [**OreKit 13.1.5**](https://github.com/CS-SI/Orekit) (Java), the most widely used open-source astrodynamics library, across 32 tasks spanning 8 modules. All three implementations — Java (OreKit), Python (Brahe), and Rust (Brahe) — are given identical inputs (seed=42, 100 iterations) and their outputs are compared for both performance and numerical accuracy. Brahe is additionally compared against [**Basilisk**](https://github.com/AVSLab/basilisk) (AVS Lab) on the 14 tasks across four modules (attitude, orbits, frames, coordinates, and propagation) where the two libraries' user-facing APIs overlap. Brahe is additionally compared against [**GMAT R2026a**](https://github.com/nasa/GMAT) (NASA Goddard's General Mission Analysis Tool) on 31 of the 32 benchmark tasks. GMAT comparison is activated by setting the `GMAT_ROOT_PATH` environment variable to a local GMAT install; absent that, GMAT comparisons are skipped without affecting the other baselines.
 
 !!! tip
 
@@ -10,7 +10,7 @@ Brahe is benchmarked against [**OreKit 12.2**](https://github.com/CS-SI/Orekit) 
 
 **Languages and Libraries**:
 
-- **Java**: [OreKit 12.2](https://github.com/CS-SI/Orekit) on OpenJDK 21
+- **Java**: [OreKit 13.1.5](https://github.com/CS-SI/Orekit) on OpenJDK 21
 - **Python**: Brahe Python bindings (PyO3)
 - **Rust**: Brahe native Rust library
 - **Basilisk**: [AVS Lab Basilisk](https://github.com/AVSLab/basilisk) (`bsk` Python wheel from PyPI), imported in-process by the Python runner; participates on a 14-task subset.
@@ -18,7 +18,12 @@ Brahe is benchmarked against [**OreKit 12.2**](https://github.com/CS-SI/Orekit) 
 
 **Test Environment**: 2021 MacBook Pro, Apple M1 Max, 64 GB RAM
 
-**Protocol**: Each task is run 100 iterations with a fixed random seed. Mean execution time is reported. Accuracy is measured by comparing outputs element-wise against the Java (OreKit) reference implementation.
+**Protocol**: Two independent harnesses share the same task registry:
+
+- **Performance** — each task runs 100 iterations of a single fixed input with a fixed random seed. Mean / median / std / min / max execution time is reported per language.
+- **Accuracy** — each task runs once across a sweep of 100 independent initial conditions (configurable via `--samples`). For every non-baseline language the per-sample max-abs and RMS errors are computed against OreKit, then aggregated to p50 / p95 / p99 / max distributional statistics. Per-module CDFs visualize the full error distribution; per-task scatter plots are emitted where a single scalar (altitude, epoch, …) usefully indexes the sample. Accuracy comparisons take OreKit as the single reference baseline.
+
+The two harnesses write to separate result files (`perf_*` and `accuracy_*.jsonl`) under `benchmarks/comparative/results/`. Quaternion comparisons are performed in rotation-matrix space (Frobenius norm of $R_a - R_b$) so quaternion sign ambiguity does not contribute spurious "errors" — see the Attitude section.
 
 ### Performance Overview
 
@@ -37,19 +42,7 @@ Per-module average Python speedups (relative to OreKit) range from 1.3× to 46×
   <iframe class="only-dark"  src="../figures/fig_bench_speedup_dark.html"  loading="lazy"></iframe>
 </div>
 
-The chart below restricts the comparison to the 14 tasks where Basilisk participates and uses Basilisk as the baseline. See "Notes on Basilisk Comparisons" below for caveats specific to that comparison (gravity coefficient sources, frame definitions, default integrator differences).
-
-<div class="plotly-embed tall">
-  <iframe class="only-light" src="../figures/fig_bench_speedup_vs_basilisk_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../figures/fig_bench_speedup_vs_basilisk_dark.html"  loading="lazy"></iframe>
-</div>
-
-The chart below restricts the comparison to the tasks where GMAT participates and uses GMAT as the baseline.
-
-<div class="plotly-embed x-tall">
-  <iframe class="only-light" src="../figures/fig_bench_speedup_vs_gmat_light.html" loading="lazy"></iframe>
-  <iframe class="only-dark"  src="../figures/fig_bench_speedup_vs_gmat_dark.html"  loading="lazy"></iframe>
-</div>
+OreKit is the single performance reference. Per-baseline speedup charts using Basilisk or GMAT as the denominator are not shown because each ratio is derivable from this chart and the additional framings tend to read as "winner" comparisons rather than the consistency check these benchmarks are intended to support.
 
 ---
 
@@ -66,6 +59,19 @@ Five tasks covering epoch creation and time system conversions (UTC → TAI, TT,
 <div class="plotly-embed">
   <iframe class="only-light" src="../figures/fig_bench_time_light.html" loading="lazy"></iframe>
   <iframe class="only-dark"  src="../figures/fig_bench_time_dark.html"  loading="lazy"></iframe>
+</div>
+
+**Accuracy** (initial-condition sweep; sample count per row; p50 / p95 / p99 / max max-abs error vs Orekit):
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_accuracy_time.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_bench_accuracy_time_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_bench_accuracy_time_dark.html"  loading="lazy"></iframe>
 </div>
 
 ---
@@ -85,10 +91,19 @@ Five tasks covering coordinate system transformations: geodetic/geocentric to/fr
   <iframe class="only-dark"  src="../figures/fig_bench_coordinates_dark.html"  loading="lazy"></iframe>
 </div>
 
+**Accuracy** (initial-condition sweep; sample count per row; p50 / p95 / p99 / max max-abs error vs Orekit):
+
+Geodetic and geocentric outputs combine angular and altitude components in different units; the benchmark converts angle residuals to surface-arc distance so each row reports a single position-equivalent error in meters. The Orekit-vs-GMAT row on the geodetic conversions is dominated by GMAT's choice of equatorial radius (6378.1363 km vs WGS84's 6378.137 km, a ~0.7 m offset documented in `docs/about/benchmark-deviations/coordinates_geodetic_to_ecef.md`); the implementation-level agreement on the WGS84 baselines is sub-nanometer.
+
 <div class="center-table" markdown="1">
 
 {{ read_csv('figures/bench_accuracy_coordinates.csv') }}
 
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_bench_accuracy_coordinates_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_bench_accuracy_coordinates_dark.html"  loading="lazy"></iframe>
 </div>
 
 ---
@@ -108,9 +123,18 @@ Four tasks covering conversions between quaternions, rotation matrices, and Eule
   <iframe class="only-dark"  src="../figures/fig_bench_attitude_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy**: Quaternion ↔ rotation matrix conversions agree to **machine epsilon** ($< 10^{-15}$). Quaternion ↔ Euler angle conversions also agree to machine epsilon.
+**Accuracy**: Quaternion comparisons are performed in rotation-matrix space (Frobenius norm of $R_a - R_b$, where $R$ is the rotation matrix induced by each quaternion). This removes the $q \equiv -q$ sign ambiguity at the comparison boundary, so any residual is a real rotation difference rather than a representation artifact.
 
-The `euler_angle_to_quaternion` task shows a large apparent max absolute error of 0.67 in the raw comparison data. This is a **quaternion sign convention artifact**, not a real error — quaternions $q$ and $-q$ represent the same rotation, so implementations may validly return either sign. The actual rotations are equivalent.
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_accuracy_attitude.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_bench_accuracy_attitude_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_bench_accuracy_attitude_dark.html"  loading="lazy"></iframe>
+</div>
 
 ---
 
@@ -129,12 +153,17 @@ Two tasks covering full 6-DOF state vector transformations between ECEF and ECI 
   <iframe class="only-dark"  src="../figures/fig_bench_frames_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy**:
+**Accuracy** (initial-condition sweep; sample count per row; p50 / p95 / p99 / max max-abs error vs Orekit):
 
 <div class="center-table" markdown="1">
 
 {{ read_csv('figures/bench_accuracy_frames.csv') }}
 
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_bench_accuracy_frames_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_bench_accuracy_frames_dark.html"  loading="lazy"></iframe>
 </div>
 
 ---
@@ -160,6 +189,11 @@ Two tasks covering conversions between Keplerian orbital elements and Cartesian 
 
 </div>
 
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_bench_accuracy_orbits_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_bench_accuracy_orbits_dark.html"  loading="lazy"></iframe>
+</div>
+
 ---
 
 ### Propagation
@@ -177,12 +211,17 @@ Five tasks covering Keplerian (two-body analytical), numerical (RK4/RK78 two-bod
   <iframe class="only-dark"  src="../figures/fig_bench_propagation_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy**:
+**Accuracy** (initial-condition sweep; sample count per row; p50 / p95 / p99 / max max-abs error vs Orekit):
 
 <div class="center-table" markdown="1">
 
 {{ read_csv('figures/bench_accuracy_propagation.csv') }}
 
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_bench_accuracy_propagation_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_bench_accuracy_propagation_dark.html"  loading="lazy"></iframe>
 </div>
 
 ---
@@ -202,7 +241,9 @@ Five tasks evaluating a single acceleration term at a fixed spacecraft state and
   <iframe class="only-dark"  src="../figures/fig_bench_force_model_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy**:
+**Accuracy** (single fixed LEO state; per-pair max-abs error vs Orekit):
+
+Force-model tasks evaluate one acceleration at a fixed spacecraft state, so the accuracy comparison reduces to one residual per implementation pair — there is no distribution to plot. The table is the source of truth for this module.
 
 <div class="center-table" markdown="1">
 
@@ -227,7 +268,15 @@ One task: computing all satellite-to-ground-station access windows over a 48-hou
   <iframe class="only-dark"  src="../figures/fig_bench_access_dark.html"  loading="lazy"></iframe>
 </div>
 
-**Accuracy**: There are slight variations in access window start/end time. Both implementations agree on the total number of access windows.
+**Accuracy** (per-location contact-count and per-window timing residuals vs Orekit):
+
+The table reports, for each backend pair: how many ground locations produced any contacts, the total contact count each backend found across those locations, the worst per-location count mismatch, and the distribution of matched-window start/end time residuals across all locations. Windows are matched greedily by nearest start time within a 120 s tolerance; unmatched windows contribute to the count difference but not the timing residuals.
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_accuracy_access.csv') }}
+
+</div>
 
 ---
 
@@ -266,7 +315,7 @@ Basilisk participates in 14 of 32 tasks. The gap is API-driven, not capability-d
 
 **Frame definitions**: Basilisk-via-pyswice transforms between `J2000` and `ITRF93` using NAIF's high-precision Earth orientation binary PCK (`earth_latest_high_prec.bpc`, downloaded automatically by `bench-compare-setup`). OreKit uses `EME2000` (≡ J2000 to sub-meter precision) and `ITRF` (IERS 2010 conventions). ITRF93 follows the IERS 1996 conventions, so expect kilometer-scale ECEF position differences vs. the Java baseline.
 
-**Propagation methodology**: Basilisk's `SimBaseClass` setup cost is included in the per-iteration timing (matches the OreKit / Rust pattern of timing the full `run`). Basilisk's inertial output (`r_BN_N`, `v_BN_N`, J2000-equatorial) is transformed to GCRF inside the benchmark using `brahe.state_eme2000_to_gcrf` before the accuracy comparison. Basilisk's default Earth `mu` is overridden from `3.986004360e14` to `3.986004418e14` so all three baselines see the same central-body parameter. Gravity coefficients come from `GGM03S` (Basilisk-bundled, up to degree 180) versus EIGEN-5C (Orekit) and brahe's native EGM family. The two-body task uses each library's default high-accuracy integrator (Java: DP8(5,3) adaptive; brahe: DP54 adaptive) but Basilisk's default is fixed-step RK4, so the basilisk row shows accumulated truncation error of ~tens of meters over one LEO orbit — intrinsic to RK4-at-60s, not a Basilisk bug. The three RK4 force-model tasks use RK4 at the same step in all four implementations.
+**Propagation methodology**: Basilisk's `SimBaseClass` setup cost is included in the per-iteration timing (matches the OreKit / Rust pattern of timing the full `run`). Basilisk's inertial output (`r_BN_N`, `v_BN_N`, J2000-equatorial) is transformed to GCRF inside the benchmark using `brahe.state_eme2000_to_gcrf` before the accuracy comparison. Basilisk's default Earth `mu` is overridden from `3.986004360e14` to `3.986004418e14` so all three baselines see the same central-body parameter. Gravity coefficients come from `GGM03S` (Basilisk-bundled, up to degree 180) versus EIGEN-5C (Orekit) and brahe's native EGM family. The numerical two-body and three RK4 force-model tasks all use fixed-step Classical Runge-Kutta 4 (RK4) at the same step size in every implementation, so the residual reflects gravity-coefficient sources and floating-point ordering rather than integrator-precision differences.
 
 **Anomaly convention**: Basilisk's `orbitalMotion.ClassicElements` uses true anomaly in radians; brahe/Orekit use mean anomaly in degrees per the existing benchmark convention. Each library is timed on its native call; conversion happens outside the timed region. Quaternion convention (scalar-first `[w, x, y, z]`) is already consistent across all baselines; Basilisk's `RigidBodyKinematics.EP2C` and brahe's `Quaternion.to_rotation_matrix()` use the same passive-rotation (DCM) convention.
 

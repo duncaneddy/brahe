@@ -11,10 +11,14 @@ import org.orekit.bodies.OneAxisEllipsoid;
 import org.orekit.forces.ForceModel;
 import org.orekit.forces.drag.DragForce;
 import org.orekit.forces.drag.IsotropicDrag;
+import org.orekit.data.DataContext;
+import org.orekit.data.DataProvidersManager;
+import org.orekit.data.DirectoryCrawler;
 import org.orekit.forces.gravity.HolmesFeatherstoneAttractionModel;
 import org.orekit.forces.gravity.NewtonianAttraction;
 import org.orekit.forces.gravity.ThirdBodyAttraction;
 import org.orekit.forces.gravity.potential.GravityFieldFactory;
+import org.orekit.forces.gravity.potential.ICGEMFormatReader;
 import org.orekit.forces.gravity.potential.NormalizedSphericalHarmonicsProvider;
 import org.orekit.forces.radiation.IsotropicRadiationSingleCoefficient;
 import org.orekit.forces.radiation.SolarRadiationPressure;
@@ -46,6 +50,51 @@ import org.orekit.utils.PVCoordinates;
 public class PropagationBenchmark {
 
     private static final double MU = Constants.EIGEN5C_EARTH_MU;
+
+    /** Cached spherical-harmonic provider — keyed by (degree, order). When
+     *  {@code BRAHE_GRAVITY_FILE} is set to an ICGEM (.gfc) path, the file
+     *  is registered with Orekit's data context so {@code
+     *  getNormalizedProvider} reads brahe's bundled EGM2008 coefficients
+     *  instead of Orekit's default EIGEN-6S. Caching avoids re-registering
+     *  the reader (and re-parsing the 7 MB file) on every iteration. */
+    private static NormalizedSphericalHarmonicsProvider cachedGravityProvider;
+    private static int cachedGravityDegree = -1;
+    private static int cachedGravityOrder = -1;
+
+    /** Resolve a normalized spherical-harmonic provider, honoring the
+     *  {@code BRAHE_GRAVITY_FILE} env var if set. The file is expected to
+     *  be in ICGEM format (.gfc); brahe ships {@code EGM2008_360.gfc} so
+     *  the benchmark adapter can point Orekit at the same coefficients
+     *  brahe integrates against. */
+    private static NormalizedSphericalHarmonicsProvider gravityProvider(int degree, int order) {
+        if (cachedGravityProvider != null
+                && cachedGravityDegree == degree
+                && cachedGravityOrder == order) {
+            return cachedGravityProvider;
+        }
+        String braheGravityFile = System.getenv("BRAHE_GRAVITY_FILE");
+        if (braheGravityFile != null && !braheGravityFile.isEmpty()) {
+            java.io.File file = new java.io.File(braheGravityFile);
+            if (file.exists()) {
+                // Register a directory crawler over the gravity-file's parent
+                // so Orekit's DataContext can find the ICGEM file by name.
+                DataProvidersManager mgr =
+                        DataContext.getDefault().getDataProvidersManager();
+                mgr.addProvider(new DirectoryCrawler(file.getParentFile()));
+                // Clear Orekit's default readers (which would otherwise match
+                // ``eigen-6s.gfc`` first) and install only the brahe-bundled
+                // ICGEM reader. ``ICGEMFormatReader(name, false)`` takes the
+                // exact filename to match and "missing coefficients allowed".
+                GravityFieldFactory.clearPotentialCoefficientsReaders();
+                GravityFieldFactory.addPotentialCoefficientsReader(
+                        new ICGEMFormatReader(file.getName(), false));
+            }
+        }
+        cachedGravityProvider = GravityFieldFactory.getNormalizedProvider(degree, order);
+        cachedGravityDegree = degree;
+        cachedGravityOrder = order;
+        return cachedGravityProvider;
+    }
     private static final Frame EME2000 = FramesFactory.getEME2000();
     private static final Frame TEME = FramesFactory.getTEME();
     // brahe integrates in GCRF, so high-fidelity force-model comparisons use GCRF
@@ -402,11 +451,13 @@ public class PropagationBenchmark {
         double srpArea = paramsArray.get(3).getAsDouble();
         double cr = paramsArray.get(4).getAsDouble();
 
-        // Use the gravity provider's mu (matches the EIGEN-6S / EGM constant)
-        // so the Keplerian-to-Cartesian conversion is consistent with the
-        // central term used during integration.
+        // Use the gravity provider's mu (matches whatever ICGEM file is
+        // selected — EGM2008 when BRAHE_GRAVITY_FILE points at brahe's
+        // bundled file, EIGEN-6S otherwise) so the Keplerian-to-Cartesian
+        // conversion is consistent with the central term used during
+        // integration.
         final NormalizedSphericalHarmonicsProvider gravityProvider =
-                GravityFieldFactory.getNormalizedProvider(gravityDegree, gravityOrder);
+                gravityProvider(gravityDegree, gravityOrder);
         final double gm = gravityProvider.getMu();
 
         // Earth shape for drag/SRP.

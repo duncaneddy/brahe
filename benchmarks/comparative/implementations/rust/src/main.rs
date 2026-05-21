@@ -60,6 +60,21 @@ fn find_orekit_eop_file() -> Option<std::path::PathBuf> {
     }
 }
 
+fn find_orekit_sw_file() -> Option<std::path::PathBuf> {
+    let orekit_data = std::env::var("OREKIT_DATA").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").unwrap_or_default();
+        format!("{home}/.orekit/orekit-data")
+    });
+    let sw_path = std::path::PathBuf::from(orekit_data)
+        .join("CSSI-Space-Weather-Data")
+        .join("SpaceWeather-All-v1.2.txt");
+    if sw_path.exists() {
+        Some(sw_path)
+    } else {
+        None
+    }
+}
+
 fn main() {
     // Initialize EOP provider — use OreKit's real IERS data if available
     if let Some(eop_path) = find_orekit_eop_file() {
@@ -76,9 +91,22 @@ fn main() {
         brahe::eop::set_global_eop_provider(eop);
     }
 
-    // Initialize space weather using brahe's packaged file. NRLMSISE-00 drag
-    // requires this; tasks that don't use NRLMSISE-00 are unaffected.
-    if let Ok(provider) = brahe::space_weather::FileSpaceWeatherProvider::from_default_file() {
+    // Initialize space weather from OreKit's CSSI-Space-Weather-Data file
+    // when available so brahe's NRLMSISE-00 drag inputs match Orekit's
+    // ``CssiSpaceWeatherData`` byte-for-byte. Falls back to brahe's
+    // packaged file when the OreKit table isn't on disk.
+    let sw_loaded = find_orekit_sw_file().and_then(|p| {
+        brahe::space_weather::FileSpaceWeatherProvider::from_file(
+            &p,
+            brahe::space_weather::SpaceWeatherExtrapolation::Hold,
+        )
+        .ok()
+    });
+    if let Some(provider) = sw_loaded {
+        brahe::space_weather::set_global_space_weather_provider(provider);
+    } else if let Ok(provider) =
+        brahe::space_weather::FileSpaceWeatherProvider::from_default_file()
+    {
         brahe::space_weather::set_global_space_weather_provider(provider);
     }
 

@@ -8,6 +8,7 @@ import brahe
 
 from benchmarks.comparative.implementations.python.base import (
     ensure_eop,
+    ensure_sw,
     time_iterations,
 )
 from benchmarks.comparative.results import TaskResult
@@ -319,8 +320,8 @@ def _numerical_rk4_run(task_name: str, params: dict, iterations: int) -> TaskRes
     other propagation adapters (see ``keplerian_trajectory``).
     """
     ensure_eop()
-    if params.get("drag") and not brahe.get_global_sw_initialization():
-        brahe.initialize_sw()
+    if params.get("drag"):
+        ensure_sw()
 
     step_size = params["step_size"]
     n_steps = params["n_steps"]

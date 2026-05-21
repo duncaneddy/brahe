@@ -37,7 +37,7 @@ def extract_version_block(changelog_text: str, version: str) -> str:
     """
     pattern = rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}\s*$"
     lines = changelog_text.splitlines()
-    start = next((i for i, l in enumerate(lines) if re.match(pattern, l)), None)
+    start = next((i for i, line in enumerate(lines) if re.match(pattern, line)), None)
     if start is None:
         raise ValueError(f"no '## [{version}] - <date>' heading in changelog")
     end = next((i for i in range(start + 1, len(lines))

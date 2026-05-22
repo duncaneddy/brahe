@@ -28,12 +28,19 @@ class KeplerianToCartesianTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
+        return self._gen_elements(seed, 50)
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return self._gen_elements(seed, n)
+
+    @staticmethod
+    def _gen_elements(seed: int, n: int) -> dict:
         rng = random.Random(seed)
         elements = []
-        for _ in range(50):
+        for _ in range(n):
             a = R_EARTH + rng.uniform(200e3, 36000e3)  # LEO to GEO
             e = rng.uniform(0.001, 0.5)
             i = rng.uniform(0.0, 180.0)  # degrees
@@ -42,6 +49,12 @@ class KeplerianToCartesianTask(BenchmarkTask):
             M = rng.uniform(0.0, 360.0)
             elements.append([a, e, i, raan, argp, M])
         return {"elements": elements}
+
+    def accuracy_sample_key(self, params: dict) -> dict:
+        elem = params.get("elements") if isinstance(params.get("elements"), list) else params
+        if isinstance(elem, list) and len(elem) >= 1:
+            return {"altitude_km": (elem[0] - R_EARTH) / 1000.0}
+        return {}
 
 
 class CartesianToKeplerianTask(BenchmarkTask):
@@ -61,7 +74,7 @@ class CartesianToKeplerianTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def compare_results(
         self,
@@ -135,12 +148,17 @@ class CartesianToKeplerianTask(BenchmarkTask):
         )
 
     def generate_params(self, seed: int) -> dict:
-        # Generate Cartesian states by converting from known Keplerian elements
+        return self._gen_states(seed, 50)
 
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return self._gen_states(seed, n)
+
+    @staticmethod
+    def _gen_states(seed: int, n: int) -> dict:
         rng = random.Random(seed)
         GM = 3.986004418e14  # m^3/s^2
         states = []
-        for _ in range(50):
+        for _ in range(n):
             a = R_EARTH + rng.uniform(200e3, 36000e3)
             e = rng.uniform(0.001, 0.5)
             i = math.radians(rng.uniform(0.0, 180.0))
@@ -180,3 +198,5 @@ class CartesianToKeplerianTask(BenchmarkTask):
             states.append([x, y, z, vx, vy, vz])
 
         return {"states": states}
+
+

@@ -1,9 +1,17 @@
-Task,Comparison,Max Abs Error,RMS Error
-Euler Angle To Quaternion,Java vs Python,0.669 m,0.248 m
-Euler Angle To Quaternion,Java vs Rust,0.669 m,0.248 m
-Quaternion To Euler Angle,Java vs Python,0.0 nm,0.0 nm
-Quaternion To Euler Angle,Java vs Rust,0.0 nm,0.0 nm
-Quaternion To Rotation Matrix,Java vs Python,0.0 nm,0.0 nm
-Quaternion To Rotation Matrix,Java vs Rust,0.0 nm,0.0 nm
-Rotation Matrix To Quaternion,Java vs Python,0.0 nm,0.0 nm
-Rotation Matrix To Quaternion,Java vs Rust,0.0 nm,0.0 nm
+Task,Comparison,Samples,p50 Max Abs,p95 Max Abs,p99 Max Abs,Max Abs
+Euler Angle To Quaternion,Orekit vs Basilisk,200,2.22e-16,4.44e-16,6.66e-16,6.66e-16
+Euler Angle To Quaternion,Orekit vs GMAT,200,3.33e-16,6.66e-16,8.88e-16,8.88e-16
+Euler Angle To Quaternion,Orekit vs Brahe (Python),200,2.22e-16,6.66e-16,8.90e-16,1.33e-15
+Euler Angle To Quaternion,Orekit vs Brahe (Rust),200,2.22e-16,8.88e-16,1.11e-15,1.33e-15
+Quaternion To Euler Angle,Orekit vs Basilisk,200,0,4.55e-16,8.88e-16,1.78e-15
+Quaternion To Euler Angle,Orekit vs GMAT,200,4.16e-17,8.88e-16,8.90e-16,2.22e-15
+Quaternion To Euler Angle,Orekit vs Brahe (Python),200,0,8.88e-16,1.78e-15,1.78e-15
+Quaternion To Euler Angle,Orekit vs Brahe (Rust),200,2.78e-17,8.88e-16,1.78e-15,1.78e-15
+Quaternion To Rotation Matrix,Orekit vs Basilisk,200,1.11e-16,3.33e-16,4.44e-16,5.55e-16
+Quaternion To Rotation Matrix,Orekit vs GMAT,200,2.22e-16,4.44e-16,5.55e-16,7.77e-16
+Quaternion To Rotation Matrix,Orekit vs Brahe (Python),200,2.22e-16,4.47e-16,6.67e-16,7.77e-16
+Quaternion To Rotation Matrix,Orekit vs Brahe (Rust),200,2.22e-16,4.47e-16,6.67e-16,7.77e-16
+Rotation Matrix To Quaternion,Orekit vs Basilisk,200,2.22e-16,6.66e-16,8.88e-16,1.11e-15
+Rotation Matrix To Quaternion,Orekit vs GMAT,200,2.22e-16,6.66e-16,8.88e-16,1.11e-15
+Rotation Matrix To Quaternion,Orekit vs Brahe (Python),200,2.22e-16,6.66e-16,8.88e-16,1.11e-15
+Rotation Matrix To Quaternion,Orekit vs Brahe (Rust),200,2.22e-16,6.66e-16,8.90e-16,1.11e-15

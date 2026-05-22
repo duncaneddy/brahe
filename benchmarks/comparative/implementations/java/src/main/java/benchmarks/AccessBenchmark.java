@@ -101,13 +101,12 @@ public class AccessBenchmark {
                         .withHandler(new EventHandler() {
                             @Override
                             public Action eventOccurred(SpacecraftState s, EventDetector d, boolean increasing) {
+                                // offsetFrom(..., UTC) excludes leap-second insertions; durationFrom would inject a per-leap-second bias into the reported UTC JD.
                                 if (increasing) {
-                                    // Rise event
-                                    riseTime[0] = s.getDate().durationFrom(J2000_UTC);
+                                    riseTime[0] = s.getDate().offsetFrom(J2000_UTC, TimeScalesFactory.getUTC());
                                 } else {
-                                    // Set event
                                     if (!Double.isNaN(riseTime[0])) {
-                                        double setTimeSec = s.getDate().durationFrom(J2000_UTC);
+                                        double setTimeSec = s.getDate().offsetFrom(J2000_UTC, TimeScalesFactory.getUTC());
                                         windows.add(new double[]{riseTime[0], setTimeSec});
                                         riseTime[0] = Double.NaN;
                                     }

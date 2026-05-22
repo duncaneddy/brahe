@@ -86,7 +86,7 @@ _orekit_data_url := "https://gitlab.orekit.org/orekit/orekit-data/-/archive/main
 _orekit_data_dir := env("OREKIT_DATA", "~/.orekit/orekit-data")
 
 # Install all comparative benchmark dependencies
-bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-java _bench-compare-orekit-data
+bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-java _bench-compare-build-basilisk _bench-compare-build-gmat _bench-compare-orekit-data
     uv pip install -e . --quiet
     @echo "✓ Comparative benchmark setup complete. Run: just bench-compare"
 
@@ -114,6 +114,55 @@ _bench-compare-build-java:
     fi
     ./gradlew build
 
+# Install Basilisk Python wheel, pre-fetch its large data files, and
+# download the high-precision Earth orientation binary PCK so that
+# pyswice-based frame transforms can use ITRF93 (matches Orekit's ITRF much
+# more closely than IAU_EARTH, which is a cartographic frame off by ~tens
+# of km from ITRF).
+_bench-compare-build-basilisk:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Installing Basilisk (bsk) Python wheel..."
+    uv pip install --quiet bsk
+    echo "Pre-fetching Basilisk large data (gravity coefficients, SPICE ephemerides)..."
+    {{python}} - <<'PY' || echo "  (large-data pre-fetch skipped; pooch will fetch lazily on first run)"
+    try:
+        from Basilisk.utilities.supportDataTools.dataFetcher import fetchAll
+        fetchAll()
+    except Exception as exc:
+        raise SystemExit(f"large-data pre-fetch failed: {exc}")
+    PY
+    BSK_DATA_DIR="$HOME/.cache/bsk-data"
+    BPC="$BSK_DATA_DIR/earth_latest_high_prec.bpc"
+    if [ ! -f "$BPC" ]; then
+        mkdir -p "$BSK_DATA_DIR"
+        echo "Downloading high-precision Earth orientation binary PCK (~10 MB)..."
+        curl -fSL "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/earth_latest_high_prec.bpc" -o "$BPC"
+    else
+        echo "Earth high-precision PCK already present: $BPC"
+    fi
+    echo "✓ Basilisk installed"
+
+# Generate GMAT's absolute-path API startup file if GMAT_ROOT_PATH is set.
+# Idempotent: re-running overwrites api_startup_file.txt with identical content.
+# Silent skip if GMAT_ROOT_PATH is unset — GMAT is dev-machine-only, not a CI dependency.
+_bench-compare-build-gmat:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "${GMAT_ROOT_PATH:-}" ]; then
+        echo "  GMAT_ROOT_PATH not set; GMAT baseline will be skipped at runtime"
+        exit 0
+    fi
+    if [ ! -f "$GMAT_ROOT_PATH/bin/gmat_startup_file.txt" ]; then
+        echo "  GMAT_ROOT_PATH=$GMAT_ROOT_PATH but bin/gmat_startup_file.txt missing — check install"
+        exit 1
+    fi
+    echo "Generating GMAT api_startup_file.txt..."
+    PYTHON_ABS="$(realpath "{{python}}")"
+    cd "$GMAT_ROOT_PATH/api"
+    "$PYTHON_ABS" BuildApiStartupFile.py
+    echo "✓ GMAT api_startup_file.txt generated at $GMAT_ROOT_PATH/bin/"
+
 # Download OreKit data if not present
 _bench-compare-orekit-data:
     #!/usr/bin/env bash
@@ -136,10 +185,15 @@ _bench-compare-orekit-data:
     rm -f "$TMP_ZIP"
     echo "✓ OreKit data installed: $OREKIT_DIR"
 
-# Run comparative benchmarks across languages
+# Run comparative performance benchmarks (timing only) across languages
 bench-compare *args: _setup
     @uv pip install -e . --quiet
-    @{{python}} -m benchmarks.comparative.runner run {{args}}
+    @{{python}} -m benchmarks.comparative.runner perf {{args}}
+
+# Run comparative accuracy benchmarks (sweep over initial conditions) vs OreKit
+bench-compare-accuracy *args: _setup
+    @uv pip install -e . --quiet
+    @{{python}} -m benchmarks.comparative.runner accuracy {{args}}
 
 # Generate comparison plots from latest benchmark results
 bench-compare-plot *args: _setup
@@ -149,13 +203,16 @@ bench-compare-plot *args: _setup
 bench-compare-list: _setup
     @{{python}} -m benchmarks.comparative.runner list
 
-# Run comparative benchmarks, generate figures + CSV tables, and stage for commit
+# Run comparative benchmarks (perf + accuracy), generate figures + CSV tables, and stage for commit
 bench-compare-publish *args: _setup
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Running comparative benchmarks..."
+    echo "Running performance benchmarks..."
     uv pip install -e . --quiet
-    {{python}} -m benchmarks.comparative.runner run {{args}}
+    {{python}} -m benchmarks.comparative.runner perf {{args}}
+    echo ""
+    echo "Running accuracy benchmarks..."
+    {{python}} -m benchmarks.comparative.runner accuracy {{args}}
     echo ""
     echo "Generating benchmark figures and CSV tables..."
     BRAHE_FIGURE_OUTPUT_DIR=./docs/figures/ {{python}} plots/fig_comparative_benchmarks.py

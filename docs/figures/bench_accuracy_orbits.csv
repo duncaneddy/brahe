@@ -1,5 +1,9 @@
-Task,Comparison,Max Abs Error,RMS Error
-Cartesian To Keplerian,Java vs Python,22.35 nm,2.35 nm
-Cartesian To Keplerian,Java vs Rust,22.35 nm,2.75 nm
-Keplerian To Cartesian,Java vs Python,14.90 nm,2.38 nm
-Keplerian To Cartesian,Java vs Rust,24.21 nm,4.05 nm
+Task,Comparison,Samples,p50 Max Abs,p95 Max Abs,p99 Max Abs,Max Abs
+Cartesian To Keplerian,Orekit vs Basilisk,200,22.12 mm,50.56 mm,64.00 mm,70.68 mm
+Cartesian To Keplerian,Orekit vs GMAT,200,22.12 mm,50.56 mm,64.00 mm,70.68 mm
+Cartesian To Keplerian,Orekit vs Brahe (Python),200,3.73 nm,11.36 nm,22.35 nm,29.80 nm
+Cartesian To Keplerian,Orekit vs Brahe (Rust),200,3.73 nm,14.90 nm,22.35 nm,29.80 nm
+Keplerian To Cartesian,Orekit vs Basilisk,200,1.28 µm,2.20 µm,2.80 µm,3.38 µm
+Keplerian To Cartesian,Orekit vs GMAT,200,1.28 µm,2.20 µm,2.80 µm,3.38 µm
+Keplerian To Cartesian,Orekit vs Brahe (Python),200,3.73 nm,13.07 nm,22.39 nm,37.25 nm
+Keplerian To Cartesian,Orekit vs Brahe (Rust),200,3.73 nm,18.63 nm,37.31 nm,44.70 nm

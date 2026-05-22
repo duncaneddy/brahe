@@ -37,7 +37,19 @@ def _quaternion_to_matrix(q: list[float]) -> list[list[float]]:
 def _compare_quaternions(
     results_a: list, results_b: list, task_name: str, language_a: str, language_b: str
 ) -> AccuracyComparison:
-    """Compare quaternion results accounting for sign ambiguity (q == -q)."""
+    """Compare quaternions by converting to rotation matrices and taking the
+    Frobenius norm of the difference.
+
+    Quaternions q and -q represent the same rotation, so comparing components
+    directly produces spurious "errors" up to magnitude 2 for any sign-flipped
+    pair. Comparing in rotation-matrix space removes the sign ambiguity at the
+    representation boundary: any residual is a real rotation difference.
+
+    The returned `max_abs_error` is the largest per-element residual of
+    (Ra - Rb) across all samples; `rms_error` is the RMS across all elements
+    of all samples. Both are dimensionless (rotation-matrix entries are unit
+    direction cosines).
+    """
     n = min(len(results_a), len(results_b))
     if n == 0:
         return AccuracyComparison(
@@ -57,15 +69,21 @@ def _compare_quaternions(
         qb = results_b[i]
         if not isinstance(qa, (list, tuple)) or len(qa) < 4:
             continue
+        if not isinstance(qb, (list, tuple)) or len(qb) < 4:
+            continue
 
-        # Compute errors for both q and -q, take minimum
-        for j in range(4):
-            err_pos = abs(qa[j] - qb[j])
-            err_neg = abs(qa[j] + qb[j])
-            abs_err = min(err_pos, err_neg)
-            abs_errors.append(abs_err)
-            denom = max(abs(qa[j]), 1e-30)
-            rel_errors.append(abs_err / denom)
+        ra = _quaternion_to_matrix(qa)
+        rb = _quaternion_to_matrix(qb)
+
+        for row in range(3):
+            for col in range(3):
+                diff = abs(ra[row][col] - rb[row][col])
+                abs_errors.append(diff)
+                # Direction-cosine magnitudes are bounded by 1; use 1 as the
+                # denominator floor so relative error stays interpretable when
+                # the reference entry is near zero.
+                denom = max(abs(ra[row][col]), 1.0)
+                rel_errors.append(diff / denom)
 
     if not abs_errors:
         return AccuracyComparison(
@@ -105,10 +123,13 @@ class QuaternionToRotationMatrixTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"quaternions": _generate_random_quaternions(seed)}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"quaternions": _generate_random_quaternions(seed, count=n)}
 
 
 class RotationMatrixToQuaternionTask(BenchmarkTask):
@@ -128,12 +149,16 @@ class RotationMatrixToQuaternionTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         quats = _generate_random_quaternions(seed)
         matrices = [_quaternion_to_matrix(q) for q in quats]
         return {"matrices": matrices}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        quats = _generate_random_quaternions(seed, count=n)
+        return {"matrices": [_quaternion_to_matrix(q) for q in quats]}
 
     def compare_results(
         self,
@@ -164,10 +189,13 @@ class QuaternionToEulerAngleTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"quaternions": _generate_random_quaternions(seed)}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"quaternions": _generate_random_quaternions(seed, count=n)}
 
     def compare_results(
         self,
@@ -245,12 +273,19 @@ class EulerAngleToQuaternionTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
+        return self._gen_angles(seed, 50)
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return self._gen_angles(seed, n)
+
+    @staticmethod
+    def _gen_angles(seed: int, n: int) -> dict:
         rng = random.Random(seed)
         angles = []
-        for _ in range(50):
+        for _ in range(n):
             phi = rng.uniform(-math.pi, math.pi)
             theta = rng.uniform(-math.pi / 2, math.pi / 2)
             psi = rng.uniform(-math.pi, math.pi)

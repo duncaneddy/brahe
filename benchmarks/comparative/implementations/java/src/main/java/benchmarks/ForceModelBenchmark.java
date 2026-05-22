@@ -6,6 +6,7 @@ import org.hipparchus.geometry.euclidean.threed.Vector3D;
 import org.orekit.bodies.CelestialBody;
 import org.orekit.bodies.CelestialBodyFactory;
 import org.orekit.forces.gravity.HolmesFeatherstoneAttractionModel;
+import org.orekit.forces.gravity.NewtonianAttraction;
 import org.orekit.forces.gravity.ThirdBodyAttraction;
 import org.orekit.forces.gravity.potential.GravityFieldFactory;
 import org.orekit.forces.gravity.potential.NormalizedSphericalHarmonicsProvider;
@@ -19,15 +20,19 @@ import org.orekit.time.TimeComponents;
 import org.orekit.time.TimeScalesFactory;
 import org.orekit.utils.Constants;
 import org.orekit.utils.IERSConventions;
-import org.orekit.utils.PVCoordinates;
 import org.orekit.utils.TimeStampedPVCoordinates;
 
 /**
  * OreKit function-level force-model acceleration benchmarks.
  *
- * <p>Each task evaluates a single acceleration term at a fixed state and epoch,
- * so the comparison with brahe isolates the force-model implementation from
- * the propagator and integrator.
+ * <p>Each task supports two input shapes:
+ * <ul>
+ *   <li>Perf (single IC): one fixed state, inner loop of {@code n_samples}
+ *       repetitions for amortized timing — returns one acceleration vector.</li>
+ *   <li>Accuracy (multi-IC): a {@code cases} array of {jd, state_eci} ICs,
+ *       evaluated once each — returns one acceleration per case so the
+ *       accuracy harness can compare per-sample and build a distribution.</li>
+ * </ul>
  */
 public class ForceModelBenchmark {
 
@@ -68,89 +73,70 @@ public class ForceModelBenchmark {
         return new SpacecraftState(orbit);
     }
 
-    public static JsonObject accelPointMassGravity(JsonObject params, int iterations) {
-        double jd = params.get("jd").getAsDouble();
-        JsonArray stateArr = params.getAsJsonArray("state_eci");
-        int nSamples = params.get("n_samples").getAsInt();
-
-        AbsoluteDate epoch = jdToDate(jd);
-        Vector3D r = new Vector3D(
-                stateArr.get(0).getAsDouble(),
-                stateArr.get(1).getAsDouble(),
-                stateArr.get(2).getAsDouble());
-
-        JsonArray timesArray = new JsonArray();
-        JsonArray resultsArray = new JsonArray();
-
-        for (int iter = 0; iter < iterations; iter++) {
-            long start = System.nanoTime();
-            Vector3D a = Vector3D.ZERO;
-            for (int j = 0; j < nSamples; j++) {
-                // a = -mu * r / |r|^3 — direct evaluation, parallels brahe's
-                // accel_point_mass_gravity for r_central_body = 0.
-                double r3 = r.getNorm() * r.getNorm() * r.getNorm();
-                a = r.scalarMultiply(-MU / r3);
-            }
-            double elapsed = (System.nanoTime() - start) / 1e9;
-            timesArray.add(elapsed);
-            if (iter == 0) {
-                addAccel(resultsArray, a);
-            }
-        }
-
-        // Output uses a 2D array so the comparator can flatten it the same way
-        // as the propagation benchmarks' results.
-        JsonArray wrappedResults = resultsArray;
-        if (resultsArray.size() == 1 && resultsArray.get(0).isJsonArray()) {
-            // already a list-of-lists with single element
-            wrappedResults = resultsArray;
-        }
-
-        JsonObject output = new JsonObject();
-        output.add("times_seconds", timesArray);
-        output.add("results", wrappedResults);
-        return output;
+    /** Functional shape of "evaluate this force model at this spacecraft state". */
+    @FunctionalInterface
+    private interface AccelEval {
+        Vector3D evaluate(SpacecraftState state);
     }
 
-    private static JsonObject accelSphericalHarmonicsRun(JsonObject params, int iterations) {
-        double jd = params.get("jd").getAsDouble();
-        JsonArray stateArr = params.getAsJsonArray("state_eci");
-        int nSamples = params.get("n_samples").getAsInt();
-        int degree = params.get("degree").getAsInt();
-        int order = params.get("order").getAsInt();
+    /** Factory: per-state construction of the force-model evaluator. */
+    @FunctionalInterface
+    private interface EvalFactory {
+        AccelEval forState(SpacecraftState state);
+    }
 
-        AbsoluteDate epoch = jdToDate(jd);
-        SpacecraftState scState = buildState(epoch, stateArr);
-
-        NormalizedSphericalHarmonicsProvider provider =
-                GravityFieldFactory.getNormalizedProvider(degree, order);
-        HolmesFeatherstoneAttractionModel gravity =
-                new HolmesFeatherstoneAttractionModel(ITRF, provider);
-        gravity.init(scState, scState.getDate());
-        double[] modelParams = gravity.getParameters(scState.getDate());
-        // Orekit's HolmesFeatherstoneAttractionModel returns the non-central
-        // perturbations only. brahe's accel_gravity_spherical_harmonics returns
-        // the full gravity including the central term. To make the comparison
-        // apples-to-apples we add the central GM/r^2 term to Orekit's output.
-        final double providerMu = provider.getMu();
-        final Vector3D position = scState.getPosition();
-
+    /**
+     * Single dispatch point for the perf vs. accuracy paths. Each task hands in
+     * an {@link EvalFactory} that constructs the per-state evaluator (because
+     * Orekit force models cache state-dependent parameters in their
+     * {@code init()} call, the evaluator must be rebuilt per case on the
+     * accuracy path).
+     */
+    private static JsonObject runForceModel(JsonObject params, int iterations, EvalFactory factory) {
         JsonArray timesArray = new JsonArray();
         JsonArray resultsArray = new JsonArray();
 
-        for (int iter = 0; iter < iterations; iter++) {
-            long start = System.nanoTime();
-            Vector3D a = Vector3D.ZERO;
-            for (int j = 0; j < nSamples; j++) {
-                Vector3D aPert = gravity.acceleration(scState, modelParams);
-                double r3 = position.getNorm() * position.getNorm() * position.getNorm();
-                Vector3D aCentral = position.scalarMultiply(-providerMu / r3);
-                a = aPert.add(aCentral);
+        if (params.has("cases")) {
+            // Accuracy path: one evaluation per case.
+            JsonArray cases = params.getAsJsonArray("cases");
+            for (int iter = 0; iter < iterations; iter++) {
+                long start = System.nanoTime();
+                JsonArray iterResults = new JsonArray();
+                for (int c = 0; c < cases.size(); c++) {
+                    JsonObject caseObj = cases.get(c).getAsJsonObject();
+                    AbsoluteDate epoch = jdToDate(caseObj.get("jd").getAsDouble());
+                    SpacecraftState scState =
+                            buildState(epoch, caseObj.getAsJsonArray("state_eci"));
+                    AccelEval eval = factory.forState(scState);
+                    Vector3D a = eval.evaluate(scState);
+                    addAccel(iterResults, a);
+                }
+                double elapsed = (System.nanoTime() - start) / 1e9;
+                timesArray.add(elapsed);
+                if (iter == 0) {
+                    resultsArray = iterResults;
+                }
             }
-            double elapsed = (System.nanoTime() - start) / 1e9;
-            timesArray.add(elapsed);
-            if (iter == 0) {
-                addAccel(resultsArray, a);
+        } else {
+            // Perf path: single state, inner loop of n_samples for timing.
+            double jd = params.get("jd").getAsDouble();
+            JsonArray stateArr = params.getAsJsonArray("state_eci");
+            int nSamples = params.get("n_samples").getAsInt();
+            AbsoluteDate epoch = jdToDate(jd);
+            SpacecraftState scState = buildState(epoch, stateArr);
+            AccelEval eval = factory.forState(scState);
+
+            for (int iter = 0; iter < iterations; iter++) {
+                long start = System.nanoTime();
+                Vector3D a = Vector3D.ZERO;
+                for (int j = 0; j < nSamples; j++) {
+                    a = eval.evaluate(scState);
+                }
+                double elapsed = (System.nanoTime() - start) / 1e9;
+                timesArray.add(elapsed);
+                if (iter == 0) {
+                    addAccel(resultsArray, a);
+                }
             }
         }
 
@@ -158,6 +144,44 @@ public class ForceModelBenchmark {
         output.add("times_seconds", timesArray);
         output.add("results", resultsArray);
         return output;
+    }
+
+    public static JsonObject accelPointMassGravity(JsonObject params, int iterations) {
+        // Use Orekit's native NewtonianAttraction so the timed work is the
+        // library's own point-mass evaluation, matching the pattern used by
+        // the spherical-harmonics and third-body tasks below.
+        return runForceModel(params, iterations, scState -> {
+            NewtonianAttraction gravity = new NewtonianAttraction(MU);
+            gravity.init(scState, scState.getDate());
+            double[] modelParams = gravity.getParameters(scState.getDate());
+            return s -> gravity.acceleration(s, modelParams);
+        });
+    }
+
+    private static JsonObject accelSphericalHarmonicsRun(JsonObject params, int iterations) {
+        int degree = params.get("degree").getAsInt();
+        int order = params.get("order").getAsInt();
+
+        NormalizedSphericalHarmonicsProvider provider =
+                GravityFieldFactory.getNormalizedProvider(degree, order);
+        // Orekit's HolmesFeatherstoneAttractionModel returns the non-central
+        // perturbations only; brahe returns the full gravity including the central
+        // term. We add the central GM/r^2 back to Orekit's output to compare apples-to-apples.
+        final double providerMu = provider.getMu();
+
+        return runForceModel(params, iterations, scState -> {
+            HolmesFeatherstoneAttractionModel gravity =
+                    new HolmesFeatherstoneAttractionModel(ITRF, provider);
+            gravity.init(scState, scState.getDate());
+            double[] modelParams = gravity.getParameters(scState.getDate());
+            return s -> {
+                Vector3D aPert = gravity.acceleration(s, modelParams);
+                Vector3D position = s.getPosition();
+                double r3 = position.getNorm() * position.getNorm() * position.getNorm();
+                Vector3D aCentral = position.scalarMultiply(-providerMu / r3);
+                return aPert.add(aCentral);
+            };
+        });
     }
 
     public static JsonObject accelSphericalHarmonics20(JsonObject params, int iterations) {
@@ -170,37 +194,12 @@ public class ForceModelBenchmark {
 
     private static JsonObject accelThirdBodyRun(
             JsonObject params, int iterations, CelestialBody body) {
-        double jd = params.get("jd").getAsDouble();
-        JsonArray stateArr = params.getAsJsonArray("state_eci");
-        int nSamples = params.get("n_samples").getAsInt();
-
-        AbsoluteDate epoch = jdToDate(jd);
-        SpacecraftState scState = buildState(epoch, stateArr);
-
-        ThirdBodyAttraction force = new ThirdBodyAttraction(body);
-        force.init(scState, scState.getDate());
-        double[] modelParams = force.getParameters(scState.getDate());
-
-        JsonArray timesArray = new JsonArray();
-        JsonArray resultsArray = new JsonArray();
-
-        for (int iter = 0; iter < iterations; iter++) {
-            long start = System.nanoTime();
-            Vector3D a = Vector3D.ZERO;
-            for (int j = 0; j < nSamples; j++) {
-                a = force.acceleration(scState, modelParams);
-            }
-            double elapsed = (System.nanoTime() - start) / 1e9;
-            timesArray.add(elapsed);
-            if (iter == 0) {
-                addAccel(resultsArray, a);
-            }
-        }
-
-        JsonObject output = new JsonObject();
-        output.add("times_seconds", timesArray);
-        output.add("results", resultsArray);
-        return output;
+        return runForceModel(params, iterations, scState -> {
+            ThirdBodyAttraction force = new ThirdBodyAttraction(body);
+            force.init(scState, scState.getDate());
+            double[] modelParams = force.getParameters(scState.getDate());
+            return s -> force.acceleration(s, modelParams);
+        });
     }
 
     public static JsonObject accelThirdBodySun(JsonObject params, int iterations) {

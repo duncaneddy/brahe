@@ -121,6 +121,7 @@ addopts = "-m 'not ci'"
 testpaths = [
     "tests",
 ]
+pythonpath = ["."]
 
 [tool.coverage.run]
 source = ["brahe"]

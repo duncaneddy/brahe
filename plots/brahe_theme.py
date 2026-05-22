@@ -13,6 +13,8 @@ LIGHT_THEME = {
     "primary": "#1f77b4",  # Blue
     "secondary": "#ff7f0e",  # Orange
     "accent": "#2ca02c",  # Green
+    "quaternary": "#9467bd",  # Purple — used for Basilisk in comparative benchmarks
+    "quinary": "#8c564b",  # Brown — used for GMAT in comparative benchmarks
     "error": "#d62728",  # Red
     "grid_color": "LightGrey",
     "line_color": "Grey",
@@ -24,6 +26,8 @@ DARK_THEME = {
     "primary": "#79b8ff",  # Lighter blue for dark mode
     "secondary": "#ffaa44",  # Lighter orange for dark mode
     "accent": "#55cc55",  # Lighter green for dark mode
+    "quaternary": "#b794dc",  # Lighter purple for dark mode
+    "quinary": "#b07050",  # Lighter brown for dark mode — used for GMAT
     "error": "#ff6b6b",  # Lighter red for dark mode
     "grid_color": "#444444",
     "line_color": "#666666",
@@ -167,6 +171,38 @@ body {
 </style>
 """
 
+    # Auto-size script: after the figure body has laid out, post the
+    # content height to the parent window. The docs page listens for
+    # this in ``javascripts/iframe-autosize.js`` and resizes the iframe
+    # to match, so each embed self-sizes without the docs author having
+    # to pick a CSS class per chart. The fallback fixed-size CSS class
+    # (``plotly-embed``) still applies for environments where the
+    # script can't run (PDF export, isolated previews).
+    autosize_script = """
+<script>
+(function () {
+  function report() {
+    if (!window.parent || window.parent === window) {
+      return;
+    }
+    var h = document.body && document.body.scrollHeight;
+    if (!h) {
+      return;
+    }
+    window.parent.postMessage(
+      { type: 'brahe-fig-height', height: h },
+      '*'
+    );
+  }
+  if (document.readyState === 'complete') {
+    setTimeout(report, 0);
+  } else {
+    window.addEventListener('load', function () { setTimeout(report, 0); });
+  }
+})();
+</script>
+"""
+
     # Determine if fig_generator is callable or a figure
     is_callable = callable(fig_generator)
 
@@ -184,7 +220,7 @@ body {
         auto_play=False,
         config={"responsive": True},
     )
-    html_light = custom_css + html_light
+    html_light = custom_css + html_light + autosize_script
     with open(light_path, "w") as f:
         f.write(html_light)
 
@@ -202,7 +238,7 @@ body {
         auto_play=False,
         config={"responsive": True},
     )
-    html_dark = custom_css + html_dark
+    html_dark = custom_css + html_dark + autosize_script
     with open(dark_path, "w") as f:
         f.write(html_dark)
 

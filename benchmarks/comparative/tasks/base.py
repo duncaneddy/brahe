@@ -4,6 +4,7 @@ Base class for benchmark task specifications.
 
 import math
 from abc import ABC, abstractmethod
+from typing import Any
 
 from benchmarks.comparative.results import AccuracyComparison
 
@@ -40,10 +41,80 @@ class BenchmarkTask(ABC):
         """Subprocess timeout in seconds. Override for slow tasks."""
         return 300
 
+    @property
+    def default_accuracy_samples(self) -> int:
+        """Upper cap on the accuracy harness sample count for this task.
+
+        The harness uses ``min(--samples, default_accuracy_samples)`` per
+        task, so this functions as a ceiling for tasks whose per-sample
+        cost is high (the RK4 80x80 + drag + SRP case overrides this to
+        30). The base default is intentionally large so a ``--samples``
+        request from the CLI is the effective sample count for every
+        ordinary task.
+        """
+        return 1000
+
     @abstractmethod
     def generate_params(self, seed: int) -> dict:
         """Generate deterministic benchmark parameters from seed."""
         ...
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        """Build a params dict containing `n` independent inputs for the
+        accuracy harness.
+
+        Default: delegates to `generate_params(seed)`, which preserves
+        today's behavior for tasks whose natural batch is already the right
+        coverage (e.g. attitude tasks with 50 quaternions). Tasks whose
+        helper takes an explicit count should override to thread `n`
+        through.
+
+        Tasks where one big input is the whole point (e.g. the 48-hour
+        access task) may simply return `generate_params(seed)` and let the
+        harness's "treat the single output as N=1" path take over.
+        """
+        return self.generate_params(seed)
+
+    def post_process(self, language: str, result: Any) -> Any:
+        """Apply per-language alignment (frames, units, conventions) to a
+        result before accuracy comparison.
+
+        Default: identity. Tasks override when a language reports values in
+        a frame, unit, or convention that differs from the OreKit baseline.
+
+        This is the single place to declare those alignments so the
+        comparison logic lives next to the task spec rather than inside the
+        language-specific runner modules.
+        """
+        return result
+
+    def accuracy_sample_key(self, params: dict) -> dict:
+        """Return a dict of scalars describing each sample, used as the
+        x-axis for accuracy scatter plots and to surface in JSONL detail
+        records.
+
+        Default: empty dict (only CDF plots are emitted). Tasks where one
+        parameter dominates (altitude for orbit-based tasks, epoch for
+        time-based tasks) override to return e.g. `{"altitude_km": ...}`.
+        """
+        return {}
+
+    def detailed_sample_metrics(
+        self,
+        baseline_sample,
+        comparison_sample,
+    ) -> dict:
+        """Return per-sample metrics computed from the actual result
+        values (not from params). Merged into ``AccuracySample.sample_key``
+        by the accuracy harness so a task-specific CSV writer can break
+        the comparison out into multiple metric columns / rows.
+
+        Default: empty dict — tasks whose ``compare_results`` summary
+        captures everything they care about don't need to populate this.
+        Access overrides this to surface contact-count and per-window
+        start/end timing residuals alongside the rolled-up max_abs.
+        """
+        return {}
 
     def compare_results(
         self,

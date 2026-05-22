@@ -126,20 +126,19 @@ public class AttitudeBenchmark {
                 double y = q.get(2).getAsDouble();
                 double z = q.get(3).getAsDouble();
 
+                // Use Hipparchus' native quaternion-to-Euler API so the timed work
+                // is the library's own conversion (not a hand-rolled getMatrix +
+                // atan2 path). RotationOrder.ZYX with VECTOR_OPERATOR yields the
+                // intrinsic ZYX (yaw-pitch-roll) decomposition that brahe and the
+                // basilisk adapter also report.
                 Rotation rot = new Rotation(w, x, y, z, false);
-                double[][] mat = rot.getMatrix();
-
-                // Extract ZYX Euler angles using Brahe's column-based convention:
-                // R = Rz(phi) * Ry(theta) * Rx(psi)
-                double phi = Math.atan2(-mat[1][0], mat[0][0]);
-                double theta = Math.asin(mat[2][0]);
-                double psi = Math.atan2(-mat[2][1], mat[2][2]);
+                double[] angles = rot.getAngles(RotationOrder.ZYX, RotationConvention.FRAME_TRANSFORM);
 
                 if (iter == 0) {
                     JsonArray result = new JsonArray();
-                    result.add(phi);   // Z rotation
-                    result.add(theta); // Y rotation
-                    result.add(psi);   // X rotation
+                    result.add(angles[0]); // phi  (Z rotation)
+                    result.add(angles[1]); // theta (Y rotation)
+                    result.add(angles[2]); // psi  (X rotation)
                     iterResults.add(result);
                 }
             }
@@ -174,18 +173,15 @@ public class AttitudeBenchmark {
                 double theta = a.get(1).getAsDouble();
                 double psi = a.get(2).getAsDouble();
 
-                // Build rotation matrix using Brahe's convention: R = Rz(phi) * Ry(theta) * Rx(psi)
-                double cp = Math.cos(phi), sp = Math.sin(phi);
-                double ct = Math.cos(theta), st = Math.sin(theta);
-                double cs = Math.cos(psi), ss = Math.sin(psi);
-
-                double[][] mat = {
-                    { cp*ct,  cp*st*ss - sp*cs,  cp*st*cs + sp*ss },
-                    { sp*ct,  sp*st*ss + cp*cs,  sp*st*cs - cp*ss },
-                    { -st,    ct*ss,             ct*cs             }
-                };
-
-                Rotation rot = new Rotation(mat, 1e-10);
+                // Use Hipparchus' native Euler-to-quaternion API so the timed work
+                // is the library's own conversion (not a hand-rolled DCM build +
+                // matrix-to-quaternion path). RotationOrder.ZYX with VECTOR_OPERATOR
+                // gives the aerospace intrinsic ZYX (yaw-pitch-roll) rotation —
+                // phi about z first, theta about the new y', psi about the new x'' —
+                // matching brahe and the basilisk adapter.
+                Rotation rot = new Rotation(RotationOrder.ZYX,
+                                            RotationConvention.FRAME_TRANSFORM,
+                                            phi, theta, psi);
 
                 if (iter == 0) {
                     JsonArray result = new JsonArray();

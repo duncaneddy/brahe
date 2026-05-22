@@ -52,10 +52,13 @@ class EpochCreationTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
 
 
 class UtcToTaiTask(BenchmarkTask):
@@ -75,10 +78,13 @@ class UtcToTaiTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
 
 
 class UtcToTtTask(BenchmarkTask):
@@ -98,10 +104,13 @@ class UtcToTtTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
 
 
 class UtcToGpsTask(BenchmarkTask):
@@ -121,10 +130,13 @@ class UtcToGpsTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
 
 
 class UtcToUt1Task(BenchmarkTask):
@@ -144,10 +156,13 @@ class UtcToUt1Task(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return {"datetimes": _generate_random_datetimes(seed)}
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return {"datetimes": _generate_random_datetimes(seed, count=n)}
 
     def compare_results(
         self,

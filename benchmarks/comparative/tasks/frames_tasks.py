@@ -12,14 +12,18 @@ R_EARTH = 6378137.0  # meters
 GM = 3.986004418e14  # m^3/s^2
 
 
-def _generate_frame_params(seed: int) -> dict:
-    """Generate 50 test cases with JD epochs and 6D state vectors."""
+def _generate_frame_params(seed: int, n: int = 50) -> dict:
+    """Generate ``n`` test cases with JD epochs and 6D state vectors."""
     rng = random.Random(seed)
     cases = []
 
-    for idx in range(50):
-        # Spread epochs over 2024 (JD 2460310.5 = 2024-01-01T00:00:00 UTC)
-        jd = 2460310.5 + idx * 7.0 + rng.uniform(0.0, 7.0)  # ~weekly over a year
+    for _ in range(n):
+        # Spread epochs uniformly across 2024 (JD 2460310.5 = 2024-01-01T00:00:00 UTC).
+        # Don't index-walk past one year — Basilisk's pyswice ITRF93 PCK
+        # coverage doesn't extend far past the data file's bundled horizon, so
+        # an "idx * 7 days" spread used to break at N > ~150 with a SPICE
+        # "no coverage" error in frames tasks.
+        jd = 2460310.5 + rng.uniform(0.0, 365.0)
 
         # Generate random Keplerian elements and convert to Cartesian
         a = R_EARTH + rng.uniform(200e3, 36000e3)
@@ -63,6 +67,11 @@ def _generate_frame_params(seed: int) -> dict:
     return {"cases": cases}
 
 
+def _altitude_km_from_state(state: list[float]) -> float:
+    r = math.sqrt(state[0] ** 2 + state[1] ** 2 + state[2] ** 2)
+    return (r - R_EARTH) / 1000.0
+
+
 class StateEciToEcefTask(BenchmarkTask):
     """Benchmark ECI to ECEF 6D state transformation."""
 
@@ -80,10 +89,18 @@ class StateEciToEcefTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return _generate_frame_params(seed)
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return _generate_frame_params(seed, n=n)
+
+    def accuracy_sample_key(self, params: dict) -> dict:
+        if "state" in params and isinstance(params["state"], list):
+            return {"altitude_km": _altitude_km_from_state(params["state"])}
+        return {}
 
     def compare_results(
         self,
@@ -140,10 +157,18 @@ class StateEcefToEciTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "basilisk", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return _generate_frame_params(seed)
+
+    def generate_accuracy_samples(self, seed: int, n: int) -> dict:
+        return _generate_frame_params(seed, n=n)
+
+    def accuracy_sample_key(self, params: dict) -> dict:
+        if "state" in params and isinstance(params["state"], list):
+            return {"altitude_km": _altitude_km_from_state(params["state"])}
+        return {}
 
     def compare_results(
         self,

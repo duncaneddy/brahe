@@ -1,0 +1,40 @@
+"""Profile: <one-line description of what this workload exercises>.
+
+Replace this docstring with what you're trying to measure. Keep it short —
+the workload itself is the documentation.
+"""
+
+from __future__ import annotations
+
+import brahe as bh
+
+from _common import (
+    default_leo_state,
+    duration_from_env,
+    run_until_elapsed,
+    setup_providers,
+)
+
+
+def main() -> None:
+    setup_providers()
+    epoch, state = default_leo_state()
+    duration_s = duration_from_env()
+
+    # TODO: customise the force model / API call for this workload.
+    force = bh.ForceModelConfig(
+        gravity=bh.GravityConfiguration(),
+    )
+    prop_cfg = bh.NumericalPropagationConfig.default()
+
+    def workload() -> None:
+        prop = bh.NumericalOrbitPropagator(epoch, state, prop_cfg, force)
+        prop.propagate_to(epoch + 86400.0)
+        _ = prop.current_state()
+
+    iters = run_until_elapsed(duration_s, workload)
+    print(f"<TASK_NAME>: {iters} iterations in ~{duration_s:.1f}s")
+
+
+if __name__ == "__main__":
+    main()

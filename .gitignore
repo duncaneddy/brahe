@@ -89,3 +89,8 @@ benchmarks/comparative/results/
 benchmarks/comparative/implementations/rust/target/
 benchmarks/comparative/implementations/java/.gradle/
 benchmarks/comparative/implementations/java/build/
+
+# Profiling artifacts (see profiles/README.md)
+profiles/results/*
+!profiles/results/.gitkeep
+profiles/rust/target/

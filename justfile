@@ -223,6 +223,141 @@ bench-compare-publish *args: _setup
     echo ""
     echo "✓ Benchmark artifacts staged. Review with 'git status' and commit when ready."
 
+# ───── Profiling ─────
+
+# Set up the full dev environment (Python dev deps + Rust dev tools).
+# Idempotent: only installs samply if not already on PATH.
+dev-setup: _setup
+    uv sync --group dev
+    @command -v samply > /dev/null 2>&1 || cargo install samply
+    @echo "✓ Dev environment ready (samply $(samply --version 2>/dev/null || echo 'missing'), py-spy $(py-spy --version 2>/dev/null || echo 'missing'))"
+
+# Internal: verify the profiling tools are installed and bail with a helpful
+# message if not. Split per tool so `profile-rust` doesn't fail when py-spy
+# is missing (and vice versa).
+_check-samply:
+    @command -v samply > /dev/null 2>&1 || { echo "samply not found. Run: just dev-setup"; exit 1; }
+
+_check-py-spy:
+    @test -x .venv/bin/py-spy || command -v py-spy > /dev/null 2>&1 || { echo "py-spy not found. Run: just dev-setup"; exit 1; }
+
+# Profile a Rust workload (CPU sampling via samply by default; pass --heap
+# for dhat-heap allocation profiling).
+# Flags: --duration N (default 10), --no-open, --heap
+profile-rust name *flags: _check-samply
+    #!/usr/bin/env bash
+    set -euo pipefail
+    DURATION=10; OPEN=1; HEAP=0
+    set -- {{flags}}
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --duration=*)   DURATION="${1#*=}" ;;
+        --duration)     shift; DURATION="$1" ;;
+        --no-open)      OPEN=0 ;;
+        --heap)         HEAP=1 ;;
+        *) echo "unknown flag: $1" >&2; exit 2 ;;
+      esac
+      shift
+    done
+    TS="$(date +%Y-%m-%dT%H-%M-%S)"
+    mkdir -p profiles/results
+    if [ "$HEAP" -eq 1 ]; then
+        echo "  Building rk4 task (profile=profiling, features=dhat-heap)..."
+        cargo build --manifest-path profiles/rust/Cargo.toml \
+            --profile profiling --features dhat-heap --bin {{name}}
+        OUT="profiles/results/${TS}_{{name}}.dhat.json"
+        BIN_ABS="$(pwd)/profiles/rust/target/profiling/{{name}}"
+        echo "  Running {{name}} (duration=${DURATION}s, heap mode)..."
+        (cd profiles/results && PROFILE_DURATION_S=$DURATION "$BIN_ABS")
+        mv profiles/results/dhat-heap.json "$OUT"
+        echo "  Wrote $OUT"
+        if [ "$OPEN" -eq 1 ]; then
+            (open "https://nnethercote.github.io/dh_view/dh_view.html" 2>/dev/null \
+                || xdg-open "https://nnethercote.github.io/dh_view/dh_view.html" 2>/dev/null \
+                || echo "  (open manually: https://nnethercote.github.io/dh_view/dh_view.html)")
+            echo "  → Drag $OUT into the dh_view page to load it."
+        fi
+    else
+        echo "  Building {{name}} (profile=profiling)..."
+        cargo build --manifest-path profiles/rust/Cargo.toml --profile profiling --bin {{name}}
+        OUT="profiles/results/${TS}_{{name}}.json.gz"
+        echo "  Sampling {{name}} (duration=${DURATION}s)..."
+        PROFILE_DURATION_S=$DURATION samply record \
+            --save-only --output "$OUT" \
+            profiles/rust/target/profiling/{{name}}
+        echo "  Wrote $OUT"
+        if [ "$OPEN" -eq 1 ]; then
+            samply load "$OUT"
+        else
+            echo "  (--no-open: load later with: samply load $OUT)"
+        fi
+    fi
+
+# Profile a Python workload using py-spy with --native to unwind into the
+# Rust extension.
+# Flags: --duration N (default 10), --no-open
+profile-python name *flags: _check-py-spy
+    #!/usr/bin/env bash
+    set -euo pipefail
+    DURATION=10; OPEN=1
+    set -- {{flags}}
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --duration=*)   DURATION="${1#*=}" ;;
+        --duration)     shift; DURATION="$1" ;;
+        --no-open)      OPEN=0 ;;
+        *) echo "unknown flag: $1" >&2; exit 2 ;;
+      esac
+      shift
+    done
+    SCRIPT="profiles/python/{{name}}.py"
+    if [ ! -f "$SCRIPT" ]; then
+        echo "no such profile: $SCRIPT" >&2
+        exit 1
+    fi
+    TS="$(date +%Y-%m-%dT%H-%M-%S)"
+    mkdir -p profiles/results
+    OUT="profiles/results/${TS}_{{name}}.svg"
+    echo "  Sampling {{name}} (duration=${DURATION}s, py-spy --native)..."
+    if [ -x .venv/bin/py-spy ]; then PYSPY=".venv/bin/py-spy"; else PYSPY="py-spy"; fi
+    PROFILE_DURATION_S=$DURATION PYTHONPATH=profiles/python \
+        "$PYSPY" record --native --output "$OUT" --format flamegraph \
+            --duration "$DURATION" \
+            -- "$(pwd)/.venv/bin/python" "$SCRIPT"
+    echo "  Wrote $OUT"
+    if [ "$OPEN" -eq 1 ]; then
+        (open "$OUT" 2>/dev/null \
+            || xdg-open "$OUT" 2>/dev/null \
+            || echo "  (open manually: $OUT)")
+    else
+        echo "  (--no-open: open later with your browser)"
+    fi
+
+# List available profile tasks (auto-discovered from profiles/rust/src/bin/
+# and profiles/python/).
+profile-list:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Rust profiles (run with 'just profile-rust <name>'):"
+    for f in profiles/rust/src/bin/*.rs; do
+      name="$(basename "$f" .rs)"
+      [[ "$name" == _* ]] && continue
+      echo "  - $name"
+    done
+    echo ""
+    echo "Python profiles (run with 'just profile-python <name>'):"
+    for f in profiles/python/*.py; do
+      name="$(basename "$f" .py)"
+      [[ "$name" == _* ]] && continue
+      echo "  - $name"
+    done
+
+# Run both Rust and Python flavors of the same task for side-by-side comparison.
+# Honors --duration and --no-open; --heap is not supported (CPU only).
+profile-compare name *flags:
+    @just profile-rust {{name}} {{flags}}
+    @just profile-python {{name}} {{flags}}
+
 # ───── Code Quality ─────
 
 # Format all code (Rust + Python)

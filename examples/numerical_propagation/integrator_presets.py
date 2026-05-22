@@ -11,9 +11,11 @@ import brahe as bh
 default = bh.NumericalPropagationConfig.default()
 high_precision = bh.NumericalPropagationConfig.high_precision()
 rkf45 = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RKF45)
+rkf78 = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RKF78)
 rk4 = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RK4)
 
 print(f"default():        {default.method}")
 print(f"high_precision(): {high_precision.method}")
 print(f"with_method(RKF45): {rkf45.method}")
+print(f"with_method(RKF78): {rkf78.method}")
 print(f"with_method(RK4):   {rk4.method}")

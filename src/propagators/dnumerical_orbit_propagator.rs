@@ -121,6 +121,7 @@ type SharedDynamics =
 /// |----------|-----------------|-----------------------|-----------------|
 /// | RK4      | 4               | yes                   | stage 1 == 2    |
 /// | RKF45    | 6               | yes                   | none            |
+/// | RKF78    | 13              | yes                   | none            |
 /// | DP54     | 6 (FSAL)        | yes                   | none            |
 /// | RKN1210  | 17              | yes                   | none            |
 ///
@@ -565,12 +566,7 @@ impl<E, S, F> DNumericalOrbitPropagatorBuilder<E, S, F> {
     ///
     /// # Returns
     /// Builder for method chaining
-    pub fn control_input(
-        mut self,
-        control: Box<
-            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
-        >,
-    ) -> Self {
+    pub fn control_input(mut self, control: DStateDynamics) -> Self {
         self.data.control_input = Some(control);
         self
     }
@@ -1556,6 +1552,7 @@ impl DNumericalOrbitPropagator {
     ///
     /// Computes the state derivative for given time, state, and parameters.
     /// This is the actual force model evaluation logic.
+    #[allow(clippy::too_many_arguments)]
     fn compute_dynamics(
         t: f64,
         state: &DVector<f64>,
@@ -7437,6 +7434,19 @@ mod tests {
         );
         assert!(prop_rkf45.is_ok());
 
+        // Test with RKF78
+        let prop_rkf78 = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            NumericalPropagationConfig::with_method(IntegratorMethod::RKF78),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(prop_rkf78.is_ok());
+
         // Test with RKN1210
         let prop_rkn = DNumericalOrbitPropagator::new(
             epoch,
@@ -11690,9 +11700,7 @@ mod tests {
             dx
         });
 
-        let control: Box<
-            dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync,
-        > = Box::new(|_t, state, _params| {
+        let control: DStateDynamics = Box::new(|_t, state, _params| {
             // Small tangential thrust
             let v = Vector3::new(state[3], state[4], state[5]);
             let v_mag = v.norm();

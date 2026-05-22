@@ -24,6 +24,7 @@ def test_integrationmethod_classattrs():
     """Test IntegrationMethod class attributes"""
     assert IntegrationMethod.RK4 is not None
     assert IntegrationMethod.RKF45 is not None
+    assert IntegrationMethod.RKF78 is not None
     assert IntegrationMethod.DP54 is not None
     assert IntegrationMethod.RKN1210 is not None
 
@@ -32,6 +33,7 @@ def test_integrationmethod_is_adaptive():
     """Test IntegrationMethod.is_adaptive()"""
     assert not IntegrationMethod.RK4.is_adaptive()
     assert IntegrationMethod.RKF45.is_adaptive()
+    assert IntegrationMethod.RKF78.is_adaptive()
     assert IntegrationMethod.DP54.is_adaptive()
     assert IntegrationMethod.RKN1210.is_adaptive()
 

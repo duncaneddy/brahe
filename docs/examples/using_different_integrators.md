@@ -1,6 +1,6 @@
 # Comparing Integrator Performance
 
-In this example, we'll compare the performance of different numerical integrators (RK4, RKF45, DP54, and RKN1210) by propagating a satellite orbit over 7 days and analyzing their accuracy and efficiency. We'll measure integration quality by tracking how well each method conserves orbital energy and angular momentum—quantities that should remain constant in two-body orbital dynamics.
+In this example, we'll compare the performance of different numerical integrators (RK4, RKF45, RKF78, DP54, and RKN1210) by propagating a satellite orbit over 7 days and analyzing their accuracy and efficiency. We'll measure integration quality by tracking how well each method conserves orbital energy and angular momentum—quantities that should remain constant in two-body orbital dynamics.
 
 ---
 
@@ -110,7 +110,7 @@ Key observations:
 - **RKF45** and **DP54** reduce steps by ~4× but show more energy/momentum drift
 - **RKN1210** achieves the best accuracy with far fewer steps (~64× fewer than RK4)
 
-The energy and angular momentum errors reveal an important pattern: adaptive low-order methods (RKF45, DP54) can accumulate more error over long integrations despite taking fewer steps, while the high-order RKN1210 maintains excellent conservation properties.
+The energy and angular momentum errors reveal an important pattern: adaptive lower-order methods (RKF45, DP54) can accumulate more error over long integrations despite taking fewer steps, while higher-order methods such as RKF78 and RKN1210 are useful when tight tolerances justify the additional stage evaluations.
 
 ## Angular Momentum Conservation
 

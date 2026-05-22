@@ -24,6 +24,7 @@ Brahe provides four integration methods with different accuracy and performance 
 |------------|-------|------|--------|
 | **RK4** | 4 | Fixed | 4 |
 | **RKF45** | 4(5) | Adaptive | 6 |
+| **RKF78** | 7(8) | Adaptive | 13 |
 | **DP54** | 5(4) | Adaptive | 7 (6 effective) |
 | **RKN1210** | 12(10) | Adaptive | 17 |
 </div>
@@ -235,7 +236,7 @@ They can be propagated by integrating the variational equations alongside the st
 ## Module Contents
 
 - **[Fixed-Step Integrators](fixed_step.md)** - RK4 and fixed-step integration
-- **[Adaptive-Step Integrators](adaptive_step.md)** - RKF45, DP54, and RKN1210
+- **[Adaptive-Step Integrators](adaptive_step.md)** - RKF45, RKF78, DP54, and RKN1210
 - **[Variational Equations](variational_equations.md)** - State Transition Matrix propagation and theory
 - **[Configuration Guide](configuration.md)** - Choosing tolerances and tuning parameters
 

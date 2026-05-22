@@ -1448,6 +1448,586 @@ impl PyRKF45DIntegrator {
     }
 }
 
+/// Runge-Kutta-Fehlberg 7(8) adaptive integrator.
+///
+/// Embedded 8th/7th order method with automatic step size control. The integrator
+/// uses error estimation from the embedded solution to adapt the timestep for
+/// efficiency and accuracy.
+///
+/// Args:
+///     dimension (int): State vector dimension
+///     dynamics_fn (callable): Dynamics function with signature (t: float, state: ndarray) -> ndarray
+///     jacobian (DAnalyticJacobian or DNumericalJacobian, optional): Jacobian provider for variational matrix propagation
+///     config (IntegratorConfig, optional): Integration configuration
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     def dynamics(t, state):
+///         # dy/dt = -y
+///         return -state
+///
+///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
+///     integrator = bh.RKF78Integrator(dimension=1, dynamics_fn=dynamics, config=config)
+///
+///     # Adaptive step (tolerances from config)
+///     result = integrator.step(0.0, np.array([1.0]), 0.1)
+///     print(f"New state: {result.state}")
+///     print(f"Step used: {result.dt_used}")
+///     print(f"Next step suggestion: {result.dt_next}")
+///     ```
+#[pyclass(module = "brahe._brahe", unsendable)]
+#[pyo3(name = "RKF78Integrator")]
+pub struct PyRKF78DIntegrator {
+    inner: RKF78DIntegrator,
+    dimension: usize,
+}
+
+#[pymethods]
+impl PyRKF78DIntegrator {
+    /// Create a new RKF78 integrator.
+    #[allow(deprecated)]
+    #[new]
+    #[pyo3(signature = (dimension, dynamics_fn, jacobian=None, sensitivity=None, control_fn=None, config=None))]
+    pub fn new(
+        py: Python<'_>,
+        dimension: usize,
+        dynamics_fn: Py<PyAny>,
+        jacobian: Option<Py<PyAny>>,
+        sensitivity: Option<Py<PyAny>>,
+        control_fn: Option<Py<PyAny>>,
+        config: Option<PyIntegratorConfig>,
+    ) -> PyResult<Self> {
+        // Create Rust closure for dynamics (Arc for thread safety)
+        // Note: Uses 3-argument closure (t, state, params) for sensitivity support
+        let dynamics_closure = {
+            let dynamics_fn_arc = Arc::new(dynamics_fn.clone_ref(py));
+            move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+                Python::attach(|py| {
+                    let state_py = state.as_slice().to_pyarray(py);
+                    let result = dynamics_fn_arc
+                        .call1(py, (t, state_py))
+                        .expect("Failed to call dynamics function");
+                    let result_vec = pyany_to_f64_array1(result.bind(py), Some(dimension))
+                        .expect("Dynamics function returned invalid array");
+                    na::DVector::from_vec(result_vec)
+                })
+            }
+        };
+
+        // Create Rust closure for control input if provided
+        let control: brahe::integrators::traits::DControlInput = if let Some(ctrl_fn) = control_fn {
+            let ctrl_fn_arc = Arc::new(ctrl_fn.clone_ref(py));
+            Some(Box::new(move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+                Python::attach(|py| {
+                    let state_py = state.as_slice().to_pyarray(py);
+                    let result = ctrl_fn_arc
+                        .call1(py, (t, state_py))
+                        .expect("Failed to call control function");
+                    let result_vec = pyany_to_f64_array1(result.bind(py), Some(dimension))
+                        .expect("Control function returned invalid array");
+                    na::DVector::from_vec(result_vec)
+                })
+            }))
+        } else {
+            None
+        };
+
+        // Handle optional Jacobian provider (same as RK4)
+        let varmat: Option<Box<dyn DJacobianProvider>> = if let Some(jac_obj) = jacobian {
+            Python::attach(|py| {
+                let jac = jac_obj.bind(py);
+
+                if let Ok(num_jac) = jac.extract::<PyRef<PyDNumericalJacobian>>() {
+                    let jac_arc = Arc::new(num_jac.dynamics_fn.clone_ref(py));
+                    let jac_method = num_jac.method;
+                    let jac_pert = num_jac.perturbation;
+
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DVector<f64> {
+                        Python::attach(|py| {
+                            let state_py = state.as_slice().to_pyarray(py);
+                            let result = jac_arc
+                                .call1(py, (t, state_py))
+                                .expect("Failed to call Jacobian dynamics");
+                            let result_vec = pyany_to_f64_array1(result.bind(py), Some(dimension))
+                                .expect("Jacobian dynamics returned invalid array");
+                            na::DVector::from_vec(result_vec)
+                        })
+                    };
+
+                    let mut provider = match jac_method {
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::jacobian::DNumericalJacobian::forward(Box::new(jac_closure))
+                        }
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::jacobian::DNumericalJacobian::central(Box::new(jac_closure))
+                        }
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
+                            brahe::math::jacobian::DNumericalJacobian::backward(Box::new(jac_closure))
+                        }
+                    };
+
+                    provider = match jac_pert {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
+                            scale_factor,
+                            min_value,
+                        } => provider.with_adaptive(scale_factor, min_value),
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                            provider.with_fixed_offset(offset)
+                        }
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                            provider.with_percentage(pct)
+                        }
+                    };
+
+                    Ok(Some(Box::new(provider) as Box<dyn DJacobianProvider>))
+                } else if let Ok(ana_jac) = jac.extract::<PyRef<PyDAnalyticJacobian>>() {
+                    let jac_arc = Arc::new(ana_jac.jacobian_fn.clone_ref(py));
+
+                    let jac_closure = move |t: f64, state: &na::DVector<f64>, _params: Option<&na::DVector<f64>>| -> na::DMatrix<f64> {
+                        Python::attach(|py| {
+                            let state_py = state.as_slice().to_pyarray(py);
+                            let result = jac_arc
+                                .call1(py, (t, state_py))
+                                .expect("Failed to call Jacobian function");
+                            let jac_matrix_vec =
+                                pyany_to_f64_array2(result.bind(py), Some((dimension, dimension)))
+                                    .expect("Jacobian function returned invalid array");
+
+                            let mut jac_matrix = na::DMatrix::<f64>::zeros(dimension, dimension);
+                            for i in 0..dimension {
+                                for j in 0..dimension {
+                                    jac_matrix[(i, j)] = jac_matrix_vec[i][j];
+                                }
+                            }
+                            jac_matrix
+                        })
+                    };
+
+                    let provider = brahe::math::jacobian::DAnalyticJacobian::new(Box::new(jac_closure));
+                    Ok(Some(Box::new(provider) as Box<dyn DJacobianProvider>))
+                } else {
+                    Err(exceptions::PyTypeError::new_err(
+                        "jacobian must be DNumericalJacobian or DAnalyticJacobian",
+                    ))
+                }
+            })?
+        } else {
+            None
+        };
+
+        // Handle optional sensitivity provider
+        let sensmat: Option<Box<dyn DSensitivityProvider>> = if let Some(sens_obj) = sensitivity {
+            Python::attach(|py| {
+                let sens = sens_obj.bind(py);
+
+                // Try to extract as PyDNumericalSensitivity
+                if let Ok(num_sens) = sens.extract::<PyRef<PyDNumericalSensitivity>>() {
+                    let sens_arc = Arc::new(num_sens.dynamics_fn.clone_ref(py));
+                    let sens_method = num_sens.method;
+                    let sens_pert = num_sens.perturbation;
+
+                    let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DVector<f64> {
+                        Python::attach(|py| {
+                            let state_py = state.as_slice().to_pyarray(py);
+                            let params_py = params.as_slice().to_pyarray(py);
+                            let result = sens_arc
+                                .call1(py, (t, state_py, params_py))
+                                .expect("Failed to call sensitivity dynamics");
+                            let result_vec = pyany_to_f64_array1(result.bind(py), Some(state.len()))
+                                .expect("Sensitivity dynamics returned invalid array");
+                            na::DVector::from_vec(result_vec)
+                        })
+                    };
+
+                    let mut provider = match sens_method {
+                        brahe::math::jacobian::DifferenceMethod::Forward => {
+                            brahe::math::sensitivity::DNumericalSensitivity::forward(Box::new(sens_closure))
+                        }
+                        brahe::math::jacobian::DifferenceMethod::Central => {
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                        }
+                        brahe::math::jacobian::DifferenceMethod::Backward => {
+                            brahe::math::sensitivity::DNumericalSensitivity::central(Box::new(sens_closure))
+                        }
+                    };
+
+                    provider = match sens_pert {
+                        brahe::math::jacobian::PerturbationStrategy::Adaptive {
+                            scale_factor,
+                            min_value,
+                        } => provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Adaptive {
+                            scale_factor,
+                            min_value,
+                        }),
+                        brahe::math::jacobian::PerturbationStrategy::Fixed(offset) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Fixed(offset))
+                        }
+                        brahe::math::jacobian::PerturbationStrategy::Percentage(pct) => {
+                            provider.with_strategy(brahe::math::jacobian::PerturbationStrategy::Percentage(pct))
+                        }
+                    };
+
+                    Ok(Some(Box::new(provider) as Box<dyn DSensitivityProvider>))
+                } else if let Ok(ana_sens) = sens.extract::<PyRef<PyDAnalyticSensitivity>>() {
+                    let sens_arc = Arc::new(ana_sens.sensitivity_fn.clone_ref(py));
+
+                    let sens_closure = move |t: f64, state: &na::DVector<f64>, params: &na::DVector<f64>| -> na::DMatrix<f64> {
+                        Python::attach(|py| {
+                            let state_py = state.as_slice().to_pyarray(py);
+                            let params_py = params.as_slice().to_pyarray(py);
+                            let result = sens_arc
+                                .call1(py, (t, state_py, params_py))
+                                .expect("Failed to call sensitivity function");
+                            let state_dim = state.len();
+                            let param_dim = params.len();
+                            let sens_matrix_vec =
+                                pyany_to_f64_array2(result.bind(py), Some((state_dim, param_dim)))
+                                    .expect("Sensitivity function returned invalid array");
+
+                            let mut sens_matrix = na::DMatrix::<f64>::zeros(state_dim, param_dim);
+                            for i in 0..state_dim {
+                                for j in 0..param_dim {
+                                    sens_matrix[(i, j)] = sens_matrix_vec[i][j];
+                                }
+                            }
+                            sens_matrix
+                        })
+                    };
+
+                    let provider = brahe::math::sensitivity::DAnalyticSensitivity::new(Box::new(sens_closure));
+                    Ok(Some(Box::new(provider) as Box<dyn DSensitivityProvider>))
+                } else {
+                    Err(exceptions::PyTypeError::new_err(
+                        "sensitivity must be NumericalSensitivity or AnalyticSensitivity",
+                    ))
+                }
+            })?
+        } else {
+            None
+        };
+
+        // Create integrator
+        let inner = if let Some(cfg) = config {
+            RKF78DIntegrator::with_config(dimension, Box::new(dynamics_closure), varmat, sensmat, control, cfg.inner)
+        } else {
+            RKF78DIntegrator::new(dimension, Box::new(dynamics_closure), varmat, sensmat, control)
+        };
+
+        Ok(PyRKF78DIntegrator { inner, dimension })
+    }
+
+    /// Perform one adaptive integration step.
+    ///
+    /// Tolerances are read from the integrator's configuration.
+    ///
+    /// Args:
+    ///     t (float): Current time
+    ///     state (ndarray): State vector at time t
+    ///     dt (float): Requested timestep
+    ///
+    /// Returns:
+    ///     AdaptiveStepResult: Result containing new state, actual dt used, error estimate, and suggested next dt
+    pub fn step<'py>(
+        &self,
+        _py: Python<'py>,
+        t: f64,
+        state: PyReadonlyArray1<f64>,
+        dt: f64,
+    ) -> PyResult<PyAdaptiveStepDResult> {
+        // Convert state to DVector
+        let state_vec = state.as_slice()?;
+        let state_dvec = na::DVector::from_vec(state_vec.to_vec());
+
+        // Perform step
+        let result = self.inner.step(t, state_dvec, None, Some(dt));
+
+        Ok(PyAdaptiveStepDResult { inner: result })
+    }
+
+    /// Perform one adaptive integration step with variational matrix.
+    ///
+    /// Tolerances are read from the integrator's configuration.
+    ///
+    /// Args:
+    ///     t (float): Current time
+    ///     state (ndarray): State vector at time t
+    ///     phi (ndarray): State transition matrix (dimension x dimension)
+    ///     dt (float): Requested timestep
+    ///
+    /// Returns:
+    ///     tuple: (new_state, new_phi, dt_used, error_estimate, dt_next)
+    #[allow(clippy::type_complexity)]
+    pub fn step_with_varmat<'py>(
+        &self,
+        py: Python<'py>,
+        t: f64,
+        state: PyReadonlyArray1<f64>,
+        phi: PyReadonlyArray2<f64>,
+        dt: f64,
+    ) -> PyResult<(
+        Bound<'py, PyArray<f64, Ix1>>,
+        Bound<'py, PyArray<f64, Ix2>>,
+        f64,
+        f64,
+        f64,
+    )> {
+        // Convert inputs
+        let state_vec = state.as_slice()?;
+        let state_dvec = na::DVector::from_vec(state_vec.to_vec());
+
+        let phi_array = phi.as_array();
+        let mut phi_dmat = na::DMatrix::<f64>::zeros(self.dimension, self.dimension);
+        for i in 0..self.dimension {
+            for j in 0..self.dimension {
+                phi_dmat[(i, j)] = phi_array[[i, j]];
+            }
+        }
+
+        // Perform step
+        let result = self.inner.step_with_varmat(t, state_dvec, None, phi_dmat, Some(dt));
+
+        // Convert results to NumPy
+        let state_np = result.state.as_slice().to_pyarray(py);
+
+        let new_phi = result.phi.expect("Variational matrix should be present");
+        let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
+        for i in 0..self.dimension {
+            for j in 0..self.dimension {
+                phi_flat.push(new_phi[(i, j)]);
+            }
+        }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
+        let phi_np = phi_flat
+            .into_pyarray(py)
+            .reshape([self.dimension, self.dimension])?;
+
+        Ok((state_np, phi_np, dt_used, error_est, dt_next))
+    }
+
+    /// Advance state and sensitivity matrix with adaptive step control.
+    ///
+    /// Propagates the sensitivity matrix S that maps parameter uncertainties
+    /// to state uncertainties. The sensitivity evolves according to dS/dt = A*S + B.
+    ///
+    /// Args:
+    ///     t (float): Current time
+    ///     state (np.ndarray): State vector at time t
+    ///     sens (np.ndarray): Sensitivity matrix at time t (state_dim x param_dim)
+    ///     params (np.ndarray): Parameter vector
+    ///     dt (float): Requested timestep
+    ///
+    /// Returns:
+    ///     tuple: (new_state, new_sensitivity, dt_used, error_estimate, dt_next)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Setup integrator with Jacobian and sensitivity providers
+    ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
+    ///     integrator = bh.RKF78Integrator(6, dynamics, jacobian, sensitivity, config)
+    ///     state = np.array([...])
+    ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
+    ///     params = np.array([1.0, 2.0])
+    ///
+    ///     new_state, new_sens, dt_used, error, dt_next = integrator.step_with_sensmat(
+    ///         0.0, state, sens, params, 1.0
+    ///     )
+    ///     ```
+    #[allow(clippy::type_complexity)]
+    pub fn step_with_sensmat<'py>(
+        &self,
+        py: Python<'py>,
+        t: f64,
+        state: PyReadonlyArray1<f64>,
+        sens: PyReadonlyArray2<f64>,
+        params: PyReadonlyArray1<f64>,
+        dt: f64,
+    ) -> PyResult<(
+        Bound<'py, PyArray<f64, Ix1>>,
+        Bound<'py, PyArray<f64, Ix2>>,
+        f64,
+        f64,
+        f64,
+    )> {
+        // Convert state to DVector
+        let state_vec = state.as_slice()?;
+        let state_dvec = na::DVector::from_vec(state_vec.to_vec());
+
+        // Convert sensitivity matrix to DMatrix
+        let sens_array = sens.as_array();
+        let sens_shape = sens_array.shape();
+        let num_params = sens_shape[1];
+        let mut sens_dmat = na::DMatrix::<f64>::zeros(self.dimension, num_params);
+        for i in 0..self.dimension {
+            for j in 0..num_params {
+                sens_dmat[(i, j)] = sens_array[[i, j]];
+            }
+        }
+
+        // Convert params to DVector
+        let params_vec = params.as_slice()?;
+        let params_dvec = na::DVector::from_vec(params_vec.to_vec());
+
+        // Perform step
+        let result = self.inner.step_with_sensmat(
+            t, state_dvec, sens_dmat, &params_dvec, Some(dt)
+        );
+
+        // Convert results to NumPy
+        let state_np = result.state.as_slice().to_pyarray(py);
+
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
+        let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
+        for i in 0..self.dimension {
+            for j in 0..num_params {
+                sens_flat.push(new_sens[(i, j)]);
+            }
+        }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
+        let sens_np = sens_flat
+            .into_pyarray(py)
+            .reshape([self.dimension, num_params])?;
+
+        Ok((state_np, sens_np, dt_used, error_est, dt_next))
+    }
+
+    /// Advance state, variational matrix (STM), and sensitivity matrix with adaptive step control.
+    ///
+    /// Propagates both matrices simultaneously for complete uncertainty quantification:
+    /// - STM (Phi): Maps initial state uncertainties to current state uncertainties
+    /// - Sensitivity (S): Maps parameter uncertainties to state uncertainties
+    ///
+    /// Args:
+    ///     t (float): Current time
+    ///     state (np.ndarray): State vector at time t
+    ///     phi (np.ndarray): State transition matrix at time t (state_dim x state_dim)
+    ///     sens (np.ndarray): Sensitivity matrix at time t (state_dim x param_dim)
+    ///     params (np.ndarray): Parameter vector
+    ///     dt (float): Requested timestep
+    ///
+    /// Returns:
+    ///     tuple: (new_state, new_phi, new_sensitivity, dt_used, error_estimate, dt_next)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     # Setup integrator with Jacobian and sensitivity providers
+    ///     config = bh.IntegratorConfig.adaptive(abs_tol=1e-9, rel_tol=1e-6)
+    ///     integrator = bh.RKF78Integrator(6, dynamics, jacobian, sensitivity, config)
+    ///     state = np.array([...])
+    ///     phi = np.eye(6)
+    ///     sens = np.zeros((6, 2))  # 6 state dims, 2 params
+    ///     params = np.array([1.0, 2.0])
+    ///
+    ///     new_state, new_phi, new_sens, dt_used, error, dt_next = integrator.step_with_varmat_sensmat(
+    ///         0.0, state, phi, sens, params, 1.0
+    ///     )
+    ///     ```
+    #[allow(clippy::type_complexity)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn step_with_varmat_sensmat<'py>(
+        &self,
+        py: Python<'py>,
+        t: f64,
+        state: PyReadonlyArray1<f64>,
+        phi: PyReadonlyArray2<f64>,
+        sens: PyReadonlyArray2<f64>,
+        params: PyReadonlyArray1<f64>,
+        dt: f64,
+    ) -> PyResult<(
+        Bound<'py, PyArray<f64, Ix1>>,
+        Bound<'py, PyArray<f64, Ix2>>,
+        Bound<'py, PyArray<f64, Ix2>>,
+        f64,
+        f64,
+        f64,
+    )> {
+        // Convert state to DVector
+        let state_vec = state.as_slice()?;
+        let state_dvec = na::DVector::from_vec(state_vec.to_vec());
+
+        // Convert phi to DMatrix
+        let phi_array = phi.as_array();
+        let mut phi_dmat = na::DMatrix::<f64>::zeros(self.dimension, self.dimension);
+        for i in 0..self.dimension {
+            for j in 0..self.dimension {
+                phi_dmat[(i, j)] = phi_array[[i, j]];
+            }
+        }
+
+        // Convert sensitivity matrix to DMatrix
+        let sens_array = sens.as_array();
+        let sens_shape = sens_array.shape();
+        let num_params = sens_shape[1];
+        let mut sens_dmat = na::DMatrix::<f64>::zeros(self.dimension, num_params);
+        for i in 0..self.dimension {
+            for j in 0..num_params {
+                sens_dmat[(i, j)] = sens_array[[i, j]];
+            }
+        }
+
+        // Convert params to DVector
+        let params_vec = params.as_slice()?;
+        let params_dvec = na::DVector::from_vec(params_vec.to_vec());
+
+        // Perform step
+        let result = self.inner.step_with_varmat_sensmat(
+            t, state_dvec, phi_dmat, sens_dmat, &params_dvec, Some(dt)
+        );
+
+        // Convert results to NumPy
+        let state_np = result.state.as_slice().to_pyarray(py);
+
+        let new_phi = result.phi.expect("Variational matrix should be present");
+        let mut phi_flat = Vec::with_capacity(self.dimension * self.dimension);
+        for i in 0..self.dimension {
+            for j in 0..self.dimension {
+                phi_flat.push(new_phi[(i, j)]);
+            }
+        }
+        let phi_np = phi_flat
+            .into_pyarray(py)
+            .reshape([self.dimension, self.dimension])?;
+
+        let new_sens = result.sens.expect("Sensitivity matrix should be present");
+        let mut sens_flat = Vec::with_capacity(self.dimension * num_params);
+        for i in 0..self.dimension {
+            for j in 0..num_params {
+                sens_flat.push(new_sens[(i, j)]);
+            }
+        }
+        let dt_used = result.dt_used;
+        let error_est = result.error_estimate.expect("Error estimate should be present for adaptive integrator");
+        let dt_next = result.dt_next;
+        let sens_np = sens_flat
+            .into_pyarray(py)
+            .reshape([self.dimension, num_params])?;
+
+        Ok((state_np, phi_np, sens_np, dt_used, error_est, dt_next))
+    }
+
+    /// Get state vector dimension.
+    #[getter]
+    fn dimension(&self) -> usize {
+        self.dimension
+    }
+
+    fn __repr__(&self) -> String {
+        format!("RKF78Integrator(dimension={})", self.dimension)
+    }
+}
+
 /// Dormand-Prince 5(4) adaptive integrator (MATLAB's ode45).
 ///
 /// More efficient than RKF45 due to FSAL (First Same As Last) property. This is

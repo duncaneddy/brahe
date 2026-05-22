@@ -5,7 +5,7 @@
 """
 Compares different numerical integrators on two-body orbital dynamics.
 
-This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+This example demonstrates how to use RK4, RKF45, RKF78, DP54, and RKN1210 integrators
 to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
 Angular momentum conservation is used as a measure of integration quality.
 """
@@ -235,10 +235,69 @@ results.append(
 
 
 # ============================================================================
-# INTEGRATOR 3: DP54 (Adaptive)
+# INTEGRATOR 3: RKF78 (High-order adaptive)
 # ============================================================================
 
-print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("3. RKF78 - Runge-Kutta-Fehlberg 7(8) (High-order adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf78]
+integrator_rkf78 = bh.RKF78Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf78 = []
+h_errors_rkf78 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf78.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf78.append(t / 86400.0)  # Convert to days
+        h_errors_rkf78.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf78]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF78",
+        "type": "High-order",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf78,
+        "h_errors": h_errors_rkf78,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: DP54 (Adaptive)
+# ============================================================================
+
+print("4. DP54 - Dormand-Prince 5(4) (Adaptive)")
 print("-" * 70)
 
 # --8<-- [start:dp]
@@ -294,10 +353,10 @@ results.append(
 
 
 # ============================================================================
-# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# INTEGRATOR 5: RKN1210 (High-precision adaptive)
 # ============================================================================
 
-print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("5. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
 print("-" * 70)
 
 # --8<-- [start:rkn]
@@ -378,7 +437,7 @@ print()
 print("Key Observations:")
 print("• RK4 requires many steps with accumulated drift in conserved quantities")
 print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
-print("• RKN1210 maintains best conservation with far fewer steps")
+print("• RKF78 and RKN1210 improve conservation when tighter accuracy is needed")
 print("• Angular momentum conservation indicates integration quality")
 print("=" * 70)
 
@@ -420,8 +479,8 @@ fig.add_trace(
         x=results[2]["times"],
         y=results[2]["h_errors"],
         mode="lines",
-        name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        name="RKF78 (High-order)",
+        line=dict(color="purple", width=2),
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -430,6 +489,17 @@ fig.add_trace(
     go.Scatter(
         x=results[3]["times"],
         y=results[3]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[4]["times"],
+        y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
         line=dict(color="grey", width=2),

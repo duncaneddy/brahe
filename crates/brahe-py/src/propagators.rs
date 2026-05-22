@@ -2828,6 +2828,12 @@ impl PyIntegrationMethod {
         PyIntegrationMethod { method: propagators::IntegratorMethod::RKF45 }
     }
 
+    /// Runge-Kutta-Fehlberg 7(8) adaptive
+    #[classattr]
+    fn RKF78() -> Self {
+        PyIntegrationMethod { method: propagators::IntegratorMethod::RKF78 }
+    }
+
     /// Dormand-Prince 5(4) adaptive (default, MATLAB's ode45)
     #[classattr]
     fn DP54() -> Self {

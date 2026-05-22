@@ -1602,8 +1602,8 @@ impl ops::AddAssign<f64> for Epoch {
         // (~8.64e13 ns) lands entirely in the nanoseconds field, and
         // align_epoch_data has to carry that overflow back out.
         //
-        // Splitting up front also keeps the Kahan-summed value 
-        // bounded by ~1e9, which improves the  compensator's 
+        // Splitting up front also keeps the Kahan-summed value
+        // bounded by ~1e9, which improves the  compensator's
         // resolution for the sub-second fraction.
         let f_seconds = f.trunc();
         let f_subsec = f - f_seconds;
@@ -2983,7 +2983,7 @@ mod tests {
         let (y, m, d, h, mi, s, ns) = epc.to_datetime();
         assert_eq!((y, m, d, h, mi), (2024, 1, 2, 0, 0));
         assert_eq!(s, 0.0);
-        assert_eq!(ns, 500_000_001.23456789);
+        assert_eq!(ns, 500_000_001.234_567_9);
     }
 
     #[test]

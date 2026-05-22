@@ -132,7 +132,7 @@ class GeodeticToEcefTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk", "gmat"]
+        return ["python", "rust", "java", "basilisk", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         return self._gen_points(seed, 50)
@@ -169,7 +169,7 @@ class EcefToGeodeticTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk", "gmat"]
+        return ["python", "rust", "java", "basilisk", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         return self._gen_points(seed, 50)
@@ -330,7 +330,7 @@ class EcefToAzelTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java"]
+        return ["python", "rust", "java", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         rng = random.Random(seed)

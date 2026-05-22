@@ -101,19 +101,20 @@ MODULE_LABELS = {
     "access": "Access",
 }
 
-# Language display order and colors (Orekit -> GMAT -> Basilisk -> brahe-py -> brahe-rs)
-LANGUAGES = ["java", "gmat", "basilisk", "python", "rust"]
+# Language display order and colors (Orekit -> GMAT -> Basilisk -> Nyx -> brahe-py -> brahe-rs)
+LANGUAGES = ["java", "gmat", "basilisk", "nyx", "python", "rust"]
 LANGUAGE_LABELS = {
     "java": "Orekit",
     "gmat": "GMAT",
     "basilisk": "Basilisk",
+    "nyx": "Nyx",
     "python": "Brahe (Python)",
     "rust": "Brahe (Rust)",
 }
 
 
 def _get_language_colors(theme: str) -> dict[str, str]:
-    """Per-language colors: Java=blue, GMAT=brown, Python(brahe)=orange, Rust=green, Basilisk=purple."""
+    """Per-language colors: Orekit=CNES blue, GMAT=NASA red, Brahe Python=Star-Trek orange, Brahe Rust=green, Basilisk=CU Boulder gold, Nyx=magenta."""
     colors = get_theme_colors(theme)
     return {
         "java": colors["primary"],
@@ -121,6 +122,7 @@ def _get_language_colors(theme: str) -> dict[str, str]:
         "python": colors["secondary"],
         "rust": colors["accent"],
         "basilisk": colors["quaternary"],
+        "nyx": colors["tertiary"],
     }
 
 
@@ -364,7 +366,7 @@ def make_speedup_figure(run: BenchmarkRun):
         run,
         baseline="java",
         baseline_label="Java (OreKit 12.2)",
-        other_langs=["gmat", "basilisk", "python", "rust"],
+        other_langs=["gmat", "basilisk", "nyx", "python", "rust"],
         output_name="fig_bench_speedup",
         figure_height=1200,  # matches .plotly-embed.x-tall
     )
@@ -825,6 +827,7 @@ def _comparison_label(ref: str, comp: str) -> str:
         "java": "Orekit",
         "gmat": "GMAT",
         "basilisk": "Basilisk",
+        "nyx": "Nyx",
         "python": "Brahe (Python)",
         "rust": "Brahe (Rust)",
     }
@@ -845,7 +848,7 @@ def generate_csv_tables(run: BenchmarkRun):
 
     # ── Overview table ─────────────────────────────────────────────────────
     # Column order: Module, Tasks, then speedups in display order
-    # (GMAT -> Basilisk -> Python -> Rust, relative to the Java baseline).
+    # (GMAT -> Basilisk -> Nyx -> Python -> Rust, relative to the Java baseline).
     overview_rows = []
     for module in MODULE_ORDER:
         if module not in modules:
@@ -856,12 +859,14 @@ def generate_csv_tables(run: BenchmarkRun):
         rs_speedups = []
         bsk_speedups = []
         gmat_speedups = []
+        nyx_speedups = []
         for task_stats in task_data.values():
             java_t = task_stats["java"].mean if "java" in task_stats else 0
             py_t = task_stats["python"].mean if "python" in task_stats else 0
             rs_t = task_stats["rust"].mean if "rust" in task_stats else 0
             bsk_t = task_stats["basilisk"].mean if "basilisk" in task_stats else 0
             gmat_t = task_stats["gmat"].mean if "gmat" in task_stats else 0
+            nyx_t = task_stats["nyx"].mean if "nyx" in task_stats else 0
             if py_t and java_t:
                 py_speedups.append(java_t / py_t)
             if rs_t and java_t:
@@ -870,16 +875,20 @@ def generate_csv_tables(run: BenchmarkRun):
                 bsk_speedups.append(java_t / bsk_t)
             if gmat_t and java_t:
                 gmat_speedups.append(java_t / gmat_t)
+            if nyx_t and java_t:
+                nyx_speedups.append(java_t / nyx_t)
         avg_py = sum(py_speedups) / len(py_speedups) if py_speedups else 0
         avg_rs = sum(rs_speedups) / len(rs_speedups) if rs_speedups else 0
         avg_bsk = sum(bsk_speedups) / len(bsk_speedups) if bsk_speedups else 0
         avg_gmat = sum(gmat_speedups) / len(gmat_speedups) if gmat_speedups else 0
+        avg_nyx = sum(nyx_speedups) / len(nyx_speedups) if nyx_speedups else 0
         overview_rows.append(
             [
                 MODULE_LABELS[module],
                 str(task_count),
                 _format_speedup(avg_gmat) if gmat_speedups else "—",
                 _format_speedup(avg_bsk) if bsk_speedups else "—",
+                _format_speedup(avg_nyx) if nyx_speedups else "—",
                 _format_speedup(avg_py),
                 _format_speedup(avg_rs),
             ]
@@ -891,6 +900,7 @@ def generate_csv_tables(run: BenchmarkRun):
             "Tasks",
             "Avg GMAT Speedup",
             "Avg Basilisk Speedup",
+            "Avg Nyx Speedup",
             "Avg Brahe (Python) Speedup",
             "Avg Brahe (Rust) Speedup",
         ],
@@ -899,14 +909,15 @@ def generate_csv_tables(run: BenchmarkRun):
 
     # ── Per-module performance tables ──────────────────────────────────────
     # Column order: Task, then time columns and speedup columns in display
-    # order (Java -> GMAT -> Basilisk -> Python -> Rust). Modules without any
-    # GMAT-participating tasks omit GMAT columns; same for Basilisk.
+    # order (Java -> GMAT -> Basilisk -> Nyx -> Python -> Rust). Modules without
+    # any GMAT-participating tasks omit GMAT columns; same for Basilisk and Nyx.
     for module in MODULE_ORDER:
         if module not in modules:
             continue
         task_data = modules[module]
         module_has_gmat = any("gmat" in task_data[t] for t in task_data)
         module_has_basilisk = any("basilisk" in task_data[t] for t in task_data)
+        module_has_nyx = any("nyx" in task_data[t] for t in task_data)
         perf_rows = []
         for task_name in _order_tasks(module, task_data.keys()):
             stats = task_data[task_name]
@@ -915,20 +926,26 @@ def generate_csv_tables(run: BenchmarkRun):
             rs_t = stats["rust"].mean if "rust" in stats else 0
             bsk_t = stats["basilisk"].mean if "basilisk" in stats else 0
             gmat_t = stats["gmat"].mean if "gmat" in stats else 0
+            nyx_t = stats["nyx"].mean if "nyx" in stats else 0
             py_speedup = java_t / py_t if py_t and java_t else 0
             rs_speedup = java_t / rs_t if rs_t and java_t else 0
             bsk_speedup = java_t / bsk_t if bsk_t and java_t else 0
             gmat_speedup = java_t / gmat_t if gmat_t and java_t else 0
+            nyx_speedup = java_t / nyx_t if nyx_t and java_t else 0
             row = [_task_label(task_name), _format_time(java_t)]
             if module_has_gmat:
                 row.append(_format_time(gmat_t) if gmat_t else "—")
             if module_has_basilisk:
                 row.append(_format_time(bsk_t) if bsk_t else "—")
+            if module_has_nyx:
+                row.append(_format_time(nyx_t) if nyx_t else "—")
             row.extend([_format_time(py_t), _format_time(rs_t)])
             if module_has_gmat:
                 row.append(_format_speedup(gmat_speedup) if gmat_speedup else "—")
             if module_has_basilisk:
                 row.append(_format_speedup(bsk_speedup) if bsk_speedup else "—")
+            if module_has_nyx:
+                row.append(_format_speedup(nyx_speedup) if nyx_speedup else "—")
             row.extend([_format_speedup(py_speedup), _format_speedup(rs_speedup)])
             perf_rows.append(row)
         headers = ["Task", "Orekit"]
@@ -936,11 +953,15 @@ def generate_csv_tables(run: BenchmarkRun):
             headers.append("GMAT")
         if module_has_basilisk:
             headers.append("Basilisk")
+        if module_has_nyx:
+            headers.append("Nyx")
         headers.extend(["Brahe (Python)", "Brahe (Rust)"])
         if module_has_gmat:
             headers.append("GMAT Speedup")
         if module_has_basilisk:
             headers.append("Basilisk Speedup")
+        if module_has_nyx:
+            headers.append("Nyx Speedup")
         headers.extend(["Brahe (Python) Speedup", "Brahe (Rust) Speedup"])
         _write_csv(
             OUTDIR / f"bench_perf_{module}.csv",

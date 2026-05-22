@@ -86,7 +86,7 @@ _orekit_data_url := "https://gitlab.orekit.org/orekit/orekit-data/-/archive/main
 _orekit_data_dir := env("OREKIT_DATA", "~/.orekit/orekit-data")
 
 # Install all comparative benchmark dependencies
-bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-java _bench-compare-build-basilisk _bench-compare-build-gmat _bench-compare-orekit-data
+bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-nyx _bench-compare-build-java _bench-compare-build-basilisk _bench-compare-build-gmat _bench-compare-orekit-data
     uv pip install -e . --quiet
     @echo "✓ Comparative benchmark setup complete. Run: just bench-compare"
 
@@ -95,10 +95,36 @@ _bench-compare-build-rust:
     @echo "Building Rust benchmark binary..."
     cargo build --release --manifest-path {{_bench_rust_manifest}}
 
+# Build Nyx benchmark binary. Self-contained workspace; nyx-space brings ANISE
+# and hifitime transitively. First-run ANISE kernel downloads (~50 MB) happen
+# at first execution of the binary, not at build time.
+_bench-compare-build-nyx:
+    @echo "Building Nyx benchmark binary..."
+    cargo build --release --manifest-path benchmarks/comparative/implementations/nyx/Cargo.toml
+
 # Build Java/OreKit benchmark project (generates Gradle wrapper if needed)
 _bench-compare-build-java:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Resolve JAVA_HOME from Homebrew if the system java shim is broken (macOS)
+    if ! java -version &>/dev/null 2>&1; then
+        for candidate in \
+            "$(brew --prefix openjdk 2>/dev/null)/libexec/openjdk.jdk/Contents/Home" \
+            "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" \
+            "/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home"; do
+            if [ -x "$candidate/bin/java" ]; then
+                export JAVA_HOME="$candidate"
+                export PATH="$JAVA_HOME/bin:$PATH"
+                echo "  Using JAVA_HOME=$JAVA_HOME"
+                break
+            fi
+        done
+    fi
+    if ! java -version &>/dev/null 2>&1; then
+        echo "ERROR: Java not found. Install via: brew install openjdk"
+        echo "  Then link it: sudo ln -sfn \$(brew --prefix openjdk)/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk.jdk"
+        exit 1
+    fi
     echo "Building Java benchmark project..."
     cd {{_bench_java_dir}}
     if [ ! -f gradlew ]; then
@@ -187,13 +213,41 @@ _bench-compare-orekit-data:
 
 # Run comparative performance benchmarks (timing only) across languages
 bench-compare *args: _setup
-    @uv pip install -e . --quiet
-    @{{python}} -m benchmarks.comparative.runner perf {{args}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Ensure brew-installed Java is on PATH if system java shim is broken (macOS)
+    if ! java -version &>/dev/null 2>&1; then
+        for candidate in \
+            "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" \
+            "/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home"; do
+            if [ -x "$candidate/bin/java" ]; then
+                export JAVA_HOME="$candidate"
+                export PATH="$JAVA_HOME/bin:$PATH"
+                break
+            fi
+        done
+    fi
+    uv pip install -e . --quiet
+    {{python}} -m benchmarks.comparative.runner perf {{args}}
 
 # Run comparative accuracy benchmarks (sweep over initial conditions) vs OreKit
 bench-compare-accuracy *args: _setup
-    @uv pip install -e . --quiet
-    @{{python}} -m benchmarks.comparative.runner accuracy {{args}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Ensure brew-installed Java is on PATH if system java shim is broken (macOS)
+    if ! java -version &>/dev/null 2>&1; then
+        for candidate in \
+            "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" \
+            "/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home"; do
+            if [ -x "$candidate/bin/java" ]; then
+                export JAVA_HOME="$candidate"
+                export PATH="$JAVA_HOME/bin:$PATH"
+                break
+            fi
+        done
+    fi
+    uv pip install -e . --quiet
+    {{python}} -m benchmarks.comparative.runner accuracy {{args}}
 
 # Generate comparison plots from latest benchmark results
 bench-compare-plot *args: _setup
@@ -207,6 +261,18 @@ bench-compare-list: _setup
 bench-compare-publish *args: _setup
     #!/usr/bin/env bash
     set -euo pipefail
+    # Ensure brew-installed Java is on PATH if system java shim is broken (macOS)
+    if ! java -version &>/dev/null 2>&1; then
+        for candidate in \
+            "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" \
+            "/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home"; do
+            if [ -x "$candidate/bin/java" ]; then
+                export JAVA_HOME="$candidate"
+                export PATH="$JAVA_HOME/bin:$PATH"
+                break
+            fi
+        done
+    fi
     echo "Running performance benchmarks..."
     uv pip install -e . --quiet
     {{python}} -m benchmarks.comparative.runner perf {{args}}

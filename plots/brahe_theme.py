@@ -10,12 +10,13 @@ import plotly.io as pio
 
 # Theme color definitions
 LIGHT_THEME = {
-    "primary": "#1f77b4",  # Blue
-    "secondary": "#ff7f0e",  # Orange
-    "accent": "#2ca02c",  # Green
-    "quaternary": "#9467bd",  # Purple — used for Basilisk in comparative benchmarks
-    "quinary": "#8c564b",  # Brown — used for GMAT in comparative benchmarks
-    "error": "#d62728",  # Red
+    "primary": "#003e7e",  # CNES blue — Orekit
+    "secondary": "#ff9d00",  # Star-Trek Orange — Brahe Python (matches docs primary)
+    "accent": "#2ca02c",  # Green — Brahe (Rust)
+    "tertiary": "#c026d3",  # Magenta — Nyx
+    "quaternary": "#cfb87c",  # CU Boulder Gold — Basilisk
+    "quinary": "#fc3d21",  # NASA Red — GMAT
+    "error": "#e15759",  # Slightly different red for error states
     "grid_color": "LightGrey",
     "line_color": "Grey",
     "font_color": "black",
@@ -23,12 +24,13 @@ LIGHT_THEME = {
 }
 
 DARK_THEME = {
-    "primary": "#79b8ff",  # Lighter blue for dark mode
-    "secondary": "#ffaa44",  # Lighter orange for dark mode
-    "accent": "#55cc55",  # Lighter green for dark mode
-    "quaternary": "#b794dc",  # Lighter purple for dark mode
-    "quinary": "#b07050",  # Lighter brown for dark mode — used for GMAT
-    "error": "#ff6b6b",  # Lighter red for dark mode
+    "primary": "#3f7bc2",  # Lighter CNES blue — Orekit
+    "secondary": "#ffb840",  # Lighter Star-Trek Orange — Brahe Python (matches docs primary)
+    "accent": "#55cc55",  # Lighter green for dark mode — Brahe (Rust)
+    "tertiary": "#d946ef",  # Lighter magenta for dark mode — Nyx
+    "quaternary": "#e5d4a0",  # Lighter CU Boulder Gold — Basilisk
+    "quinary": "#ff7855",  # Lighter NASA Red — GMAT
+    "error": "#ff7878",  # Slightly different lighter red for error states
     "grid_color": "#444444",
     "line_color": "#666666",
     "font_color": "#e0e0e0",

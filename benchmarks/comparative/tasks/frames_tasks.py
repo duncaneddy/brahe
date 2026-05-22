@@ -89,7 +89,7 @@ class StateEciToEcefTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk", "gmat"]
+        return ["python", "rust", "java", "basilisk", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         return _generate_frame_params(seed)
@@ -157,7 +157,7 @@ class StateEcefToEciTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk", "gmat"]
+        return ["python", "rust", "java", "basilisk", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         return _generate_frame_params(seed)

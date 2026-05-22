@@ -1,0 +1,33 @@
+[package]
+name = "bench_nyx"
+version = "0.1.0"
+edition = "2024"
+
+# Standalone crate: the brahe repo root has its own workspace (for
+# `crates/brahe-py`), and the sibling `implementations/rust/` benchmark is
+# also its own workspace. The empty [workspace] table tells cargo to treat
+# this manifest as its own workspace root.
+[workspace]
+
+[[bin]]
+name = "bench_nyx"
+path = "src/main.rs"
+
+[dependencies]
+# Pin Nyx, ANISE, and hifitime explicitly. Versions verified compatible via
+# crates.io / docs.rs at scaffolding time (see commit history).
+# nyx-space 2.3.1 requires anise ^0.9.6 and hifitime ^4.2.5.
+nyx-space = "=2.3.1"
+anise     = "=0.9.6"
+hifitime  = { version = "=4.3.0", features = ["ut1"] }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+# SGP4 propagation — same crate used internally by brahe; pinned to registry version.
+sgp4 = "=2.3.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

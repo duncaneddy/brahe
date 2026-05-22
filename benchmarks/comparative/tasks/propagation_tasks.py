@@ -76,7 +76,7 @@ class KeplerianSingleTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "gmat"]
+        return ["python", "rust", "java", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         return self._gen_cases(seed, 20)
@@ -130,7 +130,7 @@ class KeplerianTrajectoryTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "gmat"]
+        return ["python", "rust", "java", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         # Fixed LEO orbit (perf path: one IC, time the inner loop)
@@ -194,7 +194,7 @@ class Sgp4SingleTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "gmat"]
+        return ["python", "rust", "java", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         return self._gen_offsets(seed, 50)
@@ -230,7 +230,7 @@ class Sgp4TrajectoryTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "gmat"]
+        return ["python", "rust", "java", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         # Perf path: original 48-hour window at 60s cadence (1440 steps).
@@ -277,7 +277,7 @@ class NumericalTwobodyTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk", "gmat"]
+        return ["python", "rust", "java", "basilisk", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         # Fixed LEO orbit — same as keplerian_trajectory for comparison
@@ -352,7 +352,7 @@ class NumericalRk4Grav5x5Task(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk", "gmat"]
+        return ["python", "rust", "java", "basilisk", "gmat", "nyx"]
 
     @property
     def timeout(self) -> int:
@@ -391,7 +391,7 @@ class NumericalRk4Grav20x20SunMoonTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk", "gmat"]
+        return ["python", "rust", "java", "basilisk", "gmat", "nyx"]
 
     @property
     def timeout(self) -> int:
@@ -434,7 +434,7 @@ class NumericalRk4Grav80x80FullTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "basilisk", "gmat"]
+        return ["python", "rust", "java", "basilisk", "gmat", "nyx"]
 
     @property
     def timeout(self) -> int:

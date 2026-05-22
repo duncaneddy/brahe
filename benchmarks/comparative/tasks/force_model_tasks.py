@@ -169,6 +169,10 @@ class AccelSphericalHarmonics20Task(_AccelTaskBase):
     def description(self) -> str:
         return "Evaluate 20x20 spherical-harmonic gravity acceleration at a fixed LEO state"
 
+    @property
+    def languages(self) -> list[str]:
+        return ["python", "rust", "java", "gmat", "nyx"]
+
     def generate_params(self, seed: int) -> dict:
         p = self._base_params()
         p["degree"] = 20
@@ -189,6 +193,10 @@ class AccelSphericalHarmonics80Task(_AccelTaskBase):
     @property
     def description(self) -> str:
         return "Evaluate 80x80 spherical-harmonic gravity acceleration at a fixed LEO state"
+
+    @property
+    def languages(self) -> list[str]:
+        return ["python", "rust", "java", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         p = self._base_params()
@@ -211,6 +219,10 @@ class AccelThirdBodySunTask(_AccelTaskBase):
     def description(self) -> str:
         return "Evaluate Sun third-body acceleration (DE440s) at a fixed LEO state"
 
+    @property
+    def languages(self) -> list[str]:
+        return ["python", "rust", "java", "gmat", "nyx"]
+
     def generate_params(self, seed: int) -> dict:
         return self._base_params()
 
@@ -225,6 +237,10 @@ class AccelThirdBodyMoonTask(_AccelTaskBase):
     @property
     def description(self) -> str:
         return "Evaluate Moon third-body acceleration (DE440s) at a fixed LEO state"
+
+    @property
+    def languages(self) -> list[str]:
+        return ["python", "rust", "java", "gmat", "nyx"]
 
     def generate_params(self, seed: int) -> dict:
         return self._base_params()

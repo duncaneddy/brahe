@@ -1,6 +1,6 @@
-Task,Orekit,GMAT,Basilisk,Brahe (Python),Brahe (Rust),GMAT Speedup,Basilisk Speedup,Brahe (Python) Speedup,Brahe (Rust) Speedup
-ECEF To AzEl,271.0 µs,—,—,120.2 µs,10.6 µs,—,—,2.25×,25.5×
-ECEF To Geocentric,104.4 µs,106.2 µs,—,48.9 µs,774.8 ns,0.98×,—,2.14×,134.8×
-ECEF To Geodetic,151.6 µs,167.7 µs,189.1 µs,58.4 µs,4.9 µs,0.90×,0.80×,2.59×,31.1×
-Geocentric To ECEF,108.8 µs,103.7 µs,—,49.7 µs,614.6 ns,1.05×,—,2.19×,177.1×
-Geodetic To ECEF,85.5 µs,129.4 µs,35.3 µs,50.3 µs,916.9 ns,0.66×,2.42×,1.70×,93.2×
+Task,Orekit,GMAT,Basilisk,Nyx,Brahe (Python),Brahe (Rust),GMAT Speedup,Basilisk Speedup,Nyx Speedup,Brahe (Python) Speedup,Brahe (Rust) Speedup
+ECEF To AzEl,274.2 µs,—,—,72.3 µs,144.1 µs,10.6 µs,—,—,3.79×,1.90×,25.8×
+ECEF To Geocentric,105.1 µs,106.6 µs,—,—,50.7 µs,800.2 ns,0.99×,—,—,2.07×,131.3×
+ECEF To Geodetic,147.8 µs,176.7 µs,189.2 µs,9.6 µs,67.0 µs,5.0 µs,0.84×,0.78×,15.4×,2.21×,29.6×
+Geocentric To ECEF,111.5 µs,110.0 µs,—,—,51.7 µs,645.8 ns,1.01×,—,—,2.16×,172.6×
+Geodetic To ECEF,85.4 µs,133.1 µs,33.1 µs,2.5 µs,54.4 µs,761.7 ns,0.64×,2.58×,34.6×,1.57×,112.1×

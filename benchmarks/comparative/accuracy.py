@@ -36,6 +36,7 @@ import typer
 from benchmarks.comparative.config import (
     DEFAULT_SEED,
     JAVA_PROJECT_DIR,
+    NYX_BINARY,
     RESULTS_DIR,
     RUST_BINARY,
     collect_system_info,
@@ -66,7 +67,7 @@ def _append_jsonl(stream: TextIO, record: dict) -> None:
 # determines the order of comparison records in the JSONL file, which is
 # also the order plots will iterate over.
 BASELINE_LANGUAGE = "java"
-COMPARISON_LANGUAGES = ["gmat", "basilisk", "python", "rust"]
+COMPARISON_LANGUAGES = ["gmat", "basilisk", "nyx", "python", "rust"]
 
 
 def run_accuracy(
@@ -256,6 +257,9 @@ def _dispatch_one(task: BenchmarkTask, language: str, params: dict):
             return None
         cmd = [sys.executable, "-m", "benchmarks.comparative.implementations.gmat"]
         return _run_subprocess(task, "gmat", input_data, cmd)
+    if language == "nyx":
+        cmd = [str(NYX_BINARY)] if NYX_BINARY.exists() else None
+        return _run_subprocess(task, "nyx", input_data, cmd)
     if language == "rust":
         cmd = [str(RUST_BINARY)] if RUST_BINARY.exists() else None
         return _run_subprocess(task, "rust", input_data, cmd)

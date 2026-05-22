@@ -2,7 +2,7 @@
 
 To validate Brahe's consistency with other astrodynamics software, we've developed a benchmark suite that exercises a broad range of astrodynamics-related tasks across multiple libraries. The suite is designed to be extensible, so new tasks and libraries can be added over time. The current iteration includes 32 tasks spanning 8 modules: time, coordinates, attitude, frames, orbits, propagation, force model, and access computation.
 
-The primary "source of truth" is  [**OreKit 13.1.5**](https://github.com/CS-SI/Orekit) (Java), one of (if not the) most widely used open-source astrodynamics library. We additionally compare against [**GMAT R2026a**](https://github.com/nasa/GMAT) (NASA Goddard's General Mission Analysis Tool) on 31 of the 32 benchmark tasks and [**Basilisk**](https://github.com/AVSLab/basilisk) (AVS Lab) on the 14 tasks across four modules (attitude, orbits, frames, coordinates, and propagation) where the two libraries' user-facing APIs overlap.
+The primary "source of truth" is  [**OreKit 13.1.5**](https://github.com/CS-SI/Orekit) (Java), one of (if not the) most widely used open-source astrodynamics library. We additionally compare against [**GMAT R2026a**](https://github.com/nasa/GMAT) (NASA Goddard's General Mission Analysis Tool) on 31 of the 32 benchmark tasks, [**Basilisk**](https://github.com/AVSLab/basilisk) (AVS Lab) on the 14 tasks across four modules (attitude, orbits, frames, coordinates, and propagation) where the two libraries' user-facing APIs overlap, and [Nyx](https://github.com/nyx-space/nyx)/[ANISE](https://github.com/nyx-space/anise) (Nyx Space) on 28 tasks where the libraries have comparable APIs. The benchmarks report both performance and accuracy metrics for each library on each task, with OreKit as the single reference baseline for accuracy comparisons.
 
 !!! tip
 
@@ -19,6 +19,7 @@ One of the benefits of these benchmarks is that they show broad consistency in t
 - **Java**: [OreKit 13.1.5](https://github.com/CS-SI/Orekit) on OpenJDK 21
 - **Basilisk**: [AVS Lab Basilisk](https://github.com/AVSLab/basilisk) (`bsk` Python wheel from PyPI), imported in-process by the Python runner; participates on a 14-task subset.
 - **GMAT**: [GMAT R2026a](https://github.com/nasa/GMAT) (`gmatpy` API), accessed via a local GMAT install pointed to by `GMAT_ROOT_PATH`; participates on a 31-task subset.
+- **Nyx Space**: [Nyx 2.3.1](https://github.com/nyx-space/nyx), [ANISE 0.9.6](https://github.com/nyx-space/anise), and [hifitime](https://github.com/nyx-space/hifitime) Rust libraries. Nyx/ANISE participate on a 28-task subset.
 - **Brahe (Python)**: Brahe Python bindings (PyO3)
 - **Brahe (Rust)**: Brahe native Rust library
 **Test Environment**: 2021 MacBook Pro, Apple M1 Max, 64 GB RAM
@@ -371,11 +372,43 @@ Basilisk participates in 14 of 32 tasks. The gap is API-driven, not capability-d
 
 ---
 
+### Notes on Nyx / ANISE Comparisons
+
+[Nyx 2.3.1](https://github.com/nyx-space/nyx) is a Rust astrodynamics library designed for mission design, trajectory optimization, and orbit determination. [ANISE 0.9.6](https://github.com/nyx-space/anise) is its companion library for reference-frame and ephemeris operations; it provides the `Almanac` abstraction that loads NAIF SPICE-compatible kernels (SPK, PCK, FK) and exposes attitude, rotation, and ephemeris queries in native Rust. [hifitime 4.x](https://github.com/nyx-space/hifitime) is the precision time library shared by both and underpins all epoch and duration arithmetic.
+
+The Nyx/ANISE baseline runs as a separate Rust binary (compiled from `benchmarks/nyx/`), invoked as a subprocess by the Python runner in the same way that the Java OreKit binary is invoked. This mirrors the brahe-Rust execution model — the Rust binary receives task parameters via stdin JSON and writes results to stdout JSON; the Python harness handles timing and statistical aggregation identically to all other baselines.
+
+**Where Nyx/ANISE participates**: 28 of 32 tasks. The 4 dropped tasks are listed below.
+
+**Dropped tasks**:
+
+- `coordinates.geocentric_to_ecef` and `coordinates.ecef_to_geocentric`: Brahe defines these as pure spherical-coordinate conversions (latitude-longitude-radius ↔ XYZ without ellipsoidal flattening). ANISE 0.9.6 has no equivalent API that we found — its only coordinate conversion path is geodetic (WGS84 ellipsoid). Implementing this with hand-rolled trigonometry would not exercise any Nyx/ANISE code, so these tasks are dropped.
+- `force_model.accel_point_mass_gravity`: Brahe exposes a standalone single-body Newtonian evaluation. Nyx 2.3.1 does not expose this as a public API — the two-body term is internal to `OrbitalDynamics::eom`. Implementing it for Nyx would reduce to hand-rolled `μ·r/r³` rather than library code, so this task is dropped.
+- `access.sgp4_access`: Brahe's `location_accesses` API finds all satellite-to-ground-station contact windows over an interval. Nyx 2.3.1 has no direct equivalent — the `eclipse` module is unrelated, and building a window-finder on top of Nyx's propagator would require reproducing brahe's search logic rather than comparing library APIs. This task is dropped.
+
+**Earth orientation parameters**: ANISE 0.9.6 does not load IERS `finals2000A.all` data. Earth rotation is driven by ANISE's own `earth_latest_high_prec.bpc` binary PCK, which is downloaded at setup time by `bench-compare-setup`. Frame-transform residuals of roughly 1–3 m relative to OreKit (which uses IERS finals2000A.all) reflect this BPC-vs-IERS-finals2000A algorithmic difference rather than a precision defect — it is the variable under test for the frames tasks.
+
+**Gravity coefficient file format**: Nyx supports SHADR and COF gravity coefficient formats but not ICGEM. Brahe ships `EGM2008_360.gfc` in ICGEM format. The Nyx benchmark implementation parses the ICGEM file and writes a temporary SHADR file at benchmark startup; coefficient values are numerically identical to the source. No accuracy impact is expected from this format translation.
+
+**Atmospheric drag model substitution**: Nyx 2.3.1's public atmosphere models are `ConstantDrag`, an exponential model, and US Standard Atmosphere 1976. Neither NRLMSISE-00 nor Harris-Priester is exposed as a public API. The `propagation.numerical_rk4_grav80x80_full` task uses US Standard Atmosphere 1976 for drag. OreKit uses NRLMSISE-00 for the same task, so accuracy residuals on this specific task are larger than on the other propagation tasks — this is expected given the different atmosphere models and not indicative of a numerical precision difference.
+
+**Time tasks**: All five time tasks are implemented directly against hifitime's Epoch API without additional library layers. hifitime uses TAI as its internal representation with UT1 obtained from a bundled IERS file; conversions to GPS, TT, UTC, and UT1 match OreKit at nanosecond precision across the swept epoch range.
+
+**Attitude tasks**: Attitude conversions use ANISE's `DCM`, `EulerParameter`, and matrix-product primitives. The DCM ↔ Euler-angle path goes through ANISE's ZYX decomposition; the quaternion ↔ DCM path uses ANISE's `EulerParameter::to_dcm` / `DCM::to_euler_parameters`. All four tasks are implemented on native ANISE calls.
+
+**Frame tasks**: The two frame-transformation tasks use `Almanac::transform_to` between `EARTH_J2000` and `EARTH_ITRF93` frames, loading the same `earth_latest_high_prec.bpc` PCK used by Basilisk. The frame-definition note from the Basilisk section applies here as well: ITRF93 follows IERS 1996 conventions versus OreKit's IERS 2010 ITRF, contributing kilometer-scale ECEF position differences on the accuracy sweep.
+
+**Performance characteristics**: hifitime time-conversion tasks have no I/O or kernel-lookup overhead and are among the fastest tasks in the suite. ANISE attitude and orbit tasks carry per-call kernel-parsing overhead on the first call; subsequent calls within a benchmark run reuse the loaded `Almanac`. Numerical propagation tasks involve Nyx's `RungeKutta4` fixed-step integrator with the same step size used by the other Rust and Java baselines, so integrator-introduced residuals are comparable. SGP4 tasks use the `sgp4` Rust crate directly — the same crate used by brahe-Rust.
+
+---
+
 ### Reproducing These Results
 
 **Comparative benchmarks** (Java/Python/Rust/Basilisk/GMAT):
 
 > **GMAT setup is opt-in via environment variable.** To include GMAT in the comparison, install [GMAT R2026a](https://github.com/nasa/GMAT) locally and export `GMAT_ROOT_PATH` pointing at the install root (the directory containing `bin/`, `data/`, `api/`) before running `just bench-compare-setup`. Example (macOS): `export GMAT_ROOT_PATH="/Applications/GMAT R2026a"`. If `GMAT_ROOT_PATH` is unset, the setup recipe and all benchmark runs skip GMAT silently — the other four baselines run normally.
+
+> **Java prerequisite (macOS)**: The OreKit baseline requires Java. Install via [Amazon Corretto](https://aws.amazon.com/corretto/) (links `/Library/Java/JavaVirtualMachines/` automatically) or via Homebrew: `brew install openjdk`. With Homebrew, the system Java shim (`/usr/bin/java`) may not activate automatically — run `sudo ln -sfn $(brew --prefix openjdk)/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk.jdk` to link it. The `just bench-compare-setup` and `just bench-compare` recipes auto-detect the Homebrew path as a fallback if the shim is missing.
 
 ```bash
 # Optional: point at a local GMAT install to include GMAT in the comparison.

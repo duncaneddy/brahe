@@ -32,6 +32,7 @@ from benchmarks.comparative.config import (
     DEFAULT_ITERATIONS,
     DEFAULT_SEED,
     JAVA_PROJECT_DIR,
+    NYX_BINARY,
     RESULTS_DIR,
     RUST_BINARY,
     collect_system_info,
@@ -51,7 +52,7 @@ app = typer.Typer(help="Comparative benchmark framework for Brahe")
 # Java/OreKit is the reference baseline — run it first, use it for speedup and accuracy.
 # Display order matches the published comparison ordering: Orekit (Java baseline),
 # GMAT, Basilisk, brahe-Python, brahe-Rust.
-LANGUAGE_ORDER = ["java", "gmat", "basilisk", "python", "rust"]
+LANGUAGE_ORDER = ["java", "gmat", "basilisk", "nyx", "python", "rust"]
 BASELINE_LANGUAGE = "java"
 
 
@@ -253,6 +254,8 @@ def _dispatch_task(
         return _run_python(task, iterations, seed)
     elif language == "rust":
         return _run_subprocess(task, language, iterations, seed, _get_rust_command())
+    elif language == "nyx":
+        return _run_subprocess(task, language, iterations, seed, _get_nyx_command())
     elif language == "java":
         return _run_subprocess(task, language, iterations, seed, _get_java_command())
     elif language == "basilisk":
@@ -314,6 +317,13 @@ def _get_gmat_command() -> list[str] | None:
     if not os.environ.get("GMAT_ROOT_PATH"):
         return None
     return [sys.executable, "-m", "benchmarks.comparative.implementations.gmat"]
+
+
+def _get_nyx_command() -> list[str] | None:
+    """Return the command to invoke the Nyx benchmark binary, or None if not built."""
+    if not NYX_BINARY.exists():
+        return None
+    return [str(NYX_BINARY)]
 
 
 def _get_rust_command() -> list[str] | None:

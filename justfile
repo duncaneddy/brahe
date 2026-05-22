@@ -320,10 +320,19 @@ profile-python name *flags: _check-py-spy
     OUT="profiles/results/${TS}_{{name}}.svg"
     echo "  Sampling {{name}} (duration=${DURATION}s, py-spy --native)..."
     if [ -x .venv/bin/py-spy ]; then PYSPY=".venv/bin/py-spy"; else PYSPY="py-spy"; fi
+    if [ -x .venv/bin/python ]; then
+        PYTHON="$(pwd)/.venv/bin/python"
+    else
+        PYTHON="$(command -v python3 || command -v python || true)"
+        if [ -z "$PYTHON" ]; then
+            echo "no python interpreter found (looked for .venv/bin/python, python3, python on PATH)" >&2
+            exit 1
+        fi
+    fi
     PROFILE_DURATION_S=$DURATION PYTHONPATH=profiles/python \
         "$PYSPY" record --native --output "$OUT" --format flamegraph \
             --duration "$DURATION" \
-            -- "$(pwd)/.venv/bin/python" "$SCRIPT"
+            -- "$PYTHON" "$SCRIPT"
     echo "  Wrote $OUT"
     if [ "$OPEN" -eq 1 ]; then
         (open "$OUT" 2>/dev/null \

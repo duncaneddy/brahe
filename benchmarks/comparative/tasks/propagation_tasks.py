@@ -194,7 +194,7 @@ class Sgp4SingleTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "gmat", "nyx"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         return self._gen_offsets(seed, 50)
@@ -230,7 +230,7 @@ class Sgp4TrajectoryTask(BenchmarkTask):
 
     @property
     def languages(self) -> list[str]:
-        return ["python", "rust", "java", "gmat", "nyx"]
+        return ["python", "rust", "java", "gmat"]
 
     def generate_params(self, seed: int) -> dict:
         # Perf path: original 48-hour window at 60s cadence (1440 steps).

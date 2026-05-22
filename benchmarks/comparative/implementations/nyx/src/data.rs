@@ -23,9 +23,9 @@
 //!   - EOP:  `Earth-Orientation-Parameters/IAU-2000/finals2000A.all`
 //!   - SW:   `CSSI-Space-Weather-Data/SpaceWeather-All-v1.2.txt`
 //!
-//! ## ANISE 0.9.6 EOP support
+//! ## ANISE 0.10.1 EOP support
 //!
-//! ANISE 0.9.6 does **not** expose an IERS finals2000A loader. Earth
+//! ANISE 0.10.1 does **not** expose an IERS finals2000A loader. Earth
 //! rotation corrections (UT1, polar motion) are embedded in the high-
 //! precision BPC kernel (`earth_latest_high_prec.bpc`) which is part of
 //! the default kernel set downloaded by `MetaAlmanac::latest()`. No
@@ -40,7 +40,7 @@
 //! each daily record); the spec permits accepting this confound and using
 //! `Ut1Provider::default()` (zero DUT1).
 //!
-//! ## Nyx 2.3.1 space-weather support
+//! ## Nyx 2.4.0 space-weather support
 //!
 //! Nyx's atmosphere/drag models (`ConstantDrag`, `Drag`) use internally
 //! specified density models (exponential, standard 1976) and do not
@@ -48,40 +48,71 @@
 //! is exposed here for future tasks.
 
 use anise::almanac::Almanac;
-use anise::almanac::metaload::MetaAlmanac;
+use platform_dirs::AppDirs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
 static ALMANAC: OnceLock<Almanac> = OnceLock::new();
 
+/// Return the path to the ANISE kernel cache directory.
+fn anise_cache_dir() -> PathBuf {
+    AppDirs::new(Some("nyx-space/anise"), true)
+        .map(|d| d.data_dir)
+        .unwrap_or_else(|| {
+            let home = std::env::var("HOME").unwrap_or_default();
+            PathBuf::from(home).join(".local/share/nyx-space/anise")
+        })
+}
+
 /// Return a reference to the lazily-initialized global Almanac.
 ///
-/// On first call this downloads any missing ANISE kernels and assembles
-/// the Almanac. Subsequent calls return the cached instance immediately.
+/// On first call this loads ANISE kernels from the local cache directory
+/// (populated by a prior `MetaAlmanac::latest()` call or manual placement).
+/// Subsequent calls return the cached instance immediately.
 ///
 /// The Almanac includes `earth_latest_high_prec.bpc` which embeds IERS
 /// EOP corrections (UT1, polar motion) as of the kernel's publish date.
-/// No additional finals2000A attachment is performed because ANISE 0.9.6
+/// No additional finals2000A attachment is performed because ANISE 0.10.1
 /// has no IERS-format EOP loader (see module-level docs).
+///
+/// Kernel loading order matches `MetaAlmanac::default()`:
+///   de440s.bsp → pck11.pca → moon_fk_de440.epa → moon_pa_de440_200625.bpc
+///   → earth_latest_high_prec.bpc
 pub fn almanac() -> &'static Almanac {
     ALMANAC.get_or_init(|| {
-        // MetaAlmanac::latest() calls MetaAlmanac::default().process(true):
-        //   - downloads missing kernels (autosave=true writes to cache dir)
-        //   - returns a loaded Almanac with PCK + BPC + BSP data
-        let alm = MetaAlmanac::latest().expect(
-            "Almanac kernel download/load must succeed. \
-             Check network connectivity on first run or verify cache at \
-             ~/.local/share/nyx-space/anise/ (Linux) / ~/Library/Application Support/nyx-space/anise/ (macOS)."
-        );
+        let cache = anise_cache_dir();
+        let kernel_files = [
+            "de440s.bsp",
+            "pck11.pca",
+            "moon_fk_de440.epa",
+            "moon_pa_de440_200625.bpc",
+            "earth_latest_high_prec.bpc",
+        ];
+
+        let mut alm = Almanac::default();
+        for file in &kernel_files {
+            let path = cache.join(file);
+            let path_str = path.to_string_lossy();
+            alm = alm.load(&path_str).unwrap_or_else(|e| {
+                panic!(
+                    "Failed to load ANISE kernel '{}': {e}\n\
+                     Ensure kernels are cached at {}\n\
+                     Run `bench_nyx` once with network access to populate the cache.",
+                    path_str,
+                    cache.display()
+                )
+            });
+        }
+        let alm = alm;
 
         // Attempt to attach IERS EOP from OREKIT_DATA.
-        // ANISE 0.9.6 has no finals2000A loader; EOP is already baked into
+        // ANISE 0.10.1 has no finals2000A loader; EOP is already baked into
         // earth_latest_high_prec.bpc. Emit an informational message and proceed.
         match find_orekit_eop_file() {
             Some(eop_path) => {
                 eprintln!(
                     "INFO [data.rs]: IERS EOP file found at {}. \
-                     ANISE 0.9.6 does not expose a finals2000A ingest API; \
+                     ANISE 0.10.1 does not expose a finals2000A ingest API; \
                      EOP corrections are embedded in earth_latest_high_prec.bpc \
                      (the ANISE default). Controlled EOP confound accepted per spec.",
                     eop_path.display()
@@ -97,13 +128,13 @@ pub fn almanac() -> &'static Almanac {
         }
 
         // Attempt to note CSSI space-weather availability.
-        // Nyx 2.3.1's drag/atmosphere models use internally specified density
+        // Nyx 2.4.0's drag/atmosphere models use internally specified density
         // tables and do not accept a CSSI SW file. Emit an informational message.
         match find_orekit_sw_file() {
             Some(sw_path) => {
                 eprintln!(
                     "INFO [data.rs]: CSSI space-weather file found at {}. \
-                     Nyx 2.3.1 atmosphere models do not expose a CSSI SW loader; \
+                     Nyx 2.4.0 atmosphere models do not expose a CSSI SW loader; \
                      using internally specified density tables. SW confound accepted per spec.",
                     sw_path.display()
                 );
@@ -146,7 +177,7 @@ pub fn find_orekit_eop_file() -> Option<PathBuf> {
 /// `$OREKIT_DATA` defaults to `~/.orekit/orekit-data` when unset.
 ///
 /// Drag tasks may load this directly into an atmosphere model when a
-/// suitable loader is available (not yet supported in Nyx 2.3.1).
+/// suitable loader is available (not yet supported in Nyx 2.4.0).
 pub fn find_orekit_sw_file() -> Option<PathBuf> {
     let dir = std::env::var("OREKIT_DATA").unwrap_or_else(|_| {
         let home = std::env::var("HOME").unwrap_or_default();

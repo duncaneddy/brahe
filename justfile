@@ -92,14 +92,36 @@ bench-compare-setup: _setup _bench-compare-build-rust _bench-compare-build-nyx _
 
 # Build Rust benchmark binary
 _bench-compare-build-rust:
-    @echo "Building Rust benchmark binary..."
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Auto-detect cargo from the standard rustup install location
+    if ! command -v cargo &>/dev/null; then
+        if [ -x "$HOME/.cargo/bin/cargo" ]; then
+            export PATH="$HOME/.cargo/bin:$PATH"
+        else
+            echo "ERROR: cargo not found. Install Rust via: curl https://sh.rustup.rs -sSf | sh"
+            exit 1
+        fi
+    fi
+    echo "Building Rust benchmark binary..."
     cargo build --release --manifest-path {{_bench_rust_manifest}}
 
 # Build Nyx benchmark binary. Self-contained workspace; nyx-space brings ANISE
 # and hifitime transitively. First-run ANISE kernel downloads (~50 MB) happen
 # at first execution of the binary, not at build time.
 _bench-compare-build-nyx:
-    @echo "Building Nyx benchmark binary..."
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Auto-detect cargo from the standard rustup install location
+    if ! command -v cargo &>/dev/null; then
+        if [ -x "$HOME/.cargo/bin/cargo" ]; then
+            export PATH="$HOME/.cargo/bin:$PATH"
+        else
+            echo "ERROR: cargo not found. Install Rust via: curl https://sh.rustup.rs -sSf | sh"
+            exit 1
+        fi
+    fi
+    echo "Building Nyx benchmark binary..."
     cargo build --release --manifest-path benchmarks/comparative/implementations/nyx/Cargo.toml
 
 # Build Java/OreKit benchmark project (generates Gradle wrapper if needed)
@@ -139,6 +161,16 @@ _bench-compare-build-java:
         fi
     fi
     ./gradlew build
+    # Extract the application distribution so the benchmark runner can invoke
+    # the binary directly (without Gradle, avoiding ~/.gradle/ lock-file writes).
+    DIST_TAR="build/distributions/bench-comparative.tar"
+    DIST_DIR="build/bench-comparative"
+    if [ -f "$DIST_TAR" ]; then
+        echo "  Extracting application distribution..."
+        rm -rf "$DIST_DIR"
+        tar xf "$DIST_TAR" -C build/
+        echo "  Distribution ready: $DIST_DIR/bin/bench-comparative"
+    fi
 
 # Install Basilisk Python wheel, pre-fetch its large data files, and
 # download the high-precision Earth orientation binary PCK so that

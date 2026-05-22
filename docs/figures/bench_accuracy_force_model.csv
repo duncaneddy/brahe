@@ -2,14 +2,14 @@ Task,Comparison,Samples,p50 Max Abs,p95 Max Abs,p99 Max Abs,Max Abs
 Point Mass Gravity,Orekit vs GMAT,200,8.88e-16 m/s²,2.66e-15 m/s²,3.55e-15 m/s²,3.55e-15 m/s²
 Point Mass Gravity,Orekit vs Brahe (Python),200,8.88e-16 m/s²,1.78e-15 m/s²,2.66e-15 m/s²,3.55e-15 m/s²
 Point Mass Gravity,Orekit vs Brahe (Rust),200,8.88e-16 m/s²,1.78e-15 m/s²,2.66e-15 m/s²,3.55e-15 m/s²
-Spherical Harmonics 20x20,Orekit vs GMAT,200,1.43e-07 m/s²,5.97e-07 m/s²,8.03e-07 m/s²,1.04e-06 m/s²
-Spherical Harmonics 20x20,Orekit vs Nyx,200,6.93e-07 m/s²,1.31e-06 m/s²,1.75e-06 m/s²,1.96e-06 m/s²
-Spherical Harmonics 20x20,Orekit vs Brahe (Python),200,1.66e-11 m/s²,4.95e-11 m/s²,6.01e-11 m/s²,7.13e-11 m/s²
-Spherical Harmonics 20x20,Orekit vs Brahe (Rust),200,1.66e-11 m/s²,4.95e-11 m/s²,6.01e-11 m/s²,7.13e-11 m/s²
-Spherical Harmonics 80x80,Orekit vs GMAT,200,1.61e-07 m/s²,1.14e-06 m/s²,2.29e-06 m/s²,2.95e-06 m/s²
-Spherical Harmonics 80x80,Orekit vs Nyx,200,6.92e-07 m/s²,1.29e-06 m/s²,1.90e-06 m/s²,2.73e-06 m/s²
-Spherical Harmonics 80x80,Orekit vs Brahe (Python),200,1.66e-11 m/s²,4.93e-11 m/s²,6.01e-11 m/s²,7.14e-11 m/s²
-Spherical Harmonics 80x80,Orekit vs Brahe (Rust),200,1.66e-11 m/s²,4.93e-11 m/s²,6.01e-11 m/s²,7.14e-11 m/s²
+Spherical Harmonics 20x20,Orekit vs GMAT,200,1.50e-07 m/s²,6.06e-07 m/s²,8.27e-07 m/s²,1.06e-06 m/s²
+Spherical Harmonics 20x20,Orekit vs Nyx,200,7.04e-07 m/s²,1.34e-06 m/s²,1.73e-06 m/s²,1.94e-06 m/s²
+Spherical Harmonics 20x20,Orekit vs Brahe (Python),200,1.49e-08 m/s²,5.92e-08 m/s²,1.29e-07 m/s²,1.51e-07 m/s²
+Spherical Harmonics 20x20,Orekit vs Brahe (Rust),200,1.49e-08 m/s²,5.92e-08 m/s²,1.29e-07 m/s²,1.51e-07 m/s²
+Spherical Harmonics 80x80,Orekit vs GMAT,200,1.60e-07 m/s²,1.15e-06 m/s²,2.27e-06 m/s²,2.98e-06 m/s²
+Spherical Harmonics 80x80,Orekit vs Nyx,200,6.83e-07 m/s²,1.35e-06 m/s²,1.87e-06 m/s²,2.79e-06 m/s²
+Spherical Harmonics 80x80,Orekit vs Brahe (Python),200,1.43e-08 m/s²,6.28e-08 m/s²,1.34e-07 m/s²,1.51e-07 m/s²
+Spherical Harmonics 80x80,Orekit vs Brahe (Rust),200,1.43e-08 m/s²,6.28e-08 m/s²,1.34e-07 m/s²,1.51e-07 m/s²
 Third Body (Moon),Orekit vs GMAT,200,8.48e-14 m/s²,1.43e-13 m/s²,1.75e-13 m/s²,2.09e-13 m/s²
 Third Body (Moon),Orekit vs Nyx,200,7.52e-15 m/s²,1.19e-14 m/s²,1.61e-14 m/s²,1.73e-14 m/s²
 Third Body (Moon),Orekit vs Brahe (Python),200,9.14e-14 m/s²,1.69e-13 m/s²,2.27e-13 m/s²,2.38e-13 m/s²

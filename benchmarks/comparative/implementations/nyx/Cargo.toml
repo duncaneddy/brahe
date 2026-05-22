@@ -14,18 +14,18 @@ name = "bench_nyx"
 path = "src/main.rs"
 
 [dependencies]
-# Pin Nyx, ANISE, and hifitime explicitly. Versions verified compatible via
-# crates.io / docs.rs at scaffolding time (see commit history).
-# nyx-space 2.3.1 requires anise ^0.9.6 and hifitime ^4.2.5.
-nyx-space = "=2.3.1"
-anise     = "=0.9.6"
+# Pin Nyx, ANISE, and hifitime explicitly.
+# nyx-space 2.4.0 (git master) requires anise 0.10.1 and hifitime 4.3.0.
+# nyx-space 2.4.0 is not yet published to crates.io; use the git source.
+# anise 0.10.1 provides DynamicFrame for IAU precession/nutation frame families.
+nyx-space = { git = "https://github.com/nyx-space/nyx", rev = "7bcdd51f2efa014a0a0a3663d1781492afa9fdde" }
+anise     = "=0.10.1"
 hifitime  = { version = "=4.3.0", features = ["ut1"] }
 
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
-# SGP4 propagation — same crate used internally by brahe; pinned to registry version.
-sgp4 = "=2.3.0"
+platform-dirs = "0.3"
 
 [profile.release]
 opt-level = 3

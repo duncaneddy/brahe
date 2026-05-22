@@ -68,8 +68,6 @@ fn main() {
         "frames.state_ecef_to_eci"                => frames::ecef_to_eci(&bench_input.params, bench_input.iterations),
         "propagation.keplerian_single"            => propagation::keplerian_single(&bench_input.params, bench_input.iterations),
         "propagation.keplerian_trajectory"        => propagation::keplerian_trajectory(&bench_input.params, bench_input.iterations),
-        "propagation.sgp4_single"                 => propagation::sgp4_single(&bench_input.params, bench_input.iterations),
-        "propagation.sgp4_trajectory"             => propagation::sgp4_trajectory(&bench_input.params, bench_input.iterations),
         "propagation.numerical_twobody"           => propagation::numerical_twobody(&bench_input.params, bench_input.iterations),
         "propagation.numerical_rk4_grav5x5"      => propagation::numerical_rk4_grav5x5(&bench_input.params, bench_input.iterations),
         "propagation.numerical_rk4_grav20x20_sun_moon" => propagation::numerical_rk4_grav20x20_sun_moon(&bench_input.params, bench_input.iterations),

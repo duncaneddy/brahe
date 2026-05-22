@@ -189,25 +189,26 @@ def run_accuracy(
     latest_handle.close()
     console.print(f"[dim]Accuracy results written to {archival_path}[/dim]")
 
-    # Update deviation-investigation stubs for tasks exceeding thresholds.
-    # Re-read the just-written JSONL so the stub generator sees only what
-    # was actually committed to disk — robust against an aborted run that
-    # closed the handles via finally cleanup.
-    try:
-        from benchmarks.comparative.deviations import write_deviation_stubs
-        from benchmarks.comparative.results import read_jsonl
+    # TODO: Find a better way of doing this. We don't want to pollute user docs
+    # # Update deviation-investigation stubs for tasks exceeding thresholds.
+    # # Re-read the just-written JSONL so the stub generator sees only what
+    # # was actually committed to disk — robust against an aborted run that
+    # # closed the handles via finally cleanup.
+    # try:
+    #     from benchmarks.comparative.deviations import write_deviation_stubs
+    #     from benchmarks.comparative.results import read_jsonl
 
-        summaries = [
-            r for r in read_jsonl(latest_path) if r.get("kind") == "summary"
-        ]
-        stub_paths = write_deviation_stubs(summaries)
-        if stub_paths:
-            console.print(
-                f"[dim]Wrote {len(stub_paths)} deviation stub(s) under "
-                f"docs/about/benchmark-deviations/[/dim]"
-            )
-    except Exception as e:
-        console.print(f"[yellow]Deviation stub generation failed: {e}[/yellow]")
+    #     summaries = [
+    #         r for r in read_jsonl(latest_path) if r.get("kind") == "summary"
+    #     ]
+    #     stub_paths = write_deviation_stubs(summaries)
+    #     if stub_paths:
+    #         console.print(
+    #             f"[dim]Wrote {len(stub_paths)} deviation stub(s) under "
+    #             f"docs/about/benchmark-deviations/[/dim]"
+    #         )
+    # except Exception as e:
+    #     console.print(f"[yellow]Deviation stub generation failed: {e}[/yellow]")
 
     return archival_path
 
@@ -264,17 +265,10 @@ def _dispatch_one(task: BenchmarkTask, language: str, params: dict):
         cmd = [str(RUST_BINARY)] if RUST_BINARY.exists() else None
         return _run_subprocess(task, "rust", input_data, cmd)
     if language == "java":
-        gradlew = JAVA_PROJECT_DIR / "gradlew"
-        build_dir = JAVA_PROJECT_DIR / "build"
-        if not gradlew.exists() or not build_dir.exists():
-            return None
-        cmd = [
-            str(gradlew),
-            "-p",
-            str(JAVA_PROJECT_DIR),
-            "--quiet",
-            "run",
-        ]
+        from benchmarks.comparative.runner import _get_java_command, _ensure_java_home
+
+        _ensure_java_home()
+        cmd = _get_java_command()
         return _run_subprocess(task, "java", input_data, cmd)
     return None
 

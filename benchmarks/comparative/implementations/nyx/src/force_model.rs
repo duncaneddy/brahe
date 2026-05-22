@@ -3,7 +3,7 @@
 //! ## Task decisions
 //!
 //! ### `accel_point_mass_gravity` — DROPPED
-//! Nyx 2.3.1 has no standalone point-mass API for a single (epoch, position)
+//! Nyx 2.4.0 has no standalone point-mass API for a single (epoch, position)
 //! pair.  The two-body central-body term is evaluated inside
 //! `OrbitalDynamics::eom()` as `(-mu/|r|^3) * r`, with `mu` read from
 //! `frame.mu_km3_s2()` (ANISE frame constant, not an ephemeris call).
@@ -11,7 +11,7 @@
 //! a single constant lookup — not a meaningful Nyx/ANISE benchmark.
 //!
 //! ### `accel_spherical_harmonics_20` / `_80` — IMPLEMENTED
-//! `Harmonics::eom(&orbit, almanac)` is the Nyx API that evaluates the full
+//! `GravityField::eom(&orbit, almanac)` is the Nyx API that evaluates the full
 //! GMAT-algorithm spherical-harmonic acceleration: it calls
 //! `almanac.transform_to(orbit, iau_earth, None)` to rotate the state into
 //! the body-fixed frame, runs the normalized Legendre polynomial recursion,
@@ -31,8 +31,8 @@ use anise::math::Vector3;
 use anise::prelude::Orbit;
 use hifitime::Epoch;
 use nyx_space::dynamics::orbital::PointMasses;
-use nyx_space::dynamics::{AccelModel, Harmonics};
-use nyx_space::io::gravity::HarmonicsMem;
+use nyx_space::dynamics::{AccelModel, GravityField};
+use nyx_space::io::gravity::GravityFieldData;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -50,7 +50,7 @@ struct Case {
 /// Build an `Orbit` (= ANISE `CartesianState`) in J2000 from a Julian Date
 /// (UTC) and a 6-element ECI state vector `[x,y,z,vx,vy,vz]` in metres.
 ///
-/// The Harmonics and PointMasses `eom` methods only read `radius_km`,
+/// The GravityField and PointMasses `eom` methods only read `radius_km`,
 /// `epoch`, and `frame` from the orbit, so the velocity slots (set to
 /// `vx/vy/vz` from input) do not affect the acceleration result.
 #[inline]
@@ -139,7 +139,7 @@ where
 ///
 /// Mirrors `load_egm2008_icgem` in `propagation.rs`; duplicated here so
 /// `force_model.rs` has no intra-module dependency.
-fn load_egm2008_icgem(degree: usize, order: usize) -> HarmonicsMem {
+fn load_egm2008_icgem(degree: usize, order: usize) -> GravityFieldData {
     let path = std::env::var("BRAHE_GRAVITY_FILE")
         .unwrap_or_else(|_| "data/gravity_models/EGM2008_360.gfc".to_string());
 
@@ -205,8 +205,8 @@ fn load_egm2008_icgem(degree: usize, order: usize) -> HarmonicsMem {
     std::fs::write(&tmp_path, &shadr_lines)
         .unwrap_or_else(|e| panic!("Cannot write temp SHADR file {tmp_path}: {e}"));
 
-    let mem = HarmonicsMem::from_shadr(&tmp_path, degree, order, false)
-        .unwrap_or_else(|e| panic!("HarmonicsMem::from_shadr failed for {tmp_path}: {e:?}"));
+    let mem = GravityFieldData::from_shadr(&tmp_path, degree, order, false)
+        .unwrap_or_else(|e| panic!("GravityFieldData::from_shadr failed for {tmp_path}: {e:?}"));
 
     let _ = std::fs::remove_file(&tmp_path);
     mem
@@ -223,7 +223,7 @@ fn accel_spherical_harmonics_run(
 
     let almanac = Arc::new(crate::data::almanac().clone());
 
-    // IAU Earth body-fixed frame: `Harmonics::eom` transforms the orbit into
+    // IAU Earth body-fixed frame: `GravityField::eom` transforms the orbit into
     // this frame via `almanac.transform_to(...)`, runs the SH recursion, then
     // rotates the result back to J2000 via `almanac.rotate(...)`.
     let iau_earth = almanac
@@ -231,21 +231,21 @@ fn accel_spherical_harmonics_run(
         .expect("IAU_EARTH_FRAME not found — PCK11 kernel must be loaded");
 
     let stor = load_egm2008_icgem(degree, order);
-    // `Harmonics::from_stor` pre-computes all B_nm, C_nm, vr01, vr11 tables —
+    // `GravityField::from_stor` pre-computes all B_nm, C_nm, vr01, vr11 tables —
     // same setup cost as in propagation; done once outside the timing loop.
-    let harmonics = Harmonics::from_stor(iau_earth, stor);
+    let harmonics = GravityField::from_stor(iau_earth, stor);
 
     run_force_model(params, iterations, |jd, state| {
         let osc = orbit_from_state(jd, state);
 
-        // `Harmonics::eom` is the core Nyx SH evaluator: it handles frame
+        // `GravityField::eom` is the core Nyx SH evaluator: it handles frame
         // transformation (ANISE), Legendre recursion, and result rotation.
         // It returns the perturbation only (degrees 2+; C[0,0] and C[1,0]=0
         // are excluded by the GMAT algorithm design), matching how Nyx uses
         // it inside OrbitalDynamics.
         let pert_km_s2 = harmonics
             .eom(&osc, almanac.clone())
-            .expect("Harmonics::eom failed");
+            .expect("GravityField::eom failed");
 
         // Add the two-body (central-body) term to match the convention used by
         // brahe and Orekit, which return the full gravitational acceleration
@@ -266,10 +266,10 @@ fn accel_spherical_harmonics_run(
     })
 }
 
-/// 20×20 EGM2008 spherical-harmonic acceleration via `Harmonics::eom`.
+/// 20×20 EGM2008 spherical-harmonic acceleration via `GravityField::eom`.
 ///
 /// ANISE API invoked: `almanac.transform_to(orbit, IAU_EARTH, None)` +
-/// `almanac.rotate(IAU_EARTH, J2000, epoch)` inside `Harmonics::eom`.
+/// `almanac.rotate(IAU_EARTH, J2000, epoch)` inside `GravityField::eom`.
 pub fn accel_spherical_harmonics_20(
     params: &serde_json::Value,
     iterations: usize,
@@ -277,7 +277,7 @@ pub fn accel_spherical_harmonics_20(
     accel_spherical_harmonics_run(params, iterations)
 }
 
-/// 80×80 EGM2008 spherical-harmonic acceleration via `Harmonics::eom`.
+/// 80×80 EGM2008 spherical-harmonic acceleration via `GravityField::eom`.
 ///
 /// Same API as `accel_spherical_harmonics_20`; only the coefficient truncation
 /// changes (degree = order = 80 passed in `params`).

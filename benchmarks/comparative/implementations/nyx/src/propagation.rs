@@ -1,21 +1,12 @@
-//! Orbit propagation benchmarks — analytic Keplerian (Tasks 11) and SGP4 (Tasks 12).
+//! Orbit propagation benchmarks — analytic Keplerian and numerical propagation.
 //!
 //! ## Keplerian API used
 //!
-//! `Orbit::at_epoch` (ANISE 0.9.6, `src/astro/orbit.rs` line 1420) performs
+//! `Orbit::at_epoch` (ANISE 0.10.1, `src/astro/orbit.rs`) performs
 //! closed-form two-body Keplerian propagation: it advances the mean anomaly
 //! by Δt using the analytic mean-motion formula, then reconstructs the full
 //! Cartesian state via `try_keplerian_mean_anomaly`.  No integrator is
 //! invoked; this is equivalent to brahe-Rust's `KeplerianPropagator`.
-//!
-//! ## SGP4 API used
-//!
-//! `sgp4::Constants::from_elements` + `Constants::propagate(MinutesSinceEpoch)`.
-//! Nyx 2.3.1 does not expose its own SGP4 façade, so the underlying `sgp4`
-//! crate (same version used by brahe) is called directly.  Output is in the
-//! TEME frame (km / km s⁻¹), converted to m / m s⁻¹ at the boundary.
-//! brahe-Rust also reports TEME — both produce the same frame, so residuals
-//! vs Java (also TEME) should be near-zero.
 //!
 //! ## Unit conventions (matching brahe-Rust)
 //!
@@ -31,10 +22,9 @@ use anise::prelude::Orbit;
 use hifitime::{Duration, Epoch};
 use nyx_space::cosmic::Spacecraft;
 use nyx_space::dynamics::orbital::{OrbitalDynamics, PointMasses};
-use nyx_space::dynamics::{Drag, Harmonics, SolarPressure, SpacecraftDynamics};
-use nyx_space::io::gravity::HarmonicsMem;
+use nyx_space::dynamics::{Drag, GravityField, SolarPressure, SpacecraftDynamics};
+use nyx_space::io::gravity::GravityFieldData;
 use nyx_space::propagators::{IntegratorMethod, IntegratorOptions, Propagator};
-use sgp4::{Constants as Sgp4Constants, Elements, MinutesSinceEpoch};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -199,67 +189,6 @@ pub fn keplerian_trajectory(
     (all_times, serde_json::to_value(first_results).unwrap())
 }
 
-/// SGP4 single — propagate one TLE to N time offsets.
-///
-/// ## Input shape
-/// ```json
-/// { "line1": "...", "line2": "...", "time_offsets_seconds": [f64, ...] }
-/// ```
-/// `time_offsets_seconds` are seconds elapsed since the TLE epoch (matches
-/// brahe-Rust's wire format).
-///
-/// ## Output shape
-/// `[[x,y,z,vx,vy,vz], ...]` — one row per offset, metres / m s⁻¹, TEME frame.
-///
-/// ## Frame note
-/// The `sgp4` crate returns position / velocity in the TEME frame (km, km s⁻¹).
-/// brahe-Rust's `SGPPropagator` also reports TEME directly.  No frame
-/// conversion is applied; results are directly comparable to Java (Orekit TEME).
-pub fn sgp4_single(
-    params: &serde_json::Value,
-    iterations: usize,
-) -> (Vec<f64>, serde_json::Value) {
-    let line1: String = serde_json::from_value(params["line1"].clone()).unwrap();
-    let line2: String = serde_json::from_value(params["line2"].clone()).unwrap();
-    let offsets: Vec<f64> =
-        serde_json::from_value(params["time_offsets_seconds"].clone()).unwrap();
-
-    // Pre-parse outside the timed loop — TLE parsing is one-time setup.
-    let elements =
-        Elements::from_tle(None, line1.as_bytes(), line2.as_bytes()).expect("TLE parse");
-    let constants = Sgp4Constants::from_elements(&elements).expect("SGP4 constants");
-    // Pre-compute minutes-since-epoch for every offset.
-    let offsets_min: Vec<f64> = offsets.iter().map(|s| s / 60.0).collect();
-
-    let mut all_times = Vec::with_capacity(iterations);
-    let mut first_results: Vec<Vec<f64>> = Vec::new();
-
-    for iter in 0..iterations {
-        let start = Instant::now();
-        let mut results = Vec::with_capacity(offsets_min.len());
-
-        for dt_min in &offsets_min {
-            let pred = constants
-                .propagate(MinutesSinceEpoch(*dt_min))
-                .expect("SGP4 propagate");
-            results.push(vec![
-                pred.position[0] * 1000.0,
-                pred.position[1] * 1000.0,
-                pred.position[2] * 1000.0,
-                pred.velocity[0] * 1000.0,
-                pred.velocity[1] * 1000.0,
-                pred.velocity[2] * 1000.0,
-            ]);
-        }
-
-        all_times.push(start.elapsed().as_secs_f64());
-        if iter == 0 {
-            first_results = results;
-        }
-    }
-
-    (all_times, serde_json::to_value(first_results).unwrap())
-}
 
 /// Numerical two-body propagation using Nyx's RK4 fixed-step integrator.
 ///
@@ -309,7 +238,7 @@ pub fn numerical_twobody(
     // Build propagator once — reused across iterations and cases.
     //
     // Nyx's `Propagator` only accepts types that implement `Dynamics`, and in
-    // Nyx 2.3.1 the only public implementation is `SpacecraftDynamics`.
+    // Nyx 2.4.0 the only public implementation is `SpacecraftDynamics`.
     // `OrbitalDynamics::two_body()` provides the pure central-body force model;
     // `SpacecraftDynamics::new()` wraps it. The propagated state is `Spacecraft`,
     // which carries an embedded `orbit: Orbit` accessed via `.orbit`.
@@ -376,64 +305,6 @@ pub fn numerical_twobody(
     (all_times, serde_json::to_value(first_results).unwrap())
 }
 
-/// SGP4 trajectory — propagate one TLE over a fixed grid of steps.
-///
-/// ## Perf path (single-IC)
-/// Input:  `{ "line1", "line2", "step_size": f64, "n_steps": usize }`
-/// Output: `[[x,y,z,vx,vy,vz], ...]` — `n_steps` rows at `step_size`-second
-///         intervals (k = 1 … n_steps).
-///
-/// ## Accuracy path (same shape)
-/// `generate_accuracy_samples` produces the same keys — brahe uses a single
-/// TLE for SGP4 accuracy sampling, so both perf and accuracy use the same
-/// single-IC input schema.
-///
-/// Frame / unit conventions: same as `sgp4_single`.
-pub fn sgp4_trajectory(
-    params: &serde_json::Value,
-    iterations: usize,
-) -> (Vec<f64>, serde_json::Value) {
-    let line1: String = serde_json::from_value(params["line1"].clone()).unwrap();
-    let line2: String = serde_json::from_value(params["line2"].clone()).unwrap();
-    let step_size: f64 = serde_json::from_value(params["step_size"].clone()).unwrap();
-    let n_steps: usize = serde_json::from_value(params["n_steps"].clone()).unwrap();
-
-    // Pre-parse outside the timed loop.
-    let elements =
-        Elements::from_tle(None, line1.as_bytes(), line2.as_bytes()).expect("TLE parse");
-    let constants = Sgp4Constants::from_elements(&elements).expect("SGP4 constants");
-    let step_min = step_size / 60.0;
-
-    let mut all_times = Vec::with_capacity(iterations);
-    let mut first_results: Vec<Vec<f64>> = Vec::new();
-
-    for iter in 0..iterations {
-        let start = Instant::now();
-        let mut results = Vec::with_capacity(n_steps);
-
-        for step_idx in 0..n_steps {
-            let dt_min = (step_idx as f64 + 1.0) * step_min;
-            let pred = constants
-                .propagate(MinutesSinceEpoch(dt_min))
-                .expect("SGP4 propagate");
-            results.push(vec![
-                pred.position[0] * 1000.0,
-                pred.position[1] * 1000.0,
-                pred.position[2] * 1000.0,
-                pred.velocity[0] * 1000.0,
-                pred.velocity[1] * 1000.0,
-                pred.velocity[2] * 1000.0,
-            ]);
-        }
-
-        all_times.push(start.elapsed().as_secs_f64());
-        if iter == 0 {
-            first_results = results;
-        }
-    }
-
-    (all_times, serde_json::to_value(first_results).unwrap())
-}
 
 // ── Shared infrastructure for spherical-harmonic propagation ────────────────
 
@@ -451,11 +322,11 @@ pub fn sgp4_trajectory(
 /// `BRAHE_GRAVITY_FILE` env-var overrides the path
 /// (`data/gravity_models/EGM2008_360.gfc` relative to the working directory).
 ///
-/// Because `HarmonicsMem` has no public constructor for pre-built matrices,
+/// Because `GravityFieldData` has no public constructor for pre-built matrices,
 /// the parsed coefficients are written to a temp SHADR-format text file and
-/// loaded back via `HarmonicsMem::from_shadr`.  The values are numerically
+/// loaded back via `GravityFieldData::from_shadr`.  The values are numerically
 /// identical to the source; only the serialization format differs.
-fn load_egm2008_icgem(degree: usize, order: usize) -> HarmonicsMem {
+fn load_egm2008_icgem(degree: usize, order: usize) -> GravityFieldData {
     let path = std::env::var("BRAHE_GRAVITY_FILE")
         .unwrap_or_else(|_| "data/gravity_models/EGM2008_360.gfc".to_string());
 
@@ -499,7 +370,7 @@ fn load_egm2008_icgem(degree: usize, order: usize) -> HarmonicsMem {
         s_nm[(n, m)] = s;
     }
 
-    // Serialize to SHADR format for round-trip through HarmonicsMem::from_shadr.
+    // Serialize to SHADR format for round-trip through GravityFieldData::from_shadr.
     // SHADR layout: one header line, then `<n> <m> <C_nm> <S_nm>` per row.
     let mut shadr_lines = String::from("SHADR_HEADER\n");
     for n in 0..=degree {
@@ -523,8 +394,8 @@ fn load_egm2008_icgem(degree: usize, order: usize) -> HarmonicsMem {
     std::fs::write(&tmp_path, &shadr_lines)
         .unwrap_or_else(|e| panic!("Cannot write temp SHADR file {tmp_path}: {e}"));
 
-    let mem = HarmonicsMem::from_shadr(&tmp_path, degree, order, false)
-        .unwrap_or_else(|e| panic!("HarmonicsMem::from_shadr failed for {tmp_path}: {e:?}"));
+    let mem = GravityFieldData::from_shadr(&tmp_path, degree, order, false)
+        .unwrap_or_else(|e| panic!("GravityFieldData::from_shadr failed for {tmp_path}: {e:?}"));
 
     let _ = std::fs::remove_file(&tmp_path);
     mem
@@ -573,7 +444,7 @@ fn numerical_rk4_grav_run(
     // Loaded once per process via OnceLock in data.rs.
     let almanac = Arc::new(crate::data::almanac().clone());
 
-    // IAU Earth body-fixed frame: used as the Harmonics compute_frame.
+    // IAU Earth body-fixed frame: used as the GravityField compute_frame.
     // Nyx evaluates spherical-harmonic accelerations in this frame, then rotates
     // the result back to J2000 (EARTH_J2000) after each step.
     let iau_earth = almanac
@@ -581,7 +452,7 @@ fn numerical_rk4_grav_run(
         .expect("IAU_EARTH_FRAME not found — PCK11 kernel must be loaded by MetaAlmanac");
 
     let stor = load_egm2008_icgem(p.gravity_degree, p.gravity_order);
-    let harmonics = Harmonics::from_stor(iau_earth, stor);
+    let harmonics = GravityField::from_stor(iau_earth, stor);
 
     let mut orbital_dyn = OrbitalDynamics::from_model(harmonics);
 
@@ -667,7 +538,7 @@ fn numerical_rk4_grav_run(
 ///
 /// ## Gravity-file format note
 ///
-/// Nyx 2.3.1 `HarmonicsMem` supports COF and SHADR formats; brahe ships EGM2008
+/// Nyx 2.4.0 `GravityFieldData` supports COF and SHADR formats; brahe ships EGM2008
 /// in ICGEM format.  A transparent round-trip through a temp SHADR file bridges
 /// the formats; coefficient values are numerically unchanged.
 pub fn numerical_rk4_grav5x5(
@@ -705,12 +576,12 @@ pub fn numerical_rk4_grav20x20_sun_moon(
 ///
 /// ## Drag substitution
 ///
-/// **Nyx 2.3.1 does not expose NRLMSISE-00 publicly.**  brahe and Orekit
+/// **Nyx 2.4.0 does not expose NRLMSISE-00 publicly.**  brahe and Orekit
 /// both use NRLMSISE-00 for this task.  We substitute the **US Standard
 /// Atmosphere 1976** model (`Drag::std_atm1976`), which is the highest-
-/// fidelity drag model available in the Nyx 2.3.1 public API.
+/// fidelity drag model available in the Nyx 2.4.0 public API.
 ///
-/// Harris-Priester is also absent from the Nyx 2.3.1 API; `std_atm1976`
+/// Harris-Priester is also absent from the Nyx 2.4.0 API; `std_atm1976`
 /// is the best available fallback.
 ///
 /// As a result, the accuracy residual vs Orekit (NRLMSISE-00) will be
@@ -755,7 +626,7 @@ pub fn numerical_rk4_grav80x80_full(
     // ── Almanac (PCK11 + de440s) ──────────────────────────────────────────────
     let almanac = Arc::new(crate::data::almanac().clone());
 
-    // IAU Earth body-fixed frame: Harmonics compute frame.
+    // IAU Earth body-fixed frame: GravityField compute frame.
     let iau_earth = almanac
         .frame_info(IAU_EARTH_FRAME)
         .expect("IAU_EARTH_FRAME not found — PCK11 kernel must be loaded");
@@ -769,14 +640,14 @@ pub fn numerical_rk4_grav80x80_full(
 
     // 80×80 EGM2008 spherical harmonics.
     let stor = load_egm2008_icgem(80, 80);
-    let harmonics = Harmonics::from_stor(iau_earth, stor);
+    let harmonics = GravityField::from_stor(iau_earth, stor);
 
     let mut orbital_dyn = OrbitalDynamics::from_model(harmonics);
     orbital_dyn
         .accel_models
         .push(PointMasses::new(vec![SUN, MOON]));
 
-    // Atmospheric drag — US Standard Atmosphere 1976 (best available in Nyx 2.3.1;
+    // Atmospheric drag — US Standard Atmosphere 1976 (best available in Nyx 2.4.0;
     // substitutes for NRLMSISE-00 used by brahe/Orekit).
     let drag = Drag::std_atm1976(almanac.clone())
         .expect("std_atm1976: IAU Earth frame not found");

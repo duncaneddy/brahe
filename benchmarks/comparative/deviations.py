@@ -12,10 +12,6 @@ The intent is twofold:
    they don't masquerade as bugs.
 2. Surface new outliers loudly. Unfamiliar tasks crossing threshold land
    as ``TODO: investigate`` stubs the next time docs are regenerated.
-
-Stubs live under ``docs/about/benchmark-deviations/``. The harness updates
-the magnitudes in each stub but never deletes prose — a stub that becomes
-clean stays in the directory with its history intact.
 """
 
 from __future__ import annotations
@@ -158,15 +154,16 @@ def write_deviation_stubs(
     from :data:`KNOWN_CAUSES` rather than read from the existing file —
     callers who want to extend the prose should add to ``KNOWN_CAUSES``.
     """
-    # Resolve the default output directory relative to the repo root (this
-    # file is at <repo>/benchmarks/comparative/deviations.py — three parents
-    # up gets us to the repo root). The earlier ``Path("docs/...")`` form
-    # was cwd-sensitive and could write stubs into a nested directory when
-    # the harness ran from a subprocess that had cd'd elsewhere.
-    if output_dir is None:
-        repo_root = Path(__file__).resolve().parents[2]
-        output_dir = repo_root / "docs" / "about" / "benchmark-deviations"
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # TODO: Find a better way to do this. We don't want to pollute user-facing docs
+    # # Resolve the default output directory relative to the repo root (this
+    # # file is at <repo>/benchmarks/comparative/deviations.py — three parents
+    # # up gets us to the repo root). The earlier ``Path("docs/...")`` form
+    # # was cwd-sensitive and could write stubs into a nested directory when
+    # # the harness ran from a subprocess that had cd'd elsewhere.
+    # if output_dir is None:
+    #     repo_root = Path(__file__).resolve().parents[2]
+    #     output_dir = repo_root / "docs" / "about" / "benchmark-deviations"
+    # output_dir.mkdir(parents=True, exist_ok=True)
 
     # Group summaries by task; keep the worst p99 across comparisons.
     by_task: dict[str, dict] = {}

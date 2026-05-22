@@ -10,15 +10,16 @@ class TestAdaptiveIntegratorComparison:
     """Compare behavior of different adaptive integrators on same problem."""
 
     def test_all_converge_to_same_solution(self):
-        """Verify all three integrators give consistent results."""
+        """Verify adaptive integrators give consistent results."""
 
         def dynamics(t, state):
             return np.array([3.0 * t * t])
 
         config = bh.IntegratorConfig.adaptive(1e-12, 1e-10)
 
-        # Create all three integrators
+        # Create adaptive first-order integrators
         rkf45 = bh.RKF45Integrator(dimension=1, dynamics_fn=dynamics, config=config)
+        rkf78 = bh.RKF78Integrator(dimension=1, dynamics_fn=dynamics, config=config)
         dp54 = bh.DP54Integrator(dimension=1, dynamics_fn=dynamics, config=config)
 
         # Propagate each to t=10
@@ -39,12 +40,21 @@ class TestAdaptiveIntegratorComparison:
             state, t = result.state, t + result.dt_used
         dp54_result = state[0]
 
+        # RKF78
+        t, state = 0.0, np.array([0.0])
+        while t < t_end:
+            result = rkf78.step(t, state, min(t_end - t, 0.1))
+            state, t = result.state, t + result.dt_used
+        rkf78_result = state[0]
+
         # All should be very close to exact solution
         assert abs(rkf45_result - exact) < 1e-8
+        assert abs(rkf78_result - exact) < 1e-8
         assert abs(dp54_result - exact) < 1e-8
 
         # And close to each other
         assert abs(rkf45_result - dp54_result) < 1e-9
+        assert abs(rkf45_result - rkf78_result) < 1e-9
 
     def test_orbital_mechanics_consistency(self, point_earth):
         """Verify all integrators give consistent orbital propagation."""
@@ -52,6 +62,7 @@ class TestAdaptiveIntegratorComparison:
         config = bh.IntegratorConfig.adaptive(1e-9, 1e-7)
 
         rkf45 = bh.RKF45Integrator(dimension=6, dynamics_fn=point_earth, config=config)
+        rkf78 = bh.RKF78Integrator(dimension=6, dynamics_fn=point_earth, config=config)
         dp54 = bh.DP54Integrator(dimension=6, dynamics_fn=point_earth, config=config)
         rkn1210 = bh.RKN1210Integrator(
             dimension=6, dynamics_fn=point_earth, config=config
@@ -65,7 +76,7 @@ class TestAdaptiveIntegratorComparison:
         t_end = bh.orbital_period(oe0[0]) / 2.0
 
         results = []
-        for integrator in [rkf45, dp54, rkn1210]:
+        for integrator in [rkf45, rkf78, dp54, rkn1210]:
             t, state = 0.0, state0.copy()
             while t < t_end:
                 result = integrator.step(t, state, min(t_end - t, 10.0))

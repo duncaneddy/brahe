@@ -3,7 +3,7 @@
  *
  * This module provides configuration for the numerical integrator settings
  * used in numerical orbit propagation, including:
- * - Integrator selection (RK4, RKF45, DP54, RKN1210)
+ * - Integrator selection (RK4, RKF45, RKF78, DP54, RKN1210)
  * - Integrator tolerances and step sizes
  * - Jacobian and sensitivity computation methods
  *
@@ -44,6 +44,7 @@ use crate::utils::BraheError;
 /// |----------|-------|----------|----------------|----------|
 /// | RK4      | 4     | No       | 4              | Simple problems, debugging |
 /// | RKF45    | 4(5)  | Yes      | 6              | General purpose |
+/// | RKF78    | 7(8)  | Yes      | 13             | High accuracy |
 /// | DP54     | 5(4)  | Yes      | 7 (6 w/FSAL)   | General purpose (default) |
 /// | RKN1210  | 12(10)| Yes      | 17             | High precision |
 ///
@@ -72,6 +73,12 @@ pub enum IntegratorMethod {
     /// 6 function evaluations per step.
     RKF45,
 
+    /// Runge-Kutta-Fehlberg 7(8) adaptive
+    ///
+    /// Uses 8th and 7th order solutions for error estimation.
+    /// 13 function evaluations per step.
+    RKF78,
+
     /// Dormand-Prince 5(4) adaptive (default)
     ///
     /// MATLAB's ode45. Uses FSAL (First-Same-As-Last) optimization
@@ -97,7 +104,7 @@ impl IntegratorMethod {
     /// error tolerances.
     ///
     /// # Returns
-    /// `true` for RKF45, DP54, and RKN1210; `false` for RK4.
+    /// `true` for RKF45, RKF78, DP54, and RKN1210; `false` for RK4.
     pub fn is_adaptive(&self) -> bool {
         !matches!(self, IntegratorMethod::RK4)
     }
@@ -372,7 +379,7 @@ impl NumericalPropagationConfig {
     ///
     /// # Arguments
     ///
-    /// * `method` - Integration method to use (RK4, RKF45, DP54, or RKN1210)
+    /// * `method` - Integration method to use (RK4, RKF45, RKF78, DP54, or RKN1210)
     /// * `integrator` - Integrator configuration (tolerances, step sizes)
     /// * `variational` - Variational configuration (STM and sensitivity settings)
     ///
@@ -504,6 +511,7 @@ mod tests {
     fn test_integrator_method_is_adaptive() {
         assert!(!IntegratorMethod::RK4.is_adaptive());
         assert!(IntegratorMethod::RKF45.is_adaptive());
+        assert!(IntegratorMethod::RKF78.is_adaptive());
         assert!(IntegratorMethod::DP54.is_adaptive());
         assert!(IntegratorMethod::RKN1210.is_adaptive());
     }

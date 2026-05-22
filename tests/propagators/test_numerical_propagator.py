@@ -709,6 +709,20 @@ def test_numericalpropagator_with_rkf45():
     assert prop.current_state()[0] < 0
 
 
+def test_numericalpropagator_with_rkf78():
+    """Test with RKF78 integrator"""
+    epoch = create_test_epoch()
+    state = np.array([1.0, 0.0])
+
+    config = NumericalPropagationConfig.with_method(IntegrationMethod.RKF78)
+
+    prop = NumericalPropagator(epoch, state, sho_dynamics, config)
+
+    prop.propagate_to(epoch + np.pi)
+
+    assert prop.current_state()[0] < 0
+
+
 def test_numericalpropagator_with_dp54():
     """Test with DP54 integrator (default)"""
     epoch = create_test_epoch()

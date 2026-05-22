@@ -12,7 +12,7 @@ This module provides:
 - NumericalPropagator: Generic numerical propagator for arbitrary dynamics
 
 **Configuration Classes:**
-- IntegrationMethod: Integration method selection (RK4, RKF45, DP54, RKN1210)
+- IntegrationMethod: Integration method selection (RK4, RKF45, RKF78, DP54, RKN1210)
 - AtmosphericModel: Atmospheric density model selection
 - EclipseModel: Eclipse model for SRP calculations
 - ZonalHarmonicsDegree: Maximum zonal harmonic degree (J2..=J6)

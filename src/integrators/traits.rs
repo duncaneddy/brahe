@@ -652,7 +652,7 @@ use crate::propagators::IntegratorMethod;
 /// type needs to be determined at runtime based on configuration.
 ///
 /// # Arguments
-/// * `method` - The integration method to use (RK4, RKF45, DP54, or RKN1210)
+/// * `method` - The integration method to use (RK4, RKF45, RKF78, DP54, or RKN1210)
 /// * `dimension` - State vector dimension
 /// * `dynamics` - Dynamics function computing state derivatives
 /// * `varmat` - Optional Jacobian provider for STM propagation
@@ -689,7 +689,8 @@ pub fn create_dintegrator(
     config: IntegratorConfig,
 ) -> Box<dyn DIntegrator> {
     use crate::integrators::{
-        DormandPrince54DIntegrator, RK4DIntegrator, RKF45DIntegrator, RKN1210DIntegrator,
+        DormandPrince54DIntegrator, RK4DIntegrator, RKF45DIntegrator, RKF78DIntegrator,
+        RKN1210DIntegrator,
     };
 
     match method {
@@ -697,6 +698,9 @@ pub fn create_dintegrator(
             dimension, dynamics, varmat, sensmat, control, config,
         )),
         IntegratorMethod::RKF45 => Box::new(RKF45DIntegrator::with_config(
+            dimension, dynamics, varmat, sensmat, control, config,
+        )),
+        IntegratorMethod::RKF78 => Box::new(RKF78DIntegrator::with_config(
             dimension, dynamics, varmat, sensmat, control, config,
         )),
         IntegratorMethod::DP54 => Box::new(DormandPrince54DIntegrator::with_config(

@@ -108,16 +108,6 @@ enum EventProcessingResult {
 type SharedDynamics =
     Arc<dyn Fn(f64, &DVector<f64>, Option<&DVector<f64>>) -> DVector<f64> + Send + Sync>;
 
-struct DynamicsEvaluationContext<'a> {
-    epoch_initial: Epoch,
-    force_config: &'a ForceModelConfig,
-    params_opt: Option<&'a DVector<f64>>,
-    gravity_model: Option<&'a Arc<GravityModel>>,
-    r_i2b: SMatrix3,
-    sh_v: &'a mut DMatrix<f64>,
-    sh_w: &'a mut DMatrix<f64>,
-}
-
 // =============================================================================
 // Per-propagator rotation cache
 // =============================================================================
@@ -1434,16 +1424,17 @@ impl DNumericalOrbitPropagator {
                 // `compute_dynamics` returns a `Vector6<f64>` so the inner
                 // force-model evaluation doesn't have to allocate; we widen
                 // it into the full state-dim `DVector` here.
-                let ctx = DynamicsEvaluationContext {
+                let dx_orbital = Self::compute_dynamics(
+                    t,
+                    state,
                     epoch_initial,
-                    force_config: &force_config,
-                    params_opt: params_opt.or(Some(&params)),
-                    gravity_model: gravity_model.as_ref(),
+                    &force_config,
+                    params_opt.or(Some(&params)),
+                    gravity_model.as_ref(),
                     r_i2b,
                     sh_v,
                     sh_w,
-                };
-                let dx_orbital = Self::compute_dynamics(t, state, ctx);
+                );
                 // Release the lock before the additional_dynamics callback
                 // so the user closure (which may allocate or call Python)
                 // doesn't run while we're holding the propagator's mutex.
@@ -1561,13 +1552,20 @@ impl DNumericalOrbitPropagator {
     ///
     /// Computes the state derivative for given time, state, and parameters.
     /// This is the actual force model evaluation logic.
+    #[allow(clippy::too_many_arguments)]
     fn compute_dynamics(
         t: f64,
         state: &DVector<f64>,
-        ctx: DynamicsEvaluationContext<'_>,
+        epoch_initial: Epoch,
+        force_config: &ForceModelConfig,
+        params_opt: Option<&DVector<f64>>,
+        gravity_model: Option<&Arc<GravityModel>>,
+        r_i2b: SMatrix3,
+        sh_v: &mut DMatrix<f64>,
+        sh_w: &mut DMatrix<f64>,
     ) -> Vector6<f64> {
         // Convert relative time to absolute Epoch
-        let epoch = ctx.epoch_initial + t;
+        let epoch = epoch_initial + t;
 
         // Extract position and velocity (first 6 elements always orbital state).
         // Reading by index against `&DVector<f64>` is a bounds-checked load —
@@ -1588,14 +1586,14 @@ impl DNumericalOrbitPropagator {
         // to a single rotation computation per unique epoch.
 
         // ===== GRAVITY =====
-        match &ctx.force_config.gravity {
+        match &force_config.gravity {
             GravityConfiguration::PointMass => {
                 a_total += accel_point_mass_gravity(r, Vector3::zeros(), GM_EARTH);
             }
             GravityConfiguration::EarthZonal { degree } => {
-                let r_ecef = ctx.r_i2b * r;
+                let r_ecef = r_i2b * r;
                 let a_ecef = accel_earth_zonal_gravity(r_ecef, degree.into());
-                a_total += ctx.r_i2b.transpose() * a_ecef;
+                a_total += r_i2b.transpose() * a_ecef;
             }
             GravityConfiguration::SphericalHarmonic {
                 source,
@@ -1613,25 +1611,25 @@ impl DNumericalOrbitPropagator {
                             get_global_gravity_model();
                         a_total += accel_gravity_spherical_harmonics_with_workspace(
                             r,
-                            ctx.r_i2b,
+                            r_i2b,
                             &global_model,
                             *degree,
                             *order,
-                            ctx.sh_v,
-                            ctx.sh_w,
+                            sh_v,
+                            sh_w,
                         );
                     }
                     GravityModelSource::ModelType(_) => {
                         // Use the model loaded at construction (passed in)
-                        if let Some(model) = ctx.gravity_model {
+                        if let Some(model) = gravity_model {
                             a_total += accel_gravity_spherical_harmonics_with_workspace(
                                 r,
-                                ctx.r_i2b,
+                                r_i2b,
                                 model.as_ref(),
                                 *degree,
                                 *order,
-                                ctx.sh_v,
-                                ctx.sh_w,
+                                sh_v,
+                                sh_w,
                             );
                         }
                     }
@@ -1640,18 +1638,17 @@ impl DNumericalOrbitPropagator {
         }
 
         // ===== DRAG =====
-        if let Some(drag_config) = &ctx.force_config.drag {
+        if let Some(drag_config) = &force_config.drag {
             // Get mass from configuration
-            let mass = ctx
-                .force_config
+            let mass = force_config
                 .mass
                 .as_ref()
                 .expect("Mass must be configured for drag calculation")
-                .get_value(ctx.params_opt);
+                .get_value(params_opt);
 
             // Get drag parameters (area, Cd)
-            let drag_area = drag_config.area.get_value(ctx.params_opt);
-            let cd = drag_config.cd.get_value(ctx.params_opt);
+            let drag_area = drag_config.area.get_value(params_opt);
+            let cd = drag_config.cd.get_value(params_opt);
 
             // Compute atmospheric density
             let density = match &drag_config.model {
@@ -1661,7 +1658,7 @@ impl DNumericalOrbitPropagator {
                 }
                 AtmosphericModel::NRLMSISE00 => {
                     // NRLMSISE00 requires ECEF position
-                    let r_ecef = ctx.r_i2b * r;
+                    let r_ecef = r_i2b * r;
                     density_nrlmsise00(&epoch, r_ecef).unwrap_or(0.0)
                 }
                 AtmosphericModel::Exponential {
@@ -1676,22 +1673,21 @@ impl DNumericalOrbitPropagator {
             };
 
             // Compute drag acceleration
-            a_total += accel_drag(x_eci, density, mass, drag_area, cd, ctx.r_i2b);
+            a_total += accel_drag(x_eci, density, mass, drag_area, cd, r_i2b);
         }
 
         // ===== SOLAR RADIATION PRESSURE =====
-        if let Some(srp_config) = &ctx.force_config.srp {
+        if let Some(srp_config) = &force_config.srp {
             // Get mass from configuration
-            let mass = ctx
-                .force_config
+            let mass = force_config
                 .mass
                 .as_ref()
                 .expect("Mass must be configured for SRP calculation")
-                .get_value(ctx.params_opt);
+                .get_value(params_opt);
 
             // Get SRP parameters (area, Cr)
-            let srp_area = srp_config.area.get_value(ctx.params_opt);
-            let cr = srp_config.cr.get_value(ctx.params_opt);
+            let srp_area = srp_config.area.get_value(params_opt);
+            let cr = srp_config.cr.get_value(params_opt);
 
             // Get sun position
             let r_sun = sun_position(epoch);
@@ -1711,14 +1707,14 @@ impl DNumericalOrbitPropagator {
         }
 
         // ===== THIRD BODY =====
-        if let Some(tb_config) = &ctx.force_config.third_body {
+        if let Some(tb_config) = &force_config.third_body {
             for body in &tb_config.bodies {
                 a_total += accel_third_body(body.clone(), tb_config.ephemeris_source, epoch, r);
             }
         }
 
         // ===== RELATIVITY =====
-        if ctx.force_config.relativity {
+        if force_config.relativity {
             a_total += accel_relativity(x_eci);
         }
 

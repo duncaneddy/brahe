@@ -8,6 +8,7 @@
 
 pub mod gcat;
 pub mod groundstations;
+pub mod icgem;
 pub mod loaders;
 pub mod naif;
 pub mod parsers;

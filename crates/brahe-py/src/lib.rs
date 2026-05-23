@@ -534,6 +534,7 @@ impl PyAngleFormat {
 
 include!("datasets.rs");
 include!("py_gcat.rs");
+include!("icgem.rs");
 include!("eop.rs");
 include!("space_weather.rs");
 include!("time.rs");
@@ -970,6 +971,13 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGCATPsatcat>()?;
     module.add_function(wrap_pyfunction!(py_gcat_get_satcat, module)?)?;
     module.add_function(wrap_pyfunction!(py_gcat_get_psatcat, module)?)?;
+
+    //* ICGEM *//
+    module.add_class::<PyIndexEntry>()?;
+    module.add_function(wrap_pyfunction!(py_icgem_list_models, module)?)?;
+    module.add_function(wrap_pyfunction!(py_icgem_refresh_index, module)?)?;
+    module.add_function(wrap_pyfunction!(py_icgem_refresh_all_indexes, module)?)?;
+    module.add_function(wrap_pyfunction!(py_icgem_download_model, module)?)?;
 
     //* Orbit Dynamics - Ephemerides *//
     module.add_class::<PyEphemerisSource>()?;

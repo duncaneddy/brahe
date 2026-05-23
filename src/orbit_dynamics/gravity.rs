@@ -394,6 +394,18 @@ pub enum GravityModelType {
     ///
     /// Allows using custom gravity models. File must be in standard GFC format.
     FromFile(String),
+    /// Load a gravity model from ICGEM by body + model name.
+    ///
+    /// `name` is either an exact ICGEM model name (auto-resolves to the largest
+    /// available degree variant) or a `name-DEGREE` suffix to pick a specific
+    /// variant. The model is downloaded on first use and cached under
+    /// `$BRAHE_CACHE/icgem/models/<body>/<name>-<degree>.gfc`.
+    ICGEMModel {
+        /// Celestial body whose gravity model to load.
+        body: crate::datasets::icgem::ICGEMBody,
+        /// ICGEM model name (e.g. `"JGM3"`) or `"name-DEGREE"` for a specific variant.
+        name: String,
+    },
 }
 
 impl GravityModelType {
@@ -807,6 +819,14 @@ impl GravityModel {
                 Self::from_bufreader(reader)
             }
             GravityModelType::FromFile(path) => Self::from_file(Path::new(path)),
+            GravityModelType::ICGEMModel { body, name } => {
+                let path = crate::datasets::icgem::download_icgem_model(
+                    body.clone(),
+                    name,
+                    None,
+                )?;
+                Self::from_file(&path)
+            }
         }
     }
 
@@ -1972,5 +1992,48 @@ mod tests {
         let result = GravityModelType::from_file("data/gravity_models");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not a file"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_gravity_model_type_icgem_variant_loads_jgm3() {
+        use crate::datasets::icgem::ICGEMBody;
+
+        let dir = tempfile::tempdir().unwrap();
+        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+
+        // Seed the icgem cache with a manually-placed gfc file so no network
+        // fetch is required.
+        let cache_dir = std::path::PathBuf::from(
+            crate::utils::cache::get_icgem_cache_dir().unwrap(),
+        );
+        let model_dir = cache_dir.join("models").join("earth");
+        std::fs::create_dir_all(&model_dir).unwrap();
+        let gfc = std::fs::read("data/gravity_models/JGM3.gfc").unwrap();
+        std::fs::write(model_dir.join("JGM3-70-x.gfc"), &gfc).unwrap();
+
+        // Seed a fresh index so list/refresh doesn't fetch.
+        let idx = crate::datasets::icgem::index::IndexFile {
+            fetched_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+            entries: vec![crate::datasets::icgem::IndexEntry {
+                body: ICGEMBody::Earth,
+                name: "JGM3".into(),
+                year: Some(1996),
+                degree: 70,
+                download_path: "/getmodel/gfc/x/JGM3.gfc".into(),
+            }],
+        };
+        let idx_path = crate::datasets::icgem::index::index_path_for(&ICGEMBody::Earth).unwrap();
+        crate::datasets::icgem::index::write_index_file(&idx_path, &idx).unwrap();
+
+        let mt = GravityModelType::ICGEMModel {
+            body: ICGEMBody::Earth,
+            name: "JGM3".into(),
+        };
+        let model = GravityModel::from_model_type(&mt).unwrap();
+        assert_eq!(model.n_max, 70);
+
+        unsafe { std::env::remove_var("BRAHE_CACHE"); }
     }
 }

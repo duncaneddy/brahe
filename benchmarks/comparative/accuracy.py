@@ -189,27 +189,6 @@ def run_accuracy(
     latest_handle.close()
     console.print(f"[dim]Accuracy results written to {archival_path}[/dim]")
 
-    # TODO: Find a better way of doing this. We don't want to pollute user docs
-    # # Update deviation-investigation stubs for tasks exceeding thresholds.
-    # # Re-read the just-written JSONL so the stub generator sees only what
-    # # was actually committed to disk — robust against an aborted run that
-    # # closed the handles via finally cleanup.
-    # try:
-    #     from benchmarks.comparative.deviations import write_deviation_stubs
-    #     from benchmarks.comparative.results import read_jsonl
-
-    #     summaries = [
-    #         r for r in read_jsonl(latest_path) if r.get("kind") == "summary"
-    #     ]
-    #     stub_paths = write_deviation_stubs(summaries)
-    #     if stub_paths:
-    #         console.print(
-    #             f"[dim]Wrote {len(stub_paths)} deviation stub(s) under "
-    #             f"docs/about/benchmark-deviations/[/dim]"
-    #         )
-    # except Exception as e:
-    #     console.print(f"[yellow]Deviation stub generation failed: {e}[/yellow]")
-
     return archival_path
 
 

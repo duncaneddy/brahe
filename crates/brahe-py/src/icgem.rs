@@ -9,7 +9,7 @@ fn body_from_str(s: &str) -> RustICGEMBody {
 }
 
 /// One ICGEM model index row.
-#[pyclass(name = "ICGEMIndexEntry")]
+#[pyclass(name = "ICGEMIndexEntry", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyIndexEntry {
     inner: RustIndexEntry,

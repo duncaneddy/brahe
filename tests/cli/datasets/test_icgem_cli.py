@@ -96,6 +96,40 @@ def test_cli_list_single_body_failure_exits_nonzero(tmp_path, monkeypatch):
 
 
 @pytest.mark.ci
+def test_cli_refresh_body_all_dispatches_to_all_indexes(tmp_path, monkeypatch):
+    """`refresh --body all` must dispatch to refresh_all_indexes(), not silently
+    refresh only the celestial index (which is what ICGEMBody::Other("all") would do).
+
+    Mirrors `list --body all` semantics so users don't get a stale Earth index when
+    they expected both indexes refreshed.
+    """
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path))
+    import brahe.datasets as datasets
+
+    calls: dict[str, list] = {"refresh_index": [], "refresh_all_indexes": []}
+
+    def fake_refresh_index(body):
+        calls["refresh_index"].append(body)
+
+    def fake_refresh_all_indexes():
+        calls["refresh_all_indexes"].append(True)
+
+    monkeypatch.setattr(datasets.icgem, "refresh_index", fake_refresh_index)
+    monkeypatch.setattr(datasets.icgem, "refresh_all_indexes", fake_refresh_all_indexes)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["icgem", "refresh", "--body", "all"])
+
+    assert result.exit_code == 0, result.output
+    assert calls["refresh_all_indexes"] == [True], (
+        f"expected refresh_all_indexes() to be called once, got {calls}"
+    )
+    assert "all" not in calls["refresh_index"], (
+        f"refresh_index('all') would silently refresh only the celestial index; got {calls}"
+    )
+
+
+@pytest.mark.ci
 def test_cli_list_body_all_tolerates_per_body_failure(tmp_path, monkeypatch):
     """In --body all mode, an individual body's failure is logged and skipped,
     not raised — the multi-body listing still succeeds for the bodies that work.

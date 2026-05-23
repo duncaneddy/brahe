@@ -101,7 +101,7 @@ def refresh(
     if not body and not all_bodies:
         raise typer.BadParameter("Pass either `--body` or `--all`.")
 
-    if all_bodies:
+    if all_bodies or (body and body.lower() == "all"):
         datasets.icgem.refresh_all_indexes()
         typer.echo("Refreshed all ICGEM indexes.")
     else:

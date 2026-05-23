@@ -2,12 +2,14 @@
 Datasets Module
 
 Provides access to groundstation location data, NAIF ephemeris kernels,
-and GCAT (General Catalog of Artificial Space Objects) satellite catalogs.
+GCAT (General Catalog of Artificial Space Objects) satellite catalogs,
+and ICGEM spherical harmonic gravity models.
 
 This module provides a source-specific API organized by data provider:
 - groundstations: Curated groundstation location datasets
 - naif: NASA JPL NAIF ephemeris kernels (DE series)
 - gcat: Jonathan McDowell's GCAT satellite catalogs (SATCAT, PSATCAT)
+- icgem: ICGEM spherical harmonic gravity model catalog (Earth + celestial bodies)
 
 For CelestrakClient satellite catalog data, use the `brahe.celestrak` module instead.
 
@@ -25,6 +27,10 @@ Example:
     # GCAT satellite catalogs
     satcat = datasets.gcat.get_satcat()
     iss = satcat.get_by_satcat("25544")
+
+    # ICGEM gravity models
+    earth_models = datasets.icgem.list_models("earth")
+    path = datasets.icgem.download_model("earth", "JGM3")
     ```
 """
 
@@ -43,6 +49,12 @@ from brahe._brahe import (
     GCATPsatcatRecord,
     GCATSatcat,
     GCATPsatcat,
+    # ICGEM functions and types
+    icgem_list_models,
+    icgem_refresh_index,
+    icgem_refresh_all_indexes,
+    icgem_download_model,
+    ICGEMIndexEntry,
 )
 
 
@@ -86,8 +98,24 @@ class _GcatNamespace:
 # Create GCAT namespace instance
 gcat = _GcatNamespace()
 
+
+# Create an ICGEM namespace object
+class _ICGEMNamespace:
+    """ICGEM gravity model dataset namespace."""
+
+    list_models = staticmethod(icgem_list_models)
+    refresh_index = staticmethod(icgem_refresh_index)
+    refresh_all_indexes = staticmethod(icgem_refresh_all_indexes)
+    download_model = staticmethod(icgem_download_model)
+    IndexEntry = ICGEMIndexEntry
+
+
+# Create ICGEM namespace instance
+icgem = _ICGEMNamespace()
+
 __all__ = [
     "groundstations",
     "naif",
     "gcat",
+    "icgem",
 ]

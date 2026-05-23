@@ -1174,6 +1174,33 @@ impl PyGravityModelType {
         })
     }
 
+    /// Build a GravityModelType referencing an ICGEM model.
+    ///
+    /// Args:
+    ///     body (str): Body name ("earth", "moon", "mars", "venus", "ceres", or other).
+    ///     name (str): Model name, optionally with `-DEGREE` suffix.
+    ///
+    /// Returns:
+    ///     GravityModelType: A new GravityModelType referencing the ICGEM model.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model_type = bh.GravityModelType.icgem("earth", "JGM3")
+    ///     model = bh.GravityModel.from_model_type(model_type)
+    ///     ```
+    #[staticmethod]
+    fn icgem(body: &str, name: &str) -> PyResult<Self> {
+        let body = brahe::datasets::icgem::ICGEMBody::from_name(body);
+        Ok(PyGravityModelType {
+            model: orbit_dynamics::GravityModelType::ICGEMModel {
+                body,
+                name: name.to_string(),
+            },
+        })
+    }
+
     fn __str__(&self) -> String {
         match &self.model {
             orbit_dynamics::GravityModelType::FromFile(path) => format!("FromFile({})", path),
@@ -1189,15 +1216,14 @@ impl PyGravityModelType {
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        // `GravityModelType` derives `PartialEq + Eq`, so a direct `==`
+        // correctly compares all variants — including data-carrying ones like
+        // `FromFile(path)` and `ICGEMModel { body, name }`. Discriminant-only
+        // comparison would collapse every ICGEMModel into a single equivalence
+        // class regardless of body or name.
         match op {
-            CompareOp::Eq => Ok(match (&self.model, &other.model) {
-                (orbit_dynamics::GravityModelType::FromFile(a), orbit_dynamics::GravityModelType::FromFile(b)) => a == b,
-                _ => std::mem::discriminant(&self.model) == std::mem::discriminant(&other.model),
-            }),
-            CompareOp::Ne => Ok(match (&self.model, &other.model) {
-                (orbit_dynamics::GravityModelType::FromFile(a), orbit_dynamics::GravityModelType::FromFile(b)) => a != b,
-                _ => std::mem::discriminant(&self.model) != std::mem::discriminant(&other.model),
-            }),
+            CompareOp::Eq => Ok(self.model == other.model),
+            CompareOp::Ne => Ok(self.model != other.model),
             _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
         }
     }

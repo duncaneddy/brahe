@@ -11,6 +11,7 @@ Working with satellite and planetary data typically requires gathering informati
 
 - **Planetary ephemeris** (DE kernels) for high-precision solar system body positions
 - **Groundstation locations** for computing contact opportunities
+- **Spherical harmonic gravity models** for high-fidelity central-body force modeling
 
 Brahe's datasets module centralizes access to these data sources, handling the details of fetching, parsing, and caching so you can focus on analysis rather than data wrangling.
 
@@ -36,6 +37,17 @@ Brahe's datasets module centralizes access to these data sources, handling the d
 - **Search and filtering**: Name search, type/status/owner filters, orbital range filters
 
 **Best for**: Satellite catalog research, constellation analysis, historical studies
+
+### [ICGEM Gravity Models](icgem.md)
+
+The [International Centre for Global Earth Models (ICGEM)](https://icgem.gfz.de) hosts spherical harmonic gravity models for Earth and other solar system bodies (Moon, Mars, Venus, Ceres, asteroids, …). The brahe interface supports:
+
+- **Catalog listing**: Discover available models per body, with degree and publication year
+- **On-demand download**: Fetch `.gfc` files into a local cache on first use
+- **Index TTL + stale fallback**: 30-day index refresh with graceful degradation when offline
+- **Propagator integration**: Reference a downloaded model directly from `GravityModelType.icgem(body, name)`
+
+**Best for**: High-fidelity gravity modeling beyond the three packaged Earth models, gravity fields for other bodies, and pinning a specific published model version
 
 ### [Groundstations](groundstations.md)
 
@@ -67,5 +79,6 @@ Brahe's datasets module aims to:
 - [Ephemeris Data Sources](../ephemeris/index.md) - CelesTrak and Space-Track API clients
 - [NAIF Ephemeris Kernels](naif.md) - Planetary ephemeris data
 - [GCAT Satellite Catalogs](gcat.md) - GCAT SATCAT and PSATCAT catalogs
+- [ICGEM Gravity Models](icgem.md) - Spherical harmonic gravity model catalog
 - [Groundstation Datasets](groundstations.md) - Ground facility locations
 - [Datasets API Reference](../../library_api/datasets/index.md) - Complete function documentation

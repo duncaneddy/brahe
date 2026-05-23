@@ -394,6 +394,18 @@ pub enum GravityModelType {
     ///
     /// Allows using custom gravity models. File must be in standard GFC format.
     FromFile(String),
+    /// Load a gravity model from ICGEM by body + model name.
+    ///
+    /// `name` is either an exact ICGEM model name (auto-resolves to the largest
+    /// available degree variant) or a `name-DEGREE` suffix to pick a specific
+    /// variant. The model is downloaded on first use and cached under
+    /// `$BRAHE_CACHE/icgem/models/<body>/<name>-<degree>.gfc`.
+    ICGEMModel {
+        /// Celestial body whose gravity model to load.
+        body: crate::datasets::icgem::ICGEMBody,
+        /// ICGEM model name (e.g. `"JGM3"`) or `"name-DEGREE"` for a specific variant.
+        name: String,
+    },
 }
 
 impl GravityModelType {
@@ -807,6 +819,14 @@ impl GravityModel {
                 Self::from_bufreader(reader)
             }
             GravityModelType::FromFile(path) => Self::from_file(Path::new(path)),
+            GravityModelType::ICGEMModel { body, name } => {
+                let path = crate::datasets::icgem::download_icgem_model(
+                    body.clone(),
+                    name,
+                    None,
+                )?;
+                Self::from_file(&path)
+            }
         }
     }
 
@@ -1972,5 +1992,157 @@ mod tests {
         let result = GravityModelType::from_file("data/gravity_models");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not a file"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_gravity_model_type_icgem_variant_loads_jgm3() {
+        use crate::datasets::icgem::ICGEMBody;
+
+        let dir = tempfile::tempdir().unwrap();
+        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+
+        // Seed the icgem cache with a manually-placed gfc file so no network
+        // fetch is required.
+        let cache_dir = std::path::PathBuf::from(
+            crate::utils::cache::get_icgem_cache_dir().unwrap(),
+        );
+        let model_dir = cache_dir.join("models").join("earth");
+        std::fs::create_dir_all(&model_dir).unwrap();
+        let gfc = std::fs::read("data/gravity_models/JGM3.gfc").unwrap();
+        std::fs::write(model_dir.join("JGM3-70-x.gfc"), &gfc).unwrap();
+
+        // Seed a fresh index so list/refresh doesn't fetch.
+        let idx = crate::datasets::icgem::index::IndexFile {
+            fetched_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+            entries: vec![crate::datasets::icgem::IndexEntry {
+                body: ICGEMBody::Earth,
+                name: "JGM3".into(),
+                year: Some(1996),
+                degree: 70,
+                download_path: "/getmodel/gfc/x/JGM3.gfc".into(),
+            }],
+        };
+        let idx_path = crate::datasets::icgem::index::index_path_for(&ICGEMBody::Earth).unwrap();
+        crate::datasets::icgem::index::write_index_file(&idx_path, &idx).unwrap();
+
+        let mt = GravityModelType::ICGEMModel {
+            body: ICGEMBody::Earth,
+            name: "JGM3".into(),
+        };
+        let model = GravityModel::from_model_type(&mt).unwrap();
+        assert_eq!(model.n_max, 70);
+
+        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_numerical_propagator_with_icgem_jgm3_model() {
+        // End-to-end: a DNumericalOrbitPropagator built from a ForceModelConfig
+        // whose gravity source is `GravityModelType::ICGEMModel { Earth, "JGM3" }`
+        // must initialize cleanly and advance the state.
+        use crate::datasets::icgem::ICGEMBody;
+        use crate::propagators::{
+            DNumericalOrbitPropagator, ForceModelConfig, GravityConfiguration,
+            GravityModelSource, NumericalPropagationConfig,
+        };
+
+        let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+        set_global_eop_provider(eop);
+
+        let dir = tempfile::tempdir().unwrap();
+        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+
+        // Seed the ICGEM cache with JGM3 so no network fetch is required.
+        let cache_dir = std::path::PathBuf::from(
+            crate::utils::cache::get_icgem_cache_dir().unwrap(),
+        );
+        let model_dir = cache_dir.join("models").join("earth");
+        std::fs::create_dir_all(&model_dir).unwrap();
+        let gfc = std::fs::read("data/gravity_models/JGM3.gfc").unwrap();
+        std::fs::write(model_dir.join("JGM3-70-x.gfc"), &gfc).unwrap();
+
+        let idx = crate::datasets::icgem::index::IndexFile {
+            fetched_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+            entries: vec![crate::datasets::icgem::IndexEntry {
+                body: ICGEMBody::Earth,
+                name: "JGM3".into(),
+                year: Some(1996),
+                degree: 70,
+                download_path: "/getmodel/gfc/x/JGM3.gfc".into(),
+            }],
+        };
+        let idx_path = crate::datasets::icgem::index::index_path_for(&ICGEMBody::Earth).unwrap();
+        crate::datasets::icgem::index::write_index_file(&idx_path, &idx).unwrap();
+
+        // Drop the process-wide gravity cache so the propagator forces a fresh
+        // load of the ICGEM model under BRAHE_CACHE rather than reusing a model
+        // a prior test loaded under a different cache root.
+        clear_gravity_model_cache();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = SVector6::new(R_EARTH + 500e3, 0.01, 97.8, 15.0, 30.0, 45.0);
+        let state = state_koe_to_eci(oe, AngleFormat::Degrees);
+        let dstate = DVector::from_column_slice(state.as_slice());
+
+        let icgem_model = GravityModelType::ICGEMModel {
+            body: ICGEMBody::Earth,
+            name: "JGM3".into(),
+        };
+        let force_model = ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(icgem_model),
+                degree: 20,
+                order: 20,
+            },
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::FullEarthRotation,
+        };
+
+        // Construction must succeed: the propagator has to be able to resolve
+        // the ICGEMModel variant through download_icgem_model → from_gfc_file.
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            dstate.clone(),
+            NumericalPropagationConfig::default(),
+            force_model,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("propagator construction with ICGEMModel must succeed");
+
+        // Step once to confirm the propagator actually runs and the gravity
+        // model is wired in (a wiring failure typically shows up here as a
+        // panic or NaN state).
+        let target = epoch + 60.0;
+        prop.propagate_to(target);
+        let final_state = prop.current_state();
+
+        assert_eq!(final_state.len(), 6);
+        for i in 0..6 {
+            assert!(
+                final_state[i].is_finite(),
+                "state element {} is non-finite after 60 s ICGEM-JGM3 propagation",
+                i
+            );
+        }
+        // Position should have moved by at least ~100 km in 60 s at LEO orbital
+        // speed (~7.6 km/s).
+        let dx = final_state[0] - dstate[0];
+        let dy = final_state[1] - dstate[1];
+        let dz = final_state[2] - dstate[2];
+        let drift = (dx * dx + dy * dy + dz * dz).sqrt();
+        assert!(drift > 100e3, "state barely moved: drift = {} m", drift);
+
+        unsafe { std::env::remove_var("BRAHE_CACHE"); }
     }
 }

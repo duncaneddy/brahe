@@ -160,6 +160,25 @@ pub fn get_naif_cache_dir() -> Result<String, BraheError> {
     get_brahe_cache_dir_with_subdir(Some("naif"))
 }
 
+/// Get the ICGEM cache directory path.
+///
+/// Returns `~/.cache/brahe/icgem` (or `$BRAHE_CACHE/icgem` if environment variable is set).
+/// The directory is created if it doesn't exist.
+///
+/// # Returns
+///
+/// * `Result<String, BraheError>` - The full path to the ICGEM cache directory as a String
+///
+/// # Examples
+/// ```
+/// use brahe::utils::cache::get_icgem_cache_dir;
+/// let icgem_cache_dir = get_icgem_cache_dir().unwrap();
+/// println!("ICGEM cache directory: {}", icgem_cache_dir);
+/// ```
+pub fn get_icgem_cache_dir() -> Result<String, BraheError> {
+    get_brahe_cache_dir_with_subdir(Some("icgem"))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -354,6 +373,25 @@ mod tests {
             }
         }
         let _ = std::fs::remove_dir_all(&test_dir);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_get_icgem_cache_dir() {
+        let original_brahe_cache = env::var("BRAHE_CACHE").ok();
+        unsafe { env::remove_var("BRAHE_CACHE"); }
+
+        let icgem_cache_dir = get_icgem_cache_dir().unwrap();
+        assert!(!icgem_cache_dir.is_empty());
+        assert!(std::path::Path::new(&icgem_cache_dir).exists());
+        assert!(icgem_cache_dir.contains("brahe"));
+        assert!(icgem_cache_dir.contains("icgem"));
+
+        unsafe {
+            if let Some(original) = original_brahe_cache {
+                env::set_var("BRAHE_CACHE", original);
+            }
+        }
     }
 
     #[test]

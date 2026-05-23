@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <link rel="stylesheet" type="text/css" href="/libs/sortable-theme-bootstrap.css">
+            <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://icgem.gfz.de blob: data: ws: https://webstats.gfz.de;
+                                                            script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://webstats.gfz.de;
+                                                            img-src * data:;">
+        <meta content="Franz Barthelmes, Elmas Sinem Ince, Sven Rei&szlig;land" name="Author">
+        <meta name="keywords"
+            content="CHAMP, GOCE, GPS levelling, GPS levelling, GRACE, calculation, comparison,
+                     computation, geoid, geopotential, gravity, gravity anomaly, gravity field,
+                     gravity model, grid, iag, map, spherical harmonic coefficients,
+                     spherical harmonics, validation, visualisation">
+        <meta name="description" content="ICGEM: International Centre for Global Earth Models">
+        <title>ICGEM International Center for Global Gravity Field Models</title>
+        <link rel="stylesheet" type="text/css" href="/libs/bootstrap_5.3.3.min.css">
+        <link rel="stylesheet" type="text/css" href="/colors.css">
+        <link rel="stylesheet" type="text/css" href="/icgem_bs.css">
+        <script src="/libs/jquery-3.7.0.min.js"></script>
+        <script src="/libs/underscore-umd-min.js"></script>
+        <script src="/common.js"></script>
+        <script>
+            const newurl = "https://icgem.gfz.de" + window.location.pathname + window.location.hash;
+            if (window.location.hostname.endsWith(".gfz-potsdam.de")) {
+                window.location.replace(newurl);
+            }
+        </script>
+            <script src="/libs/editorjs/header.js"></script>
+    <script src="/libs/editorjs/image.js"></script>
+    <script src="/libs/editorjs/inlineimage.js"></script>
+    <script src="/libs/editorjs/delimiter.js"></script>
+    <script src="/libs/editorjs/list.js"></script>
+    <script src="/libs/editorjs/quote.js"></script>
+    <script src="/libs/editorjs/code.js"></script>
+    <script src="/libs/editorjs/table.js"></script>
+    <script src="/libs/editorjs/marker.js"></script>
+    <script src="/libs/editorjs/underline.js"></script>
+    <script src="/libs/editorjs/inline-code.js"></script>
+    <script src="/libs/editorjs/attaches.js"></script>
+    <script src="/libs/editorjs/alignment.js"></script>
+    <script src="/libs/editorjs/raw.js"></script>
+    <link rel="stylesheet" type="text/css" href="/libs/editorjs/Hyperlink.css">
+    <script src="/libs/editorjs/SelectionUtils.js"></script>
+    <script src="/libs/editorjs/Hyperlink.js"></script>
+    <link rel="stylesheet" type="text/css" href="/libs/editorjs/color-picker.css">
+    <script src="/libs/editorjs/color-picker.js"></script>
+    <script src="/libs/editorjs/genericinline.js"></script>
+    <script src="/libs/editorjs.umd.min.js"></script>
+
+
+    </head>
+    <body>
+        
+        <div class="w-100 h-100 d-flex">
+            <div id="sidebar" class="d-flex flex-column">
+                <img id="logo" class="logo" src="/imgs/icgem.png" alt="Logo">
+                <div id="menu">
+
+
+
+
+        <a href="/home">ICGEM Home</a>
+
+
+<h4>Gravity Field Models</h4>
+        <a class="sub " href="/tom_longtime">Static Models</a>
+
+        <a class="sub " href="/sl/temporal">Temporal Models</a>
+
+        <a class="sub " href="/sl/simulated">Simulated Models</a>
+
+        <a class="sub " href="/tom_reltopo">Topographic Models</a>
+
+
+<h4>Calculation Service</h4>
+        <a class="sub " href="/calcgrid">Regular grids</a>
+
+        <a class="sub " href="/calcpoints">User-defined points</a>
+
+        <a class="sub " href="/g3">G3-Browser</a>
+
+
+<h4>3D Visualisation</h4>
+        <a class="sub " href="/vis3d/longtime">Static Models</a>
+
+        <a class="sub " href="/vis3d/series">Temporal Models</a>
+
+        <a class="sub " href="/vis3d/trend">Trend &amp; Amplitude</a>
+
+        <a class="sub " href="/vis3d/tutorial">Spherical Harmonics</a>
+
+
+<h4>Evaluation</h4>
+        <a class="sub " href="/evalchart">Spectral domain</a>
+
+        <a class="sub " href="/tom_gpslev">GNSS Leveling</a>
+
+
+        <a href="/dochome">Documentation</a>
+
+        <a class="sub " href="/faq">FAQ</a>
+
+        <a class="sub " href="/theory">Theory</a>
+
+        <a class="sub " href="/refs">References</a>
+
+        <a class="sub " href="/changes">Latest Changes</a>
+
+        <a class="sub " href="/contact">Contact</a>
+
+
+<h4>Other Celestial Bodies<br>
+    (Moon,Venus, Mars)</h4>
+        <a class="sub self " href="/tom_celestial">Table of Models</a>
+
+        <a class="sub " href="/vis3d/celestial">3D Visualization</a>
+
+        <a class="sub " href="/calcgrid?modeltype=celestial">Calculation Service</a>
+
+<hr noshade color="black" width="100%" size="3" align="center">
+        <a class="sub " href="/imprint">Imprint</a>
+
+        <a class="sub " href="/dataprotection">Data Protection</a>
+
+                <a class="sub " href="/login?redirecturl=/tom_celestial">Admin-Login</a>
+
+                </div>
+            </div>
+            <div id="content">
+                <div id="header" class="row">
+                    <img src="/imgs/iaglogo-short-web.png" alt="iaglogo">
+                    <img src="/imgs/logo_gfz.svg" alt="gfzlogo">
+                </div>
+<h1 class="display-4 text-center textshadow mb-4">Gravity Field Models of other Celestial Bodies
+</h1>
+<div>
+        <p><b>
+        We kindly ask the authors of the models to check the links to the original websites of the models from time to time.
+        <br>
+        Please let us know if something has changed.
+    </b></p>
+    <p>
+        The table can be interactively re-sorted by clicking on the column header fields (Nr, Model, Year, Degree, Data, Reference). 
+    </p>
+    <p>
+        In the data column, the datasets used in the development of the models are summarized, where
+        <b>A</b> is for altimetry,
+        <b>S</b> is for satellite (e.g., GRACE, GOCE, LAGEOS),
+        <b>G</b> for ground data (e.g., terrestrial, shipborne and airborne measurements) and
+        <b>T</b> is for topography.
+    </p>
+
+    <p>
+        It is not planned to offer the complete service of ICGEM also for non-Earth gravity field models. Nevertheless, we think it could be useful
+        to compile also some gravity field models of other celestial bodies for downloading and for use in our visualisation and calculation service.
+    </p>
+</div>
+<div class="d-flex flex-wrap">
+    <table data-sortable class="table table-striped table-sm sortable-bootstrap w-100">
+    <thead>
+        <tr>
+            <th style="min-width: 4rem;">#</th>
+            <th style="min-width:12rem;">Object</th>
+            <th style="min-width:12rem;">Model</th>
+            <th style="min-width: 5rem;">Year</th>
+            <th style="min-width: 6rem;">Degree</th>
+            <th style="min-width: 6rem;">Data</th>
+            <th style="min-width:12rem;">References</th>
+            <th style="min-width: 8rem;" data-sortable="false">Download</th>
+            <th style="min-width: 8rem;" data-sortable="false">Calculate</th>
+            <th style="min-width: 6rem;" data-sortable="false">3D</th>
+            <th style="min-width: 5rem;" data-sortable="false">DOI</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="https://doi.org/10.1029/2020EA001454" target="_blank">AIUB-GRL350A</a>
+</td>
+    <td>2021</td>
+    <td>        350
+</td>
+    <td>            GRAIL</td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_0431c2d23ee2ad20c91329da05af67a0711e055ecb5a7f846710413f4c5d9710').toggle(); "><b>Bertone et al. (2021)</b></div>
+        <div id="ref_0431c2d23ee2ad20c91329da05af67a0711e055ecb5a7f846710413f4c5d9710" class="mt-1" style="display:none">Bertone, S., Arnold, D., Girardin, V., Lasser, M., Meyer, U., Jäggi, A.,
+2021: <br> 
+<b>Assessing Reduced‐Dynamic Parametrizations for GRAIL Orbit Determination and the
+Recovery of Independent Lunar Gravity Field Solutions. </b><br> 
+Earth and Space Science.
+doi: <a href="https://doi.org/10.1029/2020EA001454" target="_blank">10.1029/2020EA001454</a>.<br>
+<br>
+</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/0431c2d23ee2ad20c91329da05af67a0711e055ecb5a7f846710413f4c5d9710/AIUB-GRL350A.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/0431c2d23ee2ad20c91329da05af67a0711e055ecb5a7f846710413f4c5d9710/AIUB-GRL350A.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=0431c2d23ee2ad20c91329da05af67a0711e055ecb5a7f846710413f4c5d9710" target="_blank">Calculate</a>
+</td>
+    <td>
+            <a href="/vis3d/celestial?modelid=0431c2d23ee2ad20c91329da05af67a0711e055ecb5a7f846710413f4c5d9710" target="_blank">Show</a>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="https://doi.org/10.1029/2020EA001454" target="_blank">AIUB-GRL350B</a>
+</td>
+    <td>2021</td>
+    <td>        350
+</td>
+    <td>            GRAIL</td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_f17df1b5fe44a1bf945027d159772bf1d0831ff0edf7533ceffcb3ec2836c7e0').toggle(); "><b>Bertone et al. (2021)</b></div>
+        <div id="ref_f17df1b5fe44a1bf945027d159772bf1d0831ff0edf7533ceffcb3ec2836c7e0" class="mt-1" style="display:none">Bertone, S., Arnold, D., Girardin, V., Lasser, M., Meyer, U., Jäggi, A.,
+2021: <br> 
+<b>Assessing Reduced‐Dynamic Parametrizations for GRAIL Orbit Determination and the
+Recovery of Independent Lunar Gravity Field Solutions. </b><br> 
+Earth and Space Science.
+doi: <a href="https://doi.org/10.1029/2020EA001454" target="_blank">10.1029/2020EA001454</a>.<br>
+<br></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/f17df1b5fe44a1bf945027d159772bf1d0831ff0edf7533ceffcb3ec2836c7e0/AIUB-GRL350B.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/f17df1b5fe44a1bf945027d159772bf1d0831ff0edf7533ceffcb3ec2836c7e0/AIUB-GRL350B.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=f17df1b5fe44a1bf945027d159772bf1d0831ff0edf7533ceffcb3ec2836c7e0" target="_blank">Calculate</a>
+</td>
+    <td>
+            <a href="/vis3d/celestial?modelid=f17df1b5fe44a1bf945027d159772bf1d0831ff0edf7533ceffcb3ec2836c7e0" target="_blank">Show</a>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth) - density</td>
+    <td class="fw-bold">        <a href="https://doi.org/10.1016/j.pss.2020.105032" target="_blank">densityMOON</a>
+</td>
+    <td>2020</td>
+    <td>        89
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_995a87a2689dec499879a212cc3c9394a6137d17744e6ee94127d750ec550761').toggle(); "><b>Sprlak et al. (2020)</b></div>
+        <div id="ref_995a87a2689dec499879a212cc3c9394a6137d17744e6ee94127d750ec550761" class="mt-1" style="display:none">Sprlak M, Han S-C, Featherstone W. (2020): <br>
+<b>Crustal Density and Global
+Gravitational Field Estimation of the Moon from GRAIL and LOLA Satellite Data,</b> Planetary and Space Science, 192, 105032.
+doi: <a href="https://doi.org/10.1016/j.pss.2020.105032" target="_blank">https://doi.org/10.1016/j.pss.2020.105032</a>
+
+</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/995a87a2689dec499879a212cc3c9394a6137d17744e6ee94127d750ec550761/densityMOON.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/995a87a2689dec499879a212cc3c9394a6137d17744e6ee94127d750ec550761/densityMOON.zip" target="_blank">zip</a>
+</td>
+    <td></td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="https://link.springer.com/article/10.1007/s00190-018-1177-4" target="_blank">STU_MoonTopo720</a>
+</td>
+    <td>2019</td>
+    <td>        2160
+</td>
+    <td>            Topography</td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_fb7f42825475bbd192d5be2febb6c9222a9c6c30145ca77bfb152361d187d981').toggle(); "><b>Bucha et al. (2019)</b></div>
+        <div id="ref_fb7f42825475bbd192d5be2febb6c9222a9c6c30145ca77bfb152361d187d981" class="mt-1" style="display:none">Bucha, B., Hirt, C., Kuhn, M., (2019):<br>
+Divergence-free spherical harmonic gravity field modelling based on the Runge-Krarup theorem: a case study for the Moon. Journal of Geodesy 93, 489-513, https://doi.org/10.1007/s00190-018-1177-4.
+</b><br>
+<br>
+Hirt, C., Kuhn, M., (2017):<br>
+Convergence and divergence in spherical harmonic series of the gravitational field generated by high-resolution planetary topography - a case study for the Moon.  Journal of Geophysical Research: Planets 122, 17271746, https://doi.org/10.1002/2017JE005298.
+</b><br>
+<br>
+Wieczorek, M. A., (2015): <br> 
+Gravity and topography of the terrestrial planets. In: Schubert, G. (ed.) Treatise on geophysics, 2nd edn. Elsevier, New York, pp 153193.
+https://doi.org/10.1016/B978-0-444-53802-4.00169-X.
+</b><br>
+<br>
+Moritz, H., (1980): Advanced Physical Geodesy, Herbert Wichmann Verlag, Karlsruhe, Germany, 500 pp
+</b><br>
+<br>
+Web: http://edisk.cvt.stuba.sk/~xbuchab/
+
+</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/fb7f42825475bbd192d5be2febb6c9222a9c6c30145ca77bfb152361d187d981/STU_MoonTopo720.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/fb7f42825475bbd192d5be2febb6c9222a9c6c30145ca77bfb152361d187d981/STU_MoonTopo720.zip" target="_blank">zip</a>
+</td>
+    <td></td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="https://link.springer.com/article/10.1007/s00190-018-1177-4" target="_blank">STU_MoonTopo720_plusNormalField</a>
+</td>
+    <td>2019</td>
+    <td>        2160
+</td>
+    <td>            Topography</td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_cd6c8d8855f497e8b5ab1cb9ec91412f60175a51c0bc6b16acaa31503df98a8e').toggle(); "><b>Bucha et al. (2019)</b></div>
+        <div id="ref_cd6c8d8855f497e8b5ab1cb9ec91412f60175a51c0bc6b16acaa31503df98a8e" class="mt-1" style="display:none">Bucha, B., Hirt, C., Kuhn, M., (2019):<br>
+Divergence-free spherical harmonic gravity field modelling based on the Runge-Krarup theorem: a case study for the Moon. Journal of Geodesy 93, 489-513, https://doi.org/10.1007/s00190-018-1177-4.
+</b><br>
+<br>
+Hirt, C., Kuhn, M., (2017):<br>
+Convergence and divergence in spherical harmonic series of the gravitational field generated by high-resolution planetary topography - a case study for the Moon.  Journal of Geophysical Research: Planets 122, 17271746, https://doi.org/10.1002/2017JE005298.
+</b><br>
+<br>
+Wieczorek, M. A., (2015): <br> 
+Gravity and topography of the terrestrial planets. In: Schubert, G. (ed.) Treatise on geophysics, 2nd edn. Elsevier, New York, pp 153193.
+https://doi.org/10.1016/B978-0-444-53802-4.00169-X.
+</b><br>
+<br>
+Moritz, H., (1980): Advanced Physical Geodesy, Herbert Wichmann Verlag, Karlsruhe, Germany, 500 pp
+</b><br>
+<br>
+Web: http://edisk.cvt.stuba.sk/~xbuchab/
+
+</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/cd6c8d8855f497e8b5ab1cb9ec91412f60175a51c0bc6b16acaa31503df98a8e/STU_MoonTopo720_plusNormalField.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/cd6c8d8855f497e8b5ab1cb9ec91412f60175a51c0bc6b16acaa31503df98a8e/STU_MoonTopo720_plusNormalField.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=cd6c8d8855f497e8b5ab1cb9ec91412f60175a51c0bc6b16acaa31503df98a8e" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Ceres</td>
+    <td class="fw-bold">        <a href="https://doi.org/10.1016/j.icarus.2019.113412" target="_blank">sphericalRFM_CERES_2519.gfc</a>
+</td>
+    <td>2019</td>
+    <td>        2519
+</td>
+    <td>            Topography</td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_7ff3989b256e3b3a8c7cb2cf3f2308ca4f63aab10893f97fd146f24f7afbd260').toggle(); "><b>Sprlak et al. (2020)</b></div>
+        <div id="ref_7ff3989b256e3b3a8c7cb2cf3f2308ca4f63aab10893f97fd146f24f7afbd260" class="mt-1" style="display:none">Sprlak, M., Han, S-C, Featherstone, W. (2020): <br>
+Spheroidal Forward Modelling of the Gravitational Fields of 1 Ceres and the Moon. Icarus 335, doi: https://doi.org/10.1016/j.icarus.2019.113412.
+</b><br>
+
+</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/7ff3989b256e3b3a8c7cb2cf3f2308ca4f63aab10893f97fd146f24f7afbd260/sphericalRFM_CERES_2519.gfc.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/7ff3989b256e3b3a8c7cb2cf3f2308ca4f63aab10893f97fd146f24f7afbd260/sphericalRFM_CERES_2519.gfc.zip" target="_blank">zip</a>
+</td>
+    <td></td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="https://doi.org/10.1016/j.icarus.2019.113412" target="_blank">sphericalRFM_MOON_2519.gfc</a>
+</td>
+    <td>2019</td>
+    <td>        2519
+</td>
+    <td>            Topography</td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_668f45cea126901fdd534c5d5e38f170de1a4aa71b39086f816ce4571776094e').toggle(); "><b>Sprlak et al. (2020)</b></div>
+        <div id="ref_668f45cea126901fdd534c5d5e38f170de1a4aa71b39086f816ce4571776094e" class="mt-1" style="display:none">Sprlak, M., Han, S-C, Featherstone, W. (2020): <br>
+Spheroidal Forward Modelling of the Gravitational Fields of 1 Ceres and the Moon. Icarus 335, doi: https://doi.org/10.1016/j.icarus.2019.113412.
+</b><br>
+</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/668f45cea126901fdd534c5d5e38f170de1a4aa71b39086f816ce4571776094e/sphericalRFM_MOON_2519.gfc.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/668f45cea126901fdd534c5d5e38f170de1a4aa71b39086f816ce4571776094e/sphericalRFM_MOON_2519.gfc.zip" target="_blank">zip</a>
+</td>
+    <td></td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="https://doi.org/10.1016/j.icarus.2019.113412" target="_blank">sphericalRFM_MOON_2519_plusNormalField.gfc</a>
+</td>
+    <td>2019</td>
+    <td>        2519
+</td>
+    <td>            Topography</td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_55a22c3a79557b51fdae8200698aaa0dc32e4781ee414da714b492c7f7a1e479').toggle(); "><b>Sprlak et al. (2020)</b></div>
+        <div id="ref_55a22c3a79557b51fdae8200698aaa0dc32e4781ee414da714b492c7f7a1e479" class="mt-1" style="display:none">Sprlak, M., Han, S-C, Featherstone, W. (2020): <br>
+Spheroidal Forward Modelling of the Gravitational Fields of 1 Ceres and the Moon. Icarus 335, doi: https://doi.org/10.1016/j.icarus.2019.113412.
+</b><br></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/55a22c3a79557b51fdae8200698aaa0dc32e4781ee414da714b492c7f7a1e479/sphericalRFM_MOON_2519_plusNormalField.gfc.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/55a22c3a79557b51fdae8200698aaa0dc32e4781ee414da714b492c7f7a1e479/sphericalRFM_MOON_2519_plusNormalField.gfc.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=55a22c3a79557b51fdae8200698aaa0dc32e4781ee414da714b492c7f7a1e479" target="_blank">Calculate</a>
+</td>
+    <td>
+            <a href="/vis3d/celestial?modelid=55a22c3a79557b51fdae8200698aaa0dc32e4781ee414da714b492c7f7a1e479" target="_blank">Show</a>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://geodesy.iwf.oeaw.ac.at/p_grazil.html" target="_blank">GrazLGM420b</a>
+</td>
+    <td>2018</td>
+    <td>        420
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_f2147532a5ea47807531309d343b7d338419770764cd34d89b33fb9e550069f0').toggle(); "><b>Wirnsberger et al. (2018)</b></div>
+        <div id="ref_f2147532a5ea47807531309d343b7d338419770764cd34d89b33fb9e550069f0" class="mt-1" style="display:none">Wirnsberger H., Krauss S., and Mayer-Gürr, T., 2018<br>
+<b>First independent Graz Lunar Gravity Field Model derived from GRAIL.</b><br>
+submitted to Icarus 2018_244.<br>
+<br></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/f2147532a5ea47807531309d343b7d338419770764cd34d89b33fb9e550069f0/GrazLGM420b.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/f2147532a5ea47807531309d343b7d338419770764cd34d89b33fb9e550069f0/GrazLGM420b.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=f2147532a5ea47807531309d343b7d338419770764cd34d89b33fb9e550069f0" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://geodesy.iwf.oeaw.ac.at/p_grazil.html" target="_blank">GrazLGM420b+</a>
+</td>
+    <td>2018</td>
+    <td>        420
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_43d37bf3cd989ce670cd2375b725a69c974bed4a3d356faa88ffd47a8998902b').toggle(); "><b>Wirnsberger et al. (2018)</b></div>
+        <div id="ref_43d37bf3cd989ce670cd2375b725a69c974bed4a3d356faa88ffd47a8998902b" class="mt-1" style="display:none">Wirnsberger H., Krauss S., and Mayer-Gürr, T., 2018<br>
+<b>First independent Graz Lunar Gravity Field Model derived from GRAIL.</b><br>
+submitted to Icarus 2018_244.<br>
+<br></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/43d37bf3cd989ce670cd2375b725a69c974bed4a3d356faa88ffd47a8998902b/GrazLGM420b+.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/43d37bf3cd989ce670cd2375b725a69c974bed4a3d356faa88ffd47a8998902b/GrazLGM420b+.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=43d37bf3cd989ce670cd2375b725a69c974bed4a3d356faa88ffd47a8998902b" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="https://link.springer.com/article/10.1007/s00190-017-1098-7" target="_blank">RFM_Moon_2520</a>
+</td>
+    <td>2018</td>
+    <td>        2520
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_8558f4a78ad41980f218bc84f2f70679bbac8382266a9812e6cb62f7efdaadb0').toggle(); "><b>Sprlak et al. (2018)</b></div>
+        <div id="ref_8558f4a78ad41980f218bc84f2f70679bbac8382266a9812e6cb62f7efdaadb0" class="mt-1" style="display:none">Sprlak, M., Han, S-C., Featherstone, W.E. (2018) (2018):<br> 
+<br>Forward modelling of global gravity fields with 3D density structures and an application to the high-resolution (~2 km) gravity fields of the Moon.</b><br>
+Journal of Geodesy, doi: 10.1007/s00190-017-1098-7.</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/8558f4a78ad41980f218bc84f2f70679bbac8382266a9812e6cb62f7efdaadb0/RFM_Moon_2520.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/8558f4a78ad41980f218bc84f2f70679bbac8382266a9812e6cb62f7efdaadb0/RFM_Moon_2520.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=8558f4a78ad41980f218bc84f2f70679bbac8382266a9812e6cb62f7efdaadb0" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://geodesy.iwf.oeaw.ac.at/p_grazil.html" target="_blank">GrazLGM420a</a>
+</td>
+    <td>2017</td>
+    <td>        420
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_c7e8b2a6d413b7c59803929d5a8f57ae523f1924da8704a9677b6aeab0a38f01').toggle(); "><b>Wirnsberger et al. (2017)</b></div>
+        <div id="ref_c7e8b2a6d413b7c59803929d5a8f57ae523f1924da8704a9677b6aeab0a38f01" class="mt-1" style="display:none">Wirnsberger H., Klinger B., Krauss S., and Mayer-Gürr, T., 2017<br>
+<b>First independent lunar gravity field solution in the framework of project GRAZIL.</b><br>
+European Geoscience Union 2017, Vienna.<br>
+<br>
+Krauss, S., Klinger, B., Baur, O., Mayer-Guerr, T. 2015.<br>
+<b>Development of the lunar gravity field model GrazLGM300a.</b><br>
+Oesterr. Zeitschr. Verm. Geoinf., ISSN 1605-1653, 103, 156-161, 2015.</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/c7e8b2a6d413b7c59803929d5a8f57ae523f1924da8704a9677b6aeab0a38f01/GrazLGM420a.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/c7e8b2a6d413b7c59803929d5a8f57ae523f1924da8704a9677b6aeab0a38f01/GrazLGM420a.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=c7e8b2a6d413b7c59803929d5a8f57ae523f1924da8704a9677b6aeab0a38f01" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://ddfe.curtin.edu.au/models/" target="_blank">dV_MoonTopo_2160</a>
+</td>
+    <td>2017</td>
+    <td>        2160
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_e9e44b5057424f91baf0bfa1bdfe2b1a888a9a7ec368b03ed95be75f531a978f').toggle(); "><b>Hirt and Kuhn (2017)</b></div>
+        <div id="ref_e9e44b5057424f91baf0bfa1bdfe2b1a888a9a7ec368b03ed95be75f531a978f" class="mt-1" style="display:none">Hirt, C. and M. Kuhn, 2017:<br>
+<b>Convergence and divergence in spherical harmonic series of the gravitational field generated by high-resolution planetary topography  a case study for the Moon.</b><br>
+Journal of Geophysical Research (JGR) - Planets, 122, doi:10.1002/2017JE005298.</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/e9e44b5057424f91baf0bfa1bdfe2b1a888a9a7ec368b03ed95be75f531a978f/dV_MoonTopo_2160.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/e9e44b5057424f91baf0bfa1bdfe2b1a888a9a7ec368b03ed95be75f531a978f/dV_MoonTopo_2160.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=e9e44b5057424f91baf0bfa1bdfe2b1a888a9a7ec368b03ed95be75f531a978f" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://geodesy.iwf.oeaw.ac.at/p_grazil.html" target="_blank">GrazLGM300c</a>
+</td>
+    <td>2016</td>
+    <td>        300
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_40b2e51005b1ed43865a8e7d0a4af06db0d30930c882acf7af702cf75f80f1b8').toggle(); "><b>Krauss et al. (2016)</b></div>
+        <div id="ref_40b2e51005b1ed43865a8e7d0a4af06db0d30930c882acf7af702cf75f80f1b8" class="mt-1" style="display:none">Krauss, S., Wirnsberger, H., Klinger, B., Mayer-Guerr, T., Baur, O.;<br>
+<b>Latest developments in lunar gravity field recovery within the project GRAZIL</b><br>
+European Geoscience Union 2016, Vienna, 2016
+<br><br>
+Related References:<br>
+Krauss, S., Klinger, B., Baur, O., Mayer-Guerr, T.;<br>
+<b>Development of the lunar gravity field model GrazLGM300a</b><br>
+Oesterr. Zeitschr. Verm. Geoinf., ISSN 1605-1653, 103, 156-161, 2015</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/40b2e51005b1ed43865a8e7d0a4af06db0d30930c882acf7af702cf75f80f1b8/GrazLGM300c.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/40b2e51005b1ed43865a8e7d0a4af06db0d30930c882acf7af702cf75f80f1b8/GrazLGM300c.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=40b2e51005b1ed43865a8e7d0a4af06db0d30930c882acf7af702cf75f80f1b8" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://dx.doi.org/10.1016/j.icarus.2015.08.015" target="_blank">AIUB-GRL200A</a>
+</td>
+    <td>2015</td>
+    <td>        200
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_de07bfc4a3b18d157eb02b16352fbac8aff156a8d43366cc73d9cf77a5201ace').toggle(); "><b>Arnold et al. (2015)</b></div>
+        <div id="ref_de07bfc4a3b18d157eb02b16352fbac8aff156a8d43366cc73d9cf77a5201ace" class="mt-1" style="display:none">Arnold D., Bertone S., Jäggi A., Beutler G., Mervart L.;<br>
+<b>GRAIL gravity field determination using the Celestial Mechanics Approach</b><br>
+http://dx.doi.org/10.1016/j.icarus.2015.08.015, Icarus, 2015</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/de07bfc4a3b18d157eb02b16352fbac8aff156a8d43366cc73d9cf77a5201ace/AIUB-GRL200A.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/de07bfc4a3b18d157eb02b16352fbac8aff156a8d43366cc73d9cf77a5201ace/AIUB-GRL200A.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=de07bfc4a3b18d157eb02b16352fbac8aff156a8d43366cc73d9cf77a5201ace" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://dx.doi.org/10.1016/j.icarus.2015.08.015" target="_blank">AIUB-GRL200B</a>
+</td>
+    <td>2015</td>
+    <td>        200
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_61cedca83a193d510db62498924eec06cfdb6a043a836195a467afa441c9658b').toggle(); "><b>Arnold et al. (2015)</b></div>
+        <div id="ref_61cedca83a193d510db62498924eec06cfdb6a043a836195a467afa441c9658b" class="mt-1" style="display:none">Arnold D., Bertone S., Jäggi A., Beutler G., Mervart L.;<br>
+<b>GRAIL gravity field determination using the Celestial Mechanics Approach;</b><br>
+http://dx.doi.org/10.1016/j.icarus.2015.08.015, Icarus, 2015</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/61cedca83a193d510db62498924eec06cfdb6a043a836195a467afa441c9658b/AIUB-GRL200B.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/61cedca83a193d510db62498924eec06cfdb6a043a836195a467afa441c9658b/AIUB-GRL200B.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=61cedca83a193d510db62498924eec06cfdb6a043a836195a467afa441c9658b" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://geo.pds.nasa.gov/" target="_blank">GL0660B</a>
+</td>
+    <td>2013</td>
+    <td>        660
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_b4f8182e0e0a2112fc3720a2fb5d10f885e4aed39652b8ba8e9d3c2a8645c29c').toggle(); "><b></b></div>
+        <div id="ref_b4f8182e0e0a2112fc3720a2fb5d10f885e4aed39652b8ba8e9d3c2a8645c29c" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/b4f8182e0e0a2112fc3720a2fb5d10f885e4aed39652b8ba8e9d3c2a8645c29c/GL0660B.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/b4f8182e0e0a2112fc3720a2fb5d10f885e4aed39652b8ba8e9d3c2a8645c29c/GL0660B.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=b4f8182e0e0a2112fc3720a2fb5d10f885e4aed39652b8ba8e9d3c2a8645c29c" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://geo.pds.nasa.gov/" target="_blank">GRGM660PRIM</a>
+</td>
+    <td>2013</td>
+    <td>        660
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_50844d1a07b40af4d19592e360f93304a9b63362af1643f4fe135b4a7f517c40').toggle(); "><b></b></div>
+        <div id="ref_50844d1a07b40af4d19592e360f93304a9b63362af1643f4fe135b4a7f517c40" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/50844d1a07b40af4d19592e360f93304a9b63362af1643f4fe135b4a7f517c40/GRGM660PRIM.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/50844d1a07b40af4d19592e360f93304a9b63362af1643f4fe135b4a7f517c40/GRGM660PRIM.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=50844d1a07b40af4d19592e360f93304a9b63362af1643f4fe135b4a7f517c40" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Mars</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/" target="_blank">ggm1025a</a>
+</td>
+    <td>2002</td>
+    <td>        80
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_9c774f955897e8b9c79832cf21a1eb8c14a1a348aa131e4044f640b7482aff7b').toggle(); "><b>Lemoine et al. 2001</b></div>
+        <div id="ref_9c774f955897e8b9c79832cf21a1eb8c14a1a348aa131e4044f640b7482aff7b" class="mt-1" style="display:none">F.G. Lemoine, G.A. Neumann, D.S. Chinn, D.E. Smith, M.T. Zuber, D.D. Rowlands, D.P. Rubincam,  and D.E. Pavlis;<br>
+<b>Solution for Mars Geophysical Parameters from Mars Global Surveyor Tracking Data</b><br>
+American Geophysical Union Fall Meeting 2001 (EOS, Trans. AGU 82(47), Fall Meeting Supplement, Abstract P42A-0545, F721, 2001)
+<br><br>
+Lemoine et al.;<br>
+<b>An Improved Solution of the Gravity Field of Mars (GMM-2B) from Mars Global Surveyor;</b><br>
+J. Geophys Res., 106(E10), 23359-23376, Oct 25, 2001</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/9c774f955897e8b9c79832cf21a1eb8c14a1a348aa131e4044f640b7482aff7b/ggm1025a.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/9c774f955897e8b9c79832cf21a1eb8c14a1a348aa131e4044f640b7482aff7b/ggm1025a.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Mars&modelid=9c774f955897e8b9c79832cf21a1eb8c14a1a348aa131e4044f640b7482aff7b" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Mars</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/" target="_blank">jgm85f01</a>
+</td>
+    <td>2002</td>
+    <td>        85
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_80de1efc0b1c7322207164b8749b85839384d4994e1a0cc2822617eccd7f2162').toggle(); "><b></b></div>
+        <div id="ref_80de1efc0b1c7322207164b8749b85839384d4994e1a0cc2822617eccd7f2162" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/80de1efc0b1c7322207164b8749b85839384d4994e1a0cc2822617eccd7f2162/jgm85f01.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/80de1efc0b1c7322207164b8749b85839384d4994e1a0cc2822617eccd7f2162/jgm85f01.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Mars&modelid=80de1efc0b1c7322207164b8749b85839384d4994e1a0cc2822617eccd7f2162" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/lunarp/shadr.html" target="_blank">JGL150Q1</a>
+</td>
+    <td>2000</td>
+    <td>        150
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_c1f2f546dbed7afb651d86b8daa8bc54f0bd56cb0fb4ccda6472e843d30dcae5').toggle(); "><b></b></div>
+        <div id="ref_c1f2f546dbed7afb651d86b8daa8bc54f0bd56cb0fb4ccda6472e843d30dcae5" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/c1f2f546dbed7afb651d86b8daa8bc54f0bd56cb0fb4ccda6472e843d30dcae5/JGL150Q1.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/c1f2f546dbed7afb651d86b8daa8bc54f0bd56cb0fb4ccda6472e843d30dcae5/JGL150Q1.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=c1f2f546dbed7afb651d86b8daa8bc54f0bd56cb0fb4ccda6472e843d30dcae5" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/lunarp/shadr.html" target="_blank">JGL165P1</a>
+</td>
+    <td>2000</td>
+    <td>        165
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_7445953c07d1041fc6f14cda870e6525d4e839d65f39cb0b0b01d0f00afc7274').toggle(); "><b></b></div>
+        <div id="ref_7445953c07d1041fc6f14cda870e6525d4e839d65f39cb0b0b01d0f00afc7274" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/7445953c07d1041fc6f14cda870e6525d4e839d65f39cb0b0b01d0f00afc7274/JGL165P1.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/7445953c07d1041fc6f14cda870e6525d4e839d65f39cb0b0b01d0f00afc7274/JGL165P1.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=7445953c07d1041fc6f14cda870e6525d4e839d65f39cb0b0b01d0f00afc7274" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Mars</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/" target="_blank">ggm2bc80</a>
+</td>
+    <td>2000</td>
+    <td>        80
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_9dceb9535c3aee1b189e84025852ca7c34c118982fc42e8a5c05416238657009').toggle(); "><b></b></div>
+        <div id="ref_9dceb9535c3aee1b189e84025852ca7c34c118982fc42e8a5c05416238657009" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/9dceb9535c3aee1b189e84025852ca7c34c118982fc42e8a5c05416238657009/ggm2bc80.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/9dceb9535c3aee1b189e84025852ca7c34c118982fc42e8a5c05416238657009/ggm2bc80.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Mars&modelid=9dceb9535c3aee1b189e84025852ca7c34c118982fc42e8a5c05416238657009" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/lunarp/shadr.html" target="_blank">JGL100J1</a>
+</td>
+    <td>1999</td>
+    <td>        100
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_ba5b9bd1d76674272da040b367bf1662edf21ae88f2e112dfed89dffc1fcd5bc').toggle(); "><b></b></div>
+        <div id="ref_ba5b9bd1d76674272da040b367bf1662edf21ae88f2e112dfed89dffc1fcd5bc" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/ba5b9bd1d76674272da040b367bf1662edf21ae88f2e112dfed89dffc1fcd5bc/JGL100J1.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/ba5b9bd1d76674272da040b367bf1662edf21ae88f2e112dfed89dffc1fcd5bc/JGL100J1.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=ba5b9bd1d76674272da040b367bf1662edf21ae88f2e112dfed89dffc1fcd5bc" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/lunarp/shadr.html" target="_blank">JGL100K1</a>
+</td>
+    <td>1999</td>
+    <td>        100
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_11a499697b582606af4c4855735ad73fa0eaeb32f8c43502022f304640a721f3').toggle(); "><b></b></div>
+        <div id="ref_11a499697b582606af4c4855735ad73fa0eaeb32f8c43502022f304640a721f3" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/11a499697b582606af4c4855735ad73fa0eaeb32f8c43502022f304640a721f3/JGL100K1.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/11a499697b582606af4c4855735ad73fa0eaeb32f8c43502022f304640a721f3/JGL100K1.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=11a499697b582606af4c4855735ad73fa0eaeb32f8c43502022f304640a721f3" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/lunarp/shadr.html" target="_blank">JGL075D1</a>
+</td>
+    <td>1998</td>
+    <td>        75
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_5c19143d5796435028119c63902945a0e9804b1e872247062e65199af525b236').toggle(); "><b></b></div>
+        <div id="ref_5c19143d5796435028119c63902945a0e9804b1e872247062e65199af525b236" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/5c19143d5796435028119c63902945a0e9804b1e872247062e65199af525b236/JGL075D1.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/5c19143d5796435028119c63902945a0e9804b1e872247062e65199af525b236/JGL075D1.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=5c19143d5796435028119c63902945a0e9804b1e872247062e65199af525b236" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/lunarp/shadr.html" target="_blank">JGL075G1</a>
+</td>
+    <td>1998</td>
+    <td>        75
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_3857a98334afe28ca71c8ad2b5fc99c47409e4c8fb637f8457305fb3b2f7acac').toggle(); "><b></b></div>
+        <div id="ref_3857a98334afe28ca71c8ad2b5fc99c47409e4c8fb637f8457305fb3b2f7acac" class="mt-1" style="display:none">
+</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/3857a98334afe28ca71c8ad2b5fc99c47409e4c8fb637f8457305fb3b2f7acac/JGL075G1.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/3857a98334afe28ca71c8ad2b5fc99c47409e4c8fb637f8457305fb3b2f7acac/JGL075G1.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=3857a98334afe28ca71c8ad2b5fc99c47409e4c8fb637f8457305fb3b2f7acac" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Mars</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/" target="_blank">ggm50a01</a>
+</td>
+    <td>1998</td>
+    <td>        50
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_cf57d34afcdef00871888c0627c2d8130c4db6bd6cf66938bc315ef9b473a740').toggle(); "><b></b></div>
+        <div id="ref_cf57d34afcdef00871888c0627c2d8130c4db6bd6cf66938bc315ef9b473a740" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/cf57d34afcdef00871888c0627c2d8130c4db6bd6cf66938bc315ef9b473a740/ggm50a01.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/cf57d34afcdef00871888c0627c2d8130c4db6bd6cf66938bc315ef9b473a740/ggm50a01.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Mars&modelid=cf57d34afcdef00871888c0627c2d8130c4db6bd6cf66938bc315ef9b473a740" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Mars</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/" target="_blank">ggm50a02</a>
+</td>
+    <td>1998</td>
+    <td>        50
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_3b129db5fc25874d2d5b9d27cc541e19e723e5e5c30d9ee779acf47c30c50bd7').toggle(); "><b></b></div>
+        <div id="ref_3b129db5fc25874d2d5b9d27cc541e19e723e5e5c30d9ee779acf47c30c50bd7" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/3b129db5fc25874d2d5b9d27cc541e19e723e5e5c30d9ee779acf47c30c50bd7/ggm50a02.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/3b129db5fc25874d2d5b9d27cc541e19e723e5e5c30d9ee779acf47c30c50bd7/ggm50a02.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Mars&modelid=3b129db5fc25874d2d5b9d27cc541e19e723e5e5c30d9ee779acf47c30c50bd7" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Mars</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/" target="_blank">jgm50c01</a>
+</td>
+    <td>1998</td>
+    <td>        50
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_3e03743db46f22e9d103b52cce8b081e46bf502d22e67ff7984437918bdaa058').toggle(); "><b></b></div>
+        <div id="ref_3e03743db46f22e9d103b52cce8b081e46bf502d22e67ff7984437918bdaa058" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/3e03743db46f22e9d103b52cce8b081e46bf502d22e67ff7984437918bdaa058/jgm50c01.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/3e03743db46f22e9d103b52cce8b081e46bf502d22e67ff7984437918bdaa058/jgm50c01.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Mars&modelid=3e03743db46f22e9d103b52cce8b081e46bf502d22e67ff7984437918bdaa058" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Venus</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/magellan/shadr_topo_grav/index.htm" target="_blank">shgj180ua01</a>
+</td>
+    <td>1997</td>
+    <td>        180
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_9283b24c0d7b64a37ae8d45669ffb16a63496fd090dd678ddaba64ac4c99178a').toggle(); "><b></b></div>
+        <div id="ref_9283b24c0d7b64a37ae8d45669ffb16a63496fd090dd678ddaba64ac4c99178a" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/9283b24c0d7b64a37ae8d45669ffb16a63496fd090dd678ddaba64ac4c99178a/shgj180ua01.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/9283b24c0d7b64a37ae8d45669ffb16a63496fd090dd678ddaba64ac4c99178a/shgj180ua01.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Venus&modelid=9283b24c0d7b64a37ae8d45669ffb16a63496fd090dd678ddaba64ac4c99178a" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Venus</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/magellan/shadr_topo_grav/index.htm" target="_blank">shgj120pa01</a>
+</td>
+    <td>1996</td>
+    <td>        120
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_a84a4306816873c005d835b8b5c5048e0659828220f1ba12b250a9ffa51a7977').toggle(); "><b></b></div>
+        <div id="ref_a84a4306816873c005d835b8b5c5048e0659828220f1ba12b250a9ffa51a7977" class="mt-1" style="display:none"></div>
+    </td>
+    <td>        <a href="/getmodel/gfc/a84a4306816873c005d835b8b5c5048e0659828220f1ba12b250a9ffa51a7977/shgj120pa01.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/a84a4306816873c005d835b8b5c5048e0659828220f1ba12b250a9ffa51a7977/shgj120pa01.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Venus&modelid=a84a4306816873c005d835b8b5c5048e0659828220f1ba12b250a9ffa51a7977" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/lunarp/shadr.html" target="_blank">GLGM-2</a>
+</td>
+    <td>1995</td>
+    <td>        70
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_b72d74cd994ff41a4970b5080df661ba544da6d2a913520127f943ff0f3d610a').toggle(); "><b>Lemoine et al. (1995)</b></div>
+        <div id="ref_b72d74cd994ff41a4970b5080df661ba544da6d2a913520127f943ff0f3d610a" class="mt-1" style="display:none">F. G. Lemoine, D. E. Smith, M.T. Zuber, G. A. Neumann, D. D. Rowlands;<br>
+<b>GLGM-2, A 70th Degree and Order Lunar Gravity Model from Clementine and Historical Data</b><br>
+J. Geophys. Res, November 1995
+<br><br>
+<b>Related References</b><br>
+F. G. Lemoine, D. E. Smith, M. T. Zuber, and G. A. Neumann;<br>
+<b>High Degree and Order Spherical Harmonic MOdels for the Moon from Clementine and Historic S-Band Doppler Data</b><br>
+1995 XXI General Assembly, IUGG, Boulder, Colorado, July 12, 1995
+<br><br>
+M E Davies, V K Abalakin, A. Brahic, M. Bursa, B H Chovitz, J H Lieske, P K Seidelmann, A T Sinclair, Y S Tjuflin;
+<b>Report of the IAU/IAG/COSPAR Working Group on Cartographic Coordinates and Rotational Elements of the Planets and Satellites 1991</b><br>
+Cel. Mechanics and Dynamical Astronomy, 53, 377-397, 1992</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/b72d74cd994ff41a4970b5080df661ba544da6d2a913520127f943ff0f3d610a/GLGM-2.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/b72d74cd994ff41a4970b5080df661ba544da6d2a913520127f943ff0f3d610a/GLGM-2.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=b72d74cd994ff41a4970b5080df661ba544da6d2a913520127f943ff0f3d610a" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+        <tr>
+    <td></td>
+    <td class="fw-bold">Moon (of the Earth)</td>
+    <td class="fw-bold">        <a href="http://pds-geosciences.wustl.edu/missions/lunarp/shadr.html" target="_blank">GLGM-1</a>
+</td>
+    <td>1994</td>
+    <td>        70
+</td>
+    <td></td>
+    <td>
+        <div class="d-block w-100 cursor-pointer" onclick=" $( '#ref_c3358942ca593e05b37cea8cb180bef0d0a98c40d55509c41038932a57c3685b').toggle(); "><b>Lemoine et al. (1994)</b></div>
+        <div id="ref_c3358942ca593e05b37cea8cb180bef0d0a98c40d55509c41038932a57c3685b" class="mt-1" style="display:none">F. G. Lemoine, D. E. Smith, M. T. Zuber;<br>
+<b>Goddard Lunar Gravity Model-1 (GLGM-1): A 70th degree and order gravity model for the Moon;</b><br>
+P11A-9, EOS, Transactions of the American Geophysical Union Volume 75, No. 44, 1994
+<br><br>
+<b>Related References:</b><br>
+M E Davies, V K Abalakin, A. Brahic, M. Bursa, B H Chovitz, J H Lieske, P K Seidelmann, A T Sinclair, Y S Tjuflin;
+<b>Report of the IAU/IAG/COSPAR Working Group on Cartographic Coordinates and Rotational Elements of the Planets and Satellites 1991</b><br>
+Cel. Mechanics and Dynamical Astronomy, 53, 377-397, 1992</div>
+    </td>
+    <td>        <a href="/getmodel/gfc/c3358942ca593e05b37cea8cb180bef0d0a98c40d55509c41038932a57c3685b/GLGM-1.gfc" target="_blank">gfc</a>
+            <a href="/getmodel/zip/c3358942ca593e05b37cea8cb180bef0d0a98c40d55509c41038932a57c3685b/GLGM-1.zip" target="_blank">zip</a>
+</td>
+    <td>        <a href="/calcgrid?modeltype=celestial&object=Moon (of the Earth)&modelid=c3358942ca593e05b37cea8cb180bef0d0a98c40d55509c41038932a57c3685b" target="_blank">Calculate</a>
+</td>
+    <td>
+    </td>
+    <td>
+    </td>
+</tr>
+
+    </tbody>
+</table>
+
+</div>
+<script src="/libs/sortable.min.js"></script>
+<script>
+    $('table').each(function() {
+        let empty_cols = [];
+        let cols = $(this).find("thead tr th").length;
+        let col;
+        for (col=0; col < cols; col++) {
+            let empty = true;
+            let line;
+            for (line of $(this).find("tbody tr")) {
+                if ($($(line).children()[col]).html().trim() != "") {
+                    empty = false;
+                    continue;
+                }
+            }
+            if (empty) {
+                empty_cols.push(col);
+            }
+        }
+        for (col of empty_cols.reverse()) {
+            console.log("Column " + col + " empty.")
+            $(this).find("tbody tr").each(function() {
+                $(this).children("td:eq(" + col + ")").remove();
+            });
+            $(this).find("thead tr").each(function() {
+                $(this).children("th:eq(" + col + ")").remove();
+            });
+        }
+    });
+</script>
+
+            </div>
+        </div>
+        <div id="footer_outer">
+            <div id="footer_inner">
+                <i>icgem (at) gfz.de</i>
+            </div>
+        </div>
+<div id='popup'>
+    <a class="x" href="javascript:hidePopup();" title="Hide this message and set a cookie">X</a>
+    <h4><b><a target="_blank" href="https://www.listserv.dfn.de/sympa/subscribe/icgemusers">Subscribe</a> to the<br>ICGEM-users mailinglist.</b></h4>
+</div>
+<!--<div id='popup'>
+    <a class="x" href="javascript:hidePopup();" title="Hide this message and set a cookie">X</a>
+    <h4>We appreciate your feedback. Please use our <a target="_blank" href="/survey">user survey</a> to send us your opinion.</h4>
+</div>-->
+<script type="text/javascript">
+    var hidemax = 7*24*60*60;
+    function hidePopup() {
+        document.getElementById('popup').style.display="none";
+        if ( getCookie("cookieconsent_status") == "accept" ) {
+            var htime = Math.min(parseInt(getCookie("popuphide")) * 2, hidemax) || 60*60;
+            console.log(htime);
+            setCookie("popuphide", htime, 30);
+            setCookie("popupnext", new Date() / 1000 + htime, 30);
+        }
+    }
+    if ( getCookie("cookieconsent_status") == "accept" ) {
+        if ( parseInt(getCookie("popupnext")) > (new Date() / 1000) ) {
+            document.getElementById('popup').style.display="none";
+            if ( parseInt(getCookie("popuphide")) >= hidemax ) {
+                setCookie("popupnext", new Date() / 1000 + hidemax, 30);
+            }
+        }
+    } else {
+        delCookie("popuphide");
+        delCookie("popupnext");
+        if (Math.random() > 0.05) { // hide popup most of the time
+            document.getElementById('popup').style.display="none";
+        }
+    }
+</script><div id="cookiebanner" class="modal show fade" data-bs-backdrop="static" style="display:block;">
+    <div class="position-fixed top-0 left-0 w-100 h-100" style="background-color:rgba(0,0,0,.5)"></div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Privacy Settings</h5>
+                <button type="button" class="btn-close" aria-label="Close" onclick="$('#cookiebanner').hide();"></button>
+            </div>
+            <div class="modal-body">
+                <p>
+                We use cookies that are necessary for the basic functionality of our website so that it can be continuously optimized for you and its user-friendliness
+                improved. We also use the Matomo web analysis tool, which tracks data anonymously. This enables us to statistically evaluate the use of our website.
+                Your consent to the use of Matomo can be revoked at any time via the <a href="/dataprotection">privacy policy</a>.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="setCookie('cookieconsent_status', 'deny'); $('#cookiebanner').hide();">Refuse</button>
+                <button type="button" class="btn btn-primary" onclick="setCookie('cookieconsent_status', 'accept'); $('#cookiebanner').hide();">Accept</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    if ( getCookie("cookieconsent_status") != "" ) {
+        $('#cookiebanner').hide()
+    }
+    var _paq = window._paq = window._paq || [];
+    _paq.push(['requireCookieConsent']);
+    if ( getCookie("cookieconsent_status") == "accept" ) {
+        _paq.push(['setCookieConsentGiven']);
+    }
+    // tracker methods like "setCustomDimension" should be called before "trackPageView"
+    _paq.push(['trackPageView']);
+    _paq.push(['enableLinkTracking']);
+    (function() {
+        var u="https://webstats.gfz.de/";
+        _paq.push(['setTrackerUrl', u+'matomo.php']);
+        _paq.push(['setSiteId', '45']);
+        var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+        g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+    })();
+</script>    </body>
+</html>

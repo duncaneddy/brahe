@@ -32,6 +32,7 @@ from benchmarks.comparative.config import (
     DEFAULT_ITERATIONS,
     DEFAULT_SEED,
     JAVA_PROJECT_DIR,
+    NYX_BINARY,
     RESULTS_DIR,
     RUST_BINARY,
     collect_system_info,
@@ -51,7 +52,7 @@ app = typer.Typer(help="Comparative benchmark framework for Brahe")
 # Java/OreKit is the reference baseline — run it first, use it for speedup and accuracy.
 # Display order matches the published comparison ordering: Orekit (Java baseline),
 # GMAT, Basilisk, brahe-Python, brahe-Rust.
-LANGUAGE_ORDER = ["java", "gmat", "basilisk", "python", "rust"]
+LANGUAGE_ORDER = ["java", "gmat", "basilisk", "nyx", "python", "rust"]
 BASELINE_LANGUAGE = "java"
 
 
@@ -253,6 +254,8 @@ def _dispatch_task(
         return _run_python(task, iterations, seed)
     elif language == "rust":
         return _run_subprocess(task, language, iterations, seed, _get_rust_command())
+    elif language == "nyx":
+        return _run_subprocess(task, language, iterations, seed, _get_nyx_command())
     elif language == "java":
         return _run_subprocess(task, language, iterations, seed, _get_java_command())
     elif language == "basilisk":
@@ -316,6 +319,13 @@ def _get_gmat_command() -> list[str] | None:
     return [sys.executable, "-m", "benchmarks.comparative.implementations.gmat"]
 
 
+def _get_nyx_command() -> list[str] | None:
+    """Return the command to invoke the Nyx benchmark binary, or None if not built."""
+    if not NYX_BINARY.exists():
+        return None
+    return [str(NYX_BINARY)]
+
+
 def _get_rust_command() -> list[str] | None:
     """Get the Rust benchmark binary command, or None if not built."""
     if RUST_BINARY.exists():
@@ -324,7 +334,25 @@ def _get_rust_command() -> list[str] | None:
 
 
 def _get_java_command() -> list[str] | None:
-    """Get the Java benchmark command, or None if not built."""
+    """Get the Java benchmark command, or None if not built.
+
+    Uses the pre-extracted Gradle distribution binary
+    (``build/bench-comparative/bin/bench-comparative``) so that running
+    benchmarks never requires network access or a Gradle daemon write to
+    ``~/.gradle/``.  The ``gradlew run`` path is kept as a fallback for
+    environments where the distribution has not been extracted yet.
+    """
+    import os
+    import shutil
+
+    # Prefer the pre-extracted application distribution (no Gradle required).
+    dist_binary = JAVA_PROJECT_DIR / "build" / "bench-comparative" / "bin" / "bench-comparative"
+    if dist_binary.exists():
+        # Resolve JAVA_HOME so the startup script finds java.
+        _ensure_java_home()
+        return [str(dist_binary)]
+
+    # Fallback: use gradlew (requires Gradle download / daemon on first run).
     gradlew = JAVA_PROJECT_DIR / "gradlew"
     if not gradlew.exists():
         return None
@@ -333,6 +361,7 @@ def _get_java_command() -> list[str] | None:
     if not build_dir.exists():
         return None
 
+    _ensure_java_home()
     return [
         str(gradlew),
         "-p",
@@ -340,6 +369,43 @@ def _get_java_command() -> list[str] | None:
         "--quiet",
         "run",
     ]
+
+
+def _ensure_java_home() -> None:
+    """Set JAVA_HOME (and prepend bin to PATH) if the system java shim is broken.
+
+    The macOS shim at ``/usr/bin/java`` fails with exit-code 1 when no JDK
+    is installed via the Apple mechanism, even though Homebrew's openjdk is
+    present.  The generated Gradle startup script honours ``$JAVA_HOME``, so
+    setting it here before spawning subprocesses is sufficient.
+    """
+    import os
+    import shutil
+    import subprocess
+
+    # Already set and working — nothing to do.
+    if os.environ.get("JAVA_HOME"):
+        return
+
+    # Quick check: does the current java resolve correctly?
+    try:
+        r = subprocess.run(["java", "-version"], capture_output=True, timeout=5)
+        if r.returncode == 0:
+            return
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    # Scan Homebrew candidate paths.
+    candidates = [
+        "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
+        "/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
+    ]
+    for candidate in candidates:
+        java_bin = os.path.join(candidate, "bin", "java")
+        if os.path.isfile(java_bin) and os.access(java_bin, os.X_OK):
+            os.environ["JAVA_HOME"] = candidate
+            os.environ["PATH"] = f"{candidate}/bin:{os.environ.get('PATH', '')}"
+            return
 
 
 def _run_subprocess(

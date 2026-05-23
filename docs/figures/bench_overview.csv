@@ -1,9 +1,9 @@
-Module,Tasks,Avg GMAT Speedup,Avg Basilisk Speedup,Avg Brahe (Python) Speedup,Avg Brahe (Rust) Speedup
-Time,5,1.60×,—,21.2×,95.5×
-Coordinates,5,0.90×,1.61×,2.17×,92.3×
-Attitude,4,1.58×,1.47×,5.49×,212.2×
-Frames,2,0.07×,5.97×,13.3×,16.5×
-Orbits,2,1.71×,1.20×,4.81×,49.6×
-Propagation,8,0.20×,0.33×,4.65×,9.10×
-Force Model,5,0.13×,—,0.83×,99.7×
-Access,1,0.08×,—,4.86×,4.85×
+Module,Tasks,Avg GMAT Speedup,Avg Basilisk Speedup,Avg Nyx Speedup,Avg Brahe (Python) Speedup,Avg Brahe (Rust) Speedup
+Time,5,1.70×,—,741.2×,22.7×,104.3×
+Coordinates,5,0.90×,1.70×,28.9×,1.97×,88.3×
+Attitude,4,1.81×,1.45×,94.7×,5.26×,204.9×
+Frames,2,0.07×,5.69×,13.5×,12.7×,16.0×
+Orbits,2,1.92×,1.33×,41.1×,4.51×,48.8×
+Propagation,8,0.20×,0.34×,6.12×,4.61×,8.97×
+Force Model,5,0.15×,—,0.94×,1.25×,91.9×
+Access,1,0.07×,—,—,4.55×,4.59×

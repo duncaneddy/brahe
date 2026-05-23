@@ -1,9 +1,9 @@
-Task,Orekit,GMAT,Basilisk,Brahe (Python),Brahe (Rust),GMAT Speedup,Basilisk Speedup,Brahe (Python) Speedup,Brahe (Rust) Speedup
-Keplerian Single,307.8 µs,91.35 ms,—,49.0 µs,26.5 µs,0.00×,—,6.28×,11.6×
-Keplerian Trajectory,252.2 µs,1.61 ms,—,42.5 µs,14.3 µs,0.16×,—,5.94×,17.6×
-SGP4 Single,354.4 µs,92.06 ms,—,27.4 µs,12.7 µs,0.00×,—,12.9×,27.8×
-SGP4 Trajectory,2.52 ms,134.75 ms,—,855.5 µs,399.5 µs,0.02×,—,2.95×,6.31×
-Numerical Two-Body,1.52 ms,1.39 ms,2.82 ms,489.6 µs,469.6 µs,1.09×,0.54×,3.11×,3.24×
-RK4 + 5x5 Gravity,5.83 ms,61.86 ms,57.32 ms,1.48 ms,1.43 ms,0.09×,0.10×,3.94×,4.07×
-RK4 + 20x20 + Sun/Moon,6.25 ms,72.05 ms,59.41 ms,8.82 ms,8.86 ms,0.09×,0.11×,0.71×,0.71×
-RK4 + 80x80 + Drag + SRP,44.79 ms,394.46 ms,78.28 ms,31.93 ms,31.63 ms,0.11×,0.57×,1.40×,1.42×
+Task,Orekit,GMAT,Basilisk,Nyx,Brahe (Python),Brahe (Rust),GMAT Speedup,Basilisk Speedup,Nyx Speedup,Brahe (Python) Speedup,Brahe (Rust) Speedup
+Keplerian Single,300.5 µs,87.82 ms,—,16.3 µs,52.6 µs,33.1 µs,0.00×,—,18.4×,5.72×,9.07×
+Keplerian Trajectory,281.1 µs,1.38 ms,—,55.7 µs,45.2 µs,14.8 µs,0.20×,—,5.05×,6.22×,19.0×
+SGP4 Single,391.0 µs,88.16 ms,—,—,27.5 µs,13.4 µs,0.00×,—,—,14.2×,29.3×
+SGP4 Trajectory,2.55 ms,135.49 ms,—,—,884.1 µs,396.9 µs,0.02×,—,—,2.88×,6.43×
+Numerical Two-Body,1.50 ms,1.36 ms,1.68 ms,127.6 µs,502.9 µs,478.6 µs,1.10×,0.89×,11.7×,2.98×,3.13×
+RK4 + 5x5 Gravity,4.20 ms,62.40 ms,96.69 ms,11.79 ms,1.52 ms,1.53 ms,0.07×,0.04×,0.36×,2.76×,2.75×
+RK4 + 20x20 + Sun/Moon,6.24 ms,72.60 ms,99.35 ms,18.40 ms,9.04 ms,8.78 ms,0.09×,0.06×,0.34×,0.69×,0.71×
+RK4 + 80x80 + Drag + SRP,44.77 ms,381.56 ms,117.38 ms,55.35 ms,32.06 ms,31.84 ms,0.12×,0.38×,0.81×,1.40×,1.41×

@@ -7,6 +7,7 @@ pub mod config;
 pub mod dp54;
 pub mod rk4;
 pub mod rkf45;
+pub mod rkf78;
 pub mod rkn1210;
 pub mod traits;
 
@@ -15,5 +16,6 @@ pub use config::*;
 pub use dp54::*;
 pub use rk4::*;
 pub use rkf45::*;
+pub use rkf78::*;
 pub use rkn1210::*;
 pub use traits::*;

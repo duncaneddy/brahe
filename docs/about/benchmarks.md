@@ -12,6 +12,10 @@ Libraries have different design goals, philosophies, and use cases. For example,
 
 One of the benefits of these benchmarks is that they show broad consistency in terms of outputs and accuracy across multiple libraries, which gives users confidence that the implementations are correct and that they can expect similar results regardless of which library you choose. The performance comparisons are also informative, but they should be interpreted in the context of the different design goals and use cases of each library.
 
+!!! warning
+
+    Benchmarks are a difficult and nuianced thing to create. They are highly senistive to the specific hardware and software environment they are run in. Small implementation details can lead to large changes in performance. These comparisons tried to be faithful to implemementations baed on "out-of-the-box" capabilities for each library, better ways to setup the tasks or use the libraries may exist. The benchmarks presented here are meant to be a starting point for comparison and should not be taken as definitive or comprehensive. Users should consider their specific use case and requirements when selecting a library, and they may want to run their own benchmarks on their target hardware and software environment.
+
 ### Methodology
 
 **Languages and Libraries**:

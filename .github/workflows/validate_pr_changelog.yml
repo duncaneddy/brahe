@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, edited, reopened]
 
 permissions:
-  pull-requests: read
+  pull-requests: write
   issues: write
 
 jobs:
@@ -28,17 +28,19 @@ jobs:
             const foundEntries = [];
 
             for (const section of sections) {
-              // Match section header followed by list items (not HTML comments).
+              // Capture the section body: everything from the `### Section` header
+              // up to (but not including) the next heading or the end of the body.
               // `[^\\n]*` tolerates header suffixes like "Deprecated / Future Warning".
-              const pattern = new RegExp(`###\\s+${section}[^\\n]*\\n((?:- (?!<!--).*\\n?)*)`, 'i');
+              // This is intentionally forgiving — blank lines between the header and
+              // the first bullet, or prose preceding the list, do not break validation.
+              const pattern = new RegExp(`###\\s+${section}[^\\n]*\\n([\\s\\S]*?)(?=\\n#{1,6}\\s|$)`, 'i');
               const match = prBody.match(pattern);
 
               if (match) {
-                const content = match[1].trim();
-                // Filter out empty lines and HTML comments
-                const lines = content.split('\n').filter(line => {
+                // Count bullets that aren't HTML-comment placeholders from the template.
+                const lines = match[1].split('\n').filter(line => {
                   const trimmed = line.trim();
-                  return trimmed && !trimmed.startsWith('<!--');
+                  return trimmed.startsWith('- ') && !trimmed.startsWith('- <!--');
                 });
 
                 if (lines.length > 0) {

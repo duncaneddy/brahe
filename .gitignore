@@ -56,6 +56,7 @@ docs/*/site/*
 docs/*/docs/figures/*
 docs/pages/index.md
 docs/site/*
+docs/about/benchmark-deviations/*
 
 # Development
 .DS_Store

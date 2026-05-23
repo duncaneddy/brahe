@@ -12,6 +12,7 @@ from brahe._brahe import (
     AdaptiveStepResult,
     RK4Integrator,
     RKF45Integrator,
+    RKF78Integrator,
     DP54Integrator,
     RKN1210Integrator,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "AdaptiveStepResult",
     "RK4Integrator",
     "RKF45Integrator",
+    "RKF78Integrator",
     "DP54Integrator",
     "RKN1210Integrator",
 ]

@@ -42,6 +42,7 @@ NumericalPropagationConfig
 ├── method: IntegratorMethod
 │   ├── RK4 (fixed step)
 │   ├── RKF45 (adaptive)
+│   ├── RKF78 (adaptive)
 │   ├── DP54 (adaptive, default)
 │   └── RKN1210 (adaptive, high precision)
 ├── integrator: IntegratorConfig
@@ -60,13 +61,14 @@ The configuration is captured at propagator construction time and remains immuta
 
 ## Integration Methods
 
-Four integration methods are available:
+Five integration methods are available:
 
 <div class="center-table" markdown="1">
 | Method | Order | Adaptive | Function Evals | Description |
 |------|-----|--------|--------------|-----------|
 | RK4 | 4 | No | 4 | Classic fixed-step Runge-Kutta |
 | RKF45 | 4(5) | Yes | 6 | Runge-Kutta-Fehlberg adaptive |
+| RKF78 | 7(8) | Yes | 13 | High-order Runge-Kutta-Fehlberg adaptive |
 | DP54 | 5(4) | Yes | 6-7 | Dormand-Prince (MATLAB ode45) |
 | RKN1210 | 12(10) | Yes | 17 | High-precision Runge-Kutta-Nystrom |
 </div>
@@ -123,6 +125,33 @@ Dormand-Prince 5(4) adaptive method. Uses FSAL (First-Same-As-Last) optimization
     === "Rust"
         ```
         --8<-- "./docs/outputs/numerical_propagation/integrator_method_dp54.rs.txt"
+        ```
+
+### RKF78 (High-Order Adaptive)
+
+Runge-Kutta-Fehlberg 7(8) adaptive method. Uses a 13-stage embedded pair for high-accuracy propagation when tight tolerances justify additional function evaluations.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/integrator_method_rkf78.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/integrator_method_rkf78.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_rkf78.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/integrator_method_rkf78.rs.txt"
         ```
 
 ### RKN1210 (High Precision)

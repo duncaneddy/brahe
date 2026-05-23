@@ -244,6 +244,7 @@ _bench-compare-orekit-data:
     echo "✓ OreKit data installed: $OREKIT_DIR"
 
 # Run comparative performance benchmarks (timing only) across languages
+# Run comparative performance benchmarks (timing only) across languages
 bench-compare *args: _setup
     #!/usr/bin/env bash
     set -euo pipefail
@@ -290,6 +291,7 @@ bench-compare-list: _setup
     @{{python}} -m benchmarks.comparative.runner list
 
 # Run comparative benchmarks (perf + accuracy), generate figures + CSV tables, and stage for commit
+# Run comparative benchmarks (perf + accuracy), generate figures + CSV tables, and stage for commit
 bench-compare-publish *args: _setup
     #!/usr/bin/env bash
     set -euo pipefail
@@ -307,6 +309,10 @@ bench-compare-publish *args: _setup
     fi
     echo "Running performance benchmarks..."
     uv pip install -e . --quiet
+    {{python}} -m benchmarks.comparative.runner perf {{args}}
+    echo ""
+    echo "Running accuracy benchmarks..."
+    {{python}} -m benchmarks.comparative.runner accuracy {{args}}
     {{python}} -m benchmarks.comparative.runner perf {{args}}
     echo ""
     echo "Running accuracy benchmarks..."

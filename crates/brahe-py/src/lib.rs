@@ -1156,6 +1156,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyAdaptiveStepDResult>()?;
     module.add_class::<PyRK4DIntegrator>()?;
     module.add_class::<PyRKF45DIntegrator>()?;
+    module.add_class::<PyRKF78DIntegrator>()?;
     module.add_class::<PyDP54DIntegrator>()?;
     module.add_class::<PyRKN1210DIntegrator>()?;
 

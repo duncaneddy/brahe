@@ -118,7 +118,7 @@ type SharedDynamics =
 /// - **Sensitivity Analysis**: Parameter sensitivity matrix S = ∂x/∂p
 /// - **Event Detection**: Monitor and react to user-defined events during propagation
 /// - **Trajectory Storage**: Configurable history with interpolation support
-/// - **Adaptive Integration**: Multiple adaptive integrator methods (RK4, RKF45, DP54, etc.)
+/// - **Adaptive Integration**: Multiple adaptive integrator methods (RK4, RKF45, RKF78, DP54, etc.)
 ///
 /// # State Dimensions
 /// The propagator supports arbitrary state dimensions (N-D systems).

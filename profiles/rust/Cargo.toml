@@ -1,0 +1,39 @@
+# Intentionally isolated from the root workspace at ../../Cargo.toml so that
+# the profile harness compiles independently of the published brahe crate's
+# build graph. An empty `[workspace]` table marks this manifest as its own
+# workspace root.
+[workspace]
+
+[package]
+name = "profiles"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Internal-only profile harness for brahe; not published."
+
+[lib]
+name = "profiles"
+path = "src/lib.rs"
+
+# Depend on the root brahe crate by relative path. `version = "*"` keeps the
+# dependency loose so the workspace version bump in the root Cargo.toml never
+# breaks this nested crate (it's never published).
+[dependencies]
+brahe = { path = "../..", version = "*" }
+nalgebra = "0.34.1"
+dhat = { version = "0.3.3", optional = true }
+
+[features]
+# Heap-allocation profiling via dhat. When enabled, each bin should wire up
+# `#[global_allocator]` and `dhat::Profiler::new_heap()` behind the same cfg.
+dhat-heap = ["dep:dhat"]
+
+# Custom `profiling` profile: release-grade optimisations with `debug = 1`
+# (line-tables only) so flamegraphs resolve function symbols without the cost
+# of full DWARF. Because this manifest is its own workspace root (see the
+# top-of-file note on the empty `[workspace]` table), profile settings are
+# NOT inherited from the root brahe workspace — this section fully defines
+# the profile used by `cargo build --profile profiling`.
+[profile.profiling]
+inherits = "release"
+debug = 1

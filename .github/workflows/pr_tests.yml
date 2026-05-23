@@ -5,6 +5,7 @@ on:
     types: [opened, synchronize, reopened]
     paths-ignore:
       - 'CHANGELOG.md'
+      - 'profiles/**'
 
 concurrency:
   group: pr-tests-${{ github.event.pull_request.number }}

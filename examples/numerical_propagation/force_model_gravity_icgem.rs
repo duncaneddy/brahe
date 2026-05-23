@@ -1,0 +1,38 @@
+//! Configure a force model with an ICGEM-sourced spherical-harmonic gravity field.
+//!
+//! `GravityModelType::ICGEMModel { body, name }` slots into the same
+//! `GravityModelSource::ModelType(...)` slot as the packaged JGM3 / GGM05S /
+//! EGM2008_360 variants. The .gfc file is downloaded into `$BRAHE_CACHE/icgem/`
+//! on first use of the resulting `GravityModel`.
+//!
+//! FLAGS = ["CI-ONLY"]
+
+use brahe as bh;
+use bh::GravityModelType;
+use bh::datasets::icgem::ICGEMBody;
+
+fn main() {
+    // Reference an ICGEM Earth model. Use
+    // `bh::datasets::icgem::list_icgem_models(ICGEMBody::Earth)` to discover
+    // the full catalog. Append "-<DEGREE>" to pin a specific variant.
+    let grav_type = GravityModelType::ICGEMModel {
+        body: ICGEMBody::Earth,
+        name: "JGM3".to_string(),
+    };
+
+    let _force_config = bh::ForceModelConfig {
+        gravity: bh::GravityConfiguration::SphericalHarmonic {
+            source: bh::GravityModelSource::ModelType(grav_type),
+            degree: 20,
+            order: 20,
+        },
+        drag: None,
+        srp: None,
+        third_body: None,
+        relativity: false,
+        mass: None,
+        frame_transform: bh::FrameTransformationModel::default(),
+    };
+
+    println!("Built ForceModelConfig with ICGEM gravity source: Earth/JGM3 (20x20)");
+}

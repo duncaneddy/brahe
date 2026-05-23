@@ -1,12 +1,13 @@
 # Datasets Commands
 
-Download and query satellite ephemeris data and ground station information.
+Download and query satellite ephemeris data, ground station information, and spherical harmonic gravity models.
 
 ## Overview
 
 The `datasets` command group provides access to:
 - **CelesTrak** - Satellite TLE (Two-Line Element) data
 - **Ground Stations** - Commercial ground station network databases
+- **ICGEM** - Spherical harmonic gravity models from the International Centre for Global Earth Models
 
 ## CelesTrak Commands
 
@@ -340,6 +341,132 @@ Output:
 
 ---
 
+## ICGEM Commands
+
+Browse, download, and refresh spherical harmonic gravity models from the [ICGEM catalog](https://icgem.gfz.de). Downloads are cached under `$BRAHE_CACHE/icgem/` and reused on subsequent invocations.
+
+### `icgem list`
+
+List ICGEM gravity models for a given body (or for all known bodies).
+
+**Syntax:**
+```bash
+brahe datasets icgem list [OPTIONS]
+```
+
+**Options:**
+- `--body`, `-b <name>` - Body name: `earth`, `moon`, `mars`, `venus`, `ceres`, `all`, or any custom celestial body in the ICGEM catalog. Default: `earth`.
+- `--table`, `-t` - Display results as a Rich table.
+
+**Examples:**
+
+List Earth models (default body):
+```bash
+brahe datasets icgem list
+```
+Output (truncated):
+```bash
+# Earth    EGM2008                                  degree=2190   year=2008
+# Earth    GGM05S                                   degree=180    year=2014
+# Earth    JGM3                                     degree=70     year=1996
+# ...
+# 200+ model(s)
+```
+
+List lunar models as a table:
+```bash
+brahe datasets icgem list --body moon --table
+```
+
+List models across all known bodies:
+```bash
+brahe datasets icgem list --body all
+```
+
+In `--body all` mode, an individual body's index failure is logged and the listing continues with the remaining bodies; in single-body mode the failure is surfaced as an error.
+
+---
+
+### `icgem download`
+
+Download a single `.gfc` gravity model file into the local cache.
+
+**Syntax:**
+```bash
+brahe datasets icgem download <NAME> [OPTIONS]
+```
+
+**Arguments:**
+- `NAME` - Model name (e.g. `EGM2008`). Append `-<DEGREE>` to pin a specific variant, e.g. `EGM2008-2190`.
+
+**Options:**
+- `--body`, `-b <name>` - Body name. Default: `earth`. `--body all` is not valid for `download`.
+- `--output`, `-o <path>` - In addition to caching, copy the file to this path. The command prints the resulting path on success.
+
+**Examples:**
+
+Cache the largest published variant of EGM2008:
+```bash
+brahe datasets icgem download EGM2008
+```
+Output:
+```bash
+# /Users/.../.cache/brahe/icgem/models/earth/EGM2008-2190-<hash>.gfc
+```
+
+Pin a specific degree:
+```bash
+brahe datasets icgem download EGM2008-360
+```
+
+Download a lunar model and also drop a copy beside your analysis:
+```bash
+brahe datasets icgem download GRGM1200B --body moon --output ./gravity/moon.gfc
+```
+
+If the requested name doesn't match any model for the body, the command prints a "did you mean…" hint listing the three nearest names by edit distance. If the name matches but the requested `-DEGREE` doesn't, it lists the available degree variants.
+
+---
+
+### `icgem refresh`
+
+Force-refresh one or both cached ICGEM index files, ignoring the 30-day TTL.
+
+**Syntax:**
+```bash
+brahe datasets icgem refresh [OPTIONS]
+```
+
+**Options:**
+- `--body`, `-b <name>` - Refresh the listing for a single body.
+- `--all` - Refresh both the Earth (`tom_longtime`) and celestial (`tom_celestial`) index files.
+
+Exactly one of `--body` or `--all` must be supplied.
+
+**Examples:**
+
+Refresh just the Earth index:
+```bash
+brahe datasets icgem refresh --body earth
+```
+Output:
+```bash
+# Refreshed ICGEM index for body 'earth'.
+```
+
+Refresh both index files in one call:
+```bash
+brahe datasets icgem refresh --all
+```
+Output:
+```bash
+# Refreshed all ICGEM indexes.
+```
+
+Reach for `refresh` when ICGEM has published a new model and you don't want to wait for the next normal cache miss to pick it up.
+
+---
+
 ## Ground Station Commands
 
 ### `groundstations list-providers`
@@ -411,7 +538,9 @@ Output:
 ## See Also
 
 - [CelesTrak](https://celestrak.org) - Official TLE data source
+- [ICGEM Website](https://icgem.gfz.de) - Official ICGEM gravity model catalog
 - [Two-Line Elements](../orbits/two_line_elements.md) - Understanding Two-Line Elements
 - [SGP Propagation](../orbit_propagation/sgp_propagation.md) - TLE-based orbit propagation
 - [Access CLI](access.md) - Compute satellite passes (uses TLE data)
+- [ICGEM Dataset Guide](../datasets/icgem.md) - Programmatic ICGEM interface and cache behavior
 - [Datasets API](../../library_api/datasets/index.md) - Python dataset functions

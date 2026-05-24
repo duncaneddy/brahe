@@ -1,0 +1,351 @@
+{
+  "schema_version": "1",
+  "run_id": "2026-05-23T19-59-19Z",
+  "started_at": "2026-05-23T19:59:19.909297+00:00",
+  "finished_at": "2026-05-23T20:00:52.102289+00:00",
+  "seed": 42,
+  "iterations": 3,
+  "scheduling": {
+    "per_cell_budget_s": 60.0,
+    "global_run_budget_s": 3600.0,
+    "iterations": 3
+  },
+  "system": {
+    "cpu_model": "AMD EPYC 7713 64-Core Processor",
+    "cpu_physical_cores": 64,
+    "cpu_logical_cores": 128,
+    "ram_gb": 503,
+    "os": "Linux 6.17.0-29-generic",
+    "python_version": "3.14.0",
+    "rust_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "brahe_version": "1.5.2",
+    "brahe_git_sha": "715192ec",
+    "astrojax_version": "0.8.0",
+    "astrojax_git_sha": "98454ab",
+    "jax_version": "0.10.1",
+    "rayon_threads": 128,
+    "gpus": []
+  },
+  "data_alignment": {
+    "eop_file": "/home/deddy/repos/brahe/data/eop/finals.all.iau2000.txt",
+    "eop_sha256": "14af3d1772a078c04c031fdd52597a8df1247ce05e3ee1cf9182eeb5116e4242",
+    "space_weather_file": "/home/deddy/repos/brahe/data/space_weather/sw19571001.txt",
+    "space_weather_sha256": "07e86eb6d4795922ade175849804574ca8b002b8f4d03a0187de71f6112c7de3",
+    "gravity_model_file": "/home/deddy/repos/brahe/data/gravity_models/EGM2008_360.gfc",
+    "gravity_model_sha256": "216d9584ce1cd58d8db9cf7551653847ce48c4577df7913856523e4c6a0e6eb2"
+  },
+  "cells": [
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        1.6181e-05,
+        1.9097e-05,
+        1.7764e-05
+      ],
+      "mean_time_s": 1.7680666666666665e-05,
+      "p50_time_s": 1.7764e-05,
+      "p99_time_s": 1.9097e-05,
+      "throughput_ops_per_sec": 56558.953282304596,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        4.2772e-05,
+        2.4817e-05,
+        1.8425e-05
+      ],
+      "mean_time_s": 2.8671333333333335e-05,
+      "p50_time_s": 2.4817e-05,
+      "p99_time_s": 4.2772e-05,
+      "throughput_ops_per_sec": 3487804.310926128,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.00096953,
+        0.000784066,
+        0.000674566
+      ],
+      "mean_time_s": 0.0008093873333333334,
+      "p50_time_s": 0.000784066,
+      "p99_time_s": 0.00096953,
+      "throughput_ops_per_sec": 12355024.088178629,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.001603499,
+        0.001267307,
+        0.001356928
+      ],
+      "mean_time_s": 0.0014092446666666668,
+      "p50_time_s": 0.001356928,
+      "p99_time_s": 0.001603499,
+      "throughput_ops_per_sec": 70959998.90248534,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.013805887,
+        0.013025638,
+        0.008105443
+      ],
+      "mean_time_s": 0.011645655999999999,
+      "p50_time_s": 0.013025638,
+      "p99_time_s": 0.013805887,
+      "throughput_ops_per_sec": 85868928.29394928,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.065210556,
+        0.066359227,
+        0.06687958
+      ],
+      "mean_time_s": 0.06614978766666667,
+      "p50_time_s": 0.066359227,
+      "p99_time_s": 0.06687958,
+      "throughput_ops_per_sec": 151172064.9866737,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        1.8455e-05,
+        1.4207e-05,
+        1.3465e-05
+      ],
+      "mean_time_s": 1.5375666666666666e-05,
+      "p50_time_s": 1.4207e-05,
+      "p99_time_s": 1.8455e-05,
+      "throughput_ops_per_sec": 65037.830337979925,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        5.3162e-05,
+        5.4864e-05,
+        2.091e-05
+      ],
+      "mean_time_s": 4.297866666666667e-05,
+      "p50_time_s": 5.3162e-05,
+      "p99_time_s": 5.4864e-05,
+      "throughput_ops_per_sec": 2326735.74486567,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.001239725,
+        0.001055614,
+        0.001115618
+      ],
+      "mean_time_s": 0.0011369856666666666,
+      "p50_time_s": 0.001115618,
+      "p99_time_s": 0.001239725,
+      "throughput_ops_per_sec": 8795185.632653827,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.001237301,
+        0.00104862,
+        0.001014726
+      ],
+      "mean_time_s": 0.0011002156666666668,
+      "p50_time_s": 0.00104862,
+      "p99_time_s": 0.001237301,
+      "throughput_ops_per_sec": 90891270.71146959,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.012182299,
+        0.010660025,
+        0.010167406
+      ],
+      "mean_time_s": 0.011003243333333334,
+      "p50_time_s": 0.010660025,
+      "p99_time_s": 0.012182299,
+      "throughput_ops_per_sec": 90882294.40228683,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.049247985,
+        0.048917574,
+        0.049085655
+      ],
+      "mean_time_s": 0.049083737999999995,
+      "p50_time_s": 0.049085655,
+      "p99_time_s": 0.049247985,
+      "throughput_ops_per_sec": 203733464.63547665,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    }
+  ]
+}

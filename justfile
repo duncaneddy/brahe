@@ -607,6 +607,32 @@ generate-changelog version="" prev_tag="":
         --changelog CHANGELOG.md
     echo "✓ CHANGELOG.md updated for v$VERSION. Review the diff, then commit and tag."
 
+# ───── GPU-comparison benchmarks (brahe vs astrojax) ─────
+
+# Install brahe + astrojax for the GPU comparison suite (editable from ~/repos/astrojax if present)
+bench-gpu-install:
+    uv pip install -e ".[gpu-comparison]" --quiet
+
+# Build the bench_gpu_rust subprocess binary
+bench-gpu-build:
+    cargo build --release --manifest-path benchmarks/gpu_comparison/implementations/rust/Cargo.toml
+
+# Run the full GPU-comparison suite. Pass flags like --module coordinates, --task X, --budget 180.
+bench-gpu *flags: bench-gpu-build
+    uv run python -m benchmarks.gpu_comparison run {{flags}}
+
+# Run a single (task, config, batch) cell. For triage / CI smoke tests.
+bench-gpu-cell task config batch *flags: bench-gpu-build
+    uv run python -m benchmarks.gpu_comparison run-cell {{task}} {{config}} {{batch}} {{flags}}
+
+# List registered GPU-comparison tasks
+bench-gpu-list:
+    uv run python -m benchmarks.gpu_comparison list
+
+# Pretty-print a GPU-comparison results JSON
+bench-gpu-inspect path:
+    uv run python -m benchmarks.gpu_comparison inspect {{path}}
+
 # ───── Full Quality Check ─────
 
 # Run full quality check (test + lint + format + stubs + docs)

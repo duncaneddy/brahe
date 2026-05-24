@@ -405,7 +405,175 @@ The Nyx/ANISE baseline runs as a separate Rust binary (compiled from `benchmarks
 
 ---
 
-### Reproducing These Results
+## GPU Comparison Suite (Brahe vs Astrojax)
+
+A separate benchmark suite at `benchmarks/gpu_comparison/` answers a different question: **at what batch size does running the same astrodynamics computation on a GPU outperform Brahe's Rust + rayon CPU implementation?** The comparison target is [Astrojax](https://github.com/duncaneddy/astrojax), an experimental JAX-native astrodynamics library that targets GPUs. Astrojax is dervied from brahe's design but is built on JAX to enable easy and direct GPU parallelization. Astrojax's design assumes you have batched work — the GPU only pays off above some crossover batch size that is task-dependent.
+
+The suite sweeps a geometric batch-size ladder (1 … 10^8 depending on task) for every task and reports throughput in operations per second. Multi-GPU cells are additionally gated by a per-task `multigpu_min_batch()` below which `pmap` overhead dominates.
+
+!!! note "Different from the comparative suite"
+
+    The comparative suite above measures **per-iteration latency on a fixed input** with Orekit as the accuracy baseline. The GPU comparison suite measures **throughput-vs-batch-size across two libraries** with no accuracy baseline. The two suites use different harnesses, different result schemas, and different reporting conventions; they're not meant to be merged.
+
+**Configurations**:
+
+| Config | Backend | dtype | Parallelism |
+|---|---|---|---|
+| `brahe-rust-rayon` | Rust subprocess (`bench_gpu_rust`) | f64 | rayon, all CPU cores |
+| `astrojax-cpu` | JAX in a spawned Python child (`JAX_PLATFORMS=cpu`) | f64 | `jit(vmap(...))` on one CPU device |
+| `astrojax-gpu` | in-process JAX | f32 | `jit(vmap(...))` on one GPU |
+| `astrojax-multigpu` | in-process JAX | f32 | `jit(vmap(...))` with `NamedSharding` across every visible GPU |
+
+Brahe is f64 (its only mode). Astrojax-on-CPU is f64 for apples-to-apples comparison. Astrojax-on-GPU is f32 because that's the realistic deployment choice on tensor-core hardware — the whole point of a GPU is trading precision for throughput.
+
+**Test environment**: AMD EPYC 7713 (64 physical / 128 logical cores), 503 GB RAM, Linux 6.17. 2× NVIDIA A100 80 GB PCIe (driver 595.71.05, CUDA 13.2). Brahe 1.5.2 (commit `715192ec`), Astrojax 0.8.0 (commit `98454ab`), JAX 0.10.1, Rust 1.93.1, Python 3.14.
+
+!!! info "What an 'op' means"
+
+    Throughput is reported in **operations per second**, where an *operation* is one user-facing call of the task — **not** a single integration step or low-level math op. This means the unit varies by task family:
+
+    - **Time conversions** (`time.utc_mjd_to_tt_mjd`): 1 op = 1 MJD-UTC → MJD-TT conversion.
+    - **Coordinate transformations** (`coordinates.*`): 1 op = 1 conversion of one input vector (3-vector for geodetic / ECEF / ENZ; 6-vector for Keplerian / Cartesian state).
+    - **Frame transformations** (`frames.gcrf_to_itrf`): 1 op = 1 `(epoch, state)` → ITRF state transformation, including the underlying precession / nutation / polar-motion rotations.
+    - **SGP4 propagation** (`propagation.sgp4_iss_sweep`): 1 op = 1 propagation of the ISS TLE from its epoch to one `tsince_minutes` offset (one full SGP4 evaluation per element of the batch).
+    - **Numerical / force-model propagation** (`propagation.numerical_twobody_j2`, `force_model.grav_5x5`): 1 op = 1 *complete orbit propagation* — i.e. **180 RK4 steps** spanning one ~90-minute LEO period at 30-second cadence.
+
+### Peak Speedup vs Brahe-Rayon
+
+The headline number per (task, non-baseline-config) is the peak speedup of that config's throughput over `brahe-rust-rayon` at any batch size on the ladder. Values greater than 1 indicate the config beats Brahe somewhere on its ladder.
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_gpu_speedup.csv') }}
+
+</div>
+
+<div class="plotly-embed medium">
+  <iframe class="only-light" src="../figures/fig_gpu_peak_speedup_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_gpu_peak_speedup_dark.html"  loading="lazy"></iframe>
+</div>
+
+### Per-Task Throughput vs Batch Size
+
+Each chart plots throughput (ops/s, log-log) for every config that completed at least one cell. The crossover point — where an Astrojax curve crosses above `brahe-rust-rayon` — is the answer to "when does this config start winning."
+
+#### Time conversions
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_gpu_time_utc_mjd_to_tt_mjd.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_gpu_time_utc_mjd_to_tt_mjd_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_gpu_time_utc_mjd_to_tt_mjd_dark.html"  loading="lazy"></iframe>
+</div>
+
+#### Coordinate transformations
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_gpu_coordinates_geodetic_to_ecef.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_gpu_coordinates_geodetic_to_ecef_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_gpu_coordinates_geodetic_to_ecef_dark.html"  loading="lazy"></iframe>
+</div>
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_gpu_coordinates_keplerian_to_cartesian.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_gpu_coordinates_keplerian_to_cartesian_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_gpu_coordinates_keplerian_to_cartesian_dark.html"  loading="lazy"></iframe>
+</div>
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_gpu_coordinates_enz_to_azel.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_gpu_coordinates_enz_to_azel_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_gpu_coordinates_enz_to_azel_dark.html"  loading="lazy"></iframe>
+</div>
+
+#### Frame transformations
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_gpu_frames_gcrf_to_itrf.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_gpu_frames_gcrf_to_itrf_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_gpu_frames_gcrf_to_itrf_dark.html"  loading="lazy"></iframe>
+</div>
+
+#### SGP4 propagation
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_gpu_propagation_sgp4_iss_sweep.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_gpu_propagation_sgp4_iss_sweep_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_gpu_propagation_sgp4_iss_sweep_dark.html"  loading="lazy"></iframe>
+</div>
+
+#### Numerical two-body / J2 propagation
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_gpu_propagation_numerical_twobody_j2.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_gpu_propagation_numerical_twobody_j2_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_gpu_propagation_numerical_twobody_j2_dark.html"  loading="lazy"></iframe>
+</div>
+
+#### Full force model (5×5 spherical harmonic)
+
+<div class="center-table" markdown="1">
+
+{{ read_csv('figures/bench_gpu_force_model_grav_5x5.csv') }}
+
+</div>
+
+<div class="plotly-embed">
+  <iframe class="only-light" src="../figures/fig_gpu_force_model_grav_5x5_light.html" loading="lazy"></iframe>
+  <iframe class="only-dark"  src="../figures/fig_gpu_force_model_grav_5x5_dark.html"  loading="lazy"></iframe>
+</div>
+
+`force_model.grav_5x5` is the cleanest illustration of the crossover story. Brahe's hand-tuned spherical-harmonic gravity saturates at ~11k orbits/s above batch ~1k (limited by CPU thread count). Astrojax's RK4 + SH(5×5) graph is much slower per element at small batches (JIT-compile overhead + heavier per-step XLA graph) but scales nearly linearly with batch size, crossing Brahe at roughly batch 30k. By batch 100k single-GPU is **6.5×** faster than Brahe and dual-GPU is **9.2×** faster — the gravity model is closed over inside `_propagate_one` so each device JIT-compiles its own copy and only the per-orbit initial states are sharded.
+
+### Notes on the GPU Comparison
+
+**dtype heterogeneity**: Brahe (f64) vs Astrojax-GPU (f32) is intentional. F32 on A100 tensor cores is the realistic deployment choice; forcing astrojax-GPU to f64 would halve its throughput and reduce the comparison to "JAX overhead vs Rust" rather than the intended "what's realistically achievable on A100s." Astrojax-CPU stays f64 so the JAX-vs-Rust comparison on a CPU device is apples-to-apples.
+
+**Spawn-isolated `astrojax-cpu`**: JAX cannot host CPU and GPU devices in the same Python process once initialized. The runner therefore launches every astrojax-cpu cell in a `multiprocessing.spawn`-ed child with `JAX_PLATFORMS=cpu` set on the child. This isolates the CPU JAX init from the parent (which has CUDA jaxlib loaded) at the cost of one process spawn + JIT-compile per cell.
+
+**Input generation is vectorized**: Per-row inputs are generated via `numpy.random.default_rng(seed)` (one `uniform(low, high, batch_size)` call per column), not Python loops. The same seed produces the same N distinct rows across runs. At batch 10^7 generation takes ~2 s; at batch 10^8 (the largest cell, used by the time tasks) it takes ~4 s. This is setup overhead, not part of the timed window.
+
+**Per-task batch ladders are tuned**: cheap tasks (time conversion, coordinate transforms) sweep up to 10^7 or 10^8 to find the GPU crossover; heavier per-element tasks (frames, numerical propagation, full force model) cap at 10^4–10^6 so individual cells stay within the 90 s wall-clock budget.
+
+**Astrojax data alignment**: both backends use Brahe's bundled `data/eop/finals.all.iau2000.txt` and `data/space_weather/sw19571001.txt`. Astrojax's `load_eop_from_file` and `load_sw_from_file` accept Brahe's files directly — no conversion step. JAX 64-bit mode is enabled via `JAX_ENABLE_X64=1` so the EOP table preserves f64 precision; integrator-using kernels additionally call `astrojax.set_dtype(jnp.float64)` so the RK4 scan body's carry input and output dtypes match.
+
+---
+
+## Reproducing These Results
 
 **Comparative benchmarks** (Java/Python/Rust/Basilisk/GMAT):
 
@@ -450,3 +618,28 @@ python plots/fig_comparative_benchmarks.py
 ```bash
 uv run scripts/benchmark_access_three_way.py --n-locations 100 --seed 42 --output chart.html --plot-style scatter --csv accesses.csv
 ```
+
+**GPU comparison benchmarks** (Brahe-Rust vs Astrojax on CPU / single GPU / multi-GPU):
+
+> **Prerequisites**: CUDA-capable GPU(s) and an installed CUDA driver. The `gpu-comparison` extra pulls in `typer`, `rich`, `psutil`, and Astrojax. For GPU runs install JAX with the matching CUDA wheel (`jax[cuda12]` or `jax[cuda13]` depending on your driver). The Rust subprocess binary is built once via `cargo build --release`.
+
+```bash
+# One-time setup: install the gpu-comparison extra (brahe + astrojax editable
+# if ~/repos/astrojax exists, otherwise from PyPI) and the matching CUDA jaxlib.
+just bench-gpu-install
+uv pip install 'jax[cuda13]>=0.10' --quiet   # or jax[cuda12]
+just bench-gpu-build                          # compiles bench_gpu_rust
+
+# Run the full suite — 8 tasks × 4 configs × geometric batch ladder.
+# JAX_ENABLE_X64=1 is required so EOP-backed tasks preserve f64 precision
+# on the astrojax-CPU side.
+JAX_ENABLE_X64=1 just bench-gpu --budget 90 --iterations 5
+
+# Regenerate figures + CSVs from the most recent results JSON.
+BRAHE_FIGURE_OUTPUT_DIR=./docs/figures/ uv run python plots/fig_gpu_comparison.py
+
+# Inspect a results file as a per-task table without re-running:
+just bench-gpu-inspect benchmarks/gpu_comparison/results/run_<timestamp>.json
+```
+
+Individual cells can be triaged with `just bench-gpu-cell <task> <config> <batch>`. Use `just bench-gpu-list` to see registered tasks.

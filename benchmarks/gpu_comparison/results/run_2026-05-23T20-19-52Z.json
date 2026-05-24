@@ -1,0 +1,696 @@
+{
+  "schema_version": "1",
+  "run_id": "2026-05-23T20-19-52Z",
+  "started_at": "2026-05-23T20:19:52.228439+00:00",
+  "finished_at": "2026-05-23T20:23:10.541599+00:00",
+  "seed": 42,
+  "iterations": 3,
+  "scheduling": {
+    "per_cell_budget_s": 60.0,
+    "global_run_budget_s": 3600.0,
+    "iterations": 3
+  },
+  "system": {
+    "cpu_model": "AMD EPYC 7713 64-Core Processor",
+    "cpu_physical_cores": 64,
+    "cpu_logical_cores": 128,
+    "ram_gb": 503,
+    "os": "Linux 6.17.0-29-generic",
+    "python_version": "3.14.0",
+    "rust_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "brahe_version": "1.5.2",
+    "brahe_git_sha": "715192ec",
+    "astrojax_version": "0.8.0",
+    "astrojax_git_sha": "98454ab",
+    "jax_version": "0.10.1",
+    "rayon_threads": 128,
+    "gpus": []
+  },
+  "data_alignment": {
+    "eop_file": "/home/deddy/repos/brahe/data/eop/finals.all.iau2000.txt",
+    "eop_sha256": "14af3d1772a078c04c031fdd52597a8df1247ce05e3ee1cf9182eeb5116e4242",
+    "space_weather_file": "/home/deddy/repos/brahe/data/space_weather/sw19571001.txt",
+    "space_weather_sha256": "07e86eb6d4795922ade175849804574ca8b002b8f4d03a0187de71f6112c7de3",
+    "gravity_model_file": "/home/deddy/repos/brahe/data/gravity_models/EGM2008_360.gfc",
+    "gravity_model_sha256": "216d9584ce1cd58d8db9cf7551653847ce48c4577df7913856523e4c6a0e6eb2"
+  },
+  "cells": [
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000439077,
+        0.000338245,
+        0.000339207
+      ],
+      "mean_time_s": 0.0003721763333333333,
+      "p50_time_s": 0.000339207,
+      "p99_time_s": 0.000439077,
+      "throughput_ops_per_sec": 268689841.46403724,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.001515208,
+        0.000744769,
+        0.000380045
+      ],
+      "mean_time_s": 0.0008800073333333334,
+      "p50_time_s": 0.000744769,
+      "p99_time_s": 0.001515208,
+      "throughput_ops_per_sec": 1136354166.74558,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.002390696,
+        0.001560604,
+        0.001596863
+      ],
+      "mean_time_s": 0.0018493876666666666,
+      "p50_time_s": 0.001596863,
+      "p99_time_s": 0.002390696,
+      "throughput_ops_per_sec": 5407195138.282707,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000162189,
+        0.000169343,
+        0.000161097
+      ],
+      "mean_time_s": 0.00016420966666666665,
+      "p50_time_s": 0.000162189,
+      "p99_time_s": 0.000169343,
+      "throughput_ops_per_sec": 608977546.9978422,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000210722,
+        0.000166798,
+        0.000160406
+      ],
+      "mean_time_s": 0.00017930866666666665,
+      "p50_time_s": 0.000166798,
+      "p99_time_s": 0.000210722,
+      "throughput_ops_per_sec": 5576975271.691646,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000263793,
+        0.000255207,
+        0.000264875
+      ],
+      "mean_time_s": 0.00026129166666666667,
+      "p50_time_s": 0.000263793,
+      "p99_time_s": 0.000264875,
+      "throughput_ops_per_sec": 38271408068.888535,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000327995,
+        0.000320331,
+        0.001063326
+      ],
+      "mean_time_s": 0.0005705506666666667,
+      "p50_time_s": 0.000327995,
+      "p99_time_s": 0.001063326,
+      "throughput_ops_per_sec": 175269272.02492094,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000368012,
+        0.001407673,
+        0.000777693
+      ],
+      "mean_time_s": 0.0008511259999999999,
+      "p50_time_s": 0.000777693,
+      "p99_time_s": 0.001407673,
+      "throughput_ops_per_sec": 1174914172.5196977,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.001804149,
+        0.00178886,
+        0.002674848
+      ],
+      "mean_time_s": 0.0020892856666666665,
+      "p50_time_s": 0.001804149,
+      "p99_time_s": 0.002674848,
+      "throughput_ops_per_sec": 4786324895.414813,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.00396134,
+        0.003023734,
+        0.002648017
+      ],
+      "mean_time_s": 0.0032110303333333333,
+      "p50_time_s": 0.003023734,
+      "p99_time_s": 0.00396134,
+      "throughput_ops_per_sec": 31142651.927610774,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.040794735,
+        0.038502997,
+        0.038419498
+      ],
+      "mean_time_s": 0.03923907666666667,
+      "p50_time_s": 0.038502997,
+      "p99_time_s": 0.040794735,
+      "throughput_ops_per_sec": 25484799.463935737,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000501325,
+        0.000408228,
+        0.000635201
+      ],
+      "mean_time_s": 0.000514918,
+      "p50_time_s": 0.000501325,
+      "p99_time_s": 0.000635201,
+      "throughput_ops_per_sec": 194205679.35088694,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.0005981,
+        0.001095248,
+        0.000368061
+      ],
+      "mean_time_s": 0.0006871363333333333,
+      "p50_time_s": 0.0005981,
+      "p99_time_s": 0.001095248,
+      "throughput_ops_per_sec": 1455315272.2239983,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "below_multigpu_min_batch"
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000602088,
+        0.000644698,
+        0.000422505
+      ],
+      "mean_time_s": 0.0005564303333333333,
+      "p50_time_s": 0.000602088,
+      "p99_time_s": 0.000644698,
+      "throughput_ops_per_sec": 1797170175.8411207,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.001076011,
+        0.001047997,
+        0.001042557
+      ],
+      "mean_time_s": 0.0010555216666666666,
+      "p50_time_s": 0.001047997,
+      "p99_time_s": 0.001076011,
+      "throughput_ops_per_sec": 9473988375.416264,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-multigpu",
+      "dtype": "f32",
+      "batch_size": 100000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.008806085,
+        0.008469735,
+        0.009123781
+      ],
+      "mean_time_s": 0.008799867000000001,
+      "p50_time_s": 0.008806085,
+      "p99_time_s": 0.009123781,
+      "throughput_ops_per_sec": 11363808112.099874,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 2,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe",
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,2503 @@
+{
+  "schema_version": "1",
+  "run_id": "2026-05-23T18-27-17Z",
+  "started_at": "2026-05-23T18:27:17.274744+00:00",
+  "finished_at": "2026-05-23T18:58:31.540483+00:00",
+  "seed": 42,
+  "iterations": 5,
+  "scheduling": {
+    "per_cell_budget_s": 60.0,
+    "global_run_budget_s": 3600.0,
+    "iterations": 5
+  },
+  "system": {
+    "cpu_model": "AMD EPYC 7713 64-Core Processor",
+    "cpu_physical_cores": 64,
+    "cpu_logical_cores": 128,
+    "ram_gb": 503,
+    "os": "Linux 6.17.0-29-generic",
+    "python_version": "3.14.0",
+    "rust_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "brahe_version": "1.5.2",
+    "brahe_git_sha": "715192ec",
+    "astrojax_version": "0.8.0",
+    "astrojax_git_sha": "98454ab",
+    "jax_version": "0.10.1",
+    "rayon_threads": 128,
+    "gpus": []
+  },
+  "data_alignment": {
+    "eop_file": "/home/deddy/repos/brahe/data/eop/finals.all.iau2000.txt",
+    "eop_sha256": "14af3d1772a078c04c031fdd52597a8df1247ce05e3ee1cf9182eeb5116e4242",
+    "space_weather_file": "/home/deddy/repos/brahe/data/space_weather/sw19571001.txt",
+    "space_weather_sha256": "07e86eb6d4795922ade175849804574ca8b002b8f4d03a0187de71f6112c7de3",
+    "gravity_model_file": "/home/deddy/repos/brahe/data/gravity_models/EGM2008_360.gfc",
+    "gravity_model_sha256": "216d9584ce1cd58d8db9cf7551653847ce48c4577df7913856523e4c6a0e6eb2"
+  },
+  "cells": [
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        3.1e-07,
+        1.3e-07,
+        9e-08,
+        9e-08,
+        9e-08
+      ],
+      "mean_time_s": 1.42e-07,
+      "p50_time_s": 9e-08,
+      "p99_time_s": 3.1e-07,
+      "throughput_ops_per_sec": 7042253.52112676,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.enz_to_azel"
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000218657,
+        0.000170105,
+        0.00015205,
+        0.00013631,
+        0.000208457
+      ],
+      "mean_time_s": 0.00017711580000000002,
+      "p50_time_s": 0.000170105,
+      "p99_time_s": 0.000218657,
+      "throughput_ops_per_sec": 564602.3674906474,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.enz_to_azel"
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000370426,
+        0.000370577,
+        0.00039337,
+        0.000332033,
+        0.000337874
+      ],
+      "mean_time_s": 0.000360856,
+      "p50_time_s": 0.000370426,
+      "p99_time_s": 0.00039337,
+      "throughput_ops_per_sec": 27711885.073270224,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.enz_to_azel"
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.00113315,
+        0.001309487,
+        0.00083935,
+        0.000751022,
+        0.001105859
+      ],
+      "mean_time_s": 0.0010277736,
+      "p50_time_s": 0.001105859,
+      "p99_time_s": 0.001309487,
+      "throughput_ops_per_sec": 97297692.79927018,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.enz_to_azel"
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.005982496,
+        0.002125472,
+        0.00241824,
+        0.001983221,
+        0.002076579
+      ],
+      "mean_time_s": 0.0029172016,
+      "p50_time_s": 0.002125472,
+      "p99_time_s": 0.005982496,
+      "throughput_ops_per_sec": 342794272.428755,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.enz_to_azel"
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.011584126,
+        0.011844712,
+        0.011403812,
+        0.011021123,
+        0.011064134
+      ],
+      "mean_time_s": 0.0113835814,
+      "p50_time_s": 0.011403812,
+      "p99_time_s": 0.011844712,
+      "throughput_ops_per_sec": 878458162.5603344,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.enz_to_azel"
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000140448,
+        0.000116572,
+        0.000127413,
+        0.000116812,
+        0.000108206
+      ],
+      "mean_time_s": 0.0001218902,
+      "p50_time_s": 0.000116812,
+      "p99_time_s": 0.000140448,
+      "throughput_ops_per_sec": 8204.105005980793,
+      "speedup_vs_baseline": 0.0011649829108492727,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000108126,
+        0.000106804,
+        0.000101864,
+        0.000105722,
+        0.000103998
+      ],
+      "mean_time_s": 0.00010530280000000002,
+      "p50_time_s": 0.000105722,
+      "p99_time_s": 0.000108126,
+      "throughput_ops_per_sec": 949642.3646854593,
+      "speedup_vs_baseline": 1.6819666713515686,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000109128,
+        0.000106763,
+        0.000104539,
+        0.000103257,
+        0.000103597
+      ],
+      "mean_time_s": 0.0001054568,
+      "p50_time_s": 0.000104539,
+      "p99_time_s": 0.000109128,
+      "throughput_ops_per_sec": 94825558.90184416,
+      "speedup_vs_baseline": 3.4218371883083876,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000107465,
+        0.000103928,
+        0.000116402,
+        0.000101403,
+        0.000103647
+      ],
+      "mean_time_s": 0.000106569,
+      "p50_time_s": 0.000103928,
+      "p99_time_s": 0.000116402,
+      "throughput_ops_per_sec": 938359185.1288836,
+      "speedup_vs_baseline": 9.644207977929792,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000108187,
+        0.000102987,
+        0.000100392,
+        9.7676e-05,
+        9.1895e-05
+      ],
+      "mean_time_s": 0.0001002274,
+      "p50_time_s": 0.000100392,
+      "p99_time_s": 0.000108187,
+      "throughput_ops_per_sec": 9977311593.436525,
+      "speedup_vs_baseline": 29.105829344071584,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000374173,
+        0.000370016,
+        0.000305622,
+        0.000306905,
+        0.000306384
+      ],
+      "mean_time_s": 0.00033262,
+      "p50_time_s": 0.000306905,
+      "p99_time_s": 0.000374173,
+      "throughput_ops_per_sec": 30064337682.64085,
+      "speedup_vs_baseline": 34.22398352474295,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        3.41e-07,
+        1.11e-07,
+        1e-07,
+        9e-08,
+        9e-08
+      ],
+      "mean_time_s": 1.464e-07,
+      "p50_time_s": 1e-07,
+      "p99_time_s": 3.41e-07,
+      "throughput_ops_per_sec": 6830601.092896176,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.geodetic_to_ecef"
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000201975,
+        0.000367771,
+        0.000184231,
+        0.000304401,
+        0.000185183
+      ],
+      "mean_time_s": 0.0002487122,
+      "p50_time_s": 0.000201975,
+      "p99_time_s": 0.000367771,
+      "throughput_ops_per_sec": 402071.14890222513,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.geodetic_to_ecef"
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000442624,
+        0.000469284,
+        0.00045628,
+        0.000686458,
+        0.001306671
+      ],
+      "mean_time_s": 0.0006722634,
+      "p50_time_s": 0.000469284,
+      "p99_time_s": 0.001306671,
+      "throughput_ops_per_sec": 14875121.864435874,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.geodetic_to_ecef"
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.001131066,
+        0.001710521,
+        0.000826035,
+        0.001008513,
+        0.001574812
+      ],
+      "mean_time_s": 0.0012501894,
+      "p50_time_s": 0.001131066,
+      "p99_time_s": 0.001710521,
+      "throughput_ops_per_sec": 79987880.23638658,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.geodetic_to_ecef"
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.00185156,
+        0.001903479,
+        0.001877159,
+        0.002159327,
+        0.002780681
+      ],
+      "mean_time_s": 0.0021144412,
+      "p50_time_s": 0.001903479,
+      "p99_time_s": 0.002780681,
+      "throughput_ops_per_sec": 472938192.8426291,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.geodetic_to_ecef"
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.010216042,
+        0.00989008,
+        0.009960945,
+        0.009671443,
+        0.009553698
+      ],
+      "mean_time_s": 0.0098584416,
+      "p50_time_s": 0.00989008,
+      "p99_time_s": 0.010216042,
+      "throughput_ops_per_sec": 1014359105.1956934,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.geodetic_to_ecef"
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        8.5684e-05,
+        8.1435e-05,
+        8.0343e-05,
+        7.6416e-05,
+        7.7117e-05
+      ],
+      "mean_time_s": 8.019900000000001e-05,
+      "p50_time_s": 8.0343e-05,
+      "p99_time_s": 8.5684e-05,
+      "throughput_ops_per_sec": 12468.983403783088,
+      "speedup_vs_baseline": 0.001825459170313844,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        8.7867e-05,
+        9.3378e-05,
+        8.8719e-05,
+        8.916e-05,
+        9.0913e-05
+      ],
+      "mean_time_s": 9.000740000000001e-05,
+      "p50_time_s": 8.916e-05,
+      "p99_time_s": 9.3378e-05,
+      "throughput_ops_per_sec": 1111019.7605974618,
+      "speedup_vs_baseline": 2.7632416890166804,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000103808,
+        0.000100221,
+        9.4069e-05,
+        9.0723e-05,
+        8.6966e-05
+      ],
+      "mean_time_s": 9.51574e-05,
+      "p50_time_s": 9.4069e-05,
+      "p99_time_s": 0.000103808,
+      "throughput_ops_per_sec": 105089041.9452402,
+      "speedup_vs_baseline": 7.064751664084979,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        9.946e-05,
+        9.8639e-05,
+        9.2126e-05,
+        9.5322e-05,
+        0.000107144
+      ],
+      "mean_time_s": 9.85382e-05,
+      "p50_time_s": 9.8639e-05,
+      "p99_time_s": 0.000107144,
+      "throughput_ops_per_sec": 1014834855.9238955,
+      "speedup_vs_baseline": 12.687357796265813,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000142913,
+        0.000117604,
+        0.000119218,
+        0.000135649,
+        0.000128445
+      ],
+      "mean_time_s": 0.00012876579999999998,
+      "p50_time_s": 0.000128445,
+      "p99_time_s": 0.000142913,
+      "throughput_ops_per_sec": 7766037255.233922,
+      "speedup_vs_baseline": 16.42082913320152,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000426424,
+        0.000405494,
+        0.000404963,
+        0.000406276,
+        0.000405153
+      ],
+      "mean_time_s": 0.00040966200000000004,
+      "p50_time_s": 0.000405494,
+      "p99_time_s": 0.000426424,
+      "throughput_ops_per_sec": 24410367571.314888,
+      "speedup_vs_baseline": 24.064818313634166,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        4.91e-07,
+        2.61e-07,
+        2.6e-07,
+        2.6e-07,
+        2.61e-07
+      ],
+      "mean_time_s": 3.066e-07,
+      "p50_time_s": 2.61e-07,
+      "p99_time_s": 4.91e-07,
+      "throughput_ops_per_sec": 3261578.6040443573,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.keplerian_to_cartesian"
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.0001152,
+        0.000180184,
+        0.000233545,
+        0.000458816,
+        0.000296105
+      ],
+      "mean_time_s": 0.00025677,
+      "p50_time_s": 0.000233545,
+      "p99_time_s": 0.000458816,
+      "throughput_ops_per_sec": 389453.59660396463,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.keplerian_to_cartesian"
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000493923,
+        0.000691279,
+        0.000472972,
+        0.000711388,
+        0.000821198
+      ],
+      "mean_time_s": 0.000638152,
+      "p50_time_s": 0.000691279,
+      "p99_time_s": 0.000821198,
+      "throughput_ops_per_sec": 15670247.840639846,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.keplerian_to_cartesian"
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.001630873,
+        0.001513449,
+        0.001968848,
+        0.001176856,
+        0.001138713
+      ],
+      "mean_time_s": 0.0014857478,
+      "p50_time_s": 0.001513449,
+      "p99_time_s": 0.001968848,
+      "throughput_ops_per_sec": 67306174.03572801,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.keplerian_to_cartesian"
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.005032135,
+        0.004674593,
+        0.004865808,
+        0.004854236,
+        0.004698098
+      ],
+      "mean_time_s": 0.004824974,
+      "p50_time_s": 0.004854236,
+      "p99_time_s": 0.005032135,
+      "throughput_ops_per_sec": 207255002.8248857,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.keplerian_to_cartesian"
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.042599328,
+        0.042801504,
+        0.043181449,
+        0.04147397,
+        0.049749936
+      ],
+      "mean_time_s": 0.0439612374,
+      "p50_time_s": 0.042801504,
+      "p99_time_s": 0.049749936,
+      "throughput_ops_per_sec": 227473123.85706413,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "coordinates.keplerian_to_cartesian"
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000292719,
+        0.000264234,
+        0.000238685,
+        0.000254696,
+        0.000238334
+      ],
+      "mean_time_s": 0.0002577336,
+      "p50_time_s": 0.000254696,
+      "p99_time_s": 0.000292719,
+      "throughput_ops_per_sec": 3879.9752923173387,
+      "speedup_vs_baseline": 0.001189600424624496,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000312326,
+        0.00029863,
+        0.000232393,
+        0.000210161,
+        0.000221492
+      ],
+      "mean_time_s": 0.0002550004,
+      "p50_time_s": 0.000232393,
+      "p99_time_s": 0.000312326,
+      "throughput_ops_per_sec": 392156.247598043,
+      "speedup_vs_baseline": 1.006939596957495,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000295354,
+        0.000300383,
+        0.000294613,
+        0.000257392,
+        0.000249837
+      ],
+      "mean_time_s": 0.0002795158,
+      "p50_time_s": 0.000294613,
+      "p99_time_s": 0.000300383,
+      "throughput_ops_per_sec": 35776152.90441542,
+      "speedup_vs_baseline": 2.2830623528258513,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000249766,
+        0.000239918,
+        0.000236511,
+        0.000228135,
+        0.000256069
+      ],
+      "mean_time_s": 0.0002420798,
+      "p50_time_s": 0.000239918,
+      "p99_time_s": 0.000256069,
+      "throughput_ops_per_sec": 413086924.2291178,
+      "speedup_vs_baseline": 6.137429888821784,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000430651,
+        0.000442785,
+        0.000406476,
+        0.000401827,
+        0.000406847
+      ],
+      "mean_time_s": 0.00041771719999999997,
+      "p50_time_s": 0.000406847,
+      "p99_time_s": 0.000442785,
+      "throughput_ops_per_sec": 2393964146.0777774,
+      "speedup_vs_baseline": 11.550814761757477,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.002950982,
+        0.002956192,
+        0.002947165,
+        0.002925773,
+        0.002877732
+      ],
+      "mean_time_s": 0.0029315688,
+      "p50_time_s": 0.002947165,
+      "p99_time_s": 0.002956192,
+      "throughput_ops_per_sec": 3411142866.5771036,
+      "speedup_vs_baseline": 14.995806136291257,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000740533,
+        0.000739732,
+        0.000739241,
+        0.00073351,
+        0.000753027
+      ],
+      "mean_time_s": 0.0007412086,
+      "p50_time_s": 0.000739732,
+      "p99_time_s": 0.000753027,
+      "throughput_ops_per_sec": 1349.147864717166,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "force_model.grav_5x5"
+        }
+      }
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.002118112,
+        0.001961373,
+        0.001890789,
+        0.002440568,
+        0.002288027
+      ],
+      "mean_time_s": 0.0021397738,
+      "p50_time_s": 0.002118112,
+      "p99_time_s": 0.002440568,
+      "throughput_ops_per_sec": 4673.39117807686,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "force_model.grav_5x5"
+        }
+      }
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.01041679,
+        0.009896618,
+        0.010658873,
+        0.010455374,
+        0.010850098
+      ],
+      "mean_time_s": 0.010455550599999999,
+      "p50_time_s": 0.010455374,
+      "p99_time_s": 0.010850098,
+      "throughput_ops_per_sec": 9564.297838126287,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "force_model.grav_5x5"
+        }
+      }
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.086112825,
+        0.089664203,
+        0.089354381,
+        0.094335588,
+        0.094548073
+      ],
+      "mean_time_s": 0.09080301399999999,
+      "p50_time_s": 0.089664203,
+      "p99_time_s": 0.094548073,
+      "throughput_ops_per_sec": 11012.85030032153,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "force_model.grav_5x5"
+        }
+      }
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.805792167,
+        0.800048043,
+        0.805678647,
+        0.815327128,
+        0.793553593
+      ],
+      "mean_time_s": 0.8040799156,
+      "p50_time_s": 0.805678647,
+      "p99_time_s": 0.815327128,
+      "throughput_ops_per_sec": 1.2436574780677185,
+      "speedup_vs_baseline": 0.0009218096181981044,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.912904883,
+        0.923962022,
+        0.923425886,
+        0.903902846,
+        0.922978567
+      ],
+      "mean_time_s": 0.9174348408,
+      "p50_time_s": 0.922978567,
+      "p99_time_s": 0.923962022,
+      "throughput_ops_per_sec": 10.899956656627554,
+      "speedup_vs_baseline": 0.0023323441674987237,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.95236894,
+        0.956867873,
+        0.944701632,
+        0.950474647,
+        0.95262615
+      ],
+      "mean_time_s": 0.9514078484,
+      "p50_time_s": 0.95236894,
+      "p99_time_s": 0.956867873,
+      "throughput_ops_per_sec": 105.10739444516022,
+      "speedup_vs_baseline": 0.010989556810555317,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.947115216,
+        0.954059126,
+        0.954234448,
+        0.951536215,
+        0.940383911
+      ],
+      "mean_time_s": 0.9494657832,
+      "p50_time_s": 0.951536215,
+      "p99_time_s": 0.954234448,
+      "throughput_ops_per_sec": 1053.22384196899,
+      "speedup_vs_baseline": 0.09563589926744398,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        5.731e-06,
+        8.566e-06,
+        5.982e-06,
+        5.3e-06,
+        5.23e-06
+      ],
+      "mean_time_s": 6.161800000000001e-06,
+      "p50_time_s": 5.731e-06,
+      "p99_time_s": 8.566e-06,
+      "throughput_ops_per_sec": 162290.2398649745,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "frames.gcrf_to_itrf"
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.0001886,
+        0.000211995,
+        0.000170205,
+        0.000106574,
+        0.00020972
+      ],
+      "mean_time_s": 0.0001774188,
+      "p50_time_s": 0.0001886,
+      "p99_time_s": 0.000211995,
+      "throughput_ops_per_sec": 563638.1262865041,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "frames.gcrf_to_itrf"
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.00053961,
+        0.000494504,
+        0.000537546,
+        0.000497169,
+        0.000488282
+      ],
+      "mean_time_s": 0.0005114221999999999,
+      "p50_time_s": 0.000497169,
+      "p99_time_s": 0.00053961,
+      "throughput_ops_per_sec": 1955331.6222878087,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "frames.gcrf_to_itrf"
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.003970026,
+        0.003978001,
+        0.003989133,
+        0.003853273,
+        0.003865116
+      ],
+      "mean_time_s": 0.003931109800000001,
+      "p50_time_s": 0.003970026,
+      "p99_time_s": 0.003989133,
+      "throughput_ops_per_sec": 2543810.9105983246,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "frames.gcrf_to_itrf"
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.039417371,
+        0.039437159,
+        0.040309073,
+        0.041257673,
+        0.040785773
+      ],
+      "mean_time_s": 0.0402414098,
+      "p50_time_s": 0.040309073,
+      "p99_time_s": 0.041257673,
+      "throughput_ops_per_sec": 2485002.401680271,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "frames.gcrf_to_itrf"
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000550551,
+        0.000514331,
+        0.000530022,
+        0.000521355,
+        0.000527667
+      ],
+      "mean_time_s": 0.0005287852,
+      "p50_time_s": 0.000527667,
+      "p99_time_s": 0.000550551,
+      "throughput_ops_per_sec": 1891.1270587754725,
+      "speedup_vs_baseline": 0.01165274671076271,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000508981,
+        0.000490105,
+        0.000487391,
+        0.000515764,
+        0.000486578
+      ],
+      "mean_time_s": 0.0004977638000000001,
+      "p50_time_s": 0.000490105,
+      "p99_time_s": 0.000515764,
+      "throughput_ops_per_sec": 200898.4984444429,
+      "speedup_vs_baseline": 0.3564317051581492,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.00058704,
+        0.000580318,
+        0.000572623,
+        0.000578995,
+        0.000564357
+      ],
+      "mean_time_s": 0.0005766666,
+      "p50_time_s": 0.000578995,
+      "p99_time_s": 0.00058704,
+      "throughput_ops_per_sec": 1734104.246717254,
+      "speedup_vs_baseline": 0.8868594088854806,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000700848,
+        0.000706438,
+        0.0006974,
+        0.000690097,
+        0.000692742
+      ],
+      "mean_time_s": 0.000697505,
+      "p50_time_s": 0.0006974,
+      "p99_time_s": 0.000706438,
+      "throughput_ops_per_sec": 14336814.789858138,
+      "speedup_vs_baseline": 5.635959312119628,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.002417139,
+        0.002452557,
+        0.002302421,
+        0.002372073,
+        0.002429573
+      ],
+      "mean_time_s": 0.0023947526,
+      "p50_time_s": 0.002417139,
+      "p99_time_s": 0.002452557,
+      "throughput_ops_per_sec": 41757966.98164144,
+      "speedup_vs_baseline": 16.803994617231023,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000449948,
+        0.000443415,
+        0.000448936,
+        0.000442915,
+        0.000444398
+      ],
+      "mean_time_s": 0.00044592239999999994,
+      "p50_time_s": 0.000444398,
+      "p99_time_s": 0.000449948,
+      "throughput_ops_per_sec": 2242.542648676093,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.numerical_twobody_j2"
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.001103554,
+        0.001066323,
+        0.001024524,
+        0.000998353,
+        0.001078356
+      ],
+      "mean_time_s": 0.001054222,
+      "p50_time_s": 0.001066323,
+      "p99_time_s": 0.001103554,
+      "throughput_ops_per_sec": 9485.668104061573,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.numerical_twobody_j2"
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.005450343,
+        0.005670574,
+        0.005350383,
+        0.005625518,
+        0.005465753
+      ],
+      "mean_time_s": 0.0055125142000000005,
+      "p50_time_s": 0.005465753,
+      "p99_time_s": 0.005670574,
+      "throughput_ops_per_sec": 18140.542839780803,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.numerical_twobody_j2"
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.052558035,
+        0.052630854,
+        0.053351508,
+        0.053441008,
+        0.05315351
+      ],
+      "mean_time_s": 0.05302698299999999,
+      "p50_time_s": 0.05315351,
+      "p99_time_s": 0.053441008,
+      "throughput_ops_per_sec": 18858.323506732413,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.numerical_twobody_j2"
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.58300473,
+        0.581322563,
+        0.572400679,
+        0.577612528,
+        0.57854688
+      ],
+      "mean_time_s": 0.578577476,
+      "p50_time_s": 0.57854688,
+      "p99_time_s": 0.58300473,
+      "throughput_ops_per_sec": 17283.76996134568,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.numerical_twobody_j2"
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.091363354,
+        0.09104181,
+        0.09127298,
+        0.091020972,
+        0.091283471
+      ],
+      "mean_time_s": 0.0911965174,
+      "p50_time_s": 0.09127298,
+      "p99_time_s": 0.091363354,
+      "throughput_ops_per_sec": 10.965331007256205,
+      "speedup_vs_baseline": 0.004889686719550103,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.101086044,
+        0.100322266,
+        0.100308462,
+        0.100190306,
+        0.100909977
+      ],
+      "mean_time_s": 0.10056341099999999,
+      "p50_time_s": 0.100322266,
+      "p99_time_s": 0.101086044,
+      "throughput_ops_per_sec": 99.43974553528221,
+      "speedup_vs_baseline": 0.010483156741769629,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.10362757,
+        0.103719847,
+        0.103763279,
+        0.103643671,
+        0.103625095
+      ],
+      "mean_time_s": 0.1036758924,
+      "p50_time_s": 0.103643671,
+      "p99_time_s": 0.103763279,
+      "throughput_ops_per_sec": 964.544386212585,
+      "speedup_vs_baseline": 0.05317064625527159,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.108210089,
+        0.107981424,
+        0.108154873,
+        0.108127992,
+        0.108059802
+      ],
+      "mean_time_s": 0.108106836,
+      "p50_time_s": 0.108127992,
+      "p99_time_s": 0.108210089,
+      "throughput_ops_per_sec": 9250.108846030791,
+      "speedup_vs_baseline": 0.49050536452662435,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.115518655,
+        0.115675155,
+        0.115633835,
+        0.115692207,
+        0.115463811
+      ],
+      "mean_time_s": 0.1155967326,
+      "p50_time_s": 0.115633835,
+      "p99_time_s": 0.115692207,
+      "throughput_ops_per_sec": 86507.63542429054,
+      "speedup_vs_baseline": 5.005136935851421,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        8.176e-06,
+        8.797e-06,
+        7.835e-06,
+        7.765e-06,
+        7.674e-06
+      ],
+      "mean_time_s": 8.0494e-06,
+      "p50_time_s": 7.835e-06,
+      "p99_time_s": 8.797e-06,
+      "throughput_ops_per_sec": 124232.86207667652,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.sgp4_iss_sweep"
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000230189,
+        0.000271678,
+        0.000192617,
+        0.000172889,
+        0.000196324
+      ],
+      "mean_time_s": 0.00021273939999999998,
+      "p50_time_s": 0.000196324,
+      "p99_time_s": 0.000271678,
+      "throughput_ops_per_sec": 470058.6727235294,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.sgp4_iss_sweep"
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000979077,
+        0.003730344,
+        0.001396353,
+        0.000885499,
+        0.000842427
+      ],
+      "mean_time_s": 0.00156674,
+      "p50_time_s": 0.000979077,
+      "p99_time_s": 0.003730344,
+      "throughput_ops_per_sec": 638267.9959661462,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.sgp4_iss_sweep"
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.007210439,
+        0.007175282,
+        0.007264162,
+        0.007226501,
+        0.007483841
+      ],
+      "mean_time_s": 0.0072720449999999996,
+      "p50_time_s": 0.007226501,
+      "p99_time_s": 0.007483841,
+      "throughput_ops_per_sec": 1375129.004289715,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.sgp4_iss_sweep"
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.071368525,
+        0.07203718,
+        0.073609147,
+        0.073212009,
+        0.075794625
+      ],
+      "mean_time_s": 0.0732042972,
+      "p50_time_s": 0.073212009,
+      "p99_time_s": 0.075794625,
+      "throughput_ops_per_sec": 1366040.0253115194,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.sgp4_iss_sweep"
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.797022923,
+        0.795627322,
+        0.796132044,
+        0.789267856,
+        0.800595526
+      ],
+      "mean_time_s": 0.7957291341999999,
+      "p50_time_s": 0.796132044,
+      "p99_time_s": 0.800595526,
+      "throughput_ops_per_sec": 1256709.0445989103,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "propagation.sgp4_iss_sweep"
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000255568,
+        0.000238385,
+        0.000231311,
+        0.000238786,
+        0.000216873
+      ],
+      "mean_time_s": 0.0002361846,
+      "p50_time_s": 0.000238385,
+      "p99_time_s": 0.000255568,
+      "throughput_ops_per_sec": 4233.976304975007,
+      "speedup_vs_baseline": 0.03408096886926582,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000244456,
+        0.000214439,
+        0.000227263,
+        0.000212866,
+        0.000220951
+      ],
+      "mean_time_s": 0.000223995,
+      "p50_time_s": 0.000220951,
+      "p99_time_s": 0.000244456,
+      "throughput_ops_per_sec": 446438.5365744771,
+      "speedup_vs_baseline": 0.949750664077323,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000195442,
+        0.000188269,
+        0.000203398,
+        0.00017801,
+        0.000174784
+      ],
+      "mean_time_s": 0.0001879806,
+      "p50_time_s": 0.000188269,
+      "p99_time_s": 0.000203398,
+      "throughput_ops_per_sec": 5319697.883717788,
+      "speedup_vs_baseline": 8.334583462336008,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000135448,
+        0.000155616,
+        0.000167971,
+        0.000212335,
+        0.000161107
+      ],
+      "mean_time_s": 0.00016649539999999998,
+      "p50_time_s": 0.000161107,
+      "p99_time_s": 0.000212335,
+      "throughput_ops_per_sec": 60061719.42287896,
+      "speedup_vs_baseline": 43.67715264205498,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000204109,
+        0.000197366,
+        0.000197006,
+        0.000180083,
+        0.000175234
+      ],
+      "mean_time_s": 0.00019075960000000002,
+      "p50_time_s": 0.000197006,
+      "p99_time_s": 0.000204109,
+      "throughput_ops_per_sec": 524220013.04259384,
+      "speedup_vs_baseline": 383.7515763295792,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000133535,
+        0.00012071,
+        0.000118797,
+        0.000123175,
+        0.000115841
+      ],
+      "mean_time_s": 0.0001224116,
+      "p50_time_s": 0.00012071,
+      "p99_time_s": 0.000133535,
+      "throughput_ops_per_sec": 8169160439.043359,
+      "speedup_vs_baseline": 6500.438963300863,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        4.91e-07,
+        2.3e-07,
+        3.6e-07,
+        2.21e-07,
+        2.2e-07
+      ],
+      "mean_time_s": 3.044e-07,
+      "p50_time_s": 2.3e-07,
+      "p99_time_s": 4.91e-07,
+      "throughput_ops_per_sec": 3285151.11695138,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "time.utc_mjd_to_tt_mjd"
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000131491,
+        9.971e-05,
+        0.000156038,
+        0.000282158,
+        0.000290494
+      ],
+      "mean_time_s": 0.0001919782,
+      "p50_time_s": 0.000156038,
+      "p99_time_s": 0.000290494,
+      "throughput_ops_per_sec": 520892.47633325035,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "time.utc_mjd_to_tt_mjd"
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.00066113,
+        0.000775169,
+        0.000454938,
+        0.000552093,
+        0.000872574
+      ],
+      "mean_time_s": 0.0006631808,
+      "p50_time_s": 0.00066113,
+      "p99_time_s": 0.000872574,
+      "throughput_ops_per_sec": 15078844.260871243,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "time.utc_mjd_to_tt_mjd"
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.003803232,
+        0.00378628,
+        0.003617569,
+        0.00367081,
+        0.003787823
+      ],
+      "mean_time_s": 0.0037331428,
+      "p50_time_s": 0.00378628,
+      "p99_time_s": 0.003803232,
+      "throughput_ops_per_sec": 267870813.83546326,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "time.utc_mjd_to_tt_mjd"
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.030520721,
+        0.029824953,
+        0.030005709,
+        0.029976262,
+        0.029732016
+      ],
+      "mean_time_s": 0.0300119322,
+      "p50_time_s": 0.029976262,
+      "p99_time_s": 0.030520721,
+      "throughput_ops_per_sec": 333200806.0447371,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "time.utc_mjd_to_tt_mjd"
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "brahe-rust-rayon",
+      "dtype": "f64",
+      "batch_size": 100000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.263372548,
+        0.262760501,
+        0.256969208,
+        0.256679335,
+        0.259336061
+      ],
+      "mean_time_s": 0.25982353059999996,
+      "p50_time_s": 0.259336061,
+      "p99_time_s": 0.263372548,
+      "throughput_ops_per_sec": 384876611.32567185,
+      "speedup_vs_baseline": 1.0,
+      "metadata": {
+        "backend_extra": {
+          "brahe_version": "0.1.0",
+          "rayon_threads": 128,
+          "task": "time.utc_mjd_to_tt_mjd"
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000210291,
+        0.000207145,
+        0.00019898,
+        0.000209118,
+        0.000196445
+      ],
+      "mean_time_s": 0.0002043958,
+      "p50_time_s": 0.000207145,
+      "p99_time_s": 0.000210291,
+      "throughput_ops_per_sec": 4892.468436239883,
+      "speedup_vs_baseline": 0.0014892673919914203,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000279523,
+        0.000279804,
+        0.000274875,
+        0.000240358,
+        0.000252752
+      ],
+      "mean_time_s": 0.0002654624,
+      "p50_time_s": 0.000274875,
+      "p99_time_s": 0.000279804,
+      "throughput_ops_per_sec": 376701.1825403523,
+      "speedup_vs_baseline": 0.7231841496196826,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000290704,
+        0.000293079,
+        0.000282829,
+        0.000243724,
+        0.000228125
+      ],
+      "mean_time_s": 0.0002676922,
+      "p50_time_s": 0.000282829,
+      "p99_time_s": 0.000293079,
+      "throughput_ops_per_sec": 37356336.86749184,
+      "speedup_vs_baseline": 2.4774005368852734,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.000258413,
+        0.000244787,
+        0.000266198,
+        0.000269854,
+        0.00024132
+      ],
+      "mean_time_s": 0.0002561144,
+      "p50_time_s": 0.000258413,
+      "p99_time_s": 0.000269854,
+      "throughput_ops_per_sec": 3904505174.2502565,
+      "speedup_vs_baseline": 14.57607537881509,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.001498217,
+        0.001561728,
+        0.001524888,
+        0.001521601,
+        0.001527763
+      ],
+      "mean_time_s": 0.0015268394,
+      "p50_time_s": 0.001524888,
+      "p99_time_s": 0.001561728,
+      "throughput_ops_per_sec": 6549477305.864651,
+      "speedup_vs_baseline": 19.656246884904856,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-gpu",
+      "dtype": "f32",
+      "batch_size": 100000000,
+      "status": "ok",
+      "iterations": 5,
+      "times_seconds": [
+        0.014034192,
+        0.013878244,
+        0.013886652,
+        0.01393405,
+        0.013997442
+      ],
+      "mean_time_s": 0.013946116,
+      "p50_time_s": 0.01393405,
+      "p99_time_s": 0.014034192,
+      "throughput_ops_per_sec": 7170455200.573407,
+      "speedup_vs_baseline": 18.630529862221138,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "NVIDIA A100 80GB PCIe"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    }
+  ]
+}

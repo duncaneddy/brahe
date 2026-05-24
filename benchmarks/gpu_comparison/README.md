@@ -10,7 +10,8 @@ for the design.
 ## Setup
 
 ```bash
-just bench-gpu-install   # installs brahe + astrojax (editable from ~/repos/astrojax if present)
+just bench-gpu-install   # installs brahe[gpu-comparison] + astrojax + CUDA-matched jaxlib
+                         # (NO_LOCAL=1 forces astrojax from PyPI)
 just bench-gpu-build     # compiles the bench_gpu_rust subprocess
 ```
 

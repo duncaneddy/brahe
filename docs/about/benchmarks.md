@@ -621,13 +621,13 @@ uv run scripts/benchmark_access_three_way.py --n-locations 100 --seed 42 --outpu
 
 **GPU comparison benchmarks** (Brahe-Rust vs Astrojax on CPU / single GPU / multi-GPU):
 
-> **Prerequisites**: CUDA-capable GPU(s) and an installed CUDA driver. The `gpu-comparison` extra pulls in `typer`, `rich`, `psutil`, and Astrojax. For GPU runs install JAX with the matching CUDA wheel (`jax[cuda12]` or `jax[cuda13]` depending on your driver). The Rust subprocess binary is built once via `cargo build --release`.
+> **Prerequisites**: CUDA-capable GPU(s) and an installed CUDA driver. The `gpu-comparison` extra in `pyproject.toml` carries only the Python tooling deps (`typer`, `rich`, `psutil`). Astrojax and the CUDA-capable jaxlib are installed by the `just bench-gpu-install` recipe — astrojax editable from `~/repos/astrojax` when present, otherwise from PyPI; jaxlib matched to the detected CUDA major version. They are intentionally NOT pinned in `pyproject.toml` so `uv sync --all-extras --frozen` works in CI without a sibling astrojax checkout.
 
 ```bash
-# One-time setup: install the gpu-comparison extra (brahe + astrojax editable
-# if ~/repos/astrojax exists, otherwise from PyPI) and the matching CUDA jaxlib.
+# One-time setup: install brahe[gpu-comparison] + astrojax + a CUDA-matched
+# jaxlib. NO_LOCAL=1 forces the PyPI astrojax install regardless of
+# ~/repos/astrojax presence.
 just bench-gpu-install
-uv pip install 'jax[cuda13]>=0.10' --quiet   # or jax[cuda12]
 just bench-gpu-build                          # compiles bench_gpu_rust
 
 # Run the full suite — 8 tasks × 4 configs × geometric batch ladder.

@@ -7,6 +7,7 @@ import math
 import numpy as np
 
 from benchmarks.gpu_comparison.implementations import astrojax_kernels
+from benchmarks.gpu_comparison.implementations.jax_utils import shard_across_devices
 from benchmarks.gpu_comparison.tasks.base import BatchConfig, BatchTask
 
 
@@ -109,8 +110,32 @@ def _build_gcrf_to_itrf(task, batch_size, dtype, seed, devices):
     elif len(devices) == 1:
         return (lambda _: states), {}
     else:
-        # multi-GPU: simplification — fall back to single-device for this task in v1.
-        return (lambda _: jax.jit(fn)(eop, batched_epoch, states)), {}
+        # multi-GPU: shard the state batch *and* each leaf of the batched Epoch
+        # pytree across devices. EOP is kept replicated (static across devices)
+        # because it's a large lookup table consumed in full per timestep.
+        n_dev = len(devices)
+        batch = states.shape[0]
+        padded = ((batch + n_dev - 1) // n_dev) * n_dev
+        if padded > batch:
+            states = jnp.concatenate(
+                [states, jnp.zeros((padded - batch, 6), dtype=states.dtype)], axis=0,
+            )
+
+            def _pad_leaf(leaf):
+                pad_shape = (padded - batch,) + leaf.shape[1:]
+                return jnp.concatenate([leaf, jnp.zeros(pad_shape, dtype=leaf.dtype)], axis=0)
+
+            batched_epoch = jax.tree_util.tree_map(_pad_leaf, batched_epoch)
+
+        states_sharded = shard_across_devices(states.reshape(n_dev, -1, 6), devices)
+        epoch_sharded = jax.tree_util.tree_map(
+            lambda leaf: shard_across_devices(leaf.reshape(n_dev, -1), devices),
+            batched_epoch,
+        )
+        # pmap over the device axis, vmap over the per-device batch axis.
+        pmapped = jax.pmap(jax.vmap(state_gcrf_to_itrf, in_axes=(None, 0, 0)),
+                           in_axes=(None, 0, 0))
+        return (lambda _: pmapped(eop, epoch_sharded, states_sharded)), {}
 
 
 astrojax_kernels.register("frames.gcrf_to_itrf", _build_gcrf_to_itrf)

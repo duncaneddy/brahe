@@ -29,6 +29,7 @@ from benchmarks.gpu_comparison.results import (
     BenchmarkRun,
     CellResult,
     SchedulingPolicy,
+    SkipReason,
     compute_speedup_vs_baseline,
 )
 from benchmarks.gpu_comparison.scheduler import schedule_ladder
@@ -158,14 +159,50 @@ def run_suite(
         )
         return run.save(output_dir)
 
+    suite_start = time.time()
+    global_budget_exceeded = False
+
     for i, t in enumerate(tasks, 1):
-        print(f"\n[{i}/{len(tasks)}] task: {t.name}", flush=True, file=sys.stderr)
-        cells.extend(run_one_task(
-            t,
-            iterations=iterations, seed=seed,
-            per_cell_budget_s=per_cell_budget_s,
-            configs_filter=configs_filter,
-        ))
+        elapsed = time.time() - suite_start
+        if elapsed >= global_run_budget_s:
+            print(
+                f"\n[{i}/{len(tasks)}] task: {t.name} — global budget "
+                f"({global_run_budget_s:.0f}s) reached at {elapsed:.0f}s; "
+                f"skipping remainder",
+                flush=True, file=sys.stderr,
+            )
+            global_budget_exceeded = True
+        else:
+            print(
+                f"\n[{i}/{len(tasks)}] task: {t.name} "
+                f"(suite elapsed {elapsed:.0f}s / {global_run_budget_s:.0f}s)",
+                flush=True, file=sys.stderr,
+            )
+
+        if global_budget_exceeded:
+            # Emit one GLOBAL_BUDGET_EXCEEDED skip per (config, batch_size)
+            # so the JSON record makes the truncation visible.
+            for cfg in t.configs:
+                if configs_filter is not None and cfg.name not in configs_filter:
+                    continue
+                for batch in t.batch_sizes():
+                    cells.append(CellResult.skipped(
+                        task=t.name, config=cfg.name, dtype=cfg.dtype,
+                        batch_size=batch,
+                        reason=SkipReason.GLOBAL_BUDGET_EXCEEDED,
+                    ))
+        else:
+            # Reduce per_cell_budget to the remaining global budget so a single
+            # cell can't blow the global cap.
+            remaining = global_run_budget_s - elapsed
+            effective_cell_budget = min(per_cell_budget_s, remaining)
+            cells.extend(run_one_task(
+                t,
+                iterations=iterations, seed=seed,
+                per_cell_budget_s=effective_cell_budget,
+                configs_filter=configs_filter,
+            ))
+
         # Persist progress after each task so a hang doesn't lose everything.
         path = _save_partial()
         print(f"  partial results -> {path}", flush=True, file=sys.stderr)

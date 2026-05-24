@@ -43,6 +43,11 @@ jobs:
     uses: ./.github/workflows/test_python.yml
     with:
       is-fork-pr: ${{ github.event.pull_request.head.repo.fork == true || github.actor == 'dependabot[bot]' }}
+      # PR runs test only the oldest supported Python (the declared floor in pyproject.toml)
+      # across all 3 OSes to catch breakage of the minimum-supported version.
+      # The full matrix runs on push to main.
+      python-versions: '["3.10"]'
+      coverage-python-version: '3.10'
     secrets: inherit
 
   test-examples:

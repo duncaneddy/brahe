@@ -49,6 +49,11 @@ Issues = "https://github.com/duncaneddy/brahe/pulls"
 
 [project.optional-dependencies]
 plots = ["scienceplots>=2.0.0"]
+gpu-comparison = [
+    "typer>=0.9",
+    "rich>=13.0",
+    "psutil>=5.9",
+]
 all = [
       "brahe[plots]",
 ]

@@ -1,0 +1,1085 @@
+{
+  "schema_version": "1",
+  "run_id": "2026-05-23T20-10-45Z",
+  "started_at": "2026-05-23T20:10:45.547350+00:00",
+  "finished_at": "2026-05-23T20:15:24.379289+00:00",
+  "seed": 42,
+  "iterations": 3,
+  "scheduling": {
+    "per_cell_budget_s": 60.0,
+    "global_run_budget_s": 3600.0,
+    "iterations": 3
+  },
+  "system": {
+    "cpu_model": "AMD EPYC 7713 64-Core Processor",
+    "cpu_physical_cores": 64,
+    "cpu_logical_cores": 128,
+    "ram_gb": 503,
+    "os": "Linux 6.17.0-29-generic",
+    "python_version": "3.14.0",
+    "rust_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "brahe_version": "1.5.2",
+    "brahe_git_sha": "715192ec",
+    "astrojax_version": "0.8.0",
+    "astrojax_git_sha": "98454ab",
+    "jax_version": "0.10.1",
+    "rayon_threads": 128,
+    "gpus": []
+  },
+  "data_alignment": {
+    "eop_file": "/home/deddy/repos/brahe/data/eop/finals.all.iau2000.txt",
+    "eop_sha256": "14af3d1772a078c04c031fdd52597a8df1247ce05e3ee1cf9182eeb5116e4242",
+    "space_weather_file": "/home/deddy/repos/brahe/data/space_weather/sw19571001.txt",
+    "space_weather_sha256": "07e86eb6d4795922ade175849804574ca8b002b8f4d03a0187de71f6112c7de3",
+    "gravity_model_file": "/home/deddy/repos/brahe/data/gravity_models/EGM2008_360.gfc",
+    "gravity_model_sha256": "216d9584ce1cd58d8db9cf7551653847ce48c4577df7913856523e4c6a0e6eb2"
+  },
+  "cells": [
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        1.7613e-05,
+        1.3566e-05,
+        1.1341e-05
+      ],
+      "mean_time_s": 1.4173333333333334e-05,
+      "p50_time_s": 1.3566e-05,
+      "p99_time_s": 1.7613e-05,
+      "throughput_ops_per_sec": 70555.03292568203,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        4.3102e-05,
+        4.5627e-05,
+        4.0807e-05
+      ],
+      "mean_time_s": 4.317866666666667e-05,
+      "p50_time_s": 4.3102e-05,
+      "p99_time_s": 4.5627e-05,
+      "throughput_ops_per_sec": 2315958.4980237153,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.00126366,
+        0.001109657,
+        0.001092213
+      ],
+      "mean_time_s": 0.0011551766666666667,
+      "p50_time_s": 0.001109657,
+      "p99_time_s": 0.00126366,
+      "throughput_ops_per_sec": 8656684.547529526,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000741665,
+        0.000698052,
+        0.000705957
+      ],
+      "mean_time_s": 0.0007152246666666667,
+      "p50_time_s": 0.000705957,
+      "p99_time_s": 0.000741665,
+      "throughput_ops_per_sec": 139816206.9354431,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.010442759,
+        0.009619458,
+        0.010655525
+      ],
+      "mean_time_s": 0.010239247333333333,
+      "p50_time_s": 0.010442759,
+      "p99_time_s": 0.010655525,
+      "throughput_ops_per_sec": 97663428.5163278,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.enz_to_azel",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.067976647,
+        0.05491423,
+        0.054765707
+      ],
+      "mean_time_s": 0.05921886133333334,
+      "p50_time_s": 0.05491423,
+      "p99_time_s": 0.067976647,
+      "throughput_ops_per_sec": 168865117.88383818,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        1.4798e-05,
+        1.1662e-05,
+        1.036e-05
+      ],
+      "mean_time_s": 1.2273333333333335e-05,
+      "p50_time_s": 1.1662e-05,
+      "p99_time_s": 1.4798e-05,
+      "throughput_ops_per_sec": 81477.4579033134,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        3.6369e-05,
+        2.2773e-05,
+        1.9828e-05
+      ],
+      "mean_time_s": 2.6323333333333333e-05,
+      "p50_time_s": 2.2773e-05,
+      "p99_time_s": 3.6369e-05,
+      "throughput_ops_per_sec": 3798910.978852729,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000593119,
+        0.000507356,
+        0.000510792
+      ],
+      "mean_time_s": 0.000537089,
+      "p50_time_s": 0.000510792,
+      "p99_time_s": 0.000593119,
+      "throughput_ops_per_sec": 18618888.117239412,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000864446,
+        0.00069305,
+        0.000720341
+      ],
+      "mean_time_s": 0.000759279,
+      "p50_time_s": 0.000720341,
+      "p99_time_s": 0.000864446,
+      "throughput_ops_per_sec": 131703892.77195866,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.010159201,
+        0.009053375,
+        0.009071389
+      ],
+      "mean_time_s": 0.009427988333333333,
+      "p50_time_s": 0.009071389,
+      "p99_time_s": 0.010159201,
+      "throughput_ops_per_sec": 106067165.61839898,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.geodetic_to_ecef",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.049181877,
+        0.048966978,
+        0.049048803
+      ],
+      "mean_time_s": 0.049065886,
+      "p50_time_s": 0.049048803,
+      "p99_time_s": 0.049181877,
+      "throughput_ops_per_sec": 203807590.47131035,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        1.9337e-05,
+        1.5389e-05,
+        1.4107e-05
+      ],
+      "mean_time_s": 1.627766666666667e-05,
+      "p50_time_s": 1.5389e-05,
+      "p99_time_s": 1.9337e-05,
+      "throughput_ops_per_sec": 61433.86644277435,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        8.0714e-05,
+        6.7899e-05,
+        5.812e-05
+      ],
+      "mean_time_s": 6.891099999999999e-05,
+      "p50_time_s": 6.7899e-05,
+      "p99_time_s": 8.0714e-05,
+      "throughput_ops_per_sec": 1451147.1318076942,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.002933706,
+        0.002771126,
+        0.00336113
+      ],
+      "mean_time_s": 0.0030219873333333334,
+      "p50_time_s": 0.002933706,
+      "p99_time_s": 0.00336113,
+      "throughput_ops_per_sec": 3309080.7131113056,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.005633326,
+        0.005614139,
+        0.005455757
+      ],
+      "mean_time_s": 0.005567740666666667,
+      "p50_time_s": 0.005614139,
+      "p99_time_s": 0.005633326,
+      "throughput_ops_per_sec": 17960606.642239444,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.054842638,
+        0.050262437,
+        0.04675549
+      ],
+      "mean_time_s": 0.05062018833333334,
+      "p50_time_s": 0.050262437,
+      "p99_time_s": 0.054842638,
+      "throughput_ops_per_sec": 19754964.0355941,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "coordinates.keplerian_to_cartesian",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.418642634,
+        0.411565519,
+        0.428760192
+      ],
+      "mean_time_s": 0.419656115,
+      "p50_time_s": 0.418642634,
+      "p99_time_s": 0.428760192,
+      "throughput_ops_per_sec": 23829034.398795787,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "force_model.grav_5x5",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.0002626,
+        0.00014712,
+        0.000140287
+      ],
+      "mean_time_s": 0.00018333566666666663,
+      "p50_time_s": 0.00014712,
+      "p99_time_s": 0.0002626,
+      "throughput_ops_per_sec": 5454.476033941387,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.001674229,
+        0.001927481,
+        0.001527359
+      ],
+      "mean_time_s": 0.0017096896666666667,
+      "p50_time_s": 0.001674229,
+      "p99_time_s": 0.001927481,
+      "throughput_ops_per_sec": 58490.14704227999,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.009818688,
+        0.007877852,
+        0.008748229
+      ],
+      "mean_time_s": 0.008814923,
+      "p50_time_s": 0.008748229,
+      "p99_time_s": 0.009818688,
+      "throughput_ops_per_sec": 113443.98584082923,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.052557156,
+        0.053574404,
+        0.064038681
+      ],
+      "mean_time_s": 0.05672341366666667,
+      "p50_time_s": 0.053574404,
+      "p99_time_s": 0.064038681,
+      "throughput_ops_per_sec": 176294.0442682925,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.522772902,
+        0.435661751,
+        0.427809839
+      ],
+      "mean_time_s": 0.46208149733333337,
+      "p50_time_s": 0.435661751,
+      "p99_time_s": 0.522772902,
+      "throughput_ops_per_sec": 216412.0411163372,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "frames.gcrf_to_itrf",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        3.699242566,
+        3.62936439,
+        3.809247039
+      ],
+      "mean_time_s": 3.7126179983333336,
+      "p50_time_s": 3.699242566,
+      "p99_time_s": 3.809247039,
+      "throughput_ops_per_sec": 269351.70826864475,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "propagation.numerical_twobody_j2",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "skipped",
+      "metadata": {},
+      "skip_reason": "backend_error",
+      "error_message": "warmup error: scan body function carry input and carry output must have equal types, but they differ:\n\nThe input carry x has type float64[6] but the corresponding output carry component has type float32[6], so the dtypes do not match.\n\nRevise the function so that all output types match the corresponding input types."
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        2.6721e-05,
+        2.09e-05,
+        1.8275e-05
+      ],
+      "mean_time_s": 2.196533333333333e-05,
+      "p50_time_s": 2.09e-05,
+      "p99_time_s": 2.6721e-05,
+      "throughput_ops_per_sec": 45526.28384120433,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        1.7273e-05,
+        1.3836e-05,
+        1.3005e-05
+      ],
+      "mean_time_s": 1.4704666666666667e-05,
+      "p50_time_s": 1.3836e-05,
+      "p99_time_s": 1.7273e-05,
+      "throughput_ops_per_sec": 6800562.179806864,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        2.2262e-05,
+        1.6521e-05,
+        1.6141e-05
+      ],
+      "mean_time_s": 1.8308e-05,
+      "p50_time_s": 1.6521e-05,
+      "p99_time_s": 2.2262e-05,
+      "throughput_ops_per_sec": 54620930.74065982,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        2.4908e-05,
+        1.7033e-05,
+        1.579e-05
+      ],
+      "mean_time_s": 1.9243666666666667e-05,
+      "p50_time_s": 1.7033e-05,
+      "p99_time_s": 2.4908e-05,
+      "throughput_ops_per_sec": 519651487.06933886,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        1.8725e-05,
+        1.4097e-05,
+        1.2784e-05
+      ],
+      "mean_time_s": 1.5202000000000001e-05,
+      "p50_time_s": 1.4097e-05,
+      "p99_time_s": 1.8725e-05,
+      "throughput_ops_per_sec": 6578081831.337981,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "propagation.sgp4_iss_sweep",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        3.17e-05,
+        1.8034e-05,
+        1.3386e-05
+      ],
+      "mean_time_s": 2.1040000000000002e-05,
+      "p50_time_s": 1.8034e-05,
+      "p99_time_s": 3.17e-05,
+      "throughput_ops_per_sec": 47528517110.26616,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        2.3515e-05,
+        1.9227e-05,
+        1.7063e-05
+      ],
+      "mean_time_s": 1.9935e-05,
+      "p50_time_s": 1.9227e-05,
+      "p99_time_s": 2.3515e-05,
+      "throughput_ops_per_sec": 50163.029847002756,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        3.2151e-05,
+        2.7002e-05,
+        2.8514e-05
+      ],
+      "mean_time_s": 2.9222333333333333e-05,
+      "p50_time_s": 2.8514e-05,
+      "p99_time_s": 3.2151e-05,
+      "throughput_ops_per_sec": 3422040.2203793903,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.000190633,
+        0.000270325,
+        0.000185504
+      ],
+      "mean_time_s": 0.00021548733333333334,
+      "p50_time_s": 0.000190633,
+      "p99_time_s": 0.000270325,
+      "throughput_ops_per_sec": 46406439.97636365,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 1000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.006545186,
+        0.006139042,
+        0.006705882
+      ],
+      "mean_time_s": 0.0064633699999999995,
+      "p50_time_s": 0.006545186,
+      "p99_time_s": 0.006705882,
+      "throughput_ops_per_sec": 154718049.56238002,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 10000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        0.130662913,
+        0.126610835,
+        0.140224896
+      ],
+      "mean_time_s": 0.132499548,
+      "p50_time_s": 0.130662913,
+      "p99_time_s": 0.140224896,
+      "throughput_ops_per_sec": 75471955.572256,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    },
+    {
+      "task": "time.utc_mjd_to_tt_mjd",
+      "config": "astrojax-cpu",
+      "dtype": "f64",
+      "batch_size": 100000000,
+      "status": "ok",
+      "iterations": 3,
+      "times_seconds": [
+        1.086567372,
+        1.118153736,
+        1.024770923
+      ],
+      "mean_time_s": 1.0764973436666667,
+      "p50_time_s": 1.086567372,
+      "p99_time_s": 1.118153736,
+      "throughput_ops_per_sec": 92893866.00749905,
+      "metadata": {
+        "backend_extra": {
+          "n_devices": 1,
+          "device_kinds": [
+            "cpu"
+          ],
+          "warmup_iterations": 2
+        }
+      }
+    }
+  ]
+}

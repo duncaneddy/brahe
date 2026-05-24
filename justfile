@@ -607,6 +607,68 @@ generate-changelog version="" prev_tag="":
         --changelog CHANGELOG.md
     echo "✓ CHANGELOG.md updated for v$VERSION. Review the diff, then commit and tag."
 
+# ───── GPU-comparison benchmarks (brahe vs astrojax) ─────
+
+# Install everything the GPU-comparison suite needs: brahe (with the
+# gpu-comparison extra for typer/rich/psutil), then astrojax (editable from
+# ~/repos/astrojax when present, otherwise from PyPI), then a CUDA-capable
+# jaxlib if an NVIDIA driver is detected. Astrojax and JAX are intentionally
+# NOT pinned in `pyproject.toml` so `uv sync --all-extras --frozen` works
+# in CI without a sibling astrojax checkout.
+bench-gpu-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv pip install -e ".[gpu-comparison]" --quiet
+
+    # Astrojax: prefer the local editable checkout for development; fall back
+    # to PyPI. NO_LOCAL=1 forces the PyPI install regardless.
+    if [ -z "${NO_LOCAL:-}" ] && [ -d "$HOME/repos/astrojax" ]; then
+        echo "Installing astrojax editable from ~/repos/astrojax"
+        uv pip install -e "$HOME/repos/astrojax" --quiet
+    else
+        echo "Installing astrojax from PyPI"
+        uv pip install "astrojax>=0.7.3" --quiet
+    fi
+
+    # JAX with CUDA: detect a usable driver and install the matching wheel.
+    # Skip silently on hosts without an NVIDIA driver — astrojax-CPU still
+    # works with the default CPU-only jaxlib that astrojax pulls in.
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        cuda_major=$(nvidia-smi -q 2>/dev/null \
+            | awk -F':' '/^[[:space:]]*CUDA Version/{gsub(/^ +| +$/,"",$2); split($2,a,"."); print a[1]; exit}')
+        if [ "$cuda_major" = "13" ]; then
+            echo "Installing jax[cuda13] for CUDA $cuda_major"
+            uv pip install 'jax[cuda13]>=0.10' --quiet
+        elif [ "$cuda_major" = "12" ]; then
+            echo "Installing jax[cuda12] for CUDA $cuda_major"
+            uv pip install 'jax[cuda12]>=0.10' --quiet
+        else
+            echo "Detected CUDA major version '$cuda_major' — install jax[cudaXX] manually if needed."
+        fi
+    else
+        echo "No nvidia-smi found; skipping CUDA jaxlib install (CPU-only JAX works)."
+    fi
+
+# Build the bench_gpu_rust subprocess binary
+bench-gpu-build:
+    cargo build --release --manifest-path benchmarks/gpu_comparison/implementations/rust/Cargo.toml
+
+# Run the full GPU-comparison suite. Pass flags like --module coordinates, --task X, --budget 180.
+bench-gpu *flags: bench-gpu-build
+    uv run python -m benchmarks.gpu_comparison run {{flags}}
+
+# Run a single (task, config, batch) cell. For triage / CI smoke tests.
+bench-gpu-cell task config batch *flags: bench-gpu-build
+    uv run python -m benchmarks.gpu_comparison run-cell {{task}} {{config}} {{batch}} {{flags}}
+
+# List registered GPU-comparison tasks
+bench-gpu-list:
+    uv run python -m benchmarks.gpu_comparison list
+
+# Pretty-print a GPU-comparison results JSON
+bench-gpu-inspect path:
+    uv run python -m benchmarks.gpu_comparison inspect {{path}}
+
 # ───── Full Quality Check ─────
 
 # Run full quality check (test + lint + format + stubs + docs)

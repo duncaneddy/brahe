@@ -169,3 +169,31 @@ jobs:
 
       - name: Build documentation (verify only, no deployment)
         run: uv run properdocs build
+
+  # Single aggregation check to require in branch protection. Matrix job names
+  # (e.g. "test-rust (ubuntu-latest, stable)") are brittle to reference directly,
+  # so require only this job: it fails if any upstream job failed or was cancelled.
+  # `skipped` is tolerated so path-filtered/conditional jobs don't wedge merges.
+  ci-success:
+    name: ci-success
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - test-rust
+      - test-python
+      - test-examples
+      - validate-rust-package
+      - validate-python-package
+      - build-docs
+    steps:
+      - name: Verify all required jobs passed
+        run: |
+          results='${{ join(needs.*.result, ' ') }}'
+          echo "Upstream job results: $results"
+          for r in $results; do
+            if [[ "$r" != "success" && "$r" != "skipped" ]]; then
+              echo "::error::A required job did not pass (result: $r)"
+              exit 1
+            fi
+          done
+          echo "All required jobs passed."

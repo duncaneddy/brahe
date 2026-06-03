@@ -29,7 +29,7 @@ TESTS_DIR = REPO_ROOT / "tests"
 RUST_DEPS = """//! ```cargo
 //! [dependencies]
 //! brahe = {path = "%REPO_ROOT%"}
-//! nalgebra = { version = "0.34.0", features = ["serde-serialize"] }
+//! nalgebra = { version = "*", features = ["serde-serialize"] }
 //! approx = "^0.5.0"
 //! serde_json = "1"
 //! rayon = "1.10"

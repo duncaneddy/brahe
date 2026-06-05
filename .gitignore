@@ -14,6 +14,7 @@ CLAUDE.md
 .superpowers
 *.dSYM/
 *dSYM/
+scratch.py
 
 # Coverage
 lcov.info

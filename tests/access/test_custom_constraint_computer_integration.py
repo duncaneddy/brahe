@@ -7,6 +7,7 @@ the location access computation pipeline and correctly filter access windows.
 
 import brahe as bh
 import numpy as np
+import pytest
 
 
 class NorthernHemisphereConstraint(bh.AccessConstraintComputer):
@@ -37,6 +38,69 @@ class NorthernHemisphereConstraint(bh.AccessConstraintComputer):
     def name(self):
         """Return the name of this constraint."""
         return "NorthernHemisphereConstraint"
+
+
+class CountingConstraint(bh.AccessConstraintComputer):
+    def __init__(self, value=True):
+        self.value = value
+        self.calls = 0
+
+    def evaluate(self, epoch, satellite_state_ecef, location_ecef):
+        self.calls += 1
+        return self.value
+
+    def name(self):
+        return "CountingConstraint"
+
+
+def _access_scenario():
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 0.0, 0.0, 0.0])
+    propagator = bh.KeplerianPropagator.from_keplerian(
+        epoch, oe, bh.AngleFormat.DEGREES, step_size=60.0
+    )
+    location = bh.PointLocation(-75.0, 40.0, 0.0)
+    builtin_constraint = bh.ElevationConstraint(
+        min_elevation_deg=None, max_elevation_deg=85.0
+    )
+    return epoch, propagator, location, builtin_constraint
+
+
+def test_custom_constraint_computer_location_accesses():
+    epoch, propagator, location, _ = _access_scenario()
+    custom_constraint = CountingConstraint()
+
+    windows = bh.location_accesses(
+        location, propagator, epoch, epoch + 3600.0, custom_constraint
+    )
+
+    assert isinstance(windows, list)
+    assert custom_constraint.calls > 0
+
+
+def test_custom_constraint_computer_composite_constraints():
+    epoch, propagator, location, builtin_constraint = _access_scenario()
+
+    all_constraint = CountingConstraint()
+    any_constraint = CountingConstraint()
+    not_constraint = CountingConstraint()
+    not_constraint.value = False
+
+    cases = [
+        bh.ConstraintAll([builtin_constraint, all_constraint]),
+        bh.ConstraintAny([any_constraint, builtin_constraint]),
+        bh.ConstraintNot(not_constraint),
+    ]
+
+    for constraint in cases:
+        windows = bh.location_accesses(
+            location, propagator, epoch, epoch + 3600.0, constraint
+        )
+        assert isinstance(windows, list)
+
+    assert all_constraint.calls > 0
+    assert any_constraint.calls > 0
+    assert not_constraint.calls > 0
 
 
 def test_custom_constraint_computer_polar_orbit():
@@ -292,3 +356,151 @@ def test_constraint_computer_hemisphere_detection():
     )
 
     print("\n✓ Hemisphere constraint correctly identifies satellite hemisphere")
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for issue #352
+#
+# Custom Python constraints (subclasses of bh.AccessConstraintComputer) must be
+# usable directly in location_accesses and inside ConstraintAll / ConstraintAny
+# composites, exactly like the built-in constraints.
+#
+# See: https://github.com/duncaneddy/brahe/issues/352
+# ---------------------------------------------------------------------------
+
+
+class AlwaysTrueConstraint(bh.AccessConstraintComputer):
+    """Constraint that is always satisfied."""
+
+    def evaluate(self, epoch, satellite_state_ecef, location_ecef):
+        return True
+
+    def name(self):
+        return "AlwaysTrue"
+
+
+class AlwaysFalseConstraint(bh.AccessConstraintComputer):
+    """Constraint that is never satisfied."""
+
+    def evaluate(self, epoch, satellite_state_ecef, location_ecef):
+        return False
+
+    def name(self):
+        return "AlwaysFalse"
+
+
+@pytest.fixture
+def issue_352_scenario():
+    """Reproducer scenario from issue #352."""
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 0.0, 0.0, 0.0])
+    propagator = bh.KeplerianPropagator.from_keplerian(
+        epoch,
+        oe,
+        bh.AngleFormat.DEGREES,
+        step_size=60.0,
+    )
+    location = bh.PointLocation(-75.0, 40.0, 0.0)
+    return epoch, propagator, location
+
+
+def test_custom_constraint_in_location_accesses_does_not_raise(
+    issue_352_scenario,
+):
+    """Custom constraint passed directly to location_accesses must be accepted."""
+    epoch, propagator, location = issue_352_scenario
+    custom_constraint = NorthernHemisphereConstraint()
+
+    windows = bh.location_accesses(
+        location, propagator, epoch, epoch + 3600.0, custom_constraint
+    )
+
+    assert isinstance(windows, list)
+
+
+def test_custom_constraint_in_constraint_all_does_not_raise(
+    issue_352_scenario,
+):
+    """Custom constraint inside ConstraintAll must be accepted."""
+    epoch, propagator, location = issue_352_scenario
+    builtin = bh.ElevationConstraint(min_elevation_deg=None, max_elevation_deg=5.0)
+    custom = NorthernHemisphereConstraint()
+
+    combined = bh.ConstraintAll([builtin, custom])
+    windows = bh.location_accesses(
+        location, propagator, epoch, epoch + 3600.0, combined
+    )
+
+    assert isinstance(windows, list)
+
+
+def test_custom_constraint_in_constraint_any_does_not_raise(
+    issue_352_scenario,
+):
+    """Custom constraint inside ConstraintAny must be accepted."""
+    epoch, propagator, location = issue_352_scenario
+    builtin = bh.ElevationConstraint(min_elevation_deg=5.0, max_elevation_deg=None)
+    custom = NorthernHemisphereConstraint()
+
+    combined = bh.ConstraintAny([builtin, custom])
+    windows = bh.location_accesses(
+        location, propagator, epoch, epoch + 7200.0, combined
+    )
+
+    assert isinstance(windows, list)
+    assert len(windows) > 0, "Expected some access windows with ConstraintAny"
+
+
+def test_always_false_custom_constraint_yields_no_windows(
+    issue_352_scenario,
+):
+    """An always-false custom constraint must produce zero access windows."""
+    epoch, propagator, location = issue_352_scenario
+
+    windows = bh.location_accesses(
+        location, propagator, epoch, epoch + 6000.0, AlwaysFalseConstraint()
+    )
+
+    assert windows == []
+
+
+def test_always_true_custom_constraint_yields_windows(issue_352_scenario):
+    """An always-true custom constraint must produce access windows."""
+    epoch, propagator, location = issue_352_scenario
+
+    windows = bh.location_accesses(
+        location, propagator, epoch, epoch + 7200.0, AlwaysTrueConstraint()
+    )
+
+    assert len(windows) > 0
+
+
+def test_custom_constraint_all_gates_builtin(issue_352_scenario):
+    """ConstraintAll([elevation, always_false]) must filter out all windows.
+
+    A full-day search is used so the station actually has elevation passes to
+    gate; over short spans this SSO geometry has no access at all.
+    """
+    epoch, propagator, location = issue_352_scenario
+    elevation = bh.ElevationConstraint(min_elevation_deg=0.0, max_elevation_deg=None)
+    search_end = epoch + 86400.0
+
+    baseline = bh.location_accesses(location, propagator, epoch, search_end, elevation)
+    gated = bh.location_accesses(
+        location,
+        propagator,
+        epoch,
+        search_end,
+        bh.ConstraintAll([elevation, AlwaysFalseConstraint()]),
+    )
+
+    assert len(baseline) > 0
+    assert gated == []
+
+
+def test_custom_constraint_name_propagates_to_composite():
+    """The Python name() must be reflected in composite string output."""
+    custom = NorthernHemisphereConstraint()
+    combined = bh.ConstraintAll([custom])
+
+    assert "NorthernHemisphereConstraint" in str(combined)

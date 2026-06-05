@@ -40,7 +40,7 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   uses: actions/checkout@v6
+            -   uses: actions/checkout@v6.0.2
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v8.1.0
                 with:

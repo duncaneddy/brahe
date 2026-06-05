@@ -923,6 +923,10 @@ impl PyConstraintAll {
                     rust_constraints.push(Box::new(c.constraint.clone()));
                 } else if let Ok(c) = py_obj.extract::<PyRef<PyAscDscConstraint>>(py) {
                     rust_constraints.push(Box::new(c.constraint.clone()));
+                } else if py_obj.bind(py).is_instance_of::<PyAccessConstraintComputer>() {
+                    rust_constraints.push(Box::new(AccessConstraintComputerWrapper::new(
+                        RustAccessConstraintComputerWrapper::new(py, py_obj),
+                    )));
                 } else {
                     return Err(exceptions::PyTypeError::new_err(
                         "All constraints must be valid constraint objects"
@@ -1013,6 +1017,10 @@ impl PyConstraintAny {
                     rust_constraints.push(Box::new(c.constraint.clone()));
                 } else if let Ok(c) = py_obj.extract::<PyRef<PyAscDscConstraint>>(py) {
                     rust_constraints.push(Box::new(c.constraint.clone()));
+                } else if py_obj.bind(py).is_instance_of::<PyAccessConstraintComputer>() {
+                    rust_constraints.push(Box::new(AccessConstraintComputerWrapper::new(
+                        RustAccessConstraintComputerWrapper::new(py, py_obj),
+                    )));
                 } else {
                     return Err(exceptions::PyTypeError::new_err(
                         "All constraints must be valid constraint objects"
@@ -4169,15 +4177,24 @@ impl PyAccessConstraintComputer {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) struct RustAccessConstraintComputerWrapper {
     py_computer: Py<PyAny>,
+    /// Name cached from the Python `name()` method at construction time.
+    ///
+    /// The `AccessConstraintComputer::name` trait method returns `&str`, so we
+    /// cannot synthesize a Python string on each call; instead we query the
+    /// subclass's `name()` once and store the result.
+    name: String,
 }
 
-#[allow(dead_code)]
 impl RustAccessConstraintComputerWrapper {
-    pub fn new(py_computer: Py<PyAny>) -> Self {
-        RustAccessConstraintComputerWrapper { py_computer }
+    pub fn new(py: Python, py_computer: Py<PyAny>) -> Self {
+        let name = py_computer
+            .bind(py)
+            .call_method0("name")
+            .and_then(|n| n.extract::<String>())
+            .unwrap_or_else(|_| "PythonConstraintComputer".to_string());
+        RustAccessConstraintComputerWrapper { py_computer, name }
     }
 }
 
@@ -4230,8 +4247,7 @@ impl AccessConstraintComputer for RustAccessConstraintComputerWrapper {
     }
 
     fn name(&self) -> &str {
-        // Return a static string - we can't return Python strings from this trait method
-        "PythonConstraintComputer"
+        &self.name
     }
 }
 
@@ -4804,6 +4820,12 @@ fn py_location_accesses(
     // Use provided config or create default
     let search_config = config.map(|c| c.config).unwrap_or_default();
 
+    // Owned wrapper kept alive for the duration of this function when the caller
+    // passes a custom Python constraint (a subclass of AccessConstraintComputer).
+    // Built-in constraints borrow their stored Rust constraint directly; a custom
+    // Python constraint has no pre-existing Rust object, so we construct one here.
+    let custom_constraint_holder: AccessConstraintComputerWrapper<RustAccessConstraintComputerWrapper>;
+
     // Extract constraint as trait object
     let constraint_trait: &dyn AccessConstraint = if let Ok(c) = constraint.cast::<PyElevationConstraint>() {
         &c.borrow().constraint
@@ -4823,6 +4845,11 @@ fn py_location_accesses(
         &c.borrow().composite
     } else if let Ok(c) = constraint.cast::<PyConstraintNot>() {
         &c.borrow().composite
+    } else if constraint.is_instance_of::<PyAccessConstraintComputer>() {
+        custom_constraint_holder = AccessConstraintComputerWrapper::new(
+            RustAccessConstraintComputerWrapper::new(py, constraint.clone().unbind()),
+        );
+        &custom_constraint_holder
     } else {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
             "constraint must be an AccessConstraint type"

@@ -39,6 +39,69 @@ class NorthernHemisphereConstraint(bh.AccessConstraintComputer):
         return "NorthernHemisphereConstraint"
 
 
+class CountingConstraint(bh.AccessConstraintComputer):
+    def __init__(self, value=True):
+        self.value = value
+        self.calls = 0
+
+    def evaluate(self, epoch, satellite_state_ecef, location_ecef):
+        self.calls += 1
+        return self.value
+
+    def name(self):
+        return "CountingConstraint"
+
+
+def _access_scenario():
+    epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+    oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 0.0, 0.0, 0.0])
+    propagator = bh.KeplerianPropagator.from_keplerian(
+        epoch, oe, bh.AngleFormat.DEGREES, step_size=60.0
+    )
+    location = bh.PointLocation(-75.0, 40.0, 0.0)
+    builtin_constraint = bh.ElevationConstraint(
+        min_elevation_deg=None, max_elevation_deg=85.0
+    )
+    return epoch, propagator, location, builtin_constraint
+
+
+def test_custom_constraint_computer_location_accesses():
+    epoch, propagator, location, _ = _access_scenario()
+    custom_constraint = CountingConstraint()
+
+    windows = bh.location_accesses(
+        location, propagator, epoch, epoch + 3600.0, custom_constraint
+    )
+
+    assert isinstance(windows, list)
+    assert custom_constraint.calls > 0
+
+
+def test_custom_constraint_computer_composite_constraints():
+    epoch, propagator, location, builtin_constraint = _access_scenario()
+
+    all_constraint = CountingConstraint()
+    any_constraint = CountingConstraint()
+    not_constraint = CountingConstraint()
+    not_constraint.value = False
+
+    cases = [
+        bh.ConstraintAll([builtin_constraint, all_constraint]),
+        bh.ConstraintAny([any_constraint, builtin_constraint]),
+        bh.ConstraintNot(not_constraint),
+    ]
+
+    for constraint in cases:
+        windows = bh.location_accesses(
+            location, propagator, epoch, epoch + 3600.0, constraint
+        )
+        assert isinstance(windows, list)
+
+    assert all_constraint.calls > 0
+    assert any_constraint.calls > 0
+    assert not_constraint.calls > 0
+
+
 def test_custom_constraint_computer_polar_orbit():
     """
     Test custom constraint computer filters access windows correctly.

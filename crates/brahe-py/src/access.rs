@@ -895,43 +895,39 @@ pub struct PyConstraintAll {
     pub composite: ConstraintComposite,
 }
 
+fn py_constraint_to_rust(py: Python, py_obj: Py<PyAny>) -> PyResult<Box<dyn AccessConstraint>> {
+    if let Ok(c) = py_obj.extract::<PyRef<PyElevationConstraint>>(py) {
+        Ok(Box::new(c.constraint.clone()))
+    } else if let Ok(c) = py_obj.extract::<PyRef<PyElevationMaskConstraint>>(py) {
+        Ok(Box::new(c.constraint.clone()))
+    } else if let Ok(c) = py_obj.extract::<PyRef<PyOffNadirConstraint>>(py) {
+        Ok(Box::new(c.constraint.clone()))
+    } else if let Ok(c) = py_obj.extract::<PyRef<PyLocalTimeConstraint>>(py) {
+        Ok(Box::new(c.constraint.clone()))
+    } else if let Ok(c) = py_obj.extract::<PyRef<PyLookDirectionConstraint>>(py) {
+        Ok(Box::new(c.constraint.clone()))
+    } else if let Ok(c) = py_obj.extract::<PyRef<PyAscDscConstraint>>(py) {
+        Ok(Box::new(c.constraint.clone()))
+    } else if py_obj.bind(py).is_instance_of::<PyAccessConstraintComputer>() {
+        Ok(Box::new(AccessConstraintComputerWrapper::new(
+            RustAccessConstraintComputerWrapper::new(py, py_obj),
+        )))
+    } else {
+        Err(exceptions::PyTypeError::new_err(
+            "All constraints must be valid constraint objects",
+        ))
+    }
+}
+
 #[pymethods]
 impl PyConstraintAll {
     #[new]
     fn new(constraints: Vec<Py<PyAny>>) -> PyResult<Self> {
-        // Convert Python objects to Rust constraint trait objects
-        // For now, we'll store them as-is and handle evaluation in Rust
-        // This requires implementing conversion logic for each constraint type
-
-        // Note: This is a simplified version. Full implementation would need
-        // to check the type of each Py<PyAny> and convert to the appropriate
-        // Rust constraint type
         Python::attach(|py| {
             let mut rust_constraints: Vec<Box<dyn AccessConstraint>> = Vec::new();
 
             for py_obj in constraints {
-                // Try to extract each constraint type
-                if let Ok(c) = py_obj.extract::<PyRef<PyElevationConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyElevationMaskConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyOffNadirConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyLocalTimeConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyLookDirectionConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyAscDscConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if py_obj.bind(py).is_instance_of::<PyAccessConstraintComputer>() {
-                    rust_constraints.push(Box::new(AccessConstraintComputerWrapper::new(
-                        RustAccessConstraintComputerWrapper::new(py, py_obj),
-                    )));
-                } else {
-                    return Err(exceptions::PyTypeError::new_err(
-                        "All constraints must be valid constraint objects"
-                    ));
-                }
+                rust_constraints.push(py_constraint_to_rust(py, py_obj)?);
             }
 
             Ok(PyConstraintAll {
@@ -1005,27 +1001,7 @@ impl PyConstraintAny {
             let mut rust_constraints: Vec<Box<dyn AccessConstraint>> = Vec::new();
 
             for py_obj in constraints {
-                if let Ok(c) = py_obj.extract::<PyRef<PyElevationConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyElevationMaskConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyOffNadirConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyLocalTimeConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyLookDirectionConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if let Ok(c) = py_obj.extract::<PyRef<PyAscDscConstraint>>(py) {
-                    rust_constraints.push(Box::new(c.constraint.clone()));
-                } else if py_obj.bind(py).is_instance_of::<PyAccessConstraintComputer>() {
-                    rust_constraints.push(Box::new(AccessConstraintComputerWrapper::new(
-                        RustAccessConstraintComputerWrapper::new(py, py_obj),
-                    )));
-                } else {
-                    return Err(exceptions::PyTypeError::new_err(
-                        "All constraints must be valid constraint objects"
-                    ));
-                }
+                rust_constraints.push(py_constraint_to_rust(py, py_obj)?);
             }
 
             Ok(PyConstraintAny {
@@ -1095,24 +1071,9 @@ impl PyConstraintNot {
     #[new]
     fn new(constraint: Py<PyAny>) -> PyResult<Self> {
         Python::attach(|py| {
-            let rust_constraint: Box<dyn AccessConstraint> =
-                if let Ok(c) = constraint.extract::<PyRef<PyElevationConstraint>>(py) {
-                    Box::new(c.constraint.clone())
-                } else if let Ok(c) = constraint.extract::<PyRef<PyElevationMaskConstraint>>(py) {
-                    Box::new(c.constraint.clone())
-                } else if let Ok(c) = constraint.extract::<PyRef<PyOffNadirConstraint>>(py) {
-                    Box::new(c.constraint.clone())
-                } else if let Ok(c) = constraint.extract::<PyRef<PyLocalTimeConstraint>>(py) {
-                    Box::new(c.constraint.clone())
-                } else if let Ok(c) = constraint.extract::<PyRef<PyLookDirectionConstraint>>(py) {
-                    Box::new(c.constraint.clone())
-                } else if let Ok(c) = constraint.extract::<PyRef<PyAscDscConstraint>>(py) {
-                    Box::new(c.constraint.clone())
-                } else {
-                    return Err(exceptions::PyTypeError::new_err(
-                        "Constraint must be a valid constraint object"
-                    ));
-                };
+            let rust_constraint = py_constraint_to_rust(py, constraint).map_err(|_| {
+                exceptions::PyTypeError::new_err("Constraint must be a valid constraint object")
+            })?;
 
             Ok(PyConstraintNot {
                 composite: ConstraintComposite::Not(rust_constraint),

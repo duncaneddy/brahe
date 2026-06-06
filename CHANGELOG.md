@@ -9,6 +9,37 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- towncrier release notes start -->
 
+## [1.6.0] - 2026-06-05
+
+### Added
+
+- Add `RKF78` / `RKF78Integrator` support for high-order adaptive integration in Rust and Python. [@Mtrya](https://github.com/Mtrya) ([#339](https://github.com/duncaneddy/brahe/pull/339))
+- Add RKF78 tests, examples, and API/reference documentation. [@Mtrya](https://github.com/Mtrya) ([#339](https://github.com/duncaneddy/brahe/pull/339))
+- Added [GMAT](https://github.com/nasa/GMAT) baselines. [@duncaneddy](https://github.com/duncaneddy) ([#340](https://github.com/duncaneddy/brahe/pull/340))
+- Added [Basilisk](https://github.com/AVSLab/basilisk) baselines. [@duncaneddy](https://github.com/duncaneddy) ([#340](https://github.com/duncaneddy/brahe/pull/340))
+- `profiles/` subdirectory with short, standalone rust and python scripts for use with profiling tools. [@duncaneddy](https://github.com/duncaneddy) ([#341](https://github.com/duncaneddy/brahe/pull/341))
+- Added `justfile` commands to run profiling scripts. [@duncaneddy](https://github.com/duncaneddy) ([#341](https://github.com/duncaneddy/brahe/pull/341))
+- Add baselines against Nyx 2.4.0 / ANISE 0.10.1. [@duncaneddy](https://github.com/duncaneddy) ([#342](https://github.com/duncaneddy/brahe/pull/342))
+- Added `datasets.icgem` submodule to integrate with ICGEM gravity field model distribution network. Listing and downloading models uses the local brahe cache to minimize network traffic. [@duncaneddy](https://github.com/duncaneddy) ([#343](https://github.com/duncaneddy/brahe/pull/343))
+- Added brahe vs astrojax benchmarks. [@duncaneddy](https://github.com/duncaneddy) ([#344](https://github.com/duncaneddy/brahe/pull/344))
+- Add `ci-success` stage to enable gating CI auto-merge on completion. [@duncaneddy](https://github.com/duncaneddy) ([#350](https://github.com/duncaneddy/brahe/pull/350))
+
+### Changed
+
+- Extend numerical propagation integrator selection and comparison examples to include RKF78. [@Mtrya](https://github.com/Mtrya) ([#339](https://github.com/duncaneddy/brahe/pull/339))
+- Split baselines into speed and accuracy tests. [@duncaneddy](https://github.com/duncaneddy) ([#340](https://github.com/duncaneddy/brahe/pull/340))
+- Added `ICGEMModel(body, model_name)` to `GravityModelType` enabling ICGEM models to be specified for numerical orbit propagators. [@duncaneddy](https://github.com/duncaneddy) ([#343](https://github.com/duncaneddy/brahe/pull/343))
+- Scaled back python-version test matrix on PRs to minimum supported python version. [@duncaneddy](https://github.com/duncaneddy) ([#345](https://github.com/duncaneddy/brahe/pull/345))
+- Removed `anise` default feature dependency to just pull in SPICE kernel features. [@duncaneddy](https://github.com/duncaneddy) ([#350](https://github.com/duncaneddy/brahe/pull/350))
+
+### Fixed
+
+- `EulerAngleOrder` semantics now match what brahe's documentation always described and what the comparative benchmark expects. Prior to this fix, `attitude.euler_angle_to_quaternion` disagreed with OreKit, GMAT, and Basilisk. The discrepancy was traced through to a convention mismatch between the per-order formulas (faithfully transcribed from Diebel 2006) and the aerospace rotation-sequence interpretation users (and the docs) assumed. [@duncaneddy](https://github.com/duncaneddy) ([#338](https://github.com/duncaneddy/brahe/pull/338))
+- Fixed issue with CHANGELOG parsing in PRs where a blank line after a section header would fail to validate. [@duncaneddy](https://github.com/duncaneddy) ([#338](https://github.com/duncaneddy/brahe/pull/338))
+- Fixed issue with Orekit access baseline not properly inserting leap seconds in accuracy computation leading to in accurate error. [@duncaneddy](https://github.com/duncaneddy) ([#340](https://github.com/duncaneddy/brahe/pull/340))
+- Fixed build breaking from conflicting `nalgebra` required dependencies. [@duncaneddy](https://github.com/duncaneddy) ([#350](https://github.com/duncaneddy/brahe/pull/350))
+- Regression in use of custom python-based access constraints where they would give an error at use. [@nkgotcode](https://github.com/nkgotcode) [@duncaneddy](https://github.com/duncaneddy) ([#354](https://github.com/duncaneddy/brahe/pull/354))
+
 ## [1.5.2] - 2026-05-18
 
 ### Fixed

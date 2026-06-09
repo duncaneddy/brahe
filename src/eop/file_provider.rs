@@ -26,7 +26,7 @@ type EOPDataMap = BTreeMap<EOPKey, EOPData>;
 // Package EOP data as part of crate
 
 /// Packaged C04 EOP Data File
-static PACKAGED_C04_FILE: &[u8] = include_bytes!("../../data/eop/EOP_20_C04_one_file_1962-now.txt");
+static PACKAGED_C04_FILE: &[u8] = include_bytes!("../../data/eop/EOP_C04_one_file_1962-now.txt");
 
 /// Packaged Finals 2000A Data File
 static PACKAGED_STANDARD2000_FILE: &[u8] = include_bytes!("../../data/eop/finals.all.iau2000.txt");
@@ -279,7 +279,7 @@ impl FileEOPProvider {
     /// let filepath = Path::new(&manifest_dir)
     ///                 .join("data")
     ///                 .join("eop")
-    ///                 .join("EOP_20_C04_one_file_1962-now.txt");
+    ///                 .join("EOP_C04_one_file_1962-now.txt");
     ///
     /// let eop = FileEOPProvider::from_c04_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
     /// ```
@@ -540,7 +540,7 @@ impl FileEOPProvider {
     /// let filepath = Path::new(&manifest_dir)
     ///                 .join("data")
     ///                 .join("eop")
-    ///                 .join("EOP_20_C04_one_file_1962-now.txt");
+    ///                 .join("EOP_C04_one_file_1962-now.txt");
     ///
     /// let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
     ///
@@ -1378,7 +1378,7 @@ mod tests {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let filepath = Path::new(&manifest_dir).join("test_assets");
 
-        let c04_file = "EOP_20_C04_one_file_1962-now.txt";
+        let c04_file = "EOP_C04_one_file_1962-now.txt";
         let standard_file = "finals.all.iau2000.txt";
         let unknown_file = "bad_eop_file.txt";
 
@@ -1401,14 +1401,14 @@ mod tests {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let filepath = Path::new(&manifest_dir)
             .join("test_assets")
-            .join("EOP_20_C04_one_file_1962-now.txt");
+            .join("EOP_C04_one_file_1962-now.txt");
 
         let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
 
         assert!(eop.is_initialized());
-        assert_eq!(eop.len(), 22605);
+        assert_eq!(eop.len(), 23506);
         assert_eq!(eop.mjd_min(), 37665.0);
-        assert_eq!(eop.mjd_max(), 60269.0);
+        assert_eq!(eop.mjd_max(), 61170.0);
         assert_eq!(eop.eop_type(), EOPType::C04);
         assert_eq!(eop.extrapolation(), EOPExtrapolation::Hold);
         assert!(eop.interpolation());

@@ -9,7 +9,7 @@ use crate::utils::{BraheError, atomic_write};
 const STANDARD_FILE_SOURCE: &str =
     "https://datacenter.iers.org/data/latestVersion/finals.all.iau2000.txt";
 const C04_FILE_SOURCE: &str =
-    "https://datacenter.iers.org/data/latestVersion/EOP_20_C04_one_file_1962-now.txt";
+    "https://datacenter.iers.org/data/latestVersion/EOP_20u24_C04_one_file_1962-now.txt";
 
 /// Download latest C04 Earth orientation parameter file. Will attempt to download the latest
 /// parameter file to the specified location. Creating any missing directories as required.
@@ -86,7 +86,7 @@ mod tests {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let filepath = Path::new(&manifest_dir)
             .join("test_assets")
-            .join("EOP_20_C04_one_file_1962-now.txt");
+            .join("EOP_C04_one_file_1962-now.txt");
 
         fs::read_to_string(filepath).expect("Failed to read file")
     }

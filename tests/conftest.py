@@ -15,7 +15,7 @@ TEST_ASSETS = PACKAGE_ROOT / "test_assets"
 
 @pytest.fixture(scope="session")
 def iau2000_c04_20_filepath():
-    filepath = TEST_ASSETS / "EOP_20_C04_one_file_1962-now.txt"
+    filepath = TEST_ASSETS / "EOP_C04_one_file_1962-now.txt"
     yield str(filepath)
 
 

@@ -155,7 +155,7 @@ nav:
           - getting_started/index.md
           - getting_started/first_script.md
           - getting_started/managing_external_data.md
-          - getting_started/constants.md
+          - getting_started/units_and_angles.md
           - getting_started/time.md
           - getting_started/coordinate_transformations.md
           - getting_started/frame_transformations.md

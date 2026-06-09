@@ -7,7 +7,11 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // Set the location
-    let location = bh::PointLocation::new(-122.4194, 37.7749, 0.0)
+    let location = bh::PointLocation::new(
+        -122.4194,      // Longitude [deg]
+        37.7749,        // Latitude [deg]
+        0.0             // Altitude [m]
+    )
         .with_name("San Francisco");
 
     // Get the latest TLE for the ISS (NORAD ID 25544) from Celestrak
@@ -31,8 +35,6 @@ fn main() {
         None,
         None,
     ).unwrap();
-
-    assert!(!windows.is_empty(), "Should find at least one access window");
 
     // Print first 3 access windows
     for window in windows.iter().take(3) {

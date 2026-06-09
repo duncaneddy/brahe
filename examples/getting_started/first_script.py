@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["brahe", "pytest"]
+# dependencies = ["brahe"]
 
 import brahe as bh
 
@@ -7,7 +7,11 @@ import brahe as bh
 bh.initialize_eop()
 
 # Set the location
-location = bh.PointLocation(-122.4194, 37.7749, 0.0).with_name("San Francisco")
+location = bh.PointLocation(
+    -122.4194,  # Longitude [deg]
+    37.7749,    # Latitude [deg]
+    0.0         # Altitude [m]
+    ).with_name("San Francisco")
 
 # Get the latest TLE for the ISS (NORAD ID 25544) from Celestrak
 client = bh.celestrak.CelestrakClient()
@@ -22,8 +26,6 @@ constraint = bh.ElevationConstraint(min_elevation_deg=10.0)
 
 # Compute access windows
 windows = bh.location_accesses(location, propagator, epoch_start, epoch_end, constraint)
-
-assert len(windows) > 0, "Should find at least one access window"
 
 # Print first 3 access windows
 for window in windows[:3]:

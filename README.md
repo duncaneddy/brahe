@@ -57,10 +57,11 @@ We hope you find Brahe useful for your work!
 
 If you want to learn more about how to use the package the documentation is structured in the following way:
 
-- **[Learn](https://duncaneddy.github.io/brahe/latest/learn/)**: Provides short-form documentation of major concepts of the package.
-- **[Examples](https://duncaneddy.github.io/brahe/latest/examples/)**: Provides longer-form examples of how-to examples of how to accomplish common tasks.
-- **[Python API Reference](https://duncaneddy.github.io/brahe/latest/library_api/)**: Provides detailed reference documentation of the Python API.
-- **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API.
+- **[Getting Started](https://duncaneddy.github.io/brahe/latest/getting_started/)**: The getting started guide provides a high-level overview of the main concepts and components of Brahe, along with a quick introduction to using it. It is designed to help new users get up to speed quickly and understand the core ideas behind Brahe before diving into the more detailed documentation in the other sections. If you are new to Brahe, this is a great place to start!
+- **[User Guide](https://duncaneddy.github.io/brahe/latest/learn/)**: The user guide provides more comprehensive module-by-module documentation covering the capabilities each module provides with examples on how to use it.
+- **[Examples](https://duncaneddy.github.io/brahe/latest/examples/)**: This section contains a collection of worked examples that demonstrate how to use Brahe to solve various problems or accomplish specific tasks. The examples are designed to be practical and cover a range of use cases, from basic to more advanced.
+- **[Python API Reference](https://duncaneddy.github.io/brahe/latest/library_api/)**: Provides detailed reference documentation of the Python API, including all public classes, functions, and methods organized by module.
+- **[Rust API Reference](https://docs.rs/brahe)**: Provides detailed reference documentation of the Rust API, including all public structs, traits, functions, and methods organized by module.
 
 ## Quick Start
 
@@ -167,7 +168,9 @@ If you find a bug, have a feature request, want to contribute, please open an is
 
 ## AI Usage
 
-The development of Brahe has roots in 2014 when I first started writing astrodynamics software for my PhD. The main algorithms and code structure evolved over the years based on my own experience applying the software to both research problems and operational space missions. The core functionality of the library (time handling, reference frames, reference frame transformations, coordinate transformations) were all developed before the usage of AI tools. AI tools have since been sparingly adopted to help with improving and expanding capabilities that were on the nice-to-have feature list. They have also been used to help with writing documentation and improve code coverage. However, all results and outputs are manually reviewed, run, tested, and verified manually before being merged into the main branch. 
+The development of Brahe has roots in 2014 when I first started writing astrodynamics software for my PhD. The main algorithms and code structure evolved over the years based on my own experience applying the software to both research problems and operational space missions. The core functionality of the library (time handling, reference frames, reference frame transformations, coordinate transformations) were all developed before the usage of AI tools. AI tools have since been intentionally adopted to help with improving and expanding capabilities that were on the nice-to-have feature list. They have also been used to help with writing documentation and improve code coverage. All results and outputs are manually reviewed, run, tested, and verified manually before being merged into the main branch, we expect the same from all contributions to the codebase. We are committed to maintaining the same standards of code clarity, modularity, and correctness for all contributions regardless of whether they were AI-assisted or not.
+
+The use of AI-assisted coding in brahe is itself a bit of an expertiment. We are interesting in seeing how it can be used to help with the development of the library, however we will not compromise on the quality of the codebase overall. While we may get it wrong at times, times, producing correct, accurate, maintainable code is more important than producing code quickly.
 
 For new contributions, we allow the use of AI-assited coding, however we expect that PRs will be manually reviewed and tested before being submitted and that all PRs follow the same standards of code clarity, modularity, and correctness as the rest of the codebase.
 

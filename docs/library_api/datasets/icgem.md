@@ -7,7 +7,7 @@ All functions are available via `brahe.datasets.icgem.<function_name>`.
 !!! tip "Loading a downloaded model into a propagator"
     To use an ICGEM model as the central-body field in a numerical propagator,
     build a `GravityModelType` from the same `(body, name)` pair via
-    [`GravityModelType.icgem`](../orbit_dynamics/gravity.md#icgem-gravity-models).
+    [`GravityModelType.icgem`](../orbit_dynamics/gravity.md#gravity-model-type).
     The download and cache happen transparently on first use.
 
 ## list_models

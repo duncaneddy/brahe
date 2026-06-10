@@ -4,7 +4,7 @@ Brahe follows a versioning scheme modeled on [NumPy's policy](https://numpy.org/
 
 - **Major** releases (`X.0.0`) are rare. They signal significant API changes or ABI breaks between Rust or Python versions.
 - **Minor** releases (`1.Y.0`) are the primary release cadence. They contain new features, deprecations, and removals of code that has already been deprecated in a prior release.
-- **Bugfix** releases (`1.2.Z`) contain only bug fixes. They do not contain new features, deprecations, or removals.
+- **Bugfix** releases (`1.2.Z`) generally only contain bug fixes. They might contain minor new features or deprecations, but they do not contain any removals of previously available API.
 
 This scheme intentionally avoids the forever "0.x" versioning trap that many Rust and scientific software projects fall into, which can deter users from adopting the software. The `1.x` series is intended to signal that Brahe is ready for general use. At the same time, because Brahe is actively growing its user base and incorporating feedback, minor releases may refine the public API in ways that strict SemVer would forbid.
 

@@ -1,4 +1,4 @@
-# Installation
+# Development Installation
 
 Brahe is available for both Python and Rust. Choose the installation method that best fits your workflow.
 
@@ -167,7 +167,7 @@ To use Brahe in your Rust project, add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-brahe = "0.5"
+brahe = "1.6.0"
 ```
 
 ### Building the Rust Library

@@ -631,16 +631,16 @@ mod tests {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let filepath = Path::new(&manifest_dir)
             .join("test_assets")
-            .join("EOP_20_C04_one_file_1962-now.txt");
+            .join("EOP_C04_one_file_1962-now.txt");
 
         let eop = FileEOPProvider::from_file(&filepath, true, EOPExtrapolation::Hold).unwrap();
 
         set_global_eop_provider(eop);
 
         assert!(get_global_eop_initialization());
-        assert_eq!(get_global_eop_len(), 22605);
+        assert_eq!(get_global_eop_len(), 23506);
         assert_eq!(get_global_eop_mjd_min(), 37665.0);
-        assert_eq!(get_global_eop_mjd_max(), 60269.0);
+        assert_eq!(get_global_eop_mjd_max(), 61170.0);
         assert_eq!(get_global_eop_type(), EOPType::C04);
         assert_eq!(get_global_eop_extrapolation(), EOPExtrapolation::Hold);
         assert!(get_global_eop_interpolation());

@@ -151,13 +151,23 @@ markdown_extensions:
 nav:
   - Brahe:
       - index.md
+      - Getting Started:
+          - getting_started/index.md
+          - getting_started/first_script.md
+          - getting_started/managing_external_data.md
+          - getting_started/package_conventions.md
+          - getting_started/time.md
+          - getting_started/coordinate_transformations.md
+          - getting_started/frame_transformations.md
+          - getting_started/orbit_properties.md
+          - getting_started/orbit_propagation.md
+          - getting_started/satellite_data_sources.md
       - installation.md
       - brahe_mcp.md
       - changelog.md
       - About:
           - about/index.md
           - about/license.md
-          - about/roadmap.md
           - about/design.md
           - about/versioning.md
           - about/alternatives.md

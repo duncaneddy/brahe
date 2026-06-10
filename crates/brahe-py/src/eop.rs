@@ -927,7 +927,7 @@ impl PyFileEOPProvider {
 ///     filepath (str, optional): Path to the EOP file (will be created if it doesn't exist).
 ///         If None, uses default cache location:
 ///         - StandardBulletinA: ~/.cache/brahe/finals.all.iau2000.txt
-///         - C04: ~/.cache/brahe/EOP_20_C04_one_file_1962-now.txt
+///         - C04: ~/.cache/brahe/EOP_C04_one_file_1962-now.txt
 ///
 /// Raises:
 ///     RuntimeError: If file download fails or file is invalid
@@ -1012,7 +1012,7 @@ impl PyCachingEOPProvider {
     ///     filepath (str, optional): Path to the EOP file (will be created if it doesn't exist).
     ///         If None, uses default cache location:
     ///         - StandardBulletinA: ~/.cache/brahe/finals.all.iau2000.txt
-    ///         - C04: ~/.cache/brahe/EOP_20_C04_one_file_1962-now.txt
+    ///         - C04: ~/.cache/brahe/EOP_C04_one_file_1962-now.txt
     ///
     /// Returns:
     ///     CachingEOPProvider: Provider with automatic cache management

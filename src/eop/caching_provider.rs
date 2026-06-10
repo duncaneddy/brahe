@@ -90,7 +90,7 @@ impl CachingEOPProvider {
     ///
     /// * `filepath` - Optional path to the EOP file. If `None`, uses default cache location:
     ///   - StandardBulletinA: `~/.cache/brahe/eop/finals.all.iau2000.txt`
-    ///   - C04: `~/.cache/brahe/eop/EOP_20_C04_one_file_1962-now.txt`
+    ///   - C04: `~/.cache/brahe/eop/EOP_C04_one_file_1962-now.txt`
     /// * `eop_type` - Type of EOP file (C04 or StandardBulletinA)
     /// * `max_age_seconds` - Maximum age of the file in seconds before triggering a download
     /// * `auto_refresh` - If true, automatically check file age on each access and refresh if needed
@@ -143,7 +143,7 @@ impl CachingEOPProvider {
             let cache_dir = crate::utils::cache::get_eop_cache_dir()?;
             let filename = match eop_type {
                 EOPType::StandardBulletinA => "finals.all.iau2000.txt",
-                EOPType::C04 => "EOP_20_C04_one_file_1962-now.txt",
+                EOPType::C04 => "EOP_C04_one_file_1962-now.txt",
                 _ => {
                     return Err(BraheError::EOPError(format!(
                         "Unsupported EOP type for caching: {:?}. Only C04 and StandardBulletinA are supported.",
@@ -668,7 +668,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let src_path = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap())
             .join("test_assets")
-            .join("EOP_20_C04_one_file_1962-now.txt");
+            .join("EOP_C04_one_file_1962-now.txt");
         let dest_path = dir.path().join("test_eop_c04.txt");
 
         fs::copy(&src_path, &dest_path).unwrap();

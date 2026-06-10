@@ -26,8 +26,8 @@ def plot_trajectory_3d(
     view_distance=None,
     show_earth=True,
     earth_texture=None,
-    sphere_resolution_lon=1080,
-    sphere_resolution_lat=540,
+    sphere_resolution_lon=360,
+    sphere_resolution_lat=180,
     backend="matplotlib",
     width=None,
     height=None,
@@ -56,9 +56,11 @@ def plot_trajectory_3d(
             Note: matplotlib always uses a simple solid sphere regardless of this setting.
             Default: 'blue_marble' for plotly
         sphere_resolution_lon (int, optional): Longitude resolution for textured sphere (plotly only).
-            Higher values = better quality but slower rendering. Default: 1080
+            Higher values = better quality but slower rendering, with a larger output file
+            (the textured sphere is encoded as a per-face-colored Mesh3d). Default: 360
         sphere_resolution_lat (int, optional): Latitude resolution for textured sphere (plotly only).
-            Higher values = better quality but slower rendering. Default: 540
+            Higher values = better quality but slower rendering, with a larger output file
+            (the textured sphere is encoded as a per-face-colored Mesh3d). Default: 180
         backend (str, optional): 'matplotlib' or 'plotly'. Default: 'matplotlib'
         width (int, optional): Figure width in pixels (plotly only). Default: None (responsive)
         height (int, optional): Figure height in pixels (plotly only). Default: None (responsive)
@@ -407,7 +409,7 @@ def _plot_earth_sphere_matplotlib(ax, scale):
     ax.plot_surface(x, y, z, color="lightblue", alpha=0.6, edgecolor="none")
 
 
-def _plot_earth_sphere_plotly(fig, scale, texture, n_lon=1080, n_lat=540):
+def _plot_earth_sphere_plotly(fig, scale, texture, n_lon=360, n_lat=180):
     """Plot Earth sphere on plotly 3D figure using Mesh3d with optional texture mapping."""
     # Load texture if requested
     texture_img = load_earth_texture(texture)

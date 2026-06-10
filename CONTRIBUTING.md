@@ -20,7 +20,7 @@ First, check out the development guidelines in the [developer guidelines](https:
 ### Workflow
 
 1. Fork the repository on GitHub.
-2. Clone your fork locally: `git clone https://github.com/YOUR_USERNAME/brahe.git`
+2. Clone your fork locally: `git clone https://github.com/YOUR_USERNAME/brahe.git` (if the clone is slow, add `--single-branch --branch main` to skip the `gh-pages` docs site)
 3. Create a new branch for your changes: `git checkout -b feature/your-feature-name`
 4. Make your changes and commit them with clear, descriptive messages.
 5. Push your changes to your fork: `git push origin feature/your-feature-name`

@@ -53,6 +53,15 @@ print(f"Orbital period: {T/60:.2f} minutes")
 
 If you want to build Brahe from source (e.g., for development or to use unreleased features), follow these steps:
 
+!!! tip "Slow clone? Fetch only `main`"
+    A plain `git clone` retrieves every branch, including the `gh-pages`
+    documentation site. If the clone is taking a long time, fetch just the
+    `main` branch instead:
+
+    ```bash
+    git clone --single-branch --branch main https://github.com/duncaneddy/brahe.git
+    ```
+
 ### Prerequisites
 
 1. **Rust toolchain** (required for building the native extensions):
@@ -173,7 +182,7 @@ brahe = "1.6.0"
 ### Building the Rust Library
 
 ```bash
-# Clone the repository
+# Clone the repository (add `--single-branch --branch main` if the clone is slow)
 git clone https://github.com/duncaneddy/brahe.git
 cd brahe
 

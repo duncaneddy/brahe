@@ -11,14 +11,17 @@ bh.initialize_eop()
 client = bh.celestrak.CelestrakClient()
 propagator = client.get_sgp_propagator(catnr=25544, step_size=60.0)
 
+# Configure propagation window
+epoch_start = propagator.current_epoch()
+epoch_end = epoch_start + 7.0 * 86400.0
+
 # Step propagator forward by 1 hour
-epoch = propagator.current_epoch()
-propagator.propagate_to(epoch + 3600.0)
+propagator.propagate_to(epoch_end)
 
 # Get final epoch and state
 final_epoch = propagator.current_epoch()
 final_state = propagator.current_state()
-print(f"Initial epoch: {epoch}")
+print(f"Initial epoch: {epoch_start}")
 print(f"Final epoch:   {final_epoch}")
 print(
     f"Position (km): [{final_state[0] / 1e3:.3f}, {final_state[1] / 1e3:.3f}, {final_state[2] / 1e3:.3f}]"

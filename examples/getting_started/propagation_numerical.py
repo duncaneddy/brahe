@@ -16,68 +16,12 @@ state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 # Parameters: [mass, drag_area, Cd, srp_area, Cr]
 params = np.array([500.0, 2.0, 2.2, 2.0, 1.3])
 
-# Full Froce model configuration options
-force_config = bh.ForceModelConfig( 
-    # Gravity: Spherical harmonic model (EGM2008, 20x20 degree/order)
-    gravity=bh.GravityConfiguration.spherical_harmonic(
-        degree=20,
-        order=20,
-        model_type=bh.GravityModelType.EGM2008_360,
-    ),  
-    # Atmospheric drag: Harris-Priester model with parameter indices
-    drag=bh.DragConfiguration(
-        model=bh.AtmosphericModel.HARRIS_PRIESTER,
-        area=bh.ParameterSource.parameter_index(1),  # Index into parameter vector
-        cd=bh.ParameterSource.parameter_index(2),    
-    ),
-    # Solar radiation pressure: Conical eclipse model
-    srp=bh.SolarRadiationPressureConfiguration(
-        area=bh.ParameterSource.parameter_index(3),
-        cr=bh.ParameterSource.parameter_index(4),
-        eclipse_model=bh.EclipseModel.CONICAL,
-    ),
-    # Third-body: Sun and Moon with DE440s ephemeris
-    third_body=bh.ThirdBodyConfiguration(    
-        ephemeris_source=bh.EphemerisSource.DE440s,
-        bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-    ),
-    # General relativistic corrections
-    relativity=True,
-    # Spacecraft mass (can also use parameter_index for estimation)
-    mass=bh.ParameterSource.parameter_index(0),  # kg
-)
-
-# Full Numerical integration configuration options
-integrator_config = bh.NumericalPropagationConfig(
-    # Integration method: Dormand-Prince 5(4)
-    bh.IntegrationMethod.DP54,
-    # Integrator settings: tolerances and step control
-    bh.IntegratorConfig(
-        abs_tol=1e-9,
-        rel_tol=1e-6,
-        initial_step=60.0,  # 60 second initial step
-        min_step=1e-6,  # Minimum step size
-        max_step=300.0,  # Maximum step size (5 minutes)
-        step_safety_factor=0.9,  # Safety margin for step control
-        min_step_scale_factor=0.2,  # Minimum step reduction
-        max_step_scale_factor=10.0,  # Maximum step growth
-        max_step_attempts=10,  # Max attempts per step
-    ),
-    # Variational configuration: STM and sensitivity settings
-    bh.VariationalConfig(
-        enable_stm=True,
-        enable_sensitivity=False,
-        store_stm_history=True,
-        store_sensitivity_history=False,
-    ),
-)
-
 # Create propagator with default configuration
 prop = bh.NumericalOrbitPropagator(
     epoch,
     state,
-    integrator_config,
-    force_config,
+    bh.NumericalPropagationConfig.default(),
+    bh.ForceModelConfig.default(),
     params,
 )
 

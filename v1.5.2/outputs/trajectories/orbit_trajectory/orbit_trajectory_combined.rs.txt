@@ -1,0 +1,15 @@
+Original:
+  Frame: OrbitFrame(Earth-Centered Inertial)
+  Representation: OrbitRepresentation(Cartesian)
+
+After to_ecef():
+  Frame: OrbitFrame(Earth-Centered Earth-Fixed)
+  Representation: OrbitRepresentation(Cartesian)
+
+After to_eci():
+  Frame: OrbitFrame(Earth-Centered Inertial)
+  Representation: OrbitRepresentation(Cartesian)
+
+After to_keplerian():
+  Frame: OrbitFrame(Earth-Centered Inertial)
+  Representation: OrbitRepresentation(Keplerian)

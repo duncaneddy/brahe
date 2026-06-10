@@ -1,0 +1,2 @@
+EOP data available through: 2027-06-12 00:00:00.000 UTC
+SW data available through: 2041-10-01 00:00:00.000 UTC

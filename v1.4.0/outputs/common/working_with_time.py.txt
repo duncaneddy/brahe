@@ -1,0 +1,6 @@
+Epoch in UTC: 2024-01-01T12:00:00Z
+MJD in TAI: 60310.50042824074
+JD in GPS: 2460311.000208333
+Difference between epochs in seconds: 91782.0
+Epoch in GPS: 2024-01-02 13:30:00.000 GPS
+Epoch in UTC: 2024-01-02 13:29:42.000 UTC

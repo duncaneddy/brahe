@@ -1,0 +1,13 @@
+Variable Thrust Orbit Raising:
+  Max thrust: 500.0 mN
+  Spacecraft mass: 500 kg
+  Burn duration: 1800 s (30 min)
+  Ramp time: 300 s (5 min)
+
+After 1 hour propagation:
+  Reference altitude: 400.000 km
+  With thrust altitude: 402.895 km
+  Altitude gain: 2.895 km
+  Approx delta-v applied: 1.500 m/s
+
+Example validated successfully!

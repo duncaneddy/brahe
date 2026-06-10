@@ -1,0 +1,29 @@
+Integration with State Transition Matrix
+Initial orbit: 6978.1 km altitude
+Time   Position STM[0,0]  Velocity STM[3,3]  Det(STM)
+------------------------------------------------------------
+     9s      1.0001        1.0001          1.0000
+   291s      1.0984        1.0938          1.0000
+   678s      1.5138        1.3869          1.0000
+  1083s      2.1779        1.4849          1.0000
+  1401s      2.6694        1.0961          1.0000
+  1643s      2.8590        0.4542          1.0000
+  1997s      2.5296       -0.8796          1.0000
+  2396s      0.8437       -2.3918          1.0000
+  2728s     -1.8018       -3.0780          1.0000
+  2958s     -4.2130       -3.0642          1.0000
+  3285s     -8.0676       -2.3595          1.0000
+  3683s    -12.4683       -0.8428          1.0000
+  4041s    -15.0480        0.4954          1.0000
+  4285s    -15.5991        1.1262          1.0000
+  4597s    -14.6214        1.4886          1.0000
+  4997s    -10.6341        1.3837          1.0000
+  5389s     -4.3663        1.0884          1.0000
+  5678s      1.1328        1.0001          1.0000
+
+Propagation complete! (352 steps)
+
+Example: Uncertainty Propagation
+Initial position uncertainty: ±100 m in each direction
+Final position uncertainty: [357.4, -1684.0, 99.0] m
+Uncertainty growth: 10.0x

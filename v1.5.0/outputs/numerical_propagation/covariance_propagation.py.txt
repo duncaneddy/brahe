@@ -1,0 +1,16 @@
+Initial Covariance (diagonal, sqrt):
+  Position std: 10.0 m
+  Velocity std: 10.00 mm/s
+
+STM shape: (6, 6)
+
+Propagated Covariance after one orbit:
+  Position std (x,y,z): (254.3, 27.0, 41.9) m
+  Velocity std (x,y,z): (12.96, 208.90, 199.07) mm/s
+
+Total position uncertainty:
+  Initial: 17.3 m
+  Final:   259.2 m
+  Growth:  15.0x
+
+Example validated successfully!

@@ -1,0 +1,6 @@
+Task,Java,Python,Rust,Python Speedup,Rust Speedup
+Keplerian Single,522.3 µs,937.4 µs,902.1 µs,0.56×,0.58×
+Keplerian Trajectory,448.8 µs,322.3 µs,288.4 µs,1.39×,1.56×
+Numerical Two-Body,3.55 ms,2.48 ms,2.35 ms,1.43×,1.51×
+SGP4 Single,649.3 µs,2.13 ms,1.92 ms,0.31×,0.34×
+SGP4 Trajectory,3.35 ms,62.12 ms,66.16 ms,0.05×,0.05×

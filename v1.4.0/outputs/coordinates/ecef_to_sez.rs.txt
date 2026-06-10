@@ -1,0 +1,21 @@
+Ground Station (Stanford):
+Longitude: -122.17329° = -2.132326 rad
+Latitude:  37.42692° = 0.653223 rad
+Altitude:  32.0 m
+
+Ground Station ECEF:
+x = -2700408.551 m
+y = -4292612.600 m
+z = 3855145.604 m
+
+Epoch: 2024-01-01 17:05:00.000 UTC
+Satellite ECEF:
+x = -842800.791 m
+y = 431996.779 m
+z = 6812629.389 m
+
+Satellite position in SEZ frame (relative to Stanford):
+South:  -5380.227 km
+East:   -943.412 km
+Zenith: -2163.905 km
+Range:  5875.317 km

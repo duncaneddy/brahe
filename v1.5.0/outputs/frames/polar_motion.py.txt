@@ -1,0 +1,20 @@
+Epoch: (2024, 1, 1, 12, 0, 0.0, 0.0)
+
+Polar Motion matrix:
+Transforms from TIRS to ITRF
+  [ 1.0000000, -0.0000000,  0.0000007]
+  [ 0.0000000,  1.0000000, -0.0000010]
+  [-0.0000007,  0.0000010,  1.0000000]
+
+Satellite position in TIRS:
+  [757159.942, 1725870.003, 6564671.107] m
+
+Satellite position in ITRF:
+  [757164.267, 1725863.563, 6564672.302] m
+
+Position change magnitude: 7.849 m
+Note: Polar motion effects are typically centimeters to meters
+
+Verification using position_gcrf_to_itrf:
+  [757164.267, 1725863.563, 6564672.302] m
+  Max difference: 9.31e-10 m

@@ -1,0 +1,63 @@
+Downloading active satellite TLEs from CelesTrak...
+Found 5 Umbra satellites
+
+Loading KSAT ground stations...
+Loaded 5 KSAT ground stations in 0.00 seconds:
+  - Athens
+  - Awarua
+  - Hartebeesthoek
+  - Punta Arenas
+  - Svalbard
+
+Propagating Umbra satellites for one orbit each...
+Created 3D visualization in 29.99 seconds.
+
+Computing 7-day ground contacts...
+Computed 1105 contact windows in 1.35 seconds.
+
+Computing communication gaps...
+Computed 1100 communication gaps in 0.00 seconds.
+
+====================================================================================================
+Top 10 Longest Communication Gaps
+====================================================================================================
+Spacecraft           Start Time                End Time                                   Duration Last→Next Station             
+----------------------------------------------------------------------------------------------------
+UMBRA-10             2026-06-15 00:57:48       2026-06-15 03:26:14       2 hours, 28 minutes, and 25.47 seconds Svalbard → Punta Arenas       
+UMBRA-09             2026-06-15 00:58:21       2026-06-15 03:26:45       2 hours, 28 minutes, and 23.92 seconds Svalbard → Punta Arenas       
+UMBRA-11             2026-06-13 23:54:10       2026-06-14 02:22:24       2 hours, 28 minutes, and 14.40 seconds Svalbard → Punta Arenas       
+UMBRA-10             2026-06-14 01:13:49       2026-06-14 03:41:56       2 hours, 28 minutes, and 7.77 seconds Svalbard → Punta Arenas       
+UMBRA-09             2026-06-14 01:14:23       2026-06-14 03:42:29       2 hours, 28 minutes, and 6.49 seconds Svalbard → Punta Arenas       
+UMBRA-10             2026-06-13 01:29:46       2026-06-13 03:57:43       2 hours, 27 minutes, and 56.89 seconds Svalbard → Punta Arenas       
+UMBRA-09             2026-06-13 01:30:22       2026-06-13 03:58:18       2 hours, 27 minutes, and 55.82 seconds Svalbard → Punta Arenas       
+UMBRA-11             2026-06-17 00:15:40       2026-06-17 02:43:22       2 hours, 27 minutes, and 42.09 seconds Svalbard → Punta Arenas       
+UMBRA-11             2026-06-13 00:18:08       2026-06-13 02:45:47       2 hours, 27 minutes, and 39.89 seconds Svalbard → Punta Arenas       
+UMBRA-11             2026-06-16 00:39:42       2026-06-16 03:07:07       2 hours, 27 minutes, and 24.65 seconds Svalbard → Punta Arenas       
+====================================================================================================
+
+✓ Exported top 10 gaps to docs/figures/max_communications_gap_gaps.csv
+
+Gap Distribution Statistics:
+  Mean: 37 minutes and 47.46 seconds
+  Median: 32 minutes and 5.04 seconds
+  Min: 22.47 seconds
+  Max: 2 hours, 28 minutes, and 25.47 seconds
+
+Creating gap distribution histogram...
+
+Creating cumulative distribution plot...
+
+Creating ground track visualization for top 3 longest gaps...
+  Gap 1: 148 points, 3 segments
+  Gap 2: 148 points, 3 segments
+  Gap 3: 148 points, 3 segments
+Created ground track visualization in 0.12 seconds.
+
+✓ Generated docs/figures/max_communications_gap_constellation_light.html
+✓ Generated docs/figures/max_communications_gap_constellation_dark.html
+✓ Generated docs/figures/max_communications_gap_distribution_light.html
+✓ Generated docs/figures/max_communications_gap_distribution_dark.html
+✓ Generated docs/figures/max_communications_gap_cumulative_light.html
+✓ Generated docs/figures/max_communications_gap_cumulative_dark.html
+✓ Generated max_communications_gap_groundtrack_light.svg
+✓ Generated max_communications_gap_groundtrack_dark.svg

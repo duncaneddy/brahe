@@ -1,0 +1,17 @@
+Chief ECI State:
+  Position: [1999015.250, -424663.137, 6771472.202] m
+  Velocity: [-6939.780, -2131.872, 1920.555] m/s
+
+Relative Orbital Elements (ROE):
+  da (relative SMA):        1.413000e-04
+  d_lambda (relative mean long):  0.093000 deg
+  dex (rel ecc x-comp):     4.324000e-04
+  dey (rel ecc y-comp):     2.511000e-04
+  dix (rel inc x-comp):     0.050000 deg
+  diy (rel inc y-comp):     0.050000 deg
+
+Deputy ECI State (computed from ROE):
+  Position: [1984464.056, -433458.918, 6773635.972] m
+  Velocity: [-6943.870, -2139.248, 1905.777] m/s
+
+Relative distance: 17140.2 m

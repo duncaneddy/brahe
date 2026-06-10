@@ -1,0 +1,3 @@
+NORAD ID: 25544
+TLE epoch: 2008-09-20 12:25:40.104 UTC
+Initial position magnitude: 6720.2 km

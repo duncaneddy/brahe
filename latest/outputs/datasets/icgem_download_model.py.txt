@@ -1,0 +1,3 @@
+Cached at: /home/runner/.cache/brahe/icgem/models/earth/JGM3-70-a3375e01a717.gfc
+Copied to: /tmp/icgem_jgm3.gfc
+Lunar model cached at: /home/runner/.cache/brahe/icgem/models/moon/GLGM-1-70-c3358942ca59.gfc

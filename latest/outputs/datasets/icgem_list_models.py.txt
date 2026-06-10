@@ -1,0 +1,11 @@
+Earth models available: 172
+  WHU-CASM-UGM2025_2159          degree=2190   year=2026
+  WHU-CASM-UGM2025_2159          degree=11000  year=2026
+  WHU-CASM-UGM2025_2159          degree=5500   year=2026
+
+EGM-family Earth models: 3
+
+Lunar models available: 25
+  AIUB-GRL350A                   degree=350    year=2021
+  AIUB-GRL350B                   degree=350    year=2021
+  densityMOON                    degree=89     year=2020

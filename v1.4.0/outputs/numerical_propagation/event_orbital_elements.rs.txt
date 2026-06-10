@@ -1,0 +1,12 @@
+Detected 6 orbital element events:
+  'SMA value' at t+149.2s (altitude: 593.0 km)
+  'SMA value' at t+3064.8s (altitude: 600.6 km)
+  'SMA value' at t+5956.1s (altitude: 593.0 km)
+  'SMA value' at t+8859.5s (altitude: 600.5 km)
+  'SMA value' at t+11759.7s (altitude: 592.9 km)
+  'SMA value' at t+14658.4s (altitude: 600.4 km)
+
+Inclination value crossings: 0
+SMA value crossings: 6
+
+Example completed successfully!

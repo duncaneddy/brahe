@@ -1,0 +1,16 @@
+Epoch: 2024-01-01 12:00:00 UTC
+
+Bias-Precession-Nutation (BPN) matrix:
+Transforms from GCRF to CIRS
+  [ 0.9999973,  0.0000000, -0.0023216]
+  [-0.0000001,  1.0000000, -0.0000329]
+  [ 0.0023216,  0.0000329,  0.9999973]
+
+Satellite position in GCRF:
+  [1848964.106, -434937.468, 6560410.530] m
+
+Satellite position in CIRS:
+  [1833728.342, -435153.781, 6564671.107] m
+
+Position change magnitude: 15821.751 m
+Note: BPN effects are typically meters to tens of meters

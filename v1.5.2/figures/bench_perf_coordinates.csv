@@ -1,0 +1,6 @@
+Task,Java,Python,Rust,Python Speedup,Rust Speedup
+ECEF To AzEl,542.6 µs,131.2 µs,10.9 µs,4.14×,49.8×
+ECEF To Geocentric,230.4 µs,52.0 µs,923.4 ns,4.43×,249.5×
+ECEF To Geodetic,143.5 µs,59.6 µs,5.1 µs,2.41×,28.2×
+Geocentric To ECEF,167.6 µs,51.8 µs,665.8 ns,3.23×,251.7×
+Geodetic To ECEF,137.0 µs,53.0 µs,1.0 µs,2.59×,135.6×

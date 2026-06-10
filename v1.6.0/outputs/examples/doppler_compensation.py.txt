@@ -1,0 +1,43 @@
+Downloading ISS TLE from CelesTrak...
+Downloaded ISS TLE in 0.00 seconds.
+Epoch: 2026-06-05 18:33:21.961 UTC
+Semi-major axis: 6796.0 km
+
+Loading NASA Near Earth Network ground stations...
+Loaded 18 NASA NEN ground stations in 0.00 seconds.
+
+Creating ground track visualization...
+Created ground track visualization in 0.29 seconds.
+
+Computing 72-hour access windows with Doppler compensation...
+Computed 13 access windows in 0.38 seconds.
+
+====================================================================================================
+Sample Access Windows with Doppler Time Series (first 5)
+====================================================================================================
+Start Time                  Duration   Max Elev  # Samples   Peak S-band   Peak X-band
+----------------------------------------------------------------------------------------------------
+2026-06-05 20:36:35            3.0 m      6.3°       1776      16.99 kHz      64.87 kHz
+2026-06-05 22:11:10            8.4 m     62.5°       5029      50.20 kHz     191.67 kHz
+2026-06-05 23:50:03            3.3 m      6.7°       1963      19.63 kHz      74.96 kHz
+2026-06-06 13:12:30            8.3 m     50.0°       5010      49.70 kHz     189.74 kHz
+2026-06-06 14:50:36            6.1 m     12.3°       3637      34.94 kHz     133.40 kHz
+====================================================================================================
+
+Analyzing detailed Doppler profile for window starting at 2026-06-05 22:11:10.610 UTC
+Window duration: 8.4 minutes
+Extracting precomputed Doppler time series...
+Extracted 5029 samples (0.1s interval) in 0.00 seconds.
+✓ Exported 11 samples to docs/figures/doppler_compensation_data.csv
+
+Creating Doppler compensation visualization...
+Created Doppler visualization in 0.14 seconds.
+
+✓ Generated docs/figures/doppler_compensation_groundtrack_light.html
+✓ Generated docs/figures/doppler_compensation_groundtrack_dark.html
+✓ Generated docs/figures/doppler_compensation_doppler_light.html
+✓ Generated docs/figures/doppler_compensation_doppler_dark.html
+
+Doppler Compensation Analysis Complete!
+Peak S-band Doppler: 50.20 kHz
+Peak X-band Doppler: 191.67 kHz

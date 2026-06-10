@@ -1,0 +1,7 @@
+Two-body requires params: false
+
+After 10 orbits (15.8 hours):
+  Position difference: 11.823209 m
+  Velocity difference: 0.013171854 m/s
+
+Example validated successfully!

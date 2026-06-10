@@ -1,0 +1,4 @@
+default():        IntegrationMethod.DP54
+high_precision(): IntegrationMethod.RKN1210
+with_method(RKF45): IntegrationMethod.RKF45
+with_method(RK4):   IntegrationMethod.RK4

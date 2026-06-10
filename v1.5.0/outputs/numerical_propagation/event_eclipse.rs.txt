@@ -1,0 +1,18 @@
+Detected 10 eclipse events:
+  'Eclipse Entry' at t+3230.9s
+  'Eclipse Exit' at t+5333.4s
+  'Eclipse Entry' at t+8900.3s
+  'Eclipse Exit' at t+11002.8s
+  'Eclipse Entry' at t+14569.7s
+  'Eclipse Exit' at t+16672.3s
+  'Eclipse Entry' at t+20239.1s
+  'Eclipse Exit' at t+22341.7s
+  'Eclipse Entry' at t+25908.5s
+  'Eclipse Exit' at t+28011.1s
+
+Eclipse entries: 5
+Eclipse exits: 5
+
+Average eclipse duration: 2102.6s (35.0 min)
+
+Example validated successfully!

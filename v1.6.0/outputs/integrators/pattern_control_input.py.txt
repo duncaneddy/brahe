@@ -1,0 +1,4 @@
+Initial semi-major axis: 6878.136 km
+Integrating with thrust for 1.58 hours...
+Final semi-major axis: 6889.297 km
+Change in SMA: 11.160 km

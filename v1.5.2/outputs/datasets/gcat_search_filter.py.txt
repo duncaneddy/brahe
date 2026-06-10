@@ -1,0 +1,8 @@
+Total records: 69122
+
+Starlink name search: 12285 results
+
+All payloads: 8935
+Operational payloads: 5059
+Operational LEO payloads: 3904
+Operational SSO payloads: 1846

@@ -1,0 +1,13 @@
+Epoch: 2025-03-15 12:00:00.000 UTC
+Geodetic position: lon=143.71 deg, lat=51.66 deg, alt=479.2 km
+
+IGRF field at satellite:
+  B_east:      -2904.0 nT
+  B_north:     17484.4 nT
+  B_zenith:   -39565.4 nT
+  |B|:         43353.9 nT
+
+IGRF field in ECEF frame:
+  B_x:    32554.2 nT
+  B_y:   -20302.7 nT
+  B_z:   -20188.7 nT

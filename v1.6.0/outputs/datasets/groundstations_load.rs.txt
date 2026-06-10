@@ -1,0 +1,6 @@
+KSAT stations: 36
+Total stations (all providers): 117
+
+Available providers: atlas, aws, ksat, leaf, nasa dsn, nasa nen, ssc, viasat
+
+Combined AWS + SSC: 22 stations

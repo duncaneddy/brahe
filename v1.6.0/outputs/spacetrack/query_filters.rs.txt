@@ -1,0 +1,14 @@
+Range filter:
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544--25600/format/json
+
+Multiple filters:
+  /basicspacedata/query/class/gp/ECCENTRICITY/%3C0.01/OBJECT_TYPE/PAYLOAD/format/json
+
+Recent launches (last 30 days):
+  /basicspacedata/query/class/satcat/LAUNCH/%3Enow-30/format/json
+
+Name pattern match:
+  /basicspacedata/query/class/satcat/SATNAME/~~STARLINK/format/json
+
+Multiple IDs:
+  /basicspacedata/query/class/gp/NORAD_CAT_ID/25544,48274,54216/format/json

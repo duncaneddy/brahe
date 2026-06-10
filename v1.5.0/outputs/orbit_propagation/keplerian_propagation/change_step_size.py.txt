@@ -1,0 +1,3 @@
+Initial step size: 60.0 seconds
+New step size: 120.0 seconds
+After step: 120.0 seconds elapsed

@@ -1,0 +1,17 @@
+Epoch: 2024-01-01 12:00:00 UTC
+
+Earth Rotation matrix:
+Transforms from CIRS to TIRS
+  [ 0.1794542, -0.9837663,  0.0000000]
+  [ 0.9837663,  0.1794542,  0.0000000]
+  [ 0.0000000,  0.0000000,  1.0000000]
+
+Satellite position in CIRS:
+  [1833728.342, -435153.781, 6564671.107] m
+
+Satellite position in TIRS:
+  [757159.942, 1725870.003, 6564671.107] m
+
+Position change magnitude: 2414337.034 m
+Note: Earth rotation causes large position changes (km scale)
+      due to ~15.041° rotation per hour

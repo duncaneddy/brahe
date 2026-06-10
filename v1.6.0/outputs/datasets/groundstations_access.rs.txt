@@ -1,0 +1,20 @@
+Computing access for 36 KSAT stations
+
+Total access windows: 213
+
+First 5 windows:
+1. Long Beach           -> EO-Sat    
+   Start: 2024-01-01 00:05:08.309 UTC
+   Duration: 9.2 minutes
+2. Thomaston            -> EO-Sat    
+   Start: 2024-01-01 00:07:15.027 UTC
+   Duration: 2.1 minutes
+3. Inuvik               -> EO-Sat    
+   Start: 2024-01-01 00:13:53.156 UTC
+   Duration: 10.4 minutes
+4. Fairbanks            -> EO-Sat    
+   Start: 2024-01-01 00:14:39.829 UTC
+   Duration: 9.1 minutes
+5. Prudhoe Bay          -> EO-Sat    
+   Start: 2024-01-01 00:15:18.847 UTC
+   Duration: 10.0 minutes

@@ -1,0 +1,7 @@
+Epoch: 2024-06-15 14:30:45.500 UTC
+Julian Date: 2460477.104693
+Julian Date (TT): 2460477.105494
+Modified Julian Date: 60476.604693
+Modified Julian Date (GPS): 60476.604902
+GPS Week: 2318, Seconds of Week: 570663.500
+GPS Seconds since epoch: 1402497063.500

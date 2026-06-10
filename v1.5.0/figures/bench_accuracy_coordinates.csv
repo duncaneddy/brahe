@@ -1,0 +1,11 @@
+Task,Comparison,Max Abs Error,RMS Error
+ECEF To AzEl,Java vs Python,0.70 nm,0.13 nm
+ECEF To AzEl,Java vs Rust,0.70 nm,0.14 nm
+ECEF To Geocentric,Java vs Python,0.00 nm,0.00 nm
+ECEF To Geocentric,Java vs Rust,0.93 nm,0.13 nm
+ECEF To Geodetic,Java vs Python,1.98 nm,0.50 nm
+ECEF To Geodetic,Java vs Rust,1.98 nm,0.53 nm
+Geocentric To ECEF,Java vs Python,0.93 nm,0.20 nm
+Geocentric To ECEF,Java vs Rust,1.51 nm,0.31 nm
+Geodetic To ECEF,Java vs Python,0.93 nm,0.09 nm
+Geodetic To ECEF,Java vs Rust,1.86 nm,0.27 nm

@@ -1,0 +1,16 @@
+Object: GODZILLA 5 (1998-999A)
+Epoch:  1998-12-18 14:28:15.117 UTC
+Frame:  ITRF2000
+
+Initial state:
+  Position: [6503.514, 1239.647, -717.490] km
+  Velocity: [-873.160, 8740.420, -4191.076] m/s
+
+Spacecraft params: mass=3000kg, Cd=2.5, Cr=1
+
+Estimated period: 5408s (90.1 min)
+
+After 1 orbit:
+  Epoch: 1998-12-18 15:58:23.416 UTC
+  Position: [3145.350, 24713.420, -7071.733] km
+  Velocity: [-2068.116, 3184.124, 57.693] m/s

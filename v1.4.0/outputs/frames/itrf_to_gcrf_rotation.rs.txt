@@ -1,0 +1,18 @@
+Epoch: 2024-01-01 12:00:00 UTC
+
+ITRF to GCRF rotation matrix:
+  [ 0.1794538,  0.9837637,  0.0023225]
+  [-0.9837663,  0.1794542,  0.0000338]
+  [-0.0003836, -0.0022908,  0.9999973]
+
+Verification: R_itrf_to_gcrf = R_gcrf_to_itrf^T
+  Max difference: 0.00e0
+
+Satellite position in ITRF:
+  [757164.267, 1725863.563, 6564672.302] m
+
+Satellite position in GCRF (using rotation matrix):
+  [1848964.106, -434937.468, 6560410.530] m
+
+Satellite position in GCRF (using position_itrf_to_gcrf):
+  [1848964.106, -434937.468, 6560410.530] m

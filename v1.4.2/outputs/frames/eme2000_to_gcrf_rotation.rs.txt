@@ -1,0 +1,20 @@
+EME2000 to GCRF rotation matrix:
+  [ 1.0000000000,  0.0000000708, -0.0000000806]
+  [-0.0000000708,  1.0000000000, -0.0000000331]
+  [ 0.0000000806,  0.0000000331,  1.0000000000]
+
+Verify orthonormality (R @ R^T should be identity):
+  Max deviation from identity: 4.68e-15
+
+Satellite position in EME2000:
+  [1848964.106, -434937.468, 6560410.530] m
+
+Satellite position in GCRF (using rotation matrix):
+  [1848963.547, -434937.816, 6560410.665] m
+
+Satellite position in GCRF (using position_eme2000_to_gcrf):
+  [1848963.547, -434937.816, 6560410.665] m
+
+Difference between methods: 0.000000e0 m
+
+Note: Frame bias is constant (same at all epochs)

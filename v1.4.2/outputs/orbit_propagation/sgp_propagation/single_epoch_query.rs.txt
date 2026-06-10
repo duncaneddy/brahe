@@ -1,0 +1,2 @@
+ECI position: [3822.2, -1684.2, 5264.9] km
+Osculating semi-major axis: 6725.4 km

@@ -1,0 +1,9 @@
+Task,Max Abs Error,RMS Error,Notes
+Keplerian Single,103 nm,17 nm,Sub-millimeter agreement
+Keplerian Trajectory,11 nm,2.2 nm,Sub-millimeter agreement
+RK4 + 20x20 + Sun/Moon,36.0 µm,9.1 µm,
+RK4 + 5x5 Gravity,36.3 µm,9.1 µm,
+RK4 + 80x80 + Drag + SRP,3.43 m,0.596 m,
+Numerical Two-Body,0.066 m,0.018 m,Different integrators (RK4 vs RK78)
+SGP4 Single,49.3 m,12.7 m,Different SGP4 implementations
+SGP4 Trajectory,58.5 m,13.4 m,Different SGP4 implementations

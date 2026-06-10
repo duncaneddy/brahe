@@ -1,0 +1,10 @@
+Default image_width: 5000.0 m
+Default image_length: 5000.0 m
+Default crosstrack_overlap: 200.0 m
+Default alongtrack_overlap: 200.0 m
+Default min_image_length: 5000.0 m
+Default max_image_length: 5000.0 m
+
+Custom image_width: 10000.0 m
+Custom image_length: 15000.0 m
+Custom asc_dsc: Ascending

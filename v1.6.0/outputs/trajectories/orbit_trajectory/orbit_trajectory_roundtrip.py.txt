@@ -1,0 +1,2 @@
+Position difference: 9.368627e-10 m
+Velocity difference: 9.237600e-13 m/s

@@ -1,0 +1,27 @@
+Spacecraft Parameters:
+  Mass: 500.0 kg
+  Drag area: 2.0 m²
+  Drag coefficient (Cd): 2.2
+  SRP area: 2.0 m²
+  SRP coefficient (Cr): 1.3
+
+Sensitivity Matrix shape: (6, 5)
+(Rows: state components [x,y,z,vx,vy,vz], Cols: params [mass,A_d,Cd,A_s,Cr])
+
+Position sensitivity magnitude to each parameter:
+  mass      : 9.384e-02 m per unit param
+  drag_area : 2.343e+01 m per unit param
+  Cd        : 2.130e+01 m per unit param
+  srp_area  : 6.119e-02 m per unit param
+  Cr        : 9.414e-02 m per unit param
+
+Position error from 1% parameter uncertainty:
+  mass      : 0.5 m
+  drag_area : 0.5 m
+  Cd        : 0.5 m
+  srp_area  : 0.0 m
+  Cr        : 0.0 m
+
+  Total (RSS): 0.8 m
+
+Example validated successfully!

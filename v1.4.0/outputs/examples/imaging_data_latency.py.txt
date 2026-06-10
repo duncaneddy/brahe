@@ -1,0 +1,98 @@
+Downloading Capella satellite TLEs from CelesTrak...
+Found 8 Capella satellites in 0.35 seconds
+  - CAPELLA-11 (ACADIA-1)
+  - CAPELLA-14 (ACADIA-4)
+  - CAPELLA-13 (ACADIA-3)
+  - CAPELLA-15 (ACADIA-5)
+  - CAPELLA-17 (ACADIA-7)
+  - CAPELLA-16 (ACADIA-6)
+  - CAPELLA-19 (ACADIA-9)
+  - CAPELLA-18 (ACADIA-8)
+
+Loading KSAT ground stations...
+Loaded 36 KSAT ground stations
+
+Defining continental US AOI polygon...
+Defined US AOI with 24 vertices
+
+Filtered out 3 stations inside AOI
+Using 33 external stations for downlink:
+  - Prudhoe Bay (-148.47, 70.20)
+  - Athens (22.62, 37.85)
+  - Awarua (168.38, -46.53)
+  - Azores (-25.13, 36.99)
+  - Bangalore (77.37, 12.90)
+  - Cordoba (-66.10, -33.20)
+  - Dubai (55.47, 25.23)
+  - Fairbanks (-147.72, 64.82)
+  - Hartebeesthoek (27.71, -25.89)
+  - Hawaii (-156.45, 20.82)
+  - Hokkaido (143.45, 42.60)
+  - Inuvik (-133.61, 68.33)
+  - Jan Mayen (-8.72, 70.92)
+  - Jeju (126.32, 33.39)
+  - Kourou (-52.80, 5.25)
+  - Maspalomas (-15.64, 27.77)
+  - Mauritius (57.45, -20.50)
+  - Mingenew (115.34, -29.01)
+  - Nuuk (-51.70, 64.19)
+  - Okinawa (127.81, 26.36)
+  - Peterborough (138.85, -32.96)
+  - Puertollano (-4.16, 38.67)
+  - Punta Arenas (-70.87, -52.94)
+  - Singapore (103.70, 1.32)
+  - Svalbard (15.41, 78.23)
+  - Thermopylae (22.69, 38.82)
+  - Tokyo (139.35, 36.00)
+  - Tolhuin (-67.12, -54.51)
+  - Troll (2.53, -72.00)
+  - Tromso (18.95, 69.66)
+  - Tuskuba (140.08, 36.13)
+  - Vardo (31.03, 70.34)
+  - Weilheim (11.08, 47.88)
+
+Computing AOI exit events...
+Found 294 AOI exit events in 11.92 seconds
+
+Computing ground station contacts...
+Computed 10218 ground contact windows in 16.26 seconds
+
+Computing imaging data latencies...
+Computed 293 latency values in 0.06 seconds
+
+====================================================================================================
+Imaging Data Latency Statistics
+====================================================================================================
+  Worst (Max):  54 minutes and 24.99 seconds
+  Best (Min):   12.24 seconds
+  Average:      14 minutes and 15.31 seconds
+  Median:       5 minutes and 31.44 seconds
+====================================================================================================
+
+========================================================================================================================
+Top 5 Worst Imaging Data Latencies
+========================================================================================================================
+Satellite                 AOI Exit Time                Contact Start                Station                      Latency
+------------------------------------------------------------------------------------------------------------------------
+CAPELLA-19 (ACADIA-9)     2026-04-20 11:27:56          2026-04-20 12:22:21          Bangalore            54 minutes and 24.99 seconds
+CAPELLA-17 (ACADIA-7)     2026-04-19 19:11:00          2026-04-19 20:05:24          Bangalore            54 minutes and 23.70 seconds
+CAPELLA-18 (ACADIA-8)     2026-04-18 11:24:47          2026-04-18 12:19:03          Bangalore            54 minutes and 16.22 seconds
+CAPELLA-15 (ACADIA-5)     2026-04-19 16:26:42          2026-04-19 17:20:57          Bangalore            54 minutes and 14.49 seconds
+CAPELLA-17 (ACADIA-7)     2026-04-18 19:02:16          2026-04-18 19:56:19          Bangalore            54 minutes and 2.88 seconds
+========================================================================================================================
+
+✓ Exported top 5 latencies to docs/figures/imaging_data_latency_top5.csv
+✓ Exported statistics to docs/figures/imaging_data_latency_stats.csv
+
+Creating ground track visualization for top 3 worst latencies...
+  Gap 1: 55 points, 2 segments, latency=54m 24s
+  Gap 2: 56 points, 2 segments, latency=54m 23s
+  Gap 3: 55 points, 2 segments, latency=54m 16s
+Created ground track visualization in 0.30 seconds.
+
+✓ Generated imaging_data_latency_groundtrack_light.svg
+✓ Generated imaging_data_latency_groundtrack_dark.svg
+
+============================================================
+Imaging Data Latency Analysis Complete!
+============================================================

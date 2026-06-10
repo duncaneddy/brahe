@@ -1,0 +1,7 @@
+Longitude: -122.4194 deg
+Latitude: 37.7749 deg
+Altitude: 0.0 m
+Lon (deg): -122.419400
+Lat (deg): 37.774900
+Geodetic: [-122.419400, 37.774900, 0.0]
+ECEF: [-2706174.8, -4261059.5, 3885725.5] m

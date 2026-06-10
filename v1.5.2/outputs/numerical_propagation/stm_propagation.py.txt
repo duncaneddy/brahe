@@ -1,0 +1,27 @@
+=== STM Propagation Example ===
+
+Final STM shape: (6, 6)
+STM determinant: 1.000000
+
+STM at t=0 (should be identity):
+  Max off-diagonal: 0.00e+00
+
+STM at t=T/2:
+  Determinant: 0.999999
+
+STM * STM^-1 (should be identity):
+  Max deviation from I: 2.00e-11
+
+=== STM Structure ===
+Upper-left 3x3: Position sensitivity to initial position
+Upper-right 3x3: Position sensitivity to initial velocity
+Lower-left 3x3: Velocity sensitivity to initial position
+Lower-right 3x3: Velocity sensitivity to initial velocity
+
+Block Frobenius norms after one orbit:
+  dr/dr0: 19.32
+  dr/dv0: 17271.76
+  dv/dr0: 0.021459
+  dv/dv0: 19.34
+
+Example validated successfully!

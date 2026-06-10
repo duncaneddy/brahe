@@ -1,0 +1,8 @@
+Default ForceModelConfig:
+  Requires params: true
+
+After 1 orbit (94.6 min):
+  Semi-major axis change: 196.080 m
+  Eccentricity change: -0.000016527
+
+Example validated successfully!

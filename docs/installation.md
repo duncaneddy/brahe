@@ -1,4 +1,4 @@
-# Installation
+# Development Installation
 
 Brahe is available for both Python and Rust. Choose the installation method that best fits your workflow.
 

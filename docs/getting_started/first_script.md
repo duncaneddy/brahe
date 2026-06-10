@@ -34,10 +34,10 @@ To use Brahe in a script, we need to declare it as a dependency of the script so
     ``` rust
     //! ```cargo
     //! [dependencies]
-    //! brahe = {path = "%REPO_ROOT%"}
+    //! brahe = "*"
     //! nalgebra = { version = "*", features = ["serde-serialize"] }
-    //! serde_json = "1"
-    //! rayon = "1.10"
+    //! serde_json = "*"
+    //! rayon = "*"
     //! ```
     ```
 

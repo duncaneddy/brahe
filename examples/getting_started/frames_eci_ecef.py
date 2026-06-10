@@ -7,6 +7,9 @@ import numpy as np
 # Initialize EOP
 bh.initialize_eop()
 
+# Create an epoch
+epc = bh.Epoch(2024, 1, 1, 0, 0, 0)
+
 # Initialize a Keplerian state
 # Define orbital elements [a, e, i, Ω, ω, M] in meters and degrees
 # LEO satellite: 500 km altitude, 97.8° inclination (approx sun-synchronous)
@@ -22,17 +25,20 @@ oe_deg = np.array(
 )
 
 # Convert orbital elements to Cartesian state using degrees
-x_deg = bh.state_koe_to_eci(oe_deg, bh.AngleFormat.DEGREES)
+x_eci_1 = bh.state_koe_to_eci(oe_deg, bh.AngleFormat.DEGREES)
 
-# Convert back to degrees
-oe_deg_2 = bh.state_eci_to_koe(x_deg, bh.AngleFormat.DEGREES)
+# Covert ECI cartesian state to ECEF cartesian state
+x_ecef = bh.state_eci_to_ecef(epc, x_eci_1)
 
-print("Original Keplerian elements:")
-for i, elem in enumerate(oe_deg):
-    print(f"  [{i}]: {elem:.3f}")
-print("Converted Cartesian state:")
-for i, elem in enumerate(x_deg):
-    print(f"  [{i}]: {elem:.3f}")
-print("Back to Keplerian elements:")
-for i, elem in enumerate(oe_deg_2):
-    print(f"  [{i}]: {elem:.3f}")
+# Convert ECEF back to ECI to verify consistency
+x_eci_2 = bh.state_ecef_to_eci(epc, x_ecef)
+print(f"ECI -> ECEF -> ECI rountrip difference: {np.linalg.norm(x_eci_2 - x_eci_1):.3e}")
+
+# Perform same transformation with GCRF/ITRF naming
+
+x_gcrf_1 = x_eci_1
+x_itrf = bh.state_gcrf_to_itrf(epc, x_gcrf_1)
+x_gcrf_2 = bh.state_itrf_to_gcrf(epc, x_itrf)
+print(f"GCRF -> ITRF -> GCRF rountrip difference: {np.linalg.norm(x_gcrf_2 - x_gcrf_1):.3e}")
+
+print(f'ECEF <> ITRF difference: {np.linalg.norm(x_ecef - x_itrf):.3e}')

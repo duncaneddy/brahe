@@ -24,62 +24,30 @@
 </span><span id=__span-3-5><a id=__codelineno-3-5 name=__codelineno-3-5></a><span class=n>a</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>R_EARTH</span> <span class=o>+</span> <span class=mf>500e3</span>  <span class=c1># Semi-major axis for 500 km altitude</span>
 </span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a><span class=n>T</span> <span class=o>=</span> <span class=n>bh</span><span class=o>.</span><span class=n>orbital_period</span><span class=p>(</span><span class=n>a</span><span class=p>)</span>
 </span><span id=__span-3-7><a id=__codelineno-3-7 name=__codelineno-3-7></a><span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&quot;Orbital period: </span><span class=si>{</span><span class=n>T</span><span class=o>/</span><span class=mi>60</span><span class=si>:</span><span class=s2>.2f</span><span class=si>}</span><span class=s2> minutes&quot;</span><span class=p>)</span>
-</span></code></pre></div></td></tr></table></div> <h2 id=building-from-source-python>Building from Source (Python)<a class=headerlink href=#building-from-source-python title="Permanent link">&para;</a></h2> <p>If you want to build Brahe from source (e.g., for development or to use unreleased features), follow these steps:</p> <h3 id=prerequisites>Prerequisites<a class=headerlink href=#prerequisites title="Permanent link">&para;</a></h3> <ol> <li> <p><strong>Rust toolchain</strong> (required for building the native extensions): <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1>1</a></span>
-<span class=normal><a href=#__codelineno-4-2>2</a></span>
-<span class=normal><a href=#__codelineno-4-3>3</a></span>
-<span class=normal><a href=#__codelineno-4-4>4</a></span>
-<span class=normal><a href=#__codelineno-4-5>5</a></span>
-<span class=normal><a href=#__codelineno-4-6>6</a></span>
-<span class=normal><a href=#__codelineno-4-7>7</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-4-1><a id=__codelineno-4-1 name=__codelineno-4-1></a><span class=c1># Install Rust using rustup</span>
-</span><span id=__span-4-2><a id=__codelineno-4-2 name=__codelineno-4-2></a>curl<span class=w> </span>--proto<span class=w> </span><span class=s1>&#39;=https&#39;</span><span class=w> </span>--tlsv1.2<span class=w> </span>-sSf<span class=w> </span>https://sh.rustup.rs<span class=w> </span><span class=p>|</span><span class=w> </span>sh
-</span><span id=__span-4-3><a id=__codelineno-4-3 name=__codelineno-4-3></a>
-</span><span id=__span-4-4><a id=__codelineno-4-4 name=__codelineno-4-4></a><span class=c1># Follow the prompts, then restart your shell</span>
-</span><span id=__span-4-5><a id=__codelineno-4-5 name=__codelineno-4-5></a><span class=c1># Verify installation</span>
-</span><span id=__span-4-6><a id=__codelineno-4-6 name=__codelineno-4-6></a>rustc<span class=w> </span>--version
-</span><span id=__span-4-7><a id=__codelineno-4-7 name=__codelineno-4-7></a>cargo<span class=w> </span>--version
-</span></code></pre></div></td></tr></table></div></p> </li> <li> <p><strong>Python 3.10+</strong> with development headers: <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-5-1>1</a></span>
+</span></code></pre></div></td></tr></table></div> <h2 id=building-from-source-python>Building from Source (Python)<a class=headerlink href=#building-from-source-python title="Permanent link">&para;</a></h2> <p>If you want to build Brahe from source (e.g., for development or to use unreleased features), follow these steps:</p> <div class="admonition tip"> <p class=admonition-title>Slow clone? Fetch only <code>main</code></p> <p>A plain <code>git clone</code> retrieves every branch, including the <code>gh-pages</code> documentation site. If the clone is taking a long time, fetch just the <code>main</code> branch instead:</p> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-4-1><a id=__codelineno-4-1 name=__codelineno-4-1></a>git<span class=w> </span>clone<span class=w> </span>--single-branch<span class=w> </span>--branch<span class=w> </span>main<span class=w> </span>https://github.com/duncaneddy/brahe.git
+</span></code></pre></div></td></tr></table></div> </div> <h3 id=prerequisites>Prerequisites<a class=headerlink href=#prerequisites title="Permanent link">&para;</a></h3> <ol> <li> <p><strong>Rust toolchain</strong> (required for building the native extensions): <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-5-1>1</a></span>
 <span class=normal><a href=#__codelineno-5-2>2</a></span>
 <span class=normal><a href=#__codelineno-5-3>3</a></span>
 <span class=normal><a href=#__codelineno-5-4>4</a></span>
-<span class=normal><a href=#__codelineno-5-5>5</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a><span class=c1># On Ubuntu/Debian</span>
-</span><span id=__span-5-2><a id=__codelineno-5-2 name=__codelineno-5-2></a>sudo<span class=w> </span>apt-get<span class=w> </span>install<span class=w> </span>python3-dev
+<span class=normal><a href=#__codelineno-5-5>5</a></span>
+<span class=normal><a href=#__codelineno-5-6>6</a></span>
+<span class=normal><a href=#__codelineno-5-7>7</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-5-1><a id=__codelineno-5-1 name=__codelineno-5-1></a><span class=c1># Install Rust using rustup</span>
+</span><span id=__span-5-2><a id=__codelineno-5-2 name=__codelineno-5-2></a>curl<span class=w> </span>--proto<span class=w> </span><span class=s1>&#39;=https&#39;</span><span class=w> </span>--tlsv1.2<span class=w> </span>-sSf<span class=w> </span>https://sh.rustup.rs<span class=w> </span><span class=p>|</span><span class=w> </span>sh
 </span><span id=__span-5-3><a id=__codelineno-5-3 name=__codelineno-5-3></a>
-</span><span id=__span-5-4><a id=__codelineno-5-4 name=__codelineno-5-4></a><span class=c1># On macOS (usually included with Python)</span>
-</span><span id=__span-5-5><a id=__codelineno-5-5 name=__codelineno-5-5></a><span class=c1># On Windows, ensure you have Python from python.org</span>
-</span></code></pre></div></td></tr></table></div></p> </li> </ol> <h3 id=building-with-uv-recommended>Building with uv (Recommended)<a class=headerlink href=#building-with-uv-recommended title="Permanent link">&para;</a></h3> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1> 1</a></span>
-<span class=normal><a href=#__codelineno-6-2> 2</a></span>
-<span class=normal><a href=#__codelineno-6-3> 3</a></span>
-<span class=normal><a href=#__codelineno-6-4> 4</a></span>
-<span class=normal><a href=#__codelineno-6-5> 5</a></span>
-<span class=normal><a href=#__codelineno-6-6> 6</a></span>
-<span class=normal><a href=#__codelineno-6-7> 7</a></span>
-<span class=normal><a href=#__codelineno-6-8> 8</a></span>
-<span class=normal><a href=#__codelineno-6-9> 9</a></span>
-<span class=normal><a href=#__codelineno-6-10>10</a></span>
-<span class=normal><a href=#__codelineno-6-11>11</a></span>
-<span class=normal><a href=#__codelineno-6-12>12</a></span>
-<span class=normal><a href=#__codelineno-6-13>13</a></span>
-<span class=normal><a href=#__codelineno-6-14>14</a></span>
-<span class=normal><a href=#__codelineno-6-15>15</a></span>
-<span class=normal><a href=#__codelineno-6-16>16</a></span>
-<span class=normal><a href=#__codelineno-6-17>17</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-6-1><a id=__codelineno-6-1 name=__codelineno-6-1></a><span class=c1># Clone the repository</span>
-</span><span id=__span-6-2><a id=__codelineno-6-2 name=__codelineno-6-2></a>git<span class=w> </span>clone<span class=w> </span>https://github.com/duncaneddy/brahe.git
-</span><span id=__span-6-3><a id=__codelineno-6-3 name=__codelineno-6-3></a><span class=nb>cd</span><span class=w> </span>brahe
-</span><span id=__span-6-4><a id=__codelineno-6-4 name=__codelineno-6-4></a>
-</span><span id=__span-6-5><a id=__codelineno-6-5 name=__codelineno-6-5></a><span class=c1># Install uv if you haven&#39;t already</span>
-</span><span id=__span-6-6><a id=__codelineno-6-6 name=__codelineno-6-6></a>curl<span class=w> </span>-LsSf<span class=w> </span>https://astral.sh/uv/install.sh<span class=w> </span><span class=p>|</span><span class=w> </span>sh
-</span><span id=__span-6-7><a id=__codelineno-6-7 name=__codelineno-6-7></a>
-</span><span id=__span-6-8><a id=__codelineno-6-8 name=__codelineno-6-8></a><span class=c1># Sync dependencies and create virtual environment</span>
-</span><span id=__span-6-9><a id=__codelineno-6-9 name=__codelineno-6-9></a>uv<span class=w> </span>sync
-</span><span id=__span-6-10><a id=__codelineno-6-10 name=__codelineno-6-10></a>
-</span><span id=__span-6-11><a id=__codelineno-6-11 name=__codelineno-6-11></a><span class=c1># Build and install in editable mode</span>
-</span><span id=__span-6-12><a id=__codelineno-6-12 name=__codelineno-6-12></a>uv<span class=w> </span>pip<span class=w> </span>install<span class=w> </span>-e<span class=w> </span>.
-</span><span id=__span-6-13><a id=__codelineno-6-13 name=__codelineno-6-13></a>
-</span><span id=__span-6-14><a id=__codelineno-6-14 name=__codelineno-6-14></a><span class=c1># Activate the virtual environment</span>
-</span><span id=__span-6-15><a id=__codelineno-6-15 name=__codelineno-6-15></a><span class=nb>source</span><span class=w> </span>.venv/bin/activate<span class=w>  </span><span class=c1># On Unix/macOS</span>
-</span><span id=__span-6-16><a id=__codelineno-6-16 name=__codelineno-6-16></a><span class=c1># or</span>
-</span><span id=__span-6-17><a id=__codelineno-6-17 name=__codelineno-6-17></a>.venv<span class=se>\S</span>cripts<span class=se>\a</span>ctivate<span class=w>  </span><span class=c1># On Windows</span>
-</span></code></pre></div></td></tr></table></div> <h3 id=building-with-pip-and-maturin>Building with pip and maturin<a class=headerlink href=#building-with-pip-and-maturin title="Permanent link">&para;</a></h3> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-7-1> 1</a></span>
+</span><span id=__span-5-4><a id=__codelineno-5-4 name=__codelineno-5-4></a><span class=c1># Follow the prompts, then restart your shell</span>
+</span><span id=__span-5-5><a id=__codelineno-5-5 name=__codelineno-5-5></a><span class=c1># Verify installation</span>
+</span><span id=__span-5-6><a id=__codelineno-5-6 name=__codelineno-5-6></a>rustc<span class=w> </span>--version
+</span><span id=__span-5-7><a id=__codelineno-5-7 name=__codelineno-5-7></a>cargo<span class=w> </span>--version
+</span></code></pre></div></td></tr></table></div></p> </li> <li> <p><strong>Python 3.10+</strong> with development headers: <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-6-1>1</a></span>
+<span class=normal><a href=#__codelineno-6-2>2</a></span>
+<span class=normal><a href=#__codelineno-6-3>3</a></span>
+<span class=normal><a href=#__codelineno-6-4>4</a></span>
+<span class=normal><a href=#__codelineno-6-5>5</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-6-1><a id=__codelineno-6-1 name=__codelineno-6-1></a><span class=c1># On Ubuntu/Debian</span>
+</span><span id=__span-6-2><a id=__codelineno-6-2 name=__codelineno-6-2></a>sudo<span class=w> </span>apt-get<span class=w> </span>install<span class=w> </span>python3-dev
+</span><span id=__span-6-3><a id=__codelineno-6-3 name=__codelineno-6-3></a>
+</span><span id=__span-6-4><a id=__codelineno-6-4 name=__codelineno-6-4></a><span class=c1># On macOS (usually included with Python)</span>
+</span><span id=__span-6-5><a id=__codelineno-6-5 name=__codelineno-6-5></a><span class=c1># On Windows, ensure you have Python from python.org</span>
+</span></code></pre></div></td></tr></table></div></p> </li> </ol> <h3 id=building-with-uv-recommended>Building with uv (Recommended)<a class=headerlink href=#building-with-uv-recommended title="Permanent link">&para;</a></h3> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-7-1> 1</a></span>
 <span class=normal><a href=#__codelineno-7-2> 2</a></span>
 <span class=normal><a href=#__codelineno-7-3> 3</a></span>
 <span class=normal><a href=#__codelineno-7-4> 4</a></span>
@@ -95,74 +63,107 @@
 <span class=normal><a href=#__codelineno-7-14>14</a></span>
 <span class=normal><a href=#__codelineno-7-15>15</a></span>
 <span class=normal><a href=#__codelineno-7-16>16</a></span>
-<span class=normal><a href=#__codelineno-7-17>17</a></span>
-<span class=normal><a href=#__codelineno-7-18>18</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-7-1><a id=__codelineno-7-1 name=__codelineno-7-1></a><span class=c1># Clone the repository</span>
+<span class=normal><a href=#__codelineno-7-17>17</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-7-1><a id=__codelineno-7-1 name=__codelineno-7-1></a><span class=c1># Clone the repository</span>
 </span><span id=__span-7-2><a id=__codelineno-7-2 name=__codelineno-7-2></a>git<span class=w> </span>clone<span class=w> </span>https://github.com/duncaneddy/brahe.git
 </span><span id=__span-7-3><a id=__codelineno-7-3 name=__codelineno-7-3></a><span class=nb>cd</span><span class=w> </span>brahe
 </span><span id=__span-7-4><a id=__codelineno-7-4 name=__codelineno-7-4></a>
-</span><span id=__span-7-5><a id=__codelineno-7-5 name=__codelineno-7-5></a><span class=c1># Create and activate a virtual environment</span>
-</span><span id=__span-7-6><a id=__codelineno-7-6 name=__codelineno-7-6></a>python<span class=w> </span>-m<span class=w> </span>venv<span class=w> </span>.venv
-</span><span id=__span-7-7><a id=__codelineno-7-7 name=__codelineno-7-7></a><span class=nb>source</span><span class=w> </span>.venv/bin/activate<span class=w>  </span><span class=c1># On Unix/macOS</span>
-</span><span id=__span-7-8><a id=__codelineno-7-8 name=__codelineno-7-8></a><span class=c1># or</span>
-</span><span id=__span-7-9><a id=__codelineno-7-9 name=__codelineno-7-9></a>.venv<span class=se>\S</span>cripts<span class=se>\a</span>ctivate<span class=w>  </span><span class=c1># On Windows</span>
+</span><span id=__span-7-5><a id=__codelineno-7-5 name=__codelineno-7-5></a><span class=c1># Install uv if you haven&#39;t already</span>
+</span><span id=__span-7-6><a id=__codelineno-7-6 name=__codelineno-7-6></a>curl<span class=w> </span>-LsSf<span class=w> </span>https://astral.sh/uv/install.sh<span class=w> </span><span class=p>|</span><span class=w> </span>sh
+</span><span id=__span-7-7><a id=__codelineno-7-7 name=__codelineno-7-7></a>
+</span><span id=__span-7-8><a id=__codelineno-7-8 name=__codelineno-7-8></a><span class=c1># Sync dependencies and create virtual environment</span>
+</span><span id=__span-7-9><a id=__codelineno-7-9 name=__codelineno-7-9></a>uv<span class=w> </span>sync
 </span><span id=__span-7-10><a id=__codelineno-7-10 name=__codelineno-7-10></a>
-</span><span id=__span-7-11><a id=__codelineno-7-11 name=__codelineno-7-11></a><span class=c1># Install maturin (the build tool for PyO3)</span>
-</span><span id=__span-7-12><a id=__codelineno-7-12 name=__codelineno-7-12></a>pip<span class=w> </span>install<span class=w> </span>maturin
+</span><span id=__span-7-11><a id=__codelineno-7-11 name=__codelineno-7-11></a><span class=c1># Build and install in editable mode</span>
+</span><span id=__span-7-12><a id=__codelineno-7-12 name=__codelineno-7-12></a>uv<span class=w> </span>pip<span class=w> </span>install<span class=w> </span>-e<span class=w> </span>.
 </span><span id=__span-7-13><a id=__codelineno-7-13 name=__codelineno-7-13></a>
-</span><span id=__span-7-14><a id=__codelineno-7-14 name=__codelineno-7-14></a><span class=c1># Build and install in development mode</span>
-</span><span id=__span-7-15><a id=__codelineno-7-15 name=__codelineno-7-15></a>maturin<span class=w> </span>develop<span class=w> </span>--release
-</span><span id=__span-7-16><a id=__codelineno-7-16 name=__codelineno-7-16></a>
-</span><span id=__span-7-17><a id=__codelineno-7-17 name=__codelineno-7-17></a><span class=c1># Or install normally</span>
-</span><span id=__span-7-18><a id=__codelineno-7-18 name=__codelineno-7-18></a>pip<span class=w> </span>install<span class=w> </span>-e<span class=w> </span>.
-</span></code></pre></div></td></tr></table></div> <h3 id=development-installation_1>Development Installation<a class=headerlink href=#development-installation_1 title="Permanent link">&para;</a></h3> <p>For development work, install with development dependencies:</p> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-8-1>1</a></span>
-<span class=normal><a href=#__codelineno-8-2>2</a></span>
-<span class=normal><a href=#__codelineno-8-3>3</a></span>
-<span class=normal><a href=#__codelineno-8-4>4</a></span>
-<span class=normal><a href=#__codelineno-8-5>5</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-8-1><a id=__codelineno-8-1 name=__codelineno-8-1></a><span class=c1># With uv</span>
-</span><span id=__span-8-2><a id=__codelineno-8-2 name=__codelineno-8-2></a>uv<span class=w> </span>sync<span class=w> </span>--dev
-</span><span id=__span-8-3><a id=__codelineno-8-3 name=__codelineno-8-3></a>
-</span><span id=__span-8-4><a id=__codelineno-8-4 name=__codelineno-8-4></a><span class=c1># With pip</span>
-</span><span id=__span-8-5><a id=__codelineno-8-5 name=__codelineno-8-5></a>pip<span class=w> </span>install<span class=w> </span>-e<span class=w> </span><span class=s2>&quot;.[dev]&quot;</span>
-</span></code></pre></div></td></tr></table></div> <p>This includes tools for: - Testing (pytest, pytest-cov) - Documentation (mkdocs, mkdocstrings) - Code quality (ruff, pre-commit) - Type stubs generation (pyo3-stubgen)</p> <h3 id=running-tests>Running Tests<a class=headerlink href=#running-tests title="Permanent link">&para;</a></h3> <p>After building from source, verify everything works:</p> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-9-1>1</a></span>
+</span><span id=__span-7-14><a id=__codelineno-7-14 name=__codelineno-7-14></a><span class=c1># Activate the virtual environment</span>
+</span><span id=__span-7-15><a id=__codelineno-7-15 name=__codelineno-7-15></a><span class=nb>source</span><span class=w> </span>.venv/bin/activate<span class=w>  </span><span class=c1># On Unix/macOS</span>
+</span><span id=__span-7-16><a id=__codelineno-7-16 name=__codelineno-7-16></a><span class=c1># or</span>
+</span><span id=__span-7-17><a id=__codelineno-7-17 name=__codelineno-7-17></a>.venv<span class=se>\S</span>cripts<span class=se>\a</span>ctivate<span class=w>  </span><span class=c1># On Windows</span>
+</span></code></pre></div></td></tr></table></div> <h3 id=building-with-pip-and-maturin>Building with pip and maturin<a class=headerlink href=#building-with-pip-and-maturin title="Permanent link">&para;</a></h3> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-8-1> 1</a></span>
+<span class=normal><a href=#__codelineno-8-2> 2</a></span>
+<span class=normal><a href=#__codelineno-8-3> 3</a></span>
+<span class=normal><a href=#__codelineno-8-4> 4</a></span>
+<span class=normal><a href=#__codelineno-8-5> 5</a></span>
+<span class=normal><a href=#__codelineno-8-6> 6</a></span>
+<span class=normal><a href=#__codelineno-8-7> 7</a></span>
+<span class=normal><a href=#__codelineno-8-8> 8</a></span>
+<span class=normal><a href=#__codelineno-8-9> 9</a></span>
+<span class=normal><a href=#__codelineno-8-10>10</a></span>
+<span class=normal><a href=#__codelineno-8-11>11</a></span>
+<span class=normal><a href=#__codelineno-8-12>12</a></span>
+<span class=normal><a href=#__codelineno-8-13>13</a></span>
+<span class=normal><a href=#__codelineno-8-14>14</a></span>
+<span class=normal><a href=#__codelineno-8-15>15</a></span>
+<span class=normal><a href=#__codelineno-8-16>16</a></span>
+<span class=normal><a href=#__codelineno-8-17>17</a></span>
+<span class=normal><a href=#__codelineno-8-18>18</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-8-1><a id=__codelineno-8-1 name=__codelineno-8-1></a><span class=c1># Clone the repository</span>
+</span><span id=__span-8-2><a id=__codelineno-8-2 name=__codelineno-8-2></a>git<span class=w> </span>clone<span class=w> </span>https://github.com/duncaneddy/brahe.git
+</span><span id=__span-8-3><a id=__codelineno-8-3 name=__codelineno-8-3></a><span class=nb>cd</span><span class=w> </span>brahe
+</span><span id=__span-8-4><a id=__codelineno-8-4 name=__codelineno-8-4></a>
+</span><span id=__span-8-5><a id=__codelineno-8-5 name=__codelineno-8-5></a><span class=c1># Create and activate a virtual environment</span>
+</span><span id=__span-8-6><a id=__codelineno-8-6 name=__codelineno-8-6></a>python<span class=w> </span>-m<span class=w> </span>venv<span class=w> </span>.venv
+</span><span id=__span-8-7><a id=__codelineno-8-7 name=__codelineno-8-7></a><span class=nb>source</span><span class=w> </span>.venv/bin/activate<span class=w>  </span><span class=c1># On Unix/macOS</span>
+</span><span id=__span-8-8><a id=__codelineno-8-8 name=__codelineno-8-8></a><span class=c1># or</span>
+</span><span id=__span-8-9><a id=__codelineno-8-9 name=__codelineno-8-9></a>.venv<span class=se>\S</span>cripts<span class=se>\a</span>ctivate<span class=w>  </span><span class=c1># On Windows</span>
+</span><span id=__span-8-10><a id=__codelineno-8-10 name=__codelineno-8-10></a>
+</span><span id=__span-8-11><a id=__codelineno-8-11 name=__codelineno-8-11></a><span class=c1># Install maturin (the build tool for PyO3)</span>
+</span><span id=__span-8-12><a id=__codelineno-8-12 name=__codelineno-8-12></a>pip<span class=w> </span>install<span class=w> </span>maturin
+</span><span id=__span-8-13><a id=__codelineno-8-13 name=__codelineno-8-13></a>
+</span><span id=__span-8-14><a id=__codelineno-8-14 name=__codelineno-8-14></a><span class=c1># Build and install in development mode</span>
+</span><span id=__span-8-15><a id=__codelineno-8-15 name=__codelineno-8-15></a>maturin<span class=w> </span>develop<span class=w> </span>--release
+</span><span id=__span-8-16><a id=__codelineno-8-16 name=__codelineno-8-16></a>
+</span><span id=__span-8-17><a id=__codelineno-8-17 name=__codelineno-8-17></a><span class=c1># Or install normally</span>
+</span><span id=__span-8-18><a id=__codelineno-8-18 name=__codelineno-8-18></a>pip<span class=w> </span>install<span class=w> </span>-e<span class=w> </span>.
+</span></code></pre></div></td></tr></table></div> <h3 id=development-installation_1>Development Installation<a class=headerlink href=#development-installation_1 title="Permanent link">&para;</a></h3> <p>For development work, install with development dependencies:</p> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-9-1>1</a></span>
 <span class=normal><a href=#__codelineno-9-2>2</a></span>
 <span class=normal><a href=#__codelineno-9-3>3</a></span>
 <span class=normal><a href=#__codelineno-9-4>4</a></span>
-<span class=normal><a href=#__codelineno-9-5>5</a></span>
-<span class=normal><a href=#__codelineno-9-6>6</a></span>
-<span class=normal><a href=#__codelineno-9-7>7</a></span>
-<span class=normal><a href=#__codelineno-9-8>8</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-9-1><a id=__codelineno-9-1 name=__codelineno-9-1></a><span class=c1># Run Python tests</span>
-</span><span id=__span-9-2><a id=__codelineno-9-2 name=__codelineno-9-2></a>pytest<span class=w> </span>tests/<span class=w> </span>-v
+<span class=normal><a href=#__codelineno-9-5>5</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-9-1><a id=__codelineno-9-1 name=__codelineno-9-1></a><span class=c1># With uv</span>
+</span><span id=__span-9-2><a id=__codelineno-9-2 name=__codelineno-9-2></a>uv<span class=w> </span>sync<span class=w> </span>--dev
 </span><span id=__span-9-3><a id=__codelineno-9-3 name=__codelineno-9-3></a>
-</span><span id=__span-9-4><a id=__codelineno-9-4 name=__codelineno-9-4></a><span class=c1># Run Rust tests</span>
-</span><span id=__span-9-5><a id=__codelineno-9-5 name=__codelineno-9-5></a>cargo<span class=w> </span><span class=nb>test</span>
-</span><span id=__span-9-6><a id=__codelineno-9-6 name=__codelineno-9-6></a>
-</span><span id=__span-9-7><a id=__codelineno-9-7 name=__codelineno-9-7></a><span class=c1># Run with code coverage</span>
-</span><span id=__span-9-8><a id=__codelineno-9-8 name=__codelineno-9-8></a>pytest<span class=w> </span>tests/<span class=w> </span>--cov<span class=o>=</span>brahe<span class=w> </span>--cov-report<span class=o>=</span>html
-</span></code></pre></div></td></tr></table></div> <h3 id=updating-type-stubs>Updating Type Stubs<a class=headerlink href=#updating-type-stubs title="Permanent link">&para;</a></h3> <p>If you modify the Rust Python bindings, regenerate Python type stubs:</p> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-10-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-10-1><a id=__codelineno-10-1 name=__codelineno-10-1></a>./scripts/generate_stubs.sh
-</span></code></pre></div></td></tr></table></div> <h2 id=rust-installation>Rust Installation<a class=headerlink href=#rust-installation title="Permanent link">&para;</a></h2> <p>To use Brahe in your Rust project, add it to your <code>Cargo.toml</code>:</p> <div class="language-toml highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-11-1>1</a></span>
-<span class=normal><a href=#__codelineno-11-2>2</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a><span class=k>[dependencies]</span>
-</span><span id=__span-11-2><a id=__codelineno-11-2 name=__codelineno-11-2></a><span class=n>brahe</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s2>&quot;1.6.0&quot;</span>
-</span></code></pre></div></td></tr></table></div> <h3 id=building-the-rust-library>Building the Rust Library<a class=headerlink href=#building-the-rust-library title="Permanent link">&para;</a></h3> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-12-1> 1</a></span>
-<span class=normal><a href=#__codelineno-12-2> 2</a></span>
-<span class=normal><a href=#__codelineno-12-3> 3</a></span>
-<span class=normal><a href=#__codelineno-12-4> 4</a></span>
-<span class=normal><a href=#__codelineno-12-5> 5</a></span>
-<span class=normal><a href=#__codelineno-12-6> 6</a></span>
-<span class=normal><a href=#__codelineno-12-7> 7</a></span>
-<span class=normal><a href=#__codelineno-12-8> 8</a></span>
-<span class=normal><a href=#__codelineno-12-9> 9</a></span>
-<span class=normal><a href=#__codelineno-12-10>10</a></span>
-<span class=normal><a href=#__codelineno-12-11>11</a></span>
-<span class=normal><a href=#__codelineno-12-12>12</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-12-1><a id=__codelineno-12-1 name=__codelineno-12-1></a><span class=c1># Clone the repository</span>
-</span><span id=__span-12-2><a id=__codelineno-12-2 name=__codelineno-12-2></a>git<span class=w> </span>clone<span class=w> </span>https://github.com/duncaneddy/brahe.git
-</span><span id=__span-12-3><a id=__codelineno-12-3 name=__codelineno-12-3></a><span class=nb>cd</span><span class=w> </span>brahe
-</span><span id=__span-12-4><a id=__codelineno-12-4 name=__codelineno-12-4></a>
-</span><span id=__span-12-5><a id=__codelineno-12-5 name=__codelineno-12-5></a><span class=c1># Build the library</span>
-</span><span id=__span-12-6><a id=__codelineno-12-6 name=__codelineno-12-6></a>cargo<span class=w> </span>build
-</span><span id=__span-12-7><a id=__codelineno-12-7 name=__codelineno-12-7></a>
-</span><span id=__span-12-8><a id=__codelineno-12-8 name=__codelineno-12-8></a><span class=c1># Run tests</span>
-</span><span id=__span-12-9><a id=__codelineno-12-9 name=__codelineno-12-9></a>cargo<span class=w> </span><span class=nb>test</span>
-</span><span id=__span-12-10><a id=__codelineno-12-10 name=__codelineno-12-10></a>
-</span><span id=__span-12-11><a id=__codelineno-12-11 name=__codelineno-12-11></a><span class=c1># Build documentation</span>
-</span><span id=__span-12-12><a id=__codelineno-12-12 name=__codelineno-12-12></a>cargo<span class=w> </span>doc<span class=w> </span>--open
-</span></code></pre></div></td></tr></table></div> <h2 id=troubleshooting>Troubleshooting<a class=headerlink href=#troubleshooting title="Permanent link">&para;</a></h2> <h3 id=common-issues>Common Issues<a class=headerlink href=#common-issues title="Permanent link">&para;</a></h3> <p><strong>"Failed to build wheel"</strong> (Python) - Ensure Rust is installed: <code>rustc --version</code> - Update Rust: <code>rustup update</code> - Install Python development headers (see prerequisites above)</p> <p><strong>Import errors after installation</strong> - Verify installation: <code>pip show brahe</code> - Check Python version: <code>python --version</code> (must be 3.10+) - Try reinstalling: <code>pip install --force-reinstall brahe</code></p> <p><strong>Cartopy installation fails</strong> - On Ubuntu/Debian: <code>sudo apt-get install libgeos-dev</code> - On macOS: <code>brew install geos</code> - See <a href=https://scitools.org.uk/cartopy/docs/latest/installing.html>Cartopy installation docs</a></p> <p><strong>Type hints not working in IDE</strong> - Ensure type stubs are installed: <code>ls $(python -c "import brahe; print(brahe.__path__[0])")/_brahe.pyi</code> - If missing, regenerate: <code>./scripts/generate_stubs.sh</code> (from source installation)</p> <h3 id=getting-help>Getting Help<a class=headerlink href=#getting-help title="Permanent link">&para;</a></h3> <p>If you encounter issues:</p> <ol> <li>Check the <a href=https://github.com/duncaneddy/brahe/issues>GitHub Issues</a> for similar problems</li> <li>Review the <a href=https://duncaneddy.github.io/brahe/ >documentation</a></li> <li>Open a new issue with:</li> <li>Your operating system and version</li> <li>Python/Rust version</li> <li>Complete error message</li> <li>Steps to reproduce</li> </ol> <h2 id=platform-specific-notes>Platform-Specific Notes<a class=headerlink href=#platform-specific-notes title="Permanent link">&para;</a></h2> <h3 id=macos>macOS<a class=headerlink href=#macos title="Permanent link">&para;</a></h3> <p>On Apple Silicon (M1/M2/M3): - Brahe builds natively for ARM64 - Ensure you have the ARM64 version of Python</p> <h3 id=windows>Windows<a class=headerlink href=#windows title="Permanent link">&para;</a></h3> <ul> <li>Install <a href=https://visualstudio.microsoft.com/visual-cpp-build-tools/ >Microsoft C++ Build Tools</a></li> <li>Consider using WSL2 for a smoother development experience</li> </ul> <h3 id=linux>Linux<a class=headerlink href=#linux title="Permanent link">&para;</a></h3> <p>Most distributions work out-of-the-box. If you encounter issues: - Install build essentials: <code>sudo apt-get install build-essential</code> - Ensure GEOS library is installed for Cartopy</p> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 10, 2026 06:28:39 UTC">2026-06-10</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 15:45:39 UTC">2025-10-14</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": ".", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=assets/javascripts/bundle.79ae519e.min.js></script> <script src=javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=javascripts/iframe-autosize.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=javascripts/tablesort.ae6fa2.min.js></script> </body> </html>
+</span><span id=__span-9-4><a id=__codelineno-9-4 name=__codelineno-9-4></a><span class=c1># With pip</span>
+</span><span id=__span-9-5><a id=__codelineno-9-5 name=__codelineno-9-5></a>pip<span class=w> </span>install<span class=w> </span>-e<span class=w> </span><span class=s2>&quot;.[dev]&quot;</span>
+</span></code></pre></div></td></tr></table></div> <p>This includes tools for: - Testing (pytest, pytest-cov) - Documentation (mkdocs, mkdocstrings) - Code quality (ruff, pre-commit) - Type stubs generation (pyo3-stubgen)</p> <h3 id=running-tests>Running Tests<a class=headerlink href=#running-tests title="Permanent link">&para;</a></h3> <p>After building from source, verify everything works:</p> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-10-1>1</a></span>
+<span class=normal><a href=#__codelineno-10-2>2</a></span>
+<span class=normal><a href=#__codelineno-10-3>3</a></span>
+<span class=normal><a href=#__codelineno-10-4>4</a></span>
+<span class=normal><a href=#__codelineno-10-5>5</a></span>
+<span class=normal><a href=#__codelineno-10-6>6</a></span>
+<span class=normal><a href=#__codelineno-10-7>7</a></span>
+<span class=normal><a href=#__codelineno-10-8>8</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-10-1><a id=__codelineno-10-1 name=__codelineno-10-1></a><span class=c1># Run Python tests</span>
+</span><span id=__span-10-2><a id=__codelineno-10-2 name=__codelineno-10-2></a>pytest<span class=w> </span>tests/<span class=w> </span>-v
+</span><span id=__span-10-3><a id=__codelineno-10-3 name=__codelineno-10-3></a>
+</span><span id=__span-10-4><a id=__codelineno-10-4 name=__codelineno-10-4></a><span class=c1># Run Rust tests</span>
+</span><span id=__span-10-5><a id=__codelineno-10-5 name=__codelineno-10-5></a>cargo<span class=w> </span><span class=nb>test</span>
+</span><span id=__span-10-6><a id=__codelineno-10-6 name=__codelineno-10-6></a>
+</span><span id=__span-10-7><a id=__codelineno-10-7 name=__codelineno-10-7></a><span class=c1># Run with code coverage</span>
+</span><span id=__span-10-8><a id=__codelineno-10-8 name=__codelineno-10-8></a>pytest<span class=w> </span>tests/<span class=w> </span>--cov<span class=o>=</span>brahe<span class=w> </span>--cov-report<span class=o>=</span>html
+</span></code></pre></div></td></tr></table></div> <h3 id=updating-type-stubs>Updating Type Stubs<a class=headerlink href=#updating-type-stubs title="Permanent link">&para;</a></h3> <p>If you modify the Rust Python bindings, regenerate Python type stubs:</p> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-11-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-11-1><a id=__codelineno-11-1 name=__codelineno-11-1></a>./scripts/generate_stubs.sh
+</span></code></pre></div></td></tr></table></div> <h2 id=rust-installation>Rust Installation<a class=headerlink href=#rust-installation title="Permanent link">&para;</a></h2> <p>To use Brahe in your Rust project, add it to your <code>Cargo.toml</code>:</p> <div class="language-toml highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-12-1>1</a></span>
+<span class=normal><a href=#__codelineno-12-2>2</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-12-1><a id=__codelineno-12-1 name=__codelineno-12-1></a><span class=k>[dependencies]</span>
+</span><span id=__span-12-2><a id=__codelineno-12-2 name=__codelineno-12-2></a><span class=n>brahe</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s2>&quot;1.6.0&quot;</span>
+</span></code></pre></div></td></tr></table></div> <h3 id=building-the-rust-library>Building the Rust Library<a class=headerlink href=#building-the-rust-library title="Permanent link">&para;</a></h3> <div class="language-bash highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-13-1> 1</a></span>
+<span class=normal><a href=#__codelineno-13-2> 2</a></span>
+<span class=normal><a href=#__codelineno-13-3> 3</a></span>
+<span class=normal><a href=#__codelineno-13-4> 4</a></span>
+<span class=normal><a href=#__codelineno-13-5> 5</a></span>
+<span class=normal><a href=#__codelineno-13-6> 6</a></span>
+<span class=normal><a href=#__codelineno-13-7> 7</a></span>
+<span class=normal><a href=#__codelineno-13-8> 8</a></span>
+<span class=normal><a href=#__codelineno-13-9> 9</a></span>
+<span class=normal><a href=#__codelineno-13-10>10</a></span>
+<span class=normal><a href=#__codelineno-13-11>11</a></span>
+<span class=normal><a href=#__codelineno-13-12>12</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-13-1><a id=__codelineno-13-1 name=__codelineno-13-1></a><span class=c1># Clone the repository (add `--single-branch --branch main` if the clone is slow)</span>
+</span><span id=__span-13-2><a id=__codelineno-13-2 name=__codelineno-13-2></a>git<span class=w> </span>clone<span class=w> </span>https://github.com/duncaneddy/brahe.git
+</span><span id=__span-13-3><a id=__codelineno-13-3 name=__codelineno-13-3></a><span class=nb>cd</span><span class=w> </span>brahe
+</span><span id=__span-13-4><a id=__codelineno-13-4 name=__codelineno-13-4></a>
+</span><span id=__span-13-5><a id=__codelineno-13-5 name=__codelineno-13-5></a><span class=c1># Build the library</span>
+</span><span id=__span-13-6><a id=__codelineno-13-6 name=__codelineno-13-6></a>cargo<span class=w> </span>build
+</span><span id=__span-13-7><a id=__codelineno-13-7 name=__codelineno-13-7></a>
+</span><span id=__span-13-8><a id=__codelineno-13-8 name=__codelineno-13-8></a><span class=c1># Run tests</span>
+</span><span id=__span-13-9><a id=__codelineno-13-9 name=__codelineno-13-9></a>cargo<span class=w> </span><span class=nb>test</span>
+</span><span id=__span-13-10><a id=__codelineno-13-10 name=__codelineno-13-10></a>
+</span><span id=__span-13-11><a id=__codelineno-13-11 name=__codelineno-13-11></a><span class=c1># Build documentation</span>
+</span><span id=__span-13-12><a id=__codelineno-13-12 name=__codelineno-13-12></a>cargo<span class=w> </span>doc<span class=w> </span>--open
+</span></code></pre></div></td></tr></table></div> <h2 id=troubleshooting>Troubleshooting<a class=headerlink href=#troubleshooting title="Permanent link">&para;</a></h2> <h3 id=common-issues>Common Issues<a class=headerlink href=#common-issues title="Permanent link">&para;</a></h3> <p><strong>"Failed to build wheel"</strong> (Python) - Ensure Rust is installed: <code>rustc --version</code> - Update Rust: <code>rustup update</code> - Install Python development headers (see prerequisites above)</p> <p><strong>Import errors after installation</strong> - Verify installation: <code>pip show brahe</code> - Check Python version: <code>python --version</code> (must be 3.10+) - Try reinstalling: <code>pip install --force-reinstall brahe</code></p> <p><strong>Cartopy installation fails</strong> - On Ubuntu/Debian: <code>sudo apt-get install libgeos-dev</code> - On macOS: <code>brew install geos</code> - See <a href=https://scitools.org.uk/cartopy/docs/latest/installing.html>Cartopy installation docs</a></p> <p><strong>Type hints not working in IDE</strong> - Ensure type stubs are installed: <code>ls $(python -c "import brahe; print(brahe.__path__[0])")/_brahe.pyi</code> - If missing, regenerate: <code>./scripts/generate_stubs.sh</code> (from source installation)</p> <h3 id=getting-help>Getting Help<a class=headerlink href=#getting-help title="Permanent link">&para;</a></h3> <p>If you encounter issues:</p> <ol> <li>Check the <a href=https://github.com/duncaneddy/brahe/issues>GitHub Issues</a> for similar problems</li> <li>Review the <a href=https://duncaneddy.github.io/brahe/ >documentation</a></li> <li>Open a new issue with:</li> <li>Your operating system and version</li> <li>Python/Rust version</li> <li>Complete error message</li> <li>Steps to reproduce</li> </ol> <h2 id=platform-specific-notes>Platform-Specific Notes<a class=headerlink href=#platform-specific-notes title="Permanent link">&para;</a></h2> <h3 id=macos>macOS<a class=headerlink href=#macos title="Permanent link">&para;</a></h3> <p>On Apple Silicon (M1/M2/M3): - Brahe builds natively for ARM64 - Ensure you have the ARM64 version of Python</p> <h3 id=windows>Windows<a class=headerlink href=#windows title="Permanent link">&para;</a></h3> <ul> <li>Install <a href=https://visualstudio.microsoft.com/visual-cpp-build-tools/ >Microsoft C++ Build Tools</a></li> <li>Consider using WSL2 for a smoother development experience</li> </ul> <h3 id=linux>Linux<a class=headerlink href=#linux title="Permanent link">&para;</a></h3> <p>Most distributions work out-of-the-box. If you encounter issues: - Install build essentials: <code>sudo apt-get install build-essential</code> - Ensure GEOS library is installed for Cartopy</p> <aside class=md-source-file> <span class=md-source-file__fact> <span class=md-icon title="Last update"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 10, 2026 16:56:15 UTC">2026-06-10</span> </span> <span class=md-source-file__fact> <span class=md-icon title=Created> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg> </span> <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 14, 2025 15:45:39 UTC">2025-10-14</span> </span> </aside> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": ".", "features": ["navigation.instant", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.indexes", "navigation.tracking", "navigation.top3", "toc.follow", "content.tabs.link", "content.code.copy", "search.highlight", "search.suggest"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script> <script src=assets/javascripts/bundle.79ae519e.min.js></script> <script src=javascripts/katex.d81d3f.min.js></script> <script src=https://unpkg.com/katex@0/dist/katex.min.js></script> <script src=https://unpkg.com/katex@0/dist/contrib/auto-render.min.js></script> <script src=https://cdn.plot.ly/plotly-latest.min.js></script> <script src=javascripts/iframe-autosize.js></script> <script src=https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js></script> <script src=javascripts/tablesort.ae6fa2.min.js></script> </body> </html>

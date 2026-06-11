@@ -60,7 +60,7 @@ uuid = { version = "1.20.0", features = ["v4", "v7", "serde"] }
 rayon = "1.11"
 num_cpus = "1.17"
 dirs = "6.0.0"
-polars = { version = "0.53", default-features = false, features = ["lazy"] }
+polars = { version = "0.54", default-features = false, features = ["lazy"] }
 # default-features disabled to drop anise's `analysis` feature, which pulls in
 # `hyperdual`. hyperdual pins an exact nalgebra version, so enabling it forces
 # brahe's nalgebra to match anise's (and broke the build when hyperdual 1.5.0

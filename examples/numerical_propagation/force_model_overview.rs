@@ -13,6 +13,7 @@ fn main() {
             source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
             degree: 20,
             order: 20,
+            parallel: bh::orbit_dynamics::ParallelMode::Auto,
         },
         // Atmospheric drag: Harris-Priester model with parameter indices
         drag: Some(bh::DragConfiguration {

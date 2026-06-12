@@ -894,6 +894,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyAtmosphericModel>()?;
     module.add_class::<PyEclipseModel>()?;
     module.add_class::<PyZonalHarmonicsDegree>()?;
+    module.add_class::<PyParallelMode>()?;
     module.add_class::<PyFrameTransformationModel>()?;
     module.add_class::<PyNumericalPropagationConfig>()?;
     module.add_class::<PyVariationalConfig>()?;

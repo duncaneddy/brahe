@@ -49,7 +49,6 @@ from brahe import (
     math,
     integrators,
     utils,
-    plots,
     logging,
     orbit_dynamics,
     events,
@@ -74,7 +73,6 @@ from brahe.relative_motion import *
 from brahe.math import *
 from brahe.integrators import *
 from brahe.utils import *
-from brahe.plots import *
 from brahe.datasets import *
 from brahe.orbit_dynamics import *
 from brahe.events import *
@@ -100,7 +98,7 @@ __all__ = [
     "math",
     "integrators",
     "utils",
-    "plots",
+    "plots",  # noqa: F405
     "logging",
     "orbit_dynamics",
     "events",
@@ -128,7 +126,6 @@ __all__.extend(relative_motion.__all__)
 __all__.extend(math.__all__)
 __all__.extend(integrators.__all__)
 __all__.extend(utils.__all__)
-__all__.extend(plots.__all__)
 __all__.extend(datasets.__all__)
 __all__.extend(orbit_dynamics.__all__)
 __all__.extend(events.__all__)
@@ -137,3 +134,36 @@ __all__.extend(estimation.__all__)
 
 # Import version from native module (set from Cargo.toml at build time)
 __version__ = _brahe.__version__
+
+
+def __getattr__(name):
+    """Lazily resolve the optional ``plots`` subpackage and its exports.
+
+    Keeping this lazy means ``import brahe`` never imports the visualization
+    dependency stack. The documented ``bh.plot_groundtrack(...)`` /
+    ``from brahe import plot_groundtrack`` patterns resolve here on first access;
+    a missing ``brahe[plots]`` extra surfaces as a clear ImportError from
+    ``brahe.plots``. Unknown names raise AttributeError as usual.
+    """
+    import importlib
+
+    plots = importlib.import_module("brahe.plots")
+    if name == "plots":
+        return plots
+    if name in plots.__all__:
+        return getattr(plots, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    """Include the lazily-forwarded plot symbols in ``dir(brahe)`` for discoverability.
+
+    Plot names are deliberately kept out of ``__all__`` (so ``from brahe import *``
+    stays free of the visualization stack), but listing them here keeps interactive
+    autocomplete and ``dir()`` working when ``brahe[plots]`` is installed. Importing
+    ``brahe.plots`` is cheap — it imports no third-party libraries.
+    """
+    import importlib
+
+    plots = importlib.import_module("brahe.plots")
+    return sorted(set(list(globals().keys()) + __all__ + list(plots.__all__)))

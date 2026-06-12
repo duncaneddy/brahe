@@ -12,16 +12,22 @@ The simplest way to install Brahe is using pip from PyPI:
 pip install brahe
 ```
 
-This will install the latest stable release of Brahe and all required dependencies.
+This installs the core Brahe library — astrodynamics, propagation, coordinate
+transforms, datasets, and the CLI — with a minimal dependency set.
 
-#### Optional Dependencies
+#### Optional Plotting Dependencies
 
-Brahe includes optional dependencies for enhanced plotting capabilities:
+Brahe's visualization functions (`plot_groundtrack`, `plot_trajectory_3d`, etc.)
+require an optional dependency stack (matplotlib, cartopy, plotly, and friends).
+Install it with the `plots` extra:
 
 ```bash
-# Install with scienceplots for publication-quality plots
-pip install brahe[plots]
+# Install with the full visualization stack
+pip install "brahe[plots]"
 ```
+
+Without the `plots` extra, `import brahe` and all core functionality work normally;
+calling a plotting function raises an error explaining how to install the extra.
 
 ### Using uv (Fast Alternative)
 

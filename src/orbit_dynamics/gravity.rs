@@ -12,9 +12,12 @@ use nalgebra::{DMatrix, Vector3};
 use crate::math::{SMatrix3, traits::IntoPosition};
 use once_cell::sync::Lazy;
 
+use rayon::prelude::*;
+
 use crate::constants::{GM_EARTH, J2_EARTH, J3_EARTH, J4_EARTH, J5_EARTH, J6_EARTH, R_EARTH};
 use crate::math::kronecker_delta;
 use crate::utils::BraheError;
+use crate::utils::threading::get_thread_pool;
 
 /// Packaged EGM2008_360 Data File
 static PACKAGED_EGM2008_360: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_360.gfc");
@@ -373,6 +376,62 @@ pub enum GravityModelNormalization {
     /// Unnormalized spherical harmonics. Used in older models and some theoretical
     /// applications. Coefficients decrease rapidly with increasing degree/order.
     Unnormalized,
+}
+
+/// Execution policy for the spherical-harmonic acceleration computation.
+///
+/// Controls whether [`GravityModel::compute_spherical_harmonics_with_workspace`]
+/// and its callers parallelize the recurrence column-fill and the acceleration
+/// accumulation across Brahe's managed thread pool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
+pub enum ParallelMode {
+    /// Parallelize only when `n_max >= PARALLEL_THRESHOLD_NMAX`. Below that, the
+    /// rayon dispatch overhead outweighs the gain, so the serial path is used.
+    #[default]
+    Auto,
+    /// Always parallelize (via the configured global thread pool).
+    Always,
+    /// Always run serially.
+    Never,
+}
+
+/// Benchmark-calibrated crossover degree. At or above this `n_max`, parallel
+/// evaluation beats serial on a typical multi-core host. Machine-approximate;
+/// see `benchmarks/gravity_benchmarks.rs`.
+///
+/// Measured on a 10-core Apple M1 Max. Serial vs parallel median times:
+///
+/// | n_max | serial    | parallel  |
+/// |-------|-----------|-----------|
+/// |     2 |   107 ns  |  30.1 µs  |
+/// |    20 |  2.49 µs  |  36.4 µs  |
+/// |    50 |  15.1 µs  |  53.1 µs  |
+/// |    90 |  53.0 µs  |  90.8 µs  |
+/// |   120 |  89.8 µs  |   128 µs  |
+/// |   180 |   193 µs  |   155 µs  |
+/// |   360 |   788 µs  |   291 µs  |
+///
+/// Parallel first wins at n=180 (1.25×). Set to 150 as a clean round value
+/// just below the first winning tested point, ensuring parallel is reliably
+/// faster when engaged. This value is machine-approximate.
+pub(crate) const PARALLEL_THRESHOLD_NMAX: usize = 150;
+
+/// Decide whether to run the spherical-harmonic computation in parallel.
+///
+/// `Auto` parallelizes only for large expansions (`n_max >= PARALLEL_THRESHOLD_NMAX`)
+/// AND only when not already executing on a rayon worker thread. The latter check
+/// prevents nested parallelism: batch propagation (`par_propagate_to_*`) already
+/// saturates the managed thread pool with one propagation per worker, so an inner
+/// `install` per gravity eval would only add split/reduce overhead. `Always` still
+/// forces parallelism (an explicit opt-in escape hatch); `Never` always serial.
+pub(crate) fn should_parallelize(mode: ParallelMode, n_max: usize) -> bool {
+    match mode {
+        ParallelMode::Always => true,
+        ParallelMode::Never => false,
+        ParallelMode::Auto => {
+            n_max >= PARALLEL_THRESHOLD_NMAX && rayon::current_thread_index().is_none()
+        }
+    }
 }
 
 /// Type of spherical harmonic gravity model
@@ -963,6 +1022,7 @@ impl GravityModel {
         r_body: Vector3<f64>,
         n_max: usize,
         m_max: usize,
+        parallel: ParallelMode,
     ) -> Result<Vector3<f64>, BraheError> {
         let mut v_workspace = DMatrix::<f64>::zeros(n_max + 2, n_max + 2);
         let mut w_workspace = DMatrix::<f64>::zeros(n_max + 2, n_max + 2);
@@ -970,6 +1030,7 @@ impl GravityModel {
             r_body,
             n_max,
             m_max,
+            parallel,
             &mut v_workspace,
             &mut w_workspace,
         )
@@ -1002,6 +1063,7 @@ impl GravityModel {
         r_body: Vector3<f64>,
         n_max: usize,
         m_max: usize,
+        parallel: ParallelMode,
         v_workspace: &mut DMatrix<f64>,
         w_workspace: &mut DMatrix<f64>,
     ) -> Result<Vector3<f64>, BraheError> {
@@ -1040,72 +1102,135 @@ impl GravityModel {
         let V = v_workspace;
         let W = w_workspace;
 
-        // Calculate zonal terms V(n,0); set W(n,0)=0.0
+        let run_parallel = should_parallelize(parallel, n_max);
+
+        // ---- Phase 1: V/W recurrence ----
+        // Zonal column m = 0 (independent, sequential either way).
         V[(0, 0)] = self.radius / r_sqr.sqrt();
         W[(0, 0)] = 0.0;
-
         V[(1, 0)] = z0 * V[(0, 0)];
         W[(1, 0)] = 0.0;
-
         for n in 2..(n_max + 2) {
             let nf = n as f64;
             V[(n, 0)] =
                 ((2.0 * nf - 1.0) * z0 * V[(n - 1, 0)] - (nf - 1.0) * rho * V[(n - 2, 0)]) / nf;
-            W[(n, 0)] = 0.0
+            W[(n, 0)] = 0.0;
         }
 
-        // Calculate tesseral and sectorial terms
-        for m in 1..m_max + 2 {
-            let mf = m as f64;
-            // Calculate V(m,m) .. V(n_max+1,m)
-            V[(m, m)] = (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
-            W[(m, m)] = (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
-
-            if m <= n_max {
-                V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
-                W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
+        if run_parallel {
+            // Sequential diagonal chain (the only cross-column dependency) plus
+            // the first sub-diagonal seed for each column.
+            for m in 1..m_max + 2 {
+                let mf = m as f64;
+                V[(m, m)] =
+                    (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
+                W[(m, m)] =
+                    (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
+                if m <= n_max {
+                    V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
+                    W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
+                }
             }
 
-            for n in m + 2..n_max + 2 {
-                let nf = n as f64;
-                V[(n, m)] = ((2.0 * nf - 1.0) * z0 * V[(n - 1, m)]
-                    - (nf + mf - 1.0) * rho * V[(n - 2, m)])
-                    / (nf - mf);
-
-                W[(n, m)] = ((2.0 * nf - 1.0) * z0 * W[(n - 1, m)]
-                    - (nf + mf - 1.0) * rho * W[(n - 2, m)])
-                    / (nf - mf);
-            }
-        }
-
-        // Calculate accelerations ax,ay,az
-        let mut ax = 0.0;
-        let mut ay = 0.0;
-        let mut az = 0.0;
-
-        for m in 0..m_max + 1 {
-            let mf = m as f64;
-            for n in m..n_max + 1 {
-                let nf = n as f64;
-                // Consider only zonal harmonics, ignore longitude coeff S
-                if m == 0 {
-                    let C = self.coeff_c[(n, 0)];
-                    ax -= C * V[(n + 1, 1)];
-                    ay -= C * W[(n + 1, 1)];
-                    az -= (nf + 1.0) * C * V[(n + 1, 0)];
-                } else {
-                    // sectoral / tesseral, use coeff S
-                    let C = self.coeff_c[(n, m)];
-                    let S = self.coeff_s[(n, m)];
-                    let Fac = self.fac[(n, m)];
-                    ax += 0.5 * (-C * V[(n + 1, m + 1)] - S * W[(n + 1, m + 1)])
-                        + Fac * (C * V[(n + 1, m - 1)] + S * W[(n + 1, m - 1)]);
-                    ay += 0.5 * (-C * W[(n + 1, m + 1)] + S * V[(n + 1, m + 1)])
-                        + Fac * (-C * W[(n + 1, m - 1)] + S * V[(n + 1, m - 1)]);
-                    az += (nf - mf + 1.0) * (-C * V[(n + 1, m)] - S * W[(n + 1, m)]);
+            // Parallel column fill. DMatrix is column-major, so each column is a
+            // contiguous slice of length `stride`. The first `m_max + 2` columns
+            // occupy the first `(m_max + 2) * stride` contiguous elements; slice
+            // to exactly those so `par_chunks_mut` yields one chunk per column.
+            // (rayon's parallel iterator has no `take`, so bound via the slice.)
+            let stride = V.nrows();
+            let ncols_used = m_max + 2;
+            let v_slice = &mut V.as_mut_slice()[..ncols_used * stride];
+            let w_slice = &mut W.as_mut_slice()[..ncols_used * stride];
+            get_thread_pool().install(|| {
+                v_slice
+                    .par_chunks_mut(stride)
+                    .zip(w_slice.par_chunks_mut(stride))
+                    .enumerate()
+                    .for_each(|(m, (v_col, w_col))| {
+                        if m == 0 {
+                            return; // zonal column already filled
+                        }
+                        let mf = m as f64;
+                        for n in m + 2..n_max + 2 {
+                            let nf = n as f64;
+                            v_col[n] = ((2.0 * nf - 1.0) * z0 * v_col[n - 1]
+                                - (nf + mf - 1.0) * rho * v_col[n - 2])
+                                / (nf - mf);
+                            w_col[n] = ((2.0 * nf - 1.0) * z0 * w_col[n - 1]
+                                - (nf + mf - 1.0) * rho * w_col[n - 2])
+                                / (nf - mf);
+                        }
+                    });
+            });
+        } else {
+            for m in 1..m_max + 2 {
+                let mf = m as f64;
+                V[(m, m)] =
+                    (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
+                W[(m, m)] =
+                    (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
+                if m <= n_max {
+                    V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
+                    W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
+                }
+                for n in m + 2..n_max + 2 {
+                    let nf = n as f64;
+                    V[(n, m)] = ((2.0 * nf - 1.0) * z0 * V[(n - 1, m)]
+                        - (nf + mf - 1.0) * rho * V[(n - 2, m)])
+                        / (nf - mf);
+                    W[(n, m)] = ((2.0 * nf - 1.0) * z0 * W[(n - 1, m)]
+                        - (nf + mf - 1.0) * rho * W[(n - 2, m)])
+                        / (nf - mf);
                 }
             }
         }
+
+        // ---- Phase 2: acceleration accumulation ----
+        // Reborrow the workspaces immutably so the accumulation closure is
+        // `Sync` (a closure capturing `&mut DMatrix` is not, and rayon's
+        // `par_iter` requires `Sync`). The Phase 1 mutable borrows have ended.
+        let v_ref: &DMatrix<f64> = V;
+        let w_ref: &DMatrix<f64> = W;
+        let accumulate_m = |m: usize| -> (f64, f64, f64) {
+            let mf = m as f64;
+            let (mut ax, mut ay, mut az) = (0.0, 0.0, 0.0);
+            for n in m..n_max + 1 {
+                let nf = n as f64;
+                if m == 0 {
+                    let c = self.coeff_c[(n, 0)];
+                    ax -= c * v_ref[(n + 1, 1)];
+                    ay -= c * w_ref[(n + 1, 1)];
+                    az -= (nf + 1.0) * c * v_ref[(n + 1, 0)];
+                } else {
+                    let c = self.coeff_c[(n, m)];
+                    let s = self.coeff_s[(n, m)];
+                    let fac = self.fac[(n, m)];
+                    ax += 0.5 * (-c * v_ref[(n + 1, m + 1)] - s * w_ref[(n + 1, m + 1)])
+                        + fac * (c * v_ref[(n + 1, m - 1)] + s * w_ref[(n + 1, m - 1)]);
+                    ay += 0.5 * (-c * w_ref[(n + 1, m + 1)] + s * v_ref[(n + 1, m + 1)])
+                        + fac * (-c * w_ref[(n + 1, m - 1)] + s * v_ref[(n + 1, m - 1)]);
+                    az += (nf - mf + 1.0) * (-c * v_ref[(n + 1, m)] - s * w_ref[(n + 1, m)]);
+                }
+            }
+            (ax, ay, az)
+        };
+
+        let (ax, ay, az) = if run_parallel {
+            get_thread_pool().install(|| {
+                (0..m_max + 1)
+                    .into_par_iter()
+                    .map(accumulate_m)
+                    .reduce(
+                        || (0.0, 0.0, 0.0),
+                        |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
+                    )
+            })
+        } else {
+            (0..m_max + 1).fold((0.0, 0.0, 0.0), |acc, m| {
+                let (ax, ay, az) = accumulate_m(m);
+                (acc.0 + ax, acc.1 + ay, acc.2 + az)
+            })
+        };
 
         // Body-fixed acceleration
         Ok((self.gm / (self.radius * self.radius)) * Vector3::new(ax, ay, az))
@@ -1157,7 +1282,7 @@ impl std::fmt::Debug for GravityModel {
 /// Using a position vector:
 /// ```
 /// use nalgebra::{Vector3, Vector6};
-/// use brahe::gravity::{GravityModel, GravityModelType};
+/// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
@@ -1179,13 +1304,13 @@ impl std::fmt::Debug for GravityModel {
 /// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
 ///
 /// // Compute the acceleration due to gravity
-/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(r_eci, R_i2b, &gravity_model, 20, 20);
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto);
 /// ```
 ///
 /// Using a state vector:
 /// ```
 /// use nalgebra::Vector6;
-/// use brahe::gravity::{GravityModel, GravityModelType};
+/// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
@@ -1206,7 +1331,7 @@ impl std::fmt::Debug for GravityModel {
 /// let x_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
 ///
 /// // Pass state vector directly - no need to extract position
-/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(x_eci, R_i2b, &gravity_model, 20, 20);
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics(x_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto);
 /// ```
 #[allow(non_snake_case)]
 pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
@@ -1215,6 +1340,7 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
     gravity_model: &GravityModel,
     n_max: usize,
     m_max: usize,
+    parallel: ParallelMode,
 ) -> Vector3<f64> {
     // Extract position and compute body-fixed position
     let r = r_eci.position();
@@ -1222,7 +1348,7 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
 
     // Compute spherical harmonic acceleration
     let a_ecef = gravity_model
-        .compute_spherical_harmonics(r_bf, n_max, m_max)
+        .compute_spherical_harmonics(r_bf, n_max, m_max, parallel)
         .unwrap();
 
     // Inertial acceleration
@@ -1240,12 +1366,16 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
 /// pair of `DMatrix<f64>` once at construction and reuse them across every
 /// integrator stage.
 #[allow(non_snake_case)]
+// Workspace-reuse variant: the V/W buffers plus model/degree/order/mode are all
+// load-bearing, so the 8-arg count is intentional.
+#[allow(clippy::too_many_arguments)]
 pub fn accel_gravity_spherical_harmonics_with_workspace<P: IntoPosition>(
     r_eci: P,
     R_i2b: SMatrix3,
     gravity_model: &GravityModel,
     n_max: usize,
     m_max: usize,
+    parallel: ParallelMode,
     v_workspace: &mut DMatrix<f64>,
     w_workspace: &mut DMatrix<f64>,
 ) -> Vector3<f64> {
@@ -1253,7 +1383,7 @@ pub fn accel_gravity_spherical_harmonics_with_workspace<P: IntoPosition>(
     let r_bf = R_i2b * r;
 
     let a_ecef = gravity_model
-        .compute_spherical_harmonics_with_workspace(r_bf, n_max, m_max, v_workspace, w_workspace)
+        .compute_spherical_harmonics_with_workspace(r_bf, n_max, m_max, parallel, v_workspace, w_workspace)
         .unwrap();
 
     R_i2b.transpose() * a_ecef
@@ -1610,7 +1740,7 @@ mod tests {
 
         // Simple test confirming point-mass equivalence
         let a_grav = gravity_model
-            .compute_spherical_harmonics(r_body, 0, 0)
+            .compute_spherical_harmonics(r_body, 0, 0, ParallelMode::Auto)
             .unwrap();
         assert_abs_diff_eq!(a_grav[0], -GM_EARTH / R_EARTH.powi(2), epsilon = 1e-12);
         assert_abs_diff_eq!(a_grav[1], 0.0, epsilon = 1e-12);
@@ -1618,7 +1748,7 @@ mod tests {
 
         // Test a more complex case
         let a_grav = gravity_model
-            .compute_spherical_harmonics(r_body, 60, 60)
+            .compute_spherical_harmonics(r_body, 60, 60, ParallelMode::Auto)
             .unwrap();
         assert_abs_diff_eq!(a_grav[0], -9.81433239, epsilon = 1e-8);
         assert_abs_diff_eq!(a_grav[1], 1.813976e-6, epsilon = 1e-12);
@@ -1649,6 +1779,7 @@ mod tests {
                     source: GravityModelSource::default(),
                     degree: (&degree).into(),
                     order: 0,
+                    parallel: crate::orbit_dynamics::ParallelMode::Auto,
                 },
                 drag: None,
                 srp: None,
@@ -1750,6 +1881,7 @@ mod tests {
             source: GravityModelSource::default(),
             degree: (&degree).into(),
             order: 0,
+            parallel: crate::orbit_dynamics::ParallelMode::Auto,
         });
         let mut prop_zonal = make_prop(GravityConfiguration::EarthZonal { degree });
 
@@ -1802,7 +1934,7 @@ mod tests {
         let gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
 
-        let a_grav = accel_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m);
+        let a_grav = accel_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m, ParallelMode::Auto);
 
         // This could potentially be validated to a higher degree of accuracy, but currently the
         // parameters provided by the Satellite Orbits book are only accurate to seven decimal
@@ -1961,10 +2093,10 @@ mod tests {
 
         // Compute spherical harmonics up to 20x20 on both
         let a_truncated = truncated_model
-            .compute_spherical_harmonics(r_body, 20, 20)
+            .compute_spherical_harmonics(r_body, 20, 20, ParallelMode::Auto)
             .unwrap();
         let a_full = full_model
-            .compute_spherical_harmonics(r_body, 20, 20)
+            .compute_spherical_harmonics(r_body, 20, 20, ParallelMode::Auto)
             .unwrap();
 
         // Results should be identical
@@ -2097,6 +2229,7 @@ mod tests {
                 source: GravityModelSource::ModelType(icgem_model),
                 degree: 20,
                 order: 20,
+                parallel: crate::orbit_dynamics::ParallelMode::Auto,
             },
             drag: None,
             srp: None,
@@ -2144,5 +2277,53 @@ mod tests {
         assert!(drift > 100e3, "state barely moved: drift = {} m", drift);
 
         unsafe { std::env::remove_var("BRAHE_CACHE"); }
+    }
+
+    #[test]
+    fn test_should_parallelize_modes() {
+        // Always / Never ignore n_max
+        assert!(should_parallelize(ParallelMode::Always, 0));
+        assert!(should_parallelize(ParallelMode::Always, 1000));
+        assert!(!should_parallelize(ParallelMode::Never, 0));
+        assert!(!should_parallelize(ParallelMode::Never, 1000));
+
+        // Runs on the main thread (off-pool), so Auto's nested-parallelism guard
+        // is satisfied and Auto reduces to the degree-threshold check.
+        assert!(!should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX - 1));
+        assert!(should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX));
+        assert!(should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX + 1));
+    }
+
+    #[test]
+    fn test_parallel_mode_default_is_auto() {
+        assert_eq!(ParallelMode::default(), ParallelMode::Auto);
+    }
+
+    #[test]
+    fn test_parallel_matches_serial_spherical_harmonics() {
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+
+        // Off-axis and on-axis (x0=y0=0 zeroes the sectoral/tesseral seeds).
+        let positions = [
+            Vector3::new(6.5e6, 1.2e6, 3.1e6),
+            Vector3::new(0.0, 0.0, 7.0e6),
+        ];
+
+        for r_body in positions {
+            // Cover below-threshold and above-threshold sizes, square and m<n.
+            for &(n, m) in &[(10usize, 10usize), (60, 60), (90, 45), (120, 120)] {
+                let serial = model
+                    .compute_spherical_harmonics(r_body, n, m, ParallelMode::Never)
+                    .unwrap();
+                let parallel = model
+                    .compute_spherical_harmonics(r_body, n, m, ParallelMode::Always)
+                    .unwrap();
+                let rel = (serial - parallel).norm() / serial.norm();
+                assert!(
+                    rel < 1e-12,
+                    "r={r_body:?} n={n} m={m}: parallel/serial mismatch rel={rel:e}"
+                );
+            }
+        }
     }
 }

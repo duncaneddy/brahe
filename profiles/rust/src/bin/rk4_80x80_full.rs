@@ -37,6 +37,7 @@ fn main() {
             source: GravityModelSource::default(),
             degree: 80,
             order: 80,
+            parallel: brahe::orbit_dynamics::ParallelMode::Auto,
         },
         drag: Some(DragConfiguration {
             model: AtmosphericModel::NRLMSISE00,

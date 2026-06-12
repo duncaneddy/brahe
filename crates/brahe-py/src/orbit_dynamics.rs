@@ -1611,7 +1611,7 @@ impl PyGravityModel {
         m_max: usize,
     ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
         let r = numpy_to_vector3!(r_body);
-        let a = self.model.compute_spherical_harmonics(r, n_max, m_max)
+        let a = self.model.compute_spherical_harmonics(r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
             .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to compute spherical harmonics: {}", e)))?;
         Ok(vector_to_numpy!(py, a, 3, f64))
     }
@@ -1719,10 +1719,10 @@ fn py_accel_gravity_spherical_harmonics<'py>(
     let rot = numpy_to_smatrix3!(R_i2b);
     let a = if len == 3 {
         let r = numpy_to_vector3!(r_eci);
-        orbit_dynamics::accel_gravity_spherical_harmonics(r, rot, &gravity_model.model, n_max, m_max)
+        orbit_dynamics::accel_gravity_spherical_harmonics(r, rot, &gravity_model.model, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
     } else if len == 6 {
         let x = numpy_to_vector6!(r_eci);
-        orbit_dynamics::accel_gravity_spherical_harmonics(x, rot, &gravity_model.model, n_max, m_max)
+        orbit_dynamics::accel_gravity_spherical_harmonics(x, rot, &gravity_model.model, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "r_eci must be length 3 (position) or 6 (state)"

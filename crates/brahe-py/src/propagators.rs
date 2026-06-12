@@ -3268,6 +3268,56 @@ impl PyParameterSource {
 }
 
 // =============================================================================
+// Parallel Mode
+// =============================================================================
+
+/// Parallelization mode for spherical harmonic gravity evaluation.
+///
+/// Controls whether the spherical-harmonic computation runs in parallel
+/// (via Brahe's managed Rayon thread pool) or serially.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     mode = bh.ParallelMode.Auto
+///     mode = bh.ParallelMode.Always
+///     mode = bh.ParallelMode.Never
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "ParallelMode")]
+#[derive(Clone)]
+pub struct PyParallelMode {
+    pub mode: brahe::orbit_dynamics::ParallelMode,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyParallelMode {
+    /// Parallelize only when the expansion degree meets the auto-threshold (default).
+    #[classattr]
+    fn Auto() -> Self {
+        PyParallelMode { mode: brahe::orbit_dynamics::ParallelMode::Auto }
+    }
+
+    /// Always parallelize via the global thread pool.
+    #[classattr]
+    fn Always() -> Self {
+        PyParallelMode { mode: brahe::orbit_dynamics::ParallelMode::Always }
+    }
+
+    /// Always run serially.
+    #[classattr]
+    fn Never() -> Self {
+        PyParallelMode { mode: brahe::orbit_dynamics::ParallelMode::Never }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ParallelMode.{:?}", self.mode)
+    }
+}
+
+// =============================================================================
 // Gravity Configuration
 // =============================================================================
 
@@ -3284,6 +3334,8 @@ impl PyParameterSource {
 ///         Defaults to EGM2008_360.
 ///     use_global (bool, optional): If True, use global gravity model.
 ///         Defaults to False.
+///     parallel (ParallelMode, optional): Parallelization mode for the
+///         spherical-harmonic acceleration computation. Defaults to Auto.
 ///
 /// Example:
 ///     ```python
@@ -3325,6 +3377,8 @@ impl PyGravityConfiguration {
     ///         Defaults to EGM2008_360.
     ///     use_global (bool, optional): If True, use global gravity model.
     ///         Defaults to False.
+    ///     parallel (ParallelMode, optional): Parallelization mode for the
+    ///         spherical-harmonic acceleration computation. Defaults to Auto.
     ///
     /// Returns:
     ///     GravityConfiguration: Gravity configuration (point mass or spherical harmonic).
@@ -3345,8 +3399,8 @@ impl PyGravityConfiguration {
     ///     )
     ///     ```
     #[new]
-    #[pyo3(signature = (degree=None, order=None, model_type=None, use_global=false))]
-    fn new(degree: Option<usize>, order: Option<usize>, model_type: Option<&PyGravityModelType>, use_global: bool) -> Self {
+    #[pyo3(signature = (degree=None, order=None, model_type=None, use_global=false, parallel=None))]
+    fn new(degree: Option<usize>, order: Option<usize>, model_type: Option<&PyGravityModelType>, use_global: bool, parallel: Option<&PyParallelMode>) -> Self {
         match (degree, order) {
             (Some(d), Some(o)) => {
                 let source = if use_global {
@@ -3357,8 +3411,9 @@ impl PyGravityConfiguration {
                         .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
                     propagators::GravityModelSource::ModelType(model)
                 };
+                let parallel_mode = parallel.map(|p| p.mode).unwrap_or(brahe::orbit_dynamics::ParallelMode::Auto);
                 PyGravityConfiguration {
-                    config: propagators::GravityConfiguration::SphericalHarmonic { source, degree: d, order: o },
+                    config: propagators::GravityConfiguration::SphericalHarmonic { source, degree: d, order: o, parallel: parallel_mode },
                 }
             }
             _ => PyGravityConfiguration {
@@ -3387,6 +3442,8 @@ impl PyGravityConfiguration {
     ///         Defaults to EGM2008_360.
     ///     use_global (bool, optional): If True, use global gravity model.
     ///         Defaults to False.
+    ///     parallel (ParallelMode, optional): Parallelization mode for the
+    ///         spherical-harmonic acceleration computation. Defaults to Auto.
     ///
     /// Returns:
     ///     GravityConfiguration: Spherical harmonic gravity.
@@ -3404,8 +3461,8 @@ impl PyGravityConfiguration {
     ///     )
     ///     ```
     #[classmethod]
-    #[pyo3(signature = (degree, order, model_type=None, use_global=false))]
-    fn spherical_harmonic(_cls: &Bound<'_, PyType>, degree: usize, order: usize, model_type: Option<&PyGravityModelType>, use_global: bool) -> Self {
+    #[pyo3(signature = (degree, order, model_type=None, use_global=false, parallel=None))]
+    fn spherical_harmonic(_cls: &Bound<'_, PyType>, degree: usize, order: usize, model_type: Option<&PyGravityModelType>, use_global: bool, parallel: Option<&PyParallelMode>) -> Self {
         let source = if use_global {
             propagators::GravityModelSource::Global
         } else {
@@ -3414,8 +3471,9 @@ impl PyGravityConfiguration {
                 .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
             propagators::GravityModelSource::ModelType(model)
         };
+        let parallel_mode = parallel.map(|p| p.mode).unwrap_or(brahe::orbit_dynamics::ParallelMode::Auto);
         PyGravityConfiguration {
-            config: propagators::GravityConfiguration::SphericalHarmonic { source, degree, order },
+            config: propagators::GravityConfiguration::SphericalHarmonic { source, degree, order, parallel: parallel_mode },
         }
     }
 
@@ -3485,6 +3543,19 @@ impl PyGravityConfiguration {
         }
     }
 
+    /// Get the parallel mode (for spherical harmonic).
+    ///
+    /// Returns:
+    ///     ParallelMode or None: Parallel mode if spherical harmonic, None otherwise.
+    fn get_parallel(&self) -> Option<PyParallelMode> {
+        match &self.config {
+            propagators::GravityConfiguration::SphericalHarmonic { parallel, .. } => {
+                Some(PyParallelMode { mode: *parallel })
+            }
+            _ => None,
+        }
+    }
+
     /// Get the zonal degree (for Earth zonal gravity).
     ///
     /// Returns:
@@ -3501,8 +3572,11 @@ impl PyGravityConfiguration {
     fn __repr__(&self) -> String {
         match &self.config {
             propagators::GravityConfiguration::PointMass => "GravityConfiguration.point_mass()".to_string(),
-            propagators::GravityConfiguration::SphericalHarmonic { degree, order, .. } => {
-                format!("GravityConfiguration.spherical_harmonic(degree={}, order={})", degree, order)
+            propagators::GravityConfiguration::SphericalHarmonic { degree, order, parallel, .. } => {
+                format!(
+                    "GravityConfiguration.spherical_harmonic(degree={}, order={}, parallel=ParallelMode.{:?})",
+                    degree, order, parallel
+                )
             }
             propagators::GravityConfiguration::EarthZonal { degree, .. } => {
                 format!("GravityConfiguration.earth_zonal(degree={})", degree)

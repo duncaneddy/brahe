@@ -370,6 +370,7 @@ fn force_config_from_params(p: &Rk4ForceParams) -> ForceModelConfig {
         source: GravityModelSource::default(),
         degree: p.gravity_degree,
         order: p.gravity_order,
+        parallel: brahe::orbit_dynamics::ParallelMode::Auto,
     };
 
     let mut bodies = Vec::new();

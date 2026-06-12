@@ -15,6 +15,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 use crate::orbit_dynamics::gravity::GravityModelType;
+use crate::orbit_dynamics::ParallelMode;
 use crate::spice::SPKKernel;
 use crate::utils::BraheError;
 
@@ -146,6 +147,7 @@ impl Default for ForceModelConfig {
                 source: GravityModelSource::default(),
                 degree: 20,
                 order: 20,
+                parallel: ParallelMode::Auto,
             },
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::NRLMSISE00,
@@ -352,6 +354,7 @@ impl ForceModelConfig {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 120,
                 order: 120,
+                parallel: ParallelMode::Auto,
             },
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::NRLMSISE00,
@@ -390,6 +393,7 @@ impl ForceModelConfig {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 20,
                 order: 20,
+                parallel: ParallelMode::Auto,
             },
             drag: None,
             srp: None,
@@ -424,6 +428,7 @@ impl ForceModelConfig {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 80,
                 order: 80,
+                parallel: ParallelMode::Auto,
             },
             drag: None,
             srp: None,
@@ -447,6 +452,7 @@ impl ForceModelConfig {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 30,
                 order: 30,
+                parallel: ParallelMode::Auto,
             },
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::NRLMSISE00,
@@ -478,6 +484,7 @@ impl ForceModelConfig {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 8,
                 order: 8,
+                parallel: ParallelMode::Auto,
             },
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -624,6 +631,9 @@ pub enum GravityConfiguration {
         degree: usize,
         /// Maximum order (m) of expansion
         order: usize,
+        /// Parallelization policy for the acceleration computation.
+        #[serde(default)]
+        parallel: ParallelMode,
     },
 
     /// Earth zonal harmonics (J_2..J_n) only.
@@ -1121,5 +1131,23 @@ mod tests {
         };
 
         assert!(!config.requires_params());
+    }
+
+    #[test]
+    fn test_spherical_harmonic_parallel_serde_default() {
+        // A JSON config missing `parallel` deserializes to Auto.
+        let json = r#"{"SphericalHarmonic":{"source":{"ModelType":"JGM3"},"degree":20,"order":20}}"#;
+        let cfg: GravityConfiguration = serde_json::from_str(json).unwrap();
+        match &cfg {
+            GravityConfiguration::SphericalHarmonic { parallel, .. } => {
+                assert_eq!(*parallel, ParallelMode::Auto);
+            }
+            _ => panic!("expected SphericalHarmonic"),
+        }
+        // Field round-trips when present (guards against a ParallelMode rename
+        // silently breaking serialization).
+        let roundtrip: GravityConfiguration =
+            serde_json::from_str(&serde_json::to_string(&cfg).unwrap()).unwrap();
+        assert_eq!(roundtrip, cfg);
     }
 }

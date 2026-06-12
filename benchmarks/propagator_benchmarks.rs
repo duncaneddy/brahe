@@ -160,6 +160,7 @@ fn bench_spherical_harmonic_j6_equivalent_24hour(
             source: GravityModelSource::default(),
             degree: degree.into(),
             order: 0,
+            parallel: brahe::orbit_dynamics::ParallelMode::Auto,
         },
         drag: None,
         srp: None,

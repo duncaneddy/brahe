@@ -36,6 +36,7 @@ pub fn grav_5x5(input: &BenchmarkInput) -> Result<BenchmarkOutput, String> {
             source: GravityModelSource::default(),
             degree: p.gravity_degree,
             order: p.gravity_order,
+            parallel: brahe::orbit_dynamics::ParallelMode::Auto,
         },
         drag: None,
         srp: None,

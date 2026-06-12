@@ -14,6 +14,7 @@ fn main() {
         source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
         degree: 20,
         order: 20,
+        parallel: bh::orbit_dynamics::ParallelMode::Auto,
     };
 
     // GGM05S - GRACE mission model (180x180 max)
@@ -21,6 +22,7 @@ fn main() {
         source: bh::GravityModelSource::ModelType(GravityModelType::GGM05S),
         degree: 20,
         order: 20,
+        parallel: bh::orbit_dynamics::ParallelMode::Auto,
     };
 
     // JGM3 - Legacy model, fast computation (70x70 max)
@@ -28,6 +30,7 @@ fn main() {
         source: bh::GravityModelSource::ModelType(GravityModelType::JGM3),
         degree: 20,
         order: 20,
+        parallel: bh::orbit_dynamics::ParallelMode::Auto,
     };
 
     // ==========================================================================
@@ -42,6 +45,7 @@ fn main() {
         source: bh::GravityModelSource::ModelType(custom_model_type),
         degree: 20,
         order: 20,
+        parallel: bh::orbit_dynamics::ParallelMode::Auto,
     };
 }
 

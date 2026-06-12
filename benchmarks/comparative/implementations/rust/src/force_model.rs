@@ -1,7 +1,7 @@
 use brahe::frames::rotation_eci_to_ecef;
 use brahe::orbit_dynamics::{
     accel_gravity_spherical_harmonics, accel_point_mass_gravity, accel_third_body_moon_de,
-    accel_third_body_sun_de, GravityModel, GravityModelType,
+    accel_third_body_sun_de, GravityModel, GravityModelType, ParallelMode,
 };
 use brahe::propagators::EphemerisSource;
 use brahe::time::{Epoch, TimeSystem};
@@ -106,7 +106,7 @@ fn accel_spherical_harmonics_run(
 
     run_force_model(params, iterations, move |epc, r| {
         let rot = rotation_eci_to_ecef(epc);
-        accel_gravity_spherical_harmonics(r, rot, &gravity_model, degree, order)
+        accel_gravity_spherical_harmonics(r, rot, &gravity_model, degree, order, ParallelMode::Auto)
     })
 }
 

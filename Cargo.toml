@@ -5,7 +5,7 @@ members = ["crates/brahe-py"]
 # `version.workspace = true` so `brahe-py` (the Python extension) stays in sync
 # with the root `brahe` crate.
 [workspace.package]
-version = "1.6.0"
+version = "1.6.1"
 
 [package]
 name = "brahe"
@@ -41,49 +41,49 @@ exclude = [# We need to keep the size down for crates.io these don't need to be 
 name = "brahe"
 
 [dependencies]
-rsofa = "0.5.0"
-nalgebra = { version = ">=0.34.1, <0.36", features = ["serde-serialize"] }
-numpy = { version = "0.28.0", optional = true }
-once_cell = "1.21.3"
-num-traits = "0.2.19"
-regex = "1.12.3"
-is_close = "0.1.3"
-ureq = { version = "3.2.0", features = ["cookies", "multipart"] }
-strum = "0.28.0"
-strum_macros = "0.28.0"
+rsofa = "0.5"
+nalgebra = { version = ">=0.34, <0.36", features = ["serde-serialize"] }
+numpy = { version = "0.28", optional = true }
+once_cell = "1.21"
+num-traits = "0.2"
+regex = "1"
+is_close = "0.1"
+ureq = { version = "3", features = ["cookies", "multipart"] }
+strum = "0.28"
+strum_macros = "0.28"
 scraper = "0.27"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 quick-xml = { version = "0.40", features = ["serialize"] }
-sgp4 = "2.3.0"
+sgp4 = "2.4"
 uuid = { version = "1.20.0", features = ["v4", "v7", "serde"] }
 rayon = "1.11"
 num_cpus = "1.17"
-dirs = "6.0.0"
+dirs = "6"
 polars = { version = "0.54", default-features = false, features = ["lazy"] }
 # default-features disabled to drop anise's `analysis` feature, which pulls in
 # `hyperdual`. hyperdual pins an exact nalgebra version, so enabling it forces
 # brahe's nalgebra to match anise's (and broke the build when hyperdual 1.5.0
 # moved to nalgebra 0.35 while anise stayed on 0.34). brahe only uses anise's
 # core ephemeris APIs, which need no features.
-anise = { version = "0.10.0", default-features = false }
+anise = { version = "0.10", default-features = false }
 
 # pyo3 is an optional dependency used only by the `python` feature, which enables
 # the `python_interop` module holding the `BraheError` PyErr conversion. The
 # extension module itself is built from the `brahe-py` workspace crate.
 [dependencies.pyo3]
-version = "0.28.2"
+version = "0.28"
 optional = true
 
 [dev-dependencies]
-dhat = "0.3.3"
-approx = "0.5.1"
-rstest = "0.26.1"
-serial_test = "3.3.1"
-httpmock = "0.8.3"
-tempfile = "3.24.0"
-cargo-deny = "0.19.0"
-mockall = "0.14.0"
+dhat = "0.3"
+approx = "0.5"
+rstest = "0.26"
+serial_test = "3"
+httpmock = "0.8"
+tempfile = "3"
+cargo-deny = "0.19"
+mockall = "0.14"
 rv = "0.19"
 rand = "0.9"
 criterion = { version = "0.8", features = ["html_reports"] }
@@ -122,6 +122,11 @@ harness = false
 [[bench]]
 name = "propagator_benchmarks"
 path = "benchmarks/propagator_benchmarks.rs"
+harness = false
+
+[[bench]]
+name = "gravity_benchmarks"
+path = "benchmarks/gravity_benchmarks.rs"
 harness = false
 
 [lints.rust]

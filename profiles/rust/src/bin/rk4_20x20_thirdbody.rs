@@ -28,6 +28,7 @@ fn main() {
             source: GravityModelSource::default(),
             degree: 20,
             order: 20,
+            parallel: brahe::orbit_dynamics::ParallelMode::Auto,
         },
         drag: None,
         srp: None,

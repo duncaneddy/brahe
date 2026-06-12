@@ -399,22 +399,27 @@ pub enum ParallelMode {
 /// evaluation beats serial on a typical multi-core host. Machine-approximate;
 /// see `benchmarks/gravity_benchmarks.rs`.
 ///
-/// Measured on a 10-core Apple M1 Max. Serial vs parallel median times:
+/// Measured on a 10-core Apple M1 Max after the serial-path optimization
+/// (precomputed reciprocal recurrence coefficients + bounds-check-free column
+/// slices in the recurrence and accumulation). Serial vs parallel median times:
 ///
 /// | n_max | serial    | parallel  |
 /// |-------|-----------|-----------|
-/// |     2 |   107 ns  |  30.1 µs  |
-/// |    20 |  2.49 µs  |  36.4 µs  |
-/// |    50 |  15.1 µs  |  53.1 µs  |
-/// |    90 |  53.0 µs  |  90.8 µs  |
-/// |   120 |  89.8 µs  |   128 µs  |
-/// |   180 |   193 µs  |   155 µs  |
-/// |   360 |   788 µs  |   291 µs  |
+/// |     2 |   114 ns  |  27.6 µs  |
+/// |    20 |  1.51 µs  |  38.4 µs  |
+/// |    50 |  8.75 µs  |  55.3 µs  |
+/// |    90 |  32.6 µs  |   107 µs  |
+/// |   120 |  59.7 µs  |   127 µs  |
+/// |   180 |   121 µs  |   153 µs  |
+/// |   210 |   156 µs  |   154 µs  |
+/// |   240 |   212 µs  |   177 µs  |
+/// |   360 |   495 µs  |   310 µs  |
 ///
-/// Parallel first wins at n=180 (1.25×). Set to 150 as a clean round value
-/// just below the first winning tested point, ensuring parallel is reliably
-/// faster when engaged. This value is machine-approximate.
-pub(crate) const PARALLEL_THRESHOLD_NMAX: usize = 150;
+/// The serial path is now ~1.6× faster than before, which pushed the crossover
+/// out: parallel breaks even at n≈210 and wins reliably from n=240 (1.20×).
+/// Set to 210 — the break-even point — so parallel only engages where it is at
+/// least as fast as serial. This value is machine-approximate.
+pub(crate) const PARALLEL_THRESHOLD_NMAX: usize = 210;
 
 /// Decide whether to run the spherical-harmonic computation in parallel.
 ///
@@ -549,6 +554,19 @@ pub struct GravityModel {
     /// entries with `m >= 1` are populated and read. See `coeff_c` for
     /// invalidation rules.
     fac: DMatrix<f64>,
+    /// Precomputed V/W recurrence multiplier `(2n - 1) / (n - m)` indexed as
+    /// `rec_a[(n, m)]`. Hoists the integer→float casts and — critically — the
+    /// floating-point division out of the column-fill inner loop, which sits on
+    /// a serial dependency chain (`V[n]` needs `V[n-1]`, `V[n-2]`) where the
+    /// division latency cannot be hidden. The same coefficients serve the zonal
+    /// column (m = 0, where `(n+m-1) = n-1` and `(n-m) = n`) and the tesseral
+    /// columns. Sized `(n_max + 2) × (n_max + 2)` to cover the recurrence's
+    /// `n_max + 1` top row. Only entries with `n > m` are populated/read.
+    /// See `coeff_c` for invalidation rules.
+    rec_a: DMatrix<f64>,
+    /// Precomputed V/W recurrence multiplier `(n + m - 1) / (n - m)` indexed as
+    /// `rec_b[(n, m)]`. Companion to `rec_a`; see it for details.
+    rec_b: DMatrix<f64>,
 }
 
 impl GravityModel {
@@ -568,6 +586,8 @@ impl GravityModel {
             coeff_c: DMatrix::zeros(1, 1),
             coeff_s: DMatrix::zeros(1, 1),
             fac: DMatrix::zeros(1, 1),
+            rec_a: DMatrix::zeros(1, 1),
+            rec_b: DMatrix::zeros(1, 1),
         }
     }
 
@@ -621,9 +641,29 @@ impl GravityModel {
             }
         }
 
+        // V/W recurrence multipliers. These depend only on the integer indices
+        // (n, m), not on position or coefficients, so hoisting them here removes
+        // a float division and two int→float casts from every inner-loop cell.
+        // Size to (n_max + 2) so the recurrence's top row (index n_max + 1) is
+        // covered; only entries with n > m are ever read.
+        let rsize = self.n_max + 2;
+        let mut rec_a = DMatrix::zeros(rsize, rsize);
+        let mut rec_b = DMatrix::zeros(rsize, rsize);
+        for m in 0..rsize {
+            for n in (m + 1)..rsize {
+                let nf = n as f64;
+                let mf = m as f64;
+                let inv = 1.0 / (nf - mf);
+                rec_a[(n, m)] = (2.0 * nf - 1.0) * inv;
+                rec_b[(n, m)] = (nf + mf - 1.0) * inv;
+            }
+        }
+
         self.coeff_c = coeff_c;
         self.coeff_s = coeff_s;
         self.fac = fac;
+        self.rec_a = rec_a;
+        self.rec_b = rec_b;
     }
 
     fn from_bufreader<T: Read>(reader: BufReader<T>) -> Result<Self, BraheError> {
@@ -744,6 +784,8 @@ impl GravityModel {
             coeff_c: DMatrix::zeros(1, 1),
             coeff_s: DMatrix::zeros(1, 1),
             fac: DMatrix::zeros(1, 1),
+            rec_a: DMatrix::zeros(1, 1),
+            rec_b: DMatrix::zeros(1, 1),
         };
         model.precompute_coefficients();
         Ok(model)
@@ -1111,9 +1153,8 @@ impl GravityModel {
         V[(1, 0)] = z0 * V[(0, 0)];
         W[(1, 0)] = 0.0;
         for n in 2..(n_max + 2) {
-            let nf = n as f64;
-            V[(n, 0)] =
-                ((2.0 * nf - 1.0) * z0 * V[(n - 1, 0)] - (nf - 1.0) * rho * V[(n - 2, 0)]) / nf;
+            V[(n, 0)] = self.rec_a[(n, 0)] * z0 * V[(n - 1, 0)]
+                - self.rec_b[(n, 0)] * rho * V[(n - 2, 0)];
             W[(n, 0)] = 0.0;
         }
 
@@ -1141,6 +1182,8 @@ impl GravityModel {
             let ncols_used = m_max + 2;
             let v_slice = &mut V.as_mut_slice()[..ncols_used * stride];
             let w_slice = &mut W.as_mut_slice()[..ncols_used * stride];
+            let rec_a = &self.rec_a;
+            let rec_b = &self.rec_b;
             get_thread_pool().install(|| {
                 v_slice
                     .par_chunks_mut(stride)
@@ -1150,21 +1193,29 @@ impl GravityModel {
                         if m == 0 {
                             return; // zonal column already filled
                         }
-                        let mf = m as f64;
                         for n in m + 2..n_max + 2 {
-                            let nf = n as f64;
-                            v_col[n] = ((2.0 * nf - 1.0) * z0 * v_col[n - 1]
-                                - (nf + mf - 1.0) * rho * v_col[n - 2])
-                                / (nf - mf);
-                            w_col[n] = ((2.0 * nf - 1.0) * z0 * w_col[n - 1]
-                                - (nf + mf - 1.0) * rho * w_col[n - 2])
-                                / (nf - mf);
+                            let a = rec_a[(n, m)];
+                            let b = rec_b[(n, m)];
+                            v_col[n] = a * z0 * v_col[n - 1] - b * rho * v_col[n - 2];
+                            w_col[n] = a * z0 * w_col[n - 1] - b * rho * w_col[n - 2];
                         }
                     });
             });
         } else {
+            // Column strides differ: the V/W workspace may be oversized from a
+            // prior larger call, while rec_a/rec_b are sized to the model. Each
+            // column is sliced to exactly `col_len = n_max + 2` elements so the
+            // inner-loop index `n < n_max + 2` is provably in-bounds and LLVM
+            // elides the per-access bounds checks on the serial hot path.
+            let col_len = n_max + 2;
+            let v_stride = V.nrows();
+            let r_stride = self.rec_a.nrows();
+            let rec_a = self.rec_a.as_slice();
+            let rec_b = self.rec_b.as_slice();
             for m in 1..m_max + 2 {
                 let mf = m as f64;
+                // Diagonal + sub-diagonal seeds read column m-1 (cross-column),
+                // so they stay on the matrix API rather than the column slices.
                 V[(m, m)] =
                     (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
                 W[(m, m)] =
@@ -1173,14 +1224,17 @@ impl GravityModel {
                     V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
                     W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
                 }
+                let v_lo = m * v_stride;
+                let r_lo = m * r_stride;
+                let v_col = &mut V.as_mut_slice()[v_lo..v_lo + col_len];
+                let w_col = &mut W.as_mut_slice()[v_lo..v_lo + col_len];
+                let ra = &rec_a[r_lo..r_lo + col_len];
+                let rb = &rec_b[r_lo..r_lo + col_len];
                 for n in m + 2..n_max + 2 {
-                    let nf = n as f64;
-                    V[(n, m)] = ((2.0 * nf - 1.0) * z0 * V[(n - 1, m)]
-                        - (nf + mf - 1.0) * rho * V[(n - 2, m)])
-                        / (nf - mf);
-                    W[(n, m)] = ((2.0 * nf - 1.0) * z0 * W[(n - 1, m)]
-                        - (nf + mf - 1.0) * rho * W[(n - 2, m)])
-                        / (nf - mf);
+                    let a = ra[n];
+                    let b = rb[n];
+                    v_col[n] = a * z0 * v_col[n - 1] - b * rho * v_col[n - 2];
+                    w_col[n] = a * z0 * w_col[n - 1] - b * rho * w_col[n - 2];
                 }
             }
         }
@@ -1191,25 +1245,61 @@ impl GravityModel {
         // `par_iter` requires `Sync`). The Phase 1 mutable borrows have ended.
         let v_ref: &DMatrix<f64> = V;
         let w_ref: &DMatrix<f64> = W;
+        // Column-slice the V/W workspaces and coefficient matrices so the
+        // accumulation reads are bounds-check-free (same technique as the
+        // recurrence above). The accumulation touches columns m-1, m, m+1 at
+        // row n+1, and coefficient column m at row n. `vw_len = n_max + 2`
+        // bounds the V/W row index n+1; `cf_len = n_max + 1` bounds the
+        // coefficient row index n. Strides may differ between the (possibly
+        // oversized) workspaces and the model-sized coefficient matrices.
+        let v_stride = v_ref.nrows();
+        let c_stride = self.coeff_c.nrows();
+        let v_buf = v_ref.as_slice();
+        let w_buf = w_ref.as_slice();
+        let c_buf = self.coeff_c.as_slice();
+        let s_buf = self.coeff_s.as_slice();
+        let f_buf = self.fac.as_slice();
+        let vw_len = n_max + 2;
+        let cf_len = n_max + 1;
         let accumulate_m = |m: usize| -> (f64, f64, f64) {
             let mf = m as f64;
             let (mut ax, mut ay, mut az) = (0.0, 0.0, 0.0);
-            for n in m..n_max + 1 {
-                let nf = n as f64;
-                if m == 0 {
-                    let c = self.coeff_c[(n, 0)];
-                    ax -= c * v_ref[(n + 1, 1)];
-                    ay -= c * w_ref[(n + 1, 1)];
-                    az -= (nf + 1.0) * c * v_ref[(n + 1, 0)];
-                } else {
-                    let c = self.coeff_c[(n, m)];
-                    let s = self.coeff_s[(n, m)];
-                    let fac = self.fac[(n, m)];
-                    ax += 0.5 * (-c * v_ref[(n + 1, m + 1)] - s * w_ref[(n + 1, m + 1)])
-                        + fac * (c * v_ref[(n + 1, m - 1)] + s * w_ref[(n + 1, m - 1)]);
-                    ay += 0.5 * (-c * w_ref[(n + 1, m + 1)] + s * v_ref[(n + 1, m + 1)])
-                        + fac * (-c * w_ref[(n + 1, m - 1)] + s * v_ref[(n + 1, m - 1)]);
-                    az += (nf - mf + 1.0) * (-c * v_ref[(n + 1, m)] - s * w_ref[(n + 1, m)]);
+            if m == 0 {
+                let c_col = &c_buf[0..cf_len];
+                let v0 = &v_buf[0..vw_len];
+                let v1 = &v_buf[v_stride..v_stride + vw_len];
+                let w1 = &w_buf[v_stride..v_stride + vw_len];
+                for n in 0..n_max + 1 {
+                    let nf = n as f64;
+                    let c = c_col[n];
+                    ax -= c * v1[n + 1];
+                    ay -= c * w1[n + 1];
+                    az -= (nf + 1.0) * c * v0[n + 1];
+                }
+            } else {
+                let cbase = m * c_stride;
+                let c_col = &c_buf[cbase..cbase + cf_len];
+                let s_col = &s_buf[cbase..cbase + cf_len];
+                let f_col = &f_buf[cbase..cbase + cf_len];
+                // Columns m-1, m, m+1 are contiguous starting at (m-1)*stride.
+                let vbase = (m - 1) * v_stride;
+                let v_lo = &v_buf[vbase..vbase + vw_len];
+                let v_mid = &v_buf[vbase + v_stride..vbase + v_stride + vw_len];
+                let v_hi = &v_buf[vbase + 2 * v_stride..vbase + 2 * v_stride + vw_len];
+                let w_lo = &w_buf[vbase..vbase + vw_len];
+                let w_mid = &w_buf[vbase + v_stride..vbase + v_stride + vw_len];
+                let w_hi = &w_buf[vbase + 2 * v_stride..vbase + 2 * v_stride + vw_len];
+                for n in m..n_max + 1 {
+                    let nf = n as f64;
+                    let c = c_col[n];
+                    let s = s_col[n];
+                    let fac = f_col[n];
+                    let p = n + 1;
+                    ax += 0.5 * (-c * v_hi[p] - s * w_hi[p])
+                        + fac * (c * v_lo[p] + s * w_lo[p]);
+                    ay += 0.5 * (-c * w_hi[p] + s * v_hi[p])
+                        + fac * (-c * w_lo[p] + s * v_lo[p]);
+                    az += (nf - mf + 1.0) * (-c * v_mid[p] - s * w_mid[p]);
                 }
             }
             (ax, ay, az)
@@ -2324,6 +2414,91 @@ mod tests {
                     "r={r_body:?} n={n} m={m}: parallel/serial mismatch rel={rel:e}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn test_serial_spherical_harmonics_characterization() {
+        // Golden values captured from the reference (pre-optimization) serial
+        // implementation. This guards the optimized serial recurrence and
+        // accumulation against numerical regressions at the small degrees
+        // common to LEO propagation (5, 20, 80). The relative tolerance (1e-12)
+        // is loose enough to absorb the ~1e-15 FP-reordering introduced by
+        // replacing the inner-loop division with a precomputed reciprocal
+        // multiply, but far tighter than any real algorithmic bug would survive.
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+
+        // (position, n_max==m_max, [expected ax, ay, az])
+        let cases: [(Vector3<f64>, usize, [f64; 3]); 6] = [
+            (
+                Vector3::new(6.5e6, 1.2e6, 3.1e6),
+                5,
+                [
+                    -6.659_157_617_724_3,
+                    -1.229_429_462_451_389_3,
+                    -3.183_740_444_887_946_3,
+                ],
+            ),
+            (
+                Vector3::new(6.5e6, 1.2e6, 3.1e6),
+                20,
+                [
+                    -6.659_131_615_693_394,
+                    -1.229_413_486_834_888,
+                    -3.183_743_631_333_252,
+                ],
+            ),
+            (
+                Vector3::new(6.5e6, 1.2e6, 3.1e6),
+                80,
+                [
+                    -6.659_131_583_250_136_5,
+                    -1.229_414_674_519_354_8,
+                    -3.183_746_816_300_017_5,
+                ],
+            ),
+            (
+                Vector3::new(0.0, 0.0, 7.0e6),
+                5,
+                [
+                    4.832_073_418_678_780_7e-5,
+                    -2.144_848_603_164_800_2e-5,
+                    -8.112_882_851_092_754,
+                ],
+            ),
+            (
+                Vector3::new(0.0, 0.0, 7.0e6),
+                20,
+                [
+                    8.160_586_191_674_914e-5,
+                    -1.987_917_874_597_063e-5,
+                    -8.112_905_372_087_614,
+                ],
+            ),
+            (
+                Vector3::new(0.0, 0.0, 7.0e6),
+                80,
+                [
+                    8.241_307_452_961_249e-5,
+                    -1.812_120_022_312_316e-5,
+                    -8.112_900_111_910_852,
+                ],
+            ),
+        ];
+
+        for (r_body, n, expected) in cases {
+            let a = model
+                .compute_spherical_harmonics(r_body, n, n, ParallelMode::Never)
+                .unwrap();
+            let exp = Vector3::new(expected[0], expected[1], expected[2]);
+            let rel = (a - exp).norm() / a.norm();
+            assert!(
+                rel < 1e-12,
+                "n={n} r={r_body:?}: got [{:.17e}, {:.17e}, {:.17e}] rel={rel:e}",
+                a[0],
+                a[1],
+                a[2]
+            );
         }
     }
 }

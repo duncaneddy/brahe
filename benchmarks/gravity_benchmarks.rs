@@ -4,14 +4,14 @@ use std::hint::black_box;
 
 use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
 use criterion::Criterion;
-use nalgebra::Vector3;
+use nalgebra::{DMatrix, Vector3};
 
 fn bench_spherical_harmonics(c: &mut Criterion) {
     let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
     let r_body = Vector3::new(6.5e6_f64, 1.2e6_f64, 3.1e6_f64);
 
     let mut group = c.benchmark_group("spherical_harmonics");
-    for &n in &[2usize, 20, 50, 90, 120, 180, 360] {
+    for &n in &[2usize, 20, 50, 90, 120, 180, 240, 360] {
         group.bench_with_input(
             criterion::BenchmarkId::new("serial", n),
             &n,
@@ -38,8 +38,59 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
     group.finish();
 }
 
+/// Isolates the small-n serial path common to LEO propagation (n = 5, 20, 80).
+///
+/// Two variants per degree:
+/// - `alloc`: `compute_spherical_harmonics` — includes the two per-call
+///   `DMatrix::zeros((n+2)²)` allocations.
+/// - `workspace`: `compute_spherical_harmonics_with_workspace` reusing a
+///   pre-sized workspace — this is what the propagator hot path actually does,
+///   so it measures compute overhead with allocation amortized away.
+///
+/// Comparing the two tells us whether small-n cost is allocation-bound or
+/// compute-bound before we optimize the recurrence/accumulation loops.
+fn bench_small_n_serial(c: &mut Criterion) {
+    let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    let r_body = Vector3::new(6.5e6_f64, 1.2e6_f64, 3.1e6_f64);
+
+    let mut group = c.benchmark_group("spherical_harmonics_small_n");
+    for &n in &[5usize, 20, 80] {
+        group.bench_with_input(criterion::BenchmarkId::new("alloc", n), &n, |b, &n| {
+            b.iter(|| {
+                model
+                    .compute_spherical_harmonics(
+                        black_box(r_body),
+                        black_box(n),
+                        black_box(n),
+                        ParallelMode::Never,
+                    )
+                    .unwrap()
+            });
+        });
+
+        let mut v = DMatrix::<f64>::zeros(n + 2, n + 2);
+        let mut w = DMatrix::<f64>::zeros(n + 2, n + 2);
+        group.bench_with_input(criterion::BenchmarkId::new("workspace", n), &n, |b, &n| {
+            b.iter(|| {
+                model
+                    .compute_spherical_harmonics_with_workspace(
+                        black_box(r_body),
+                        black_box(n),
+                        black_box(n),
+                        ParallelMode::Never,
+                        &mut v,
+                        &mut w,
+                    )
+                    .unwrap()
+            });
+        });
+    }
+    group.finish();
+}
+
 fn main() {
     let mut c = criterion::Criterion::default().configure_from_args();
     bench_spherical_harmonics(&mut c);
+    bench_small_n_serial(&mut c);
     c.final_summary();
 }

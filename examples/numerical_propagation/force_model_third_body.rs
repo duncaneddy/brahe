@@ -55,6 +55,7 @@ fn main() {
             source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
             degree: 20,
             order: 20,
+            parallel: bh::orbit_dynamics::ParallelMode::Auto,
         },
         drag: None,
         srp: None,

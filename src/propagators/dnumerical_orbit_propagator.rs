@@ -727,6 +727,7 @@ impl DNumericalOrbitPropagator {
                 source: GravityModelSource::ModelType(model_type),
                 degree,
                 order,
+                ..
             } => {
                 let mut arc = GravityModel::shared(model_type)?;
                 if *degree < arc.n_max || *order < arc.m_max {
@@ -1599,6 +1600,7 @@ impl DNumericalOrbitPropagator {
                 source,
                 degree,
                 order,
+                parallel,
             } => {
                 // Use the per-propagator V/W workspace so the spherical-
                 // harmonic recurrence doesn't allocate two `DMatrix`es of
@@ -1615,6 +1617,7 @@ impl DNumericalOrbitPropagator {
                             &global_model,
                             *degree,
                             *order,
+                            *parallel,
                             sh_v,
                             sh_w,
                         );
@@ -1628,6 +1631,7 @@ impl DNumericalOrbitPropagator {
                                 model.as_ref(),
                                 *degree,
                                 *order,
+                                *parallel,
                                 sh_v,
                                 sh_w,
                             );
@@ -3039,6 +3043,7 @@ mod tests {
                 ),
                 degree,
                 order,
+                parallel: crate::orbit_dynamics::ParallelMode::Auto,
             },
             drag: None,
             srp: None,
@@ -8136,6 +8141,7 @@ mod tests {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 4,
                 order: 4,
+                parallel: crate::orbit_dynamics::ParallelMode::Auto,
             },
             drag: None,
             srp: None,
@@ -8191,6 +8197,7 @@ mod tests {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 2,
                 order: 0,
+                parallel: crate::orbit_dynamics::ParallelMode::Auto,
             },
             drag: None,
             srp: None,
@@ -8260,6 +8267,7 @@ mod tests {
                     source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                     degree,
                     order,
+                    parallel: crate::orbit_dynamics::ParallelMode::Auto,
                 },
                 drag: None,
                 srp: None,
@@ -8321,6 +8329,7 @@ mod tests {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 4,
                 order: 4,
+                parallel: crate::orbit_dynamics::ParallelMode::Auto,
             },
             drag: None,
             srp: None,
@@ -8348,6 +8357,7 @@ mod tests {
                 source: GravityModelSource::Global,
                 degree: 4,
                 order: 4,
+                parallel: crate::orbit_dynamics::ParallelMode::Auto,
             },
             drag: None,
             srp: None,
@@ -10153,6 +10163,7 @@ mod tests {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 2,
                 order: 0,
+                parallel: crate::orbit_dynamics::ParallelMode::Auto,
             },
             drag: None,
             srp: None,

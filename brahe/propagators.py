@@ -16,6 +16,7 @@ This module provides:
 - AtmosphericModel: Atmospheric density model selection
 - EclipseModel: Eclipse model for SRP calculations
 - ZonalHarmonicsDegree: Maximum zonal harmonic degree (J2..=J6)
+- ParallelMode: Parallelization mode for spherical harmonic gravity (Auto, Always, Never)
 - FrameTransformationModel: ECI-to-body-fixed rotation precision selector
 - NumericalPropagationConfig: Configuration for numerical integration
 - VariationalConfig: STM/sensitivity configuration
@@ -46,6 +47,7 @@ from brahe._brahe import (
     AtmosphericModel,
     EclipseModel,
     ZonalHarmonicsDegree,
+    ParallelMode,
     FrameTransformationModel,
     NumericalPropagationConfig,
     VariationalConfig,
@@ -72,6 +74,7 @@ __all__ = [
     "AtmosphericModel",
     "EclipseModel",
     "ZonalHarmonicsDegree",
+    "ParallelMode",
     "FrameTransformationModel",
     "NumericalPropagationConfig",
     "VariationalConfig",

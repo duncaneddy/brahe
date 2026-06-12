@@ -405,20 +405,21 @@ mod tests {
         unsafe { std::env::remove_var("BRAHE_CACHE"); }
     }
 
-    #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
-    #[serial_test::serial]
-    fn test_download_live_jgm3_network() {
-        // Smoke test against real ICGEM. Skipped unless `--features ci`.
-        let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+    // TODO: This test is super flakey because it depends on the live ICGEM service
+    // #[test]
+    // #[cfg_attr(not(feature = "ci"), ignore)]
+    // #[serial_test::serial]
+    // fn test_download_live_jgm3_network() {
+    //     // Smoke test against real ICGEM. Skipped unless `--features ci`.
+    //     let dir = tempfile::tempdir().unwrap();
+    //     unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
 
-        let path = download_icgem_model(ICGEMBody::Earth, "JGM3", None);
-        // JGM3 is small and stable; if ICGEM is reachable, this must succeed.
-        assert!(path.is_ok(), "live download failed: {:?}", path.err());
+    //     let path = download_icgem_model(ICGEMBody::Earth, "JGM3", None);
+    //     // JGM3 is small and stable; if ICGEM is reachable, this must succeed.
+    //     assert!(path.is_ok(), "live download failed: {:?}", path.err());
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
-    }
+    //     unsafe { std::env::remove_var("BRAHE_CACHE"); }
+    // }
 
     #[test]
     fn test_extract_icgem_hash_well_formed() {

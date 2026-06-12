@@ -49,6 +49,10 @@ num-traits = "0.2"
 regex = "1"
 is_close = "0.1"
 ureq = { version = "3", features = ["cookies", "multipart"] }
+# Transitive dep via ureq's cookie_store. Pinned because time 0.3.48 breaks
+# cookie 0.18.1 with an E0119 coherence error. Unpin once upstream resolves it.
+# Updstream issue: https://github.com/time-rs/time/issues/783
+time = "=0.3.47"
 strum = "0.28"
 strum_macros = "0.28"
 scraper = "0.27"

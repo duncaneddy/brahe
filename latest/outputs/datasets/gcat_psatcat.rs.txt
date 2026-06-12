@@ -1,7 +1,7 @@
-Loaded 27393 PSATCAT records
-Active payloads: 15888
+Loaded 27447 PSATCAT records
+Active payloads: 15936
 
-Communications payloads: 17007
+Communications payloads: 17057
 Civil payloads: 3287
 
 ISS Payload Details:

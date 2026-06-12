@@ -1,6 +1,6 @@
 Downloading NISAR TLE from CelesTrak...
-Downloaded NISAR TLE in 0.45 seconds.
-Epoch: 2026-06-10 05:29:12.511 UTC
+Downloaded NISAR TLE in 0.22 seconds.
+Epoch: 2026-06-11 23:06:18.970 UTC
 Semi-major axis: 7128.4 km
 
 Loading NASA Near Earth Network ground stations...
@@ -14,23 +14,23 @@ Creating ground track visualization with communication cones...
 Created ground track visualization in 0.09 seconds.
 
 Computing 7-day ground contacts...
-Computed 901 contact windows in 0.60 seconds.
+Computed 902 contact windows in 0.66 seconds.
 
 ================================================================================
 Sample Contact Windows (first 10)
 ================================================================================
 Station              Start Time                End Time                    Duration   Max Elev
 --------------------------------------------------------------------------------
-Kiruna               2026-06-10 05:43:15       2026-06-10 05:52:45            9.5 m     16.9°
-Svalbard             2026-06-10 05:45:26       2026-06-10 05:56:16           10.8 m     25.4°
-Gilmore Creek        2026-06-10 05:54:04       2026-06-10 06:05:50           11.8 m     48.5°
-Alaska Satellite Facility 2026-06-10 05:54:07       2026-06-10 06:05:53           11.8 m     48.8°
-North Pole           2026-06-10 05:54:07       2026-06-10 06:05:53           11.8 m     48.2°
-Awarua               2026-06-10 06:25:53       2026-06-10 06:38:02           12.1 m     61.4°
-McMurdo              2026-06-10 06:34:45       2026-06-10 06:46:32           11.8 m     37.7°
-Troll                2026-06-10 06:42:50       2026-06-10 06:55:04           12.2 m     59.6°
-Svalbard             2026-06-10 07:26:48       2026-06-10 07:35:48            9.0 m     14.8°
-Gilmore Creek        2026-06-10 07:32:49       2026-06-10 07:42:47           10.0 m     20.8°
+Singapore            2026-06-11 23:06:18       2026-06-11 23:12:41            6.4 m     77.7°
+Svalbard             2026-06-11 23:24:48       2026-06-11 23:36:48           12.0 m     61.2°
+Kiruna               2026-06-11 23:25:00       2026-06-11 23:34:43            9.7 m     19.4°
+Wallops              2026-06-11 23:39:21       2026-06-11 23:51:18           11.9 m     63.3°
+Ponce de Leon        2026-06-11 23:41:58       2026-06-11 23:54:01           12.0 m     81.9°
+Merrit Island        2026-06-11 23:42:06       2026-06-11 23:54:08           12.0 m     78.6°
+White Sands          2026-06-11 23:46:20       2026-06-11 23:49:13            2.9 m      5.7°
+Santiago             2026-06-12 00:03:12       2026-06-12 00:06:24            3.2 m      5.9°
+McMurdo              2026-06-12 00:15:36       2026-06-12 00:27:45           12.2 m     59.0°
+Kiruna               2026-06-12 01:01:57       2026-06-12 01:12:56           11.0 m     30.2°
 ================================================================================
 ✓ Exported first 20 contact windows to docs/figures/ground_contacts_windows.csv
 
@@ -47,13 +47,13 @@ Alaska Satellite Facility:  10.1 contacts/day (71 total)
 North Pole          :  10.1 contacts/day (71 total)
 Awarua              :   5.6 contacts/day (39 total)
 Wallops             :   4.7 contacts/day (33 total)
-Santiago            :   4.6 contacts/day (32 total)
 Matjiesfontein      :   4.6 contacts/day (32 total)
 White Sands         :   4.4 contacts/day (31 total)
-Merrit Island       :   4.1 contacts/day (29 total)
+Santiago            :   4.4 contacts/day (31 total)
 Ponce de Leon       :   4.1 contacts/day (29 total)
-Dongara             :   4.0 contacts/day (28 total)
-Hartebeesthoek      :   4.0 contacts/day (28 total)
+Merrit Island       :   4.1 contacts/day (29 total)
+Hartebeesthoek      :   4.1 contacts/day (29 total)
+Dongara             :   4.1 contacts/day (29 total)
 South Point         :   3.9 contacts/day (27 total)
 Singapore           :   3.6 contacts/day (25 total)
 

@@ -5,7 +5,7 @@ members = ["crates/brahe-py"]
 # `version.workspace = true` so `brahe-py` (the Python extension) stays in sync
 # with the root `brahe` crate.
 [workspace.package]
-version = "1.6.0"
+version = "1.6.1"
 
 [package]
 name = "brahe"

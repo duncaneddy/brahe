@@ -42,7 +42,7 @@ jobs:
                 run: cargo llvm-cov -p brahe --lcov --output-path lcov.info ${{ !inputs.is-fork-pr && '--features ci' || '' }}
             -   name: Upload coverage to Codecov
                 if: matrix.os == 'ubuntu-latest'
-                uses: codecov/codecov-action@v6.0.1
+                uses: codecov/codecov-action@v7.0.0
                 env:
                     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
                 with:

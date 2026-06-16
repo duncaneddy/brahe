@@ -24,3 +24,5 @@ pub mod gravity;
 pub mod relativity;
 pub mod solar_radiation_pressure;
 pub mod third_body;
+pub mod tides;
+pub use tides::{PERM_C20_DIRECT, PERM_C20_INDIRECT, tide_system_c20_offset};

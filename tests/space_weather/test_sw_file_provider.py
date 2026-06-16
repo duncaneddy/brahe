@@ -63,8 +63,11 @@ def test_from_file_known_values(sw_test_filepath):
     # Known Ap daily average: 21
     assert sw.get_ap_daily(mjd) == pytest.approx(21.0, abs=1e-10)
 
-    # Known F10.7 adjusted: 269.8 (get_f107_observed returns adjusted value)
-    assert sw.get_f107_observed(mjd) == pytest.approx(269.8, abs=1e-10)
+    # Known F10.7 adjusted: 269.8
+    assert sw.get_f107_adjusted(mjd) == pytest.approx(269.8, abs=1e-10)
+
+    # Known F10.7 observed: 269.3
+    assert sw.get_f107_observed(mjd) == pytest.approx(269.3, abs=1e-10)
 
     # Known International Sunspot Number: 334
     assert sw.get_sunspot_number(mjd) == 334

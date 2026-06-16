@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from click.exceptions import Exit
+from typer import Exit
 from io import StringIO
 from unittest.mock import MagicMock, patch
 

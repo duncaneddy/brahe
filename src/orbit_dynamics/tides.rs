@@ -11,7 +11,9 @@ Source: <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 
 use nalgebra::Vector3;
 
+use crate::constants::{GM_MOON, GM_SUN};
 use crate::orbit_dynamics::gravity::GravityModelTideSystem;
+use crate::time::Epoch;
 
 /// Permanent-tide DIRECT term on the fully-normalized C̄20 (IERS Eq. 6.14,
 /// the A0*H0 factor with no Love number). A0 = 4.4228e-8 m^-1 (Eq. 6.8c),
@@ -155,6 +157,124 @@ pub(crate) fn accel_low_degree_harmonics(
     (gm / (radius * radius)) * Vector3::new(ax, ay, az)
 }
 
+/// Physics-side solid Earth tide settings.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SolidTideConfig {
+    /// Apply IERS Step 2 frequency-dependent corrections (Tables 6.5a/b/c).
+    pub frequency_dependent: bool,
+}
+
+/// IERS Table 6.3 nominal anelastic Love numbers, (Re, Im), index [n][m].
+/// Degree 3 has only real values. Source: TN36 Ch.6 Table 6.3.
+#[allow(clippy::approx_constant)] // 0.30102 is the IERS k22 Love number, not log10(2)
+const LOVE_RE: [[f64; 4]; 4] = [
+    [0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0],
+    [0.30190, 0.29830, 0.30102, 0.0],
+    [0.093, 0.093, 0.093, 0.094],
+];
+const LOVE_IM: [[f64; 4]; 4] = [
+    [0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0],
+    [0.00000, -0.00144, -0.00130, 0.0],
+    [0.0, 0.0, 0.0, 0.0],
+];
+/// k2m^+ degree-2 -> degree-4 coupling Love numbers (Table 6.3), m=0,1,2.
+const LOVE_PLUS: [f64; 3] = [-0.00089, -0.00080, -0.00057];
+
+/// Fully-normalized associated Legendre functions P̄nm(sin φ) for n=2,3 and
+/// m=0..n, geodesy 4π convention (no Condon–Shortley phase). Returns [n][m].
+/// Closed forms; normalization factor sqrt((2-δ0m)(2n+1)(n-m)!/(n+m)!).
+fn norm_legendre_2_3(sphi: f64) -> [[f64; 4]; 4] {
+    let cphi = (1.0 - sphi * sphi).max(0.0).sqrt();
+    // Unnormalized (geodesy, no CS phase).
+    let p20 = 0.5 * (3.0 * sphi * sphi - 1.0);
+    let p21 = 3.0 * sphi * cphi;
+    let p22 = 3.0 * cphi * cphi;
+    let p30 = 0.5 * (5.0 * sphi.powi(3) - 3.0 * sphi);
+    let p31 = 1.5 * (5.0 * sphi * sphi - 1.0) * cphi;
+    let p32 = 15.0 * sphi * cphi * cphi;
+    let p33 = 15.0 * cphi.powi(3);
+    let mut p = [[0.0f64; 4]; 4];
+    p[2][0] = denorm_factor(2, 0) * p20;
+    p[2][1] = denorm_factor(2, 1) * p21;
+    p[2][2] = denorm_factor(2, 2) * p22;
+    p[3][0] = denorm_factor(3, 0) * p30;
+    p[3][1] = denorm_factor(3, 1) * p31;
+    p[3][2] = denorm_factor(3, 2) * p32;
+    p[3][3] = denorm_factor(3, 3) * p33;
+    p
+}
+
+/// Compute Step 1 frequency-independent solid Earth tide coefficient
+/// corrections (IERS Eq. 6.6 for n=2,3; Eq. 6.7 for the degree-2→degree-4
+/// feedback), summed over Moon and Sun.
+///
+/// For each body j and (n,m), with kₙₘ = kre + i·kim, λ_j/φ_j the body's ECEF
+/// longitude/geocentric latitude, r_j its distance, and
+///   F = (1/(2n+1)) · (GM_j/GM_⊕) · (R_⊕/r_j)^(n+1) · P̄nm(sin φ_j):
+///   ΔC̄nm += F · (kre·cos(mλ_j) + kim·sin(mλ_j))
+///   ΔS̄nm += F · (kre·sin(mλ_j) − kim·cos(mλ_j))
+/// (the real/imag split of the complex IERS expression
+///  ΔC̄nm − i·ΔS̄nm = (kₙₘ/(2n+1)) Σ_j (GM_j/GM_⊕)(R_⊕/r_j)^(n+1) P̄nm(sinφ_j) e^(−imλ_j)).
+///
+/// Eq. 6.7 reuses P̄2m and (R_⊕/r_j)^3 with kₘ⁺/5 into ΔC̄4m/ΔS̄4m (m=0,1,2).
+///
+/// # References
+/// - IERS Conventions (2010), TN36 §6.2.1, Eq. (6.6)–(6.7), Table 6.3.
+///   <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
+/// - Montenbruck & Gill, *Satellite Orbits*, §3.7.2, Eq. (3.159) (unnormalized cross-check).
+pub fn solid_earth_tide_coefficients(
+    r_sun_ecef: Vector3<f64>,
+    r_moon_ecef: Vector3<f64>,
+    epoch: Epoch,
+    gm_earth: f64,
+    radius: f64,
+    config: &SolidTideConfig,
+) -> TideCoefficients {
+    let _ = epoch; // used by Step 2 (frequency-dependent corrections in Task 7)
+    let mut out = TideCoefficients::default();
+
+    for (r_body, gm_body) in [(r_moon_ecef, GM_MOON), (r_sun_ecef, GM_SUN)] {
+        let r = r_body.norm();
+        if r <= radius {
+            continue; // body inside Earth radius => skip (test sentinel / degenerate)
+        }
+        let sphi = r_body[2] / r;
+        let lambda = r_body[1].atan2(r_body[0]);
+        let p = norm_legendre_2_3(sphi);
+        let gm_ratio = gm_body / gm_earth;
+
+        // Eq. (6.6): n = 2, 3.
+        for n in 2..=3usize {
+            let radial = (radius / r).powi((n + 1) as i32);
+            for m in 0..=n {
+                let kre = LOVE_RE[n][m];
+                let kim = LOVE_IM[n][m];
+                let f = (1.0 / (2.0 * n as f64 + 1.0)) * gm_ratio * radial * p[n][m];
+                let (cm, sm) = ((m as f64 * lambda).cos(), (m as f64 * lambda).sin());
+                out.dc[n][m] += f * (kre * cm + kim * sm);
+                out.ds[n][m] += f * (kre * sm - kim * cm);
+            }
+        }
+
+        // Eq. (6.7): degree-2 tides -> degree-4 coefficients, m = 0,1,2.
+        let radial3 = (radius / r).powi(3);
+        for m in 0..=2usize {
+            let kp = LOVE_PLUS[m];
+            let f = (kp / 5.0) * gm_ratio * radial3 * p[2][m];
+            let (cm, sm) = ((m as f64 * lambda).cos(), (m as f64 * lambda).sin());
+            out.dc[4][m] += f * cm;
+            out.ds[4][m] += f * sm;
+        }
+    }
+
+    if config.frequency_dependent {
+        // Step 2 added in Task 7.
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,7 +359,9 @@ mod tests {
         );
     }
 
+    use crate::constants::{GM_EARTH, R_EARTH};
     use crate::orbit_dynamics::gravity::ParallelMode;
+    use crate::time::{Epoch, TimeSystem};
     use nalgebra::Vector3;
 
     /// Build a degree-4 GravityModel whose coefficients ARE the given tide deltas,
@@ -256,6 +378,35 @@ mod tests {
         model
             .compute_spherical_harmonics(r, 4, 4, ParallelMode::Never)
             .unwrap()
+    }
+
+    #[test]
+    fn test_step1_c20_magnitude_and_lunar_dominance() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // Moon ~ along +x at ~384400 km; Sun ~ along +x at 1 AU.
+        let r_moon = Vector3::new(3.844e8, 0.0, 0.0);
+        let r_sun = Vector3::new(1.496e11, 0.0, 0.0);
+        let cfg = SolidTideConfig {
+            frequency_dependent: false,
+        };
+        let coeffs = solid_earth_tide_coefficients(r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg);
+        // Step-1 ΔC̄20 is ~1e-8 in magnitude (dominant solid-tide term).
+        assert!(
+            coeffs.dc[2][0].abs() > 1e-9 && coeffs.dc[2][0].abs() < 1e-7,
+            "ΔC̄20 = {:e}",
+            coeffs.dc[2][0]
+        );
+
+        // Lunar-only vs solar-only ΔC̄20: Moon ~2.2x Sun.
+        let far = Vector3::new(1.0e30, 0.0, 0.0); // effectively zero contribution
+        let moon_only = solid_earth_tide_coefficients(far, r_moon, epoch, GM_EARTH, R_EARTH, &cfg);
+        let sun_only = solid_earth_tide_coefficients(r_sun, far, epoch, GM_EARTH, R_EARTH, &cfg);
+        let ratio = moon_only.dc[2][0] / sun_only.dc[2][0];
+        assert!((ratio - 2.2).abs() < 0.4, "lunar/solar ratio = {ratio}");
+
+        // Degree-4 feedback (Eq. 6.7) is present and ~3 orders smaller than ΔC̄20.
+        assert!(coeffs.dc[4][0].abs() > 0.0);
+        assert!(coeffs.dc[4][0].abs() < coeffs.dc[2][0].abs());
     }
 
     #[test]

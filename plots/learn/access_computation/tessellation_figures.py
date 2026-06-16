@@ -303,7 +303,6 @@ for theme in ("light", "dark"):
         for ax in (ax1, ax2):
             style_gridlines(ax, theme)
 
-        plt.tight_layout()
         save_themed(fig, "tessellation_point", theme)
         # --8<-- [end:point_figure]
 
@@ -326,7 +325,6 @@ for theme in ("light", "dark"):
             f"England — {len(tiles_eng)} tiles, colored by tile_group_id", fontsize=10
         )
         style_gridlines(ax, theme)
-        plt.tight_layout()
         save_themed(fig, "tessellation_polygon", theme)
         # --8<-- [end:polygon_figure]
 
@@ -358,7 +356,6 @@ for theme in ("light", "dark"):
         for ax in (ax1, ax2):
             style_gridlines(ax, theme)
 
-        plt.tight_layout()
         save_themed(fig, "tessellation_tile_length", theme)
 
         # Overlap
@@ -383,7 +380,6 @@ for theme in ("light", "dark"):
         for ax in (ax1, ax2):
             style_gridlines(ax, theme)
 
-        plt.tight_layout()
         save_themed(fig, "tessellation_overlap", theme)
         # --8<-- [end:config_figures]
 
@@ -436,7 +432,6 @@ for theme in ("light", "dark"):
         for ax in (ax1, ax2):
             style_gridlines(ax, theme)
 
-        plt.tight_layout()
         save_themed(fig, "tessellation_merging", theme)
         # --8<-- [end:merging_figure]
 

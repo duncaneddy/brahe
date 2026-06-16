@@ -4,14 +4,14 @@ Earth texture management for 3D plotting.
 Handles loading packaged textures and downloading/caching external texture data.
 """
 
-import zipfile
 from importlib.resources import files
 from pathlib import Path
 from typing import Optional
-import httpx
 from PIL import Image
 
 import brahe as bh
+
+from brahe.plots._download import download_and_extract_zip
 
 
 # Natural Earth texture URLs
@@ -89,72 +89,26 @@ def download_natural_earth_texture(resolution: str = "50m") -> Path:
     texture_dir = cache_dir / subdir
     texture_path = texture_dir / expected_file
 
-    # Return if already cached
-    if texture_path.exists():
-        return texture_path
-
-    # Create directory
-    texture_dir.mkdir(parents=True, exist_ok=True)
-
-    # Download zip file
-    zip_path = cache_dir / f"{subdir}.zip"
-
-    print(f"Downloading Natural Earth {resolution} shaded relief texture...")
-    print("This may take a moment depending on your connection.")
-    try:
-        # Add headers to avoid 406 Not Acceptable errors
-        headers = {
-            "User-Agent": "Mozilla/5.0 (compatible; brahe/0.1.0; +https://github.com/duncaneddy/brahe)",
-            "Accept": "*/*",
-        }
-        response = httpx.get(url, timeout=120, headers=headers)
-        response.raise_for_status()
-
-        with open(zip_path, "wb") as f:
-            f.write(response.content)
-
-        print(f"Downloaded {len(response.content) / 1024 / 1024:.1f} MB")
-
-    except httpx.HTTPError as e:
-        raise RuntimeError(f"Failed to download Natural Earth texture: {e}")
-
-    # Extract zip file
-    try:
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(texture_dir)
-
-        print(f"Extracted to {texture_dir}")
-
-    except zipfile.BadZipFile as e:
-        raise RuntimeError(f"Failed to extract Natural Earth texture: {e}")
-
-    finally:
-        # Clean up zip file
-        if zip_path.exists():
-            zip_path.unlink()
-
-    # Find the texture file (may be in subdirectory or root)
-    if not texture_path.exists():
-        # Search for the file in subdirectories
-        found_files = list(texture_dir.rglob(expected_file))
-        if found_files:
-            # Move file to expected location if in subdirectory
-            found_file = found_files[0]
-            if found_file != texture_path:
-                import shutil
-
-                shutil.move(str(found_file), str(texture_path))
-                # Clean up empty parent directory if it exists
-                parent = found_file.parent
-                if parent != texture_dir and not any(parent.iterdir()):
-                    parent.rmdir()
-        else:
+    def _relocate(staging: Path) -> None:
+        # The archive nests the .tif inside a subdirectory; move it to the
+        # root of the staging dir so it lands at ``texture_path`` on publish.
+        if (staging / expected_file).exists():
+            return
+        found = list(staging.rglob(expected_file))
+        if not found:
             raise RuntimeError(
-                f"Texture file not found after extraction: {texture_path}. "
-                f"Expected file: {expected_file}"
+                f"Expected texture file '{expected_file}' not found in archive"
             )
+        found[0].rename(staging / expected_file)
 
-    return texture_path
+    return download_and_extract_zip(
+        url,
+        texture_dir,
+        texture_path,
+        description=f"Natural Earth {resolution} shaded relief texture",
+        timeout=120,
+        relocate=_relocate,
+    )
 
 
 def load_earth_texture(texture_name: str) -> Optional[Image.Image]:

@@ -131,7 +131,7 @@ jobs:
 
             -   name: Build extension (standard) — 3.14
                 if: matrix.python-version == '3.14'
-                run: uv pip install -e .
+                run: uv pip install -e ".[all]"
 
             -   name: Test (with retries) — 3.14
                 if: matrix.python-version == '3.14'
@@ -165,3 +165,50 @@ jobs:
                     fail_ci_if_error: false
                     verbose: true
                     use_oidc: true
+
+    # Weekly keep-warm for the plot/example network caches. Running on the
+    # schedule (on main) restores each cache — which resets GitHub's 7-day
+    # eviction timer — and re-downloads + saves any that have been evicted, so
+    # test_examples.yml on PRs keeps finding the shared main-branch caches well
+    # beyond the 7-day window.
+    cache-warm:
+        # Only on the weekly schedule (or manual dispatch). This workflow is also
+        # reached via workflow_call from release.yml, where a full extension build
+        # just to refresh caches would be wasted work.
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v6.0.3
+            -   name: Set up Rust toolchain
+                uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+                with:
+                    toolchain: stable
+            -   name: Install the latest version of uv
+                uses: astral-sh/setup-uv@v8.2.0
+                with:
+                    enable-cache: true
+            -   name: Install Python 3.14
+                run: uv python install 3.14
+            -   name: Install dependencies
+                run: uv sync --all-extras --frozen
+            -   name: Build Python extension
+                run: uv pip install -e ".[all]"
+            -   name: Install just
+                uses: extractions/setup-just@v4
+            -   name: Refresh Natural Earth 3D textures cache
+                uses: actions/cache@v5
+                with:
+                    path: ~/.cache/brahe/textures
+                    key: natural-earth-textures-50m-v1
+            -   name: Refresh Natural Earth land basemap cache
+                uses: actions/cache@v5
+                with:
+                    path: ~/.cache/brahe/natural_earth
+                    key: natural-earth-50m-land-v1
+            -   name: Refresh cartopy Natural Earth cache
+                uses: actions/cache@v5
+                with:
+                    path: ~/.local/share/cartopy
+                    key: cartopy-natural-earth-v1
+            -   name: Warm resources (re-download any evicted)
+                run: just download-resources

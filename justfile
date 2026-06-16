@@ -39,6 +39,14 @@ test-integration-python *flags: _setup
     uv pip install -e ".[all]" --quiet
     {{python}} -m pytest tests/ -v -m integration {{flags}}
 
+# Run serially before the parallel example/plot pools so they never download (or
+# race) live. Idempotent: each downloader fast-paths if its resource is cached.
+# Pre-download network resources (Natural Earth texture, land basemap, cartopy)
+download-resources: _setup
+    @{{python}} -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
+    @{{python}} -c "from brahe.plots.basemap import get_natural_earth_land_shapefile; get_natural_earth_land_shapefile()"
+    @{{python}} {{scripts_dir}}/warm_cartopy.py
+
 # Test all documentation examples (delegates to scripts/test_examples.py)
 test-examples *args: _setup
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_examples.py {{args}}

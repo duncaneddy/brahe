@@ -2,6 +2,18 @@ name: Test Examples
 
 on:
   workflow_call:
+    inputs:
+      example_args:
+        description: "Arguments passed to `just test-examples` (e.g. --ci-only, --ignore)."
+        type: string
+        default: "--ci-only"
+      use_retry:
+        description: >-
+          Wrap the example run in a retry loop. Use for live-network runs
+          (e.g. --ignore) where third-party services may throttle or blip.
+          Also skips doc-plot generation, which is only needed on the PR path.
+        type: boolean
+        default: false
 
 jobs:
   test-examples:
@@ -62,19 +74,56 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v4
 
-      - name: Test examples (including CI-ONLY)
-        run: just test-examples --ci-only
+      # Persist the network resources the examples/plots need so they are never
+      # downloaded (or raced) live in the parallel pools below. Restored before
+      # the warm-up step; GitHub evicts caches by last access, so each restore
+      # (a hit) resets the 7-day eviction window and keeps the shared main-branch
+      # caches alive. A miss re-populates them via the warm-up step's post-save.
+      - name: Cache Natural Earth 3D textures
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/brahe/textures
+          key: natural-earth-textures-50m-v1
 
-      - name: Cache Natural Earth data
+      - name: Cache Natural Earth land basemap
         uses: actions/cache@v5
         with:
           path: ~/.cache/brahe/natural_earth
           key: natural-earth-50m-land-v1
 
+      - name: Cache cartopy Natural Earth data
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/share/cartopy
+          key: cartopy-natural-earth-v1
+
+      # Serial, retrying download of all plot/example network resources. On a
+      # cache hit this is an instant no-op; on a miss it warms the caches once so
+      # the parallel pools below never hit the network.
+      - name: Pre-download plot/example resources
+        run: just download-resources
+
+      - name: Test examples
+        if: ${{ !inputs.use_retry }}
+        run: just test-examples ${{ inputs.example_args }}
+
+      # Live-network runs (e.g. --ignore, which exercises the ICGEM/Celestrak/
+      # GCAT/NAIF dataset examples) retry to absorb transient remote throttling.
+      - name: Test examples (with retries)
+        if: ${{ inputs.use_retry }}
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 60
+          max_attempts: 3
+          retry_wait_seconds: 60
+          command: just test-examples ${{ inputs.example_args }}
+
       - name: Generate documentation plots
+        if: ${{ !inputs.use_retry }}
         run: just make-plots
 
       - name: Upload figures as artifact
+        if: ${{ !inputs.use_retry }}
         uses: actions/upload-artifact@v7
         with:
           name: doc-figures
@@ -84,6 +133,7 @@ jobs:
           retention-days: 7
 
       - name: Upload example outputs as artifact
+        if: ${{ !inputs.use_retry }}
         uses: actions/upload-artifact@v7
         with:
           name: doc-outputs

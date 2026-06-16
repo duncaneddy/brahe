@@ -27,6 +27,7 @@ In Python, Brahe uses array-like types (lists, tuples, numpy arrays, etc.) as in
     === "Rust"
         ```
         --8<-- "./docs/outputs/getting_started/vector_types.rs.txt"
+        ```
 
 ## SI Units
 

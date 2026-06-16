@@ -13,7 +13,7 @@ from brahe.plots.texture_utils import (
     clear_texture_cache,
 )
 
-pytestmark = pytest.mark.ci
+pytestmark = pytest.mark.integration
 
 
 def test_get_texture_cache_dir():
@@ -70,9 +70,20 @@ def test_load_earth_texture_invalid():
         load_earth_texture("invalid_texture")
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_load_earth_texture_natural_earth_50m():
-    """Test loading Natural Earth 50m texture (requires download)."""
+    """Test loading Natural Earth 50m texture from a real upstream download.
+
+    Clears the 50m texture cache first so this genuinely exercises the
+    download/extract path rather than passing trivially on a warm cache.
+    """
+    import shutil
+
+    cache_dir = get_texture_cache_dir()
+    ne_dir = cache_dir / "ne_50m_sr"
+    if ne_dir.exists():
+        shutil.rmtree(ne_dir)
+
     img = load_earth_texture("natural_earth_50m")
 
     assert img is not None
@@ -91,7 +102,7 @@ def test_load_earth_texture_natural_earth_50m():
     assert img2 is not None
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_load_earth_texture_natural_earth_10m():
     """Test loading Natural Earth 10m texture (requires download, large file)."""
     # This is a larger download, so we mark it as ci-only

@@ -277,7 +277,6 @@ for theme in ("light", "dark"):
         draw_polygon(ax, ireland_verts, color=aoi_color, linewidth=2, linestyle="-")
         ax.set_title("Ireland — Area of Interest", fontsize=11)
         style_gridlines(ax, theme)
-        plt.tight_layout()
         save_themed(fig, "tessellation_ireland_aoi", theme)
         # --8<-- [end:plot_aoi]
 
@@ -296,7 +295,6 @@ for theme in ("light", "dark"):
             fontsize=10,
         )
         style_gridlines(ax, theme)
-        plt.tight_layout()
         save_themed(fig, "tessellation_ireland_tiles", theme)
         # --8<-- [end:plot_tessellation]
 

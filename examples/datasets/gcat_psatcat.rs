@@ -3,7 +3,7 @@
 //! This example demonstrates downloading the PSATCAT catalog and using
 //! payload-specific filters like category, class, and active status.
 //!
-//! FLAGS = ["CI-ONLY"]
+//! FLAGS = ["IGNORE"]
 
 #[allow(unused_imports)]
 use brahe as bh;

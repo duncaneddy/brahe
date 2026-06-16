@@ -25,6 +25,18 @@ flags:
     paths:
       - src/
     carryforward: true
+  rust-integration:
+    paths:
+      - src/
+    carryforward: true
+  python-integration:
+    paths:
+      - brahe/
+    carryforward: true
+  python-rust-integration:
+    paths:
+      - src/
+    carryforward: true
 
 comment:
   layout: "reach,diff,flags,files"

@@ -489,14 +489,14 @@ def _get_test_client():
     return bh.SpaceTrackClient(user, password, base_url)
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_integration_authenticate():
     """Test authentication against test server."""
     client = _get_test_client()
     client.authenticate()
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_integration_gp_query():
     """Test GP query for ISS (NORAD 25544)."""
     client = _get_test_client()
@@ -512,7 +512,7 @@ def test_integration_gp_query():
     assert records[0].object_name is not None
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_integration_satcat_query():
     """Test SATCAT query for ISS."""
     client = _get_test_client()
@@ -526,7 +526,7 @@ def test_integration_satcat_query():
     assert records[0].norad_cat_id == 25544
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_integration_query_json():
     """Test JSON query returns list of dicts."""
     client = _get_test_client()
@@ -543,7 +543,7 @@ def test_integration_query_json():
     assert "NORAD_CAT_ID" in data[0]
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_integration_query_raw_tle():
     """Test raw TLE format query."""
     client = _get_test_client()
@@ -561,7 +561,7 @@ def test_integration_query_raw_tle():
     assert len(lines) >= 2
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_integration_query_with_operators():
     """Test query using operator functions."""
     client = _get_test_client()
@@ -575,7 +575,7 @@ def test_integration_query_with_operators():
     assert isinstance(records, list)
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_integration_auth_failure():
     """Test authentication failure with bad credentials."""
     base_url = os.environ.get(

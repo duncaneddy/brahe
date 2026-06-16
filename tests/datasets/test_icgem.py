@@ -46,27 +46,27 @@ def isolated_cache(tmp_path, monkeypatch):
     yield tmp_path
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_list_models_returns_seeded_entry(isolated_cache):
     entries = datasets.icgem.list_models("earth")
     assert any(e.name == "JGM3" for e in entries)
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_download_model_returns_cached_path(isolated_cache):
     path = datasets.icgem.download_model("earth", "JGM3")
     assert Path(path).exists()
     assert path.endswith("JGM3-70-seed.gfc")
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_gravity_model_type_icgem_classmethod(isolated_cache):
     t = brahe.GravityModelType.icgem("earth", "JGM3")
     model = brahe.GravityModel.from_model_type(t)
     assert model.n_max == 70
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_gravity_model_type_icgem_equality_distinguishes_body_and_name():
     """Two ICGEMModel values must compare equal only when body and name both match.
     """
@@ -91,7 +91,7 @@ def test_gravity_model_type_icgem_equality_distinguishes_body_and_name():
     assert a != brahe.GravityModelType.JGM3
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_numerical_orbit_propagator_with_icgem_jgm3(isolated_cache):
     """End-to-end: NumericalOrbitPropagator initializes and runs with an
     ICGEM-sourced gravity model, exercising the full path from

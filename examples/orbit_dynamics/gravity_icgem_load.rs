@@ -7,7 +7,7 @@
 //! To pin a specific degree variant (when ICGEM publishes multiple), append
 //! "-<DEGREE>" to the name, e.g. `name: "XGM2019e_2159-760".to_string()`.
 //!
-//! FLAGS = ["CI-ONLY"]
+//! FLAGS = ["IGNORE"]
 
 use brahe as bh;
 use bh::GravityModelType;

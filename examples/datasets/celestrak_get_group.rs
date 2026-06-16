@@ -3,7 +3,7 @@
 //! This example demonstrates the most efficient way to download GP data:
 //! getting entire groups rather than individual satellites.
 //!
-//! FLAGS = ["CI-ONLY"]
+//! FLAGS = ["IGNORE"]
 
 #[allow(unused_imports)]
 use brahe as bh;

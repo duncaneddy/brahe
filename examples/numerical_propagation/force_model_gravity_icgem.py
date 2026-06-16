@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe", "numpy"]
-# FLAGS = ["CI-ONLY"]
+# FLAGS = ["IGNORE"]
 # ///
 """
 Configure a NumericalOrbitPropagator with an ICGEM-sourced gravity model.

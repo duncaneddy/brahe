@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 import brahe as bh
 
-pytestmark = pytest.mark.ci
+pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
@@ -111,7 +111,7 @@ def test_plot_trajectory_3d_plotly_default(test_trajectory):
     assert isinstance(fig, go.Figure)
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_plot_trajectory_3d_natural_earth_50m(test_trajectory):
     """Test 3D trajectory plotting with Natural Earth 50m texture."""
     fig = bh.plot_trajectory_3d(

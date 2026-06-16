@@ -226,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_download_de_network() {
         setup_test_kernel();
@@ -245,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_download_with_output_path_network() {
         setup_test_kernel();
@@ -274,7 +274,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_caching_behavior_network() {
         setup_test_kernel();
@@ -500,7 +500,7 @@ mod tests {
     // ========== Edge Case Tests ==========
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_output_path_creates_directories() {
         // Setup test kernel in cache

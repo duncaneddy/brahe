@@ -26,16 +26,6 @@ The `Epoch` class can be initialized in a variety of ways:
     --8<-- "./examples/getting_started/epoch_initialization.rs:1"
     ```
 
-???+ example "Output"
-    === "Python"
-        ```
-        --8<-- "./docs/outputs/getting_started/epoch_initialization.py.txt"
-        ```
-
-    === "Rust"
-        ```
-        --8<-- "./docs/outputs/getting_started/epoch_initialization.rs.txt"
-
 ## Epoch Operations
 
 Brahe supports intuitive operations on time through arithemtic operations on `Epoch` instances.
@@ -64,6 +54,7 @@ Brahe supports intuitive operations on time through arithemtic operations on `Ep
     === "Rust"
         ```
         --8<-- "./docs/outputs/getting_started/epoch_operations.rs.txt"
+        ```
 
 ## Epoch Output
 
@@ -90,6 +81,7 @@ There are also a variety of ways to output `Epoch` instances as other represenst
     === "Rust"
         ```
         --8<-- "./docs/outputs/getting_started/epoch_output.rs.txt"
+        ```
 
 ## Time Ranges 
 
@@ -116,6 +108,7 @@ Since it's common to work with time ranges, Brahe provides the `TimeRange` itera
     === "Rust"
         ```
         --8<-- "./docs/outputs/getting_started/epoch_range.rs.txt"
+        ```
 
 ## Time Systems
 
@@ -142,3 +135,4 @@ In astrodynamics, we often deal with models and measurements in other time syste
     === "Rust"
         ```
         --8<-- "./docs/outputs/getting_started/epoch_time_systems.rs.txt"
+        ```

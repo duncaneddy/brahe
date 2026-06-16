@@ -3,7 +3,7 @@
 //! This example demonstrates searching for satellites by name using the
 //! CelestrakQuery builder's name_search method.
 //!
-//! FLAGS = ["CI-ONLY"]
+//! FLAGS = ["IGNORE"]
 
 #[allow(unused_imports)]
 use brahe as bh;

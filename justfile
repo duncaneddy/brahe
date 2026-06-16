@@ -24,6 +24,29 @@ test-python *flags: _setup
     uv pip install -e . --quiet
     {{python}} -m pytest tests/ -v {{flags}}
 
+# Run integration (network) tests — Rust + Python (needs TEST_SPACETRACK_USER/PASS)
+test-integration: test-integration-rust test-integration-python
+
+# Run Rust integration tests. TEST_SPACETRACK_BASE_URL defaults to the
+# for-testing endpoint (the SpaceTrack client tests `.expect()` it); override by
+# exporting it yourself. TEST_SPACETRACK_USER/PASS must be set in your environment.
+test-integration-rust *flags:
+    TEST_SPACETRACK_BASE_URL="${TEST_SPACETRACK_BASE_URL:-https://for-testing-only.space-track.org}" cargo test -p brahe --features integration {{flags}}
+
+# Run Python integration tests. Installs the `all` extra so the plot integration
+# tests (matplotlib/plotly/pillow/httpx) can be collected, matching CI's --all-extras.
+test-integration-python *flags: _setup
+    uv pip install -e ".[all]" --quiet
+    {{python}} -m pytest tests/ -v -m integration {{flags}}
+
+# Run serially before the parallel example/plot pools so they never download (or
+# race) live. Idempotent: each downloader fast-paths if its resource is cached.
+# Pre-download network resources (Natural Earth texture, land basemap, cartopy)
+download-resources: _setup
+    @{{python}} -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
+    @{{python}} -c "from brahe.plots.basemap import get_natural_earth_land_shapefile; get_natural_earth_land_shapefile()"
+    @{{python}} {{scripts_dir}}/warm_cartopy.py
+
 # Test all documentation examples (delegates to scripts/test_examples.py)
 test-examples *args: _setup
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_examples.py {{args}}

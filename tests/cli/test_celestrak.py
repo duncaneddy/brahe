@@ -105,7 +105,7 @@ def test_download_help():
 # Integration tests (require network)
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_gp_by_catnr():
     """Test querying GP by NORAD catalog number."""
     result = runner.invoke(app, ["gp", "--catnr", "25544", "--output-format", "json"])
@@ -113,7 +113,7 @@ def test_gp_by_catnr():
     assert "ISS" in result.stdout or "ZARYA" in result.stdout
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_gp_by_group_with_limit():
     """Test querying GP by group with limit."""
     result = runner.invoke(

@@ -497,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_check_file_age_stale() {
         let dir = tempdir().unwrap();
         let filepath = dir.path().join("stale.txt");
@@ -541,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_new_creates_missing_file() {
         // This test requires network access and is marked to skip in normal test runs
         // Uncomment the line below to run it manually
@@ -563,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_new_with_default_path() {
         // This test requires network access and writes to default cache directory
         let provider = CachingEOPProvider::new(

@@ -79,7 +79,7 @@ def test_satcat_requires_selector():
 
 def test_get_client_missing_env():
     """_get_client with no env vars raises Exit and mentions SPACETRACK_USER."""
-    from click.exceptions import Exit as ClickExit
+    from typer import Exit as ClickExit
 
     console = Console(file=open(os.devnull, "w"))
     with patch.dict(os.environ, {}, clear=True):

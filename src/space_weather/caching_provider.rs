@@ -580,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_check_file_age_stale() {
         let dir = TempDir::new().unwrap();
         let filepath = dir.path().join("stale.txt");

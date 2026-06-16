@@ -1182,7 +1182,7 @@ mod tests {
 
     // Integration tests against the real SpaceTrack test server
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_integration_auth() {
         let user = std::env::var("TEST_SPACETRACK_USER")
             .expect("TEST_SPACETRACK_USER env var must be set");
@@ -1197,7 +1197,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_integration_gp_query() {
         let user = std::env::var("TEST_SPACETRACK_USER")
             .expect("TEST_SPACETRACK_USER env var must be set");
@@ -1219,7 +1219,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_integration_satcat_query() {
         let user = std::env::var("TEST_SPACETRACK_USER")
             .expect("TEST_SPACETRACK_USER env var must be set");
@@ -1240,7 +1240,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_integration_tle_format() {
         let user = std::env::var("TEST_SPACETRACK_USER")
             .expect("TEST_SPACETRACK_USER env var must be set");
@@ -1262,7 +1262,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_integration_query_with_operators() {
         use crate::spacetrack::operators;
 
@@ -1631,7 +1631,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_integration_invalid_credentials() {
         let client = SpaceTrackClient::new("invalid@example.com", "wrongpassword");
         let result = client.authenticate();

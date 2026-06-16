@@ -2,11 +2,6 @@ name: Test Python
 on:
     workflow_call:
         inputs:
-            is-fork-pr:
-                description: 'Whether this is a fork PR (skip credential-dependent tests)'
-                required: false
-                type: boolean
-                default: false
             python-versions:
                 description: 'JSON array of Python versions to test'
                 required: false
@@ -20,7 +15,6 @@ on:
 jobs:
     test-python:
         runs-on: ${{ matrix.os }}
-        environment: ${{ !inputs.is-fork-pr && 'release' || '' }}
         permissions:
             id-token: write
         strategy:
@@ -28,9 +22,6 @@ jobs:
                 os: [ubuntu-latest, macos-latest, windows-latest]
                 python-version: ${{ fromJSON(inputs.python-versions) }}
                 rust-toolchain: [stable]
-        env:
-            TEST_SPACETRACK_USER: ${{ !inputs.is-fork-pr && secrets.TEST_SPACETRACK_USER || '' }}
-            TEST_SPACETRACK_PASS: ${{ !inputs.is-fork-pr && secrets.TEST_SPACETRACK_PASS || '' }}
         steps:
             -   name: Set up Rust toolchain
                 uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
@@ -67,8 +58,7 @@ jobs:
                     uv run --frozen pytest tests/ \
                         --cov=brahe \
                         --cov-report=xml:python-coverage.xml \
-                        --cov-report=term \
-                        -m '${{ inputs.is-fork-pr && 'not ci' || '' }}'
+                        --cov-report=term
                     cargo llvm-cov report --lcov --output-path python-rust-coverage.lcov
 
             -   name: Build extension (standard)
@@ -77,7 +67,7 @@ jobs:
 
             -   name: Test with python ${{ matrix.python-version }}
                 if: matrix.os != 'ubuntu-latest' || matrix.python-version != inputs.coverage-python-version
-                run: uv run --frozen pytest tests/ -v -m '${{ inputs.is-fork-pr && 'not ci' || '' }}'
+                run: uv run --frozen pytest tests/ -v
 
             -   name: Upload Python coverage to Codecov
                 if: matrix.os == 'ubuntu-latest' && matrix.python-version == inputs.coverage-python-version

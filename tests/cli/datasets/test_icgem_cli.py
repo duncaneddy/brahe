@@ -44,7 +44,7 @@ def isolated_cache(tmp_path, monkeypatch):
     return tmp_path
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_cli_list(isolated_cache):
     runner = CliRunner()
     result = runner.invoke(app, ["icgem", "list", "--body", "earth"])
@@ -52,7 +52,7 @@ def test_cli_list(isolated_cache):
     assert "JGM3" in result.output
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_cli_download(isolated_cache):
     runner = CliRunner()
     result = runner.invoke(app, ["icgem", "download", "JGM3", "--body", "earth"])
@@ -60,7 +60,7 @@ def test_cli_download(isolated_cache):
     assert "JGM3-70-seed.gfc" in result.output
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_cli_download_rejects_body_all(isolated_cache):
     runner = CliRunner()
     result = runner.invoke(app, ["icgem", "download", "JGM3", "--body", "all"])
@@ -70,7 +70,7 @@ def test_cli_download_rejects_body_all(isolated_cache):
     assert "not valid" in combined or "BadParameter" in combined or "all" in combined
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_cli_list_single_body_failure_exits_nonzero(tmp_path, monkeypatch):
     """A single-body `list` failure must exit non-zero, not silently print '0 model(s)'.
 
@@ -95,7 +95,7 @@ def test_cli_list_single_body_failure_exits_nonzero(tmp_path, monkeypatch):
     assert "simulated ICGEM lookup failure" in combined
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_cli_refresh_body_all_dispatches_to_all_indexes(tmp_path, monkeypatch):
     """`refresh --body all` must dispatch to refresh_all_indexes(), not silently
     refresh only the celestial index (which is what ICGEMBody::Other("all") would do).
@@ -129,7 +129,7 @@ def test_cli_refresh_body_all_dispatches_to_all_indexes(tmp_path, monkeypatch):
     )
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_cli_list_body_all_tolerates_per_body_failure(tmp_path, monkeypatch):
     """In --body all mode, an individual body's failure is logged and skipped,
     not raised — the multi-body listing still succeeds for the bodies that work.

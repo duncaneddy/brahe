@@ -1215,7 +1215,7 @@ mod tests {
     // -- CI-gated live integration tests --
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_integration_gp_by_group() {
         let client = CelestrakClient::with_cache_age(0.0);
@@ -1224,7 +1224,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_integration_gp_by_catnr() {
         let client = CelestrakClient::with_cache_age(0.0);
@@ -1234,7 +1234,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_integration_gp_by_name() {
         let client = CelestrakClient::with_cache_age(0.0);
@@ -1246,7 +1246,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_integration_satcat() {
         let client = CelestrakClient::with_cache_age(0.0);
@@ -1258,7 +1258,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_integration_get_sgp_propagator_by_catnr() {
         let client = CelestrakClient::with_cache_age(0.0);

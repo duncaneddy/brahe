@@ -3,7 +3,7 @@
 //! This example demonstrates name search and filter chaining to narrow
 //! down the catalog to specific subsets of objects.
 //!
-//! FLAGS = ["CI-ONLY"]
+//! FLAGS = ["IGNORE"]
 
 #[allow(unused_imports)]
 use brahe as bh;

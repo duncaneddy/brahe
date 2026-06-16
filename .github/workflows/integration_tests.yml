@@ -166,6 +166,19 @@ jobs:
                     verbose: true
                     use_oidc: true
 
+    # Run the live-network documentation examples (ICGEM / Celestrak / GCAT /
+    # NAIF). These are flagged IGNORE so they never run on the per-PR
+    # `test_examples` workflow — keeping PRs off the flaky third-party services
+    # and avoiding hammering them on every push. Here, on the weekly schedule
+    # (and at release time via workflow_call), they are exercised end-to-end
+    # against the real services, with the retry wrapper absorbing transient
+    # throttling/blips.
+    integration-examples:
+        uses: ./.github/workflows/test_examples.yml
+        with:
+            example_args: "--ignore"
+            use_retry: true
+
     # Weekly keep-warm for the plot/example network caches. Running on the
     # schedule (on main) restores each cache — which resets GitHub's 7-day
     # eviction timer — and re-downloads + saves any that have been evicted, so

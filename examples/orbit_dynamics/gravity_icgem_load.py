@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["CI-ONLY"]
+# FLAGS = ["IGNORE"]
 # ///
 """
 Load a GravityModel sourced from the ICGEM catalog.

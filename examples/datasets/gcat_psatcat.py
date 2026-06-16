@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["CI-ONLY"]
+# FLAGS = ["IGNORE"]
 # ///
 """
 Download and explore the GCAT PSATCAT (payload) catalog.

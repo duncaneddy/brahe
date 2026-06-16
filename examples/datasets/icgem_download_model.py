@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["CI-ONLY"]
+# FLAGS = ["IGNORE"]
 # ///
 """
 Download a spherical harmonic gravity model from ICGEM.

@@ -3,7 +3,7 @@
 //! This example shows how to query a satellite from CelesTrak and convert it
 //! to a propagator in a few steps, which is the most common use case.
 //!
-//! FLAGS = ["CI-ONLY"]
+//! FLAGS = ["IGNORE"]
 
 #[allow(unused_imports)]
 use brahe as bh;

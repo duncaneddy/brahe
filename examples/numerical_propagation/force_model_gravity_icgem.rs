@@ -5,7 +5,7 @@
 //! EGM2008_360 variants. The .gfc file is downloaded into `$BRAHE_CACHE/icgem/`
 //! on first use of the resulting `GravityModel`.
 //!
-//! FLAGS = ["CI-ONLY"]
+//! FLAGS = ["IGNORE"]
 
 use brahe as bh;
 use bh::GravityModelType;

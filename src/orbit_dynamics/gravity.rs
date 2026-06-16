@@ -335,7 +335,7 @@ pub fn accel_earth_zonal_gravity<P: IntoPosition>(r_object: P, n: usize) -> Vect
 }
 
 /// Enumeration of the tide system used in a gravity model.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum GravityModelTideSystem {
     /// Zero-tide system: includes permanent tidal deformation from Sun and Moon.
     /// C₂₀ coefficient includes indirect effect of Earth's centrifugal potential.
@@ -1952,6 +1952,7 @@ mod tests {
                 relativity: false,
                 mass: None,
                 frame_transform: FrameTransformationModel::FullEarthRotation,
+                tides: None,
             },
             None,
             None,
@@ -1974,6 +1975,7 @@ mod tests {
                 relativity: false,
                 mass: None,
                 frame_transform: FrameTransformationModel::FullEarthRotation,
+                tides: None,
             },
             None,
             None,
@@ -2033,6 +2035,7 @@ mod tests {
                     relativity: false,
                     mass: None,
                     frame_transform: FrameTransformationModel::FullEarthRotation,
+                    tides: None,
                 },
                 None,
                 None,
@@ -2417,6 +2420,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::FullEarthRotation,
+            tides: None,
         };
 
         // Construction must succeed: the propagator has to be able to resolve

@@ -91,6 +91,7 @@ fn bench_numerical_fast_j6_zonal_earth_rotation_only_24hour(
         relativity: false,
         mass: None,
         frame_transform: FrameTransformationModel::EarthRotationOnly,
+        tides: None,
     };
 
     group.bench_function("numerical_fast_j6_zonal_earth_rotation_only_24hour", |b| {
@@ -128,6 +129,7 @@ fn bench_numerical_fast_j6_zonal_full_rotation_24hour(
         relativity: false,
         mass: None,
         frame_transform: FrameTransformationModel::FullEarthRotation,
+        tides: None,
     };
 
     group.bench_function("numerical_fast_j6_zonal_full_rotation_24hour", |b| {
@@ -168,6 +170,7 @@ fn bench_spherical_harmonic_j6_equivalent_24hour(
         relativity: false,
         mass: None,
         frame_transform: FrameTransformationModel::default(),
+        tides: None,
     };
 
     group.bench_function("numerical_spherical_harmonic_j6_equivalent_24hour", |b| {

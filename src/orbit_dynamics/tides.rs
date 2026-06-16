@@ -158,9 +158,10 @@ pub(crate) fn accel_low_degree_harmonics(
 }
 
 /// Physics-side solid Earth tide settings.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub struct SolidTideConfig {
     /// Apply IERS Step 2 frequency-dependent corrections (Tables 6.5a/b/c).
+    #[serde(default)]
     pub frequency_dependent: bool,
 }
 

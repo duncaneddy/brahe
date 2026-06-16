@@ -275,6 +275,36 @@ pub fn solid_earth_tide_coefficients(
     out
 }
 
+/// Acceleration (body-fixed / ECEF) due to solid Earth tides, IERS §6.2.1.
+///
+/// Builds the time-varying ΔC̄nm/ΔS̄nm corrections from the Sun and Moon and
+/// evaluates them as a degree-4 spherical-harmonic field. The result is ADDED
+/// to the static gravity acceleration by the caller; this is exact because the
+/// geopotential is linear in its coefficients (see module/spec §2). All inputs
+/// and the evaluation share the same `gm_earth`, `radius`, and ECEF frame.
+///
+/// # Arguments
+/// - `r_ecef`: satellite position, ECEF [m].
+/// - `r_sun_ecef`, `r_moon_ecef`: body positions, ECEF [m].
+/// - `epoch`: used for Step 2 Doodson arguments (ignored when Step 1 only).
+/// - `gm_earth`, `radius`: the gravity model's own GM [m³/s²] and reference radius [m].
+///
+/// # References
+/// - IERS Conventions (2010), TN36 §6.2.1.
+pub fn accel_solid_earth_tides(
+    r_ecef: Vector3<f64>,
+    r_sun_ecef: Vector3<f64>,
+    r_moon_ecef: Vector3<f64>,
+    epoch: Epoch,
+    gm_earth: f64,
+    radius: f64,
+    config: &SolidTideConfig,
+) -> Vector3<f64> {
+    let coeffs =
+        solid_earth_tide_coefficients(r_sun_ecef, r_moon_ecef, epoch, gm_earth, radius, config);
+    accel_low_degree_harmonics(r_ecef, &coeffs, gm_earth, radius)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -407,6 +437,21 @@ mod tests {
         // Degree-4 feedback (Eq. 6.7) is present and ~3 orders smaller than ΔC̄20.
         assert!(coeffs.dc[4][0].abs() > 0.0);
         assert!(coeffs.dc[4][0].abs() < coeffs.dc[2][0].abs());
+    }
+
+    #[test]
+    fn test_accel_solid_tides_finite_and_small() {
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r_sat = Vector3::new(7.0e6, 0.0, 0.0);
+        let r_moon = Vector3::new(3.844e8, 0.0, 0.0);
+        let r_sun = Vector3::new(1.496e11, 0.0, 0.0);
+        let cfg = SolidTideConfig {
+            frequency_dependent: false,
+        };
+        let a = accel_solid_earth_tides(r_sat, r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg);
+        assert!(a.norm().is_finite());
+        // Solid-tide accel is ~1e-7..1e-6 m/s^2 in LEO, far below ~9.8 main gravity.
+        assert!(a.norm() > 1e-9 && a.norm() < 1e-4, "|a| = {:e}", a.norm());
     }
 
     #[test]

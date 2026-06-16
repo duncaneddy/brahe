@@ -7,7 +7,7 @@ Brahe's versioning and deprecation policy is modeled on [NumPy's policy](https:/
 
 Each release groups entries under the Keep a Changelog section headings in the order **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**. Entries in **Deprecated** correspond to APIs that still work in this release but emit a `DeprecationWarning` or `FutureWarning`; entries in **Removed** list APIs that previous releases had deprecated.
 
-<!-- towncrier release notes start -->
+<!-- release notes start -->
 
 ## [1.6.0] - 2026-06-05
 

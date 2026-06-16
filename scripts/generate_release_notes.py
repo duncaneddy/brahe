@@ -7,7 +7,7 @@ in its description; this script aggregates them across all PRs merged since the 
 release tag and writes:
 
   - <changelog>: a new `## [<version>] - <date>` block inserted after the
-    `<!-- towncrier release notes start -->` marker (kept for compatibility).
+    `<!-- release notes start -->` marker.
   - <release-notes>: the same block, suitable for use as a GitHub Release body.
 
 Bot PRs and PRs labeled `automated`, `data-update`, or `dependencies` are skipped.
@@ -26,7 +26,7 @@ from pathlib import Path
 
 SECTIONS: tuple[str, ...] = ("Added", "Changed", "Deprecated", "Removed", "Fixed")
 SKIP_LABELS: frozenset[str] = frozenset({"automated", "data-update", "dependencies"})
-MARKER = "<!-- towncrier release notes start -->"
+MARKER = "<!-- release notes start -->"
 
 
 @dataclass(frozen=True)

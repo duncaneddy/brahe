@@ -48,10 +48,13 @@ mod tests {
 
     #[test]
     fn test_perm_constants_match_iers() {
-        // IERS TN36 Eq. (6.14): A0*H0*k20 (indirect) and A0*H0 (direct).
-        // The reference values (-4.2017e-9, -1.39142e-8) are rounded to 5 sig figs;
-        // our constants are exact products, so tolerance is set to accommodate rounding.
-        assert!((PERM_C20_INDIRECT - (-4.2017e-9)).abs() < 2e-12);
+        // Constants are exact products of the verbatim IERS TN36 factors
+        // (A0 = 4.4228e-8, H0 = -0.31460, k20 = 0.30190).
+        assert_eq!(PERM_C20_DIRECT, 4.4228e-8 * (-0.31460));
+        assert_eq!(PERM_C20_INDIRECT, 4.4228e-8 * (-0.31460) * 0.30190);
+        // Exact product ≈ -4.2007e-9, within f64 rounding of -4.200675e-9.
+        // (The IERS 5-sig-fig tabulation -4.2017e-9 is itself ~1e-12 coarse.)
+        assert!((PERM_C20_INDIRECT - (-4.200675e-9)).abs() < 1e-14);
         assert!((PERM_C20_DIRECT - (-1.39142e-8)).abs() < 1e-12);
     }
 

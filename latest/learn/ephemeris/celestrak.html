@@ -65,7 +65,7 @@
 <span class=normal><a href=#__codelineno-1-24>24</a></span>
 <span class=normal><a href=#__codelineno-1-25>25</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-1-1><a id=__codelineno-1-1 name=__codelineno-1-1></a><span class=sd>//! perturbations (GP) data using its NORAD catalog number.</span>
 </span><span id=__span-1-2><a id=__codelineno-1-2 name=__codelineno-1-2></a><span class=sd>//!</span>
-</span><span id=__span-1-3><a id=__codelineno-1-3 name=__codelineno-1-3></a><span class=sd>//! FLAGS = [&quot;CI-ONLY&quot;]</span>
+</span><span id=__span-1-3><a id=__codelineno-1-3 name=__codelineno-1-3></a><span class=sd>//! FLAGS = [&quot;IGNORE&quot;]</span>
 </span><span id=__span-1-4><a id=__codelineno-1-4 name=__codelineno-1-4></a>
 </span><span id=__span-1-5><a id=__codelineno-1-5 name=__codelineno-1-5></a><span class=cp>#[allow(unused_imports)]</span>
 </span><span id=__span-1-6><a id=__codelineno-1-6 name=__codelineno-1-6></a><span class=k>use</span><span class=w> </span><span class=n>brahe</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=n>bh</span><span class=p>;</span>
@@ -88,32 +88,8 @@
 </span><span id=__span-1-23><a id=__codelineno-1-23 name=__codelineno-1-23></a><span class=w>    </span><span class=fm>println!</span><span class=p>(</span><span class=s>&quot;  Eccentricity: {:.6}&quot;</span><span class=p>,</span><span class=w> </span><span class=n>record</span><span class=p>.</span><span class=n>eccentricity</span><span class=p>.</span><span class=n>unwrap_or</span><span class=p>(</span><span class=mf>0.0</span><span class=p>));</span>
 </span><span id=__span-1-24><a id=__codelineno-1-24 name=__codelineno-1-24></a>
 </span><span id=__span-1-25><a id=__codelineno-1-25 name=__codelineno-1-25></a><span class=p>}</span>
-</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=2:2><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><input id=__tabbed_2_2 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>Python</label><label for=__tabbed_2_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-2-1>1</a></span>
-<span class=normal><a href=#__codelineno-2-2>2</a></span>
-<span class=normal><a href=#__codelineno-2-3>3</a></span>
-<span class=normal><a href=#__codelineno-2-4>4</a></span>
-<span class=normal><a href=#__codelineno-2-5>5</a></span>
-<span class=normal><a href=#__codelineno-2-6>6</a></span>
-<span class=normal><a href=#__codelineno-2-7>7</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a>ISS GP Data:
-</span><span id=__span-2-2><a id=__codelineno-2-2 name=__codelineno-2-2></a>  Name: ISS (ZARYA)
-</span><span id=__span-2-3><a id=__codelineno-2-3 name=__codelineno-2-3></a>  NORAD ID: 25544
-</span><span id=__span-2-4><a id=__codelineno-2-4 name=__codelineno-2-4></a>  Epoch: 2026-06-11T20:03:08.873568
-</span><span id=__span-2-5><a id=__codelineno-2-5 name=__codelineno-2-5></a>  Inclination: 51.63°
-</span><span id=__span-2-6><a id=__codelineno-2-6 name=__codelineno-2-6></a>  RAAN: 326.58°
-</span><span id=__span-2-7><a id=__codelineno-2-7 name=__codelineno-2-7></a>  Eccentricity: 0.000493
-</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1>1</a></span>
-<span class=normal><a href=#__codelineno-3-2>2</a></span>
-<span class=normal><a href=#__codelineno-3-3>3</a></span>
-<span class=normal><a href=#__codelineno-3-4>4</a></span>
-<span class=normal><a href=#__codelineno-3-5>5</a></span>
-<span class=normal><a href=#__codelineno-3-6>6</a></span>
-<span class=normal><a href=#__codelineno-3-7>7</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a>ISS GP Data:
-</span><span id=__span-3-2><a id=__codelineno-3-2 name=__codelineno-3-2></a>  Name: ISS (ZARYA)
-</span><span id=__span-3-3><a id=__codelineno-3-3 name=__codelineno-3-3></a>  NORAD ID: 25544
-</span><span id=__span-3-4><a id=__codelineno-3-4 name=__codelineno-3-4></a>  Epoch: 2026-06-11T20:03:08.873568
-</span><span id=__span-3-5><a id=__codelineno-3-5 name=__codelineno-3-5></a>  Inclination: 51.63°
-</span><span id=__span-3-6><a id=__codelineno-3-6 name=__codelineno-3-6></a>  RAAN: 326.58°
-</span><span id=__span-3-7><a id=__codelineno-3-7 name=__codelineno-3-7></a>  Eccentricity: 0.000493
+</span></code></pre></div></td></tr></table></div> </div> </div> </div> <details class=example> <summary>Output</summary> <div class="tabbed-set tabbed-alternate" data-tabs=2:2><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><input id=__tabbed_2_2 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>Python</label><label for=__tabbed_2_2>Rust</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-2-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-2-1><a id=__codelineno-2-1 name=__codelineno-2-1></a>
+</span></code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class="language-text highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-3-1>1</a></span></pre></div></td><td class=code><div><pre><span></span><code><span id=__span-3-1><a id=__codelineno-3-1 name=__codelineno-3-1></a>
 </span></code></pre></div></td></tr></table></div> </div> </div> </div> </details> <p>Other common lookup patterns include querying by group name (<code>group="stations"</code>), object name (<code>name="ISS"</code>), or international designator (<code>intdes="1998-067A"</code>). All of these are available as keyword arguments to <code>get_gp</code> or as builder methods on <code>CelestrakQuery.gp</code>.</p> <h2 id=client-side-filtering>Client-Side Filtering<a class=headerlink href=#client-side-filtering title="Permanent link">&para;</a></h2> <p>CelesTrak's API only supports a few server-side filters (group, catalog number, name, international designator). For more complex filtering, brahe provides client-side operators that use the same syntax as the SpaceTrack query interface. These filters are applied after downloading the full dataset, so they work on any field in the response:</p> <div class="language-python highlight"><table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal><a href=#__codelineno-4-1> 1</a></span>
 <span class=normal><a href=#__codelineno-4-2> 2</a></span>
 <span class=normal><a href=#__codelineno-4-3> 3</a></span>

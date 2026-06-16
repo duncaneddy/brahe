@@ -12,5 +12,5 @@ Estimated period: 5408s (90.1 min)
 
 After 1 orbit:
   Epoch: 1998-12-18 15:58:23.416 UTC
-  Position: [3145.350, 24713.420, -7071.733] km
+  Position: [3145.351, 24713.421, -7071.733] km
   Velocity: [-2068.116, 3184.124, 57.693] m/s

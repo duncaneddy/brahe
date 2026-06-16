@@ -10,48 +10,49 @@ Loaded 5 KSAT ground stations in 0.00 seconds:
   - Svalbard
 
 Propagating Umbra satellites for one orbit each...
-Created 3D visualization in 5.83 seconds.
+Downloading Natural Earth 50m shaded relief texture (attempt 1/3)...
+Created 3D visualization in 7.44 seconds.
 
 Computing 7-day ground contacts...
-Computed 1102 contact windows in 1.28 seconds.
+Computed 1090 contact windows in 1.37 seconds.
 
 Computing communication gaps...
-Computed 1097 communication gaps in 0.00 seconds.
+Computed 1085 communication gaps in 0.00 seconds.
 
 ====================================================================================================
 Top 10 Longest Communication Gaps
 ====================================================================================================
 Spacecraft           Start Time                End Time                                   Duration Last→Next Station             
 ----------------------------------------------------------------------------------------------------
-UMBRA-10             2026-06-15 00:57:48       2026-06-15 03:26:14       2 hours, 28 minutes, and 25.41 seconds Svalbard → Punta Arenas       
-UMBRA-09             2026-06-15 00:58:25       2026-06-15 03:26:49       2 hours, 28 minutes, and 23.87 seconds Svalbard → Punta Arenas       
-UMBRA-11             2026-06-13 23:54:10       2026-06-14 02:22:25       2 hours, 28 minutes, and 14.37 seconds Svalbard → Punta Arenas       
-UMBRA-09             2026-06-14 01:14:27       2026-06-14 03:42:33       2 hours, 28 minutes, and 6.47 seconds Svalbard → Punta Arenas       
-UMBRA-10             2026-06-14 01:13:49       2026-06-14 03:41:53       2 hours, 28 minutes, and 4.43 seconds Svalbard → Punta Arenas       
-UMBRA-10             2026-06-13 01:29:46       2026-06-13 03:57:43       2 hours, 27 minutes, and 56.81 seconds Svalbard → Punta Arenas       
-UMBRA-09             2026-06-13 01:30:25       2026-06-13 03:58:21       2 hours, 27 minutes, and 55.80 seconds Svalbard → Punta Arenas       
-UMBRA-10             2026-06-18 01:43:42       2026-06-18 04:11:34       2 hours, 27 minutes, and 51.89 seconds Svalbard → Punta Arenas       
-UMBRA-09             2026-06-18 01:44:16       2026-06-18 04:12:06       2 hours, 27 minutes, and 50.86 seconds Svalbard → Punta Arenas       
-UMBRA-11             2026-06-17 00:15:41       2026-06-17 02:43:23       2 hours, 27 minutes, and 42.06 seconds Svalbard → Punta Arenas       
+UMBRA-10             2026-06-21 00:55:18       2026-06-21 03:23:48       2 hours, 28 minutes, and 29.48 seconds Svalbard → Punta Arenas       
+UMBRA-09             2026-06-21 00:55:57       2026-06-21 03:24:25       2 hours, 28 minutes, and 27.91 seconds Svalbard → Punta Arenas       
+UMBRA-10             2026-06-20 01:11:28       2026-06-20 03:39:38       2 hours, 28 minutes, and 9.98 seconds Svalbard → Punta Arenas       
+UMBRA-09             2026-06-20 01:12:07       2026-06-20 03:40:16       2 hours, 28 minutes, and 8.77 seconds Svalbard → Punta Arenas       
+UMBRA-07             2026-06-18 23:29:35       2026-06-19 01:57:43       2 hours, 28 minutes, and 7.45 seconds Svalbard → Punta Arenas       
+UMBRA-10             2026-06-19 01:27:36       2026-06-19 03:55:34       2 hours, 27 minutes, and 57.82 seconds Svalbard → Punta Arenas       
+UMBRA-09             2026-06-19 01:28:15       2026-06-19 03:56:11       2 hours, 27 minutes, and 56.84 seconds Svalbard → Punta Arenas       
+UMBRA-10             2026-06-18 01:43:40       2026-06-18 04:11:32       2 hours, 27 minutes, and 51.76 seconds Svalbard → Punta Arenas       
+UMBRA-09             2026-06-18 01:44:19       2026-06-18 04:12:10       2 hours, 27 minutes, and 50.97 seconds Svalbard → Punta Arenas       
+UMBRA-11             2026-06-21 00:12:38       2026-06-21 02:40:23       2 hours, 27 minutes, and 44.94 seconds Svalbard → Punta Arenas       
 ====================================================================================================
 
 ✓ Exported top 10 gaps to docs/figures/max_communications_gap_gaps.csv
 
 Gap Distribution Statistics:
-  Mean: 38 minutes and 5.41 seconds
-  Median: 32 minutes and 1.64 seconds
-  Min: 22.46 seconds
-  Max: 2 hours, 28 minutes, and 25.41 seconds
+  Mean: 38 minutes and 17.79 seconds
+  Median: 31 minutes and 57.66 seconds
+  Min: 24.62 seconds
+  Max: 2 hours, 28 minutes, and 29.48 seconds
 
 Creating gap distribution histogram...
 
 Creating cumulative distribution plot...
 
 Creating ground track visualization for top 3 longest gaps...
-  Gap 1: 148 points, 3 segments
-  Gap 2: 148 points, 3 segments
-  Gap 3: 148 points, 3 segments
-Created ground track visualization in 0.10 seconds.
+  Gap 1: 149 points, 3 segments
+  Gap 2: 149 points, 3 segments
+  Gap 3: 149 points, 3 segments
+Created ground track visualization in 0.11 seconds.
 
 ✓ Generated docs/figures/max_communications_gap_constellation_light.html
 ✓ Generated docs/figures/max_communications_gap_constellation_dark.html

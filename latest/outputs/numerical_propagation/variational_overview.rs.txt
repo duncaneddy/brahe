@@ -20,9 +20,9 @@ Position std (RTN frame):
 Sensitivity matrix shape: (6, 5)
 
 Position sensitivity to 1% parameter uncertainty:
-  mass      : 0.08 m
-  drag_area : 0.08 m
-  Cd        : 0.08 m
+  mass      : 0.12 m
+  drag_area : 0.12 m
+  Cd        : 0.12 m
   srp_area  : 0.00 m
   Cr        : 0.00 m
 

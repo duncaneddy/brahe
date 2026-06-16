@@ -116,20 +116,22 @@ pub fn parse_cssi_line_with_section(
     // Parse ISN (at position 88, width 4)
     let isn = parse_field::<u32>(line, 88, 92, "ISN")?;
 
-    // Parse F10.7 observed (at position 92, width 6)
-    let f107_obs = parse_field::<f64>(line, 92, 98, "F10.7 obs")?;
+    // Parse F10.7 adjusted daily (at position 92, width 6)
+    let f107_adj = parse_field::<f64>(line, 92, 98, "F10.7 adj")?;
 
     // Parse qualifier (at position 98, width 2) - may be blank for monthly predicted
     let qualifier = parse_field_optional::<u8>(line, 98, 100).unwrap_or(0);
 
-    // Parse the remaining F10.7 values (each width 6)
+    // Parse adjusted 81-day averages
     let f107_adj_ctr81 = parse_field::<f64>(line, 100, 106, "F10.7 adj ctr81")?;
     let f107_adj_lst81 = parse_field::<f64>(line, 106, 112, "F10.7 adj lst81")?;
-    let f107_obs_ctr81 = parse_field::<f64>(line, 112, 118, "F10.7 obs ctr81")?;
-    let f107_obs_lst81 = parse_field::<f64>(line, 118, 124, "F10.7 obs lst81")?;
 
-    // Note: The adjusted F10.7 daily value would be at position 124-130, but it seems
-    // to be the same as the observed value based on file documentation
+    // Parse F10.7 observed daily (at position 112, width 6)
+    let f107_obs = parse_field::<f64>(line, 112, 118, "F10.7 obs")?;
+
+    // Parse observed 81-day averages
+    let f107_obs_ctr81 = parse_field::<f64>(line, 118, 124, "F10.7 obs ctr81")?;
+    let f107_obs_lst81 = parse_field::<f64>(line, 124, 130, "F10.7 obs lst81")?;
 
     let data = SpaceWeatherData {
         year,
@@ -144,10 +146,11 @@ pub fn parse_cssi_line_with_section(
         cp,
         c9,
         isn,
-        f107_obs,
+        f107_adj,
         qualifier,
         f107_adj_ctr81,
         f107_adj_lst81,
+        f107_obs,
         f107_obs_ctr81,
         f107_obs_lst81,
         section,
@@ -326,12 +329,13 @@ mod tests {
         assert_eq!(data.isn, 334);
 
         // Check F10.7 values
-        assert_abs_diff_eq!(data.f107_obs, 269.8, epsilon = 1e-10);
+        assert_abs_diff_eq!(data.f107_adj, 269.8, epsilon = 1e-10);
         assert_eq!(data.qualifier, 0);
         assert_abs_diff_eq!(data.f107_adj_ctr81, 266.8, epsilon = 1e-10);
         assert_abs_diff_eq!(data.f107_adj_lst81, 235.5, epsilon = 1e-10);
-        assert_abs_diff_eq!(data.f107_obs_ctr81, 269.3, epsilon = 1e-10);
-        assert_abs_diff_eq!(data.f107_obs_lst81, 266.6, epsilon = 1e-10);
+        assert_abs_diff_eq!(data.f107_obs, 269.3, epsilon = 1e-10);
+        assert_abs_diff_eq!(data.f107_obs_ctr81, 266.6, epsilon = 1e-10);
+        assert_abs_diff_eq!(data.f107_obs_lst81, 230.9, epsilon = 1e-10);
     }
 
     #[test]
@@ -438,11 +442,12 @@ mod tests {
 
         // Check ISN and F10.7 are parsed correctly
         assert_eq!(data.isn, 10);
-        assert_abs_diff_eq!(data.f107_obs, 70.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(data.f107_adj, 70.0, epsilon = 1e-10);
         assert_abs_diff_eq!(data.f107_adj_ctr81, 69.2, epsilon = 1e-10);
         assert_abs_diff_eq!(data.f107_adj_lst81, 70.5, epsilon = 1e-10);
-        assert_abs_diff_eq!(data.f107_obs_ctr81, 69.8, epsilon = 1e-10);
-        assert_abs_diff_eq!(data.f107_obs_lst81, 68.8, epsilon = 1e-10);
+        assert_abs_diff_eq!(data.f107_obs, 69.8, epsilon = 1e-10);
+        assert_abs_diff_eq!(data.f107_obs_ctr81, 68.8, epsilon = 1e-10);
+        assert_abs_diff_eq!(data.f107_obs_lst81, 69.0, epsilon = 1e-10);
 
         // Check section is set correctly
         assert_eq!(data.section, SpaceWeatherSection::MonthlyPredicted);

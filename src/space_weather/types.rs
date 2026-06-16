@@ -155,14 +155,16 @@ pub struct SpaceWeatherData {
     pub c9: u8,
     /// International Sunspot Number
     pub isn: u32,
-    /// Observed 10.7 cm solar radio flux. Units: solar flux units (sfu)
-    pub f107_obs: f64,
+    /// Adjusted 10.7 cm solar radio flux. Units: solar flux units (sfu)
+    pub f107_adj: f64,
     /// Data qualifier (0 = observed)
     pub qualifier: u8,
     /// Adjusted 81-day centered average F10.7. Units: sfu
     pub f107_adj_ctr81: f64,
     /// Adjusted 81-day last average F10.7. Units: sfu
     pub f107_adj_lst81: f64,
+    /// Observed 10.7 cm solar radio flux. Units: sfu
+    pub f107_obs: f64,
     /// Observed 81-day centered average F10.7. Units: sfu
     pub f107_obs_ctr81: f64,
     /// Observed 81-day last average F10.7. Units: sfu
@@ -186,10 +188,11 @@ impl Default for SpaceWeatherData {
             cp: 0.0,
             c9: 0,
             isn: 0,
-            f107_obs: 0.0,
+            f107_adj: 0.0,
             qualifier: 0,
             f107_adj_ctr81: 0.0,
             f107_adj_lst81: 0.0,
+            f107_obs: 0.0,
             f107_obs_ctr81: 0.0,
             f107_obs_lst81: 0.0,
             section: SpaceWeatherSection::Observed,
@@ -246,6 +249,7 @@ mod tests {
         assert_eq!(data.day, 0);
         assert_eq!(data.kp, [0.0; 8]);
         assert_eq!(data.ap, [0.0; 8]);
+        assert_eq!(data.f107_adj, 0.0);
         assert_eq!(data.f107_obs, 0.0);
     }
 
@@ -264,10 +268,11 @@ mod tests {
             cp: 0.5,
             c9: 2,
             isn: 120,
-            f107_obs: 150.5,
+            f107_adj: 148.0,
             qualifier: 0,
             f107_adj_ctr81: 148.0,
             f107_adj_lst81: 147.0,
+            f107_obs: 150.5,
             f107_obs_ctr81: 149.0,
             f107_obs_lst81: 148.0,
             section: SpaceWeatherSection::Observed,

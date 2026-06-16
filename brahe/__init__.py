@@ -25,6 +25,8 @@ All functionality is re-exported at the top level for convenience, so you can us
     from brahe.plots import plot_groundtrack
 """
 
+from typing import TYPE_CHECKING
+
 # Import core native module
 from brahe import _brahe
 
@@ -134,6 +136,41 @@ __all__.extend(estimation.__all__)
 
 # Import version from native module (set from Cargo.toml at build time)
 __version__ = _brahe.__version__
+
+
+# Static re-exports of the lazily-forwarded plot symbols (resolved at runtime by
+# __getattr__ below) so type checkers, IDEs, and the docs builder (griffe /
+# mkdocstrings) can see ``brahe.plot_*``. Never executed at runtime, so
+# ``import brahe`` still never imports the visualization stack. Mirrors the
+# runtime forwarding from ``brahe.plots``; keep in sync with brahe.plots.
+if TYPE_CHECKING:
+    from brahe.plots import (
+        plot_access_elevation as plot_access_elevation,
+        plot_access_elevation_azimuth as plot_access_elevation_azimuth,
+        plot_access_polar as plot_access_polar,
+        plot_cartesian_trajectory as plot_cartesian_trajectory,
+        plot_estimator_marginal as plot_estimator_marginal,
+        plot_estimator_marginal_from_arrays as plot_estimator_marginal_from_arrays,
+        plot_estimator_state_error as plot_estimator_state_error,
+        plot_estimator_state_error_from_arrays as plot_estimator_state_error_from_arrays,
+        plot_estimator_state_error_grid as plot_estimator_state_error_grid,
+        plot_estimator_state_error_grid_from_arrays as plot_estimator_state_error_grid_from_arrays,
+        plot_estimator_state_value as plot_estimator_state_value,
+        plot_estimator_state_value_from_arrays as plot_estimator_state_value_from_arrays,
+        plot_estimator_state_value_grid as plot_estimator_state_value_grid,
+        plot_estimator_state_value_grid_from_arrays as plot_estimator_state_value_grid_from_arrays,
+        plot_gabbard_diagram as plot_gabbard_diagram,
+        plot_groundtrack as plot_groundtrack,
+        plot_keplerian_trajectory as plot_keplerian_trajectory,
+        plot_measurement_residual as plot_measurement_residual,
+        plot_measurement_residual_from_arrays as plot_measurement_residual_from_arrays,
+        plot_measurement_residual_grid as plot_measurement_residual_grid,
+        plot_measurement_residual_grid_from_arrays as plot_measurement_residual_grid_from_arrays,
+        plot_measurement_residual_rms as plot_measurement_residual_rms,
+        plot_measurement_residual_rms_from_arrays as plot_measurement_residual_rms_from_arrays,
+        plot_trajectory_3d as plot_trajectory_3d,
+        split_ground_track_at_antimeridian as split_ground_track_at_antimeridian,
+    )
 
 
 def __getattr__(name):

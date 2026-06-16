@@ -9,6 +9,37 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- release notes start -->
 
+## [1.6.1] - 2026-06-16
+
+### Added
+
+- Added "Getting Started" section to main documentation page. [@duncaneddy](https://github.com/duncaneddy) ([#356](https://github.com/duncaneddy/brahe/pull/356))
+- `integration` flag to rust and python test suites, replacing `ci`. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+
+### Changed
+
+- Update C04 data source to point to currently updating data series. [@duncaneddy](https://github.com/duncaneddy) ([#356](https://github.com/duncaneddy/brahe/pull/356))
+- Makes the `plots` submodule of the python package an optional dependency installed with `brahe[plots]` and not installed by default to avoid importing the heavy dependencies by default. [@duncaneddy](https://github.com/duncaneddy) ([#360](https://github.com/duncaneddy/brahe/pull/360))
+- Optimized the serial spherical-harmonic gravity evaluation (`GravityModel::compute_spherical_harmonics` / `compute_spherical_harmonics_with_workspace`) by precomputing the V/W recurrence reciprocal coefficients and reading the recurrence and accumulation buffers through bounds-check-free column slices. The workspace path is ~1.7–1.8× faster at degree/order 20–80 (the range common to LEO propagation) and ~1.6× faster at 360×360, with results unchanged to within 1e-12 relative. Measured on a 10-core Apple M1 Max. [@duncaneddy](https://github.com/duncaneddy) ([#361](https://github.com/duncaneddy/brahe/pull/361))
+- Raised the `ParallelMode::Auto` parallelization threshold for spherical-harmonic gravity from degree 150 to 210. The faster serial path moved the serial/parallel break-even point, so `Auto` now stays serial until parallel evaluation is at least as fast. [@duncaneddy](https://github.com/duncaneddy) ([#361](https://github.com/duncaneddy/brahe/pull/361))
+- `compute_spherical_harmonics`, `compute_spherical_harmonics_with_workspace`, `accel_gravity_spherical_harmonics`, and `accel_gravity_spherical_harmonics_with_workspace` now take a `parallel: ParallelMode` argument; `GravityConfiguration::SphericalHarmonic` gained a `parallel` field (defaults to `Auto`). [@duncaneddy](https://github.com/duncaneddy) ([#361](https://github.com/duncaneddy/brahe/pull/361))
+- Updated CI workflow to only run integration tests weekly and at release time to reduce frequent occurrence of CI tests failing due to external integration test failures. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+- Improved CI caching to large texture / basemap files to be updated with integration tests weekly and avoid redownload on most CI runs. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+- Updated `pyo3` dependency version. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+- Updated `uv.lock`. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+
+### Removed
+
+- `ci` flag from rust and python test suites. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+
+### Fixed
+
+- CSSI space weather data loader has been fixed to use the observed f107 rather than the adjusted f107. [@jackyarndley](https://github.com/jackyarndley) ([#362](https://github.com/duncaneddy/brahe/pull/362))
+- The NRLMSISE-00 implementation has been updated to use the previous day observed f107 as is standard. [@jackyarndley](https://github.com/jackyarndley) ([#362](https://github.com/duncaneddy/brahe/pull/362))
+- Fixed race condition in examples CI tests where two could download the same Natural Earth basemap and corrupt the file for both. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+- Fixed regression from lazy-impoting `brahe.plots` that caused static-analyzers (griffee) to fail path-traversal. This caused `build-docs` to fail and slipped through due to other test-failure noise. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+- Fixed `test-examples` flakyness on external integration dependencies. Ignore testing integration-based examples by default, but exercise them weekly in the integration tests to ensure continued coverage. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+
 ## [1.6.0] - 2026-06-05
 
 ### Added

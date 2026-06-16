@@ -30,7 +30,10 @@ def test_get_global_known_values(sw_test_filepath):
     assert brahe.get_global_ap_daily(mjd) == pytest.approx(21.0, abs=1e-10)
 
     # Known F10.7 adjusted: 269.8
-    assert brahe.get_global_f107_observed(mjd) == pytest.approx(269.8, abs=1e-10)
+    assert brahe.get_global_f107_adjusted(mjd) == pytest.approx(269.8, abs=1e-10)
+
+    # Known F10.7 observed: 269.8
+    assert brahe.get_global_f107_observed(mjd) == pytest.approx(269.3, abs=1e-10)
 
     # Known International Sunspot Number: 334
     assert brahe.get_global_sunspot_number(mjd) == 334

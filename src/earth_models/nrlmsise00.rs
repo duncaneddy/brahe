@@ -2308,7 +2308,8 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
     input.g_lon = lon;
     input.lst = seconds / 3600.0 + lon / 15.0; // Local solar time
     input.f107a = get_global_f107_obs_avg81(mjd_ut1)?;
-    input.f107 = get_global_f107_observed(mjd_ut1)?;
+    // NRLMSISE-00 requires the previous day's observed F10.7 (1-day MJD offset)
+    input.f107 = get_global_f107_observed(mjd_ut1 - 1.0)?;
     input.ap = ap_array[0];
     input.ap_array = ap_array;
 

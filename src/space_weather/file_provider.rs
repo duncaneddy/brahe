@@ -517,8 +517,7 @@ impl SpaceWeatherProvider for FileSpaceWeatherProvider {
 
     fn get_f107_adjusted(&self, mjd: f64) -> Result<f64, BraheError> {
         let data = self.get_data(mjd)?;
-        // Use the adjusted 81-day centered average as "adjusted" F10.7
-        Ok(data.f107_adj_ctr81)
+        Ok(data.f107_adj)
     }
 
     fn get_f107_obs_avg81(&self, mjd: f64) -> Result<f64, BraheError> {
@@ -1157,9 +1156,11 @@ mod tests {
         // MJD 36112.0 = 1957-10-01
         let mjd = 36112.0;
 
-        // Known F10.7 adjusted: 269.8 (from data line)
-        // Note: get_f107_observed returns the adjusted value in CSSI format
-        assert_abs_diff_eq!(sw.get_f107_observed(mjd).unwrap(), 269.8, epsilon = 1e-10);
+        // Known observed daily F10.7: 269.3
+        assert_abs_diff_eq!(sw.get_f107_observed(mjd).unwrap(), 269.3, epsilon = 1e-10);
+
+        // Known adjusted daily F10.7: 269.8
+        assert_abs_diff_eq!(sw.get_f107_adjusted(mjd).unwrap(), 269.8, epsilon = 1e-10);
 
         // Known International Sunspot Number: 334
         assert_eq!(sw.get_sunspot_number(mjd).unwrap(), 334);

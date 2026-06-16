@@ -89,7 +89,7 @@ rand = "0.9"
 criterion = { version = "0.8", features = ["html_reports"] }
 
 [features]
-ci = []
+integration = []
 manual = []  # For tests requiring network downloads (run with: cargo test --features manual)
 python = ["dep:pyo3", "dep:numpy"]
 dhat-heap = []    # if you are doing heap profiling

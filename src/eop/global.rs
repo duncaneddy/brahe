@@ -921,7 +921,7 @@ mod tests {
 
     #[test]
     #[serial]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_initialize_eop() {
         // Clear any existing global EOP
         clear_test_global_eop();

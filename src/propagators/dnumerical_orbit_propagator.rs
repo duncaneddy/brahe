@@ -6589,7 +6589,7 @@ mod tests {
     // --------------------------
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_dnumericalorbitpropagator_accuracy_energy_drift_long_term() {
         setup_global_test_eop();
 
@@ -6635,7 +6635,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_dnumericalorbitpropagator_accuracy_orbital_stability_long_term() {
         setup_global_test_eop();
 
@@ -6733,7 +6733,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "ci"), ignore)]
+    #[cfg_attr(not(feature = "integration"), ignore)]
     fn test_dnumericalorbitpropagator_accuracy_geo_regime() {
         setup_global_test_eop();
 

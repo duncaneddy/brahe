@@ -24,6 +24,18 @@ test-python *flags: _setup
     uv pip install -e . --quiet
     {{python}} -m pytest tests/ -v {{flags}}
 
+# Run integration (network) tests — Rust + Python (needs TEST_SPACETRACK_USER/PASS)
+test-integration: test-integration-rust test-integration-python
+
+# Run Rust integration tests
+test-integration-rust *flags:
+    cargo test -p brahe --features integration {{flags}}
+
+# Run Python integration tests
+test-integration-python *flags: _setup
+    uv pip install -e . --quiet
+    {{python}} -m pytest tests/ -v -m integration {{flags}}
+
 # Test all documentation examples (delegates to scripts/test_examples.py)
 test-examples *args: _setup
     @PYTHONPATH={{scripts_dir}} {{python}} {{scripts_dir}}/test_examples.py {{args}}

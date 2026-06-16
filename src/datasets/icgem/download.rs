@@ -407,10 +407,10 @@ mod tests {
 
     // TODO: This test is super flakey because it depends on the live ICGEM service
     // #[test]
-    // #[cfg_attr(not(feature = "ci"), ignore)]
+    // #[cfg_attr(not(feature = "integration"), ignore)]
     // #[serial_test::serial]
     // fn test_download_live_jgm3_network() {
-    //     // Smoke test against real ICGEM. Skipped unless `--features ci`.
+    //     // Smoke test against real ICGEM. Skipped unless `--features integration`.
     //     let dir = tempfile::tempdir().unwrap();
     //     unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
 

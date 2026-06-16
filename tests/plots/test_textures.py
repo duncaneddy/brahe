@@ -13,7 +13,7 @@ from brahe.plots.texture_utils import (
     clear_texture_cache,
 )
 
-pytestmark = pytest.mark.ci
+pytestmark = pytest.mark.integration
 
 
 def test_get_texture_cache_dir():
@@ -70,7 +70,7 @@ def test_load_earth_texture_invalid():
         load_earth_texture("invalid_texture")
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_load_earth_texture_natural_earth_50m():
     """Test loading Natural Earth 50m texture (requires download)."""
     img = load_earth_texture("natural_earth_50m")
@@ -91,7 +91,7 @@ def test_load_earth_texture_natural_earth_50m():
     assert img2 is not None
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_load_earth_texture_natural_earth_10m():
     """Test loading Natural Earth 10m texture (requires download, large file)."""
     # This is a larger download, so we mark it as ci-only

@@ -9,7 +9,7 @@ import brahe.datasets as datasets
 # ─── CI tests (live downloads) ──────────────────────────────────────
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 class TestGCATLiveDownload:
     """Tests that require network access to download GCAT data."""
 

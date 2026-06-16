@@ -97,7 +97,7 @@ class TestCelestrakSATCATRecord:
 # -- CI-gated integration tests --
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 class TestCelestrakClientIntegration:
     """Integration tests against live Celestrak API."""
 

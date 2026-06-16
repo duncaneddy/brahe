@@ -1,0 +1,167 @@
+name: Integration Tests
+
+on:
+    schedule:
+        # Tuesday 13:00 UTC = 06:00 PDT / 05:00 PST. GitHub cron is always UTC and
+        # never honors DST, so this drifts an hour across PST/PDT but stays in the
+        # morning PT year-round; a ~20-30 min run lands results by early Tuesday AM PT.
+        - cron: '0 13 * * 2'
+    workflow_dispatch:
+    workflow_call:
+
+concurrency:
+    group: integration-tests-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    integration-rust:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            max-parallel: 1
+            matrix:
+                os: [ubuntu-latest, macos-latest, windows-latest]
+                rust-toolchain: [stable]
+        environment: release
+        permissions:
+            id-token: write
+        env:
+            CARGO_TERM_COLOR: always
+            TEST_SPACETRACK_USER: ${{ secrets.TEST_SPACETRACK_USER }}
+            TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
+            TEST_SPACETRACK_BASE_URL: https://for-testing-only.space-track.org
+        steps:
+            -   uses: actions/checkout@v6.0.3
+            -   name: Set up Rust toolchain with cache
+                uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+                with:
+                    toolchain: ${{ matrix.rust-toolchain }}
+            -   name: Set default Rust toolchain
+                run: |
+                    rustup update ${{ matrix.rust-toolchain }}
+                    rustup default ${{ matrix.rust-toolchain }}
+
+            -   name: Install cargo-llvm-cov
+                if: matrix.os == 'ubuntu-latest'
+                uses: taiki-e/install-action@cargo-llvm-cov
+
+            -   name: Run Rust integration tests with coverage (Ubuntu)
+                if: matrix.os == 'ubuntu-latest'
+                uses: nick-fields/retry@v3
+                with:
+                    timeout_minutes: 30
+                    max_attempts: 3
+                    retry_wait_seconds: 60
+                    command: cargo llvm-cov -p brahe --features integration --lcov --output-path lcov-integration.info
+
+            -   name: Run Rust integration tests (non-Ubuntu)
+                if: matrix.os != 'ubuntu-latest'
+                uses: nick-fields/retry@v3
+                with:
+                    timeout_minutes: 30
+                    max_attempts: 3
+                    retry_wait_seconds: 60
+                    command: cargo test -p brahe --features integration
+
+            -   name: Upload integration coverage to Codecov
+                if: matrix.os == 'ubuntu-latest'
+                uses: codecov/codecov-action@v7.0.0
+                env:
+                    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+                with:
+                    files: lcov-integration.info
+                    flags: rust-integration
+                    fail_ci_if_error: false
+                    verbose: true
+                    use_oidc: true
+
+    integration-python:
+        runs-on: ubuntu-latest
+        strategy:
+            max-parallel: 1
+            matrix:
+                python-version: ['3.10', '3.14']
+                rust-toolchain: [stable]
+        environment: release
+        permissions:
+            id-token: write
+        env:
+            TEST_SPACETRACK_USER: ${{ secrets.TEST_SPACETRACK_USER }}
+            TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
+        steps:
+            -   name: Set up Rust toolchain
+                uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+                with:
+                    toolchain: ${{ matrix.rust-toolchain }}
+            -   name: Set default Rust toolchain
+                run: |
+                    rustup update ${{ matrix.rust-toolchain }}
+                    rustup default ${{ matrix.rust-toolchain }}
+            -   uses: actions/checkout@v6.0.3
+            -   name: Install the latest version of uv
+                uses: astral-sh/setup-uv@v8.2.0
+                with:
+                    enable-cache: true
+            -   name: Install Python ${{ matrix.python-version }}
+                run: uv python install ${{ matrix.python-version }}
+            -   name: Install dependencies
+                run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}
+
+            -   name: Install cargo-llvm-cov
+                if: matrix.python-version == '3.10'
+                uses: taiki-e/install-action@cargo-llvm-cov
+
+            -   name: Build, test (with coverage + retries) — 3.10
+                if: matrix.python-version == '3.10'
+                uses: nick-fields/retry@v3
+                with:
+                    timeout_minutes: 30
+                    max_attempts: 3
+                    retry_wait_seconds: 60
+                    command: |
+                        cargo llvm-cov clean --workspace
+                        eval "$(cargo llvm-cov show-env --export-prefix)"
+                        uv pip install maturin --quiet
+                        uv run maturin develop --uv --features pyo3/extension-module
+                        uv run --frozen pytest tests/ -m integration \
+                            --reruns 3 --reruns-delay 10 \
+                            --cov=brahe \
+                            --cov-report=xml:python-coverage-integration.xml \
+                            --cov-report=term
+                        cargo llvm-cov report --lcov --output-path python-rust-coverage-integration.lcov
+
+            -   name: Build extension (standard) — 3.14
+                if: matrix.python-version == '3.14'
+                run: uv pip install -e .
+
+            -   name: Test (with retries) — 3.14
+                if: matrix.python-version == '3.14'
+                uses: nick-fields/retry@v3
+                with:
+                    timeout_minutes: 30
+                    max_attempts: 3
+                    retry_wait_seconds: 60
+                    command: uv run --frozen pytest tests/ -v -m integration --reruns 3 --reruns-delay 10
+
+            -   name: Upload Python integration coverage to Codecov
+                if: matrix.python-version == '3.10'
+                uses: codecov/codecov-action@v7.0.0
+                env:
+                    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+                with:
+                    files: python-coverage-integration.xml
+                    flags: python-integration
+                    fail_ci_if_error: false
+                    verbose: true
+                    use_oidc: true
+
+            -   name: Upload Python-Rust integration coverage to Codecov
+                if: matrix.python-version == '3.10'
+                uses: codecov/codecov-action@v7.0.0
+                env:
+                    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+                with:
+                    files: python-rust-coverage-integration.lcov
+                    flags: python-rust-integration
+                    fail_ci_if_error: false
+                    verbose: true
+                    use_oidc: true

@@ -25,8 +25,6 @@ jobs:
     needs: [check-skip]
     if: needs.check-skip.outputs.should_skip == 'false'
     uses: ./.github/workflows/test_rust.yml
-    with:
-      is-fork-pr: ${{ github.event.pull_request.head.repo.fork == true || github.actor == 'dependabot[bot]' }}
     secrets: inherit
 
   delay-python:
@@ -42,7 +40,6 @@ jobs:
     if: needs.delay-python.result == 'success'
     uses: ./.github/workflows/test_python.yml
     with:
-      is-fork-pr: ${{ github.event.pull_request.head.repo.fork == true || github.actor == 'dependabot[bot]' }}
       # PR runs test only the oldest supported Python (the declared floor in pyproject.toml)
       # across all 3 OSes to catch breakage of the minimum-supported version.
       # The full matrix runs on push to main.
@@ -155,7 +152,7 @@ jobs:
         run: uv sync --group docs --all-extras --frozen
 
       - name: Build Python extension
-        run: uv pip install -e .
+        run: uv pip install -e ".[plots]"
 
       - name: Generate type stubs
         run: ./scripts/generate_stubs.sh

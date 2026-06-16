@@ -6,7 +6,7 @@ import os
 import brahe as bh
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_download_de(naif_cache_setup):
     """Test downloading de440s kernel (smaller file for testing)."""
     kernel_path = bh.datasets.naif.download_de_kernel("de440s")
@@ -21,7 +21,7 @@ def test_download_de(naif_cache_setup):
     assert file_size > 0
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_download_with_output_path(naif_cache_setup):
     """Test downloading kernel to specific location."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -37,7 +37,7 @@ def test_download_with_output_path(naif_cache_setup):
         assert file_size > 0
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_caching_behavior(naif_cache_setup):
     """Test that kernel is cached and not re-downloaded."""
     # First download
@@ -61,7 +61,7 @@ def test_unsupported_kernel():
         bh.datasets.naif.download_de_kernel("de999")
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_supported_kernels():
     """Test that all documented supported kernels are valid."""
     # Test a subset of supported kernels (not all to save bandwidth)
@@ -77,7 +77,7 @@ def test_supported_kernels():
             assert "Unsupported kernel" not in str(e)
 
 
-@pytest.mark.ci
+@pytest.mark.integration
 def test_output_path_creates_directories(naif_cache_setup):
     """Test that output_path creates parent directories if needed."""
     with tempfile.TemporaryDirectory() as tmpdir:

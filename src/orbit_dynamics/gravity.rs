@@ -1074,6 +1074,45 @@ impl GravityModel {
         Ok(())
     }
 
+    /// Build a model directly from dense fully-normalized coefficient tables.
+    /// Test/utility seam used by the tides equivalence test; `dc[n][m]` = C̄nm,
+    /// `ds[n][m]` = S̄nm for n,m in 0..=n_max (n_max <= 4 supported here).
+    #[doc(hidden)]
+    pub fn from_dense_normalized(
+        dc: &[[f64; 5]; 5],
+        ds: &[[f64; 5]; 5],
+        n_max: usize,
+        gm: f64,
+        radius: f64,
+    ) -> Self {
+        let mut data = DMatrix::zeros(n_max + 1, n_max + 1);
+        for n in 0..=n_max {
+            data[(n, 0)] = dc[n][0];
+            for m in 1..=n {
+                data[(n, m)] = dc[n][m];
+                data[(m - 1, n)] = ds[n][m];
+            }
+        }
+        let mut model = Self {
+            data,
+            tide_system: GravityModelTideSystem::TideFree,
+            n_max,
+            m_max: n_max,
+            gm,
+            radius,
+            model_name: String::from("TideDelta"),
+            model_errors: GravityModelErrors::No,
+            normalization: GravityModelNormalization::FullyNormalized,
+            coeff_c: DMatrix::zeros(1, 1),
+            coeff_s: DMatrix::zeros(1, 1),
+            fac: DMatrix::zeros(1, 1),
+            rec_a: DMatrix::zeros(1, 1),
+            rec_b: DMatrix::zeros(1, 1),
+        };
+        model.precompute_coefficients();
+        model
+    }
+
     /// Compute gravitational acceleration from spherical harmonic expansion.
     ///
     /// Evaluates gravity field using recursively-computed associated Legendre functions.

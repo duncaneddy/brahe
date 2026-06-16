@@ -116,8 +116,6 @@ all = [
 ]
 gpu-comparison = [
     { name = "psutil" },
-    { name = "rich" },
-    { name = "typer" },
 ]
 plots = [
     { name = "cartopy" },
@@ -193,11 +191,9 @@ requires-dist = [
     { name = "psutil", marker = "extra == 'gpu-comparison'", specifier = ">=5.9" },
     { name = "pyshp", marker = "extra == 'plots'", specifier = ">=2.3.0" },
     { name = "rich", specifier = ">=14.0.0" },
-    { name = "rich", marker = "extra == 'gpu-comparison'", specifier = ">=13.0" },
     { name = "scienceplots", marker = "extra == 'plots'", specifier = ">=2.0.0" },
     { name = "shapely", marker = "extra == 'plots'", specifier = ">=2.0.0" },
     { name = "typer", specifier = ">=0.16.0" },
-    { name = "typer", marker = "extra == 'gpu-comparison'", specifier = ">=0.9" },
     { name = "typing-extensions", specifier = ">=4.0.0" },
 ]
 provides-extras = ["all", "gpu-comparison", "plots"]

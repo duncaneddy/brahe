@@ -27,13 +27,16 @@ test-python *flags: _setup
 # Run integration (network) tests — Rust + Python (needs TEST_SPACETRACK_USER/PASS)
 test-integration: test-integration-rust test-integration-python
 
-# Run Rust integration tests
+# Run Rust integration tests. TEST_SPACETRACK_BASE_URL defaults to the
+# for-testing endpoint (the SpaceTrack client tests `.expect()` it); override by
+# exporting it yourself. TEST_SPACETRACK_USER/PASS must be set in your environment.
 test-integration-rust *flags:
-    cargo test -p brahe --features integration {{flags}}
+    TEST_SPACETRACK_BASE_URL="${TEST_SPACETRACK_BASE_URL:-https://for-testing-only.space-track.org}" cargo test -p brahe --features integration {{flags}}
 
-# Run Python integration tests
+# Run Python integration tests. Installs the `all` extra so the plot integration
+# tests (matplotlib/plotly/pillow/httpx) can be collected, matching CI's --all-extras.
 test-integration-python *flags: _setup
-    uv pip install -e . --quiet
+    uv pip install -e ".[all]" --quiet
     {{python}} -m pytest tests/ -v -m integration {{flags}}
 
 # Test all documentation examples (delegates to scripts/test_examples.py)

@@ -1,0 +1,1 @@
+Geodetic coordinates (lat, lon, alt): -113.194611°, 74.076494°, 471.474 km

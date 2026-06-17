@@ -1,0 +1,3 @@
+Range computer: sampling=FixedCount(50)
+
+Range varies from 658.9 to 1501.0 km

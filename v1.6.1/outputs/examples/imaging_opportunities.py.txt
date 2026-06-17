@@ -1,0 +1,64 @@
+Downloading ICEYE constellation TLEs from CelesTrak...
+Loaded 52 ICEYE satellites in 0.39 seconds.
+
+ICEYE Constellation:
+  1. ICEYE-X2
+     Epoch: 2026-06-16 21:04:11.406 UTC
+     Semi-major axis: 6890.9 km
+  2. ICEYE-X5
+     Epoch: 2026-06-16 21:16:10.115 UTC
+     Semi-major axis: 6779.5 km
+  3. ICEYE-X4
+     Epoch: 2026-06-16 20:53:52.494 UTC
+     Semi-major axis: 6856.1 km
+  4. ICEYE-X7
+     Epoch: 2026-06-16 21:07:39.104 UTC
+     Semi-major axis: 6849.4 km
+  5. ICEYE-X6
+     Epoch: 2026-06-16 20:36:41.301 UTC
+     Semi-major axis: 6931.1 km
+  ... and 47 more
+
+Propagating constellation for visualization...
+Created 3D visualization in 6.60 seconds.
+
+Resetting propagators for access computation...
+
+Target Location: San Francisco
+  Longitude: -122.4194°
+  Latitude: 37.7749°
+
+Defining imaging constraints:
+  - Descending pass only
+  - Right-looking geometry
+  - Off-nadir angle: 35-45 degrees
+
+Computing 7-day imaging opportunities...
+Computed 2918 imaging opportunities in 13.34 seconds.
+
+==========================================================================================
+Sample Imaging Opportunities (first 10)
+==========================================================================================
+Spacecraft           Start Time                End Time                    Duration  Off-Nadir
+------------------------------------------------------------------------------------------
+ICEYE-X48            2026-06-16 21:05:44       2026-06-16 21:13:07          443.4 s     40.0°
+ICEYE-X51            2026-06-16 21:08:08       2026-06-16 21:15:19          431.4 s     40.0°
+ICEYE-X37            2026-06-16 21:22:01       2026-06-16 21:28:16          375.7 s     40.0°
+ICEYE-X57            2026-06-16 21:25:21       2026-06-16 21:26:35           74.1 s     43.6°
+ICEYE-X36            2026-06-16 21:27:31       2026-06-16 21:33:44          373.3 s     40.0°
+ICEYE-X52            2026-06-16 21:27:57       2026-06-16 21:28:31           33.6 s     40.0°
+ICEYE-X38            2026-06-16 21:27:59       2026-06-16 21:34:23          384.6 s     40.0°
+ICEYE-X52            2026-06-16 21:30:05       2026-06-16 21:30:39           33.7 s     40.0°
+ICEYE-X78            2026-06-16 21:32:19       2026-06-16 21:39:52          453.4 s     40.0°
+ICEYE-X25            2026-06-16 21:45:11       2026-06-16 21:51:11          359.7 s     40.0°
+==========================================================================================
+✓ Exported first 10 imaging opportunities to docs/figures/imaging_opportunities_windows.csv
+
+Imaging Opportunity Statistics:
+  Total opportunities: 2918
+  Spacecraft with opportunities: 52
+  Average duration: 460.1 seconds
+  Total imaging time: 1342570.9 seconds
+
+✓ Generated docs/figures/imaging_opportunities_constellation_light.html
+✓ Generated docs/figures/imaging_opportunities_constellation_dark.html

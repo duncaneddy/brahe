@@ -1,0 +1,35 @@
+Downloading NISAR TLE from CelesTrak...
+Found NISAR: NISAR in 0.39s
+
+Ireland polygon: 27 vertices
+
+NISAR tessellation: 4 tiles
+  Tile 0: width=242 km, length=347 km
+  Tile 1: width=242 km, length=371 km
+  Tile 2: width=242 km, length=467 km
+  Tile 3: width=242 km, length=480 km
+
+Computing collection opportunities...
+Found 651 collection windows in 0.07s
+
+======================================================================
+Collection Opportunity Summary (7-day period)
+======================================================================
+  Total windows:     651
+  Min duration:      28.8 s (0.5 min)
+  Max duration:      3562.9 s (59.4 min)
+  Average duration:  1899.9 s (31.7 min)
+  Median duration:   1373.3 s (22.9 min)
+======================================================================
+
+Start                        End                          Duration (s)
+----------------------------------------------------------------------
+  2026-06-16 19:38:12.924 UTC  2026-06-16 19:50:03.701 UTC       710.8
+  2026-06-16 19:38:12.924 UTC  2026-06-16 19:49:38.312 UTC       685.4
+  2026-06-16 19:38:12.924 UTC  2026-06-16 19:49:49.048 UTC       696.1
+  2026-06-16 19:38:12.924 UTC  2026-06-16 19:49:53.159 UTC       700.2
+  2026-06-16 20:11:24.565 UTC  2026-06-16 20:13:20.482 UTC       115.9
+Generated all light figures
+Generated all dark figures
+
+Done. All figures saved to docs/figures

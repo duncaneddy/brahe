@@ -1,0 +1,3 @@
+ECI -> ECEF -> ECI roundtrip difference: 9.331e-10
+GCRF -> ITRF -> GCRF roundtrip difference: 9.331e-10
+ECEF <> ITRF difference: 0.000e0

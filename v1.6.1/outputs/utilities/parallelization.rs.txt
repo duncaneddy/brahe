@@ -1,0 +1,5 @@
+Default thread count: 4
+Thread count after setting to 4: 4
+Maximum thread count: 4
+Ludicrous speed thread count: 4
+Final thread count: 2

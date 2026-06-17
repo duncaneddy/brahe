@@ -1,0 +1,3 @@
+Propagated 2 mixed-type propagators one hour to 2008-09-20 13:25:40.104 UTC.
+  Keplerian position (m): [ -155920.0545527   1066921.87408607 -6793793.69299042]
+  SGP position (m):       [-4145099.08677992 -4675192.12434666 -2522878.68819125]

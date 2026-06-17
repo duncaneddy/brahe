@@ -38,19 +38,26 @@ This example creates a constellation of 10 satellites and propagates them 24 hou
 
 ## Mixing Propagator Types
 
-All propagators in the list must be the same type (either all `KeplerianPropagator` or all `SGPPropagator`). Mixing types will raise a `TypeError`:
+In Python, a single list may mix `KeplerianPropagator`, `SGPPropagator`, and
+`NumericalOrbitPropagator` instances. Propagators are grouped by type internally,
+each group is propagated in parallel, and the results are written back to the
+original objects in place, preserving list order:
 
 === "Python"
     ```python
     import brahe as bh
 
-    # Example propgator intiailization
+    # Example propagator initialization
     kep_prop = bh.KeplerianPropagator.from_eci(epoch, state, 60.0)
     sgp_prop = bh.SGPPropagator.from_tle(line1, line2, 60.0)
 
-    # This will raise TypeError
+    # A mixed-type list is propagated correctly
     bh.par_propagate_to([kep_prop, sgp_prop], target)
     ```
+
+In Rust, `par_propagate_to_s` is generic over a single propagator type, so each
+call operates on a homogeneous slice. Group propagators by type and make one call
+per type to achieve the same result.
 
 ## Memory Considerations
 

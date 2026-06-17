@@ -177,6 +177,11 @@ def check_flags(
                 flags_str = match.group(1)
                 flags = [f.strip().strip('"').strip("'") for f in flags_str.split(",")]
 
+                # MANUAL examples are never run automatically — not even by
+                # --ignore. Used for scaffolding templates and examples that
+                # require credentials/services that are never wired into CI.
+                if "MANUAL" in flags:
+                    return True, "manual", timeout_seconds
                 if "IGNORE" in flags and not enable_ignore:
                     return True, "ignored", timeout_seconds
                 if "CI-ONLY" in flags and not enable_ci_only:

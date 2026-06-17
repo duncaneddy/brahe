@@ -1,6 +1,7 @@
 # /// script
 # dependencies = ["brahe", "plotly"]
 # FLAGS = ["IGNORE"]
+# TIMEOUT = 600
 # ///
 
 import time

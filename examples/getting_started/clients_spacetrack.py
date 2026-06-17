@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["IGNORE"]
+# FLAGS = ["MANUAL"]
 
 import brahe as bh
 import os

@@ -2845,8 +2845,10 @@ impl PyKeplerianPropagator {
 /// in parallel using the global thread pool. Each propagator's internal state is updated
 /// to reflect the new epoch.
 ///
-/// All propagators in the list must be of the same type (either all `KeplerianPropagator`,
-/// all `SGPPropagator`, or all `NumericalOrbitPropagator`). Mixing propagator types is not supported.
+/// The list may freely mix `KeplerianPropagator`, `SGPPropagator`, and
+/// `NumericalOrbitPropagator` instances. Propagators are grouped by type and each
+/// group is propagated in parallel; results are written back to the original objects
+/// in place, preserving their order.
 ///
 /// Note: `NumericalPropagator` (with user-defined Python dynamics) is NOT supported because
 /// Python callbacks cannot safely execute in parallel due to the GIL. Use `NumericalOrbitPropagator`
@@ -2902,14 +2904,44 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         return Ok(()); // No propagators to process
     }
 
-    // Determine propagator type from first element
-    let first = prop_list.get_item(0)?;
+    // Classify every element by type up front. The whole list is validated before
+    // any propagation runs, so a list containing an unsupported propagator fails
+    // cleanly without partially mutating the others. Indices are recorded per type
+    // so each homogeneous group can be propagated in parallel and results written
+    // back to the correct original objects.
+    let mut kep_idx: Vec<usize> = Vec::new();
+    let mut sgp_idx: Vec<usize> = Vec::new();
+    let mut num_orbit_idx: Vec<usize> = Vec::new();
 
-    if first.is_instance_of::<PyKeplerianPropagator>() {
-        // Process as Keplerian propagators
-        let mut props: Vec<propagators::KeplerianPropagator> = Vec::new();
+    for (i, item) in prop_list.iter().enumerate() {
+        if item.is_instance_of::<PyKeplerianPropagator>() {
+            kep_idx.push(i);
+        } else if item.is_instance_of::<PySGPPropagator>() {
+            sgp_idx.push(i);
+        } else if item.is_instance_of::<PyNumericalOrbitPropagator>() {
+            num_orbit_idx.push(i);
+        } else if item.is_instance_of::<PyNumericalPropagator>() {
+            // NumericalPropagator uses Python callbacks for dynamics, which cannot
+            // safely execute in parallel due to the GIL. Provide a helpful message.
+            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                "NumericalPropagator cannot be used with par_propagate_to because its Python \
+                 dynamics callback cannot safely execute in parallel due to the GIL. \
+                 Use NumericalOrbitPropagator for parallel propagation of orbital dynamics, \
+                 or call propagate_to() sequentially on each NumericalPropagator.",
+            ));
+        } else {
+            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                "propagators must be a list of KeplerianPropagator, SGPPropagator, or NumericalOrbitPropagator",
+            ));
+        }
+    }
 
-        for item in prop_list.iter() {
+    // Process Keplerian propagators as a group.
+    if !kep_idx.is_empty() {
+        let mut props: Vec<propagators::KeplerianPropagator> = Vec::with_capacity(kep_idx.len());
+
+        for &i in &kep_idx {
+            let item = prop_list.get_item(i)?;
             let py_prop = item.cast::<PyKeplerianPropagator>()?;
             props.push(py_prop.borrow().propagator.clone());
         }
@@ -2918,20 +2950,22 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         propagators::par_propagate_to_s(&mut props, target_epoch.obj);
 
         // Update Python objects with new state
-        for (i, item) in prop_list.iter().enumerate() {
+        for (k, &i) in kep_idx.iter().enumerate() {
+            let item = prop_list.get_item(i)?;
             let mut py_prop = item.cast::<PyKeplerianPropagator>()?.borrow_mut();
-            py_prop.propagator = props[i].clone();
+            py_prop.propagator = props[k].clone();
         }
+    }
 
-        Ok(())
-    } else if first.is_instance_of::<PySGPPropagator>() {
-        // Process as SGP propagators
+    // Process SGP propagators as a group.
+    if !sgp_idx.is_empty() {
         // Note: SGPPropagator::Clone does NOT clone event_detectors (trait objects can't be cloned)
         // We must extract them before cloning and reattach after parallel propagation
-        let mut props: Vec<propagators::SGPPropagator> = Vec::new();
+        let mut props: Vec<propagators::SGPPropagator> = Vec::with_capacity(sgp_idx.len());
         let mut extracted_detectors: Vec<Vec<Box<dyn events::DEventDetector>>> = Vec::new();
 
-        for item in prop_list.iter() {
+        for &i in &sgp_idx {
+            let item = prop_list.get_item(i)?;
             let mut py_prop = item.cast::<PySGPPropagator>()?.borrow_mut();
             // Take ownership of event detectors BEFORE cloning (they would be lost on clone)
             extracted_detectors.push(py_prop.propagator.take_event_detectors());
@@ -2939,25 +2973,26 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         }
 
         // Reattach event detectors to the cloned propagators
-        for (i, detectors) in extracted_detectors.into_iter().enumerate() {
-            props[i].set_event_detectors(detectors);
+        for (k, detectors) in extracted_detectors.into_iter().enumerate() {
+            props[k].set_event_detectors(detectors);
         }
 
         // Call Rust parallel propagation function
         propagators::par_propagate_to_s(&mut props, target_epoch.obj);
 
         // Transfer results back to Python objects
-        for (i, item) in prop_list.iter().enumerate() {
+        for (k, &i) in sgp_idx.iter().enumerate() {
+            let item = prop_list.get_item(i)?;
             let mut py_prop = item.cast::<PySGPPropagator>()?.borrow_mut();
 
             // Take event state from propagated clone before transferring
-            let detectors = props[i].take_event_detectors();
-            let event_log = props[i].take_event_log();
-            let terminated = props[i].is_terminated();
-            let termination_error = props[i].take_termination_error();
+            let detectors = props[k].take_event_detectors();
+            let event_log = props[k].take_event_log();
+            let terminated = props[k].is_terminated();
+            let termination_error = props[k].take_termination_error();
 
             // Transfer full propagator state (trajectory, epoch_current, state_current, etc.)
-            py_prop.propagator = props[i].clone();
+            py_prop.propagator = props[k].clone();
 
             // Restore event detection state lost in clone
             py_prop.propagator.set_event_detectors(detectors);
@@ -2965,10 +3000,10 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
             py_prop.propagator.set_terminated(terminated);
             py_prop.propagator.set_termination_error(termination_error);
         }
+    }
 
-        Ok(())
-    } else if first.is_instance_of::<PyNumericalOrbitPropagator>() {
-        // Process as NumericalOrbitPropagator
+    // Process NumericalOrbitPropagator instances as a group.
+    if !num_orbit_idx.is_empty() {
         // Note: DNumericalOrbitPropagator cannot be cloned (has Box<dyn DIntegrator>),
         // so we work directly with mutable references using raw pointers
 
@@ -2979,9 +3014,11 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         unsafe impl Sync for SendPtr {}
 
         // Collect borrow guards (must stay alive while we use raw pointers)
-        let mut borrow_guards: Vec<PyRefMut<'_, PyNumericalOrbitPropagator>> = Vec::new();
+        let mut borrow_guards: Vec<PyRefMut<'_, PyNumericalOrbitPropagator>> =
+            Vec::with_capacity(num_orbit_idx.len());
 
-        for item in prop_list.iter() {
+        for &i in &num_orbit_idx {
+            let item = prop_list.get_item(i)?;
             borrow_guards.push(item.cast::<PyNumericalOrbitPropagator>()?.borrow_mut());
         }
 
@@ -3007,21 +3044,9 @@ fn py_par_propagate_to(propagators: &Bound<'_, PyAny>, target_epoch: &PyEpoch) -
         });
 
         // borrow_guards are dropped here, releasing the borrows
-        Ok(())
-    } else if first.is_instance_of::<PyNumericalPropagator>() {
-        // NumericalPropagator uses Python callbacks for dynamics, which cannot safely
-        // execute in parallel due to the GIL. Provide a helpful error message.
-        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "NumericalPropagator cannot be used with par_propagate_to because its Python \
-             dynamics callback cannot safely execute in parallel due to the GIL. \
-             Use NumericalOrbitPropagator for parallel propagation of orbital dynamics, \
-             or call propagate_to() sequentially on each NumericalPropagator.",
-        ))
-    } else {
-        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "propagators must be a list of KeplerianPropagator, SGPPropagator, or NumericalOrbitPropagator",
-        ))
     }
+
+    Ok(())
 }
 
 // =============================================================================

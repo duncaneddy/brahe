@@ -2,6 +2,7 @@
 # /// script
 # dependencies = ["brahe"]
 # FLAGS = ["IGNORE"]
+# TIMEOUT = 600
 # ///
 
 import time

@@ -162,25 +162,39 @@ def test_par_propagate_to_single_propagator():
     assert propagators[0].current_epoch() == target
 
 
-def test_par_propagate_to_mixed_types_raises_error():
-    """Test that mixing propagator types raises an error"""
-    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
-    target = epoch + 3600.0
+def test_par_propagate_to_mixed_types():
+    """Test that a list mixing propagator types is propagated correctly"""
+    line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
+    line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
+
+    # Anchor both propagators to the SGP epoch so the single shared target is a
+    # short, well-behaved propagation for both types.
+    epoch = SGPPropagator.from_tle(line1, line2, 60.0).epoch
+    target = epoch + 3600.0  # 1 hour later
 
     oe = np.array([7000e3, 0.001, 98.0, 0.0, 0.0, 0.0])
     state = state_koe_to_eci(oe, AngleFormat.DEGREES)
     kep_prop = KeplerianPropagator.from_eci(epoch, state, 60.0)
-
-    line1 = "1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927"
-    line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537"
     sgp_prop = SGPPropagator.from_tle(line1, line2, 60.0)
 
-    # Create mixed list - first is Keplerian, second is SGP
-    # This should raise a TypeError because types don't match
-    propagators = [kep_prop, sgp_prop]
+    # Independent references propagated sequentially to compare against.
+    kep_ref = KeplerianPropagator.from_eci(epoch, state, 60.0)
+    kep_ref.propagate_to(target)
+    sgp_ref = SGPPropagator.from_tle(line1, line2, 60.0)
+    sgp_ref.propagate_to(target)
 
-    with pytest.raises(TypeError):
-        par_propagate_to(propagators, target)
+    # Mixed list with a Keplerian propagator first and an SGP propagator second.
+    propagators = [kep_prop, sgp_prop]
+    par_propagate_to(propagators, target)
+
+    # Each propagator reaches the target and matches its sequential reference,
+    # regardless of position in the list or type ordering.
+    assert kep_prop.current_epoch() == target
+    assert sgp_prop.current_epoch() == target
+
+    for i in range(6):
+        assert abs(kep_prop.current_state()[i] - kep_ref.current_state()[i]) < 1e-9
+        assert abs(sgp_prop.current_state()[i] - sgp_ref.current_state()[i]) < 1e-9
 
 
 def test_par_propagate_to_not_a_list_raises_error():

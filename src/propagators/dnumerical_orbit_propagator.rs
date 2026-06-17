@@ -398,13 +398,10 @@ pub struct DNumericalOrbitPropagator {
     terminated: bool,
 
     // ===== Tides =====
-    /// Solid-tide configuration (captured in the shared-dynamics closure at construction).
-    #[allow(dead_code)]
-    solid_tide: Option<SolidTideConfig>,
     /// Owned (possibly truncated and tide-system-converted) gravity model.
     /// Captured in the shared-dynamics closure at construction; also readable
     /// via gravity_model_ref() in test code.
-    #[allow(dead_code)]
+    #[cfg_attr(not(test), allow(dead_code))]
     gravity_model: Option<Arc<GravityModel>>,
 
     // ===== Metadata =====
@@ -950,7 +947,6 @@ impl DNumericalOrbitPropagator {
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
-            solid_tide,
             gravity_model,
             name: None,
             id: None,
@@ -1708,6 +1704,7 @@ impl DNumericalOrbitPropagator {
         // ===== SOLID EARTH TIDES (IERS §6.2.1) =====
         if let Some(solid_cfg) = solid_tide {
             let r_ecef = r_i2b * r;
+            // TODO: when third_body uses a high-precision ephemeris (DE440/DE440s), source Sun/Moon here from the same provider for per-step consistency. Low-precision is acceptable for the tidal perturbation magnitude.
             let r_sun_eci = sun_position(epoch);
             let r_moon_eci = moon_position(epoch);
             let r_sun_ecef = r_i2b * r_sun_eci;

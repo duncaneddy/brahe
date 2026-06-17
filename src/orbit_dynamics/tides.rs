@@ -726,6 +726,10 @@ mod tests {
         coeffs.dc[3][1] = 1.1e-9;
         coeffs.ds[3][1] = -0.6e-9;
         coeffs.dc[4][0] = -4.0e-11;
+        coeffs.dc[4][1] = 2.5e-11;
+        coeffs.ds[4][1] = -1.3e-11;
+        coeffs.dc[4][2] = -3.0e-11;
+        coeffs.ds[4][2] = 1.8e-11;
         for r in [
             Vector3::new(7.0e6, 0.0, 0.0),
             Vector3::new(3.0e6, 4.0e6, 5.0e6),

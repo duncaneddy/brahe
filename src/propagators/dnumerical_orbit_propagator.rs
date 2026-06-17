@@ -779,14 +779,40 @@ impl DNumericalOrbitPropagator {
                 if let Some(to) = target {
                     model.convert_tide_system(from, to)?;
                 }
-            } else if !matches!(
-                tides_cfg.permanent,
-                PermanentTideConfig::Off | PermanentTideConfig::Auto
-            ) {
-                eprintln!(
-                    "[brahe] warning: PermanentTideConfig set but gravity configuration has no \
-                     spherical-harmonic model to apply it to; ignoring."
+            } else {
+                // `gravity_model` is None: either PointMass/EarthZonal (no C̄20 to
+                // convert), or SphericalHarmonic with GravityModelSource::Global (shared
+                // state that must not be mutated). Warn appropriately.
+                let is_global_sh = matches!(
+                    &force_config.gravity,
+                    GravityConfiguration::SphericalHarmonic {
+                        source: GravityModelSource::Global,
+                        ..
+                    }
                 );
+                if is_global_sh
+                    && matches!(
+                        tides_cfg.permanent,
+                        PermanentTideConfig::Auto | PermanentTideConfig::ConvertTo(_)
+                    )
+                {
+                    // The shared global model cannot be mutated in place.
+                    eprintln!(
+                        "[brahe] warning: permanent-tide C\u{0305}20 conversion is NOT applied \
+                         to the shared global gravity model (mutating shared state is unsafe). \
+                         To apply the correction, either pre-convert the model with \
+                         `GravityModel::convert_tide_system` before calling \
+                         `set_global_gravity_model`, or use \
+                         `GravityModelSource::ModelType` for automatic permanent-tide handling."
+                    );
+                } else if !is_global_sh
+                    && matches!(tides_cfg.permanent, PermanentTideConfig::ConvertTo(_))
+                {
+                    eprintln!(
+                        "[brahe] warning: PermanentTideConfig set but gravity configuration has \
+                         no spherical-harmonic model to apply it to; ignoring."
+                    );
+                }
             }
         }
 

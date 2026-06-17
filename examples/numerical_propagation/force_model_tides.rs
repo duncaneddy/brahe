@@ -14,8 +14,8 @@ fn make_propagator(
 ) -> bh::DNumericalOrbitPropagator {
     // Gravity-only: no drag/SRP so both propagators are directly comparable.
     let mut force_config = bh::ForceModelConfig::earth_gravity();
-    // Add Sun+Moon third-body so the tidal accelerations have realistic
-    // body positions (the propagator needs these to compute tidal forces).
+    // Add Sun+Moon third-body perturbations. Note: tidal accelerations use their
+    // own internal low-precision ephemeris and do NOT depend on this setting.
     force_config.third_body = Some(bh::ThirdBodyConfiguration {
         ephemeris_source: bh::EphemerisSource::DE440s,
         bodies: vec![bh::ThirdBody::Sun, bh::ThirdBody::Moon],

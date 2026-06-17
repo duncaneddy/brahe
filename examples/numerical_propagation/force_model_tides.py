@@ -25,8 +25,8 @@ state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 def make_propagator(tides_config):
     """Build a gravity+third-body propagator with the given tides config."""
     force_config = bh.ForceModelConfig.earth_gravity()
-    # Add Sun+Moon third-body so the tidal accelerations have realistic
-    # body positions (the propagator needs these to compute tidal forces).
+    # Add Sun+Moon third-body perturbations. Note: tidal accelerations use their
+    # own internal low-precision ephemeris and do NOT depend on this setting.
     force_config.third_body = bh.ThirdBodyConfiguration(
         ephemeris_source=bh.EphemerisSource.DE440s,
         bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],

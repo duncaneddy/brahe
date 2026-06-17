@@ -1066,6 +1066,13 @@ impl GravityModel {
             self.tide_system = to;
             return Ok(());
         }
+        if self.n_max < 2 {
+            // Degree-2 coefficient is absent in this truncated model; the
+            // permanent-tide shift (applied to C̄20) is vacuous. Record the
+            // new tide system and return without touching data.
+            self.tide_system = to;
+            return Ok(());
+        }
         let delta = crate::orbit_dynamics::tides::tide_system_c20_offset(to)
             - crate::orbit_dynamics::tides::tide_system_c20_offset(from);
         self.data[(2, 0)] += delta;

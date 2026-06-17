@@ -105,3 +105,13 @@ def test_tides_config_roundtrip():
     cfg.tides = tides
     assert cfg.tides is not None
     assert cfg.tides.solid.frequency_dependent is True
+
+
+def test_forcemodelconfig_tides_kwarg():
+    """Test that ForceModelConfig constructor accepts a tides kwarg and round-trips it."""
+    solid = brahe.SolidTideConfig(frequency_dependent=True)
+    tides = brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.AUTO, solid=solid)
+    cfg = brahe.ForceModelConfig(tides=tides)
+    assert cfg.tides is not None
+    assert cfg.tides.solid is not None
+    assert cfg.tides.solid.frequency_dependent is True

@@ -251,12 +251,14 @@ with tides enabled and disabled, then prints the peak position difference.
 | Precise orbit determination, POD | Step 1 + Step 2 (`frequency_dependent=True`) |
 | Geodesy, altimetry calibration | Step 1 + Step 2 |
 
-## Required Force Model Setup
+## Force Model Setup Notes
 
 Solid-tide computation requires Sun and Moon positions in the ECEF frame. The
-propagator obtains these from the third-body force model when it is enabled.
-Make sure `third_body` includes at least `Sun` and `Moon` when solid tides are
-on, otherwise the tidal accelerations will be zero.
+propagator computes these internally using its own low-precision analytical
+ephemeris (`sun_position` / `moon_position`) — it does **not** read positions
+from the `third_body` force model. Enabling or disabling `third_body` bodies has
+no effect on the tidal correction; you can use solid tides with or without a
+third-body configuration.
 
 ## See Also
 

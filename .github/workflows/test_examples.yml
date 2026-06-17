@@ -111,7 +111,7 @@ jobs:
       # GCAT/NAIF dataset examples) retry to absorb transient remote throttling.
       - name: Test examples (with retries)
         if: ${{ inputs.use_retry }}
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 60
           max_attempts: 3

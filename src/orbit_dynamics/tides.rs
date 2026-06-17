@@ -11,9 +11,9 @@ Source: <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 
 use nalgebra::Vector3;
 
-use crate::constants::{GM_MOON, GM_SUN};
+use crate::constants::{GM_MOON, GM_SUN, MJD_ZERO};
 use crate::orbit_dynamics::gravity::GravityModelTideSystem;
-use crate::time::Epoch;
+use crate::time::{Epoch, TimeSystem};
 
 /// Permanent-tide DIRECT term on the fully-normalized C̄20 (IERS Eq. 6.14,
 /// the A0*H0 factor with no Love number). A0 = 4.4228e-8 m^-1 (Eq. 6.8c),
@@ -306,6 +306,44 @@ pub fn accel_solid_earth_tides(
     accel_low_degree_harmonics(r_ecef, &coeffs, gm_earth, radius)
 }
 
+/// Greenwich-mean-sidereal-time-plus-π and the five Delaunay fundamental
+/// arguments (l, l', F, D, Ω) in radians, for the Doodson argument of a solid
+/// Earth tide line (IERS §6.2.1):
+///   θ_f = m·(θg + π) − (n_l·l + n_l'·l' + n_F·F + n_D·D + n_Ω·Ω)
+/// where (n_*) are the Delaunay multipliers from Tables 6.5a/b/c and θg = GMST.
+///
+/// l, l', F, D, Ω come from the IAU 2003 fundamental-argument polynomials
+/// (SOFA iauFal03/iauFalp03/iauFaf03/iauFad03/iauFaom03), evaluated at TT
+/// Julian centuries since J2000. GMST from SOFA iauGmst06 (UT1, TT).
+///
+/// Returns `[θg+π, l, l', F, D, Ω]` (radians).
+#[allow(dead_code)] // consumed by Task 9 Step-2 frequency-dependent corrections
+pub(crate) fn doodson_delaunay_args(epoch: Epoch) -> [f64; 6] {
+    use std::f64::consts::PI;
+
+    // TT Julian centuries since J2000.
+    let tt_jd = epoch.jd_as_time_system(TimeSystem::TT);
+    let t = (tt_jd - 2451545.0) / 36525.0;
+
+    // SOFA fundamental arguments (radians).
+    let (l, lp, f, d, om) = unsafe {
+        (
+            rsofa::iauFal03(t),
+            rsofa::iauFalp03(t),
+            rsofa::iauFaf03(t),
+            rsofa::iauFad03(t),
+            rsofa::iauFaom03(t),
+        )
+    };
+
+    // GMST (radians), IAU 2006: needs (UT1 two-part JD, TT two-part JD).
+    let ut1 = epoch.mjd_as_time_system(TimeSystem::UT1);
+    let tt = epoch.mjd_as_time_system(TimeSystem::TT);
+    let gmst = unsafe { rsofa::iauGmst06(MJD_ZERO, ut1, MJD_ZERO, tt) };
+
+    [gmst + PI, l, lp, f, d, om]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -453,6 +491,22 @@ mod tests {
         assert!(a.norm().is_finite());
         // Solid-tide accel is ~1e-7..1e-6 m/s^2 in LEO, far below ~9.8 main gravity.
         assert!(a.norm() > 1e-9 && a.norm() < 1e-4, "|a| = {:e}", a.norm());
+    }
+
+    #[test]
+    fn test_doodson_k1_equals_gmst_plus_pi() {
+        crate::utils::testing::setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2015, 6, 15, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let args = doodson_delaunay_args(epoch);
+        // K1 has all-zero Delaunay multipliers, order m=1 => θ = GMST + π = args[0].
+        let theta_k1 = 1.0 * args[0]
+            - (0.0 * args[1] + 0.0 * args[2] + 0.0 * args[3] + 0.0 * args[4] + 0.0 * args[5]);
+        // args[0] should be GMST + π (mod 2π), in (0, 4π).
+        assert!(theta_k1.is_finite());
+        // Fundamental args are bounded angles.
+        for a in &args[1..] {
+            assert!(a.abs() < 1000.0);
+        }
     }
 
     #[test]

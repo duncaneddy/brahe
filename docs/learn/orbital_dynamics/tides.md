@@ -222,13 +222,13 @@ with tides enabled and disabled, then prints the peak position difference.
 === "Python"
 
     ```python
-    --8<-- "./examples/numerical_propagation/force_model_tides.py:7"
+    --8<-- "./examples/numerical_propagation/force_model_tides.py:10"
     ```
 
 === "Rust"
 
     ```rust
-    --8<-- "./examples/numerical_propagation/force_model_tides.rs:4"
+    --8<-- "./examples/numerical_propagation/force_model_tides.rs:5"
     ```
 
 ??? example "Output"

@@ -26,10 +26,12 @@ use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
 use crate::orbit_dynamics::{
-    GravityModel, accel_drag, accel_gravity_spherical_harmonics_with_workspace,
-    accel_point_mass_gravity, accel_relativity, accel_solar_radiation_pressure, accel_third_body,
-    eclipse_conical, eclipse_cylindrical, get_global_gravity_model, sun_position,
+    GravityModel, GravityModelTideSystem, SolidTideConfig, accel_drag,
+    accel_gravity_spherical_harmonics_with_workspace, accel_point_mass_gravity, accel_relativity,
+    accel_solar_radiation_pressure, accel_third_body, eclipse_conical, eclipse_cylindrical,
+    get_global_gravity_model, sun_position,
 };
+use crate::propagators::force_model_config::PermanentTideConfig;
 use crate::propagators::{
     AtmosphericModel, EclipseModel, ForceModelConfig, FrameTransformationModel,
     GravityConfiguration, GravityModelSource,
@@ -395,6 +397,16 @@ pub struct DNumericalOrbitPropagator {
     /// Termination flag (set by terminal events)
     terminated: bool,
 
+    // ===== Tides =====
+    /// Solid-tide configuration (stored for per-step use in compute_dynamics).
+    // Task 7 will read this in compute_dynamics; suppress dead_code until then.
+    #[allow(dead_code)]
+    solid_tide: Option<SolidTideConfig>,
+    /// Owned (possibly truncated and tide-system-converted) gravity model.
+    /// Stored so test code can inspect the model after construction via gravity_model_ref().
+    #[cfg_attr(not(test), allow(dead_code))]
+    gravity_model: Option<Arc<GravityModel>>,
+
     // ===== Metadata =====
     /// Propagator name (optional)
     pub name: Option<String>,
@@ -722,7 +734,7 @@ impl DNumericalOrbitPropagator {
         //   - When truncation is required, `Arc::make_mut` does a
         //     copy-on-write so we can truncate without disturbing the cached
         //     full-resolution model.
-        let gravity_model = match &force_config.gravity {
+        let mut gravity_model = match &force_config.gravity {
             GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(model_type),
                 degree,
@@ -737,6 +749,52 @@ impl DNumericalOrbitPropagator {
             }
             _ => None,
         };
+
+        // Apply permanent-tide handling (IERS §6.2.2) once, on the owned model.
+        if let Some(tides_cfg) = &force_config.tides {
+            if let Some(arc) = gravity_model.as_mut() {
+                let model = Arc::make_mut(arc);
+                let from = model.tide_system;
+                let target = match &tides_cfg.permanent {
+                    PermanentTideConfig::Off => None,
+                    PermanentTideConfig::Auto => {
+                        if from == GravityModelTideSystem::Unknown {
+                            eprintln!(
+                                "[brahe] warning: PermanentTideConfig::Auto: gravity model tide \
+                                 system is Unknown; leaving C\u{0305}20 unchanged."
+                            );
+                            None
+                        } else {
+                            Some(GravityModelTideSystem::TideFree)
+                        }
+                    }
+                    PermanentTideConfig::ConvertTo(sys) => {
+                        if from == GravityModelTideSystem::Unknown {
+                            return Err(BraheError::Error(
+                                "PermanentTideConfig::ConvertTo requires a known model tide \
+                                 system, but the model's tide_system is Unknown."
+                                    .to_string(),
+                            ));
+                        }
+                        Some(*sys)
+                    }
+                };
+                if let Some(to) = target {
+                    model.convert_tide_system(from, to)?;
+                }
+            } else if !matches!(
+                tides_cfg.permanent,
+                PermanentTideConfig::Off | PermanentTideConfig::Auto
+            ) {
+                eprintln!(
+                    "[brahe] warning: PermanentTideConfig set but gravity configuration has no \
+                     spherical-harmonic model to apply it to; ignoring."
+                );
+            }
+        }
+
+        // Extract solid-tide config before force_config is moved into the closure.
+        let solid_tide = force_config.tides.as_ref().and_then(|t| t.solid);
 
         // Build shared dynamics function (includes additional_dynamics)
         let shared_dynamics = Self::build_shared_dynamics(
@@ -891,6 +949,8 @@ impl DNumericalOrbitPropagator {
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
+            solid_tide,
+            gravity_model,
             name: None,
             id: None,
             uuid: None,
@@ -2871,6 +2931,21 @@ impl DOrbitCovarianceProvider for DNumericalOrbitPropagator {
 }
 
 // =============================================================================
+// Test-only accessors
+// =============================================================================
+
+#[cfg(test)]
+impl DNumericalOrbitPropagator {
+    /// Return a reference to the owned gravity model, if any.
+    ///
+    /// Used in tests to inspect the model's tide system after construction
+    /// without exposing the field in production code.
+    pub(crate) fn gravity_model_ref(&self) -> Option<&GravityModel> {
+        self.gravity_model.as_deref()
+    }
+}
+
+// =============================================================================
 // Identifiable Trait
 // =============================================================================
 
@@ -3085,24 +3160,24 @@ mod tests {
         .unwrap();
 
         // Pull the cached Arc from outside the propagator. Strong count is now:
-        //   cache (1) + propagator (1) + this test binding (1) = 3
+        //   cache (1) + propagator.gravity_model field (1) + propagator.shared_dynamics closure (1) + this test binding (1) = 4
         let from_cache = crate::orbit_dynamics::GravityModel::shared(
             &crate::orbit_dynamics::GravityModelType::JGM3,
         )
         .unwrap();
         assert_eq!(
             std::sync::Arc::strong_count(&from_cache),
-            3,
+            4,
             "no-truncation propagator should share the cached Arc \
-             (cache + propagator + test binding = 3)"
+             (cache + gravity_model field + dynamics closure + test binding = 4)"
         );
 
-        // Drop the propagator and the count must fall by exactly 1.
+        // Drop the propagator and the count must fall by exactly 2 (field + closure).
         drop(prop);
         assert_eq!(
             std::sync::Arc::strong_count(&from_cache),
             2,
-            "dropping the propagator should release its Arc clone, \
+            "dropping the propagator should release both Arc clones, \
              leaving cache + this test binding"
         );
     }
@@ -11806,5 +11881,73 @@ mod tests {
             DStatePropagator::state_dim(&via_new),
             DStatePropagator::state_dim(&via_builder)
         );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_permanent_tide_auto_converts_to_tide_free() {
+        use crate::orbit_dynamics::ParallelMode;
+        use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType};
+        use crate::propagators::force_model_config::{
+            ForceModelConfig, GravityConfiguration, GravityModelSource, PermanentTideConfig,
+            TidesConfiguration,
+        };
+
+        setup_global_test_eop();
+
+        // GGM05S is a zero-tide model; Auto should convert it to tide-free internally.
+        let base = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
+        let c20_zero = base.get(2, 0).unwrap().0;
+
+        let cfg = ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::GGM05S),
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Auto,
+            },
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::Auto,
+                solid: None,
+            }),
+            ..ForceModelConfig::earth_gravity()
+        };
+
+        let epoch = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let model = prop.gravity_model_ref().unwrap();
+        assert_eq!(model.tide_system, GravityModelTideSystem::TideFree);
+
+        if base.tide_system == GravityModelTideSystem::ZeroTide {
+            // tide-free = zero-tide minus the indirect permanent tide offset
+            let expected = c20_zero - crate::orbit_dynamics::tides::PERM_C20_INDIRECT;
+            assert!(
+                (model.get(2, 0).unwrap().0 - expected).abs() < 1e-18,
+                "C20 after Auto conversion off by {:.3e}",
+                (model.get(2, 0).unwrap().0 - expected).abs()
+            );
+        }
     }
 }

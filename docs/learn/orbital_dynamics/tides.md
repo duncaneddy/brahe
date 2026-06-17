@@ -125,13 +125,13 @@ mission-analysis applications.
 === "Rust"
 
     ```rust
-    --8<-- "./examples/numerical_propagation/tides_permanent_only.rs"
+    --8<-- "./examples/numerical_propagation/tides_permanent_only.rs:3"
     ```
 
 === "Python"
 
     ```python
-    --8<-- "./examples/numerical_propagation/tides_permanent_only.py"
+    --8<-- "./examples/numerical_propagation/tides_permanent_only.py:3"
     ```
 
 ### Permanent + Static Solid Earth Tide
@@ -139,13 +139,13 @@ mission-analysis applications.
 === "Rust"
 
     ```rust
-    --8<-- "./examples/numerical_propagation/tides_static.rs"
+    --8<-- "./examples/numerical_propagation/tides_static.rs:3"
     ```
 
 === "Python"
 
     ```python
-    --8<-- "./examples/numerical_propagation/tides_static.py"
+    --8<-- "./examples/numerical_propagation/tides_static.py:3"
     ```
 
 ### Permanent + Static + Time-Varying Solid Earth Tide
@@ -153,13 +153,13 @@ mission-analysis applications.
 === "Rust"
 
     ```rust
-    --8<-- "./examples/numerical_propagation/tides_static_time_varying.rs"
+    --8<-- "./examples/numerical_propagation/tides_static_time_varying.rs:3"
     ```
 
 === "Python"
 
     ```python
-    --8<-- "./examples/numerical_propagation/tides_static_time_varying.py"
+    --8<-- "./examples/numerical_propagation/tides_static_time_varying.py:3"
     ```
 
 ## Worked Example

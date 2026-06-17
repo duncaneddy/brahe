@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["brahe", "pytest"]
 # ///
-# FLAGS = ["IGNORE"]
+# FLAGS = ["MANUAL"]
 """
 TODO: Write a brief description of what this example demonstrates.
 """

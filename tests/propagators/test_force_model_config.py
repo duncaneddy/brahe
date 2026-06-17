@@ -4,6 +4,7 @@ Tests for ForceModelConfig and related types Python bindings
 These tests mirror the Rust tests from src/propagators/force_model_config.rs
 """
 
+import brahe
 from brahe import (
     AtmosphericModel,
     EclipseModel,
@@ -89,3 +90,18 @@ def test_forcemodelconfig_geo_default():
     """Test ForceModelConfig.geo_default()"""
     config = ForceModelConfig.geo_default()
     assert config is not None
+
+
+# =============================================================================
+# Tides Configuration Tests
+# =============================================================================
+
+
+def test_tides_config_roundtrip():
+    solid = brahe.SolidTideConfig(frequency_dependent=True)
+    assert solid.frequency_dependent is True
+    tides = brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.AUTO, solid=solid)
+    cfg = brahe.ForceModelConfig.two_body()
+    cfg.tides = tides
+    assert cfg.tides is not None
+    assert cfg.tides.solid.frequency_dependent is True

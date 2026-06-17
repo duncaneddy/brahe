@@ -3318,6 +3318,181 @@ impl PyParallelMode {
 }
 
 // =============================================================================
+// Tides Configuration
+// =============================================================================
+
+/// Solid Earth tide settings.
+///
+/// Controls whether Step 2 (frequency-dependent) IERS corrections are applied.
+///
+/// Args:
+///     frequency_dependent (bool): Apply IERS Step 2 frequency-dependent corrections.
+///         Default is False.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     solid = bh.SolidTideConfig(frequency_dependent=True)
+///     assert solid.frequency_dependent is True
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "SolidTideConfig")]
+#[derive(Clone)]
+pub struct PySolidTideConfig {
+    pub config: brahe::orbit_dynamics::tides::SolidTideConfig,
+}
+
+#[pymethods]
+impl PySolidTideConfig {
+    #[new]
+    #[pyo3(signature = (frequency_dependent=false))]
+    fn new(frequency_dependent: bool) -> Self {
+        Self {
+            config: brahe::orbit_dynamics::tides::SolidTideConfig { frequency_dependent },
+        }
+    }
+
+    /// Whether Step 2 frequency-dependent corrections are enabled.
+    #[getter]
+    fn frequency_dependent(&self) -> bool {
+        self.config.frequency_dependent
+    }
+
+    /// Set whether Step 2 frequency-dependent corrections are enabled.
+    #[setter]
+    fn set_frequency_dependent(&mut self, v: bool) {
+        self.config.frequency_dependent = v;
+    }
+
+    fn __repr__(&self) -> String {
+        format!("SolidTideConfig(frequency_dependent={})", self.config.frequency_dependent)
+    }
+}
+
+/// Permanent (zero-frequency) tide handling for the static gravity field.
+///
+/// Controls how the loaded model's C̄20 is reconciled with the solid-tide model.
+///
+/// Use the class attributes ``AUTO`` and ``OFF`` for the unit variants, or
+/// ``PermanentTideConfig.convert_to(system)`` to force a specific tide system.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # Auto-detect from model flag (default)
+///     perm = bh.PermanentTideConfig.AUTO
+///
+///     # Disable permanent-tide correction
+///     perm = bh.PermanentTideConfig.OFF
+///
+///     # Force convert to a specific system
+///     perm = bh.PermanentTideConfig.convert_to(bh.GravityModelTideSystem.ZeroTide)
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "PermanentTideConfig")]
+#[derive(Clone)]
+pub struct PyPermanentTideConfig {
+    pub config: propagators::PermanentTideConfig,
+}
+
+#[pymethods]
+#[allow(non_snake_case)]
+impl PyPermanentTideConfig {
+    /// Auto-detect tide system from the model's flag and convert C̄20 to tide-free. (default)
+    #[classattr]
+    fn AUTO() -> Self {
+        Self { config: propagators::PermanentTideConfig::Auto }
+    }
+
+    /// Leave C̄20 untouched.
+    #[classattr]
+    fn OFF() -> Self {
+        Self { config: propagators::PermanentTideConfig::Off }
+    }
+
+    /// Force the gravity field into the given tide system.
+    ///
+    /// Args:
+    ///     system (GravityModelTideSystem): Target tide system.
+    ///
+    /// Returns:
+    ///     PermanentTideConfig: A PermanentTideConfig that converts to the given system.
+    #[staticmethod]
+    fn convert_to(system: &PyGravityModelTideSystem) -> Self {
+        Self {
+            config: propagators::PermanentTideConfig::ConvertTo(system.tide_system),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.config {
+            propagators::PermanentTideConfig::Auto => "PermanentTideConfig.AUTO".to_string(),
+            propagators::PermanentTideConfig::Off => "PermanentTideConfig.OFF".to_string(),
+            propagators::PermanentTideConfig::ConvertTo(s) => {
+                format!("PermanentTideConfig.convert_to(GravityModelTideSystem.{:?})", s)
+            }
+        }
+    }
+}
+
+/// Tidal correction configuration for ForceModelConfig.
+///
+/// Args:
+///     permanent (PermanentTideConfig): Permanent-tide / tide-system handling.
+///     solid (SolidTideConfig, optional): Solid Earth tide configuration.
+///         None disables solid tides. Default is None.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     solid = bh.SolidTideConfig(frequency_dependent=True)
+///     tides = bh.TidesConfiguration(permanent=bh.PermanentTideConfig.AUTO, solid=solid)
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "TidesConfiguration")]
+#[derive(Clone)]
+pub struct PyTidesConfiguration {
+    pub config: propagators::TidesConfiguration,
+}
+
+#[pymethods]
+impl PyTidesConfiguration {
+    #[new]
+    #[pyo3(signature = (permanent, solid=None))]
+    fn new(permanent: &PyPermanentTideConfig, solid: Option<&PySolidTideConfig>) -> Self {
+        Self {
+            config: propagators::TidesConfiguration {
+                permanent: permanent.config.clone(),
+                solid: solid.map(|s| s.config),
+            },
+        }
+    }
+
+    /// Get the permanent tide configuration.
+    #[getter]
+    fn permanent(&self) -> PyPermanentTideConfig {
+        PyPermanentTideConfig { config: self.config.permanent.clone() }
+    }
+
+    /// Get the solid Earth tide configuration (None if disabled).
+    #[getter]
+    fn solid(&self) -> Option<PySolidTideConfig> {
+        self.config.solid.map(|s| PySolidTideConfig { config: s })
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "TidesConfiguration(permanent={:?}, solid={:?})",
+            self.config.permanent,
+            self.config.solid
+        )
+    }
+}
+
+// =============================================================================
 // Gravity Configuration
 // =============================================================================
 
@@ -4303,6 +4478,7 @@ impl PyForceModelConfig {
                 relativity,
                 mass: mass.map(|m| m.source.clone()),
                 frame_transform: frame_transform.map(|f| f.model.clone()).unwrap_or_default(),
+                tides: None,
             },
         }
     }
@@ -4483,6 +4659,18 @@ impl PyForceModelConfig {
     #[setter]
     fn set_frame_transform(&mut self, frame_transform: &PyFrameTransformationModel) {
         self.config.frame_transform = frame_transform.model.clone();
+    }
+
+    /// Get the tidal correction configuration (None if disabled).
+    #[getter]
+    fn tides(&self) -> Option<PyTidesConfiguration> {
+        self.config.tides.as_ref().map(|t| PyTidesConfiguration { config: t.clone() })
+    }
+
+    /// Set the tidal correction configuration (None to disable).
+    #[setter]
+    fn set_tides(&mut self, tides: Option<&PyTidesConfiguration>) {
+        self.config.tides = tides.map(|t| t.config.clone());
     }
 
     fn __repr__(&self) -> String {

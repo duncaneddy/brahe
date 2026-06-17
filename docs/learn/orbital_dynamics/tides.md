@@ -61,9 +61,9 @@ The solid Earth tide model adds time-varying corrections $\Delta\bar{C}_{nm}$
 and $\Delta\bar{S}_{nm}$ to the static geopotential coefficients at each
 integration step.
 
-### Step 1 — Frequency-Independent Corrections (Always On)
+### Static Correction (Always On)
 
-When solid tides are enabled, Step 1 is always computed. For each tide-raising
+When solid tides are enabled, the static correction is always computed. For each tide-raising
 body (Moon and Sun) at ECEF position $\mathbf{r}_j$ with distance $r_j$,
 geocentric latitude $\phi_j$, and longitude $\lambda_j$:
 
@@ -95,10 +95,10 @@ degree 4) are evaluated as a spherical-harmonic acceleration using the
 Cunningham V/W recursion, then added directly to the static-gravity
 acceleration.
 
-### Step 2 — Frequency-Dependent Corrections (Optional)
+### Time-Varying Correction (Optional)
 
 Setting `frequency_dependent=True` on `SolidTideConfig` activates the IERS
-Step 2 tables (Tables 6.5a/b/c). These corrections account for the frequency
+time-varying correction tables (Tables 6.5a/b/c). These corrections account for the frequency
 dependence of the anelastic Love numbers near tidal resonances, primarily
 affecting the degree-2 coefficients:
 
@@ -113,105 +113,53 @@ $\theta_f = m(\theta_G + \pi) - (n_l l + n_{l'} l' + n_F F + n_D D + n_\Omega \O
 (IERS §6.2.1), where $\theta_G$ is GMST and $l, l', F, D, \Omega$ are the five
 Delaunay fundamental arguments evaluated at the current TT epoch.
 
-Step 2 corrections are at the $10^{-10}$–$10^{-11}$ level, contributing a
+Time-varying corrections are at the $10^{-10}$–$10^{-11}$ level, contributing a
 sub-millimetre position effect per orbit for LEO satellites. They are
 recommended for precise orbit determination but can be omitted for most
 mission-analysis applications.
 
 ## Configuring Tides
 
-### Rust
+### Permanent Tide Only
 
-=== "Tides ON (Step 1 + Step 2)"
-
-    ```rust
-    use brahe as bh;
-
-    // Solid tides: IERS Step 1 always-on + Step 2 frequency-dependent corrections.
-    // PermanentTideConfig::Auto converts C̄20 to conventional tide-free automatically.
-    let tides = bh::TidesConfiguration {
-        permanent: bh::PermanentTideConfig::Auto,
-        solid: Some(bh::SolidTideConfig { frequency_dependent: true }),
-    };
-
-    let mut force_config = bh::ForceModelConfig::earth_gravity();
-    force_config.tides = Some(tides);
-    ```
-
-=== "Step 1 only (faster)"
+=== "Rust"
 
     ```rust
-    use brahe as bh;
-
-    let tides = bh::TidesConfiguration {
-        permanent: bh::PermanentTideConfig::Auto,
-        solid: Some(bh::SolidTideConfig { frequency_dependent: false }),
-    };
-
-    let mut force_config = bh::ForceModelConfig::earth_gravity();
-    force_config.tides = Some(tides);
+    --8<-- "./examples/numerical_propagation/tides_permanent_only.rs"
     ```
 
-=== "Permanent-tide correction only"
+=== "Python"
+
+    ```python
+    --8<-- "./examples/numerical_propagation/tides_permanent_only.py"
+    ```
+
+### Permanent + Static Solid Earth Tide
+
+=== "Rust"
 
     ```rust
-    use brahe as bh;
-
-    // Corrects C̄20 for the tide system of the loaded model, but adds no
-    // time-varying solid-tide accelerations.
-    let tides = bh::TidesConfiguration {
-        permanent: bh::PermanentTideConfig::Auto,
-        solid: None,
-    };
-
-    let mut force_config = bh::ForceModelConfig::earth_gravity();
-    force_config.tides = Some(tides);
+    --8<-- "./examples/numerical_propagation/tides_static.rs"
     ```
 
-### Python
-
-=== "Tides ON (Step 1 + Step 2)"
+=== "Python"
 
     ```python
-    import brahe as bh
-
-    solid = bh.SolidTideConfig(frequency_dependent=True)
-    tides = bh.TidesConfiguration(
-        permanent=bh.PermanentTideConfig.AUTO,
-        solid=solid,
-    )
-
-    force_config = bh.ForceModelConfig.earth_gravity()
-    force_config.tides = tides
+    --8<-- "./examples/numerical_propagation/tides_static.py"
     ```
 
-=== "Step 1 only (faster)"
+### Permanent + Static + Time-Varying Solid Earth Tide
 
-    ```python
-    import brahe as bh
+=== "Rust"
 
-    solid = bh.SolidTideConfig(frequency_dependent=False)
-    tides = bh.TidesConfiguration(
-        permanent=bh.PermanentTideConfig.AUTO,
-        solid=solid,
-    )
-
-    force_config = bh.ForceModelConfig.earth_gravity()
-    force_config.tides = tides
+    ```rust
+    --8<-- "./examples/numerical_propagation/tides_static_time_varying.rs"
     ```
 
-=== "Permanent-tide correction only"
+=== "Python"
 
     ```python
-    import brahe as bh
-
-    tides = bh.TidesConfiguration(
-        permanent=bh.PermanentTideConfig.AUTO,
-        solid=None,
-    )
-
-    force_config = bh.ForceModelConfig.earth_gravity()
-    force_config.tides = tides
+    --8<-- "./examples/numerical_propagation/tides_static_time_varying.py"
     ```
 
 ## Worked Example
@@ -247,9 +195,9 @@ with tides enabled and disabled, then prints the peak position difference.
 | Application | Recommendation |
 |---|---|
 | Mission analysis, maneuver planning | Off (saves compute, effect is ~1 m per orbit) |
-| Long-arc orbit determination (≥ 1 day) | Step 1 (`frequency_dependent=False`) |
-| Precise orbit determination, POD | Step 1 + Step 2 (`frequency_dependent=True`) |
-| Geodesy, altimetry calibration | Step 1 + Step 2 |
+| Long-arc orbit determination (≥ 1 day) | Static (`frequency_dependent=False`) |
+| Precise orbit determination, POD | Static + time-varying (`frequency_dependent=True`) |
+| Geodesy, altimetry calibration | Static + time-varying (`frequency_dependent=True`) |
 
 ## Force Model Setup Notes
 

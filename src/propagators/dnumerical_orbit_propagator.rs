@@ -29,7 +29,7 @@ use crate::orbit_dynamics::{
     GravityModel, GravityModelTideSystem, SolidTideConfig, accel_drag,
     accel_gravity_spherical_harmonics_with_workspace, accel_point_mass_gravity, accel_relativity,
     accel_solar_radiation_pressure, accel_third_body, eclipse_conical, eclipse_cylindrical,
-    get_global_gravity_model, sun_position,
+    get_global_gravity_model, moon_position, sun_position,
 };
 use crate::propagators::force_model_config::PermanentTideConfig;
 use crate::propagators::{
@@ -398,13 +398,13 @@ pub struct DNumericalOrbitPropagator {
     terminated: bool,
 
     // ===== Tides =====
-    /// Solid-tide configuration (stored for per-step use in compute_dynamics).
-    // Task 7 will read this in compute_dynamics; suppress dead_code until then.
+    /// Solid-tide configuration (captured in the shared-dynamics closure at construction).
     #[allow(dead_code)]
     solid_tide: Option<SolidTideConfig>,
     /// Owned (possibly truncated and tide-system-converted) gravity model.
-    /// Stored so test code can inspect the model after construction via gravity_model_ref().
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// Captured in the shared-dynamics closure at construction; also readable
+    /// via gravity_model_ref() in test code.
+    #[allow(dead_code)]
     gravity_model: Option<Arc<GravityModel>>,
 
     // ===== Metadata =====
@@ -803,6 +803,7 @@ impl DNumericalOrbitPropagator {
             params.clone(),
             additional_dynamics,
             gravity_model.clone(),
+            solid_tide,
         );
 
         // Wrap for main integrator
@@ -1450,6 +1451,7 @@ impl DNumericalOrbitPropagator {
         params: DVector<f64>,
         additional_dynamics: Option<DStateDynamics>,
         gravity_model: Option<Arc<GravityModel>>,
+        solid_tide: Option<SolidTideConfig>,
     ) -> SharedDynamics {
         // Per-propagator scratch state: rotation cache + SH V/W work
         // matrices, bundled under one Mutex so each dynamics invocation
@@ -1492,6 +1494,7 @@ impl DNumericalOrbitPropagator {
                     &force_config,
                     params_opt.or(Some(&params)),
                     gravity_model.as_ref(),
+                    solid_tide,
                     r_i2b,
                     sh_v,
                     sh_w,
@@ -1621,6 +1624,7 @@ impl DNumericalOrbitPropagator {
         force_config: &ForceModelConfig,
         params_opt: Option<&DVector<f64>>,
         gravity_model: Option<&Arc<GravityModel>>,
+        solid_tide: Option<SolidTideConfig>,
         r_i2b: SMatrix3,
         sh_v: &mut DMatrix<f64>,
         sh_w: &mut DMatrix<f64>,
@@ -1699,6 +1703,29 @@ impl DNumericalOrbitPropagator {
                     }
                 }
             }
+        }
+
+        // ===== SOLID EARTH TIDES (IERS §6.2.1) =====
+        if let Some(solid_cfg) = solid_tide {
+            let r_ecef = r_i2b * r;
+            let r_sun_eci = sun_position(epoch);
+            let r_moon_eci = moon_position(epoch);
+            let r_sun_ecef = r_i2b * r_sun_eci;
+            let r_moon_ecef = r_i2b * r_moon_eci;
+            let (gm_t, rad_t) = match gravity_model {
+                Some(m) => (m.gm, m.radius),
+                None => (GM_EARTH, R_EARTH),
+            };
+            let a_tide_ecef = crate::orbit_dynamics::tides::accel_solid_earth_tides(
+                r_ecef,
+                r_sun_ecef,
+                r_moon_ecef,
+                epoch,
+                gm_t,
+                rad_t,
+                &solid_cfg,
+            );
+            a_total += r_i2b.transpose() * a_tide_ecef;
         }
 
         // ===== DRAG =====
@@ -11949,5 +11976,88 @@ mod tests {
                 (model.get(2, 0).unwrap().0 - expected).abs()
             );
         }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_solid_tides_perturb_propagation() {
+        use crate::orbit_dynamics::tides::SolidTideConfig;
+        use crate::propagators::force_model_config::{PermanentTideConfig, TidesConfiguration};
+
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+
+        // Force config WITHOUT solid tides (baseline): point-mass gravity, no tides
+        let cfg_off = ForceModelConfig {
+            gravity: GravityConfiguration::PointMass,
+            tides: None,
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform:
+                crate::propagators::force_model_config::FrameTransformationModel::default(),
+        };
+
+        // Force config WITH solid tides enabled
+        let cfg_on = ForceModelConfig {
+            gravity: GravityConfiguration::PointMass,
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::Auto,
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: false,
+                }),
+            }),
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform:
+                crate::propagators::force_model_config::FrameTransformationModel::default(),
+        };
+
+        // Propagate one orbit with tides OFF
+        let a = R_EARTH + 500e3;
+        let period = crate::orbital_period(a);
+        let target_epoch = epoch + period;
+
+        let mut prop_off = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            NumericalPropagationConfig::default(),
+            cfg_off,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        prop_off.propagate_to(target_epoch);
+        let state_off = prop_off.current_state();
+
+        // Propagate one orbit with tides ON
+        let mut prop_on = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            NumericalPropagationConfig::default(),
+            cfg_on,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        prop_on.propagate_to(target_epoch);
+        let state_on = prop_on.current_state();
+
+        let diff = (&state_off - &state_on).fixed_rows::<3>(0).norm();
+        assert!(
+            diff > 1e-4 && diff < 1e3,
+            "tide-induced position diff over one orbit = {diff:.6} m (expected mm–m range)"
+        );
     }
 }

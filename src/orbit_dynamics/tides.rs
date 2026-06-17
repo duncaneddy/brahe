@@ -271,9 +271,84 @@ pub fn solid_earth_tide_coefficients(
     }
 
     if config.frequency_dependent {
-        // Step 2 added in Task 7.
+        let (dc20, step2_tesseral) = step2_corrections(epoch);
+        out.dc[2][0] += dc20;
+        out.dc[2][1] += step2_tesseral[0][0];
+        out.ds[2][1] += step2_tesseral[0][1];
+        out.dc[2][2] += step2_tesseral[1][0];
+        out.ds[2][2] += step2_tesseral[1][1];
     }
     out
+}
+
+/// Compute IERS Step 2 frequency-dependent corrections to degree-2 geopotential
+/// coefficients (Tables 6.5a/b/c, IERS Conventions (2010) §6.2.1).
+///
+/// Returns:
+/// - `dc20`: ΔC̄20 correction (m=0 zonal, Eq. 6.8a real part).
+/// - `tesseral`: `[[ΔC̄21, ΔS̄21], [ΔC̄22, ΔS̄22]]` (m=1 and m=2 corrections).
+///
+/// The argument angle for each line is:
+///   `θ = m·args[0] − Σ delaunay·args[1..6]`
+/// where `args = doodson_delaunay_args(epoch)` = `[GMST+π, l, l', F, D, Ω]`.
+///
+/// Per IERS Eq. (6.8a/6.8b) and the sign convention for η_m:
+/// - m=0  (η0 = 1):  ΔC̄20 += scale·(ip·cosθ − op·sinθ)
+/// - m=1  (η1 = −i): ΔC̄21 += scale·(ip·sinθ + op·cosθ); ΔS̄21 += scale·(ip·cosθ − op·sinθ)
+/// - m=2  (η2 = 1):  ΔC̄22 += scale·(ip·cosθ − op·sinθ); ΔS̄22 += scale·(−ip·sinθ − op·cosθ)
+///
+/// Amplitudes in Tables 6.5a/b/c are in units of 1e-12; `scale = 1e-12`.
+pub(crate) fn step2_corrections(epoch: Epoch) -> (f64, [[f64; 2]; 2]) {
+    use crate::orbit_dynamics::tides_step2_tables::{TABLE_M0, TABLE_M1, TABLE_M2};
+
+    let args = doodson_delaunay_args(epoch);
+    const SCALE: f64 = 1e-12;
+
+    let mut dc20 = 0.0_f64;
+    let mut dc21 = 0.0_f64;
+    let mut ds21 = 0.0_f64;
+    let mut dc22 = 0.0_f64;
+    let mut ds22 = 0.0_f64;
+
+    // m=0: Table 6.5b, Eq. 6.8a real part.
+    for line in &TABLE_M0 {
+        let theta = 0.0_f64 * args[0]
+            - (line.delaunay[0] as f64 * args[1]
+                + line.delaunay[1] as f64 * args[2]
+                + line.delaunay[2] as f64 * args[3]
+                + line.delaunay[3] as f64 * args[4]
+                + line.delaunay[4] as f64 * args[5]);
+        let (sin_t, cos_t) = theta.sin_cos();
+        dc20 += SCALE * (line.amp_in_phase * cos_t - line.amp_out_of_phase * sin_t);
+    }
+
+    // m=1: Table 6.5a.
+    for line in &TABLE_M1 {
+        let theta = 1.0_f64 * args[0]
+            - (line.delaunay[0] as f64 * args[1]
+                + line.delaunay[1] as f64 * args[2]
+                + line.delaunay[2] as f64 * args[3]
+                + line.delaunay[3] as f64 * args[4]
+                + line.delaunay[4] as f64 * args[5]);
+        let (sin_t, cos_t) = theta.sin_cos();
+        dc21 += SCALE * (line.amp_in_phase * sin_t + line.amp_out_of_phase * cos_t);
+        ds21 += SCALE * (line.amp_in_phase * cos_t - line.amp_out_of_phase * sin_t);
+    }
+
+    // m=2: Table 6.5c.
+    for line in &TABLE_M2 {
+        let theta = 2.0_f64 * args[0]
+            - (line.delaunay[0] as f64 * args[1]
+                + line.delaunay[1] as f64 * args[2]
+                + line.delaunay[2] as f64 * args[3]
+                + line.delaunay[3] as f64 * args[4]
+                + line.delaunay[4] as f64 * args[5]);
+        let (sin_t, cos_t) = theta.sin_cos();
+        dc22 += SCALE * (line.amp_in_phase * cos_t - line.amp_out_of_phase * sin_t);
+        ds22 += SCALE * (-line.amp_in_phase * sin_t - line.amp_out_of_phase * cos_t);
+    }
+
+    (dc20, [[dc21, ds21], [dc22, ds22]])
 }
 
 /// Acceleration (body-fixed / ECEF) due to solid Earth tides, IERS §6.2.1.
@@ -507,6 +582,131 @@ mod tests {
         for a in &args[1..] {
             assert!(a.abs() < 1000.0);
         }
+    }
+
+    // ── Step 2 integrity tests ──────────────────────────────────────────────
+
+    /// Verify table row counts and spot-check anchor values against the data
+    /// file (iers-step2-tables.md / IERS TN36 Ch.6 PDF).
+    #[test]
+    fn test_step2_table_integrity() {
+        use crate::orbit_dynamics::tides_step2_tables::{TABLE_M0, TABLE_M1, TABLE_M2};
+
+        // Row counts.
+        assert_eq!(TABLE_M1.len(), 48, "TABLE_M1 should have 48 rows");
+        assert_eq!(TABLE_M0.len(), 21, "TABLE_M0 should have 21 rows");
+        assert_eq!(TABLE_M2.len(), 2, "TABLE_M2 should have 2 rows");
+
+        // Helper: find a row by Delaunay multipliers within a slice.
+        let find = |table: &[_], d: [i8; 5]| -> Option<(f64, f64)> {
+            table
+                .iter()
+                .find(|r: &&crate::orbit_dynamics::tides_step2_tables::Step2Line| r.delaunay == d)
+                .map(|r| (r.amp_in_phase, r.amp_out_of_phase))
+        };
+
+        // TABLE_M1 anchors.
+        // K1: Doodson 165,555, [0,0,0,0,0], ip=470.9, op=-30.2
+        let k1 = find(&TABLE_M1, [0, 0, 0, 0, 0]).expect("K1 not found in TABLE_M1");
+        assert!((k1.0 - 470.9).abs() < 1e-9, "K1 ip={}", k1.0);
+        assert!((k1.1 - (-30.2)).abs() < 1e-9, "K1 op={}", k1.1);
+
+        // O1: Doodson 145,555, [0,0,2,0,2], ip=-6.8, op=0.6
+        let o1 = find(&TABLE_M1, [0, 0, 2, 0, 2]).expect("O1 not found in TABLE_M1");
+        assert!((o1.0 - (-6.8)).abs() < 1e-9, "O1 ip={}", o1.0);
+        assert!((o1.1 - 0.6).abs() < 1e-9, "O1 op={}", o1.1);
+
+        // P1: Doodson 163,555, [0,0,2,-2,2], ip=-43.4, op=2.9
+        let p1 = find(&TABLE_M1, [0, 0, 2, -2, 2]).expect("P1 not found in TABLE_M1");
+        assert!((p1.0 - (-43.4)).abs() < 1e-9, "P1 ip={}", p1.0);
+        assert!((p1.1 - 2.9).abs() < 1e-9, "P1 op={}", p1.1);
+
+        // ψ1: Doodson 166,554, [0,-1,0,0,0], ip=-20.6, op=-0.3
+        let psi1 = find(&TABLE_M1, [0, -1, 0, 0, 0]).expect("ψ1 not found in TABLE_M1");
+        assert!((psi1.0 - (-20.6)).abs() < 1e-9, "ψ1 ip={}", psi1.0);
+        assert!((psi1.1 - (-0.3)).abs() < 1e-9, "ψ1 op={}", psi1.1);
+
+        // 165,565 line: [0,0,0,0,1], ip=68.1, op=-4.6
+        let line_165565 = find(&TABLE_M1, [0, 0, 0, 0, 1]).expect("165,565 not found in TABLE_M1");
+        assert!(
+            (line_165565.0 - 68.1).abs() < 1e-9,
+            "165,565 ip={}",
+            line_165565.0
+        );
+        assert!(
+            (line_165565.1 - (-4.6)).abs() < 1e-9,
+            "165,565 op={}",
+            line_165565.1
+        );
+
+        // TABLE_M0 anchors.
+        // 55,565: [0,0,0,0,1], ip=16.6, op=-6.7
+        let m0_55565 = find(&TABLE_M0, [0, 0, 0, 0, 1]).expect("55,565 not found in TABLE_M0");
+        assert!((m0_55565.0 - 16.6).abs() < 1e-9, "55,565 ip={}", m0_55565.0);
+        assert!(
+            (m0_55565.1 - (-6.7)).abs() < 1e-9,
+            "55,565 op={}",
+            m0_55565.1
+        );
+
+        // Mf 75,555: [0,0,-2,0,-2], ip=0.6, op=6.3
+        let mf = find(&TABLE_M0, [0, 0, -2, 0, -2]).expect("Mf 75,555 not found in TABLE_M0");
+        assert!((mf.0 - 0.6).abs() < 1e-9, "Mf ip={}", mf.0);
+        assert!((mf.1 - 6.3).abs() < 1e-9, "Mf op={}", mf.1);
+
+        // TABLE_M2 anchors.
+        // N2: [1,0,2,0,2], ip=-0.3
+        let n2 = find(&TABLE_M2, [1, 0, 2, 0, 2]).expect("N2 not found in TABLE_M2");
+        assert!((n2.0 - (-0.3)).abs() < 1e-9, "N2 ip={}", n2.0);
+        assert!((n2.1).abs() < 1e-12, "N2 op should be 0.0, got {}", n2.1);
+
+        // M2: [0,0,2,0,2], ip=-1.2
+        let m2 = find(&TABLE_M2, [0, 0, 2, 0, 2]).expect("M2 not found in TABLE_M2");
+        assert!((m2.0 - (-1.2)).abs() < 1e-9, "M2 ip={}", m2.0);
+        assert!((m2.1).abs() < 1e-12, "M2 op should be 0.0, got {}", m2.1);
+    }
+
+    /// Step-2 corrections change the low-degree (n=2) coefficients at ~1e-11 scale
+    /// and do NOT alter degree-3 or degree-4 terms (which come from Step 1 only).
+    #[test]
+    fn test_step2_toggle_changes_low_degree_terms() {
+        crate::utils::testing::setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2015, 6, 15, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r_moon = Vector3::new(3.844e8, 0.0, 1.0e7);
+        let r_sun = Vector3::new(1.496e11, 2.0e10, 0.0);
+
+        let cfg_off = SolidTideConfig {
+            frequency_dependent: false,
+        };
+        let cfg_on = SolidTideConfig {
+            frequency_dependent: true,
+        };
+
+        let c_off =
+            solid_earth_tide_coefficients(r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg_off);
+        let c_on = solid_earth_tide_coefficients(r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg_on);
+
+        // Step 2 changes C̄20, C̄21, C̄22 at ~1e-11 scale.
+        let d20 = (c_on.dc[2][0] - c_off.dc[2][0]).abs();
+        let d21c = (c_on.dc[2][1] - c_off.dc[2][1]).abs();
+        let d21s = (c_on.ds[2][1] - c_off.ds[2][1]).abs();
+        let d22c = (c_on.dc[2][2] - c_off.dc[2][2]).abs();
+        let d22s = (c_on.ds[2][2] - c_off.ds[2][2]).abs();
+
+        assert!(d20 > 1e-13, "ΔC̄20 should change, got {:e}", d20);
+        assert!(d21c > 1e-13 || d21s > 1e-13, "C̄21/S̄21 should change");
+        assert!(d22c > 1e-14 || d22s > 1e-14, "C̄22/S̄22 should change");
+
+        // All changes are at most ~1e-9 (tables peak at ~470e-12 ≈ 4.7e-10).
+        assert!(d20 < 1e-9, "ΔC̄20 too large: {:e}", d20);
+        assert!(d21c < 1e-9, "ΔC̄21 too large: {:e}", d21c);
+        assert!(d22c < 1e-9, "ΔC̄22 too large: {:e}", d22c);
+
+        // Degree-3 and degree-4 terms are unchanged (Step 2 is degree-2 only).
+        assert_eq!(c_on.dc[3][0], c_off.dc[3][0], "dc[3][0] should not change");
+        assert_eq!(c_on.dc[3][1], c_off.dc[3][1], "dc[3][1] should not change");
+        assert_eq!(c_on.dc[4][0], c_off.dc[4][0], "dc[4][0] should not change");
+        assert_eq!(c_on.dc[4][2], c_off.dc[4][2], "dc[4][2] should not change");
     }
 
     #[test]

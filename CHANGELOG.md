@@ -15,6 +15,9 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 - Added "Getting Started" section to main documentation page. [@duncaneddy](https://github.com/duncaneddy) ([#356](https://github.com/duncaneddy/brahe/pull/356))
 - `integration` flag to rust and python test suites, replacing `ci`. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+- `par_propagate_to` (Python) now accepts a list that mixes `KeplerianPropagator`, `SGPPropagator`, and `NumericalOrbitPropagator` instances. Propagators are grouped by type and each group is propagated in parallel; results are written back to the original objects in place, preserving list order. [@duncaneddy](https://github.com/duncaneddy) ([#366](https://github.com/duncaneddy/brahe/pull/366))
+- `MANUAL` example flag for examples that must never run automatically (scaffolding templates and credential-gated examples), so the `--ignore` live-network run no longer sweeps them in. [@duncaneddy](https://github.com/duncaneddy) ([#366](https://github.com/duncaneddy/brahe/pull/366))
+
 
 ### Changed
 
@@ -27,6 +30,8 @@ Each release groups entries under the Keep a Changelog section headings in the o
 - Improved CI caching to large texture / basemap files to be updated with integration tests weekly and avoid redownload on most CI runs. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
 - Updated `pyo3` dependency version. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
 - Updated `uv.lock`. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
+- Tagged `TEMPLATE.{py,rs}` and `getting_started/clients_spacetrack.{py,rs}` as `MANUAL` so they are excluded from all automated example runs. [@duncaneddy](https://github.com/duncaneddy) ([#366](https://github.com/duncaneddy/brahe/pull/366))
+- Raised the per-example `TIMEOUT` to 600s for the `starlink_propagation.py` examples, which propagate the full live Starlink constellation and exceeded the default 180s limit during the weekly/release live-network run. [@duncaneddy](https://github.com/duncaneddy) ([#366](https://github.com/duncaneddy/brahe/pull/366))
 
 ### Removed
 
@@ -39,7 +44,8 @@ Each release groups entries under the Keep a Changelog section headings in the o
 - Fixed race condition in examples CI tests where two could download the same Natural Earth basemap and corrupt the file for both. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
 - Fixed regression from lazy-impoting `brahe.plots` that caused static-analyzers (griffee) to fail path-traversal. This caused `build-docs` to fail and slipped through due to other test-failure noise. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
 - Fixed `test-examples` flakyness on external integration dependencies. Ignore testing integration-based examples by default, but exercise them weekly in the integration tests to ensure continued coverage. [@duncaneddy](https://github.com/duncaneddy) ([#365](https://github.com/duncaneddy/brahe/pull/365))
-
+- `par_propagate_to` (Python) no longer raises `TypeError` when given a list containing more than one propagator type; mixed-type lists are now propagated correctly. [@duncaneddy](https://github.com/duncaneddy) ([#366](https://github.com/duncaneddy/brahe/pull/366))
+- Fixed the release `test-examples` integration job failing on `--ignore`: `IGNORE` was an overloaded bucket that mixed live-network examples with templates, credential-gated, slow, and broken examples, so opting into the live-network set pulled in examples that could never pass there. [@duncaneddy](https://github.com/duncaneddy) ([#366](https://github.com/duncaneddy/brahe/pull/366))
 ## [1.6.0] - 2026-06-05
 
 ### Added

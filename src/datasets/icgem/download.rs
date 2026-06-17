@@ -18,8 +18,7 @@ pub fn resolve_icgem_model<'a>(
     name: &str,
     entries: &'a [IndexEntry],
 ) -> Result<&'a IndexEntry, BraheError> {
-    let body_entries: Vec<&IndexEntry> =
-        entries.iter().filter(|e| &e.body == body).collect();
+    let body_entries: Vec<&IndexEntry> = entries.iter().filter(|e| &e.body == body).collect();
 
     // Step 2: exact-name match.
     let exact: Vec<&IndexEntry> = body_entries
@@ -86,17 +85,19 @@ fn nearest_names(target: &str, entries: &[&IndexEntry], k: usize) -> Vec<String>
 fn levenshtein(a: &str, b: &str) -> usize {
     let (a, b) = (a.as_bytes(), b.as_bytes());
     let (n, m) = (a.len(), b.len());
-    if n == 0 { return m; }
-    if m == 0 { return n; }
+    if n == 0 {
+        return m;
+    }
+    if m == 0 {
+        return n;
+    }
     let mut prev: Vec<usize> = (0..=m).collect();
     let mut curr = vec![0usize; m + 1];
     for i in 1..=n {
         curr[0] = i;
         for j in 1..=m {
             let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
-            curr[j] = (curr[j - 1] + 1)
-                .min(prev[j] + 1)
-                .min(prev[j - 1] + cost);
+            curr[j] = (curr[j - 1] + 1).min(prev[j] + 1).min(prev[j - 1] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }
@@ -266,36 +267,24 @@ mod tests {
     #[test]
     fn test_resolve_largest_degree_when_ambiguous() {
         let entries = earth_fixture();
-        let got = resolve_icgem_model(
-            &ICGEMBody::Earth,
-            "WHU-CASM-UGM2025_2159",
-            &entries,
-        )
-        .unwrap();
+        let got =
+            resolve_icgem_model(&ICGEMBody::Earth, "WHU-CASM-UGM2025_2159", &entries).unwrap();
         assert_eq!(got.degree, 11000);
     }
 
     #[test]
     fn test_resolve_with_explicit_degree_suffix() {
         let entries = earth_fixture();
-        let got = resolve_icgem_model(
-            &ICGEMBody::Earth,
-            "WHU-CASM-UGM2025_2159-2190",
-            &entries,
-        )
-        .unwrap();
+        let got =
+            resolve_icgem_model(&ICGEMBody::Earth, "WHU-CASM-UGM2025_2159-2190", &entries).unwrap();
         assert_eq!(got.degree, 2190);
     }
 
     #[test]
     fn test_resolve_missing_degree_errors_with_available_list() {
         let entries = earth_fixture();
-        let err = resolve_icgem_model(
-            &ICGEMBody::Earth,
-            "WHU-CASM-UGM2025_2159-99",
-            &entries,
-        )
-        .unwrap_err();
+        let err = resolve_icgem_model(&ICGEMBody::Earth, "WHU-CASM-UGM2025_2159-99", &entries)
+            .unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("no variant at degree 99"));
         assert!(msg.contains("760") && msg.contains("2190") && msg.contains("11000"));
@@ -331,7 +320,9 @@ mod tests {
         use httpmock::prelude::*;
 
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         let html = std::fs::read_to_string("test_assets/icgem/tom_longtime_sample.html").unwrap();
         let gfc = std::fs::read_to_string("data/gravity_models/JGM3.gfc").unwrap();
@@ -348,20 +339,22 @@ mod tests {
 
         // Discover a model name from the fixture dynamically.
         let entries = crate::datasets::icgem::parser::parse_earth_catalog(&html).unwrap();
-        let target = entries.first().expect("fixture has at least one entry").name.clone();
+        let target = entries
+            .first()
+            .expect("fixture has at least one entry")
+            .name
+            .clone();
 
-        let path = download_icgem_model_with_url(
-            &ICGEMBody::Earth,
-            &target,
-            None,
-            &server.base_url(),
-        )
-        .unwrap();
+        let path =
+            download_icgem_model_with_url(&ICGEMBody::Earth, &target, None, &server.base_url())
+                .unwrap();
         assert!(path.exists());
         assert!(path.to_string_lossy().contains("models"));
         assert!(path.to_string_lossy().contains("earth"));
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
@@ -370,7 +363,9 @@ mod tests {
         use httpmock::prelude::*;
 
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         let html = std::fs::read_to_string("test_assets/icgem/tom_longtime_sample.html").unwrap();
         let gfc = std::fs::read_to_string("data/gravity_models/JGM3.gfc").unwrap();
@@ -388,12 +383,10 @@ mod tests {
         let entries = crate::datasets::icgem::parser::parse_earth_catalog(&html).unwrap();
         let target = entries.first().unwrap().name.clone();
 
-        let _ = download_icgem_model_with_url(
-            &ICGEMBody::Earth, &target, None, &server.base_url(),
-        ).unwrap();
-        let _ = download_icgem_model_with_url(
-            &ICGEMBody::Earth, &target, None, &server.base_url(),
-        ).unwrap();
+        let _ = download_icgem_model_with_url(&ICGEMBody::Earth, &target, None, &server.base_url())
+            .unwrap();
+        let _ = download_icgem_model_with_url(&ICGEMBody::Earth, &target, None, &server.base_url())
+            .unwrap();
 
         // Only one HTTP fetch for the file itself.
         download_mock.assert_calls(1);
@@ -402,7 +395,9 @@ mod tests {
         // and skips the network entirely.
         list_mock.assert_calls(1);
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     // TODO: This test is super flakey because it depends on the live ICGEM service

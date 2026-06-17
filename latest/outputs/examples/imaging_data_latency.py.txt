@@ -1,5 +1,5 @@
 Downloading Capella satellite TLEs from CelesTrak...
-Found 9 Capella satellites in 0.15 seconds
+Found 9 Capella satellites in 0.16 seconds
   - CAPELLA-11 (ACADIA-1)
   - CAPELLA-14 (ACADIA-4)
   - CAPELLA-13 (ACADIA-3)
@@ -53,21 +53,21 @@ Using 33 external stations for downlink:
   - Weilheim (11.08, 47.88)
 
 Computing AOI exit events...
-Found 257 AOI exit events in 1.29 seconds
+Found 255 AOI exit events in 1.61 seconds
 
 Computing ground station contacts...
-Computed 11609 ground contact windows in 5.86 seconds
+Computed 11609 ground contact windows in 5.84 seconds
 
 Computing imaging data latencies...
-Computed 256 latency values in 0.07 seconds
+Computed 254 latency values in 0.06 seconds
 
 ====================================================================================================
 Imaging Data Latency Statistics
 ====================================================================================================
   Worst (Max):  54 minutes and 25.78 seconds
   Best (Min):   3.00 seconds
-  Average:      14 minutes and 26.23 seconds
-  Median:       6 minutes and 1.78 seconds
+  Average:      13 minutes and 58.29 seconds
+  Median:       5 minutes and 51.28 seconds
 ====================================================================================================
 
 ========================================================================================================================
@@ -79,7 +79,7 @@ CAPELLA-15 (ACADIA-5)     2026-06-17 16:27:36          2026-06-17 17:22:01      
 CAPELLA-15 (ACADIA-5)     2026-06-16 16:19:40          2026-06-16 17:13:47          Bangalore            54 minutes and 6.71 seconds
 CAPELLA-15 (ACADIA-5)     2026-06-18 16:35:31          2026-06-18 17:25:12          Mauritius            49 minutes and 41.27 seconds
 CAPELLA-15 (ACADIA-5)     2026-06-19 16:43:39          2026-06-19 17:32:24          Mauritius            48 minutes and 44.65 seconds
-CAPELLA-19 (ACADIA-9)     2026-06-17 11:54:38          2026-06-17 12:42:13          Mauritius            47 minutes and 35.40 seconds
+CAPELLA-19 (ACADIA-9)     2026-06-17 11:54:38          2026-06-17 12:42:13          Mauritius            47 minutes and 35.39 seconds
 ========================================================================================================================
 
 ✓ Exported top 5 latencies to docs/figures/imaging_data_latency_top5.csv

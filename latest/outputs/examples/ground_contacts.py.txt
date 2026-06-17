@@ -1,6 +1,6 @@
 Downloading NISAR TLE from CelesTrak...
-Downloaded NISAR TLE in 0.32 seconds.
-Epoch: 2026-06-16 12:58:40.698 UTC
+Downloaded NISAR TLE in 0.15 seconds.
+Epoch: 2026-06-16 19:38:12.924 UTC
 Semi-major axis: 7128.4 km
 
 Loading NASA Near Earth Network ground stations...
@@ -11,26 +11,26 @@ Orbital period: 99.8 minutes
 Propagated NISAR for 3 orbits in 0.01 seconds.
 
 Creating ground track visualization with communication cones...
-Created ground track visualization in 2.27 seconds.
+Created ground track visualization in 0.72 seconds.
 
 Computing 7-day ground contacts...
-Computed 902 contact windows in 0.52 seconds.
+Computed 902 contact windows in 0.62 seconds.
 
 ================================================================================
 Sample Contact Windows (first 10)
 ================================================================================
 Station              Start Time                End Time                    Duration   Max Elev
 --------------------------------------------------------------------------------
-White Sands          2026-06-16 13:01:35       2026-06-16 13:13:27           11.9 m     53.4°
-North Pole           2026-06-16 13:12:31       2026-06-16 13:23:53           11.4 m     36.8°
-Gilmore Creek        2026-06-16 13:12:31       2026-06-16 13:23:56           11.4 m     37.5°
-Alaska Satellite Facility 2026-06-16 13:12:33       2026-06-16 13:23:55           11.4 m     36.7°
-Svalbard             2026-06-16 13:21:54       2026-06-16 13:29:27            7.6 m     10.9°
-Troll                2026-06-16 14:04:50       2026-06-16 14:16:36           11.8 m     42.2°
-McMurdo              2026-06-16 14:11:46       2026-06-16 14:17:50            6.1 m      8.4°
-South Point          2026-06-16 14:43:02       2026-06-16 14:47:58            4.9 m      7.4°
-North Pole           2026-06-16 14:50:38       2026-06-16 15:02:46           12.1 m     73.9°
-Alaska Satellite Facility 2026-06-16 14:50:39       2026-06-16 15:02:47           12.1 m     74.5°
+Svalbard             2026-06-16 19:59:18       2026-06-16 20:11:28           12.2 m     88.0°
+Kiruna               2026-06-16 20:01:21       2026-06-16 20:12:20           11.0 m     30.3°
+Santiago             2026-06-16 20:37:10       2026-06-16 20:41:53            4.7 m      7.1°
+Troll                2026-06-16 20:46:42       2026-06-16 20:51:41            5.0 m      7.2°
+McMurdo              2026-06-16 20:49:50       2026-06-16 21:02:10           12.3 m     71.0°
+Awarua               2026-06-16 20:58:45       2026-06-16 21:07:22            8.6 m     14.4°
+Dongara              2026-06-16 21:07:29       2026-06-16 21:13:50            6.4 m      9.0°
+Svalbard             2026-06-16 21:38:03       2026-06-16 21:50:06           12.0 m     65.3°
+Kiruna               2026-06-16 21:39:33       2026-06-16 21:49:16            9.7 m     19.4°
+Wallops              2026-06-16 21:54:22       2026-06-16 22:01:30            7.1 m     10.3°
 ================================================================================
 ✓ Exported first 20 contact windows to docs/figures/ground_contacts_windows.csv
 
@@ -42,18 +42,18 @@ Svalbard            :  14.4 contacts/day (101 total)
 McMurdo             :  14.4 contacts/day (101 total)
 Troll               :  11.4 contacts/day (80 total)
 Kiruna              :  10.6 contacts/day (74 total)
-North Pole          :  10.1 contacts/day (71 total)
 Gilmore Creek       :  10.1 contacts/day (71 total)
 Alaska Satellite Facility:  10.1 contacts/day (71 total)
+North Pole          :  10.1 contacts/day (71 total)
 Awarua              :   5.6 contacts/day (39 total)
 Wallops             :   4.7 contacts/day (33 total)
 Santiago            :   4.6 contacts/day (32 total)
+Dongara             :   4.3 contacts/day (30 total)
 White Sands         :   4.3 contacts/day (30 total)
 Matjiesfontein      :   4.3 contacts/day (30 total)
-Dongara             :   4.3 contacts/day (30 total)
-Hartebeesthoek      :   4.1 contacts/day (29 total)
 Ponce de Leon       :   4.1 contacts/day (29 total)
 Merrit Island       :   4.1 contacts/day (29 total)
+Hartebeesthoek      :   4.1 contacts/day (29 total)
 South Point         :   3.9 contacts/day (27 total)
 Singapore           :   3.6 contacts/day (25 total)
 

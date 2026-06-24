@@ -209,17 +209,17 @@ jobs:
             -   name: Install just
                 uses: extractions/setup-just@v4
             -   name: Refresh Natural Earth 3D textures cache
-                uses: actions/cache@v5
+                uses: actions/cache@v5.0.5
                 with:
                     path: ~/.cache/brahe/textures
                     key: natural-earth-textures-50m-v1
             -   name: Refresh Natural Earth land basemap cache
-                uses: actions/cache@v5
+                uses: actions/cache@v5.0.5
                 with:
                     path: ~/.cache/brahe/natural_earth
                     key: natural-earth-50m-land-v1
             -   name: Refresh cartopy Natural Earth cache
-                uses: actions/cache@v5
+                uses: actions/cache@v5.0.5
                 with:
                     path: ~/.local/share/cartopy
                     key: cartopy-natural-earth-v1

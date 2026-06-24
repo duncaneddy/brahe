@@ -30,7 +30,7 @@ jobs:
             TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
             TEST_SPACETRACK_BASE_URL: https://for-testing-only.space-track.org
         steps:
-            -   uses: actions/checkout@v6.0.3
+            -   uses: actions/checkout@v7.0.0
             -   name: Set up Rust toolchain with cache
                 uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
                 with:
@@ -96,7 +96,7 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   uses: actions/checkout@v6.0.3
+            -   uses: actions/checkout@v7.0.0
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v8.2.0
                 with:
@@ -191,7 +191,7 @@ jobs:
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         runs-on: ubuntu-latest
         steps:
-            -   uses: actions/checkout@v6.0.3
+            -   uses: actions/checkout@v7.0.0
             -   name: Set up Rust toolchain
                 uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
                 with:

@@ -102,11 +102,11 @@ time-varying correction tables (Tables 6.5a/b/c). These corrections account for 
 dependence of the anelastic Love numbers near tidal resonances, primarily
 affecting the degree-2 coefficients:
 
-| Quantity | Equation | Amplitudes |
+| Quantity | Equation |
 |---|---|---|
-| $\Delta\bar{C}_{20}$ | Eq. 6.8a (real part, $m=0$, 21 lines) | up to ~17 × 10⁻¹² |
-| $\Delta\bar{C}_{21}, \Delta\bar{S}_{21}$ | Eq. 6.8b ($m=1$, 48 lines) | up to ~471 × 10⁻¹² |
-| $\Delta\bar{C}_{22}, \Delta\bar{S}_{22}$ | Eq. 6.8c ($m=2$, 2 lines) | up to ~1.2 × 10⁻¹² |
+| $\Delta\bar{C}_{20}$ | Eq. 6.8a (real part, $m=0$, 21 lines) |
+| $\Delta\bar{C}_{21}, \Delta\bar{S}_{21}$ | Eq. 6.8b ($m=1$, 48 lines) |
+| $\Delta\bar{C}_{22}, \Delta\bar{S}_{22}$ | Eq. 6.8c ($m=2$, 2 lines) |
 
 Each correction line is computed from Doodson/Delaunay arguments
 $\theta_f = m(\theta_G + \pi) - (n_l l + n_{l'} l' + n_F F + n_D D + n_\Omega \Omega)$
@@ -122,11 +122,6 @@ mission-analysis applications.
 
 ### Permanent Tide Only
 
-=== "Rust"
-
-    ```rust
-    --8<-- "./examples/numerical_propagation/tides_permanent_only.rs:3"
-    ```
 
 === "Python"
 
@@ -134,13 +129,13 @@ mission-analysis applications.
     --8<-- "./examples/numerical_propagation/tides_permanent_only.py:3"
     ```
 
-### Permanent + Static Solid Earth Tide
-
 === "Rust"
 
     ```rust
-    --8<-- "./examples/numerical_propagation/tides_static.rs:3"
+    --8<-- "./examples/numerical_propagation/tides_permanent_only.rs:3"
     ```
+
+### Permanent + Static Solid Earth Tide
 
 === "Python"
 
@@ -148,18 +143,24 @@ mission-analysis applications.
     --8<-- "./examples/numerical_propagation/tides_static.py:3"
     ```
 
-### Permanent + Static + Time-Varying Solid Earth Tide
-
 === "Rust"
 
     ```rust
-    --8<-- "./examples/numerical_propagation/tides_static_time_varying.rs:3"
+    --8<-- "./examples/numerical_propagation/tides_static.rs:3"
     ```
+
+### Permanent + Static + Time-Varying Solid Earth Tide
 
 === "Python"
 
     ```python
     --8<-- "./examples/numerical_propagation/tides_static_time_varying.py:3"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "./examples/numerical_propagation/tides_static_time_varying.rs:3"
     ```
 
 ## Worked Example
@@ -190,16 +191,7 @@ with tides enabled and disabled, then prints the peak position difference.
         --8<-- "./docs/outputs/numerical_propagation/force_model_tides.rs.txt"
         ```
 
-## When to Enable Tides
-
-| Application | Recommendation |
-|---|---|
-| Mission analysis, maneuver planning | Off (saves compute, effect is ~1 m per orbit) |
-| Long-arc orbit determination (≥ 1 day) | Static (`frequency_dependent=False`) |
-| Precise orbit determination, POD | Static + time-varying (`frequency_dependent=True`) |
-| Geodesy, altimetry calibration | Static + time-varying (`frequency_dependent=True`) |
-
-## Force Model Setup Notes
+## Ephemeris Source Notes
 
 Solid-tide computation requires Sun and Moon positions in the ECEF frame. The
 propagator computes these internally using its own low-precision analytical

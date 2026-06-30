@@ -49,6 +49,13 @@ num-traits = "0.2"
 regex = "1"
 is_close = "0.1"
 ureq = { version = "3", features = ["cookies", "multipart"] }
+# `time` is pulled in transitively by ureq's `cookies` feature (ureq -> cookie_store
+# -> cookie). time 0.3.52 made a breaking change to `Parsable::parse` that cookie
+# 0.18.1 (the latest release) does not compile against. Because Cargo.lock is not
+# committed for the library, CI resolves fresh and otherwise picks up the broken 0.3.52. Cap below
+# it until a fixed cookie release is available.
+# TODO: Remove this pin once fix is released
+time = ">=0.3, <0.3.52"
 strum = "0.28"
 strum_macros = "0.28"
 scraper = "0.27"

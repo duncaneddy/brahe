@@ -80,19 +80,19 @@ jobs:
       # (a hit) resets the 7-day eviction window and keeps the shared main-branch
       # caches alive. A miss re-populates them via the warm-up step's post-save.
       - name: Cache Natural Earth 3D textures
-        uses: actions/cache@v5
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/brahe/textures
           key: natural-earth-textures-50m-v1
 
       - name: Cache Natural Earth land basemap
-        uses: actions/cache@v5
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/brahe/natural_earth
           key: natural-earth-50m-land-v1
 
       - name: Cache cartopy Natural Earth data
-        uses: actions/cache@v5
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.local/share/cartopy
           key: cartopy-natural-earth-v1

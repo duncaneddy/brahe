@@ -15,8 +15,12 @@ _setup:
 # Run all tests (Rust + Python)
 test *flags: test-rust test-python
 
+# Update Rust crates locally
+_update-rust:
+    cargo update
+
 # Run Rust tests
-test-rust *flags:
+test-rust *flags: _update-rust
     cargo test {{flags}}
 
 # Run Python tests

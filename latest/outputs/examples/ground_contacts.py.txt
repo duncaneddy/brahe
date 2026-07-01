@@ -1,5 +1,5 @@
 Downloading NISAR TLE from CelesTrak...
-Downloaded NISAR TLE in 0.25 seconds.
+Downloaded NISAR TLE in 0.50 seconds.
 Epoch: 2026-06-30 19:54:50.931 UTC
 Semi-major axis: 7128.4 km
 
@@ -11,10 +11,10 @@ Orbital period: 99.8 minutes
 Propagated NISAR for 3 orbits in 0.01 seconds.
 
 Creating ground track visualization with communication cones...
-Created ground track visualization in 0.89 seconds.
+Created ground track visualization in 0.50 seconds.
 
 Computing 7-day ground contacts...
-Computed 902 contact windows in 0.48 seconds.
+Computed 902 contact windows in 0.46 seconds.
 
 ================================================================================
 Sample Contact Windows (first 10)

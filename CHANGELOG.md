@@ -9,6 +9,38 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- release notes start -->
 
+## [1.6.2] - 2026-06-30
+
+### Added
+
+- Added native Linux `arm64` wheel builds to the latest and release workflows, with platform-specific wheel artifact names to avoid artifact collisions. [@hectcastro](https://github.com/hectcastro) ([#372](https://github.com/duncaneddy/brahe/pull/372))
+
+### Changed
+
+- Changed standard EOP product source to [USNO finals2000A.all](https://maia.usno.navy.mil/ser7/finals2000A.all). [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+- Changed C04 EOP product source to [Paris Observatory C04 Product](https://www.simplespacedata.org/eop/obspm/c04_1962now/latest/eopc04.1962-now). [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+
+### Fixed
+
+- Fix compilation issue due to transitive dependency breaking change in `ureq`/`time` crates. Pin `time` until issue is resolved. [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+- Fixed issue with failing tests due to inability to update outdated EOP products. [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+
+## [1.6.1] - 2026-06-30
+
+### Added
+
+- Added native Linux `arm64` wheel builds to the latest and release workflows, with platform-specific wheel artifact names to avoid artifact collisions. [@hectcastro](https://github.com/hectcastro) ([#372](https://github.com/duncaneddy/brahe/pull/372))
+
+### Changed
+
+- Changed standard EOP product source to [USNO finals2000A.all](https://maia.usno.navy.mil/ser7/finals2000A.all). [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+- Changed C04 EOP product source to [Paris Observatory C04 Product](https://www.simplespacedata.org/eop/obspm/c04_1962now/latest/eopc04.1962-now). [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+
+### Fixed
+
+- Fix compilation issue due to transitive dependency breaking change in `ureq`/`time` crates. Pin `time` until issue is resolved. [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+- Fixed issue with failing tests due to inability to update outdated EOP products. [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+
 ## [1.6.1] - 2026-06-16
 
 ### Added

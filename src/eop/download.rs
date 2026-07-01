@@ -4,62 +4,34 @@
 
 use std::path::Path;
 
-use crate::utils::{BraheError, atomic_write};
+use crate::utils::BraheError;
+use crate::utils::download::download_to_file;
 
-const STANDARD_FILE_SOURCE: &str =
-    "https://datacenter.iers.org/data/latestVersion/finals.all.iau2000.txt";
-const C04_FILE_SOURCE: &str =
-    "https://datacenter.iers.org/data/latestVersion/EOP_20u24_C04_one_file_1962-now.txt";
+// Sourced from USNO and Paris Observatory (IERS) mirrors; the primary IERS
+// datacenter (datacenter.iers.org) is frequently unavailable.
+const STANDARD_FILE_SOURCE: &str = "https://maia.usno.navy.mil/ser7/finals2000A.all";
+const C04_FILE_SOURCE: &str = "https://hpiers.obspm.fr/iers/eop/eopc04/eopc04.1962-now";
 
 /// Download latest C04 Earth orientation parameter file. Will attempt to download the latest
 /// parameter file to the specified location. Creating any missing directories as required.
 ///
-/// The download source is the [IERS Earth Orientation Data Products](https://www.iers.org/IERS/EN/DataProducts/EarthOrientationData/eop.html)
+/// The download source is the [Paris Observatory IERS EOP C04 series](https://hpiers.obspm.fr/iers/eop/eopc04/eopc04.1962-now).
 ///
 /// # Arguments
 /// - `filepath`: Path of desired output file
 pub fn download_c04_eop_file(filepath: &str) -> Result<(), BraheError> {
-    let filepath = Path::new(filepath);
-
-    let body = ureq::get(C04_FILE_SOURCE)
-        .call()
-        .map_err(|e| BraheError::IoError(format!("C04 EOP download request failed: {}", e)))?
-        .body_mut()
-        .read_to_string()
-        .map_err(|e| {
-            BraheError::IoError(format!("Failed to read C04 EOP download response: {}", e))
-        })?;
-
-    atomic_write(filepath, body.as_bytes())?;
-
-    Ok(())
+    download_to_file(C04_FILE_SOURCE, "C04 EOP", Path::new(filepath))
 }
 
 /// Download latest standard Earth orientation parameter file. Will attempt to download the latest
 /// parameter file to the specified location. Creating any missing directories as required.
 ///
-/// The download source is the [IERS Earth Orientation Data Products](https://www.iers.org/IERS/EN/DataProducts/EarthOrientationData/eop.html)
+/// The download source is the [USNO finals2000A.all Bulletin A product](https://maia.usno.navy.mil/ser7/finals2000A.all).
 ///
 /// # Arguments
 /// - `filepath`: Path of desired output file
 pub fn download_standard_eop_file(filepath: &str) -> Result<(), BraheError> {
-    let filepath = Path::new(filepath);
-
-    let body = ureq::get(STANDARD_FILE_SOURCE)
-        .call()
-        .map_err(|e| BraheError::IoError(format!("Standard EOP download request failed: {}", e)))?
-        .body_mut()
-        .read_to_string()
-        .map_err(|e| {
-            BraheError::IoError(format!(
-                "Failed to read standard EOP download response: {}",
-                e
-            ))
-        })?;
-
-    atomic_write(filepath, body.as_bytes())?;
-
-    Ok(())
+    download_to_file(STANDARD_FILE_SOURCE, "Standard EOP", Path::new(filepath))
 }
 
 #[cfg(test)]

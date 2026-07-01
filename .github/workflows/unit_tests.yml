@@ -19,6 +19,11 @@ on:
             - 'uv.lock'
             - '.github/workflows/unit_tests.yml'
             - '.github/workflows/test_*.yml'
+            - '.github/workflows/build_latest.yml'
+            - '.github/workflows/release.yml'
+    # Allow manual runs to re-validate main and re-trigger the downstream
+    # "Build Latest Wheels" workflow (via workflow_run) on demand.
+    workflow_dispatch:
 
 concurrency:
     group: unit-tests-${{ github.ref }}

@@ -13,7 +13,7 @@ jobs:
       version: ${{ steps.extract.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Extract version from tag
         id: extract
@@ -80,7 +80,7 @@ jobs:
     needs: [validate-version, test-rust, test-python, test-examples, integration-tests]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Extract release notes from CHANGELOG
         run: |
@@ -107,7 +107,7 @@ jobs:
       PYTHON_VERSION: 3.12
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6.0.3
+      uses: actions/checkout@v7.0.0
 
     - name: Set up Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
@@ -155,7 +155,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6.0.3
+      uses: actions/checkout@v7.0.0
 
     - name: Download type stubs
       uses: actions/download-artifact@v8
@@ -204,13 +204,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-          os: [ubuntu-latest, macos-latest, windows-latest]
+          os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
           python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
           rust-toolchain: [stable]
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6.0.3
+      uses: actions/checkout@v7.0.0
 
     - name: Download type stubs
       uses: actions/download-artifact@v8
@@ -247,7 +247,7 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         path: target/wheels/*.whl
-        name: brahe-${{ github.ref_name }}-python${{ matrix.python-version }}-${{ runner.os }}-wheel
+        name: brahe-${{ github.ref_name }}-python${{ matrix.python-version }}-${{ matrix.os }}-wheel
 
   release-python:
     needs: [python-build-source, python-build-wheels]
@@ -279,7 +279,7 @@ jobs:
     env:
       RUST_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
         with:
@@ -305,7 +305,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -340,7 +340,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           # WORKFLOW_TOKEN has `workflow` scope; required because moving the
           # `latest` tag forward can sweep in commits that modified workflow

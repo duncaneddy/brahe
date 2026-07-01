@@ -30,7 +30,7 @@ jobs:
             TEST_SPACETRACK_PASS: ${{ secrets.TEST_SPACETRACK_PASS }}
             TEST_SPACETRACK_BASE_URL: https://for-testing-only.space-track.org
         steps:
-            -   uses: actions/checkout@v6.0.3
+            -   uses: actions/checkout@v7.0.0
             -   name: Set up Rust toolchain with cache
                 uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
                 with:
@@ -46,7 +46,7 @@ jobs:
 
             -   name: Run Rust integration tests with coverage (Ubuntu)
                 if: matrix.os == 'ubuntu-latest'
-                uses: nick-fields/retry@v3
+                uses: nick-fields/retry@v4
                 with:
                     timeout_minutes: 30
                     max_attempts: 3
@@ -55,7 +55,7 @@ jobs:
 
             -   name: Run Rust integration tests (non-Ubuntu)
                 if: matrix.os != 'ubuntu-latest'
-                uses: nick-fields/retry@v3
+                uses: nick-fields/retry@v4
                 with:
                     timeout_minutes: 30
                     max_attempts: 3
@@ -96,7 +96,7 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
-            -   uses: actions/checkout@v6.0.3
+            -   uses: actions/checkout@v7.0.0
             -   name: Install the latest version of uv
                 uses: astral-sh/setup-uv@v8.2.0
                 with:
@@ -112,7 +112,7 @@ jobs:
 
             -   name: Build, test (with coverage + retries) — 3.10
                 if: matrix.python-version == '3.10'
-                uses: nick-fields/retry@v3
+                uses: nick-fields/retry@v4
                 with:
                     timeout_minutes: 30
                     max_attempts: 3
@@ -135,7 +135,7 @@ jobs:
 
             -   name: Test (with retries) — 3.14
                 if: matrix.python-version == '3.14'
-                uses: nick-fields/retry@v3
+                uses: nick-fields/retry@v4
                 with:
                     timeout_minutes: 30
                     max_attempts: 3
@@ -191,7 +191,7 @@ jobs:
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         runs-on: ubuntu-latest
         steps:
-            -   uses: actions/checkout@v6.0.3
+            -   uses: actions/checkout@v7.0.0
             -   name: Set up Rust toolchain
                 uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
                 with:
@@ -209,17 +209,17 @@ jobs:
             -   name: Install just
                 uses: extractions/setup-just@v4
             -   name: Refresh Natural Earth 3D textures cache
-                uses: actions/cache@v5
+                uses: actions/cache@v6.1.0
                 with:
                     path: ~/.cache/brahe/textures
                     key: natural-earth-textures-50m-v1
             -   name: Refresh Natural Earth land basemap cache
-                uses: actions/cache@v5
+                uses: actions/cache@v6.1.0
                 with:
                     path: ~/.cache/brahe/natural_earth
                     key: natural-earth-50m-land-v1
             -   name: Refresh cartopy Natural Earth cache
-                uses: actions/cache@v5
+                uses: actions/cache@v6.1.0
                 with:
                     path: ~/.local/share/cartopy
                     key: cartopy-natural-earth-v1

@@ -1,16 +1,16 @@
 Downloading ISS TLE from CelesTrak...
 Downloaded ISS TLE in 0.00 seconds.
-Epoch: 2026-06-30 19:10:10.831 UTC
+Epoch: 2026-06-30 20:43:03.172 UTC
 Semi-major axis: 6796.3 km
 
 Loading NASA Near Earth Network ground stations...
 Loaded 18 NASA NEN ground stations in 0.00 seconds.
 
 Creating ground track visualization...
-Created ground track visualization in 2.22 seconds.
+Created ground track visualization in 2.16 seconds.
 
 Computing 72-hour access windows with Doppler compensation...
-Computed 13 access windows in 0.74 seconds.
+Computed 13 access windows in 0.68 seconds.
 
 ====================================================================================================
 Sample Access Windows with Doppler Time Series (first 5)
@@ -21,10 +21,10 @@ Start Time                  Duration   Max Elev  # Samples   Peak S-band   Peak 
 2026-07-01 04:35:13            7.7 m     23.4°       4602      44.62 kHz     170.39 kHz
 2026-07-01 11:09:24            6.8 m     15.8°       4097      39.43 kHz     150.57 kHz
 2026-07-01 12:45:37            8.1 m     34.1°       4843      48.09 kHz     183.63 kHz
-2026-07-02 02:11:58            5.4 m     10.3°       3223      31.88 kHz     121.71 kHz
+2026-07-02 02:11:58            5.4 m     10.3°       3222      31.87 kHz     121.67 kHz
 ====================================================================================================
 
-Analyzing detailed Doppler profile for window starting at 2026-07-01 02:58:44.240 UTC
+Analyzing detailed Doppler profile for window starting at 2026-07-01 02:58:44.257 UTC
 Window duration: 7.3 minutes
 Extracting precomputed Doppler time series...
 Extracted 4404 samples (0.1s interval) in 0.00 seconds.

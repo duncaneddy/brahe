@@ -26,10 +26,12 @@ type EOPDataMap = BTreeMap<EOPKey, EOPData>;
 // Package EOP data as part of crate
 
 /// Packaged C04 EOP Data File
-static PACKAGED_C04_FILE: &[u8] = include_bytes!("../../data/eop/EOP_C04_one_file_1962-now.txt");
+pub(crate) static PACKAGED_C04_FILE: &[u8] =
+    include_bytes!("../../data/eop/EOP_C04_one_file_1962-now.txt");
 
 /// Packaged Finals 2000A Data File
-static PACKAGED_STANDARD2000_FILE: &[u8] = include_bytes!("../../data/eop/finals.all.iau2000.txt");
+pub(crate) static PACKAGED_STANDARD2000_FILE: &[u8] =
+    include_bytes!("../../data/eop/finals.all.iau2000.txt");
 
 // Define a custom key type for the EOP data BTreeMap to enable use
 // since f64 does not implement Ord by default. This is not used

@@ -4,7 +4,8 @@
 
 use std::path::Path;
 
-use crate::utils::{BraheError, atomic_write};
+use crate::utils::BraheError;
+use crate::utils::download::download_to_file;
 
 // Sourced from USNO and Paris Observatory (IERS) mirrors; the primary IERS
 // datacenter (datacenter.iers.org) is frequently unavailable.
@@ -19,20 +20,7 @@ const C04_FILE_SOURCE: &str = "https://hpiers.obspm.fr/iers/eop/eopc04/eopc04.19
 /// # Arguments
 /// - `filepath`: Path of desired output file
 pub fn download_c04_eop_file(filepath: &str) -> Result<(), BraheError> {
-    let filepath = Path::new(filepath);
-
-    let body = ureq::get(C04_FILE_SOURCE)
-        .call()
-        .map_err(|e| BraheError::IoError(format!("C04 EOP download request failed: {}", e)))?
-        .body_mut()
-        .read_to_string()
-        .map_err(|e| {
-            BraheError::IoError(format!("Failed to read C04 EOP download response: {}", e))
-        })?;
-
-    atomic_write(filepath, body.as_bytes())?;
-
-    Ok(())
+    download_to_file(C04_FILE_SOURCE, "C04 EOP", Path::new(filepath))
 }
 
 /// Download latest standard Earth orientation parameter file. Will attempt to download the latest
@@ -43,23 +31,7 @@ pub fn download_c04_eop_file(filepath: &str) -> Result<(), BraheError> {
 /// # Arguments
 /// - `filepath`: Path of desired output file
 pub fn download_standard_eop_file(filepath: &str) -> Result<(), BraheError> {
-    let filepath = Path::new(filepath);
-
-    let body = ureq::get(STANDARD_FILE_SOURCE)
-        .call()
-        .map_err(|e| BraheError::IoError(format!("Standard EOP download request failed: {}", e)))?
-        .body_mut()
-        .read_to_string()
-        .map_err(|e| {
-            BraheError::IoError(format!(
-                "Failed to read standard EOP download response: {}",
-                e
-            ))
-        })?;
-
-    atomic_write(filepath, body.as_bytes())?;
-
-    Ok(())
+    download_to_file(STANDARD_FILE_SOURCE, "Standard EOP", Path::new(filepath))
 }
 
 #[cfg(test)]

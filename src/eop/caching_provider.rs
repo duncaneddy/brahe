@@ -10,9 +10,11 @@ use std::time::SystemTime;
 use crate::eop::download::{download_c04_eop_file, download_standard_eop_file};
 use crate::eop::eop_provider::EarthOrientationProvider;
 use crate::eop::eop_types::{EOPExtrapolation, EOPType};
-use crate::eop::file_provider::FileEOPProvider;
+use crate::eop::file_provider::{
+    FileEOPProvider, PACKAGED_C04_FILE, PACKAGED_STANDARD2000_FILE,
+};
 use crate::time::{Epoch, TimeSystem};
-use crate::utils::BraheError;
+use crate::utils::{BraheError, atomic_write};
 
 /// Provides Earth Orientation Parameter (EOP) data with automatic cache refresh.
 ///
@@ -154,6 +156,14 @@ impl CachingEOPProvider {
             PathBuf::from(cache_dir).join(filename)
         };
 
+        // If the cache file is missing, seed it from the compiled-in bundled data so
+        // that fresh environments (CI runners, containers, new installs) can initialize
+        // EOP offline without requiring an immediate network download. The subsequent
+        // age check still triggers a refresh download if the seeded data is stale.
+        if !filepath.exists() {
+            Self::seed_from_bundled(&filepath, eop_type)?;
+        }
+
         // Check if file needs to be downloaded
         let needs_download = Self::check_file_age(&filepath, max_age_seconds)?;
 
@@ -263,6 +273,35 @@ impl CachingEOPProvider {
                 eop_type
             ))),
         }
+    }
+
+    /// Seeds a missing cache file from the compiled-in bundled EOP data.
+    ///
+    /// This allows `CachingEOPProvider` to initialize offline on a fresh cache. The
+    /// seeded file is written with the current modification time, so it is treated as
+    /// current by `check_file_age` and only refreshed once it exceeds `max_age_seconds`.
+    ///
+    /// Unsupported EOP types are left unseeded; the subsequent age check falls through
+    /// to `download_file`, which returns the appropriate "unsupported type" error.
+    ///
+    /// # Arguments
+    ///
+    /// * `filepath` - Path where the bundled data should be written
+    /// * `eop_type` - Type of EOP data to seed (C04 or StandardBulletinA)
+    fn seed_from_bundled(filepath: &Path, eop_type: EOPType) -> Result<(), BraheError> {
+        let data: &[u8] = match eop_type {
+            EOPType::StandardBulletinA => PACKAGED_STANDARD2000_FILE,
+            EOPType::C04 => PACKAGED_C04_FILE,
+            _ => return Ok(()),
+        };
+
+        atomic_write(filepath, data).map_err(|e| {
+            BraheError::IoError(format!(
+                "Failed to seed EOP cache file {} from bundled data: {}",
+                filepath.display(),
+                e
+            ))
+        })
     }
 
     /// Refreshes the cached EOP data by re-checking the file age and reloading if necessary.
@@ -537,6 +576,53 @@ mod tests {
 
         assert!(provider.is_initialized());
         assert_eq!(provider.eop_type(), EOPType::StandardBulletinA);
+        assert!(provider.len() > 0);
+    }
+
+    #[test]
+    fn test_new_seeds_from_bundled_when_missing_standard() {
+        // A missing cache file should be seeded from the compiled-in bundled data,
+        // allowing initialization to succeed offline (no network required).
+        let dir = tempdir().unwrap();
+        let filepath = dir.path().join("seeded_standard.txt");
+
+        assert!(!filepath.exists());
+
+        let provider = CachingEOPProvider::new(
+            Some(&filepath),
+            EOPType::StandardBulletinA,
+            7 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        // File was created from bundled data and provider is populated, all offline.
+        assert!(filepath.exists());
+        assert!(provider.is_initialized());
+        assert_eq!(provider.eop_type(), EOPType::StandardBulletinA);
+        assert!(provider.len() > 0);
+    }
+
+    #[test]
+    fn test_new_seeds_from_bundled_when_missing_c04() {
+        let dir = tempdir().unwrap();
+        let filepath = dir.path().join("seeded_c04.txt");
+
+        let provider = CachingEOPProvider::new(
+            Some(&filepath),
+            EOPType::C04,
+            7 * 86400,
+            false,
+            true,
+            EOPExtrapolation::Hold,
+        )
+        .unwrap();
+
+        assert!(filepath.exists());
+        assert!(provider.is_initialized());
+        assert_eq!(provider.eop_type(), EOPType::C04);
         assert!(provider.len() > 0);
     }
 

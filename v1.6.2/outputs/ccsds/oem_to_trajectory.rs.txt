@@ -1,0 +1,17 @@
+Segment: ISS, 49 states, frame=GCRF
+
+Trajectory: 49 states
+  Frame: OrbitFrame(Geocentric Celestial Reference Frame)
+  Start: 2017-04-11 22:31:43.122 UTC
+  End:   2017-04-12 22:31:43.122 UTC
+  Span:  86400 seconds
+
+First state:
+  Epoch: 2017-04-11 22:31:43.122 UTC
+  Position: [2906.275, 4076.358, 4561.364] km
+  Velocity: [-6879.497, 1449.531, 3081.318] m/s
+
+Multi-segment OEM: 3 trajectories
+  [0] 4 states, span=898080s
+  [1] 4 states, span=100735s
+  [2] 5 states, span=100735s

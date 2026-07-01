@@ -1,0 +1,14 @@
+From components (identity):
+  q = [0.924, 0.000, 0.000, 0.383]
+
+From vector:
+  q = [0.924, 0.000, 0.000, 0.383]
+
+From rotation matrix (45° about Z-axis):
+  q = [0.924, 0.000, 0.000, 0.383]
+
+From Euler angles (45° yaw, ZYX):
+  q = [0.924, 0.000, 0.000, 0.383]
+
+From Euler axis (45° about Z-axis):
+  q = [0.924, 0.000, 0.000, 0.383]

@@ -1,0 +1,61 @@
+Generated OEM with 1441 states over 24 hours
+Written OEM to /tmp/brahe_iss_ephemeris.oem
+Loaded OEM: object=ISS (ZARYA), states=1441
+  Time span: 2024-06-15 00:00:00.000 UTC to 2024-06-16 00:00:00.000 UTC
+Created OrbitTrajectory 'ISS' with 1441 states
+Defined 3 ground stations
+OEM trajectory: 16 access windows found
+Direct propagator: 16 access windows found
+
+===================================Comparison===================================
+OEM windows: 16, Direct windows: 16
+
+Station          Start Diff (s)   End Diff (s)  Elev Diff (°)
+--------------------------------------------------------------
+San Francisco          1.294556       0.834961       0.200681
+San Francisco          1.608582       1.115112       0.105277
+London                 0.628967       0.468750       0.094912
+London                 0.450439       1.248779       0.032718
+New York               1.673584       0.561218       0.169631
+London                 1.280823       0.764465       0.022610
+New York               1.155396       0.791016       0.068448
+London                 0.831299       0.988770       0.158565
+San Francisco          1.326599       1.445618       0.130822
+New York               0.856934       1.379700       0.031800
+San Francisco          1.365051       1.078491       0.247945
+New York               0.867004       2.383118       0.144997
+San Francisco          0.592346       3.567810       0.067181
+New York               0.193176       0.070496       0.021173
+New York               1.358643       1.040955       0.234770
+San Francisco          0.823059       1.379700       0.177023
+
+Max start time difference: 1.673584 s
+Max end time difference:   3.567810 s
+Max elevation difference:  0.247945°
+
+All differences within tolerance — OEM round-trip preserves access fidelity.
+
+===============================OEM Access Windows===============================
+Station          Start (UTC)                  End (UTC)                    Dur (min) Max El (°)
+-----------------------------------------------------------------------------------------------
+San Francisco    2024-06-15 00:20:37          2024-06-15 00:26:49                6.2       35.4
+San Francisco    2024-06-15 01:57:31          2024-06-15 02:02:46                5.3       22.0
+San Francisco    2024-06-15 17:00:43          2024-06-15 17:05:41                5.0       19.8
+San Francisco    2024-06-15 18:36:28          2024-06-15 18:42:44                6.3       38.5
+San Francisco    2024-06-15 20:15:58          2024-06-15 20:17:45                1.8       10.8
+San Francisco    2024-06-15 23:30:07          2024-06-15 23:34:45                4.6       17.3
+  => 6 passes, avg duration: 4.8 min
+
+New York         2024-06-15 13:56:20          2024-06-15 14:00:55                4.6       17.4
+New York         2024-06-15 15:31:40          2024-06-15 15:38:11                6.5       53.4
+New York         2024-06-15 17:09:52          2024-06-15 17:14:13                4.3       16.1
+New York         2024-06-15 18:47:54          2024-06-15 18:51:22                3.5       13.3
+New York         2024-06-15 20:24:02          2024-06-15 20:30:00                6.0       29.5
+New York         2024-06-15 22:00:32          2024-06-15 22:06:44                6.2       38.0
+  => 6 passes, avg duration: 5.2 min
+
+London           2024-06-15 10:55:52          2024-06-15 11:01:54                6.0       32.1
+London           2024-06-15 12:31:54          2024-06-15 12:38:34                6.7       83.5
+London           2024-06-15 14:08:30          2024-06-15 14:15:11                6.7       83.9
+London           2024-06-15 15:45:10          2024-06-15 15:51:13                6.1       32.5
+  => 4 passes, avg duration: 6.4 min

@@ -1,0 +1,7 @@
+Converged: true
+Iterations: 3
+Final cost: 9.999770e-1
+Position error: 0.022992 m
+  Iter 0: cost=2.706892e5, ||dx||=9.999610e2
+  Iter 1: cost=1.000445e0, ||dx||=1.907885e-2
+  Iter 2: cost=9.999770e-1, ||dx||=5.337234e-10

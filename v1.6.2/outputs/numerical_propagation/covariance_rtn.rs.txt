@@ -1,0 +1,33 @@
+=== Covariance in RTN Frame ===
+
+Initial position std (ECI): 10.0 m in each axis
+
+--- GCRF Frame Results ---
+Position std (X, Y, Z):
+  X: 10.0 m
+  Y: 184.6 m
+  Z: 184.6 m
+
+--- RTN Frame Results ---
+Position std (R, T, N):
+  Radial (R):     10.0 m  <- Altitude uncertainty
+  Tangential (T): 260.8 m  <- Along-track timing
+  Normal (N):     10.0 m  <- Cross-track offset
+
+--- Physical Interpretation ---
+RTN frame aligns with the orbit:
+  R (Radial): Points from Earth center to satellite
+  T (Tangential): Points along velocity direction
+  N (Normal): Completes right-hand system (cross-track)
+
+Key insight: Along-track (T) uncertainty grows fastest because
+velocity uncertainty causes timing errors that accumulate.
+After one orbit: T/R ratio = 26.1x
+
+--- Position Correlation Matrix (RTN) ---
+       R      T      N
+  R   1.000 -0.745 -0.000
+  T  -0.745  1.000  0.000
+  N  -0.000  0.000  1.000
+
+Example validated successfully!

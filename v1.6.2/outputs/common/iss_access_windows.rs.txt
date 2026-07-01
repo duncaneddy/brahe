@@ -1,0 +1,3 @@
+Access Window: 2026-07-02 06:56:00.979 UTC to 2026-07-02 07:02:46.249 UTC, Duration: 6.75 minutes
+Access Window: 2026-07-02 08:34:23.982 UTC to 2026-07-02 08:38:44.007 UTC, Duration: 4.33 minutes
+Access Window: 2026-07-02 11:51:07.127 UTC to 2026-07-02 11:54:07.148 UTC, Duration: 3.00 minutes

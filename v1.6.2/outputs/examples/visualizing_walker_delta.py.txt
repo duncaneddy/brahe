@@ -1,0 +1,8 @@
+Created 24 satellite Walker Delta constellation
+Orbital planes: 6
+RAAN spacing: 360/6 = 60 degrees
+
+Propagated all 24 satellites for one orbital period
+
+✓ Generated docs/figures/visualizing_walker_delta_light.html
+✓ Generated docs/figures/visualizing_walker_delta_dark.html

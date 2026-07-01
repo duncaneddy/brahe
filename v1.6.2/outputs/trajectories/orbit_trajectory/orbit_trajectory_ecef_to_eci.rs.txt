@@ -1,0 +1,12 @@
+Original frame: OrbitFrame(Earth-Centered Earth-Fixed)
+Converted frame: OrbitFrame(Earth-Centered Inertial)
+Trajectory length: 3
+Epoch: 2024-01-01 00:00:00.000 UTC
+  Position magnitude: 6878.14 km
+  Velocity magnitude: 7616.53 m/s
+Epoch: 2024-01-01 00:01:00.000 UTC
+  Position magnitude: 6878.14 km
+  Velocity magnitude: 7616.53 m/s
+Epoch: 2024-01-01 00:02:00.000 UTC
+  Position magnitude: 6878.14 km
+  Velocity magnitude: 7616.53 m/s

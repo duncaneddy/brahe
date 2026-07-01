@@ -9,37 +9,26 @@ Each release groups entries under the Keep a Changelog section headings in the o
 
 <!-- release notes start -->
 
-## [1.6.2] - 2026-06-30
+## [1.6.2] - 2026-07-01
 
 ### Added
 
 - Added native Linux `arm64` wheel builds to the latest and release workflows, with platform-specific wheel artifact names to avoid artifact collisions. [@hectcastro](https://github.com/hectcastro) ([#372](https://github.com/duncaneddy/brahe/pull/372))
+- `CachingEOPProvider` / `CachingSpaceWeatherProvider` (and `initialize_eop()` / `initialize_sw()`) now seed a missing cache from the compiled-in bundled data, so EOP and space-weather initialization succeed offline without an immediate network download. [@duncaneddy](https://github.com/duncaneddy) ([#374](https://github.com/duncaneddy/brahe/pull/374))
+- EOP and space-weather downloads now retry transient failures (connection errors, timeouts, HTTP 429/5xx) with exponential backoff and jitter (up to 4 attempts). [@duncaneddy](https://github.com/duncaneddy) ([#374](https://github.com/duncaneddy/brahe/pull/374))
 
 ### Changed
 
 - Changed standard EOP product source to [USNO finals2000A.all](https://maia.usno.navy.mil/ser7/finals2000A.all). [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
 - Changed C04 EOP product source to [Paris Observatory C04 Product](https://www.simplespacedata.org/eop/obspm/c04_1962now/latest/eopc04.1962-now). [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+- Download failure messages now include the attempted URL and number of attempts. [@duncaneddy](https://github.com/duncaneddy) ([#374](https://github.com/duncaneddy/brahe/pull/374))
+- Consolidated EOP and space-weather download logic into a shared `utils::download` helper (internal refactor, no API change). [@duncaneddy](https://github.com/duncaneddy) ([#374](https://github.com/duncaneddy/brahe/pull/374))
 
 ### Fixed
 
 - Fix compilation issue due to transitive dependency breaking change in `ureq`/`time` crates. Pin `time` until issue is resolved. [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
 - Fixed issue with failing tests due to inability to update outdated EOP products. [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
-
-## [1.6.1] - 2026-06-30
-
-### Added
-
-- Added native Linux `arm64` wheel builds to the latest and release workflows, with platform-specific wheel artifact names to avoid artifact collisions. [@hectcastro](https://github.com/hectcastro) ([#372](https://github.com/duncaneddy/brahe/pull/372))
-
-### Changed
-
-- Changed standard EOP product source to [USNO finals2000A.all](https://maia.usno.navy.mil/ser7/finals2000A.all). [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
-- Changed C04 EOP product source to [Paris Observatory C04 Product](https://www.simplespacedata.org/eop/obspm/c04_1962now/latest/eopc04.1962-now). [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
-
-### Fixed
-
-- Fix compilation issue due to transitive dependency breaking change in `ureq`/`time` crates. Pin `time` until issue is resolved. [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
-- Fixed issue with failing tests due to inability to update outdated EOP products. [@duncaneddy](https://github.com/duncaneddy) ([#373](https://github.com/duncaneddy/brahe/pull/373))
+- `initialize_eop()` / `initialize_sw()` no longer fail on a fresh/empty cache when the remote EOP or space-weather server is transiently unreachable (e.g. `Standard EOP download request failed: io: Connection refused` in CI); bundled data is used instead. [@duncaneddy](https://github.com/duncaneddy) ([#374](https://github.com/duncaneddy/brahe/pull/374))
 
 ## [1.6.1] - 2026-06-16
 

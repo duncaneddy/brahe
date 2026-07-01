@@ -4,6 +4,10 @@ Tests for ForceModelConfig and related types Python bindings
 These tests mirror the Rust tests from src/propagators/force_model_config.rs
 """
 
+import warnings
+
+import pytest
+
 import brahe
 from brahe import (
     AtmosphericModel,
@@ -115,3 +119,32 @@ def test_forcemodelconfig_tides_kwarg():
     assert cfg.tides is not None
     assert cfg.tides.solid is not None
     assert cfg.tides.solid.frequency_dependent is True
+
+
+def test_tides_config_zero_tide_with_solid_warns():
+    """ConvertTo(non-tide-free) + solid tides double-counts the permanent tide and warns."""
+    solid = brahe.SolidTideConfig(frequency_dependent=False)
+    for system in (brahe.GravityModelTideSystem.ZeroTide, brahe.GravityModelTideSystem.MeanTide):
+        with pytest.warns(UserWarning, match="double-counts the permanent tide"):
+            tides = brahe.TidesConfiguration(
+                permanent=brahe.PermanentTideConfig.convert_to(system), solid=solid
+            )
+        # The configuration is still honored.
+        assert tides.solid is not None
+
+
+def test_tides_config_consistent_combinations_do_not_warn():
+    """AUTO/OFF/ConvertTo(TideFree) with solid tides, and ConvertTo without solid, are fine."""
+    solid = brahe.SolidTideConfig(frequency_dependent=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.AUTO, solid=solid)
+        brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.OFF, solid=solid)
+        brahe.TidesConfiguration(
+            permanent=brahe.PermanentTideConfig.convert_to(brahe.GravityModelTideSystem.TideFree),
+            solid=solid,
+        )
+        brahe.TidesConfiguration(
+            permanent=brahe.PermanentTideConfig.convert_to(brahe.GravityModelTideSystem.ZeroTide),
+            solid=None,
+        )

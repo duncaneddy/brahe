@@ -42,6 +42,25 @@ background. When using a model whose $\bar{C}_{20}$ is in a different system,
 the permanent term must be removed before adding the time-varying solid-tide
 corrections, so the two contributions are not double-counted.
 
+## Design: Normalize to Tide-Free, Then Layer
+
+Brahe's tide handling follows one mental model: **when tides are configured
+(`ForceModelConfig.tides` is set), the static gravity field is by default
+normalized to conventional tide-free — a field with no tidal contributions in
+$\bar{C}_{20}$ — so that tidal effects can be explicitly layered back on
+top.** (With no `TidesConfiguration` at all, the model's $\bar{C}_{20}$ is
+left exactly as published.) The solid Earth tide model computes the *total* tidal
+contribution, including its time average (the permanent part), so a tide-free
+background is exactly what it composes with; stacking it on a zero-tide or
+mean-tide field would count the permanent part twice.
+
+This layering is why `Auto` always targets tide-free, regardless of which
+tidal force models are enabled. If you do not want the normalization — for
+example, you propagate without solid tides and prefer to keep a zero-tide
+model's $\bar{C}_{20}$ as the better time-average field — set the permanent
+handling to `Off`, or use `ConvertTo` to select a specific system. Both are
+valid even when no tidal force model is enabled.
+
 ## Permanent Tide Configuration
 
 `PermanentTideConfig` controls how Brahe reconciles the loaded model's
@@ -54,6 +73,20 @@ $\bar{C}_{20}$ with the conventional tide-free convention:
 | `Off` | Leaves $\bar{C}_{20}$ untouched. Use when you have pre-corrected the model yourself, or for debugging. |
 
 `Auto` is the right choice for almost all practical cases.
+
+!!! warning "Inconsistent combination: `ConvertTo(ZeroTide/MeanTide)` + solid tides"
+    Converting the background field to zero-tide or mean-tide while solid Earth
+    tides are enabled double-counts the permanent tide (once in the static
+    $\bar{C}_{20}$, once in the tide model's time average). Brahe emits a
+    warning for this combination — at propagator construction in Rust, and as a
+    suppressible `UserWarning` when constructing `TidesConfiguration` in
+    Python. For gravity models owned by the propagator
+    (`GravityModelSource.ModelType`) the conversion is still applied as
+    requested, since Step-3-style workflows that pre-subtract the permanent
+    part externally are legitimate. Shared global gravity models
+    (`GravityModelSource.Global`) are never converted in place — pre-convert
+    with `GravityModel.convert_tide_system` before calling
+    `set_global_gravity_model` (a separate warning covers this case).
 
 ## Solid Earth Tides
 
@@ -122,6 +155,11 @@ mission-analysis applications.
 
 ### Permanent Tide Only
 
+Normalizes the static field to conventional tide-free without adding any
+time-varying tidal accelerations. Use this when you want a field with no tidal
+contributions (e.g. for consistency across models, or before layering your own
+tide model). If you instead want to keep a zero-tide model's $\bar{C}_{20}$
+as-is, use `PermanentTideConfig.OFF`.
 
 === "Python"
 

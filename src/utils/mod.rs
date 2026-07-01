@@ -11,6 +11,7 @@ pub use state_providers::*;
 pub use threading::*;
 
 pub mod cache;
+pub mod download;
 pub mod errors;
 pub mod formatting;
 pub mod fs;

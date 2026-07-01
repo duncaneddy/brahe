@@ -23,7 +23,8 @@ type SWDataMap = BTreeMap<SWKey, SpaceWeatherData>;
 
 // Package space weather data as part of crate
 /// Packaged CSSI Space Weather Data File
-static PACKAGED_SW_FILE: &[u8] = include_bytes!("../../data/space_weather/sw19571001.txt");
+pub(crate) static PACKAGED_SW_FILE: &[u8] =
+    include_bytes!("../../data/space_weather/sw19571001.txt");
 
 // Define a custom key type for the space weather data BTreeMap
 #[derive(Clone, PartialEq)]

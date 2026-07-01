@@ -7,13 +7,14 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use crate::space_weather::file_provider::FileSpaceWeatherProvider;
+use crate::space_weather::file_provider::{FileSpaceWeatherProvider, PACKAGED_SW_FILE};
 use crate::space_weather::provider::SpaceWeatherProvider;
 use crate::space_weather::types::{SpaceWeatherExtrapolation, SpaceWeatherType};
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 use crate::utils::atomic_write;
 use crate::utils::cache::get_space_weather_cache_dir;
+use crate::utils::download::download_to_file;
 
 /// Default URL for downloading space weather data from CelesTrak
 const DEFAULT_SW_URL: &str = "https://celestrak.org/SpaceData/sw19571001.txt";
@@ -122,30 +123,22 @@ impl CachingSpaceWeatherProvider {
 
         let cache_path = cache_dir.join(DEFAULT_SW_FILENAME);
 
+        // If the cache file is missing, seed it from the compiled-in bundled data so
+        // that fresh environments (CI runners, containers, new installs) can initialize
+        // offline without requiring an immediate network download. The subsequent age
+        // check still triggers a refresh download if the seeded data is stale.
+        if !cache_path.exists() {
+            Self::seed_from_bundled(&cache_path)?;
+        }
+
         // Check if we need to download or update the file
         let needs_download = Self::check_file_age(&cache_path, max_age)?;
 
-        // Download if needed
         if needs_download {
-            match download_space_weather(&cache_path) {
-                Ok(_) => {}
-                Err(e) => {
-                    // If download fails but we have a cached file, use it
-                    if !cache_path.exists() {
-                        return Err(e);
-                    }
-                    // Otherwise continue with the existing cached file
-                }
-            }
+            download_space_weather(&cache_path)?;
         }
 
-        // Load from cached file or fall back to packaged data
-        let inner = if cache_path.exists() {
-            FileSpaceWeatherProvider::from_file(&cache_path, extrapolate)?
-        } else {
-            // Fall back to packaged data
-            FileSpaceWeatherProvider::from_default_file()?
-        };
+        let inner = FileSpaceWeatherProvider::from_file(&cache_path, extrapolate)?;
 
         // Record when file was loaded
         let file_loaded_at = Arc::new(Mutex::new(SystemTime::now()));
@@ -182,6 +175,12 @@ impl CachingSpaceWeatherProvider {
         };
 
         let cache_path = cache_dir.join(DEFAULT_SW_FILENAME);
+
+        // Seed a missing cache file from bundled data so initialization can succeed
+        // offline (see `new` for details).
+        if !cache_path.exists() {
+            Self::seed_from_bundled(&cache_path)?;
+        }
 
         // Check if we need to download
         let needs_download = Self::check_file_age(&cache_path, max_age)?;
@@ -260,6 +259,26 @@ impl CachingSpaceWeatherProvider {
 
         // Return true if file is older than max age
         Ok(age > max_age)
+    }
+
+    /// Seeds a missing cache file from the compiled-in bundled space weather data.
+    ///
+    /// This allows `CachingSpaceWeatherProvider` to initialize offline on a fresh
+    /// cache. The seeded file is written with the current modification time, so it is
+    /// treated as current by `check_file_age` and only refreshed once it exceeds
+    /// `max_age`.
+    ///
+    /// # Arguments
+    ///
+    /// * `cache_path` - Path where the bundled data should be written
+    fn seed_from_bundled(cache_path: &Path) -> Result<(), BraheError> {
+        atomic_write(cache_path, PACKAGED_SW_FILE).map_err(|e| {
+            BraheError::IoError(format!(
+                "Failed to seed space weather cache file {} from bundled data: {}",
+                cache_path.display(),
+                e
+            ))
+        })
     }
 
     /// Refreshes the cached data by re-checking the file age and reloading if necessary.
@@ -525,18 +544,10 @@ fn download_space_weather(output_path: &Path) -> Result<(), BraheError> {
     download_from_url(DEFAULT_SW_URL, output_path)
 }
 
-/// Download data from a URL to a file.
+/// Download data from a URL to a file, retrying transient failures with exponential
+/// backoff and jitter.
 fn download_from_url(url: &str, output_path: &Path) -> Result<(), BraheError> {
-    let body = ureq::get(url)
-        .call()
-        .map_err(|e| BraheError::IoError(format!("Failed to download {}: {}", url, e)))?
-        .body_mut()
-        .read_to_string()
-        .map_err(|e| BraheError::IoError(format!("Failed to read response: {}", e)))?;
-
-    atomic_write(output_path, body.as_bytes())?;
-
-    Ok(())
+    download_to_file(url, "space weather", output_path)
 }
 
 #[cfg(test)]
@@ -593,6 +604,30 @@ mod tests {
 
         // Check with a very small max age (file should be stale)
         assert!(CachingSpaceWeatherProvider::check_file_age(&filepath, 1).unwrap());
+    }
+
+    #[test]
+    fn test_new_seeds_from_bundled_when_missing() {
+        // A missing cache file should be seeded from the compiled-in bundled data,
+        // allowing initialization to succeed offline (no network required).
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+        let cache_path = cache_dir.join(DEFAULT_SW_FILENAME);
+
+        assert!(!cache_path.exists());
+
+        let provider = CachingSpaceWeatherProvider::new(
+            Some(cache_dir),
+            7 * 86400,
+            false,
+            SpaceWeatherExtrapolation::Hold,
+        )
+        .unwrap();
+
+        // File was created from bundled data and provider is populated, all offline.
+        assert!(cache_path.exists());
+        assert!(provider.is_initialized());
+        assert!(provider.len() > 0);
     }
 
     #[test]

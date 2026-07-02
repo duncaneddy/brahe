@@ -13,7 +13,9 @@ pub(crate) mod daf;
 pub mod kernels;
 pub mod positions;
 pub(crate) mod segments;
+pub mod spk;
 
 pub use almanac::*;
 pub use kernels::*;
 pub use positions::*;
+pub use spk::SPK;

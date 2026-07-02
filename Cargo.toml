@@ -137,6 +137,11 @@ name = "gravity_benchmarks"
 path = "benchmarks/gravity_benchmarks.rs"
 harness = false
 
+[[bench]]
+name = "spice_benchmarks"
+path = "benchmarks/spice_benchmarks.rs"
+harness = false
+
 [lints.rust]
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage,coverage_nightly)', 'cfg(feature, values("manual"))'] }

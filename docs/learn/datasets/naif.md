@@ -25,6 +25,12 @@ Brahe supports downloading the following DE kernel files:
 !!! tip "Choosing a Kernel"
     For most applications, `de440s` provides a good balance between file size and accuracy. The "s" (small) variants cover a shorter time span but are significantly smaller files.
 
+!!! info "Binary PCK Kernels"
+    Brahe also downloads and caches the `moon_pa_de440` binary PCK (lunar
+    principal-axis orientation) the same way. Load it with
+    `bh.load_kernel("moon_pa_de440")` — see [SPICE Kernels](../spice/index.md)
+    for orientation queries against it.
+
 ## Caching Behavior
 
 DE kernels are large files that do not change over time. Brahe implements permanent caching:
@@ -92,6 +98,7 @@ The function validates kernel names before attempting downloads. Invalid kernel 
 
 ## See Also
 
+- [SPICE Kernels](../spice/index.md) - Loading, querying, and PCK orientation
 - [NAIF SPICE System](https://naif.jpl.nasa.gov/naif/toolkit.html) - Full SPICE toolkit documentation
 - [DE Kernel Details](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/aa_summaries.txt) - Detailed descriptions of each DE version
 - [Library API Reference](../../library_api/datasets/naif.md) - Complete function documentation

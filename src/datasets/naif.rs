@@ -442,6 +442,8 @@ fn fetch_satellite_kernel(filename: &str) -> Result<Vec<u8>, BraheError> {
 /// Downloads the specified satellite SPK kernel file and caches it locally. If
 /// the kernel is already cached, returns the cached path without re-downloading.
 /// Optionally copies the kernel to a user-specified location.
+/// Contains Phobos (401), Deimos (402), and Mars (499) relative to the Mars system barycenter (4),
+/// plus Sun (10), EMB (3), and Earth (399) context segments from DE440.
 ///
 /// # Arguments
 /// * `name` - Satellite kernel name (e.g., "mar099s", ~67 MB download, coverage 1995-2049)

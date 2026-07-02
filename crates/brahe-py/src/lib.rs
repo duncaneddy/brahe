@@ -622,6 +622,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("GM_URANUS", constants::GM_URANUS)?;
     module.add("GM_NEPTUNE", constants::GM_NEPTUNE)?;
     module.add("GM_PLUTO", constants::GM_PLUTO)?;
+    module.add("R_MARS", constants::R_MARS)?;
+    module.add("OMEGA_MARS", constants::OMEGA_MARS)?;
+    module.add("OMEGA_MOON", constants::OMEGA_MOON)?;
+    module.add("GM_PHOBOS", constants::GM_PHOBOS)?;
+    module.add("GM_DEIMOS", constants::GM_DEIMOS)?;
 
     //* EOP *//
 

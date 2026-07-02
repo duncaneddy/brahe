@@ -582,11 +582,11 @@ mod tests {
         assert_abs_diff_eq!(a[2], az, epsilon = 1e-9);
     }
 
-    use crate::utils::testing::setup_global_test_almanac;
+    use crate::utils::testing::setup_global_test_spice;
 
     #[test]
     fn test_accel_third_body_sun_de() {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
@@ -600,7 +600,7 @@ mod tests {
 
     #[test]
     fn test_accel_third_body_moon_de() {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
@@ -614,7 +614,7 @@ mod tests {
 
     #[test]
     fn test_accel_third_body_mercury_de() {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
@@ -628,7 +628,7 @@ mod tests {
 
     #[test]
     fn test_accel_third_body_venus_de() {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn test_accel_third_body_mars_de() {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
@@ -656,7 +656,7 @@ mod tests {
 
     #[test]
     fn test_accel_third_body_jupiter_de() {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
@@ -670,7 +670,7 @@ mod tests {
 
     #[test]
     fn test_accel_third_body_saturn_de() {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
@@ -684,7 +684,7 @@ mod tests {
 
     #[test]
     fn test_accel_third_body_uranus_de() {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
@@ -698,7 +698,7 @@ mod tests {
 
     #[test]
     fn test_accel_third_body_neptune_de() {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);

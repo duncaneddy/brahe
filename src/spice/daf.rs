@@ -10,10 +10,6 @@
  *   <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/daf.html>
  */
 
-// Not yet wired into any consumer within this crate; segment-parsing tasks
-// (Chebyshev segments, SPK/PCK structs) consume `DafFile`/`DafSummary` next.
-#![allow(dead_code)]
-
 use std::fs;
 use std::path::Path;
 
@@ -42,8 +38,10 @@ pub(crate) struct DafFile {
     /// ID word, e.g. "DAF/SPK" or "DAF/PCK" (trimmed).
     pub id_word: String,
     /// Number of double components per summary.
+    #[allow(dead_code)]
     pub nd: usize,
     /// Number of integer components per summary.
+    #[allow(dead_code)]
     pub ni: usize,
     /// All segment summaries in file order.
     pub summaries: Vec<DafSummary>,

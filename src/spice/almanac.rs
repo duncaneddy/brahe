@@ -21,7 +21,10 @@ use super::kernels::SPKKernel;
 /// Convert a Brahe [`Epoch`] to an ANISE Epoch using Gregorian calendar components.
 ///
 /// Converts via datetime components
+// `positions.rs` no longer calls into this module; kept until this file is
+// removed alongside ANISE in the follow-up commit.
 #[inline]
+#[allow(dead_code)]
 pub(super) fn brahe_epoch_to_anise(epc: Epoch) -> anise_prelude::Epoch {
     let (yy, mm, dd, h, m, s, ns) = epc.to_datetime_as_time_system(TimeSystem::UTC);
     anise_prelude::Epoch::from_gregorian_utc(yy as i32, mm, dd, h, m, s as u8, ns as u32)
@@ -129,6 +132,10 @@ pub fn get_loaded_kernel_type() -> Option<String> {
 // ============================================================================
 
 /// Get the global almanac, auto-initializing with DE440s if not yet loaded.
+// `positions.rs` no longer calls into this module; kept (and exercised by
+// this module's own tests) until this file is removed alongside ANISE in
+// the follow-up commit.
+#[allow(dead_code)]
 pub(super) fn get_almanac() -> Result<Arc<anise_prelude::Almanac>, BraheError> {
     {
         let reader = GLOBAL_ALMANAC.read().unwrap();
@@ -159,6 +166,10 @@ pub(super) fn get_almanac() -> Result<Arc<anise_prelude::Almanac>, BraheError> {
 }
 
 /// Ensure the correct kernel is loaded for `kernel`, switching if needed.
+// `positions.rs` no longer calls into this module; kept (and exercised by
+// this module's own tests) until this file is removed alongside ANISE in
+// the follow-up commit.
+#[allow(dead_code)]
 pub(super) fn ensure_kernel_loaded(
     kernel: SPKKernel,
 ) -> Result<Arc<anise_prelude::Almanac>, BraheError> {

@@ -13,10 +13,6 @@
  *   <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/pck.html>
  */
 
-// Not yet wired into any consumer within this crate; SPK/PCK reader tasks
-// consume `ChebyshevSegment` next.
-#![allow(dead_code)]
-
 use nalgebra::Vector3;
 
 use crate::utils::BraheError;
@@ -32,10 +28,12 @@ pub(crate) struct ChebyshevSegment {
     /// SPK: center NAIF body ID. PCK: reference frame ID.
     pub center: i32,
     /// Reference frame ID of the segment data (1 = J2000/ICRF).
+    #[allow(dead_code)]
     pub frame: i32,
     /// SPK/PCK data type (2 or 3).
     pub data_type: i32,
     /// Components per record: 3 (type 2 / PCK) or 6 (type 3).
+    #[allow(dead_code)]
     pub ncomp: usize,
     /// Segment coverage start, TDB seconds past J2000.
     pub start_et: f64,

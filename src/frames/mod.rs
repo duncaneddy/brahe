@@ -12,10 +12,12 @@ pub mod eci_ecef;
 pub mod eme_2000;
 pub mod gcrf_itrf;
 pub mod iau_rotation;
+pub mod lunar;
 pub mod mars;
 
 pub use eci_ecef::*;
 pub use eme_2000::*;
 pub use gcrf_itrf::*;
 pub use iau_rotation::*;
+pub use lunar::*;
 pub use mars::*;

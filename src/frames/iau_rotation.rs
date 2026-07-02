@@ -600,14 +600,26 @@ pub fn body_fixed_iau_angles_and_rates(
     ))
 }
 
-/// Rotation matrix about the body-fixed x-axis by `angle` [rad].
-fn rx(angle: f64) -> SMatrix3 {
+/// Rotation matrix about the body-fixed x-axis by `angle` [rad]. Matches
+/// the SPICE `[angle]_1` convention used by TK frame kernels (see
+/// `frames.req`): `v_out = rx(angle) * v_in`.
+pub(crate) fn rx(angle: f64) -> SMatrix3 {
     let (s, c) = angle.sin_cos();
     SMatrix3::new(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c)
 }
 
-/// Rotation matrix about the body-fixed z-axis by `angle` [rad].
-fn rz(angle: f64) -> SMatrix3 {
+/// Rotation matrix about the body-fixed y-axis by `angle` [rad]. Matches
+/// the SPICE `[angle]_2` convention used by TK frame kernels (see
+/// `frames.req`): `v_out = ry(angle) * v_in`.
+pub(crate) fn ry(angle: f64) -> SMatrix3 {
+    let (s, c) = angle.sin_cos();
+    SMatrix3::new(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c)
+}
+
+/// Rotation matrix about the body-fixed z-axis by `angle` [rad]. Matches
+/// the SPICE `[angle]_3` convention used by TK frame kernels (see
+/// `frames.req`): `v_out = rz(angle) * v_in`.
+pub(crate) fn rz(angle: f64) -> SMatrix3 {
     let (s, c) = angle.sin_cos();
     SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0)
 }

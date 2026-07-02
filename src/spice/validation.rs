@@ -90,6 +90,11 @@ fn test_validation_position_velocity_vs_anise_matched_et() {
                 let v_native = native.velocity(body, center, et).unwrap();
                 let (r_km, v_km) = anise_state_km(&almanac, body, center, et);
 
+                // Component-wise (not vector-norm) comparison: at outer-body
+                // distances (e.g. Pluto barycenter, ~7e12 m), a vector-norm
+                // check can exceed 1 mm purely from IEEE-754 summation noise
+                // (~magnitude * 2^-52) even though every axis individually
+                // matches to < 1 mm.
                 for i in 0..3 {
                     let dr = (r_native[i] - r_km[i] * 1.0e3).abs();
                     let dv = (v_native[i] - v_km[i] * 1.0e3).abs();

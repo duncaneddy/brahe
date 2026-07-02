@@ -19,13 +19,17 @@ const NAIF_BASE_URL: &str = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
 /// Base URL for NAIF generic PCK kernels
 const NAIF_PCK_BASE_URL: &str = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/";
 
-/// Supported DE kernel names
-const SUPPORTED_KERNELS: &[&str] = &[
+/// Supported DE kernel names. `pub(crate)` so `spice::registry` can consult
+/// this single list instead of maintaining its own copy.
+pub(crate) const SUPPORTED_KERNELS: &[&str] = &[
     "de430", "de432s", "de435", "de438", "de440", "de440s", "de442", "de442s",
 ];
 
-/// Supported binary PCK kernels: (name, filename)
-const SUPPORTED_PCK_KERNELS: &[(&str, &str)] = &[("moon_pa_de440", "moon_pa_de440_200625.bpc")];
+/// Supported binary PCK kernels: (name, filename). `pub(crate)` so
+/// `spice::registry` can consult this single list instead of maintaining
+/// its own copy.
+pub(crate) const SUPPORTED_PCK_KERNELS: &[(&str, &str)] =
+    &[("moon_pa_de440", "moon_pa_de440_200625.bpc")];
 
 /// Validate that a kernel name is supported
 ///

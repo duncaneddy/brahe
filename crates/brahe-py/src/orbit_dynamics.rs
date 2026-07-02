@@ -476,9 +476,9 @@ fn py_venus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSou
     Ok(vector_to_numpy!(py, x, 6, f64))
 }
 
-/// Calculate the position of Mars in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the position of Mars (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Mars position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Mars (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -491,7 +491,7 @@ fn py_venus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSou
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Mars in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Mars (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -515,14 +515,14 @@ fn py_mars_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the velocity of Mars in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Mars (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mars's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Velocity of Mars in the GCRF frame. Units: (m/s)
+///     np.ndarray: Velocity of Mars (planetary-system barycenter) in the GCRF frame. Units: (m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -543,14 +543,14 @@ fn py_mars_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
     Ok(vector_to_numpy!(py, v, 3, f64))
 }
 
-/// Calculate the state (position and velocity) of Mars in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the state (position and velocity) of Mars (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mars's state
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: State [x, y, z, vx, vy, vz] of Mars in the GCRF frame. Units: (m, m/s)
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Mars (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -571,9 +571,9 @@ fn py_mars_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSour
     Ok(vector_to_numpy!(py, x, 6, f64))
 }
 
-/// Calculate the position of Jupiter in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the position of Jupiter (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Jupiter position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Jupiter (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -586,7 +586,7 @@ fn py_mars_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSour
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Jupiter in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Jupiter (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -610,14 +610,14 @@ fn py_jupiter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the velocity of Jupiter in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Jupiter (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Jupiter's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Velocity of Jupiter in the GCRF frame. Units: (m/s)
+///     np.ndarray: Velocity of Jupiter (planetary-system barycenter) in the GCRF frame. Units: (m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -638,14 +638,14 @@ fn py_jupiter_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
     Ok(vector_to_numpy!(py, v, 3, f64))
 }
 
-/// Calculate the state (position and velocity) of Jupiter in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the state (position and velocity) of Jupiter (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Jupiter's state
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: State [x, y, z, vx, vy, vz] of Jupiter in the GCRF frame. Units: (m, m/s)
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Jupiter (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -666,9 +666,9 @@ fn py_jupiter_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
     Ok(vector_to_numpy!(py, x, 6, f64))
 }
 
-/// Calculate the position of Saturn in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the position of Saturn (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Saturn position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Saturn (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -681,7 +681,7 @@ fn py_jupiter_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Saturn in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Saturn (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -705,14 +705,14 @@ fn py_saturn_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the velocity of Saturn in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Saturn (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Saturn's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Velocity of Saturn in the GCRF frame. Units: (m/s)
+///     np.ndarray: Velocity of Saturn (planetary-system barycenter) in the GCRF frame. Units: (m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -733,14 +733,14 @@ fn py_saturn_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
     Ok(vector_to_numpy!(py, v, 3, f64))
 }
 
-/// Calculate the state (position and velocity) of Saturn in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the state (position and velocity) of Saturn (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Saturn's state
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: State [x, y, z, vx, vy, vz] of Saturn in the GCRF frame. Units: (m, m/s)
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Saturn (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -761,9 +761,9 @@ fn py_saturn_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
     Ok(vector_to_numpy!(py, x, 6, f64))
 }
 
-/// Calculate the position of Uranus in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the position of Uranus (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Uranus position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Uranus (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -776,7 +776,7 @@ fn py_saturn_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Uranus in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Uranus (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -800,14 +800,14 @@ fn py_uranus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the velocity of Uranus in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Uranus (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Uranus's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Velocity of Uranus in the GCRF frame. Units: (m/s)
+///     np.ndarray: Velocity of Uranus (planetary-system barycenter) in the GCRF frame. Units: (m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -828,14 +828,14 @@ fn py_uranus_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
     Ok(vector_to_numpy!(py, v, 3, f64))
 }
 
-/// Calculate the state (position and velocity) of Uranus in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the state (position and velocity) of Uranus (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Uranus's state
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: State [x, y, z, vx, vy, vz] of Uranus in the GCRF frame. Units: (m, m/s)
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Uranus (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -856,9 +856,9 @@ fn py_uranus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
     Ok(vector_to_numpy!(py, x, 6, f64))
 }
 
-/// Calculate the position of Neptune in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the position of Neptune (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Neptune position
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Neptune (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -871,7 +871,7 @@ fn py_uranus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Neptune in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Neptune (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -895,14 +895,14 @@ fn py_neptune_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the velocity of Neptune in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Neptune (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Neptune's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Velocity of Neptune in the GCRF frame. Units: (m/s)
+///     np.ndarray: Velocity of Neptune (planetary-system barycenter) in the GCRF frame. Units: (m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -923,14 +923,14 @@ fn py_neptune_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
     Ok(vector_to_numpy!(py, v, 3, f64))
 }
 
-/// Calculate the state (position and velocity) of Neptune in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the state (position and velocity) of Neptune (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Neptune's state
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: State [x, y, z, vx, vy, vz] of Neptune in the GCRF frame. Units: (m, m/s)
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Neptune (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails

@@ -20,7 +20,9 @@ use std::sync::{Arc, RwLock};
 use nalgebra::{Matrix3, Vector3, Vector6};
 use once_cell::sync::Lazy;
 
-use crate::datasets::naif::{download_de_kernel, download_pck_kernel};
+use crate::datasets::naif::{
+    SUPPORTED_KERNELS, SUPPORTED_PCK_KERNELS, download_de_kernel, download_pck_kernel,
+};
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
@@ -104,23 +106,29 @@ pub(crate) fn epoch_to_et(epc: Epoch) -> f64 {
 
 /// Resolve a kernel name or file path to a local file path, downloading
 /// (and caching) known DE kernel names via the NAIF dataset cache.
+///
+/// Known kernel names are looked up in `naif::SUPPORTED_KERNELS` (DE SPK
+/// kernels) and `naif::SUPPORTED_PCK_KERNELS` (binary PCK kernels) — the
+/// same lists `datasets::naif` validates against — rather than a second,
+/// independently maintained set of literals, so the two cannot drift out
+/// of sync.
 fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, BraheError> {
-    match name_or_path {
-        // Known downloadable kernel names resolve via the NAIF dataset cache
-        "de430" | "de432s" | "de435" | "de438" | "de440" | "de440s" | "de442" | "de442s" => {
-            download_de_kernel(name_or_path, None)
-        }
-        "moon_pa_de440" => download_pck_kernel(name_or_path, None),
-        other => {
-            let path = Path::new(other);
-            if path.exists() {
-                Ok(path.to_path_buf())
-            } else {
-                Err(BraheError::IoError(format!(
-                    "Kernel '{}' is neither a known kernel name nor an existing file path",
-                    other
-                )))
-            }
+    if SUPPORTED_KERNELS.contains(&name_or_path) {
+        download_de_kernel(name_or_path, None)
+    } else if SUPPORTED_PCK_KERNELS
+        .iter()
+        .any(|(name, _)| *name == name_or_path)
+    {
+        download_pck_kernel(name_or_path, None)
+    } else {
+        let path = Path::new(name_or_path);
+        if path.exists() {
+            Ok(path.to_path_buf())
+        } else {
+            Err(BraheError::IoError(format!(
+                "Kernel '{}' is neither a known kernel name nor an existing file path",
+                name_or_path
+            )))
         }
     }
 }
@@ -524,7 +532,7 @@ fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
 /// - Position of `target` relative to `center` in the kernel's inertial
 ///   frame (ICRF axes). Units: [m]
 ///
-/// # Example
+/// # Examples
 /// ```no_run
 /// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_position_in_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
@@ -560,7 +568,7 @@ pub fn spk_position_in_kernel(
 /// - Velocity of `target` relative to `center` in the kernel's inertial
 ///   frame (ICRF axes). Units: [m/s]
 ///
-/// # Example
+/// # Examples
 /// ```no_run
 /// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_velocity_in_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
@@ -596,7 +604,7 @@ pub fn spk_velocity_in_kernel(
 /// - State `[x, y, z, vx, vy, vz]` of `target` relative to `center` in the
 ///   kernel's inertial frame (ICRF axes). Units: [m, m/s]
 ///
-/// # Example
+/// # Examples
 /// ```no_run
 /// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_state_in_kernel};
 /// use brahe::time::{Epoch, TimeSystem};

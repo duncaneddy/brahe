@@ -129,6 +129,14 @@ query. Computing the state shares a single record lookup between position
 and velocity, so prefer `*_state_de` over separate position/velocity calls
 when both are needed.
 
+The Mars/Jupiter/Saturn/Uranus/Neptune functions query the corresponding
+`NAIF_*_BARYCENTER` ID (see the table above), so they return the
+planetary-system barycenter, not the body center — for these five outer
+planets the two differ by up to several thousand km due to large moons
+(e.g. the Galilean moons for Jupiter). Sun, Moon, Mercury, and Venus have no
+significant satellites, so their functions' body-center and barycenter
+positions coincide.
+
 ## PCK Orientation
 
 `pck_euler_angles` and `pck_rotation_matrix` query body orientation from a

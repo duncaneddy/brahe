@@ -144,35 +144,35 @@ body_de_functions!(
     venus_state_de
 );
 body_de_functions!(
-    "Mars",
+    "Mars (planetary-system barycenter)",
     NAIF_MARS_BARYCENTER,
     mars_position_de,
     mars_velocity_de,
     mars_state_de
 );
 body_de_functions!(
-    "Jupiter",
+    "Jupiter (planetary-system barycenter)",
     NAIF_JUPITER_BARYCENTER,
     jupiter_position_de,
     jupiter_velocity_de,
     jupiter_state_de
 );
 body_de_functions!(
-    "Saturn",
+    "Saturn (planetary-system barycenter)",
     NAIF_SATURN_BARYCENTER,
     saturn_position_de,
     saturn_velocity_de,
     saturn_state_de
 );
 body_de_functions!(
-    "Uranus",
+    "Uranus (planetary-system barycenter)",
     NAIF_URANUS_BARYCENTER,
     uranus_position_de,
     uranus_velocity_de,
     uranus_state_de
 );
 body_de_functions!(
-    "Neptune",
+    "Neptune (planetary-system barycenter)",
     NAIF_NEPTUNE_BARYCENTER,
     neptune_position_de,
     neptune_velocity_de,

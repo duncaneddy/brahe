@@ -2551,12 +2551,13 @@ mod tests {
         // Sub-microsecond resolution: epochs 1 µs apart differ by ~1 µs.
         // The result is a plain f64, so at ~7.6e8 s past J2000 (2024) the
         // representable ULP is ~1.7e-7 s; epsilon reflects that float64
-        // magnitude-dependent floor rather than nanosecond precision.
+        // magnitude-dependent floor (with headroom) rather than nanosecond
+        // precision.
         let a = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
         let b = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 1000.0, TimeSystem::TAI);
         let da = a.seconds_past_j2000_as_time_system(TimeSystem::TAI);
         let db = b.seconds_past_j2000_as_time_system(TimeSystem::TAI);
-        assert_abs_diff_eq!(db - da, 1.0e-6, epsilon = 1.0e-6);
+        assert_abs_diff_eq!(db - da, 1.0e-6, epsilon = 5.0e-7);
 
         // Consistency with mjd_as_time_system (which has ~µs f64 resolution)
         let via_mjd = (epc3.mjd_as_time_system(TimeSystem::TT) - 51544.5) * 86400.0;

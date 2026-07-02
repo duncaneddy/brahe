@@ -92,12 +92,13 @@ fn test_validation_position_velocity_vs_anise_matched_et() {
 
                 // Component-wise comparison: 1 mm / 1e-6 m/s absolute,
                 // floored at a few ULPs of the component magnitude. At
-                // outer-body distances (e.g. Pluto barycenter, ~7e12 m)
-                // 1 mm is below f64 resolution (1 ULP ~ 1.6e-3 m), so an
-                // absolute-only bound would demand agreement below machine
-                // precision and pass or fail on toolchain/FMA summation
-                // order alone. For all inner bodies the ULP floor is far
-                // below 1e-3/1e-6 and the effective tolerance is unchanged.
+                // outer-body distances (e.g. Pluto barycenter, ~7e12 m) 1 mm
+                // is below f64 resolution (1 ULP at 7e12 m is ~9.8e-4 m;
+                // eps·|x| ~ 1.6e-3 m is ~1.6 ULP), so an absolute-only bound
+                // would demand agreement below machine precision and pass or
+                // fail on toolchain/FMA summation order alone. For all inner
+                // bodies the ULP floor is far below 1e-3/1e-6 and the
+                // effective tolerance is unchanged.
                 for i in 0..3 {
                     let r_expected = r_km[i] * 1.0e3;
                     let v_expected = v_km[i] * 1.0e3;

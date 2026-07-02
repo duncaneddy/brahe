@@ -9,6 +9,7 @@
  */
 
 pub mod almanac;
+pub(crate) mod daf;
 pub mod kernels;
 pub mod positions;
 

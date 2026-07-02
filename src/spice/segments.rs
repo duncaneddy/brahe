@@ -207,8 +207,9 @@ impl ChebyshevSegment {
     /// - `kind`: Kernel kind (`"SPK"` or `"PCK"`), used in error messages
     ///
     /// # Returns
-    /// - Parsed `ChebyshevSegment`, or `BraheError` on malformed data or an
-    ///   unsupported segment type
+    /// - Parsed `ChebyshevSegment`, or `BraheError` on malformed data, an
+    ///   unsupported segment type, or a record directory that does not
+    ///   cover the descriptor's coverage interval
     #[allow(clippy::too_many_arguments)]
     fn from_summary(
         daf: &DafFile,
@@ -277,14 +278,28 @@ impl ChebyshevSegment {
         }
         let degree = (rsize - 2) / ncomp - 1;
 
+        // The record directory [INIT, INIT + N*INTLEN] must cover the
+        // descriptor's coverage interval [start_et, end_et]; otherwise
+        // `record()`'s index clamp would silently evaluate the wrong (or
+        // an out-of-range) record for epochs inside the descriptor but
+        // outside the directory, rather than reporting an error.
+        let (start_et, end_et) = (summary.doubles[0], summary.doubles[1]);
+        let dir_end = init + (n as f64) * intlen;
+        if init > start_et || dir_end < end_et {
+            return Err(BraheError::IoError(format!(
+                "{} segment '{}' record directory [{}, {}] does not cover descriptor interval [{}, {}]",
+                kind, summary.name, init, dir_end, start_et, end_et
+            )));
+        }
+
         Ok(ChebyshevSegment {
             target,
             center,
             frame,
             data_type,
             ncomp,
-            start_et: summary.doubles[0],
-            end_et: summary.doubles[1],
+            start_et,
+            end_et,
             init,
             intlen,
             rsize,
@@ -681,5 +696,50 @@ mod tests {
         summary.ints.truncate(5); // one short of the required 6
         let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
         assert!(format!("{}", err).contains('5'));
+    }
+
+    #[test]
+    fn test_from_summary_rejects_directory_shorter_than_descriptor_end() {
+        // Regression test: a malformed kernel could claim descriptor
+        // coverage [start_et, end_et] wider than what the record directory
+        // [INIT, INIT + N*INTLEN] actually spans. `record()`'s index clamp
+        // would otherwise silently evaluate the wrong record for epochs
+        // beyond the directory but still inside the (bogus) descriptor
+        // interval, rather than erroring.
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("test_assets")
+            .join("de440s.bsp");
+        if !path.exists() {
+            return;
+        }
+        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let mut summary = daf.summaries[0].clone();
+        // Claim the descriptor covers far beyond the record directory.
+        summary.doubles[1] += 1.0e9;
+        let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains(&summary.name));
+        assert!(msg.contains("does not cover"));
+    }
+
+    #[test]
+    fn test_from_summary_rejects_directory_starting_after_descriptor_start() {
+        // Same defect as above, mirrored on the start side: INIT after
+        // start_et means the directory doesn't cover the descriptor's
+        // earliest claimed epochs.
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("test_assets")
+            .join("de440s.bsp");
+        if !path.exists() {
+            return;
+        }
+        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let mut summary = daf.summaries[0].clone();
+        // Claim the descriptor starts far before the record directory.
+        summary.doubles[0] -= 1.0e9;
+        let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains(&summary.name));
+        assert!(msg.contains("does not cover"));
     }
 }

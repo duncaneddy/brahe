@@ -26,9 +26,10 @@ use crate::utils::BraheError;
 
 use super::daf::DafFile;
 use super::pck::BPCK;
+use super::segments::ChebyshevSegment;
 use super::spk::{
     ChainLink, SPK, evaluate_chain_position, evaluate_chain_state, evaluate_chain_velocity,
-    resolve_chain,
+    evaluate_with_epoch_fallback, resolve_chain,
 };
 
 // ============================================================================
@@ -287,6 +288,20 @@ pub fn initialize_ephemeris_with_kernel(kernel: &str) -> Result<(), BraheError> 
 // Cross-Kernel Chain Resolution
 // ============================================================================
 
+/// Collect the segments of every currently loaded SPK kernel in natural
+/// order (kernels in load order, each kernel's segments in file order).
+/// Combined with select-last in `covering_segment`, this makes the most
+/// recently loaded covering segment win.
+fn collect_spk_segments(reg: &KernelRegistry) -> Vec<Arc<ChebyshevSegment>> {
+    let mut segments = Vec::new();
+    for name in reg.load_order.iter() {
+        if let Some(Kernel::Spk(spk)) = reg.kernels.get(name) {
+            segments.extend(spk.segments().iter().cloned());
+        }
+    }
+    segments
+}
+
 /// Resolve (and cache) the cross-kernel segment chain for `target` rel
 /// `center`, spanning all loaded SPK kernels. Segments are offered to
 /// [`resolve_chain`] in natural order (kernels in load order, each
@@ -304,15 +319,7 @@ fn global_chain(target: i32, center: i32) -> Result<Arc<Vec<ChainLink>>, BraheEr
     if let Some(chain) = reg.chain_cache.get(&(target, center)) {
         return Ok(Arc::clone(chain)); // double-checked
     }
-    // Natural order: kernels in load order, each kernel's segments in file
-    // order. Combined with select-last in `covering_segment`, this makes
-    // the most recently loaded covering segment win.
-    let mut segments = Vec::new();
-    for name in reg.load_order.iter() {
-        if let Some(Kernel::Spk(spk)) = reg.kernels.get(name) {
-            segments.extend(spk.segments().iter().cloned());
-        }
-    }
+    let segments = collect_spk_segments(&reg);
     if segments.is_empty() {
         return Err(BraheError::InitializationError(
             "No SPK kernels loaded; call load_kernel(...) or initialize_ephemeris() first"
@@ -322,6 +329,29 @@ fn global_chain(target: i32, center: i32) -> Result<Arc<Vec<ChainLink>>, BraheEr
     let chain = Arc::new(resolve_chain(&segments, target, center)?);
     reg.chain_cache.insert((target, center), Arc::clone(&chain));
     Ok(chain)
+}
+
+/// Evaluate a cached `chain` at `et`; on failure (e.g. the cached
+/// topology-only chain's segments don't cover `et` while a different,
+/// longer path through the currently loaded kernels does), fall back to
+/// an epoch-aware re-resolution across every loaded SPK kernel's
+/// segments. See [`evaluate_with_epoch_fallback`] for why this fallback
+/// is only reached on failure and is never cached.
+fn global_eval<T>(
+    target: i32,
+    center: i32,
+    et: f64,
+    chain: &[ChainLink],
+    eval: impl Fn(&[ChainLink], f64) -> Result<T, BraheError>,
+) -> Result<T, BraheError> {
+    evaluate_with_epoch_fallback(
+        chain,
+        target,
+        center,
+        et,
+        || collect_spk_segments(&GLOBAL_SPICE.read().unwrap()),
+        eval,
+    )
 }
 
 /// Load `de440s` if no SPK kernel is currently loaded, preserving the
@@ -350,7 +380,12 @@ fn ensure_default_ephemeris_loaded() -> Result<(), BraheError> {
 /// Position of `target` relative to `center` at `epc`, resolved across all
 /// loaded SPK kernels.
 ///
-/// Auto-initializes with `de440s` if no kernels are loaded.
+/// Auto-initializes with `de440s` if no kernels are loaded. The
+/// cross-kernel chain is resolved once per `(target, center)` pair and
+/// cached (topology only, ignoring epoch); if the cached chain's segments
+/// don't cover `epc` while a different path through the loaded kernels
+/// does, this transparently falls back to an epoch-aware re-resolution
+/// (not cached) — see `evaluate_with_epoch_fallback`.
 ///
 /// # Arguments
 /// - `target`: NAIF ID of the target body
@@ -373,13 +408,19 @@ fn ensure_default_ephemeris_loaded() -> Result<(), BraheError> {
 pub fn spk_position(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>, BraheError> {
     ensure_default_ephemeris_loaded()?;
     let et = epoch_to_et(epc);
-    Ok(evaluate_chain_position(&global_chain(target, center)?, et)? * 1.0e3)
+    let chain = global_chain(target, center)?;
+    Ok(global_eval(target, center, et, &chain, evaluate_chain_position)? * 1.0e3)
 }
 
 /// Velocity of `target` relative to `center` at `epc`, resolved across all
 /// loaded SPK kernels.
 ///
-/// Auto-initializes with `de440s` if no kernels are loaded.
+/// Auto-initializes with `de440s` if no kernels are loaded. The
+/// cross-kernel chain is resolved once per `(target, center)` pair and
+/// cached (topology only, ignoring epoch); if the cached chain's segments
+/// don't cover `epc` while a different path through the loaded kernels
+/// does, this transparently falls back to an epoch-aware re-resolution
+/// (not cached) — see `evaluate_with_epoch_fallback`.
 ///
 /// # Arguments
 /// - `target`: NAIF ID of the target body
@@ -402,13 +443,19 @@ pub fn spk_position(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>
 pub fn spk_velocity(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>, BraheError> {
     ensure_default_ephemeris_loaded()?;
     let et = epoch_to_et(epc);
-    Ok(evaluate_chain_velocity(&global_chain(target, center)?, et)? * 1.0e3)
+    let chain = global_chain(target, center)?;
+    Ok(global_eval(target, center, et, &chain, evaluate_chain_velocity)? * 1.0e3)
 }
 
 /// Position and velocity of `target` relative to `center` at `epc`,
 /// resolved across all loaded SPK kernels.
 ///
-/// Auto-initializes with `de440s` if no kernels are loaded.
+/// Auto-initializes with `de440s` if no kernels are loaded. The
+/// cross-kernel chain is resolved once per `(target, center)` pair and
+/// cached (topology only, ignoring epoch); if the cached chain's segments
+/// don't cover `epc` while a different path through the loaded kernels
+/// does, this transparently falls back to an epoch-aware re-resolution
+/// (not cached) — see `evaluate_with_epoch_fallback`.
 ///
 /// # Arguments
 /// - `target`: NAIF ID of the target body
@@ -431,7 +478,8 @@ pub fn spk_velocity(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>
 pub fn spk_state(target: i32, center: i32, epc: Epoch) -> Result<Vector6<f64>, BraheError> {
     ensure_default_ephemeris_loaded()?;
     let et = epoch_to_et(epc);
-    let (r, v) = evaluate_chain_state(&global_chain(target, center)?, et)?;
+    let chain = global_chain(target, center)?;
+    let (r, v) = global_eval(target, center, et, &chain, evaluate_chain_state)?;
     Ok(Vector6::new(
         r[0] * 1.0e3,
         r[1] * 1.0e3,
@@ -729,6 +777,88 @@ mod tests {
         file
     }
 
+    /// Build a minimal little-endian SPK with one type-2 segment for
+    /// `target` rel `center` whose x-position is the constant `x_km` over
+    /// ET in `[start_et, end_et]`; y = z = 0. Generalizes
+    /// [`synthetic_spk_bytes`] (fixed to target 10, center 0, and a
+    /// [-2e9, 2e9] span) to arbitrary body pairs and coverage intervals,
+    /// for constructing multi-kernel/multi-pair chain topologies.
+    fn synthetic_spk_bytes_for(
+        target: i32,
+        center: i32,
+        start_et: f64,
+        end_et: f64,
+        x_km: f64,
+    ) -> Vec<u8> {
+        let degree = 1usize;
+        let rsize = 2 + 3 * (degree + 1); // 8
+        let mid = (start_et + end_et) / 2.0;
+        let radius = (end_et - start_et) / 2.0;
+        // Data: record [MID, RADIUS, x0, x1, y0, y1, z0, z1] + trailer
+        let data: Vec<f64> = vec![
+            mid,
+            radius,
+            x_km,
+            0.0, // x
+            0.0,
+            0.0, // y
+            0.0,
+            0.0, // z
+            start_et,
+            end_et - start_et,
+            rsize as f64,
+            1.0, // INIT, INTLEN, RSIZE, N
+        ];
+
+        let mut file = vec![0u8; 4 * 1024];
+        file[..8].copy_from_slice(b"DAF/SPK ");
+        file[8..12].copy_from_slice(&2i32.to_le_bytes()); // ND
+        file[12..16].copy_from_slice(&6i32.to_le_bytes()); // NI
+        file[76..80].copy_from_slice(&2i32.to_le_bytes()); // FWARD
+        file[80..84].copy_from_slice(&2i32.to_le_bytes()); // BWARD
+        file[84..88].copy_from_slice(&500i32.to_le_bytes()); // FREE
+        file[88..96].copy_from_slice(b"LTL-IEEE");
+
+        // Summary record (record 2): NEXT=0, PREV=0, NSUM=1
+        let rec = 1024;
+        file[rec + 16..rec + 24].copy_from_slice(&1f64.to_le_bytes());
+        // doubles: start_et, end_et
+        file[rec + 24..rec + 32].copy_from_slice(&start_et.to_le_bytes());
+        file[rec + 32..rec + 40].copy_from_slice(&end_et.to_le_bytes());
+        // ints: [target, center, frame, type, start_addr, end_addr]
+        // Data record = record 4 => word address 385 ((4-1)*128 + 1)
+        let start_addr = 385i32;
+        let end_addr = start_addr + data.len() as i32 - 1;
+        for (i, v) in [target, center, 1, 2, start_addr, end_addr]
+            .iter()
+            .enumerate()
+        {
+            let off = rec + 40 + i * 4;
+            file[off..off + 4].copy_from_slice(&v.to_le_bytes());
+        }
+        // Name record (record 3): spaces
+        for b in &mut file[2048..2048 + 40] {
+            *b = b' ';
+        }
+        // Data (record 4)
+        for (i, v) in data.iter().enumerate() {
+            let off = 3 * 1024 + i * 8;
+            file[off..off + 8].copy_from_slice(&v.to_le_bytes());
+        }
+        file
+    }
+
+    /// Epoch corresponding to `et` TDB seconds past J2000 (approximate:
+    /// converts via the JD relationship rather than round-tripping through
+    /// `epoch_to_et`, close enough for the second-scale synthetic-segment
+    /// coverage boundaries used in these tests).
+    fn epc_from_et(et: f64) -> Epoch {
+        Epoch::from_jd(
+            crate::constants::JD_J2000 + et / crate::constants::SECONDS_PER_DAY,
+            TimeSystem::TDB,
+        )
+    }
+
     /// Build a minimal little-endian binary PCK with one type-2 segment for
     /// frame 31006 rel frame 1, covering et in [0, 1000] (does not cover
     /// `epc_2025()`; only used to populate the registry with a PCK-typed
@@ -890,6 +1020,54 @@ mod tests {
         unload_kernel(path_b.to_str().unwrap()).unwrap();
         let r = spk_position(10, NAIF_SSB, epc_2025()).unwrap();
         assert_abs_diff_eq!(r[0], 1.0e3, epsilon = 1e-9);
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_global_chain_falls_back_to_epoch_aware_chain() {
+        // Cross-kernel counterpart of `test_spk_position_falls_back_to_epoch_aware_chain`
+        // (spk.rs): three kernels providing a direct A rel B link [0,100]
+        // plus a two-hop A rel C [0,200] / C rel B [0,200] alternative.
+        // `global_chain`'s cached topology-only resolution always prefers
+        // the 1-hop direct link; querying an epoch only the two-hop path
+        // covers must transparently fall back instead of erroring.
+        setup_global_test_spice();
+        clear_kernels();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path_direct = dir.path().join("direct.bsp");
+        let path_ac = dir.path().join("ac.bsp");
+        let path_cb = dir.path().join("cb.bsp");
+        std::fs::write(
+            &path_direct,
+            synthetic_spk_bytes_for(10, 0, 0.0, 100.0, 7.0),
+        )
+        .unwrap();
+        std::fs::write(&path_ac, synthetic_spk_bytes_for(10, 3, 0.0, 200.0, 2.0)).unwrap();
+        std::fs::write(&path_cb, synthetic_spk_bytes_for(3, 0, 0.0, 200.0, 3.0)).unwrap();
+
+        load_kernel(path_direct.to_str().unwrap()).unwrap();
+        load_kernel(path_ac.to_str().unwrap()).unwrap();
+        load_kernel(path_cb.to_str().unwrap()).unwrap();
+
+        // et=50: covered by the (cached) direct link -> direct value.
+        let r = spk_position(10, 0, epc_from_et(50.0)).unwrap();
+        assert_abs_diff_eq!(r[0], 7.0e3, epsilon = 1e-6);
+
+        // et=150: direct link out of coverage -> falls back to the
+        // two-hop path (2.0 + 3.0 = 5.0 km).
+        let r = spk_position(10, 0, epc_from_et(150.0)).unwrap();
+        assert_abs_diff_eq!(r[0], 5.0e3, epsilon = 1e-6);
+
+        // et=300: neither path covers -> error names target, center, and
+        // mentions coverage.
+        let err = spk_position(10, 0, epc_from_et(300.0)).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains("10") && msg.contains("coverage"));
 
         // Restore global state for other tests.
         clear_kernels();

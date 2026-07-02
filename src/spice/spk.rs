@@ -7,6 +7,13 @@
  * Earth/EMB), cache the chain per pair, and evaluate with O(1) record
  * lookup. Output states are in the kernel's inertial frame (J2000 label,
  * ICRF axes for DE4xx kernels) in SI units.
+ *
+ * The cached chain is resolved by topology alone (shortest hop count),
+ * without regard to epoch; this is correct and fast for the common case
+ * of one full-span segment per body pair. If the cached chain's segments
+ * don't cover a queried epoch while a different (longer) path does,
+ * queries transparently fall back to an epoch-aware re-resolution — see
+ * `resolve_chain_for_epoch` and `evaluate_with_epoch_fallback`.
  */
 
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -49,6 +56,67 @@ pub(crate) fn resolve_chain(
     target: i32,
     center: i32,
 ) -> Result<Vec<ChainLink>, BraheError> {
+    resolve_chain_filtered(segments, target, center, None)
+}
+
+/// Epoch-aware variant of [`resolve_chain`]: the same breadth-first search,
+/// but restricted to segments that cover `et`.
+///
+/// Chain topology is resolved once per `(target, center)` pair and cached
+/// (see [`SPK::chain`] / the registry's `global_chain`), which is correct
+/// and fast for the common case of one full-span segment per body pair
+/// (e.g. DE44x kernels). It can, however, pick a shorter path (fewer
+/// hops) whose segments don't cover a given epoch while a longer path
+/// does — possible with multiple kernels or multi-segment kernels of
+/// partial temporal coverage. This function is the epoch-aware fallback
+/// for that rare case: an edge exists between two bodies only if at least
+/// one candidate segment for that pair covers `et`, and each resulting
+/// [`ChainLink`] keeps only the `et`-covering candidates (still in input
+/// precedence order). Callers should try the cached topology-only chain
+/// first and only call this on evaluation failure; see
+/// [`evaluate_with_epoch_fallback`].
+///
+/// # Arguments
+/// - `segments`: Candidate segments to search (may span multiple kernels)
+/// - `target`: NAIF ID of the target body
+/// - `center`: NAIF ID of the center body
+/// - `et`: Epoch that every segment in the resolved chain must cover.
+///   Units: [s] (TDB past J2000)
+///
+/// # Returns
+/// - Chain of [`ChainLink`]s from `target` down to `center`, using only
+///   `et`-covering segments, or `BraheError` (naming `target`, `center`,
+///   and `et`) if no such path exists
+pub(crate) fn resolve_chain_for_epoch(
+    segments: &[Arc<ChebyshevSegment>],
+    target: i32,
+    center: i32,
+    et: f64,
+) -> Result<Vec<ChainLink>, BraheError> {
+    resolve_chain_filtered(segments, target, center, Some(et))
+}
+
+/// Shared breadth-first search backing both [`resolve_chain`] and
+/// [`resolve_chain_for_epoch`].
+///
+/// # Arguments
+/// - `segments`: Candidate segments to search (may span multiple kernels)
+/// - `target`: NAIF ID of the target body
+/// - `center`: NAIF ID of the center body
+/// - `et`: When `Some`, only segments covering this epoch participate in
+///   the graph (both for adjacency discovery and as chain-link
+///   candidates), and the "no path" error names the epoch. When `None`,
+///   the search is purely topological (all segments participate).
+///
+/// # Returns
+/// - Chain of [`ChainLink`]s from `target` down to `center`, or
+///   `BraheError` if no path connects them
+fn resolve_chain_filtered(
+    segments: &[Arc<ChebyshevSegment>],
+    target: i32,
+    center: i32,
+    et: Option<f64>,
+) -> Result<Vec<ChainLink>, BraheError> {
     if target == center {
         return Ok(Vec::new());
     }
@@ -59,6 +127,9 @@ pub(crate) fn resolve_chain(
     let mut pair_segments: HashMap<(i32, i32), Vec<Arc<ChebyshevSegment>>> = HashMap::new();
     let mut adjacency: HashMap<i32, Vec<i32>> = HashMap::new();
     for seg in segments {
+        if et.is_some_and(|et| !seg.covers(et)) {
+            continue;
+        }
         let key = (seg.target, seg.center);
         let entry = pair_segments.entry(key).or_default();
         if entry.is_empty() {
@@ -85,10 +156,16 @@ pub(crate) fn resolve_chain(
     }
 
     if !parent.contains_key(&target) {
-        return Err(BraheError::Error(format!(
-            "No ephemeris path from target {} to center {} in loaded SPK data",
-            target, center
-        )));
+        return Err(BraheError::Error(match et {
+            Some(et) => format!(
+                "No ephemeris path from target {} to center {} with segment coverage at epoch ET {} in loaded SPK data",
+                target, center, et
+            ),
+            None => format!(
+                "No ephemeris path from target {} to center {} in loaded SPK data",
+                target, center
+            ),
+        }));
     }
 
     // Walk back target -> center, emitting one link per edge.
@@ -194,6 +271,61 @@ pub(crate) fn evaluate_chain_state(
     Ok((r, v))
 }
 
+/// Evaluate a cached (topology-only) `chain` at `et` via `eval`; on
+/// failure, fall back to an epoch-aware chain resolved over
+/// `segments_for_fallback()` and retry.
+///
+/// The cached chain is resolved once per `(target, center)` pair without
+/// regard to epoch, which is correct and O(1) for the common case (one
+/// full-span segment per pair, e.g. DE44x kernels). It can pick a
+/// shorter/direct path that doesn't cover `et` while a longer path does
+/// (multiple kernels, or multi-segment kernels with partial temporal
+/// coverage); [`resolve_chain_for_epoch`] recovers that case by
+/// re-resolving the chain using only `et`-covering segments. This
+/// fallback is invoked only after the primary `eval` call has already
+/// failed, so it does not add cost to the hot (single-segment-per-pair)
+/// path. `segments_for_fallback` is a closure (rather than an eagerly
+/// gathered slice) so that callers whose segment list is expensive to
+/// assemble (e.g. the global registry, which aggregates across all
+/// loaded kernels) only pay that cost on this rare-path retry.
+///
+/// The fallback chain reflects only `et`'s coverage and is intentionally
+/// never cached: caching it would require a validity interval per
+/// `(target, center)` pair (since the correct chain can vary by epoch),
+/// which is not worth the added complexity for what should be a rare
+/// event in practice.
+///
+/// # Arguments
+/// - `chain`: Cached topology-only chain for `(target, center)`
+/// - `target`: NAIF ID of the target body
+/// - `center`: NAIF ID of the center body
+/// - `et`: Epoch to evaluate at. Units: [s] (TDB past J2000)
+/// - `segments_for_fallback`: Lazily produces the full candidate segment
+///   list to re-resolve against, only called if `eval(chain, et)` fails
+/// - `eval`: Evaluator (one of [`evaluate_chain_position`],
+///   [`evaluate_chain_velocity`], [`evaluate_chain_state`])
+///
+/// # Returns
+/// - The evaluated result, or `BraheError` if neither the cached chain
+///   nor the epoch-aware fallback chain covers `et`
+pub(crate) fn evaluate_with_epoch_fallback<T>(
+    chain: &[ChainLink],
+    target: i32,
+    center: i32,
+    et: f64,
+    segments_for_fallback: impl FnOnce() -> Vec<Arc<ChebyshevSegment>>,
+    eval: impl Fn(&[ChainLink], f64) -> Result<T, BraheError>,
+) -> Result<T, BraheError> {
+    match eval(chain, et) {
+        Ok(value) => Ok(value),
+        Err(_) => {
+            let segments = segments_for_fallback();
+            let fallback = resolve_chain_for_epoch(&segments, target, center, et)?;
+            eval(&fallback, et)
+        }
+    }
+}
+
 /// Per-pair resolved chain cache, keyed by `(target, center)`.
 type ChainCache = RwLock<HashMap<(i32, i32), Arc<Vec<ChainLink>>>>;
 
@@ -281,6 +413,13 @@ impl SPK {
 
     /// Position of `target` relative to `center` at ET `et`.
     ///
+    /// Resolves the segment chain once per `(target, center)` pair and
+    /// caches it. If the cached chain's segments don't cover `et` (e.g. a
+    /// cached direct link with only partial temporal coverage, while a
+    /// longer path through other segments does cover `et`), transparently
+    /// falls back to an epoch-aware re-resolution; see
+    /// `resolve_chain_for_epoch`. This fallback is not cached.
+    ///
     /// # Arguments
     /// - `target`: NAIF ID of the target body
     /// - `center`: NAIF ID of the observing/center body
@@ -298,10 +437,25 @@ impl SPK {
     /// let r_sun = spk.position(10, 399, 0.0).unwrap(); // Sun rel Earth at J2000
     /// ```
     pub fn position(&self, target: i32, center: i32, et: f64) -> Result<Vector3<f64>, BraheError> {
-        Ok(evaluate_chain_position(&self.chain(target, center)?, et)? * 1.0e3)
+        let chain = self.chain(target, center)?;
+        Ok(evaluate_with_epoch_fallback(
+            &chain,
+            target,
+            center,
+            et,
+            || self.segments.clone(),
+            evaluate_chain_position,
+        )? * 1.0e3)
     }
 
     /// Velocity of `target` relative to `center` at ET `et`.
+    ///
+    /// Resolves the segment chain once per `(target, center)` pair and
+    /// caches it. If the cached chain's segments don't cover `et` (e.g. a
+    /// cached direct link with only partial temporal coverage, while a
+    /// longer path through other segments does cover `et`), transparently
+    /// falls back to an epoch-aware re-resolution; see
+    /// `resolve_chain_for_epoch`. This fallback is not cached.
     ///
     /// # Arguments
     /// - `target`: NAIF ID of the target body
@@ -320,10 +474,25 @@ impl SPK {
     /// let v_sun = spk.velocity(10, 399, 0.0).unwrap(); // Sun rel Earth at J2000
     /// ```
     pub fn velocity(&self, target: i32, center: i32, et: f64) -> Result<Vector3<f64>, BraheError> {
-        Ok(evaluate_chain_velocity(&self.chain(target, center)?, et)? * 1.0e3)
+        let chain = self.chain(target, center)?;
+        Ok(evaluate_with_epoch_fallback(
+            &chain,
+            target,
+            center,
+            et,
+            || self.segments.clone(),
+            evaluate_chain_velocity,
+        )? * 1.0e3)
     }
 
     /// Position and velocity of `target` relative to `center` at ET `et`.
+    ///
+    /// Resolves the segment chain once per `(target, center)` pair and
+    /// caches it. If the cached chain's segments don't cover `et` (e.g. a
+    /// cached direct link with only partial temporal coverage, while a
+    /// longer path through other segments does cover `et`), transparently
+    /// falls back to an epoch-aware re-resolution; see
+    /// `resolve_chain_for_epoch`. This fallback is not cached.
     ///
     /// # Arguments
     /// - `target`: NAIF ID of the target body
@@ -343,7 +512,15 @@ impl SPK {
     /// let x_sun = spk.state(10, 399, 0.0).unwrap(); // Sun rel Earth at J2000
     /// ```
     pub fn state(&self, target: i32, center: i32, et: f64) -> Result<Vector6<f64>, BraheError> {
-        let (r, v) = evaluate_chain_state(&self.chain(target, center)?, et)?;
+        let chain = self.chain(target, center)?;
+        let (r, v) = evaluate_with_epoch_fallback(
+            &chain,
+            target,
+            center,
+            et,
+            || self.segments.clone(),
+            evaluate_chain_state,
+        )?;
         Ok(Vector6::new(
             r[0] * 1.0e3,
             r[1] * 1.0e3,
@@ -419,6 +596,73 @@ mod tests {
         // Only the earlier segment covers et=150: falls back to it.
         let r = evaluate_chain_position(&chain, 150.0).unwrap();
         assert_abs_diff_eq!(r[0], 1.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_resolve_chain_for_epoch_excludes_non_covering_segments() {
+        // Direct A rel B [0,100] plus a two-hop A rel C [0,200] / C rel B
+        // [0,200] path. At et=150 only the two-hop path covers, so the
+        // epoch-aware resolver must route through C rather than reusing
+        // the (non-covering) direct link picked by topology-only BFS.
+        let direct = constant_segment(10, 0, 0.0, 100.0, 7.0);
+        let leg_ac = constant_segment(10, 3, 0.0, 200.0, 2.0);
+        let leg_cb = constant_segment(3, 0, 0.0, 200.0, 3.0);
+        let segments = [direct, leg_ac, leg_cb];
+
+        // Topology-only resolution always prefers the 1-hop direct link.
+        let topo_chain = resolve_chain(&segments, 10, 0).unwrap();
+        assert_eq!(topo_chain.len(), 1);
+
+        // et=150: direct link doesn't cover it; epoch-aware resolution
+        // must find the two-hop path (2.0 + 3.0 = 5.0), not error.
+        let chain = resolve_chain_for_epoch(&segments, 10, 0, 150.0).unwrap();
+        assert_eq!(chain.len(), 2);
+        let r = evaluate_chain_position(&chain, 150.0).unwrap();
+        assert_abs_diff_eq!(r[0], 5.0, epsilon = 1e-12);
+
+        // et=300: no segment (direct or two-hop) covers it; error must
+        // name target, center, and the epoch.
+        let err = resolve_chain_for_epoch(&segments, 10, 0, 300.0).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains("10") && msg.contains("300"));
+    }
+
+    #[test]
+    fn test_spk_position_falls_back_to_epoch_aware_chain() {
+        // End-to-end SPK-level regression for the cached-chain-misses-
+        // coverage defect: a direct segment [0,100] plus a two-hop
+        // alternative [0,200]/[0,200]. The cached chain (resolved once,
+        // topology-only) is the direct link; querying an epoch only the
+        // two-hop path covers must transparently fall back rather than
+        // erroring, while queries the direct link covers keep using it.
+        let direct = constant_segment(10, 0, 0.0, 100.0, 7.0);
+        let leg_ac = constant_segment(10, 3, 0.0, 200.0, 2.0);
+        let leg_cb = constant_segment(3, 0, 0.0, 200.0, 3.0);
+        let spk = SPK {
+            segments: vec![direct, leg_ac, leg_cb],
+            chain_cache: RwLock::new(HashMap::new()),
+        };
+
+        // et=50: covered by the (cached) direct link -> direct value.
+        let r = spk.position(10, 0, 50.0).unwrap();
+        assert_abs_diff_eq!(r[0], 7.0e3, epsilon = 1e-9);
+
+        // et=150: direct link out of coverage -> falls back to the
+        // two-hop path (2.0 + 3.0 = 5.0 km).
+        let r = spk.position(10, 0, 150.0).unwrap();
+        assert_abs_diff_eq!(r[0], 5.0e3, epsilon = 1e-9);
+
+        // The cached chain itself is untouched by the fallback (still the
+        // direct 1-hop link), confirming the fallback isn't cached.
+        assert_eq!(
+            spk.chain_cache.read().unwrap().get(&(10, 0)).unwrap().len(),
+            1
+        );
+
+        // et=300: neither path covers -> error names target, center, epoch.
+        let err = spk.position(10, 0, 300.0).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains("10") && msg.contains("0") && msg.contains("300"));
     }
 
     #[test]

@@ -11,10 +11,6 @@
  *   <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/pck.html>
  */
 
-// `frame_ids()` is not yet called within this crate; frame-registry
-// wiring (a later task) consumes it.
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -59,7 +55,7 @@ impl BPCK {
         Self::from_daf(DafFile::from_bytes(bytes)?)
     }
 
-    fn from_daf(daf: DafFile) -> Result<Self, BraheError> {
+    pub(crate) fn from_daf(daf: DafFile) -> Result<Self, BraheError> {
         if daf.id_word != "DAF/PCK" {
             return Err(BraheError::IoError(format!(
                 "Not a binary PCK kernel: ID word is '{}', expected 'DAF/PCK'",
@@ -79,6 +75,9 @@ impl BPCK {
         self.segments_by_frame.keys().copied().collect()
     }
 
+    /// Select the last segment for `frame_id` covering `et` (SPICE
+    /// convention: the most recently loaded/last-listed segment takes
+    /// precedence).
     fn segment(&self, frame_id: i32, et: f64) -> Result<&Arc<ChebyshevSegment>, BraheError> {
         let segs = self.segments_by_frame.get(&frame_id).ok_or_else(|| {
             BraheError::Error(format!(
@@ -86,7 +85,7 @@ impl BPCK {
                 frame_id
             ))
         })?;
-        segs.iter().find(|s| s.covers(et)).ok_or_else(|| {
+        segs.iter().rev().find(|s| s.covers(et)).ok_or_else(|| {
             BraheError::Error(format!(
                 "Epoch ET {} outside PCK coverage for frame class ID {}",
                 et, frame_id

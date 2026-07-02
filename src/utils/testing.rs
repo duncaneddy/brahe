@@ -372,6 +372,35 @@ pub(crate) fn setup_global_test_almanac() {
     });
 }
 
+/// Initialize the global SPICE kernel registry with the DE440s test asset.
+///
+/// Copies `test_assets/de440s.bsp` into the NAIF cache directory (if present)
+/// and loads it into the global registry. Safe to call from multiple tests;
+/// initialization runs once.
+///
+/// # Panics
+/// Panics if the test asset exists but cannot be copied or loaded.
+pub(crate) fn setup_global_test_spice() {
+    static SPICE_INIT: OnceLock<()> = OnceLock::new();
+
+    SPICE_INIT.get_or_init(|| {
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let test_asset_path = Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("de440s.bsp");
+
+        if !test_asset_path.exists() {
+            return;
+        }
+
+        let cache_dir = get_naif_cache_dir().expect("Failed to get NAIF cache dir");
+        let cache_path = Path::new(&cache_dir).join("de440s.bsp");
+        fs::copy(&test_asset_path, &cache_path).expect("Failed to copy test asset to cache");
+
+        crate::spice::load_kernel("de440s").expect("Failed to load DE440s test kernel");
+    });
+}
+
 /// Initialize global space weather provider with test data for unit testing.
 ///
 /// Loads `test_assets/sw19571001.txt` and configures with Hold extrapolation.

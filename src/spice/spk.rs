@@ -9,10 +9,6 @@
  * ICRF axes for DE4xx kernels) in SI units.
  */
 
-// `segments()` is not yet called within this crate; the global kernel
-// registry (a later task) consumes it to build cross-kernel chains.
-#![allow(dead_code)]
-
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
@@ -119,15 +115,20 @@ pub(crate) fn resolve_chain(
     Ok(chain)
 }
 
-/// Select the first segment in `link` covering `et`.
+/// Select the last segment in `link` covering `et` (SPICE convention: the
+/// most recently loaded/last-listed segment takes precedence).
 fn covering_segment(link: &ChainLink, et: f64) -> Result<&Arc<ChebyshevSegment>, BraheError> {
-    link.segments.iter().find(|s| s.covers(et)).ok_or_else(|| {
-        let s0 = &link.segments[0];
-        BraheError::Error(format!(
-            "Epoch ET {} outside segment coverage [{}, {}] (target {}, center {})",
-            et, s0.start_et, s0.end_et, s0.target, s0.center
-        ))
-    })
+    link.segments
+        .iter()
+        .rev()
+        .find(|s| s.covers(et))
+        .ok_or_else(|| {
+            let s0 = &link.segments[0];
+            BraheError::Error(format!(
+                "Epoch ET {} outside segment coverage [{}, {}] (target {}, center {})",
+                et, s0.start_et, s0.end_et, s0.target, s0.center
+            ))
+        })
 }
 
 /// Sum link positions along a chain. Units: kernel-natural (km).
@@ -241,7 +242,7 @@ impl SPK {
         Self::from_daf(DafFile::from_bytes(bytes)?)
     }
 
-    fn from_daf(daf: DafFile) -> Result<Self, BraheError> {
+    pub(crate) fn from_daf(daf: DafFile) -> Result<Self, BraheError> {
         if daf.id_word != "DAF/SPK" {
             return Err(BraheError::IoError(format!(
                 "Not an SPK kernel: ID word is '{}', expected 'DAF/SPK'",

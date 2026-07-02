@@ -25,7 +25,7 @@ use nalgebra::{Vector3, Vector6};
 use crate::utils::BraheError;
 
 use super::daf::DafFile;
-use super::segments::{ChebyshevSegment, coverage_error, is_coverage_error};
+use super::segments::{ChebyshevSegment, coverage_error_multi, is_coverage_error};
 
 /// One link in a resolved target→center chain: the candidate segments for a
 /// single body pair (in input order; last-listed takes precedence) and the
@@ -197,14 +197,36 @@ fn resolve_chain_filtered(
 
 /// Select the last segment in `link` covering `et` (SPICE convention: the
 /// most recently loaded/last-listed segment takes precedence).
+///
+/// On a miss, the error reports the union of every candidate segment's
+/// coverage interval (not just the first candidate's, which can be far
+/// narrower than the union when a pair has multiple partial-coverage
+/// segments) and how many candidates were checked.
 fn covering_segment(link: &ChainLink, et: f64) -> Result<&Arc<ChebyshevSegment>, BraheError> {
     link.segments
         .iter()
         .rev()
         .find(|s| s.covers(et))
         .ok_or_else(|| {
+            let start_et = link
+                .segments
+                .iter()
+                .map(|s| s.start_et)
+                .fold(f64::INFINITY, f64::min);
+            let end_et = link
+                .segments
+                .iter()
+                .map(|s| s.end_et)
+                .fold(f64::NEG_INFINITY, f64::max);
             let s0 = &link.segments[0];
-            coverage_error(et, s0.start_et, s0.end_et, s0.target, s0.center)
+            coverage_error_multi(
+                et,
+                start_et,
+                end_et,
+                s0.target,
+                s0.center,
+                link.segments.len(),
+            )
         })
 }
 
@@ -584,6 +606,24 @@ mod tests {
             degree,
             coeffs,
         })
+    }
+
+    #[test]
+    fn test_covering_segment_error_reports_union_and_candidate_count() {
+        // Regression test: when a pair has multiple candidate segments with
+        // disjoint coverage and none covers the queried epoch, the error
+        // must report the union of all candidates' intervals (not just
+        // `segments[0]`'s, which would be far narrower here) and how many
+        // candidates were checked.
+        let seg_a = constant_segment(10, 0, 0.0, 100.0, 1.0);
+        let seg_b = constant_segment(10, 0, 200.0, 300.0, 2.0);
+        let chain = resolve_chain(&[seg_a, seg_b], 10, 0).unwrap();
+
+        let err = evaluate_chain_position(&chain, 150.0).unwrap_err();
+        let msg = format!("{}", err);
+        // Union is [0, 300], not segments[0]'s narrower [0, 100].
+        assert!(msg.contains('0') && msg.contains("300"), "msg: {}", msg);
+        assert!(msg.contains("2 candidate segments"), "msg: {}", msg);
     }
 
     #[test]

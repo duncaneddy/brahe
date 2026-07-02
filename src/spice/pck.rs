@@ -22,7 +22,7 @@ use crate::constants::AngleFormat;
 use crate::utils::BraheError;
 
 use super::daf::DafFile;
-use super::segments::ChebyshevSegment;
+use super::segments::{ChebyshevSegment, pck_frame_not_found_error, pck_out_of_coverage_error};
 
 /// A loaded binary PCK kernel with in-memory Chebyshev coefficients.
 #[derive(Debug)]
@@ -79,18 +79,14 @@ impl BPCK {
     /// convention: the most recently loaded/last-listed segment takes
     /// precedence).
     fn segment(&self, frame_id: i32, et: f64) -> Result<&Arc<ChebyshevSegment>, BraheError> {
-        let segs = self.segments_by_frame.get(&frame_id).ok_or_else(|| {
-            BraheError::Error(format!(
-                "Frame class ID {} not found in loaded binary PCK data",
-                frame_id
-            ))
-        })?;
-        segs.iter().rev().find(|s| s.covers(et)).ok_or_else(|| {
-            BraheError::Error(format!(
-                "Epoch ET {} outside PCK coverage for frame class ID {}",
-                et, frame_id
-            ))
-        })
+        let segs = self
+            .segments_by_frame
+            .get(&frame_id)
+            .ok_or_else(|| pck_frame_not_found_error(frame_id))?;
+        segs.iter()
+            .rev()
+            .find(|s| s.covers(et))
+            .ok_or_else(|| pck_out_of_coverage_error(et, frame_id))
     }
 
     /// 3-1-3 Euler angles and rates of the body-fixed frame relative to the

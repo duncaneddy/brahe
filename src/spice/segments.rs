@@ -158,21 +158,100 @@ pub(crate) fn coverage_error(
     ))
 }
 
-/// True if `err` is an out-of-coverage error built by [`coverage_error`].
+/// Build the out-of-coverage error for a chain link with multiple candidate
+/// segments for the same body pair, none of which covers the queried
+/// epoch. Reports the union of all candidates' coverage intervals and how
+/// many were checked, since with multiple segments per pair the first
+/// candidate alone can understate the union and give a misleadingly narrow
+/// bound.
+///
+/// # Arguments
+/// - `et`: Queried epoch. Units: [s] (TDB past J2000)
+/// - `start_et`: Union coverage start (minimum over all candidates). Units: [s]
+/// - `end_et`: Union coverage end (maximum over all candidates). Units: [s]
+/// - `target`: SPK target body ID, or PCK body-frame class ID
+/// - `center`: SPK center body ID, or PCK reference frame ID
+/// - `count`: Number of candidate segments checked
+///
+/// # Returns
+/// - `BraheError::Error` naming the epoch, union coverage interval, body
+///   pair, and candidate count
+pub(crate) fn coverage_error_multi(
+    et: f64,
+    start_et: f64,
+    end_et: f64,
+    target: i32,
+    center: i32,
+    count: usize,
+) -> BraheError {
+    BraheError::Error(format!(
+        "Epoch ET {} {} [{}, {}] across {} candidate segments (target {}, center {})",
+        et, COVERAGE_ERROR_MARKER, start_et, end_et, count, target, center
+    ))
+}
+
+/// Distinctive fragment identifying a PCK frame-lookup miss: a frame class
+/// ID absent from a kernel's segments, or present but lacking coverage at
+/// the queried epoch. Built by [`pck_frame_not_found_error`] and
+/// [`pck_out_of_coverage_error`] (used by [`super::pck::BPCK`]); recognized
+/// by [`is_coverage_error`] alongside [`COVERAGE_ERROR_MARKER`] so callers
+/// searching multiple loaded PCK kernels (`registry::pck_query`) can tell
+/// "try the next kernel" misses apart from genuine data errors (e.g. a
+/// corrupt record) that must propagate immediately instead of being masked.
+const PCK_MISS_MARKER: &str = "not available from this PCK kernel";
+
+/// Build the error for a PCK frame class ID absent from a kernel's
+/// segments.
+///
+/// # Arguments
+/// - `frame_id`: Body-frame class ID that was not found
+///
+/// # Returns
+/// - `BraheError::Error` naming the frame ID, recognized by
+///   [`is_coverage_error`]
+pub(crate) fn pck_frame_not_found_error(frame_id: i32) -> BraheError {
+    BraheError::Error(format!(
+        "Frame class ID {} {} (frame not present in this kernel)",
+        frame_id, PCK_MISS_MARKER
+    ))
+}
+
+/// Build the error for a PCK frame class ID present in a kernel but
+/// lacking segment coverage at the queried epoch.
+///
+/// # Arguments
+/// - `et`: Queried epoch. Units: [s] (TDB past J2000)
+/// - `frame_id`: Body-frame class ID that lacks coverage at `et`
+///
+/// # Returns
+/// - `BraheError::Error` naming the epoch and frame ID, recognized by
+///   [`is_coverage_error`]
+pub(crate) fn pck_out_of_coverage_error(et: f64, frame_id: i32) -> BraheError {
+    BraheError::Error(format!(
+        "Epoch ET {} {} for frame class ID {} (out of segment coverage)",
+        et, PCK_MISS_MARKER, frame_id
+    ))
+}
+
+/// True if `err` is an out-of-coverage error built by [`coverage_error`],
+/// [`coverage_error_multi`], [`pck_frame_not_found_error`], or
+/// [`pck_out_of_coverage_error`].
 ///
 /// Used to gate the epoch-aware chain fallback
-/// (`spk::evaluate_with_epoch_fallback`): only a coverage miss justifies
-/// re-resolving the chain for the queried epoch; any other evaluation
-/// error (e.g. corrupt record data) must propagate unchanged rather than
-/// being masked by a fallback attempt.
+/// (`spk::evaluate_with_epoch_fallback`) and the multi-kernel PCK search
+/// (`registry::pck_query`): only a coverage/frame-lookup miss justifies
+/// moving on (re-resolving the chain, or trying the next kernel); any other
+/// evaluation error (e.g. corrupt record data) must propagate unchanged
+/// rather than being masked.
 ///
 /// # Arguments
 /// - `err`: Error to classify
 ///
 /// # Returns
-/// - `true` if `err` was produced by [`coverage_error`]
+/// - `true` if `err` was produced by one of the coverage-error
+///   constructors above
 pub(crate) fn is_coverage_error(err: &BraheError) -> bool {
-    matches!(err, BraheError::Error(msg) if msg.contains(COVERAGE_ERROR_MARKER))
+    matches!(err, BraheError::Error(msg) if msg.contains(COVERAGE_ERROR_MARKER) || msg.contains(PCK_MISS_MARKER))
 }
 
 impl ChebyshevSegment {
@@ -279,6 +358,19 @@ impl ChebyshevSegment {
             return Err(BraheError::Error(format!(
                 "{} segment type {} not supported (segment '{}'); supported types: {}",
                 kind, data_type, summary.name, supported
+            )));
+        }
+
+        // The reference frame of the segment data is stored (`self.frame`)
+        // but everywhere else in the crate (frame biases, GCRF-compatible
+        // output, etc.) assumes ICRF axes. A segment in another frame (e.g.
+        // ECLIPJ2000 = 17, seen in some Horizons/generic small-body SPKs)
+        // would otherwise parse successfully and be summed into chains as
+        // if it were J2000/ICRF, silently producing wrong answers.
+        if frame != 1 {
+            return Err(BraheError::Error(format!(
+                "{} segment '{}' has reference frame {}; only frame 1 (J2000/ICRF) supported",
+                kind, summary.name, frame
             )));
         }
 
@@ -735,6 +827,48 @@ mod tests {
     }
 
     #[test]
+    fn test_from_spk_summary_rejects_non_j2000_frame() {
+        // A Type 2/3 segment in a non-J2000 frame (e.g. ECLIPJ2000 = 17,
+        // seen in some Horizons/generic small-body SPKs) must be rejected
+        // rather than silently summed into chains as if it were ICRF.
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("test_assets")
+            .join("de440s.bsp");
+        if !path.exists() {
+            return;
+        }
+        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let mut summary = daf.summaries[0].clone();
+        summary.ints[2] = 17; // ECLIPJ2000
+        let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains(&summary.name));
+        assert!(msg.contains("17"));
+        assert!(msg.contains("frame 1"));
+    }
+
+    #[test]
+    fn test_from_pck_summary_rejects_non_j2000_frame() {
+        // Same guard, mirrored for PCK: ints[1] is the reference frame.
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("test_assets")
+            .join("de440s.bsp");
+        if !path.exists() {
+            return;
+        }
+        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let summary = DafSummary {
+            name: "TEST_PCK".to_string(),
+            doubles: vec![0.0, 1.0],
+            ints: vec![10, 17, 2, 1, 1],
+        };
+        let err = ChebyshevSegment::from_pck_summary(&daf, &summary).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains("17"));
+        assert!(msg.contains("frame 1"));
+    }
+
+    #[test]
     fn test_from_spk_summary_rejects_short_ints() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test_assets")
@@ -761,6 +895,22 @@ mod tests {
         )));
         assert!(!is_coverage_error(&BraheError::IoError(
             "Segment record 0 has invalid RADIUS 0 (target 10, center 0)".to_string()
+        )));
+    }
+
+    #[test]
+    fn test_is_coverage_error_classifies_pck_and_multi_variants() {
+        // `is_coverage_error` must also recognize the multi-candidate SPK
+        // variant and both PCK frame-lookup misses (used by
+        // `registry::pck_query` to distinguish "try the next kernel" from
+        // genuine data errors), while still rejecting unrelated errors.
+        assert!(is_coverage_error(&coverage_error_multi(
+            300.0, 0.0, 200.0, 10, 0, 3
+        )));
+        assert!(is_coverage_error(&pck_frame_not_found_error(31006)));
+        assert!(is_coverage_error(&pck_out_of_coverage_error(2000.0, 31006)));
+        assert!(!is_coverage_error(&BraheError::Error(
+            "Frame class ID 31006 not found in loaded binary PCK data".to_string()
         )));
     }
 

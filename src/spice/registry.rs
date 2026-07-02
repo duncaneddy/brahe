@@ -26,7 +26,7 @@ use crate::utils::BraheError;
 
 use super::daf::DafFile;
 use super::pck::BPCK;
-use super::segments::ChebyshevSegment;
+use super::segments::{ChebyshevSegment, is_coverage_error};
 use super::spk::{
     ChainLink, SPK, evaluate_chain_position, evaluate_chain_state, evaluate_chain_velocity,
     evaluate_with_epoch_fallback, resolve_chain,
@@ -621,6 +621,12 @@ pub fn spk_state_in_kernel(
 /// Search loaded PCK kernels newest-first for `frame_id` with coverage at
 /// `et`, applying `query` to the first kernel that both contains the frame
 /// and covers the epoch.
+///
+/// A per-kernel coverage/frame-lookup miss (identified via
+/// `is_coverage_error`) moves on to the next kernel; any other error (e.g.
+/// a segment record with corrupt data) is a genuine data problem, not just
+/// "try the next kernel", and is propagated immediately rather than being
+/// swallowed into the generic "not covered" error below.
 fn pck_query<T>(
     frame_id: i32,
     epc: Epoch,
@@ -631,16 +637,15 @@ fn pck_query<T>(
     let mut available_frames: Vec<i32> = Vec::new();
     for name in reg.load_order.iter().rev() {
         if let Some(Kernel::Pck(pck)) = reg.kernels.get(name) {
-            let frame_ids = pck.frame_ids();
-            if frame_ids.contains(&frame_id)
-                && let Ok(result) = query(pck, frame_id, et)
-            {
-                return Ok(result);
-            }
-            for f in frame_ids {
+            for f in pck.frame_ids() {
                 if !available_frames.contains(&f) {
                     available_frames.push(f);
                 }
+            }
+            match query(pck, frame_id, et) {
+                Ok(result) => return Ok(result),
+                Err(err) if is_coverage_error(&err) => continue,
+                Err(err) => return Err(err),
             }
         }
     }
@@ -913,6 +918,97 @@ mod tests {
             file[off..off + 8].copy_from_slice(&v.to_le_bytes());
         }
         file
+    }
+
+    /// Build a minimal little-endian binary PCK with one type-2 segment for
+    /// `frame_id` rel frame 1, covering et in `[0, 1000]`, whose single
+    /// record has `RADIUS = 0.0` — a corrupt-data condition (invalid
+    /// RADIUS) distinct from "frame not found" or "out of coverage".
+    fn synthetic_bpck_bytes_corrupt(frame_id: i32) -> Vec<u8> {
+        let degree = 1usize;
+        let rsize = 2 + 3 * (degree + 1); // 8
+        let data: Vec<f64> = vec![
+            500.0,
+            0.0, // MID, RADIUS=0 (invalid)
+            0.1,
+            0.0, // phi
+            0.3,
+            0.0, // delta
+            0.4,
+            0.0, // w
+            0.0,
+            1000.0,
+            rsize as f64,
+            1.0, // INIT, INTLEN, RSIZE, N
+        ];
+
+        let mut file = vec![0u8; 4 * 1024];
+        file[..8].copy_from_slice(b"DAF/PCK ");
+        file[8..12].copy_from_slice(&2i32.to_le_bytes()); // ND
+        file[12..16].copy_from_slice(&5i32.to_le_bytes()); // NI
+        file[76..80].copy_from_slice(&2i32.to_le_bytes()); // FWARD
+        file[80..84].copy_from_slice(&2i32.to_le_bytes()); // BWARD
+        file[84..88].copy_from_slice(&500i32.to_le_bytes()); // FREE
+        file[88..96].copy_from_slice(b"LTL-IEEE");
+
+        // Summary record (record 2): NEXT=0, PREV=0, NSUM=1
+        let rec = 1024;
+        file[rec + 16..rec + 24].copy_from_slice(&1f64.to_le_bytes());
+        file[rec + 24..rec + 32].copy_from_slice(&0f64.to_le_bytes());
+        file[rec + 32..rec + 40].copy_from_slice(&1000f64.to_le_bytes());
+        // ints: [frame_class_id, reference_frame, type, start_addr, end_addr]
+        let start_addr = 385i32;
+        let end_addr = start_addr + data.len() as i32 - 1;
+        for (i, v) in [frame_id, 1, 2, start_addr, end_addr].iter().enumerate() {
+            let off = rec + 40 + i * 4;
+            file[off..off + 4].copy_from_slice(&v.to_le_bytes());
+        }
+        // Name record (record 3): spaces
+        for b in &mut file[2048..2048 + 40] {
+            *b = b' ';
+        }
+        // Data (record 4)
+        for (i, v) in data.iter().enumerate() {
+            let off = 3 * 1024 + i * 8;
+            file[off..off + 8].copy_from_slice(&v.to_le_bytes());
+        }
+        file
+    }
+
+    #[test]
+    #[serial]
+    fn test_pck_query_propagates_corrupt_data_error_instead_of_masking_as_not_covered() {
+        // Regression test: before the fix, `pck_query` collapsed every
+        // per-kernel failure (including a corrupt record's invalid-RADIUS
+        // IoError) into the generic "not covered" aggregate error. A newer
+        // kernel providing frame 31099 with a corrupt record must have its
+        // error propagate immediately rather than being swallowed while
+        // falling through to an older kernel that doesn't have the frame
+        // at all.
+        setup_global_test_spice();
+        clear_kernels();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path_old = dir.path().join("old.bpc");
+        let path_new = dir.path().join("new.bpc");
+        std::fs::write(&path_old, synthetic_bpck_bytes()).unwrap(); // frame 31006 only
+        std::fs::write(&path_new, synthetic_bpck_bytes_corrupt(31099)).unwrap();
+
+        load_kernel(path_old.to_str().unwrap()).unwrap();
+        load_kernel(path_new.to_str().unwrap()).unwrap();
+
+        let err = pck_euler_angles(31099, epc_from_et(500.0)).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("RADIUS"),
+            "expected RADIUS error, got: {}",
+            msg
+        );
+        assert!(!msg.contains("not covered"), "error was masked: {}", msg);
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
     }
 
     #[test]

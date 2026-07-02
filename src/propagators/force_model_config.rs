@@ -14,8 +14,12 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::orbit_dynamics::gravity::GravityModelType;
+use crate::constants::{
+    GM_DEIMOS, GM_EARTH, GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_PHOBOS,
+    GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,
+};
 use crate::orbit_dynamics::ParallelMode;
+use crate::orbit_dynamics::gravity::GravityModelType;
 use crate::spice::SPKKernel;
 use crate::utils::BraheError;
 
@@ -852,7 +856,7 @@ impl TryFrom<EphemerisSource> for SPKKernel {
 /// Third-body perturber
 ///
 /// Celestial bodies that can act as gravitational perturbers on the spacecraft.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ThirdBody {
     /// Sun
     Sun,
@@ -872,6 +876,88 @@ pub enum ThirdBody {
     Uranus,
     /// Neptune
     Neptune,
+    /// Earth
+    ///
+    /// Only meaningful as a perturber when the central body is not Earth
+    /// itself (e.g. `CentralBody::EMB` or `CentralBody::Mars`).
+    Earth,
+    /// Phobos, the larger of Mars's two moons.
+    Phobos,
+    /// Deimos, the smaller of Mars's two moons.
+    Deimos,
+    /// A user-defined perturbing body, for bodies without a dedicated variant.
+    Custom {
+        /// Human-readable name (e.g. `"Ceres"`).
+        name: String,
+        /// NAIF ID of the body.
+        naif_id: i32,
+        /// Gravitational parameter. Units: (m^3/s^2)
+        gm: f64,
+    },
+}
+
+impl ThirdBody {
+    /// NAIF ID of the perturbing body.
+    ///
+    /// # Returns
+    /// - `naif_id`: NAIF ID. Planet variants (other than Earth and Mars) use
+    ///   the planetary-system barycenter, matching the targets used by the
+    ///   `*_position_de` ephemeris functions.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::force_model_config::ThirdBody;
+    ///
+    /// assert_eq!(ThirdBody::Sun.naif_id(), 10);
+    /// assert_eq!(ThirdBody::Phobos.naif_id(), 401);
+    /// ```
+    pub fn naif_id(&self) -> i32 {
+        match self {
+            ThirdBody::Sun => 10,
+            ThirdBody::Moon => 301,
+            ThirdBody::Mercury => 199,
+            ThirdBody::Venus => 299,
+            ThirdBody::Mars => 4,
+            ThirdBody::Jupiter => 5,
+            ThirdBody::Saturn => 6,
+            ThirdBody::Uranus => 7,
+            ThirdBody::Neptune => 8,
+            ThirdBody::Earth => 399,
+            ThirdBody::Phobos => 401,
+            ThirdBody::Deimos => 402,
+            ThirdBody::Custom { naif_id, .. } => *naif_id,
+        }
+    }
+
+    /// Gravitational parameter of the perturbing body.
+    ///
+    /// # Returns
+    /// - `gm`: Gravitational parameter. Units: (m^3/s^2)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::force_model_config::ThirdBody;
+    /// use brahe::constants::GM_SUN;
+    ///
+    /// assert_eq!(ThirdBody::Sun.gm(), GM_SUN);
+    /// ```
+    pub fn gm(&self) -> f64 {
+        match self {
+            ThirdBody::Sun => GM_SUN,
+            ThirdBody::Moon => GM_MOON,
+            ThirdBody::Mercury => GM_MERCURY,
+            ThirdBody::Venus => GM_VENUS,
+            ThirdBody::Mars => GM_MARS,
+            ThirdBody::Jupiter => GM_JUPITER,
+            ThirdBody::Saturn => GM_SATURN,
+            ThirdBody::Uranus => GM_URANUS,
+            ThirdBody::Neptune => GM_NEPTUNE,
+            ThirdBody::Earth => GM_EARTH,
+            ThirdBody::Phobos => GM_PHOBOS,
+            ThirdBody::Deimos => GM_DEIMOS,
+            ThirdBody::Custom { gm, .. } => *gm,
+        }
+    }
 }
 
 // =============================================================================
@@ -1136,7 +1222,8 @@ mod tests {
     #[test]
     fn test_spherical_harmonic_parallel_serde_default() {
         // A JSON config missing `parallel` deserializes to Auto.
-        let json = r#"{"SphericalHarmonic":{"source":{"ModelType":"JGM3"},"degree":20,"order":20}}"#;
+        let json =
+            r#"{"SphericalHarmonic":{"source":{"ModelType":"JGM3"},"degree":20,"order":20}}"#;
         let cfg: GravityConfiguration = serde_json::from_str(json).unwrap();
         match &cfg {
             GravityConfiguration::SphericalHarmonic { parallel, .. } => {

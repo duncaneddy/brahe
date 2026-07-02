@@ -8,13 +8,15 @@ use nalgebra::Vector3;
 use crate::math::traits::IntoPosition;
 use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
+use crate::propagators::CentralBody;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
 use crate::spice::{
-    SPKKernel, jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
-    neptune_position_de, saturn_position_de, sun_position_de, uranus_position_de,
-    venus_position_de,
+    SPKKernel, jupiter_position_de, load_kernel, mars_position_de, mercury_position_de,
+    moon_position_de, neptune_position_de, saturn_position_de, spk_position, sun_position_de,
+    uranus_position_de, venus_position_de,
 };
 use crate::time::Epoch;
+use crate::utils::BraheError;
 use crate::{
     GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,
 };
@@ -152,6 +154,24 @@ pub fn accel_third_body<P: IntoPosition>(
             GM_NEPTUNE,
         ),
 
+        // Invalid: bodies only supported through `accel_third_body_for_body`
+        // (Earth, Phobos, Deimos, and Custom only make sense relative to a
+        // non-Earth central body, which this Earth-centered function does
+        // not model).
+        (
+            body @ (ThirdBody::Earth
+            | ThirdBody::Phobos
+            | ThirdBody::Deimos
+            | ThirdBody::Custom { .. }),
+            _,
+        ) => {
+            panic!(
+                "accel_third_body only supports Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, \
+                Uranus, and Neptune. Requested {:?}. Use accel_third_body_for_body for other bodies.",
+                body
+            )
+        }
+
         // Invalid: planets with low-precision
         (body, EphemerisSource::LowPrecision) => {
             panic!(
@@ -163,6 +183,154 @@ pub fn accel_third_body<P: IntoPosition>(
     };
 
     accel_point_mass_gravity(r_object, r_body, gm)
+}
+
+/// Central-body-aware third-body acceleration, including barycenter handling.
+///
+/// `accel_third_body` implicitly assumes the frame is centered on Earth,
+/// which is not accelerated by the bodies it perturbs (Earth's own gravity
+/// on itself is not part of the third-body sum). When the frame is instead
+/// centered on some other body, that assumption breaks: the perturbing
+/// body's gravity also acts on the central body itself, which moves the
+/// origin of the frame the object's position is expressed in. The
+/// acceleration relative to that moving origin is therefore a *difference*
+/// of two terms:
+///
+/// - the **direct term**, GM(s - r)/|s - r|³ — the perturber's attraction on
+///   the object, where `s` is the perturber's position relative to
+///   `central_body` and `r` is the object's position relative to
+///   `central_body`;
+/// - the **indirect term**, GM·s/|s|³ — the perturber's attraction on
+///   `central_body` itself, which must be subtracted because it also
+///   accelerates the (non-inertial) frame origin.
+///
+/// Two cases use the direct term only, because nothing accelerates the
+/// frame origin there:
+/// - `CentralBody::SSB`: the Solar System Barycenter is not accelerated by
+///   any body's gravity (nothing external to the solar system is in the
+///   force model), for any perturber.
+/// - `CentralBody::EMB`, for `body` = `ThirdBody::Earth` or `ThirdBody::Moon`
+///   only: internal Earth-Moon gravitational forces are equal and opposite
+///   (Newton's third law), so neither body can accelerate their own mutual
+///   barycenter. Other perturbers (Sun, planets) still use the differential
+///   form about `EMB`, since they accelerate the Earth-Moon system as a
+///   whole.
+///
+/// `CentralBody::Custom` always uses the differential form: a general body
+/// is, in principle, accelerated by every other body in the force model.
+///
+/// # Kernel selection
+///
+/// Unlike [`accel_third_body`] (which always queries the process-wide SPICE
+/// kernel registry via [`crate::spice::spk_position`], relying on whatever
+/// kernel happens to be loaded), this function loads the DE kernel named by
+/// `source` immediately before querying. Since the registry resolves
+/// cross-kernel queries using a "most recently loaded kernel wins" rule for
+/// overlapping body pairs, this makes `source` actually select DE440 vs.
+/// DE440s (or an explicit `SPK` kernel) rather than being silently ignored
+/// by the registry's auto-initialize-with-DE440s default. Loading is
+/// idempotent, and kernels already loaded for bodies the DE kernel itself
+/// doesn't cover (e.g. Phobos/Deimos, which require the `mar099s` satellite
+/// kernel) remain loaded and still participate in cross-kernel chain
+/// resolution.
+///
+/// # Arguments
+///
+/// * `central_body` - Body the object's position and the returned
+///   acceleration are expressed relative to
+/// * `body` - Perturbing celestial body
+/// * `source` - Ephemeris source for the perturber's position.
+///   `EphemerisSource::LowPrecision` is only valid when `central_body` is
+///   `CentralBody::Earth` and `body` is `ThirdBody::Sun` or `ThirdBody::Moon`
+///   (the analytic ephemerides are geocentric)
+/// * `epc` - Epoch for ephemeris lookup
+/// * `r_object` - Position of the object relative to `central_body` (or a 6D
+///   state vector, position only used). Units: [m]
+///
+/// # Returns
+///
+/// * `Ok(Vector3<f64>)` - Acceleration in the inertial frame centered on
+///   `central_body`. Units: [m/s²]
+/// * `Err(BraheError)` - If `source` is `EphemerisSource::LowPrecision` with
+///   a non-Earth `central_body` or a `body` other than `Sun`/`Moon`, or if
+///   the ephemeris kernel cannot be loaded or queried
+///
+/// # Example
+///
+/// ```no_run
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::time::Epoch;
+/// use brahe::third_body::accel_third_body_for_body;
+/// use brahe::propagators::CentralBody;
+/// use brahe::propagators::force_model_config::{ThirdBody, EphemerisSource};
+/// use brahe::constants::R_EARTH;
+/// use nalgebra::Vector3;
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
+/// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+///
+/// let a_sun = accel_third_body_for_body(
+///     &CentralBody::Earth,
+///     &ThirdBody::Sun,
+///     EphemerisSource::DE440s,
+///     epc,
+///     r_object,
+/// ).unwrap();
+/// ```
+pub fn accel_third_body_for_body<P: IntoPosition>(
+    central_body: &CentralBody,
+    body: &ThirdBody,
+    source: EphemerisSource,
+    epc: Epoch,
+    r_object: P,
+) -> Result<Vector3<f64>, BraheError> {
+    if matches!(source, EphemerisSource::LowPrecision) && *central_body != CentralBody::Earth {
+        return Err(BraheError::Error(
+            "LowPrecision ephemerides are geocentric; use a DE/SPK source for non-Earth central bodies"
+                .to_string(),
+        ));
+    }
+
+    let r = r_object.position();
+
+    let s = match (source, body) {
+        (EphemerisSource::LowPrecision, ThirdBody::Sun) => sun_position(epc),
+        (EphemerisSource::LowPrecision, ThirdBody::Moon) => moon_position(epc),
+        (EphemerisSource::LowPrecision, other) => {
+            return Err(BraheError::Error(format!(
+                "Low-precision ephemerides only support Sun and Moon. Requested {:?}. \
+                Use EphemerisSource::DE440s, DE440, or SPK(...) for other bodies.",
+                other
+            )));
+        }
+        (source, body) => {
+            // Load the requested DE kernel so it takes precedence over any
+            // other DE kernel already loaded for this (target, center) pair
+            // (see the "Kernel selection" section above).
+            let kernel = SPKKernel::try_from(source)?;
+            load_kernel(kernel.name())?;
+            spk_position(body.naif_id(), central_body.naif_id(), epc)?
+        }
+    };
+
+    let gm = body.gm();
+    let d = s - r;
+    let direct = gm * d / d.norm().powi(3);
+
+    let direct_only = match central_body {
+        CentralBody::SSB => true,
+        CentralBody::EMB => matches!(body, ThirdBody::Earth | ThirdBody::Moon),
+        _ => false,
+    };
+
+    Ok(if direct_only {
+        direct
+    } else {
+        direct - gm * s / s.norm().powi(3)
+    })
 }
 
 /// Calculate the acceleration due to the Sun on an object at a given epoch.
@@ -708,5 +876,154 @@ mod tests {
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
         assert!(a.norm() < 1e-11); // Neptune effect is very small
+    }
+
+    use crate::{GM_EARTH, R_EARTH, R_MARS};
+    use serial_test::serial;
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_accel_third_body_for_body_earth_center_matches_legacy() {
+        setup_global_test_spice();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+
+        let legacy = accel_third_body(ThirdBody::Sun, EphemerisSource::DE440s, epc, r);
+        let new = accel_third_body_for_body(
+            &CentralBody::Earth,
+            &ThirdBody::Sun,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(new[i], legacy[i], epsilon = 1e-15);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_emb_internal_bodies_use_direct_form() {
+        setup_global_test_spice();
+
+        // For EMB center, Earth's contribution at position r is exactly
+        // GM_EARTH * (s - r)/|s - r|^3 with NO indirect term, since internal
+        // Earth-Moon forces cannot accelerate their own barycenter.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1e8, 2e8, -5e7);
+        let s = crate::spice::spk_position(399, 3, epc).unwrap();
+        let d = s - r;
+        let expected = GM_EARTH * d / d.norm().powi(3);
+
+        let got = accel_third_body_for_body(
+            &CentralBody::EMB,
+            &ThirdBody::Earth,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(got[i], expected[i], epsilon = 1e-18);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_emb_external_body_uses_differential_form() {
+        setup_global_test_spice();
+
+        // Sun about EMB: differential form (direct minus indirect-at-EMB),
+        // since the Sun does accelerate the Earth-Moon barycenter.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1e8, 2e8, -5e7);
+        let s = crate::spice::spk_position(10, 3, epc).unwrap();
+        let d = s - r;
+        let expected = GM_SUN * (d / d.norm().powi(3) - s / s.norm().powi(3));
+
+        let got = accel_third_body_for_body(
+            &CentralBody::EMB,
+            &ThirdBody::Sun,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(got[i], expected[i], epsilon = 1e-18);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_ssb_all_bodies_direct() {
+        setup_global_test_spice();
+
+        // Nothing accelerates the Solar System Barycenter, so every
+        // perturber (here Jupiter) uses the direct term only.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1e8, 2e8, -5e7);
+        let s = crate::spice::spk_position(5, 0, epc).unwrap();
+        let d = s - r;
+        let expected = GM_JUPITER * d / d.norm().powi(3);
+
+        let got = accel_third_body_for_body(
+            &CentralBody::SSB,
+            &ThirdBody::Jupiter,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(got[i], expected[i], epsilon = 1e-18);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_phobos_third_body_about_mars() {
+        setup_global_test_spice();
+        crate::spice::load_kernel("mar099s").unwrap();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_MARS + 400e3, 0.0, 0.0);
+
+        let a = accel_third_body_for_body(
+            &CentralBody::Mars,
+            &ThirdBody::Phobos,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        // Phobos is tiny (GM_PHOBOS ~ 7e5 m^3/s^2), so its perturbation on a
+        // Mars-orbiting object is small but nonzero.
+        assert!(a.norm() > 0.0 && a.norm() < 1e-8);
+    }
+
+    #[test]
+    fn test_low_precision_rejected_for_non_earth_center() {
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let e = accel_third_body_for_body(
+            &CentralBody::Moon,
+            &ThirdBody::Sun,
+            EphemerisSource::LowPrecision,
+            epc,
+            Vector3::new(2e6, 0.0, 0.0),
+        );
+        assert!(e.is_err());
     }
 }

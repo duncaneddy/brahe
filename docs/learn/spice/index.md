@@ -132,8 +132,9 @@ when both are needed.
 The Mars/Jupiter/Saturn/Uranus/Neptune functions query the corresponding
 `NAIF_*_BARYCENTER` ID (see the table above), so they return the
 planetary-system barycenter, not the body center — for these five outer
-planets the two differ by up to several thousand km due to large moons
-(e.g. the Galilean moons for Jupiter). Sun, Moon, Mercury, and Venus have no
+planets the two differ by up to a few hundred km due to large moons
+(e.g. ~290 km for Saturn from Titan, ~230 km for Jupiter from the Galilean
+moons). Sun, Moon, Mercury, and Venus have no
 significant satellites, so their functions' body-center and barycenter
 positions coincide.
 

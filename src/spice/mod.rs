@@ -12,6 +12,7 @@ pub mod almanac;
 pub(crate) mod daf;
 pub mod kernels;
 pub mod positions;
+pub(crate) mod segments;
 
 pub use almanac::*;
 pub use kernels::*;

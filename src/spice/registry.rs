@@ -432,9 +432,6 @@ pub fn spk_state(target: i32, center: i32, epc: Epoch) -> Result<Vector6<f64>, B
 
 /// Fetch the loaded `Kernel::Spk` entry for `kernel_name`, loading it first
 /// if absent.
-// The `spk_*_in_kernel` family is not yet called within this crate; the
-// per-body DE position functions (a later task) consume it.
-#[allow(dead_code)]
 fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
     load_kernel(kernel_name)?;
     let reg = GLOBAL_SPICE.read().unwrap();
@@ -449,12 +446,15 @@ fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
 }
 
 /// Position of `target` relative to `center` at `epc`, queried from a
-/// single named kernel only (no cross-kernel chain resolution).
+/// single named kernel.
 ///
-/// Loads `kernel_name` first if not already loaded.
+/// Queries **that kernel only**: no cross-kernel chaining is performed and
+/// the registry's last-loaded-wins precedence semantics do not apply. The
+/// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel_name`: A known DE kernel name, or a path to a `.bsp` file
+/// - `kernel_name`: A known DE kernel name (e.g. `"de440s"`, `"de440"`), or
+///   a path to a `.bsp` file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
 /// - `epc`: Epoch at which to evaluate the position
@@ -462,8 +462,16 @@ fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
 /// # Returns
 /// - Position of `target` relative to `center` in the kernel's inertial
 ///   frame (ICRF axes). Units: [m]
-#[allow(dead_code)]
-pub(crate) fn spk_position_in_kernel(
+///
+/// # Example
+/// ```no_run
+/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_position_in_kernel};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let r_moon = spk_position_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// ```
+pub fn spk_position_in_kernel(
     kernel_name: &str,
     target: i32,
     center: i32,
@@ -474,12 +482,15 @@ pub(crate) fn spk_position_in_kernel(
 }
 
 /// Velocity of `target` relative to `center` at `epc`, queried from a
-/// single named kernel only (no cross-kernel chain resolution).
+/// single named kernel.
 ///
-/// Loads `kernel_name` first if not already loaded.
+/// Queries **that kernel only**: no cross-kernel chaining is performed and
+/// the registry's last-loaded-wins precedence semantics do not apply. The
+/// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel_name`: A known DE kernel name, or a path to a `.bsp` file
+/// - `kernel_name`: A known DE kernel name (e.g. `"de440s"`, `"de440"`), or
+///   a path to a `.bsp` file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
 /// - `epc`: Epoch at which to evaluate the velocity
@@ -487,8 +498,16 @@ pub(crate) fn spk_position_in_kernel(
 /// # Returns
 /// - Velocity of `target` relative to `center` in the kernel's inertial
 ///   frame (ICRF axes). Units: [m/s]
-#[allow(dead_code)]
-pub(crate) fn spk_velocity_in_kernel(
+///
+/// # Example
+/// ```no_run
+/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_velocity_in_kernel};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let v_moon = spk_velocity_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// ```
+pub fn spk_velocity_in_kernel(
     kernel_name: &str,
     target: i32,
     center: i32,
@@ -499,13 +518,15 @@ pub(crate) fn spk_velocity_in_kernel(
 }
 
 /// Position and velocity of `target` relative to `center` at `epc`,
-/// queried from a single named kernel only (no cross-kernel chain
-/// resolution).
+/// queried from a single named kernel.
 ///
-/// Loads `kernel_name` first if not already loaded.
+/// Queries **that kernel only**: no cross-kernel chaining is performed and
+/// the registry's last-loaded-wins precedence semantics do not apply. The
+/// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel_name`: A known DE kernel name, or a path to a `.bsp` file
+/// - `kernel_name`: A known DE kernel name (e.g. `"de440s"`, `"de440"`), or
+///   a path to a `.bsp` file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
 /// - `epc`: Epoch at which to evaluate the state
@@ -513,8 +534,16 @@ pub(crate) fn spk_velocity_in_kernel(
 /// # Returns
 /// - State `[x, y, z, vx, vy, vz]` of `target` relative to `center` in the
 ///   kernel's inertial frame (ICRF axes). Units: [m, m/s]
-#[allow(dead_code)]
-pub(crate) fn spk_state_in_kernel(
+///
+/// # Example
+/// ```no_run
+/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_state_in_kernel};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let x_moon = spk_state_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// ```
+pub fn spk_state_in_kernel(
     kernel_name: &str,
     target: i32,
     center: i32,

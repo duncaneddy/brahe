@@ -13,7 +13,7 @@ use regex::Regex;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::constants::{AngleFormat, GPS_ZERO, MJD_ZERO, SECONDS_PER_DAY, UNIX_EPOCH_JD};
+use crate::constants::{AngleFormat, GPS_ZERO, JD_J2000, MJD_ZERO, SECONDS_PER_DAY, UNIX_EPOCH_JD};
 use crate::math::linalg::split_float;
 use crate::time::conversions::time_system_offset;
 use crate::time::time_types::TimeSystem;
@@ -1286,6 +1286,47 @@ impl Epoch {
         self.mjd_as_time_system(self.time_system)
     }
 
+    /// Returns the number of seconds elapsed since the J2000 epoch
+    /// (2000-01-01 12:00:00, JD 2451545.0) in the specified time system.
+    ///
+    /// For `TimeSystem::TDB` this is the SPICE ephemeris time (ET) used by
+    /// SPK/PCK kernels. The computation uses the epoch's internal integer
+    /// day/second representation directly, avoiding the precision loss of a
+    /// floating-point Julian-date round-trip (sub-microsecond accuracy).
+    ///
+    /// # Arguments
+    /// - `time_system`: Time system in which to express seconds past J2000
+    ///
+    /// # Returns
+    /// - Seconds elapsed since J2000 in `time_system`. Units: [s]
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::eop::*;
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TT);
+    /// let et = epc.seconds_past_j2000_as_time_system(TimeSystem::TDB);
+    /// assert!(et.abs() < 1.0e-3); // TDB and TT agree to < 1.7 ms
+    /// ```
+    pub fn seconds_past_j2000_as_time_system(&self, time_system: TimeSystem) -> f64 {
+        // Internal representation is TAI: days (JD day number), seconds from
+        // that JD instant (noon), nanoseconds. JD_J2000 = 2451545.0 is a JD
+        // day boundary, so the day difference is an exact integer.
+        let jd = self.days as f64;
+        let fd = (self.nanoseconds / NANOSECONDS_PER_SECOND_FLOAT + self.seconds as f64)
+            / SECONDS_PER_DAY;
+        let offset = time_system_offset(jd, fd, TimeSystem::TAI, time_system);
+
+        (self.days as i64 - JD_J2000 as i64) as f64 * SECONDS_PER_DAY
+            + self.seconds as f64
+            + self.nanoseconds / NANOSECONDS_PER_SECOND_FLOAT
+            + offset
+    }
+
     /// Convert an `Epoch` into a GPS date representation, encoded as GPS weeks
     /// and GPS seconds-in-week since the GPS time system epoch of 0h January 6, 1980,
     /// The time system of this return format is implied to be GPS by default.
@@ -2469,6 +2510,62 @@ mod tests {
             epc.mjd_as_time_system(TimeSystem::UTC),
             MJD_J2000 - 32.0 / 86400.0
         )
+    }
+
+    #[test]
+    fn test_seconds_past_j2000_as_time_system() {
+        setup_global_test_eop();
+
+        // Exactly zero at the J2000 epoch (2000-01-01 12:00:00 TT)
+        let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TT);
+        assert_abs_diff_eq!(
+            epc.seconds_past_j2000_as_time_system(TimeSystem::TT),
+            0.0,
+            epsilon = 1.0e-9
+        );
+
+        // TT vs TAI differ by exactly 32.184 s. TT leads TAI, so the TAI
+        // clock reading of the J2000 instant (defined in TT) is earlier,
+        // i.e. negative seconds past J2000 as read on a TAI clock.
+        assert_abs_diff_eq!(
+            epc.seconds_past_j2000_as_time_system(TimeSystem::TAI),
+            -32.184,
+            epsilon = 1.0e-9
+        );
+
+        // One day later in TT is exactly 86400 s
+        let epc2 = Epoch::from_datetime(2000, 1, 2, 12, 0, 0.0, 0.0, TimeSystem::TT);
+        assert_abs_diff_eq!(
+            epc2.seconds_past_j2000_as_time_system(TimeSystem::TT),
+            86400.0,
+            epsilon = 1.0e-9
+        );
+
+        // TDB differs from TT by the periodic term (< 1.7 ms, nonzero)
+        let epc3 = Epoch::from_datetime(2024, 5, 14, 16, 43, 0.0, 0.0, TimeSystem::UTC);
+        let d_tdb_tt = epc3.seconds_past_j2000_as_time_system(TimeSystem::TDB)
+            - epc3.seconds_past_j2000_as_time_system(TimeSystem::TT);
+        assert!(d_tdb_tt.abs() < 1.7e-3);
+        assert!(d_tdb_tt.abs() > 1.0e-6);
+
+        // Sub-microsecond resolution: epochs 1 µs apart differ by ~1 µs.
+        // The result is a plain f64, so at ~7.6e8 s past J2000 (2024) the
+        // representable ULP is ~1.7e-7 s; epsilon reflects that float64
+        // magnitude-dependent floor (with headroom) rather than nanosecond
+        // precision.
+        let a = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::TAI);
+        let b = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 1000.0, TimeSystem::TAI);
+        let da = a.seconds_past_j2000_as_time_system(TimeSystem::TAI);
+        let db = b.seconds_past_j2000_as_time_system(TimeSystem::TAI);
+        assert_abs_diff_eq!(db - da, 1.0e-6, epsilon = 5.0e-7);
+
+        // Consistency with mjd_as_time_system (which has ~µs f64 resolution)
+        let via_mjd = (epc3.mjd_as_time_system(TimeSystem::TT) - 51544.5) * 86400.0;
+        assert_abs_diff_eq!(
+            epc3.seconds_past_j2000_as_time_system(TimeSystem::TT),
+            via_mjd,
+            epsilon = 1.0e-4
+        );
     }
 
     #[test]

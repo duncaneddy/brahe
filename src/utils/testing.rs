@@ -9,7 +9,6 @@ use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
 
-use anise::prelude::{Almanac, SPK};
 use nalgebra::SVector;
 
 use crate::AngleFormat;
@@ -22,7 +21,6 @@ use crate::orbits::keplerian::{geo_sma, perigee_velocity, sun_synchronous_inclin
 use crate::space_weather::{
     FileSpaceWeatherProvider, SpaceWeatherExtrapolation, set_global_space_weather_provider,
 };
-use crate::spice::set_global_almanac;
 use crate::utils::get_naif_cache_dir;
 
 // =============================================================================
@@ -327,48 +325,32 @@ pub(crate) fn setup_global_test_gravity_model() {
     set_global_gravity_model(gravity_model);
 }
 
-/// Initialize global ANISE Almanac with DE440s kernel for ephemeris tests.
+/// Initialize the global SPICE kernel registry with the DE440s test asset.
 ///
-/// Copies `test_assets/de440s.bsp` to the NAIF cache directory and loads it as the
-/// global Almanac. This avoids network downloads during CI tests while providing
-/// the same DE440s ephemeris data for testing high-precision sun/moon positions.
-///
-/// Use at the start of tests requiring DE440s ephemeris (`sun_position_de()`,
-/// `moon_position_de()`). If the test asset doesn't exist, this function does
-/// nothing (allows running tests without the large kernel file).
+/// Copies `test_assets/de440s.bsp` into the NAIF cache directory (if present)
+/// and loads it into the global registry. Safe to call from multiple tests;
+/// initialization runs once.
 ///
 /// # Panics
 /// Panics if the test asset exists but cannot be copied or loaded.
-pub(crate) fn setup_global_test_almanac() {
-    // Use OnceLock to ensure single initialization across parallel tests
-    static ALMANAC_INIT: OnceLock<()> = OnceLock::new();
+pub(crate) fn setup_global_test_spice() {
+    static SPICE_INIT: OnceLock<()> = OnceLock::new();
 
-    ALMANAC_INIT.get_or_init(|| {
+    SPICE_INIT.get_or_init(|| {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let test_asset_path = Path::new(&manifest_dir)
             .join("test_assets")
             .join("de440s.bsp");
 
-        // Only proceed if test asset exists (it might not in local dev)
         if !test_asset_path.exists() {
             return;
         }
 
         let cache_dir = get_naif_cache_dir().expect("Failed to get NAIF cache dir");
         let cache_path = Path::new(&cache_dir).join("de440s.bsp");
-
-        // Copy test asset to cache (overwrite if exists to ensure we have latest)
         fs::copy(&test_asset_path, &cache_path).expect("Failed to copy test asset to cache");
 
-        // Load SPK and create Almanac context
-        let cache_path_str = cache_path
-            .to_str()
-            .expect("Failed to convert path to string");
-        let spk = SPK::load(cache_path_str).expect("Failed to load DE440s test kernel");
-        let almanac = Almanac::from_spk(spk);
-
-        // Set as global
-        set_global_almanac(almanac);
+        crate::spice::load_kernel("de440s").expect("Failed to load DE440s test kernel");
     });
 }
 

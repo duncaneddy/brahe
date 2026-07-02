@@ -14,3 +14,16 @@ pub enum SPKKernel {
     /// JPL DE440 - covers 1550-2650 CE, 115MB download.
     DE440,
 }
+
+impl SPKKernel {
+    /// Kernel name string used by `load_kernel` and the NAIF download cache.
+    ///
+    /// # Returns
+    /// - `&'static str`: `"de440s"` or `"de440"`
+    pub fn name(&self) -> &'static str {
+        match self {
+            SPKKernel::DE440s => "de440s",
+            SPKKernel::DE440 => "de440",
+        }
+    }
+}

@@ -135,6 +135,62 @@ fn py_sun_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
+/// Calculate the velocity of the Sun in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate the Sun's velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of the Sun in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_sun = bh.sun_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "sun_velocity_de")]
+fn py_sun_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::sun_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of the Sun in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate the Sun's state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of the Sun in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_sun = bh.sun_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "sun_state_de")]
+fn py_sun_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::sun_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
+}
+
 /// Calculate the position of the Moon in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for lunar position
@@ -172,6 +228,62 @@ fn py_moon_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
     let r = spice::moon_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
+}
+
+/// Calculate the velocity of the Moon in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate the Moon's velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of the Moon in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_moon = bh.moon_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "moon_velocity_de")]
+fn py_moon_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::moon_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of the Moon in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate the Moon's state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of the Moon in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_moon = bh.moon_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "moon_state_de")]
+fn py_moon_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::moon_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
 }
 
 /// Calculate the position of Mercury in the GCRF inertial frame using NAIF DE ephemeris.
@@ -213,6 +325,62 @@ fn py_mercury_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
+/// Calculate the velocity of Mercury in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Mercury's velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of Mercury in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_mercury = bh.mercury_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "mercury_velocity_de")]
+fn py_mercury_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::mercury_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of Mercury in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Mercury's state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Mercury in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_mercury = bh.mercury_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "mercury_state_de")]
+fn py_mercury_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::mercury_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
+}
+
 /// Calculate the position of Venus in the GCRF inertial frame using NAIF DE ephemeris.
 ///
 /// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Venus position
@@ -252,9 +420,65 @@ fn py_venus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeris
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Mars in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Venus in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Mars position
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Venus's velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of Venus in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_venus = bh.venus_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "venus_velocity_de")]
+fn py_venus_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::venus_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of Venus in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Venus's state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Venus in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_venus = bh.venus_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "venus_state_de")]
+fn py_venus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::venus_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
+}
+
+/// Calculate the position of Mars (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Mars (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -267,7 +491,7 @@ fn py_venus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeris
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Mars in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Mars (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -291,9 +515,65 @@ fn py_mars_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Jupiter in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Mars (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Jupiter position
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Mars's velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of Mars (planetary-system barycenter) in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_mars = bh.mars_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "mars_velocity_de")]
+fn py_mars_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::mars_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of Mars (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Mars's state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Mars (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_mars = bh.mars_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "mars_state_de")]
+fn py_mars_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::mars_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
+}
+
+/// Calculate the position of Jupiter (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Jupiter (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -306,7 +586,7 @@ fn py_mars_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Jupiter in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Jupiter (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -330,9 +610,65 @@ fn py_jupiter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Saturn in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Jupiter (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Saturn position
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Jupiter's velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of Jupiter (planetary-system barycenter) in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_jupiter = bh.jupiter_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "jupiter_velocity_de")]
+fn py_jupiter_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::jupiter_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of Jupiter (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Jupiter's state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Jupiter (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_jupiter = bh.jupiter_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "jupiter_state_de")]
+fn py_jupiter_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::jupiter_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
+}
+
+/// Calculate the position of Saturn (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Saturn (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -345,7 +681,7 @@ fn py_jupiter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Saturn in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Saturn (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -369,9 +705,65 @@ fn py_saturn_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Uranus in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Saturn (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Uranus position
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Saturn's velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of Saturn (planetary-system barycenter) in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_saturn = bh.saturn_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "saturn_velocity_de")]
+fn py_saturn_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::saturn_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of Saturn (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Saturn's state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Saturn (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_saturn = bh.saturn_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "saturn_state_de")]
+fn py_saturn_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::saturn_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
+}
+
+/// Calculate the position of Uranus (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Uranus (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -384,7 +776,7 @@ fn py_saturn_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Uranus in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Uranus (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -408,9 +800,65 @@ fn py_uranus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
-/// Calculate the position of Neptune in the GCRF inertial frame using NAIF DE ephemeris.
+/// Calculate the velocity of Uranus (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
-/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Neptune position
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Uranus's velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of Uranus (planetary-system barycenter) in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_uranus = bh.uranus_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "uranus_velocity_de")]
+fn py_uranus_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::uranus_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of Uranus (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Uranus's state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Uranus (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_uranus = bh.uranus_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "uranus_state_de")]
+fn py_uranus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::uranus_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
+}
+
+/// Calculate the position of Neptune (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function uses the high-precision NAIF DE ephemeris kernel (DE440s or DE440) for Neptune (planetary-system barycenter) position
 /// computation. The kernel is loaded once and cached in a global thread-safe context,
 /// making subsequent calls very efficient.
 ///
@@ -423,7 +871,7 @@ fn py_uranus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
 ///
 /// Returns:
-///     np.ndarray: Position of Neptune in the GCRF frame. Units: (m)
+///     np.ndarray: Position of Neptune (planetary-system barycenter) in the GCRF frame. Units: (m)
 ///
 /// Raises:
 ///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
@@ -445,6 +893,62 @@ fn py_neptune_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
     let r = spice::neptune_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
+}
+
+/// Calculate the velocity of Neptune (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Neptune's velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of Neptune (planetary-system barycenter) in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_neptune = bh.neptune_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "neptune_velocity_de")]
+fn py_neptune_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::neptune_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of Neptune (planetary-system barycenter) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate Neptune's state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of Neptune (planetary-system barycenter) in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_neptune = bh.neptune_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "neptune_state_de")]
+fn py_neptune_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::neptune_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
 }
 
 /// Calculate the position of the Solar System Barycenter in the GCRF inertial frame using NAIF DE ephemeris.
@@ -486,6 +990,62 @@ fn py_solar_system_barycenter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, s
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
 
+/// Calculate the velocity of the Solar System Barycenter in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate the Solar System Barycenter velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of the Solar System Barycenter in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_solar_system_barycenter = bh.solar_system_barycenter_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "solar_system_barycenter_velocity_de")]
+fn py_solar_system_barycenter_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::solar_system_barycenter_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Calculate the state (position and velocity) of the Solar System Barycenter in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate the Solar System Barycenter state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of the Solar System Barycenter in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_solar_system_barycenter = bh.solar_system_barycenter_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "solar_system_barycenter_state_de")]
+fn py_solar_system_barycenter_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::solar_system_barycenter_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
+}
+
 /// Convenience alias for `solar_system_barycenter_position_de`.
 ///
 /// Calculate the position of the Solar System Barycenter in the GCRF inertial frame using
@@ -518,6 +1078,68 @@ fn py_ssb_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
     let r = spice::ssb_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
+}
+
+/// Convenience alias for `solar_system_barycenter_velocity_de`.
+///
+/// Calculate the velocity of the Solar System Barycenter in the GCRF inertial frame using
+/// NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate the Solar System Barycenter velocity
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: Velocity of the Solar System Barycenter in the GCRF frame. Units: (m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     v_ssb = bh.ssb_velocity_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "ssb_velocity_de")]
+fn py_ssb_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let v = spice::ssb_velocity_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, v, 3, f64))
+}
+
+/// Convenience alias for `solar_system_barycenter_state_de`.
+///
+/// Calculate the state (position and velocity) of the Solar System Barycenter in the GCRF
+/// inertial frame using NAIF DE ephemeris.
+///
+/// Args:
+///     epc (Epoch): Epoch at which to calculate the Solar System Barycenter state
+///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
+///
+/// Returns:
+///     np.ndarray: State [x, y, z, vx, vy, vz] of the Solar System Barycenter in the GCRF frame. Units: (m, m/s)
+///
+/// Raises:
+///     Exception: If the DE kernel cannot be loaded or ephemeris query fails
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     x_ssb = bh.ssb_state_de(epc, bh.EphemerisSource.DE440s)
+///     ```
+#[pyfunction]
+#[pyo3(name = "ssb_state_de")]
+fn py_ssb_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let kernel = de_kernel_from_py_source(source)?;
+    let x = spice::ssb_state_de(epc.obj, kernel)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, x, 6, f64))
 }
 
 /// Initialize the global ephemeris provider with the default DE440s kernel.

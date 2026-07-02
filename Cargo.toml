@@ -68,12 +68,6 @@ rayon = "1.11"
 num_cpus = "1.17"
 dirs = "6"
 polars = { version = "0.54", default-features = false, features = ["lazy"] }
-# default-features disabled to drop anise's `analysis` feature, which pulls in
-# `hyperdual`. hyperdual pins an exact nalgebra version, so enabling it forces
-# brahe's nalgebra to match anise's (and broke the build when hyperdual 1.5.0
-# moved to nalgebra 0.35 while anise stayed on 0.34). brahe only uses anise's
-# core ephemeris APIs, which need no features.
-anise = { version = "0.10", default-features = false }
 
 # pyo3 is an optional dependency used only by the `python` feature, which enables
 # the `python_interop` module holding the `BraheError` PyErr conversion. The
@@ -94,6 +88,13 @@ mockall = "0.14"
 rv = "0.19"
 rand = "0.9"
 criterion = { version = "0.8", features = ["html_reports"] }
+# default-features disabled to drop anise's `analysis` feature, which pulls in
+# `hyperdual`. hyperdual pins an exact nalgebra version, so enabling it forces
+# brahe's nalgebra to match anise's (and broke the build when hyperdual 1.5.0
+# moved to nalgebra 0.35 while anise stayed on 0.34). brahe only uses anise's
+# core ephemeris APIs, which need no features.
+# Validation oracle for the native SPICE implementation (tests + benchmarks only).
+anise = { version = "0.10", default-features = false }
 
 [features]
 integration = []
@@ -134,6 +135,11 @@ harness = false
 [[bench]]
 name = "gravity_benchmarks"
 path = "benchmarks/gravity_benchmarks.rs"
+harness = false
+
+[[bench]]
+name = "spice_benchmarks"
+path = "benchmarks/spice_benchmarks.rs"
 harness = false
 
 [lints.rust]

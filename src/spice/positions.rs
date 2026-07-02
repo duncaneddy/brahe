@@ -1,516 +1,190 @@
 /*!
- * Solar-system body position queries backed by NAIF DE ephemeris kernels.
+ * Solar-system body position, velocity, and state queries backed by native
+ * SPK ephemeris kernels.
+ *
+ * All outputs are geocentric (center = Earth, NAIF 399) in the kernel's
+ * inertial frame. For DE4xx kernels the "J2000" frame label denotes ICRF
+ * axes (NAIF Frames Required Reading), so values are GCRF-compatible
+ * directly — no frame-bias rotation is applied.
  */
 
-use nalgebra::{Matrix3, Vector3};
+use nalgebra::{Vector3, Vector6};
 
-use anise::constants::frames as anise_frames;
-
-use crate::constants::AS2RAD;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::almanac::{brahe_epoch_to_anise, ensure_kernel_loaded};
 use super::kernels::SPKKernel;
+use super::registry::{
+    NAIF_EARTH, NAIF_JUPITER_BARYCENTER, NAIF_MARS_BARYCENTER, NAIF_MERCURY, NAIF_MOON,
+    NAIF_NEPTUNE_BARYCENTER, NAIF_SATURN_BARYCENTER, NAIF_SSB, NAIF_SUN, NAIF_URANUS_BARYCENTER,
+    NAIF_VENUS, spk_position_in_kernel, spk_state_in_kernel, spk_velocity_in_kernel,
+};
 
-// ============================================================================
-// J2000 → ICRF Frame Bias (private)
-// ============================================================================
+macro_rules! body_de_functions {
+    ($body_name:literal, $target:expr, $pos_fn:ident, $vel_fn:ident, $state_fn:ident) => {
+        #[doc = concat!("Calculate the position of ", $body_name, " relative to Earth using NAIF DE ephemerides.")]
+        ///
+        /// The result is expressed in the kernel's inertial frame (ICRF axes,
+        /// GCRF-compatible; NAIF labels this "J2000").
+        ///
+        /// # Arguments
+        ///
+        /// * `epc` - Epoch at which to calculate the position
+        /// * `kernel` - Which DE kernel to use
+        ///
+        /// # Returns
+        ///
+        #[doc = concat!("* `Ok(Vector3<f64>)` - Position of ", $body_name, " in the GCRF frame. Units: [m]")]
+        /// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
+        ///
+        /// # Example
+        ///
+        /// ```
+        #[doc = concat!("use brahe::spice::{SPKKernel, ", stringify!($pos_fn), "};")]
+        /// use brahe::time::Epoch;
+        /// use brahe::TimeSystem;
+        ///
+        /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+        #[doc = concat!("let r = ", stringify!($pos_fn), "(epc, SPKKernel::DE440s)?;")]
+        /// # Ok::<(), brahe::utils::BraheError>(())
+        /// ```
+        pub fn $pos_fn(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
+            spk_position_in_kernel(kernel.name(), $target, NAIF_EARTH, epc)
+        }
 
-/// Fixed rotation matrix transforming J2000-aligned (EME2000) coordinates to ICRF/GCRF.
-///
-/// This is the IAU 2006 frame bias — constant, independent of epoch.
-///
-/// TODO: This function duplicates `rotation_eme2000_to_gcrf()` in `src/frames/eme_2000.rs`.
-/// It is re-implemented here rather than imported because `*_position_de()` functions
-/// should not depend on modules outside `spice`; it can be removed once we settle on a
-/// clearer boundary between `frames/` and `spice/`.
-///
-/// # References
-/// - IERS Conventions (2010), IERS TN 36, §5
-#[inline]
-#[allow(non_snake_case)]
-fn j2000_to_icrf() -> Matrix3<f64> {
-    let dxi = -16.6170e-3 * AS2RAD; // Frame bias in ξ.  Units: [rad]
-    let deta = -6.8192e-3 * AS2RAD; // Frame bias in η.  Units: [rad]
-    let dalpha = -14.6e-3 * AS2RAD; // Frame bias in α₀. Units: [rad]
+        #[doc = concat!("Calculate the velocity of ", $body_name, " relative to Earth using NAIF DE ephemerides.")]
+        ///
+        /// The result is expressed in the kernel's inertial frame (ICRF axes,
+        /// GCRF-compatible; NAIF labels this "J2000").
+        ///
+        /// # Arguments
+        ///
+        /// * `epc` - Epoch at which to calculate the velocity
+        /// * `kernel` - Which DE kernel to use
+        ///
+        /// # Returns
+        ///
+        #[doc = concat!("* `Ok(Vector3<f64>)` - Velocity of ", $body_name, " in the GCRF frame. Units: [m/s]")]
+        /// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
+        ///
+        /// # Example
+        ///
+        /// ```
+        #[doc = concat!("use brahe::spice::{SPKKernel, ", stringify!($vel_fn), "};")]
+        /// use brahe::time::Epoch;
+        /// use brahe::TimeSystem;
+        ///
+        /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+        #[doc = concat!("let v = ", stringify!($vel_fn), "(epc, SPKKernel::DE440s)?;")]
+        /// # Ok::<(), brahe::utils::BraheError>(())
+        /// ```
+        pub fn $vel_fn(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
+            spk_velocity_in_kernel(kernel.name(), $target, NAIF_EARTH, epc)
+        }
 
-    // Second-order approximation of bias matrix B (GCRF → EME2000).
-    let b = Matrix3::new(
-        1.0 - 0.5 * (dxi * dxi + deta * deta),
-        dalpha,
-        -dxi,
-        -dalpha - dxi * deta,
-        1.0 - 0.5 * (dalpha * dalpha + deta * deta),
-        -deta,
-        dxi + dalpha * deta,
-        deta + dalpha * dxi,
-        1.0 - 0.5 * (deta * deta + dxi * dxi),
-    );
-    b.transpose() // EME2000 → GCRF, i.e. J2000 → ICRF
+        #[doc = concat!("Calculate the state (position and velocity) of ", $body_name, " relative to Earth using NAIF DE ephemerides.")]
+        ///
+        /// The result is expressed in the kernel's inertial frame (ICRF axes,
+        /// GCRF-compatible; NAIF labels this "J2000"). Computing the state
+        /// shares a single record lookup between position and velocity.
+        ///
+        /// # Arguments
+        ///
+        /// * `epc` - Epoch at which to calculate the state
+        /// * `kernel` - Which DE kernel to use
+        ///
+        /// # Returns
+        ///
+        #[doc = concat!("* `Ok(Vector6<f64>)` - State [x, y, z, vx, vy, vz] of ", $body_name, " in the GCRF frame. Units: [m, m/s]")]
+        /// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
+        ///
+        /// # Example
+        ///
+        /// ```
+        #[doc = concat!("use brahe::spice::{SPKKernel, ", stringify!($state_fn), "};")]
+        /// use brahe::time::Epoch;
+        /// use brahe::TimeSystem;
+        ///
+        /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+        #[doc = concat!("let x = ", stringify!($state_fn), "(epc, SPKKernel::DE440s)?;")]
+        /// # Ok::<(), brahe::utils::BraheError>(())
+        /// ```
+        pub fn $state_fn(epc: Epoch, kernel: SPKKernel) -> Result<Vector6<f64>, BraheError> {
+            spk_state_in_kernel(kernel.name(), $target, NAIF_EARTH, epc)
+        }
+    };
 }
 
-// ============================================================================
-// DE Position Functions
-// ============================================================================
-
-/// Calculate the position of the Sun in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate the Sun's position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of the Sun in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, sun_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_sun = sun_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn sun_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::SUN_J2000,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| BraheError::Error(format!("Failed to query Sun position: {}", e)))?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
-
-/// Calculate the position of the Moon in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate the Moon's position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of the Moon in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, moon_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_moon = moon_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn moon_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::IAU_MOON_FRAME,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| BraheError::Error(format!("Failed to query Moon position: {}", e)))?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
-
-/// Calculate the position of Jupiter in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate Jupiter's position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of Jupiter in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, jupiter_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_jupiter = jupiter_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn jupiter_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::JUPITER_BARYCENTER_J2000,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| BraheError::Error(format!("Failed to query Jupiter position: {}", e)))?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
-
-/// Calculate the position of Mars in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate Mars' position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of Mars in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, mars_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_mars = mars_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn mars_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::MARS_BARYCENTER_J2000,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| BraheError::Error(format!("Failed to query Mars position: {}", e)))?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
-
-/// Calculate the position of Mercury in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate Mercury's position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of Mercury in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, mercury_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_mercury = mercury_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn mercury_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::MERCURY_J2000,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| BraheError::Error(format!("Failed to query Mercury position: {}", e)))?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
-
-/// Calculate the position of Neptune in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate Neptune's position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of Neptune in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, neptune_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_neptune = neptune_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn neptune_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::NEPTUNE_BARYCENTER_J2000,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| BraheError::Error(format!("Failed to query Neptune position: {}", e)))?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
-
-/// Calculate the position of Saturn in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate Saturn's position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of Saturn in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, saturn_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_saturn = saturn_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn saturn_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::SATURN_BARYCENTER_J2000,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| BraheError::Error(format!("Failed to query Saturn position: {}", e)))?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
-
-/// Calculate the position of Uranus in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate Uranus' position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of Uranus in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, uranus_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_uranus = uranus_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn uranus_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::URANUS_BARYCENTER_J2000,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| BraheError::Error(format!("Failed to query Uranus position: {}", e)))?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
-
-/// Calculate the position of Venus in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate Venus' position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of Venus in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, venus_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_venus = venus_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn venus_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::VENUS_J2000,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| BraheError::Error(format!("Failed to query Venus position: {}", e)))?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
-
-/// Calculate the position of the Solar System Barycenter in the GCRF frame using NAIF DE ephemeris.
-///
-/// # Arguments
-///
-/// * `epc` - Epoch at which to calculate the SSB position
-/// * `kernel` - Which DE kernel to use
-///
-/// # Returns
-///
-/// * `Ok(Vector3<f64>)` - Position of the SSB in the GCRF frame. Units: [m]
-/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
-///
-/// # Example
-///
-/// ```
-/// use brahe::spice::{SPKKernel, solar_system_barycenter_position_de};
-/// use brahe::time::Epoch;
-/// use brahe::TimeSystem;
-///
-/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_ssb = solar_system_barycenter_position_de(epc, SPKKernel::DE440s)?;
-/// # Ok::<(), brahe::utils::BraheError>(())
-/// ```
-pub fn solar_system_barycenter_position_de(
-    epc: Epoch,
-    kernel: SPKKernel,
-) -> Result<Vector3<f64>, BraheError> {
-    let ctx = ensure_kernel_loaded(kernel)?;
-    let anise_epoch = brahe_epoch_to_anise(epc);
-
-    let r_j2000 = ctx
-        .translate(
-            anise_frames::SSB_J2000,
-            anise_frames::EME2000,
-            anise_epoch,
-            None,
-        )
-        .map_err(|e| {
-            BraheError::Error(format!(
-                "Failed to query Solar System Barycenter position: {}",
-                e
-            ))
-        })?;
-
-    let r_m = Vector3::new(
-        r_j2000.radius_km[0] * 1.0e3,
-        r_j2000.radius_km[1] * 1.0e3,
-        r_j2000.radius_km[2] * 1.0e3,
-    );
-
-    Ok(j2000_to_icrf() * r_m)
-}
+body_de_functions!(
+    "the Sun",
+    NAIF_SUN,
+    sun_position_de,
+    sun_velocity_de,
+    sun_state_de
+);
+body_de_functions!(
+    "the Moon",
+    NAIF_MOON,
+    moon_position_de,
+    moon_velocity_de,
+    moon_state_de
+);
+body_de_functions!(
+    "Mercury",
+    NAIF_MERCURY,
+    mercury_position_de,
+    mercury_velocity_de,
+    mercury_state_de
+);
+body_de_functions!(
+    "Venus",
+    NAIF_VENUS,
+    venus_position_de,
+    venus_velocity_de,
+    venus_state_de
+);
+body_de_functions!(
+    "Mars (planetary-system barycenter)",
+    NAIF_MARS_BARYCENTER,
+    mars_position_de,
+    mars_velocity_de,
+    mars_state_de
+);
+body_de_functions!(
+    "Jupiter (planetary-system barycenter)",
+    NAIF_JUPITER_BARYCENTER,
+    jupiter_position_de,
+    jupiter_velocity_de,
+    jupiter_state_de
+);
+body_de_functions!(
+    "Saturn (planetary-system barycenter)",
+    NAIF_SATURN_BARYCENTER,
+    saturn_position_de,
+    saturn_velocity_de,
+    saturn_state_de
+);
+body_de_functions!(
+    "Uranus (planetary-system barycenter)",
+    NAIF_URANUS_BARYCENTER,
+    uranus_position_de,
+    uranus_velocity_de,
+    uranus_state_de
+);
+body_de_functions!(
+    "Neptune (planetary-system barycenter)",
+    NAIF_NEPTUNE_BARYCENTER,
+    neptune_position_de,
+    neptune_velocity_de,
+    neptune_state_de
+);
+body_de_functions!(
+    "the Solar System Barycenter",
+    NAIF_SSB,
+    solar_system_barycenter_position_de,
+    solar_system_barycenter_velocity_de,
+    solar_system_barycenter_state_de
+);
 
 /// Calculate the position of the Solar System Barycenter in the GCRF frame using NAIF DE ephemeris.
 ///
@@ -541,6 +215,65 @@ pub fn ssb_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, Br
     solar_system_barycenter_position_de(epc, kernel)
 }
 
+/// Calculate the velocity of the Solar System Barycenter in the GCRF frame using NAIF DE ephemeris.
+///
+/// Convenience alias for [`solar_system_barycenter_velocity_de`].
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate the SSB velocity
+/// * `kernel` - Which DE kernel to use
+///
+/// # Returns
+///
+/// * `Ok(Vector3<f64>)` - Velocity of the SSB in the GCRF frame. Units: [m/s]
+/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
+///
+/// # Example
+///
+/// ```
+/// use brahe::spice::{SPKKernel, ssb_velocity_de};
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+/// let v_ssb = ssb_velocity_de(epc, SPKKernel::DE440s)?;
+/// # Ok::<(), brahe::utils::BraheError>(())
+/// ```
+pub fn ssb_velocity_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
+    solar_system_barycenter_velocity_de(epc, kernel)
+}
+
+/// Calculate the state (position and velocity) of the Solar System Barycenter in the
+/// GCRF frame using NAIF DE ephemeris.
+///
+/// Convenience alias for [`solar_system_barycenter_state_de`].
+///
+/// # Arguments
+///
+/// * `epc` - Epoch at which to calculate the SSB state
+/// * `kernel` - Which DE kernel to use
+///
+/// # Returns
+///
+/// * `Ok(Vector6<f64>)` - State [x, y, z, vx, vy, vz] of the SSB in the GCRF frame. Units: [m, m/s]
+/// * `Err(BraheError)` - If the ephemeris kernel cannot be loaded or queried
+///
+/// # Example
+///
+/// ```
+/// use brahe::spice::{SPKKernel, ssb_state_de};
+/// use brahe::time::Epoch;
+/// use brahe::TimeSystem;
+///
+/// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
+/// let x_ssb = ssb_state_de(epc, SPKKernel::DE440s)?;
+/// # Ok::<(), brahe::utils::BraheError>(())
+/// ```
+pub fn ssb_state_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector6<f64>, BraheError> {
+    solar_system_barycenter_state_de(epc, kernel)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
@@ -549,7 +282,7 @@ mod tests {
 
     use super::*;
     use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
-    use crate::utils::testing::setup_global_test_almanac;
+    use crate::utils::testing::setup_global_test_spice;
 
     #[rstest]
     #[case(2025, 1, 1)]
@@ -562,7 +295,7 @@ mod tests {
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
     fn test_sun_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let r_analytical = sun_position(epc);
@@ -584,7 +317,7 @@ mod tests {
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
     fn test_moon_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
 
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let r_analytical = moon_position(epc);
@@ -606,7 +339,7 @@ mod tests {
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
     fn test_jupiter_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let _r = jupiter_position_de(epc, SPKKernel::DE440s).unwrap();
     }
@@ -622,7 +355,7 @@ mod tests {
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
     fn test_mars_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let _r = mars_position_de(epc, SPKKernel::DE440s).unwrap();
     }
@@ -638,7 +371,7 @@ mod tests {
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
     fn test_mercury_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let _r = mercury_position_de(epc, SPKKernel::DE440s).unwrap();
     }
@@ -654,7 +387,7 @@ mod tests {
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
     fn test_neptune_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let _r = neptune_position_de(epc, SPKKernel::DE440s).unwrap();
     }
@@ -670,7 +403,7 @@ mod tests {
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
     fn test_saturn_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let _r = saturn_position_de(epc, SPKKernel::DE440s).unwrap();
     }
@@ -686,7 +419,7 @@ mod tests {
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
     fn test_uranus_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let _r = uranus_position_de(epc, SPKKernel::DE440s).unwrap();
     }
@@ -702,7 +435,7 @@ mod tests {
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
     fn test_venus_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let _r = venus_position_de(epc, SPKKernel::DE440s).unwrap();
     }
@@ -722,8 +455,79 @@ mod tests {
         #[case] month: u8,
         #[case] day: u8,
     ) {
-        setup_global_test_almanac();
+        setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let _r = solar_system_barycenter_position_de(epc, SPKKernel::DE440s).unwrap();
+    }
+
+    #[test]
+    fn test_sun_velocity_de() {
+        setup_global_test_spice();
+        let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);
+        let v = sun_velocity_de(epc, SPKKernel::DE440s).unwrap();
+        // Geocentric solar velocity magnitude ~ 29-30.3 km/s
+        assert!(v.norm() > 2.8e4 && v.norm() < 3.1e4);
+    }
+
+    #[test]
+    fn test_moon_state_de_consistent() {
+        setup_global_test_spice();
+        let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);
+        let x = moon_state_de(epc, SPKKernel::DE440s).unwrap();
+        let r = moon_position_de(epc, SPKKernel::DE440s).unwrap();
+        let v = moon_velocity_de(epc, SPKKernel::DE440s).unwrap();
+        assert_abs_diff_eq!((x.fixed_rows::<3>(0) - r).norm(), 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!((x.fixed_rows::<3>(3) - v).norm(), 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_all_bodies_have_velocity_and_state() {
+        setup_global_test_spice();
+        let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);
+        for (v, x) in [
+            (
+                sun_velocity_de(epc, SPKKernel::DE440s),
+                sun_state_de(epc, SPKKernel::DE440s),
+            ),
+            (
+                moon_velocity_de(epc, SPKKernel::DE440s),
+                moon_state_de(epc, SPKKernel::DE440s),
+            ),
+            (
+                mercury_velocity_de(epc, SPKKernel::DE440s),
+                mercury_state_de(epc, SPKKernel::DE440s),
+            ),
+            (
+                venus_velocity_de(epc, SPKKernel::DE440s),
+                venus_state_de(epc, SPKKernel::DE440s),
+            ),
+            (
+                mars_velocity_de(epc, SPKKernel::DE440s),
+                mars_state_de(epc, SPKKernel::DE440s),
+            ),
+            (
+                jupiter_velocity_de(epc, SPKKernel::DE440s),
+                jupiter_state_de(epc, SPKKernel::DE440s),
+            ),
+            (
+                saturn_velocity_de(epc, SPKKernel::DE440s),
+                saturn_state_de(epc, SPKKernel::DE440s),
+            ),
+            (
+                uranus_velocity_de(epc, SPKKernel::DE440s),
+                uranus_state_de(epc, SPKKernel::DE440s),
+            ),
+            (
+                neptune_velocity_de(epc, SPKKernel::DE440s),
+                neptune_state_de(epc, SPKKernel::DE440s),
+            ),
+            (
+                ssb_velocity_de(epc, SPKKernel::DE440s),
+                ssb_state_de(epc, SPKKernel::DE440s),
+            ),
+        ] {
+            assert!(v.unwrap().iter().all(|c| c.is_finite()));
+            assert!(x.unwrap().iter().all(|c| c.is_finite()));
+        }
     }
 }

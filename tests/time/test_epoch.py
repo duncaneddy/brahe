@@ -405,6 +405,26 @@ def test_epoch_to_mjd(eop):
     assert epc.mjd_as_time_system(bh.UTC) == bh.MJD_J2000 - 32.0 / 86400.0
 
 
+def test_seconds_past_j2000_as_time_system(eop):
+    epc = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.TT)
+    assert epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TT) == pytest.approx(
+        0.0, abs=1e-9
+    )
+    assert epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TAI) == pytest.approx(
+        -32.184, abs=1e-9
+    )
+
+    epc2 = bh.Epoch.from_datetime(2000, 1, 2, 12, 0, 0.0, 0.0, bh.TimeSystem.TT)
+    assert epc2.seconds_past_j2000_as_time_system(bh.TimeSystem.TT) == pytest.approx(
+        86400.0, abs=1e-9
+    )
+
+    d = epc.seconds_past_j2000_as_time_system(
+        bh.TimeSystem.TDB
+    ) - epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TT)
+    assert abs(d) < 1.7e-3
+
+
 def test_gps_date(eop):
     epc = bh.Epoch.from_date(2018, 3, 1, bh.GPS)
     (gps_week, gps_seconds) = epc.gps_date()

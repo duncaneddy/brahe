@@ -1209,6 +1209,30 @@ impl PyEpoch {
         self.obj.mjd()
     }
 
+    /// Returns the number of seconds elapsed since the J2000 epoch
+    /// (2000-01-01 12:00:00 TT, JD 2451545.0) in the specified time system.
+    ///
+    /// For `TimeSystem.TDB` this is the SPICE ephemeris time (ET) used by
+    /// SPK/PCK kernels.
+    ///
+    /// Args:
+    ///     time_system (TimeSystem): Time system in which to express the result
+    ///
+    /// Returns:
+    ///     float: Seconds elapsed since J2000 in the given time system. Units: (s)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.TT)
+    ///     et = epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TDB)
+    ///     ```
+    pub fn seconds_past_j2000_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
+        self.obj
+            .seconds_past_j2000_as_time_system(time_system.ts)
+    }
+
     /// Get the GPS week number and seconds into the week.
     ///
     /// Returns:

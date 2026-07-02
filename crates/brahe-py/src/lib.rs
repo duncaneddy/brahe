@@ -541,6 +541,7 @@ include!("time.rs");
 include!("frames.rs");
 include!("coordinates.rs");
 include!("orbits.rs");
+include!("spice.rs");
 include!("orbit_dynamics.rs"); // Must come before propagators.rs (uses PyEphemerisSource)
 include!("integrators.rs"); // Must come before propagators.rs (uses PyIntegratorConfig)
 include!("events.rs"); // Must come before propagators.rs (premade events used in add_event_detector)
@@ -980,24 +981,99 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_icgem_refresh_all_indexes, module)?)?;
     module.add_function(wrap_pyfunction!(py_icgem_download_model, module)?)?;
 
+    //* SPICE Kernel Registry *//
+    module.add_function(wrap_pyfunction!(py_load_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_unload_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_clear_kernels, module)?)?;
+    module.add_function(wrap_pyfunction!(py_loaded_kernels, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_position, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_velocity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_state, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_position_in_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_velocity_in_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_state_in_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_euler_angles, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_rotation_matrix, module)?)?;
+
+    // NAIF ID constants
+    module.add("NAIF_SSB", brahe::spice::NAIF_SSB)?;
+    module.add(
+        "NAIF_MERCURY_BARYCENTER",
+        brahe::spice::NAIF_MERCURY_BARYCENTER,
+    )?;
+    module.add("NAIF_VENUS_BARYCENTER", brahe::spice::NAIF_VENUS_BARYCENTER)?;
+    module.add("NAIF_EMB", brahe::spice::NAIF_EMB)?;
+    module.add("NAIF_MARS_BARYCENTER", brahe::spice::NAIF_MARS_BARYCENTER)?;
+    module.add(
+        "NAIF_JUPITER_BARYCENTER",
+        brahe::spice::NAIF_JUPITER_BARYCENTER,
+    )?;
+    module.add(
+        "NAIF_SATURN_BARYCENTER",
+        brahe::spice::NAIF_SATURN_BARYCENTER,
+    )?;
+    module.add(
+        "NAIF_URANUS_BARYCENTER",
+        brahe::spice::NAIF_URANUS_BARYCENTER,
+    )?;
+    module.add(
+        "NAIF_NEPTUNE_BARYCENTER",
+        brahe::spice::NAIF_NEPTUNE_BARYCENTER,
+    )?;
+    module.add("NAIF_PLUTO_BARYCENTER", brahe::spice::NAIF_PLUTO_BARYCENTER)?;
+    module.add("NAIF_SUN", brahe::spice::NAIF_SUN)?;
+    module.add("NAIF_MERCURY", brahe::spice::NAIF_MERCURY)?;
+    module.add("NAIF_VENUS", brahe::spice::NAIF_VENUS)?;
+    module.add("NAIF_EARTH", brahe::spice::NAIF_EARTH)?;
+    module.add("NAIF_MOON", brahe::spice::NAIF_MOON)?;
+    module.add("NAIF_MARS", brahe::spice::NAIF_MARS)?;
+
     //* Orbit Dynamics - Ephemerides *//
     module.add_class::<PyEphemerisSource>()?;
     module.add_function(wrap_pyfunction!(py_sun_position, module)?)?;
     module.add_function(wrap_pyfunction!(py_moon_position, module)?)?;
     module.add_function(wrap_pyfunction!(py_sun_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_moon_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_mercury_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_venus_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_mars_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_jupiter_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_saturn_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_uranus_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_neptune_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(
         py_solar_system_barycenter_position_de,
         module
     )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_velocity_de,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_state_de,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(py_ssb_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_initialize_ephemeris, module)?)?;
 
     //* Orbit Dynamics - Acceleration Models *//

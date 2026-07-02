@@ -54,7 +54,7 @@ Simplified analytical expressions provide approximate positions of the Sun and M
 
 ### DE440s Ephemerides
 
-For high-precision applications, Brahe supports using JPL's DE440s ephemerides with data provided by NASA JPL's [Naviation and Ancillary Information Facility](https://naif.jpl.nasa.gov/naif/index.html) and computations implemented using the excellent [Anise](https://github.com/nyx-space/anise) library.
+For high-precision applications, Brahe supports using JPL's DE440s ephemerides, read directly from NAIF SPICE kernels by brahe's native SPK/PCK reader. See [SPICE Kernels](../spice/index.md) for kernel loading, generic NAIF-ID queries, and kernel-scoped queries.
 
 The Development Ephemeris 440s (DE440s) provides high-precision positions of all major solar system bodies using numerical integration over the time span of 1849 to 2150. They provide meter-level accuracy or better for planetary positions, but require downloading and managing SPICE kernel data files. Brahe generally will download and cache these files automatically on first use.
 
@@ -90,6 +90,7 @@ Compute the combined gravitational acceleration from the Sun and Moon on a satel
 ## See Also
 
 - [Library API Reference: Third-Body](../../library_api/orbit_dynamics/third_body.md)
+- [SPICE Kernels](../spice/index.md) - Kernel loading and generic ephemeris queries
 - [Datasets: NAIF](../datasets/naif.md) - DE440s ephemeris data
 - [Orbital Dynamics Overview](index.md)
 

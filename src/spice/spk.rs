@@ -711,32 +711,47 @@ mod tests {
         assert!(msg.contains("10") && msg.contains("0") && msg.contains("300"));
     }
 
-    #[test]
-    fn test_spk_fallback_not_triggered_by_non_coverage_error() {
-        // The epoch-aware fallback must engage ONLY on out-of-coverage
-        // errors. A corrupt covering segment (record RADIUS=0 -> invalid-
-        // RADIUS IoError) must propagate its error unchanged, even though
-        // a valid alternate two-hop path exists that the fallback could
-        // otherwise route through -- rerouting would silently mask the
-        // corrupt data.
+    /// Build a synthetic single-record type-2 segment covering
+    /// `[start_et, end_et]` whose record `RADIUS` is 0, so any evaluation
+    /// inside its coverage fails with the invalid-RADIUS `IoError` (a
+    /// non-coverage error).
+    fn corrupt_radius_segment(
+        target: i32,
+        center: i32,
+        start_et: f64,
+        end_et: f64,
+    ) -> Arc<ChebyshevSegment> {
         let degree = 1usize;
         let rsize = 2 + 3 * (degree + 1);
-        // Direct segment covers [0, 200] but its record has RADIUS=0.
-        let corrupt_direct = Arc::new(ChebyshevSegment {
-            target: 10,
-            center: 0,
+        let mid = (start_et + end_et) / 2.0;
+        Arc::new(ChebyshevSegment {
+            target,
+            center,
             frame: 1,
             data_type: 2,
             ncomp: 3,
-            start_et: 0.0,
-            end_et: 200.0,
-            init: 0.0,
-            intlen: 200.0,
+            start_et,
+            end_et,
+            init: start_et,
+            intlen: end_et - start_et,
             rsize,
             n: 1,
             degree,
-            coeffs: vec![100.0, 0.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        });
+            coeffs: vec![mid, 0.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        })
+    }
+
+    #[test]
+    fn test_spk_corrupt_record_error_propagates_end_to_end() {
+        // End-to-end via SPK::position: a corrupt covering segment (record
+        // RADIUS=0 -> invalid-RADIUS IoError) must surface its error, with
+        // a valid alternate two-hop path also loaded. Note this setup alone
+        // does not discriminate the is_coverage_error guard (the corrupt
+        // segment covers et, so an unguarded fallback would re-resolve to
+        // the same corrupt 1-hop chain and fail identically); the
+        // discriminating unit test is
+        // `test_fallback_guard_ignores_non_coverage_error_even_when_fallback_would_succeed`.
+        let corrupt_direct = corrupt_radius_segment(10, 0, 0.0, 200.0);
         let leg_ac = constant_segment(10, 3, 0.0, 200.0, 2.0);
         let leg_cb = constant_segment(3, 0, 0.0, 200.0, 3.0);
         let spk = SPK {
@@ -750,6 +765,61 @@ mod tests {
         assert!(!is_coverage_error(&err));
         let msg = format!("{}", err);
         assert!(msg.contains("RADIUS"), "unexpected error: {}", msg);
+    }
+
+    #[test]
+    fn test_fallback_guard_ignores_non_coverage_error_even_when_fallback_would_succeed() {
+        // Discriminating regression test for the is_coverage_error gate in
+        // `evaluate_with_epoch_fallback`: the cached chain is built from a
+        // corrupt (10,0) segment (record RADIUS=0, covering et), while the
+        // injected fallback segment pool contains ONLY a valid (10,0)
+        // segment that would evaluate successfully. Under the old
+        // unguarded `Err(_)` behavior the fallback would engage, resolve
+        // the valid pool, and return Ok -- silently masking the corrupt
+        // data. With the guard, the non-coverage RADIUS error propagates.
+        let corrupt = corrupt_radius_segment(10, 0, 0.0, 200.0);
+        let valid = constant_segment(10, 0, 0.0, 200.0, 5.0);
+
+        let cached_chain = resolve_chain(std::slice::from_ref(&corrupt), 10, 0).unwrap();
+        let fallback_pool = vec![Arc::clone(&valid)];
+
+        // (a) Corruption propagates: the fallback must NOT rescue it.
+        let err = evaluate_with_epoch_fallback(
+            &cached_chain,
+            10,
+            0,
+            50.0,
+            || fallback_pool.clone(),
+            evaluate_chain_position,
+        )
+        .unwrap_err();
+        assert!(!is_coverage_error(&err));
+        let msg = format!("{}", err);
+        assert!(msg.contains("RADIUS"), "unexpected error: {}", msg);
+
+        // (b) Prove the setup discriminates: had the fallback engaged, it
+        // WOULD have succeeded over this pool at this epoch.
+        let rescue_chain = resolve_chain_for_epoch(&fallback_pool, 10, 0, 50.0).unwrap();
+        let r = evaluate_chain_position(&rescue_chain, 50.0).unwrap();
+        assert_abs_diff_eq!(r[0], 5.0, epsilon = 1e-12);
+
+        // (c) Sanity: a genuine coverage miss on the same cached chain DOES
+        // engage the fallback and reach the valid pool (guard lets
+        // coverage errors through). et=300 is outside the corrupt chain's
+        // [0,200] coverage; use a pool segment covering it to confirm the
+        // rescue path.
+        let wide_valid = constant_segment(10, 0, 0.0, 400.0, 5.0);
+        let wide_pool = vec![wide_valid];
+        let r = evaluate_with_epoch_fallback(
+            &cached_chain,
+            10,
+            0,
+            300.0,
+            || wide_pool.clone(),
+            evaluate_chain_position,
+        )
+        .unwrap();
+        assert_abs_diff_eq!(r[0], 5.0, epsilon = 1e-12);
     }
 
     #[test]

@@ -9,16 +9,38 @@ Ephemerides:
 - sun_position: Low-precision analytical solar position
 - moon_position: Low-precision analytical lunar position
 - sun_position_de: High-precision solar position using NAIF DE ephemerides
+- sun_velocity_de: High-precision solar velocity using NAIF DE ephemerides
+- sun_state_de: High-precision solar state using NAIF DE ephemerides
 - moon_position_de: High-precision lunar position using NAIF DE ephemerides
+- moon_velocity_de: High-precision lunar velocity using NAIF DE ephemerides
+- moon_state_de: High-precision lunar state using NAIF DE ephemerides
 - mercury_position_de: High-precision Mercury position using NAIF DE ephemerides
+- mercury_velocity_de: High-precision Mercury velocity using NAIF DE ephemerides
+- mercury_state_de: High-precision Mercury state using NAIF DE ephemerides
 - venus_position_de: High-precision Venus position using NAIF DE ephemerides
+- venus_velocity_de: High-precision Venus velocity using NAIF DE ephemerides
+- venus_state_de: High-precision Venus state using NAIF DE ephemerides
 - mars_position_de: High-precision Mars position using NAIF DE ephemerides
+- mars_velocity_de: High-precision Mars velocity using NAIF DE ephemerides
+- mars_state_de: High-precision Mars state using NAIF DE ephemerides
 - jupiter_position_de: High-precision Jupiter position using NAIF DE ephemerides
+- jupiter_velocity_de: High-precision Jupiter velocity using NAIF DE ephemerides
+- jupiter_state_de: High-precision Jupiter state using NAIF DE ephemerides
 - saturn_position_de: High-precision Saturn position using NAIF DE ephemerides
+- saturn_velocity_de: High-precision Saturn velocity using NAIF DE ephemerides
+- saturn_state_de: High-precision Saturn state using NAIF DE ephemerides
 - uranus_position_de: High-precision Uranus position using NAIF DE ephemerides
+- uranus_velocity_de: High-precision Uranus velocity using NAIF DE ephemerides
+- uranus_state_de: High-precision Uranus state using NAIF DE ephemerides
 - neptune_position_de: High-precision Neptune position using NAIF DE ephemerides
+- neptune_velocity_de: High-precision Neptune velocity using NAIF DE ephemerides
+- neptune_state_de: High-precision Neptune state using NAIF DE ephemerides
 - solar_system_barycenter_position_de: High-precision SSB position using NAIF DE ephemerides
+- solar_system_barycenter_velocity_de: High-precision SSB velocity using NAIF DE ephemerides
+- solar_system_barycenter_state_de: High-precision SSB state using NAIF DE ephemerides
 - ssb_position_de: Convenience alias for solar_system_barycenter_position_de
+- ssb_velocity_de: Convenience alias for solar_system_barycenter_velocity_de
+- ssb_state_de: Convenience alias for solar_system_barycenter_state_de
 - initialize_ephemeris: Pre-initialize the DE ephemeris kernel
 
 Acceleration Models:
@@ -67,16 +89,38 @@ from brahe._brahe import (
     sun_position,
     moon_position,
     sun_position_de,
+    sun_velocity_de,
+    sun_state_de,
     moon_position_de,
+    moon_velocity_de,
+    moon_state_de,
     mercury_position_de,
+    mercury_velocity_de,
+    mercury_state_de,
     venus_position_de,
+    venus_velocity_de,
+    venus_state_de,
     mars_position_de,
+    mars_velocity_de,
+    mars_state_de,
     jupiter_position_de,
+    jupiter_velocity_de,
+    jupiter_state_de,
     saturn_position_de,
+    saturn_velocity_de,
+    saturn_state_de,
     uranus_position_de,
+    uranus_velocity_de,
+    uranus_state_de,
     neptune_position_de,
+    neptune_velocity_de,
+    neptune_state_de,
     solar_system_barycenter_position_de,
+    solar_system_barycenter_velocity_de,
+    solar_system_barycenter_state_de,
     ssb_position_de,
+    ssb_velocity_de,
+    ssb_state_de,
     initialize_ephemeris,
     # Third-Body Accelerations
     accel_third_body_sun,
@@ -125,16 +169,38 @@ __all__ = [
     "sun_position",
     "moon_position",
     "sun_position_de",
+    "sun_velocity_de",
+    "sun_state_de",
     "moon_position_de",
+    "moon_velocity_de",
+    "moon_state_de",
     "mercury_position_de",
+    "mercury_velocity_de",
+    "mercury_state_de",
     "venus_position_de",
+    "venus_velocity_de",
+    "venus_state_de",
     "mars_position_de",
+    "mars_velocity_de",
+    "mars_state_de",
     "jupiter_position_de",
+    "jupiter_velocity_de",
+    "jupiter_state_de",
     "saturn_position_de",
+    "saturn_velocity_de",
+    "saturn_state_de",
     "uranus_position_de",
+    "uranus_velocity_de",
+    "uranus_state_de",
     "neptune_position_de",
+    "neptune_velocity_de",
+    "neptune_state_de",
     "solar_system_barycenter_position_de",
+    "solar_system_barycenter_velocity_de",
+    "solar_system_barycenter_state_de",
     "ssb_position_de",
+    "ssb_velocity_de",
+    "ssb_state_de",
     "initialize_ephemeris",
     # Third-Body Accelerations
     "accel_third_body_sun",

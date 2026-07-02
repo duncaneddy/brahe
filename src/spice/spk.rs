@@ -21,10 +21,12 @@ use super::daf::DafFile;
 use super::segments::ChebyshevSegment;
 
 /// One link in a resolved target→center chain: the candidate segments for a
-/// single body pair (in precedence order) and the traversal sign.
+/// single body pair (in input order; last-listed takes precedence) and the
+/// traversal sign.
 #[derive(Debug, Clone)]
 pub(crate) struct ChainLink {
-    /// Candidate segments for this pair, checked in order for ET coverage.
+    /// Candidate segments for this pair, kept in input order; evaluation
+    /// checks them last-to-first for ET coverage (last-listed wins).
     pub segments: Vec<Arc<ChebyshevSegment>>,
     /// +1.0 when the segment's (target rel center) direction matches the
     /// traversal; −1.0 when traversed in reverse.
@@ -52,7 +54,8 @@ pub(crate) fn resolve_chain(
     }
 
     // Adjacency: body -> neighboring bodies. Pair key is (target, center)
-    // as stored in segments; candidates kept in input (precedence) order.
+    // as stored in segments; candidates kept in input order (evaluation
+    // selects the last covering candidate, so later input wins).
     let mut pair_segments: HashMap<(i32, i32), Vec<Arc<ChebyshevSegment>>> = HashMap::new();
     let mut adjacency: HashMap<i32, Vec<i32>> = HashMap::new();
     for seg in segments {
@@ -368,6 +371,55 @@ mod tests {
 
     // ET for 2025-01-01 00:00 TDB, safely inside DE440s coverage
     const ET_2025: f64 = 788_961_600.0;
+
+    /// Build a synthetic single-record type-2 segment whose x-position is
+    /// the constant `x` (km) over `[start_et, end_et]`; y = z = 0.
+    fn constant_segment(
+        target: i32,
+        center: i32,
+        start_et: f64,
+        end_et: f64,
+        x: f64,
+    ) -> Arc<ChebyshevSegment> {
+        let degree = 1usize;
+        let rsize = 2 + 3 * (degree + 1);
+        let mid = (start_et + end_et) / 2.0;
+        let radius = (end_et - start_et) / 2.0;
+        let coeffs = vec![mid, radius, x, 0.0, 0.0, 0.0, 0.0, 0.0];
+        Arc::new(ChebyshevSegment {
+            target,
+            center,
+            frame: 1,
+            data_type: 2,
+            ncomp: 3,
+            start_et,
+            end_et,
+            init: start_et,
+            intlen: end_et - start_et,
+            rsize,
+            n: 1,
+            degree,
+            coeffs,
+        })
+    }
+
+    #[test]
+    fn test_chain_overlapping_segments_last_wins() {
+        // SPICE precedence: when multiple same-pair segments cover an epoch,
+        // the LAST one in input (load) order wins. Regression test for the
+        // segment-selection direction in `covering_segment`.
+        let seg_old = constant_segment(10, 0, 0.0, 200.0, 1.0);
+        let seg_new = constant_segment(10, 0, 0.0, 100.0, 2.0);
+        let chain = resolve_chain(&[seg_old, seg_new], 10, 0).unwrap();
+
+        // Both segments cover et=50: the later-listed one takes precedence.
+        let r = evaluate_chain_position(&chain, 50.0).unwrap();
+        assert_abs_diff_eq!(r[0], 2.0, epsilon = 1e-12);
+
+        // Only the earlier segment covers et=150: falls back to it.
+        let r = evaluate_chain_position(&chain, 150.0).unwrap();
+        assert_abs_diff_eq!(r[0], 1.0, epsilon = 1e-12);
+    }
 
     #[test]
     fn test_spk_direct_segment_query() {

@@ -4,10 +4,13 @@
  * Owns a process-wide set of loaded SPK/PCK kernels keyed by the
  * name-or-path string used to load them. Kernels are auto-detected as SPK
  * or PCK from the DAF ID word. Cross-kernel `spk_*` queries build a chain
- * of segments spanning all loaded SPK kernels, with more recently loaded
- * kernels taking precedence for overlapping body pairs (matching SPICE's
- * own "last loaded wins" convention). `pck_*` queries search loaded PCK
- * kernels newest-first for a frame with coverage at the requested epoch.
+ * of segments spanning all loaded SPK kernels, collected in natural load
+ * order (each kernel's segments in file order); segment selection at
+ * evaluation time picks the last covering candidate, so more recently
+ * loaded kernels take precedence for overlapping body pairs (matching
+ * SPICE's own "last loaded wins" convention). `pck_*` queries search
+ * loaded PCK kernels newest-first for a frame with coverage at the
+ * requested epoch.
  */
 
 use std::collections::HashMap;
@@ -282,10 +285,11 @@ pub fn initialize_ephemeris_with_kernel(kernel: &str) -> Result<(), BraheError> 
 // ============================================================================
 
 /// Resolve (and cache) the cross-kernel segment chain for `target` rel
-/// `center`, spanning all loaded SPK kernels. Later-loaded kernels take
-/// precedence: both across kernels and within a single kernel, segments
-/// are offered to [`resolve_chain`] newest-first so ties resolve to the
-/// most recently loaded data.
+/// `center`, spanning all loaded SPK kernels. Segments are offered to
+/// [`resolve_chain`] in natural order (kernels in load order, each
+/// kernel's segments in file order); the evaluators then select the last
+/// covering candidate per link, so the most recently loaded kernel wins
+/// for overlapping body pairs.
 fn global_chain(target: i32, center: i32) -> Result<Arc<Vec<ChainLink>>, BraheError> {
     {
         let reg = GLOBAL_SPICE.read().unwrap();
@@ -297,13 +301,13 @@ fn global_chain(target: i32, center: i32) -> Result<Arc<Vec<ChainLink>>, BraheEr
     if let Some(chain) = reg.chain_cache.get(&(target, center)) {
         return Ok(Arc::clone(chain)); // double-checked
     }
-    // Later-loaded kernels take precedence: collect segments newest-first,
-    // and within each kernel reverse its own segment order too, so
-    // last-listed-wins semantics apply consistently at both levels.
+    // Natural order: kernels in load order, each kernel's segments in file
+    // order. Combined with select-last in `covering_segment`, this makes
+    // the most recently loaded covering segment win.
     let mut segments = Vec::new();
-    for name in reg.load_order.iter().rev() {
+    for name in reg.load_order.iter() {
         if let Some(Kernel::Spk(spk)) = reg.kernels.get(name) {
-            segments.extend(spk.segments().iter().rev().cloned());
+            segments.extend(spk.segments().iter().cloned());
         }
     }
     if segments.is_empty() {
@@ -428,6 +432,9 @@ pub fn spk_state(target: i32, center: i32, epc: Epoch) -> Result<Vector6<f64>, B
 
 /// Fetch the loaded `Kernel::Spk` entry for `kernel_name`, loading it first
 /// if absent.
+// The `spk_*_in_kernel` family is not yet called within this crate; the
+// per-body DE position functions (a later task) consume it.
+#[allow(dead_code)]
 fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
     load_kernel(kernel_name)?;
     let reg = GLOBAL_SPICE.read().unwrap();
@@ -455,16 +462,8 @@ fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
 /// # Returns
 /// - Position of `target` relative to `center` in the kernel's inertial
 ///   frame (ICRF axes). Units: [m]
-///
-/// # Examples
-/// ```no_run
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_position_in_kernel};
-/// use brahe::time::{Epoch, TimeSystem};
-///
-/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let r_moon = spk_position_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
-/// ```
-pub fn spk_position_in_kernel(
+#[allow(dead_code)]
+pub(crate) fn spk_position_in_kernel(
     kernel_name: &str,
     target: i32,
     center: i32,
@@ -488,16 +487,8 @@ pub fn spk_position_in_kernel(
 /// # Returns
 /// - Velocity of `target` relative to `center` in the kernel's inertial
 ///   frame (ICRF axes). Units: [m/s]
-///
-/// # Examples
-/// ```no_run
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_velocity_in_kernel};
-/// use brahe::time::{Epoch, TimeSystem};
-///
-/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let v_moon = spk_velocity_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
-/// ```
-pub fn spk_velocity_in_kernel(
+#[allow(dead_code)]
+pub(crate) fn spk_velocity_in_kernel(
     kernel_name: &str,
     target: i32,
     center: i32,
@@ -522,16 +513,8 @@ pub fn spk_velocity_in_kernel(
 /// # Returns
 /// - State `[x, y, z, vx, vy, vz]` of `target` relative to `center` in the
 ///   kernel's inertial frame (ICRF axes). Units: [m, m/s]
-///
-/// # Examples
-/// ```no_run
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_state_in_kernel};
-/// use brahe::time::{Epoch, TimeSystem};
-///
-/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let x_moon = spk_state_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
-/// ```
-pub fn spk_state_in_kernel(
+#[allow(dead_code)]
+pub(crate) fn spk_state_in_kernel(
     kernel_name: &str,
     target: i32,
     center: i32,
@@ -648,6 +631,63 @@ mod tests {
         Epoch::from_date(2025, 1, 1, TimeSystem::UTC)
     }
 
+    /// Build a minimal little-endian SPK with one type-2 segment for target
+    /// 10 rel center 0 whose x-position is the constant `x_km` over ET in
+    /// [-2e9, 2e9] (covers 2025); y = z = 0.
+    fn synthetic_spk_bytes(x_km: f64) -> Vec<u8> {
+        let degree = 1usize;
+        let rsize = 2 + 3 * (degree + 1); // 8
+        // Data: record [MID, RADIUS, x0, x1, y0, y1, z0, z1] + trailer
+        let data: Vec<f64> = vec![
+            0.0,
+            2.0e9, // MID, RADIUS
+            x_km,
+            0.0, // x
+            0.0,
+            0.0, // y
+            0.0,
+            0.0, // z
+            -2.0e9,
+            4.0e9,
+            rsize as f64,
+            1.0, // INIT, INTLEN, RSIZE, N
+        ];
+
+        let mut file = vec![0u8; 4 * 1024];
+        file[..8].copy_from_slice(b"DAF/SPK ");
+        file[8..12].copy_from_slice(&2i32.to_le_bytes()); // ND
+        file[12..16].copy_from_slice(&6i32.to_le_bytes()); // NI
+        file[76..80].copy_from_slice(&2i32.to_le_bytes()); // FWARD
+        file[80..84].copy_from_slice(&2i32.to_le_bytes()); // BWARD
+        file[84..88].copy_from_slice(&500i32.to_le_bytes()); // FREE
+        file[88..96].copy_from_slice(b"LTL-IEEE");
+
+        // Summary record (record 2): NEXT=0, PREV=0, NSUM=1
+        let rec = 1024;
+        file[rec + 16..rec + 24].copy_from_slice(&1f64.to_le_bytes());
+        // doubles: start_et, end_et
+        file[rec + 24..rec + 32].copy_from_slice(&(-2.0e9f64).to_le_bytes());
+        file[rec + 32..rec + 40].copy_from_slice(&2.0e9f64.to_le_bytes());
+        // ints: [target, center, frame, type, start_addr, end_addr]
+        // Data record = record 4 => word address 385 ((4-1)*128 + 1)
+        let start_addr = 385i32;
+        let end_addr = start_addr + data.len() as i32 - 1;
+        for (i, v) in [10i32, 0, 1, 2, start_addr, end_addr].iter().enumerate() {
+            let off = rec + 40 + i * 4;
+            file[off..off + 4].copy_from_slice(&v.to_le_bytes());
+        }
+        // Name record (record 3): spaces
+        for b in &mut file[2048..2048 + 40] {
+            *b = b' ';
+        }
+        // Data (record 4)
+        for (i, v) in data.iter().enumerate() {
+            let off = 3 * 1024 + i * 8;
+            file[off..off + 8].copy_from_slice(&v.to_le_bytes());
+        }
+        file
+    }
+
     #[test]
     #[serial]
     fn test_registry_load_unload_idempotent() {
@@ -697,6 +737,38 @@ mod tests {
         let r = spk_position(NAIF_SUN, NAIF_EARTH, epc_2025()).unwrap();
         assert!(r.norm() > 1.4e11);
         assert_eq!(loaded_kernels(), vec!["de440s".to_string()]);
+    }
+
+    #[test]
+    #[serial]
+    fn test_registry_last_loaded_kernel_wins() {
+        // SPICE precedence: the most recently loaded kernel wins for
+        // overlapping body pairs. Regression test for the cross-kernel
+        // segment ordering in `global_chain`.
+        setup_global_test_spice();
+        clear_kernels();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path_a = dir.path().join("a.bsp");
+        let path_b = dir.path().join("b.bsp");
+        std::fs::write(&path_a, synthetic_spk_bytes(1.0)).unwrap();
+        std::fs::write(&path_b, synthetic_spk_bytes(2.0)).unwrap();
+
+        load_kernel(path_a.to_str().unwrap()).unwrap();
+        load_kernel(path_b.to_str().unwrap()).unwrap();
+
+        // Later-loaded kernel B takes precedence (2.0 km = 2.0e3 m).
+        let r = spk_position(10, NAIF_SSB, epc_2025()).unwrap();
+        assert_abs_diff_eq!(r[0], 2.0e3, epsilon = 1e-9);
+
+        // Unloading B invalidates the chain cache and falls back to A.
+        unload_kernel(path_b.to_str().unwrap()).unwrap();
+        let r = spk_position(10, NAIF_SSB, epc_2025()).unwrap();
+        assert_abs_diff_eq!(r[0], 1.0e3, epsilon = 1e-9);
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
     }
 
     #[test]

@@ -14,6 +14,8 @@ pub mod positions;
 pub mod registry;
 pub(crate) mod segments;
 pub mod spk;
+#[cfg(test)]
+mod validation;
 
 pub use kernels::*;
 pub use pck::BPCK;

@@ -152,7 +152,7 @@ fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, Brahe
 /// downloaded and cached via [`crate::datasets::naif::download_de_kernel`];
 /// the known binary PCK name `"moon_pa_de440"` is downloaded and cached via
 /// [`crate::datasets::naif::download_pck_kernel`]; the known satellite SPK
-/// name `"mar097"` is downloaded and cached via
+/// name `"mar099s"` is downloaded and cached via
 /// [`crate::datasets::naif::download_satellite_kernel`]; any other string is
 /// treated as a file path.
 ///
@@ -1246,12 +1246,12 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
-    fn test_load_mar097_and_query_phobos_deimos_network() {
+    fn test_load_mar099s_and_query_phobos_deimos_network() {
         setup_global_test_spice();
         clear_kernels();
 
-        load_kernel("mar097").unwrap();
-        assert_eq!(loaded_kernels(), vec!["mar097".to_string()]);
+        load_kernel("mar099s").unwrap();
+        assert_eq!(loaded_kernels(), vec!["mar099s".to_string()]);
 
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         // Phobos (401) relative to Mars barycenter (4): |r| ~ 9376 km

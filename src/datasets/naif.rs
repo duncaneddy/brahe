@@ -19,14 +19,9 @@ const NAIF_BASE_URL: &str = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
 /// Base URL for NAIF generic PCK kernels
 const NAIF_PCK_BASE_URL: &str = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/";
 
-/// Base URL for NAIF satellite SPK kernels.
-///
-/// `mar097.bsp` has been superseded on the NAIF server by `mar099`/`mar099s`
-/// and moved into the `a_old_versions/` archive subdirectory (it no longer
-/// exists at the top-level `satellites/` path), so this points there
-/// directly rather than at the current-releases directory.
+/// Base URL for NAIF satellite SPK kernels
 const NAIF_SATELLITE_BASE_URL: &str =
-    "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/a_old_versions/";
+    "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/";
 
 /// Supported DE kernel names. `pub(crate)` so `spice::registry` can consult
 /// this single list instead of maintaining its own copy.
@@ -43,7 +38,7 @@ pub(crate) const SUPPORTED_PCK_KERNELS: &[(&str, &str)] =
 /// Supported satellite SPK kernels: (name, filename). `pub(crate)` so
 /// `spice::registry` can consult this single list instead of maintaining
 /// its own copy.
-pub(crate) const SUPPORTED_SATELLITE_KERNELS: &[(&str, &str)] = &[("mar097", "mar097.bsp")];
+pub(crate) const SUPPORTED_SATELLITE_KERNELS: &[(&str, &str)] = &[("mar099s", "mar099s.bsp")];
 
 /// Validate that a kernel name is supported
 ///
@@ -92,7 +87,7 @@ fn validate_pck_kernel_name(name: &str) -> Result<&'static str, BraheError> {
 /// Validate that a satellite SPK kernel name is supported and return its filename
 ///
 /// # Arguments
-/// * `name` - Satellite kernel name to validate (e.g., "mar097")
+/// * `name` - Satellite kernel name to validate (e.g., "mar099s")
 ///
 /// # Returns
 /// * `Result<&'static str, BraheError>` - The kernel's filename if valid, error otherwise
@@ -392,7 +387,7 @@ pub fn download_pck_kernel(
 /// This is an internal function for testing. Use `download_satellite_kernel()` for the public API.
 ///
 /// # Arguments
-/// * `filename` - Satellite kernel filename (e.g., "mar097.bsp")
+/// * `filename` - Satellite kernel filename (e.g., "mar099s.bsp")
 /// * `base_url` - Base URL for the NAIF satellite SPK repository
 ///
 /// # Returns
@@ -408,7 +403,7 @@ fn fetch_satellite_kernel_with_url(filename: &str, base_url: &str) -> Result<Vec
     })?;
 
     // Read response body manually to avoid default size limits
-    // Satellite kernels can be large (mar097 ~450MB)
+    // Satellite kernels can be large (mar099s ~67 MB)
     let mut buffer = Vec::new();
     let mut reader = response.into_body().into_reader();
 
@@ -434,7 +429,7 @@ fn fetch_satellite_kernel_with_url(filename: &str, base_url: &str) -> Result<Vec
 /// This is an internal function. Use `download_satellite_kernel()` for the public API.
 ///
 /// # Arguments
-/// * `filename` - Satellite kernel filename (e.g., "mar097.bsp")
+/// * `filename` - Satellite kernel filename (e.g., "mar099s.bsp")
 ///
 /// # Returns
 /// * `Result<Vec<u8>, BraheError>` - Binary kernel data
@@ -449,7 +444,7 @@ fn fetch_satellite_kernel(filename: &str) -> Result<Vec<u8>, BraheError> {
 /// Optionally copies the kernel to a user-specified location.
 ///
 /// # Arguments
-/// * `name` - Satellite kernel name (e.g., "mar097", ~450 MB download)
+/// * `name` - Satellite kernel name (e.g., "mar099s", ~67 MB download, coverage 1995-2049)
 /// * `output_path` - Optional path to copy the kernel to after download/cache retrieval
 ///
 /// # Returns
@@ -460,13 +455,13 @@ fn fetch_satellite_kernel(filename: &str) -> Result<Vec<u8>, BraheError> {
 /// use brahe::datasets::naif::download_satellite_kernel;
 /// use std::path::PathBuf;
 ///
-/// // Download and cache the mar097 kernel (Mars system satellite ephemeris)
-/// let kernel_path = download_satellite_kernel("mar097", None).unwrap();
+/// // Download and cache the mar099s kernel (Mars system satellite ephemeris)
+/// let kernel_path = download_satellite_kernel("mar099s", None).unwrap();
 /// println!("Kernel cached at: {}", kernel_path.display());
 ///
 /// // Download and copy to specific location
 /// let output = PathBuf::from("/path/to/my_kernel.bsp");
-/// let kernel_path = download_satellite_kernel("mar097", Some(output.clone())).unwrap();
+/// let kernel_path = download_satellite_kernel("mar099s", Some(output.clone())).unwrap();
 /// assert_eq!(kernel_path, output);
 /// ```
 pub fn download_satellite_kernel(
@@ -901,7 +896,7 @@ mod tests {
 
     #[test]
     fn test_validate_satellite_kernel_name() {
-        assert!(validate_satellite_kernel_name("mar097").is_ok());
+        assert!(validate_satellite_kernel_name("mar099s").is_ok());
         assert!(validate_satellite_kernel_name("not_a_satellite_kernel").is_err());
     }
 
@@ -909,17 +904,17 @@ mod tests {
     fn test_unsupported_satellite_kernel_errors() {
         let e = download_satellite_kernel("nonexistent", None);
         assert!(e.is_err());
-        assert!(format!("{}", e.unwrap_err()).contains("mar097"));
+        assert!(format!("{}", e.unwrap_err()).contains("mar099s"));
     }
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_download_satellite_network() {
-        let result = download_satellite_kernel("mar097", None);
+        let result = download_satellite_kernel("mar099s", None);
         assert!(result.is_ok());
         let path = result.unwrap();
         assert!(path.exists());
-        assert!(path.to_string_lossy().contains("mar097.bsp"));
+        assert!(path.to_string_lossy().contains("mar099s.bsp"));
     }
 }

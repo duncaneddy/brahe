@@ -650,7 +650,6 @@ pub fn rotation_icrf_to_body_fixed_iau(naif_id: i32, epc: Epoch) -> Result<SMatr
 /// # Returns:
 /// - `omega`: Angular velocity vector [rad/s], expressed in the
 ///   body-fixed frame
-#[allow(dead_code)] // consumed by the lunar PCK rotation path added in a later change
 pub(crate) fn euler313_omega_body(angles: Vector3<f64>, rates: Vector3<f64>) -> Vector3<f64> {
     let (phi_dot, theta_dot, psi_dot) = (rates[0], rates[1], rates[2]);
     let (theta, psi) = (angles[1], angles[2]);
@@ -730,7 +729,7 @@ mod tests {
         let (alpha, delta, w, _, _, _) = eval(model, epc);
 
         assert_abs_diff_eq!(alpha, 317.6591428449708, epsilon = 1e-9);
-        assert_abs_diff_eq!(delta, 52.873865987106868, epsilon = 1e-9);
+        assert_abs_diff_eq!(delta, 52.87386598710687, epsilon = 1e-9);
         assert_abs_diff_eq!(w.rem_euclid(360.0), 170.63252998981625, epsilon = 1e-9);
     }
 
@@ -753,7 +752,7 @@ mod tests {
         let (alpha, delta, w, _, _, _) = eval(model, epc);
 
         assert_abs_diff_eq!(alpha, 40.65263638603696, epsilon = 1e-9);
-        assert_abs_diff_eq!(delta, 83.519181820670767, epsilon = 1e-9);
+        assert_abs_diff_eq!(delta, 83.51918182067077, epsilon = 1e-9);
         assert_abs_diff_eq!(w.rem_euclid(360.0), 156.34191160020418, epsilon = 1e-9);
     }
 

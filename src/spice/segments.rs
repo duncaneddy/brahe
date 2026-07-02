@@ -127,6 +127,54 @@ fn validate_count(v: f64, field: &str, kind: &str, name: &str) -> Result<usize, 
     Ok(v as usize)
 }
 
+/// Distinctive fragment identifying an out-of-coverage error built by
+/// [`coverage_error`]. Used by [`is_coverage_error`] to recognize such
+/// errors; kept in one place so construction and detection cannot drift.
+const COVERAGE_ERROR_MARKER: &str = "outside segment coverage";
+
+/// Build the canonical out-of-coverage error for an epoch that no segment
+/// (or record) covers. All coverage-error construction sites must use
+/// this so [`is_coverage_error`] reliably identifies them.
+///
+/// # Arguments
+/// - `et`: Queried epoch. Units: [s] (TDB past J2000)
+/// - `start_et`: Coverage start of the (first candidate) segment. Units: [s]
+/// - `end_et`: Coverage end of the (first candidate) segment. Units: [s]
+/// - `target`: SPK target body ID, or PCK body-frame class ID
+/// - `center`: SPK center body ID, or PCK reference frame ID
+///
+/// # Returns
+/// - `BraheError::Error` naming the epoch, coverage interval, and body pair
+pub(crate) fn coverage_error(
+    et: f64,
+    start_et: f64,
+    end_et: f64,
+    target: i32,
+    center: i32,
+) -> BraheError {
+    BraheError::Error(format!(
+        "Epoch ET {} {} [{}, {}] (target {}, center {})",
+        et, COVERAGE_ERROR_MARKER, start_et, end_et, target, center
+    ))
+}
+
+/// True if `err` is an out-of-coverage error built by [`coverage_error`].
+///
+/// Used to gate the epoch-aware chain fallback
+/// (`spk::evaluate_with_epoch_fallback`): only a coverage miss justifies
+/// re-resolving the chain for the queried epoch; any other evaluation
+/// error (e.g. corrupt record data) must propagate unchanged rather than
+/// being masked by a fallback attempt.
+///
+/// # Arguments
+/// - `err`: Error to classify
+///
+/// # Returns
+/// - `true` if `err` was produced by [`coverage_error`]
+pub(crate) fn is_coverage_error(err: &BraheError) -> bool {
+    matches!(err, BraheError::Error(msg) if msg.contains(COVERAGE_ERROR_MARKER))
+}
+
 impl ChebyshevSegment {
     /// Build a segment from an SPK summary
     /// (ints = `[target, center, frame, type, start_addr, end_addr]`).
@@ -332,10 +380,13 @@ impl ChebyshevSegment {
     ///   is not a positive, finite number
     fn record(&self, et: f64) -> Result<(&[f64], f64), BraheError> {
         if !self.covers(et) {
-            return Err(BraheError::Error(format!(
-                "Epoch ET {} outside segment coverage [{}, {}] (target {}, center {})",
-                et, self.start_et, self.end_et, self.target, self.center
-            )));
+            return Err(coverage_error(
+                et,
+                self.start_et,
+                self.end_et,
+                self.target,
+                self.center,
+            ));
         }
         let idx = (((et - self.init) / self.intlen).floor() as usize).min(self.n - 1);
         let rec = &self.coeffs[idx * self.rsize..(idx + 1) * self.rsize];
@@ -696,6 +747,21 @@ mod tests {
         summary.ints.truncate(5); // one short of the required 6
         let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
         assert!(format!("{}", err).contains('5'));
+    }
+
+    #[test]
+    fn test_is_coverage_error_classification() {
+        // `is_coverage_error` must recognize exactly the errors built by
+        // `coverage_error` (the epoch-aware chain fallback is gated on it)
+        // and reject other error kinds, including IoError variants like
+        // the invalid-RADIUS record error.
+        assert!(is_coverage_error(&coverage_error(300.0, 0.0, 200.0, 10, 0)));
+        assert!(!is_coverage_error(&BraheError::Error(
+            "No ephemeris path from target 10 to center 0".to_string()
+        )));
+        assert!(!is_coverage_error(&BraheError::IoError(
+            "Segment record 0 has invalid RADIUS 0 (target 10, center 0)".to_string()
+        )));
     }
 
     #[test]

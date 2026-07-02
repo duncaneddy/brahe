@@ -331,12 +331,13 @@ fn global_chain(target: i32, center: i32) -> Result<Arc<Vec<ChainLink>>, BraheEr
     Ok(chain)
 }
 
-/// Evaluate a cached `chain` at `et`; on failure (e.g. the cached
-/// topology-only chain's segments don't cover `et` while a different,
-/// longer path through the currently loaded kernels does), fall back to
-/// an epoch-aware re-resolution across every loaded SPK kernel's
-/// segments. See [`evaluate_with_epoch_fallback`] for why this fallback
-/// is only reached on failure and is never cached.
+/// Evaluate a cached `chain` at `et`; on an out-of-coverage failure (the
+/// cached topology-only chain's segments don't cover `et` while a
+/// different, longer path through the currently loaded kernels might),
+/// fall back to an epoch-aware re-resolution across every loaded SPK
+/// kernel's segments. Non-coverage errors (e.g. corrupt record data)
+/// propagate unchanged. See [`evaluate_with_epoch_fallback`] for the
+/// gating and why the fallback chain is never cached.
 fn global_eval<T>(
     target: i32,
     center: i32,

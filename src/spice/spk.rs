@@ -25,7 +25,7 @@ use nalgebra::{Vector3, Vector6};
 use crate::utils::BraheError;
 
 use super::daf::DafFile;
-use super::segments::ChebyshevSegment;
+use super::segments::{ChebyshevSegment, coverage_error, is_coverage_error};
 
 /// One link in a resolved target→center chain: the candidate segments for a
 /// single body pair (in input order; last-listed takes precedence) and the
@@ -204,10 +204,7 @@ fn covering_segment(link: &ChainLink, et: f64) -> Result<&Arc<ChebyshevSegment>,
         .find(|s| s.covers(et))
         .ok_or_else(|| {
             let s0 = &link.segments[0];
-            BraheError::Error(format!(
-                "Epoch ET {} outside segment coverage [{}, {}] (target {}, center {})",
-                et, s0.start_et, s0.end_et, s0.target, s0.center
-            ))
+            coverage_error(et, s0.start_et, s0.end_et, s0.target, s0.center)
         })
 }
 
@@ -271,9 +268,9 @@ pub(crate) fn evaluate_chain_state(
     Ok((r, v))
 }
 
-/// Evaluate a cached (topology-only) `chain` at `et` via `eval`; on
-/// failure, fall back to an epoch-aware chain resolved over
-/// `segments_for_fallback()` and retry.
+/// Evaluate a cached (topology-only) `chain` at `et` via `eval`; on an
+/// out-of-coverage failure, fall back to an epoch-aware chain resolved
+/// over `segments_for_fallback()` and retry.
 ///
 /// The cached chain is resolved once per `(target, center)` pair without
 /// regard to epoch, which is correct and O(1) for the common case (one
@@ -295,6 +292,13 @@ pub(crate) fn evaluate_chain_state(
 /// which is not worth the added complexity for what should be a rare
 /// event in practice.
 ///
+/// Only out-of-coverage errors (identified via
+/// [`is_coverage_error`](super::segments::is_coverage_error)) trigger the
+/// fallback: a coverage miss is the one failure a different chain can
+/// legitimately fix. Any other evaluation error (e.g. a corrupt record's
+/// invalid `RADIUS`) propagates unchanged — re-routing around corrupt
+/// data would silently mask the true cause.
+///
 /// # Arguments
 /// - `chain`: Cached topology-only chain for `(target, center)`
 /// - `target`: NAIF ID of the target body
@@ -306,8 +310,9 @@ pub(crate) fn evaluate_chain_state(
 ///   [`evaluate_chain_velocity`], [`evaluate_chain_state`])
 ///
 /// # Returns
-/// - The evaluated result, or `BraheError` if neither the cached chain
-///   nor the epoch-aware fallback chain covers `et`
+/// - The evaluated result; the original error if it was not a coverage
+///   miss; or `BraheError` if neither the cached chain nor the
+///   epoch-aware fallback chain covers `et`
 pub(crate) fn evaluate_with_epoch_fallback<T>(
     chain: &[ChainLink],
     target: i32,
@@ -318,11 +323,12 @@ pub(crate) fn evaluate_with_epoch_fallback<T>(
 ) -> Result<T, BraheError> {
     match eval(chain, et) {
         Ok(value) => Ok(value),
-        Err(_) => {
+        Err(err) if is_coverage_error(&err) => {
             let segments = segments_for_fallback();
             let fallback = resolve_chain_for_epoch(&segments, target, center, et)?;
             eval(&fallback, et)
         }
+        Err(err) => Err(err),
     }
 }
 
@@ -663,6 +669,47 @@ mod tests {
         let err = spk.position(10, 0, 300.0).unwrap_err();
         let msg = format!("{}", err);
         assert!(msg.contains("10") && msg.contains("0") && msg.contains("300"));
+    }
+
+    #[test]
+    fn test_spk_fallback_not_triggered_by_non_coverage_error() {
+        // The epoch-aware fallback must engage ONLY on out-of-coverage
+        // errors. A corrupt covering segment (record RADIUS=0 -> invalid-
+        // RADIUS IoError) must propagate its error unchanged, even though
+        // a valid alternate two-hop path exists that the fallback could
+        // otherwise route through -- rerouting would silently mask the
+        // corrupt data.
+        let degree = 1usize;
+        let rsize = 2 + 3 * (degree + 1);
+        // Direct segment covers [0, 200] but its record has RADIUS=0.
+        let corrupt_direct = Arc::new(ChebyshevSegment {
+            target: 10,
+            center: 0,
+            frame: 1,
+            data_type: 2,
+            ncomp: 3,
+            start_et: 0.0,
+            end_et: 200.0,
+            init: 0.0,
+            intlen: 200.0,
+            rsize,
+            n: 1,
+            degree,
+            coeffs: vec![100.0, 0.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        });
+        let leg_ac = constant_segment(10, 3, 0.0, 200.0, 2.0);
+        let leg_cb = constant_segment(3, 0, 0.0, 200.0, 3.0);
+        let spk = SPK {
+            segments: vec![corrupt_direct, leg_ac, leg_cb],
+            chain_cache: RwLock::new(HashMap::new()),
+        };
+
+        // et=50 is inside the corrupt direct segment's coverage: the
+        // invalid-RADIUS error is not a coverage miss, so no fallback.
+        let err = spk.position(10, 0, 50.0).unwrap_err();
+        assert!(!is_coverage_error(&err));
+        let msg = format!("{}", err);
+        assert!(msg.contains("RADIUS"), "unexpected error: {}", msg);
     }
 
     #[test]

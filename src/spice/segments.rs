@@ -262,7 +262,9 @@ impl ChebyshevSegment {
             || rsize < 2 + ncomp
             || !(rsize - 2).is_multiple_of(ncomp)
             || n == 0
-            || word_count.is_none_or(|wc| words.len() < wc + 4)
+            || word_count
+                .and_then(|wc| wc.checked_add(4))
+                .is_none_or(|total| words.len() < total)
         {
             return Err(BraheError::IoError(format!(
                 "{} segment '{}' has inconsistent directory (INIT={}, INTLEN={}, RSIZE={}, N={}, words={})",
@@ -601,7 +603,6 @@ mod tests {
             return;
         }
         let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
-        let mut any_nonzero = false;
         for summary in &daf.summaries {
             let seg = ChebyshevSegment::from_spk_summary(&daf, summary).unwrap();
             assert_eq!(seg.data_type, 2);
@@ -616,14 +617,16 @@ mod tests {
             let et_mid = 0.5 * (seg.start_et + seg.end_et);
             let p = seg.position(et_mid).unwrap();
             assert!(p.iter().all(|x| x.is_finite()));
-            any_nonzero |= p.norm() > 0.0;
+            // Mercury (199 wrt barycenter 1) and Venus (299 wrt barycenter
+            // 2) have no satellites, so each planet coincides with its
+            // barycenter and DE440s stores identically zero coefficients
+            // for those two segments. All other segments must be nonzero.
+            if matches!((seg.target, seg.center), (199, 1) | (299, 2)) {
+                assert_eq!(p.norm(), 0.0);
+            } else {
+                assert!(p.norm() > 0.0);
+            }
         }
-        // At least one segment must be nonzero (guards against a bug that
-        // zeroes all output); a single body-barycenter pair with no
-        // satellites (e.g. Mercury 199 wrt its own barycenter 1) is
-        // legitimately all-zero in de440s.bsp, so the check cannot be
-        // per-segment.
-        assert!(any_nonzero);
     }
 
     #[test]

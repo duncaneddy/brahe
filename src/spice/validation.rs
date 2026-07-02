@@ -90,29 +90,47 @@ fn test_validation_position_velocity_vs_anise_matched_et() {
                 let v_native = native.velocity(body, center, et).unwrap();
                 let (r_km, v_km) = anise_state_km(&almanac, body, center, et);
 
-                // Component-wise (not vector-norm) comparison: at outer-body
-                // distances (e.g. Pluto barycenter, ~7e12 m), a vector-norm
-                // check can exceed 1 mm purely from IEEE-754 summation noise
-                // (~magnitude * 2^-52) even though every axis individually
-                // matches to < 1 mm.
+                // Component-wise comparison: 1 mm / 1e-6 m/s absolute,
+                // floored at a few ULPs of the component magnitude. At
+                // outer-body distances (e.g. Pluto barycenter, ~7e12 m)
+                // 1 mm is below f64 resolution (1 ULP ~ 1.6e-3 m), so an
+                // absolute-only bound would demand agreement below machine
+                // precision and pass or fail on toolchain/FMA summation
+                // order alone. For all inner bodies the ULP floor is far
+                // below 1e-3/1e-6 and the effective tolerance is unchanged.
                 for i in 0..3 {
-                    let dr = (r_native[i] - r_km[i] * 1.0e3).abs();
-                    let dv = (v_native[i] - v_km[i] * 1.0e3).abs();
+                    let r_expected = r_km[i] * 1.0e3;
+                    let v_expected = v_km[i] * 1.0e3;
+                    let dr = (r_native[i] - r_expected).abs();
+                    let dv = (v_native[i] - v_expected).abs();
                     max_dr = max_dr.max(dr);
                     max_dv = max_dv.max(dv);
 
-                    assert_abs_diff_eq!(
-                        r_native[i],
-                        r_km[i] * 1.0e3,
-                        epsilon = 1.0e-3 // < 1 mm
+                    let tol_r = (1.0e-3_f64).max(4.0 * f64::EPSILON * r_expected.abs());
+                    let tol_v = (1.0e-6_f64).max(4.0 * f64::EPSILON * v_expected.abs());
+                    assert!(
+                        dr < tol_r,
+                        "{} (body {}) center {} et {} axis {}: |Δr| = {} m, tol = {} m",
+                        name,
+                        body,
+                        center,
+                        et,
+                        i,
+                        dr,
+                        tol_r
                     );
-                    assert_abs_diff_eq!(
-                        v_native[i],
-                        v_km[i] * 1.0e3,
-                        epsilon = 1.0e-6 // < 1e-6 m/s
+                    assert!(
+                        dv < tol_v,
+                        "{} (body {}) center {} et {} axis {}: |Δv| = {} m/s, tol = {} m/s",
+                        name,
+                        body,
+                        center,
+                        et,
+                        i,
+                        dv,
+                        tol_v
                     );
                 }
-                let _ = name;
             }
         }
     }

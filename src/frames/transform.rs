@@ -268,6 +268,34 @@ impl FromStr for ReferenceFrame {
     }
 }
 
+/// Applies the rigid-rotation state transform from ICRF axes into a rotating
+/// body-fixed frame, given the ICRF-to-body DCM `r_mat` and the frame's
+/// angular velocity `omega_b` (rad/s, expressed in the body-fixed frame):
+/// `r_b = R r`, `v_b = R v - omega_b x r_b`. Single shared implementation of
+/// the transport-term algebra used by the IAU and PCK body-fixed helpers
+/// below (and identical to the pairwise forms in `mars.rs`/`lunar.rs`).
+fn state_icrf_to_rotating(r_mat: SMatrix3, omega_b: Vector3<f64>, x_icrf: SVector6) -> SVector6 {
+    let r = x_icrf.fixed_rows::<3>(0);
+    let v = x_icrf.fixed_rows::<3>(3);
+
+    let r_b: Vector3<f64> = r_mat * r;
+    let v_b: Vector3<f64> = r_mat * v - omega_b.cross(&r_b);
+
+    SVector6::new(r_b[0], r_b[1], r_b[2], v_b[0], v_b[1], v_b[2])
+}
+
+/// Inverse of [`state_icrf_to_rotating`]: `r = R^T r_b`,
+/// `v = R^T (v_b + omega_b x r_b)`.
+fn state_rotating_to_icrf(r_mat: SMatrix3, omega_b: Vector3<f64>, x_body: SVector6) -> SVector6 {
+    let r_b: Vector3<f64> = x_body.fixed_rows::<3>(0).into_owned();
+    let v_b: Vector3<f64> = x_body.fixed_rows::<3>(3).into_owned();
+
+    let r: Vector3<f64> = r_mat.transpose() * r_b;
+    let v: Vector3<f64> = r_mat.transpose() * (v_b + omega_b.cross(&r_b));
+
+    SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2])
+}
+
 /// Rotates an ICRF-axis state into the IAU/WGCCRE body-fixed frame of
 /// `naif_id`, including the velocity transport term induced by the
 /// body's rotation. Generic form of [`super::mars::state_mci_to_mcmf`],
@@ -279,16 +307,10 @@ fn state_icrf_to_iau_body(
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = body_fixed_iau_angles_and_rates(naif_id, epc)?;
     let r_mat = rotation_icrf_to_body_fixed_iau(naif_id, epc)?;
-    let omega_b = euler313_omega_body(angles, rates);
-
-    let r = x_icrf.fixed_rows::<3>(0);
-    let v = x_icrf.fixed_rows::<3>(3);
-
-    let r_b: Vector3<f64> = r_mat * r;
-    let v_b: Vector3<f64> = r_mat * v - omega_b.cross(&r_b);
-
-    Ok(SVector6::new(
-        r_b[0], r_b[1], r_b[2], v_b[0], v_b[1], v_b[2],
+    Ok(state_icrf_to_rotating(
+        r_mat,
+        euler313_omega_body(angles, rates),
+        x_icrf,
     ))
 }
 
@@ -301,15 +323,11 @@ fn state_iau_body_to_icrf(
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = body_fixed_iau_angles_and_rates(naif_id, epc)?;
     let r_mat = rotation_icrf_to_body_fixed_iau(naif_id, epc)?;
-    let omega_b = euler313_omega_body(angles, rates);
-
-    let r_b: Vector3<f64> = x_body.fixed_rows::<3>(0).into_owned();
-    let v_b: Vector3<f64> = x_body.fixed_rows::<3>(3).into_owned();
-
-    let r: Vector3<f64> = r_mat.transpose() * r_b;
-    let v: Vector3<f64> = r_mat.transpose() * (v_b + omega_b.cross(&r_b));
-
-    Ok(SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2]))
+    Ok(state_rotating_to_icrf(
+        r_mat,
+        euler313_omega_body(angles, rates),
+        x_body,
+    ))
 }
 
 /// Rotates an ICRF-axis state into the body-fixed frame defined by binary
@@ -326,16 +344,10 @@ fn state_icrf_to_pck_body(
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = crate::spice::pck_euler_angles(frame_id, epc)?;
     let r_mat = crate::spice::pck_rotation_matrix(frame_id, epc)?;
-    let omega_b = euler313_omega_body(angles, rates);
-
-    let r = x_icrf.fixed_rows::<3>(0);
-    let v = x_icrf.fixed_rows::<3>(3);
-
-    let r_b: Vector3<f64> = r_mat * r;
-    let v_b: Vector3<f64> = r_mat * v - omega_b.cross(&r_b);
-
-    Ok(SVector6::new(
-        r_b[0], r_b[1], r_b[2], v_b[0], v_b[1], v_b[2],
+    Ok(state_icrf_to_rotating(
+        r_mat,
+        euler313_omega_body(angles, rates),
+        x_icrf,
     ))
 }
 
@@ -348,15 +360,11 @@ fn state_pck_body_to_icrf(
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = crate::spice::pck_euler_angles(frame_id, epc)?;
     let r_mat = crate::spice::pck_rotation_matrix(frame_id, epc)?;
-    let omega_b = euler313_omega_body(angles, rates);
-
-    let r_b: Vector3<f64> = x_body.fixed_rows::<3>(0).into_owned();
-    let v_b: Vector3<f64> = x_body.fixed_rows::<3>(3).into_owned();
-
-    let r: Vector3<f64> = r_mat.transpose() * r_b;
-    let v: Vector3<f64> = r_mat.transpose() * (v_b + omega_b.cross(&r_b));
-
-    Ok(SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2]))
+    Ok(state_rotating_to_icrf(
+        r_mat,
+        euler313_omega_body(angles, rates),
+        x_body,
+    ))
 }
 
 /// Rotation matrix from ICRF axes to `frame`'s own axes at `epc`. Identity
@@ -410,6 +418,9 @@ pub fn rotation_frame_to_frame(
     to: ReferenceFrame,
     epc: Epoch,
 ) -> Result<SMatrix3, BraheError> {
+    if from == to {
+        return Ok(SMatrix3::identity());
+    }
     let r_to = icrf_to_frame_dcm(to, epc)?;
     let r_from = icrf_to_frame_dcm(from, epc)?;
     Ok(r_to * r_from.transpose())
@@ -530,6 +541,12 @@ pub fn state_frame_to_frame(
 /// # Returns
 /// - `x`: State `[x, y, z, vx, vy, vz]` of `to_center` relative to
 ///   `from_center`, in ICRF axes. Units: (*m*; *m/s*)
+///
+/// # Examples
+/// ```ignore
+/// // Crate-internal (pub(crate)): Moon (301) relative to Earth (399).
+/// let x_moon = center_offset_state(399, 301, epc)?;
+/// ```
 pub(crate) fn center_offset_state(
     from_center: i32,
     to_center: i32,
@@ -680,6 +697,22 @@ mod tests {
                 assert_eq!(a[(i, j)], b[(i, j)]);
             }
         }
+    }
+
+    #[test]
+    fn test_rotation_frame_to_frame_same_frame_is_identity_even_for_unsupported_body() {
+        // Rotation from a frame to itself is definitionally the identity,
+        // regardless of whether the underlying rotation model supports the
+        // NAIF ID -- this must not error just because `naif_id` isn't in
+        // the embedded IAU/WGCCRE table.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = rotation_frame_to_frame(
+            ReferenceFrame::BodyFixedIAU(999999),
+            ReferenceFrame::BodyFixedIAU(999999),
+            epc,
+        )
+        .unwrap();
+        assert_eq!(r, SMatrix3::identity());
     }
 
     #[test]

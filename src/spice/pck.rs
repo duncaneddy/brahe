@@ -97,7 +97,7 @@ impl BPCK {
     /// segment reference frame (ICRF for DE440-era kernels).
     ///
     /// # Arguments
-    /// - `frame_id`: Body-frame class ID (e.g. 31006 for MOON_PA_DE440)
+    /// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
     /// - `et`: TDB seconds past J2000
     ///
     /// # Returns
@@ -117,7 +117,7 @@ impl BPCK {
     /// body-fixed frame: `R = Rz(w) · Rx(delta) · Rz(phi)`.
     ///
     /// # Arguments
-    /// - `frame_id`: Body-frame class ID (e.g. 31006 for MOON_PA_DE440)
+    /// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
     /// - `et`: TDB seconds past J2000
     ///
     /// # Returns

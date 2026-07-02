@@ -232,3 +232,48 @@ fn test_validation_frame_bias_removal_documented() {
     // ~1.2-2.2e4 m at 1 AU; assert the order of magnitude so the doc claim stays honest
     assert!(delta > 1.0e3 && delta < 1.0e5, "bias delta = {} m", delta);
 }
+
+#[test]
+#[cfg_attr(not(feature = "integration"), ignore)]
+fn test_validation_pck_moon_pa_vs_anise() {
+    use crate::datasets::naif::download_pck_kernel;
+    use crate::spice::pck::BPCK;
+
+    let path = download_pck_kernel("moon_pa_de440", None).unwrap();
+    let bpck = BPCK::from_file(&path).unwrap();
+
+    // The real moon_pa_de440_200625.bpc kernel stores frame class ID 31008
+    // (MOON_PA_DE440); 31006 is the older MOON_PA_DE403 frame and is absent
+    // from this file. Confirmed by parsing the downloaded kernel's DAF
+    // summaries directly (ints[0] = 31008 for both segments).
+    //
+    // ANISE side: load the BPC and request the ICRF (J2000) -> MOON_PA
+    // (frame class 31008) DCM directly via `Almanac::rotation_to_parent`,
+    // which is the single-hop primitive `Almanac::rotate` composes from.
+    // ANISE's `rotation_to_parent` evaluates the same PCK type-2 Chebyshev
+    // triplet (ra, dec, twist) as brahe's `BPCK::euler_angles` and builds
+    // `DCM { rot_mat: r3(twist) * r1(dec) * r3(ra), from: <inertial frame
+    // read from the segment summary>, to: <source.orientation_id> }`.
+    // Both ANISE's `r1`/`r3` and brahe's `RotationMatrix::Rx`/`Rz` are the
+    // identical elementwise-defined active rotation matrices, so this is
+    // directly the ICRF -> MOON_PA DCM with the same phi/delta/w -> ra/dec/
+    // twist angle correspondence as brahe's `BPCK::rotation_matrix`; no
+    // transpose is needed on either side.
+    let almanac = Almanac::default().load(path.to_str().unwrap()).unwrap();
+    let moon_pa_frame = Frame::from_ephem_j2000(301).with_orient(31008);
+
+    let mut max_delta = 0.0_f64;
+    for &et in &[0.0_f64, 1.0e8, 5.0e8, -1.0e8] {
+        let r_native = bpck.rotation_matrix(31008, et).unwrap();
+        let epoch = AniseEpoch::from_et_seconds(et);
+        let dcm = almanac.rotation_to_parent(moon_pa_frame, epoch).unwrap();
+        for i in 0..3 {
+            for j in 0..3 {
+                let delta = (r_native[(i, j)] - dcm.rot_mat[(i, j)]).abs();
+                max_delta = max_delta.max(delta);
+                assert_abs_diff_eq!(r_native[(i, j)], dcm.rot_mat[(i, j)], epsilon = 1.0e-9);
+            }
+        }
+    }
+    println!("MOON_PA DCM vs ANISE: max |delta| = {:.3e}", max_delta);
+}

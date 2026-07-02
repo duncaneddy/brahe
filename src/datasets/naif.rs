@@ -16,10 +16,16 @@ use std::path::PathBuf;
 /// Base URL for NAIF generic kernels repository
 const NAIF_BASE_URL: &str = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/";
 
+/// Base URL for NAIF generic PCK kernels
+const NAIF_PCK_BASE_URL: &str = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/";
+
 /// Supported DE kernel names
 const SUPPORTED_KERNELS: &[&str] = &[
     "de430", "de432s", "de435", "de438", "de440", "de440s", "de442", "de442s",
 ];
+
+/// Supported binary PCK kernels: (name, filename)
+const SUPPORTED_PCK_KERNELS: &[(&str, &str)] = &[("moon_pa_de440", "moon_pa_de440_200625.bpc")];
 
 /// Validate that a kernel name is supported
 ///
@@ -38,6 +44,31 @@ fn validate_kernel_name(name: &str) -> Result<(), BraheError> {
             SUPPORTED_KERNELS.join(", ")
         )))
     }
+}
+
+/// Validate that a binary PCK kernel name is supported and return its filename
+///
+/// # Arguments
+/// * `name` - PCK kernel name to validate (e.g., "moon_pa_de440")
+///
+/// # Returns
+/// * `Result<&'static str, BraheError>` - The kernel's filename if valid, error otherwise
+fn validate_pck_kernel_name(name: &str) -> Result<&'static str, BraheError> {
+    SUPPORTED_PCK_KERNELS
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, filename)| *filename)
+        .ok_or_else(|| {
+            BraheError::Error(format!(
+                "Unsupported PCK kernel name '{}'. Supported kernels: {}",
+                name,
+                SUPPORTED_PCK_KERNELS
+                    .iter()
+                    .map(|(n, _)| *n)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))
+        })
 }
 
 /// Download a DE kernel file from NAIF with configurable base URL
@@ -141,6 +172,143 @@ pub fn download_de_kernel(name: &str, output_path: Option<PathBuf>) -> Result<Pa
             BraheError::Error(format!(
                 "Failed to cache kernel {} to {}: {}",
                 name,
+                cache_path.display(),
+                e
+            ))
+        })?;
+    }
+
+    // If output path is specified, copy the cached file there
+    if let Some(output) = output_path {
+        // Create parent directory if needed
+        if let Some(parent) = output.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                BraheError::Error(format!(
+                    "Failed to create output directory {}: {}",
+                    parent.display(),
+                    e
+                ))
+            })?;
+        }
+
+        // Copy file to output location
+        fs::copy(&cache_path, &output).map_err(|e| {
+            BraheError::Error(format!(
+                "Failed to copy kernel from {} to {}: {}",
+                cache_path.display(),
+                output.display(),
+                e
+            ))
+        })?;
+
+        Ok(output)
+    } else {
+        Ok(cache_path)
+    }
+}
+
+/// Download a binary PCK kernel file from NAIF with configurable base URL
+///
+/// This is an internal function for testing. Use `download_pck_kernel()` for the public API.
+///
+/// # Arguments
+/// * `filename` - PCK kernel filename (e.g., "moon_pa_de440_200625.bpc")
+/// * `base_url` - Base URL for the NAIF PCK repository
+///
+/// # Returns
+/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
+fn fetch_pck_kernel_with_url(filename: &str, base_url: &str) -> Result<Vec<u8>, BraheError> {
+    let url = format!("{}{}", base_url, filename);
+
+    let response = ureq::get(&url).call().map_err(|e| {
+        BraheError::Error(format!(
+            "Failed to download kernel {} from NAIF: {}",
+            filename, e
+        ))
+    })?;
+
+    // Read response body manually to avoid default size limits
+    let mut buffer = Vec::new();
+    let mut reader = response.into_body().into_reader();
+
+    reader.read_to_end(&mut buffer).map_err(|e| {
+        BraheError::Error(format!(
+            "Failed to read kernel {} from NAIF response: {}",
+            filename, e
+        ))
+    })?;
+
+    if buffer.is_empty() {
+        return Err(BraheError::Error(format!(
+            "No data returned from NAIF for kernel '{}'",
+            filename
+        )));
+    }
+
+    Ok(buffer)
+}
+
+/// Download a binary PCK kernel file from NAIF
+///
+/// This is an internal function. Use `download_pck_kernel()` for the public API.
+///
+/// # Arguments
+/// * `filename` - PCK kernel filename (e.g., "moon_pa_de440_200625.bpc")
+///
+/// # Returns
+/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
+fn fetch_pck_kernel(filename: &str) -> Result<Vec<u8>, BraheError> {
+    fetch_pck_kernel_with_url(filename, NAIF_PCK_BASE_URL)
+}
+
+/// Download a binary PCK kernel from NAIF with caching support
+///
+/// Downloads the specified binary PCK kernel file and caches it locally. If the
+/// kernel is already cached, returns the cached path without re-downloading.
+/// Optionally copies the kernel to a user-specified location.
+///
+/// # Arguments
+/// * `name` - PCK kernel name (e.g., "moon_pa_de440")
+/// * `output_path` - Optional path to copy the kernel to after download/cache retrieval
+///
+/// # Returns
+/// * `Result<PathBuf, BraheError>` - Path to the kernel file (cache location or output_path if specified)
+///
+/// # Examples
+/// ```no_run
+/// use brahe::datasets::naif::download_pck_kernel;
+/// use std::path::PathBuf;
+///
+/// // Download and cache the lunar principal-axes PCK
+/// let kernel_path = download_pck_kernel("moon_pa_de440", None).unwrap();
+/// println!("Kernel cached at: {}", kernel_path.display());
+///
+/// // Download and copy to specific location
+/// let output = PathBuf::from("/path/to/my_kernel.bpc");
+/// let kernel_path = download_pck_kernel("moon_pa_de440", Some(output.clone())).unwrap();
+/// assert_eq!(kernel_path, output);
+/// ```
+pub fn download_pck_kernel(
+    name: &str,
+    output_path: Option<PathBuf>,
+) -> Result<PathBuf, BraheError> {
+    // Validate kernel name and resolve its filename
+    let filename = validate_pck_kernel_name(name)?;
+
+    // Determine cache filepath
+    let cache_dir = get_naif_cache_dir()?;
+    let cache_path = PathBuf::from(&cache_dir).join(filename);
+
+    // Check if kernel is already cached
+    if !cache_path.exists() {
+        // Download kernel
+        let data = fetch_pck_kernel(filename)?;
+
+        // Cache it for future use
+        atomic_write(&cache_path, &data).map_err(|e| {
+            BraheError::Error(format!(
+                "Failed to cache kernel {} to {}: {}",
+                filename,
                 cache_path.display(),
                 e
             ))
@@ -527,5 +695,24 @@ mod tests {
         // Verify file is valid
         let metadata = fs::metadata(&nested_path).unwrap();
         assert!(metadata.len() > 0);
+    }
+
+    // ========== PCK Kernel Tests ==========
+
+    #[test]
+    fn test_validate_pck_kernel_name() {
+        assert!(validate_pck_kernel_name("moon_pa_de440").is_ok());
+        assert!(validate_pck_kernel_name("not_a_pck").is_err());
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_download_pck_network() {
+        let result = download_pck_kernel("moon_pa_de440", None);
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.exists());
+        assert!(path.to_string_lossy().contains("moon_pa_de440_200625.bpc"));
     }
 }

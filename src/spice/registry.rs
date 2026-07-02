@@ -20,7 +20,7 @@ use std::sync::{Arc, RwLock};
 use nalgebra::{Matrix3, Vector3, Vector6};
 use once_cell::sync::Lazy;
 
-use crate::datasets::naif::download_de_kernel;
+use crate::datasets::naif::{download_de_kernel, download_pck_kernel};
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
 
@@ -109,6 +109,7 @@ fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, Brahe
         "de430" | "de432s" | "de435" | "de438" | "de440" | "de440s" | "de442" | "de442s" => {
             download_de_kernel(name_or_path, None)
         }
+        "moon_pa_de440" => download_pck_kernel(name_or_path, None),
         other => {
             let path = Path::new(other);
             if path.exists() {
@@ -133,10 +134,12 @@ fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, Brahe
 /// Idempotent: calling with a `name_or_path` that is already loaded is a
 /// no-op. Known DE kernel names (`"de440s"`, `"de440"`, etc.) are
 /// downloaded and cached via [`crate::datasets::naif::download_de_kernel`];
-/// any other string is treated as a file path.
+/// the known binary PCK name `"moon_pa_de440"` is downloaded and cached via
+/// [`crate::datasets::naif::download_pck_kernel`]; any other string is
+/// treated as a file path.
 ///
 /// # Arguments
-/// - `name_or_path`: A known DE kernel name, or a path to a `.bsp`/`.bpc` file
+/// - `name_or_path`: A known DE kernel or PCK kernel name, or a path to a `.bsp`/`.bpc` file
 ///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` if the kernel cannot be resolved,
@@ -321,11 +324,20 @@ fn global_chain(target: i32, center: i32) -> Result<Arc<Vec<ChainLink>>, BraheEr
     Ok(chain)
 }
 
-/// Load `de440s` if no kernels are currently loaded, preserving the
+/// Load `de440s` if no SPK kernel is currently loaded, preserving the
 /// library's historical lazy-initialization behavior for `spk_*` queries.
+///
+/// Checks for an SPK specifically (not just any loaded kernel) so that a
+/// registry holding only PCK kernels (e.g. after `load_kernel("moon_pa_de440")`)
+/// still auto-initializes the default ephemeris.
 fn ensure_default_ephemeris_loaded() -> Result<(), BraheError> {
-    let has_kernels = !GLOBAL_SPICE.read().unwrap().load_order.is_empty();
-    if !has_kernels {
+    let has_spk = GLOBAL_SPICE
+        .read()
+        .unwrap()
+        .kernels
+        .values()
+        .any(|k| matches!(k, Kernel::Spk(_)));
+    if !has_spk {
         load_kernel("de440s")?;
     }
     Ok(())
@@ -598,7 +610,7 @@ fn pck_query<T>(
 /// via [`load_kernel`] first.
 ///
 /// # Arguments
-/// - `frame_id`: Body-frame class ID (e.g. 31006 for MOON_PA_DE440)
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
 /// - `epc`: Epoch at which to evaluate the orientation
 ///
 /// # Returns
@@ -612,7 +624,7 @@ fn pck_query<T>(
 ///
 /// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let (angles, rates) = pck_euler_angles(31006, epc).unwrap();
+/// let (angles, rates) = pck_euler_angles(31008, epc).unwrap();
 /// ```
 pub fn pck_euler_angles(
     frame_id: i32,
@@ -628,7 +640,7 @@ pub fn pck_euler_angles(
 /// via [`load_kernel`] first.
 ///
 /// # Arguments
-/// - `frame_id`: Body-frame class ID (e.g. 31006 for MOON_PA_DE440)
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
 /// - `epc`: Epoch at which to evaluate the orientation
 ///
 /// # Returns
@@ -641,7 +653,7 @@ pub fn pck_euler_angles(
 ///
 /// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let r = pck_rotation_matrix(31006, epc).unwrap();
+/// let r = pck_rotation_matrix(31008, epc).unwrap();
 /// ```
 pub fn pck_rotation_matrix(frame_id: i32, epc: Epoch) -> Result<Matrix3<f64>, BraheError> {
     pck_query(frame_id, epc, |pck, f, et| pck.rotation_matrix(f, et))
@@ -717,6 +729,61 @@ mod tests {
         file
     }
 
+    /// Build a minimal little-endian binary PCK with one type-2 segment for
+    /// frame 31006 rel frame 1, covering et in [0, 1000] (does not cover
+    /// `epc_2025()`; only used to populate the registry with a PCK-typed
+    /// kernel, not to be queried).
+    fn synthetic_bpck_bytes() -> Vec<u8> {
+        let degree = 1usize;
+        let rsize = 2 + 3 * (degree + 1); // 8
+        let data: Vec<f64> = vec![
+            500.0,
+            500.0, // MID, RADIUS
+            0.1,
+            0.0, // phi
+            0.3,
+            0.0, // delta
+            0.4,
+            0.0, // w
+            0.0,
+            1000.0,
+            rsize as f64,
+            1.0, // INIT, INTLEN, RSIZE, N
+        ];
+
+        let mut file = vec![0u8; 4 * 1024];
+        file[..8].copy_from_slice(b"DAF/PCK ");
+        file[8..12].copy_from_slice(&2i32.to_le_bytes()); // ND
+        file[12..16].copy_from_slice(&5i32.to_le_bytes()); // NI
+        file[76..80].copy_from_slice(&2i32.to_le_bytes()); // FWARD
+        file[80..84].copy_from_slice(&2i32.to_le_bytes()); // BWARD
+        file[84..88].copy_from_slice(&500i32.to_le_bytes()); // FREE
+        file[88..96].copy_from_slice(b"LTL-IEEE");
+
+        // Summary record (record 2): NEXT=0, PREV=0, NSUM=1
+        let rec = 1024;
+        file[rec + 16..rec + 24].copy_from_slice(&1f64.to_le_bytes());
+        file[rec + 24..rec + 32].copy_from_slice(&0f64.to_le_bytes());
+        file[rec + 32..rec + 40].copy_from_slice(&1000f64.to_le_bytes());
+        // ints: [frame_class_id, reference_frame, type, start_addr, end_addr]
+        let start_addr = 385i32;
+        let end_addr = start_addr + data.len() as i32 - 1;
+        for (i, v) in [31006i32, 1, 2, start_addr, end_addr].iter().enumerate() {
+            let off = rec + 40 + i * 4;
+            file[off..off + 4].copy_from_slice(&v.to_le_bytes());
+        }
+        // Name record (record 3): spaces
+        for b in &mut file[2048..2048 + 40] {
+            *b = b' ';
+        }
+        // Data (record 4)
+        for (i, v) in data.iter().enumerate() {
+            let off = 3 * 1024 + i * 8;
+            file[off..off + 8].copy_from_slice(&v.to_le_bytes());
+        }
+        file
+    }
+
     #[test]
     #[serial]
     fn test_registry_load_unload_idempotent() {
@@ -766,6 +833,35 @@ mod tests {
         let r = spk_position(NAIF_SUN, NAIF_EARTH, epc_2025()).unwrap();
         assert!(r.norm() > 1.4e11);
         assert_eq!(loaded_kernels(), vec!["de440s".to_string()]);
+    }
+
+    #[test]
+    #[serial]
+    fn test_query_with_only_pck_loaded_still_auto_initializes_spk() {
+        // Regression test: `ensure_default_ephemeris_loaded` must check for
+        // an *SPK* kernel specifically, not just any loaded kernel, so that
+        // a registry holding only a PCK (e.g. after
+        // `load_kernel("moon_pa_de440")`) still auto-loads de440s for
+        // `spk_*` queries instead of erroring with "No SPK kernels loaded".
+        setup_global_test_spice(); // ensures de440s is in the local cache
+        clear_kernels();
+
+        let dir = tempfile::tempdir().unwrap();
+        let pck_path = dir.path().join("synthetic.bpc");
+        std::fs::write(&pck_path, synthetic_bpck_bytes()).unwrap();
+        load_kernel(pck_path.to_str().unwrap()).unwrap();
+        assert_eq!(
+            loaded_kernels(),
+            vec![pck_path.to_str().unwrap().to_string()]
+        );
+
+        let r = spk_position(NAIF_SUN, NAIF_EARTH, epc_2025()).unwrap();
+        assert!(r.norm() > 1.4e11);
+        assert!(loaded_kernels().contains(&"de440s".to_string()));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
     }
 
     #[test]
@@ -833,6 +929,26 @@ mod tests {
         setup_global_test_spice();
         let err = pck_euler_angles(31006, epc_2025()).unwrap_err();
         assert!(format!("{}", err).contains("31006"));
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_load_kernel_resolves_moon_pa_de440_network() {
+        setup_global_test_spice();
+        clear_kernels();
+
+        load_kernel("moon_pa_de440").unwrap();
+        assert_eq!(loaded_kernels(), vec!["moon_pa_de440".to_string()]);
+
+        // Frame class 31008 (MOON_PA_DE440) has coverage at 2025-01-01.
+        let r = pck_rotation_matrix(31008, epc_2025()).unwrap();
+        let rtr = r.transpose() * r;
+        assert_abs_diff_eq!((rtr - Matrix3::identity()).norm(), 0.0, epsilon = 1e-9);
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
     }
 
     #[test]

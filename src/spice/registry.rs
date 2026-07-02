@@ -21,7 +21,8 @@ use nalgebra::{Matrix3, Vector3, Vector6};
 use once_cell::sync::Lazy;
 
 use crate::datasets::naif::{
-    SUPPORTED_KERNELS, SUPPORTED_PCK_KERNELS, download_de_kernel, download_pck_kernel,
+    SUPPORTED_KERNELS, SUPPORTED_PCK_KERNELS, SUPPORTED_SATELLITE_KERNELS, download_de_kernel,
+    download_pck_kernel, download_satellite_kernel,
 };
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
@@ -108,7 +109,8 @@ pub(crate) fn epoch_to_et(epc: Epoch) -> f64 {
 /// (and caching) known DE kernel names via the NAIF dataset cache.
 ///
 /// Known kernel names are looked up in `naif::SUPPORTED_KERNELS` (DE SPK
-/// kernels) and `naif::SUPPORTED_PCK_KERNELS` (binary PCK kernels) — the
+/// kernels), `naif::SUPPORTED_PCK_KERNELS` (binary PCK kernels), and
+/// `naif::SUPPORTED_SATELLITE_KERNELS` (satellite SPK kernels) — the
 /// same lists `datasets::naif` validates against — rather than a second,
 /// independently maintained set of literals, so the two cannot drift out
 /// of sync.
@@ -120,6 +122,11 @@ fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, Brahe
         .any(|(name, _)| *name == name_or_path)
     {
         download_pck_kernel(name_or_path, None)
+    } else if SUPPORTED_SATELLITE_KERNELS
+        .iter()
+        .any(|(name, _)| *name == name_or_path)
+    {
+        download_satellite_kernel(name_or_path, None)
     } else {
         let path = Path::new(name_or_path);
         if path.exists() {
@@ -144,11 +151,13 @@ fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, Brahe
 /// no-op. Known DE kernel names (`"de440s"`, `"de440"`, etc.) are
 /// downloaded and cached via [`crate::datasets::naif::download_de_kernel`];
 /// the known binary PCK name `"moon_pa_de440"` is downloaded and cached via
-/// [`crate::datasets::naif::download_pck_kernel`]; any other string is
+/// [`crate::datasets::naif::download_pck_kernel`]; the known satellite SPK
+/// name `"mar097"` is downloaded and cached via
+/// [`crate::datasets::naif::download_satellite_kernel`]; any other string is
 /// treated as a file path.
 ///
 /// # Arguments
-/// - `name_or_path`: A known DE kernel or PCK kernel name, or a path to a `.bsp`/`.bpc` file
+/// - `name_or_path`: A known DE, PCK, or satellite kernel name, or a path to a `.bsp`/`.bpc` file
 ///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` if the kernel cannot be resolved,
@@ -1228,6 +1237,29 @@ mod tests {
         let r = pck_rotation_matrix(31008, epc_2025()).unwrap();
         let rtr = r.transpose() * r;
         assert_abs_diff_eq!((rtr - Matrix3::identity()).norm(), 0.0, epsilon = 1e-9);
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_load_mar097_and_query_phobos_deimos_network() {
+        setup_global_test_spice();
+        clear_kernels();
+
+        load_kernel("mar097").unwrap();
+        assert_eq!(loaded_kernels(), vec!["mar097".to_string()]);
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // Phobos (401) relative to Mars barycenter (4): |r| ~ 9376 km
+        let r = spk_position(401, NAIF_MARS_BARYCENTER, epc).unwrap();
+        assert!((r.norm() - 9.376e6).abs() < 0.2e6);
+        // Deimos (402) relative to Mars barycenter (4): |r| ~ 23463 km
+        let r = spk_position(402, NAIF_MARS_BARYCENTER, epc).unwrap();
+        assert!((r.norm() - 2.3463e7).abs() < 0.5e6);
 
         // Restore global state for other tests.
         clear_kernels();

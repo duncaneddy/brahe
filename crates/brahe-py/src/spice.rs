@@ -336,7 +336,7 @@ fn py_spk_state_in_kernel<'py>(
 /// via `bh.load_kernel(...)` first.
 ///
 /// Args:
-///     frame_id (int): Body-frame class ID (e.g. 31006 for MOON_PA_DE440)
+///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
 ///     epc (Epoch): Epoch of the query
 ///
 /// Returns:
@@ -352,7 +352,7 @@ fn py_spk_state_in_kernel<'py>(
 ///
 ///     bh.load_kernel("moon_pa_de440")
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     angles, rates = bh.pck_euler_angles(31006, epc)
+///     angles, rates = bh.pck_euler_angles(31008, epc)
 ///     ```
 #[pyfunction]
 #[pyo3(name = "pck_euler_angles")]
@@ -373,7 +373,7 @@ fn py_pck_euler_angles<'py>(
 /// via `bh.load_kernel(...)` first.
 ///
 /// Args:
-///     frame_id (int): Body-frame class ID (e.g. 31006 for MOON_PA_DE440)
+///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
 ///     epc (Epoch): Epoch of the query
 ///
 /// Returns:
@@ -388,7 +388,7 @@ fn py_pck_euler_angles<'py>(
 ///
 ///     bh.load_kernel("moon_pa_de440")
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     R = bh.pck_rotation_matrix(31006, epc)
+///     R = bh.pck_rotation_matrix(31008, epc)
 ///     ```
 #[pyfunction]
 #[pyo3(name = "pck_rotation_matrix")]

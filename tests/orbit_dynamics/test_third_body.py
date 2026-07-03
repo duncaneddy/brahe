@@ -528,3 +528,107 @@ class TestDEThirdBody:
             epc, x_state, bh.EphemerisSource.DE440s
         )
         assert np.allclose(a_jup_pos, a_jup_state, atol=1e-15)
+
+
+class TestThirdBodyForBody:
+    """Tests for the central-body-aware accel_third_body_for_body."""
+
+    def test_accel_third_body_for_body_earth_center_matches_legacy(self):
+        """CentralBody.Earth + ThirdBody.SUN matches the legacy accel_third_body_sun_de."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+
+        legacy = bh.accel_third_body_sun_de(epc, r, bh.EphemerisSource.DE440s)
+        new = bh.accel_third_body_for_body(
+            bh.CentralBody.Earth, bh.ThirdBody.SUN, bh.EphemerisSource.DE440s, epc, r
+        )
+
+        assert np.allclose(new, legacy, atol=1e-15)
+
+    def test_accel_third_body_for_body_rejects_body_equal_to_center(self):
+        """A third body with the same NAIF ID as the central body raises."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+
+        with pytest.raises(RuntimeError):
+            bh.accel_third_body_for_body(
+                bh.CentralBody.Earth,
+                bh.ThirdBody.EARTH,
+                bh.EphemerisSource.DE440s,
+                epc,
+                r,
+            )
+
+    def test_accel_third_body_for_body_low_precision_rejected_for_non_earth_center(
+        self,
+    ):
+        """LowPrecision ephemerides are geocentric and rejected for a non-Earth center."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([2e6, 0.0, 0.0])
+
+        with pytest.raises(RuntimeError):
+            bh.accel_third_body_for_body(
+                bh.CentralBody.Moon,
+                bh.ThirdBody.SUN,
+                bh.EphemerisSource.LowPrecision,
+                epc,
+                r,
+            )
+
+    @pytest.mark.integration
+    def test_emb_internal_bodies_use_direct_form(self):
+        """Earth about EMB uses the direct term only (no indirect term at the barycenter)."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([1e8, 2e8, -5e7])
+        s = bh.spk_position(399, 3, epc)
+        d = s - r
+        expected = bh.GM_EARTH * d / np.linalg.norm(d) ** 3
+
+        got = bh.accel_third_body_for_body(
+            bh.CentralBody.EMB, bh.ThirdBody.EARTH, bh.EphemerisSource.DE440s, epc, r
+        )
+
+        assert np.allclose(got, expected, atol=1e-18)
+
+    @pytest.mark.integration
+    def test_emb_external_body_uses_differential_form(self):
+        """The Sun about EMB uses the full differential (direct minus indirect) form."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([1e8, 2e8, -5e7])
+        s = bh.spk_position(10, 3, epc)
+        d = s - r
+        expected = bh.GM_SUN * (d / np.linalg.norm(d) ** 3 - s / np.linalg.norm(s) ** 3)
+
+        got = bh.accel_third_body_for_body(
+            bh.CentralBody.EMB, bh.ThirdBody.SUN, bh.EphemerisSource.DE440s, epc, r
+        )
+
+        assert np.allclose(got, expected, atol=1e-18)
+
+    @pytest.mark.integration
+    def test_ssb_all_bodies_direct(self):
+        """Nothing accelerates the SSB, so every perturber uses the direct term only."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([1e8, 2e8, -5e7])
+        s = bh.spk_position(5, 0, epc)
+        d = s - r
+        expected = bh.GM_JUPITER * d / np.linalg.norm(d) ** 3
+
+        got = bh.accel_third_body_for_body(
+            bh.CentralBody.SSB, bh.ThirdBody.JUPITER, bh.EphemerisSource.DE440s, epc, r
+        )
+
+        assert np.allclose(got, expected, atol=1e-18)
+
+    @pytest.mark.integration
+    def test_phobos_third_body_about_mars(self):
+        """Phobos as a third body about a Mars-centered object is small but nonzero."""
+        bh.load_kernel("mar099s")
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([bh.R_MARS + 400e3, 0.0, 0.0])
+
+        a = bh.accel_third_body_for_body(
+            bh.CentralBody.Mars, bh.ThirdBody.PHOBOS, bh.EphemerisSource.DE440s, epc, r
+        )
+
+        assert 0.0 < np.linalg.norm(a) < 1e-8

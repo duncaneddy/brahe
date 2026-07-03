@@ -102,3 +102,35 @@ def test_state_eci_to_koe_and_roundtri_rad(eop):
     assert osc_converted[3] == approx(osc_original[3], abs=1e-6)
     assert osc_converted[4] == approx(osc_original[4], abs=1e-6)
     assert osc_converted[5] == approx(osc_original[5], abs=1e-6)
+
+
+def test_state_eci_to_koe_for_body_matches_legacy_for_earth_gm(eop):
+    """state_eci_to_koe_for_body(x, GM_EARTH, ...) matches state_eci_to_koe exactly."""
+    cart = np.array(
+        [
+            brahe.R_EARTH + 500e3,
+            0.0,
+            0.0,
+            0.0,
+            brahe.perigee_velocity(brahe.R_EARTH + 500e3, 0.0),
+            0.0,
+        ]
+    )
+    osc_legacy = brahe.state_eci_to_koe(cart, AngleFormat.DEGREES)
+    osc_for_body = brahe.state_eci_to_koe_for_body(
+        cart, brahe.GM_EARTH, AngleFormat.DEGREES
+    )
+
+    assert osc_for_body == approx(osc_legacy)
+
+
+def test_state_eci_to_koe_for_body_lunar_circular_orbit(eop):
+    """A circular orbit about the Moon should recover a=r, e=0 using GM_MOON."""
+    a = brahe.R_MOON + 100e3
+    cart = np.array(
+        [a, 0.0, 0.0, 0.0, brahe.periapsis_velocity(a, 0.0, gm=brahe.GM_MOON), 0.0]
+    )
+    osc = brahe.state_eci_to_koe_for_body(cart, brahe.GM_MOON, AngleFormat.DEGREES)
+
+    assert osc[0] == approx(a, abs=1e-6)
+    assert osc[1] == approx(0.0, abs=1e-9)

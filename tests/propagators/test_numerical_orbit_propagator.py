@@ -17,8 +17,14 @@ from brahe import (
     state_koe_to_eci,
     state_eci_to_koe,
     R_EARTH,
+    R_MOON,
+    GM_MOON,
     orbital_period,
     GravityConfiguration,
+    CentralBody,
+    ReferenceFrame,
+    periapsis_velocity,
+    spk_state,
 )
 
 
@@ -1179,7 +1185,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_eci(propagated_orbi
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(
+    propagated_orbit_prop,
+):
     """Test states_ecef() returns ECEF state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -1196,7 +1204,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(propagated_orb
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(
+    propagated_orbit_prop,
+):
     """Test states_gcrf() returns GCRF state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -1209,7 +1219,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(propagated_orb
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(
+    propagated_orbit_prop,
+):
     """Test states_itrf() returns ITRF state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -1222,7 +1234,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(propagated_orb
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_eme2000(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_eme2000(
+    propagated_orbit_prop,
+):
     """Test states_eme2000() returns EME2000 state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -5711,3 +5725,98 @@ class TestNumericalOrbitPropagatorKOE:
             assert all(np.isfinite(elements))
             assert elements[0] > R_EARTH
             assert elements[1] < 1.0  # Eccentricity < 1
+
+
+# =============================================================================
+# Central-Body-Aware State Accessors
+# =============================================================================
+
+
+class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
+    """Test state_central_inertial and state_in_frame, mirroring
+    dnumerical_orbit_propagator::tests for Task 12's central-body-aware accessors."""
+
+    def test_state_central_inertial_matches_state_eci_for_earth_propagator(self):
+        """For an Earth-centered propagator, state_central_inertial == state_eci."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+        prop.propagate_to(epoch + 60.0)
+
+        x_central = prop.state_central_inertial(epoch)
+        x_eci = prop.state_eci(epoch)
+        assert np.allclose(x_central, x_eci, atol=1e-9)
+        assert np.allclose(x_central, state, atol=1e-9)
+
+    def test_state_in_frame_default_impl_earth_propagator(self):
+        """state_in_frame(epc, ITRF) matches state_ecef(epc) for an Earth propagator."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+        prop.propagate_to(epoch + 60.0)
+
+        x_itrf = prop.state_in_frame(epoch, ReferenceFrame.ITRF)
+        x_ecef = prop.state_ecef(epoch)
+        assert np.allclose(x_itrf, x_ecef, atol=1e-9)
+
+    @pytest.mark.integration
+    def test_lunar_propagation_state_eci_adds_moon_offset(self, naif_cache_setup):
+        """A lunar propagator's state_eci is the LCI state offset by the Moon's
+        position relative to Earth (via SPK)."""
+        epoch = create_test_epoch()
+        a = R_MOON + 100e3
+        x0 = np.array([a, 0.0, 0.0, 0.0, periapsis_velocity(a, 0.0, gm=GM_MOON), 0.0])
+
+        force_config = ForceModelConfig.for_body(
+            CentralBody.Moon, GravityConfiguration.point_mass()
+        )
+        prop = NumericalOrbitPropagator(
+            epoch,
+            x0,
+            NumericalPropagationConfig.default(),
+            force_config,
+            None,
+        )
+
+        x_eci = prop.state_eci(epoch)
+        expected = x0 + spk_state(301, 399, epoch)
+        assert np.allclose(x_eci, expected, atol=1e-9)
+
+    @pytest.mark.integration
+    def test_state_in_frame_lci_equals_central_inertial_for_lunar_propagator(
+        self, naif_cache_setup
+    ):
+        """state_in_frame(epc, LCI) is identical to state_central_inertial(epc) for a
+        Moon-centered propagator (identity short-circuit, no SPK round trip)."""
+        epoch = create_test_epoch()
+        a = R_MOON + 100e3
+        x0 = np.array([a, 0.0, 0.0, 0.0, periapsis_velocity(a, 0.0, gm=GM_MOON), 0.0])
+
+        force_config = ForceModelConfig.for_body(
+            CentralBody.Moon, GravityConfiguration.point_mass()
+        )
+        prop = NumericalOrbitPropagator(
+            epoch,
+            x0,
+            NumericalPropagationConfig.default(),
+            force_config,
+            None,
+        )
+
+        x_lci = prop.state_in_frame(epoch, ReferenceFrame.LCI)
+        x_central = prop.state_central_inertial(epoch)
+        assert np.array_equal(x_lci, x_central)

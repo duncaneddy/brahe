@@ -230,6 +230,45 @@ class TestEclipseCylindrical:
         assert nu_from_pos == pytest.approx(nu_from_state, abs=1e-15)
 
 
+class TestEclipseForBody:
+    """Tests for the central-body-aware conical/cylindrical eclipse models."""
+
+    def test_eclipse_for_body_earth_at_origin_matches_legacy(self):
+        """eclipse_*_for_body with the occulter at the origin/R_EARTH matches the legacy functions."""
+        r_object = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+        r_sun = np.array([-bh.AU, 0.0, 0.0])
+        r_occulter = np.array([0.0, 0.0, 0.0])
+
+        nu_conical_legacy = bh.eclipse_conical(r_object, r_sun)
+        nu_conical_for_body = bh.eclipse_conical_for_body(
+            r_object, r_sun, r_occulter, bh.R_EARTH
+        )
+        assert nu_conical_for_body == pytest.approx(nu_conical_legacy)
+
+        nu_cyl_legacy = bh.eclipse_cylindrical(r_object, r_sun)
+        nu_cyl_for_body = bh.eclipse_cylindrical_for_body(
+            r_object, r_sun, r_occulter, bh.R_EARTH
+        )
+        assert nu_cyl_for_body == pytest.approx(nu_cyl_legacy)
+
+    def test_eclipse_for_body_offset_occulter(self):
+        """Moon occulting an object 2000 km behind it, with the Moon offset from the origin."""
+        r_moon = np.array([3.844e8, 0.0, 0.0])
+        r_sun = np.array([1.5e11, 0.0, 0.0])
+
+        # Object on the anti-Sun side of the Moon, 2000 km behind it: fully shadowed.
+        r_object = np.array([r_moon[0] - 2.0e6, 0.0, 0.0])
+        nu = bh.eclipse_cylindrical_for_body(r_object, r_sun, r_moon, bh.R_MOON)
+        assert nu == pytest.approx(0.0, abs=1e-12)
+
+        # Object off-axis from the Moon: fully illuminated.
+        r_object_free = np.array([r_moon[0], 1.0e7, 0.0])
+        nu_free = bh.eclipse_cylindrical_for_body(
+            r_object_free, r_sun, r_moon, bh.R_MOON
+        )
+        assert nu_free == pytest.approx(1.0, abs=1e-12)
+
+
 class TestEclipseModelsComparison:
     """Tests comparing conical and cylindrical eclipse models."""
 

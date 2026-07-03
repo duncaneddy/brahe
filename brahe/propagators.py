@@ -20,11 +20,13 @@ This module provides:
 - FrameTransformationModel: ECI-to-body-fixed rotation precision selector
 - NumericalPropagationConfig: Configuration for numerical integration
 - VariationalConfig: STM/sensitivity configuration
+- CentralBody: Central body an orbit is propagated relative to (Earth, Moon, Mars, EMB, SSB, Custom)
 - ForceModelConfig: Force model configuration for orbit propagation
 - ParameterSource: Source for parameter values (fixed or from vector)
 - GravityConfiguration: Gravity model configuration
 - DragConfiguration: Atmospheric drag configuration
 - SolarRadiationPressureConfiguration: SRP configuration
+- OccultingBody: Occulting body for eclipse/shadow modeling in SRP calculations
 - ThirdBody: Third-body perturber enum
 - ThirdBodyConfiguration: Third-body perturbation configuration
 
@@ -51,11 +53,13 @@ from brahe._brahe import (
     FrameTransformationModel,
     NumericalPropagationConfig,
     VariationalConfig,
+    CentralBody,
     ForceModelConfig,
     ParameterSource,
     GravityConfiguration,
     DragConfiguration,
     SolarRadiationPressureConfiguration,
+    OccultingBody,
     ThirdBody,
     ThirdBodyConfiguration,
     TrajectoryMode,
@@ -78,11 +82,13 @@ __all__ = [
     "FrameTransformationModel",
     "NumericalPropagationConfig",
     "VariationalConfig",
+    "CentralBody",
     "ForceModelConfig",
     "ParameterSource",
     "GravityConfiguration",
     "DragConfiguration",
     "SolarRadiationPressureConfiguration",
+    "OccultingBody",
     "ThirdBody",
     "ThirdBodyConfiguration",
     "TrajectoryMode",

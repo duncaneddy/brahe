@@ -882,6 +882,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Cartesian
     module.add_function(wrap_pyfunction!(py_state_koe_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_koe, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_koe_for_body, module)?)?;
 
     // Geocentric
     module.add_function(wrap_pyfunction!(py_position_geocentric_to_ecef, module)?)?;
@@ -947,6 +948,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyZonalHarmonicsDegree>()?;
     module.add_class::<PyParallelMode>()?;
     module.add_class::<PyFrameTransformationModel>()?;
+    module.add_class::<PyCentralBody>()?;
+    module.add_class::<PyOccultingBody>()?;
     module.add_class::<PyNumericalPropagationConfig>()?;
     module.add_class::<PyVariationalConfig>()?;
     module.add_class::<PyParameterSource>()?;
@@ -1140,6 +1143,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_third_body_neptune_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_for_body, module)?)?;
 
     // Gravity Accelerations
     module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;
@@ -1169,10 +1173,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Drag, SRP, and Relativity
     module.add_function(wrap_pyfunction!(py_accel_drag, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_drag_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_solar_radiation_pressure, module)?)?;
     module.add_function(wrap_pyfunction!(py_eclipse_conical, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_conical_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_eclipse_cylindrical, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_cylindrical_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_relativity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_relativity_for_body, module)?)?;
 
     //* Access *//
 

@@ -1601,6 +1601,75 @@ fn py_accel_third_body_neptune_de<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
+/// Calculate the acceleration due to a third body on an object propagated
+/// about an arbitrary central body.
+///
+/// Generalizes the body-specific `accel_third_body_*` functions to non-Earth
+/// central bodies (e.g. `CentralBody.Moon`, `CentralBody.Mars`,
+/// `CentralBody.EMB`), applying the direct-vs-differential barycenter rule:
+/// for `CentralBody.SSB` the direct (non-differential) form is always used;
+/// for `CentralBody.EMB` it is used only when `body` is `ThirdBody.EARTH` or
+/// `ThirdBody.MOON`; every other combination uses the differential form.
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_object.
+///
+/// Args:
+///     central_body (CentralBody): Body the object's position and the returned
+///         acceleration are expressed relative to.
+///     body (ThirdBody): Perturbing celestial body.
+///     source (EphemerisSource): Ephemeris source for the perturber's position.
+///         `EphemerisSource.LowPrecision` is only valid when `central_body` is
+///         `CentralBody.Earth` and `body` is `ThirdBody.SUN` or `ThirdBody.MOON`.
+///     epc (Epoch): Epoch for ephemeris lookup.
+///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object,
+///         relative to `central_body`. Units: (m)
+///
+/// Returns:
+///     np.ndarray: Acceleration in the inertial frame centered on `central_body`. Units: (m/s²)
+///
+/// Raises:
+///     RuntimeError: If `source` is `LowPrecision` with a non-Earth `central_body` or a
+///         `body` other than Sun/Moon, if `body` has the same NAIF ID as `central_body`,
+///         or if the ephemeris kernel cannot be loaded or queried.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_ephemeris()
+///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
+///     r_object = np.array([bh.R_MOON + 100e3, 0.0, 0.0])
+///     a_earth = bh.accel_third_body_for_body(
+///         bh.CentralBody.Moon, bh.ThirdBody.EARTH, bh.EphemerisSource.DE440s, epc, r_object
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(name = "accel_third_body_for_body")]
+fn py_accel_third_body_for_body<'py>(
+    py: Python<'py>,
+    central_body: &PyCentralBody,
+    body: &PyThirdBody,
+    source: PyEphemerisSource,
+    epc: &PyEpoch,
+    r_object: PyReadonlyArray1<f64>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let len = r_object.len();
+    let a = if len == 3 {
+        let r_obj = numpy_to_vector3!(r_object);
+        orbit_dynamics::accel_third_body_for_body(&central_body.body, &body.body, source.into(), epc.obj, r_obj)
+    } else if len == 6 {
+        let x_obj = numpy_to_vector6!(r_object);
+        orbit_dynamics::accel_third_body_for_body(&central_body.body, &body.body, source.into(), epc.obj, x_obj)
+    } else {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "r_object must be length 3 (position) or 6 (state)"
+        ));
+    }
+    .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
 // ============================================================================
 // Gravity Acceleration Python Bindings
 // ============================================================================
@@ -2397,6 +2466,56 @@ fn py_accel_drag<'py>(
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
+/// Compute acceleration due to atmospheric drag about an arbitrary central body,
+/// using that body's atmospheric co-rotation rate.
+///
+/// Generalizes `accel_drag` to non-Earth central bodies. `accel_drag` is
+/// equivalent to calling this with Earth's spin vector `[0, 0, OMEGA_EARTH]`.
+///
+/// Args:
+///     x_object (np.ndarray): Satellite state vector in the central body's inertial frame. Units: [m; m/s]
+///     density (float): Atmospheric density. Units: (kg/m³)
+///     mass (float): Spacecraft mass. Units: (kg)
+///     area (float): Wind-facing cross-sectional area. Units: (m²)
+///     drag_coefficient (float): Coefficient of drag (dimensionless)
+///     T (np.ndarray): Rotation matrix from inertial to body-fixed (true-of-date) frame (3x3)
+///     omega (numpy.ndarray or list): Body-fixed axial spin vector of the central body. Units: (rad/s)
+///
+/// Returns:
+///     np.ndarray: Acceleration due to drag. Units: (m/s²)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     x_object = np.array([bh.R_MOON + 100e3, 0.0, 0.0, 0.0, 1600.0, 0.0])
+///     density = 1.0e-14
+///     a_drag = bh.accel_drag_for_body(
+///         x_object, density, 1000.0, 1.0, 2.3, np.eye(3), [0.0, 0.0, bh.OMEGA_MOON]
+///     )
+///     ```
+#[pyfunction]
+#[pyo3(name = "accel_drag_for_body")]
+#[allow(non_snake_case)]
+#[allow(clippy::too_many_arguments)]
+fn py_accel_drag_for_body<'py>(
+    py: Python<'py>,
+    x_object: PyReadonlyArray1<f64>,
+    density: f64,
+    mass: f64,
+    area: f64,
+    drag_coefficient: f64,
+    T: PyReadonlyArray2<f64>,
+    omega: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let x_obj = numpy_to_vector6!(x_object);
+    let t_mat = numpy_to_smatrix3!(T);
+    let omega_vec = pyany_to_svector::<3>(&omega)?;
+    let a = orbit_dynamics::accel_drag_for_body(x_obj, density, mass, area, drag_coefficient, t_mat, omega_vec);
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
 // ============================================================================
 // Solar Radiation Pressure Acceleration Python Bindings
 // ============================================================================
@@ -2503,6 +2622,61 @@ fn py_eclipse_conical(
     Ok(nu)
 }
 
+/// Calculate the fraction of the object illuminated by the sun using a conical model
+/// for shadowing by an arbitrary occulting body.
+///
+/// Generalizes `eclipse_conical` to shadowing by a body other than Earth (e.g. the
+/// Moon or Mars). `eclipse_conical` is equivalent to calling this with the occulter
+/// at the origin and `radius_occulter = R_EARTH`.
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_object.
+///
+/// Args:
+///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object. Units: (m)
+///     r_sun (np.ndarray): Position vector of the sun. Units: (m)
+///     r_occulter (np.ndarray): Position vector of the occulting body. Units: (m)
+///     radius_occulter (float): Mean physical radius of the occulting body. Units: (m)
+///
+/// Returns:
+///     float: Illumination fraction of the object (0.0 = fully shadowed, 1.0 = fully illuminated).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2024, 1, 1, bh.TimeSystem.UTC)
+///     r_sat = np.array([bh.R_MOON + 100e3, 0.0, 0.0])
+///     r_sun = np.array([-bh.AU, 0.0, 0.0])
+///     r_occulter = np.array([0.0, 0.0, 0.0])
+///
+///     nu = bh.eclipse_conical_for_body(r_sat, r_sun, r_occulter, bh.R_MOON)
+///     ```
+#[pyfunction]
+#[pyo3(name = "eclipse_conical_for_body")]
+fn py_eclipse_conical_for_body(
+    r_object: PyReadonlyArray1<f64>,
+    r_sun: PyReadonlyArray1<f64>,
+    r_occulter: PyReadonlyArray1<f64>,
+    radius_occulter: f64,
+) -> PyResult<f64> {
+    let len = r_object.len();
+    let r_s = numpy_to_vector3!(r_sun);
+    let r_occ = numpy_to_vector3!(r_occulter);
+    let nu = if len == 3 {
+        let r_obj = numpy_to_vector3!(r_object);
+        orbit_dynamics::eclipse_conical_for_body(r_obj, r_s, r_occ, radius_occulter)
+    } else if len == 6 {
+        let x_obj = numpy_to_vector6!(r_object);
+        orbit_dynamics::eclipse_conical_for_body(x_obj, r_s, r_occ, radius_occulter)
+    } else {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "r_object must be length 3 (position) or 6 (state)"
+        ));
+    };
+    Ok(nu)
+}
+
 /// Calculate the fraction of the object illuminated by the sun using a cylindrical shadow model.
 ///
 /// The cylindrical shadow model is a simplified approach that assumes Earth casts a cylindrical
@@ -2556,6 +2730,61 @@ fn py_eclipse_cylindrical(
     Ok(nu)
 }
 
+/// Calculate the fraction of the object illuminated by the sun using a cylindrical model
+/// for shadowing by an arbitrary occulting body.
+///
+/// Generalizes `eclipse_cylindrical` to shadowing by a body other than Earth (e.g. the
+/// Moon or Mars). `eclipse_cylindrical` is equivalent to calling this with the occulter
+/// at the origin and `radius_occulter = R_EARTH`.
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_object.
+///
+/// Args:
+///     r_object (np.ndarray): Position (length 3) or state (length 6) of the object. Units: (m)
+///     r_sun (np.ndarray): Position vector of the sun. Units: (m)
+///     r_occulter (np.ndarray): Position vector of the occulting body. Units: (m)
+///     radius_occulter (float): Mean physical radius of the occulting body. Units: (m)
+///
+/// Returns:
+///     float: Illumination fraction, either 0.0 (full shadow) or 1.0 (full sunlight).
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     epc = bh.Epoch.from_date(2024, 1, 1, bh.TimeSystem.UTC)
+///     r_sat = np.array([bh.R_MOON + 100e3, 0.0, 0.0])
+///     r_sun = np.array([-bh.AU, 0.0, 0.0])
+///     r_occulter = np.array([0.0, 0.0, 0.0])
+///
+///     nu = bh.eclipse_cylindrical_for_body(r_sat, r_sun, r_occulter, bh.R_MOON)
+///     ```
+#[pyfunction]
+#[pyo3(name = "eclipse_cylindrical_for_body")]
+fn py_eclipse_cylindrical_for_body(
+    r_object: PyReadonlyArray1<f64>,
+    r_sun: PyReadonlyArray1<f64>,
+    r_occulter: PyReadonlyArray1<f64>,
+    radius_occulter: f64,
+) -> PyResult<f64> {
+    let len = r_object.len();
+    let r_s = numpy_to_vector3!(r_sun);
+    let r_occ = numpy_to_vector3!(r_occulter);
+    let nu = if len == 3 {
+        let r_obj = numpy_to_vector3!(r_object);
+        orbit_dynamics::eclipse_cylindrical_for_body(r_obj, r_s, r_occ, radius_occulter)
+    } else if len == 6 {
+        let x_obj = numpy_to_vector6!(r_object);
+        orbit_dynamics::eclipse_cylindrical_for_body(x_obj, r_s, r_occ, radius_occulter)
+    } else {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "r_object must be length 3 (position) or 6 (state)"
+        ));
+    };
+    Ok(nu)
+}
+
 // ============================================================================
 // Relativity Acceleration Python Bindings
 // ============================================================================
@@ -2584,5 +2813,38 @@ fn py_accel_relativity<'py>(
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let x_obj = numpy_to_vector6!(x_object);
     let a = orbit_dynamics::accel_relativity(x_obj);
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
+/// Calculate acceleration due to special and general relativity for an object
+/// orbiting a central body with an arbitrary gravitational parameter.
+///
+/// Generalizes `accel_relativity` to non-Earth central bodies. `accel_relativity`
+/// is equivalent to calling this with `gm = GM_EARTH`.
+///
+/// Args:
+///     x_object (np.ndarray): State vector of the object in the central body's inertial frame. Units: [m; m/s]
+///     gm (float): Gravitational parameter of the central body. Units: (m^3/s^2)
+///
+/// Returns:
+///     np.ndarray: Acceleration due to relativistic effects. Units: (m/s²)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     x_object = np.array([bh.R_MOON + 100e3, 0.0, 0.0, 0.0, 1600.0, 0.0])
+///     a_rel = bh.accel_relativity_for_body(x_object, bh.GM_MOON)
+///     ```
+#[pyfunction]
+#[pyo3(name = "accel_relativity_for_body")]
+fn py_accel_relativity_for_body<'py>(
+    py: Python<'py>,
+    x_object: PyReadonlyArray1<f64>,
+    gm: f64,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let x_obj = numpy_to_vector6!(x_object);
+    let a = orbit_dynamics::accel_relativity_for_body(x_obj, gm);
     Ok(vector_to_numpy!(py, a, 3, f64))
 }

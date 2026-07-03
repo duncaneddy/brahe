@@ -1,10 +1,8 @@
 # Reference Frames Module
 
-Reference frame transformations between inertial (ECI) and Earth-fixed (ECEF) coordinate systems.
+Reference frame transformations between inertial and body-fixed coordinate systems for Earth, the Moon, and Mars, plus a generic router for any two supported frames.
 
 ## Transformation Categories
-
-Brahe provides three categories of reference frame transformations:
 
 ### [ECI ↔ ECEF](eci_ecef.md)
 
@@ -17,3 +15,15 @@ Explicit transformations between Geocentric Celestial Reference Frame (inertial)
 ### [EME2000 ↔ GCRF](eme2000_gcrf.md)
 
 Constant frame bias transformations between Earth Mean Equator and Equinox of J2000.0 (classical inertial) and GCRF (modern inertial).
+
+### [Lunar Frames](lunar.md)
+
+Transformations between Lunar-Centered Inertial (LCI) and the Moon-fixed LFPA/LFME frames.
+
+### [Mars Frames](mars.md)
+
+Transformations between Mars-Centered Inertial (MCI) and the Mars-fixed MCMF frame.
+
+### [Reference Frame Router](router.md)
+
+`ReferenceFrame` and the generic `rotation_frame_to_frame`/`position_frame_to_frame`/`state_frame_to_frame` functions, which convert between any two supported frames, including generic NAIF-ID variants for bodies without a dedicated named frame.

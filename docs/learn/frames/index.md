@@ -14,6 +14,9 @@ Inertial reference frames currently supported in Brahe are:
 
 - **GCRF (Geocentric Celestial Reference Frame)**: The standard modern inertial reference frame for Earth-orbiting satellites, aligned with the International Celestial Reference Frame (ICRF)
 - **EME2000 (Earth Mean Equator and Equinox of J2000.0)**: Classical J2000.0 mean equator and mean equinox inertial frame. Derived from the FK5 catalog and widely used in older systems
+- **LCI (Lunar-Centered Inertial)**: ICRF-aligned, centered on the Moon
+- **MCI (Mars-Centered Inertial)**: ICRF-aligned, centered on the Mars system barycenter
+- **EMBI / SSBI**: ICRF-aligned, centered on the Earth-Moon and Solar System barycenters, respectively
 
 ### Earth-Fixed Frames (Rotating)
 
@@ -22,6 +25,15 @@ Earth-fixed reference frames rotate with the Earth and are ideal for computing p
 Earth-fixed reference frames currently supported in Brahe are:
 
 - **ITRF (International Terrestrial Reference Frame)**: The standard Earth-fixed reference frame maintained by IERS, rotating with the Earth and aligned with geographic coordinates
+
+### Lunar and Mars Frames
+
+Brahe also supports Moon- and Mars-fixed frames for multibody propagation and reporting body-fixed ground tracks:
+
+- **LFPA / LFME (Lunar-Fixed Principal Axis / Mean-Earth)**: Moon-fixed frames, evaluated from the DE440 lunar orientation kernel
+- **MCMF (Mars-Centered Mars-Fixed)**: Mars-fixed frame, evaluated from the IAU/WGCCRE rotation model
+
+See [Lunar Reference Frames](lunar_frames.md) and [Mars Reference Frames](mars_frames.md) for details, and [Frame Router & Multibody Propagation](frame_transformations.md) for the `ReferenceFrame` router that converts between any two frames (including generic NAIF-ID variants for bodies without a dedicated named frame) and for central-body propagation defaults.
 
 ## Available Transformations
 

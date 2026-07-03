@@ -4865,6 +4865,9 @@ impl PyForceModelConfig {
     /// Uses 50x50 GRGM660PRIM lunar gravity, no drag, SRP occulted by the Moon
     /// and Earth, and Earth/Sun third-body perturbations (DE440s ephemerides).
     /// Requires parameter vector: [mass, _, _, srp_area, Cr]
+    ///
+    /// Returns:
+    ///     ForceModelConfig: Configuration with the Moon as the central body.
     #[classmethod]
     fn lunar_default(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig { config: propagators::ForceModelConfig::lunar_default() }
@@ -4875,6 +4878,9 @@ impl PyForceModelConfig {
     /// Uses 50x50 GMM-2B Mars gravity, exponential atmospheric drag, SRP
     /// occulted by Mars, and Sun third-body perturbations (DE440s ephemerides).
     /// Requires parameter vector: [mass, drag_area, Cd, srp_area, Cr]
+    ///
+    /// Returns:
+    ///     ForceModelConfig: Configuration with Mars as the central body.
     #[classmethod]
     fn mars_default(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig { config: propagators::ForceModelConfig::mars_default() }
@@ -4886,6 +4892,9 @@ impl PyForceModelConfig {
     /// drag, SRP occulted by Earth and the Moon, and Earth/Moon/Sun third-body
     /// perturbations (DE440s ephemerides).
     /// Requires parameter vector: [mass, _, _, srp_area, Cr]
+    ///
+    /// Returns:
+    ///     ForceModelConfig: Configuration with the Earth-Moon barycenter as the central body.
     #[classmethod]
     fn cislunar_default(_cls: &Bound<'_, PyType>) -> Self {
         PyForceModelConfig { config: propagators::ForceModelConfig::cislunar_default() }

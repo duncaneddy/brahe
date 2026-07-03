@@ -829,6 +829,51 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_gcrf_to_eme2000, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eme2000_to_gcrf, module)?)?;
 
+    // IAU/WGCCRE body rotation model
+    module.add_function(wrap_pyfunction!(
+        py_rotation_icrf_to_body_fixed_iau,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_iau_rotation_model_ids, module)?)?;
+
+    // Mars reference frames (MCI, MCMF)
+    module.add_function(wrap_pyfunction!(py_rotation_mci_to_mcmf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_mcmf_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_mci_to_mcmf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_mcmf_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_mci_to_mcmf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_mcmf_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_eci_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_mci_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_mci_to_eci, module)?)?;
+
+    // Lunar reference frames (LCI, LFPA, LFME)
+    module.add_function(wrap_pyfunction!(py_rotation_lci_to_lfpa, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lfpa_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lfme_to_lfpa, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lfpa_to_lfme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lci_to_lfme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lfme_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lci_to_lfpa, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lfpa_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lci_to_lfme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lfme_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lci_to_lfpa, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lfpa_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lci_to_lfme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lfme_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_eci_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lci_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lci_to_eci, module)?)?;
+
+    // Reference frame router
+    module.add_class::<PyReferenceFrame>()?;
+    module.add_function(wrap_pyfunction!(py_rotation_frame_to_frame, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_frame_to_frame, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_frame_to_frame, module)?)?;
+
     //* Coordinates *//
 
     // Coordinate Types

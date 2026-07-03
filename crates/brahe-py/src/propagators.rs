@@ -3854,7 +3854,7 @@ impl From<PyThirdBody> for propagators::ThirdBody {
 
 impl From<propagators::ThirdBody> for PyThirdBody {
     fn from(body: propagators::ThirdBody) -> Self {
-        match body {
+        match &body {
             propagators::ThirdBody::Sun => PyThirdBody::SUN,
             propagators::ThirdBody::Moon => PyThirdBody::MOON,
             propagators::ThirdBody::Mercury => PyThirdBody::MERCURY,
@@ -3864,6 +3864,22 @@ impl From<propagators::ThirdBody> for PyThirdBody {
             propagators::ThirdBody::Saturn => PyThirdBody::SATURN,
             propagators::ThirdBody::Uranus => PyThirdBody::URANUS,
             propagators::ThirdBody::Neptune => PyThirdBody::NEPTUNE,
+            // Earth/Phobos/Deimos/Custom (added for Mars-centric propagation)
+            // have no dedicated `PyThirdBody` variant yet -- exposing them as
+            // Python-constructible enum members is Task 14's job. This match
+            // only needs to compile against the now-larger Rust `ThirdBody`;
+            // panicking here (rather than silently mapping to the wrong
+            // planet) surfaces the gap loudly if a Mars-system
+            // `ThirdBodyConfiguration` is ever read back from Python before
+            // Task 14 lands.
+            propagators::ThirdBody::Earth
+            | propagators::ThirdBody::Phobos
+            | propagators::ThirdBody::Deimos
+            | propagators::ThirdBody::Custom { .. } => panic!(
+                "ThirdBody variant with NAIF ID {} has no Python ThirdBody binding yet \
+                 (Earth/Phobos/Deimos/Custom are added in a later task)",
+                body.naif_id()
+            ),
         }
     }
 }

@@ -436,3 +436,235 @@ def test_eme2000_gcrf_roundtrip():
     assert gcrf_2[3] == approx(gcrf[3], abs=tol)
     assert gcrf_2[4] == approx(gcrf[4], abs=tol)
     assert gcrf_2[5] == approx(gcrf[5], abs=tol)
+
+
+# IAU/WGCCRE body rotation model tests
+
+
+def test_iau_rotation_model_ids():
+    ids = brahe.iau_rotation_model_ids()
+    assert 499 in ids  # Mars
+    assert ids == sorted(ids)
+
+
+def test_rotation_icrf_to_body_fixed_iau_orthonormal():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r = brahe.rotation_icrf_to_body_fixed_iau(499, epc)
+    np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-10)
+
+
+def test_rotation_icrf_to_body_fixed_iau_unknown_body_raises():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    with pytest.raises(RuntimeError):
+        brahe.rotation_icrf_to_body_fixed_iau(999999, epc)
+
+
+# Mars reference frame tests (MCI, MCMF)
+
+
+def test_rotation_mci_to_mcmf_orthonormal():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r = brahe.rotation_mci_to_mcmf(epc)
+    np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-12)
+
+
+def test_rotation_mcmf_to_mci_is_transpose():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r_fwd = brahe.rotation_mci_to_mcmf(epc)
+    r_inv = brahe.rotation_mcmf_to_mci(epc)
+    np.testing.assert_allclose(r_inv, r_fwd.T, atol=1e-12)
+
+
+def test_position_mci_to_mcmf_roundtrip():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_mci = np.array([brahe.R_MARS + 400e3, 1e6, 2e6])
+    x_mcmf = brahe.position_mci_to_mcmf(epc, x_mci)
+    x_mci2 = brahe.position_mcmf_to_mci(epc, x_mcmf)
+    np.testing.assert_allclose(x_mci2, x_mci, atol=1e-6)
+
+
+def test_state_mci_to_mcmf_roundtrip():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_mci = np.array([brahe.R_MARS + 400e3, 0.0, 0.0, 0.0, 3.4e3, 0.0])
+    x_mcmf = brahe.state_mci_to_mcmf(epc, x_mci)
+    x_mci2 = brahe.state_mcmf_to_mci(epc, x_mcmf)
+    np.testing.assert_allclose(x_mci2, x_mci, atol=1e-6)
+
+
+@pytest.mark.integration
+def test_state_eci_to_mci_roundtrip():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_eci = np.array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
+    x_mci = brahe.state_eci_to_mci(epc, x_eci)
+    x_eci2 = brahe.state_mci_to_eci(epc, x_mci)
+    np.testing.assert_allclose(x_eci2, x_eci, atol=1e-6)
+
+    p_eci = x_eci[:3]
+    p_mci = brahe.position_eci_to_mci(epc, p_eci)
+    p_eci2 = brahe.position_mci_to_eci(epc, p_mci)
+    np.testing.assert_allclose(p_eci2, p_eci, atol=1e-6)
+
+
+# Lunar reference frame tests (LCI, LFPA, LFME)
+
+
+def test_rotation_lfpa_to_lfme_is_small_constant():
+    r = brahe.rotation_lfpa_to_lfme()
+    angle = np.arccos((np.trace(r) - 1.0) / 2.0)
+    assert 4.0e-4 < angle < 6.0e-4
+    np.testing.assert_allclose(np.linalg.det(r), 1.0, atol=1e-12)
+    np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-12)
+
+
+def test_rotation_lfme_to_lfpa_is_lfpa_to_lfme_transpose():
+    r_pa_to_me = brahe.rotation_lfpa_to_lfme()
+    r_me_to_pa = brahe.rotation_lfme_to_lfpa()
+    np.testing.assert_allclose(r_me_to_pa, r_pa_to_me.T, atol=1e-15)
+
+
+@pytest.mark.integration
+def test_rotation_lci_to_lfpa_orthonormal():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r = brahe.rotation_lci_to_lfpa(epc)
+    np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-12)
+
+
+@pytest.mark.integration
+def test_rotation_lfpa_to_lci_is_transpose():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r_fwd = brahe.rotation_lci_to_lfpa(epc)
+    r_inv = brahe.rotation_lfpa_to_lci(epc)
+    np.testing.assert_allclose(r_inv, r_fwd.T, atol=1e-12)
+
+
+@pytest.mark.integration
+def test_position_lci_to_lfpa_roundtrip():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_lci = np.array([brahe.R_MOON + 100e3, 1e5, 2e5])
+    x_lfpa = brahe.position_lci_to_lfpa(epc, x_lci)
+    x_lci2 = brahe.position_lfpa_to_lci(epc, x_lfpa)
+    np.testing.assert_allclose(x_lci2, x_lci, atol=1e-6)
+
+
+@pytest.mark.integration
+def test_state_lci_to_lfpa_roundtrip():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_lci = np.array([brahe.R_MOON + 100e3, 1e5, 2e5, 0.0, 1.6e3, 0.0])
+    x_lfpa = brahe.state_lci_to_lfpa(epc, x_lci)
+    x_lci2 = brahe.state_lfpa_to_lci(epc, x_lfpa)
+    np.testing.assert_allclose(x_lci2, x_lci, atol=1e-6)
+
+
+@pytest.mark.integration
+def test_lci_lfme_roundtrip():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_lci = np.array([brahe.R_MOON + 100e3, 1e5, 2e5, 0.0, 1.6e3, 0.0])
+    x_lfme = brahe.state_lci_to_lfme(epc, x_lci)
+    x_lci2 = brahe.state_lfme_to_lci(epc, x_lfme)
+    np.testing.assert_allclose(x_lci2, x_lci, atol=1e-6)
+
+    p_lci = x_lci[:3]
+    p_lfme = brahe.position_lci_to_lfme(epc, p_lci)
+    p_lci2 = brahe.position_lfme_to_lci(epc, p_lfme)
+    np.testing.assert_allclose(p_lci2, p_lci, atol=1e-6)
+
+
+@pytest.mark.integration
+def test_state_eci_to_lci_roundtrip():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_eci = np.array([1e8, 2e8, 3e8, 1.0, 2.0, 3.0])
+    x_lci = brahe.state_eci_to_lci(epc, x_eci)
+    x_eci2 = brahe.state_lci_to_eci(epc, x_lci)
+    np.testing.assert_allclose(x_eci2, x_eci, atol=1e-6)
+
+    p_eci = x_eci[:3]
+    p_lci = brahe.position_eci_to_lci(epc, p_eci)
+    p_eci2 = brahe.position_lci_to_eci(epc, p_lci)
+    np.testing.assert_allclose(p_eci2, p_eci, atol=1e-6)
+
+
+# ReferenceFrame router tests
+
+
+def test_reference_frame_from_string_aliases():
+    assert brahe.ReferenceFrame.from_string("ECI") == brahe.ReferenceFrame.GCRF
+    assert brahe.ReferenceFrame.from_string("ECEF") == brahe.ReferenceFrame.ITRF
+    assert brahe.ReferenceFrame.from_string("eci") == brahe.ReferenceFrame.GCRF
+    assert brahe.ReferenceFrame.from_string("LFPA") == brahe.ReferenceFrame.LFPA
+    with pytest.raises(ValueError):
+        brahe.ReferenceFrame.from_string("bogus")
+
+
+def test_reference_frame_str():
+    assert str(brahe.ReferenceFrame.GCRF) == "GCRF"
+    assert str(brahe.ReferenceFrame.LFPA) == "LFPA"
+
+
+def test_reference_frame_generic_variants_equal_named():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    a = brahe.rotation_frame_to_frame(
+        brahe.ReferenceFrame.MCI, brahe.ReferenceFrame.MCMF, epc
+    )
+    b = brahe.rotation_frame_to_frame(
+        brahe.ReferenceFrame.BodyCenteredICRF(4),
+        brahe.ReferenceFrame.BodyFixedIAU(499),
+        epc,
+    )
+    np.testing.assert_array_equal(a, b)
+
+
+def test_rotation_frame_to_frame_same_frame_is_identity():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r = brahe.rotation_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.GCRF, epc
+    )
+    np.testing.assert_array_equal(r, np.eye(3))
+
+
+def test_position_frame_to_frame_same_frame_is_identity():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1.0, 2.0, 3.0])
+    out = brahe.position_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.GCRF, epc, x
+    )
+    np.testing.assert_array_equal(out, x)
+
+
+def test_router_matches_pairwise_gcrf_itrf(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    oe = np.array([brahe.R_EARTH + 500e3, 1e-3, 97.8, 75.0, 25.0, 45.0])
+    x = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
+
+    via_router = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.ITRF, epc, x
+    )
+    pairwise = brahe.state_gcrf_to_itrf(epc, x)
+    np.testing.assert_array_equal(via_router, pairwise)
+
+
+@pytest.mark.integration
+def test_state_frame_to_frame_roundtrip_lci(eop):
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+    y = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.LCI, epc, x
+    )
+    x2 = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.LCI, brahe.ReferenceFrame.GCRF, epc, y
+    )
+    np.testing.assert_allclose(x2, x, atol=1e-4)
+
+
+@pytest.mark.integration
+def test_body_fixed_iau_translation_surfaces_error():
+    """BodyFixedIAU(499) is centered on Mars itself (NAIF 499), which has no
+    direct SPK segment in the bundled de440s ephemeris (only the Mars system
+    barycenter, NAIF 4, does) -- translating into it from a
+    differently-centered frame must raise rather than silently substituting
+    the barycenter."""
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+    with pytest.raises(RuntimeError):
+        brahe.state_frame_to_frame(
+            brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.BodyFixedIAU(499), epc, x
+        )

@@ -1,0 +1,12 @@
+# Data artifacts that scripts/warm_data_cache.py pre-populates into
+# ~/.cache/brahe. Hashed into the actions/cache key in the test/integration
+# workflows and warm_data_cache.yml, so any change here invalidates and
+# reseeds the cache.
+#
+# NAIF kernels (name resolved via brahe.load_kernel):
+de440s
+moon_pa_de440
+mar099s
+# ICGEM gravity models (icgem:<body>:<model name>):
+icgem:moon:GRGM660PRIM
+icgem:mars:ggm2bc80

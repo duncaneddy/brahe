@@ -1,0 +1,51 @@
+name: Warm Brahe Data Cache
+
+# Keeps ~/.cache/brahe (NAIF kernels, ICGEM gravity models) from being evicted
+# by GitHub's 7-day "not accessed" cache eviction policy. The manifest only
+# changes when new artifacts are added to the brahe-data-manifest.txt (which
+# is rare), so most weeks this run restores an exact cache-key hit and does
+# nothing else: actions/cache only *saves* on a cache-key miss, but a restore
+# still counts as an access and resets the 7-day idle-eviction clock — so a
+# restore-only run is sufficient to keep the cache alive for test_python.yml
+# and integration_tests.yml. If the manifest ever changes, this run also
+# downloads the new/changed artifacts and saves them under the new key.
+on:
+    schedule:
+        - cron: "0 6 * * 1"
+    workflow_dispatch:
+
+jobs:
+    warm-cache:
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v7.0.0
+
+            -   name: Set up Rust toolchain
+                uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+                with:
+                    toolchain: stable
+
+            -   name: Install the latest version of uv
+                uses: astral-sh/setup-uv@v8.2.0
+                with:
+                    enable-cache: true
+
+            -   name: Install Python 3.14
+                run: uv python install 3.14
+
+            -   name: Cache brahe data (kernels, gravity models)
+                uses: actions/cache@v6.1.0
+                with:
+                    path: ~/.cache/brahe
+                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-data-v1-
+
+            -   name: Install dependencies
+                run: uv sync --all-extras --frozen
+
+            -   name: Build Python extension
+                run: uv pip install -e ".[all]"
+
+            -   name: Warm data cache (re-download anything evicted)
+                run: uv run --frozen python scripts/warm_data_cache.py

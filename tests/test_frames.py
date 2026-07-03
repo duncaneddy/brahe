@@ -449,8 +449,9 @@ def test_iau_rotation_model_ids():
 
 def test_rotation_icrf_to_body_fixed_iau_orthonormal():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
-    r = brahe.rotation_icrf_to_body_fixed_iau(499, epc)
-    np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-10)
+    for naif_id in brahe.iau_rotation_model_ids():
+        r = brahe.rotation_icrf_to_body_fixed_iau(naif_id, epc)
+        np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-10)
 
 
 def test_rotation_icrf_to_body_fixed_iau_unknown_body_raises():
@@ -489,6 +490,42 @@ def test_state_mci_to_mcmf_roundtrip():
     x_mcmf = brahe.state_mci_to_mcmf(epc, x_mci)
     x_mci2 = brahe.state_mcmf_to_mci(epc, x_mcmf)
     np.testing.assert_allclose(x_mci2, x_mci, atol=1e-6)
+
+
+def test_state_mci_to_mcmf_transport_term():
+    # Velocity of a body-fixed point: numerically differentiate R(t)*r and
+    # compare with the analytic transport term. Catches sign/frame errors.
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r_inertial = np.array([brahe.R_MARS + 400e3, 1e6, 2e6])
+    x = np.array([r_inertial[0], r_inertial[1], r_inertial[2], 0.0, 0.0, 0.0])
+    dt = 1.0  # s
+    p0 = brahe.position_mci_to_mcmf(epc, r_inertial)
+    p1 = brahe.position_mci_to_mcmf(epc + dt, r_inertial)
+    v_fd = (p1 - p0) / dt
+    v_analytic = brahe.state_mci_to_mcmf(epc, x)[3:6]
+    np.testing.assert_allclose(v_analytic, v_fd, atol=1e-2)
+
+
+def test_mcmf_surface_point_is_stationary():
+    # A point rotating with Mars has near-zero MCMF velocity
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r_mcmf = np.array([brahe.R_MARS, 0.0, 0.0])
+    x_mci = brahe.state_mcmf_to_mci(
+        epc, np.array([r_mcmf[0], r_mcmf[1], r_mcmf[2], 0.0, 0.0, 0.0])
+    )
+    back = brahe.state_mci_to_mcmf(epc, x_mci)
+    np.testing.assert_allclose(back[3:6], 0.0, atol=1e-9)
+
+
+@pytest.mark.integration
+def test_state_eci_to_mci_matches_spk():
+    # x_mci = x_eci - state_of_mars_relative_to_earth
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
+    offset = brahe.spk_state(brahe.NAIF_MARS_BARYCENTER, brahe.NAIF_EARTH, epc)
+    expected = x - offset
+    got = brahe.state_eci_to_mci(epc, x)
+    np.testing.assert_allclose(got, expected, atol=1e-6)
 
 
 @pytest.mark.integration
@@ -538,6 +575,14 @@ def test_rotation_lfpa_to_lci_is_transpose():
 
 
 @pytest.mark.integration
+def test_rotation_lci_to_lfpa_matches_pck():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r = brahe.rotation_lci_to_lfpa(epc)
+    r_pck = brahe.pck_rotation_matrix(31008, epc)
+    np.testing.assert_array_equal(r, r_pck)  # bit-identical: same code path
+
+
+@pytest.mark.integration
 def test_position_lci_to_lfpa_roundtrip():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x_lci = np.array([brahe.R_MOON + 100e3, 1e5, 2e5])
@@ -556,6 +601,34 @@ def test_state_lci_to_lfpa_roundtrip():
 
 
 @pytest.mark.integration
+def test_state_lci_to_lfpa_transport_term():
+    # Same finite-difference pattern as the Mars module: numerically
+    # differentiate R(t)*r and compare with the analytic transport term.
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r_inertial = np.array([brahe.R_MOON + 100e3, 1e5, 2e5])
+    x = np.array([r_inertial[0], r_inertial[1], r_inertial[2], 0.0, 0.0, 0.0])
+    dt = 1.0  # s
+    p0 = brahe.position_lci_to_lfpa(epc, r_inertial)
+    p1 = brahe.position_lci_to_lfpa(epc + dt, r_inertial)
+    v_fd = (p1 - p0) / dt
+    v_analytic = brahe.state_lci_to_lfpa(epc, x)[3:6]
+    np.testing.assert_allclose(v_analytic, v_fd, atol=1e-2)
+
+
+@pytest.mark.integration
+def test_lfpa_surface_point_is_stationary():
+    # A point rotating with the Moon (in the PA frame) has near-zero
+    # LFPA velocity.
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r_lfpa = np.array([brahe.R_MOON, 0.0, 0.0])
+    x_lci = brahe.state_lfpa_to_lci(
+        epc, np.array([r_lfpa[0], r_lfpa[1], r_lfpa[2], 0.0, 0.0, 0.0])
+    )
+    back = brahe.state_lci_to_lfpa(epc, x_lci)
+    np.testing.assert_allclose(back[3:6], 0.0, atol=1e-9)
+
+
+@pytest.mark.integration
 def test_lci_lfme_roundtrip():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x_lci = np.array([brahe.R_MOON + 100e3, 1e5, 2e5, 0.0, 1.6e3, 0.0])
@@ -567,6 +640,30 @@ def test_lci_lfme_roundtrip():
     p_lfme = brahe.position_lci_to_lfme(epc, p_lci)
     p_lci2 = brahe.position_lfme_to_lci(epc, p_lfme)
     np.testing.assert_allclose(p_lci2, p_lci, atol=1e-6)
+
+
+@pytest.mark.integration
+def test_lfme_surface_point_is_nearly_stationary():
+    # A point rotating with the Moon (in the LFME frame) has near-zero
+    # LFME velocity, same as the LFPA case (LFME is rigidly offset from
+    # LFPA by a constant rotation).
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r_lfme = np.array([brahe.R_MOON, 0.0, 0.0])
+    x_lci = brahe.state_lfme_to_lci(
+        epc, np.array([r_lfme[0], r_lfme[1], r_lfme[2], 0.0, 0.0, 0.0])
+    )
+    back = brahe.state_lci_to_lfme(epc, x_lci)
+    np.testing.assert_allclose(back[3:6], 0.0, atol=1e-9)
+
+
+@pytest.mark.integration
+def test_state_eci_to_lci_matches_spk():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1e8, 2e8, 3e8, 1.0, 2.0, 3.0])
+    offset = brahe.spk_state(brahe.NAIF_MOON, brahe.NAIF_EARTH, epc)
+    expected = x - offset
+    got = brahe.state_eci_to_lci(epc, x)
+    np.testing.assert_allclose(got, expected, atol=1e-6)
 
 
 @pytest.mark.integration
@@ -613,6 +710,23 @@ def test_reference_frame_generic_variants_equal_named():
     np.testing.assert_array_equal(a, b)
 
 
+@pytest.mark.integration
+def test_body_fixed_pck_generic_variant_equals_lfpa():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+    # Force the moon_pa_de440 PCK to be loaded before the generic-variant
+    # path queries it directly (state_icrf_to_pck_body does not auto-load).
+    brahe.rotation_lci_to_lfpa(epc)
+
+    via_lfpa = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.LFPA, epc, x
+    )
+    via_pck = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.BodyFixedPCK(301, 31008), epc, x
+    )
+    np.testing.assert_array_equal(via_pck, via_lfpa)
+
+
 def test_rotation_frame_to_frame_same_frame_is_identity():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     r = brahe.rotation_frame_to_frame(
@@ -640,6 +754,60 @@ def test_router_matches_pairwise_gcrf_itrf(eop):
     )
     pairwise = brahe.state_gcrf_to_itrf(epc, x)
     np.testing.assert_array_equal(via_router, pairwise)
+
+
+@pytest.mark.integration
+def test_router_matches_pairwise_eci_lci_and_lfpa():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+
+    via_router = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.LCI, epc, x
+    )
+    pairwise = brahe.state_eci_to_lci(epc, x)
+    np.testing.assert_allclose(via_router, pairwise, atol=1e-9)
+
+    x_lci = via_router
+    via_router_lfpa = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.LCI, brahe.ReferenceFrame.LFPA, epc, x_lci
+    )
+    pairwise_lfpa = brahe.state_lci_to_lfpa(epc, x_lci)
+    np.testing.assert_array_equal(via_router_lfpa, pairwise_lfpa)  # bit-identical
+
+    via_router_composed = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.LFPA, epc, x
+    )
+    composed = brahe.state_lci_to_lfpa(epc, brahe.state_eci_to_lci(epc, x))
+    np.testing.assert_allclose(via_router_composed, composed, atol=1e-9)
+
+
+@pytest.mark.integration
+def test_router_roundtrip_all_pairs(eop):
+    frames = [
+        brahe.ReferenceFrame.GCRF,
+        brahe.ReferenceFrame.ITRF,
+        brahe.ReferenceFrame.EME2000,
+        brahe.ReferenceFrame.LCI,
+        brahe.ReferenceFrame.LFPA,
+        brahe.ReferenceFrame.LFME,
+        brahe.ReferenceFrame.MCI,
+        brahe.ReferenceFrame.MCMF,
+        brahe.ReferenceFrame.EMBI,
+        brahe.ReferenceFrame.SSBI,
+    ]
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+    # Position tolerance is looser than a same-magnitude round trip would
+    # suggest because some pairs (e.g. MCI <-> EME2000) compose the
+    # approximate (not exactly orthogonal to machine precision) bias_eme2000
+    # rotation with the ~3.3e11 m Earth-Mars SPK center offset; see the
+    # matching Rust test for details.
+    for a in frames:
+        for b in frames:
+            there = brahe.state_frame_to_frame(a, b, epc, x)
+            back = brahe.state_frame_to_frame(b, a, epc, there)
+            np.testing.assert_allclose(back[:3], x[:3], atol=1e-2)
+            np.testing.assert_allclose(back[3:6], x[3:6], atol=1e-6)
 
 
 @pytest.mark.integration

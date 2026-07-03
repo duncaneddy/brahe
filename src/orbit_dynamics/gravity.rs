@@ -9,15 +9,15 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use nalgebra::{DMatrix, Vector3};
 
-use crate::math::{SMatrix3, traits::IntoPosition};
+use crate::math::{traits::IntoPosition, SMatrix3};
 use once_cell::sync::Lazy;
 
 use rayon::prelude::*;
 
 use crate::constants::{GM_EARTH, J2_EARTH, J3_EARTH, J4_EARTH, J5_EARTH, J6_EARTH, R_EARTH};
 use crate::math::kronecker_delta;
-use crate::utils::BraheError;
 use crate::utils::threading::get_thread_pool;
+use crate::utils::BraheError;
 
 /// Packaged EGM2008_360 Data File
 static PACKAGED_EGM2008_360: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_360.gfc");
@@ -503,6 +503,42 @@ impl GravityModelType {
     }
 }
 
+/// Precomputed tables for the Clenshaw-summation kernel
+/// ([`GravityModel::compute_spherical_harmonics_clenshaw`]).
+///
+/// Coefficients are stored **fully normalized** (no denormalization, so there
+/// is no high-degree overflow ceiling) in GeographicLib's triangular packing:
+/// column-major by order `m`, degree `n = m..=n_max` contiguous within a
+/// column. The only auxiliary table is the O(N) square-root table; the
+/// Legendre recurrence factors are computed on the fly from it, which keeps
+/// the per-evaluation memory traffic to one pass over the coefficients.
+///
+/// Reference: Holmes & Featherstone (2002); GeographicLib v1.52
+/// `SphericalEngine.cpp`.
+#[derive(Clone)]
+pub(crate) struct ClenshawTables {
+    /// Storage-layout degree (the model `n_max` at build time). Governs the
+    /// packing stride; requests truncated below it read the same layout.
+    n_stride: usize,
+    /// Fully-normalized cosine coefficients, `c[index(n, m)]`.
+    c: Vec<f64>,
+    /// Fully-normalized sine coefficients. The `m = 0` column is omitted
+    /// (sine terms vanish): `s[index(n, m) - (n_stride + 1)]` for `m >= 1`.
+    s: Vec<f64>,
+    /// `sqrt_table[k] = sqrt(k)` for `k = 0..=max(2 * n_stride + 5, 15)`.
+    sqrt_table: Vec<f64>,
+}
+
+impl ClenshawTables {
+    /// One-dimensional index of coefficient `(n, m)` in the triangular
+    /// packing: `m * n_stride - m * (m - 1) / 2 + n`, computed in an
+    /// underflow-safe form.
+    #[inline]
+    fn index(&self, n: usize, m: usize) -> usize {
+        m * (2 * self.n_stride - m + 1) / 2 + n
+    }
+}
+
 /// The `GravityModel` struct is for storing spherical harmonic gravity models.
 ///
 /// # Fields
@@ -541,6 +577,8 @@ pub struct GravityModel {
     pub normalization: GravityModelNormalization,
     /// Cunningham V/W kernel tables; `None` until precomputed.
     cunningham: Option<CunninghamTables>,
+    /// Clenshaw kernel tables; `None` until precomputed.
+    clenshaw: Option<ClenshawTables>,
 }
 
 /// Precomputed tables for the Cunningham V/W kernel
@@ -597,6 +635,7 @@ impl GravityModel {
             model_errors: GravityModelErrors::No,
             normalization: GravityModelNormalization::FullyNormalized,
             cunningham: None,
+            clenshaw: None,
         }
     }
 
@@ -694,6 +733,83 @@ impl GravityModel {
     pub fn precompute_cunningham_tables(&mut self) {
         if self.cunningham.is_none() {
             self.cunningham = Some(self.build_cunningham_tables());
+        }
+    }
+
+    fn build_clenshaw_tables(&self) -> ClenshawTables {
+        let n_stride = self.n_max;
+        // index(n_max, m_max) + 1 entries; the m = 0 column has n_max + 1.
+        let c_len = self.m_max * (2 * n_stride - self.m_max + 1) / 2 + self.n_max + 1;
+        let s_len = c_len.saturating_sub(n_stride + 1);
+        let mut c = vec![0.0; c_len];
+        let mut s = vec![0.0; s_len];
+
+        for m in 0..=self.m_max {
+            let col0 = m * (2 * n_stride - m + 1) / 2;
+            for n in m..=self.n_max {
+                let idx = col0 + n;
+                let c_raw = self.data[(n, m)];
+                let s_raw = if m > 0 { self.data[(m - 1, n)] } else { 0.0 };
+                let (c_norm, s_norm) = match self.normalization {
+                    GravityModelNormalization::FullyNormalized => (c_raw, s_raw),
+                    GravityModelNormalization::Unnormalized => {
+                        // Invert the standard denormalization factor. Only
+                        // valid to moderate degree (the factor overflows f64
+                        // near n ~ 170); unnormalized models are low-degree
+                        // in practice.
+                        let nf = n as f64;
+                        let f = ((2 - kronecker_delta(0, m)) as f64
+                            * (2.0 * nf + 1.0)
+                            * factorial_product(n, m))
+                        .sqrt();
+                        (c_raw / f, s_raw / f)
+                    }
+                };
+                c[idx] = c_norm;
+                if m > 0 {
+                    s[idx - (n_stride + 1)] = s_norm;
+                }
+            }
+        }
+
+        let sqrt_len = (2 * n_stride + 5).max(15) + 1;
+        let sqrt_table = (0..sqrt_len).map(|k| (k as f64).sqrt()).collect();
+
+        ClenshawTables {
+            n_stride,
+            c,
+            s,
+            sqrt_table,
+        }
+    }
+
+    /// Precompute the Clenshaw-summation kernel tables (fully-normalized
+    /// coefficients in triangular packing + square-root table) used by
+    /// [`GravityModel::compute_spherical_harmonics_clenshaw`].
+    ///
+    /// No-op if the tables are already present. Loading a model calls this
+    /// automatically; call it directly if you need to use the Clenshaw kernel
+    /// after the model was loaded.
+    ///
+    /// # Arguments
+    ///
+    /// (none)
+    ///
+    /// # Returns
+    ///
+    /// (none)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType};
+    ///
+    /// let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+    /// model.precompute_clenshaw_tables();
+    /// ```
+    pub fn precompute_clenshaw_tables(&mut self) {
+        if self.clenshaw.is_none() {
+            self.clenshaw = Some(self.build_clenshaw_tables());
         }
     }
 
@@ -813,8 +929,10 @@ impl GravityModel {
             model_errors,
             normalization,
             cunningham: None,
+            clenshaw: None,
         };
         model.precompute_cunningham_tables();
+        model.precompute_clenshaw_tables();
         Ok(model)
     }
 
@@ -948,11 +1066,7 @@ impl GravityModel {
             }
             GravityModelType::FromFile(path) => Self::from_file(Path::new(path)),
             GravityModelType::ICGEMModel { body, name } => {
-                let path = crate::datasets::icgem::download_icgem_model(
-                    body.clone(),
-                    name,
-                    None,
-                )?;
+                let path = crate::datasets::icgem::download_icgem_model(body.clone(), name, None)?;
                 Self::from_file(&path)
             }
         }
@@ -1059,6 +1173,9 @@ impl GravityModel {
         // Rebuild whichever precomputed table sets exist against the resized data.
         if self.cunningham.is_some() {
             self.cunningham = Some(self.build_cunningham_tables());
+        }
+        if self.clenshaw.is_some() {
+            self.clenshaw = Some(self.build_clenshaw_tables());
         }
 
         Ok(())
@@ -1201,10 +1318,8 @@ impl GravityModel {
             // the first sub-diagonal seed for each column.
             for m in 1..m_max + 2 {
                 let mf = m as f64;
-                V[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
-                W[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
+                V[(m, m)] = (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
+                W[(m, m)] = (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
                 if m <= n_max {
                     V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
                     W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
@@ -1254,10 +1369,8 @@ impl GravityModel {
                 let mf = m as f64;
                 // Diagonal + sub-diagonal seeds read column m-1 (cross-column),
                 // so they stay on the matrix API rather than the column slices.
-                V[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
-                W[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
+                V[(m, m)] = (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
+                W[(m, m)] = (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
                 if m <= n_max {
                     V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
                     W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
@@ -1333,10 +1446,8 @@ impl GravityModel {
                     let s = s_col[n];
                     let fac = f_col[n];
                     let p = n + 1;
-                    ax += 0.5 * (-c * v_hi[p] - s * w_hi[p])
-                        + fac * (c * v_lo[p] + s * w_lo[p]);
-                    ay += 0.5 * (-c * w_hi[p] + s * v_hi[p])
-                        + fac * (-c * w_lo[p] + s * v_lo[p]);
+                    ax += 0.5 * (-c * v_hi[p] - s * w_hi[p]) + fac * (c * v_lo[p] + s * w_lo[p]);
+                    ay += 0.5 * (-c * w_hi[p] + s * v_hi[p]) + fac * (-c * w_lo[p] + s * v_lo[p]);
                     az += (nf - mf + 1.0) * (-c * v_mid[p] - s * w_mid[p]);
                 }
             }
@@ -1348,10 +1459,7 @@ impl GravityModel {
                 (0..m_max + 1)
                     .into_par_iter()
                     .map(accumulate_m)
-                    .reduce(
-                        || (0.0, 0.0, 0.0),
-                        |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
-                    )
+                    .reduce(|| (0.0, 0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2))
             })
         } else {
             (0..m_max + 1).fold((0.0, 0.0, 0.0), |acc, m| {
@@ -1656,15 +1764,16 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::DVector;
     use rstest::rstest;
+    use std::io::BufReader;
 
     use crate::constants::{GM_EARTH, R_EARTH};
     use crate::traits::DStatePropagator;
     use crate::utils::testing::setup_global_test_eop;
     use crate::{
-        AngleFormat, DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
+        set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci, AngleFormat,
+        DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
         FileSpaceWeatherProvider, ForceModelConfig, FrameTransformationModel, GravityConfiguration,
         GravityModelSource, NumericalPropagationConfig, SVector6, TimeSystem, ZonalHarmonicsDegree,
-        set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci,
     };
 
     use super::*;
@@ -2195,7 +2304,14 @@ mod tests {
         let gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
 
-        let a_grav = accel_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m, ParallelMode::Auto);
+        let a_grav = accel_gravity_spherical_harmonics(
+            r_body,
+            rot,
+            &gravity_model,
+            n,
+            m,
+            ParallelMode::Auto,
+        );
 
         // This could potentially be validated to a higher degree of accuracy, but currently the
         // parameters provided by the Satellite Orbits book are only accurate to seven decimal
@@ -2393,13 +2509,14 @@ mod tests {
         use crate::datasets::icgem::ICGEMBody;
 
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         // Seed the icgem cache with a manually-placed gfc file so no network
         // fetch is required.
-        let cache_dir = std::path::PathBuf::from(
-            crate::utils::cache::get_icgem_cache_dir().unwrap(),
-        );
+        let cache_dir =
+            std::path::PathBuf::from(crate::utils::cache::get_icgem_cache_dir().unwrap());
         let model_dir = cache_dir.join("models").join("earth");
         std::fs::create_dir_all(&model_dir).unwrap();
         let gfc = std::fs::read("data/gravity_models/JGM3.gfc").unwrap();
@@ -2408,7 +2525,9 @@ mod tests {
         // Seed a fresh index so list/refresh doesn't fetch.
         let idx = crate::datasets::icgem::index::IndexFile {
             fetched_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             entries: vec![crate::datasets::icgem::IndexEntry {
                 body: ICGEMBody::Earth,
                 name: "JGM3".into(),
@@ -2427,7 +2546,9 @@ mod tests {
         let model = GravityModel::from_model_type(&mt).unwrap();
         assert_eq!(model.n_max, 70);
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
@@ -2438,20 +2559,21 @@ mod tests {
         // must initialize cleanly and advance the state.
         use crate::datasets::icgem::ICGEMBody;
         use crate::propagators::{
-            DNumericalOrbitPropagator, ForceModelConfig, GravityConfiguration,
-            GravityModelSource, NumericalPropagationConfig,
+            DNumericalOrbitPropagator, ForceModelConfig, GravityConfiguration, GravityModelSource,
+            NumericalPropagationConfig,
         };
 
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);
 
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         // Seed the ICGEM cache with JGM3 so no network fetch is required.
-        let cache_dir = std::path::PathBuf::from(
-            crate::utils::cache::get_icgem_cache_dir().unwrap(),
-        );
+        let cache_dir =
+            std::path::PathBuf::from(crate::utils::cache::get_icgem_cache_dir().unwrap());
         let model_dir = cache_dir.join("models").join("earth");
         std::fs::create_dir_all(&model_dir).unwrap();
         let gfc = std::fs::read("data/gravity_models/JGM3.gfc").unwrap();
@@ -2459,7 +2581,9 @@ mod tests {
 
         let idx = crate::datasets::icgem::index::IndexFile {
             fetched_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             entries: vec![crate::datasets::icgem::IndexEntry {
                 body: ICGEMBody::Earth,
                 name: "JGM3".into(),
@@ -2537,7 +2661,9 @@ mod tests {
         let drift = (dx * dx + dy * dy + dz * dz).sqrt();
         assert!(drift > 100e3, "state barely moved: drift = {} m", drift);
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
@@ -2550,9 +2676,18 @@ mod tests {
 
         // Runs on the main thread (off-pool), so Auto's nested-parallelism guard
         // is satisfied and Auto reduces to the degree-threshold check.
-        assert!(!should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX - 1));
-        assert!(should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX));
-        assert!(should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX + 1));
+        assert!(!should_parallelize(
+            ParallelMode::Auto,
+            PARALLEL_THRESHOLD_NMAX - 1
+        ));
+        assert!(should_parallelize(
+            ParallelMode::Auto,
+            PARALLEL_THRESHOLD_NMAX
+        ));
+        assert!(should_parallelize(
+            ParallelMode::Auto,
+            PARALLEL_THRESHOLD_NMAX + 1
+        ));
     }
 
     #[test]
@@ -2672,5 +2807,60 @@ mod tests {
                 a[2]
             );
         }
+    }
+
+    #[test]
+    fn test_clenshaw_tables_packing_and_values() {
+        // JGM3 is fully normalized: packed Clenshaw values must equal the raw
+        // stored coefficients (no conversion applied).
+        let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let tables = model
+            .clenshaw
+            .as_ref()
+            .expect("clenshaw tables built at load");
+
+        assert_eq!(tables.n_stride, model.n_max);
+        // C(0,0) = 1 sits at index 0.
+        assert_eq!(tables.index(0, 0), 0);
+        assert_abs_diff_eq!(tables.c[tables.index(0, 0)], 1.0, epsilon = 1e-15);
+
+        // Spot-check a zonal, a tesseral, and a sectoral coefficient against
+        // GravityModel::get (which returns the raw normalized values).
+        for &(n, m) in &[(2usize, 0usize), (2, 1), (2, 2), (10, 5), (70, 70)] {
+            let (c, s) = model.get(n, m).unwrap();
+            let idx = tables.index(n, m);
+            assert_abs_diff_eq!(tables.c[idx], c, epsilon = 1e-15);
+            if m > 0 {
+                assert_abs_diff_eq!(tables.s[idx - (tables.n_stride + 1)], s, epsilon = 1e-15);
+            }
+        }
+
+        // sqrt table covers max(2*n_max + 5, 15) inclusive and holds sqrt(k).
+        assert_eq!(tables.sqrt_table.len(), (2 * model.n_max + 5).max(15) + 1);
+        assert_abs_diff_eq!(tables.sqrt_table[4], 2.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_clenshaw_tables_unnormalized_model_normalizes() {
+        // A tiny unnormalized model: C20 = -1.0826e-3 (unnormalized J2-like).
+        // The Clenshaw table must store C20 / sqrt(5) (the n=2, m=0
+        // denormalization factor is sqrt(2n+1) = sqrt(5)).
+        let gfc = "begin_of_head\n\
+                   modelname test_unnorm\n\
+                   earth_gravity_constant 3.986004415e14\n\
+                   radius 6378136.3\n\
+                   max_degree 2\n\
+                   normalization unnormalized\n\
+                   errors no\n\
+                   end_of_head\n\
+                   gfc 0 0 1.0 0.0\n\
+                   gfc 2 0 -1.0826e-3 0.0\n";
+        let model = GravityModel::from_bufreader(BufReader::new(gfc.as_bytes())).unwrap();
+        let tables = model.clenshaw.as_ref().unwrap();
+        assert_abs_diff_eq!(
+            tables.c[tables.index(2, 0)],
+            -1.0826e-3 / 5.0_f64.sqrt(),
+            epsilon = 1e-18
+        );
     }
 }

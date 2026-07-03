@@ -15,8 +15,8 @@ use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 
 use crate::earth_models::{density_harris_priester, density_nrlmsise00};
 use crate::frames::{
-    earth_rotation, rotation_eci_to_ecef, rotation_frame_to_frame, rotation_lci_to_lfpa,
-    rotation_mci_to_mcmf,
+    ReferenceFrame, earth_rotation, rotation_eci_to_ecef, rotation_frame_to_frame,
+    rotation_lci_to_lfpa, rotation_mci_to_mcmf, state_frame_to_frame,
 };
 use crate::integrators::traits::DIntegrator;
 use crate::math::SMatrix3;
@@ -38,7 +38,7 @@ use crate::propagators::{
     GravityConfiguration, GravityModelSource,
 };
 use crate::relative_motion::rotation_eci_to_rtn;
-use crate::spice::spk_position;
+use crate::spice::{spk_position, spk_state};
 use crate::time::Epoch;
 use crate::traits::{OrbitFrame, OrbitRepresentation};
 use crate::trajectories::DOrbitTrajectory;
@@ -380,6 +380,13 @@ pub struct DNumericalOrbitPropagator {
     params: DVector<f64>,
     /// State dimension
     state_dim: usize,
+    /// Central body this propagator integrates relative to. Its
+    /// [`CentralBody::inertial_frame`] is the frame of the raw integrated
+    /// state (see [`DNumericalOrbitPropagator::state_central_inertial`]).
+    /// Boxed to keep `CentralBody::Custom`'s larger payload from inflating
+    /// the size of every propagator instance (and of enums embedding one,
+    /// e.g. `DynamicsSource`).
+    central_body: Box<CentralBody>,
 
     // ===== STM and Sensitivity =====
     /// Propagation mode (configured at construction, immutable)
@@ -907,6 +914,7 @@ impl DNumericalOrbitPropagator {
             x_curr: state_eci,
             params,
             state_dim,
+            central_body: Box::new(force_config.central_body.clone()),
             propagation_mode,
             stm,
             sensitivity,
@@ -2794,11 +2802,53 @@ impl DStateProvider for DNumericalOrbitPropagator {
 }
 
 // =============================================================================
-// DOrbitStateProvider Trait
+// Central-Body-Aware State Accessors
 // =============================================================================
 
-impl DOrbitStateProvider for DNumericalOrbitPropagator {
-    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+impl DNumericalOrbitPropagator {
+    /// Returns the raw integrated state at the given epoch, expressed in the
+    /// inertial frame centered on this propagator's central body (see
+    /// [`ForceModelConfig::central_body`]) — `GCRF` for an `Earth`-centered
+    /// propagator, `LCI` for a `Moon`-centered one, `MCI` for `Mars`, etc.
+    ///
+    /// This is the state the integrator actually propagates: no
+    /// central-body offset or axis rotation is applied. [`Self::state_eci`]
+    /// (via [`DOrbitStateProvider`]) always returns an Earth-centered state
+    /// regardless of the propagator's central body; use this method to get
+    /// the state in its native frame instead, which avoids an Earth round
+    /// trip for non-Earth propagators.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
+    ///   in the central body's inertial frame
+    /// * `Err(BraheError)` - If `epoch` is outside the propagator's stored trajectory
+    ///   and does not match the current epoch
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, ForceModelConfig};
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::DVector;
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    ///
+    /// let prop = DNumericalOrbitPropagator::new(
+    ///     epoch, state, NumericalPropagationConfig::default(),
+    ///     ForceModelConfig::two_body_gravity(), None, None, None, None,
+    /// ).unwrap();
+    ///
+    /// let x = prop.state_central_inertial(epoch).unwrap();
+    /// ```
+    pub fn state_central_inertial(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Try to interpolate from trajectory
         if let Ok(state) = self.trajectory.interpolate(&epoch) {
             return Ok(state.fixed_rows::<6>(0).into());
@@ -2817,6 +2867,20 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
              Call step_by() or propagate_to() to advance the propagator first.",
             epoch, start, end
         )))
+    }
+}
+
+// =============================================================================
+// DOrbitStateProvider Trait
+// =============================================================================
+
+impl DOrbitStateProvider for DNumericalOrbitPropagator {
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_central_inertial(epoch)?;
+        match self.central_body.as_ref() {
+            CentralBody::Earth => Ok(x),
+            cb => Ok(x + spk_state(cb.naif_id(), 399, epoch)?),
+        }
     }
 
     fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
@@ -2837,6 +2901,21 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
     fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let gcrf_state = self.state_gcrf(epoch)?;
         Ok(crate::frames::state_gcrf_to_eme2000(gcrf_state))
+    }
+
+    /// Converts this propagator's state to `frame`, routing through its own
+    /// central body's inertial frame rather than the default trait
+    /// implementation's Earth/GCRF hub. For an `Earth`-centered propagator
+    /// this is equivalent to the default implementation; for a lunar/Martian
+    /// propagator it avoids an unnecessary Earth round trip (and the
+    /// associated precision loss) by converting directly from e.g. `LCI`/`MCI`.
+    fn state_in_frame(
+        &self,
+        epoch: Epoch,
+        frame: ReferenceFrame,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_central_inertial(epoch)?;
+        state_frame_to_frame(self.central_body.inertial_frame(), frame, epoch, x)
     }
 
     fn state_koe_osc(
@@ -12182,5 +12261,128 @@ mod tests {
             "Mars orbit radius should stay in [R_MARS+300km, R_MARS+500km], got {:.1} km altitude",
             (r_final - R_MARS) / 1000.0
         );
+    }
+
+    // =========================================================================
+    // Central-body-aware state accessors + state_in_frame (Task 12)
+    // =========================================================================
+
+    /// Build a point-mass Moon propagator at a circular LLO, with the
+    /// trajectory holding only the initial (epoch0) state. Cheap: no gravity
+    /// model download required.
+    fn lunar_point_mass_propagator_at_epoch0() -> (DNumericalOrbitPropagator, Epoch, Vector6<f64>) {
+        use crate::constants::{GM_MOON, R_MOON};
+
+        let cfg = ForceModelConfig::for_body(
+            CentralBody::Moon,
+            GravityConfiguration::PointMass,
+            None,
+            None,
+            None,
+            false,
+            None,
+        );
+
+        let epoch0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let a = R_MOON + 100e3;
+        let v = (GM_MOON / a).sqrt();
+        let x0 = Vector6::new(a, 0.0, 0.0, 0.0, v, 0.0);
+        let state = DVector::from_vec(x0.as_slice().to_vec());
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch0,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        (prop, epoch0, x0)
+    }
+
+    /// `state_eci` on a Moon-centered propagator must add the Moon's
+    /// Earth-relative SPK offset to the raw (LCI) integrated state — it
+    /// should never be equal to the raw state itself for a body other than
+    /// Earth.
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_lunar_propagation_state_eci_adds_moon_offset() {
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let (prop, epoch0, x0) = lunar_point_mass_propagator_at_epoch0();
+
+        let moon_offset = crate::spice::spk_state(301, 399, epoch0).unwrap();
+        let expected = x0 + moon_offset;
+
+        let x_eci = prop.state_eci(epoch0).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_eci[i], expected[i], epsilon = 1e-9);
+        }
+    }
+
+    /// `state_in_frame(epoch, LCI)` on a Moon-centered propagator must equal
+    /// `state_central_inertial(epoch)` exactly: the override converts via
+    /// `state_frame_to_frame(central.inertial_frame(), frame, ...)`, and since
+    /// `central.inertial_frame() == LCI` here, `state_frame_to_frame` takes
+    /// its `from == to` identity short-circuit and returns the input
+    /// unchanged (no rotation/SPK lookup performed).
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_state_in_frame_lci_equals_central_inertial_for_lunar_propagator() {
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let (prop, epoch0, _x0) = lunar_point_mass_propagator_at_epoch0();
+
+        let x_lci = prop.state_in_frame(epoch0, ReferenceFrame::LCI).unwrap();
+        let x_central = prop.state_central_inertial(epoch0).unwrap();
+
+        assert_eq!(x_lci, x_central);
+    }
+
+    /// For an Earth-centered propagator, `state_in_frame(epoch, ITRF)` and
+    /// `state_ecef(epoch)` both convert the same GCRF state via
+    /// `state_gcrf_to_itrf` (the `GCRF -> ITRF` leg of `state_frame_to_frame`
+    /// dispatches to the same underlying function `state_ecef` calls
+    /// directly), so they agree to floating-point exactness. Uses a tight
+    /// (rather than exact `==`) tolerance so the test does not over-constrain
+    /// against unrelated future implementation changes.
+    #[test]
+    #[serial_test::serial]
+    fn test_state_in_frame_default_impl_earth_propagator() {
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let x_in_frame = prop.state_in_frame(epoch, ReferenceFrame::ITRF).unwrap();
+        let x_ecef = prop.state_ecef(epoch).unwrap();
+
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_in_frame[i], x_ecef[i], epsilon = 1e-9);
+        }
     }
 }

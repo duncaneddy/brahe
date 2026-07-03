@@ -24,6 +24,7 @@
 use nalgebra::{DMatrix, DVector, SMatrix, Vector6};
 
 use crate::constants::AngleFormat;
+use crate::frames::{ReferenceFrame, state_frame_to_frame};
 use crate::orbits::state_koe_osc_to_mean;
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
@@ -434,6 +435,31 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in EME2000
     /// * `Err(BraheError)` - If the state cannot be computed
     fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
+
+    /// Returns the state at the given epoch in an arbitrary reference frame.
+    ///
+    /// The default implementation converts through [`state_gcrf`][`Self::state_gcrf`]
+    /// via [`state_frame_to_frame`], so it is only exact for Earth-centered
+    /// implementors. Implementors whose native state is centered on a
+    /// different body (e.g. a lunar or Martian orbit propagator) should
+    /// override this method to convert directly from their own central
+    /// body's inertial frame, avoiding a round trip through Earth.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    /// * `frame` - The reference frame to express the state in
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in `frame`
+    /// * `Err(BraheError)` - If the state cannot be computed or the frame conversion fails
+    fn state_in_frame(
+        &self,
+        epoch: Epoch,
+        frame: ReferenceFrame,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let x_gcrf = self.state_gcrf(epoch)?;
+        state_frame_to_frame(ReferenceFrame::GCRF, frame, epoch, x_gcrf)
+    }
 
     /// Returns the state at the given epoch as osculating orbital elements.
     ///

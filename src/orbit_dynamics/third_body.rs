@@ -8,12 +8,12 @@ use nalgebra::Vector3;
 use crate::math::traits::IntoPosition;
 use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
-use crate::propagators::CentralBody;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
+use crate::propagators::CentralBody;
 use crate::spice::{
-    SPKKernel, jupiter_position_de, load_kernel, mars_position_de, mercury_position_de,
-    moon_position_de, neptune_position_de, saturn_position_de, spk_position, sun_position_de,
-    uranus_position_de, venus_position_de,
+    jupiter_position_de, load_kernel, mars_position_de, mercury_position_de, moon_position_de,
+    neptune_position_de, saturn_position_de, spk_position, sun_position_de, uranus_position_de,
+    venus_position_de, SPKKernel,
 };
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -224,15 +224,13 @@ pub fn accel_third_body<P: IntoPosition>(
 /// Unlike [`accel_third_body`] (which always queries the process-wide SPICE
 /// kernel registry via [`crate::spice::spk_position`], relying on whatever
 /// kernel happens to be loaded), this function loads the DE kernel named by
-/// `source` immediately before querying. Since the registry resolves
-/// cross-kernel queries using a "most recently loaded kernel wins" rule for
-/// overlapping body pairs, this makes `source` actually select DE440 vs.
-/// DE440s (or an explicit `SPK` kernel) rather than being silently ignored
-/// by the registry's auto-initialize-with-DE440s default. Loading is
-/// idempotent, and kernels already loaded for bodies the DE kernel itself
-/// doesn't cover (e.g. Phobos/Deimos, which require the `mar099s` satellite
-/// kernel) remain loaded and still participate in cross-kernel chain
-/// resolution.
+/// `source` immediately before querying. The `source` kernel is loaded
+/// idempotently, so `source` selects the kernel only when it is not already
+/// superseded by a more-recently-loaded DE kernel; once both DE440s and DE440
+/// are loaded, precedence stays last-loaded-wins regardless of `source`.
+/// Kernels already loaded for bodies the DE kernel itself doesn't cover
+/// (e.g. Phobos/Deimos, which require the `mar099s` satellite kernel) remain
+/// loaded and still participate in cross-kernel chain resolution.
 ///
 /// # Arguments
 ///
@@ -287,6 +285,13 @@ pub fn accel_third_body_for_body<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
 ) -> Result<Vector3<f64>, BraheError> {
+    if body.naif_id() == central_body.naif_id() {
+        return Err(BraheError::Error(format!(
+            "Third body {:?} has the same NAIF ID ({}) as the central body {:?} — a body cannot perturb its own center",
+            body, body.naif_id(), central_body
+        )));
+    }
+
     if matches!(source, EphemerisSource::LowPrecision) && *central_body != CentralBody::Earth {
         return Err(BraheError::Error(
             "LowPrecision ephemerides are geocentric; use a DE/SPK source for non-Earth central bodies"
@@ -1023,6 +1028,19 @@ mod tests {
             EphemerisSource::LowPrecision,
             epc,
             Vector3::new(2e6, 0.0, 0.0),
+        );
+        assert!(e.is_err());
+    }
+
+    #[test]
+    fn test_accel_third_body_for_body_rejects_body_equal_to_center() {
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let e = accel_third_body_for_body(
+            &CentralBody::Earth,
+            &ThirdBody::Earth,
+            EphemerisSource::DE440s,
+            epc,
+            Vector3::new(R_EARTH + 500e3, 0.0, 0.0),
         );
         assert!(e.is_err());
     }

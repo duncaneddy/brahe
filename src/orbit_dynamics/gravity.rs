@@ -516,6 +516,7 @@ impl GravityModelType {
 /// Reference: Holmes & Featherstone (2002); GeographicLib v1.52
 /// `SphericalEngine.cpp`.
 #[derive(Clone)]
+#[allow(dead_code)] // TODO(Task 3): remove — consumed by the Clenshaw kernel
 pub(crate) struct ClenshawTables {
     /// Storage-layout degree (the model `n_max` at build time). Governs the
     /// packing stride; requests truncated below it read the same layout.
@@ -534,6 +535,7 @@ impl ClenshawTables {
     /// packing: `m * n_stride - m * (m - 1) / 2 + n`, computed in an
     /// underflow-safe form.
     #[inline]
+    #[allow(dead_code)] // TODO(Task 3): remove — consumed by the Clenshaw kernel
     fn index(&self, n: usize, m: usize) -> usize {
         m * (2 * self.n_stride - m + 1) / 2 + n
     }

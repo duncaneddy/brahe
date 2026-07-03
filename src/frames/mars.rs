@@ -16,9 +16,9 @@
  * (NAIF 4) relative to Earth, because the bundled DE440s kernel provides
  * no direct segment for body 499. The Mars barycenter is offset from the
  * Mars body center by the Mars-Phobos-Deimos system's barycentric motion
- * about their common center of mass, which is at the centimeter level for
- * Mars itself (Phobos and Deimos are many orders of magnitude less
- * massive than Mars). This is negligible for essentially all use cases but
+ * about their common center of mass, which is at the decimeter level
+ * (~0.1-0.2 m) for Mars itself (Phobos and Deimos are many orders of
+ * magnitude less massive than Mars). This is negligible for essentially all use cases but
  * is documented here for completeness.
  */
 
@@ -225,7 +225,7 @@ pub fn state_mcmf_to_mci(epc: Epoch, x_mcmf: SVector6) -> SVector6 {
 /// equivalent Cartesian Mars-inertial (MCI) position.
 ///
 /// The MCI origin is the Mars system barycenter (NAIF ID 4); see the
-/// module-level documentation for the resulting centimeter-level offset
+/// module-level documentation for the resulting decimeter-level offset
 /// from the Mars body center.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
@@ -258,7 +258,7 @@ pub fn position_eci_to_mci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// equivalent Cartesian Earth-inertial (ECI) position.
 ///
 /// The MCI origin is the Mars system barycenter (NAIF ID 4); see the
-/// module-level documentation for the resulting centimeter-level offset
+/// module-level documentation for the resulting decimeter-level offset
 /// from the Mars body center.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
@@ -291,7 +291,7 @@ pub fn position_mci_to_eci(epc: Epoch, x_mci: Vector3<f64>) -> Vector3<f64> {
 /// velocity) into the equivalent Cartesian Mars-inertial (MCI) state.
 ///
 /// The MCI origin is the Mars system barycenter (NAIF ID 4); see the
-/// module-level documentation for the resulting centimeter-level offset
+/// module-level documentation for the resulting decimeter-level offset
 /// from the Mars body center.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
@@ -324,7 +324,7 @@ pub fn state_eci_to_mci(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// velocity) into the equivalent Cartesian Earth-inertial (ECI) state.
 ///
 /// The MCI origin is the Mars system barycenter (NAIF ID 4); see the
-/// module-level documentation for the resulting centimeter-level offset
+/// module-level documentation for the resulting decimeter-level offset
 /// from the Mars body center.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is

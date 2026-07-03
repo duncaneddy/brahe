@@ -4902,8 +4902,9 @@ impl PyForceModelConfig {
 
     /// Validate that this configuration's options are compatible with its central body.
     ///
-    /// This method is not called automatically by the propagator constructor;
-    /// call it explicitly after building a configuration to check it up front.
+    /// This method is called automatically at propagator construction; it may
+    /// also be called explicitly ahead of time on a standalone configuration for
+    /// early feedback.
     ///
     /// Returns:
     ///     None: If the configuration is internally consistent.

@@ -718,8 +718,9 @@ impl ForceModelConfig {
     ///    requires `central_body.fixed_frame()` to be set (needed to rotate into the
     ///    body-fixed frame the harmonics are expressed in).
     ///
-    /// This method is not called automatically by the propagator constructor;
-    /// call it explicitly after building a configuration to check it up front.
+    /// This method is called automatically at propagator construction (e.g.
+    /// `DNumericalOrbitPropagator::new`); it may also be called explicitly ahead
+    /// of time on a standalone configuration for early feedback.
     ///
     /// # Returns
     /// `Ok(())` if the configuration is internally consistent, `Err(BraheError)`
@@ -817,14 +818,14 @@ impl ForceModelConfig {
             if matches!(self.gravity, GravityConfiguration::SphericalHarmonic { .. }) {
                 return Err(BraheError::Error(format!(
                     "GravityConfiguration::SphericalHarmonic requires a physical central body, \
-                     but central_body is the {} barycenter",
+                     but central_body is a barycenter ({})",
                     self.central_body
                 )));
             }
             if self.drag.is_some() {
                 return Err(BraheError::Error(format!(
-                    "drag requires a physical central body, but central_body is the {} \
-                     barycenter",
+                    "drag requires a physical central body, but central_body is a barycenter \
+                     ({})",
                     self.central_body
                 )));
             }
@@ -1214,8 +1215,8 @@ impl OccultingBody {
     /// of the Mars system barycenter (NAIF ID 4) rather than the planet center (NAIF
     /// ID 499), since no dedicated Mars-only position segment is guaranteed to be
     /// present. The barycenter-to-planet-center offset for Mars is on the order of
-    /// centimeters (dominated by the much smaller moons Phobos and Deimos), which is
-    /// negligible for occultation geometry, so `naif_position_id` returns 4 while
+    /// decimeters (~0.1-0.2 m) (dominated by the much smaller moons Phobos and
+    /// Deimos), which is negligible for occultation geometry, so `naif_position_id` returns 4 while
     /// `naif_id` returns 499 to reflect the physical body used for shadow sizing.
     ///
     /// # Returns

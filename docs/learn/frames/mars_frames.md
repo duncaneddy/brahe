@@ -10,7 +10,7 @@ MCI axes are ICRF-aligned (treated as equivalent to J2000, consistent with the r
 
     The IAU/WGCCRE rotation model used by MCMF is defined for the Mars body center (NAIF ID 499). However, `state_eci_to_mci`/`state_mci_to_eci` (and the position-only equivalents) use the ephemeris state of the **Mars system barycenter** (NAIF ID 4) relative to Earth, because the bundled `de440s` kernel provides no direct ephemeris segment for body 499 &mdash; only for its barycenter. `CentralBody::Mars.naif_id()` and `ReferenceFrame::MCI`/`MCMF` both use NAIF ID 4 for this reason.
 
-    The offset between the Mars barycenter and the Mars body center is at the centimeter level, dominated by the barycentric motion of Phobos and Deimos about their common center of mass with Mars. This is negligible for orbit propagation and most other uses, but is documented here for completeness. Use `OccultingBody::Mars.naif_id()` (499, the physical body) when the *shadow-casting* radius matters (e.g. eclipse modeling), and `OccultingBody::Mars.naif_position_id()` (4) when querying its ephemeris position.
+    The offset between the Mars barycenter and the Mars body center is at the decimeter level (~0.1-0.2 m), dominated by the barycentric motion of Phobos and Deimos about their common center of mass with Mars. This is negligible for orbit propagation and most other uses, but is documented here for completeness. Use `OccultingBody::Mars.naif_id()` (499, the physical body) when the *shadow-casting* radius matters (e.g. eclipse modeling), and `OccultingBody::Mars.naif_position_id()` (4) when querying its ephemeris position.
 
 ## MCMF (Mars-Centered Mars-Fixed)
 

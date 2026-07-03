@@ -27,7 +27,7 @@
  * `Mars` uses NAIF ID **4** (the Mars *system* barycenter) rather than
  * 499 (the Mars body center). This matches the origin of the `MCI`
  * frame and the coverage of the DE440s planetary ephemeris, at the cost
- * of a centimeter-level offset between the system barycenter and the
+ * of a decimeter-level (~0.1-0.2 m) offset between the system barycenter and the
  * planet center (Mars has two small moons, Phobos and Deimos, so the
  * barycenter offset from the planet center is negligible for orbit
  * propagation purposes). [`CentralBody::from_naif_id`] accepts both 4

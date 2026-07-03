@@ -231,6 +231,10 @@ pub trait SOrbitStateProvider: SStateProvider {
 
     /// Returns the state at the given epoch as osculating orbital elements.
     ///
+    /// Elements are about the provider's own central body (Earth unless
+    /// otherwise stated by the implementor); they are not automatically
+    /// converted to be Earth-centered for e.g. a lunar or Martian propagator.
+    ///
     /// # Arguments
     /// * `epoch` - The epoch at which to compute the state
     /// * `angle_format` - Angle format for angular elements (Degrees or Radians)
@@ -462,6 +466,10 @@ pub trait DOrbitStateProvider: DStateProvider {
     }
 
     /// Returns the state at the given epoch as osculating orbital elements.
+    ///
+    /// Elements are about the provider's own central body (Earth unless
+    /// otherwise stated by the implementor); they are not automatically
+    /// converted to be Earth-centered for e.g. a lunar or Martian propagator.
     ///
     /// # Arguments
     /// * `epoch` - The epoch at which to compute the state

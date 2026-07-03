@@ -50,7 +50,7 @@ use crate::utils::identifiable::Identifiable;
 use crate::utils::state_providers::{
     DCovarianceProvider, DOrbitCovarianceProvider, DOrbitStateProvider, DStateProvider,
 };
-use crate::{AngleFormat, accel_earth_zonal_gravity, state_eci_to_koe};
+use crate::{AngleFormat, accel_earth_zonal_gravity, state_eci_to_koe, state_eci_to_koe_for_body};
 
 use super::TrajectoryMode;
 use super::traits::DStatePropagator;
@@ -2918,13 +2918,36 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
         state_frame_to_frame(self.central_body.inertial_frame(), frame, epoch, x)
     }
 
+    /// Computes osculating Keplerian elements about this propagator's own
+    /// central body: `Earth` elements come from [`state_eci`][`Self::state_eci`]
+    /// (Earth-centered) exactly as before; for a non-Earth central body
+    /// (e.g. `Moon`, `Mars`) elements are instead computed from
+    /// [`state_central_inertial`][`Self::state_central_inertial`] using that
+    /// body's gravitational parameter, so they describe the propagated
+    /// object's orbit about the Moon/Mars/etc. rather than a physically
+    /// meaningless Earth-centered fit. Osculating elements are undefined
+    /// about a massless barycenter (`EMB`/`SSB`), so this returns an `Err`
+    /// for those central bodies.
     fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
-        let eci_state = self.state_eci(epoch)?;
-        Ok(state_eci_to_koe(eci_state, angle_format))
+        match self.central_body.as_ref() {
+            CentralBody::Earth => {
+                let eci_state = self.state_eci(epoch)?;
+                Ok(state_eci_to_koe(eci_state, angle_format))
+            }
+            cb if cb.is_barycenter() => Err(BraheError::Error(format!(
+                "Cannot compute osculating orbital elements: central body {} is a massless \
+                 barycenter, about which osculating elements are undefined.",
+                cb
+            ))),
+            cb => {
+                let x_central = self.state_central_inertial(epoch)?;
+                Ok(state_eci_to_koe_for_body(x_central, cb.gm(), angle_format))
+            }
+        }
     }
 }
 
@@ -12219,6 +12242,91 @@ mod tests {
             dr < 50e3,
             "propagated Moon-about-EMB position should track DE ephemeris within 50 km over 2 days, got {:.1} km",
             dr / 1000.0
+        );
+    }
+
+    /// `state_koe_osc` on a `CentralBody::Moon` propagator must return
+    /// elements about the Moon (using `GM_MOON`), not a physically
+    /// meaningless Earth-centered fit. A circular lunar orbit's own
+    /// semi-major axis and near-zero eccentricity should be recovered at
+    /// the initial epoch.
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_dnumericalorbitpropagator_dorbitstateprovider_state_koe_osc_lunar_central_body() {
+        use crate::constants::{GM_MOON, R_MOON};
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let cfg = ForceModelConfig::for_body(
+            CentralBody::Moon,
+            GravityConfiguration::PointMass,
+            None,
+            None,
+            None,
+            false,
+            None,
+        );
+
+        let epoch0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let a = R_MOON + 100e3;
+        let v = (GM_MOON / a).sqrt();
+        let state = DVector::from_vec(vec![a, 0.0, 0.0, 0.0, v, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch0,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let koe = prop.state_koe_osc(epoch0, AngleFormat::Degrees).unwrap();
+
+        assert_abs_diff_eq!(koe[0], a, epsilon = 1.0);
+        assert!(
+            koe[1] < 1e-6,
+            "eccentricity of a circular lunar orbit should be near-zero, got {:.3e}",
+            koe[1]
+        );
+    }
+
+    /// `state_koe_osc` on a barycenter-centered propagator (`CentralBody::EMB`)
+    /// has no central mass to define an orbit about, so it must return an
+    /// error rather than silently computing nonsense elements with `gm = 0`.
+    #[test]
+    fn test_dnumericalorbitpropagator_dorbitstateprovider_state_koe_osc_barycenter_errors() {
+        setup_global_test_eop();
+
+        let epoch0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![300_000e3, 0.0, 0.0, 0.0, 1000.0, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch0,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::cislunar_default(),
+            Some(default_test_params()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let err = prop
+            .state_koe_osc(epoch0, AngleFormat::Degrees)
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("barycenter"),
+            "error message should mention 'barycenter', got: {}",
+            msg
         );
     }
 

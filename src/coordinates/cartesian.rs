@@ -115,6 +115,45 @@ pub fn state_koe_to_eci(x_oe: SVector6, angle_format: AngleFormat) -> SVector6 {
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 28-29, eq. 2.56-2.68, 2012.
 #[allow(non_snake_case)]
 pub fn state_eci_to_koe(x_cart: SVector6, angle_format: AngleFormat) -> SVector6 {
+    state_eci_to_koe_for_body(x_cart, GM_EARTH, angle_format)
+}
+
+/// Convert a Cartesian (position and velocity) inertial state into the equivalent
+/// osculating orbital element state vector, for an object orbiting a central body
+/// with an arbitrary gravitational parameter.
+///
+/// The osculating elements are (in order):
+/// 1. _a_, Semi-major axis Units: (*m*)
+/// 2. _e_, Eccentricity. Units: (*dimensionless*)
+/// 3. _i_, Inclination. Units: (*rad* or *deg*)
+/// 4. _Ω_, Right Ascension of the Ascending Node (RAAN). Units: (*rad*)
+/// 5. _ω_, Argument of Perigee. Units: (*rad* or *deg*)
+/// 6. _M_, Mean anomaly. Units: (*rad* or *deg*)
+///
+/// # Arguments
+/// - `x_cart`: Cartesian state in the central body's inertial frame. Units: (_m_; _m/s_)
+/// - `gm`: Gravitational parameter of the central body. Units: (*m^3/s^2*)
+/// - `angle_format`: Format for angular elements in output (Radians or Degrees)
+///
+/// # Returns
+/// - `x_oe`: Osculating orbital elements about the central body with gravitational parameter `gm`
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{GM_MOON, DEGREES};
+/// use brahe::vector6_from_array;
+/// use brahe::orbits::perigee_velocity;
+/// use brahe::coordinates::*;
+///
+/// let cart = vector6_from_array([1837.4e3, 0.0, 0.0, 0.0, perigee_velocity(1837.4e3, 0.0), 0.0]);
+/// let osc = state_eci_to_koe_for_body(cart, GM_MOON, DEGREES);
+/// // Returns state [1837.4e3, 0, 0, 0, 0, 0]
+/// ```
+///
+/// # Reference
+/// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 28-29, eq. 2.56-2.68, 2012.
+#[allow(non_snake_case)]
+pub fn state_eci_to_koe_for_body(x_cart: SVector6, gm: f64, angle_format: AngleFormat) -> SVector6 {
     // # Initialize Cartesian Polistion and Velocity
     let r: Vector3<f64> = Vector3::from(x_cart.fixed_rows::<3>(0));
     let v: Vector3<f64> = Vector3::from(x_cart.fixed_rows::<3>(3));
@@ -124,9 +163,9 @@ pub fn state_eci_to_koe(x_cart: SVector6, angle_format: AngleFormat) -> SVector6
 
     let i = ((W[0] * W[0] + W[1] * W[1]).sqrt()).atan2(W[2]); // Compute inclination
     let RAAN = (W[0]).atan2(-W[1]); // Right ascension of ascending node
-    let p = h.norm() * h.norm() / GM_EARTH; // Semi-latus rectum
-    let a = 1.0 / (2.0 / r.norm() - v.norm() * v.norm() / GM_EARTH); // Semi-major axis
-    let n = (GM_EARTH / a.powi(3)).sqrt(); // Mean motion
+    let p = h.norm() * h.norm() / gm; // Semi-latus rectum
+    let a = 1.0 / (2.0 / r.norm() - v.norm() * v.norm() / gm); // Semi-major axis
+    let n = (gm / a.powi(3)).sqrt(); // Mean motion
 
     // Numerical stability hack for circular and near-circular orbits
     // to ensures that (1-p/a) is always positive

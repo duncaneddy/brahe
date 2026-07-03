@@ -728,6 +728,57 @@ impl DNumericalOrbitPropagator {
             _ => None,
         };
 
+        // Trial-evaluation guardrail: a spherical-harmonic model with no
+        // Clenshaw tables (an explicit Cunningham-only opt-in via
+        // `GravityTables`) falls back to the Cunningham V/W kernel for
+        // every dynamics evaluation. At high degree and low altitude that
+        // kernel can overflow to a non-finite result (see
+        // `GravityModel::compute_spherical_harmonics_cunningham`'s
+        // `# Numerical limits`) — which would otherwise only surface deep
+        // inside the integrator, far from the configuration that caused it.
+        // Catch it here with one evaluation at the initial state instead.
+        // Models with Clenshaw tables (the default) skip this entirely.
+        if let GravityConfiguration::SphericalHarmonic {
+            source,
+            degree,
+            order,
+            parallel,
+        } = &force_config.gravity
+        {
+            let r_i2b = match force_config.frame_transform {
+                FrameTransformationModel::FullEarthRotation => rotation_eci_to_ecef(epoch),
+                FrameTransformationModel::EarthRotationOnly => earth_rotation(epoch),
+            };
+            let r_body = r_i2b * Vector3::new(state_eci[0], state_eci[1], state_eci[2]);
+
+            let trial = match source {
+                GravityModelSource::ModelType(_) => gravity_model.as_ref().and_then(|m| {
+                    if m.has_clenshaw_tables() {
+                        None
+                    } else {
+                        Some(m.compute_spherical_harmonics_cunningham(
+                            r_body, *degree, *order, *parallel,
+                        ))
+                    }
+                }),
+                GravityModelSource::Global => {
+                    let global_model = get_global_gravity_model();
+                    if global_model.has_clenshaw_tables() {
+                        None
+                    } else {
+                        Some(global_model.compute_spherical_harmonics_cunningham(
+                            r_body, *degree, *order, *parallel,
+                        ))
+                    }
+                }
+            };
+            if let Some(Err(e)) = trial {
+                return Err(BraheError::PropagatorError(format!(
+                    "gravity configuration failed trial evaluation at the initial state: {e}"
+                )));
+            }
+        }
+
         // Build shared dynamics function (includes additional_dynamics)
         let shared_dynamics = Self::build_shared_dynamics(
             epoch,
@@ -8378,6 +8429,103 @@ mod tests {
         }
 
         // The test passes by verifying both source types are accepted by the compiler and constructor
+    }
+
+    /// Build a `SphericalHarmonic` config against the global gravity model at
+    /// the given degree/order, matching `jgm3_force_config`'s shape but for
+    /// the trial-evaluation guardrail tests below (which need `Global`
+    /// source so the test can control the model's table set directly).
+    fn global_spherical_harmonic_force_config(degree: usize, order: usize) -> ForceModelConfig {
+        ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::Global,
+                degree,
+                order,
+                parallel: crate::orbit_dynamics::ParallelMode::Never,
+            },
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_dnumericalorbitpropagator_construction_cunningham_only_high_degree_leo_fails_trial() {
+        // A Cunningham-only global model at degree 160 and LEO altitude
+        // overflows the denormalized V/W recursion (see
+        // `test_cunningham_high_degree_overflow_errors` in gravity.rs).
+        // The trial-evaluation guardrail must surface that at construction,
+        // not mid-propagation.
+        use crate::orbit_dynamics::gravity::{GravityModelType, GravityTables};
+        use crate::orbit_dynamics::set_global_gravity_model;
+
+        setup_global_test_eop();
+        set_global_gravity_model(
+            GravityModel::from_model_type_with_tables(
+                &GravityModelType::EGM2008_360,
+                GravityTables::Cunningham,
+            )
+            .unwrap(),
+        );
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![6.5e6, 1.2e6, 3.1e6, 0.0, 7500.0, 0.0]);
+
+        let result = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            global_spherical_harmonic_force_config(160, 160),
+            None,
+            None,
+            None,
+            None,
+        );
+
+        // `DNumericalOrbitPropagator` isn't `Debug`, so match instead of `unwrap_err()`.
+        match result {
+            Ok(_) => panic!("expected trial-evaluation guardrail to fail construction"),
+            Err(e) => assert!(e.to_string().contains("non-finite")),
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_dnumericalorbitpropagator_construction_cunningham_only_moderate_degree_leo_succeeds() {
+        // Same Cunningham-only model and LEO altitude as above, but at a
+        // degree low enough that the V/W recursion stays finite: the trial
+        // evaluation passes and construction succeeds.
+        use crate::orbit_dynamics::gravity::{GravityModelType, GravityTables};
+        use crate::orbit_dynamics::set_global_gravity_model;
+
+        setup_global_test_eop();
+        set_global_gravity_model(
+            GravityModel::from_model_type_with_tables(
+                &GravityModelType::EGM2008_360,
+                GravityTables::Cunningham,
+            )
+            .unwrap(),
+        );
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![6.5e6, 1.2e6, 3.1e6, 0.0, 7500.0, 0.0]);
+
+        let result = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            global_spherical_harmonic_force_config(80, 80),
+            None,
+            None,
+            None,
+            None,
+        );
+
+        assert!(result.is_ok());
     }
 
     #[test]

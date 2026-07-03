@@ -381,6 +381,21 @@ impl CentralBody {
     }
 }
 
+impl Default for CentralBody {
+    /// Defaults to `Earth`, matching the default central body used
+    /// throughout brahe's force models and propagators.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::CentralBody;
+    ///
+    /// assert_eq!(CentralBody::default(), CentralBody::Earth);
+    /// ```
+    fn default() -> Self {
+        CentralBody::Earth
+    }
+}
+
 impl std::fmt::Display for CentralBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -458,6 +473,11 @@ mod tests {
         assert_eq!(CentralBody::SSB.omega_vector(), None);
         assert_eq!(CentralBody::EMB.inertial_frame(), ReferenceFrame::EMBI);
         assert_eq!(CentralBody::SSB.inertial_frame(), ReferenceFrame::SSBI);
+    }
+
+    #[test]
+    fn test_central_body_default_is_earth() {
+        assert_eq!(CentralBody::default(), CentralBody::Earth);
     }
 
     #[test]

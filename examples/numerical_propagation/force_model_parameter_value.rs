@@ -1,8 +1,8 @@
 //! Using ParameterSource::Value for fixed parameter values.
 //! Parameters that don't change during propagation.
 
-use brahe as bh;
 use bh::GravityModelType;
+use brahe as bh;
 
 fn main() {
     // ParameterSource::Value creates a fixed constant parameter
@@ -26,6 +26,7 @@ fn main() {
 
     // Create force model with all fixed parameters
     let _force_config = bh::ForceModelConfig {
+        central_body: bh::CentralBody::Earth,
         gravity: bh::GravityConfiguration::SphericalHarmonic {
             source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
             degree: 20,
@@ -43,4 +44,3 @@ fn main() {
         frame_transform: bh::FrameTransformationModel::default(),
     };
 }
-

@@ -12,7 +12,8 @@ use brahe::coordinates::state_koe_to_eci;
 use brahe::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
 use brahe::math::SVector6;
 use brahe::propagators::{
-    DNumericalOrbitPropagator, ForceModelConfig, NumericalPropagationConfig, SGPPropagator,
+    CentralBody, DNumericalOrbitPropagator, ForceModelConfig, NumericalPropagationConfig,
+    SGPPropagator,
 };
 use brahe::space_weather::{FileSpaceWeatherProvider, set_global_space_weather_provider};
 use brahe::time::{Epoch, TimeSystem};
@@ -82,6 +83,7 @@ fn bench_numerical_fast_j6_zonal_earth_rotation_only_24hour(
     degree: &ZonalHarmonicsDegree,
 ) {
     let force = ForceModelConfig {
+        central_body: CentralBody::Earth,
         gravity: GravityConfiguration::EarthZonal {
             degree: degree.clone(),
         },
@@ -119,6 +121,7 @@ fn bench_numerical_fast_j6_zonal_full_rotation_24hour(
     degree: &ZonalHarmonicsDegree,
 ) {
     let force = ForceModelConfig {
+        central_body: CentralBody::Earth,
         gravity: GravityConfiguration::EarthZonal {
             degree: degree.clone(),
         },
@@ -156,6 +159,7 @@ fn bench_spherical_harmonic_j6_equivalent_24hour(
     degree: &ZonalHarmonicsDegree,
 ) {
     let force = ForceModelConfig {
+        central_body: CentralBody::Earth,
         gravity: GravityConfiguration::SphericalHarmonic {
             source: GravityModelSource::default(),
             degree: degree.into(),

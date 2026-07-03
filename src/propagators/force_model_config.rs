@@ -18,8 +18,10 @@ use crate::constants::{
     GM_DEIMOS, GM_EARTH, GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_PHOBOS,
     GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS, R_EARTH, R_MARS, R_MOON,
 };
+use crate::datasets::icgem::ICGEMBody;
 use crate::orbit_dynamics::ParallelMode;
 use crate::orbit_dynamics::gravity::GravityModelType;
+use crate::propagators::central_body::CentralBody;
 use crate::spice::SPKKernel;
 use crate::utils::BraheError;
 
@@ -113,6 +115,13 @@ impl ParameterSource {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForceModelConfig {
+    /// Central body the orbit is propagated relative to.
+    ///
+    /// Defaults to `CentralBody::Earth`. Determines which options are valid
+    /// elsewhere in this configuration — see [`ForceModelConfig::validate`].
+    #[serde(default)]
+    pub central_body: CentralBody,
+
     /// Gravity model configuration
     pub gravity: GravityConfiguration,
 
@@ -147,6 +156,7 @@ pub struct ForceModelConfig {
 impl Default for ForceModelConfig {
     fn default() -> Self {
         Self {
+            central_body: CentralBody::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::default(),
                 degree: 20,
@@ -267,7 +277,7 @@ impl ForceModelConfig {
     /// # Example
     ///
     /// ```rust
-    /// use brahe::propagators::ForceModelConfig;
+    /// use brahe::propagators::{CentralBody, ForceModelConfig};
     /// use brahe::propagators::force_model_config::{
     ///     DragConfiguration, AtmosphericModel, ParameterSource,
     ///     GravityConfiguration,
@@ -276,6 +286,7 @@ impl ForceModelConfig {
     ///
     /// // Create a config with Harris-Priester drag (no space weather needed)
     /// let config = ForceModelConfig {
+    ///     central_body: CentralBody::Earth,
     ///     gravity: GravityConfiguration::PointMass,
     ///     drag: Some(DragConfiguration {
     ///         model: AtmosphericModel::HarrisPriester,
@@ -355,6 +366,7 @@ impl ForceModelConfig {
     /// - Relativistic corrections enabled
     pub fn high_fidelity() -> Self {
         Self {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 120,
@@ -395,6 +407,7 @@ impl ForceModelConfig {
     /// Create a gravity-only configuration (for comparison with Keplerian propagation)
     pub fn earth_gravity() -> Self {
         Self {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 20,
@@ -417,6 +430,7 @@ impl ForceModelConfig {
     /// Useful for validation and comparison tests.
     pub fn two_body_gravity() -> Self {
         Self {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -430,6 +444,7 @@ impl ForceModelConfig {
     /// Create a gravity-only configuration (for comparison with Keplerian propagation)
     pub fn conservative_forces() -> Self {
         Self {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 80,
@@ -454,6 +469,7 @@ impl ForceModelConfig {
     /// perturbations which are less significant in LEO.
     pub fn leo_default() -> Self {
         Self {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 30,
@@ -487,6 +503,7 @@ impl ForceModelConfig {
     /// Omits drag which is negligible at GEO altitudes.
     pub fn geo_default() -> Self {
         Self {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 8,
@@ -508,6 +525,307 @@ impl ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
         }
+    }
+
+    /// Create a force model configuration for a specific central body
+    ///
+    /// Convenience constructor that fills in `frame_transform` with its default
+    /// (`FrameTransformationModel::FullEarthRotation`) so callers only need to
+    /// specify the options that vary per central body. Does not validate the
+    /// resulting configuration — call [`ForceModelConfig::validate`] to check
+    /// that the chosen options are compatible with `central_body`.
+    ///
+    /// # Arguments
+    /// * `central_body` - Body the orbit is propagated relative to
+    /// * `gravity` - Gravity model configuration
+    /// * `drag` - Atmospheric drag configuration (`None` to disable)
+    /// * `srp` - Solar radiation pressure configuration (`None` to disable)
+    /// * `third_body` - Third-body perturbations configuration (`None` to disable)
+    /// * `relativity` - Enable general relativistic corrections
+    /// * `mass` - Spacecraft mass source (`None` if not needed)
+    ///
+    /// # Returns
+    /// A `ForceModelConfig` for `central_body` with `frame_transform` set to
+    /// its default value.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::propagators::{CentralBody, ForceModelConfig, GravityConfiguration};
+    ///
+    /// let config = ForceModelConfig::for_body(
+    ///     CentralBody::Mars,
+    ///     GravityConfiguration::PointMass,
+    ///     None,
+    ///     None,
+    ///     None,
+    ///     false,
+    ///     None,
+    /// );
+    /// assert_eq!(config.central_body, CentralBody::Mars);
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn for_body(
+        central_body: CentralBody,
+        gravity: GravityConfiguration,
+        drag: Option<DragConfiguration>,
+        srp: Option<SolarRadiationPressureConfiguration>,
+        third_body: Option<ThirdBodyConfiguration>,
+        relativity: bool,
+        mass: Option<ParameterSource>,
+    ) -> Self {
+        Self {
+            central_body,
+            gravity,
+            drag,
+            srp,
+            third_body,
+            relativity,
+            mass,
+            frame_transform: FrameTransformationModel::default(),
+        }
+    }
+
+    /// Create a configuration suitable for propagation about the Moon
+    ///
+    /// Uses:
+    /// - 50×50 GRGM660PRIM lunar gravity model
+    /// - No atmospheric drag (the Moon has none)
+    /// - Solar radiation pressure with conical eclipse, occulted by the Moon and Earth
+    /// - Earth and Sun third-body perturbations (DE440s ephemerides)
+    /// - Relativity disabled
+    pub fn lunar_default() -> Self {
+        Self::for_body(
+            CentralBody::Moon,
+            GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::ICGEMModel {
+                    body: ICGEMBody::Moon,
+                    name: "GRGM660PRIM".to_string(),
+                }),
+                degree: 50,
+                order: 50,
+                parallel: ParallelMode::Auto,
+            },
+            None,
+            Some(SolarRadiationPressureConfiguration {
+                area: ParameterSource::ParameterIndex(3),
+                cr: ParameterSource::ParameterIndex(4),
+                eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Moon, OccultingBody::Earth],
+            }),
+            Some(ThirdBodyConfiguration {
+                ephemeris_source: EphemerisSource::DE440s,
+                bodies: vec![ThirdBody::Earth, ThirdBody::Sun],
+            }),
+            false,
+            Some(ParameterSource::ParameterIndex(0)),
+        )
+    }
+
+    /// Create a configuration suitable for propagation about Mars
+    ///
+    /// Uses:
+    /// - 50×50 GMM-2B Mars gravity model (Goddard Mars Model 2B, from Mars
+    ///   Global Surveyor tracking; degree/order 80, truncated to 50×50 here).
+    ///   The ICGEM celestial catalog lists this model under its file name
+    ///   `ggm2bc80`, which is the identifier the ICGEM downloader resolves.
+    /// - Exponential atmospheric drag (no NRLMSISE-00/Harris-Priester equivalent for Mars)
+    /// - Solar radiation pressure with conical eclipse, occulted by Mars
+    /// - Sun third-body perturbations (DE440s ephemerides)
+    /// - Relativity disabled
+    pub fn mars_default() -> Self {
+        Self::for_body(
+            CentralBody::Mars,
+            GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::ICGEMModel {
+                    body: ICGEMBody::Mars,
+                    name: "ggm2bc80".to_string(),
+                }),
+                degree: 50,
+                order: 50,
+                parallel: ParallelMode::Auto,
+            },
+            Some(DragConfiguration {
+                model: AtmosphericModel::Exponential {
+                    scale_height: 11.1e3,
+                    rho0: 0.020,
+                    h0: 0.0,
+                },
+                area: ParameterSource::ParameterIndex(1),
+                cd: ParameterSource::ParameterIndex(2),
+            }),
+            Some(SolarRadiationPressureConfiguration {
+                area: ParameterSource::ParameterIndex(3),
+                cr: ParameterSource::ParameterIndex(4),
+                eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Mars],
+            }),
+            Some(ThirdBodyConfiguration {
+                ephemeris_source: EphemerisSource::DE440s,
+                bodies: vec![ThirdBody::Sun],
+            }),
+            false,
+            Some(ParameterSource::ParameterIndex(0)),
+        )
+    }
+
+    /// Create a configuration suitable for cislunar propagation about the Earth-Moon barycenter
+    ///
+    /// Uses:
+    /// - Point mass gravity (the Earth-Moon barycenter has no mass of its own;
+    ///   the Earth and Moon third bodies below provide the actual gravitational terms)
+    /// - No atmospheric drag
+    /// - Solar radiation pressure with conical eclipse, occulted by Earth and the Moon
+    /// - Earth, Moon, and Sun third-body perturbations (DE440s ephemerides)
+    /// - Relativity disabled
+    pub fn cislunar_default() -> Self {
+        Self::for_body(
+            CentralBody::EMB,
+            GravityConfiguration::PointMass,
+            None,
+            Some(SolarRadiationPressureConfiguration {
+                area: ParameterSource::ParameterIndex(3),
+                cr: ParameterSource::ParameterIndex(4),
+                eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth, OccultingBody::Moon],
+            }),
+            Some(ThirdBodyConfiguration {
+                ephemeris_source: EphemerisSource::DE440s,
+                bodies: vec![ThirdBody::Earth, ThirdBody::Moon, ThirdBody::Sun],
+            }),
+            false,
+            Some(ParameterSource::ParameterIndex(0)),
+        )
+    }
+
+    /// Validate that this configuration's options are compatible with its central body
+    ///
+    /// Checks four classes of central-body-dependent constraints:
+    /// 1. Earth-specific options (`AtmosphericModel::HarrisPriester`/`NRLMSISE00`,
+    ///    `GravityConfiguration::EarthZonal`, `FrameTransformationModel::EarthRotationOnly`,
+    ///    `EphemerisSource::LowPrecision`) are rejected for any non-Earth central body.
+    /// 2. Barycenters (`CentralBody::is_barycenter`) have no mass or rotation of their
+    ///    own, so `GravityConfiguration::SphericalHarmonic` and any `drag` configuration
+    ///    are rejected.
+    /// 3. `drag` requires `central_body.radius()` and `central_body.omega_vector()` to
+    ///    both be known (needed for atmospheric co-rotation and altitude calculations).
+    /// 4. `GravityConfiguration::SphericalHarmonic` on a `CentralBody::Custom` body
+    ///    requires `central_body.fixed_frame()` to be set (needed to rotate into the
+    ///    body-fixed frame the harmonics are expressed in).
+    ///
+    /// This method is not called automatically by the propagator constructor;
+    /// call it explicitly after building a configuration to check it up front.
+    ///
+    /// # Returns
+    /// `Ok(())` if the configuration is internally consistent, `Err(BraheError)`
+    /// naming both the offending option and the central body otherwise.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::propagators::ForceModelConfig;
+    ///
+    /// let config = ForceModelConfig::lunar_default();
+    /// assert!(config.validate().is_ok());
+    /// ```
+    pub fn validate(&self) -> Result<(), BraheError> {
+        let is_earth = matches!(self.central_body, CentralBody::Earth);
+
+        if !is_earth {
+            if let Some(ref drag) = self.drag {
+                match drag.model {
+                    AtmosphericModel::HarrisPriester => {
+                        return Err(BraheError::Error(format!(
+                            "AtmosphericModel::HarrisPriester requires an Earth central body, \
+                             but central_body is {}",
+                            self.central_body
+                        )));
+                    }
+                    AtmosphericModel::NRLMSISE00 => {
+                        return Err(BraheError::Error(format!(
+                            "AtmosphericModel::NRLMSISE00 requires an Earth central body, but \
+                             central_body is {}",
+                            self.central_body
+                        )));
+                    }
+                    AtmosphericModel::Exponential { .. } => {}
+                }
+            }
+
+            if matches!(self.gravity, GravityConfiguration::EarthZonal { .. }) {
+                return Err(BraheError::Error(format!(
+                    "GravityConfiguration::EarthZonal requires an Earth central body, but \
+                     central_body is {}",
+                    self.central_body
+                )));
+            }
+
+            if matches!(
+                self.frame_transform,
+                FrameTransformationModel::EarthRotationOnly
+            ) {
+                return Err(BraheError::Error(format!(
+                    "FrameTransformationModel::EarthRotationOnly requires an Earth central \
+                     body, but central_body is {}",
+                    self.central_body
+                )));
+            }
+
+            if let Some(ref third_body) = self.third_body
+                && matches!(third_body.ephemeris_source, EphemerisSource::LowPrecision)
+            {
+                return Err(BraheError::Error(format!(
+                    "EphemerisSource::LowPrecision requires an Earth central body, but \
+                     central_body is {}",
+                    self.central_body
+                )));
+            }
+        }
+
+        if self.central_body.is_barycenter() {
+            if matches!(self.gravity, GravityConfiguration::SphericalHarmonic { .. }) {
+                return Err(BraheError::Error(format!(
+                    "GravityConfiguration::SphericalHarmonic requires a physical central body, \
+                     but central_body is the {} barycenter",
+                    self.central_body
+                )));
+            }
+            if self.drag.is_some() {
+                return Err(BraheError::Error(format!(
+                    "drag requires a physical central body, but central_body is the {} \
+                     barycenter",
+                    self.central_body
+                )));
+            }
+        }
+
+        if self.drag.is_some() {
+            if self.central_body.radius().is_none() {
+                return Err(BraheError::Error(format!(
+                    "drag requires central_body.radius() to be known, but central_body {} has \
+                     no known radius",
+                    self.central_body
+                )));
+            }
+            if self.central_body.omega_vector().is_none() {
+                return Err(BraheError::Error(format!(
+                    "drag requires central_body.omega_vector() to be known, but central_body \
+                     {} has no known spin rate",
+                    self.central_body
+                )));
+            }
+        }
+
+        if matches!(self.central_body, CentralBody::Custom(_))
+            && matches!(self.gravity, GravityConfiguration::SphericalHarmonic { .. })
+            && self.central_body.fixed_frame().is_none()
+        {
+            return Err(BraheError::Error(format!(
+                "GravityConfiguration::SphericalHarmonic on a Custom central body requires \
+                 fixed_frame to be set, but central_body {} has no fixed frame",
+                self.central_body
+            )));
+        }
+
+        Ok(())
     }
 }
 
@@ -1382,5 +1700,294 @@ mod tests {
         assert_eq!(custom.radius(), 1560.8e3);
         assert_eq!(custom.naif_id(), 502);
         assert_eq!(custom.naif_position_id(), 502);
+    }
+
+    // =========================================================================
+    // central_body / for_body / defaults / validate
+    // =========================================================================
+
+    #[test]
+    fn test_default_config_central_body_earth_and_valid() {
+        let cfg = ForceModelConfig::default();
+        assert_eq!(cfg.central_body, CentralBody::Earth);
+        cfg.validate().unwrap();
+    }
+
+    #[test]
+    fn test_serde_backward_compat_missing_central_body() {
+        let mut v = serde_json::to_value(ForceModelConfig::default()).unwrap();
+        v.as_object_mut().unwrap().remove("central_body");
+        let cfg: ForceModelConfig = serde_json::from_value(v).unwrap();
+        assert_eq!(cfg.central_body, CentralBody::Earth);
+    }
+
+    #[test]
+    fn test_lunar_mars_cislunar_defaults_valid() {
+        for cfg in [
+            ForceModelConfig::lunar_default(),
+            ForceModelConfig::mars_default(),
+            ForceModelConfig::cislunar_default(),
+        ] {
+            cfg.validate().unwrap();
+        }
+        assert_eq!(
+            ForceModelConfig::lunar_default().central_body,
+            CentralBody::Moon
+        );
+        assert!(ForceModelConfig::lunar_default().drag.is_none());
+    }
+
+    #[test]
+    fn test_for_body_constructs_expected_fields() {
+        let cfg = ForceModelConfig::for_body(
+            CentralBody::Mars,
+            GravityConfiguration::PointMass,
+            None,
+            None,
+            None,
+            true,
+            Some(ParameterSource::Value(500.0)),
+        );
+        assert_eq!(cfg.central_body, CentralBody::Mars);
+        assert_eq!(cfg.gravity, GravityConfiguration::PointMass);
+        assert!(cfg.drag.is_none());
+        assert!(cfg.srp.is_none());
+        assert!(cfg.third_body.is_none());
+        assert!(cfg.relativity);
+        assert_eq!(cfg.mass, Some(ParameterSource::Value(500.0)));
+        assert_eq!(
+            cfg.frame_transform,
+            FrameTransformationModel::FullEarthRotation
+        );
+    }
+
+    #[test]
+    fn test_validate_rejects_harris_priester_non_earth() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::Moon,
+            drag: Some(DragConfiguration {
+                model: AtmosphericModel::HarrisPriester,
+                area: ParameterSource::ParameterIndex(1),
+                cd: ParameterSource::ParameterIndex(2),
+            }),
+            gravity: GravityConfiguration::PointMass,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("HarrisPriester"), "{err}");
+        assert!(err.contains("Moon"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_nrlmsise00_non_earth() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::Mars,
+            drag: Some(DragConfiguration {
+                model: AtmosphericModel::NRLMSISE00,
+                area: ParameterSource::ParameterIndex(1),
+                cd: ParameterSource::ParameterIndex(2),
+            }),
+            gravity: GravityConfiguration::PointMass,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("NRLMSISE00"), "{err}");
+        assert!(err.contains("Mars"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_earth_zonal_non_earth() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::Moon,
+            gravity: GravityConfiguration::EarthZonal {
+                degree: ZonalHarmonicsDegree::J2,
+            },
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("EarthZonal"), "{err}");
+        assert!(err.contains("Moon"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_earth_rotation_only_non_earth() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::Mars,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::EarthRotationOnly,
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("EarthRotationOnly"), "{err}");
+        assert!(err.contains("Mars"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_low_precision_ephemeris_non_earth() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::Moon,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(ThirdBodyConfiguration {
+                ephemeris_source: EphemerisSource::LowPrecision,
+                bodies: vec![ThirdBody::Sun],
+            }),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("LowPrecision"), "{err}");
+        assert!(err.contains("Moon"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_spherical_harmonic_barycenter() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::EMB,
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::default(),
+                degree: 20,
+                order: 20,
+                parallel: ParallelMode::Auto,
+            },
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("SphericalHarmonic"), "{err}");
+        assert!(err.contains("Earth-Moon Barycenter"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_drag_barycenter() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::SSB,
+            gravity: GravityConfiguration::PointMass,
+            drag: Some(DragConfiguration {
+                model: AtmosphericModel::Exponential {
+                    scale_height: 10e3,
+                    rho0: 1.0,
+                    h0: 0.0,
+                },
+                area: ParameterSource::ParameterIndex(1),
+                cd: ParameterSource::ParameterIndex(2),
+            }),
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.to_lowercase().contains("drag"), "{err}");
+        assert!(err.contains("Solar System Barycenter"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_drag_without_radius_and_omega() {
+        let custom = CentralBody::Custom(crate::propagators::central_body::CustomBody {
+            name: "TestBody".to_string(),
+            naif_id: 12345,
+            gm: 1.0e10,
+            radius: None,
+            omega: None,
+            fixed_frame: None,
+        });
+        let cfg = ForceModelConfig {
+            central_body: custom,
+            gravity: GravityConfiguration::PointMass,
+            drag: Some(DragConfiguration {
+                model: AtmosphericModel::Exponential {
+                    scale_height: 10e3,
+                    rho0: 1.0,
+                    h0: 0.0,
+                },
+                area: ParameterSource::ParameterIndex(1),
+                cd: ParameterSource::ParameterIndex(2),
+            }),
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.to_lowercase().contains("drag"), "{err}");
+        assert!(err.contains("TestBody"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_custom_spherical_harmonic_without_fixed_frame() {
+        let custom = CentralBody::Custom(crate::propagators::central_body::CustomBody {
+            name: "TestBody".to_string(),
+            naif_id: 12345,
+            gm: 1.0e10,
+            radius: Some(1.0e6),
+            omega: None,
+            fixed_frame: None,
+        });
+        let cfg = ForceModelConfig {
+            central_body: custom,
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::default(),
+                degree: 20,
+                order: 20,
+                parallel: ParallelMode::Auto,
+            },
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("SphericalHarmonic"), "{err}");
+        assert!(err.contains("TestBody"), "{err}");
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_lunar_mars_gravity_models_downloadable() {
+        use crate::orbit_dynamics::gravity::GravityModel;
+
+        for cfg in [
+            ForceModelConfig::lunar_default(),
+            ForceModelConfig::mars_default(),
+        ] {
+            if let GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(mt),
+                ..
+            } = &cfg.gravity
+            {
+                GravityModel::from_model_type(mt).unwrap();
+            } else {
+                panic!("expected SH gravity");
+            }
+        }
     }
 }

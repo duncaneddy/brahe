@@ -2946,6 +2946,7 @@ mod tests {
     use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
     use crate::frames::position_eci_to_ecef;
+    use crate::propagators::CentralBody;
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::force_model_config::{
         AtmosphericModel, DragConfiguration, EphemerisSource, GravityConfiguration, OccultingBody,
@@ -2979,6 +2980,7 @@ mod tests {
     /// This allows testing parameter-dependent features without loading gravity model
     fn test_force_config_with_params() -> ForceModelConfig {
         ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -3037,6 +3039,7 @@ mod tests {
     /// exercises the same code path as larger models.
     fn jgm3_force_config(degree: usize, order: usize) -> ForceModelConfig {
         ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(
                     crate::orbit_dynamics::GravityModelType::JGM3,
@@ -7869,6 +7872,7 @@ mod tests {
 
         // Use simple point mass gravity only (no third body) to avoid requiring ephemerides
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -8080,6 +8084,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8135,6 +8140,7 @@ mod tests {
 
         // Test with 4x4 spherical harmonic
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
@@ -8191,6 +8197,7 @@ mod tests {
 
         // Use J2-only gravity model (2x0 spherical harmonic)
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
@@ -8261,6 +8268,7 @@ mod tests {
 
         for (degree, order) in configs {
             let force_config = ForceModelConfig {
+                central_body: CentralBody::Earth,
                 mass: None,
                 frame_transform: FrameTransformationModel::default(),
                 gravity: GravityConfiguration::SphericalHarmonic {
@@ -8323,6 +8331,7 @@ mod tests {
 
         // Test 1: Using ModelType source
         let force_config_modeltype = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
@@ -8351,6 +8360,7 @@ mod tests {
 
         // Test 2: Using Global source (should use same model if loaded)
         let force_config_global = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
@@ -8421,6 +8431,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8471,6 +8482,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 300e3, 0.0, 0.0, 0.0, 7700.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8522,6 +8534,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 400e3, 0.0, 0.0, 0.0, 7700.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::Value(1000.0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8584,6 +8597,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8646,6 +8660,7 @@ mod tests {
         let state = state_koe_to_eci(oe_initial, AngleFormat::Degrees);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8717,6 +8732,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8762,6 +8778,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8804,6 +8821,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8847,6 +8865,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 800e3, 0.0, 0.0, 0.0, 7450.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8905,6 +8924,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8943,6 +8963,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -8981,6 +9002,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -9019,6 +9041,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -9061,6 +9084,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -9101,6 +9125,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -9201,6 +9226,7 @@ mod tests {
 
         // Configure with all force models enabled for high-fidelity propagation
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::Value(1000.0)), // 1000 kg satellite
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass, // Use point mass to avoid data dependency
@@ -9273,6 +9299,7 @@ mod tests {
 
         // Configure with Cd from parameter vector
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::PointMass,
@@ -10162,6 +10189,7 @@ mod tests {
         // Test with J2 perturbations
         use crate::orbit_dynamics::gravity::GravityModelType;
         let force_config_j2 = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             gravity: GravityConfiguration::SphericalHarmonic {
@@ -10334,6 +10362,7 @@ mod tests {
 
         // Configure drag to use mass parameter
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {
@@ -10428,6 +10457,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {
@@ -10487,6 +10517,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::Value(500.0)), // Fixed mass
             frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {
@@ -10553,6 +10584,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::Value(1000.0)),
             frame_transform: FrameTransformationModel::default(),
             drag: None,
@@ -10654,6 +10686,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {
@@ -10709,6 +10742,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
             drag: Some(DragConfiguration {

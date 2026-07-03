@@ -688,10 +688,17 @@ impl GravityModel {
             // Parse the header
             if line.starts_with("modelname") {
                 model_name = String::from(line.split_whitespace().last().unwrap());
-            } else if line.starts_with("earth_gravity_constant") {
-                gm = line.split_whitespace().last().unwrap().parse::<f64>()?;
+            } else if line.starts_with("earth_gravity_constant")
+                || line.starts_with("gravity_constant")
+            {
+                // Non-Earth ICGEM models (Moon, Mars, ...) use the unprefixed
+                // "gravity_constant" key and, like the coefficient rows, may use
+                // Fortran-style "D" exponents (e.g. "0.4902799806931690D+13").
+                let token = line.split_whitespace().last().unwrap();
+                gm = token.replace(['D', 'd'], "e").parse::<f64>()?;
             } else if line.starts_with("radius") {
-                radius = line.split_whitespace().last().unwrap().parse::<f64>()?;
+                let token = line.split_whitespace().last().unwrap();
+                radius = token.replace(['D', 'd'], "e").parse::<f64>()?;
             } else if line.starts_with("max_degree") {
                 n_max = line.split_whitespace().last().unwrap().parse::<usize>()?;
                 m_max = n_max;
@@ -732,7 +739,8 @@ impl GravityModel {
         // Confirm that the header contained all required fields
         if gm == 0.0 {
             return Err(BraheError::ParseError(
-                "Gravity model file header missing required field: \"earth_gravity_constant\""
+                "Gravity model file header missing required field: \"earth_gravity_constant\" \
+                 or \"gravity_constant\""
                     .to_string(),
             ));
         }
@@ -921,11 +929,7 @@ impl GravityModel {
             }
             GravityModelType::FromFile(path) => Self::from_file(Path::new(path)),
             GravityModelType::ICGEMModel { body, name } => {
-                let path = crate::datasets::icgem::download_icgem_model(
-                    body.clone(),
-                    name,
-                    None,
-                )?;
+                let path = crate::datasets::icgem::download_icgem_model(body.clone(), name, None)?;
                 Self::from_file(&path)
             }
         }
@@ -1153,8 +1157,8 @@ impl GravityModel {
         V[(1, 0)] = z0 * V[(0, 0)];
         W[(1, 0)] = 0.0;
         for n in 2..(n_max + 2) {
-            V[(n, 0)] = self.rec_a[(n, 0)] * z0 * V[(n - 1, 0)]
-                - self.rec_b[(n, 0)] * rho * V[(n - 2, 0)];
+            V[(n, 0)] =
+                self.rec_a[(n, 0)] * z0 * V[(n - 1, 0)] - self.rec_b[(n, 0)] * rho * V[(n - 2, 0)];
             W[(n, 0)] = 0.0;
         }
 
@@ -1163,10 +1167,8 @@ impl GravityModel {
             // the first sub-diagonal seed for each column.
             for m in 1..m_max + 2 {
                 let mf = m as f64;
-                V[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
-                W[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
+                V[(m, m)] = (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
+                W[(m, m)] = (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
                 if m <= n_max {
                     V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
                     W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
@@ -1216,10 +1218,8 @@ impl GravityModel {
                 let mf = m as f64;
                 // Diagonal + sub-diagonal seeds read column m-1 (cross-column),
                 // so they stay on the matrix API rather than the column slices.
-                V[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
-                W[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
+                V[(m, m)] = (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
+                W[(m, m)] = (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
                 if m <= n_max {
                     V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
                     W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
@@ -1295,10 +1295,8 @@ impl GravityModel {
                     let s = s_col[n];
                     let fac = f_col[n];
                     let p = n + 1;
-                    ax += 0.5 * (-c * v_hi[p] - s * w_hi[p])
-                        + fac * (c * v_lo[p] + s * w_lo[p]);
-                    ay += 0.5 * (-c * w_hi[p] + s * v_hi[p])
-                        + fac * (-c * w_lo[p] + s * v_lo[p]);
+                    ax += 0.5 * (-c * v_hi[p] - s * w_hi[p]) + fac * (c * v_lo[p] + s * w_lo[p]);
+                    ay += 0.5 * (-c * w_hi[p] + s * v_hi[p]) + fac * (-c * w_lo[p] + s * v_lo[p]);
                     az += (nf - mf + 1.0) * (-c * v_mid[p] - s * w_mid[p]);
                 }
             }
@@ -1310,10 +1308,7 @@ impl GravityModel {
                 (0..m_max + 1)
                     .into_par_iter()
                     .map(accumulate_m)
-                    .reduce(
-                        || (0.0, 0.0, 0.0),
-                        |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
-                    )
+                    .reduce(|| (0.0, 0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2))
             })
         } else {
             (0..m_max + 1).fold((0.0, 0.0, 0.0), |acc, m| {
@@ -1473,7 +1468,14 @@ pub fn accel_gravity_spherical_harmonics_with_workspace<P: IntoPosition>(
     let r_bf = R_i2b * r;
 
     let a_ecef = gravity_model
-        .compute_spherical_harmonics_with_workspace(r_bf, n_max, m_max, parallel, v_workspace, w_workspace)
+        .compute_spherical_harmonics_with_workspace(
+            r_bf,
+            n_max,
+            m_max,
+            parallel,
+            v_workspace,
+            w_workspace,
+        )
         .unwrap();
 
     R_i2b.transpose() * a_ecef
@@ -1490,10 +1492,11 @@ mod tests {
     use crate::traits::DStatePropagator;
     use crate::utils::testing::setup_global_test_eop;
     use crate::{
-        AngleFormat, DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
-        FileSpaceWeatherProvider, ForceModelConfig, FrameTransformationModel, GravityConfiguration,
-        GravityModelSource, NumericalPropagationConfig, SVector6, TimeSystem, ZonalHarmonicsDegree,
-        set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci,
+        AngleFormat, CentralBody, DNumericalOrbitPropagator, EOPExtrapolation, Epoch,
+        FileEOPProvider, FileSpaceWeatherProvider, ForceModelConfig, FrameTransformationModel,
+        GravityConfiguration, GravityModelSource, NumericalPropagationConfig, SVector6, TimeSystem,
+        ZonalHarmonicsDegree, set_global_eop_provider, set_global_space_weather_provider,
+        state_koe_to_eci,
     };
 
     use super::*;
@@ -1514,6 +1517,47 @@ mod tests {
             gravity_model.normalization,
             GravityModelNormalization::FullyNormalized
         );
+    }
+
+    #[test]
+    fn test_gravity_model_from_file_non_earth_header_with_fortran_exponents() {
+        // Non-Earth ICGEM models (e.g. GRGM660PRIM for the Moon) use the
+        // unprefixed "gravity_constant" header key instead of
+        // "earth_gravity_constant", and may write both it and "radius" using
+        // Fortran-style "D" exponents (e.g. "0.4902799806931690D+13") rather
+        // than "E". This is a trimmed excerpt of a real Moon gfc file's header.
+        let gfc = "\
+*** model converted into ICGEM-format by ICGEM, GFZ Potsdam
+begin_of_head ===================================
+product_type                  gravity_field
+body                          moon
+modelname                     GRGM660PRIM
+gravity_constant              0.4902799806931690D+13
+radius                        0.1738000D+07
+tide_system                   tide_free
+max_degree                    2
+errors                        formal
+norm                          fully_normalized
+key    L    M           C                       S                    sigma C                sigma S
+end_of_head =================================================================================================
+gfc    0     0  1.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+gfc    1     0  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+gfc    1     1  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
+gfc    2     0 -9.0882923650771000E-05  0.0000000000000000E+00  1.5300000000000000E-10  0.0000000000000000E+00
+gfc    2     1  8.4954064857652000E-11  9.7726994478963000E-10  6.1700000000000000E-12  7.1800000000000000E-12
+gfc    2     2  3.4670944268756000E-05 -2.4064244523445000E-10  4.8700000000000000E-11  9.2700000000000000E-12
+";
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test_moon_header.gfc");
+        std::fs::write(&path, gfc).unwrap();
+
+        let gravity_model = GravityModel::from_file(&path).unwrap();
+
+        assert_eq!(gravity_model.model_name, "GRGM660PRIM");
+        assert_abs_diff_eq!(gravity_model.gm, 4.902_799_806_931_69e12, epsilon = 1.0);
+        assert_abs_diff_eq!(gravity_model.radius, 1.738e6, epsilon = 1e-6);
+        assert_eq!(gravity_model.n_max, 2);
+        assert_eq!(gravity_model.m_max, 2);
     }
 
     #[test]
@@ -1865,6 +1909,7 @@ mod tests {
             dstate.clone(),
             NumericalPropagationConfig::default(),
             ForceModelConfig {
+                central_body: CentralBody::Earth,
                 gravity: GravityConfiguration::SphericalHarmonic {
                     source: GravityModelSource::default(),
                     degree: (&degree).into(),
@@ -1890,6 +1935,7 @@ mod tests {
             dstate.clone(),
             NumericalPropagationConfig::default(),
             ForceModelConfig {
+                central_body: CentralBody::Earth,
                 gravity: GravityConfiguration::EarthZonal {
                     degree: ZonalHarmonicsDegree::J6,
                 },
@@ -1951,6 +1997,7 @@ mod tests {
                 dstate.clone(),
                 NumericalPropagationConfig::default(),
                 ForceModelConfig {
+                    central_body: CentralBody::Earth,
                     gravity,
                     drag: None,
                     srp: None,
@@ -2024,7 +2071,14 @@ mod tests {
         let gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
 
-        let a_grav = accel_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m, ParallelMode::Auto);
+        let a_grav = accel_gravity_spherical_harmonics(
+            r_body,
+            rot,
+            &gravity_model,
+            n,
+            m,
+            ParallelMode::Auto,
+        );
 
         // This could potentially be validated to a higher degree of accuracy, but currently the
         // parameters provided by the Satellite Orbits book are only accurate to seven decimal
@@ -2222,13 +2276,14 @@ mod tests {
         use crate::datasets::icgem::ICGEMBody;
 
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         // Seed the icgem cache with a manually-placed gfc file so no network
         // fetch is required.
-        let cache_dir = std::path::PathBuf::from(
-            crate::utils::cache::get_icgem_cache_dir().unwrap(),
-        );
+        let cache_dir =
+            std::path::PathBuf::from(crate::utils::cache::get_icgem_cache_dir().unwrap());
         let model_dir = cache_dir.join("models").join("earth");
         std::fs::create_dir_all(&model_dir).unwrap();
         let gfc = std::fs::read("data/gravity_models/JGM3.gfc").unwrap();
@@ -2237,7 +2292,9 @@ mod tests {
         // Seed a fresh index so list/refresh doesn't fetch.
         let idx = crate::datasets::icgem::index::IndexFile {
             fetched_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             entries: vec![crate::datasets::icgem::IndexEntry {
                 body: ICGEMBody::Earth,
                 name: "JGM3".into(),
@@ -2256,7 +2313,9 @@ mod tests {
         let model = GravityModel::from_model_type(&mt).unwrap();
         assert_eq!(model.n_max, 70);
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
@@ -2267,20 +2326,21 @@ mod tests {
         // must initialize cleanly and advance the state.
         use crate::datasets::icgem::ICGEMBody;
         use crate::propagators::{
-            DNumericalOrbitPropagator, ForceModelConfig, GravityConfiguration,
-            GravityModelSource, NumericalPropagationConfig,
+            DNumericalOrbitPropagator, ForceModelConfig, GravityConfiguration, GravityModelSource,
+            NumericalPropagationConfig,
         };
 
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);
 
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         // Seed the ICGEM cache with JGM3 so no network fetch is required.
-        let cache_dir = std::path::PathBuf::from(
-            crate::utils::cache::get_icgem_cache_dir().unwrap(),
-        );
+        let cache_dir =
+            std::path::PathBuf::from(crate::utils::cache::get_icgem_cache_dir().unwrap());
         let model_dir = cache_dir.join("models").join("earth");
         std::fs::create_dir_all(&model_dir).unwrap();
         let gfc = std::fs::read("data/gravity_models/JGM3.gfc").unwrap();
@@ -2288,7 +2348,9 @@ mod tests {
 
         let idx = crate::datasets::icgem::index::IndexFile {
             fetched_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             entries: vec![crate::datasets::icgem::IndexEntry {
                 body: ICGEMBody::Earth,
                 name: "JGM3".into(),
@@ -2315,6 +2377,7 @@ mod tests {
             name: "JGM3".into(),
         };
         let force_model = ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(icgem_model),
                 degree: 20,
@@ -2366,7 +2429,9 @@ mod tests {
         let drift = (dx * dx + dy * dy + dz * dz).sqrt();
         assert!(drift > 100e3, "state barely moved: drift = {} m", drift);
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
@@ -2379,9 +2444,18 @@ mod tests {
 
         // Runs on the main thread (off-pool), so Auto's nested-parallelism guard
         // is satisfied and Auto reduces to the degree-threshold check.
-        assert!(!should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX - 1));
-        assert!(should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX));
-        assert!(should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX + 1));
+        assert!(!should_parallelize(
+            ParallelMode::Auto,
+            PARALLEL_THRESHOLD_NMAX - 1
+        ));
+        assert!(should_parallelize(
+            ParallelMode::Auto,
+            PARALLEL_THRESHOLD_NMAX
+        ));
+        assert!(should_parallelize(
+            ParallelMode::Auto,
+            PARALLEL_THRESHOLD_NMAX + 1
+        ));
     }
 
     #[test]

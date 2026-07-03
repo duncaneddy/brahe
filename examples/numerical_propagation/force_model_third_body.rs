@@ -1,8 +1,8 @@
 //! Configuring third-body perturbations with different ephemeris sources.
 //! Shows how to include Sun, Moon, and planetary gravitational effects.
 
-use brahe as bh;
 use bh::GravityModelType;
+use brahe as bh;
 
 fn main() {
     // Third-body perturbations configuration
@@ -51,6 +51,7 @@ fn main() {
 
     // Create force model with Sun/Moon perturbations (common case)
     let _force_config = bh::ForceModelConfig {
+        central_body: bh::CentralBody::Earth,
         gravity: bh::GravityConfiguration::SphericalHarmonic {
             source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
             degree: 20,
@@ -65,4 +66,3 @@ fn main() {
         frame_transform: bh::FrameTransformationModel::default(),
     };
 }
-

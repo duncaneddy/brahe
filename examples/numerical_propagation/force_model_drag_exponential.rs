@@ -1,11 +1,10 @@
 //! Configuring atmospheric drag with exponential model.
 //! Simple analytical model for quick estimates.
 
-use brahe as bh;
 use bh::GravityModelType;
+use brahe as bh;
 
 fn main() {
-
     let drag_config = bh::DragConfiguration {
         model: bh::AtmosphericModel::Exponential {
             scale_height: 53000.0, // Scale height H in meters (53 km for ~300 km altitude)
@@ -18,6 +17,7 @@ fn main() {
 
     // Create force model with exponential drag
     let _force_config = bh::ForceModelConfig {
+        central_body: bh::CentralBody::Earth,
         gravity: bh::GravityConfiguration::SphericalHarmonic {
             source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
             degree: 20,
@@ -32,4 +32,3 @@ fn main() {
         frame_transform: bh::FrameTransformationModel::default(),
     };
 }
-

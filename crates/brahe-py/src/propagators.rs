@@ -4322,6 +4322,7 @@ impl PyForceModelConfig {
     ) -> Self {
         PyForceModelConfig {
             config: propagators::ForceModelConfig {
+                central_body: propagators::CentralBody::default(),
                 gravity: gravity.map(|g| g.config.clone()).unwrap_or(propagators::GravityConfiguration::PointMass),
                 drag: drag.map(|d| d.config.clone()),
                 srp: srp.map(|s| s.config.clone()),

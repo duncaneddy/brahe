@@ -439,10 +439,38 @@ pub(crate) fn should_parallelize(mode: ParallelMode, n_max: usize) -> bool {
     }
 }
 
-/// Benchmark-calibrated crossover degree for the Clenshaw kernel. Placeholder
-/// value pending Task 7 measurement — the serial Clenshaw kernel is faster
-/// than serial Cunningham, so the crossover sits at or above Cunningham's.
-pub(crate) const CLENSHAW_PARALLEL_THRESHOLD_NMAX: usize = 210;
+/// Benchmark-calibrated crossover degree for the Clenshaw kernel. At or above
+/// this `n_max`, parallel evaluation of the Clenshaw kernel beats serial on a
+/// typical multi-core host. Machine-approximate; see
+/// `benchmarks/gravity_benchmarks.rs`.
+///
+/// Measured on a 10-core Apple M1 Max. Serial vs parallel median times for
+/// the Clenshaw kernel, alongside serial Cunningham for reference (Cunningham
+/// overflows above n=120 at this benchmark's altitude/latitude, so no
+/// Cunningham entries above that degree):
+///
+/// | n_max | cunningham serial | clenshaw serial | clenshaw parallel |
+/// |-------|--------------------|------------------|--------------------|
+/// |     2 |            50.6 ns |          45.8 ns |            11.1 µs |
+/// |    20 |           755.5 ns |         787.1 ns |            16.5 µs |
+/// |    50 |            5.37 µs |          4.15 µs |            21.9 µs |
+/// |    90 |            19.5 µs |          12.9 µs |            24.2 µs |
+/// |   120 |            35.1 µs |          22.6 µs |            23.2 µs |
+/// |   180 |                  — |          50.2 µs |            29.9 µs |
+/// |   240 |                  — |          88.7 µs |            48.9 µs |
+/// |   360 |                  — |           198 µs |            83.4 µs |
+///
+/// The Clenshaw serial path is consistently faster than serial Cunningham
+/// where both are valid (1.30–1.55× at n=50–120, and the recurrence's flatter
+/// per-degree cost means the gap keeps widening past Cunningham's overflow
+/// ceiling). Serial vs parallel for Clenshaw itself: at n=120 serial is still
+/// (barely) ahead of parallel (22.6 µs vs 23.2 µs); at n=180 parallel wins
+/// decisively (29.9 µs vs 50.2 µs) and continues to win at 240/360. The true
+/// crossover lies between 120 and 180 with no benchmarked point in between;
+/// set to 180 — the first measured size where parallel is not slower than
+/// serial — so `Auto` only parallelizes once the win is unambiguous. This
+/// value is machine-approximate.
+pub(crate) const CLENSHAW_PARALLEL_THRESHOLD_NMAX: usize = 180;
 
 /// Clenshaw-kernel counterpart of [`should_parallelize`]: same `Always` /
 /// `Never` semantics and the same nested-parallelism guard, but with the

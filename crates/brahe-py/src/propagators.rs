@@ -3758,6 +3758,7 @@ impl PySolarRadiationPressureConfiguration {
                 area: area.source.clone(),
                 cr: cr.source.clone(),
                 eclipse_model: eclipse_model.model.clone(),
+                occulting_bodies: vec![propagators::OccultingBody::Earth],
             },
         }
     }

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::constants::{
     GM_DEIMOS, GM_EARTH, GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_PHOBOS,
-    GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,
+    GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS, R_EARTH, R_MARS, R_MOON,
 };
 use crate::orbit_dynamics::ParallelMode;
 use crate::orbit_dynamics::gravity::GravityModelType;
@@ -162,6 +162,7 @@ impl Default for ForceModelConfig {
                 area: ParameterSource::ParameterIndex(3),
                 cr: ParameterSource::ParameterIndex(4),
                 eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::DE440s,
@@ -369,6 +370,7 @@ impl ForceModelConfig {
                 area: ParameterSource::ParameterIndex(3),
                 cr: ParameterSource::ParameterIndex(4),
                 eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::DE440s,
@@ -467,6 +469,7 @@ impl ForceModelConfig {
                 area: ParameterSource::ParameterIndex(3),
                 cr: ParameterSource::ParameterIndex(4),
                 eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::DE440s,
@@ -495,6 +498,7 @@ impl ForceModelConfig {
                 area: ParameterSource::ParameterIndex(3),
                 cr: ParameterSource::ParameterIndex(4),
                 eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::DE440s,
@@ -743,13 +747,14 @@ pub enum AtmosphericModel {
 /// # Examples
 ///
 /// ```rust
-/// use brahe::propagators::{SolarRadiationPressureConfiguration, EclipseModel, ParameterSource};
+/// use brahe::propagators::{SolarRadiationPressureConfiguration, EclipseModel, OccultingBody, ParameterSource};
 ///
 /// // Variable area and Cr
 /// let srp = SolarRadiationPressureConfiguration {
 ///     area: ParameterSource::ParameterIndex(3),
 ///     cr: ParameterSource::ParameterIndex(4),
 ///     eclipse_model: EclipseModel::Conical,
+///     occulting_bodies: vec![OccultingBody::Earth],
 /// };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -762,6 +767,115 @@ pub struct SolarRadiationPressureConfiguration {
 
     /// Eclipse model for shadow effects
     pub eclipse_model: EclipseModel,
+
+    /// Occulting bodies to consider for shadow/eclipse determination
+    ///
+    /// Each body's position (resolved via its `naif_position_id`) and physical
+    /// radius are used to compute an illumination fraction; when multiple bodies
+    /// are listed, the minimum illumination fraction across all bodies is used.
+    /// Defaults to `[OccultingBody::Earth]` for backward compatibility.
+    #[serde(default = "default_occulting_bodies")]
+    pub occulting_bodies: Vec<OccultingBody>,
+}
+
+fn default_occulting_bodies() -> Vec<OccultingBody> {
+    vec![OccultingBody::Earth]
+}
+
+/// Occulting body for eclipse/shadow modeling in solar radiation pressure calculations
+///
+/// Identifies a celestial body whose shadow may occult the sun as seen from the
+/// spacecraft. Each variant provides the body's mean physical radius (via
+/// [`OccultingBody::radius`]) and NAIF ID (via [`OccultingBody::naif_id`]) used in
+/// eclipse geometry calculations.
+///
+/// # Examples
+///
+/// ```rust
+/// use brahe::propagators::OccultingBody;
+///
+/// let earth = OccultingBody::Earth;
+/// assert_eq!(earth.naif_id(), 399);
+///
+/// let custom = OccultingBody::Custom { name: "Europa".to_string(), naif_id: 502, radius: 1560.8e3 };
+/// assert_eq!(custom.radius(), 1560.8e3);
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum OccultingBody {
+    /// Earth
+    Earth,
+
+    /// Moon
+    Moon,
+
+    /// Mars
+    Mars,
+
+    /// User-defined occulting body
+    Custom {
+        /// Descriptive name of the body
+        name: String,
+        /// NAIF ID of the physical body (used for both shadow geometry and, unless
+        /// overridden via a dedicated position ID, ephemeris position lookups)
+        naif_id: i32,
+        /// Mean physical radius of the body [m]
+        radius: f64,
+    },
+}
+
+impl OccultingBody {
+    /// Mean physical radius of the occulting body [m]
+    ///
+    /// # Returns
+    ///
+    /// - Physical radius of the body, in meters.
+    pub fn radius(&self) -> f64 {
+        match self {
+            OccultingBody::Earth => R_EARTH,
+            OccultingBody::Moon => R_MOON,
+            OccultingBody::Mars => R_MARS,
+            OccultingBody::Custom { radius, .. } => *radius,
+        }
+    }
+
+    /// NAIF ID of the physical occulting body
+    ///
+    /// This identifies the body whose physical radius defines the shadow geometry.
+    /// For Mars this is 499 (the planet itself), which differs from the ID used to
+    /// query its position via SPK — see [`OccultingBody::naif_position_id`].
+    ///
+    /// # Returns
+    ///
+    /// - NAIF integer ID of the physical body.
+    pub fn naif_id(&self) -> i32 {
+        match self {
+            OccultingBody::Earth => 399,
+            OccultingBody::Moon => 301,
+            OccultingBody::Mars => 499,
+            OccultingBody::Custom { naif_id, .. } => *naif_id,
+        }
+    }
+
+    /// NAIF ID to use when resolving the occulting body's position via SPK ephemerides
+    ///
+    /// For most bodies this is identical to [`OccultingBody::naif_id`]. Mars is the
+    /// exception: standard planetary SPK kernels (e.g. DE440) provide the position
+    /// of the Mars system barycenter (NAIF ID 4) rather than the planet center (NAIF
+    /// ID 499), since no dedicated Mars-only position segment is guaranteed to be
+    /// present. The barycenter-to-planet-center offset for Mars is on the order of
+    /// centimeters (dominated by the much smaller moons Phobos and Deimos), which is
+    /// negligible for occultation geometry, so `naif_position_id` returns 4 while
+    /// `naif_id` returns 499 to reflect the physical body used for shadow sizing.
+    ///
+    /// # Returns
+    ///
+    /// - NAIF integer ID to use for SPK position queries.
+    pub fn naif_position_id(&self) -> i32 {
+        match self {
+            OccultingBody::Mars => 4,
+            other => other.naif_id(),
+        }
+    }
 }
 
 /// Eclipse modeling for solar radiation pressure
@@ -1236,5 +1350,37 @@ mod tests {
         let roundtrip: GravityConfiguration =
             serde_json::from_str(&serde_json::to_string(&cfg).unwrap()).unwrap();
         assert_eq!(roundtrip, cfg);
+    }
+
+    #[test]
+    fn test_srp_config_serde_default_occulting_bodies() {
+        // Old serialized config without the field deserializes to [Earth]
+        let json = r#"{"area":{"Value":1.0},"cr":{"Value":1.8},"eclipse_model":"Conical"}"#;
+        let cfg: SolarRadiationPressureConfiguration = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.occulting_bodies, vec![OccultingBody::Earth]);
+    }
+
+    #[test]
+    fn test_occulting_body_radius_and_naif_ids() {
+        assert_eq!(OccultingBody::Earth.radius(), R_EARTH);
+        assert_eq!(OccultingBody::Earth.naif_id(), 399);
+        assert_eq!(OccultingBody::Earth.naif_position_id(), 399);
+
+        assert_eq!(OccultingBody::Moon.radius(), R_MOON);
+        assert_eq!(OccultingBody::Moon.naif_id(), 301);
+        assert_eq!(OccultingBody::Moon.naif_position_id(), 301);
+
+        assert_eq!(OccultingBody::Mars.radius(), R_MARS);
+        assert_eq!(OccultingBody::Mars.naif_id(), 499);
+        assert_eq!(OccultingBody::Mars.naif_position_id(), 4);
+
+        let custom = OccultingBody::Custom {
+            name: "Europa".to_string(),
+            naif_id: 502,
+            radius: 1560.8e3,
+        };
+        assert_eq!(custom.radius(), 1560.8e3);
+        assert_eq!(custom.naif_id(), 502);
+        assert_eq!(custom.naif_position_id(), 502);
     }
 }

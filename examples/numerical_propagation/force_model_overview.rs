@@ -26,6 +26,7 @@ fn main() {
             area: bh::ParameterSource::ParameterIndex(3),
             cr: bh::ParameterSource::ParameterIndex(4),
             eclipse_model: bh::EclipseModel::Conical,
+            occulting_bodies: vec![bh::OccultingBody::Earth],
         }),
         // Third-body: Sun and Moon with DE440s ephemeris
         third_body: Some(bh::ThirdBodyConfiguration {

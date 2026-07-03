@@ -5,8 +5,9 @@ use brahe::propagators::traits::{DStatePropagator, SStatePropagator, SStateProvi
 use brahe::propagators::{
     AtmosphericModel, DNumericalOrbitPropagator, DragConfiguration, EclipseModel,
     EphemerisSource, ForceModelConfig, GravityConfiguration, GravityModelSource,
-    IntegratorMethod, KeplerianPropagator, NumericalPropagationConfig, ParameterSource,
-    SGPPropagator, SolarRadiationPressureConfiguration, ThirdBody, ThirdBodyConfiguration,
+    IntegratorMethod, KeplerianPropagator, NumericalPropagationConfig, OccultingBody,
+    ParameterSource, SGPPropagator, SolarRadiationPressureConfiguration, ThirdBody,
+    ThirdBodyConfiguration,
 };
 use brahe::traits::DOrbitStateProvider;
 use brahe::time::{Epoch, TimeSystem};
@@ -404,6 +405,7 @@ fn force_config_from_params(p: &Rk4ForceParams) -> ForceModelConfig {
             area: ParameterSource::ParameterIndex(3),
             cr: ParameterSource::ParameterIndex(4),
             eclipse_model: EclipseModel::Conical,
+            occulting_bodies: vec![OccultingBody::Earth],
         })
     } else {
         None

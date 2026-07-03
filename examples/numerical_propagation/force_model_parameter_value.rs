@@ -21,6 +21,7 @@ fn main() {
         area: bh::ParameterSource::Value(15.0), // Fixed 15 m^2 SRP area
         cr: bh::ParameterSource::Value(1.3),    // Fixed Cr of 1.3
         eclipse_model: bh::EclipseModel::Conical,
+        occulting_bodies: vec![bh::OccultingBody::Earth],
     };
 
     // Create force model with all fixed parameters

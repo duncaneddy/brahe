@@ -2948,7 +2948,7 @@ mod tests {
     use crate::frames::position_eci_to_ecef;
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::force_model_config::{
-        AtmosphericModel, DragConfiguration, EphemerisSource, GravityConfiguration,
+        AtmosphericModel, DragConfiguration, EphemerisSource, GravityConfiguration, OccultingBody,
         ParameterSource, ThirdBody,
     };
     use crate::propagators::traits::DStatePropagator;
@@ -8725,6 +8725,7 @@ mod tests {
                 area: ParameterSource::Value(10.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::None,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: None,
             relativity: false,
@@ -8769,6 +8770,7 @@ mod tests {
                 area: ParameterSource::Value(10.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::Cylindrical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: None,
             relativity: false,
@@ -8810,6 +8812,7 @@ mod tests {
                 area: ParameterSource::Value(10.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: None,
             relativity: false,
@@ -8852,6 +8855,7 @@ mod tests {
                 area: ParameterSource::Value(10.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::Conical, // Use conical for penumbra transitions
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: None,
             relativity: false,
@@ -9209,6 +9213,7 @@ mod tests {
                 area: ParameterSource::Value(5.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::LowPrecision,
@@ -10555,6 +10560,7 @@ mod tests {
                 area: ParameterSource::Value(20.0),
                 cr: ParameterSource::ParameterIndex(2), // Use params[2] for Cr
                 eclipse_model: EclipseModel::None,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::LowPrecision,

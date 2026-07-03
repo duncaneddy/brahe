@@ -26,7 +26,7 @@ use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
 use crate::orbit_dynamics::{
-    GravityModel, accel_drag, accel_gravity_spherical_harmonics_with_workspace,
+    GravityModel, accel_drag, accel_gravity_spherical_harmonics_cunningham_with_workspace,
     accel_point_mass_gravity, accel_relativity, accel_solar_radiation_pressure, accel_third_body,
     eclipse_conical, eclipse_cylindrical, get_global_gravity_model, sun_position,
 };
@@ -225,7 +225,7 @@ impl RotationCache {
 /// Per-propagator scratch state captured by the dynamics closure.
 ///
 /// Bundles the [`RotationCache`] and the V/W recurrence buffers used by
-/// `compute_spherical_harmonics_with_workspace` into a single lock target
+/// `compute_spherical_harmonics_cunningham_with_workspace` into a single lock target
 /// so each dynamics invocation acquires only one mutex. The two used to be
 /// stored separately but are touched together on every call — folding them
 /// in one struct saves a lock acquisition and keeps related state colocated
@@ -1611,7 +1611,7 @@ impl DNumericalOrbitPropagator {
                         // Use global gravity model
                         let global_model: std::sync::RwLockReadGuard<'_, Box<GravityModel>> =
                             get_global_gravity_model();
-                        a_total += accel_gravity_spherical_harmonics_with_workspace(
+                        a_total += accel_gravity_spherical_harmonics_cunningham_with_workspace(
                             r,
                             r_i2b,
                             &global_model,
@@ -1625,7 +1625,7 @@ impl DNumericalOrbitPropagator {
                     GravityModelSource::ModelType(_) => {
                         // Use the model loaded at construction (passed in)
                         if let Some(model) = gravity_model {
-                            a_total += accel_gravity_spherical_harmonics_with_workspace(
+                            a_total += accel_gravity_spherical_harmonics_cunningham_with_workspace(
                                 r,
                                 r_i2b,
                                 model.as_ref(),

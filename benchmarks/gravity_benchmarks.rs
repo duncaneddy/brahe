@@ -43,7 +43,7 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
 /// Two variants per degree:
 /// - `alloc`: `compute_spherical_harmonics` — includes the two per-call
 ///   `DMatrix::zeros((n+2)²)` allocations.
-/// - `workspace`: `compute_spherical_harmonics_with_workspace` reusing a
+/// - `workspace`: `compute_spherical_harmonics_cunningham_with_workspace` reusing a
 ///   pre-sized workspace — this is what the propagator hot path actually does,
 ///   so it measures compute overhead with allocation amortized away.
 ///
@@ -73,7 +73,7 @@ fn bench_small_n_serial(c: &mut Criterion) {
         group.bench_with_input(criterion::BenchmarkId::new("workspace", n), &n, |b, &n| {
             b.iter(|| {
                 model
-                    .compute_spherical_harmonics_with_workspace(
+                    .compute_spherical_harmonics_cunningham_with_workspace(
                         black_box(r_body),
                         black_box(n),
                         black_box(n),

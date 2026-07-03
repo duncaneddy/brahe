@@ -380,7 +380,7 @@ pub enum GravityModelNormalization {
 
 /// Execution policy for the spherical-harmonic acceleration computation.
 ///
-/// Controls whether [`GravityModel::compute_spherical_harmonics_with_workspace`]
+/// Controls whether [`GravityModel::compute_spherical_harmonics_cunningham_with_workspace`]
 /// and its callers parallelize the recurrence column-fill and the acceleration
 /// accumulation across Brahe's managed thread pool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
@@ -539,10 +539,23 @@ pub struct GravityModel {
     pub model_errors: GravityModelErrors,
     /// Normalization convention used for spherical harmonic coefficients (fully normalized or unnormalized).
     pub normalization: GravityModelNormalization,
+    /// Cunningham V/W kernel tables; `None` until precomputed.
+    cunningham: Option<CunninghamTables>,
+}
+
+/// Precomputed tables for the Cunningham V/W kernel
+/// ([`GravityModel::compute_spherical_harmonics_cunningham`]).
+///
+/// Holds denormalized coefficients and recurrence multipliers sized to the
+/// model's `n_max`/`m_max`. Present only when the model was loaded with
+/// `GravityTables::Cunningham`/`Both` or after
+/// [`GravityModel::precompute_cunningham_tables`].
+#[derive(Clone)]
+pub(crate) struct CunninghamTables {
     /// Denormalized cosine coefficients `C_{n,m}` indexed as `coeff_c[(n, m)]`.
     /// Precomputed from `data` and `normalization` to hoist the per-call sqrt
     /// and factorial work out of the spherical harmonic acceleration loop.
-    /// Rebuilt by `precompute_coefficients` whenever `data`, `n_max`, `m_max`,
+    /// Rebuilt by `precompute_cunningham_tables` whenever `data`, `n_max`, `m_max`,
     /// or `normalization` change.
     coeff_c: DMatrix<f64>,
     /// Denormalized sine coefficients `S_{n,m}` indexed as `coeff_s[(n, m)]`.
@@ -583,29 +596,23 @@ impl GravityModel {
             model_name: String::from("Unknown"),
             model_errors: GravityModelErrors::No,
             normalization: GravityModelNormalization::FullyNormalized,
-            coeff_c: DMatrix::zeros(1, 1),
-            coeff_s: DMatrix::zeros(1, 1),
-            fac: DMatrix::zeros(1, 1),
-            rec_a: DMatrix::zeros(1, 1),
-            rec_b: DMatrix::zeros(1, 1),
+            cunningham: None,
         }
     }
 
     /// Precompute denormalized `C_{n,m}`, `S_{n,m}`, and degree/order factor
-    /// matrices used by the spherical harmonic acceleration recursion.
+    /// matrices used by the Cunningham V/W kernel's acceleration recursion.
     ///
     /// For fully-normalized models this applies the denormalization
     /// factor `sqrt((2 - δ_{0,m}) * (2n + 1) * (n - m)! / (n + m)!)` once
     /// per coefficient so the hot propagation loop in
-    /// `compute_spherical_harmonics` can read the denormalized values directly.
-    /// The `fac` matrix caches the recursion term
+    /// `compute_spherical_harmonics_cunningham` can read the denormalized
+    /// values directly. The `fac` matrix caches the recursion term
     /// `0.5 * (n - m + 1) * (n - m + 2)`.
     ///
-    /// This must be called whenever `data`, `n_max`, `m_max`, or
-    /// `normalization` changes. It sizes the output matrices to
-    /// `(n_max + 1) × (n_max + 1)`, so calling it after a truncation also
-    /// reclaims memory from the previous allocation.
-    fn precompute_coefficients(&mut self) {
+    /// Sizes the output matrices to `(n_max + 1) × (n_max + 1)` against the
+    /// model's current `data`, `n_max`, `m_max`, and `normalization`.
+    fn build_cunningham_tables(&self) -> CunninghamTables {
         let size = self.n_max + 1;
         let mut coeff_c = DMatrix::zeros(size, size);
         let mut coeff_s = DMatrix::zeros(size, size);
@@ -659,11 +666,35 @@ impl GravityModel {
             }
         }
 
-        self.coeff_c = coeff_c;
-        self.coeff_s = coeff_s;
-        self.fac = fac;
-        self.rec_a = rec_a;
-        self.rec_b = rec_b;
+        CunninghamTables {
+            coeff_c,
+            coeff_s,
+            fac,
+            rec_a,
+            rec_b,
+        }
+    }
+
+    /// Precompute the Cunningham V/W kernel tables (denormalized `C_{n,m}`,
+    /// `S_{n,m}`, and recurrence multipliers) used by
+    /// [`GravityModel::compute_spherical_harmonics_cunningham`].
+    ///
+    /// No-op if the tables are already present. Loading a model via
+    /// `GravityTables::Cunningham`/`Both` calls this automatically; call it
+    /// directly if the model was loaded without those tables and you need to
+    /// use the Cunningham kernel.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType};
+    ///
+    /// let mut gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+    /// gravity_model.precompute_cunningham_tables();
+    /// ```
+    pub fn precompute_cunningham_tables(&mut self) {
+        if self.cunningham.is_none() {
+            self.cunningham = Some(self.build_cunningham_tables());
+        }
     }
 
     fn from_bufreader<T: Read>(reader: BufReader<T>) -> Result<Self, BraheError> {
@@ -781,13 +812,9 @@ impl GravityModel {
             model_name,
             model_errors,
             normalization,
-            coeff_c: DMatrix::zeros(1, 1),
-            coeff_s: DMatrix::zeros(1, 1),
-            fac: DMatrix::zeros(1, 1),
-            rec_a: DMatrix::zeros(1, 1),
-            rec_b: DMatrix::zeros(1, 1),
+            cunningham: None,
         };
-        model.precompute_coefficients();
+        model.precompute_cunningham_tables();
         Ok(model)
     }
 
@@ -1029,14 +1056,16 @@ impl GravityModel {
         self.n_max = n;
         self.m_max = m;
 
-        // Rebuild precomputed coefficient matrices against the resized data so
-        // stored values stay consistent and oversized allocations are reclaimed.
-        self.precompute_coefficients();
+        // Rebuild whichever precomputed table sets exist against the resized data.
+        if self.cunningham.is_some() {
+            self.cunningham = Some(self.build_cunningham_tables());
+        }
 
         Ok(())
     }
 
-    /// Compute gravitational acceleration from spherical harmonic expansion.
+    /// Compute gravitational acceleration from spherical harmonic expansion
+    /// using the Cunningham (Montenbruck & Gill) V/W recursion.
     ///
     /// Evaluates gravity field using recursively-computed associated Legendre functions.
     /// Higher degrees/orders provide more accurate representation of Earth's gravitational
@@ -1045,7 +1074,7 @@ impl GravityModel {
     /// Each call heap-allocates two `(n_max + 2) × (n_max + 2)` matrices for
     /// the recurrence calcualtion. For hot-path workloads (numerical
     /// propagation, where the integrator calls this 4-17 times per step) use
-    /// [`Self::compute_spherical_harmonics_with_workspace`] to reuse the
+    /// [`Self::compute_spherical_harmonics_cunningham_with_workspace`] to reuse the
     /// allocations across calls.
     ///
     /// # Arguments
@@ -1059,7 +1088,7 @@ impl GravityModel {
     /// # Errors
     /// - OutOfBoundsError if requested n_max or m_max exceeds loaded model's limits
     /// - OutOfBoundsError if m_max > n_max
-    pub fn compute_spherical_harmonics(
+    pub fn compute_spherical_harmonics_cunningham(
         &self,
         r_body: Vector3<f64>,
         n_max: usize,
@@ -1068,7 +1097,7 @@ impl GravityModel {
     ) -> Result<Vector3<f64>, BraheError> {
         let mut v_workspace = DMatrix::<f64>::zeros(n_max + 2, n_max + 2);
         let mut w_workspace = DMatrix::<f64>::zeros(n_max + 2, n_max + 2);
-        self.compute_spherical_harmonics_with_workspace(
+        self.compute_spherical_harmonics_cunningham_with_workspace(
             r_body,
             n_max,
             m_max,
@@ -1078,7 +1107,7 @@ impl GravityModel {
         )
     }
 
-    /// Variant of [`Self::compute_spherical_harmonics`] that operates on
+    /// Variant of [`Self::compute_spherical_harmonics_cunningham`] that operates on
     /// caller-supplied work matrices.
     ///
     /// Designed for hot paths (numerical propagation) where avoiding the
@@ -1095,12 +1124,12 @@ impl GravityModel {
     ///
     /// # Arguments
     /// - `r_body`: Position vector in body-fixed frame.
-    /// - `n_max`, `m_max`: Same constraints as [`Self::compute_spherical_harmonics`].
+    /// - `n_max`, `m_max`: Same constraints as [`Self::compute_spherical_harmonics_cunningham`].
     /// - `v_workspace`, `w_workspace`: Mutable references to the V and W
     ///   recurrence buffers. Must be at least `(n_max + 2) × (n_max + 2)`;
     ///   will be grown if smaller.
     #[allow(non_snake_case)]
-    pub fn compute_spherical_harmonics_with_workspace(
+    pub fn compute_spherical_harmonics_cunningham_with_workspace(
         &self,
         r_body: Vector3<f64>,
         n_max: usize,
@@ -1109,6 +1138,15 @@ impl GravityModel {
         v_workspace: &mut DMatrix<f64>,
         w_workspace: &mut DMatrix<f64>,
     ) -> Result<Vector3<f64>, BraheError> {
+        let tables = self.cunningham.as_ref().ok_or_else(|| {
+            BraheError::Error(
+                "Cunningham tables not precomputed for this gravity model. Load with \
+                 GravityTables::Cunningham or GravityTables::Both, or call \
+                 precompute_cunningham_tables() first."
+                    .to_string(),
+            )
+        })?;
+
         if n_max > self.n_max || m_max > self.m_max {
             return Err(BraheError::OutOfBoundsError(format!(
                 "Requested gravity model coefficients (n_max={}, m_max={}) are out of bounds for the input model (n_max={}, m_max={}).",
@@ -1153,8 +1191,8 @@ impl GravityModel {
         V[(1, 0)] = z0 * V[(0, 0)];
         W[(1, 0)] = 0.0;
         for n in 2..(n_max + 2) {
-            V[(n, 0)] = self.rec_a[(n, 0)] * z0 * V[(n - 1, 0)]
-                - self.rec_b[(n, 0)] * rho * V[(n - 2, 0)];
+            V[(n, 0)] = tables.rec_a[(n, 0)] * z0 * V[(n - 1, 0)]
+                - tables.rec_b[(n, 0)] * rho * V[(n - 2, 0)];
             W[(n, 0)] = 0.0;
         }
 
@@ -1182,8 +1220,8 @@ impl GravityModel {
             let ncols_used = m_max + 2;
             let v_slice = &mut V.as_mut_slice()[..ncols_used * stride];
             let w_slice = &mut W.as_mut_slice()[..ncols_used * stride];
-            let rec_a = &self.rec_a;
-            let rec_b = &self.rec_b;
+            let rec_a = &tables.rec_a;
+            let rec_b = &tables.rec_b;
             get_thread_pool().install(|| {
                 v_slice
                     .par_chunks_mut(stride)
@@ -1209,9 +1247,9 @@ impl GravityModel {
             // elides the per-access bounds checks on the serial hot path.
             let col_len = n_max + 2;
             let v_stride = V.nrows();
-            let r_stride = self.rec_a.nrows();
-            let rec_a = self.rec_a.as_slice();
-            let rec_b = self.rec_b.as_slice();
+            let r_stride = tables.rec_a.nrows();
+            let rec_a = tables.rec_a.as_slice();
+            let rec_b = tables.rec_b.as_slice();
             for m in 1..m_max + 2 {
                 let mf = m as f64;
                 // Diagonal + sub-diagonal seeds read column m-1 (cross-column),
@@ -1253,12 +1291,12 @@ impl GravityModel {
         // coefficient row index n. Strides may differ between the (possibly
         // oversized) workspaces and the model-sized coefficient matrices.
         let v_stride = v_ref.nrows();
-        let c_stride = self.coeff_c.nrows();
+        let c_stride = tables.coeff_c.nrows();
         let v_buf = v_ref.as_slice();
         let w_buf = w_ref.as_slice();
-        let c_buf = self.coeff_c.as_slice();
-        let s_buf = self.coeff_s.as_slice();
-        let f_buf = self.fac.as_slice();
+        let c_buf = tables.coeff_c.as_slice();
+        let s_buf = tables.coeff_s.as_slice();
+        let f_buf = tables.fac.as_slice();
         let vw_len = n_max + 2;
         let cf_len = n_max + 1;
         let accumulate_m = |m: usize| -> (f64, f64, f64) {
@@ -1324,6 +1362,39 @@ impl GravityModel {
 
         // Body-fixed acceleration
         Ok((self.gm / (self.radius * self.radius)) * Vector3::new(ax, ay, az))
+    }
+
+    /// Compute gravitational acceleration from spherical harmonic expansion.
+    ///
+    /// Evaluates gravity field using recursively-computed associated Legendre functions.
+    /// Higher degrees/orders provide more accurate representation of Earth's gravitational
+    /// field but increase computational cost.
+    ///
+    /// Each call heap-allocates two `(n_max + 2) × (n_max + 2)` matrices for
+    /// the recurrence calcualtion. For hot-path workloads (numerical
+    /// propagation, where the integrator calls this 4-17 times per step) use
+    /// [`Self::compute_spherical_harmonics_with_workspace`] to reuse the
+    /// allocations across calls.
+    ///
+    /// # Arguments
+    /// - `r_body`: Position vector in body-fixed frame (e.g., ECEF). Units: meters.
+    /// - `n_max`: Maximum degree of expansion (zonal terms). Must not exceed model's n_max.
+    /// - `m_max`: Maximum order of expansion (tesseral/sectoral terms). Must satisfy m_max <= n_max.
+    ///
+    /// # Returns
+    /// Acceleration vector in body-fixed frame. Units: m/s².
+    ///
+    /// # Errors
+    /// - OutOfBoundsError if requested n_max or m_max exceeds loaded model's limits
+    /// - OutOfBoundsError if m_max > n_max
+    pub fn compute_spherical_harmonics(
+        &self,
+        r_body: Vector3<f64>,
+        n_max: usize,
+        m_max: usize,
+        parallel: ParallelMode,
+    ) -> Result<Vector3<f64>, BraheError> {
+        self.compute_spherical_harmonics_cunningham(r_body, n_max, m_max, parallel)
     }
 }
 
@@ -1432,34 +1503,127 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
     m_max: usize,
     parallel: ParallelMode,
 ) -> Vector3<f64> {
+    accel_gravity_spherical_harmonics_cunningham(
+        r_eci,
+        R_i2b,
+        gravity_model,
+        n_max,
+        m_max,
+        parallel,
+    )
+}
+
+/// Compute the acceleration due to gravity using the Cunningham (Montenbruck
+/// & Gill) V/W spherical harmonic recursion. The gravity model is defined by
+/// the `GravityModel` struct. The acceleration is computed in the body-fixed
+/// frame of the central body, and returned in the inertial frame.
+///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_eci`.
+/// When a state vector is provided, only the position component is used.
+///
+/// # Arguments
+///
+/// - `r_eci` : Position vector of the object in the ECI frame, or state vector (position + velocity).
+/// - `R_i2b` : Transformation matrix from the ECI frame to the body-fixed frame of the central body.
+/// - `gravity_model` : Gravity model to use for the computation.
+/// - `n_max` : Maximum degree of the gravity model to evaluate.
+/// - `m_max` : Maximum order of the gravity model to evaluate.
+///
+/// # Returns
+///
+/// - `Vector3<f64>` : Acceleration due to gravity in the ECI frame.
+///
+/// # Examples
+///
+/// ```
+/// use nalgebra::{Vector3, Vector6};
+/// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
+/// use brahe::frames::rotation_eci_to_ecef;
+/// use brahe::time::Epoch;
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::{R_EARTH, state_koe_to_eci, TimeSystem, AngleFormat};
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// // Compute the rotation matrix from ECI to ECEF
+/// let epoch = Epoch::from_datetime(2024, 2, 25, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let R_i2b = rotation_eci_to_ecef(epoch);
+///
+/// // Create a gravity model
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+///
+/// // Compute the acceleration due to gravity
+/// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
+/// let x_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
+/// let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
+///
+/// // Compute the acceleration due to gravity
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics_cunningham(r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto);
+/// ```
+#[allow(non_snake_case)]
+pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
+    r_eci: P,
+    R_i2b: SMatrix3,
+    gravity_model: &GravityModel,
+    n_max: usize,
+    m_max: usize,
+    parallel: ParallelMode,
+) -> Vector3<f64> {
     // Extract position and compute body-fixed position
     let r = r_eci.position();
     let r_bf = R_i2b * r;
 
     // Compute spherical harmonic acceleration
     let a_ecef = gravity_model
-        .compute_spherical_harmonics(r_bf, n_max, m_max, parallel)
+        .compute_spherical_harmonics_cunningham(r_bf, n_max, m_max, parallel)
         .unwrap();
 
     // Inertial acceleration
     R_i2b.transpose() * a_ecef
 }
 
-/// Variant of [`accel_gravity_spherical_harmonics`] that reuses caller-supplied
-/// V and W work matrices to avoid per-call heap allocation.
+/// Variant of [`accel_gravity_spherical_harmonics_cunningham`] that reuses
+/// caller-supplied V and W work matrices to avoid per-call heap allocation.
 ///
-/// Functionally identical to [`accel_gravity_spherical_harmonics`] — see that
-/// function's docs for argument semantics. The only difference is that the
-/// inner `compute_spherical_harmonics_with_workspace` call routes through
+/// Functionally identical to [`accel_gravity_spherical_harmonics_cunningham`] — see
+/// that function's docs for argument semantics. The only difference is that the
+/// inner `compute_spherical_harmonics_cunningham_with_workspace` call routes through
 /// caller-supplied workspaces instead of allocating fresh ones each invocation.
 /// Hot-path callers (the numerical propagator's dynamics closure) capture a
 /// pair of `DMatrix<f64>` once at construction and reuse them across every
 /// integrator stage.
+///
+/// # Examples
+///
+/// ```
+/// use nalgebra::{DMatrix, Vector3};
+/// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
+/// use brahe::frames::rotation_eci_to_ecef;
+/// use brahe::time::Epoch;
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::{R_EARTH, TimeSystem};
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epoch = Epoch::from_datetime(2024, 2, 25, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+/// let R_i2b = rotation_eci_to_ecef(epoch);
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+///
+/// let r_eci = Vector3::new(R_EARTH + 500.0e3, 0.0, 0.0);
+/// let mut v_workspace = DMatrix::<f64>::zeros(22, 22);
+/// let mut w_workspace = DMatrix::<f64>::zeros(22, 22);
+///
+/// let a_grav = brahe::gravity::accel_gravity_spherical_harmonics_cunningham_with_workspace(
+///     r_eci, R_i2b, &gravity_model, 20, 20, ParallelMode::Auto, &mut v_workspace, &mut w_workspace,
+/// );
+/// ```
 #[allow(non_snake_case)]
 // Workspace-reuse variant: the V/W buffers plus model/degree/order/mode are all
 // load-bearing, so the 8-arg count is intentional.
 #[allow(clippy::too_many_arguments)]
-pub fn accel_gravity_spherical_harmonics_with_workspace<P: IntoPosition>(
+pub fn accel_gravity_spherical_harmonics_cunningham_with_workspace<P: IntoPosition>(
     r_eci: P,
     R_i2b: SMatrix3,
     gravity_model: &GravityModel,
@@ -1473,7 +1637,14 @@ pub fn accel_gravity_spherical_harmonics_with_workspace<P: IntoPosition>(
     let r_bf = R_i2b * r;
 
     let a_ecef = gravity_model
-        .compute_spherical_harmonics_with_workspace(r_bf, n_max, m_max, parallel, v_workspace, w_workspace)
+        .compute_spherical_harmonics_cunningham_with_workspace(
+            r_bf,
+            n_max,
+            m_max,
+            parallel,
+            v_workspace,
+            w_workspace,
+        )
         .unwrap();
 
     R_i2b.transpose() * a_ecef
@@ -1822,7 +1993,7 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_compute_spherical_harmonics() {
+    fn test_gravity_model_compute_spherical_harmonics_cunningham() {
         setup_global_test_eop();
 
         let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
@@ -1830,7 +2001,7 @@ mod tests {
 
         // Simple test confirming point-mass equivalence
         let a_grav = gravity_model
-            .compute_spherical_harmonics(r_body, 0, 0, ParallelMode::Auto)
+            .compute_spherical_harmonics_cunningham(r_body, 0, 0, ParallelMode::Auto)
             .unwrap();
         assert_abs_diff_eq!(a_grav[0], -GM_EARTH / R_EARTH.powi(2), epsilon = 1e-12);
         assert_abs_diff_eq!(a_grav[1], 0.0, epsilon = 1e-12);
@@ -1838,7 +2009,7 @@ mod tests {
 
         // Test a more complex case
         let a_grav = gravity_model
-            .compute_spherical_harmonics(r_body, 60, 60, ParallelMode::Auto)
+            .compute_spherical_harmonics_cunningham(r_body, 60, 60, ParallelMode::Auto)
             .unwrap();
         assert_abs_diff_eq!(a_grav[0], -9.81433239, epsilon = 1e-8);
         assert_abs_diff_eq!(a_grav[1], 1.813976e-6, epsilon = 1e-12);
@@ -2426,6 +2597,7 @@ mod tests {
         // is loose enough to absorb the ~1e-15 FP-reordering introduced by
         // replacing the inner-loop division with a precomputed reciprocal
         // multiply, but far tighter than any real algorithmic bug would survive.
+        // Specifically characterizes the Cunningham (V/W recursion) serial path.
         let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
 
         // (position, n_max==m_max, [expected ax, ay, az])
@@ -2488,7 +2660,7 @@ mod tests {
 
         for (r_body, n, expected) in cases {
             let a = model
-                .compute_spherical_harmonics(r_body, n, n, ParallelMode::Never)
+                .compute_spherical_harmonics_cunningham(r_body, n, n, ParallelMode::Never)
                 .unwrap();
             let exp = Vector3::new(expected[0], expected[1], expected[2]);
             let rel = (a - exp).norm() / a.norm();

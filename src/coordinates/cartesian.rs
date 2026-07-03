@@ -142,10 +142,10 @@ pub fn state_eci_to_koe(x_cart: SVector6, angle_format: AngleFormat) -> SVector6
 /// ```
 /// use brahe::constants::{GM_MOON, DEGREES};
 /// use brahe::vector6_from_array;
-/// use brahe::orbits::perigee_velocity;
+/// use brahe::orbits::periapsis_velocity;
 /// use brahe::coordinates::*;
 ///
-/// let cart = vector6_from_array([1837.4e3, 0.0, 0.0, 0.0, perigee_velocity(1837.4e3, 0.0), 0.0]);
+/// let cart = vector6_from_array([1837.4e3, 0.0, 0.0, 0.0, periapsis_velocity(1837.4e3, 0.0, GM_MOON), 0.0]);
 /// let osc = state_eci_to_koe_for_body(cart, GM_MOON, DEGREES);
 /// // Returns state [1837.4e3, 0, 0, 0, 0, 0]
 /// ```
@@ -211,7 +211,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
-    use crate::constants::{DEG2RAD, DEGREES, R_EARTH, RADIANS};
+    use crate::constants::{DEG2RAD, DEGREES, RADIANS, R_EARTH};
     use crate::coordinates::*;
     use crate::math::*;
     use crate::orbits::*;

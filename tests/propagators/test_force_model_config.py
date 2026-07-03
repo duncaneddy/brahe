@@ -324,6 +324,52 @@ def test_forcemodelconfig_validate_rejects_low_precision_ephemeris_non_earth():
     assert "Moon" in message
 
 
+def test_forcemodelconfig_validate_allows_low_precision_earth_sun_moon():
+    """Mirrors test_validate_allows_low_precision_earth_sun_moon"""
+    config = ForceModelConfig(
+        third_body=ThirdBodyConfiguration(
+            ephemeris_source=EphemerisSource.LowPrecision,
+            bodies=[ThirdBody.SUN, ThirdBody.MOON],
+        ),
+    )
+    config.central_body = CentralBody.Earth
+
+    config.validate()
+
+
+def test_forcemodelconfig_validate_rejects_low_precision_earth_planet():
+    """Mirrors test_validate_rejects_low_precision_earth_planet"""
+    config = ForceModelConfig(
+        third_body=ThirdBodyConfiguration(
+            ephemeris_source=EphemerisSource.LowPrecision,
+            bodies=[ThirdBody.MARS],
+        ),
+    )
+    config.central_body = CentralBody.Earth
+
+    with pytest.raises(RuntimeError) as exc_info:
+        config.validate()
+    message = str(exc_info.value)
+    assert "LowPrecision" in message
+    assert "Mars" in message
+
+
+def test_forcemodelconfig_validate_rejects_third_body_same_naif_id_as_central_body():
+    """Mirrors test_validate_rejects_third_body_same_naif_id_as_central_body"""
+    config = ForceModelConfig(
+        third_body=ThirdBodyConfiguration(
+            ephemeris_source=EphemerisSource.DE440s,
+            bodies=[ThirdBody.EARTH],
+        ),
+    )
+    config.central_body = CentralBody.Earth
+
+    with pytest.raises(RuntimeError) as exc_info:
+        config.validate()
+    message = str(exc_info.value)
+    assert "NAIF" in message
+
+
 def test_forcemodelconfig_validate_rejects_spherical_harmonic_barycenter():
     """Mirrors test_validate_rejects_spherical_harmonic_barycenter"""
     config = ForceModelConfig(

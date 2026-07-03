@@ -35,7 +35,7 @@ use crate::orbit_dynamics::{
 };
 use crate::propagators::{
     AtmosphericModel, CentralBody, EclipseModel, ForceModelConfig, FrameTransformationModel,
-    GravityConfiguration, GravityModelSource,
+    GravityConfiguration, GravityModelSource, ThirdBody,
 };
 use crate::relative_motion::rotation_eci_to_rtn;
 use crate::spice::{spk_position, spk_state};
@@ -1806,9 +1806,46 @@ impl DNumericalOrbitPropagator {
             for body in &tb_config.bodies {
                 // Keep the legacy geocentric call for Earth so Earth
                 // propagation stays bit-identical; other central bodies use
-                // the central-body-aware differential form.
+                // the central-body-aware differential form. `accel_third_body`
+                // only supports the 9 classical planet bodies and panics for
+                // Phobos/Deimos/Custom/Earth-as-perturber, so those route
+                // through `accel_third_body_for_body` instead (which returns
+                // an `Err`, not a panic, if body and central body coincide —
+                // a case `ForceModelConfig::validate` rejects up front).
                 if matches!(central, CentralBody::Earth) {
-                    a_total += accel_third_body(body.clone(), tb_config.ephemeris_source, epoch, r);
+                    match body {
+                        ThirdBody::Sun
+                        | ThirdBody::Moon
+                        | ThirdBody::Mercury
+                        | ThirdBody::Venus
+                        | ThirdBody::Mars
+                        | ThirdBody::Jupiter
+                        | ThirdBody::Saturn
+                        | ThirdBody::Uranus
+                        | ThirdBody::Neptune => {
+                            a_total += accel_third_body(
+                                body.clone(),
+                                tb_config.ephemeris_source,
+                                epoch,
+                                r,
+                            );
+                        }
+                        ThirdBody::Phobos
+                        | ThirdBody::Deimos
+                        | ThirdBody::Custom { .. }
+                        | ThirdBody::Earth => {
+                            a_total += accel_third_body_for_body(
+                                &CentralBody::Earth,
+                                body,
+                                tb_config.ephemeris_source,
+                                epoch,
+                                r,
+                            )
+                            .unwrap_or_else(|e| {
+                                panic!("third-body query failed for {:?}: {}", body, e)
+                            });
+                        }
+                    }
                 } else {
                     a_total += accel_third_body_for_body(
                         central,
@@ -9290,6 +9327,64 @@ mod tests {
             prop.current_epoch() > epoch,
             "Should successfully propagate with Jupiter perturbation"
         );
+    }
+
+    /// Earth-centered propagation with `ThirdBody::Phobos` must not panic.
+    /// `accel_third_body` (the legacy Earth path) deliberately panics for
+    /// `ThirdBody::{Earth, Phobos, Deimos, Custom}`; the Earth-centered
+    /// dynamics branch must route those variants through
+    /// `accel_third_body_for_body` instead, which the same call already
+    /// uses for non-Earth central bodies. Requires the `mar099s` Mars
+    /// satellite kernel (network download) for Phobos's position.
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_dnumericalorbitpropagator_force_third_body_phobos_about_earth_does_not_panic() {
+        use crate::propagators::force_model_config::ThirdBodyConfiguration;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+        crate::spice::load_kernel("mar099s").unwrap();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.6, 0.0]);
+
+        let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(ThirdBodyConfiguration {
+                ephemeris_source: EphemerisSource::DE440s,
+                bodies: vec![ThirdBody::Phobos],
+            }),
+            relativity: false,
+        };
+        force_config.validate().unwrap();
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            force_config,
+            Some(default_test_params()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        prop.propagate_to(epoch + 600.0); // 10 minutes
+
+        let s = prop.current_state();
+        assert!(
+            s.iter().all(|x| x.is_finite()),
+            "propagated state with Phobos third body should be finite, got {:?}",
+            s
+        );
+        assert!(prop.current_epoch() > epoch);
     }
 
     #[test]

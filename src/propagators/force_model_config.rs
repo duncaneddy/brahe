@@ -699,16 +699,22 @@ impl ForceModelConfig {
 
     /// Validate that this configuration's options are compatible with its central body
     ///
-    /// Checks four classes of central-body-dependent constraints:
+    /// Checks six classes of central-body-dependent constraints:
     /// 1. Earth-specific options (`AtmosphericModel::HarrisPriester`/`NRLMSISE00`,
     ///    `GravityConfiguration::EarthZonal`, `FrameTransformationModel::EarthRotationOnly`,
     ///    `EphemerisSource::LowPrecision`) are rejected for any non-Earth central body.
-    /// 2. Barycenters (`CentralBody::is_barycenter`) have no mass or rotation of their
+    /// 2. `EphemerisSource::LowPrecision` only models the Sun and Moon; any other
+    ///    configured third body (e.g. a planet) is rejected regardless of central body,
+    ///    since the underlying acceleration routines panic rather than compute a result
+    ///    for low-precision planet queries.
+    /// 3. A configured third body whose NAIF ID matches the central body's NAIF ID is
+    ///    rejected — a body cannot perturb an orbit centered on itself.
+    /// 4. Barycenters (`CentralBody::is_barycenter`) have no mass or rotation of their
     ///    own, so `GravityConfiguration::SphericalHarmonic` and any `drag` configuration
     ///    are rejected.
-    /// 3. `drag` requires `central_body.radius()` and `central_body.omega_vector()` to
+    /// 5. `drag` requires `central_body.radius()` and `central_body.omega_vector()` to
     ///    both be known (needed for atmospheric co-rotation and altitude calculations).
-    /// 4. `GravityConfiguration::SphericalHarmonic` on a `CentralBody::Custom` body
+    /// 6. `GravityConfiguration::SphericalHarmonic` on a `CentralBody::Custom` body
     ///    requires `central_body.fixed_frame()` to be set (needed to rotate into the
     ///    body-fixed frame the harmonics are expressed in).
     ///
@@ -777,6 +783,33 @@ impl ForceModelConfig {
                      central_body is {}",
                     self.central_body
                 )));
+            }
+        }
+
+        if let Some(ref third_body) = self.third_body
+            && matches!(third_body.ephemeris_source, EphemerisSource::LowPrecision)
+        {
+            for body in &third_body.bodies {
+                if !matches!(body, ThirdBody::Sun | ThirdBody::Moon) {
+                    return Err(BraheError::Error(format!(
+                        "EphemerisSource::LowPrecision only supports Sun and Moon third bodies, \
+                         but {:?} was requested",
+                        body
+                    )));
+                }
+            }
+        }
+
+        if let Some(ref third_body) = self.third_body {
+            for body in &third_body.bodies {
+                if body.naif_id() == self.central_body.naif_id() {
+                    return Err(BraheError::Error(format!(
+                        "third body {:?} has the same NAIF ID ({}) as central body {}",
+                        body,
+                        body.naif_id(),
+                        self.central_body
+                    )));
+                }
             }
         }
 
@@ -1857,6 +1890,63 @@ mod tests {
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("LowPrecision"), "{err}");
         assert!(err.contains("Moon"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_allows_low_precision_earth_sun_moon() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(ThirdBodyConfiguration {
+                ephemeris_source: EphemerisSource::LowPrecision,
+                bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
+            }),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        assert!(cfg.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_low_precision_earth_planet() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(ThirdBodyConfiguration {
+                ephemeris_source: EphemerisSource::LowPrecision,
+                bodies: vec![ThirdBody::Mars],
+            }),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("LowPrecision"), "{err}");
+        assert!(err.contains("Mars"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_third_body_same_naif_id_as_central_body() {
+        let cfg = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(ThirdBodyConfiguration {
+                ephemeris_source: EphemerisSource::DE440s,
+                bodies: vec![ThirdBody::Earth],
+            }),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("NAIF"), "{err}");
     }
 
     #[test]

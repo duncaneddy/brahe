@@ -439,6 +439,24 @@ pub(crate) fn should_parallelize(mode: ParallelMode, n_max: usize) -> bool {
     }
 }
 
+/// Benchmark-calibrated crossover degree for the Clenshaw kernel. Placeholder
+/// value pending Task 7 measurement — the serial Clenshaw kernel is faster
+/// than serial Cunningham, so the crossover sits at or above Cunningham's.
+pub(crate) const CLENSHAW_PARALLEL_THRESHOLD_NMAX: usize = 210;
+
+/// Clenshaw-kernel counterpart of [`should_parallelize`]: same `Always` /
+/// `Never` semantics and the same nested-parallelism guard, but with the
+/// Clenshaw-specific auto threshold.
+pub(crate) fn should_parallelize_clenshaw(mode: ParallelMode, n_max: usize) -> bool {
+    match mode {
+        ParallelMode::Always => true,
+        ParallelMode::Never => false,
+        ParallelMode::Auto => {
+            n_max >= CLENSHAW_PARALLEL_THRESHOLD_NMAX && rayon::current_thread_index().is_none()
+        }
+    }
+}
+
 /// Overflow-guard scale applied to every coefficient as it enters the
 /// Clenshaw sweep and removed in the final combine. Equal to 2^-614 —
 /// GeographicLib's `SphericalEngine::scale()` for IEEE binary64 — which
@@ -1683,10 +1701,18 @@ impl GravityModel {
 
         // Independent inner sweeps per order. Serial in this task; Task 4
         // adds the rayon branch (identical results either way).
-        let _ = parallel; // consumed by the parallel branch added in Task 4
-        let sums: Vec<PerOrderSums> = (0..=m_max)
-            .map(|m| clenshaw_inner_sweep(tables, m, n_max, t, u, q, q2, tu))
-            .collect();
+        let sums: Vec<PerOrderSums> = if should_parallelize_clenshaw(parallel, n_max) {
+            get_thread_pool().install(|| {
+                (0..=m_max)
+                    .into_par_iter()
+                    .map(|m| clenshaw_inner_sweep(tables, m, n_max, t, u, q, q2, tu))
+                    .collect()
+            })
+        } else {
+            (0..=m_max)
+                .map(|m| clenshaw_inner_sweep(tables, m, n_max, t, u, q, q2, tu))
+                .collect()
+        };
 
         // Sequential outer Clenshaw over order in cos/sin(m * lambda)
         // (SphericalEngine.cpp:232–284), consuming the buffer high-to-low.
@@ -2570,6 +2596,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::excessive_precision)]
     fn test_clenshaw_high_precision_reference() {
         // Reference accelerations from an independent mpmath (40-digit)
         // evaluation of the same truncated EGM2008_360 sums (forward-column
@@ -3250,6 +3277,46 @@ mod tests {
             ParallelMode::Auto,
             PARALLEL_THRESHOLD_NMAX + 1
         ));
+    }
+
+    #[test]
+    fn test_should_parallelize_clenshaw_modes() {
+        assert!(should_parallelize_clenshaw(ParallelMode::Always, 0));
+        assert!(!should_parallelize_clenshaw(ParallelMode::Never, 1000));
+        assert!(!should_parallelize_clenshaw(
+            ParallelMode::Auto,
+            CLENSHAW_PARALLEL_THRESHOLD_NMAX - 1
+        ));
+        assert!(should_parallelize_clenshaw(
+            ParallelMode::Auto,
+            CLENSHAW_PARALLEL_THRESHOLD_NMAX
+        ));
+    }
+
+    #[test]
+    fn test_clenshaw_parallel_bitwise_matches_serial() {
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let positions = [
+            Vector3::new(6.5e6, 1.2e6, 3.1e6),
+            Vector3::new(0.0, 0.0, 7.0e6),
+        ];
+        for r_body in positions {
+            for &(n, m) in &[(10usize, 10usize), (60, 60), (90, 45), (240, 240)] {
+                let serial = model
+                    .compute_spherical_harmonics_clenshaw(r_body, n, m, ParallelMode::Never)
+                    .unwrap();
+                let parallel = model
+                    .compute_spherical_harmonics_clenshaw(r_body, n, m, ParallelMode::Always)
+                    .unwrap();
+                // Per-order sweeps are independent and the outer combine is
+                // identical, so results must be bit-for-bit equal.
+                assert_eq!(
+                    serial.as_slice(),
+                    parallel.as_slice(),
+                    "r={r_body:?} n={n} m={m}: parallel result not bitwise equal"
+                );
+            }
+        }
     }
 
     #[test]

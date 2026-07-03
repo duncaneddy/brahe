@@ -528,6 +528,23 @@ impl GravityModelType {
     }
 }
 
+/// Selects which precomputed evaluation tables a gravity model builds at load.
+///
+/// The Clenshaw and Cunningham kernels require different precomputed values
+/// (normalized packed coefficients vs denormalized dense matrices), so each
+/// kernel can only run when its table set is present. The default is
+/// `Clenshaw` — the main evaluation APIs use the Clenshaw kernel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GravityTables {
+    /// Clenshaw kernel tables only (default).
+    #[default]
+    Clenshaw,
+    /// Cunningham V/W kernel tables only.
+    Cunningham,
+    /// Both table sets (needed to call both kernels on one model).
+    Both,
+}
+
 /// Precomputed tables for the Clenshaw-summation kernel
 /// ([`GravityModel::compute_spherical_harmonics_clenshaw`]).
 ///
@@ -932,6 +949,99 @@ impl GravityModel {
         }
     }
 
+    /// Apply a [`GravityTables`] load configuration: precompute the
+    /// requested table set(s) and drop whichever set is not requested.
+    fn apply_tables(&mut self, tables: GravityTables) {
+        match tables {
+            GravityTables::Clenshaw => {
+                self.precompute_clenshaw_tables();
+                self.drop_cunningham_tables();
+            }
+            GravityTables::Cunningham => {
+                self.precompute_cunningham_tables();
+                self.drop_clenshaw_tables();
+            }
+            GravityTables::Both => {
+                self.precompute_clenshaw_tables();
+                self.precompute_cunningham_tables();
+            }
+        }
+    }
+
+    /// Drop the Clenshaw tables, freeing their memory. The Clenshaw kernel
+    /// errors until [`Self::precompute_clenshaw_tables`] is called again.
+    ///
+    /// # Returns
+    ///
+    /// (none)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType};
+    ///
+    /// let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+    /// model.drop_clenshaw_tables();
+    /// assert!(!model.has_clenshaw_tables());
+    /// ```
+    pub fn drop_clenshaw_tables(&mut self) {
+        self.clenshaw = None;
+    }
+
+    /// Drop the Cunningham tables, freeing their memory (five dense
+    /// model-sized matrices). The Cunningham kernel errors until
+    /// [`Self::precompute_cunningham_tables`] is called again.
+    ///
+    /// # Returns
+    ///
+    /// (none)
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType};
+    ///
+    /// let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+    /// model.precompute_cunningham_tables();
+    /// model.drop_cunningham_tables();
+    /// assert!(!model.has_cunningham_tables());
+    /// ```
+    pub fn drop_cunningham_tables(&mut self) {
+        self.cunningham = None;
+    }
+
+    /// Check whether the Clenshaw kernel's tables are present.
+    ///
+    /// # Returns
+    ///
+    /// - `bool` : `true` if [`Self::compute_spherical_harmonics_clenshaw`] can be called without error.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType};
+    ///
+    /// let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+    /// assert!(model.has_clenshaw_tables());
+    /// ```
+    pub fn has_clenshaw_tables(&self) -> bool {
+        self.clenshaw.is_some()
+    }
+
+    /// Check whether the Cunningham kernel's tables are present.
+    ///
+    /// # Returns
+    ///
+    /// - `bool` : `true` if [`Self::compute_spherical_harmonics_cunningham`] can be called without error.
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType};
+    ///
+    /// let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+    /// assert!(!model.has_cunningham_tables());
+    /// ```
+    pub fn has_cunningham_tables(&self) -> bool {
+        self.cunningham.is_some()
+    }
+
     fn from_bufreader<T: Read>(reader: BufReader<T>) -> Result<Self, BraheError> {
         let mut lines = reader.lines();
 
@@ -1050,7 +1160,6 @@ impl GravityModel {
             cunningham: None,
             clenshaw: None,
         };
-        model.precompute_cunningham_tables();
         model.precompute_clenshaw_tables();
         Ok(model)
     }
@@ -1079,6 +1188,36 @@ impl GravityModel {
         let reader = BufReader::new(file);
 
         Self::from_bufreader(reader)
+    }
+
+    /// Load a gravity model from a file with an explicit [`GravityTables`]
+    /// load configuration, instead of the Clenshaw-only default.
+    ///
+    /// # Arguments
+    ///
+    /// - `filepath` : Path to the gravity model file.
+    /// - `tables` : Which precomputed evaluation table set(s) to build.
+    ///
+    /// # Returns
+    ///
+    /// - `Result<Self, BraheError>` : Loaded gravity model, or error if file loading fails.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use brahe::gravity::{GravityModel, GravityTables};
+    /// use std::path::Path;
+    ///
+    /// let filepath = Path::new("./data/gravity_models/EGM2008_360.gfc");
+    /// let model = GravityModel::from_file_with_tables(filepath, GravityTables::Both).unwrap();
+    /// ```
+    pub fn from_file_with_tables(
+        filepath: &Path,
+        tables: GravityTables,
+    ) -> Result<Self, BraheError> {
+        let mut m = Self::from_file(filepath)?;
+        m.apply_tables(tables);
+        Ok(m)
     }
 
     /// Load a gravity model from packaged models or file.
@@ -1123,10 +1262,53 @@ impl GravityModel {
         Ok((*arc).clone())
     }
 
+    /// Load a gravity model from packaged models or file with an explicit
+    /// [`GravityTables`] load configuration, instead of the Clenshaw-only
+    /// default.
+    ///
+    /// Still goes through the process-wide cache (see [`Self::from_model_type`])
+    /// to get the underlying coefficients, then adjusts the returned owned
+    /// model's table set(s) — the cached entry itself is unaffected and stays
+    /// at the Clenshaw-only configuration.
+    ///
+    /// # Arguments
+    ///
+    /// - `model` : Gravity model type to load.
+    /// - `tables` : Which precomputed evaluation table set(s) to build.
+    ///
+    /// # Returns
+    ///
+    /// - `Result<Self, BraheError>` : Loaded gravity model, or error if file loading fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType, GravityTables};
+    ///
+    /// let model = GravityModel::from_model_type_with_tables(
+    ///     &GravityModelType::JGM3,
+    ///     GravityTables::Both,
+    /// )
+    /// .unwrap();
+    /// assert!(model.has_clenshaw_tables() && model.has_cunningham_tables());
+    /// ```
+    pub fn from_model_type_with_tables(
+        model: &GravityModelType,
+        tables: GravityTables,
+    ) -> Result<Self, BraheError> {
+        let mut m = Self::from_model_type(model)?;
+        m.apply_tables(tables);
+        Ok(m)
+    }
+
     /// Internal: get a shared, cached `Arc<GravityModel>` for a packaged or
     /// file-backed model type. Backs [`Self::from_model_type`] — repeated
     /// calls for the same `GravityModelType` return an `Arc` pointing at the
     /// same allocation.
+    ///
+    /// Models from the shared cache are fixed at the Clenshaw-only table
+    /// configuration — use [`Self::from_model_type_with_tables`] for an
+    /// owned model with a different configuration.
     pub(crate) fn shared(model: &GravityModelType) -> Result<Arc<GravityModel>, BraheError> {
         // Fast path: existing entry, no allocation, no load.
         {
@@ -1189,6 +1371,41 @@ impl GravityModel {
                 Self::from_file(&path)
             }
         }
+    }
+
+    /// Parse a `GravityModelType` directly from its underlying source with
+    /// an explicit [`GravityTables`] load configuration, bypassing the
+    /// process-wide cache. Combines [`Self::load_uncached`] and
+    /// [`Self::from_model_type_with_tables`]'s table selection.
+    ///
+    /// # Arguments
+    ///
+    /// - `model` : Gravity model type to load.
+    /// - `tables` : Which precomputed evaluation table set(s) to build.
+    ///
+    /// # Returns
+    ///
+    /// - `Result<Self, BraheError>` : Freshly parsed gravity model, or load error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::gravity::{GravityModel, GravityModelType, GravityTables};
+    ///
+    /// let model = GravityModel::load_uncached_with_tables(
+    ///     &GravityModelType::JGM3,
+    ///     GravityTables::Cunningham,
+    /// )
+    /// .unwrap();
+    /// assert!(model.has_cunningham_tables() && !model.has_clenshaw_tables());
+    /// ```
+    pub fn load_uncached_with_tables(
+        model: &GravityModelType,
+        tables: GravityTables,
+    ) -> Result<Self, BraheError> {
+        let mut m = Self::load_uncached(model)?;
+        m.apply_tables(tables);
+        Ok(m)
     }
 
     /// Get the gravity model coefficients for a given degree and order.
@@ -1322,20 +1539,23 @@ impl GravityModel {
     /// Acceleration vector in body-fixed frame. Units: m/s².
     ///
     /// # Errors
-    /// - OutOfBoundsError if requested n_max or m_max exceeds loaded model's limits
-    /// - OutOfBoundsError if m_max > n_max
+    /// - `BraheError::Error` if the Cunningham tables are not precomputed for this model.
+    /// - `BraheError::OutOfBoundsError` if requested n_max or m_max exceeds loaded model's limits
+    /// - `BraheError::OutOfBoundsError` if m_max > n_max
+    /// - `BraheError::Error` if the denormalized recursion overflows and produces a
+    ///   non-finite result (see `# Numerical limits` below).
     ///
     /// # Numerical limits
     /// This kernel denormalizes coefficients into an unnormalized V/W
     /// recursion, which is not degree-stable: `V(m, m)` grows like
     /// `(2m-1)!!`, and at LEO-altitude radii (where `q = radius / r` is not
-    /// small) that growth overflows `f64` around degree ~150, returning
-    /// `NaN`. Below that ceiling, accuracy still degrades progressively
-    /// above roughly degree 120 near the equator, where the O(n)
-    /// sequential-division coefficient denormalization amplifies rounding
-    /// error through the near-total cancellation in the acceleration's
-    /// off-axis components. Use
-    /// [`Self::compute_spherical_harmonics_clenshaw`] for high-degree work.
+    /// small) that growth overflows `f64` around degree ~150, in which case
+    /// this function returns `Err` rather than a non-finite result. Below
+    /// that ceiling, accuracy still degrades progressively above roughly
+    /// degree 120 near the equator, where the O(n) sequential-division
+    /// coefficient denormalization amplifies rounding error through the
+    /// near-total cancellation in the acceleration's off-axis components.
+    /// Use [`Self::compute_spherical_harmonics_clenshaw`] for high-degree work.
     pub fn compute_spherical_harmonics_cunningham(
         &self,
         r_body: Vector3<f64>,
@@ -1604,7 +1824,17 @@ impl GravityModel {
         };
 
         // Body-fixed acceleration
-        Ok((self.gm / (self.radius * self.radius)) * Vector3::new(ax, ay, az))
+        let a = (self.gm / (self.radius * self.radius)) * Vector3::new(ax, ay, az);
+        if !(a[0].is_finite() && a[1].is_finite() && a[2].is_finite()) {
+            return Err(BraheError::Error(format!(
+                "Cunningham spherical-harmonic kernel produced a non-finite result at \
+                 n_max={}, m_max={} (denormalized V/W overflow at high degree and low \
+                 altitude). Use the Clenshaw kernel (the default) for high-degree \
+                 evaluations.",
+                n_max, m_max
+            )));
+        }
+        Ok(a)
     }
 
     /// Compute gravitational acceleration from spherical harmonic expansion
@@ -1776,15 +2006,13 @@ impl GravityModel {
 
     /// Compute gravitational acceleration from spherical harmonic expansion.
     ///
-    /// Evaluates gravity field using recursively-computed associated Legendre functions.
-    /// Higher degrees/orders provide more accurate representation of Earth's gravitational
-    /// field but increase computational cost.
-    ///
-    /// Each call heap-allocates two `(n_max + 2) × (n_max + 2)` matrices for
-    /// the recurrence calcualtion. For hot-path workloads (numerical
-    /// propagation, where the integrator calls this 4-17 times per step) use
-    /// [`Self::compute_spherical_harmonics_with_workspace`] to reuse the
-    /// allocations across calls.
+    /// Main entry point: dispatches to whichever kernel this model has
+    /// tables for. Clenshaw-first — if [`Self::has_clenshaw_tables`] is
+    /// true (the load default), evaluates with
+    /// [`Self::compute_spherical_harmonics_clenshaw`]. Otherwise falls back
+    /// to [`Self::compute_spherical_harmonics_cunningham`] if
+    /// [`Self::has_cunningham_tables`] is true. Returns an error if neither
+    /// table set is present.
     ///
     /// # Arguments
     /// - `r_body`: Position vector in body-fixed frame (e.g., ECEF). Units: meters.
@@ -1795,8 +2023,24 @@ impl GravityModel {
     /// Acceleration vector in body-fixed frame. Units: m/s².
     ///
     /// # Errors
-    /// - OutOfBoundsError if requested n_max or m_max exceeds loaded model's limits
-    /// - OutOfBoundsError if m_max > n_max
+    /// - `BraheError::Error` if the model has neither Clenshaw nor
+    ///   Cunningham tables (see [`Self::precompute_clenshaw_tables`] /
+    ///   [`Self::precompute_cunningham_tables`]).
+    /// - `BraheError::OutOfBoundsError` if requested n_max or m_max exceeds loaded model's limits
+    /// - `BraheError::OutOfBoundsError` if m_max > n_max
+    ///
+    /// # Examples
+    /// ```
+    /// use nalgebra::Vector3;
+    /// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
+    /// use brahe::R_EARTH;
+    ///
+    /// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    /// let r_body = Vector3::new(R_EARTH + 500.0e3, 0.0, 0.0);
+    /// let a_grav = gravity_model
+    ///     .compute_spherical_harmonics(r_body, 20, 20, ParallelMode::Auto)
+    ///     .unwrap();
+    /// ```
     pub fn compute_spherical_harmonics(
         &self,
         r_body: Vector3<f64>,
@@ -1804,7 +2048,17 @@ impl GravityModel {
         m_max: usize,
         parallel: ParallelMode,
     ) -> Result<Vector3<f64>, BraheError> {
-        self.compute_spherical_harmonics_cunningham(r_body, n_max, m_max, parallel)
+        if self.clenshaw.is_some() {
+            self.compute_spherical_harmonics_clenshaw(r_body, n_max, m_max, parallel)
+        } else if self.cunningham.is_some() {
+            self.compute_spherical_harmonics_cunningham(r_body, n_max, m_max, parallel)
+        } else {
+            Err(BraheError::Error(
+                "No precomputed gravity tables on this model. Call \
+                 precompute_clenshaw_tables() or precompute_cunningham_tables()."
+                    .to_string(),
+            ))
+        }
     }
 }
 
@@ -1833,6 +2087,11 @@ impl std::fmt::Debug for GravityModel {
 /// model is defined by the `GravityModel` struct. The acceleration is computed in the body-fixed
 /// frame of the central body, and returned in the inertial frame.
 ///
+/// Routes through [`GravityModel::compute_spherical_harmonics`], the
+/// Clenshaw-first dispatcher: the underlying kernel is Clenshaw by default,
+/// falling back to Cunningham only if `gravity_model` was loaded with
+/// [`GravityTables::Cunningham`] (no Clenshaw tables present).
+///
 /// This function accepts either a 3D position vector or a 6D state vector for `r_eci`.
 /// When a state vector is provided, only the position component is used.
 ///
@@ -1847,6 +2106,13 @@ impl std::fmt::Debug for GravityModel {
 /// # Returns
 ///
 /// - `Vector3<f64>` : Acceleration due to gravity in the ECI frame.
+///
+/// # Panics
+///
+/// Panics if [`GravityModel::compute_spherical_harmonics`] returns an
+/// error: `n_max`/`m_max` out of bounds for `gravity_model`, no precomputed
+/// tables present, or (Cunningham fallback only) a non-finite result from
+/// high-degree denormalized-coefficient overflow.
 ///
 /// # Examples
 ///
@@ -1913,14 +2179,12 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
     m_max: usize,
     parallel: ParallelMode,
 ) -> Vector3<f64> {
-    accel_gravity_spherical_harmonics_cunningham(
-        r_eci,
-        R_i2b,
-        gravity_model,
-        n_max,
-        m_max,
-        parallel,
-    )
+    let r = r_eci.position();
+    let r_bf = R_i2b * r;
+    let a_ecef = gravity_model
+        .compute_spherical_harmonics(r_bf, n_max, m_max, parallel)
+        .unwrap();
+    R_i2b.transpose() * a_ecef
 }
 
 /// Compute the acceleration due to gravity using the Cunningham (Montenbruck
@@ -1943,11 +2207,18 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
 ///
 /// - `Vector3<f64>` : Acceleration due to gravity in the ECI frame.
 ///
+/// # Panics
+///
+/// Panics if `gravity_model` has no precomputed Cunningham tables (see
+/// [`GravityModel::precompute_cunningham_tables`] / [`GravityTables`]),
+/// `n_max`/`m_max` are out of bounds, or the denormalized recursion
+/// overflows to a non-finite result at high degree and low altitude.
+///
 /// # Examples
 ///
 /// ```
 /// use nalgebra::{Vector3, Vector6};
-/// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
+/// use brahe::gravity::{GravityModel, GravityModelType, GravityTables, ParallelMode};
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
@@ -1960,8 +2231,12 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
 /// let epoch = Epoch::from_datetime(2024, 2, 25, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
-/// // Create a gravity model
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// // Create a gravity model with Cunningham tables (not built by default)
+/// let gravity_model = GravityModel::from_model_type_with_tables(
+///     &GravityModelType::EGM2008_360,
+///     GravityTables::Cunningham,
+/// )
+/// .unwrap();
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -2098,11 +2373,18 @@ pub fn accel_gravity_spherical_harmonics_clenshaw<P: IntoPosition>(
 /// pair of `DMatrix<f64>` once at construction and reuse them across every
 /// integrator stage.
 ///
+/// # Panics
+///
+/// Panics if `gravity_model` has no precomputed Cunningham tables (see
+/// [`GravityModel::precompute_cunningham_tables`] / [`GravityTables`]),
+/// `n_max`/`m_max` are out of bounds, or the denormalized recursion
+/// overflows to a non-finite result at high degree and low altitude.
+///
 /// # Examples
 ///
 /// ```
 /// use nalgebra::{DMatrix, Vector3};
-/// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
+/// use brahe::gravity::{GravityModel, GravityModelType, GravityTables, ParallelMode};
 /// use brahe::frames::rotation_eci_to_ecef;
 /// use brahe::time::Epoch;
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
@@ -2113,7 +2395,12 @@ pub fn accel_gravity_spherical_harmonics_clenshaw<P: IntoPosition>(
 ///
 /// let epoch = Epoch::from_datetime(2024, 2, 25, 12, 0, 0.0, 0.0, TimeSystem::UTC);
 /// let R_i2b = rotation_eci_to_ecef(epoch);
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// // Cunningham tables are not built by default; request them explicitly.
+/// let gravity_model = GravityModel::from_model_type_with_tables(
+///     &GravityModelType::EGM2008_360,
+///     GravityTables::Cunningham,
+/// )
+/// .unwrap();
 ///
 /// let r_eci = Vector3::new(R_EARTH + 500.0e3, 0.0, 0.0);
 /// let mut v_workspace = DMatrix::<f64>::zeros(22, 22);
@@ -2501,7 +2788,11 @@ mod tests {
     fn test_gravity_model_compute_spherical_harmonics_cunningham() {
         setup_global_test_eop();
 
-        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let gravity_model = GravityModel::from_model_type_with_tables(
+            &GravityModelType::EGM2008_360,
+            GravityTables::Both,
+        )
+        .unwrap();
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
 
         // Simple test confirming point-mass equivalence
@@ -2523,9 +2814,11 @@ mod tests {
 
     #[test]
     fn test_clenshaw_matches_cunningham() {
-        // NOTE(Task 5): switch to from_model_type_with_tables(..., GravityTables::Both)
-        // when load defaults change to Clenshaw-only.
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type_with_tables(
+            &GravityModelType::EGM2008_360,
+            GravityTables::Both,
+        )
+        .unwrap();
 
         let positions = [
             Vector3::new(6.5e6, 1.2e6, 3.1e6),       // mid-latitude LEO
@@ -2551,24 +2844,27 @@ mod tests {
         // Cunningham's unnormalized V/W recursion is not a valid reference at
         // every grid point: `V(m, m)` grows like `(2m-1)!!` while `q = radius / r`
         // is not small enough at LEO altitude to compensate, so it overflows to
-        // NaN near n >~ 150 (positions 0 and 1) and has already lost several
-        // digits of accuracy above n ~ 120 at exact-equator geometry (position 1),
-        // where the acceleration's y-component is a near-total cancellation and
+        // a non-finite result (surfaced as an error, not silent NaN — see
+        // `test_cunningham_high_degree_overflow_errors`) near n >~ 150
+        // (positions 0 and 1) and has already lost several digits of accuracy
+        // above n ~ 120 at exact-equator geometry (position 1), where the
+        // acceleration's y-component is a near-total cancellation and
         // Cunningham's O(n) sequential-division coefficient denormalization
         // amplifies its own rounding error through that cancellation. Confirmed
         // against an independent 40-digit mpmath evaluation: Clenshaw matches the
         // high-precision reference to 4e-18..1.5e-16 at every one of these
-        // points, while Cunningham reproduces exactly these residuals (or NaN).
-        // Those points are pinned against the mpmath reference in
-        // `test_clenshaw_high_precision_reference` instead; the 1e-10 bound below
-        // is unchanged (and still enforced) for every other point in the grid.
+        // points, while Cunningham reproduces exactly these residuals (or the
+        // non-finite-overflow error). Those points are pinned against the
+        // mpmath reference in `test_clenshaw_high_precision_reference` instead;
+        // the 1e-10 bound below is unchanged (and still enforced) for every
+        // other point in the grid.
         let excluded: &[(usize, usize, usize)] = &[
             // (position index, n, m)
-            (0, 160, 160), // mid-lat LEO: cunningham overflows to NaN
-            (0, 200, 200), // mid-lat LEO: cunningham overflows to NaN
+            (0, 160, 160), // mid-lat LEO: cunningham returns a non-finite-overflow error
+            (0, 200, 200), // mid-lat LEO: cunningham returns a non-finite-overflow error
             (1, 120, 120), // equatorial LEO: cunningham loses precision near equator
-            (1, 160, 160), // equatorial LEO: cunningham overflows to NaN
-            (1, 200, 200), // equatorial LEO: cunningham overflows to NaN
+            (1, 160, 160), // equatorial LEO: cunningham returns a non-finite-overflow error
+            (1, 200, 200), // equatorial LEO: cunningham returns a non-finite-overflow error
             (1, 200, 100), // equatorial LEO: cunningham loses precision near equator
         ];
 
@@ -3362,7 +3658,11 @@ mod tests {
         // replacing the inner-loop division with a precomputed reciprocal
         // multiply, but far tighter than any real algorithmic bug would survive.
         // Specifically characterizes the Cunningham (V/W recursion) serial path.
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type_with_tables(
+            &GravityModelType::EGM2008_360,
+            GravityTables::Both,
+        )
+        .unwrap();
 
         // (position, n_max==m_max, [expected ax, ay, az])
         let cases: [(Vector3<f64>, usize, [f64; 3]); 6] = [
@@ -3490,6 +3790,228 @@ mod tests {
             tables.c[tables.index(2, 0)],
             -1.0826e-3 / 5.0_f64.sqrt(),
             epsilon = 1e-18
+        );
+    }
+
+    #[test]
+    fn test_clenshaw_characterization() {
+        // Golden values captured from the Clenshaw kernel behind the main
+        // (compute_spherical_harmonics) dispatch API — the Clenshaw twin of
+        // `test_serial_spherical_harmonics_characterization`, which
+        // characterizes the Cunningham serial path directly.
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+
+        // (position, n_max==m_max, [expected ax, ay, az])
+        let cases: [(Vector3<f64>, usize, [f64; 3]); 6] = [
+            (
+                Vector3::new(6.5e6, 1.2e6, 3.1e6),
+                5,
+                [
+                    -6.659_157_617_724_302,
+                    -1.229_429_462_451_39,
+                    -3.183_740_444_887_948,
+                ],
+            ),
+            (
+                Vector3::new(6.5e6, 1.2e6, 3.1e6),
+                20,
+                [
+                    -6.659_131_615_693_393_5,
+                    -1.229_413_486_834_886_3,
+                    -3.183_743_631_333_254,
+                ],
+            ),
+            (
+                Vector3::new(6.5e6, 1.2e6, 3.1e6),
+                80,
+                [
+                    -6.659_131_583_250_132,
+                    -1.229_414_674_519_354,
+                    -3.183_746_816_300_018,
+                ],
+            ),
+            (
+                Vector3::new(0.0, 0.0, 7.0e6),
+                5,
+                [
+                    4.832_073_418_678_783_4e-5,
+                    -2.144_848_603_164_801_5e-5,
+                    -8.112_882_851_092_756,
+                ],
+            ),
+            (
+                Vector3::new(0.0, 0.0, 7.0e6),
+                20,
+                [
+                    8.160_586_191_674_913e-5,
+                    -1.987_917_874_597_062_8e-5,
+                    -8.112_905_372_087_614,
+                ],
+            ),
+            (
+                Vector3::new(0.0, 0.0, 7.0e6),
+                80,
+                [
+                    8.241_307_452_961_25e-5,
+                    -1.812_120_022_312_313_4e-5,
+                    -8.112_900_111_910_857,
+                ],
+            ),
+        ];
+
+        for (r_body, n, expected) in cases {
+            let a = model
+                .compute_spherical_harmonics(r_body, n, n, ParallelMode::Never)
+                .unwrap();
+            let exp = Vector3::new(expected[0], expected[1], expected[2]);
+            let rel = (a - exp).norm() / a.norm();
+            assert!(
+                rel < 1e-12,
+                "n={n} r={r_body:?}: got [{:.17e}, {:.17e}, {:.17e}] rel={rel:e}",
+                a[0],
+                a[1],
+                a[2]
+            );
+        }
+    }
+
+    #[test]
+    fn test_gravity_model_compute_spherical_harmonics() {
+        // Twin of the Cunningham variant above: guards the main (Clenshaw)
+        // dispatch path with goldens captured from the Clenshaw kernel.
+        setup_global_test_eop();
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
+
+        let a_grav = gravity_model
+            .compute_spherical_harmonics(r_body, 0, 0, ParallelMode::Auto)
+            .unwrap();
+        assert_abs_diff_eq!(a_grav[0], -GM_EARTH / R_EARTH.powi(2), epsilon = 1e-12);
+        assert_abs_diff_eq!(a_grav[1], 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(a_grav[2], 0.0, epsilon = 1e-12);
+
+        let a_grav = gravity_model
+            .compute_spherical_harmonics(r_body, 60, 60, ParallelMode::Auto)
+            .unwrap();
+        assert_abs_diff_eq!(a_grav[0], -9.814_332_397_930_517, epsilon = 1e-12);
+        assert_abs_diff_eq!(a_grav[1], 1.813_976_428_513_033_4e-6, epsilon = 1e-12);
+        assert_abs_diff_eq!(a_grav[2], -7.299_256_521_901_194e-5, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_gravity_tables_default_is_clenshaw_only() {
+        let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        assert!(model.has_clenshaw_tables());
+        assert!(!model.has_cunningham_tables());
+
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        // Main API works (dispatches to Clenshaw)...
+        assert!(
+            model
+                .compute_spherical_harmonics(r, 10, 10, ParallelMode::Never)
+                .is_ok()
+        );
+        // ...explicit Cunningham does not.
+        let err = model
+            .compute_spherical_harmonics_cunningham(r, 10, 10, ParallelMode::Never)
+            .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Cunningham tables not precomputed")
+        );
+    }
+
+    #[test]
+    fn test_gravity_tables_load_variants() {
+        let both =
+            GravityModel::from_model_type_with_tables(&GravityModelType::JGM3, GravityTables::Both)
+                .unwrap();
+        assert!(both.has_clenshaw_tables() && both.has_cunningham_tables());
+
+        let cun = GravityModel::from_model_type_with_tables(
+            &GravityModelType::JGM3,
+            GravityTables::Cunningham,
+        )
+        .unwrap();
+        assert!(!cun.has_clenshaw_tables() && cun.has_cunningham_tables());
+        // Main API falls back to Cunningham when it is the only table set.
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        assert!(
+            cun.compute_spherical_harmonics(r, 10, 10, ParallelMode::Never)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn test_gravity_tables_precompute_drop_roundtrip() {
+        let mut model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        let a_clenshaw = model
+            .compute_spherical_harmonics(r, 10, 10, ParallelMode::Never)
+            .unwrap();
+
+        model.precompute_cunningham_tables();
+        assert!(model.has_cunningham_tables());
+        let a_cun = model
+            .compute_spherical_harmonics_cunningham(r, 10, 10, ParallelMode::Never)
+            .unwrap();
+        assert!((a_clenshaw - a_cun).norm() / a_cun.norm() < 1e-10);
+
+        model.drop_clenshaw_tables();
+        assert!(!model.has_clenshaw_tables());
+        // Dispatch now falls back to Cunningham.
+        assert!(
+            model
+                .compute_spherical_harmonics(r, 10, 10, ParallelMode::Never)
+                .is_ok()
+        );
+
+        model.drop_cunningham_tables();
+        let err = model
+            .compute_spherical_harmonics(r, 10, 10, ParallelMode::Never)
+            .unwrap_err();
+        assert!(err.to_string().contains("No precomputed gravity tables"));
+    }
+
+    #[test]
+    fn test_gravity_tables_truncation_rebuilds_existing_sets() {
+        let mut model = GravityModel::from_model_type_with_tables(
+            &GravityModelType::EGM2008_360,
+            GravityTables::Both,
+        )
+        .unwrap();
+        model.set_max_degree_order(70, 70).unwrap();
+        assert!(model.has_clenshaw_tables() && model.has_cunningham_tables());
+        let r = Vector3::new(6.5e6, 1.2e6, 3.1e6);
+        let a_cl = model
+            .compute_spherical_harmonics_clenshaw(r, 70, 70, ParallelMode::Never)
+            .unwrap();
+        let a_cun = model
+            .compute_spherical_harmonics_cunningham(r, 70, 70, ParallelMode::Never)
+            .unwrap();
+        assert!((a_cl - a_cun).norm() / a_cun.norm() < 1e-10);
+    }
+
+    #[test]
+    fn test_cunningham_high_degree_overflow_errors() {
+        // Degree 160 at LEO altitude overflows the denormalized V/W recursion;
+        // the kernel must surface a descriptive error, not silent NaN.
+        let model = GravityModel::from_model_type_with_tables(
+            &GravityModelType::EGM2008_360,
+            GravityTables::Both,
+        )
+        .unwrap();
+        let r = Vector3::new(6.5e6, 1.2e6, 3.1e6);
+        let err = model
+            .compute_spherical_harmonics_cunningham(r, 160, 160, ParallelMode::Never)
+            .unwrap_err();
+        assert!(err.to_string().contains("non-finite"));
+        // GEO radius at the same degree stays finite (q^n decay wins): no error.
+        let r_geo = Vector3::new(4.2164e7, 1.0e6, -2.0e6);
+        assert!(
+            model
+                .compute_spherical_harmonics_cunningham(r_geo, 160, 160, ParallelMode::Never)
+                .is_ok()
         );
     }
 }

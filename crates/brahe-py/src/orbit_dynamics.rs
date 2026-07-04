@@ -1706,6 +1706,11 @@ impl PyGravityModel {
 
     /// Compute gravitational acceleration in body-fixed frame using spherical harmonics.
     ///
+    /// Dispatches to whichever kernel this model has tables for. Clenshaw-first:
+    /// if the model has precomputed Clenshaw tables (the default for every loader),
+    /// evaluates with the Clenshaw summation kernel. Otherwise falls back to the
+    /// Cunningham V/W recursion if Cunningham tables are present.
+    ///
     /// Args:
     ///     r_body (np.ndarray): Position vector in body-fixed frame. Units: (m)
     ///     n_max (int): Maximum degree to evaluate (n_max <= model.n_max)
@@ -1715,7 +1720,11 @@ impl PyGravityModel {
     ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
     ///
     /// Raises:
-    ///     Exception: If n_max or m_max exceed model limits or if m_max > n_max
+    ///     ValueError: If n_max or m_max exceed model limits or if m_max > n_max
+    ///     ValueError: If the model has neither Clenshaw nor Cunningham tables
+    ///     ValueError: If the Cunningham fallback is used and its denormalized
+    ///         recursion overflows to a non-finite result (can occur above
+    ///         ~degree 150 at low altitude)
     ///
     /// Example:
     ///     ```python
@@ -1752,7 +1761,7 @@ impl PyGravityModel {
     ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
     ///
     /// Raises:
-    ///     Exception: If Clenshaw tables are not precomputed for this model, or if
+    ///     ValueError: If Clenshaw tables are not precomputed for this model, or if
     ///         n_max or m_max exceed model limits
     ///
     /// Example:
@@ -1790,7 +1799,7 @@ impl PyGravityModel {
     ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
     ///
     /// Raises:
-    ///     Exception: If Cunningham tables are not precomputed for this model, if
+    ///     ValueError: If Cunningham tables are not precomputed for this model, if
     ///         n_max or m_max exceed model limits, or if the recursion overflows
     ///         to a non-finite result (can occur above ~degree 150 at low altitude)
     ///
@@ -2051,7 +2060,7 @@ fn py_accel_gravity_spherical_harmonics<'py>(
 ///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
 ///
 /// Raises:
-///     Exception: If Clenshaw tables are not precomputed for the model, or if n_max
+///     ValueError: If Clenshaw tables are not precomputed for the model, or if n_max
 ///         or m_max exceed model limits
 ///
 /// Example:
@@ -2113,7 +2122,7 @@ fn py_accel_gravity_spherical_harmonics_clenshaw<'py>(
 ///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
 ///
 /// Raises:
-///     Exception: If Cunningham tables are not precomputed for the model, if n_max
+///     ValueError: If Cunningham tables are not precomputed for the model, if n_max
 ///         or m_max exceed model limits, or if the recursion overflows to a
 ///         non-finite result (can occur above ~degree 150 at low altitude)
 ///

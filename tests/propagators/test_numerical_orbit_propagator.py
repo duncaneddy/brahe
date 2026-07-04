@@ -4626,6 +4626,35 @@ def test_numericalorbitpropagator_warns_on_cunningham_only_high_degree_global():
         set_global_gravity_model(original_global_model)
 
 
+def test_numericalorbitpropagator_construction_fails_cunningham_only_high_degree_leo():
+    """Cunningham-only global gravity model at high degree and LEO altitude
+    fails its trial evaluation at construction (mirrors the Rust test
+    `test_dnumericalorbitpropagator_construction_cunningham_only_high_degree_leo_fails_trial`
+    in dnumerical_orbit_propagator.rs)."""
+    epoch = create_test_epoch()
+    state = np.array([6.5e6, 1.2e6, 3.1e6, 0.0, 7500.0, 0.0])
+    params = create_test_params()
+
+    original_global_model = GravityModel.from_model_type(GravityModelType.JGM3)
+    try:
+        cunningham_only = GravityModel.from_model_type_with_tables(
+            GravityModelType.EGM2008_360, GravityTables.Cunningham
+        )
+        set_global_gravity_model(cunningham_only)
+
+        fc = ForceModelConfig.default()
+        fc.gravity = GravityConfiguration.spherical_harmonic(
+            degree=160, order=160, use_global=True
+        )
+
+        with pytest.raises(RuntimeError, match="non-finite"):
+            NumericalOrbitPropagator.from_eci(
+                epoch, state, params=params, force_config=fc
+            )
+    finally:
+        set_global_gravity_model(original_global_model)
+
+
 def test_numericalorbitpropagator_no_warning_for_default_clenshaw_model():
     """The default (Clenshaw) global gravity model does not trigger the warning."""
     epoch = create_test_epoch()

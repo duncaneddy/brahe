@@ -380,9 +380,16 @@ pub enum GravityModelNormalization {
 
 /// Execution policy for the spherical-harmonic acceleration computation.
 ///
-/// Controls whether [`GravityModel::compute_spherical_harmonics_cunningham_with_workspace`]
-/// and its callers parallelize the recurrence column-fill and the acceleration
-/// accumulation across Brahe's managed thread pool.
+/// Governs both kernels, each with its own `Auto` crossover degree:
+/// [`GravityModel::compute_spherical_harmonics_cunningham`] (and its
+/// `_with_workspace` variant) parallelizes the recurrence column-fill and
+/// acceleration accumulation once `n_max` reaches `PARALLEL_THRESHOLD_NMAX`
+/// (210), while [`GravityModel::compute_spherical_harmonics_clenshaw`]
+/// parallelizes its per-order sweeps once `n_max` reaches
+/// `CLENSHAW_PARALLEL_THRESHOLD_NMAX` (180). Both kernels dispatch across
+/// Brahe's managed thread pool; the Clenshaw kernel's per-order sweeps are
+/// independent, so its results are bitwise-identical across all three modes
+/// (see `test_clenshaw_parallel_bitwise_matches_serial`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum ParallelMode {
     /// Parallelize only when `n_max >= PARALLEL_THRESHOLD_NMAX`. Below that, the
@@ -951,9 +958,11 @@ impl GravityModel {
     /// coefficients in triangular packing + square-root table) used by
     /// [`GravityModel::compute_spherical_harmonics_clenshaw`].
     ///
-    /// No-op if the tables are already present. Loading a model calls this
-    /// automatically; call it directly if you need to use the Clenshaw kernel
-    /// after the model was loaded.
+    /// No-op if the tables are already present. Loading a model via
+    /// `GravityTables::Clenshaw` (the default) or `GravityTables::Both` calls
+    /// this automatically; call it directly if the model was loaded without
+    /// those tables (e.g. `GravityTables::Cunningham`) and you need to use
+    /// the Clenshaw kernel.
     ///
     /// # Arguments
     ///
@@ -1194,6 +1203,10 @@ impl GravityModel {
 
     /// Load a gravity model from a file.
     ///
+    /// Builds Clenshaw tables only (`GravityTables::Clenshaw`). Use
+    /// [`Self::from_file_with_tables`] for an explicit table configuration
+    /// (e.g. Cunningham, or both).
+    ///
     /// # Arguments
     ///
     /// - `filepath` : Path to the gravity model file.
@@ -1256,6 +1269,10 @@ impl GravityModel {
     /// - `JGM3` - The full 70x70 JGM3 model.
     ///
     /// Or load a custom model from file using `FromFile(path)`.
+    ///
+    /// Builds Clenshaw tables only (`GravityTables::Clenshaw`). Use
+    /// [`Self::from_model_type_with_tables`] for an explicit table
+    /// configuration (e.g. Cunningham, or both).
     ///
     /// Loads are backed by a process-wide cache: the first call for a given
     /// `GravityModelType` parses the underlying `.gfc` data once, and every
@@ -1371,6 +1388,10 @@ impl GravityModel {
     /// - to re-read a `FromFile(path)` source whose contents have changed
     ///   on disk (the alternative is [`clear_gravity_model_cache`] followed
     ///   by `from_model_type`, which also works for the packaged variants)
+    ///
+    /// Builds Clenshaw tables only (`GravityTables::Clenshaw`). Use
+    /// [`Self::load_uncached_with_tables`] for an explicit table
+    /// configuration (e.g. Cunningham, or both).
     ///
     /// # Arguments
     ///
@@ -1553,15 +1574,19 @@ impl GravityModel {
     /// field but increase computational cost.
     ///
     /// Each call heap-allocates two `(n_max + 2) × (n_max + 2)` matrices for
-    /// the recurrence calcualtion. For hot-path workloads (numerical
-    /// propagation, where the integrator calls this 4-17 times per step) use
-    /// [`Self::compute_spherical_harmonics_cunningham_with_workspace`] to reuse the
-    /// allocations across calls.
+    /// the recurrence calcualtion. External callers that invoke this kernel
+    /// repeatedly on a hot path and want to avoid that per-call allocation
+    /// can use [`Self::compute_spherical_harmonics_cunningham_with_workspace`]
+    /// to reuse the allocations across calls.
     ///
     /// # Arguments
     /// - `r_body`: Position vector in body-fixed frame (e.g., ECEF). Units: meters.
     /// - `n_max`: Maximum degree of expansion (zonal terms). Must not exceed model's n_max.
     /// - `m_max`: Maximum order of expansion (tesseral/sectoral terms). Must satisfy m_max <= n_max.
+    /// - `parallel`: Execution policy. `Auto` parallelizes the recurrence
+    ///   column-fill and accumulation once `n_max` reaches
+    ///   `PARALLEL_THRESHOLD_NMAX` (210); `Always` forces parallel dispatch,
+    ///   `Never` forces serial execution.
     ///
     /// # Returns
     /// Acceleration vector in body-fixed frame. Units: m/s².
@@ -1875,7 +1900,7 @@ impl GravityModel {
     /// recurrences (inner over degree per order, outer over order) that never
     /// materialize the Legendre functions themselves. Coefficients are
     /// consumed directly from the fully-normalized triangular packing in
-    /// [`ClenshawTables`], so there is no per-call heap allocation and no
+    /// `ClenshawTables`, so there is no per-call heap allocation and no
     /// denormalization overflow ceiling — the model is usable to arbitrarily
     /// high degree (subject to the packed-table memory footprint).
     ///
@@ -1891,8 +1916,11 @@ impl GravityModel {
     /// - `r_body`: Position vector in body-fixed frame (e.g., ECEF). Units: meters.
     /// - `n_max`: Maximum degree of expansion (zonal terms). Must not exceed model's n_max.
     /// - `m_max`: Maximum order of expansion (tesseral/sectoral terms). Must satisfy m_max <= n_max.
-    /// - `parallel`: Execution policy. The serial path is used regardless of
-    ///   this setting until the parallel-over-order dispatch lands.
+    /// - `parallel`: Execution policy. `Auto` parallelizes the per-order
+    ///   sweeps below once `n_max` reaches `CLENSHAW_PARALLEL_THRESHOLD_NMAX`
+    ///   (180); `Always` forces parallel dispatch regardless of `n_max`,
+    ///   `Never` forces the serial for-loop. The per-order sweeps are
+    ///   independent, so results are bitwise-identical across all three modes.
     ///
     /// # Returns
     /// Acceleration vector in body-fixed frame. Units: m/s².
@@ -1962,8 +1990,10 @@ impl GravityModel {
         let uq2 = uq * uq;
         let tu = t / u;
 
-        // Independent inner sweeps per order. Serial in this task; Task 4
-        // adds the rayon branch (identical results either way).
+        // Each order's inner sweep is independent of every other order, so
+        // they can run as a plain serial for-loop or fan out across the
+        // managed rayon pool; `ParallelMode` (via `should_parallelize_clenshaw`)
+        // picks which, and the two paths produce bit-for-bit identical sums.
         let sums: Vec<PerOrderSums> = if should_parallelize_clenshaw(parallel, n_max) {
             get_thread_pool().install(|| {
                 (0..=m_max)
@@ -2051,6 +2081,10 @@ impl GravityModel {
     /// - `r_body`: Position vector in body-fixed frame (e.g., ECEF). Units: meters.
     /// - `n_max`: Maximum degree of expansion (zonal terms). Must not exceed model's n_max.
     /// - `m_max`: Maximum order of expansion (tesseral/sectoral terms). Must satisfy m_max <= n_max.
+    /// - `parallel`: Execution policy, forwarded to whichever kernel is
+    ///   dispatched to (see [`Self::compute_spherical_harmonics_clenshaw`] /
+    ///   [`Self::compute_spherical_harmonics_cunningham`] for the per-kernel
+    ///   `Auto` crossover degrees).
     ///
     /// # Returns
     /// Acceleration vector in body-fixed frame. Units: m/s².
@@ -2412,9 +2446,11 @@ pub fn accel_gravity_spherical_harmonics_clenshaw<P: IntoPosition>(
 /// that function's docs for argument semantics. The only difference is that the
 /// inner `compute_spherical_harmonics_cunningham_with_workspace` call routes through
 /// caller-supplied workspaces instead of allocating fresh ones each invocation.
-/// Hot-path callers (the numerical propagator's dynamics closure) capture a
-/// pair of `DMatrix<f64>` once at construction and reuse them across every
-/// integrator stage.
+/// This variant remains for external hot-path callers of the Cunningham
+/// kernel: capture a pair of `DMatrix<f64>` once and reuse them across every
+/// call to avoid per-call heap allocation. Brahe's own numerical propagator
+/// no longer uses it — it routes through [`GravityModel::compute_spherical_harmonics`],
+/// which dispatches to the allocation-free Clenshaw kernel by default.
 ///
 /// # Panics
 ///
@@ -3408,6 +3444,45 @@ mod tests {
         assert_abs_diff_eq!(a_truncated[0], a_full[0], epsilon = 1e-15);
         assert_abs_diff_eq!(a_truncated[1], a_full[1], epsilon = 1e-15);
         assert_abs_diff_eq!(a_truncated[2], a_full[2], epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_clenshaw_tables_truncation_m_less_than_n() {
+        setup_global_test_eop();
+
+        // Truncating with m_max < n_max rebuilds the Clenshaw tables through
+        // a different code path than the m_max == n_max case exercised
+        // elsewhere (the packed triangular layout has an m = 0 column wider
+        // than every other column) — exercise it directly here.
+        let mut model = GravityModel::from_model_type_with_tables(
+            &GravityModelType::EGM2008_360,
+            GravityTables::Both,
+        )
+        .unwrap();
+        model.set_max_degree_order(70, 40).unwrap();
+        assert_eq!(model.n_max, 70);
+        assert_eq!(model.m_max, 40);
+
+        let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
+
+        let a_clenshaw = model
+            .compute_spherical_harmonics_clenshaw(r_body, 70, 40, ParallelMode::Never)
+            .unwrap();
+        assert!(a_clenshaw.iter().all(|c| c.is_finite()));
+
+        let a_cunningham = model
+            .compute_spherical_harmonics_cunningham(r_body, 70, 40, ParallelMode::Never)
+            .unwrap();
+
+        for i in 0..3 {
+            let rel = (a_clenshaw[i] - a_cunningham[i]).abs() / a_cunningham[i].abs();
+            assert!(
+                rel < 1e-10,
+                "component {i}: clenshaw={} cunningham={} rel={rel:e}",
+                a_clenshaw[i],
+                a_cunningham[i]
+            );
+        }
     }
 
     #[test]

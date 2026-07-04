@@ -586,6 +586,10 @@ impl DNumericalOrbitPropagatorBuilder<Set, Set, Set> {
     /// Returns `BraheError` if:
     /// - Force model references parameter indices but no parameter vector is provided
     /// - Parameter vector is too short for the force model configuration
+    /// - A spherical-harmonic gravity configuration using a model without Clenshaw
+    ///   tables (an explicit Cunningham-only `GravityTables` opt-in) fails its trial
+    ///   evaluation at the initial state (e.g. Cunningham V/W overflow at high degree
+    ///   and low altitude)
     pub fn build(self) -> Result<DNumericalOrbitPropagator, BraheError> {
         // SAFETY: Each Option is Some because the corresponding type parameter is
         // Set, and the only way to reach Set is via the setter that populates the field.
@@ -630,6 +634,10 @@ impl DNumericalOrbitPropagator {
     /// Returns `BraheError` if:
     /// - Force model references parameter indices but no parameter vector is provided
     /// - Parameter vector is too short for the force model configuration
+    /// - A spherical-harmonic gravity configuration using a model without Clenshaw
+    ///   tables (an explicit Cunningham-only `GravityTables` opt-in) fails its trial
+    ///   evaluation at the initial state (e.g. Cunningham V/W overflow at high degree
+    ///   and low altitude)
     ///
     /// # Example
     ///

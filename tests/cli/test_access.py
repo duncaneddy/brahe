@@ -14,6 +14,23 @@ from brahe.cli.__main__ import app
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_brahe_cache(tmp_path, monkeypatch):
+    """Redirect the brahe on-disk cache to an empty per-test directory.
+
+    ``compute()`` calls ``set_cli_eop()`` (-> ``brahe.initialize_eop()``)
+    before any argument validation runs. That constructs a
+    ``CachingEOPProvider``, which unconditionally checks the cached EOP
+    file's age and re-downloads it over the network if stale --
+    regardless of whether the rest of the command ever executes (see
+    ``CachingEOPProvider::new`` in ``src/eop/caching_provider.rs``). An
+    empty ``BRAHE_CACHE`` directory makes the provider cold-start and seed
+    from the compiled-in bundled EOP data instead, which is always fresh,
+    so no test in this file touches the network or the real on-disk cache.
+    """
+    monkeypatch.setenv("BRAHE_CACHE", str(tmp_path / "brahe_cache"))
+
+
 @pytest.mark.integration
 def test_access_compute_basic():
     """Test basic access computation with ISS over NYC."""

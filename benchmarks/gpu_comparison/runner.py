@@ -50,19 +50,28 @@ def run_one_cell(
     """Dispatch one cell to the appropriate backend."""
     if config.backend == "rust":
         return run_rust_cell(
-            task=task, config=config, batch_size=batch_size,
-            iterations=iterations, seed=seed,
+            task=task,
+            config=config,
+            batch_size=batch_size,
+            iterations=iterations,
+            seed=seed,
             per_cell_budget_s=per_cell_budget_s,
         )
     if config.backend == "astrojax-cpu":
         return run_astrojax_cell_in_child(
-            task=task, config=config, batch_size=batch_size,
-            iterations=iterations, seed=seed,
+            task=task,
+            config=config,
+            batch_size=batch_size,
+            iterations=iterations,
+            seed=seed,
         )
     if config.backend in ("astrojax-gpu", "astrojax-multigpu"):
         return run_astrojax_cell_in_process(
-            task=task, config=config, batch_size=batch_size,
-            iterations=iterations, seed=seed,
+            task=task,
+            config=config,
+            batch_size=batch_size,
+            iterations=iterations,
+            seed=seed,
         )
     raise ValueError(f"unknown backend {config.backend!r}")
 
@@ -77,7 +86,9 @@ def run_one_task(
     progress: bool = True,
 ) -> list[CellResult]:
     """Sweep every (config, batch_size) for one task."""
-    policy = SchedulingPolicy(per_cell_budget_s=per_cell_budget_s, iterations=iterations)
+    policy = SchedulingPolicy(
+        per_cell_budget_s=per_cell_budget_s, iterations=iterations
+    )
     cells: list[CellResult] = []
     for cfg in task.configs:
         if configs_filter is not None and cfg.name not in configs_filter:
@@ -86,28 +97,37 @@ def run_one_task(
         def _with_progress(b: int, c=cfg) -> CellResult:
             if progress:
                 import sys
-                print(f"  [{task.name}] {c.name} batch={b} ...", flush=True, file=sys.stderr)
+
+                print(
+                    f"  [{task.name}] {c.name} batch={b} ...",
+                    flush=True,
+                    file=sys.stderr,
+                )
             t0 = time.time()
             cell = run_one_cell(task, c, b, iterations, seed, per_cell_budget_s)
             dt = time.time() - t0
             if progress:
                 import sys
+
                 if cell.status == "ok":
                     print(
                         f"    -> ok  mean={cell.mean_time_s:.6f}s "
                         f"thr={cell.throughput_ops_per_sec:.3e} ops/s  ({dt:.1f}s wall)",
-                        flush=True, file=sys.stderr,
+                        flush=True,
+                        file=sys.stderr,
                     )
                 else:
                     print(
                         f"    -> skipped: {cell.skip_reason}  ({dt:.1f}s wall)",
-                        flush=True, file=sys.stderr,
+                        flush=True,
+                        file=sys.stderr,
                     )
             return cell
 
         cells.extend(
             schedule_ladder(
-                task=task, config=cfg,
+                task=task,
+                config=cfg,
                 run_one_cell=_with_progress,
                 policy=policy,
             )
@@ -149,13 +169,16 @@ def run_suite(
             run_id=run_id,
             started_at=started_at.isoformat(),
             finished_at=dt.datetime.now(dt.timezone.utc).isoformat(),
-            seed=seed, iterations=iterations,
+            seed=seed,
+            iterations=iterations,
             scheduling=SchedulingPolicy(
                 per_cell_budget_s=per_cell_budget_s,
                 global_run_budget_s=global_run_budget_s,
                 iterations=iterations,
             ),
-            system=system, data_alignment=data_align, cells=cells,
+            system=system,
+            data_alignment=data_align,
+            cells=cells,
         )
         return run.save(output_dir)
 
@@ -169,14 +192,16 @@ def run_suite(
                 f"\n[{i}/{len(tasks)}] task: {t.name} — global budget "
                 f"({global_run_budget_s:.0f}s) reached at {elapsed:.0f}s; "
                 f"skipping remainder",
-                flush=True, file=sys.stderr,
+                flush=True,
+                file=sys.stderr,
             )
             global_budget_exceeded = True
         else:
             print(
                 f"\n[{i}/{len(tasks)}] task: {t.name} "
                 f"(suite elapsed {elapsed:.0f}s / {global_run_budget_s:.0f}s)",
-                flush=True, file=sys.stderr,
+                flush=True,
+                file=sys.stderr,
             )
 
         if global_budget_exceeded:
@@ -186,22 +211,29 @@ def run_suite(
                 if configs_filter is not None and cfg.name not in configs_filter:
                     continue
                 for batch in t.batch_sizes():
-                    cells.append(CellResult.skipped(
-                        task=t.name, config=cfg.name, dtype=cfg.dtype,
-                        batch_size=batch,
-                        reason=SkipReason.GLOBAL_BUDGET_EXCEEDED,
-                    ))
+                    cells.append(
+                        CellResult.skipped(
+                            task=t.name,
+                            config=cfg.name,
+                            dtype=cfg.dtype,
+                            batch_size=batch,
+                            reason=SkipReason.GLOBAL_BUDGET_EXCEEDED,
+                        )
+                    )
         else:
             # Reduce per_cell_budget to the remaining global budget so a single
             # cell can't blow the global cap.
             remaining = global_run_budget_s - elapsed
             effective_cell_budget = min(per_cell_budget_s, remaining)
-            cells.extend(run_one_task(
-                t,
-                iterations=iterations, seed=seed,
-                per_cell_budget_s=effective_cell_budget,
-                configs_filter=configs_filter,
-            ))
+            cells.extend(
+                run_one_task(
+                    t,
+                    iterations=iterations,
+                    seed=seed,
+                    per_cell_budget_s=effective_cell_budget,
+                    configs_filter=configs_filter,
+                )
+            )
 
         # Persist progress after each task so a hang doesn't lose everything.
         path = _save_partial()

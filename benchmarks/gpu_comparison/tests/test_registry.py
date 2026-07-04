@@ -10,8 +10,11 @@ class _CoordTask(BatchTask):
     description = "stub"
     configs = [BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")]
 
-    def batch_sizes(self): return [1]
-    def generate_inputs(self, b, s): return {}
+    def batch_sizes(self):
+        return [1]
+
+    def generate_inputs(self, b, s):
+        return {}
 
 
 class _TimeTask(BatchTask):
@@ -20,13 +23,17 @@ class _TimeTask(BatchTask):
     description = "stub"
     configs = [BatchConfig(name="brahe-rust-rayon", dtype="f64", backend="rust")]
 
-    def batch_sizes(self): return [1]
-    def generate_inputs(self, b, s): return {}
+    def batch_sizes(self):
+        return [1]
+
+    def generate_inputs(self, b, s):
+        return {}
 
 
 @pytest.fixture(autouse=True)
 def _clear_registry(monkeypatch):
     from benchmarks.gpu_comparison import registry
+
     monkeypatch.setattr(registry, "_REGISTRY", {})
 
 
@@ -57,10 +64,15 @@ def test_filter_by_backend():
         name = "x.y"
         module = "x"
         description = "stub"
-        configs = [BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu")]
+        configs = [
+            BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu")
+        ]
 
-        def batch_sizes(self): return [1]
-        def generate_inputs(self, b, s): return {}
+        def batch_sizes(self):
+            return [1]
+
+        def generate_inputs(self, b, s):
+            return {}
 
     register(_GpuOnly)
     register(_CoordTask)

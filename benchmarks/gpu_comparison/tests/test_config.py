@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-import pytest
 
 from benchmarks.gpu_comparison.config import (
     BRAHE_EOP_FILE,
@@ -56,4 +55,7 @@ def test_data_alignment_record_includes_hashes():
 def test_sha256_of_tmpfile(tmp_path: Path):
     p = tmp_path / "x"
     p.write_text("hello")
-    assert sha256_of(p) == "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    assert (
+        sha256_of(p)
+        == "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    )

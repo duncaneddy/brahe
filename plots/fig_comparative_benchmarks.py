@@ -403,9 +403,7 @@ def make_module_figure(run: BenchmarkRun, module: str):
     # access still draw a "Basilisk" legend swatch even though no bar
     # ever appears for it.
     languages_present = [
-        lang
-        for lang in LANGUAGES
-        if any(lang in task_data[t] for t in task_names)
+        lang for lang in LANGUAGES if any(lang in task_data[t] for t in task_names)
     ]
 
     def make_fig(theme: str) -> go.Figure:
@@ -1013,7 +1011,10 @@ def _write_accuracy_csv_from_jsonl(module: str, summaries: list[dict]) -> None:
     rows = []
     for s in sorted(
         summaries,
-        key=lambda x: (task_rank.get(x["task_name"], 1_000_000), x["comparison_language"]),
+        key=lambda x: (
+            task_rank.get(x["task_name"], 1_000_000),
+            x["comparison_language"],
+        ),
     ):
         rows.append(
             [
@@ -1028,7 +1029,15 @@ def _write_accuracy_csv_from_jsonl(module: str, summaries: list[dict]) -> None:
         )
     _write_csv(
         OUTDIR / f"bench_accuracy_{module}.csv",
-        ["Task", "Comparison", "Samples", "p50 Max Abs", "p95 Max Abs", "p99 Max Abs", "Max Abs"],
+        [
+            "Task",
+            "Comparison",
+            "Samples",
+            "p50 Max Abs",
+            "p95 Max Abs",
+            "p99 Max Abs",
+            "Max Abs",
+        ],
         rows,
     )
 
@@ -1089,8 +1098,12 @@ def _write_accuracy_csv_access(samples: list[dict]) -> None:
     for lang in sorted(by_lang.keys()):
         recs = by_lang[lang]
         n_loc = len(recs)
-        n_base_total = sum(int(r.get("sample_key", {}).get("n_windows_baseline", 0)) for r in recs)
-        n_comp_total = sum(int(r.get("sample_key", {}).get("n_windows_comparison", 0)) for r in recs)
+        n_base_total = sum(
+            int(r.get("sample_key", {}).get("n_windows_baseline", 0)) for r in recs
+        )
+        n_comp_total = sum(
+            int(r.get("sample_key", {}).get("n_windows_comparison", 0)) for r in recs
+        )
         max_count_diff = max(
             int(r.get("sample_key", {}).get("window_count_diff", 0)) for r in recs
         )
@@ -1130,6 +1143,7 @@ def _percentile(values: list[float], pct: float) -> float:
         return sorted_vals[0]
     pos = (pct / 100.0) * (len(sorted_vals) - 1)
     import math as _math
+
     lower = int(_math.floor(pos))
     upper = int(_math.ceil(pos))
     if lower == upper:
@@ -1146,9 +1160,7 @@ def _write_accuracy_csv_legacy(module: str, comparisons: list) -> None:
     dimensionless, etc.) apply consistently.
     """
     acc_rows = []
-    for ac in sorted(
-        comparisons, key=lambda a: (a.task_name, a.comparison_language)
-    ):
+    for ac in sorted(comparisons, key=lambda a: (a.task_name, a.comparison_language)):
         acc_rows.append(
             [
                 _task_label(ac.task_name),

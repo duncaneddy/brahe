@@ -35,7 +35,6 @@ import typer
 
 from benchmarks.comparative.config import (
     DEFAULT_SEED,
-    JAVA_PROJECT_DIR,
     NYX_BINARY,
     RESULTS_DIR,
     RUST_BINARY,
@@ -62,6 +61,7 @@ def _append_jsonl(stream: TextIO, record: dict) -> None:
     stream.write(json.dumps(record, default=str, separators=(",", ":")))
     stream.write("\n")
     stream.flush()
+
 
 # Languages other than the baseline are compared against OreKit. The order
 # determines the order of comparison records in the JSONL file, which is
@@ -374,9 +374,7 @@ def _compare_samples(
     return sample_records, summary
 
 
-def _sample_keys_from_params(
-    task: BenchmarkTask, params: dict, n: int
-) -> list[dict]:
+def _sample_keys_from_params(task: BenchmarkTask, params: dict, n: int) -> list[dict]:
     """Best-effort extraction of one ``sample_key`` per sample from the
     batched ``params`` dict.
 

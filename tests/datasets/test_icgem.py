@@ -68,8 +68,7 @@ def test_gravity_model_type_icgem_classmethod(isolated_cache):
 
 @pytest.mark.integration
 def test_gravity_model_type_icgem_equality_distinguishes_body_and_name():
-    """Two ICGEMModel values must compare equal only when body and name both match.
-    """
+    """Two ICGEMModel values must compare equal only when body and name both match."""
     a = brahe.GravityModelType.icgem("earth", "JGM3")
     b = brahe.GravityModelType.icgem("earth", "JGM3")
     c = brahe.GravityModelType.icgem("earth", "GEM6")

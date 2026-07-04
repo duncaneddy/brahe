@@ -64,8 +64,16 @@ def keplerian_to_cartesian(params: dict, iterations: int):
         results = []
         for oe in bsk_elements:
             r, v = orbitalMotion.elem2rv(MU_EARTH, oe)
-            results.append([float(r[0]), float(r[1]), float(r[2]),
-                            float(v[0]), float(v[1]), float(v[2])])
+            results.append(
+                [
+                    float(r[0]),
+                    float(r[1]),
+                    float(r[2]),
+                    float(v[0]),
+                    float(v[1]),
+                    float(v[2]),
+                ]
+            )
         return results
 
     times, results = time_iterations(run, iterations)
@@ -81,10 +89,7 @@ def cartesian_to_keplerian(params: dict, iterations: int):
     def run():
         # Timed region: pure Basilisk native call, output in Basilisk's
         # (rad, true anomaly) convention.
-        return [
-            orbitalMotion.rv2elem(MU_EARTH, s[:3], s[3:6])
-            for s in states
-        ]
+        return [orbitalMotion.rv2elem(MU_EARTH, s[:3], s[3:6]) for s in states]
 
     times, native_results = time_iterations(run, iterations)
     # Post-convert OUTSIDE the timed region so timing reflects native call only.

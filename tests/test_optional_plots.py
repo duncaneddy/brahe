@@ -59,8 +59,8 @@ def test_friendly_error_when_submodule_unimportable():
         plots._import_plot_submodule("a_submodule_that_does_not_exist")
 
     message = str(excinfo.value)
-    assert 'brahe[plots]' in message
-    assert 'brahe[all]' in message
+    assert "brahe[plots]" in message
+    assert "brahe[all]" in message
     assert excinfo.value.__cause__ is not None
 
 
@@ -83,8 +83,8 @@ def test_friendly_error_propagates_through_top_level_access(monkeypatch):
         brahe.plot_groundtrack
 
     message = str(excinfo.value)
-    assert 'brahe[plots]' in message
-    assert 'brahe[all]' in message
+    assert "brahe[plots]" in message
+    assert "brahe[all]" in message
     assert excinfo.value.__cause__ is not None
 
 

@@ -5,10 +5,8 @@ gmatpy import is exercised in module integration tests; here we mock
 sys.path / environment to validate the precondition logic.
 """
 
-import os
 import sys
 
-import numpy as np
 import pytest
 
 from benchmarks.comparative.implementations.gmat import base

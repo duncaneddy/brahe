@@ -40,9 +40,11 @@ def extract_version_block(changelog_text: str, version: str) -> str:
     start = next((i for i, line in enumerate(lines) if re.match(pattern, line)), None)
     if start is None:
         raise ValueError(f"no '## [{version}] - <date>' heading in changelog")
-    end = next((i for i in range(start + 1, len(lines))
-                if lines[i].startswith("## [")), len(lines))
-    body = "\n".join(lines[start + 1:end]).strip("\n")
+    end = next(
+        (i for i in range(start + 1, len(lines)) if lines[i].startswith("## [")),
+        len(lines),
+    )
+    body = "\n".join(lines[start + 1 : end]).strip("\n")
     if not body.strip():
         raise ValueError(f"version {version} has empty body")
     return body
@@ -50,13 +52,19 @@ def extract_version_block(changelog_text: str, version: str) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", required=True,
-                        help="Release version to extract, e.g. 1.5.2")
-    parser.add_argument("--changelog", default="CHANGELOG.md",
-                        help="Path to the CHANGELOG.md file (default: %(default)s)")
-    parser.add_argument("--output", default=None,
-                        help="Write the extracted block to this path. "
-                             "If omitted, prints to stdout.")
+    parser.add_argument(
+        "--version", required=True, help="Release version to extract, e.g. 1.5.2"
+    )
+    parser.add_argument(
+        "--changelog",
+        default="CHANGELOG.md",
+        help="Path to the CHANGELOG.md file (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Write the extracted block to this path. If omitted, prints to stdout.",
+    )
     return parser.parse_args()
 
 

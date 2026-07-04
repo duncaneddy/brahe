@@ -41,6 +41,7 @@ def _jd_to_a1mjd(jd: float) -> float:
     of ~30,000 days, producing completely wrong rotation angles.
     """
     import gmatpy as gmat
+
     tcv = gmat.TimeSystemConverter.Instance()
     gmat_utcmjd = jd - _GMAT_JD_REF
     return float(tcv.Convert(gmat_utcmjd, tcv.UTCMJD, tcv.A1MJD))
@@ -54,6 +55,7 @@ def _build_systems():
     CoordinateConverter to resolve the body-fixed rotation.
     """
     import gmatpy as gmat
+
     ss = gmat.GetSolarSystem()
     cs_eci = gmat.Construct("CoordinateSystem", "EciCs", "Earth", "MJ2000Eq")
     cs_eci.SetSolarSystem(ss)
@@ -79,10 +81,7 @@ def state_eci_to_ecef(params: dict, iterations: int):
 
     cases = params["cases"]
     # Pre-compute A1MJD epochs and convert state units OUTSIDE the timed region.
-    prepared = [
-        (_jd_to_a1mjd(c["jd"]), m_to_km_state(c["state"]))
-        for c in cases
-    ]
+    prepared = [(_jd_to_a1mjd(c["jd"]), m_to_km_state(c["state"])) for c in cases]
 
     def run():
         out = []
@@ -114,10 +113,7 @@ def state_ecef_to_eci(params: dict, iterations: int):
     import gmatpy as gmat
 
     cases = params["cases"]
-    prepared = [
-        (_jd_to_a1mjd(c["jd"]), m_to_km_state(c["state"]))
-        for c in cases
-    ]
+    prepared = [(_jd_to_a1mjd(c["jd"]), m_to_km_state(c["state"])) for c in cases]
 
     def run():
         out = []

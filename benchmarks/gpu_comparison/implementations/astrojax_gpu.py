@@ -28,8 +28,11 @@ def run_astrojax_cell_in_process(
     devices = _resolve_devices(config.backend, force_cpu=force_cpu)
     if devices is None:
         return CellResult.skipped(
-            task=task.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, reason=SkipReason.BACKEND_ERROR,
+            task=task.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            reason=SkipReason.BACKEND_ERROR,
             error_message=f"no devices available for backend {config.backend}",
         )
 
@@ -37,8 +40,11 @@ def run_astrojax_cell_in_process(
         builder = astrojax_kernels.get(task.name)
     except KeyError as e:
         return CellResult.skipped(
-            task=task.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, reason=SkipReason.CONFIG_NOT_SUPPORTED_BY_TASK,
+            task=task.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            reason=SkipReason.CONFIG_NOT_SUPPORTED_BY_TASK,
             error_message=str(e),
         )
 
@@ -46,8 +52,11 @@ def run_astrojax_cell_in_process(
         kernel, kernel_args = builder(task, batch_size, config.dtype, seed, devices)
     except Exception as e:
         return CellResult.skipped(
-            task=task.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, reason=SkipReason.BACKEND_ERROR,
+            task=task.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            reason=SkipReason.BACKEND_ERROR,
             error_message=f"kernel builder error: {e}",
         )
 
@@ -58,8 +67,11 @@ def run_astrojax_cell_in_process(
             _block(result)
     except Exception as e:
         return CellResult.skipped(
-            task=task.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, reason=SkipReason.BACKEND_ERROR,
+            task=task.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            reason=SkipReason.BACKEND_ERROR,
             error_message=f"warmup error: {e}",
         )
 
@@ -72,14 +84,20 @@ def run_astrojax_cell_in_process(
             times.append((time.perf_counter_ns() - t0) / 1e9)
     except Exception as e:
         return CellResult.skipped(
-            task=task.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, reason=SkipReason.BACKEND_ERROR,
+            task=task.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            reason=SkipReason.BACKEND_ERROR,
             error_message=f"timed loop error: {e}",
         )
 
     return CellResult.ok_cell(
-        task=task.name, config=config.name, dtype=config.dtype,
-        batch_size=batch_size, times=times,
+        task=task.name,
+        config=config.name,
+        dtype=config.dtype,
+        batch_size=batch_size,
+        times=times,
         metadata={
             "backend_extra": {
                 "n_devices": len(devices),
@@ -121,11 +139,13 @@ def _resolve_devices(backend: str, *, force_cpu: bool = False) -> list | None:
     if force_cpu or backend == "astrojax-cpu":
         try:
             import jax
+
             return jax.devices("cpu")
         except (ImportError, RuntimeError):
             return ["cpu-sentinel"]
     try:
         import jax
+
         gpus = jax.devices("gpu")
         if not gpus:
             return None

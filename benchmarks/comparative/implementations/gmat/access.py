@@ -60,6 +60,7 @@ def _parse_tle_epoch_jd(line1: str) -> float:
 
     # JD of Jan 1 00:00:00 UTC for that year
     from datetime import date
+
     jan1_ts = calendar.timegm(date(year, 1, 1).timetuple())
     # day_frac is 1-based: day 1.0 = Jan 1 00:00:00 UTC
     jd_utc = jan1_ts / 86400.0 + 2440587.5 + (day_frac - 1.0)
@@ -77,14 +78,14 @@ def _gmat_utcgreg_to_jd(s: str) -> float:
     Input format: 'DD Mon YYYY HH:MM:SS.mmm'  (e.g. '20 Sep 2008 22:52:03.361')
     """
     s = s.strip()
-    dot_pos = s.rfind('.')
+    dot_pos = s.rfind(".")
     frac = 0.0
     if dot_pos > 0:
-        frac = float('0' + s[dot_pos:])
+        frac = float("0" + s[dot_pos:])
         s_whole = s[:dot_pos]
     else:
         s_whole = s
-    dt = datetime.strptime(s_whole, '%d %b %Y %H:%M:%S')
+    dt = datetime.strptime(s_whole, "%d %b %Y %H:%M:%S")
     ts = calendar.timegm(dt.timetuple())
     # Unix epoch (1970-01-01 00:00:00 UTC) = JD 2440587.5
     return ts / 86400.0 + 2440587.5 + frac / 86400.0
@@ -147,7 +148,7 @@ def _build_contact_script(
     lines.append("")
 
     # Mission sequence: propagate over the search window
-    elapsed_days = (utcmjd_end - utcmjd_start)
+    elapsed_days = utcmjd_end - utcmjd_start
     lines.append("BeginMissionSequence")
     lines.append(f"Propagate TLEProp(Sat) {{Sat.ElapsedDays = {elapsed_days:.15f}}}")
     lines.append("")
@@ -172,11 +173,11 @@ def _parse_contact_report(report_file: str, n_locations: int) -> list[list[dict]
     results: list[list[dict]] = [[] for _ in range(n_locations)]
 
     # Map GS name -> location index
-    gs_re = re.compile(r'^Observer:\s+(GS(\d+))')
+    gs_re = re.compile(r"^Observer:\s+(GS(\d+))")
     row_re = re.compile(
-        r'^(\d{1,2}\s+\w{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\.\d+)'
-        r'\s+'
-        r'(\d{1,2}\s+\w{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\.\d+)'
+        r"^(\d{1,2}\s+\w{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\.\d+)"
+        r"\s+"
+        r"(\d{1,2}\s+\w{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\.\d+)"
     )
 
     current_idx: int | None = None
@@ -184,7 +185,7 @@ def _parse_contact_report(report_file: str, n_locations: int) -> list[list[dict]
     try:
         with open(report_file) as f:
             for line in f:
-                line = line.rstrip('\n')
+                line = line.rstrip("\n")
                 # Check for observer header
                 m_gs = gs_re.match(line.strip())
                 if m_gs:

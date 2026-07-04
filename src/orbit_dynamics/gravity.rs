@@ -9,15 +9,15 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use nalgebra::{DMatrix, Vector3};
 
-use crate::math::{traits::IntoPosition, SMatrix3};
+use crate::math::{SMatrix3, traits::IntoPosition};
 use once_cell::sync::Lazy;
 
 use rayon::prelude::*;
 
 use crate::constants::{GM_EARTH, J2_EARTH, J3_EARTH, J4_EARTH, J5_EARTH, J6_EARTH, R_EARTH};
 use crate::math::kronecker_delta;
-use crate::utils::threading::get_thread_pool;
 use crate::utils::BraheError;
+use crate::utils::threading::get_thread_pool;
 
 /// Packaged EGM2008_360 Data File
 static PACKAGED_EGM2008_360: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_360.gfc");
@@ -2481,10 +2481,10 @@ mod tests {
     use crate::traits::DStatePropagator;
     use crate::utils::testing::setup_global_test_eop;
     use crate::{
-        set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci, AngleFormat,
-        DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
+        AngleFormat, DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
         FileSpaceWeatherProvider, ForceModelConfig, FrameTransformationModel, GravityConfiguration,
         GravityModelSource, NumericalPropagationConfig, SVector6, TimeSystem, ZonalHarmonicsDegree,
+        set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci,
     };
 
     use super::*;
@@ -3030,12 +3030,16 @@ mod tests {
     fn test_clenshaw_bounds_errors_match_cunningham() {
         let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
-        assert!(model
-            .compute_spherical_harmonics_clenshaw(r, 100, 50, ParallelMode::Never)
-            .is_err());
-        assert!(model
-            .compute_spherical_harmonics_clenshaw(r, 10, 20, ParallelMode::Never)
-            .is_err());
+        assert!(
+            model
+                .compute_spherical_harmonics_clenshaw(r, 100, 50, ParallelMode::Never)
+                .is_err()
+        );
+        assert!(
+            model
+                .compute_spherical_harmonics_clenshaw(r, 10, 20, ParallelMode::Never)
+                .is_err()
+        );
     }
 
     #[test]

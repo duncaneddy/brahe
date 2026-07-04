@@ -14,8 +14,8 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::orbit_dynamics::gravity::GravityModelType;
 use crate::orbit_dynamics::ParallelMode;
+use crate::orbit_dynamics::gravity::GravityModelType;
 use crate::spice::SPKKernel;
 use crate::utils::BraheError;
 
@@ -1136,7 +1136,8 @@ mod tests {
     #[test]
     fn test_spherical_harmonic_parallel_serde_default() {
         // A JSON config missing `parallel` deserializes to Auto.
-        let json = r#"{"SphericalHarmonic":{"source":{"ModelType":"JGM3"},"degree":20,"order":20}}"#;
+        let json =
+            r#"{"SphericalHarmonic":{"source":{"ModelType":"JGM3"},"degree":20,"order":20}}"#;
         let cfg: GravityConfiguration = serde_json::from_str(json).unwrap();
         match &cfg {
             GravityConfiguration::SphericalHarmonic { parallel, .. } => {

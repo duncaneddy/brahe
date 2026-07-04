@@ -10,9 +10,7 @@ use std::time::SystemTime;
 use crate::eop::download::{download_c04_eop_file, download_standard_eop_file};
 use crate::eop::eop_provider::EarthOrientationProvider;
 use crate::eop::eop_types::{EOPExtrapolation, EOPType};
-use crate::eop::file_provider::{
-    FileEOPProvider, PACKAGED_C04_FILE, PACKAGED_STANDARD2000_FILE,
-};
+use crate::eop::file_provider::{FileEOPProvider, PACKAGED_C04_FILE, PACKAGED_STANDARD2000_FILE};
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::{BraheError, atomic_write};
 

@@ -13,8 +13,11 @@ use nalgebra::{DMatrix, Vector3};
 const CUNNINGHAM_MAX_VALID_N: usize = 120;
 
 fn bench_spherical_harmonics(c: &mut Criterion) {
-    let model =
-        GravityModel::from_model_type_with_tables(&GravityModelType::EGM2008_360, GravityTables::Both).unwrap();
+    let model = GravityModel::from_model_type_with_tables(
+        &GravityModelType::EGM2008_360,
+        GravityTables::Both,
+    )
+    .unwrap();
     let r_body = Vector3::new(6.5e6_f64, 1.2e6_f64, 3.1e6_f64);
 
     let mut group = c.benchmark_group("spherical_harmonics");
@@ -26,7 +29,12 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
                 |b, &n| {
                     b.iter(|| {
                         model
-                            .compute_spherical_harmonics_cunningham(black_box(r_body), black_box(n), black_box(n), ParallelMode::Never)
+                            .compute_spherical_harmonics_cunningham(
+                                black_box(r_body),
+                                black_box(n),
+                                black_box(n),
+                                ParallelMode::Never,
+                            )
                             .unwrap()
                     });
                 },
@@ -37,7 +45,12 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
                 |b, &n| {
                     b.iter(|| {
                         model
-                            .compute_spherical_harmonics_cunningham(black_box(r_body), black_box(n), black_box(n), ParallelMode::Always)
+                            .compute_spherical_harmonics_cunningham(
+                                black_box(r_body),
+                                black_box(n),
+                                black_box(n),
+                                ParallelMode::Always,
+                            )
                             .unwrap()
                     });
                 },
@@ -49,7 +62,12 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
             |b, &n| {
                 b.iter(|| {
                     model
-                        .compute_spherical_harmonics_clenshaw(black_box(r_body), black_box(n), black_box(n), ParallelMode::Never)
+                        .compute_spherical_harmonics_clenshaw(
+                            black_box(r_body),
+                            black_box(n),
+                            black_box(n),
+                            ParallelMode::Never,
+                        )
                         .unwrap()
                 });
             },
@@ -60,7 +78,12 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
             |b, &n| {
                 b.iter(|| {
                     model
-                        .compute_spherical_harmonics_clenshaw(black_box(r_body), black_box(n), black_box(n), ParallelMode::Always)
+                        .compute_spherical_harmonics_clenshaw(
+                            black_box(r_body),
+                            black_box(n),
+                            black_box(n),
+                            ParallelMode::Always,
+                        )
                         .unwrap()
                 });
             },
@@ -83,8 +106,11 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
 /// Comparing the two tells us whether small-n cost is allocation-bound or
 /// compute-bound before we optimize the recurrence/accumulation loops.
 fn bench_small_n_serial(c: &mut Criterion) {
-    let model =
-        GravityModel::from_model_type_with_tables(&GravityModelType::EGM2008_360, GravityTables::Both).unwrap();
+    let model = GravityModel::from_model_type_with_tables(
+        &GravityModelType::EGM2008_360,
+        GravityTables::Both,
+    )
+    .unwrap();
     let r_body = Vector3::new(6.5e6_f64, 1.2e6_f64, 3.1e6_f64);
 
     let mut group = c.benchmark_group("spherical_harmonics_small_n");

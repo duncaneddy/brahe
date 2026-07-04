@@ -467,9 +467,9 @@ pub(crate) fn should_parallelize(mode: ParallelMode, n_max: usize) -> bool {
 /// (barely) ahead of parallel (22.6 µs vs 23.2 µs); at n=180 parallel wins
 /// decisively (29.9 µs vs 50.2 µs) and continues to win at 240/360. The true
 /// crossover lies between 120 and 180 with no benchmarked point in between;
-/// set to 180 — the first measured size where parallel is not slower than
-/// serial — so `Auto` only parallelizes once the win is unambiguous. This
-/// value is machine-approximate.
+/// set to 180 — the first benchmarked size where parallel wins decisively —
+/// so `Auto` only parallelizes once the win is unambiguous. This value is
+/// machine-approximate.
 pub(crate) const CLENSHAW_PARALLEL_THRESHOLD_NMAX: usize = 180;
 
 /// Clenshaw-kernel counterpart of [`should_parallelize`]: same `Always` /
@@ -1879,8 +1879,13 @@ impl GravityModel {
     /// denormalization overflow ceiling — the model is usable to arbitrarily
     /// high degree (subject to the packed-table memory footprint).
     ///
-    /// The two kernels agree to better than `1e-10` relative accuracy across
-    /// degrees 2–200, including positions on the polar axis.
+    /// The two kernels agree to better than `1e-10` relative accuracy wherever
+    /// the Cunningham reference is numerically valid (including positions on
+    /// the polar axis). Cunningham's unnormalized V/W recursion overflows
+    /// above roughly degree 150 at low-altitude geometries and loses
+    /// precision near the equator above roughly degree 120; at those higher
+    /// degrees the Clenshaw kernel is instead validated against
+    /// high-precision (40-digit mpmath) reference values.
     ///
     /// # Arguments
     /// - `r_body`: Position vector in body-fixed frame (e.g., ECEF). Units: meters.

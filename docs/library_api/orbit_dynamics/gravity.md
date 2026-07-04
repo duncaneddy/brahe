@@ -11,11 +11,35 @@ Gravity acceleration functions including point-mass and spherical harmonic model
 
 ## Spherical Harmonic Gravity
 
+`accel_gravity_spherical_harmonics` dispatches to whichever kernel the
+[`GravityModel`](#gravity-model-class)'s [`GravityTables`](#gravity-tables) has
+precomputed (Clenshaw by default). `accel_gravity_spherical_harmonics_clenshaw`
+and `accel_gravity_spherical_harmonics_cunningham` force evaluation through a
+specific kernel instead of dispatching automatically.
+
 ::: brahe.accel_gravity_spherical_harmonics
+
+::: brahe.accel_gravity_spherical_harmonics_clenshaw
+
+::: brahe.accel_gravity_spherical_harmonics_cunningham
 
 ## Gravity Model Class
 
 ::: brahe.GravityModel
+
+## Gravity Tables
+
+`GravityTables` selects which kernel's precomputed table set(s) a
+[`GravityModel`](#gravity-model-class) builds when it is loaded
+(`GravityModel.from_model_type` / `from_file` default to `GravityTables.Clenshaw`;
+`from_model_type_with_tables` / `from_file_with_tables` accept an explicit
+value): `GravityTables.Clenshaw` (default), `.Cunningham`, or `.Both`. A model
+can only evaluate through a kernel whose tables are present;
+`GravityModel.precompute_clenshaw_tables()` / `precompute_cunningham_tables()`
+add a table set to an already-loaded model, and `drop_clenshaw_tables()` /
+`drop_cunningham_tables()` free one to reduce memory use.
+
+::: brahe.GravityTables
 
 ## Gravity Model Type
 

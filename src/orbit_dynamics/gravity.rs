@@ -2145,7 +2145,11 @@ impl std::fmt::Debug for GravityModel {
 /// Panics if [`GravityModel::compute_spherical_harmonics`] returns an
 /// error: `n_max`/`m_max` out of bounds for `gravity_model`, no precomputed
 /// tables present, or (Cunningham fallback only) a non-finite result from
-/// high-degree denormalized-coefficient overflow.
+/// high-degree denormalized-coefficient overflow. This function is used on
+/// the numerical propagator's hot path, so these conditions surface as
+/// descriptive panics mid-integration rather than at construction time.
+/// Callers that need `Result` semantics instead should call
+/// [`GravityModel::compute_spherical_harmonics`] directly.
 ///
 /// # Examples
 ///
@@ -2322,6 +2326,12 @@ pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
 /// # Returns
 ///
 /// - `Vector3<f64>` : Acceleration due to gravity in the ECI frame.
+///
+/// # Panics
+///
+/// Panics if `gravity_model` has no precomputed Clenshaw tables (see
+/// [`GravityModel::precompute_clenshaw_tables`] / [`GravityTables`]) or if
+/// `n_max`/`m_max` are out of bounds for the model.
 ///
 /// # Examples
 ///

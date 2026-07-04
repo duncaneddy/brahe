@@ -1974,7 +1974,12 @@ impl PyGravityModel {
 ///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
 ///
 /// Raises:
-///     Exception: If n_max or m_max exceed model limits or if m_max > n_max
+///     ValueError: If n_max or m_max exceed model limits or if m_max > n_max
+///     ValueError: If the model has no precomputed gravity tables (neither
+///         Clenshaw nor Cunningham)
+///     ValueError: If the Cunningham kernel is used (no Clenshaw tables present
+///         on the model) and its denormalized recursion overflows to a
+///         non-finite result (can occur above ~degree 150 at low altitude)
 ///
 /// Example:
 ///     ```python
@@ -2010,17 +2015,21 @@ fn py_accel_gravity_spherical_harmonics<'py>(
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_eci.len();
     let rot = numpy_to_smatrix3!(R_i2b);
-    let a = if len == 3 {
-        let r = numpy_to_vector3!(r_eci);
-        orbit_dynamics::accel_gravity_spherical_harmonics(r, rot, &gravity_model.model, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+    let r = if len == 3 {
+        numpy_to_vector3!(r_eci)
     } else if len == 6 {
         let x = numpy_to_vector6!(r_eci);
-        orbit_dynamics::accel_gravity_spherical_harmonics(x, rot, &gravity_model.model, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+        Vector3::new(x[0], x[1], x[2])
     } else {
-        return Err(pyo3::exceptions::PyValueError::new_err(
+        return Err(exceptions::PyValueError::new_err(
             "r_eci must be length 3 (position) or 6 (state)"
         ));
     };
+    let a_ecef = gravity_model
+        .model
+        .compute_spherical_harmonics(rot * r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+    let a = rot.transpose() * a_ecef;
     Ok(vector_to_numpy!(py, a, 3, f64))
 }
 

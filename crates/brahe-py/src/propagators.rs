@@ -4588,7 +4588,7 @@ fn warn_if_cunningham_only_high_degree(py: Python<'_>, force_config: &propagator
         PyErr::warn(
             py,
             &category,
-            c"Spherical-harmonic degree > 150 with a Cunningham-only gravity model: accuracy degrades above ~degree 120 at low altitude and overflow raises an error; enable Clenshaw tables (the default) instead.",
+            c"Spherical-harmonic degree > 150 with a Cunningham-only gravity model: the denormalized V/W recursion overflows at low-altitude positions (raising an error mid-propagation) and precision is reduced at high degree; enable Clenshaw tables (the default) instead.",
             1,
         )?;
     }

@@ -402,6 +402,17 @@ class TestSphericalHarmonicGravity:
         # Results should be identical
         assert np.allclose(a_from_pos, a_from_state, atol=1e-15)
 
+    def test_accel_gravity_spherical_harmonics_raises_without_tables(self):
+        """Dispatcher surfaces a ValueError (not a panic) when no tables are precomputed."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        model.drop_clenshaw_tables()
+
+        r_eci = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+        R = np.eye(3)
+
+        with pytest.raises(ValueError, match="No precomputed gravity tables"):
+            bh.accel_gravity_spherical_harmonics(r_eci, R, model, 10, 10)
+
     def test_set_max_degree_order_basic(self):
         """Test truncating gravity model to smaller degree/order."""
         model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)

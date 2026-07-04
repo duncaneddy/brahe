@@ -921,11 +921,7 @@ impl GravityModel {
             }
             GravityModelType::FromFile(path) => Self::from_file(Path::new(path)),
             GravityModelType::ICGEMModel { body, name } => {
-                let path = crate::datasets::icgem::download_icgem_model(
-                    body.clone(),
-                    name,
-                    None,
-                )?;
+                let path = crate::datasets::icgem::download_icgem_model(body.clone(), name, None)?;
                 Self::from_file(&path)
             }
         }
@@ -1153,8 +1149,8 @@ impl GravityModel {
         V[(1, 0)] = z0 * V[(0, 0)];
         W[(1, 0)] = 0.0;
         for n in 2..(n_max + 2) {
-            V[(n, 0)] = self.rec_a[(n, 0)] * z0 * V[(n - 1, 0)]
-                - self.rec_b[(n, 0)] * rho * V[(n - 2, 0)];
+            V[(n, 0)] =
+                self.rec_a[(n, 0)] * z0 * V[(n - 1, 0)] - self.rec_b[(n, 0)] * rho * V[(n - 2, 0)];
             W[(n, 0)] = 0.0;
         }
 
@@ -1163,10 +1159,8 @@ impl GravityModel {
             // the first sub-diagonal seed for each column.
             for m in 1..m_max + 2 {
                 let mf = m as f64;
-                V[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
-                W[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
+                V[(m, m)] = (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
+                W[(m, m)] = (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
                 if m <= n_max {
                     V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
                     W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
@@ -1216,10 +1210,8 @@ impl GravityModel {
                 let mf = m as f64;
                 // Diagonal + sub-diagonal seeds read column m-1 (cross-column),
                 // so they stay on the matrix API rather than the column slices.
-                V[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
-                W[(m, m)] =
-                    (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
+                V[(m, m)] = (2.0 * mf - 1.0) * (x0 * V[(m - 1, m - 1)] - y0 * W[(m - 1, m - 1)]);
+                W[(m, m)] = (2.0 * mf - 1.0) * (x0 * W[(m - 1, m - 1)] + y0 * V[(m - 1, m - 1)]);
                 if m <= n_max {
                     V[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * V[(m, m)];
                     W[(m + 1, m)] = (2.0 * mf + 1.0) * z0 * W[(m, m)];
@@ -1295,10 +1287,8 @@ impl GravityModel {
                     let s = s_col[n];
                     let fac = f_col[n];
                     let p = n + 1;
-                    ax += 0.5 * (-c * v_hi[p] - s * w_hi[p])
-                        + fac * (c * v_lo[p] + s * w_lo[p]);
-                    ay += 0.5 * (-c * w_hi[p] + s * v_hi[p])
-                        + fac * (-c * w_lo[p] + s * v_lo[p]);
+                    ax += 0.5 * (-c * v_hi[p] - s * w_hi[p]) + fac * (c * v_lo[p] + s * w_lo[p]);
+                    ay += 0.5 * (-c * w_hi[p] + s * v_hi[p]) + fac * (-c * w_lo[p] + s * v_lo[p]);
                     az += (nf - mf + 1.0) * (-c * v_mid[p] - s * w_mid[p]);
                 }
             }
@@ -1310,10 +1300,7 @@ impl GravityModel {
                 (0..m_max + 1)
                     .into_par_iter()
                     .map(accumulate_m)
-                    .reduce(
-                        || (0.0, 0.0, 0.0),
-                        |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
-                    )
+                    .reduce(|| (0.0, 0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2))
             })
         } else {
             (0..m_max + 1).fold((0.0, 0.0, 0.0), |acc, m| {
@@ -1473,7 +1460,14 @@ pub fn accel_gravity_spherical_harmonics_with_workspace<P: IntoPosition>(
     let r_bf = R_i2b * r;
 
     let a_ecef = gravity_model
-        .compute_spherical_harmonics_with_workspace(r_bf, n_max, m_max, parallel, v_workspace, w_workspace)
+        .compute_spherical_harmonics_with_workspace(
+            r_bf,
+            n_max,
+            m_max,
+            parallel,
+            v_workspace,
+            w_workspace,
+        )
         .unwrap();
 
     R_i2b.transpose() * a_ecef
@@ -2024,7 +2018,14 @@ mod tests {
         let gravity_model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r_body = Vector3::new(6525.919e3, 1710.416e3, 2508.886e3);
 
-        let a_grav = accel_gravity_spherical_harmonics(r_body, rot, &gravity_model, n, m, ParallelMode::Auto);
+        let a_grav = accel_gravity_spherical_harmonics(
+            r_body,
+            rot,
+            &gravity_model,
+            n,
+            m,
+            ParallelMode::Auto,
+        );
 
         // This could potentially be validated to a higher degree of accuracy, but currently the
         // parameters provided by the Satellite Orbits book are only accurate to seven decimal
@@ -2222,13 +2223,14 @@ mod tests {
         use crate::datasets::icgem::ICGEMBody;
 
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         // Seed the icgem cache with a manually-placed gfc file so no network
         // fetch is required.
-        let cache_dir = std::path::PathBuf::from(
-            crate::utils::cache::get_icgem_cache_dir().unwrap(),
-        );
+        let cache_dir =
+            std::path::PathBuf::from(crate::utils::cache::get_icgem_cache_dir().unwrap());
         let model_dir = cache_dir.join("models").join("earth");
         std::fs::create_dir_all(&model_dir).unwrap();
         let gfc = std::fs::read("data/gravity_models/JGM3.gfc").unwrap();
@@ -2237,7 +2239,9 @@ mod tests {
         // Seed a fresh index so list/refresh doesn't fetch.
         let idx = crate::datasets::icgem::index::IndexFile {
             fetched_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             entries: vec![crate::datasets::icgem::IndexEntry {
                 body: ICGEMBody::Earth,
                 name: "JGM3".into(),
@@ -2256,7 +2260,9 @@ mod tests {
         let model = GravityModel::from_model_type(&mt).unwrap();
         assert_eq!(model.n_max, 70);
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
@@ -2267,20 +2273,21 @@ mod tests {
         // must initialize cleanly and advance the state.
         use crate::datasets::icgem::ICGEMBody;
         use crate::propagators::{
-            DNumericalOrbitPropagator, ForceModelConfig, GravityConfiguration,
-            GravityModelSource, NumericalPropagationConfig,
+            DNumericalOrbitPropagator, ForceModelConfig, GravityConfiguration, GravityModelSource,
+            NumericalPropagationConfig,
         };
 
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);
 
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         // Seed the ICGEM cache with JGM3 so no network fetch is required.
-        let cache_dir = std::path::PathBuf::from(
-            crate::utils::cache::get_icgem_cache_dir().unwrap(),
-        );
+        let cache_dir =
+            std::path::PathBuf::from(crate::utils::cache::get_icgem_cache_dir().unwrap());
         let model_dir = cache_dir.join("models").join("earth");
         std::fs::create_dir_all(&model_dir).unwrap();
         let gfc = std::fs::read("data/gravity_models/JGM3.gfc").unwrap();
@@ -2288,7 +2295,9 @@ mod tests {
 
         let idx = crate::datasets::icgem::index::IndexFile {
             fetched_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             entries: vec![crate::datasets::icgem::IndexEntry {
                 body: ICGEMBody::Earth,
                 name: "JGM3".into(),
@@ -2366,7 +2375,9 @@ mod tests {
         let drift = (dx * dx + dy * dy + dz * dz).sqrt();
         assert!(drift > 100e3, "state barely moved: drift = {} m", drift);
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
@@ -2379,9 +2390,18 @@ mod tests {
 
         // Runs on the main thread (off-pool), so Auto's nested-parallelism guard
         // is satisfied and Auto reduces to the degree-threshold check.
-        assert!(!should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX - 1));
-        assert!(should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX));
-        assert!(should_parallelize(ParallelMode::Auto, PARALLEL_THRESHOLD_NMAX + 1));
+        assert!(!should_parallelize(
+            ParallelMode::Auto,
+            PARALLEL_THRESHOLD_NMAX - 1
+        ));
+        assert!(should_parallelize(
+            ParallelMode::Auto,
+            PARALLEL_THRESHOLD_NMAX
+        ));
+        assert!(should_parallelize(
+            ParallelMode::Auto,
+            PARALLEL_THRESHOLD_NMAX + 1
+        ));
     }
 
     #[test]

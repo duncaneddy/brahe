@@ -124,6 +124,11 @@ pub struct PyStaticEOPProvider {
     obj: eop::StaticEOPProvider,
 }
 
+impl Default for PyStaticEOPProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[pymethods]
 impl PyStaticEOPProvider {
@@ -240,6 +245,14 @@ impl PyStaticEOPProvider {
     ///     ```
     pub fn len(&self) -> usize {
         self.obj.len()
+    }
+
+    /// Check if the provider contains no EOP data points.
+    ///
+    /// Returns:
+    ///     bool: True if the provider has no EOP data points
+    pub fn is_empty(&self) -> bool {
+        self.obj.is_empty()
     }
 
     /// Get the EOP data type.
@@ -495,6 +508,12 @@ pub struct PyFileEOPProvider {
     obj: eop::FileEOPProvider,
 }
 
+impl Default for PyFileEOPProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 
 #[pymethods]
 impl PyFileEOPProvider {
@@ -689,6 +708,14 @@ impl PyFileEOPProvider {
     ///     ```
     pub fn len(&self) -> usize {
         self.obj.len()
+    }
+
+    /// Check if the provider contains no EOP data points.
+    ///
+    /// Returns:
+    ///     bool: True if the provider has no EOP data points
+    pub fn is_empty(&self) -> bool {
+        self.obj.is_empty()
     }
 
     /// Get the EOP data type.
@@ -1179,6 +1206,14 @@ impl PyCachingEOPProvider {
     ///     int: Number of EOP data points
     pub fn len(&self) -> usize {
         self.obj.len()
+    }
+
+    /// Check if the provider contains no EOP data points.
+    ///
+    /// Returns:
+    ///     bool: True if the provider has no EOP data points
+    pub fn is_empty(&self) -> bool {
+        self.obj.is_empty()
     }
 
     /// Get the EOP file type.

@@ -255,6 +255,13 @@ impl PyQuaternion {
     ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
     ///     v = q.to_vector(scalar_first=True)
     ///     ```
+    ///
+    /// # Safety
+    ///
+    /// Copies `self`'s components into a freshly-allocated `Vec<f64>` and hands
+    /// ownership to `IntoPyArray::into_pyarray`, which does not alias any
+    /// existing Python or Rust memory. No invariant beyond a valid `Python<'py>`
+    /// token (already guaranteed by PyO3's method dispatch) is required of the caller.
     pub unsafe fn to_vector<'py>(&self, py: Python<'py>, scalar_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.to_vector(scalar_first), 4, f64)
     }
@@ -406,6 +413,13 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     numpy.ndarray: 4-element array containing quaternion components
+    ///
+    /// # Safety
+    ///
+    /// Copies `self`'s components into a freshly-allocated `Vec<f64>` and hands
+    /// ownership to `IntoPyArray::into_pyarray`, which does not alias any
+    /// existing Python or Rust memory. No invariant beyond a valid `Python<'py>`
+    /// token (already guaranteed by PyO3's method dispatch) is required of the caller.
     pub unsafe fn data<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj, 4, f64)
     }
@@ -1021,6 +1035,14 @@ impl PyEulerAxis {
     ///     e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
     ///     print(f"Axis: {e.axis}")
     ///     ```
+    ///
+    /// # Safety
+    ///
+    /// Copies `self.obj.axis`'s components into a freshly-allocated `Vec<f64>`
+    /// and hands ownership to `IntoPyArray::into_pyarray`, which does not alias
+    /// any existing Python or Rust memory. No invariant beyond a valid
+    /// `Python<'py>` token (already guaranteed by PyO3's method dispatch) is
+    /// required of the caller.
     pub unsafe fn axis<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.axis, 3, f64)
     }
@@ -1096,6 +1118,14 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     numpy.ndarray: 4-element array containing axis and angle
+    ///
+    /// # Safety
+    ///
+    /// Copies `self.obj.to_vector(...)`'s output into a freshly-allocated
+    /// `Vec<f64>` and hands ownership to `IntoPyArray::into_pyarray`, which
+    /// does not alias any existing Python or Rust memory. No invariant beyond
+    /// a valid `Python<'py>` token (already guaranteed by PyO3's method
+    /// dispatch) is required of the caller.
     pub unsafe fn to_vector<'py>(&self, py: Python<'py>, angle_format: &PyAngleFormat, vector_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.to_vector(angle_format.value, vector_first), 4, f64)
     }
@@ -1410,6 +1440,15 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     numpy.ndarray: 3x3 rotation matrix
+    ///
+    /// # Safety
+    ///
+    /// Copies `self.obj.to_matrix()`'s entries into a freshly-allocated
+    /// `Vec<f64>` and reshapes it into a `3x3` array via `PyArray::reshape`,
+    /// which does not alias any existing Python or Rust memory (the total
+    /// element count matches by construction). No invariant beyond a valid
+    /// `Python<'py>` token (already guaranteed by PyO3's method dispatch) is
+    /// required of the caller.
     pub unsafe fn to_matrix<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
         matrix_to_numpy!(py, self.obj.to_matrix(), 3, 3, f64)
     }

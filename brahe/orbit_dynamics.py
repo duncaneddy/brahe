@@ -43,8 +43,12 @@ Gravity:
 - GravityModelTideSystem: Enum for tide system conventions
 - GravityModelErrors: Enum for error estimation types
 - GravityModelNormalization: Enum for coefficient normalization conventions
+- GravityTables: Enum for which precomputed evaluation tables a model builds
 - GravityModel: Spherical harmonic gravity model class
-- accel_gravity_spherical_harmonics: Spherical harmonic gravity acceleration
+- accel_gravity_spherical_harmonics: Spherical harmonic gravity acceleration (auto-dispatched)
+- accel_gravity_spherical_harmonics_clenshaw: Spherical harmonic gravity acceleration (Clenshaw kernel)
+- accel_gravity_spherical_harmonics_cunningham: Spherical harmonic gravity acceleration (Cunningham kernel)
+- set_global_gravity_model: Set the process-wide global gravity model
 
 Drag and SRP:
 - accel_drag: Atmospheric drag acceleration
@@ -97,8 +101,12 @@ from brahe._brahe import (
     GravityModelTideSystem,
     GravityModelErrors,
     GravityModelNormalization,
+    GravityTables,
     GravityModel,
     accel_gravity_spherical_harmonics,
+    accel_gravity_spherical_harmonics_clenshaw,
+    accel_gravity_spherical_harmonics_cunningham,
+    set_global_gravity_model,
     # Atmospheric Density Models
     density_harris_priester,
     density_nrlmsise00,
@@ -155,8 +163,12 @@ __all__ = [
     "GravityModelTideSystem",
     "GravityModelErrors",
     "GravityModelNormalization",
+    "GravityTables",
     "GravityModel",
     "accel_gravity_spherical_harmonics",
+    "accel_gravity_spherical_harmonics_clenshaw",
+    "accel_gravity_spherical_harmonics_cunningham",
+    "set_global_gravity_model",
     # Atmospheric Density Models
     "density_harris_priester",
     "density_nrlmsise00",

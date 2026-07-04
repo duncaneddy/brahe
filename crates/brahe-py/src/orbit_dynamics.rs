@@ -1422,6 +1422,73 @@ impl PyGravityModelNormalization {
     }
 }
 
+/// Selects which precomputed evaluation tables a gravity model builds at load.
+///
+/// The Clenshaw and Cunningham kernels require different precomputed values,
+/// so each kernel can only run when its table set is present. Default: Clenshaw.
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "GravityTables")]
+#[derive(Clone)]
+pub struct PyGravityTables {
+    pub(crate) tables: orbit_dynamics::GravityTables,
+}
+
+#[pymethods]
+impl PyGravityTables {
+    /// Clenshaw kernel tables only (default).
+    ///
+    /// Precomputed for the Clenshaw summation kernel. Accurate and fast at all
+    /// degrees supported by the model.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Clenshaw() -> Self {
+        PyGravityTables {
+            tables: orbit_dynamics::GravityTables::Clenshaw,
+        }
+    }
+
+    /// Cunningham kernel tables only.
+    ///
+    /// Precomputed for the Cunningham (Montenbruck & Gill) V/W recursion kernel.
+    /// Accuracy degrades above roughly degree 120 at low altitude, and the
+    /// recursion overflows around degree 150.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Cunningham() -> Self {
+        PyGravityTables {
+            tables: orbit_dynamics::GravityTables::Cunningham,
+        }
+    }
+
+    /// Both Clenshaw and Cunningham kernel tables.
+    ///
+    /// Doubles the memory footprint of the precomputed tables but allows
+    /// either kernel to be evaluated on the same model.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Both() -> Self {
+        PyGravityTables {
+            tables: orbit_dynamics::GravityTables::Both,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.tables)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("GravityTables.{:?}", self.tables)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.tables == other.tables),
+            CompareOp::Ne => Ok(self.tables != other.tables),
+            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+        }
+    }
+}
+
 // ============================================================================
 // Spherical Harmonic Gravity Model Class
 // ============================================================================
@@ -1519,6 +1586,33 @@ impl PyGravityModel {
         Ok(PyGravityModel { model })
     }
 
+    /// Load a gravity model from a .gfc file with an explicit table configuration.
+    ///
+    /// Args:
+    ///     filepath (str): Path to the .gfc gravity model file
+    ///     tables (GravityTables): Which precomputed evaluation table set(s) to build
+    ///
+    /// Returns:
+    ///     GravityModel: Loaded gravity model
+    ///
+    /// Raises:
+    ///     Exception: If file cannot be loaded or parsed
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_file_with_tables(
+    ///         "path/to/model.gfc", bh.GravityTables.Both)
+    ///     ```
+    #[classmethod]
+    fn from_file_with_tables(_cls: &Bound<'_, PyType>, filepath: &str, tables: &PyGravityTables) -> PyResult<Self> {
+        let path = Path::new(filepath);
+        let model = orbit_dynamics::GravityModel::from_file_with_tables(path, tables.tables)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
+        Ok(PyGravityModel { model })
+    }
+
     /// Load a gravity model from a GravityModelType.
     ///
     /// Args:
@@ -1548,6 +1642,37 @@ impl PyGravityModel {
     #[classmethod]
     fn from_model_type(_cls: &Bound<'_, PyType>, model_type: &PyGravityModelType) -> PyResult<Self> {
         let grav_model = orbit_dynamics::GravityModel::from_model_type(&model_type.model)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
+        Ok(PyGravityModel { model: grav_model })
+    }
+
+    /// Load a gravity model from a GravityModelType with an explicit table configuration.
+    ///
+    /// Args:
+    ///     model_type (GravityModelType): Which model to load (packaged or from file)
+    ///     tables (GravityTables): Which precomputed evaluation table set(s) to build
+    ///
+    /// Returns:
+    ///     GravityModel: Loaded gravity model
+    ///
+    /// Raises:
+    ///     Exception: If file loading fails (for FromFile variant)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type_with_tables(
+    ///         bh.GravityModelType.JGM3, bh.GravityTables.Both)
+    ///     print(model.has_clenshaw_tables(), model.has_cunningham_tables())
+    ///     ```
+    #[classmethod]
+    fn from_model_type_with_tables(
+        _cls: &Bound<'_, PyType>,
+        model_type: &PyGravityModelType,
+        tables: &PyGravityTables,
+    ) -> PyResult<Self> {
+        let grav_model = orbit_dynamics::GravityModel::from_model_type_with_tables(&model_type.model, tables.tables)
             .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
         Ok(PyGravityModel { model: grav_model })
     }
@@ -1616,6 +1741,84 @@ impl PyGravityModel {
         Ok(vector_to_numpy!(py, a, 3, f64))
     }
 
+    /// Compute body-fixed gravitational acceleration with the Clenshaw kernel.
+    ///
+    /// Args:
+    ///     r_body (np.ndarray): Position in body-fixed frame (length 3). Units: (m)
+    ///     n_max (int): Maximum degree to evaluate (n_max <= model.n_max)
+    ///     m_max (int): Maximum order to evaluate (m_max <= min(n_max, model.m_max))
+    ///
+    /// Returns:
+    ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
+    ///
+    /// Raises:
+    ///     Exception: If Clenshaw tables are not precomputed for this model, or if
+    ///         n_max or m_max exceed model limits
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     a = model.compute_spherical_harmonics_clenshaw(
+    ///         np.array([bh.R_EARTH + 500e3, 0.0, 0.0]), 20, 20)
+    ///     ```
+    fn compute_spherical_harmonics_clenshaw<'py>(
+        &self,
+        py: Python<'py>,
+        r_body: PyReadonlyArray1<f64>,
+        n_max: usize,
+        m_max: usize,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let r = numpy_to_vector3!(r_body);
+        let a = self
+            .model
+            .compute_spherical_harmonics_clenshaw(r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(vector_to_numpy!(py, a, 3, f64))
+    }
+
+    /// Compute body-fixed gravitational acceleration with the Cunningham kernel.
+    ///
+    /// Args:
+    ///     r_body (np.ndarray): Position in body-fixed frame (length 3). Units: (m)
+    ///     n_max (int): Maximum degree to evaluate (n_max <= model.n_max)
+    ///     m_max (int): Maximum order to evaluate (m_max <= min(n_max, model.m_max))
+    ///
+    /// Returns:
+    ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
+    ///
+    /// Raises:
+    ///     Exception: If Cunningham tables are not precomputed for this model, if
+    ///         n_max or m_max exceed model limits, or if the recursion overflows
+    ///         to a non-finite result (can occur above ~degree 150 at low altitude)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     model = bh.GravityModel.from_model_type_with_tables(
+    ///         bh.GravityModelType.JGM3, bh.GravityTables.Cunningham)
+    ///     a = model.compute_spherical_harmonics_cunningham(
+    ///         np.array([bh.R_EARTH + 500e3, 0.0, 0.0]), 20, 20)
+    ///     ```
+    fn compute_spherical_harmonics_cunningham<'py>(
+        &self,
+        py: Python<'py>,
+        r_body: PyReadonlyArray1<f64>,
+        n_max: usize,
+        m_max: usize,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let r = numpy_to_vector3!(r_body);
+        let a = self
+            .model
+            .compute_spherical_harmonics_cunningham(r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(vector_to_numpy!(py, a, 3, f64))
+    }
+
     /// Truncate the gravity model to a smaller degree and order to save memory.
     ///
     /// This method resizes the internal coefficient matrix in-place, discarding
@@ -1644,6 +1847,96 @@ impl PyGravityModel {
     fn set_max_degree_order(&mut self, n: usize, m: usize) -> PyResult<()> {
         self.model.set_max_degree_order(n, m)
             .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to set max degree/order: {}", e)))
+    }
+
+    /// Precompute the Clenshaw kernel tables, if not already present.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type_with_tables(
+    ///         bh.GravityModelType.JGM3, bh.GravityTables.Cunningham)
+    ///     model.precompute_clenshaw_tables()
+    ///     ```
+    fn precompute_clenshaw_tables(&mut self) {
+        self.model.precompute_clenshaw_tables();
+    }
+
+    /// Precompute the Cunningham kernel tables, if not already present.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     model.precompute_cunningham_tables()
+    ///     ```
+    fn precompute_cunningham_tables(&mut self) {
+        self.model.precompute_cunningham_tables();
+    }
+
+    /// Drop the Clenshaw kernel tables, freeing their memory.
+    ///
+    /// The Clenshaw kernel errors until `precompute_clenshaw_tables()` is called again.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     model.drop_clenshaw_tables()
+    ///     ```
+    fn drop_clenshaw_tables(&mut self) {
+        self.model.drop_clenshaw_tables();
+    }
+
+    /// Drop the Cunningham kernel tables, freeing their memory.
+    ///
+    /// The Cunningham kernel errors until `precompute_cunningham_tables()` is called again.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type_with_tables(
+    ///         bh.GravityModelType.JGM3, bh.GravityTables.Both)
+    ///     model.drop_cunningham_tables()
+    ///     ```
+    fn drop_cunningham_tables(&mut self) {
+        self.model.drop_cunningham_tables();
+    }
+
+    /// Check whether the Clenshaw kernel tables are precomputed for this model.
+    ///
+    /// Returns:
+    ///     bool: True when the table set is present.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     assert model.has_clenshaw_tables()
+    ///     ```
+    fn has_clenshaw_tables(&self) -> bool {
+        self.model.has_clenshaw_tables()
+    }
+
+    /// Check whether the Cunningham kernel tables are precomputed for this model.
+    ///
+    /// Returns:
+    ///     bool: True when the table set is present.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     assert not model.has_cunningham_tables()
+    ///     ```
+    fn has_cunningham_tables(&self) -> bool {
+        self.model.has_cunningham_tables()
     }
 
     fn __repr__(&self) -> String {
@@ -1729,6 +2022,154 @@ fn py_accel_gravity_spherical_harmonics<'py>(
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
+/// Compute acceleration due to spherical harmonic gravity model using the Clenshaw kernel.
+///
+/// Same behavior as `accel_gravity_spherical_harmonics`, but forces evaluation through
+/// the Clenshaw summation kernel rather than dispatching automatically.
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_eci.
+///
+/// Args:
+///     r_eci (np.ndarray): Position (length 3) or state (length 6) in ECI frame. Units: (m)
+///     R_i2b (np.ndarray): Rotation matrix from ECI to body-fixed frame (3x3)
+///     gravity_model (GravityModel): Gravity model to use
+///     n_max (int): Maximum degree to evaluate (n_max <= model.n_max)
+///     m_max (int): Maximum order to evaluate (m_max <= min(n_max, model.m_max))
+///
+/// Returns:
+///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
+///
+/// Raises:
+///     Exception: If Clenshaw tables are not precomputed for the model, or if n_max
+///         or m_max exceed model limits
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+///     r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
+///     a_grav = bh.accel_gravity_spherical_harmonics_clenshaw(r_eci, np.eye(3), model, 20, 20)
+///     ```
+#[pyfunction]
+#[pyo3(name = "accel_gravity_spherical_harmonics_clenshaw")]
+#[allow(non_snake_case)]
+fn py_accel_gravity_spherical_harmonics_clenshaw<'py>(
+    py: Python<'py>,
+    r_eci: PyReadonlyArray1<f64>,
+    R_i2b: PyReadonlyArray2<f64>,
+    gravity_model: &PyGravityModel,
+    n_max: usize,
+    m_max: usize,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let len = r_eci.len();
+    let rot = numpy_to_smatrix3!(R_i2b);
+    let r = if len == 3 {
+        numpy_to_vector3!(r_eci)
+    } else if len == 6 {
+        let x = numpy_to_vector6!(r_eci);
+        Vector3::new(x[0], x[1], x[2])
+    } else {
+        return Err(exceptions::PyValueError::new_err(
+            "r_eci must be length 3 (position) or 6 (state)"
+        ));
+    };
+    let a_ecef = gravity_model
+        .model
+        .compute_spherical_harmonics_clenshaw(rot * r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+    let a = rot.transpose() * a_ecef;
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
+/// Compute acceleration due to spherical harmonic gravity model using the Cunningham kernel.
+///
+/// Same behavior as `accel_gravity_spherical_harmonics`, but forces evaluation through
+/// the Cunningham V/W recursion kernel rather than dispatching automatically.
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_eci.
+///
+/// Args:
+///     r_eci (np.ndarray): Position (length 3) or state (length 6) in ECI frame. Units: (m)
+///     R_i2b (np.ndarray): Rotation matrix from ECI to body-fixed frame (3x3)
+///     gravity_model (GravityModel): Gravity model to use
+///     n_max (int): Maximum degree to evaluate (n_max <= model.n_max)
+///     m_max (int): Maximum order to evaluate (m_max <= min(n_max, model.m_max))
+///
+/// Returns:
+///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
+///
+/// Raises:
+///     Exception: If Cunningham tables are not precomputed for the model, if n_max
+///         or m_max exceed model limits, or if the recursion overflows to a
+///         non-finite result (can occur above ~degree 150 at low altitude)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     model = bh.GravityModel.from_model_type_with_tables(
+///         bh.GravityModelType.JGM3, bh.GravityTables.Cunningham)
+///     r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
+///     a_grav = bh.accel_gravity_spherical_harmonics_cunningham(r_eci, np.eye(3), model, 20, 20)
+///     ```
+#[pyfunction]
+#[pyo3(name = "accel_gravity_spherical_harmonics_cunningham")]
+#[allow(non_snake_case)]
+fn py_accel_gravity_spherical_harmonics_cunningham<'py>(
+    py: Python<'py>,
+    r_eci: PyReadonlyArray1<f64>,
+    R_i2b: PyReadonlyArray2<f64>,
+    gravity_model: &PyGravityModel,
+    n_max: usize,
+    m_max: usize,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let len = r_eci.len();
+    let rot = numpy_to_smatrix3!(R_i2b);
+    let r = if len == 3 {
+        numpy_to_vector3!(r_eci)
+    } else if len == 6 {
+        let x = numpy_to_vector6!(r_eci);
+        Vector3::new(x[0], x[1], x[2])
+    } else {
+        return Err(exceptions::PyValueError::new_err(
+            "r_eci must be length 3 (position) or 6 (state)"
+        ));
+    };
+    let a_ecef = gravity_model
+        .model
+        .compute_spherical_harmonics_cunningham(rot * r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+    let a = rot.transpose() * a_ecef;
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
+/// Set the process-wide global gravity model.
+///
+/// Used by force models configured with the global gravity source
+/// (`GravityConfiguration.spherical_harmonic(..., use_global=True)`).
+///
+/// Args:
+///     model (GravityModel): Gravity model to install as the global gravity model.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     model = bh.GravityModel.from_model_type_with_tables(
+///         bh.GravityModelType.JGM3, bh.GravityTables.Both)
+///     bh.set_global_gravity_model(model)
+///     ```
+#[pyfunction]
+#[pyo3(name = "set_global_gravity_model")]
+fn py_set_global_gravity_model(model: &PyGravityModel) {
+    orbit_dynamics::set_global_gravity_model(model.model.clone());
 }
 
 // ============================================================================

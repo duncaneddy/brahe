@@ -243,11 +243,16 @@ impl PyStaticEOPProvider {
     ///     eop = bh.StaticEOPProvider.from_zero()
     ///     print(f"EOP data points: {eop.len()}")
     ///     ```
-    // EOP providers are not collections; the Python surface deliberately
-    // exposes only len() without a paired is_empty().
-    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.obj.len()
+    }
+
+    /// Check if the provider contains no EOP data points.
+    ///
+    /// Returns:
+    ///     bool: True if the provider has no EOP data points
+    pub fn is_empty(&self) -> bool {
+        self.obj.is_empty()
     }
 
     /// Get the EOP data type.
@@ -701,11 +706,16 @@ impl PyFileEOPProvider {
     ///     eop = bh.FileEOPProvider.from_default_standard(True, "Hold")
     ///     print(f"EOP data points: {eop.len()}")
     ///     ```
-    // EOP providers are not collections; the Python surface deliberately
-    // exposes only len() without a paired is_empty().
-    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.obj.len()
+    }
+
+    /// Check if the provider contains no EOP data points.
+    ///
+    /// Returns:
+    ///     bool: True if the provider has no EOP data points
+    pub fn is_empty(&self) -> bool {
+        self.obj.is_empty()
     }
 
     /// Get the EOP data type.
@@ -1194,11 +1204,16 @@ impl PyCachingEOPProvider {
     ///
     /// Returns:
     ///     int: Number of EOP data points
-    // EOP providers are not collections; the Python surface deliberately
-    // exposes only len() without a paired is_empty().
-    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.obj.len()
+    }
+
+    /// Check if the provider contains no EOP data points.
+    ///
+    /// Returns:
+    ///     bool: True if the provider has no EOP data points
+    pub fn is_empty(&self) -> bool {
+        self.obj.is_empty()
     }
 
     /// Get the EOP file type.

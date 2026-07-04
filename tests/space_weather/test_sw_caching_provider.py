@@ -1,6 +1,8 @@
 import brahe
+import pytest
 
 
+@pytest.mark.integration
 def test_caching_provider_default():
     """Test creating a caching provider with default cache location"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -15,6 +17,7 @@ def test_caching_provider_default():
     assert sw.extrapolation() == "Hold"
 
 
+@pytest.mark.integration
 def test_caching_provider_file_epoch():
     """Test getting file epoch from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -28,6 +31,7 @@ def test_caching_provider_file_epoch():
     assert epoch.mjd() > 58849.0  # 2020-01-01
 
 
+@pytest.mark.integration
 def test_caching_provider_file_age():
     """Test getting file age from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -41,6 +45,7 @@ def test_caching_provider_file_age():
     assert age < 365 * 86400
 
 
+@pytest.mark.integration
 def test_caching_provider_get_kp():
     """Test getting Kp values from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -58,6 +63,7 @@ def test_caching_provider_get_kp():
     assert 0.0 <= kp_daily <= 9.0
 
 
+@pytest.mark.integration
 def test_caching_provider_get_ap():
     """Test getting Ap values from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -75,6 +81,7 @@ def test_caching_provider_get_ap():
     assert ap_daily >= 0.0
 
 
+@pytest.mark.integration
 def test_caching_provider_get_f107():
     """Test getting F10.7 values from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -92,6 +99,7 @@ def test_caching_provider_get_f107():
     assert f107_avg81 > 0.0
 
 
+@pytest.mark.integration
 def test_caching_provider_refresh():
     """Test manual refresh of caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -106,6 +114,7 @@ def test_caching_provider_refresh():
     assert sw.len() >= 24000
 
 
+@pytest.mark.integration
 def test_caching_provider_extrapolation_modes():
     """Test different extrapolation modes"""
     # Hold mode
@@ -121,6 +130,7 @@ def test_caching_provider_extrapolation_modes():
     assert sw_zero.extrapolation() == "Zero"
 
 
+@pytest.mark.integration
 def test_caching_provider_mjd_min():
     """Test getting minimum MJD from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -131,6 +141,7 @@ def test_caching_provider_mjd_min():
     assert sw.mjd_min() == 36112.0
 
 
+@pytest.mark.integration
 def test_caching_provider_mjd_max():
     """Test getting maximum MJD from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -141,6 +152,7 @@ def test_caching_provider_mjd_max():
     assert sw.mjd_max() >= 60000.0
 
 
+@pytest.mark.integration
 def test_caching_provider_mjd_last_observed():
     """Test getting last observed MJD from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -151,6 +163,7 @@ def test_caching_provider_mjd_last_observed():
     assert sw.mjd_last_observed() >= 60000.0
 
 
+@pytest.mark.integration
 def test_caching_provider_mjd_last_daily_predicted():
     """Test getting last MJD with daily predicted data from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -164,6 +177,7 @@ def test_caching_provider_mjd_last_daily_predicted():
     assert mjd_last_daily_predicted > 58849.0
 
 
+@pytest.mark.integration
 def test_caching_provider_mjd_last_monthly_predicted():
     """Test getting last MJD with monthly predicted data from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -177,6 +191,7 @@ def test_caching_provider_mjd_last_monthly_predicted():
     assert mjd_last_monthly_predicted > 58849.0
 
 
+@pytest.mark.integration
 def test_caching_provider_get_f107_adj_avg81():
     """Test getting 81-day average adjusted F10.7 from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -191,6 +206,7 @@ def test_caching_provider_get_f107_adj_avg81():
     assert 50.0 < f107_adj_avg < 400.0
 
 
+@pytest.mark.integration
 def test_caching_provider_get_sunspot_number():
     """Test getting sunspot number from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -205,6 +221,7 @@ def test_caching_provider_get_sunspot_number():
     assert isn < 500
 
 
+@pytest.mark.integration
 def test_caching_provider_get_last_kp():
     """Test getting last N 3-hourly Kp values from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -220,6 +237,7 @@ def test_caching_provider_get_last_kp():
         assert 0.0 <= kp <= 9.0
 
 
+@pytest.mark.integration
 def test_caching_provider_get_last_ap():
     """Test getting last N 3-hourly Ap values from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -235,6 +253,7 @@ def test_caching_provider_get_last_ap():
         assert ap >= 0.0
 
 
+@pytest.mark.integration
 def test_caching_provider_get_last_daily_kp():
     """Test getting last N daily average Kp values from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -250,6 +269,7 @@ def test_caching_provider_get_last_daily_kp():
         assert 0.0 <= kp <= 9.0
 
 
+@pytest.mark.integration
 def test_caching_provider_get_last_daily_ap():
     """Test getting last N daily average Ap values from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -265,6 +285,7 @@ def test_caching_provider_get_last_daily_ap():
         assert ap >= 0.0
 
 
+@pytest.mark.integration
 def test_caching_provider_get_last_f107():
     """Test getting last N daily F10.7 values from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -280,6 +301,7 @@ def test_caching_provider_get_last_f107():
         assert val > 0.0
 
 
+@pytest.mark.integration
 def test_caching_provider_get_last_kpap_epochs():
     """Test getting epochs for last N 3-hourly Kp/Ap intervals from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -299,6 +321,7 @@ def test_caching_provider_get_last_kpap_epochs():
         assert epochs[i].mjd() < epochs[i + 1].mjd()
 
 
+@pytest.mark.integration
 def test_caching_provider_get_last_daily_epochs():
     """Test getting epochs for last N daily values from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(

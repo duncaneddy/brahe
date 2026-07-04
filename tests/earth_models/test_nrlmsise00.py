@@ -12,6 +12,7 @@ import brahe as bh
 class TestNrlmsise00:
     """Tests for NRLMSISE-00 atmospheric density model."""
 
+    @pytest.mark.integration
     def test_nrlmsise00_ecef_basic(self, eop):
         """Test NRLMSISE-00 model with ECEF coordinates."""
         bh.initialize_sw()
@@ -27,6 +28,7 @@ class TestNrlmsise00:
         # Typical density at 400 km is on the order of 1e-12 kg/m³
         assert 1e-14 < density < 1e-10
 
+    @pytest.mark.integration
     def test_nrlmsise00_ecef_matches_geod(self, eop):
         """Test that ECEF and geodetic versions produce same results."""
         bh.initialize_sw()
@@ -46,6 +48,7 @@ class TestNrlmsise00:
         # Should match within numerical precision
         assert density_ecef == pytest.approx(density_geod, rel=1e-10)
 
+    @pytest.mark.integration
     def test_nrlmsise00_geod_basic(self, eop):
         """Test NRLMSISE-00 model basic functionality with geodetic coordinates."""
         bh.initialize_sw()
@@ -61,6 +64,7 @@ class TestNrlmsise00:
         # Typical density at 400 km is on the order of 1e-12 kg/m³
         assert 1e-14 < density < 1e-10
 
+    @pytest.mark.integration
     def test_nrlmsise00_altitude_variation(self, eop):
         """Test NRLMSISE-00 density decreases with altitude."""
         bh.initialize_sw()
@@ -83,6 +87,7 @@ class TestNrlmsise00:
                 f"Density at {altitudes[i] / 1e3}km should be > at {altitudes[i + 1] / 1e3}km"
             )
 
+    @pytest.mark.integration
     def test_nrlmsise00_different_epochs(self, eop):
         """Test NRLMSISE-00 produces different results for different epochs."""
         bh.initialize_sw()
@@ -102,6 +107,7 @@ class TestNrlmsise00:
         assert density1 > 0.0
         assert density2 > 0.0
 
+    @pytest.mark.integration
     def test_nrlmsise00_different_locations(self, eop):
         """Test NRLMSISE-00 produces different results for different locations."""
         bh.initialize_sw()
@@ -120,6 +126,7 @@ class TestNrlmsise00:
         assert density1 > 0.0
         assert density2 > 0.0
 
+    @pytest.mark.integration
     def test_nrlmsise00_invalid_input(self, eop):
         """Test NRLMSISE-00 error handling for invalid inputs."""
         bh.initialize_sw()
@@ -134,6 +141,7 @@ class TestNrlmsise00:
         with pytest.raises(ValueError):
             bh.density_nrlmsise00_geod(epc, np.array([0.0, 0.0]))  # Only 2 elements
 
+    @pytest.mark.integration
     def test_nrlmsise00_leo_altitudes(self, eop):
         """Test NRLMSISE-00 at typical LEO altitudes."""
         bh.initialize_sw()

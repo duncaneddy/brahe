@@ -470,6 +470,78 @@ class TestSphericalHarmonicGravity:
         with pytest.raises(ValueError):
             model.set_max_degree_order(100, 100)
 
+    def test_clenshaw_matches_cunningham(self):
+        """Clenshaw and Cunningham kernels agree to < 1e-10 relative."""
+        model = bh.GravityModel.from_model_type_with_tables(
+            bh.GravityModelType.EGM2008_360, bh.GravityTables.Both
+        )
+        positions = [
+            np.array([6.5e6, 1.2e6, 3.1e6]),
+            np.array([bh.R_EARTH + 500e3, 0.0, 0.0]),
+            np.array([0.0, 0.0, 7.0e6]),
+        ]
+        # Degree pairs restricted to those where Cunningham's unnormalized
+        # V/W recursion stays finite and accurate at LEO altitudes; higher
+        # degrees overflow (see test_cunningham_overflow_raises).
+        for r_body in positions:
+            for n, m in [(2, 2), (20, 20), (80, 80), (90, 45), (120, 60)]:
+                a_cun = model.compute_spherical_harmonics_cunningham(r_body, n, m)
+                a_cl = model.compute_spherical_harmonics_clenshaw(r_body, n, m)
+                rel = np.linalg.norm(a_cun - a_cl) / np.linalg.norm(a_cun)
+                assert rel < 1e-10, f"n={n} m={m} rel={rel:e}"
+
+    def test_cunningham_overflow_raises(self):
+        """Cunningham kernel raises on V/W overflow at high degree, low altitude."""
+        model = bh.GravityModel.from_model_type_with_tables(
+            bh.GravityModelType.EGM2008_360, bh.GravityTables.Both
+        )
+        r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+        with pytest.raises(Exception, match="non-finite"):
+            model.compute_spherical_harmonics_cunningham(r_body, 160, 160)
+
+    def test_gravity_tables_default_is_clenshaw_only(self):
+        """Default load builds only Clenshaw tables; Cunningham kernel errors."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        assert model.has_clenshaw_tables()
+        assert not model.has_cunningham_tables()
+        r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+        # Main API dispatches to Clenshaw.
+        a = model.compute_spherical_harmonics(r_body, 10, 10)
+        assert np.isfinite(a).all()
+        with pytest.raises(Exception, match="Cunningham tables"):
+            model.compute_spherical_harmonics_cunningham(r_body, 10, 10)
+
+    def test_gravity_tables_precompute_drop_roundtrip(self):
+        """Tables can be precomputed and dropped; dispatch follows availability."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+        a_clenshaw = model.compute_spherical_harmonics(r_body, 10, 10)
+
+        model.precompute_cunningham_tables()
+        a_cun = model.compute_spherical_harmonics_cunningham(r_body, 10, 10)
+        assert np.linalg.norm(a_clenshaw - a_cun) / np.linalg.norm(a_cun) < 1e-10
+
+        model.drop_clenshaw_tables()
+        assert not model.has_clenshaw_tables()
+        # Falls back to Cunningham.
+        a_fallback = model.compute_spherical_harmonics(r_body, 10, 10)
+        assert np.allclose(a_fallback, a_cun, atol=0.0)
+
+    def test_accel_gravity_spherical_harmonics_clenshaw_matches_main(self):
+        """Explicit Clenshaw accel function matches the main dispatch API."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
+        R = np.eye(3)
+        a_main = bh.accel_gravity_spherical_harmonics(r_eci, R, model, 20, 20)
+        a_cl = bh.accel_gravity_spherical_harmonics_clenshaw(r_eci, R, model, 20, 20)
+        assert np.allclose(a_main, a_cl, atol=0.0)
+
+    def test_gravity_tables_enum(self):
+        """GravityTables variants construct and compare."""
+        assert bh.GravityTables.Clenshaw == bh.GravityTables.Clenshaw
+        assert not (bh.GravityTables.Clenshaw == bh.GravityTables.Both)
+        assert "Clenshaw" in repr(bh.GravityTables.Clenshaw)
+
 
 class TestGravityEnumReprStr:
     """Tests for __repr__ and __str__ of gravity-related enums."""

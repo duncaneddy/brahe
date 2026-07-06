@@ -90,7 +90,7 @@ serial_test = "3"
 httpmock = "0.8"
 tempfile = "3"
 cargo-deny = "0.19"
-mockall = "0.14"
+mockall = "0.15"
 rv = "0.19"
 rand = "0.9"
 criterion = { version = "0.8", features = ["html_reports"] }

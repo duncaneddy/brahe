@@ -6,7 +6,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from brahe.cli.__main__ import app
@@ -14,7 +13,6 @@ from brahe.cli.__main__ import app
 runner = CliRunner()
 
 
-@pytest.mark.integration
 def test_access_compute_basic():
     """Test basic access computation with ISS over NYC."""
     result = runner.invoke(
@@ -43,7 +41,6 @@ def test_access_compute_basic():
     assert "74.0060" in result.stdout
 
 
-@pytest.mark.integration
 def test_access_compute_simple_format():
     """Test simple output format."""
     result = runner.invoke(
@@ -71,7 +68,6 @@ def test_access_compute_simple_format():
     assert "°" in result.stdout
 
 
-@pytest.mark.integration
 def test_access_compute_with_altitude():
     """Test with non-zero altitude."""
     result = runner.invoke(
@@ -97,7 +93,6 @@ def test_access_compute_with_altitude():
     assert "100 m alt" in result.stdout
 
 
-@pytest.mark.integration
 def test_access_compute_custom_elevation():
     """Test with custom minimum elevation."""
     result = runner.invoke(
@@ -123,7 +118,6 @@ def test_access_compute_custom_elevation():
     assert "20.0°" in result.stdout
 
 
-@pytest.mark.integration
 def test_access_compute_max_results():
     """Test limiting number of results."""
     result = runner.invoke(
@@ -150,7 +144,6 @@ def test_access_compute_max_results():
     assert "window" in result.stdout.lower()
 
 
-@pytest.mark.integration
 def test_access_compute_json_export():
     """Test JSON export functionality."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -285,7 +278,6 @@ def test_access_compute_end_without_start():
     assert "Cannot specify --end-time without --start-time" in result.stdout
 
 
-@pytest.mark.integration
 def test_access_compute_invalid_norad_id():
     """Test error handling for invalid NORAD ID."""
     result = runner.invoke(
@@ -310,7 +302,6 @@ def test_access_compute_invalid_norad_id():
     assert "Error" in result.stdout
 
 
-@pytest.mark.integration
 def test_access_compute_no_windows_found():
     """Test case where no access windows are found."""
     # Use a very high elevation constraint to ensure no windows
@@ -340,7 +331,6 @@ def test_access_compute_no_windows_found():
     )
 
 
-@pytest.mark.integration
 def test_access_compute_with_groundstation_provider():
     """Test using groundstation provider and name lookup."""
     result = runner.invoke(
@@ -404,7 +394,6 @@ def test_access_compute_invalid_station_name():
     assert "No groundstation matching" in result.stdout
 
 
-@pytest.mark.integration
 def test_access_compute_ambiguous_station_name():
     """Test error handling for ambiguous groundstation name (multiple matches)."""
     result = runner.invoke(
@@ -492,7 +481,6 @@ def test_access_compute_name_without_provider():
     )
 
 
-@pytest.mark.integration
 def test_access_compute_table_format():
     """Test table output format (new default)."""
     result = runner.invoke(
@@ -523,7 +511,6 @@ def test_access_compute_table_format():
     assert "│" in result.stdout or "|" in result.stdout
 
 
-@pytest.mark.integration
 def test_access_compute_table_default_format():
     """Test that table is the default output format."""
     result = runner.invoke(
@@ -551,7 +538,6 @@ def test_access_compute_table_default_format():
     assert "(deg)" in result.stdout
 
 
-@pytest.mark.integration
 def test_access_compute_sort_by_max_elevation():
     """Test sorting by max elevation."""
     result = runner.invoke(
@@ -582,7 +568,6 @@ def test_access_compute_sort_by_max_elevation():
     assert "window" in result.stdout.lower()
 
 
-@pytest.mark.integration
 def test_access_compute_sort_by_duration():
     """Test sorting by duration."""
     result = runner.invoke(
@@ -612,7 +597,6 @@ def test_access_compute_sort_by_duration():
     assert "window" in result.stdout.lower()
 
 
-@pytest.mark.integration
 def test_access_compute_json_has_contact_numbers():
     """Test that JSON export includes contact numbers."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -658,7 +642,6 @@ def test_access_compute_json_has_contact_numbers():
                 assert window["contact_number"] == i
 
 
-@pytest.mark.integration
 def test_access_compute_rich_format_backward_compatibility():
     """Test that rich format still works (backward compatibility)."""
     result = runner.invoke(
@@ -687,7 +670,6 @@ def test_access_compute_rich_format_backward_compatibility():
     # Just verify it ran successfully with units
 
 
-@pytest.mark.integration
 def test_access_compute_with_groundstation_table_format():
     """Test table format with groundstation provider lookup."""
     result = runner.invoke(

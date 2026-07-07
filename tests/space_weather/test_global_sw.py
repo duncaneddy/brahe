@@ -112,7 +112,6 @@ def test_set_global_sw_from_default_file():
     assert brahe.get_global_sw_type() == "CssiSpaceWeather"
 
 
-@pytest.mark.integration
 def test_set_global_sw_from_caching_provider():
     """Test setting global provider from caching provider"""
     sw = brahe.CachingSpaceWeatherProvider(
@@ -245,7 +244,6 @@ def test_get_global_sw_info():
     assert brahe.get_global_sw_mjd_last_observed() >= 60000.0
 
 
-@pytest.mark.integration
 def test_initialize_sw():
     """Test the convenience initialization function"""
     brahe.initialize_sw()

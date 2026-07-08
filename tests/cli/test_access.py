@@ -5,7 +5,9 @@ Tests for brahe access CLI commands.
 import json
 import tempfile
 from pathlib import Path
+
 from typer.testing import CliRunner
+
 from brahe.cli.__main__ import app
 
 runner = CliRunner()

@@ -87,9 +87,7 @@ class TestEarthZonalGravity:
         r_object = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 
         a_zonal = bh.accel_earth_zonal_gravity(r_object, 0)
-        a_point = bh.accel_point_mass_gravity(
-            r_object, np.zeros(3), bh.GM_EARTH
-        )
+        a_point = bh.accel_point_mass_gravity(r_object, np.zeros(3), bh.GM_EARTH)
 
         assert np.allclose(a_zonal, a_point, atol=1e-15)
 
@@ -120,9 +118,7 @@ class TestEarthZonalGravity:
     def test_accel_earth_zonal_gravity_state_matches_position(self):
         """6D state input must match 3D position input."""
         r_pos = np.array([bh.R_EARTH + 500e3, 1000e3, 2000e3])
-        x_state = np.array(
-            [bh.R_EARTH + 500e3, 1000e3, 2000e3, 7500.0, 1000.0, -500.0]
-        )
+        x_state = np.array([bh.R_EARTH + 500e3, 1000e3, 2000e3, 7500.0, 1000.0, -500.0])
 
         a_from_pos = bh.accel_earth_zonal_gravity(r_pos, 4)
         a_from_state = bh.accel_earth_zonal_gravity(x_state, 4)

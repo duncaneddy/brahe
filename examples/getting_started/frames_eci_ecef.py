@@ -32,13 +32,17 @@ x_ecef = bh.state_eci_to_ecef(epc, x_eci_1)
 
 # Convert ECEF back to ECI to verify consistency
 x_eci_2 = bh.state_ecef_to_eci(epc, x_ecef)
-print(f"ECI -> ECEF -> ECI rountrip difference: {np.linalg.norm(x_eci_2 - x_eci_1):.3e}")
+print(
+    f"ECI -> ECEF -> ECI rountrip difference: {np.linalg.norm(x_eci_2 - x_eci_1):.3e}"
+)
 
 # Perform same transformation with GCRF/ITRF naming
 
 x_gcrf_1 = x_eci_1
 x_itrf = bh.state_gcrf_to_itrf(epc, x_gcrf_1)
 x_gcrf_2 = bh.state_itrf_to_gcrf(epc, x_itrf)
-print(f"GCRF -> ITRF -> GCRF rountrip difference: {np.linalg.norm(x_gcrf_2 - x_gcrf_1):.3e}")
+print(
+    f"GCRF -> ITRF -> GCRF rountrip difference: {np.linalg.norm(x_gcrf_2 - x_gcrf_1):.3e}"
+)
 
-print(f'ECEF <> ITRF difference: {np.linalg.norm(x_ecef - x_itrf):.3e}')
+print(f"ECEF <> ITRF difference: {np.linalg.norm(x_ecef - x_itrf):.3e}")

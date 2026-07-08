@@ -1,11 +1,8 @@
-from dataclasses import dataclass
-
 import pytest
 
 from benchmarks.gpu_comparison.results import (
     CellResult,
     SchedulingPolicy,
-    SkipReason,
 )
 from benchmarks.gpu_comparison.scheduler import (
     project_next_cell_time,
@@ -24,9 +21,14 @@ class _StubTask(BatchTask):
         BatchConfig(name="astrojax-multigpu", dtype="f32", backend="astrojax-multigpu"),
     ]
 
-    def batch_sizes(self): return [10, 100, 1000, 10_000]
-    def generate_inputs(self, b, s): return {"n": b}
-    def multigpu_min_batch(self) -> int: return 500
+    def batch_sizes(self):
+        return [10, 100, 1000, 10_000]
+
+    def generate_inputs(self, b, s):
+        return {"n": b}
+
+    def multigpu_min_batch(self) -> int:
+        return 500
 
 
 def test_should_run_multigpu():
@@ -38,10 +40,17 @@ def test_should_run_multigpu():
 
 
 def test_project_next_cell_time_scales_linearly():
-    prev = CellResult.ok_cell(task="t", config="c", dtype="f64",
-                              batch_size=100, times=[0.001] * 10, metadata={})
-    proj = project_next_cell_time(prev_cell=prev, prev_batch=100,
-                                  next_batch=1000, iterations=10)
+    prev = CellResult.ok_cell(
+        task="t",
+        config="c",
+        dtype="f64",
+        batch_size=100,
+        times=[0.001] * 10,
+        metadata={},
+    )
+    proj = project_next_cell_time(
+        prev_cell=prev, prev_batch=100, next_batch=1000, iterations=10
+    )
     # per-iter at next batch = 0.001 * (1000/100) = 0.01; total = 10 * 0.01 = 0.1
     assert proj == pytest.approx(0.1)
 
@@ -52,8 +61,12 @@ def test_schedule_ladder_runs_within_budget():
 
     def fake_run(batch_size: int) -> CellResult:
         return CellResult.ok_cell(
-            task=t.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, times=[1e-6] * 10, metadata={},
+            task=t.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            times=[1e-6] * 10,
+            metadata={},
         )
 
     policy = SchedulingPolicy(per_cell_budget_s=120.0, global_run_budget_s=3600.0)
@@ -68,8 +81,12 @@ def test_schedule_ladder_projected_skip():
 
     def fake_run(batch_size: int) -> CellResult:
         return CellResult.ok_cell(
-            task=t.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, times=[10.0] * 10, metadata={},
+            task=t.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            times=[10.0] * 10,
+            metadata={},
         )
 
     policy = SchedulingPolicy(per_cell_budget_s=120.0, global_run_budget_s=3600.0)
@@ -86,12 +103,18 @@ def test_schedule_ladder_multigpu_skips_small_batches():
 
     def fake_run(batch_size: int) -> CellResult:
         return CellResult.ok_cell(
-            task=t.name, config=multigpu_config.name, dtype=multigpu_config.dtype,
-            batch_size=batch_size, times=[1e-6] * 10, metadata={},
+            task=t.name,
+            config=multigpu_config.name,
+            dtype=multigpu_config.dtype,
+            batch_size=batch_size,
+            times=[1e-6] * 10,
+            metadata={},
         )
 
     policy = SchedulingPolicy(per_cell_budget_s=120.0, global_run_budget_s=3600.0)
-    cells = schedule_ladder(task=t, config=multigpu_config, run_one_cell=fake_run, policy=policy)
+    cells = schedule_ladder(
+        task=t, config=multigpu_config, run_one_cell=fake_run, policy=policy
+    )
     assert cells[0].skip_reason == "below_multigpu_min_batch"
     assert cells[1].skip_reason == "below_multigpu_min_batch"
     assert cells[2].status == "ok"

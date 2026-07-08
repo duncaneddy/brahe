@@ -109,7 +109,9 @@ class CellResult:
             times_seconds=list(times),
             mean_time_s=mean,
             p50_time_s=sorted_times[len(sorted_times) // 2],
-            p99_time_s=sorted_times[min(len(sorted_times) - 1, int(0.99 * len(sorted_times)))],
+            p99_time_s=sorted_times[
+                min(len(sorted_times) - 1, int(0.99 * len(sorted_times)))
+            ],
             throughput_ops_per_sec=(batch_size / mean) if mean > 0 else float("inf"),
             speedup_vs_baseline=None,
             metadata=metadata,

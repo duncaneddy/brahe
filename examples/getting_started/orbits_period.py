@@ -23,4 +23,4 @@ oe_deg = np.array(
 
 # Calculate Orbital period
 period = bh.orbital_period(oe_deg[0])
-print(f"Orbital period: {period/60:.3f} minutes")
+print(f"Orbital period: {period / 60:.3f} minutes")

@@ -36,12 +36,14 @@ from benchmarks.comparative.implementations.gmat.base import (
 
 def _acu():
     import gmatpy as gmat
+
     return gmat.AttitudeConversionUtility
 
 
 def _make_rvector(vals):
     """Build a GMAT Rvector from a Python sequence of floats."""
     import gmatpy as gmat
+
     rv = gmat.Rvector(len(vals))
     for i, v in enumerate(vals):
         rv.SetElement(i, float(v))
@@ -51,6 +53,7 @@ def _make_rvector(vals):
 def _make_rvector3(vals):
     """Build a GMAT Rvector3 from a 3-element Python sequence of floats."""
     import gmatpy as gmat
+
     rv = gmat.Rvector3()
     for i, v in enumerate(vals):
         rv.SetElement(i, float(v))

@@ -9,7 +9,6 @@ brahe-bundled file.
 
 from __future__ import annotations
 
-import math
 
 import numpy as np
 
@@ -75,6 +74,7 @@ class ForceModelGrav5x5Task(BatchTask):
 
 def _jnp_dtype(dtype: str):
     import jax.numpy as jnp
+
     return jnp.float32 if dtype == "f32" else jnp.float64
 
 

@@ -167,13 +167,11 @@ where
 
         // Cell 3: Year — first 4-digit integer in [1900, 2100].
         let year_text = cells[3].text().collect::<String>();
-        let year = year_text
-            .split_whitespace()
-            .find_map(|tok| {
-                tok.parse::<u16>()
-                    .ok()
-                    .filter(|&y| (1900..=2100).contains(&y))
-            });
+        let year = year_text.split_whitespace().find_map(|tok| {
+            tok.parse::<u16>()
+                .ok()
+                .filter(|&y| (1900..=2100).contains(&y))
+        });
 
         // Cell 4: All degrees in document order. Multi-variant rows list degrees
         // with `<br>` separators that `.text()` collapses to nothing — we use
@@ -202,9 +200,9 @@ where
                     .next()
                     .unwrap_or("")
                     .trim_end_matches(".gfc");
-                filename.rfind('_').and_then(|pos| {
-                    filename[pos + 1..].parse::<u32>().ok().filter(|&n| n >= 2)
-                })
+                filename
+                    .rfind('_')
+                    .and_then(|pos| filename[pos + 1..].parse::<u32>().ok().filter(|&n| n >= 2))
             });
 
             let degree = match degree {
@@ -236,8 +234,7 @@ where
 mod tests {
     use super::*;
 
-    const EARTH_FIXTURE: &str =
-        include_str!("../../../test_assets/icgem/tom_longtime_sample.html");
+    const EARTH_FIXTURE: &str = include_str!("../../../test_assets/icgem/tom_longtime_sample.html");
 
     #[test]
     fn test_parse_earth_catalog_has_entries() {
@@ -275,7 +272,11 @@ mod tests {
             .iter()
             .filter(|e| e.name == "WHU-CASM-UGM2025_2159")
             .collect();
-        assert_eq!(whu.len(), 4, "expected 4 download variants for WHU-CASM-UGM2025_2159");
+        assert_eq!(
+            whu.len(),
+            4,
+            "expected 4 download variants for WHU-CASM-UGM2025_2159"
+        );
 
         let mut degrees: Vec<u32> = whu.iter().map(|e| e.degree).collect();
         degrees.sort();
@@ -300,10 +301,7 @@ mod tests {
         // EIGEN-6C2 and EIGEN-6C3stat have degree 1949, which falls within the
         // year range 1900-2100. The parser must not exclude it.
         let entries = parse_earth_catalog(EARTH_FIXTURE).unwrap();
-        let degrees_1949: Vec<&IndexEntry> = entries
-            .iter()
-            .filter(|e| e.degree == 1949)
-            .collect();
+        let degrees_1949: Vec<&IndexEntry> = entries.iter().filter(|e| e.degree == 1949).collect();
         assert!(
             !degrees_1949.is_empty(),
             "expected at least one entry with degree 1949 (e.g. EIGEN-6C2 or EIGEN-6C3stat)"

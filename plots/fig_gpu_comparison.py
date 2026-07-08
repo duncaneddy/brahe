@@ -92,10 +92,10 @@ def _human(value: float) -> str:
 
 def _config_color(cfg: str, colors: dict) -> str:
     return {
-        "brahe-rust-rayon": colors["accent"],     # Brahe green
-        "astrojax-cpu":     colors["primary"],    # blue
-        "astrojax-gpu":     colors["secondary"],  # orange
-        "astrojax-multigpu":colors["tertiary"],   # magenta
+        "brahe-rust-rayon": colors["accent"],  # Brahe green
+        "astrojax-cpu": colors["primary"],  # blue
+        "astrojax-gpu": colors["secondary"],  # orange
+        "astrojax-multigpu": colors["tertiary"],  # magenta
     }.get(cfg, colors["error"])
 
 
@@ -156,7 +156,8 @@ def _write_speedup_csv(by_task: dict[str, list[dict]]) -> pathlib.Path:
                 vals = [
                     c.get("speedup_vs_baseline")
                     for c in by_task[task]
-                    if c["config"] == cfg and c["status"] == "ok"
+                    if c["config"] == cfg
+                    and c["status"] == "ok"
                     and c.get("speedup_vs_baseline") is not None
                 ]
                 row.append(f"{max(vals):.2f}x" if vals else "n/a")
@@ -178,14 +179,17 @@ def _throughput_fig(task_name: str, cells: list[dict]):
                 continue
             xs = [c["batch_size"] for c in cfg_cells]
             ys = [c["throughput_ops_per_sec"] for c in cfg_cells]
-            fig.add_trace(go.Scatter(
-                x=xs, y=ys,
-                mode="lines+markers",
-                name=cfg,
-                line=dict(color=_config_color(cfg, colors), width=2),
-                marker=dict(size=7),
-                hovertemplate="batch=%{x}<br>throughput=%{y:.3e} ops/s<extra></extra>",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=xs,
+                    y=ys,
+                    mode="lines+markers",
+                    name=cfg,
+                    line=dict(color=_config_color(cfg, colors), width=2),
+                    marker=dict(size=7),
+                    hovertemplate="batch=%{x}<br>throughput=%{y:.3e} ops/s<extra></extra>",
+                )
+            )
         fig.update_layout(
             title=dict(text=task_name, x=0.5, xanchor="center"),
             xaxis=dict(title="batch size", type="log"),
@@ -196,6 +200,7 @@ def _throughput_fig(task_name: str, cells: list[dict]):
             height=500,
         )
         return fig
+
     return _make
 
 
@@ -208,7 +213,8 @@ def _peak_speedup_fig(by_task: dict[str, list[dict]]):
             vals = [
                 c.get("speedup_vs_baseline")
                 for c in by_task[task]
-                if c["config"] == cfg and c["status"] == "ok"
+                if c["config"] == cfg
+                and c["status"] == "ok"
                 and c.get("speedup_vs_baseline") is not None
             ]
             peak[cfg].append(max(vals) if vals else None)
@@ -217,14 +223,19 @@ def _peak_speedup_fig(by_task: dict[str, list[dict]]):
         colors = get_theme_colors(theme)
         fig = go.Figure()
         for cfg in configs:
-            fig.add_trace(go.Bar(
-                x=tasks, y=peak[cfg], name=cfg,
-                marker=dict(color=_config_color(cfg, colors)),
-                hovertemplate="%{x}<br>peak speedup=%{y:.2f}x<extra></extra>",
-            ))
+            fig.add_trace(
+                go.Bar(
+                    x=tasks,
+                    y=peak[cfg],
+                    name=cfg,
+                    marker=dict(color=_config_color(cfg, colors)),
+                    hovertemplate="%{x}<br>peak speedup=%{y:.2f}x<extra></extra>",
+                )
+            )
         fig.update_layout(
-            title=dict(text="Peak speedup vs brahe-rust-rayon",
-                       x=0.5, xanchor="center"),
+            title=dict(
+                text="Peak speedup vs brahe-rust-rayon", x=0.5, xanchor="center"
+            ),
             barmode="group",
             xaxis=dict(title="task", tickangle=-25),
             yaxis=dict(title="peak speedup (×)", type="log"),
@@ -236,13 +247,17 @@ def _peak_speedup_fig(by_task: dict[str, list[dict]]):
         # Parity reference line
         fig.add_hline(y=1.0, line=dict(color=colors["line_color"], dash="dash"))
         return fig
+
     return _make
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input", type=pathlib.Path,
-                    help="results JSON (default: most recent in benchmarks/gpu_comparison/results/)")
+    ap.add_argument(
+        "--input",
+        type=pathlib.Path,
+        help="results JSON (default: most recent in benchmarks/gpu_comparison/results/)",
+    )
     args = ap.parse_args()
     src = args.input if args.input else _latest_results()
     print(f"reading {src}")

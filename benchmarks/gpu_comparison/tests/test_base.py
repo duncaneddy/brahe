@@ -50,6 +50,8 @@ def test_generate_inputs_is_seeded_deterministic():
 
 def test_subclass_must_implement_abstracts():
     with pytest.raises(TypeError):
+
         class _Bad(BatchTask):
             pass
+
         _Bad()

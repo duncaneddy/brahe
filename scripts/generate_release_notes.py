@@ -71,21 +71,32 @@ def fetch_prs_since(prev_tag: str, repo: str) -> list[PRInfo]:
     numbers = pr_numbers_in_range(prev_tag)
     prs: list[PRInfo] = []
     for n in numbers:
-        raw = json.loads(run([
-            "gh", "pr", "view", str(n),
-            "--repo", repo,
-            "--json", "number,title,author,labels,body",
-        ]))
+        raw = json.loads(
+            run(
+                [
+                    "gh",
+                    "pr",
+                    "view",
+                    str(n),
+                    "--repo",
+                    repo,
+                    "--json",
+                    "number,title,author,labels,body",
+                ]
+            )
+        )
         author = raw.get("author") or {}
         if author.get("is_bot"):
             continue
-        prs.append(PRInfo(
-            number=raw["number"],
-            title=raw["title"],
-            author=author.get("login", "unknown"),
-            labels=tuple(lbl["name"] for lbl in raw.get("labels") or []),
-            body=raw.get("body") or "",
-        ))
+        prs.append(
+            PRInfo(
+                number=raw["number"],
+                title=raw["title"],
+                author=author.get("login", "unknown"),
+                labels=tuple(lbl["name"] for lbl in raw.get("labels") or []),
+                body=raw.get("body") or "",
+            )
+        )
     prs.sort(key=lambda p: p.number)
     return prs
 
@@ -131,7 +142,9 @@ def format_entry(text: str, pr: PRInfo, repo: str) -> str:
 EMPTY_RELEASE_NOTE = "_No notable changes for this release._"
 
 
-def build_release_section(version: str, prs: list[PRInfo], repo: str, today: str) -> str:
+def build_release_section(
+    version: str, prs: list[PRInfo], repo: str, today: str
+) -> str:
     aggregated: dict[str, list[str]] = {s: [] for s in SECTIONS}
     for pr in prs:
         for section, entries in parse_pr_sections(pr.body).items():
@@ -175,16 +188,27 @@ def update_changelog(changelog_path: Path, section: str) -> bool:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True, help="Release version, e.g. 1.5.0")
-    parser.add_argument("--prev-tag", required=True, help="Previous release tag, e.g. v1.4.2")
+    parser.add_argument(
+        "--prev-tag", required=True, help="Previous release tag, e.g. v1.4.2"
+    )
     parser.add_argument("--repo", default="duncaneddy/brahe")
     parser.add_argument("--changelog", default="CHANGELOG.md")
-    parser.add_argument("--release-notes", default=None,
-                        help="Optional path to also write the release section to "
-                             "(e.g. release_notes.md). Omit to only update the CHANGELOG.")
-    parser.add_argument("--date", default=date.today().isoformat(),
-                        help="Release date in ISO format (default: today, UTC)")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Print the generated section to stdout; don't write files")
+    parser.add_argument(
+        "--release-notes",
+        default=None,
+        help="Optional path to also write the release section to "
+        "(e.g. release_notes.md). Omit to only update the CHANGELOG.",
+    )
+    parser.add_argument(
+        "--date",
+        default=date.today().isoformat(),
+        help="Release date in ISO format (default: today, UTC)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the generated section to stdout; don't write files",
+    )
     return parser.parse_args()
 
 
@@ -194,8 +218,10 @@ def main() -> int:
     if not prs:
         # Not a failure: maintenance releases that contain only skipped PRs
         # (dependabot, bundled-data updates, etc.) still need a release block.
-        print(f"No contributor PRs since {args.prev_tag}; "
-              f"emitting empty release note.", file=sys.stderr)
+        print(
+            f"No contributor PRs since {args.prev_tag}; emitting empty release note.",
+            file=sys.stderr,
+        )
     section = build_release_section(args.version, prs, args.repo, args.date)
 
     if args.dry_run:

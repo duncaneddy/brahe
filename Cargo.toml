@@ -55,7 +55,7 @@ ureq = { version = "3", features = ["cookies", "multipart"] }
 # committed for the library, CI resolves fresh and otherwise picks up the broken 0.3.52. Cap below
 # it until a fixed cookie release is available.
 # TODO: Remove this pin once fix is released
-time = ">=0.3, <0.3.52"
+time = ">=0.3, <0.3.54"
 strum = "0.28"
 strum_macros = "0.28"
 scraper = "0.27"

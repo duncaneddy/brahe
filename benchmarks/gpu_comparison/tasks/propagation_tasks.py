@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 
 import numpy as np
 
@@ -26,7 +25,9 @@ ISS_TLE_LINE2 = "2 25544  51.6393 160.4574 0003580 140.6673 205.7250 15.50957674
 class Sgp4IssSweepTask(BatchTask):
     name = "propagation.sgp4_iss_sweep"
     module = "propagation"
-    description = "Propagate ISS TLE to N time offsets (in minutes since epoch) using SGP4"
+    description = (
+        "Propagate ISS TLE to N time offsets (in minutes since epoch) using SGP4"
+    )
     configs = _ALL_CONFIGS
 
     def batch_sizes(self) -> list[int]:
@@ -100,6 +101,7 @@ class NumericalTwobodyJ2Task(BatchTask):
 
 def _jnp_dtype(dtype: str):
     import jax.numpy as jnp
+
     return jnp.float32 if dtype == "f32" else jnp.float64
 
 
@@ -109,7 +111,9 @@ def _build_sgp4_iss_sweep(task, batch_size, dtype, seed, devices):
     from astrojax.sgp4 import create_sgp4_propagator
 
     params = task.generate_inputs(batch_size, seed)
-    _, prop_fn = create_sgp4_propagator(params["line1"], params["line2"], gravity="wgs72")
+    _, prop_fn = create_sgp4_propagator(
+        params["line1"], params["line2"], gravity="wgs72"
+    )
     times = jnp.array(params["tsince_minutes"], dtype=_jnp_dtype(dtype))
 
     if len(devices) == 1 and hasattr(devices[0], "device_kind"):
@@ -188,4 +192,6 @@ def _build_numerical_twobody_j2(task, batch_size, dtype, seed, devices):
 
 
 astrojax_kernels.register("propagation.sgp4_iss_sweep", _build_sgp4_iss_sweep)
-astrojax_kernels.register("propagation.numerical_twobody_j2", _build_numerical_twobody_j2)
+astrojax_kernels.register(
+    "propagation.numerical_twobody_j2", _build_numerical_twobody_j2
+)

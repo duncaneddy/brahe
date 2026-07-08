@@ -39,13 +39,19 @@ def run_astrojax_cell_in_child(
             return _cell_from_dict(payload)
         if kind == "error":
             return CellResult.skipped(
-                task=task.name, config=config.name, dtype=config.dtype,
-                batch_size=batch_size, reason=SkipReason.BACKEND_ERROR,
+                task=task.name,
+                config=config.name,
+                dtype=config.dtype,
+                batch_size=batch_size,
+                reason=SkipReason.BACKEND_ERROR,
                 error_message=payload,
             )
     return CellResult.skipped(
-        task=task.name, config=config.name, dtype=config.dtype,
-        batch_size=batch_size, reason=SkipReason.BACKEND_ERROR,
+        task=task.name,
+        config=config.name,
+        dtype=config.dtype,
+        batch_size=batch_size,
+        reason=SkipReason.BACKEND_ERROR,
         error_message=f"child process exited with code {p.exitcode} and no result",
     )
 
@@ -56,9 +62,14 @@ def _child_entry(q, task, config, batch_size, iterations, seed) -> None:
         from benchmarks.gpu_comparison.implementations.astrojax_gpu import (
             run_astrojax_cell_in_process,
         )
+
         cell = run_astrojax_cell_in_process(
-            task=task, config=config, batch_size=batch_size,
-            iterations=iterations, seed=seed, force_cpu=True,
+            task=task,
+            config=config,
+            batch_size=batch_size,
+            iterations=iterations,
+            seed=seed,
+            force_cpu=True,
         )
         q.put(("cell_dict", _cell_to_dict(cell)))
     except Exception as e:

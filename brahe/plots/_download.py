@@ -26,8 +26,7 @@ _ZIP_MAGIC = b"PK\x03\x04"
 # User-Agent; present a browser-like UA and a permissive Accept header.
 _HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (compatible; brahe; "
-        "+https://github.com/duncaneddy/brahe)"
+        "Mozilla/5.0 (compatible; brahe; +https://github.com/duncaneddy/brahe)"
     ),
     "Accept": "*/*",
 }
@@ -159,6 +158,6 @@ def download_and_extract_zip(
             f"{description} not found after extraction: {sentinel}"
         )
 
-    raise last_error if last_error else RuntimeError(
-        f"Failed to download {description}"
+    raise (
+        last_error if last_error else RuntimeError(f"Failed to download {description}")
     )

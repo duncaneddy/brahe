@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
 
 from benchmarks.gpu_comparison.config import REPO_ROOT, set_data_alignment_env
 from benchmarks.gpu_comparison.results import CellResult, SkipReason
@@ -12,11 +11,14 @@ from benchmarks.gpu_comparison.tasks.base import BatchConfig, BatchTask
 
 
 RUST_MANIFEST = (
-    REPO_ROOT / "benchmarks" / "gpu_comparison" / "implementations" / "rust" / "Cargo.toml"
+    REPO_ROOT
+    / "benchmarks"
+    / "gpu_comparison"
+    / "implementations"
+    / "rust"
+    / "Cargo.toml"
 )
-RUST_BINARY = (
-    RUST_MANIFEST.parent / "target" / "release" / "bench_gpu_rust"
-)
+RUST_BINARY = RUST_MANIFEST.parent / "target" / "release" / "bench_gpu_rust"
 
 
 def run_rust_cell(
@@ -31,8 +33,11 @@ def run_rust_cell(
     """Run one cell via the Rust subprocess and return its CellResult."""
     if not RUST_BINARY.exists():
         return CellResult.skipped(
-            task=task.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, reason=SkipReason.BACKEND_ERROR,
+            task=task.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            reason=SkipReason.BACKEND_ERROR,
             error_message=f"Rust binary not built at {RUST_BINARY}",
         )
 
@@ -56,14 +61,20 @@ def run_rust_cell(
         )
     except subprocess.TimeoutExpired:
         return CellResult.skipped(
-            task=task.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, reason=SkipReason.BUDGET_EXCEEDED,
+            task=task.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            reason=SkipReason.BUDGET_EXCEEDED,
         )
 
     if proc.returncode != 0:
         return CellResult.skipped(
-            task=task.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, reason=SkipReason.BACKEND_ERROR,
+            task=task.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            reason=SkipReason.BACKEND_ERROR,
             error_message=proc.stderr[:1000],
         )
 
@@ -71,8 +82,11 @@ def run_rust_cell(
         output = json.loads(proc.stdout)
     except json.JSONDecodeError as e:
         return CellResult.skipped(
-            task=task.name, config=config.name, dtype=config.dtype,
-            batch_size=batch_size, reason=SkipReason.BACKEND_ERROR,
+            task=task.name,
+            config=config.name,
+            dtype=config.dtype,
+            batch_size=batch_size,
+            reason=SkipReason.BACKEND_ERROR,
             error_message=f"JSON decode error: {e}; stdout was: {proc.stdout[:500]}",
         )
 

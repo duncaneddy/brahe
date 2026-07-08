@@ -82,6 +82,7 @@ class EnzToAzelTask(BatchTask):
 
 def _jnp_dtype(dtype: str):
     import jax.numpy as jnp
+
     return jnp.float32 if dtype == "f32" else jnp.float64
 
 
@@ -95,7 +96,11 @@ def _wrap_kernel(kernel, args, devices):
             placed = jax.device_put(args, device)
         else:
             placed = args
-        compiled = jax.jit(kernel, device=device) if hasattr(device, "device_kind") else jax.jit(kernel)
+        compiled = (
+            jax.jit(kernel, device=device)
+            if hasattr(device, "device_kind")
+            else jax.jit(kernel)
+        )
         return (lambda _: compiled(placed)), {}
     else:
         # multi-GPU: shard input batch across devices
@@ -104,6 +109,7 @@ def _wrap_kernel(kernel, args, devices):
         padded = ((batch + n_dev - 1) // n_dev) * n_dev
         if padded > batch:
             import jax.numpy as jnp
+
             pad = jnp.zeros((padded - batch,) + args.shape[1:], dtype=args.dtype)
             args = jnp.concatenate([args, pad], axis=0)
         sharded_shape = (n_dev, padded // n_dev) + args.shape[1:]
@@ -200,5 +206,7 @@ def _build_enz_to_azel(task, batch_size, dtype, seed, devices):
 
 
 astrojax_kernels.register("coordinates.geodetic_to_ecef", _build_geodetic_to_ecef)
-astrojax_kernels.register("coordinates.keplerian_to_cartesian", _build_keplerian_to_cartesian)
+astrojax_kernels.register(
+    "coordinates.keplerian_to_cartesian", _build_keplerian_to_cartesian
+)
 astrojax_kernels.register("coordinates.enz_to_azel", _build_enz_to_azel)

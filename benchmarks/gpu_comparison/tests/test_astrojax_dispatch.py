@@ -3,6 +3,7 @@
 Uses a ping kernel (no actual astrojax import) so the test runs without
 JAX. Real astrojax-backed tests live in the per-task test files.
 """
+
 import pytest
 
 from benchmarks.gpu_comparison.implementations import astrojax_kernels
@@ -23,13 +24,18 @@ class _PingTask(BatchTask):
         BatchConfig(name="astrojax-cpu", dtype="f64", backend="astrojax-cpu"),
         BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu"),
     ]
-    def batch_sizes(self): return [1, 10]
-    def generate_inputs(self, b, s): return {"n": b}
+
+    def batch_sizes(self):
+        return [1, 10]
+
+    def generate_inputs(self, b, s):
+        return {"n": b}
 
 
 def _ping_builder(task, batch_size, dtype, seed, devices):
     def kernel(args):
         return args["n"] * 2
+
     return kernel, {"n": batch_size}
 
 
@@ -43,8 +49,12 @@ def _register_ping():
 def test_run_in_process_cpu():
     cfg = BatchConfig(name="astrojax-cpu", dtype="f64", backend="astrojax-cpu")
     cell = run_astrojax_cell_in_process(
-        task=_PingTask(), config=cfg, batch_size=10,
-        iterations=3, seed=42, force_cpu=True,
+        task=_PingTask(),
+        config=cfg,
+        batch_size=10,
+        iterations=3,
+        seed=42,
+        force_cpu=True,
     )
     assert cell.status == "ok"
     assert cell.batch_size == 10
@@ -54,8 +64,11 @@ def test_run_in_process_cpu():
 def test_run_in_child_returns_cell():
     cfg = BatchConfig(name="astrojax-cpu", dtype="f64", backend="astrojax-cpu")
     cell = run_astrojax_cell_in_child(
-        task=_PingTask(), config=cfg, batch_size=10,
-        iterations=3, seed=42,
+        task=_PingTask(),
+        config=cfg,
+        batch_size=10,
+        iterations=3,
+        seed=42,
     )
     # The child process has its own astrojax_kernels._BUILDERS dict, so it
     # won't see the parent's registered ping builder. We expect this to

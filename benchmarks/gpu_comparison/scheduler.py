@@ -49,31 +49,47 @@ def schedule_ladder(
 
     for batch_size in ladder:
         if is_multigpu and not should_run_multigpu(task, batch_size):
-            cells.append(CellResult.skipped(
-                task=task.name, config=config.name, dtype=config.dtype,
-                batch_size=batch_size, reason=SkipReason.BELOW_MULTIGPU_MIN_BATCH,
-            ))
+            cells.append(
+                CellResult.skipped(
+                    task=task.name,
+                    config=config.name,
+                    dtype=config.dtype,
+                    batch_size=batch_size,
+                    reason=SkipReason.BELOW_MULTIGPU_MIN_BATCH,
+                )
+            )
             continue
 
         if budget_exhausted:
-            cells.append(CellResult.skipped(
-                task=task.name, config=config.name, dtype=config.dtype,
-                batch_size=batch_size, reason=SkipReason.BUDGET_PROJECTED_EXCEEDED,
-            ))
+            cells.append(
+                CellResult.skipped(
+                    task=task.name,
+                    config=config.name,
+                    dtype=config.dtype,
+                    batch_size=batch_size,
+                    reason=SkipReason.BUDGET_PROJECTED_EXCEEDED,
+                )
+            )
             continue
 
         if prev_ok is not None and prev_batch is not None:
             projected = project_next_cell_time(
-                prev_cell=prev_ok, prev_batch=prev_batch,
-                next_batch=batch_size, iterations=policy.iterations,
+                prev_cell=prev_ok,
+                prev_batch=prev_batch,
+                next_batch=batch_size,
+                iterations=policy.iterations,
             )
             if projected > policy.per_cell_budget_s:
-                cells.append(CellResult.skipped(
-                    task=task.name, config=config.name, dtype=config.dtype,
-                    batch_size=batch_size,
-                    reason=SkipReason.BUDGET_PROJECTED_EXCEEDED,
-                    projected_time_s=projected,
-                ))
+                cells.append(
+                    CellResult.skipped(
+                        task=task.name,
+                        config=config.name,
+                        dtype=config.dtype,
+                        batch_size=batch_size,
+                        reason=SkipReason.BUDGET_PROJECTED_EXCEEDED,
+                        projected_time_s=projected,
+                    )
+                )
                 budget_exhausted = True
                 continue
 

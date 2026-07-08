@@ -67,9 +67,7 @@ def list_models(
 @app.command("download")
 def download(
     name: Annotated[str, typer.Argument(help="Model name (optionally NAME-DEGREE).")],
-    body: Annotated[
-        str, typer.Option("--body", "-b", help="Body name.")
-    ] = "earth",
+    body: Annotated[str, typer.Option("--body", "-b", help="Body name.")] = "earth",
     output: Annotated[
         Optional[str],
         typer.Option("--output", "-o", help="Copy the file to this path."),

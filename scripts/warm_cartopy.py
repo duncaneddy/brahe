@@ -21,9 +21,7 @@ def main() -> None:
     print("Warming cartopy Natural Earth cache...")
 
     # Explicit 10m coastline (tessellation + groundtrack plots).
-    shapereader.natural_earth(
-        resolution="10m", category="physical", name="coastline"
-    )
+    shapereader.natural_earth(resolution="10m", category="physical", name="coastline")
 
     # Default-scale features touched by groundtrack/contact plots. Iterating the
     # geometries forces the download at each feature's default scale.

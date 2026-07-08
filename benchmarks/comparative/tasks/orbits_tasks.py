@@ -51,7 +51,11 @@ class KeplerianToCartesianTask(BenchmarkTask):
         return {"elements": elements}
 
     def accuracy_sample_key(self, params: dict) -> dict:
-        elem = params.get("elements") if isinstance(params.get("elements"), list) else params
+        elem = (
+            params.get("elements")
+            if isinstance(params.get("elements"), list)
+            else params
+        )
         if isinstance(elem, list) and len(elem) >= 1:
             return {"altitude_km": (elem[0] - R_EARTH) / 1000.0}
         return {}
@@ -198,5 +202,3 @@ class CartesianToKeplerianTask(BenchmarkTask):
             states.append([x, y, z, vx, vy, vz])
 
         return {"states": states}
-
-

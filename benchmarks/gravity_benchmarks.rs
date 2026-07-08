@@ -12,28 +12,30 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("spherical_harmonics");
     for &n in &[2usize, 20, 50, 90, 120, 180, 240, 360] {
-        group.bench_with_input(
-            criterion::BenchmarkId::new("serial", n),
-            &n,
-            |b, &n| {
-                b.iter(|| {
-                    model
-                        .compute_spherical_harmonics(black_box(r_body), black_box(n), black_box(n), ParallelMode::Never)
-                        .unwrap()
-                });
-            },
-        );
-        group.bench_with_input(
-            criterion::BenchmarkId::new("parallel", n),
-            &n,
-            |b, &n| {
-                b.iter(|| {
-                    model
-                        .compute_spherical_harmonics(black_box(r_body), black_box(n), black_box(n), ParallelMode::Always)
-                        .unwrap()
-                });
-            },
-        );
+        group.bench_with_input(criterion::BenchmarkId::new("serial", n), &n, |b, &n| {
+            b.iter(|| {
+                model
+                    .compute_spherical_harmonics(
+                        black_box(r_body),
+                        black_box(n),
+                        black_box(n),
+                        ParallelMode::Never,
+                    )
+                    .unwrap()
+            });
+        });
+        group.bench_with_input(criterion::BenchmarkId::new("parallel", n), &n, |b, &n| {
+            b.iter(|| {
+                model
+                    .compute_spherical_harmonics(
+                        black_box(r_body),
+                        black_box(n),
+                        black_box(n),
+                        ParallelMode::Always,
+                    )
+                    .unwrap()
+            });
+        });
     }
     group.finish();
 }

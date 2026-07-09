@@ -63,8 +63,7 @@ def keplerian_to_cartesian(params: dict, iterations: int):
         out = []
         for oe in elements_gmat:
             rv6 = gmat.StateConversionUtil.Convert(
-                oe, "Keplerian", "Cartesian",
-                MU_EARTH_GMAT, _GMAT_FLAT, _GMAT_REQ, "MA"
+                oe, "Keplerian", "Cartesian", MU_EARTH_GMAT, _GMAT_FLAT, _GMAT_REQ, "MA"
             )
             out.append(_rvec6_to_list(rv6))
         return out
@@ -89,8 +88,7 @@ def cartesian_to_keplerian(params: dict, iterations: int):
         out = []
         for s in states_gmat:
             rv6 = gmat.StateConversionUtil.Convert(
-                s, "Cartesian", "Keplerian",
-                MU_EARTH_GMAT, _GMAT_FLAT, _GMAT_REQ, "MA"
+                s, "Cartesian", "Keplerian", MU_EARTH_GMAT, _GMAT_FLAT, _GMAT_REQ, "MA"
             )
             out.append(_rvec6_to_list(rv6))
         return out

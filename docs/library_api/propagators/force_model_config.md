@@ -1,6 +1,6 @@
 # Force Model Configuration
 
-Configuration classes for numerical orbit propagation force models. `ForceModelConfig` provides factory methods for common configurations and allows customization of gravity, atmospheric drag, solar radiation pressure, and third-body perturbations.
+Configuration classes for numerical orbit propagation force models. `ForceModelConfig` provides factory methods for common configurations and allows customization of gravity, atmospheric drag, solar radiation pressure, third-body perturbations, and solid Earth tides.
 
 !!! note
     For conceptual explanations and usage examples, see [Force Models](../../learn/orbit_propagation/numerical_propagation/force_models.md) in the User Guide.
@@ -18,6 +18,12 @@ Configuration classes for numerical orbit propagation force models. `ForceModelC
 ::: brahe.SolarRadiationPressureConfiguration
 
 ::: brahe.ThirdBodyConfiguration
+
+::: brahe.TidesConfiguration
+
+::: brahe.SolidTideConfig
+
+::: brahe.PermanentTideConfig
 
 ## Enumerations
 

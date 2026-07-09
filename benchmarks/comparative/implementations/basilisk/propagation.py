@@ -68,8 +68,16 @@ def _record_states_j2000(dataRec, n_steps):
     for k in range(1, n_steps + 1):
         r = dataRec.r_BN_N[k]
         v = dataRec.v_BN_N[k]
-        states.append([float(r[0]), float(r[1]), float(r[2]),
-                       float(v[0]), float(v[1]), float(v[2])])
+        states.append(
+            [
+                float(r[0]),
+                float(r[1]),
+                float(r[2]),
+                float(v[0]),
+                float(v[1]),
+                float(v[2]),
+            ]
+        )
     return states
 
 
@@ -170,6 +178,7 @@ def _run_numerical_rk4(
                 dragDynamicEffector,
                 msisAtmosphere,
             )
+
             atm = msisAtmosphere.MsisAtmosphere()
             atm.ModelTag = "msis"
             atm.addSpacecraftToModel(sc.scStateOutMsg)
@@ -179,8 +188,8 @@ def _run_numerical_rk4(
             # interpolation but is what a Basilisk user would typically use
             # without bespoke SW preparation.
             sw_values = (
-                [8] * 21        # ap (24h average + 3h history at -0..-57h)
-                + [110, 110]    # f107 (1944h average, 24h average at -24h)
+                [8] * 21  # ap (24h average + 3h history at -0..-57h)
+                + [110, 110]  # f107 (1944h average, 24h average at -24h)
             )
             sw_msgs = []
             for idx, val in enumerate(sw_values):
@@ -208,6 +217,7 @@ def _run_numerical_rk4(
         srp_eff = None
         if srp:
             from Basilisk.simulation import radiationPressure
+
             srp_eff = radiationPressure.RadiationPressure()
             srp_eff.ModelTag = "srp"
             srp_eff.area = srp_area
@@ -254,7 +264,9 @@ def _run_numerical_rk4(
     times, raw_states = time_iterations(run, iterations)
     # Apply J2000 -> GCRF outside the timed region.
     results = _states_j2000_to_gcrf(raw_states)
-    third = [name for name, on in (("sun", third_body_sun), ("moon", third_body_moon)) if on]
+    third = [
+        name for name, on in (("sun", third_body_sun), ("moon", third_body_moon)) if on
+    ]
     return build_task_result(
         task_name,
         iterations,
@@ -276,27 +288,36 @@ def _run_numerical_rk4(
 def numerical_rk4_grav5x5(params: dict, iterations: int):
     return _run_numerical_rk4(
         "propagation.numerical_rk4_grav5x5",
-        params, iterations,
-        gravity_degree=5, gravity_order=5,
+        params,
+        iterations,
+        gravity_degree=5,
+        gravity_order=5,
     )
 
 
 def numerical_rk4_grav20x20_sun_moon(params: dict, iterations: int):
     return _run_numerical_rk4(
         "propagation.numerical_rk4_grav20x20_sun_moon",
-        params, iterations,
-        gravity_degree=20, gravity_order=20,
-        third_body_sun=True, third_body_moon=True,
+        params,
+        iterations,
+        gravity_degree=20,
+        gravity_order=20,
+        third_body_sun=True,
+        third_body_moon=True,
     )
 
 
 def numerical_rk4_grav80x80_full(params: dict, iterations: int):
     return _run_numerical_rk4(
         "propagation.numerical_rk4_grav80x80_full",
-        params, iterations,
-        gravity_degree=80, gravity_order=80,
-        third_body_sun=True, third_body_moon=True,
-        drag=True, srp=True,
+        params,
+        iterations,
+        gravity_degree=80,
+        gravity_order=80,
+        third_body_sun=True,
+        third_body_moon=True,
+        drag=True,
+        srp=True,
     )
 
 

@@ -31,9 +31,7 @@ def _find_orekit_sw_file() -> str | None:
         "OREKIT_DATA", str(Path.home() / ".orekit" / "orekit-data")
     )
     sw_path = (
-        Path(orekit_data)
-        / "CSSI-Space-Weather-Data"
-        / "SpaceWeather-All-v1.2.txt"
+        Path(orekit_data) / "CSSI-Space-Weather-Data" / "SpaceWeather-All-v1.2.txt"
     )
     if sw_path.exists():
         return str(sw_path)

@@ -26,10 +26,12 @@ use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
 use crate::orbit_dynamics::{
-    GravityModel, accel_drag, accel_gravity_spherical_harmonics, accel_point_mass_gravity,
-    accel_relativity, accel_solar_radiation_pressure, accel_third_body, eclipse_conical,
-    eclipse_cylindrical, get_global_gravity_model, sun_position,
+    GravityModel, GravityModelTideSystem, SolidTideConfig, accel_drag,
+    accel_gravity_spherical_harmonics, accel_point_mass_gravity, accel_relativity,
+    accel_solar_radiation_pressure, accel_third_body, eclipse_conical, eclipse_cylindrical,
+    get_global_gravity_model, moon_position, sun_position,
 };
+use crate::propagators::force_model_config::PermanentTideConfig;
 use crate::propagators::{
     AtmosphericModel, EclipseModel, ForceModelConfig, FrameTransformationModel,
     GravityConfiguration, GravityModelSource,
@@ -385,6 +387,13 @@ pub struct DNumericalOrbitPropagator {
     /// Termination flag (set by terminal events)
     terminated: bool,
 
+    // ===== Tides =====
+    /// Owned (possibly truncated and tide-system-converted) gravity model.
+    /// Captured in the shared-dynamics closure at construction; also readable
+    /// via gravity_model_ref() in test code.
+    #[cfg_attr(not(test), allow(dead_code))]
+    gravity_model: Option<Arc<GravityModel>>,
+
     // ===== Metadata =====
     /// Propagator name (optional)
     pub name: Option<String>,
@@ -720,7 +729,7 @@ impl DNumericalOrbitPropagator {
         //   - When truncation is required, `Arc::make_mut` does a
         //     copy-on-write so we can truncate without disturbing the cached
         //     full-resolution model.
-        let gravity_model = match &force_config.gravity {
+        let mut gravity_model = match &force_config.gravity {
             GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(model_type),
                 degree,
@@ -735,6 +744,85 @@ impl DNumericalOrbitPropagator {
             }
             _ => None,
         };
+
+        // Apply permanent-tide handling (IERS §6.2.2) once, on the owned model.
+        if let Some(tides_cfg) = &force_config.tides {
+            if let Some(arc) = gravity_model.as_mut() {
+                let model = Arc::make_mut(arc);
+                let from = model.tide_system;
+                let target = match &tides_cfg.permanent {
+                    PermanentTideConfig::Off => None,
+                    PermanentTideConfig::Auto => {
+                        if from == GravityModelTideSystem::Unknown {
+                            eprintln!(
+                                "[brahe] warning: PermanentTideConfig::Auto: gravity model tide \
+                                 system is Unknown; leaving C\u{0305}20 unchanged."
+                            );
+                            None
+                        } else {
+                            Some(GravityModelTideSystem::TideFree)
+                        }
+                    }
+                    PermanentTideConfig::ConvertTo(sys) => {
+                        if from == GravityModelTideSystem::Unknown {
+                            return Err(BraheError::Error(
+                                "PermanentTideConfig::ConvertTo requires a known model tide \
+                                 system, but the model's tide_system is Unknown."
+                                    .to_string(),
+                            ));
+                        }
+                        if *sys != GravityModelTideSystem::TideFree && tides_cfg.solid.is_some() {
+                            eprintln!(
+                                "[brahe] warning: PermanentTideConfig::ConvertTo({sys:?}) \
+                                 combined with solid Earth tides double-counts the permanent \
+                                 tide: the solid-tide model (IERS \u{a7}6.2.1) already includes \
+                                 the permanent part and expects a conventional tide-free \
+                                 background field. Use ConvertTo(TideFree) or Auto, or disable \
+                                 solid tides."
+                            );
+                        }
+                        Some(*sys)
+                    }
+                };
+                if let Some(to) = target {
+                    model.convert_tide_system(from, to)?;
+                }
+            } else {
+                // `gravity_model` is None: either PointMass/EarthZonal (no C̄20 to
+                // convert), or SphericalHarmonic with GravityModelSource::Global (shared
+                // state that must not be mutated). Warn appropriately.
+                let is_global_sh = matches!(
+                    &force_config.gravity,
+                    GravityConfiguration::SphericalHarmonic {
+                        source: GravityModelSource::Global,
+                        ..
+                    }
+                );
+                if is_global_sh
+                    && matches!(
+                        tides_cfg.permanent,
+                        PermanentTideConfig::Auto | PermanentTideConfig::ConvertTo(_)
+                    )
+                {
+                    // The shared global model cannot be mutated in place.
+                    eprintln!(
+                        "[brahe] warning: permanent-tide C\u{0305}20 conversion is NOT applied \
+                         to the shared global gravity model (mutating shared state is unsafe). \
+                         To apply the correction, either pre-convert the model with \
+                         `GravityModel::convert_tide_system` before calling \
+                         `set_global_gravity_model`, or use \
+                         `GravityModelSource::ModelType` for automatic permanent-tide handling."
+                    );
+                } else if !is_global_sh
+                    && matches!(tides_cfg.permanent, PermanentTideConfig::ConvertTo(_))
+                {
+                    eprintln!(
+                        "[brahe] warning: PermanentTideConfig set but gravity configuration has \
+                         no spherical-harmonic model to apply it to; ignoring."
+                    );
+                }
+            }
+        }
 
         // Trial-evaluation guardrail: a spherical-harmonic model with no
         // Clenshaw tables (an explicit Cunningham-only opt-in via
@@ -787,6 +875,9 @@ impl DNumericalOrbitPropagator {
             }
         }
 
+        // Extract solid-tide config before force_config is moved into the closure.
+        let solid_tide = force_config.tides.as_ref().and_then(|t| t.solid);
+
         // Build shared dynamics function (includes additional_dynamics)
         let shared_dynamics = Self::build_shared_dynamics(
             epoch,
@@ -794,6 +885,7 @@ impl DNumericalOrbitPropagator {
             params.clone(),
             additional_dynamics,
             gravity_model.clone(),
+            solid_tide,
         );
 
         // Wrap for main integrator
@@ -940,6 +1032,7 @@ impl DNumericalOrbitPropagator {
             event_detectors: Vec::new(),
             event_log: Vec::new(),
             terminated: false,
+            gravity_model,
             name: None,
             id: None,
             uuid: None,
@@ -1439,6 +1532,7 @@ impl DNumericalOrbitPropagator {
         params: DVector<f64>,
         additional_dynamics: Option<DStateDynamics>,
         gravity_model: Option<Arc<GravityModel>>,
+        solid_tide: Option<SolidTideConfig>,
     ) -> SharedDynamics {
         // Per-propagator scratch state: the rotation cache, held under a
         // Mutex so each dynamics invocation takes a single lock. Mutex (not
@@ -1471,6 +1565,7 @@ impl DNumericalOrbitPropagator {
                     &force_config,
                     params_opt.or(Some(&params)),
                     gravity_model.as_ref(),
+                    solid_tide,
                     r_i2b,
                 );
                 // Release the lock before the additional_dynamics callback
@@ -1598,6 +1693,7 @@ impl DNumericalOrbitPropagator {
         force_config: &ForceModelConfig,
         params_opt: Option<&DVector<f64>>,
         gravity_model: Option<&Arc<GravityModel>>,
+        solid_tide: Option<SolidTideConfig>,
         r_i2b: SMatrix3,
     ) -> Vector6<f64> {
         // Convert relative time to absolute Epoch
@@ -1674,6 +1770,30 @@ impl DNumericalOrbitPropagator {
                     }
                 }
             }
+        }
+
+        // ===== SOLID EARTH TIDES (IERS §6.2.1) =====
+        if let Some(solid_cfg) = solid_tide {
+            let r_ecef = r_i2b * r;
+            // TODO: when third_body uses a high-precision ephemeris (DE440/DE440s), source Sun/Moon here from the same provider for per-step consistency. Low-precision is acceptable for the tidal perturbation magnitude.
+            let r_sun_eci = sun_position(epoch);
+            let r_moon_eci = moon_position(epoch);
+            let r_sun_ecef = r_i2b * r_sun_eci;
+            let r_moon_ecef = r_i2b * r_moon_eci;
+            let (gm_t, rad_t) = match gravity_model {
+                Some(m) => (m.gm, m.radius),
+                None => (GM_EARTH, R_EARTH),
+            };
+            let a_tide_ecef = crate::orbit_dynamics::tides::accel_solid_earth_tides(
+                r_ecef,
+                r_sun_ecef,
+                r_moon_ecef,
+                epoch,
+                gm_t,
+                rad_t,
+                &solid_cfg,
+            );
+            a_total += r_i2b.transpose() * a_tide_ecef;
         }
 
         // ===== DRAG =====
@@ -2906,6 +3026,21 @@ impl DOrbitCovarianceProvider for DNumericalOrbitPropagator {
 }
 
 // =============================================================================
+// Test-only accessors
+// =============================================================================
+
+#[cfg(test)]
+impl DNumericalOrbitPropagator {
+    /// Return a reference to the owned gravity model, if any.
+    ///
+    /// Used in tests to inspect the model's tide system after construction
+    /// without exposing the field in production code.
+    pub(crate) fn gravity_model_ref(&self) -> Option<&GravityModel> {
+        self.gravity_model.as_deref()
+    }
+}
+
+// =============================================================================
 // Identifiable Trait
 // =============================================================================
 
@@ -3025,6 +3160,7 @@ mod tests {
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -3086,6 +3222,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -3118,24 +3255,24 @@ mod tests {
         .unwrap();
 
         // Pull the cached Arc from outside the propagator. Strong count is now:
-        //   cache (1) + propagator (1) + this test binding (1) = 3
+        //   cache (1) + propagator.gravity_model field (1) + propagator.shared_dynamics closure (1) + this test binding (1) = 4
         let from_cache = crate::orbit_dynamics::GravityModel::shared(
             &crate::orbit_dynamics::GravityModelType::JGM3,
         )
         .unwrap();
         assert_eq!(
             std::sync::Arc::strong_count(&from_cache),
-            3,
+            4,
             "no-truncation propagator should share the cached Arc \
-             (cache + propagator + test binding = 3)"
+             (cache + gravity_model field + dynamics closure + test binding = 4)"
         );
 
-        // Drop the propagator and the count must fall by exactly 1.
+        // Drop the propagator and the count must fall by exactly 2 (field + closure).
         drop(prop);
         assert_eq!(
             std::sync::Arc::strong_count(&from_cache),
             2,
-            "dropping the propagator should release its Arc clone, \
+            "dropping the propagator should release both Arc clones, \
              leaving cache + this test binding"
         );
     }
@@ -7911,6 +8048,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         };
 
         let mut prop = DNumericalOrbitPropagator::new(
@@ -8117,6 +8255,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -8172,6 +8311,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 4,
@@ -8228,6 +8368,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 2,
@@ -8298,6 +8439,7 @@ mod tests {
             let force_config = ForceModelConfig {
                 mass: None,
                 frame_transform: FrameTransformationModel::default(),
+                tides: None,
                 gravity: GravityConfiguration::SphericalHarmonic {
                     source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                     degree,
@@ -8360,6 +8502,7 @@ mod tests {
         let force_config_modeltype = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 4,
@@ -8388,6 +8531,7 @@ mod tests {
         let force_config_global = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::Global,
                 degree: 4,
@@ -8457,6 +8601,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -8555,6 +8700,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -8605,6 +8751,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::Exponential {
@@ -8656,6 +8803,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::NRLMSISE00,
@@ -8718,6 +8866,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -8780,6 +8929,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -8851,6 +9001,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -8895,6 +9046,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -8936,6 +9088,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -8978,6 +9131,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
@@ -9035,6 +9189,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -9073,6 +9228,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -9111,6 +9267,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -9149,6 +9306,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -9191,6 +9349,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -9231,6 +9390,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -9331,6 +9491,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)), // 1000 kg satellite
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass, // Use point mass to avoid data dependency
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -9402,6 +9563,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -10291,6 +10453,7 @@ mod tests {
         let force_config_j2 = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
                 degree: 2,
@@ -10463,6 +10626,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
@@ -10557,6 +10721,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
@@ -10616,6 +10781,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(500.0)), // Fixed mass
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
@@ -10682,6 +10848,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::Value(1000.0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             drag: None,
             srp: Some(SolarRadiationPressureConfiguration {
                 area: ParameterSource::Value(20.0),
@@ -10782,6 +10949,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
@@ -10837,6 +11005,7 @@ mod tests {
         let force_config = ForceModelConfig {
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
@@ -11904,6 +12073,217 @@ mod tests {
         assert_eq!(
             DStatePropagator::state_dim(&via_new),
             DStatePropagator::state_dim(&via_builder)
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_permanent_tide_auto_converts_to_tide_free() {
+        use crate::orbit_dynamics::ParallelMode;
+        use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType};
+        use crate::propagators::force_model_config::{
+            ForceModelConfig, GravityConfiguration, GravityModelSource, PermanentTideConfig,
+            TidesConfiguration,
+        };
+
+        setup_global_test_eop();
+
+        // GGM05S is a zero-tide model; Auto should convert it to tide-free internally.
+        let base = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
+        let c20_zero = base.get(2, 0).unwrap().0;
+
+        let cfg = ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::GGM05S),
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Auto,
+            },
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::Auto,
+                solid: None,
+            }),
+            ..ForceModelConfig::earth_gravity()
+        };
+
+        let epoch = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let model = prop.gravity_model_ref().unwrap();
+        assert_eq!(model.tide_system, GravityModelTideSystem::TideFree);
+
+        if base.tide_system == GravityModelTideSystem::ZeroTide {
+            // tide-free = zero-tide minus the indirect permanent tide offset
+            let expected = c20_zero - crate::orbit_dynamics::tides::PERM_C20_INDIRECT;
+            assert!(
+                (model.get(2, 0).unwrap().0 - expected).abs() < 1e-18,
+                "C20 after Auto conversion off by {:.3e}",
+                (model.get(2, 0).unwrap().0 - expected).abs()
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_permanent_tide_convert_to_zero_tide_with_solid_warns_but_constructs() {
+        use crate::orbit_dynamics::ParallelMode;
+        use crate::orbit_dynamics::gravity::GravityModelType;
+        use crate::orbit_dynamics::tides::SolidTideConfig;
+        use crate::propagators::force_model_config::{
+            ForceModelConfig, GravityConfiguration, GravityModelSource, PermanentTideConfig,
+            TidesConfiguration,
+        };
+
+        setup_global_test_eop();
+
+        // ConvertTo(ZeroTide) + solid tides double-counts the permanent tide.
+        // The combination emits a warning (stderr) but is still honored, since
+        // externally pre-corrected (IERS Step 3 style) workflows are legitimate.
+        let cfg = ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::GGM05S),
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Auto,
+            },
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::ConvertTo(GravityModelTideSystem::ZeroTide),
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: false,
+                }),
+            }),
+            ..ForceModelConfig::earth_gravity()
+        };
+
+        let epoch = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let model = prop.gravity_model_ref().unwrap();
+        assert_eq!(model.tide_system, GravityModelTideSystem::ZeroTide);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_solid_tides_perturb_propagation() {
+        use crate::orbit_dynamics::tides::SolidTideConfig;
+        use crate::propagators::force_model_config::{PermanentTideConfig, TidesConfiguration};
+
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
+
+        // Force config WITHOUT solid tides (baseline): point-mass gravity, no tides
+        let cfg_off = ForceModelConfig {
+            gravity: GravityConfiguration::PointMass,
+            tides: None,
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform:
+                crate::propagators::force_model_config::FrameTransformationModel::default(),
+        };
+
+        // Force config WITH solid tides enabled
+        let cfg_on = ForceModelConfig {
+            gravity: GravityConfiguration::PointMass,
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::Auto,
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: false,
+                }),
+            }),
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform:
+                crate::propagators::force_model_config::FrameTransformationModel::default(),
+        };
+
+        // Propagate one orbit with tides OFF
+        let a = R_EARTH + 500e3;
+        let period = crate::orbital_period(a);
+        let target_epoch = epoch + period;
+
+        let mut prop_off = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            NumericalPropagationConfig::default(),
+            cfg_off,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        prop_off.propagate_to(target_epoch);
+        let state_off = prop_off.current_state();
+
+        // Propagate one orbit with tides ON
+        let mut prop_on = DNumericalOrbitPropagator::new(
+            epoch,
+            state.clone(),
+            NumericalPropagationConfig::default(),
+            cfg_on,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        prop_on.propagate_to(target_epoch);
+        let state_on = prop_on.current_state();
+
+        let diff = (&state_off - &state_on).fixed_rows::<3>(0).norm();
+        assert!(
+            diff > 1e-4 && diff < 1e3,
+            "tide-induced position diff over one orbit = {diff:.6} m (expected mm–m range)"
         );
     }
 }

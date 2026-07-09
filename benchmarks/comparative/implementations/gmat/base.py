@@ -47,15 +47,12 @@ def _ensure_gmat() -> None:
     py_tag = f"_py{sys.version_info.major}{sys.version_info.minor}"
     so_path = root / "bin" / "gmatpy" / py_tag / "_gmat_py.so"
     if not so_path.exists():
-        raise ImportError(
-            f"gmatpy missing binary for Python {py_tag} at {so_path}"
-        )
+        raise ImportError(f"gmatpy missing binary for Python {py_tag} at {so_path}")
 
     startup = root / "bin" / "api_startup_file.txt"
     if not startup.exists():
         raise ImportError(
-            f"api_startup_file.txt missing at {startup} — "
-            f"run: just bench-compare-setup"
+            f"api_startup_file.txt missing at {startup} — run: just bench-compare-setup"
         )
 
     bin_dir = str(root / "bin")
@@ -95,6 +92,7 @@ def gmat_clear() -> None:
     returns the previous iteration's object.
     """
     import gmatpy as gmat
+
     gmat.Clear()
 
 

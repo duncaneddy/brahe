@@ -30,8 +30,20 @@ from benchmarks.comparative.implementations.gmat.base import (
     time_iterations,
 )
 
-_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+_MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+]
 
 # Offset from GMAT A1MJD to standard Julian Date:  JD = A1MJD + _A1MJD_TO_JD
 _A1MJD_TO_JD = 2430000.0
@@ -54,6 +66,7 @@ def _dt_to_gmat_greg(dt: dict) -> str:
 
 def _tcv():
     import gmatpy as gmat
+
     return gmat.TimeSystemConverter.Instance()
 
 
@@ -66,10 +79,7 @@ def epoch_creation(params: dict, iterations: int):
     tcv = gmat.TimeSystemConverter.Instance()
 
     def run():
-        return [
-            tcv.ConvertGregorianToMjd(g) + _A1MJD_TO_JD
-            for g in greg_strings
-        ]
+        return [tcv.ConvertGregorianToMjd(g) + _A1MJD_TO_JD for g in greg_strings]
 
     times, results = time_iterations(run, iterations)
     return build_task_result("time.epoch_creation", iterations, times, results)
@@ -82,15 +92,10 @@ def utc_to_tai(params: dict, iterations: int):
     dst = tcv.TAI
 
     datetimes = params["datetimes"]
-    utc_a1mjds = [
-        tcv.ConvertGregorianToMjd(_dt_to_gmat_greg(dt)) for dt in datetimes
-    ]
+    utc_a1mjds = [tcv.ConvertGregorianToMjd(_dt_to_gmat_greg(dt)) for dt in datetimes]
 
     def run():
-        return [
-            tcv.Convert(mjd, src, dst) + _A1MJD_TO_JD
-            for mjd in utc_a1mjds
-        ]
+        return [tcv.Convert(mjd, src, dst) + _A1MJD_TO_JD for mjd in utc_a1mjds]
 
     times, results = time_iterations(run, iterations)
     return build_task_result("time.utc_to_tai", iterations, times, results)
@@ -103,15 +108,10 @@ def utc_to_tt(params: dict, iterations: int):
     dst = tcv.TT
 
     datetimes = params["datetimes"]
-    utc_a1mjds = [
-        tcv.ConvertGregorianToMjd(_dt_to_gmat_greg(dt)) for dt in datetimes
-    ]
+    utc_a1mjds = [tcv.ConvertGregorianToMjd(_dt_to_gmat_greg(dt)) for dt in datetimes]
 
     def run():
-        return [
-            tcv.Convert(mjd, src, dst) + _A1MJD_TO_JD
-            for mjd in utc_a1mjds
-        ]
+        return [tcv.Convert(mjd, src, dst) + _A1MJD_TO_JD for mjd in utc_a1mjds]
 
     times, results = time_iterations(run, iterations)
     return build_task_result("time.utc_to_tt", iterations, times, results)
@@ -129,9 +129,7 @@ def utc_to_gps(params: dict, iterations: int):
     dst = tcv.TAI
 
     datetimes = params["datetimes"]
-    utc_a1mjds = [
-        tcv.ConvertGregorianToMjd(_dt_to_gmat_greg(dt)) for dt in datetimes
-    ]
+    utc_a1mjds = [tcv.ConvertGregorianToMjd(_dt_to_gmat_greg(dt)) for dt in datetimes]
 
     def run():
         return [
@@ -150,15 +148,10 @@ def utc_to_ut1(params: dict, iterations: int):
     dst = tcv.UT1
 
     datetimes = params["datetimes"]
-    utc_a1mjds = [
-        tcv.ConvertGregorianToMjd(_dt_to_gmat_greg(dt)) for dt in datetimes
-    ]
+    utc_a1mjds = [tcv.ConvertGregorianToMjd(_dt_to_gmat_greg(dt)) for dt in datetimes]
 
     def run():
-        return [
-            tcv.Convert(mjd, src, dst) + _A1MJD_TO_JD
-            for mjd in utc_a1mjds
-        ]
+        return [tcv.Convert(mjd, src, dst) + _A1MJD_TO_JD for mjd in utc_a1mjds]
 
     times, results = time_iterations(run, iterations)
     return build_task_result("time.utc_to_ut1", iterations, times, results)

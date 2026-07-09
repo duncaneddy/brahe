@@ -9,15 +9,15 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use nalgebra::{DMatrix, Vector3};
 
-use crate::math::{traits::IntoPosition, SMatrix3};
+use crate::math::{SMatrix3, traits::IntoPosition};
 use once_cell::sync::Lazy;
 
 use rayon::prelude::*;
 
 use crate::constants::{GM_EARTH, J2_EARTH, J3_EARTH, J4_EARTH, J5_EARTH, J6_EARTH, R_EARTH};
 use crate::math::kronecker_delta;
-use crate::utils::threading::get_thread_pool;
 use crate::utils::BraheError;
+use crate::utils::threading::get_thread_pool;
 
 /// Packaged EGM2008_360 Data File
 static PACKAGED_EGM2008_360: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_360.gfc");
@@ -335,7 +335,7 @@ pub fn accel_earth_zonal_gravity<P: IntoPosition>(r_object: P, n: usize) -> Vect
 }
 
 /// Enumeration of the tide system used in a gravity model.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum GravityModelTideSystem {
     /// Zero-tide system: includes permanent tidal deformation from Sun and Moon.
     /// C₂₀ coefficient includes indirect effect of Earth's centrifugal potential.
@@ -1566,6 +1566,97 @@ impl GravityModel {
         Ok(())
     }
 
+    /// Convert the model's C̄20 between tide systems (IERS TN36 §6.2.2).
+    ///
+    /// The mean-tide / zero-tide / tide-free systems differ only in which
+    /// permanent (zero-frequency) tidal terms are folded into C̄20. This shifts
+    /// C̄20 from `from` to `to` by routing through the tide-free reference:
+    ///   C̄20_new = C̄20_old − offset(from) + offset(to)
+    /// where offset(system) is the system's C̄20 displacement from tide-free
+    /// (see `tides::tide_system_c20_offset`). Updates `tide_system` and
+    /// re-runs coefficient precomputation. No-op if `from == to`.
+    ///
+    /// # Errors
+    /// Returns an error if `from` is `Unknown` (the source displacement is
+    /// undefined, so the conversion cannot be made safely).
+    ///
+    /// # References
+    /// - IERS Conventions (2010), TN36 §1.1 and §6.2.2, Eq. (6.14).
+    ///   <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
+    /// - EGM96 documentation, Section 11. <https://cddis.nasa.gov/926/egm96/doc/S11.HTML>
+    pub fn convert_tide_system(
+        &mut self,
+        from: GravityModelTideSystem,
+        to: GravityModelTideSystem,
+    ) -> Result<(), BraheError> {
+        if from == GravityModelTideSystem::Unknown {
+            return Err(BraheError::Error(
+                "Cannot convert tide system from Unknown; the source permanent-tide \
+                 displacement is undefined. Set the model's tide_system explicitly first."
+                    .to_string(),
+            ));
+        }
+        if from == to {
+            self.tide_system = to;
+            return Ok(());
+        }
+        if self.n_max < 2 {
+            // Degree-2 coefficient is absent in this truncated model; the
+            // permanent-tide shift (applied to C̄20) is vacuous. Record the
+            // new tide system and return without touching data.
+            self.tide_system = to;
+            return Ok(());
+        }
+        let delta = crate::orbit_dynamics::tides::tide_system_c20_offset(to)
+            - crate::orbit_dynamics::tides::tide_system_c20_offset(from);
+        self.data[(2, 0)] += delta;
+        self.tide_system = to;
+        // Rebuild whichever precomputed table sets exist against the shifted C̄20.
+        if self.cunningham.is_some() {
+            self.cunningham = Some(self.build_cunningham_tables());
+        }
+        if self.clenshaw.is_some() {
+            self.clenshaw = Some(self.build_clenshaw_tables());
+        }
+        Ok(())
+    }
+
+    /// Build a model directly from dense fully-normalized coefficient tables.
+    /// Test/utility seam used by the tides equivalence test; `dc[n][m]` = C̄nm,
+    /// `ds[n][m]` = S̄nm for n,m in 0..=n_max (n_max <= 4 supported here).
+    #[doc(hidden)]
+    pub fn from_dense_normalized(
+        dc: &[[f64; 5]; 5],
+        ds: &[[f64; 5]; 5],
+        n_max: usize,
+        gm: f64,
+        radius: f64,
+    ) -> Self {
+        let mut data = DMatrix::zeros(n_max + 1, n_max + 1);
+        for n in 0..=n_max {
+            data[(n, 0)] = dc[n][0];
+            for m in 1..=n {
+                data[(n, m)] = dc[n][m];
+                data[(m - 1, n)] = ds[n][m];
+            }
+        }
+        let mut model = Self {
+            data,
+            tide_system: GravityModelTideSystem::TideFree,
+            n_max,
+            m_max: n_max,
+            gm,
+            radius,
+            model_name: String::from("TideDelta"),
+            model_errors: GravityModelErrors::No,
+            normalization: GravityModelNormalization::FullyNormalized,
+            cunningham: None,
+            clenshaw: None,
+        };
+        model.precompute_clenshaw_tables();
+        model
+    }
+
     /// Compute gravitational acceleration from spherical harmonic expansion
     /// using the Cunningham (Montenbruck & Gill) V/W recursion.
     ///
@@ -2532,10 +2623,10 @@ mod tests {
     use crate::traits::DStatePropagator;
     use crate::utils::testing::setup_global_test_eop;
     use crate::{
-        set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci, AngleFormat,
-        DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
+        AngleFormat, DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
         FileSpaceWeatherProvider, ForceModelConfig, FrameTransformationModel, GravityConfiguration,
         GravityModelSource, NumericalPropagationConfig, SVector6, TimeSystem, ZonalHarmonicsDegree,
+        set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci,
     };
 
     use super::*;
@@ -3081,12 +3172,16 @@ mod tests {
     fn test_clenshaw_bounds_errors_match_cunningham() {
         let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
         let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
-        assert!(model
-            .compute_spherical_harmonics_clenshaw(r, 100, 50, ParallelMode::Never)
-            .is_err());
-        assert!(model
-            .compute_spherical_harmonics_clenshaw(r, 10, 20, ParallelMode::Never)
-            .is_err());
+        assert!(
+            model
+                .compute_spherical_harmonics_clenshaw(r, 100, 50, ParallelMode::Never)
+                .is_err()
+        );
+        assert!(
+            model
+                .compute_spherical_harmonics_clenshaw(r, 10, 20, ParallelMode::Never)
+                .is_err()
+        );
     }
 
     #[test]
@@ -3121,6 +3216,7 @@ mod tests {
                 relativity: false,
                 mass: None,
                 frame_transform: FrameTransformationModel::FullEarthRotation,
+                tides: None,
             },
             None,
             None,
@@ -3143,6 +3239,7 @@ mod tests {
                 relativity: false,
                 mass: None,
                 frame_transform: FrameTransformationModel::FullEarthRotation,
+                tides: None,
             },
             None,
             None,
@@ -3202,6 +3299,7 @@ mod tests {
                     relativity: false,
                     mass: None,
                     frame_transform: FrameTransformationModel::FullEarthRotation,
+                    tides: None,
                 },
                 None,
                 None,
@@ -3625,6 +3723,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::FullEarthRotation,
+            tides: None,
         };
 
         // Construction must succeed: the propagator has to be able to resolve

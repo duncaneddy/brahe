@@ -260,7 +260,7 @@ pub(crate) const RKF45_TABLEAU: EmbeddedButcherTableau<6> = EmbeddedButcherTable
 ///
 /// Coefficients from Fehlberg (1968), NASA TR R-287. This 13-stage pair
 /// provides an 8th-order solution with an embedded 7th-order estimate.
-/// 
+///
 /// Source: https://ntrs.nasa.gov/api/citations/19680027281/downloads/19680027281.pdf
 pub(crate) fn rkf78_tableau() -> EmbeddedButcherTableau<13> {
     EmbeddedButcherTableau {

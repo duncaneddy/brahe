@@ -31,5 +31,9 @@ x_deg = bh.state_koe_to_eci(oe_deg, bh.AngleFormat.DEGREES)
 x_ecef = bh.state_eci_to_ecef(epc, x_deg)
 
 # Convert ECEF cartesian state to geodetic coordinates
-lat, lon, alt = bh.position_ecef_to_geodetic(x_ecef[:3], angle_format=bh.AngleFormat.DEGREES)
-print(f"Geodetic coordinates (lat, lon, alt): {lat:.6f}°, {lon:.6f}°, {alt/1e3:.3f} km")
+lat, lon, alt = bh.position_ecef_to_geodetic(
+    x_ecef[:3], angle_format=bh.AngleFormat.DEGREES
+)
+print(
+    f"Geodetic coordinates (lat, lon, alt): {lat:.6f}°, {lon:.6f}°, {alt / 1e3:.3f} km"
+)

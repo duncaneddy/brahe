@@ -12,7 +12,6 @@ input array new_doubleArray(N) / doubleArray_setitem.
 
 import math
 
-import numpy as np
 
 from Basilisk.topLevelModules import pyswice
 
@@ -81,9 +80,7 @@ def geodetic_to_ecef(params: dict, iterations: int):
 
 def ecef_to_geodetic(params: dict, iterations: int):
     """Convert ECEF (x, y, z) meters -> (lon_deg, lat_deg, alt_m)."""
-    points_km = [
-        (x / 1000.0, y / 1000.0, z / 1000.0) for x, y, z in params["points"]
-    ]
+    points_km = [(x / 1000.0, y / 1000.0, z / 1000.0) for x, y, z in params["points"]]
 
     def run():
         # Timed region: native pyswice call only.

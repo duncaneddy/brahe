@@ -1186,7 +1186,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_eci(propagated_orbi
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(
+    propagated_orbit_prop,
+):
     """Test states_ecef() returns ECEF state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -1203,7 +1205,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(propagated_orb
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(
+    propagated_orbit_prop,
+):
     """Test states_gcrf() returns GCRF state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -1216,7 +1220,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(propagated_orb
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(
+    propagated_orbit_prop,
+):
     """Test states_itrf() returns ITRF state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -1229,7 +1235,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(propagated_orb
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_eme2000(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_eme2000(
+    propagated_orbit_prop,
+):
     """Test states_eme2000() returns EME2000 state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -4621,7 +4629,9 @@ def test_numericalorbitpropagator_warns_on_cunningham_only_high_degree_global():
         )
 
         with pytest.warns(UserWarning, match="degree > 150"):
-            NumericalOrbitPropagator.from_eci(epoch, state, params=params, force_config=fc)
+            NumericalOrbitPropagator.from_eci(
+                epoch, state, params=params, force_config=fc
+            )
     finally:
         set_global_gravity_model(original_global_model)
 
@@ -4673,7 +4683,9 @@ def test_numericalorbitpropagator_no_warning_for_default_clenshaw_model():
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            NumericalOrbitPropagator.from_eci(epoch, state, params=params, force_config=fc)
+            NumericalOrbitPropagator.from_eci(
+                epoch, state, params=params, force_config=fc
+            )
 
         assert len(caught) == 0
     finally:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 
 import numpy as np
 
@@ -56,6 +55,7 @@ class GcrfToItrfStateTask(BatchTask):
 
 def _jnp_dtype(dtype: str):
     import jax.numpy as jnp
+
     return jnp.float32 if dtype == "f32" else jnp.float64
 
 
@@ -118,12 +118,15 @@ def _build_gcrf_to_itrf(task, batch_size, dtype, seed, devices):
         padded = ((batch + n_dev - 1) // n_dev) * n_dev
         if padded > batch:
             states = jnp.concatenate(
-                [states, jnp.zeros((padded - batch, 6), dtype=states.dtype)], axis=0,
+                [states, jnp.zeros((padded - batch, 6), dtype=states.dtype)],
+                axis=0,
             )
 
             def _pad_leaf(leaf):
                 pad_shape = (padded - batch,) + leaf.shape[1:]
-                return jnp.concatenate([leaf, jnp.zeros(pad_shape, dtype=leaf.dtype)], axis=0)
+                return jnp.concatenate(
+                    [leaf, jnp.zeros(pad_shape, dtype=leaf.dtype)], axis=0
+                )
 
             batched_epoch = jax.tree_util.tree_map(_pad_leaf, batched_epoch)
 
@@ -133,8 +136,9 @@ def _build_gcrf_to_itrf(task, batch_size, dtype, seed, devices):
             batched_epoch,
         )
         # pmap over the device axis, vmap over the per-device batch axis.
-        pmapped = jax.pmap(jax.vmap(state_gcrf_to_itrf, in_axes=(None, 0, 0)),
-                           in_axes=(None, 0, 0))
+        pmapped = jax.pmap(
+            jax.vmap(state_gcrf_to_itrf, in_axes=(None, 0, 0)), in_axes=(None, 0, 0)
+        )
         return (lambda _: pmapped(eop, epoch_sharded, states_sharded)), {}
 
 

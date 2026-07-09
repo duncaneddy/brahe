@@ -31,12 +31,12 @@ force_cfg = bh.ForceModelConfig(gravity=gravity_cfg)
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 oe = np.array(
     [
-        bh.R_EARTH + 500e3,    # a (m)
-        0.001,                  # e
-        np.radians(97.8),       # i (rad)
-        np.radians(15.0),       # RAAN (rad)
-        np.radians(30.0),       # arg perigee (rad)
-        np.radians(45.0),       # true anomaly (rad)
+        bh.R_EARTH + 500e3,  # a (m)
+        0.001,  # e
+        np.radians(97.8),  # i (rad)
+        np.radians(15.0),  # RAAN (rad)
+        np.radians(30.0),  # arg perigee (rad)
+        np.radians(45.0),  # true anomaly (rad)
     ]
 )
 state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)

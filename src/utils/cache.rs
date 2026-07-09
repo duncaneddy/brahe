@@ -379,7 +379,9 @@ mod tests {
     #[serial_test::serial]
     fn test_get_icgem_cache_dir() {
         let original_brahe_cache = env::var("BRAHE_CACHE").ok();
-        unsafe { env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            env::remove_var("BRAHE_CACHE");
+        }
 
         let icgem_cache_dir = get_icgem_cache_dir().unwrap();
         assert!(!icgem_cache_dir.is_empty());

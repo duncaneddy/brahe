@@ -350,11 +350,12 @@ impl ForceModelConfig {
     /// Create a high-fidelity force model configuration
     ///
     /// Uses:
-    /// - 70×70 EGM2008 gravity
+    /// - 120x120 EGM2008 gravity
     /// - NRLMSISE-00 atmospheric model
     /// - SRP with conical eclipse
     /// - Sun, Moon, and all planets (DE440s ephemerides)
     /// - Relativistic corrections enabled
+    /// - Solid Earth tides with frequency-dependent corrections
     pub fn high_fidelity() -> Self {
         Self {
             gravity: GravityConfiguration::SphericalHarmonic {
@@ -390,7 +391,12 @@ impl ForceModelConfig {
             relativity: true,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
-            tides: None,
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::Auto,
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: true,
+                }),
+            }),
         }
     }
 
@@ -1052,6 +1058,11 @@ mod tests {
             config.mass,
             Some(ParameterSource::ParameterIndex(0))
         ));
+
+        // Check solid Earth tides enabled with frequency-dependent corrections
+        let tides = config.tides.unwrap();
+        assert_eq!(tides.permanent, PermanentTideConfig::Auto);
+        assert!(tides.solid.unwrap().frequency_dependent);
     }
 
     #[test]

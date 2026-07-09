@@ -61,6 +61,9 @@ def test_forcemodelconfig_high_fidelity():
     config = ForceModelConfig.high_fidelity()
     assert config is not None
     assert config.requires_params()
+    assert config.tides is not None
+    assert config.tides.solid is not None
+    assert config.tides.solid.frequency_dependent
 
 
 def test_forcemodelconfig_earth_gravity():
@@ -104,7 +107,9 @@ def test_forcemodelconfig_geo_default():
 def test_tides_config_roundtrip():
     solid = brahe.SolidTideConfig(frequency_dependent=True)
     assert solid.frequency_dependent is True
-    tides = brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.AUTO, solid=solid)
+    tides = brahe.TidesConfiguration(
+        permanent=brahe.PermanentTideConfig.AUTO, solid=solid
+    )
     cfg = brahe.ForceModelConfig.two_body()
     cfg.tides = tides
     assert cfg.tides is not None
@@ -114,7 +119,9 @@ def test_tides_config_roundtrip():
 def test_forcemodelconfig_tides_kwarg():
     """Test that ForceModelConfig constructor accepts a tides kwarg and round-trips it."""
     solid = brahe.SolidTideConfig(frequency_dependent=True)
-    tides = brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.AUTO, solid=solid)
+    tides = brahe.TidesConfiguration(
+        permanent=brahe.PermanentTideConfig.AUTO, solid=solid
+    )
     cfg = brahe.ForceModelConfig(tides=tides)
     assert cfg.tides is not None
     assert cfg.tides.solid is not None
@@ -124,7 +131,10 @@ def test_forcemodelconfig_tides_kwarg():
 def test_tides_config_zero_tide_with_solid_warns():
     """ConvertTo(non-tide-free) + solid tides double-counts the permanent tide and warns."""
     solid = brahe.SolidTideConfig(frequency_dependent=False)
-    for system in (brahe.GravityModelTideSystem.ZeroTide, brahe.GravityModelTideSystem.MeanTide):
+    for system in (
+        brahe.GravityModelTideSystem.ZeroTide,
+        brahe.GravityModelTideSystem.MeanTide,
+    ):
         with pytest.warns(UserWarning, match="double-counts the permanent tide"):
             tides = brahe.TidesConfiguration(
                 permanent=brahe.PermanentTideConfig.convert_to(system), solid=solid
@@ -141,10 +151,14 @@ def test_tides_config_consistent_combinations_do_not_warn():
         brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.AUTO, solid=solid)
         brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.OFF, solid=solid)
         brahe.TidesConfiguration(
-            permanent=brahe.PermanentTideConfig.convert_to(brahe.GravityModelTideSystem.TideFree),
+            permanent=brahe.PermanentTideConfig.convert_to(
+                brahe.GravityModelTideSystem.TideFree
+            ),
             solid=solid,
         )
         brahe.TidesConfiguration(
-            permanent=brahe.PermanentTideConfig.convert_to(brahe.GravityModelTideSystem.ZeroTide),
+            permanent=brahe.PermanentTideConfig.convert_to(
+                brahe.GravityModelTideSystem.ZeroTide
+            ),
             solid=None,
         )

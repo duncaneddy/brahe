@@ -4934,6 +4934,7 @@ impl PyForceModelConfig {
     /// - SRP with conical eclipse
     /// - Sun, Moon, and all planets (DE440s ephemerides)
     /// - Relativistic corrections
+    /// - Solid Earth tides with frequency-dependent corrections
     ///
     /// Requires parameter vector: [mass, drag_area, Cd, srp_area, Cr]
     #[classmethod]
@@ -5140,6 +5141,7 @@ impl PyForceModelConfig {
 /// - Solar radiation pressure with eclipse modeling
 /// - Third-body perturbations (Sun, Moon, planets)
 /// - Relativistic corrections
+/// - Solid Earth tides
 ///
 /// Attributes:
 ///     current_epoch (Epoch): Current propagation time

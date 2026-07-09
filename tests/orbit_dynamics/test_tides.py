@@ -7,7 +7,6 @@ Covers:
 """
 
 import numpy as np
-import pytest
 import brahe as bh
 
 

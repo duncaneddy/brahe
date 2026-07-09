@@ -3789,8 +3789,8 @@ impl PyTidesConfiguration {
         permanent: &PyPermanentTideConfig,
         solid: Option<&PySolidTideConfig>,
     ) -> PyResult<Self> {
-        if let propagators::PermanentTideConfig::ConvertTo(sys) = &permanent.config {
-            if *sys != orbit_dynamics::GravityModelTideSystem::TideFree && solid.is_some() {
+        if let propagators::PermanentTideConfig::ConvertTo(sys) = &permanent.config 
+            && *sys != orbit_dynamics::GravityModelTideSystem::TideFree && solid.is_some() {
                 let msg = std::ffi::CString::new(format!(
                     "PermanentTideConfig.convert_to(GravityModelTideSystem.{sys:?}) combined \
                      with solid Earth tides double-counts the permanent tide: the solid-tide \
@@ -3805,7 +3805,6 @@ impl PyTidesConfiguration {
                     &msg,
                     2,
                 )?;
-            }
         }
         Ok(Self {
             config: propagators::TidesConfiguration {
@@ -4884,6 +4883,7 @@ impl PyForceModelConfig {
     ///     ```
     #[new]
     #[pyo3(signature = (gravity=None, drag=None, srp=None, third_body=None, relativity=false, mass=None, frame_transform=None, tides=None))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         gravity: Option<&PyGravityConfiguration>,
         drag: Option<&PyDragConfiguration>,

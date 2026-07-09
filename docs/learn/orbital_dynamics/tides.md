@@ -11,6 +11,13 @@ Brahe implements the solid Earth tide model from Chapter 6 of the IERS
 Conventions (2010), Technical Note 36 (TN36):
 <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 
+!!! question "Validation Help Desired"
+
+    Tidal corrections have been implemented based on a best-effort reading of 
+    the IERS conventions. However, it is generally a complex model
+    with multiple steps and assumptions, so any experts who 
+    could review the implementation and confirm its correctness would be greatly appreciated.
+
 ## The Three Tide Systems
 
 Geopotential models are published in one of three *tide systems*, which differ
@@ -23,9 +30,10 @@ This distinction affects only the degree-2 zonal coefficient $\bar{C}_{20}$.
 | **Zero-tide** | indirect term only (elastic deformation) | Used by some older models (e.g. EGM96 S11) |
 | **Tide-free** | neither term | Conventional choice; used by EGM2008, GGM05S, JGM-3 |
 
-The *direct* term is the permanent tidal potential itself (IERS Eq. 6.14, $A_0 H_0$);
-the *indirect* term is Earth's permanent elastic response to that potential
-(scaled by the secular Love number $k_{20} = 0.30190$, IERS Table 6.3):
+The *direct* term is the permanent part of the tide-generating potential
+itself; the *indirect* term is Earth's permanent elastic deformation in
+response to it, given by IERS Eq. 6.14 with the nominal degree-2 Love number
+$k_{20} = 0.30190$ (IERS Table 6.3):
 
 $$
 \delta\bar{C}_{20}^{\text{direct}} = A_0 H_0 = 4.4228 \times 10^{-8} \times (-0.31460) \approx -1.391 \times 10^{-8}
@@ -34,8 +42,6 @@ $$
 $$
 \delta\bar{C}_{20}^{\text{indirect}} = A_0 H_0 k_{20} \approx -4.201 \times 10^{-9}
 $$
-
-(IERS Conventions (2010), §6.2.2, Eqs. 6.13–6.14)
 
 The solid-tide acceleration model (§6.2.1) assumes a *conventional tide-free*
 background. When using a model whose $\bar{C}_{20}$ is in a different system,
@@ -136,7 +142,7 @@ dependence of the anelastic Love numbers near tidal resonances, primarily
 affecting the degree-2 coefficients:
 
 | Quantity | Equation |
-|---|---|---|
+|---|---|
 | $\Delta\bar{C}_{20}$ | Eq. 6.8a (real part, $m=0$, 21 lines) |
 | $\Delta\bar{C}_{21}, \Delta\bar{S}_{21}$ | Eq. 6.8b ($m=1$, 48 lines) |
 | $\Delta\bar{C}_{22}, \Delta\bar{S}_{22}$ | Eq. 6.8c ($m=2$, 2 lines) |
@@ -246,4 +252,5 @@ third-body configuration.
 ## References
 
 - Petit, G., & Luzum, B. (Eds.) (2010). *IERS Conventions (2010)*, Technical Note 36, Chapter 6: Geopotential. IERS. <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
-- Lemoine, F. G., et al. (1998). *The Development of the Joint NASA GSFC and the National Imagery and Mapping Agency (NIMA) Geopotential Model EGM96*. NASA/TP-1998-206861. (EGM96 S11 zero-tide C̄20.)
+- Petit, G., & Luzum, B. (Eds.) (2010). *IERS Conventions (2010)*, Technical Note 36, Chapter 1: General Definitions and Numerical Standards. IERS. (§1.1 tide-system definitions.) <https://iers-conventions.obspm.fr/content/chapter1/icc1.pdf>
+- Lemoine, F. G., et al. (1998). *The Development of the Joint NASA GSFC and the National Imagery and Mapping Agency (NIMA) Geopotential Model EGM96*. NASA/TP-1998-206861. (§11.1: tide-system definitions, direct/indirect terminology, and permanent-tide conversion formulas.) <https://cddis.nasa.gov/926/egm96/doc/S11.HTML>

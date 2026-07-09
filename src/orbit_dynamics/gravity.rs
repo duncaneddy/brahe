@@ -1047,7 +1047,7 @@ impl GravityModel {
     /// undefined, so the conversion cannot be made safely).
     ///
     /// # References
-    /// - IERS Conventions (2010), TN36 §6.2.2, Eq. (6.13)–(6.14).
+    /// - IERS Conventions (2010), TN36 §1.1 and §6.2.2, Eq. (6.14).
     ///   <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
     /// - EGM96 documentation, Section 11. <https://cddis.nasa.gov/926/egm96/doc/S11.HTML>
     pub fn convert_tide_system(

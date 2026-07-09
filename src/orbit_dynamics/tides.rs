@@ -11,26 +11,31 @@ Source: <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 
 use nalgebra::Vector3;
 
-use crate::constants::{GM_MOON, GM_SUN, MJD_ZERO};
+use crate::constants::{AngleFormat, GM_MOON, GM_SUN};
 use crate::orbit_dynamics::gravity::GravityModelTideSystem;
 use crate::time::{Epoch, TimeSystem};
 
-/// Permanent-tide DIRECT term on the fully-normalized C̄20 (IERS Eq. 6.14,
-/// the A0*H0 factor with no Love number). A0 = 4.4228e-8 m^-1 (Eq. 6.8c),
-/// H0 = -0.31460 m. This is the contribution of the lunisolar permanent
-/// tide-raising potential itself (present in the mean-tide system, removed
-/// for zero-tide).
+/// Permanent-tide DIRECT term on the fully-normalized C̄20: the A0*H0 factor
+/// with no Love number, i.e. the lunisolar permanent tide-raising potential
+/// itself (present in the mean-tide system, removed for zero-tide; tide
+/// systems defined in IERS TN36 §1.1). A0 = 4.4228e-8 m^-1 and
+/// H0 = -0.31460 m are the values quoted in Eq. 6.14. TN36 assigns this term
+/// no numbered equation (Chapter 6 only converts zero-tide <-> tide-free);
+/// it is the "restoring the permanent part of the tide generating potential"
+/// step of TN36 Figure 1.2, and in geoid height it reproduces the classical
+/// mean/zero conversion N_m - N_z = (9.9 - 29.6 sin^2(phi)) cm of
+/// Lemoine et al. (1998), Eq. (11.1-1).
 pub const PERM_C20_DIRECT: f64 = 4.4228e-8 * (-0.31460);
 
 /// Permanent-tide INDIRECT term on C̄20 (IERS Eq. 6.14, A0*H0*k20). k20 =
-/// 0.30190 is the secular Love number (Table 6.3 anelastic Re k20). This is
+/// 0.30190 is the nominal degree-2 Love number (Table 6.3 anelastic Re k20). This is
 /// the Earth's permanent elastic deformation response (present in both
 /// mean-tide AND zero-tide, removed for conventional tide-free).
 pub const PERM_C20_INDIRECT: f64 = 4.4228e-8 * (-0.31460) * 0.30190;
 
 /// Offset of a system's C̄20 relative to the conventional tide-free value.
 ///
-/// Per IERS §6.2.2, the systems differ by which permanent terms are present:
+/// Per IERS §1.1 and §6.2.2, the systems differ by which permanent terms are present:
 /// - tide-free: neither term  -> 0
 /// - zero-tide: indirect only  -> PERM_C20_INDIRECT
 /// - mean-tide: direct+indirect -> PERM_C20_DIRECT + PERM_C20_INDIRECT
@@ -389,7 +394,7 @@ pub fn accel_solid_earth_tides(
 ///
 /// l, l', F, D, Ω come from the IAU 2003 fundamental-argument polynomials
 /// (SOFA iauFal03/iauFalp03/iauFaf03/iauFad03/iauFaom03), evaluated at TT
-/// Julian centuries since J2000. GMST from SOFA iauGmst06 (UT1, TT).
+/// Julian centuries since J2000. GMST from [`Epoch::gmst`] (IAU 2006).
 ///
 /// Returns `[θg+π, l, l', F, D, Ω]` (radians).
 #[allow(dead_code)] // consumed by Task 9 Step-2 frequency-dependent corrections
@@ -411,10 +416,8 @@ pub(crate) fn doodson_delaunay_args(epoch: Epoch) -> [f64; 6] {
         )
     };
 
-    // GMST (radians), IAU 2006: needs (UT1 two-part JD, TT two-part JD).
-    let ut1 = epoch.mjd_as_time_system(TimeSystem::UT1);
-    let tt = epoch.mjd_as_time_system(TimeSystem::TT);
-    let gmst = unsafe { rsofa::iauGmst06(MJD_ZERO, ut1, MJD_ZERO, tt) };
+    // GMST (radians), IAU 2006 (Epoch::gmst wraps SOFA iauGmst06 with UT1/TT).
+    let gmst = epoch.gmst(AngleFormat::Radians);
 
     [gmst + PI, l, lp, f, d, om]
 }

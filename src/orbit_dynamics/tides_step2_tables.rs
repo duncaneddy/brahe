@@ -240,7 +240,7 @@ pub const TABLE_M1: [Step2Line; 48] = [
         amp_in_phase: -0.1,
         amp_out_of_phase: 0.0,
     },
-    // φ1   | 167,555 | [0, 0, -2, 2, -2]
+    // ϕ1   | 167,555 | [0, 0, -2, 2, -2]
     Step2Line {
         delaunay: [0, 0, -2, 2, -2],
         amp_in_phase: -5.0,

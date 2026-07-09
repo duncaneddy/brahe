@@ -428,7 +428,7 @@ pub const TABLE_M0: [Step2Line; 21] = [
     // —    | 75,575 | [0, 0, -2, 0, 0]
     Step2Line {
         delaunay: [0, 0, -2, 0, 0],
-        amp_in_phase: 0.2,
+        amp_in_phase: 0.0,
         amp_out_of_phase: 0.2,
     },
     // Mstm | 83,655 | [1, 0, -2, -2, -2]

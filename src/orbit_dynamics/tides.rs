@@ -654,6 +654,12 @@ mod tests {
         assert!((mf.0 - 0.6).abs() < 1e-9, "Mf ip={}", mf.0);
         assert!((mf.1 - 6.3).abs() < 1e-9, "Mf op={}", mf.1);
 
+        // 75,575: [0,0,-2,0,0], ip=0.0, op=0.2 (ip is 0.0 in TN36 Table 6.5b;
+        // guards against a past transcription error that had ip=0.2).
+        let m0_75575 = find(&TABLE_M0, [0, 0, -2, 0, 0]).expect("75,575 not found in TABLE_M0");
+        assert!((m0_75575.0).abs() < 1e-12, "75,575 ip={}", m0_75575.0);
+        assert!((m0_75575.1 - 0.2).abs() < 1e-9, "75,575 op={}", m0_75575.1);
+
         // TABLE_M2 anchors.
         // N2: [1,0,2,0,2], ip=-0.3
         let n2 = find(&TABLE_M2, [1, 0, 2, 0, 2]).expect("N2 not found in TABLE_M2");

@@ -3784,13 +3784,35 @@ pub struct PyTidesConfiguration {
 impl PyTidesConfiguration {
     #[new]
     #[pyo3(signature = (permanent, solid=None))]
-    fn new(permanent: &PyPermanentTideConfig, solid: Option<&PySolidTideConfig>) -> Self {
-        Self {
+    fn new(
+        py: Python,
+        permanent: &PyPermanentTideConfig,
+        solid: Option<&PySolidTideConfig>,
+    ) -> PyResult<Self> {
+        if let propagators::PermanentTideConfig::ConvertTo(sys) = &permanent.config {
+            if *sys != orbit_dynamics::GravityModelTideSystem::TideFree && solid.is_some() {
+                let msg = std::ffi::CString::new(format!(
+                    "PermanentTideConfig.convert_to(GravityModelTideSystem.{sys:?}) combined \
+                     with solid Earth tides double-counts the permanent tide: the solid-tide \
+                     model (IERS \u{a7}6.2.1) already includes the permanent part and expects a \
+                     conventional tide-free background field. Use \
+                     convert_to(GravityModelTideSystem.TideFree) or PermanentTideConfig.AUTO, \
+                     or disable solid tides."
+                ))?;
+                PyErr::warn(
+                    py,
+                    &py.get_type::<pyo3::exceptions::PyUserWarning>(),
+                    &msg,
+                    2,
+                )?;
+            }
+        }
+        Ok(Self {
             config: propagators::TidesConfiguration {
                 permanent: permanent.config.clone(),
                 solid: solid.map(|s| s.config),
             },
-        }
+        })
     }
 
     /// Get the permanent tide configuration.

@@ -773,6 +773,16 @@ impl DNumericalOrbitPropagator {
                                     .to_string(),
                             ));
                         }
+                        if *sys != GravityModelTideSystem::TideFree && tides_cfg.solid.is_some() {
+                            eprintln!(
+                                "[brahe] warning: PermanentTideConfig::ConvertTo({sys:?}) \
+                                 combined with solid Earth tides double-counts the permanent \
+                                 tide: the solid-tide model (IERS \u{a7}6.2.1) already includes \
+                                 the permanent part and expects a conventional tide-free \
+                                 background field. Use ConvertTo(TideFree) or Auto, or disable \
+                                 solid tides."
+                            );
+                        }
                         Some(*sys)
                     }
                 };
@@ -11999,6 +12009,66 @@ mod tests {
                 (model.get(2, 0).unwrap().0 - expected).abs()
             );
         }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_permanent_tide_convert_to_zero_tide_with_solid_warns_but_constructs() {
+        use crate::orbit_dynamics::ParallelMode;
+        use crate::orbit_dynamics::gravity::GravityModelType;
+        use crate::orbit_dynamics::tides::SolidTideConfig;
+        use crate::propagators::force_model_config::{
+            ForceModelConfig, GravityConfiguration, GravityModelSource, PermanentTideConfig,
+            TidesConfiguration,
+        };
+
+        setup_global_test_eop();
+
+        // ConvertTo(ZeroTide) + solid tides double-counts the permanent tide.
+        // The combination emits a warning (stderr) but is still honored, since
+        // externally pre-corrected (IERS Step 3 style) workflows are legitimate.
+        let cfg = ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::ModelType(GravityModelType::GGM05S),
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Auto,
+            },
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::ConvertTo(GravityModelTideSystem::ZeroTide),
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: false,
+                }),
+            }),
+            ..ForceModelConfig::earth_gravity()
+        };
+
+        let epoch = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let model = prop.gravity_model_ref().unwrap();
+        assert_eq!(model.tide_system, GravityModelTideSystem::ZeroTide);
     }
 
     #[test]

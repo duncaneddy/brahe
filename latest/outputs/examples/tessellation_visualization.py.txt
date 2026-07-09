@@ -1,5 +1,5 @@
 Downloading NISAR TLE from CelesTrak...
-Found NISAR: NISAR in 0.44s
+Found NISAR: NISAR in 0.40s
 
 Ireland polygon: 27 vertices
 

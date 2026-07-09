@@ -40,6 +40,7 @@ fn main() {
         relativity: false,
         mass: Some(bh::ParameterSource::Value(500.0)), // Fixed 500 kg mass
         frame_transform: bh::FrameTransformationModel::default(),
+        tides: None,
     };
 }
 

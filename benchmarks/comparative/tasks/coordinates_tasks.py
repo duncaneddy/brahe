@@ -11,9 +11,7 @@ from benchmarks.comparative.tasks.base import BenchmarkTask
 R_EARTH = 6378137.0  # meters
 
 
-def _geodetic_position_error(
-    ga: list[float], gb: list[float]
-) -> tuple[float, float]:
+def _geodetic_position_error(ga: list[float], gb: list[float]) -> tuple[float, float]:
     """Convert a pair of ``[lon_deg, lat_deg, alt_m]`` residuals into a
     pair of (component-wise meters, RMS meters) suitable for direct
     comparison against position-error magnitudes.
@@ -41,9 +39,7 @@ def _geodetic_position_error(
     return max_abs, rms
 
 
-def _geocentric_position_error(
-    ga: list[float], gb: list[float]
-) -> tuple[float, float]:
+def _geocentric_position_error(ga: list[float], gb: list[float]) -> tuple[float, float]:
     """Same as :func:`_geodetic_position_error` but the third component is
     geocentric radius (meters) rather than altitude above ellipsoid. The
     error metric is identical: the third-component delta is already a

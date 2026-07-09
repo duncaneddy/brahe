@@ -78,11 +78,12 @@ _DUMMY_VX_KMS = 7.5
 def _earth_params():
     """Return (eq_radius_km, flattening, e2) from GMAT's Earth body."""
     import gmatpy as gmat
+
     ss = gmat.GetSolarSystem()
     earth = ss.GetBody("Earth")
-    a = earth.GetEquatorialRadius()   # km
+    a = earth.GetEquatorialRadius()  # km
     f = earth.GetFlattening()
-    return a, f, 2.0 * f - f * f     # (a, f, e^2)
+    return a, f, 2.0 * f - f * f  # (a, f, e^2)
 
 
 def _geocentric_r_km(lat_deg, lon_deg, alt_m, a, e2):
@@ -114,7 +115,7 @@ def _alt_from_r_lat(r_km, lat_geodetic_deg, a, e2):
     cos_phi = math.cos(phi)
     N = a / math.sqrt(1.0 - e2 * sin_phi * sin_phi)
     # Quadratic coefficients: h^2 + 2*p*h + (q - r^2) = 0
-    p = N * (1.0 - e2 * sin_phi * sin_phi)          # = a * sqrt(1 - e^2*sin^2(phi))
+    p = N * (1.0 - e2 * sin_phi * sin_phi)  # = a * sqrt(1 - e^2*sin^2(phi))
     q = N * N * (cos_phi * cos_phi + (1.0 - e2) * (1.0 - e2) * sin_phi * sin_phi)
     disc = r_km * r_km - q + p * p
     return -p + math.sqrt(disc)
@@ -146,11 +147,13 @@ def geodetic_to_ecef(params: dict, iterations: int):
         for r_km, lon_deg, lat_deg in pts_planetodetic:
             rv_pd = gmat.Rvector6(r_km, lon_deg, lat_deg, _DUMMY_VX_KMS, 0.0, 0.0)
             rv_cart = scu.PlanetodeticToCartesian(rv_pd, f, a)
-            out.append([
-                float(rv_cart.GetElement(0)) * 1000.0,
-                float(rv_cart.GetElement(1)) * 1000.0,
-                float(rv_cart.GetElement(2)) * 1000.0,
-            ])
+            out.append(
+                [
+                    float(rv_cart.GetElement(0)) * 1000.0,
+                    float(rv_cart.GetElement(1)) * 1000.0,
+                    float(rv_cart.GetElement(2)) * 1000.0,
+                ]
+            )
         return out
 
     times, results = time_iterations(run, iterations)
@@ -197,10 +200,7 @@ def ecef_to_geodetic(params: dict, iterations: int):
     scu = gmat.StateConversionUtil
 
     # Pre-convert outside timed region: [x_m, y_m, z_m] -> km
-    pts_km = [
-        [x / 1000.0 for x in p]
-        for p in params["points"]
-    ]
+    pts_km = [[x / 1000.0 for x in p] for p in params["points"]]
 
     def run():
         out = []
@@ -267,11 +267,13 @@ def geocentric_to_ecef(params: dict, iterations: int):
         for r_km, lon_deg, lat_geo_deg in pts_spherical:
             rv_sph = gmat.Rvector6(r_km, lon_deg, lat_geo_deg, _DUMMY_VX_KMS, 0.0, 0.0)
             rv_cart = scu.SphericalRADECToCartesian(rv_sph)
-            out.append([
-                float(rv_cart.GetElement(0)) * 1000.0,
-                float(rv_cart.GetElement(1)) * 1000.0,
-                float(rv_cart.GetElement(2)) * 1000.0,
-            ])
+            out.append(
+                [
+                    float(rv_cart.GetElement(0)) * 1000.0,
+                    float(rv_cart.GetElement(1)) * 1000.0,
+                    float(rv_cart.GetElement(2)) * 1000.0,
+                ]
+            )
         return out
 
     times, results = time_iterations(run, iterations)
@@ -310,10 +312,7 @@ def ecef_to_geocentric(params: dict, iterations: int):
     scu = gmat.StateConversionUtil
 
     # Pre-convert outside timed region: [x_m, y_m, z_m] -> km
-    pts_km = [
-        [v / 1000.0 for v in p]
-        for p in params["points"]
-    ]
+    pts_km = [[v / 1000.0 for v in p] for p in params["points"]]
 
     def run():
         out = []
@@ -342,5 +341,3 @@ def ecef_to_geocentric(params: dict, iterations: int):
             ),
         },
     )
-
-

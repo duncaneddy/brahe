@@ -1179,7 +1179,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_eci(propagated_orbi
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(
+    propagated_orbit_prop,
+):
     """Test states_ecef() returns ECEF state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -1196,7 +1198,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_ecef(propagated_orb
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(
+    propagated_orbit_prop,
+):
     """Test states_gcrf() returns GCRF state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -1209,7 +1213,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_gcrf(propagated_orb
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(
+    propagated_orbit_prop,
+):
     """Test states_itrf() returns ITRF state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]
@@ -1222,7 +1228,9 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_itrf(propagated_orb
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
-def test_numericalorbitpropagator_dorbitstateprovider_states_eme2000(propagated_orbit_prop):
+def test_numericalorbitpropagator_dorbitstateprovider_states_eme2000(
+    propagated_orbit_prop,
+):
     """Test states_eme2000() returns EME2000 state vectors at multiple epochs."""
     prop, epoch = propagated_orbit_prop
     epochs = [epoch + i * 120.0 for i in range(5)]

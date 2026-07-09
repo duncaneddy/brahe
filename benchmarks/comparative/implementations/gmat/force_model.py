@@ -80,9 +80,11 @@ def _extract_accel_m_s2(deriv) -> list[float]:
 # Force-model builders
 # ---------------------------------------------------------------------------
 
+
 def _build_point_mass_fm():
     """Build a ForceModel with Earth point-mass gravity only."""
     import gmatpy as gmat
+
     sc = gmat.Construct("Spacecraft", "Sat")
     fm = gmat.Construct("ForceModel", "FM")
     pmf = gmat.Construct("PointMassForce", "EarthPM")
@@ -96,6 +98,7 @@ def _build_point_mass_fm():
 def _build_spherical_harmonics_fm(degree: int, order: int):
     """Build a ForceModel with EGM96 spherical-harmonic gravity."""
     import gmatpy as gmat
+
     sc = gmat.Construct("Spacecraft", "Sat")
     fm = gmat.Construct("ForceModel", "FM")
     grav = gmat.Construct("GravityField", "EarthGravity")
@@ -112,6 +115,7 @@ def _build_spherical_harmonics_fm(degree: int, order: int):
 def _build_third_body_fm(body_name: str):
     """Build a ForceModel with a single third-body PointMassForce."""
     import gmatpy as gmat
+
     sc = gmat.Construct("Spacecraft", "Sat")
     fm = gmat.Construct("ForceModel", "FM")
     tb = gmat.Construct("PointMassForce", f"{body_name}TB")
@@ -126,6 +130,7 @@ def _build_third_body_fm(body_name: str):
 # Generic timed evaluator: dispatches between perf single-IC and accuracy
 # multi-IC sweep based on the params shape.
 # ---------------------------------------------------------------------------
+
 
 def _make_run(params: dict, build_fn: Callable):
     """Return a zero-argument callable that builds + evaluates the force model.
@@ -170,6 +175,7 @@ def _make_run(params: dict, build_fn: Callable):
 # ---------------------------------------------------------------------------
 # Public entry points (matched to force_model_tasks.py task names)
 # ---------------------------------------------------------------------------
+
 
 def accel_point_mass_gravity(params: dict, iterations: int):
     times, result = time_iterations(

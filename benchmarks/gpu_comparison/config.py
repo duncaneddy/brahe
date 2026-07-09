@@ -59,7 +59,9 @@ def _detect_cpu_model() -> str:
         try:
             r = subprocess.run(
                 ["sysctl", "-n", "machdep.cpu.brand_string"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if r.returncode == 0:
                 return r.stdout.strip()
@@ -71,6 +73,7 @@ def _detect_cpu_model() -> str:
 def _detect_physical_cores() -> int:
     try:
         import psutil
+
         n = psutil.cpu_count(logical=False)
         if n:
             return int(n)
@@ -82,7 +85,8 @@ def _detect_physical_cores() -> int:
 def _detect_ram_gb() -> int:
     try:
         import psutil
-        return int(psutil.virtual_memory().total / (1024 ** 3))
+
+        return int(psutil.virtual_memory().total / (1024**3))
     except ImportError:
         pass
     if sys.platform.startswith("linux"):
@@ -100,7 +104,10 @@ def _detect_cuda_version_from_smi() -> str:
     """Parse the 'CUDA Version: X.Y' field from `nvidia-smi -q`."""
     try:
         r = subprocess.run(
-            ["nvidia-smi", "-q"], capture_output=True, text=True, timeout=10,
+            ["nvidia-smi", "-q"],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if r.returncode != 0:
             return "unknown"
@@ -121,7 +128,9 @@ def _detect_gpus() -> list[GPUInfo]:
                 "--query-gpu=index,name,memory.total,driver_version",
                 "--format=csv,noheader,nounits",
             ],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if r.returncode != 0:
             return []
@@ -134,13 +143,15 @@ def _detect_gpus() -> list[GPUInfo]:
         if len(parts) < 4:
             continue
         try:
-            gpus.append(GPUInfo(
-                index=int(parts[0]),
-                model=parts[1],
-                memory_mb=int(parts[2]),
-                driver=parts[3],
-                cuda_runtime=cuda_version,
-            ))
+            gpus.append(
+                GPUInfo(
+                    index=int(parts[0]),
+                    model=parts[1],
+                    memory_mb=int(parts[2]),
+                    driver=parts[3],
+                    cuda_runtime=cuda_version,
+                )
+            )
         except ValueError:
             continue
     return gpus
@@ -148,7 +159,9 @@ def _detect_gpus() -> list[GPUInfo]:
 
 def _detect_rust_version() -> str:
     try:
-        r = subprocess.run(["rustc", "--version"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run(
+            ["rustc", "--version"], capture_output=True, text=True, timeout=5
+        )
         return r.stdout.strip() if r.returncode == 0 else "unknown"
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return "unknown"
@@ -157,6 +170,7 @@ def _detect_rust_version() -> str:
 def _detect_jax_version() -> str:
     try:
         import jax
+
         return jax.__version__
     except ImportError:
         return "not installed"
@@ -165,6 +179,7 @@ def _detect_jax_version() -> str:
 def _detect_brahe_version() -> str:
     try:
         from importlib.metadata import version
+
         return version("brahe")
     except Exception:
         return "unknown"
@@ -173,6 +188,7 @@ def _detect_brahe_version() -> str:
 def _detect_astrojax_version() -> str:
     try:
         from importlib.metadata import version
+
         return version("astrojax")
     except Exception:
         return "unknown"
@@ -182,7 +198,9 @@ def _git_sha(repo_path: Path) -> str | None:
     try:
         r = subprocess.run(
             ["git", "-C", str(repo_path), "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if r.returncode != 0:
             return None
@@ -194,6 +212,7 @@ def _git_sha(repo_path: Path) -> str | None:
 def _astrojax_repo_path() -> Path | None:
     try:
         import astrojax
+
         p = Path(astrojax.__file__).resolve()
         for parent in p.parents:
             if (parent / ".git").exists():

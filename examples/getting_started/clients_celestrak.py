@@ -2,7 +2,6 @@
 # dependencies = ["brahe"]
 
 import brahe as bh
-import numpy as np
 
 # Initialize EOP
 bh.initialize_eop()

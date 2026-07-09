@@ -75,9 +75,15 @@ def _oe_deg_si_to_gmat(oe_deg_si):
 def _keplerian_to_cartesian_km(oe_gmat: list[float]) -> list[float]:
     """Convert [a(km), e, i, RAAN, AOP, M] to Cartesian [x,y,z,vx,vy,vz] in km/km/s."""
     import gmatpy as gmat
+
     rv6 = gmat.StateConversionUtil.Convert(
-        oe_gmat, "Keplerian", "Cartesian",
-        _MU_EARTH_GMAT, _GMAT_FLAT, _GMAT_R_EQ, "MA",
+        oe_gmat,
+        "Keplerian",
+        "Cartesian",
+        _MU_EARTH_GMAT,
+        _GMAT_FLAT,
+        _GMAT_R_EQ,
+        "MA",
     )
     return [rv6.GetElement(i) for i in range(6)]
 
@@ -95,6 +101,7 @@ def _build_propagator(sc, step_size_sec: float, configure_forces_fn=None):
     this to wire up coordinate-system references before PrepareInternals.
     """
     import gmatpy as gmat
+
     ps = gmat.Construct("PropSetup", "PS")
     fm = ps.GetODEModel()
     fm.SetSolarSystem(gmat.GetSolarSystem())
@@ -109,10 +116,14 @@ def _build_propagator(sc, step_size_sec: float, configure_forces_fn=None):
     return inner
 
 
-def _propagate(r0_km: list[float], epoch_utcmjd: float,
-               step_size_sec: float, n_steps: int,
-               sc_props: tuple[float, float, float, float, float] | None = None,
-               configure_forces_fn=None) -> list[tuple]:
+def _propagate(
+    r0_km: list[float],
+    epoch_utcmjd: float,
+    step_size_sec: float,
+    n_steps: int,
+    sc_props: tuple[float, float, float, float, float] | None = None,
+    configure_forces_fn=None,
+) -> list[tuple]:
     """One full simulation. Returns list of (r_km, v_kms) tuples.
 
     ``sc_props`` is an optional (mass_kg, drag_area_m2, Cd, srp_area_m2, Cr)
@@ -123,6 +134,7 @@ def _propagate(r0_km: list[float], epoch_utcmjd: float,
     system is attached but before PrepareInternals.
     """
     import gmatpy as gmat
+
     if sc_props is None:
         mass, drag_area, cd, srp_area, cr = 100.0, 1.0, 2.2, 1.0, 1.5
     else:
@@ -133,11 +145,17 @@ def _propagate(r0_km: list[float], epoch_utcmjd: float,
     sc.SetField("Epoch", str(epoch_utcmjd))
     sc.SetField("CoordinateSystem", "EarthMJ2000Eq")
     sc.SetField("StateType", "Cartesian")
-    sc.SetField("X", r0_km[0]); sc.SetField("Y", r0_km[1]); sc.SetField("Z", r0_km[2])
-    sc.SetField("VX", r0_km[3]); sc.SetField("VY", r0_km[4]); sc.SetField("VZ", r0_km[5])
+    sc.SetField("X", r0_km[0])
+    sc.SetField("Y", r0_km[1])
+    sc.SetField("Z", r0_km[2])
+    sc.SetField("VX", r0_km[3])
+    sc.SetField("VY", r0_km[4])
+    sc.SetField("VZ", r0_km[5])
     sc.SetField("DryMass", mass)
-    sc.SetField("Cd", cd); sc.SetField("DragArea", drag_area)
-    sc.SetField("Cr", cr); sc.SetField("SRPArea", srp_area)
+    sc.SetField("Cd", cd)
+    sc.SetField("DragArea", drag_area)
+    sc.SetField("Cr", cr)
+    sc.SetField("SRPArea", srp_area)
 
     inner = _build_propagator(sc, step_size_sec, configure_forces_fn)
 
@@ -159,8 +177,9 @@ def _samples_to_gcrf_meters(samples_km) -> list[list[float]]:
     return out
 
 
-def _add_gravity_field(propsetup, degree: int, order: int,
-                       potential_file: str = "JGM2.cof"):
+def _add_gravity_field(
+    propsetup, degree: int, order: int, potential_file: str = "JGM2.cof"
+):
     """Replace the default PointMassForce with a spherical-harmonic GravityField.
 
     Called as a ``configure_forces_fn`` argument to ``_build_propagator`` /
@@ -177,6 +196,7 @@ def _add_gravity_field(propsetup, degree: int, order: int,
     resolves it against ``<GMAT_ROOT>/data/gravity/earth/``.
     """
     import gmatpy as gmat
+
     ode = propsetup.GetODEModel()
 
     # Remove any existing PointMassForce for Earth (the PropSetup default).
@@ -252,6 +272,7 @@ def _add_third_body_force(propsetup, body_name: str):
     additional ones for non-Earth bodies without removing the existing one.
     """
     import gmatpy as gmat
+
     ode = propsetup.GetODEModel()
     tb = gmat.Construct("PointMassForce", f"{body_name}TB")
     tb.SetField("BodyName", body_name)
@@ -293,7 +314,10 @@ def _build_rk4_run(
         def run():
             gmat_clear()
             return _propagate(
-                r0_km, epoch_utcmjd, step_size, n_steps,
+                r0_km,
+                epoch_utcmjd,
+                step_size,
+                n_steps,
                 sc_props=sc_props,
                 configure_forces_fn=configure_forces_fn,
             )
@@ -305,7 +329,10 @@ def _build_rk4_run(
             for epoch_utcmjd, r0_km in prepared_cases:
                 gmat_clear()
                 traj = _propagate(
-                    r0_km, epoch_utcmjd, step_size, n_steps,
+                    r0_km,
+                    epoch_utcmjd,
+                    step_size,
+                    n_steps,
                     sc_props=sc_props,
                     configure_forces_fn=configure_forces_fn,
                 )
@@ -355,6 +382,7 @@ def _add_drag_force(propsetup, atmosphere: str = "MSISE90"):
     object by ``_propagate``; this helper only constructs the force objects.
     """
     import gmatpy as gmat
+
     ode = propsetup.GetODEModel()
     drag = gmat.Construct("DragForce", "Drag")
     drag.SetField("AtmosphereModel", atmosphere)
@@ -371,6 +399,7 @@ def _add_srp_force(propsetup):
     object by ``_propagate``; this helper only constructs the force object.
     """
     import gmatpy as gmat
+
     ode = propsetup.GetODEModel()
     srp = gmat.Construct("SolarRadiationPressure", "SRP")
     ode.AddForce(srp)
@@ -386,6 +415,7 @@ def numerical_rk4_grav20x20_sun_moon(params: dict, iterations: int):
         _add_third_body_force(ps, "Sun")
         _add_third_body_force(ps, "Luna")
         import gmatpy as gmat
+
         gmat.Initialize()
 
     run, step_size = _build_rk4_run(params, configure_forces)
@@ -408,9 +438,14 @@ def numerical_rk4_grav20x20_sun_moon(params: dict, iterations: int):
     )
 
 
-def _propagate_full_forces(r0_km: list[float], epoch_utcmjd: float,
-                           step_size_sec: float, n_steps: int,
-                           sc_props: tuple, suffix: str) -> list[tuple]:
+def _propagate_full_forces(
+    r0_km: list[float],
+    epoch_utcmjd: float,
+    step_size_sec: float,
+    n_steps: int,
+    sc_props: tuple,
+    suffix: str,
+) -> list[tuple]:
     """One full simulation with 80x80 gravity + Sun/Moon + drag + SRP.
 
     Constructs all GMAT objects with unique ``suffix``-appended names to avoid
@@ -431,11 +466,17 @@ def _propagate_full_forces(r0_km: list[float], epoch_utcmjd: float,
     sc.SetField("Epoch", str(epoch_utcmjd))
     sc.SetField("CoordinateSystem", "EarthMJ2000Eq")
     sc.SetField("StateType", "Cartesian")
-    sc.SetField("X", r0_km[0]); sc.SetField("Y", r0_km[1]); sc.SetField("Z", r0_km[2])
-    sc.SetField("VX", r0_km[3]); sc.SetField("VY", r0_km[4]); sc.SetField("VZ", r0_km[5])
+    sc.SetField("X", r0_km[0])
+    sc.SetField("Y", r0_km[1])
+    sc.SetField("Z", r0_km[2])
+    sc.SetField("VX", r0_km[3])
+    sc.SetField("VY", r0_km[4])
+    sc.SetField("VZ", r0_km[5])
     sc.SetField("DryMass", mass)
-    sc.SetField("Cd", cd); sc.SetField("DragArea", drag_area)
-    sc.SetField("Cr", cr); sc.SetField("SRPArea", srp_area)
+    sc.SetField("Cd", cd)
+    sc.SetField("DragArea", drag_area)
+    sc.SetField("Cr", cr)
+    sc.SetField("SRPArea", srp_area)
 
     ps = gmat.Construct("PropSetup", f"PS{suffix}")
     fm = ps.GetODEModel()
@@ -547,7 +588,11 @@ def numerical_rk4_grav80x80_full(params: dict, iterations: int):
         def run():
             counter[0] += 1
             return _propagate_full_forces(
-                r0_km, epoch_utcmjd, step_size, n_steps, sc_props,
+                r0_km,
+                epoch_utcmjd,
+                step_size,
+                n_steps,
+                sc_props,
                 suffix=str(counter[0]),
             )
     else:
@@ -558,7 +603,11 @@ def numerical_rk4_grav80x80_full(params: dict, iterations: int):
             for epoch_utcmjd, r0_km in prepared_cases:
                 counter[0] += 1
                 traj = _propagate_full_forces(
-                    r0_km, epoch_utcmjd, step_size, n_steps, sc_props,
+                    r0_km,
+                    epoch_utcmjd,
+                    step_size,
+                    n_steps,
+                    sc_props,
                     suffix=str(counter[0]),
                 )
                 finals.append(traj[-1])
@@ -597,10 +646,12 @@ brahe/OreKit analytical propagation.
 """
 
 
-def _propagate_keplerian_case(r0_km: list[float], epoch_utcmjd: float,
-                               dt_sec: float,
-                               internal_step_sec: float = _KEPLERIAN_INTERNAL_STEP_SEC,
-                               ) -> tuple:
+def _propagate_keplerian_case(
+    r0_km: list[float],
+    epoch_utcmjd: float,
+    dt_sec: float,
+    internal_step_sec: float = _KEPLERIAN_INTERNAL_STEP_SEC,
+) -> tuple:
     """Propagate one orbit analytically to dt_sec using GMAT's Keplerian propagator.
 
     Returns a single (r_km, v_kms) tuple.
@@ -613,13 +664,18 @@ def _propagate_keplerian_case(r0_km: list[float], epoch_utcmjd: float,
     analytical propagator — GMAT enforces this in PrepareInternals().
     """
     import gmatpy as gmat
+
     sc = gmat.Construct("Spacecraft", "Sat")
     sc.SetField("DateFormat", "UTCModJulian")
     sc.SetField("Epoch", str(epoch_utcmjd))
     sc.SetField("CoordinateSystem", "EarthMJ2000Eq")
     sc.SetField("StateType", "Cartesian")
-    sc.SetField("X", r0_km[0]); sc.SetField("Y", r0_km[1]); sc.SetField("Z", r0_km[2])
-    sc.SetField("VX", r0_km[3]); sc.SetField("VY", r0_km[4]); sc.SetField("VZ", r0_km[5])
+    sc.SetField("X", r0_km[0])
+    sc.SetField("Y", r0_km[1])
+    sc.SetField("Z", r0_km[2])
+    sc.SetField("VX", r0_km[3])
+    sc.SetField("VY", r0_km[4])
+    sc.SetField("VZ", r0_km[5])
     sc.SetField("DryMass", 100.0)
 
     ps = gmat.Construct("PropSetup", "PS")
@@ -691,20 +747,26 @@ def keplerian_single(params: dict, iterations: int):
     )
 
 
-def _propagate_keplerian_trajectory(r0_km: list[float], epoch_utcmjd: float,
-                                     step_size_sec: float, n_steps: int) -> list[tuple]:
+def _propagate_keplerian_trajectory(
+    r0_km: list[float], epoch_utcmjd: float, step_size_sec: float, n_steps: int
+) -> list[tuple]:
     """Propagate one orbit analytically over n_steps using GMAT's Keplerian propagator.
 
     Returns list of (r_km, v_kms) tuples for each step.
     """
     import gmatpy as gmat
+
     sc = gmat.Construct("Spacecraft", "Sat")
     sc.SetField("DateFormat", "UTCModJulian")
     sc.SetField("Epoch", str(epoch_utcmjd))
     sc.SetField("CoordinateSystem", "EarthMJ2000Eq")
     sc.SetField("StateType", "Cartesian")
-    sc.SetField("X", r0_km[0]); sc.SetField("Y", r0_km[1]); sc.SetField("Z", r0_km[2])
-    sc.SetField("VX", r0_km[3]); sc.SetField("VY", r0_km[4]); sc.SetField("VZ", r0_km[5])
+    sc.SetField("X", r0_km[0])
+    sc.SetField("Y", r0_km[1])
+    sc.SetField("Z", r0_km[2])
+    sc.SetField("VX", r0_km[3])
+    sc.SetField("VY", r0_km[4])
+    sc.SetField("VZ", r0_km[5])
     sc.SetField("DryMass", 100.0)
 
     ps = gmat.Construct("PropSetup", "PS")
@@ -912,8 +974,7 @@ def sgp4_single(params: dict, iterations: int):
         prev = t
 
     propagate_lines = "\n".join(
-        "Propagate TLEProp(Sat) {Sat.ElapsedSecs = %.10f}" % dt
-        for dt in deltas
+        "Propagate TLEProp(Sat) {Sat.ElapsedSecs = %.10f}" % dt for dt in deltas
     )
     n_states = len(offsets)
 
@@ -926,18 +987,20 @@ def sgp4_single(params: dict, iterations: int):
 
     def run():
         _run_sgp4_script(
-            script_file, report_file, line1, line2, tle_file,
-            _SGP4_SINGLE_STEP_SIZE_SEC, propagate_lines,
+            script_file,
+            report_file,
+            line1,
+            line2,
+            tle_file,
+            _SGP4_SINGLE_STEP_SIZE_SEC,
+            propagate_lines,
         )
         return _parse_report_teme_km(report_file, n_states)
 
     times, native_samples = time_iterations(run, iterations)
 
     # Convert km / km/s -> m / m/s
-    results = [
-        [x * 1000.0 for x in state]
-        for state in native_samples
-    ]
+    results = [[x * 1000.0 for x in state] for state in native_samples]
 
     return build_task_result(
         "propagation.sgp4_single",
@@ -984,18 +1047,20 @@ def sgp4_trajectory(params: dict, iterations: int):
 
     def run():
         _run_sgp4_script(
-            script_file, report_file, line1, line2, tle_file,
-            step_size, propagate_lines,
+            script_file,
+            report_file,
+            line1,
+            line2,
+            tle_file,
+            step_size,
+            propagate_lines,
         )
         return _parse_report_teme_km(report_file, n_steps)
 
     times, native_samples = time_iterations(run, iterations)
 
     # Convert km / km/s -> m / m/s
-    results = [
-        [x * 1000.0 for x in state]
-        for state in native_samples
-    ]
+    results = [[x * 1000.0 for x in state] for state in native_samples]
 
     return build_task_result(
         "propagation.sgp4_trajectory",

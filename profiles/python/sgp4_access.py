@@ -28,9 +28,7 @@ def main() -> None:
     ).with_name("ISS")
 
     location = bh.PointLocation(-122.4194, 37.7749, 0.0).with_name("San Francisco")
-    epoch_start = bh.Epoch.from_datetime(
-        2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC
-    )
+    epoch_start = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
     epoch_end = epoch_start + 7.0 * 86400.0
     constraint = bh.ElevationConstraint(min_elevation_deg=10.0, max_elevation_deg=None)
 

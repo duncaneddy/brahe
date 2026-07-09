@@ -255,7 +255,7 @@ impl PyQuaternion {
     ///     q = bh.Quaternion(1.0, 0.0, 0.0, 0.0)
     ///     v = q.to_vector(scalar_first=True)
     ///     ```
-    pub unsafe fn to_vector<'py>(&self, py: Python<'py>, scalar_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
+    pub fn to_vector<'py>(&self, py: Python<'py>, scalar_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.to_vector(scalar_first), 4, f64)
     }
 
@@ -406,7 +406,7 @@ impl PyQuaternion {
     ///
     /// Returns:
     ///     numpy.ndarray: 4-element array containing quaternion components
-    pub unsafe fn data<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+    pub fn data<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj, 4, f64)
     }
 
@@ -1021,7 +1021,7 @@ impl PyEulerAxis {
     ///     e = bh.EulerAxis(axis, 1.5708, bh.AngleFormat.RADIANS)
     ///     print(f"Axis: {e.axis}")
     ///     ```
-    pub unsafe fn axis<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
+    pub fn axis<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.axis, 3, f64)
     }
 
@@ -1096,7 +1096,7 @@ impl PyEulerAxis {
     ///
     /// Returns:
     ///     numpy.ndarray: 4-element array containing axis and angle
-    pub unsafe fn to_vector<'py>(&self, py: Python<'py>, angle_format: &PyAngleFormat, vector_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
+    pub fn to_vector<'py>(&self, py: Python<'py>, angle_format: &PyAngleFormat, vector_first: bool) -> Bound<'py, PyArray<f64, Ix1>> {
         vector_to_numpy!(py, self.obj.to_vector(angle_format.value, vector_first), 4, f64)
     }
 
@@ -1410,7 +1410,7 @@ impl PyRotationMatrix {
     ///
     /// Returns:
     ///     numpy.ndarray: 3x3 rotation matrix
-    pub unsafe fn to_matrix<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+    pub fn to_matrix<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
         matrix_to_numpy!(py, self.obj.to_matrix(), 3, 3, f64)
     }
 

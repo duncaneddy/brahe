@@ -15,7 +15,8 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 use crate::orbit_dynamics::ParallelMode;
-use crate::orbit_dynamics::gravity::GravityModelType;
+use crate::orbit_dynamics::gravity::{GravityModelTideSystem, GravityModelType};
+use crate::orbit_dynamics::tides::SolidTideConfig;
 use crate::spice::SPKKernel;
 use crate::utils::BraheError;
 
@@ -138,6 +139,10 @@ pub struct ForceModelConfig {
     /// to trade ~0.07° pole-tilt accuracy for ~1.5x faster ECI↔ECEF rotations.
     #[serde(default)]
     pub frame_transform: FrameTransformationModel,
+
+    /// Tidal corrections to the gravity field. `None` (default) disables tides.
+    #[serde(default)]
+    pub tides: Option<TidesConfiguration>,
 }
 
 impl Default for ForceModelConfig {
@@ -166,6 +171,7 @@ impl Default for ForceModelConfig {
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 }
@@ -282,6 +288,7 @@ impl ForceModelConfig {
     ///     relativity: false,
     ///     mass: Some(ParameterSource::ParameterIndex(0)),
     ///     frame_transform: Default::default(),
+    ///     tides: None,
     /// };
     ///
     /// // This will fail - config needs params but none provided
@@ -343,11 +350,12 @@ impl ForceModelConfig {
     /// Create a high-fidelity force model configuration
     ///
     /// Uses:
-    /// - 70×70 EGM2008 gravity
+    /// - 120x120 EGM2008 gravity
     /// - NRLMSISE-00 atmospheric model
     /// - SRP with conical eclipse
     /// - Sun, Moon, and all planets (DE440s ephemerides)
     /// - Relativistic corrections enabled
+    /// - Solid Earth tides with frequency-dependent corrections
     pub fn high_fidelity() -> Self {
         Self {
             gravity: GravityConfiguration::SphericalHarmonic {
@@ -383,6 +391,12 @@ impl ForceModelConfig {
             relativity: true,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::Auto,
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: true,
+                }),
+            }),
         }
     }
 
@@ -401,6 +415,7 @@ impl ForceModelConfig {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -418,6 +433,7 @@ impl ForceModelConfig {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -439,6 +455,7 @@ impl ForceModelConfig {
             relativity: true,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -471,6 +488,7 @@ impl ForceModelConfig {
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -499,6 +517,48 @@ impl ForceModelConfig {
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        }
+    }
+}
+
+// =============================================================================
+// Tides Configuration
+// =============================================================================
+
+/// Permanent (zero-frequency) tide handling for the static gravity field.
+///
+/// Controls how the loaded model's C̄20 is reconciled with the solid-tide
+/// model, which (IERS §6.2.1) produces the *total* tide including the
+/// permanent part — correct only against a conventional tide-free background.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum PermanentTideConfig {
+    /// Read the model's tide_system flag and convert C̄20 to conventional
+    /// tide-free (the convention the solid-tide model expects). Unknown flag
+    /// => no-op + warning. Default.
+    #[default]
+    Auto,
+    /// Force the field into the given tide system. Source = the model's flagged
+    /// system; errors at construction if the flag is Unknown.
+    ConvertTo(GravityModelTideSystem),
+    /// Leave C̄20 untouched.
+    Off,
+}
+
+/// Tidal correction configuration. `None` on `ForceModelConfig` disables all tides.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TidesConfiguration {
+    /// Permanent-tide / tide-system handling for the static field.
+    pub permanent: PermanentTideConfig,
+    /// Solid Earth tides. `None` disables solid tides (permanent-only is valid).
+    pub solid: Option<SolidTideConfig>,
+}
+
+impl Default for TidesConfiguration {
+    fn default() -> Self {
+        Self {
+            permanent: PermanentTideConfig::Auto,
+            solid: None,
         }
     }
 }
@@ -998,6 +1058,11 @@ mod tests {
             config.mass,
             Some(ParameterSource::ParameterIndex(0))
         ));
+
+        // Check solid Earth tides enabled with frequency-dependent corrections
+        let tides = config.tides.unwrap();
+        assert_eq!(tides.permanent, PermanentTideConfig::Auto);
+        assert!(tides.solid.unwrap().frequency_dependent);
     }
 
     #[test]
@@ -1131,6 +1196,40 @@ mod tests {
         };
 
         assert!(!config.requires_params());
+    }
+
+    #[test]
+    fn test_tides_config_default_none() {
+        let config = ForceModelConfig::default();
+        assert!(config.tides.is_none());
+    }
+
+    #[test]
+    fn test_permanent_tide_default_is_auto() {
+        assert_eq!(PermanentTideConfig::default(), PermanentTideConfig::Auto);
+    }
+
+    #[test]
+    fn test_tides_config_serde_roundtrip() {
+        use crate::orbit_dynamics::gravity::GravityModelTideSystem;
+        let cfg = TidesConfiguration {
+            permanent: PermanentTideConfig::ConvertTo(GravityModelTideSystem::ZeroTide),
+            solid: Some(crate::orbit_dynamics::tides::SolidTideConfig {
+                frequency_dependent: true,
+            }),
+        };
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: TidesConfiguration = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, cfg);
+    }
+
+    #[test]
+    fn test_force_config_missing_tides_field_deserializes() {
+        // Back-compat: configs serialized before this field still load.
+        let json = r#"{"gravity":"PointMass","drag":null,"srp":null,"third_body":null,
+            "relativity":false,"mass":null,"frame_transform":"FullEarthRotation"}"#;
+        let cfg: ForceModelConfig = serde_json::from_str(json).unwrap();
+        assert!(cfg.tides.is_none());
     }
 
     #[test]

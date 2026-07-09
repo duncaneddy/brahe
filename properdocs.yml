@@ -221,6 +221,7 @@ nav:
           - Atmospheric Drag: learn/orbital_dynamics/drag.md
           - Solar Radiation Pressure: learn/orbital_dynamics/solar_radiation_pressure.md
           - Relativistic Effects: learn/orbital_dynamics/relativity.md
+          - Tidal Corrections: learn/orbital_dynamics/tides.md
       - Earth Models:
           - Magnetic Field Models: learn/earth_models/magnetic_field.md
       - Orbit Propagation:

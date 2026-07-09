@@ -543,6 +543,36 @@ class TestSphericalHarmonicGravity:
         a_cl = bh.accel_gravity_spherical_harmonics_clenshaw(r_eci, R, model, 20, 20)
         assert np.allclose(a_main, a_cl, atol=0.0)
 
+    def test_accel_gravity_spherical_harmonics_cunningham_matches_main(self):
+        """Explicit Cunningham accel function matches the main dispatch API."""
+        model = bh.GravityModel.from_model_type_with_tables(
+            bh.GravityModelType.JGM3, bh.GravityTables.Both
+        )
+        r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
+        R = np.eye(3)
+        a_main = bh.accel_gravity_spherical_harmonics(r_eci, R, model, 20, 20)
+        a_cun = bh.accel_gravity_spherical_harmonics_cunningham(r_eci, R, model, 20, 20)
+        rel = np.linalg.norm(a_main - a_cun) / np.linalg.norm(a_main)
+        assert rel < 1e-10
+
+    def test_from_file_with_tables(self):
+        """from_file_with_tables loads from disk with an explicit table config."""
+        model = bh.GravityModel.from_file_with_tables(
+            "data/gravity_models/JGM3.gfc", bh.GravityTables.Cunningham
+        )
+        assert model.has_cunningham_tables()
+        assert not model.has_clenshaw_tables()
+        assert model.n_max == 70
+
+    def test_clenshaw_kernel_errors_without_tables(self):
+        """Clenshaw kernel errors when only Cunningham tables are present."""
+        model = bh.GravityModel.from_model_type_with_tables(
+            bh.GravityModelType.JGM3, bh.GravityTables.Cunningham
+        )
+        r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+        with pytest.raises(Exception, match="Clenshaw tables"):
+            model.compute_spherical_harmonics_clenshaw(r_body, 10, 10)
+
     def test_gravity_tables_enum(self):
         """GravityTables variants construct and compare."""
         assert bh.GravityTables.Clenshaw == bh.GravityTables.Clenshaw

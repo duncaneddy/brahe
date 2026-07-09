@@ -4231,4 +4231,207 @@ mod tests {
                 .is_ok()
         );
     }
+
+    /// A proper (orthonormal, det = +1) rotation about the z-axis, used to
+    /// verify the acceleration wrappers actually apply the ECI->body->ECI
+    /// round-trip rather than silently returning the body-frame result.
+    fn z_rotation(angle: f64) -> SMatrix3 {
+        let (s, c) = angle.sin_cos();
+        SMatrix3::new(c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0)
+    }
+
+    #[test]
+    fn test_accel_wrappers_apply_frame_round_trip() {
+        // Each wrapper must compute R_i2bᵀ · kernel(R_i2b · r). Comparing
+        // against the manually rotated kernel output pins the transpose
+        // exactly: a bug that drops or mis-applies R_i2b.transpose() shifts the
+        // result by O(g) and fails here — a bare `norm > eps` guard would not,
+        // because the central and zonal terms are invariant under a z-rotation
+        // round-trip and only the tiny tesseral terms would differ.
+        let model =
+            GravityModel::from_model_type_with_tables(&GravityModelType::JGM3, GravityTables::Both)
+                .unwrap();
+        let r_eci = Vector3::new(R_EARTH + 500e3, 1.2e6, 3.1e6);
+        let rot = z_rotation(0.5);
+        let r_body = rot * r_eci;
+        let (n, m) = (20, 20);
+
+        let a_body_cl = model
+            .compute_spherical_harmonics_clenshaw(r_body, n, m, ParallelMode::Never)
+            .unwrap();
+        let a_clenshaw = accel_gravity_spherical_harmonics_clenshaw(
+            r_eci,
+            rot,
+            &model,
+            n,
+            m,
+            ParallelMode::Never,
+        );
+        assert_eq!(a_clenshaw, rot.transpose() * a_body_cl);
+
+        let a_body_cun = model
+            .compute_spherical_harmonics_cunningham(r_body, n, m, ParallelMode::Never)
+            .unwrap();
+        let a_cunningham = accel_gravity_spherical_harmonics_cunningham(
+            r_eci,
+            rot,
+            &model,
+            n,
+            m,
+            ParallelMode::Never,
+        );
+        assert_eq!(a_cunningham, rot.transpose() * a_body_cun);
+
+        // Dispatcher routes through Clenshaw when both table sets exist.
+        let a_dispatch =
+            accel_gravity_spherical_harmonics(r_eci, rot, &model, n, m, ParallelMode::Never);
+        assert_eq!(a_dispatch, a_clenshaw);
+    }
+
+    #[test]
+    fn test_accel_cunningham_workspace_ignores_stale_cells() {
+        // The workspace-reuse wrapper writes-then-reads only the cells it
+        // needs, so an oversized workspace holding garbage from a prior call
+        // must yield a bit-identical result to the allocating variant (which
+        // uses fresh (n+2)² zeros). If the recurrence ever read an unwritten
+        // cell, the sentinel garbage would corrupt the sum and fail the
+        // assertion — this guards the documented "leftover values are never
+        // observed" contract that the tables-are-zeroed default would hide.
+        let model = GravityModel::from_model_type_with_tables(
+            &GravityModelType::JGM3,
+            GravityTables::Cunningham,
+        )
+        .unwrap();
+        let r_eci = Vector3::new(R_EARTH + 500e3, 1.2e6, 3.1e6);
+        let rot = z_rotation(0.5);
+        let (n, m) = (20, 20);
+
+        let a_alloc = accel_gravity_spherical_harmonics_cunningham(
+            r_eci,
+            rot,
+            &model,
+            n,
+            m,
+            ParallelMode::Never,
+        );
+
+        // Oversized (40 > needed 22) and poisoned with non-zero sentinels.
+        let mut v_workspace = DMatrix::<f64>::from_element(40, 40, 7.0e300);
+        let mut w_workspace = DMatrix::<f64>::from_element(40, 40, -3.0e300);
+        let a_workspace = accel_gravity_spherical_harmonics_cunningham_with_workspace(
+            r_eci,
+            rot,
+            &model,
+            n,
+            m,
+            ParallelMode::Never,
+            &mut v_workspace,
+            &mut w_workspace,
+        );
+        assert_eq!(a_workspace, a_alloc);
+    }
+
+    #[test]
+    fn test_accel_wrapper_accepts_state_vector() {
+        // The `IntoPosition` generic must accept a 6D state and use only its
+        // position component — the result matches passing the bare position.
+        let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let oe = SVector6::new(R_EARTH + 500e3, 0.01, 97.3, 10.0, 20.0, 30.0);
+        let x_eci = state_koe_to_eci(oe, AngleFormat::Degrees);
+        let r_eci: Vector3<f64> = x_eci.fixed_rows::<3>(0).into();
+        let rot = z_rotation(0.3);
+
+        let a_state = accel_gravity_spherical_harmonics_clenshaw(
+            x_eci,
+            rot,
+            &model,
+            20,
+            20,
+            ParallelMode::Never,
+        );
+        let a_pos = accel_gravity_spherical_harmonics_clenshaw(
+            r_eci,
+            rot,
+            &model,
+            20,
+            20,
+            ParallelMode::Never,
+        );
+        assert_eq!(a_state, a_pos);
+    }
+
+    #[test]
+    fn test_from_file_with_tables_clenshaw_only() {
+        // Exercises both `from_file_with_tables` and the `apply_tables`
+        // Clenshaw arm (which drops any Cunningham tables).
+        let filepath = Path::new("data/gravity_models/JGM3.gfc");
+        let model = GravityModel::from_file_with_tables(filepath, GravityTables::Clenshaw).unwrap();
+        assert!(model.has_clenshaw_tables());
+        assert!(!model.has_cunningham_tables());
+        assert_eq!(model.model_name, "JGM3");
+    }
+
+    #[test]
+    fn test_apply_tables_clenshaw_drops_cunningham() {
+        // Starting from a model that has Cunningham tables, applying the
+        // Clenshaw configuration must build Clenshaw and drop Cunningham.
+        let mut model = GravityModel::from_model_type_with_tables(
+            &GravityModelType::JGM3,
+            GravityTables::Cunningham,
+        )
+        .unwrap();
+        assert!(model.has_cunningham_tables() && !model.has_clenshaw_tables());
+
+        model.apply_tables(GravityTables::Clenshaw);
+        assert!(model.has_clenshaw_tables());
+        assert!(!model.has_cunningham_tables());
+    }
+
+    #[test]
+    fn test_load_uncached_with_tables_applies_config() {
+        // `load_uncached_with_tables` parses the source and honors the
+        // requested table configuration. (The cache-bypass itself is not
+        // externally observable — it returns an owned model, not a shareable
+        // Arc — so this asserts only the parse result and table selection.)
+        let model = GravityModel::load_uncached_with_tables(
+            &GravityModelType::JGM3,
+            GravityTables::Cunningham,
+        )
+        .unwrap();
+        assert!(model.has_cunningham_tables() && !model.has_clenshaw_tables());
+        assert_eq!(model.n_max, 70);
+        assert_eq!(model.model_name, "JGM3");
+    }
+
+    #[test]
+    fn test_clenshaw_kernel_errors_without_tables() {
+        // Calling the Clenshaw kernel directly on a Cunningham-only model must
+        // surface a descriptive error rather than panicking or falling back.
+        let model = GravityModel::from_model_type_with_tables(
+            &GravityModelType::JGM3,
+            GravityTables::Cunningham,
+        )
+        .unwrap();
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        let err = model
+            .compute_spherical_harmonics_clenshaw(r, 10, 10, ParallelMode::Never)
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("Clenshaw tables not precomputed"),
+            "unexpected error message: {err}"
+        );
+    }
+
+    #[test]
+    fn test_gravity_model_display_and_debug() {
+        let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+
+        assert_eq!(format!("{model}"), "GravityModel: JGM3");
+
+        let debug = format!("{model:?}");
+        assert!(debug.contains("GravityModel"));
+        assert!(debug.contains("model_name"));
+        assert!(debug.contains("JGM3"));
+        assert!(debug.contains("n_max"));
+    }
 }

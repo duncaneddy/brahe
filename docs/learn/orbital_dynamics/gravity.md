@@ -111,7 +111,11 @@ You can also load any `.gfc` file already on disk via
 
 ## Computational Considerations
 
-Spherical harmonic evaluation involves recursive computation of Legendre polynomials and requires rotation between Earth-fixed and inertial frames. The computational cost scales as O(n²) where n is the maximum degree.
+`accel_gravity_spherical_harmonics` and `GravityModel`'s spherical harmonic methods evaluate the field with a Clenshaw-summation kernel (Holmes & Featherstone, 2002), which is the default and is valid to arbitrarily high degree. The Cunningham V/W recursion (Montenbruck & Gill, Section 3.2) is available via the `*_cunningham` function and method variants (for example `accel_gravity_spherical_harmonics_cunningham`); its unnormalized coefficients overflow at high degree combined with low-altitude geometry, so it is limited to roughly degree 120-150 depending on position and is kept for cross-validation against the Clenshaw kernel.
+
+Which kernel's precomputed coefficient sets a `GravityModel` builds is controlled by `GravityModelCoefficients` at load time: `GravityModelCoefficients.Clenshaw` (default), `GravityModelCoefficients.Cunningham`, or `GravityModelCoefficients.Both`. Evaluating with a kernel requires its coefficient set to be present; `GravityModel.precompute_clenshaw_coefficients()` / `precompute_cunningham_coefficients()` add a coefficient set to an already-loaded model.
+
+Spherical harmonic evaluation involves recursive computation of Legendre polynomials (or, for the Clenshaw kernel, coefficient recurrences that never materialize them explicitly) and requires rotation between Earth-fixed and inertial frames. The computational cost scales as O(n²) where n is the maximum degree.
 
 For real-time applications or long propagations with many time steps, limiting the degree and order to only what's necessary for the required accuracy is important for performance.
 
@@ -182,3 +186,5 @@ For high-fidelity Earth gravity modeling, use the spherical harmonic expansion w
 ## References
 
 Montenbruck, O., & Gill, E. (2000). *Satellite Orbits: Models, Methods, and Applications*. Springer. Section 3.2: The Geopotential.
+
+Holmes, S. A., & Featherstone, W. E. (2002). A unified approach to the Clenshaw summation and the recursive computation of very high degree and order normalised associated Legendre functions. *Journal of Geodesy*, 76(5), 279-299.

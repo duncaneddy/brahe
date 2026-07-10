@@ -1101,11 +1101,27 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGravityModelTideSystem>()?;
     module.add_class::<PyGravityModelErrors>()?;
     module.add_class::<PyGravityModelNormalization>()?;
+    module.add_class::<PyGravityModelCoefficients>()?;
     module.add_class::<PyGravityModel>()?;
     module.add_function(wrap_pyfunction!(
         py_accel_gravity_spherical_harmonics,
         module
     )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_gravity_spherical_harmonics_clenshaw,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_accel_gravity_spherical_harmonics_cunningham,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_set_global_gravity_model, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_set_global_gravity_model_to_tide_system,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_get_global_gravity_model, module)?)?;
+    module.add_function(wrap_pyfunction!(py_clear_gravity_model_cache, module)?)?;
 
     // Atmospheric Density Models
     module.add_function(wrap_pyfunction!(py_density_harris_priester, module)?)?;

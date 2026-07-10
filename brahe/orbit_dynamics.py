@@ -43,7 +43,7 @@ Gravity:
 - GravityModelTideSystem: Enum for tide system conventions
 - GravityModelErrors: Enum for error estimation types
 - GravityModelNormalization: Enum for coefficient normalization conventions
-- GravityTables: Enum for which precomputed evaluation tables a model builds
+- GravityModelCoefficients: Enum for which precomputed coefficient sets a model builds
 - GravityModel: Spherical harmonic gravity model class
 - accel_gravity_spherical_harmonics: Spherical harmonic gravity acceleration (auto-dispatched)
 - accel_gravity_spherical_harmonics_clenshaw: Spherical harmonic gravity acceleration (Clenshaw kernel)
@@ -104,7 +104,7 @@ from brahe._brahe import (
     GravityModelTideSystem,
     GravityModelErrors,
     GravityModelNormalization,
-    GravityTables,
+    GravityModelCoefficients,
     GravityModel,
     accel_gravity_spherical_harmonics,
     accel_gravity_spherical_harmonics_clenshaw,
@@ -169,7 +169,7 @@ __all__ = [
     "GravityModelTideSystem",
     "GravityModelErrors",
     "GravityModelNormalization",
-    "GravityTables",
+    "GravityModelCoefficients",
     "GravityModel",
     "accel_gravity_spherical_harmonics",
     "accel_gravity_spherical_harmonics_clenshaw",

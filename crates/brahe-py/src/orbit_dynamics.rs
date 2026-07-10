@@ -1496,32 +1496,32 @@ impl PyGravityModelNormalization {
     }
 }
 
-/// Selects which precomputed evaluation tables a gravity model builds at load.
+/// Selects which precomputed coefficient set(s) a gravity model builds at load.
 ///
 /// The Clenshaw and Cunningham kernels require different precomputed values,
-/// so each kernel can only run when its table set is present. Default: Clenshaw.
+/// so each kernel can only run when its coefficient set is present. Default: Clenshaw.
 #[pyclass(module = "brahe._brahe", from_py_object)]
-#[pyo3(name = "GravityTables")]
+#[pyo3(name = "GravityModelCoefficients")]
 #[derive(Clone)]
-pub struct PyGravityTables {
-    pub(crate) tables: orbit_dynamics::GravityTables,
+pub struct PyGravityModelCoefficients {
+    pub(crate) coefficients: orbit_dynamics::GravityModelCoefficients,
 }
 
 #[pymethods]
-impl PyGravityTables {
-    /// Clenshaw kernel tables only (default).
+impl PyGravityModelCoefficients {
+    /// Clenshaw kernel coefficients only (default).
     ///
     /// Precomputed for the Clenshaw summation kernel. Accurate and fast at all
     /// degrees supported by the model.
     #[classattr]
     #[allow(non_snake_case)]
     fn Clenshaw() -> Self {
-        PyGravityTables {
-            tables: orbit_dynamics::GravityTables::Clenshaw,
+        PyGravityModelCoefficients {
+            coefficients: orbit_dynamics::GravityModelCoefficients::Clenshaw,
         }
     }
 
-    /// Cunningham kernel tables only.
+    /// Cunningham kernel coefficients only.
     ///
     /// Precomputed for the Cunningham (Montenbruck & Gill) V/W recursion kernel.
     /// Accuracy degrades above roughly degree 120 at low altitude, and the
@@ -1529,35 +1529,35 @@ impl PyGravityTables {
     #[classattr]
     #[allow(non_snake_case)]
     fn Cunningham() -> Self {
-        PyGravityTables {
-            tables: orbit_dynamics::GravityTables::Cunningham,
+        PyGravityModelCoefficients {
+            coefficients: orbit_dynamics::GravityModelCoefficients::Cunningham,
         }
     }
 
-    /// Both Clenshaw and Cunningham kernel tables.
+    /// Both Clenshaw and Cunningham kernel coefficients.
     ///
-    /// Doubles the memory footprint of the precomputed tables but allows
+    /// Doubles the memory footprint of the precomputed coefficients but allows
     /// either kernel to be evaluated on the same model.
     #[classattr]
     #[allow(non_snake_case)]
     fn Both() -> Self {
-        PyGravityTables {
-            tables: orbit_dynamics::GravityTables::Both,
+        PyGravityModelCoefficients {
+            coefficients: orbit_dynamics::GravityModelCoefficients::Both,
         }
     }
 
     fn __str__(&self) -> String {
-        format!("{:?}", self.tables)
+        format!("{:?}", self.coefficients)
     }
 
     fn __repr__(&self) -> String {
-        format!("GravityTables.{:?}", self.tables)
+        format!("GravityModelCoefficients.{:?}", self.coefficients)
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         match op {
-            CompareOp::Eq => Ok(self.tables == other.tables),
-            CompareOp::Ne => Ok(self.tables != other.tables),
+            CompareOp::Eq => Ok(self.coefficients == other.coefficients),
+            CompareOp::Ne => Ok(self.coefficients != other.coefficients),
             _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
         }
     }
@@ -1661,11 +1661,11 @@ impl PyGravityModel {
         Ok(PyGravityModel { model })
     }
 
-    /// Load a gravity model from a .gfc file with an explicit table configuration.
+    /// Load a gravity model from a .gfc file with an explicit coefficient configuration.
     ///
     /// Args:
     ///     filepath (str): Path to the .gfc gravity model file
-    ///     tables (GravityTables): Which precomputed evaluation table set(s) to build
+    ///     coefficients (GravityModelCoefficients): Which precomputed evaluation coefficient set(s) to build
     ///
     /// Returns:
     ///     GravityModel: Loaded gravity model
@@ -1677,13 +1677,13 @@ impl PyGravityModel {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     model = bh.GravityModel.from_file_with_tables(
-    ///         "path/to/model.gfc", bh.GravityTables.Both)
+    ///     model = bh.GravityModel.from_file_with_coefficients(
+    ///         "path/to/model.gfc", bh.GravityModelCoefficients.Both)
     ///     ```
     #[classmethod]
-    fn from_file_with_tables(_cls: &Bound<'_, PyType>, filepath: &str, tables: &PyGravityTables) -> PyResult<Self> {
+    fn from_file_with_coefficients(_cls: &Bound<'_, PyType>, filepath: &str, coefficients: &PyGravityModelCoefficients) -> PyResult<Self> {
         let path = Path::new(filepath);
-        let model = orbit_dynamics::GravityModel::from_file_with_tables(path, tables.tables)
+        let model = orbit_dynamics::GravityModel::from_file_with_coefficients(path, coefficients.coefficients)
             .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
         Ok(PyGravityModel { model })
     }
@@ -1726,11 +1726,11 @@ impl PyGravityModel {
         Ok(PyGravityModel { model: grav_model })
     }
 
-    /// Load a gravity model from a GravityModelType with an explicit table configuration.
+    /// Load a gravity model from a GravityModelType with an explicit coefficient configuration.
     ///
     /// Args:
     ///     model_type (GravityModelType): Which model to load (packaged or from file)
-    ///     tables (GravityTables): Which precomputed evaluation table set(s) to build
+    ///     coefficients (GravityModelCoefficients): Which precomputed evaluation coefficient set(s) to build
     ///
     /// Returns:
     ///     GravityModel: Loaded gravity model
@@ -1742,17 +1742,17 @@ impl PyGravityModel {
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     model = bh.GravityModel.from_model_type_with_tables(
-    ///         bh.GravityModelType.JGM3, bh.GravityTables.Both)
-    ///     print(model.has_clenshaw_tables(), model.has_cunningham_tables())
+    ///     model = bh.GravityModel.from_model_type_with_coefficients(
+    ///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Both)
+    ///     print(model.has_clenshaw_coefficients(), model.has_cunningham_coefficients())
     ///     ```
     #[classmethod]
-    fn from_model_type_with_tables(
+    fn from_model_type_with_coefficients(
         _cls: &Bound<'_, PyType>,
         model_type: &PyGravityModelType,
-        tables: &PyGravityTables,
+        coefficients: &PyGravityModelCoefficients,
     ) -> PyResult<Self> {
-        let grav_model = orbit_dynamics::GravityModel::from_model_type_with_tables(&model_type.model, tables.tables)
+        let grav_model = orbit_dynamics::GravityModel::from_model_type_with_coefficients(&model_type.model, coefficients.coefficients)
             .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
         Ok(PyGravityModel { model: grav_model })
     }
@@ -1765,8 +1765,8 @@ impl PyGravityModel {
     /// cold-load performance, or to re-read a ``FromFile`` source whose contents changed
     /// on disk (the cache would otherwise return the stale model).
     ///
-    /// Builds Clenshaw tables only. Call :meth:`precompute_cunningham_tables` on the
-    /// returned model for a different table configuration.
+    /// Builds Clenshaw coefficients only. Call :meth:`precompute_cunningham_coefficients` on the
+    /// returned model for a different coefficient configuration.
     ///
     /// Args:
     ///     model_type (GravityModelType): Which model to load (packaged or from file)
@@ -1824,12 +1824,67 @@ impl PyGravityModel {
         })
     }
 
+    /// Get the cosine coefficient C_nm for a specific degree and order.
+    ///
+    /// Args:
+    ///     n (int): Degree (0 <= n <= n_max)
+    ///     m (int): Order (0 <= m <= min(n, m_max))
+    ///
+    /// Returns:
+    ///     float: The C_nm coefficient.
+    ///
+    /// Raises:
+    ///     ValueError: If n or m are out of bounds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///
+    ///     # Get J2 coefficient (C20)
+    ///     c20 = model.get_c(2, 0)
+    ///     print(f"J2 = {-c20}")
+    ///     ```
+    fn get_c(&self, n: usize, m: usize) -> PyResult<f64> {
+        self.model.get_c(n, m).map_err(|e| {
+            exceptions::PyValueError::new_err(format!("Failed to get coefficient: {}", e))
+        })
+    }
+
+    /// Get the sine coefficient S_nm for a specific degree and order.
+    ///
+    /// Args:
+    ///     n (int): Degree (0 <= n <= n_max)
+    ///     m (int): Order (0 <= m <= min(n, m_max))
+    ///
+    /// Returns:
+    ///     float: The S_nm coefficient (0.0 for m == 0).
+    ///
+    /// Raises:
+    ///     ValueError: If n or m are out of bounds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///
+    ///     s22 = model.get_s(2, 2)
+    ///     print(f"S22 = {s22}")
+    ///     ```
+    fn get_s(&self, n: usize, m: usize) -> PyResult<f64> {
+        self.model.get_s(n, m).map_err(|e| {
+            exceptions::PyValueError::new_err(format!("Failed to get coefficient: {}", e))
+        })
+    }
+
     /// Compute gravitational acceleration in body-fixed frame using spherical harmonics.
     ///
-    /// Dispatches to whichever kernel this model has tables for. Clenshaw-first:
-    /// if the model has precomputed Clenshaw tables (the default for every loader),
+    /// Dispatches to whichever kernel this model has coefficients for. Clenshaw-first:
+    /// if the model has precomputed Clenshaw coefficients (the default for every loader),
     /// evaluates with the Clenshaw summation kernel. Otherwise falls back to the
-    /// Cunningham V/W recursion if Cunningham tables are present.
+    /// Cunningham V/W recursion if Cunningham coefficients are present.
     ///
     /// Args:
     ///     r_body (np.ndarray): Position vector in body-fixed frame. Units: (m)
@@ -1841,7 +1896,7 @@ impl PyGravityModel {
     ///
     /// Raises:
     ///     ValueError: If n_max or m_max exceed model limits or if m_max > n_max
-    ///     ValueError: If the model has neither Clenshaw nor Cunningham tables
+    ///     ValueError: If the model has neither Clenshaw nor Cunningham coefficients
     ///     ValueError: If the Cunningham fallback is used and its denormalized
     ///         recursion overflows to a non-finite result (can occur above
     ///         ~degree 150 at low altitude)
@@ -1888,7 +1943,7 @@ impl PyGravityModel {
     ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
     ///
     /// Raises:
-    ///     ValueError: If Clenshaw tables are not precomputed for this model, or if
+    ///     ValueError: If Clenshaw coefficients are not precomputed for this model, or if
     ///         n_max or m_max exceed model limits
     ///
     /// Example:
@@ -1926,7 +1981,7 @@ impl PyGravityModel {
     ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
     ///
     /// Raises:
-    ///     ValueError: If Cunningham tables are not precomputed for this model, if
+    ///     ValueError: If Cunningham coefficients are not precomputed for this model, if
     ///         n_max or m_max exceed model limits, or if the recursion overflows
     ///         to a non-finite result (can occur above ~degree 150 at low altitude)
     ///
@@ -1935,8 +1990,8 @@ impl PyGravityModel {
     ///     import brahe as bh
     ///     import numpy as np
     ///
-    ///     model = bh.GravityModel.from_model_type_with_tables(
-    ///         bh.GravityModelType.JGM3, bh.GravityTables.Cunningham)
+    ///     model = bh.GravityModel.from_model_type_with_coefficients(
+    ///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Cunningham)
     ///     a = model.compute_spherical_harmonics_cunningham(
     ///         np.array([bh.R_EARTH + 500e3, 0.0, 0.0]), 20, 20)
     ///     ```
@@ -2020,94 +2075,94 @@ impl PyGravityModel {
             .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    /// Precompute the Clenshaw kernel tables, if not already present.
+    /// Precompute the Clenshaw kernel coefficients, if not already present.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     model = bh.GravityModel.from_model_type_with_tables(
-    ///         bh.GravityModelType.JGM3, bh.GravityTables.Cunningham)
-    ///     model.precompute_clenshaw_tables()
+    ///     model = bh.GravityModel.from_model_type_with_coefficients(
+    ///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Cunningham)
+    ///     model.precompute_clenshaw_coefficients()
     ///     ```
-    fn precompute_clenshaw_tables(&mut self) {
-        self.model.precompute_clenshaw_tables();
+    fn precompute_clenshaw_coefficients(&mut self) {
+        self.model.precompute_clenshaw_coefficients();
     }
 
-    /// Precompute the Cunningham kernel tables, if not already present.
-    ///
-    /// Example:
-    ///     ```python
-    ///     import brahe as bh
-    ///
-    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
-    ///     model.precompute_cunningham_tables()
-    ///     ```
-    fn precompute_cunningham_tables(&mut self) {
-        self.model.precompute_cunningham_tables();
-    }
-
-    /// Drop the Clenshaw kernel tables, freeing their memory.
-    ///
-    /// The Clenshaw kernel errors until `precompute_clenshaw_tables()` is called again.
+    /// Precompute the Cunningham kernel coefficients, if not already present.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
     ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
-    ///     model.drop_clenshaw_tables()
+    ///     model.precompute_cunningham_coefficients()
     ///     ```
-    fn drop_clenshaw_tables(&mut self) {
-        self.model.drop_clenshaw_tables();
+    fn precompute_cunningham_coefficients(&mut self) {
+        self.model.precompute_cunningham_coefficients();
     }
 
-    /// Drop the Cunningham kernel tables, freeing their memory.
+    /// Drop the Clenshaw kernel coefficients, freeing their memory.
     ///
-    /// The Cunningham kernel errors until `precompute_cunningham_tables()` is called again.
+    /// The Clenshaw kernel errors until `precompute_clenshaw_coefficients()` is called again.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
-    ///     model = bh.GravityModel.from_model_type_with_tables(
-    ///         bh.GravityModelType.JGM3, bh.GravityTables.Both)
-    ///     model.drop_cunningham_tables()
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     model.drop_clenshaw_coefficients()
     ///     ```
-    fn drop_cunningham_tables(&mut self) {
-        self.model.drop_cunningham_tables();
+    fn drop_clenshaw_coefficients(&mut self) {
+        self.model.drop_clenshaw_coefficients();
     }
 
-    /// Check whether the Clenshaw kernel tables are precomputed for this model.
+    /// Drop the Cunningham kernel coefficients, freeing their memory.
+    ///
+    /// The Cunningham kernel errors until `precompute_cunningham_coefficients()` is called again.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type_with_coefficients(
+    ///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Both)
+    ///     model.drop_cunningham_coefficients()
+    ///     ```
+    fn drop_cunningham_coefficients(&mut self) {
+        self.model.drop_cunningham_coefficients();
+    }
+
+    /// Check whether the Clenshaw kernel coefficients are precomputed for this model.
     ///
     /// Returns:
-    ///     bool: True when the table set is present.
+    ///     bool: True when the coefficient set is present.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
     ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
-    ///     assert model.has_clenshaw_tables()
+    ///     assert model.has_clenshaw_coefficients()
     ///     ```
-    fn has_clenshaw_tables(&self) -> bool {
-        self.model.has_clenshaw_tables()
+    fn has_clenshaw_coefficients(&self) -> bool {
+        self.model.has_clenshaw_coefficients()
     }
 
-    /// Check whether the Cunningham kernel tables are precomputed for this model.
+    /// Check whether the Cunningham kernel coefficients are precomputed for this model.
     ///
     /// Returns:
-    ///     bool: True when the table set is present.
+    ///     bool: True when the coefficient set is present.
     ///
     /// Example:
     ///     ```python
     ///     import brahe as bh
     ///
     ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
-    ///     assert not model.has_cunningham_tables()
+    ///     assert not model.has_cunningham_coefficients()
     ///     ```
-    fn has_cunningham_tables(&self) -> bool {
-        self.model.has_cunningham_tables()
+    fn has_cunningham_coefficients(&self) -> bool {
+        self.model.has_cunningham_coefficients()
     }
 
     fn __repr__(&self) -> String {
@@ -2150,9 +2205,9 @@ impl PyGravityModel {
 ///
 /// Raises:
 ///     ValueError: If n_max or m_max exceed model limits or if m_max > n_max
-///     ValueError: If the model has no precomputed gravity tables (neither
+///     ValueError: If the model has no precomputed gravity coefficients (neither
 ///         Clenshaw nor Cunningham)
-///     ValueError: If the Cunningham kernel is used (no Clenshaw tables present
+///     ValueError: If the Cunningham kernel is used (no Clenshaw coefficients present
 ///         on the model) and its denormalized recursion overflows to a
 ///         non-finite result (can occur above ~degree 150 at low altitude)
 ///
@@ -2202,7 +2257,7 @@ fn py_accel_gravity_spherical_harmonics<'py>(
     };
     // Call the fallible dispatcher directly rather than the free
     // `accel_gravity_spherical_harmonics`, which unwraps internally: this
-    // surfaces "no precomputed tables" / overflow as a Python `ValueError`
+    // surfaces "no precomputed coefficients" / overflow as a Python `ValueError`
     // instead of panicking across the FFI boundary.
     let a_ecef = gravity_model
         .model
@@ -2230,7 +2285,7 @@ fn py_accel_gravity_spherical_harmonics<'py>(
 ///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
 ///
 /// Raises:
-///     ValueError: If Clenshaw tables are not precomputed for the model, or if n_max
+///     ValueError: If Clenshaw coefficients are not precomputed for the model, or if n_max
 ///         or m_max exceed model limits
 ///
 /// Example:
@@ -2292,7 +2347,7 @@ fn py_accel_gravity_spherical_harmonics_clenshaw<'py>(
 ///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
 ///
 /// Raises:
-///     ValueError: If Cunningham tables are not precomputed for the model, if n_max
+///     ValueError: If Cunningham coefficients are not precomputed for the model, if n_max
 ///         or m_max exceed model limits, or if the recursion overflows to a
 ///         non-finite result (can occur above ~degree 150 at low altitude)
 ///
@@ -2302,8 +2357,8 @@ fn py_accel_gravity_spherical_harmonics_clenshaw<'py>(
 ///     import numpy as np
 ///
 ///     bh.initialize_eop()
-///     model = bh.GravityModel.from_model_type_with_tables(
-///         bh.GravityModelType.JGM3, bh.GravityTables.Cunningham)
+///     model = bh.GravityModel.from_model_type_with_coefficients(
+///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Cunningham)
 ///     r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
 ///     a_grav = bh.accel_gravity_spherical_harmonics_cunningham(r_eci, np.eye(3), model, 20, 20)
 ///     ```
@@ -2350,8 +2405,8 @@ fn py_accel_gravity_spherical_harmonics_cunningham<'py>(
 ///     ```python
 ///     import brahe as bh
 ///
-///     model = bh.GravityModel.from_model_type_with_tables(
-///         bh.GravityModelType.JGM3, bh.GravityTables.Both)
+///     model = bh.GravityModel.from_model_type_with_coefficients(
+///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Both)
 ///     bh.set_global_gravity_model(model)
 ///     ```
 #[pyfunction]

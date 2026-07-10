@@ -12,7 +12,7 @@ Gravity acceleration functions including point-mass and spherical harmonic model
 ## Spherical Harmonic Gravity
 
 `accel_gravity_spherical_harmonics` dispatches to whichever kernel the
-[`GravityModel`](#gravity-model-class)'s [`GravityTables`](#gravity-tables) has
+[`GravityModel`](#gravity-model-class)'s [`GravityModelCoefficients`](#gravity-model-coefficients) has
 precomputed (Clenshaw by default). `accel_gravity_spherical_harmonics_clenshaw`
 and `accel_gravity_spherical_harmonics_cunningham` force evaluation through a
 specific kernel instead of dispatching automatically.
@@ -27,19 +27,19 @@ specific kernel instead of dispatching automatically.
 
 ::: brahe.GravityModel
 
-## Gravity Tables
+## Gravity Model Coefficients
 
-`GravityTables` selects which kernel's precomputed table set(s) a
+`GravityModelCoefficients` selects which kernel's precomputed coefficient set(s) a
 [`GravityModel`](#gravity-model-class) builds when it is loaded
-(`GravityModel.from_model_type` / `from_file` default to `GravityTables.Clenshaw`;
-`from_model_type_with_tables` / `from_file_with_tables` accept an explicit
-value): `GravityTables.Clenshaw` (default), `.Cunningham`, or `.Both`. A model
-can only evaluate through a kernel whose tables are present;
-`GravityModel.precompute_clenshaw_tables()` / `precompute_cunningham_tables()`
-add a table set to an already-loaded model, and `drop_clenshaw_tables()` /
-`drop_cunningham_tables()` free one to reduce memory use.
+(`GravityModel.from_model_type` / `from_file` default to `GravityModelCoefficients.Clenshaw`;
+`from_model_type_with_coefficients` / `from_file_with_coefficients` accept an explicit
+value): `GravityModelCoefficients.Clenshaw` (default), `.Cunningham`, or `.Both`. A model
+can only evaluate through a kernel whose coefficient set is present;
+`GravityModel.precompute_clenshaw_coefficients()` / `precompute_cunningham_coefficients()`
+add a coefficient set to an already-loaded model, and `drop_clenshaw_coefficients()` /
+`drop_cunningham_coefficients()` free one to reduce memory use.
 
-::: brahe.GravityTables
+::: brahe.GravityModelCoefficients
 
 ## Gravity Model Type
 

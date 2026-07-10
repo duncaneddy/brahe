@@ -2,7 +2,7 @@
 
 use std::hint::black_box;
 
-use brahe::gravity::{GravityModel, GravityModelType, GravityTables, ParallelMode};
+use brahe::gravity::{GravityModel, GravityModelCoefficients, GravityModelType, ParallelMode};
 use criterion::Criterion;
 use nalgebra::{DMatrix, Vector3};
 
@@ -13,9 +13,9 @@ use nalgebra::{DMatrix, Vector3};
 const CUNNINGHAM_MAX_VALID_N: usize = 120;
 
 fn bench_spherical_harmonics(c: &mut Criterion) {
-    let model = GravityModel::from_model_type_with_tables(
+    let model = GravityModel::from_model_type_with_coefficients(
         &GravityModelType::EGM2008_360,
-        GravityTables::Both,
+        GravityModelCoefficients::Both,
     )
     .unwrap();
     let r_body = Vector3::new(6.5e6_f64, 1.2e6_f64, 3.1e6_f64);
@@ -106,9 +106,9 @@ fn bench_spherical_harmonics(c: &mut Criterion) {
 /// Comparing the two tells us whether small-n cost is allocation-bound or
 /// compute-bound before we optimize the recurrence/accumulation loops.
 fn bench_small_n_serial(c: &mut Criterion) {
-    let model = GravityModel::from_model_type_with_tables(
+    let model = GravityModel::from_model_type_with_coefficients(
         &GravityModelType::EGM2008_360,
-        GravityTables::Both,
+        GravityModelCoefficients::Both,
     )
     .unwrap();
     let r_body = Vector3::new(6.5e6_f64, 1.2e6_f64, 3.1e6_f64);

@@ -9,6 +9,7 @@
  * - Handles frame and representation conversions
  */
 
+use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
 use nalgebra::{DMatrix, DVector, Vector3, Vector6};
@@ -116,26 +117,14 @@ type SharedDynamics =
 
 /// Capacity of the per-propagator rotation cache.
 ///
-/// Sized to cover every integrator in [`super::IntegratorMethod`] plus a
-/// little headroom:
-///
-/// | Method   | Stages per step | Cross-step (FSAL) hit | Intra-step hits |
-/// |----------|-----------------|-----------------------|-----------------|
-/// | RK4      | 4               | yes                   | stage 1 == 2    |
-/// | RKF45    | 6               | yes                   | none            |
-/// | RKF78    | 13              | yes                   | none            |
-/// | DP54     | 6 (FSAL)        | yes                   | none            |
-/// | RKN1210  | 17              | yes                   | none            |
-///
-/// A 2-entry LRU is in principle sufficient (the most-recently-inserted
-/// entry survives any single-step run to be matched by the next step's
-/// first stage), but a larger ring buffer is essentially free (~80 bytes)
-/// and gives a margin for intra-step repetition we haven't audited (RKN1210
-/// has 17 stage offsets) plus future integrators with bigger tableaux.
-const ROTATION_CACHE_CAPACITY: usize = 20;
+/// Sized to cover the largest integrator tableau in
+/// [`super::IntegratorMethod`] (RKN1210 evaluates 17 stages per step) plus
+/// headroom for cross-step FSAL reuse and future integrators with bigger
+/// tableaux.
+const ROTATION_CACHE_CAPACITY: usize = 30;
 
-/// Per-propagator cache for the ECI→body-fixed rotation matrix, keyed on
-/// the dynamics function's relative time `t`.
+/// Per-propagator LRU cache for the ECI→body-fixed rotation matrix, keyed
+/// on the dynamics function's relative time `t`.
 ///
 /// # Why this exists
 ///
@@ -145,46 +134,19 @@ const ROTATION_CACHE_CAPACITY: usize = 20;
 /// same epoch as the first stage of step N+1 (FSAL / "first same as last"),
 /// so a small per-propagator cache catches at least one rotation per step.
 /// For RK4 specifically, the standard tableau has stages 1 and 2 at the
-/// same epoch (`t + h/2`), giving an additional intra-step hit. See
-/// [`ROTATION_CACHE_CAPACITY`] for the per-integrator hit-pattern table.
+/// same epoch (`t + h/2`), giving an additional intra-step hit.
 ///
-/// # Why `f64` equality on `t` is safe here
+/// # Why keying on `t.to_bits()` is safe
 ///
 /// Integrator stage times within a step are built as `t + butcher_c[i] * dt`
-/// with rational `butcher_c[i]` (e.g. RK4 uses `[0, 1/2, 1/2, 1]`). Each
-/// multiplication is exact in IEEE-754 for representable `dt`, and `t_rel`
-/// accumulates across steps by plain addition with the chosen `dt`. No
-/// transcendental ops sneak in between the stage that *inserts* into the
-/// cache and the stage that *looks up* on a later call — so bit-equal `t`
-/// is guaranteed across matching pairs for fixed-step integration.
-/// Adaptive integrators that reject and retry a step may see tiny drift in
-/// `dt`; the only consequence is a miss (we recompute) so correctness is
-/// preserved either way.
-///
-/// # Thread safety
-///
-/// The cache lives inside an `Arc<Mutex<…>>` captured by the dynamics
-/// closure. `SharedDynamics: Send + Sync` so the cache must be too, hence
-/// `Mutex` rather than `RefCell`. In practice the dynamics function is only
-/// ever called by one thread at a time (the integrator drives serially
-/// through `&mut self`), so lock acquisition is uncontended and costs ~10 ns
-/// — three orders of magnitude below the rotation work it's saving.
-///
-/// # Eviction
-///
-/// Plain FIFO ring buffer. With sequential epochs and the access pattern
-/// described above, FIFO and LRU give identical hit rates because no entry
-/// is ever revisited after newer entries have been inserted past it (within
-/// a single step). FIFO is simpler and the search is `O(N)` over at most
-/// [`ROTATION_CACHE_CAPACITY`] entries — branch-predictable and dominated
-/// by cache hits, well below the cost of even one rotation miss.
+/// with rational `butcher_c[i]` (e.g. RK4 uses `[0, 1/2, 1/2, 1]`), so
+/// repeated stage epochs reproduce bit-identical `t` values. A `t` that
+/// differs in the last bit (e.g. an adaptive integrator retrying with a
+/// perturbed `dt`) just misses and recomputes — correctness is preserved
+/// either way.
 struct RotationCache {
-    /// Ring buffer of `(t_rel, rotation)` pairs. Slots are `None` until
-    /// first populated. The slot indexed by `next` is where the next
-    /// inserted entry will go (overwriting whatever was there).
-    entries: [Option<(f64, SMatrix3)>; ROTATION_CACHE_CAPACITY],
-    /// Next write position in the ring. Advances modulo `ROTATION_CACHE_CAPACITY`.
-    next: usize,
+    /// LRU map from `t.to_bits()` to the rotation at the corresponding epoch.
+    entries: lru::LruCache<u64, SMatrix3>,
     /// Captured at cache creation; encodes which rotation chain to compute
     /// on a miss. Doesn't change for the lifetime of the propagator.
     model: FrameTransformationModel,
@@ -193,8 +155,7 @@ struct RotationCache {
 impl RotationCache {
     fn new(model: FrameTransformationModel) -> Self {
         Self {
-            entries: [None; ROTATION_CACHE_CAPACITY],
-            next: 0,
+            entries: lru::LruCache::new(NonZeroUsize::new(ROTATION_CACHE_CAPACITY).unwrap()),
             model,
         }
     }
@@ -203,47 +164,15 @@ impl RotationCache {
     /// `epoch` is the absolute time corresponding to `t` (passed in by the
     /// caller since the rotation chain operates on `Epoch`).
     fn get_or_compute(&mut self, t: f64, epoch: Epoch) -> SMatrix3 {
-        for entry in &self.entries {
-            if let Some((cached_t, r)) = entry
-                && *cached_t == t
-            {
-                return *r;
-            }
+        if let Some(r) = self.entries.get(&t.to_bits()) {
+            return *r;
         }
-        // Miss: compute and write into the next ring slot, evicting whatever
-        // was there. With the integrator access patterns analyzed above, the
-        // evicted entry is always the oldest unmatched epoch — exactly the
-        // one a FIFO/LRU would discard.
         let r = match self.model {
             FrameTransformationModel::FullEarthRotation => rotation_eci_to_ecef(epoch),
             FrameTransformationModel::EarthRotationOnly => earth_rotation(epoch),
         };
-        self.entries[self.next] = Some((t, r));
-        self.next = (self.next + 1) % ROTATION_CACHE_CAPACITY;
+        self.entries.put(t.to_bits(), r);
         r
-    }
-}
-
-/// Per-propagator scratch state captured by the dynamics closure.
-///
-/// Bundles the [`RotationCache`] under a single lock target so each dynamics
-/// invocation acquires only one mutex. Previously also held the V/W
-/// recurrence buffers for `compute_spherical_harmonics_cunningham_with_workspace`;
-/// the propagator now calls the Clenshaw-first `accel_gravity_spherical_harmonics`
-/// dispatcher directly, which needs no persistent per-propagator workspace
-/// (see the `GravityConfiguration::SphericalHarmonic` arm of `compute_dynamics`),
-/// so this struct is just the rotation cache. Kept as its own type (rather than
-/// using `RotationCache` directly) so future per-propagator scratch state has
-/// a home without another signature change.
-struct DynamicsWorkspace {
-    rotation_cache: RotationCache,
-}
-
-impl DynamicsWorkspace {
-    fn new(frame_transform: FrameTransformationModel) -> Self {
-        Self {
-            rotation_cache: RotationCache::new(frame_transform),
-        }
     }
 }
 
@@ -595,10 +524,6 @@ impl DNumericalOrbitPropagatorBuilder<Set, Set, Set> {
     /// Returns `BraheError` if:
     /// - Force model references parameter indices but no parameter vector is provided
     /// - Parameter vector is too short for the force model configuration
-    /// - A spherical-harmonic gravity configuration using a model without Clenshaw
-    ///   tables (an explicit Cunningham-only `GravityTables` opt-in) fails its trial
-    ///   evaluation at the initial state (e.g. Cunningham V/W overflow at high degree
-    ///   and low altitude)
     pub fn build(self) -> Result<DNumericalOrbitPropagator, BraheError> {
         // SAFETY: Each Option is Some because the corresponding type parameter is
         // Set, and the only way to reach Set is via the setter that populates the field.
@@ -643,10 +568,6 @@ impl DNumericalOrbitPropagator {
     /// Returns `BraheError` if:
     /// - Force model references parameter indices but no parameter vector is provided
     /// - Parameter vector is too short for the force model configuration
-    /// - A spherical-harmonic gravity configuration using a model without Clenshaw
-    ///   tables (an explicit Cunningham-only `GravityTables` opt-in) fails its trial
-    ///   evaluation at the initial state (e.g. Cunningham V/W overflow at high degree
-    ///   and low altitude)
     ///
     /// # Example
     ///
@@ -808,57 +729,6 @@ impl DNumericalOrbitPropagator {
                          no spherical-harmonic model to apply it to; ignoring."
                     );
                 }
-            }
-        }
-
-        // Trial-evaluation guardrail: a spherical-harmonic model with no
-        // Clenshaw tables (an explicit Cunningham-only opt-in via
-        // `GravityTables`) falls back to the Cunningham V/W kernel for
-        // every dynamics evaluation. At high degree and low altitude that
-        // kernel can overflow to a non-finite result (see
-        // `GravityModel::compute_spherical_harmonics_cunningham`'s
-        // `# Numerical limits`) — which would otherwise only surface deep
-        // inside the integrator, far from the configuration that caused it.
-        // Catch it here with one evaluation at the initial state instead.
-        // Models with Clenshaw tables (the default) skip this entirely.
-        if let GravityConfiguration::SphericalHarmonic {
-            source,
-            degree,
-            order,
-            parallel,
-        } = &force_config.gravity
-        {
-            let r_i2b = match force_config.frame_transform {
-                FrameTransformationModel::FullEarthRotation => rotation_eci_to_ecef(epoch),
-                FrameTransformationModel::EarthRotationOnly => earth_rotation(epoch),
-            };
-            let r_body = r_i2b * Vector3::new(state_eci[0], state_eci[1], state_eci[2]);
-
-            let trial = match source {
-                GravityModelSource::ModelType(_) => gravity_model.as_ref().and_then(|m| {
-                    if m.has_clenshaw_tables() {
-                        None
-                    } else {
-                        Some(m.compute_spherical_harmonics_cunningham(
-                            r_body, *degree, *order, *parallel,
-                        ))
-                    }
-                }),
-                GravityModelSource::Global => {
-                    let global_model = get_global_gravity_model();
-                    if global_model.has_clenshaw_tables() {
-                        None
-                    } else {
-                        Some(global_model.compute_spherical_harmonics_cunningham(
-                            r_body, *degree, *order, *parallel,
-                        ))
-                    }
-                }
-            };
-            if let Some(Err(e)) = trial {
-                return Err(BraheError::PropagatorError(format!(
-                    "gravity configuration failed trial evaluation at the initial state: {e}"
-                )));
             }
         }
 
@@ -1521,14 +1391,12 @@ impl DNumericalOrbitPropagator {
         gravity_model: Option<Arc<GravityModel>>,
         solid_tide: Option<SolidTideConfig>,
     ) -> SharedDynamics {
-        // Per-propagator scratch state: the rotation cache, held under a
-        // Mutex so each dynamics invocation takes a single lock. Mutex (not
-        // RefCell) because `SharedDynamics: Send + Sync` — even though the
-        // dynamics function is only ever driven by one thread at a time
-        // (serialised through `&mut self` on the propagator), the type
-        // system needs the conservative bound. Lock acquisition on this
-        // uncontended Mutex is ~10 ns; the work it saves dwarfs that.
-        let workspace = Arc::new(Mutex::new(DynamicsWorkspace::new(
+        // Per-propagator rotation cache. Mutex (not RefCell) because
+        // `SharedDynamics: Send + Sync`: the same closure is shared with the
+        // Jacobian and sensitivity providers, which may drive it from
+        // multiple threads. Lock acquisition on this uncontended Mutex is
+        // ~10 ns; the rotation work it saves dwarfs that.
+        let rotation_cache = Arc::new(Mutex::new(RotationCache::new(
             force_config.frame_transform.clone(),
         )));
         Arc::new(
@@ -1536,10 +1404,8 @@ impl DNumericalOrbitPropagator {
                   state: &DVector<f64>,
                   params_opt: Option<&DVector<f64>>|
                   -> DVector<f64> {
-                let mut ws = workspace.lock().unwrap();
-                let DynamicsWorkspace { rotation_cache } = &mut *ws;
                 let epoch = epoch_initial + t;
-                let r_i2b = rotation_cache.get_or_compute(t, epoch);
+                let r_i2b = rotation_cache.lock().unwrap().get_or_compute(t, epoch);
 
                 // Compute orbital dynamics (first 6 elements) on the stack.
                 // `compute_dynamics` returns a `Vector6<f64>` so the inner
@@ -1555,10 +1421,6 @@ impl DNumericalOrbitPropagator {
                     solid_tide,
                     r_i2b,
                 );
-                // Release the lock before the additional_dynamics callback
-                // so the user closure (which may allocate or call Python)
-                // doesn't run while we're holding the propagator's mutex.
-                drop(ws);
 
                 // Widen the orbital derivative to the full state dimension.
                 // This is the one heap allocation we cannot avoid without
@@ -1720,14 +1582,7 @@ impl DNumericalOrbitPropagator {
                 order,
                 parallel,
             } => {
-                // Dispatches to the Clenshaw kernel (the default table
-                // configuration for every model this propagator can obtain —
-                // see `GravityTables`), falling back to Cunningham only if
-                // the model was explicitly loaded Cunningham-only. Unlike
-                // the old Cunningham V/W recursion, Clenshaw needs no
-                // persistent per-propagator workspace: its only per-call
-                // allocation is an O(m_max) buffer, not two O((n_max+2)²)
-                // matrices, so there's nothing worth caching across stages.
+                // Dispatches to the Clenshaw kernel by default.
                 match source {
                     GravityModelSource::Global => {
                         // Use global gravity model
@@ -3103,6 +2958,10 @@ mod tests {
     use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
     use crate::frames::position_eci_to_ecef;
+    use crate::orbit_dynamics::ParallelMode;
+    use crate::orbit_dynamics::gravity::{
+        GravityModelType, set_global_gravity_model, set_global_gravity_model_to_tide_system,
+    };
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::force_model_config::{
         AtmosphericModel, DragConfiguration, EphemerisSource, GravityConfiguration,
@@ -3110,6 +2969,7 @@ mod tests {
     };
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
+    use crate::utils::testing::setup_global_test_gravity_model;
     use crate::{orbital_period, state_koe_to_eci};
 
     fn setup_global_test_eop() {
@@ -3418,10 +3278,10 @@ mod tests {
 
     #[test]
     fn test_rotation_cache_capacity_evicts_oldest() {
-        // Fill the ring buffer past capacity. The oldest entry should be
-        // evicted while the most recently inserted entries remain reachable
-        // — verifies the FIFO eviction policy and that the search loop
-        // correctly returns the live entries.
+        // Fill the cache past capacity. The least-recently-used entry should
+        // be evicted while the most recently inserted entries remain
+        // reachable — verifies the LRU eviction policy and that lookups
+        // correctly return the live entries.
         setup_global_test_eop();
         let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -8287,8 +8147,6 @@ mod tests {
 
     #[test]
     fn test_dnumericalorbitpropagator_force_gravity_spherical_harmonic() {
-        use crate::orbit_dynamics::gravity::GravityModelType;
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -8334,8 +8192,6 @@ mod tests {
 
     #[test]
     fn test_dnumericalorbitpropagator_force_gravity_j2_perturbation() {
-        use crate::orbit_dynamics::gravity::GravityModelType;
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -8410,8 +8266,6 @@ mod tests {
 
     #[test]
     fn test_dnumericalorbitpropagator_force_gravity_degree_order_convergence() {
-        use crate::orbit_dynamics::gravity::GravityModelType;
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -8476,9 +8330,6 @@ mod tests {
 
     #[test]
     fn test_dnumericalorbitpropagator_force_gravity_global_vs_modeltype() {
-        use crate::orbit_dynamics::gravity::GravityModelType;
-        use crate::utils::testing::setup_global_test_gravity_model;
-
         setup_global_test_eop();
         setup_global_test_gravity_model();
 
@@ -8568,104 +8419,6 @@ mod tests {
         }
 
         // The test passes by verifying both source types are accepted by the compiler and constructor
-    }
-
-    /// Build a `SphericalHarmonic` config against the global gravity model at
-    /// the given degree/order, matching `jgm3_force_config`'s shape but for
-    /// the trial-evaluation guardrail tests below (which need `Global`
-    /// source so the test can control the model's table set directly).
-    fn global_spherical_harmonic_force_config(degree: usize, order: usize) -> ForceModelConfig {
-        ForceModelConfig {
-            gravity: GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::Global,
-                degree,
-                order,
-                parallel: crate::orbit_dynamics::ParallelMode::Never,
-            },
-            drag: None,
-            srp: None,
-            third_body: None,
-            relativity: false,
-            mass: None,
-            frame_transform: FrameTransformationModel::default(),
-            tides: None,
-        }
-    }
-
-    #[test]
-    #[serial_test::serial]
-    fn test_dnumericalorbitpropagator_construction_cunningham_only_high_degree_leo_fails_trial() {
-        // A Cunningham-only global model at degree 160 and LEO altitude
-        // overflows the denormalized V/W recursion (see
-        // `test_cunningham_high_degree_overflow_errors` in gravity.rs).
-        // The trial-evaluation guardrail must surface that at construction,
-        // not mid-propagation.
-        use crate::orbit_dynamics::gravity::{GravityModelType, GravityTables};
-        use crate::orbit_dynamics::set_global_gravity_model;
-
-        setup_global_test_eop();
-        set_global_gravity_model(
-            GravityModel::from_model_type_with_tables(
-                &GravityModelType::EGM2008_360,
-                GravityTables::Cunningham,
-            )
-            .unwrap(),
-        );
-
-        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = DVector::from_vec(vec![6.5e6, 1.2e6, 3.1e6, 0.0, 7500.0, 0.0]);
-
-        let result = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            NumericalPropagationConfig::default(),
-            global_spherical_harmonic_force_config(160, 160),
-            None,
-            None,
-            None,
-            None,
-        );
-
-        // `DNumericalOrbitPropagator` isn't `Debug`, so match instead of `unwrap_err()`.
-        match result {
-            Ok(_) => panic!("expected trial-evaluation guardrail to fail construction"),
-            Err(e) => assert!(e.to_string().contains("non-finite")),
-        }
-    }
-
-    #[test]
-    #[serial_test::serial]
-    fn test_dnumericalorbitpropagator_construction_cunningham_only_moderate_degree_leo_succeeds() {
-        // Same Cunningham-only model and LEO altitude as above, but at a
-        // degree low enough that the V/W recursion stays finite: the trial
-        // evaluation passes and construction succeeds.
-        use crate::orbit_dynamics::gravity::{GravityModelType, GravityTables};
-        use crate::orbit_dynamics::set_global_gravity_model;
-
-        setup_global_test_eop();
-        set_global_gravity_model(
-            GravityModel::from_model_type_with_tables(
-                &GravityModelType::EGM2008_360,
-                GravityTables::Cunningham,
-            )
-            .unwrap(),
-        );
-
-        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
-        let state = DVector::from_vec(vec![6.5e6, 1.2e6, 3.1e6, 0.0, 7500.0, 0.0]);
-
-        let result = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            NumericalPropagationConfig::default(),
-            global_spherical_harmonic_force_config(80, 80),
-            None,
-            None,
-            None,
-            None,
-        );
-
-        assert!(result.is_ok());
     }
 
     #[test]
@@ -10436,7 +10189,6 @@ mod tests {
         assert!((det_gravity.abs() - 1.0).abs() < 1e-6);
 
         // Test with J2 perturbations
-        use crate::orbit_dynamics::gravity::GravityModelType;
         let force_config_j2 = ForceModelConfig {
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -12071,11 +11823,6 @@ mod tests {
         // or a pre-conversion). Constructing a propagator that references the
         // global must neither mutate the shared model nor fail, even when a
         // permanent-tide config is present.
-        use crate::orbit_dynamics::ParallelMode;
-        use crate::orbit_dynamics::gravity::{
-            GravityModel, GravityModelTideSystem, GravityModelType, get_global_gravity_model,
-            set_global_gravity_model, set_global_gravity_model_to_tide_system,
-        };
         use crate::propagators::force_model_config::{
             ForceModelConfig, GravityConfiguration, GravityModelSource, PermanentTideConfig,
             TidesConfiguration,
@@ -12143,8 +11890,6 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_permanent_tide_auto_converts_to_tide_free() {
-        use crate::orbit_dynamics::ParallelMode;
-        use crate::orbit_dynamics::gravity::{GravityModel, GravityModelType};
         use crate::propagators::force_model_config::{
             ForceModelConfig, GravityConfiguration, GravityModelSource, PermanentTideConfig,
             TidesConfiguration,
@@ -12211,9 +11956,6 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_permanent_tide_convert_to_zero_tide_with_solid_warns_but_constructs() {
-        use crate::orbit_dynamics::ParallelMode;
-        use crate::orbit_dynamics::gravity::GravityModelType;
-        use crate::orbit_dynamics::tides::SolidTideConfig;
         use crate::propagators::force_model_config::{
             ForceModelConfig, GravityConfiguration, GravityModelSource, PermanentTideConfig,
             TidesConfiguration,
@@ -12271,7 +12013,6 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn test_solid_tides_perturb_propagation() {
-        use crate::orbit_dynamics::tides::SolidTideConfig;
         use crate::propagators::force_model_config::{PermanentTideConfig, TidesConfiguration};
 
         setup_global_test_eop();

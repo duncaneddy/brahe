@@ -74,6 +74,7 @@ polars = { version = "0.54", default-features = false, features = ["lazy"] }
 # moved to nalgebra 0.35 while anise stayed on 0.34). brahe only uses anise's
 # core ephemeris APIs, which need no features.
 anise = { version = "0.10", default-features = false }
+lru = "0.18.1"
 
 # pyo3 is an optional dependency used only by the `python` feature, which enables
 # the `python_interop` module holding the `BraheError` PyErr conversion. The

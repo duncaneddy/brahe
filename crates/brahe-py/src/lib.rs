@@ -1025,7 +1025,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyGravityModelTideSystem>()?;
     module.add_class::<PyGravityModelErrors>()?;
     module.add_class::<PyGravityModelNormalization>()?;
-    module.add_class::<PyGravityTables>()?;
+    module.add_class::<PyGravityModelCoefficients>()?;
     module.add_class::<PyGravityModel>()?;
     module.add_function(wrap_pyfunction!(
         py_accel_gravity_spherical_harmonics,

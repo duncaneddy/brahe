@@ -5177,35 +5177,6 @@ impl PyForceModelConfig {
 ///     prop.propagate_to(epoch + 3600.0)  # 1 hour
 ///     print(f"Final state: {prop.current_state()}")
 ///     ```
-/// Emit a `UserWarning` for spherical-harmonic configs above degree 150 that rely on
-/// a Cunningham-only gravity model.
-///
-/// The Rust-side trial evaluation (`DNumericalOrbitPropagator::new`) already hard-errors
-/// if the Cunningham kernel overflows at the initial state, so construction reaching this
-/// point has already succeeded once. This warns about configurations (e.g. GEO altitudes)
-/// where accuracy degrades or a later state could still overflow.
-///
-/// `GravityModelSource::ModelType` is not checked: the underlying model always comes from
-/// the process-wide cache (`GravityModel::shared`), which is guaranteed Clenshaw-only, so
-/// the lacks-Clenshaw condition cannot occur for that source. Only `GravityModelSource::Global`
-/// is checked, via the public `get_global_gravity_model()` accessor.
-fn warn_if_cunningham_only_high_degree(py: Python<'_>, force_config: &propagators::ForceModelConfig) -> PyResult<()> {
-    if let propagators::GravityConfiguration::SphericalHarmonic { source, degree, .. } = &force_config.gravity
-        && *degree > 150
-        && *source == propagators::GravityModelSource::Global
-        && !orbit_dynamics::get_global_gravity_model().has_clenshaw_tables()
-    {
-        let category = py.get_type::<exceptions::PyUserWarning>();
-        PyErr::warn(
-            py,
-            &category,
-            c"Spherical-harmonic degree > 150 with a Cunningham-only gravity model: the denormalized V/W recursion overflows at low-altitude positions (raising an error mid-propagation) and precision is reduced at high degree; enable Clenshaw tables (the default) instead.",
-            1,
-        )?;
-    }
-    Ok(())
-}
-
 #[pyclass(module = "brahe._brahe")]
 #[pyo3(name = "NumericalOrbitPropagator")]
 pub struct PyNumericalOrbitPropagator {
@@ -5380,8 +5351,6 @@ impl PyNumericalOrbitPropagator {
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-        warn_if_cunningham_only_high_degree(py, &force_config.config)?;
-
         Ok(PyNumericalOrbitPropagator { propagator: prop })
     }
 
@@ -5399,7 +5368,6 @@ impl PyNumericalOrbitPropagator {
     #[pyo3(signature = (epoch, state, params=None, force_config=None))]
     pub fn from_eci(
         _cls: &Bound<'_, PyType>,
-        py: Python<'_>,
         epoch: &PyEpoch,
         state: PyReadonlyArray1<f64>,
         params: Option<PyReadonlyArray1<f64>>,
@@ -5429,8 +5397,6 @@ impl PyNumericalOrbitPropagator {
             None,
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        warn_if_cunningham_only_high_degree(py, &fc)?;
 
         Ok(PyNumericalOrbitPropagator { propagator: prop })
     }

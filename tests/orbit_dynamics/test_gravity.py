@@ -257,6 +257,24 @@ class TestSphericalHarmonicGravity:
         assert isinstance(c21, float)
         assert isinstance(s21, float)
 
+    def test_gravity_model_get_c_get_s(self):
+        """get_c/get_s return the individual coefficients (mirrors Rust test)."""
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+
+        # J2 coefficient (C20); S20 is identically zero.
+        assert model.get_c(2, 0) == pytest.approx(-4.84169548456e-4, abs=1e-12)
+        assert model.get_s(2, 0) == pytest.approx(0.0, abs=1e-12)
+
+        # get_c/get_s agree with the tuple accessor.
+        c33, s33 = model.get(3, 3)
+        assert model.get_c(3, 3) == c33
+        assert model.get_s(3, 3) == s33
+
+        with pytest.raises(ValueError):
+            model.get_c(100, 0)
+        with pytest.raises(ValueError):
+            model.get_s(100, 0)
+
     def test_gravity_model_get_invalid_degree(self):
         """Test error handling for invalid degree."""
         model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
@@ -398,15 +416,15 @@ class TestSphericalHarmonicGravity:
         # Results should be identical
         assert np.allclose(a_from_pos, a_from_state, atol=1e-15)
 
-    def test_accel_gravity_spherical_harmonics_raises_without_tables(self):
-        """Dispatcher surfaces a ValueError (not a panic) when no tables are precomputed."""
+    def test_accel_gravity_spherical_harmonics_raises_without_coefficients(self):
+        """Dispatcher surfaces a ValueError (not a panic) when no coefficients are precomputed."""
         model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
-        model.drop_clenshaw_tables()
+        model.drop_clenshaw_coefficients()
 
         r_eci = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
         R = np.eye(3)
 
-        with pytest.raises(ValueError, match="No precomputed gravity tables"):
+        with pytest.raises(ValueError, match="No precomputed gravity coefficients"):
             bh.accel_gravity_spherical_harmonics(r_eci, R, model, 10, 10)
 
     def test_set_max_degree_order_basic(self):
@@ -479,8 +497,8 @@ class TestSphericalHarmonicGravity:
 
     def test_clenshaw_matches_cunningham(self):
         """Clenshaw and Cunningham kernels agree to < 1e-10 relative."""
-        model = bh.GravityModel.from_model_type_with_tables(
-            bh.GravityModelType.EGM2008_360, bh.GravityTables.Both
+        model = bh.GravityModel.from_model_type_with_coefficients(
+            bh.GravityModelType.EGM2008_360, bh.GravityModelCoefficients.Both
         )
         positions = [
             np.array([6.5e6, 1.2e6, 3.1e6]),
@@ -499,37 +517,37 @@ class TestSphericalHarmonicGravity:
 
     def test_cunningham_overflow_raises(self):
         """Cunningham kernel raises on V/W overflow at high degree, low altitude."""
-        model = bh.GravityModel.from_model_type_with_tables(
-            bh.GravityModelType.EGM2008_360, bh.GravityTables.Both
+        model = bh.GravityModel.from_model_type_with_coefficients(
+            bh.GravityModelType.EGM2008_360, bh.GravityModelCoefficients.Both
         )
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
         with pytest.raises(Exception, match="non-finite"):
             model.compute_spherical_harmonics_cunningham(r_body, 160, 160)
 
-    def test_gravity_tables_default_is_clenshaw_only(self):
-        """Default load builds only Clenshaw tables; Cunningham kernel errors."""
+    def test_gravity_model_coefficients_default_is_clenshaw_only(self):
+        """Default load builds only Clenshaw coefficients; Cunningham kernel errors."""
         model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
-        assert model.has_clenshaw_tables()
-        assert not model.has_cunningham_tables()
+        assert model.has_clenshaw_coefficients()
+        assert not model.has_cunningham_coefficients()
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
         # Main API dispatches to Clenshaw.
         a = model.compute_spherical_harmonics(r_body, 10, 10)
         assert np.isfinite(a).all()
-        with pytest.raises(Exception, match="Cunningham tables"):
+        with pytest.raises(Exception, match="Cunningham coefficients"):
             model.compute_spherical_harmonics_cunningham(r_body, 10, 10)
 
-    def test_gravity_tables_precompute_drop_roundtrip(self):
-        """Tables can be precomputed and dropped; dispatch follows availability."""
+    def test_gravity_model_coefficients_precompute_drop_roundtrip(self):
+        """Coefficient sets can be precomputed and dropped; dispatch follows availability."""
         model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
         a_clenshaw = model.compute_spherical_harmonics(r_body, 10, 10)
 
-        model.precompute_cunningham_tables()
+        model.precompute_cunningham_coefficients()
         a_cun = model.compute_spherical_harmonics_cunningham(r_body, 10, 10)
         assert np.linalg.norm(a_clenshaw - a_cun) / np.linalg.norm(a_cun) < 1e-10
 
-        model.drop_clenshaw_tables()
-        assert not model.has_clenshaw_tables()
+        model.drop_clenshaw_coefficients()
+        assert not model.has_clenshaw_coefficients()
         # Falls back to Cunningham.
         a_fallback = model.compute_spherical_harmonics(r_body, 10, 10)
         assert np.allclose(a_fallback, a_cun, atol=0.0)
@@ -545,8 +563,8 @@ class TestSphericalHarmonicGravity:
 
     def test_accel_gravity_spherical_harmonics_cunningham_matches_main(self):
         """Explicit Cunningham accel function matches the main dispatch API."""
-        model = bh.GravityModel.from_model_type_with_tables(
-            bh.GravityModelType.JGM3, bh.GravityTables.Both
+        model = bh.GravityModel.from_model_type_with_coefficients(
+            bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Both
         )
         r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
         R = np.eye(3)
@@ -555,22 +573,22 @@ class TestSphericalHarmonicGravity:
         rel = np.linalg.norm(a_main - a_cun) / np.linalg.norm(a_main)
         assert rel < 1e-10
 
-    def test_from_file_with_tables(self):
-        """from_file_with_tables loads from disk with an explicit table config."""
-        model = bh.GravityModel.from_file_with_tables(
-            "data/gravity_models/JGM3.gfc", bh.GravityTables.Cunningham
+    def test_from_file_with_coefficients(self):
+        """from_file_with_coefficients loads from disk with an explicit coefficient config."""
+        model = bh.GravityModel.from_file_with_coefficients(
+            "data/gravity_models/JGM3.gfc", bh.GravityModelCoefficients.Cunningham
         )
-        assert model.has_cunningham_tables()
-        assert not model.has_clenshaw_tables()
+        assert model.has_cunningham_coefficients()
+        assert not model.has_clenshaw_coefficients()
         assert model.n_max == 70
 
     def test_load_uncached(self):
-        """load_uncached parses fresh (bypassing the cache) with Clenshaw tables."""
+        """load_uncached parses fresh (bypassing the cache) with Clenshaw coefficients."""
         model = bh.GravityModel.load_uncached(bh.GravityModelType.JGM3)
         assert model.model_name == "JGM3"
         assert model.n_max == 70
-        assert model.has_clenshaw_tables()
-        assert not model.has_cunningham_tables()
+        assert model.has_clenshaw_coefficients()
+        assert not model.has_cunningham_coefficients()
 
     def test_get_global_gravity_model(self):
         """get_global_gravity_model returns the model installed by the setter."""
@@ -592,7 +610,7 @@ class TestSphericalHarmonicGravity:
             # GGM05S is a zero-tide model.
             ggm = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
             assert ggm.tide_system == bh.GravityModelTideSystem.ZeroTide
-            c20_zero = ggm.get(2, 0)[0]
+            c20_zero = ggm.get_c(2, 0)
 
             bh.set_global_gravity_model_to_tide_system(
                 ggm, bh.GravityModelTideSystem.TideFree
@@ -603,7 +621,7 @@ class TestSphericalHarmonicGravity:
             # Tide-free C20 = zero-tide C20 minus the indirect permanent-tide
             # offset (PERM_C20_INDIRECT ~= -4.200675e-9), so C20 shifts up by
             # +4.200675e-9.
-            assert global_model.get(2, 0)[0] - c20_zero == pytest.approx(
+            assert global_model.get_c(2, 0) - c20_zero == pytest.approx(
                 4.200675e-9, abs=1e-14
             )
         finally:
@@ -635,20 +653,24 @@ class TestSphericalHarmonicGravity:
         assert model.model_name == "JGM3"
         assert model.n_max == 70
 
-    def test_clenshaw_kernel_errors_without_tables(self):
-        """Clenshaw kernel errors when only Cunningham tables are present."""
-        model = bh.GravityModel.from_model_type_with_tables(
-            bh.GravityModelType.JGM3, bh.GravityTables.Cunningham
+    def test_clenshaw_kernel_errors_without_coefficients(self):
+        """Clenshaw kernel errors when only Cunningham coefficients are present."""
+        model = bh.GravityModel.from_model_type_with_coefficients(
+            bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Cunningham
         )
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
-        with pytest.raises(Exception, match="Clenshaw tables"):
+        with pytest.raises(Exception, match="Clenshaw coefficients"):
             model.compute_spherical_harmonics_clenshaw(r_body, 10, 10)
 
-    def test_gravity_tables_enum(self):
-        """GravityTables variants construct and compare."""
-        assert bh.GravityTables.Clenshaw == bh.GravityTables.Clenshaw
-        assert not (bh.GravityTables.Clenshaw == bh.GravityTables.Both)
-        assert "Clenshaw" in repr(bh.GravityTables.Clenshaw)
+    def test_gravity_model_coefficients_enum(self):
+        """GravityModelCoefficients variants construct and compare."""
+        assert (
+            bh.GravityModelCoefficients.Clenshaw == bh.GravityModelCoefficients.Clenshaw
+        )
+        assert not (
+            bh.GravityModelCoefficients.Clenshaw == bh.GravityModelCoefficients.Both
+        )
+        assert "Clenshaw" in repr(bh.GravityModelCoefficients.Clenshaw)
 
 
 class TestGravityEnumReprStr:

@@ -4,8 +4,6 @@ Tests for NumericalOrbitPropagator Python bindings
 These tests mirror the Rust tests from src/propagators/dnumerical_orbit_propagator.rs
 """
 
-import warnings
-
 import pytest
 import numpy as np
 from brahe import (
@@ -19,13 +17,8 @@ from brahe import (
     state_koe_to_eci,
     state_eci_to_koe,
     R_EARTH,
-    GM_EARTH,
     orbital_period,
     GravityConfiguration,
-    GravityModel,
-    GravityModelType,
-    GravityTables,
-    set_global_gravity_model,
 )
 
 
@@ -4601,95 +4594,6 @@ def test_numericalorbitpropagator_force_gravity_degree_order():
 
     diff = np.linalg.norm(state_low[:3] - state_high[:3])
     assert diff > 0.0, "Different gravity orders should produce different results"
-
-
-def _create_geo_state():
-    """Create a circular GEO-altitude equatorial ECI state."""
-    r = 42164.14e3
-    v = np.sqrt(GM_EARTH / r)
-    return np.array([r, 0.0, 0.0, 0.0, v, 0.0])
-
-
-def test_numericalorbitpropagator_warns_on_cunningham_only_high_degree_global():
-    """Cunningham-only global gravity model above degree 150 warns at construction."""
-    epoch = create_test_epoch()
-    state = _create_geo_state()
-    params = create_test_params()
-
-    original_global_model = GravityModel.from_model_type(GravityModelType.JGM3)
-    try:
-        cunningham_only = GravityModel.from_model_type_with_tables(
-            GravityModelType.EGM2008_360, GravityTables.Cunningham
-        )
-        set_global_gravity_model(cunningham_only)
-
-        fc = ForceModelConfig.default()
-        fc.gravity = GravityConfiguration.spherical_harmonic(
-            degree=200, order=200, use_global=True
-        )
-
-        with pytest.warns(UserWarning, match="degree > 150"):
-            NumericalOrbitPropagator.from_eci(
-                epoch, state, params=params, force_config=fc
-            )
-    finally:
-        set_global_gravity_model(original_global_model)
-
-
-def test_numericalorbitpropagator_construction_fails_cunningham_only_high_degree_leo():
-    """Cunningham-only global gravity model at high degree and LEO altitude
-    fails its trial evaluation at construction (mirrors the Rust test
-    `test_dnumericalorbitpropagator_construction_cunningham_only_high_degree_leo_fails_trial`
-    in dnumerical_orbit_propagator.rs)."""
-    epoch = create_test_epoch()
-    state = np.array([6.5e6, 1.2e6, 3.1e6, 0.0, 7500.0, 0.0])
-    params = create_test_params()
-
-    original_global_model = GravityModel.from_model_type(GravityModelType.JGM3)
-    try:
-        cunningham_only = GravityModel.from_model_type_with_tables(
-            GravityModelType.EGM2008_360, GravityTables.Cunningham
-        )
-        set_global_gravity_model(cunningham_only)
-
-        fc = ForceModelConfig.default()
-        fc.gravity = GravityConfiguration.spherical_harmonic(
-            degree=160, order=160, use_global=True
-        )
-
-        with pytest.raises(RuntimeError, match="non-finite"):
-            NumericalOrbitPropagator.from_eci(
-                epoch, state, params=params, force_config=fc
-            )
-    finally:
-        set_global_gravity_model(original_global_model)
-
-
-def test_numericalorbitpropagator_no_warning_for_default_clenshaw_model():
-    """The default (Clenshaw) global gravity model does not trigger the warning."""
-    epoch = create_test_epoch()
-    state = _create_geo_state()
-    params = create_test_params()
-
-    original_global_model = GravityModel.from_model_type(GravityModelType.JGM3)
-    try:
-        clenshaw_model = GravityModel.from_model_type(GravityModelType.EGM2008_360)
-        set_global_gravity_model(clenshaw_model)
-
-        fc = ForceModelConfig.default()
-        fc.gravity = GravityConfiguration.spherical_harmonic(
-            degree=200, order=200, use_global=True
-        )
-
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            NumericalOrbitPropagator.from_eci(
-                epoch, state, params=params, force_config=fc
-            )
-
-        assert len(caught) == 0
-    finally:
-        set_global_gravity_model(original_global_model)
 
 
 def test_numericalorbitpropagator_force_drag_models():

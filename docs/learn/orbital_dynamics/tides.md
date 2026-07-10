@@ -103,25 +103,13 @@ by calling `GravityModel.convert_tide_system` before `set_global_gravity_model`:
 === "Python"
 
     ```python
-    import brahe as bh
-
-    # GGM05S is a zero-tide model; install it as tide-free in one call.
-    model = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
-    bh.set_global_gravity_model_to_tide_system(
-        model, bh.GravityModelTideSystem.TideFree)
+    --8<-- "./examples/numerical_propagation/tides_global_tide_system.py:3"
     ```
 
 === "Rust"
 
     ```rust
-    use brahe::gravity::{
-        GravityModel, GravityModelType, GravityModelTideSystem,
-        set_global_gravity_model_to_tide_system,
-    };
-
-    // GGM05S is a zero-tide model; install it as tide-free in one call.
-    let model = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
-    set_global_gravity_model_to_tide_system(model, GravityModelTideSystem::TideFree).unwrap();
+    --8<-- "./examples/numerical_propagation/tides_global_tide_system.rs:3"
     ```
 
 ## Solid Earth Tides

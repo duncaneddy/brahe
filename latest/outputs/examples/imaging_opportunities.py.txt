@@ -3,24 +3,24 @@ Loaded 51 ICEYE satellites in 0.40 seconds.
 
 ICEYE Constellation:
   1. ICEYE-X2
-     Epoch: 2026-07-09 07:00:51.888 UTC
+     Epoch: 2026-07-09 21:15:09.982 UTC
      Semi-major axis: 6890.0 km
   2. ICEYE-X5
-     Epoch: 2026-07-09 07:50:02.707 UTC
-     Semi-major axis: 6773.5 km
+     Epoch: 2026-07-09 20:10:14.736 UTC
+     Semi-major axis: 6773.4 km
   3. ICEYE-X4
-     Epoch: 2026-07-09 07:26:40.247 UTC
-     Semi-major axis: 6854.6 km
+     Epoch: 2026-07-09 20:00:11.502 UTC
+     Semi-major axis: 6854.5 km
   4. ICEYE-X7
-     Epoch: 2026-07-09 06:53:35.703 UTC
+     Epoch: 2026-07-09 21:00:04.829 UTC
      Semi-major axis: 6847.9 km
   5. ICEYE-X6
-     Epoch: 2026-07-09 06:30:09.404 UTC
+     Epoch: 2026-07-09 20:52:01.330 UTC
      Semi-major axis: 6930.7 km
   ... and 46 more
 
 Propagating constellation for visualization...
-Created 3D visualization in 7.27 seconds.
+Created 3D visualization in 6.79 seconds.
 
 Resetting propagators for access computation...
 
@@ -34,31 +34,31 @@ Defining imaging constraints:
   - Off-nadir angle: 35-45 degrees
 
 Computing 7-day imaging opportunities...
-Computed 2902 imaging opportunities in 15.41 seconds.
+Computed 2918 imaging opportunities in 18.96 seconds.
 
 ==========================================================================================
 Sample Imaging Opportunities (first 10)
 ==========================================================================================
 Spacecraft           Start Time                End Time                    Duration  Off-Nadir
 ------------------------------------------------------------------------------------------
-ICEYE-X35            2026-07-09 07:00:51       2026-07-09 07:06:13          321.5 s     40.0°
-ICEYE-X42            2026-07-09 07:06:48       2026-07-09 07:12:41          352.4 s     40.0°
-ICEYE-X21            2026-07-09 07:07:53       2026-07-09 07:12:06          252.9 s     39.4°
-ICEYE-X63            2026-07-09 07:08:24       2026-07-09 07:21:56          811.9 s     40.0°
-ICEYE-X76            2026-07-09 07:10:25       2026-07-09 07:19:21          535.3 s     40.0°
-ICEYE-X51            2026-07-09 07:12:41       2026-07-09 07:16:05          203.5 s     42.1°
-ICEYE-X58            2026-07-09 07:12:44       2026-07-09 07:18:34          349.6 s     40.0°
-ICEYE-X59            2026-07-09 07:13:07       2026-07-09 07:19:08          360.1 s     40.0°
-ICEYE-X40            2026-07-09 07:14:18       2026-07-09 07:20:12          353.8 s     40.0°
-ICEYE-X6             2026-07-09 07:14:21       2026-07-09 07:27:58          817.1 s     40.0°
+ICEYE-X51            2026-07-09 21:15:09       2026-07-09 21:16:38           88.9 s     36.0°
+ICEYE-X56            2026-07-09 21:17:16       2026-07-09 21:23:06          349.7 s     40.0°
+ICEYE-X52            2026-07-09 21:21:29       2026-07-09 21:27:19          349.6 s     40.0°
+ICEYE-X55            2026-07-09 21:25:55       2026-07-09 21:31:44          348.6 s     40.0°
+ICEYE-X57            2026-07-09 21:26:56       2026-07-09 21:28:09           73.4 s     43.7°
+ICEYE-X66            2026-07-09 21:29:07       2026-07-09 21:29:32           25.4 s     44.9°
+ICEYE-X54            2026-07-09 21:30:02       2026-07-09 21:35:50          348.3 s     40.0°
+ICEYE-X78            2026-07-09 21:42:17       2026-07-09 21:50:05          467.7 s     40.0°
+ICEYE-X65            2026-07-09 21:49:36       2026-07-09 21:55:39          362.8 s     40.0°
+ICEYE-X57            2026-07-09 21:49:51       2026-07-09 21:55:37          345.6 s     40.0°
 ==========================================================================================
 ✓ Exported first 10 imaging opportunities to docs/figures/imaging_opportunities_windows.csv
 
 Imaging Opportunity Statistics:
-  Total opportunities: 2902
+  Total opportunities: 2918
   Spacecraft with opportunities: 51
-  Average duration: 454.7 seconds
-  Total imaging time: 1319487.6 seconds
+  Average duration: 451.9 seconds
+  Total imaging time: 1318756.5 seconds
 
 ✓ Generated docs/figures/imaging_opportunities_constellation_light.html
 ✓ Generated docs/figures/imaging_opportunities_constellation_dark.html

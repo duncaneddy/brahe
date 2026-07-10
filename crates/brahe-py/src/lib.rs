@@ -1040,6 +1040,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
     module.add_function(wrap_pyfunction!(py_set_global_gravity_model, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_set_global_gravity_model_to_tide_system,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(py_get_global_gravity_model, module)?)?;
     module.add_function(wrap_pyfunction!(py_clear_gravity_model_cache, module)?)?;
 

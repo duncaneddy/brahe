@@ -585,6 +585,48 @@ class TestSphericalHarmonicGravity:
         finally:
             bh.set_global_gravity_model(original)
 
+    def test_set_global_gravity_model_to_tide_system_converts(self):
+        """Setter converts the model to the target tide system before installing it."""
+        original = bh.get_global_gravity_model()
+        try:
+            # GGM05S is a zero-tide model.
+            ggm = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
+            assert ggm.tide_system == bh.GravityModelTideSystem.ZeroTide
+            c20_zero = ggm.get(2, 0)[0]
+
+            bh.set_global_gravity_model_to_tide_system(
+                ggm, bh.GravityModelTideSystem.TideFree
+            )
+
+            global_model = bh.get_global_gravity_model()
+            assert global_model.tide_system == bh.GravityModelTideSystem.TideFree
+            # Tide-free C20 = zero-tide C20 minus the indirect permanent-tide
+            # offset (PERM_C20_INDIRECT ~= -4.200675e-9), so C20 shifts up by
+            # +4.200675e-9.
+            assert global_model.get(2, 0)[0] - c20_zero == pytest.approx(
+                4.200675e-9, abs=1e-14
+            )
+        finally:
+            bh.set_global_gravity_model(original)
+
+    def test_set_global_gravity_model_to_tide_system_unknown_source_errors(self):
+        """Converting a model with an Unknown tide system raises."""
+        # JGM3 loads with an Unknown tide system.
+        jgm = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        assert jgm.tide_system == bh.GravityModelTideSystem.Unknown
+        with pytest.raises(Exception):
+            bh.set_global_gravity_model_to_tide_system(
+                jgm, bh.GravityModelTideSystem.TideFree
+            )
+
+    def test_set_global_gravity_model_to_tide_system_unknown_target_errors(self):
+        """Converting to the Unknown tide system raises ValueError."""
+        ggm = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
+        with pytest.raises(ValueError, match="Unknown"):
+            bh.set_global_gravity_model_to_tide_system(
+                ggm, bh.GravityModelTideSystem.Unknown
+            )
+
     def test_clear_gravity_model_cache(self):
         """clear_gravity_model_cache runs; loads re-parse correctly afterward."""
         bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)

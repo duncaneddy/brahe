@@ -89,10 +89,40 @@ $\bar{C}_{20}$ with the conventional tide-free convention:
     Python. For gravity models owned by the propagator
     (`GravityModelSource.ModelType`) the conversion is still applied as
     requested, since Step-3-style workflows that pre-subtract the permanent
-    part externally are legitimate. Shared global gravity models
-    (`GravityModelSource.Global`) are never converted in place — pre-convert
-    with `GravityModel.convert_tide_system` before calling
-    `set_global_gravity_model` (a separate warning covers this case).
+    part externally are legitimate.
+
+Shared global gravity models (`GravityModelSource.Global`) are read-only across
+every propagator that references them, so their permanent-tide handling is
+resolved once, when the model is installed as the global — not per propagator.
+The propagator trusts the global model's tide system as-is and never mutates
+shared state, so the `PermanentTideConfig` in a `Global`-source force model has
+no effect. Set the tide system on the global model up front, either with the
+convenience setter `set_global_gravity_model_to_tide_system(model, target)` or
+by calling `GravityModel.convert_tide_system` before `set_global_gravity_model`:
+
+=== "Python"
+
+    ```python
+    import brahe as bh
+
+    # GGM05S is a zero-tide model; install it as tide-free in one call.
+    model = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
+    bh.set_global_gravity_model_to_tide_system(
+        model, bh.GravityModelTideSystem.TideFree)
+    ```
+
+=== "Rust"
+
+    ```rust
+    use brahe::gravity::{
+        GravityModel, GravityModelType, GravityModelTideSystem,
+        set_global_gravity_model_to_tide_system,
+    };
+
+    // GGM05S is a zero-tide model; install it as tide-free in one call.
+    let model = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
+    set_global_gravity_model_to_tide_system(model, GravityModelTideSystem::TideFree).unwrap();
+    ```
 
 ## Solid Earth Tides
 

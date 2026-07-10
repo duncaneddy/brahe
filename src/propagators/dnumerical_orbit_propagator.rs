@@ -789,8 +789,11 @@ impl DNumericalOrbitPropagator {
                 }
             } else {
                 // `gravity_model` is None: either PointMass/EarthZonal (no C̄20 to
-                // convert), or SphericalHarmonic with GravityModelSource::Global (shared
-                // state that must not be mutated). Warn appropriately.
+                // convert), or SphericalHarmonic with GravityModelSource::Global. For a
+                // Global source the shared model carries its own tide system, resolved
+                // once by the caller (e.g. `set_global_gravity_model_to_tide_system`, or
+                // a manual `convert_tide_system` before `set_global_gravity_model`); the
+                // propagator trusts it as-is and never mutates shared state.
                 let is_global_sh = matches!(
                     &force_config.gravity,
                     GravityConfiguration::SphericalHarmonic {
@@ -798,23 +801,7 @@ impl DNumericalOrbitPropagator {
                         ..
                     }
                 );
-                if is_global_sh
-                    && matches!(
-                        tides_cfg.permanent,
-                        PermanentTideConfig::Auto | PermanentTideConfig::ConvertTo(_)
-                    )
-                {
-                    // The shared global model cannot be mutated in place.
-                    eprintln!(
-                        "[brahe] warning: permanent-tide C\u{0305}20 conversion is NOT applied \
-                         to the shared global gravity model (mutating shared state is unsafe). \
-                         To apply the correction, either pre-convert the model with \
-                         `GravityModel::convert_tide_system` before calling \
-                         `set_global_gravity_model`, or use \
-                         `GravityModelSource::ModelType` for automatic permanent-tide handling."
-                    );
-                } else if !is_global_sh
-                    && matches!(tides_cfg.permanent, PermanentTideConfig::ConvertTo(_))
+                if !is_global_sh && matches!(tides_cfg.permanent, PermanentTideConfig::ConvertTo(_))
                 {
                     eprintln!(
                         "[brahe] warning: PermanentTideConfig set but gravity configuration has \
@@ -12074,6 +12061,83 @@ mod tests {
             DStatePropagator::state_dim(&via_new),
             DStatePropagator::state_dim(&via_builder)
         );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_global_source_permanent_tide_leaves_shared_model_untouched() {
+        // With a Global source, the shared model's tide system is the caller's
+        // responsibility (set once via `set_global_gravity_model_to_tide_system`
+        // or a pre-conversion). Constructing a propagator that references the
+        // global must neither mutate the shared model nor fail, even when a
+        // permanent-tide config is present.
+        use crate::orbit_dynamics::ParallelMode;
+        use crate::orbit_dynamics::gravity::{
+            GravityModel, GravityModelTideSystem, GravityModelType, get_global_gravity_model,
+            set_global_gravity_model, set_global_gravity_model_to_tide_system,
+        };
+        use crate::propagators::force_model_config::{
+            ForceModelConfig, GravityConfiguration, GravityModelSource, PermanentTideConfig,
+            TidesConfiguration,
+        };
+
+        setup_global_test_eop();
+
+        let original = (**get_global_gravity_model()).clone();
+
+        // Install a correctly pre-converted global (GGM05S zero-tide -> tide-free).
+        set_global_gravity_model_to_tide_system(
+            GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap(),
+            GravityModelTideSystem::TideFree,
+        )
+        .unwrap();
+        let c20_before = get_global_gravity_model().get(2, 0).unwrap().0;
+
+        let cfg = ForceModelConfig {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::Global,
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Auto,
+            },
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::Auto,
+                solid: None,
+            }),
+            ..ForceModelConfig::earth_gravity()
+        };
+
+        let epoch = crate::time::Epoch::from_datetime(
+            2024,
+            1,
+            1,
+            0,
+            0,
+            0.0,
+            0.0,
+            crate::time::TimeSystem::UTC,
+        );
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(prop.is_ok(), "Global-source construction should succeed");
+
+        // The shared global is unchanged by construction.
+        let global = get_global_gravity_model();
+        assert_eq!(global.tide_system, GravityModelTideSystem::TideFree);
+        assert_eq!(global.get(2, 0).unwrap().0, c20_before);
+        drop(global);
+
+        set_global_gravity_model(original);
     }
 
     #[test]

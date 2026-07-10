@@ -100,6 +100,62 @@ pub fn set_global_gravity_model(gravity_model: GravityModel) {
     **GLOBAL_GRAVITY_MODEL.write().unwrap() = gravity_model;
 }
 
+/// Convert a gravity model to `target` tide system, then install it as the
+/// global gravity model.
+///
+/// Because a [`GravityModelSource::Global`](crate::propagators::GravityModelSource)
+/// model is shared read-only across every propagator that references it, its
+/// permanent-tide (C̄20) handling must be resolved *once*, before it becomes
+/// global — a per-propagator `PermanentTideConfig` cannot be applied to shared
+/// state without a last-writer-wins race between propagators. This function is
+/// the one-call way to do that: it converts the owned model (see
+/// [`GravityModel::convert_tide_system`]) and stores the result. Equivalent to
+/// calling `model.convert_tide_system(model.tide_system, target)` followed by
+/// [`set_global_gravity_model`].
+///
+/// # Arguments
+///
+/// - `gravity_model` : Model to convert and install as the global model.
+/// - `target` : Tide system to convert the model into (typically
+///   [`GravityModelTideSystem::TideFree`], the background the solid-tide model
+///   expects).
+///
+/// # Returns
+///
+/// - `Result<(), BraheError>` : `Ok(())` on success. Errors if the model's tide
+///   system is [`GravityModelTideSystem::Unknown`] (the source permanent-tide
+///   displacement is undefined), or if `target` is `Unknown` (the resulting
+///   model's flag would disagree with its coefficients).
+///
+/// # Examples
+///
+/// ```
+/// use brahe::gravity::{
+///     GravityModel, GravityModelType, GravityModelTideSystem,
+///     set_global_gravity_model_to_tide_system, get_global_gravity_model,
+/// };
+///
+/// // GGM05S is a zero-tide model; convert it to tide-free as it becomes global.
+/// let model = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
+/// set_global_gravity_model_to_tide_system(model, GravityModelTideSystem::TideFree).unwrap();
+///
+/// assert_eq!(get_global_gravity_model().tide_system, GravityModelTideSystem::TideFree);
+/// ```
+pub fn set_global_gravity_model_to_tide_system(
+    mut gravity_model: GravityModel,
+    target: GravityModelTideSystem,
+) -> Result<(), BraheError> {
+    if target == GravityModelTideSystem::Unknown {
+        return Err(BraheError::Error(
+            "Cannot convert a gravity model to the Unknown tide system.".to_string(),
+        ));
+    }
+    let from = gravity_model.tide_system;
+    gravity_model.convert_tide_system(from, target)?;
+    set_global_gravity_model(gravity_model);
+    Ok(())
+}
+
 /// Get the global gravity model.
 ///
 /// # Returns
@@ -2820,6 +2876,54 @@ mod tests {
         );
         // But the data should be identical.
         assert_models_equivalent(&a, &packaged);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_set_global_gravity_model_to_tide_system_converts() {
+        // Setting the global model with an explicit target tide system converts
+        // the model once, at set time, so the shared global carries the correct
+        // tide system before any propagator references it.
+        let original = (**get_global_gravity_model()).clone();
+
+        // GGM05S loads as a zero-tide model.
+        let ggm = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
+        assert_eq!(ggm.tide_system, GravityModelTideSystem::ZeroTide);
+        let c20_zero = ggm.get(2, 0).unwrap().0;
+
+        set_global_gravity_model_to_tide_system(ggm, GravityModelTideSystem::TideFree).unwrap();
+
+        let global = get_global_gravity_model();
+        assert_eq!(global.tide_system, GravityModelTideSystem::TideFree);
+        // tide-free C̄20 = zero-tide C̄20 minus the indirect permanent-tide offset.
+        let expected = c20_zero - crate::orbit_dynamics::tides::PERM_C20_INDIRECT;
+        assert_abs_diff_eq!(global.get(2, 0).unwrap().0, expected, epsilon = 1e-18);
+        drop(global);
+
+        set_global_gravity_model(original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_set_global_gravity_model_to_tide_system_unknown_source_errors() {
+        // JGM3 loads with an Unknown tide system; converting from Unknown is
+        // undefined, so the setter must surface an error rather than install a
+        // silently-wrong global model.
+        let jgm = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        assert_eq!(jgm.tide_system, GravityModelTideSystem::Unknown);
+
+        let result = set_global_gravity_model_to_tide_system(jgm, GravityModelTideSystem::TideFree);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_set_global_gravity_model_to_tide_system_unknown_target_errors() {
+        // Converting *to* Unknown produces a model whose flag disagrees with its
+        // C̄20; reject it up front.
+        let ggm = GravityModel::from_model_type(&GravityModelType::GGM05S).unwrap();
+        let result = set_global_gravity_model_to_tide_system(ggm, GravityModelTideSystem::Unknown);
+        assert!(result.is_err());
     }
 
     #[test]

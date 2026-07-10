@@ -531,6 +531,12 @@ impl ForceModelConfig {
 /// Controls how the loaded model's C̄20 is reconciled with the solid-tide
 /// model, which (IERS §6.2.1) produces the *total* tide including the
 /// permanent part — correct only against a conventional tide-free background.
+///
+/// **Applies only to propagator-owned models
+/// ([`GravityModelSource::ModelType`]).** For [`GravityModelSource::Global`] the
+/// shared model is read-only, so this setting has no effect — resolve the global
+/// model's tide system once, before install, with
+/// [`set_global_gravity_model_to_tide_system`](crate::gravity::set_global_gravity_model_to_tide_system).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum PermanentTideConfig {
     /// Read the model's tide_system flag and convert C̄20 to conventional
@@ -592,6 +598,12 @@ pub enum GravityModelSource {
     /// The gravity model must be set via `set_global_gravity_model()` before
     /// propagation. This is memory efficient when multiple propagators share
     /// the same gravity model.
+    ///
+    /// The shared model is read-only: the propagator never mutates it, so any
+    /// [`PermanentTideConfig`] in the force model has **no effect** for a global
+    /// source. Resolve the model's tide system once, before install, with
+    /// [`set_global_gravity_model_to_tide_system`](crate::gravity::set_global_gravity_model_to_tide_system)
+    /// (or a manual `convert_tide_system` before `set_global_gravity_model`).
     Global,
 
     /// Load a specific gravity model type

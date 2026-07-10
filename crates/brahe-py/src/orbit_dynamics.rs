@@ -2360,6 +2360,51 @@ fn py_set_global_gravity_model(model: &PyGravityModel) {
     orbit_dynamics::set_global_gravity_model(model.model.clone());
 }
 
+/// Convert a gravity model to ``target`` tide system, then install it as the
+/// global gravity model.
+///
+/// A model referenced through the global gravity source is shared read-only
+/// across every propagator that uses it, so its permanent-tide (C̄20) handling
+/// must be resolved once, before it becomes global — a per-propagator
+/// ``PermanentTideConfig`` cannot be applied to shared state. This is the
+/// one-call way to do that: it converts the model (see
+/// :meth:`GravityModel.convert_tide_system`) and installs the result.
+///
+/// Args:
+///     model (GravityModel): Gravity model to convert and install as the global model.
+///     target (GravityModelTideSystem): Tide system to convert the model into
+///         (typically ``GravityModelTideSystem.TideFree``, the background the
+///         solid-tide model expects).
+///
+/// Returns:
+///     None: The converted model is installed as the process-wide global model.
+///
+/// Raises:
+///     ValueError: If the model's tide system is ``Unknown`` (source offset is
+///         undefined), or if ``target`` is ``Unknown``.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # GGM05S is a zero-tide model; convert it to tide-free as it becomes global.
+///     model = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
+///     bh.set_global_gravity_model_to_tide_system(
+///         model, bh.GravityModelTideSystem.TideFree)
+///     ```
+#[pyfunction]
+#[pyo3(name = "set_global_gravity_model_to_tide_system")]
+fn py_set_global_gravity_model_to_tide_system(
+    model: &PyGravityModel,
+    target: PyGravityModelTideSystem,
+) -> PyResult<()> {
+    orbit_dynamics::set_global_gravity_model_to_tide_system(
+        model.model.clone(),
+        target.tide_system,
+    )
+    .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+}
+
 /// Get a copy of the process-wide global gravity model.
 ///
 /// Returns the model most recently installed via :func:`set_global_gravity_model`

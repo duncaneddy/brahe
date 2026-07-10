@@ -49,6 +49,8 @@ Gravity:
 - accel_gravity_spherical_harmonics_clenshaw: Spherical harmonic gravity acceleration (Clenshaw kernel)
 - accel_gravity_spherical_harmonics_cunningham: Spherical harmonic gravity acceleration (Cunningham kernel)
 - set_global_gravity_model: Set the process-wide global gravity model
+- get_global_gravity_model: Get a copy of the process-wide global gravity model
+- clear_gravity_model_cache: Clear the process-wide gravity model cache
 
 Drag and SRP:
 - accel_drag: Atmospheric drag acceleration
@@ -107,6 +109,8 @@ from brahe._brahe import (
     accel_gravity_spherical_harmonics_clenshaw,
     accel_gravity_spherical_harmonics_cunningham,
     set_global_gravity_model,
+    get_global_gravity_model,
+    clear_gravity_model_cache,
     # Atmospheric Density Models
     density_harris_priester,
     density_nrlmsise00,
@@ -169,6 +173,8 @@ __all__ = [
     "accel_gravity_spherical_harmonics_clenshaw",
     "accel_gravity_spherical_harmonics_cunningham",
     "set_global_gravity_model",
+    "get_global_gravity_model",
+    "clear_gravity_model_cache",
     # Atmospheric Density Models
     "density_harris_priester",
     "density_nrlmsise00",

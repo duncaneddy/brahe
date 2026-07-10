@@ -1389,9 +1389,9 @@ impl GravityModel {
     ///   on disk (the alternative is [`clear_gravity_model_cache`] followed
     ///   by `from_model_type`, which also works for the packaged variants)
     ///
-    /// Builds Clenshaw tables only (`GravityTables::Clenshaw`). Use
-    /// [`Self::load_uncached_with_tables`] for an explicit table
-    /// configuration (e.g. Cunningham, or both).
+    /// Builds Clenshaw tables only (`GravityTables::Clenshaw`). Call
+    /// [`Self::precompute_cunningham_tables`] on the returned model for an
+    /// explicit table configuration (e.g. Cunningham, or both).
     ///
     /// # Arguments
     ///
@@ -1420,41 +1420,6 @@ impl GravityModel {
                 Self::from_file(&path)
             }
         }
-    }
-
-    /// Parse a `GravityModelType` directly from its underlying source with
-    /// an explicit [`GravityTables`] load configuration, bypassing the
-    /// process-wide cache. Combines [`Self::load_uncached`] and
-    /// [`Self::from_model_type_with_tables`]'s table selection.
-    ///
-    /// # Arguments
-    ///
-    /// - `model` : Gravity model type to load.
-    /// - `tables` : Which precomputed evaluation table set(s) to build.
-    ///
-    /// # Returns
-    ///
-    /// - `Result<Self, BraheError>` : Freshly parsed gravity model, or load error.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use brahe::gravity::{GravityModel, GravityModelType, GravityTables};
-    ///
-    /// let model = GravityModel::load_uncached_with_tables(
-    ///     &GravityModelType::JGM3,
-    ///     GravityTables::Cunningham,
-    /// )
-    /// .unwrap();
-    /// assert!(model.has_cunningham_tables() && !model.has_clenshaw_tables());
-    /// ```
-    pub fn load_uncached_with_tables(
-        model: &GravityModelType,
-        tables: GravityTables,
-    ) -> Result<Self, BraheError> {
-        let mut m = Self::load_uncached(model)?;
-        m.apply_tables(tables);
-        Ok(m)
     }
 
     /// Get the gravity model coefficients for a given degree and order.
@@ -4385,22 +4350,6 @@ mod tests {
         model.apply_tables(GravityTables::Clenshaw);
         assert!(model.has_clenshaw_tables());
         assert!(!model.has_cunningham_tables());
-    }
-
-    #[test]
-    fn test_load_uncached_with_tables_applies_config() {
-        // `load_uncached_with_tables` parses the source and honors the
-        // requested table configuration. (The cache-bypass itself is not
-        // externally observable — it returns an owned model, not a shareable
-        // Arc — so this asserts only the parse result and table selection.)
-        let model = GravityModel::load_uncached_with_tables(
-            &GravityModelType::JGM3,
-            GravityTables::Cunningham,
-        )
-        .unwrap();
-        assert!(model.has_cunningham_tables() && !model.has_clenshaw_tables());
-        assert_eq!(model.n_max, 70);
-        assert_eq!(model.model_name, "JGM3");
     }
 
     #[test]

@@ -564,6 +564,35 @@ class TestSphericalHarmonicGravity:
         assert not model.has_clenshaw_tables()
         assert model.n_max == 70
 
+    def test_load_uncached(self):
+        """load_uncached parses fresh (bypassing the cache) with Clenshaw tables."""
+        model = bh.GravityModel.load_uncached(bh.GravityModelType.JGM3)
+        assert model.model_name == "JGM3"
+        assert model.n_max == 70
+        assert model.has_clenshaw_tables()
+        assert not model.has_cunningham_tables()
+
+    def test_get_global_gravity_model(self):
+        """get_global_gravity_model returns the model installed by the setter."""
+        original = bh.get_global_gravity_model()
+        try:
+            bh.set_global_gravity_model(
+                bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
+            )
+            fetched = bh.get_global_gravity_model()
+            assert fetched.model_name == "EGM2008"
+            assert fetched.n_max == 360
+        finally:
+            bh.set_global_gravity_model(original)
+
+    def test_clear_gravity_model_cache(self):
+        """clear_gravity_model_cache runs; loads re-parse correctly afterward."""
+        bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        bh.clear_gravity_model_cache()
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+        assert model.model_name == "JGM3"
+        assert model.n_max == 70
+
     def test_clenshaw_kernel_errors_without_tables(self):
         """Clenshaw kernel errors when only Cunningham tables are present."""
         model = bh.GravityModel.from_model_type_with_tables(

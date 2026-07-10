@@ -1757,6 +1757,45 @@ impl PyGravityModel {
         Ok(PyGravityModel { model: grav_model })
     }
 
+    /// Parse a GravityModelType directly from its source, bypassing the process-wide cache.
+    ///
+    /// Most callers should prefer :meth:`from_model_type`, which is cache-backed and
+    /// avoids re-parsing the model on repeat calls. Reach for ``load_uncached`` when you
+    /// need deterministic memory (each call allocates its own coefficients), to profile
+    /// cold-load performance, or to re-read a ``FromFile`` source whose contents changed
+    /// on disk (the cache would otherwise return the stale model).
+    ///
+    /// Builds Clenshaw tables only. Call :meth:`precompute_cunningham_tables` on the
+    /// returned model for a different table configuration.
+    ///
+    /// Args:
+    ///     model_type (GravityModelType): Which model to load (packaged or from file)
+    ///
+    /// Returns:
+    ///     GravityModel: Freshly parsed gravity model
+    ///
+    /// Raises:
+    ///     Exception: If file loading fails (for FromFile variant)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.load_uncached(bh.GravityModelType.JGM3)
+    ///     print(f"Loaded {model.model_name}")
+    ///     ```
+    #[classmethod]
+    fn load_uncached(
+        _cls: &Bound<'_, PyType>,
+        model_type: &PyGravityModelType,
+    ) -> PyResult<Self> {
+        let grav_model =
+            orbit_dynamics::GravityModel::load_uncached(&model_type.model).map_err(|e| {
+                exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e))
+            })?;
+        Ok(PyGravityModel { model: grav_model })
+    }
+
     /// Get spherical harmonic coefficients for a specific degree and order.
     ///
     /// Args:
@@ -2319,6 +2358,52 @@ fn py_accel_gravity_spherical_harmonics_cunningham<'py>(
 #[pyo3(name = "set_global_gravity_model")]
 fn py_set_global_gravity_model(model: &PyGravityModel) {
     orbit_dynamics::set_global_gravity_model(model.model.clone());
+}
+
+/// Get a copy of the process-wide global gravity model.
+///
+/// Returns the model most recently installed via :func:`set_global_gravity_model`
+/// (or the default global model if none has been set).
+///
+/// Returns:
+///     GravityModel: Copy of the current global gravity model.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.set_global_gravity_model(
+///         bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360))
+///     model = bh.get_global_gravity_model()
+///     print(model.model_name)
+///     ```
+#[pyfunction]
+#[pyo3(name = "get_global_gravity_model")]
+fn py_get_global_gravity_model() -> PyGravityModel {
+    PyGravityModel {
+        model: (**orbit_dynamics::get_global_gravity_model()).clone(),
+    }
+}
+
+/// Clear the process-wide gravity model cache.
+///
+/// :meth:`GravityModel.from_model_type` and :meth:`GravityModel.from_file` cache
+/// each parsed model for the process lifetime. Clearing forces the next load of a
+/// given model to re-parse its source — useful to reclaim memory after loading many
+/// distinct models, or to pick up a ``FromFile`` source whose contents changed on disk.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # First call populates the cache; clearing forces a re-parse next time.
+///     bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+///     bh.clear_gravity_model_cache()
+///     ```
+#[pyfunction]
+#[pyo3(name = "clear_gravity_model_cache")]
+fn py_clear_gravity_model_cache() {
+    orbit_dynamics::clear_gravity_model_cache();
 }
 
 // ============================================================================

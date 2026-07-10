@@ -1496,6 +1496,73 @@ impl PyGravityModelNormalization {
     }
 }
 
+/// Selects which precomputed coefficient set(s) a gravity model builds at load.
+///
+/// The Clenshaw and Cunningham kernels require different precomputed values,
+/// so each kernel can only run when its coefficient set is present. Default: Clenshaw.
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "GravityModelCoefficients")]
+#[derive(Clone)]
+pub struct PyGravityModelCoefficients {
+    pub(crate) coefficients: orbit_dynamics::GravityModelCoefficients,
+}
+
+#[pymethods]
+impl PyGravityModelCoefficients {
+    /// Clenshaw kernel coefficients only (default).
+    ///
+    /// Precomputed for the Clenshaw summation kernel. Accurate and fast at all
+    /// degrees supported by the model.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Clenshaw() -> Self {
+        PyGravityModelCoefficients {
+            coefficients: orbit_dynamics::GravityModelCoefficients::Clenshaw,
+        }
+    }
+
+    /// Cunningham kernel coefficients only.
+    ///
+    /// Precomputed for the Cunningham (Montenbruck & Gill) V/W recursion kernel.
+    /// Accuracy degrades above roughly degree 120 at low altitude, and the
+    /// recursion overflows around degree 150.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Cunningham() -> Self {
+        PyGravityModelCoefficients {
+            coefficients: orbit_dynamics::GravityModelCoefficients::Cunningham,
+        }
+    }
+
+    /// Both Clenshaw and Cunningham kernel coefficients.
+    ///
+    /// Doubles the memory footprint of the precomputed coefficients but allows
+    /// either kernel to be evaluated on the same model.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Both() -> Self {
+        PyGravityModelCoefficients {
+            coefficients: orbit_dynamics::GravityModelCoefficients::Both,
+        }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{:?}", self.coefficients)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("GravityModelCoefficients.{:?}", self.coefficients)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self.coefficients == other.coefficients),
+            CompareOp::Ne => Ok(self.coefficients != other.coefficients),
+            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+        }
+    }
+}
+
 // ============================================================================
 // Spherical Harmonic Gravity Model Class
 // ============================================================================
@@ -1594,6 +1661,33 @@ impl PyGravityModel {
         Ok(PyGravityModel { model })
     }
 
+    /// Load a gravity model from a .gfc file with an explicit coefficient configuration.
+    ///
+    /// Args:
+    ///     filepath (str): Path to the .gfc gravity model file
+    ///     coefficients (GravityModelCoefficients): Which precomputed evaluation coefficient set(s) to build
+    ///
+    /// Returns:
+    ///     GravityModel: Loaded gravity model
+    ///
+    /// Raises:
+    ///     Exception: If file cannot be loaded or parsed
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_file_with_coefficients(
+    ///         "path/to/model.gfc", bh.GravityModelCoefficients.Both)
+    ///     ```
+    #[classmethod]
+    fn from_file_with_coefficients(_cls: &Bound<'_, PyType>, filepath: &str, coefficients: &PyGravityModelCoefficients) -> PyResult<Self> {
+        let path = Path::new(filepath);
+        let model = orbit_dynamics::GravityModel::from_file_with_coefficients(path, coefficients.coefficients)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
+        Ok(PyGravityModel { model })
+    }
+
     /// Load a gravity model from a GravityModelType.
     ///
     /// Args:
@@ -1632,6 +1726,76 @@ impl PyGravityModel {
         Ok(PyGravityModel { model: grav_model })
     }
 
+    /// Load a gravity model from a GravityModelType with an explicit coefficient configuration.
+    ///
+    /// Args:
+    ///     model_type (GravityModelType): Which model to load (packaged or from file)
+    ///     coefficients (GravityModelCoefficients): Which precomputed evaluation coefficient set(s) to build
+    ///
+    /// Returns:
+    ///     GravityModel: Loaded gravity model
+    ///
+    /// Raises:
+    ///     Exception: If file loading fails (for FromFile variant)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type_with_coefficients(
+    ///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Both)
+    ///     print(model.has_clenshaw_coefficients(), model.has_cunningham_coefficients())
+    ///     ```
+    #[classmethod]
+    fn from_model_type_with_coefficients(
+        _cls: &Bound<'_, PyType>,
+        model_type: &PyGravityModelType,
+        coefficients: &PyGravityModelCoefficients,
+    ) -> PyResult<Self> {
+        let grav_model = orbit_dynamics::GravityModel::from_model_type_with_coefficients(&model_type.model, coefficients.coefficients)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
+        Ok(PyGravityModel { model: grav_model })
+    }
+
+    /// Parse a GravityModelType directly from its source, bypassing the process-wide cache.
+    ///
+    /// Most callers should prefer :meth:`from_model_type`, which is cache-backed and
+    /// avoids re-parsing the model on repeat calls. Reach for ``load_uncached`` when you
+    /// need deterministic memory (each call allocates its own coefficients), to profile
+    /// cold-load performance, or to re-read a ``FromFile`` source whose contents changed
+    /// on disk (the cache would otherwise return the stale model).
+    ///
+    /// Builds Clenshaw coefficients only. Call :meth:`precompute_cunningham_coefficients` on the
+    /// returned model for a different coefficient configuration.
+    ///
+    /// Args:
+    ///     model_type (GravityModelType): Which model to load (packaged or from file)
+    ///
+    /// Returns:
+    ///     GravityModel: Freshly parsed gravity model
+    ///
+    /// Raises:
+    ///     Exception: If file loading fails (for FromFile variant)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.load_uncached(bh.GravityModelType.JGM3)
+    ///     print(f"Loaded {model.model_name}")
+    ///     ```
+    #[classmethod]
+    fn load_uncached(
+        _cls: &Bound<'_, PyType>,
+        model_type: &PyGravityModelType,
+    ) -> PyResult<Self> {
+        let grav_model =
+            orbit_dynamics::GravityModel::load_uncached(&model_type.model).map_err(|e| {
+                exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e))
+            })?;
+        Ok(PyGravityModel { model: grav_model })
+    }
+
     /// Get spherical harmonic coefficients for a specific degree and order.
     ///
     /// Args:
@@ -1660,7 +1824,67 @@ impl PyGravityModel {
         })
     }
 
+    /// Get the cosine coefficient C_nm for a specific degree and order.
+    ///
+    /// Args:
+    ///     n (int): Degree (0 <= n <= n_max)
+    ///     m (int): Order (0 <= m <= min(n, m_max))
+    ///
+    /// Returns:
+    ///     float: The C_nm coefficient.
+    ///
+    /// Raises:
+    ///     ValueError: If n or m are out of bounds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///
+    ///     # Get J2 coefficient (C20)
+    ///     c20 = model.get_c(2, 0)
+    ///     print(f"J2 = {-c20}")
+    ///     ```
+    fn get_c(&self, n: usize, m: usize) -> PyResult<f64> {
+        self.model.get_c(n, m).map_err(|e| {
+            exceptions::PyValueError::new_err(format!("Failed to get coefficient: {}", e))
+        })
+    }
+
+    /// Get the sine coefficient S_nm for a specific degree and order.
+    ///
+    /// Args:
+    ///     n (int): Degree (0 <= n <= n_max)
+    ///     m (int): Order (0 <= m <= min(n, m_max))
+    ///
+    /// Returns:
+    ///     float: The S_nm coefficient (0.0 for m == 0).
+    ///
+    /// Raises:
+    ///     ValueError: If n or m are out of bounds
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///
+    ///     s22 = model.get_s(2, 2)
+    ///     print(f"S22 = {s22}")
+    ///     ```
+    fn get_s(&self, n: usize, m: usize) -> PyResult<f64> {
+        self.model.get_s(n, m).map_err(|e| {
+            exceptions::PyValueError::new_err(format!("Failed to get coefficient: {}", e))
+        })
+    }
+
     /// Compute gravitational acceleration in body-fixed frame using spherical harmonics.
+    ///
+    /// Dispatches to whichever kernel this model has coefficients for. Clenshaw-first:
+    /// if the model has precomputed Clenshaw coefficients (the default for every loader),
+    /// evaluates with the Clenshaw summation kernel. Otherwise falls back to the
+    /// Cunningham V/W recursion if Cunningham coefficients are present.
     ///
     /// Args:
     ///     r_body (np.ndarray): Position vector in body-fixed frame. Units: (m)
@@ -1671,7 +1895,11 @@ impl PyGravityModel {
     ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
     ///
     /// Raises:
-    ///     Exception: If n_max or m_max exceed model limits or if m_max > n_max
+    ///     ValueError: If n_max or m_max exceed model limits or if m_max > n_max
+    ///     ValueError: If the model has neither Clenshaw nor Cunningham coefficients
+    ///     ValueError: If the Cunningham fallback is used and its denormalized
+    ///         recursion overflows to a non-finite result (can occur above
+    ///         ~degree 150 at low altitude)
     ///
     /// Example:
     ///     ```python
@@ -1701,6 +1929,84 @@ impl PyGravityModel {
                     e
                 ))
             })?;
+        Ok(vector_to_numpy!(py, a, 3, f64))
+    }
+
+    /// Compute body-fixed gravitational acceleration with the Clenshaw kernel.
+    ///
+    /// Args:
+    ///     r_body (np.ndarray): Position in body-fixed frame (length 3). Units: (m)
+    ///     n_max (int): Maximum degree to evaluate (n_max <= model.n_max)
+    ///     m_max (int): Maximum order to evaluate (m_max <= min(n_max, model.m_max))
+    ///
+    /// Returns:
+    ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
+    ///
+    /// Raises:
+    ///     ValueError: If Clenshaw coefficients are not precomputed for this model, or if
+    ///         n_max or m_max exceed model limits
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     a = model.compute_spherical_harmonics_clenshaw(
+    ///         np.array([bh.R_EARTH + 500e3, 0.0, 0.0]), 20, 20)
+    ///     ```
+    fn compute_spherical_harmonics_clenshaw<'py>(
+        &self,
+        py: Python<'py>,
+        r_body: PyReadonlyArray1<f64>,
+        n_max: usize,
+        m_max: usize,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let r = numpy_to_vector3!(r_body);
+        let a = self
+            .model
+            .compute_spherical_harmonics_clenshaw(r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(vector_to_numpy!(py, a, 3, f64))
+    }
+
+    /// Compute body-fixed gravitational acceleration with the Cunningham kernel.
+    ///
+    /// Args:
+    ///     r_body (np.ndarray): Position in body-fixed frame (length 3). Units: (m)
+    ///     n_max (int): Maximum degree to evaluate (n_max <= model.n_max)
+    ///     m_max (int): Maximum order to evaluate (m_max <= min(n_max, model.m_max))
+    ///
+    /// Returns:
+    ///     np.ndarray: Acceleration in body-fixed frame. Units: (m/s²)
+    ///
+    /// Raises:
+    ///     ValueError: If Cunningham coefficients are not precomputed for this model, if
+    ///         n_max or m_max exceed model limits, or if the recursion overflows
+    ///         to a non-finite result (can occur above ~degree 150 at low altitude)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///     import numpy as np
+    ///
+    ///     model = bh.GravityModel.from_model_type_with_coefficients(
+    ///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Cunningham)
+    ///     a = model.compute_spherical_harmonics_cunningham(
+    ///         np.array([bh.R_EARTH + 500e3, 0.0, 0.0]), 20, 20)
+    ///     ```
+    fn compute_spherical_harmonics_cunningham<'py>(
+        &self,
+        py: Python<'py>,
+        r_body: PyReadonlyArray1<f64>,
+        n_max: usize,
+        m_max: usize,
+    ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+        let r = numpy_to_vector3!(r_body);
+        let a = self
+            .model
+            .compute_spherical_harmonics_cunningham(r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
         Ok(vector_to_numpy!(py, a, 3, f64))
     }
 
@@ -1769,6 +2075,96 @@ impl PyGravityModel {
             .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    /// Precompute the Clenshaw kernel coefficients, if not already present.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type_with_coefficients(
+    ///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Cunningham)
+    ///     model.precompute_clenshaw_coefficients()
+    ///     ```
+    fn precompute_clenshaw_coefficients(&mut self) {
+        self.model.precompute_clenshaw_coefficients();
+    }
+
+    /// Precompute the Cunningham kernel coefficients, if not already present.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     model.precompute_cunningham_coefficients()
+    ///     ```
+    fn precompute_cunningham_coefficients(&mut self) {
+        self.model.precompute_cunningham_coefficients();
+    }
+
+    /// Drop the Clenshaw kernel coefficients, freeing their memory.
+    ///
+    /// The Clenshaw kernel errors until `precompute_clenshaw_coefficients()` is called again.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     model.drop_clenshaw_coefficients()
+    ///     ```
+    fn drop_clenshaw_coefficients(&mut self) {
+        self.model.drop_clenshaw_coefficients();
+    }
+
+    /// Drop the Cunningham kernel coefficients, freeing their memory.
+    ///
+    /// The Cunningham kernel errors until `precompute_cunningham_coefficients()` is called again.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type_with_coefficients(
+    ///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Both)
+    ///     model.drop_cunningham_coefficients()
+    ///     ```
+    fn drop_cunningham_coefficients(&mut self) {
+        self.model.drop_cunningham_coefficients();
+    }
+
+    /// Check whether the Clenshaw kernel coefficients are precomputed for this model.
+    ///
+    /// Returns:
+    ///     bool: True when the coefficient set is present.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     assert model.has_clenshaw_coefficients()
+    ///     ```
+    fn has_clenshaw_coefficients(&self) -> bool {
+        self.model.has_clenshaw_coefficients()
+    }
+
+    /// Check whether the Cunningham kernel coefficients are precomputed for this model.
+    ///
+    /// Returns:
+    ///     bool: True when the coefficient set is present.
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     assert not model.has_cunningham_coefficients()
+    ///     ```
+    fn has_cunningham_coefficients(&self) -> bool {
+        self.model.has_cunningham_coefficients()
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "GravityModel(name='{}', n_max={}, m_max={})",
@@ -1808,7 +2204,12 @@ impl PyGravityModel {
 ///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
 ///
 /// Raises:
-///     Exception: If n_max or m_max exceed model limits or if m_max > n_max
+///     ValueError: If n_max or m_max exceed model limits or if m_max > n_max
+///     ValueError: If the model has no precomputed gravity coefficients (neither
+///         Clenshaw nor Cunningham)
+///     ValueError: If the Cunningham kernel is used (no Clenshaw coefficients present
+///         on the model) and its denormalized recursion overflows to a
+///         non-finite result (can occur above ~degree 150 at low altitude)
 ///
 /// Example:
 ///     ```python
@@ -1844,32 +2245,265 @@ fn py_accel_gravity_spherical_harmonics<'py>(
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let len = r_eci.len();
     let rot = numpy_to_smatrix3!(R_i2b);
-    let a = if len == 3 {
-        let r = numpy_to_vector3!(r_eci);
-        orbit_dynamics::accel_gravity_spherical_harmonics(
-            r,
-            rot,
-            &gravity_model.model,
-            n_max,
-            m_max,
-            orbit_dynamics::ParallelMode::Auto,
-        )
+    let r = if len == 3 {
+        numpy_to_vector3!(r_eci)
     } else if len == 6 {
         let x = numpy_to_vector6!(r_eci);
-        orbit_dynamics::accel_gravity_spherical_harmonics(
-            x,
-            rot,
-            &gravity_model.model,
-            n_max,
-            m_max,
-            orbit_dynamics::ParallelMode::Auto,
-        )
+        Vector3::new(x[0], x[1], x[2])
     } else {
-        return Err(pyo3::exceptions::PyValueError::new_err(
+        return Err(exceptions::PyValueError::new_err(
             "r_eci must be length 3 (position) or 6 (state)",
         ));
     };
+    // Call the fallible dispatcher directly rather than the free
+    // `accel_gravity_spherical_harmonics`, which unwraps internally: this
+    // surfaces "no precomputed coefficients" / overflow as a Python `ValueError`
+    // instead of panicking across the FFI boundary.
+    let a_ecef = gravity_model
+        .model
+        .compute_spherical_harmonics(rot * r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+    let a = rot.transpose() * a_ecef;
     Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
+/// Compute acceleration due to spherical harmonic gravity model using the Clenshaw kernel.
+///
+/// Same behavior as `accel_gravity_spherical_harmonics`, but forces evaluation through
+/// the Clenshaw summation kernel rather than dispatching automatically.
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_eci.
+///
+/// Args:
+///     r_eci (np.ndarray): Position (length 3) or state (length 6) in ECI frame. Units: (m)
+///     R_i2b (np.ndarray): Rotation matrix from ECI to body-fixed frame (3x3)
+///     gravity_model (GravityModel): Gravity model to use
+///     n_max (int): Maximum degree to evaluate (n_max <= model.n_max)
+///     m_max (int): Maximum order to evaluate (m_max <= min(n_max, model.m_max))
+///
+/// Returns:
+///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
+///
+/// Raises:
+///     ValueError: If Clenshaw coefficients are not precomputed for the model, or if n_max
+///         or m_max exceed model limits
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+///     r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
+///     a_grav = bh.accel_gravity_spherical_harmonics_clenshaw(r_eci, np.eye(3), model, 20, 20)
+///     ```
+#[pyfunction]
+#[pyo3(name = "accel_gravity_spherical_harmonics_clenshaw")]
+#[allow(non_snake_case)]
+fn py_accel_gravity_spherical_harmonics_clenshaw<'py>(
+    py: Python<'py>,
+    r_eci: PyReadonlyArray1<f64>,
+    R_i2b: PyReadonlyArray2<f64>,
+    gravity_model: &PyGravityModel,
+    n_max: usize,
+    m_max: usize,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let len = r_eci.len();
+    let rot = numpy_to_smatrix3!(R_i2b);
+    let r = if len == 3 {
+        numpy_to_vector3!(r_eci)
+    } else if len == 6 {
+        let x = numpy_to_vector6!(r_eci);
+        Vector3::new(x[0], x[1], x[2])
+    } else {
+        return Err(exceptions::PyValueError::new_err(
+            "r_eci must be length 3 (position) or 6 (state)"
+        ));
+    };
+    let a_ecef = gravity_model
+        .model
+        .compute_spherical_harmonics_clenshaw(rot * r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+    let a = rot.transpose() * a_ecef;
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
+/// Compute acceleration due to spherical harmonic gravity model using the Cunningham kernel.
+///
+/// Same behavior as `accel_gravity_spherical_harmonics`, but forces evaluation through
+/// the Cunningham V/W recursion kernel rather than dispatching automatically.
+///
+/// Accepts either a 3D position vector or a 6D state vector for r_eci.
+///
+/// Args:
+///     r_eci (np.ndarray): Position (length 3) or state (length 6) in ECI frame. Units: (m)
+///     R_i2b (np.ndarray): Rotation matrix from ECI to body-fixed frame (3x3)
+///     gravity_model (GravityModel): Gravity model to use
+///     n_max (int): Maximum degree to evaluate (n_max <= model.n_max)
+///     m_max (int): Maximum order to evaluate (m_max <= min(n_max, model.m_max))
+///
+/// Returns:
+///     np.ndarray: Acceleration in ECI frame. Units: (m/s²)
+///
+/// Raises:
+///     ValueError: If Cunningham coefficients are not precomputed for the model, if n_max
+///         or m_max exceed model limits, or if the recursion overflows to a
+///         non-finite result (can occur above ~degree 150 at low altitude)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     bh.initialize_eop()
+///     model = bh.GravityModel.from_model_type_with_coefficients(
+///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Cunningham)
+///     r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
+///     a_grav = bh.accel_gravity_spherical_harmonics_cunningham(r_eci, np.eye(3), model, 20, 20)
+///     ```
+#[pyfunction]
+#[pyo3(name = "accel_gravity_spherical_harmonics_cunningham")]
+#[allow(non_snake_case)]
+fn py_accel_gravity_spherical_harmonics_cunningham<'py>(
+    py: Python<'py>,
+    r_eci: PyReadonlyArray1<f64>,
+    R_i2b: PyReadonlyArray2<f64>,
+    gravity_model: &PyGravityModel,
+    n_max: usize,
+    m_max: usize,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let len = r_eci.len();
+    let rot = numpy_to_smatrix3!(R_i2b);
+    let r = if len == 3 {
+        numpy_to_vector3!(r_eci)
+    } else if len == 6 {
+        let x = numpy_to_vector6!(r_eci);
+        Vector3::new(x[0], x[1], x[2])
+    } else {
+        return Err(exceptions::PyValueError::new_err(
+            "r_eci must be length 3 (position) or 6 (state)"
+        ));
+    };
+    let a_ecef = gravity_model
+        .model
+        .compute_spherical_harmonics_cunningham(rot * r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+    let a = rot.transpose() * a_ecef;
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
+/// Set the process-wide global gravity model.
+///
+/// Used by force models configured with the global gravity source
+/// (`GravityConfiguration.spherical_harmonic(..., use_global=True)`).
+///
+/// Args:
+///     model (GravityModel): Gravity model to install as the global gravity model.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     model = bh.GravityModel.from_model_type_with_coefficients(
+///         bh.GravityModelType.JGM3, bh.GravityModelCoefficients.Both)
+///     bh.set_global_gravity_model(model)
+///     ```
+#[pyfunction]
+#[pyo3(name = "set_global_gravity_model")]
+fn py_set_global_gravity_model(model: &PyGravityModel) {
+    orbit_dynamics::set_global_gravity_model(model.model.clone());
+}
+
+/// Convert a gravity model to ``target`` tide system, then install it as the
+/// global gravity model.
+///
+/// A model referenced through the global gravity source is shared read-only
+/// across every propagator that uses it, so its permanent-tide (C̄20) handling
+/// must be resolved once, before it becomes global — a per-propagator
+/// ``PermanentTideConfig`` cannot be applied to shared state. This is the
+/// one-call way to do that: it converts the model (see
+/// :meth:`GravityModel.convert_tide_system`) and installs the result.
+///
+/// Args:
+///     model (GravityModel): Gravity model to convert and install as the global model.
+///     target (GravityModelTideSystem): Tide system to convert the model into
+///         (typically ``GravityModelTideSystem.TideFree``, the background the
+///         solid-tide model expects).
+///
+/// Returns:
+///     None: The converted model is installed as the process-wide global model.
+///
+/// Raises:
+///     ValueError: If the model's tide system is ``Unknown`` (source offset is
+///         undefined), or if ``target`` is ``Unknown``.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # GGM05S is a zero-tide model; convert it to tide-free as it becomes global.
+///     model = bh.GravityModel.from_model_type(bh.GravityModelType.GGM05S)
+///     bh.set_global_gravity_model_to_tide_system(
+///         model, bh.GravityModelTideSystem.TideFree)
+///     ```
+#[pyfunction]
+#[pyo3(name = "set_global_gravity_model_to_tide_system")]
+fn py_set_global_gravity_model_to_tide_system(
+    model: &PyGravityModel,
+    target: PyGravityModelTideSystem,
+) -> PyResult<()> {
+    orbit_dynamics::set_global_gravity_model_to_tide_system(
+        model.model.clone(),
+        target.tide_system,
+    )
+    .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// Get a copy of the process-wide global gravity model.
+///
+/// Returns the model most recently installed via :func:`set_global_gravity_model`
+/// (or the default global model if none has been set).
+///
+/// Returns:
+///     GravityModel: Copy of the current global gravity model.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.set_global_gravity_model(
+///         bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360))
+///     model = bh.get_global_gravity_model()
+///     print(model.model_name)
+///     ```
+#[pyfunction]
+#[pyo3(name = "get_global_gravity_model")]
+fn py_get_global_gravity_model() -> PyGravityModel {
+    PyGravityModel {
+        model: (**orbit_dynamics::get_global_gravity_model()).clone(),
+    }
+}
+
+/// Clear the process-wide gravity model cache.
+///
+/// :meth:`GravityModel.from_model_type` and :meth:`GravityModel.from_file` cache
+/// each parsed model for the process lifetime. Clearing forces the next load of a
+/// given model to re-parse its source — useful to reclaim memory after loading many
+/// distinct models, or to pick up a ``FromFile`` source whose contents changed on disk.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     # First call populates the cache; clearing forces a re-parse next time.
+///     bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+///     bh.clear_gravity_model_cache()
+///     ```
+#[pyfunction]
+#[pyo3(name = "clear_gravity_model_cache")]
+fn py_clear_gravity_model_cache() {
+    orbit_dynamics::clear_gravity_model_cache();
 }
 
 // ============================================================================

@@ -5390,7 +5390,7 @@ impl PyNumericalOrbitPropagator {
             epoch.obj,
             state_vec,
             propagators::NumericalPropagationConfig::default(),
-            fc,
+            fc.clone(),
             params_vec,
             None,
             None,

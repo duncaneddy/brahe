@@ -24,3 +24,9 @@ pub mod gravity;
 pub mod relativity;
 pub mod solar_radiation_pressure;
 pub mod third_body;
+pub mod tides;
+pub mod tides_step2_tables;
+pub use tides::{
+    PERM_C20_DIRECT, PERM_C20_INDIRECT, SolidTideConfig, TideCoefficients, accel_solid_earth_tides,
+    solid_earth_tide_coefficients, tide_system_c20_offset,
+};

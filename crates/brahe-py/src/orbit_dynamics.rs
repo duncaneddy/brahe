@@ -20,7 +20,13 @@
 ///     # Use high-precision DE440s for Sun position
 ///     r_sun = bh.sun_position_de(epc, bh.EphemerisSource.DE440s)
 ///     ```
-#[pyclass(name = "EphemerisSource", module = "brahe._brahe", eq, eq_int, from_py_object)]
+#[pyclass(
+    name = "EphemerisSource",
+    module = "brahe._brahe",
+    eq,
+    eq_int,
+    from_py_object
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PyEphemerisSource {
     LowPrecision = 0,
@@ -31,7 +37,9 @@ pub enum PyEphemerisSource {
 impl From<PyEphemerisSource> for propagators::force_model_config::EphemerisSource {
     fn from(source: PyEphemerisSource) -> Self {
         match source {
-            PyEphemerisSource::LowPrecision => propagators::force_model_config::EphemerisSource::LowPrecision,
+            PyEphemerisSource::LowPrecision => {
+                propagators::force_model_config::EphemerisSource::LowPrecision
+            }
             PyEphemerisSource::DE440s => propagators::force_model_config::EphemerisSource::DE440s,
             PyEphemerisSource::DE440 => propagators::force_model_config::EphemerisSource::DE440,
         }
@@ -91,7 +99,10 @@ fn py_sun_position<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, P
 ///     ```
 #[pyfunction]
 #[pyo3(name = "moon_position")]
-fn py_moon_position<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_moon_position<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let r = orbit_dynamics::moon_position(epc.obj);
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -128,7 +139,11 @@ fn py_moon_position<'py>(py: Python<'py>, epc: &PyEpoch) -> PyResult<Bound<'py, 
 ///     ```
 #[pyfunction]
 #[pyo3(name = "sun_position_de")]
-fn py_sun_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_sun_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::sun_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -223,7 +238,11 @@ fn py_sun_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSourc
 ///     ```
 #[pyfunction]
 #[pyo3(name = "moon_position_de")]
-fn py_moon_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_moon_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::moon_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -318,7 +337,11 @@ fn py_moon_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSour
 ///     ```
 #[pyfunction]
 #[pyo3(name = "mercury_position_de")]
-fn py_mercury_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_mercury_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::mercury_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -413,7 +436,11 @@ fn py_mercury_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 ///     ```
 #[pyfunction]
 #[pyo3(name = "venus_position_de")]
-fn py_venus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_venus_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::venus_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -508,7 +535,11 @@ fn py_venus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSou
 ///     ```
 #[pyfunction]
 #[pyo3(name = "mars_position_de")]
-fn py_mars_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_mars_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::mars_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -603,7 +634,11 @@ fn py_mars_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSour
 ///     ```
 #[pyfunction]
 #[pyo3(name = "jupiter_position_de")]
-fn py_jupiter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_jupiter_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::jupiter_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -698,7 +733,11 @@ fn py_jupiter_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 ///     ```
 #[pyfunction]
 #[pyo3(name = "saturn_position_de")]
-fn py_saturn_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_saturn_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::saturn_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -793,7 +832,11 @@ fn py_saturn_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
 ///     ```
 #[pyfunction]
 #[pyo3(name = "uranus_position_de")]
-fn py_uranus_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_uranus_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::uranus_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -888,7 +931,11 @@ fn py_uranus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
 ///     ```
 #[pyfunction]
 #[pyo3(name = "neptune_position_de")]
-fn py_neptune_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_neptune_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::neptune_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -983,7 +1030,11 @@ fn py_neptune_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 ///     ```
 #[pyfunction]
 #[pyo3(name = "solar_system_barycenter_position_de")]
-fn py_solar_system_barycenter_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_solar_system_barycenter_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::solar_system_barycenter_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -1073,7 +1124,11 @@ fn py_solar_system_barycenter_state_de<'py>(py: Python<'py>, epc: &PyEpoch, sour
 ///     ```
 #[pyfunction]
 #[pyo3(name = "ssb_position_de")]
-fn py_ssb_position_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSource) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+fn py_ssb_position_de<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    source: PyEphemerisSource,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
     let kernel = de_kernel_from_py_source(source)?;
     let r = spice::ssb_position_de(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
@@ -1175,8 +1230,9 @@ fn py_ssb_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSourc
 #[pyfunction]
 #[pyo3(name = "initialize_ephemeris")]
 fn py_initialize_ephemeris() -> PyResult<()> {
-    spice::initialize_ephemeris()
-        .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to initialize ephemeris: {}", e)))
+    spice::initialize_ephemeris().map_err(|e| {
+        exceptions::PyRuntimeError::new_err(format!("Failed to initialize ephemeris: {}", e))
+    })
 }
 
 // ============================================================================
@@ -1225,7 +1281,7 @@ fn py_accel_third_body_sun<'py>(
         orbit_dynamics::accel_third_body_sun(epc.obj, x_obj)
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1267,7 +1323,7 @@ fn py_accel_third_body_moon<'py>(
         orbit_dynamics::accel_third_body_moon(epc.obj, x_obj)
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1312,7 +1368,7 @@ fn py_accel_third_body_sun_de<'py>(
         orbit_dynamics::accel_third_body_sun_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1357,7 +1413,7 @@ fn py_accel_third_body_moon_de<'py>(
         orbit_dynamics::accel_third_body_moon_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1391,7 +1447,7 @@ fn py_accel_third_body_mercury_de<'py>(
         orbit_dynamics::accel_third_body_mercury_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1425,7 +1481,7 @@ fn py_accel_third_body_venus_de<'py>(
         orbit_dynamics::accel_third_body_venus_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1459,7 +1515,7 @@ fn py_accel_third_body_mars_de<'py>(
         orbit_dynamics::accel_third_body_mars_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1493,7 +1549,7 @@ fn py_accel_third_body_jupiter_de<'py>(
         orbit_dynamics::accel_third_body_jupiter_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1527,7 +1583,7 @@ fn py_accel_third_body_saturn_de<'py>(
         orbit_dynamics::accel_third_body_saturn_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1561,7 +1617,7 @@ fn py_accel_third_body_uranus_de<'py>(
         orbit_dynamics::accel_third_body_uranus_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1595,7 +1651,7 @@ fn py_accel_third_body_neptune_de<'py>(
         orbit_dynamics::accel_third_body_neptune_de(epc.obj, x_obj, source.into())
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1644,7 +1700,7 @@ fn py_accel_point_mass_gravity<'py>(
         orbit_dynamics::accel_point_mass_gravity(x_obj, r_cb, gm)
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1696,7 +1752,7 @@ fn py_accel_earth_zonal_gravity<'py>(
         orbit_dynamics::accel_earth_zonal_gravity(x_obj, n)
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -1832,7 +1888,9 @@ impl PyGravityModelType {
 
     fn __repr__(&self) -> String {
         match &self.model {
-            orbit_dynamics::GravityModelType::FromFile(path) => format!("GravityModelType.FromFile('{}')", path),
+            orbit_dynamics::GravityModelType::FromFile(path) => {
+                format!("GravityModelType.FromFile('{}')", path)
+            }
             _ => format!("GravityModelType.{:?}", self.model),
         }
     }
@@ -1846,7 +1904,9 @@ impl PyGravityModelType {
         match op {
             CompareOp::Eq => Ok(self.model == other.model),
             CompareOp::Ne => Ok(self.model != other.model),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
         }
     }
 }
@@ -1917,9 +1977,13 @@ impl PyGravityModelTideSystem {
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         match op {
-            CompareOp::Eq => Ok(std::mem::discriminant(&self.tide_system) == std::mem::discriminant(&other.tide_system)),
-            CompareOp::Ne => Ok(std::mem::discriminant(&self.tide_system) != std::mem::discriminant(&other.tide_system)),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+            CompareOp::Eq => Ok(std::mem::discriminant(&self.tide_system)
+                == std::mem::discriminant(&other.tide_system)),
+            CompareOp::Ne => Ok(std::mem::discriminant(&self.tide_system)
+                != std::mem::discriminant(&other.tide_system)),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
         }
     }
 }
@@ -1986,9 +2050,15 @@ impl PyGravityModelErrors {
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         match op {
-            CompareOp::Eq => Ok(std::mem::discriminant(&self.errors) == std::mem::discriminant(&other.errors)),
-            CompareOp::Ne => Ok(std::mem::discriminant(&self.errors) != std::mem::discriminant(&other.errors)),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+            CompareOp::Eq => {
+                Ok(std::mem::discriminant(&self.errors) == std::mem::discriminant(&other.errors))
+            }
+            CompareOp::Ne => {
+                Ok(std::mem::discriminant(&self.errors) != std::mem::discriminant(&other.errors))
+            }
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
         }
     }
 }
@@ -2037,9 +2107,13 @@ impl PyGravityModelNormalization {
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         match op {
-            CompareOp::Eq => Ok(std::mem::discriminant(&self.normalization) == std::mem::discriminant(&other.normalization)),
-            CompareOp::Ne => Ok(std::mem::discriminant(&self.normalization) != std::mem::discriminant(&other.normalization)),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+            CompareOp::Eq => Ok(std::mem::discriminant(&self.normalization)
+                == std::mem::discriminant(&other.normalization)),
+            CompareOp::Ne => Ok(std::mem::discriminant(&self.normalization)
+                != std::mem::discriminant(&other.normalization)),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
         }
     }
 }
@@ -2136,8 +2210,9 @@ impl PyGravityModel {
     #[classmethod]
     fn from_file(_cls: &Bound<'_, PyType>, filepath: &str) -> PyResult<Self> {
         let path = Path::new(filepath);
-        let model = orbit_dynamics::GravityModel::from_file(path)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
+        let model = orbit_dynamics::GravityModel::from_file(path).map_err(|e| {
+            exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e))
+        })?;
         Ok(PyGravityModel { model })
     }
 
@@ -2168,9 +2243,14 @@ impl PyGravityModel {
     ///     model_custom = bh.GravityModel.from_model_type(custom_type)
     ///     ```
     #[classmethod]
-    fn from_model_type(_cls: &Bound<'_, PyType>, model_type: &PyGravityModelType) -> PyResult<Self> {
-        let grav_model = orbit_dynamics::GravityModel::from_model_type(&model_type.model)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e)))?;
+    fn from_model_type(
+        _cls: &Bound<'_, PyType>,
+        model_type: &PyGravityModelType,
+    ) -> PyResult<Self> {
+        let grav_model =
+            orbit_dynamics::GravityModel::from_model_type(&model_type.model).map_err(|e| {
+                exceptions::PyRuntimeError::new_err(format!("Failed to load gravity model: {}", e))
+            })?;
         Ok(PyGravityModel { model: grav_model })
     }
 
@@ -2197,8 +2277,9 @@ impl PyGravityModel {
     ///     print(f"J2 = {-c20}")
     ///     ```
     fn get(&self, n: usize, m: usize) -> PyResult<(f64, f64)> {
-        self.model.get(n, m)
-            .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to get coefficient: {}", e)))
+        self.model.get(n, m).map_err(|e| {
+            exceptions::PyValueError::new_err(format!("Failed to get coefficient: {}", e))
+        })
     }
 
     /// Compute gravitational acceleration in body-fixed frame using spherical harmonics.
@@ -2233,8 +2314,15 @@ impl PyGravityModel {
         m_max: usize,
     ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
         let r = numpy_to_vector3!(r_body);
-        let a = self.model.compute_spherical_harmonics(r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
-            .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to compute spherical harmonics: {}", e)))?;
+        let a = self
+            .model
+            .compute_spherical_harmonics(r, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+            .map_err(|e| {
+                exceptions::PyValueError::new_err(format!(
+                    "Failed to compute spherical harmonics: {}",
+                    e
+                ))
+            })?;
         Ok(vector_to_numpy!(py, a, 3, f64))
     }
 
@@ -2264,8 +2352,43 @@ impl PyGravityModel {
     ///     print(f"After: {model.n_max}x{model.m_max}")  # 70x70
     ///     ```
     fn set_max_degree_order(&mut self, n: usize, m: usize) -> PyResult<()> {
-        self.model.set_max_degree_order(n, m)
-            .map_err(|e| exceptions::PyValueError::new_err(format!("Failed to set max degree/order: {}", e)))
+        self.model.set_max_degree_order(n, m).map_err(|e| {
+            exceptions::PyValueError::new_err(format!("Failed to set max degree/order: {}", e))
+        })
+    }
+
+    /// Convert the gravity model's tide system from one convention to another.
+    ///
+    /// Adjusts the C̄₂₀ coefficient in-place so the model represents gravity in
+    /// the target tide system. The conversion is exact for the permanent-tide
+    /// component (IERS Conventions 2010, §6.2.2).
+    ///
+    /// Args:
+    ///     from_system (GravityModelTideSystem): The tide system the model is currently in.
+    ///     to_system (GravityModelTideSystem): The tide system to convert to.
+    ///
+    /// Raises:
+    ///     ValueError: If ``from_system`` is ``Unknown`` (offset is undefined).
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     model = bh.GravityModel.from_model_type(bh.GravityModelType.JGM3)
+    ///     # Convert from tide-free to zero-tide convention
+    ///     model.convert_tide_system(
+    ///         bh.GravityModelTideSystem.TideFree,
+    ///         bh.GravityModelTideSystem.ZeroTide,
+    ///     )
+    ///     ```
+    fn convert_tide_system(
+        &mut self,
+        from_system: PyGravityModelTideSystem,
+        to_system: PyGravityModelTideSystem,
+    ) -> PyResult<()> {
+        self.model
+            .convert_tide_system(from_system.tide_system, to_system.tide_system)
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
     }
 
     fn __repr__(&self) -> String {
@@ -2278,7 +2401,11 @@ impl PyGravityModel {
     fn __str__(&self) -> String {
         format!(
             "GravityModel '{}' ({}x{}, GM={:.6e} m³/s², R={:.3e} m)",
-            self.model.model_name, self.model.n_max, self.model.m_max, self.model.gm, self.model.radius
+            self.model.model_name,
+            self.model.n_max,
+            self.model.m_max,
+            self.model.gm,
+            self.model.radius
         )
     }
 }
@@ -2341,13 +2468,27 @@ fn py_accel_gravity_spherical_harmonics<'py>(
     let rot = numpy_to_smatrix3!(R_i2b);
     let a = if len == 3 {
         let r = numpy_to_vector3!(r_eci);
-        orbit_dynamics::accel_gravity_spherical_harmonics(r, rot, &gravity_model.model, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+        orbit_dynamics::accel_gravity_spherical_harmonics(
+            r,
+            rot,
+            &gravity_model.model,
+            n_max,
+            m_max,
+            orbit_dynamics::ParallelMode::Auto,
+        )
     } else if len == 6 {
         let x = numpy_to_vector6!(r_eci);
-        orbit_dynamics::accel_gravity_spherical_harmonics(x, rot, &gravity_model.model, n_max, m_max, orbit_dynamics::ParallelMode::Auto)
+        orbit_dynamics::accel_gravity_spherical_harmonics(
+            x,
+            rot,
+            &gravity_model.model,
+            n_max,
+            m_max,
+            orbit_dynamics::ParallelMode::Auto,
+        )
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_eci must be length 3 (position) or 6 (state)"
+            "r_eci must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -2447,7 +2588,7 @@ fn py_accel_solar_radiation_pressure<'py>(
         orbit_dynamics::accel_solar_radiation_pressure(x_obj, r_s, mass, cr, area, p0)
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(vector_to_numpy!(py, a, 3, f64))
@@ -2497,7 +2638,7 @@ fn py_eclipse_conical(
         orbit_dynamics::eclipse_conical(x_obj, r_s)
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(nu)
@@ -2550,7 +2691,7 @@ fn py_eclipse_cylindrical(
         orbit_dynamics::eclipse_cylindrical(x_obj, r_s)
     } else {
         return Err(pyo3::exceptions::PyValueError::new_err(
-            "r_object must be length 3 (position) or 6 (state)"
+            "r_object must be length 3 (position) or 6 (state)",
         ));
     };
     Ok(nu)

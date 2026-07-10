@@ -335,7 +335,7 @@ pub fn accel_earth_zonal_gravity<P: IntoPosition>(r_object: P, n: usize) -> Vect
 }
 
 /// Enumeration of the tide system used in a gravity model.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum GravityModelTideSystem {
     /// Zero-tide system: includes permanent tidal deformation from Sun and Moon.
     /// C₂₀ coefficient includes indirect effect of Earth's centrifugal potential.
@@ -1030,6 +1030,94 @@ impl GravityModel {
         self.precompute_coefficients();
 
         Ok(())
+    }
+
+    /// Convert the model's C̄20 between tide systems (IERS TN36 §6.2.2).
+    ///
+    /// The mean-tide / zero-tide / tide-free systems differ only in which
+    /// permanent (zero-frequency) tidal terms are folded into C̄20. This shifts
+    /// C̄20 from `from` to `to` by routing through the tide-free reference:
+    ///   C̄20_new = C̄20_old − offset(from) + offset(to)
+    /// where offset(system) is the system's C̄20 displacement from tide-free
+    /// (see `tides::tide_system_c20_offset`). Updates `tide_system` and
+    /// re-runs coefficient precomputation. No-op if `from == to`.
+    ///
+    /// # Errors
+    /// Returns an error if `from` is `Unknown` (the source displacement is
+    /// undefined, so the conversion cannot be made safely).
+    ///
+    /// # References
+    /// - IERS Conventions (2010), TN36 §1.1 and §6.2.2, Eq. (6.14).
+    ///   <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
+    /// - EGM96 documentation, Section 11. <https://cddis.nasa.gov/926/egm96/doc/S11.HTML>
+    pub fn convert_tide_system(
+        &mut self,
+        from: GravityModelTideSystem,
+        to: GravityModelTideSystem,
+    ) -> Result<(), BraheError> {
+        if from == GravityModelTideSystem::Unknown {
+            return Err(BraheError::Error(
+                "Cannot convert tide system from Unknown; the source permanent-tide \
+                 displacement is undefined. Set the model's tide_system explicitly first."
+                    .to_string(),
+            ));
+        }
+        if from == to {
+            self.tide_system = to;
+            return Ok(());
+        }
+        if self.n_max < 2 {
+            // Degree-2 coefficient is absent in this truncated model; the
+            // permanent-tide shift (applied to C̄20) is vacuous. Record the
+            // new tide system and return without touching data.
+            self.tide_system = to;
+            return Ok(());
+        }
+        let delta = crate::orbit_dynamics::tides::tide_system_c20_offset(to)
+            - crate::orbit_dynamics::tides::tide_system_c20_offset(from);
+        self.data[(2, 0)] += delta;
+        self.tide_system = to;
+        self.precompute_coefficients();
+        Ok(())
+    }
+
+    /// Build a model directly from dense fully-normalized coefficient tables.
+    /// Test/utility seam used by the tides equivalence test; `dc[n][m]` = C̄nm,
+    /// `ds[n][m]` = S̄nm for n,m in 0..=n_max (n_max <= 4 supported here).
+    #[doc(hidden)]
+    pub fn from_dense_normalized(
+        dc: &[[f64; 5]; 5],
+        ds: &[[f64; 5]; 5],
+        n_max: usize,
+        gm: f64,
+        radius: f64,
+    ) -> Self {
+        let mut data = DMatrix::zeros(n_max + 1, n_max + 1);
+        for n in 0..=n_max {
+            data[(n, 0)] = dc[n][0];
+            for m in 1..=n {
+                data[(n, m)] = dc[n][m];
+                data[(m - 1, n)] = ds[n][m];
+            }
+        }
+        let mut model = Self {
+            data,
+            tide_system: GravityModelTideSystem::TideFree,
+            n_max,
+            m_max: n_max,
+            gm,
+            radius,
+            model_name: String::from("TideDelta"),
+            model_errors: GravityModelErrors::No,
+            normalization: GravityModelNormalization::FullyNormalized,
+            coeff_c: DMatrix::zeros(1, 1),
+            coeff_s: DMatrix::zeros(1, 1),
+            fac: DMatrix::zeros(1, 1),
+            rec_a: DMatrix::zeros(1, 1),
+            rec_b: DMatrix::zeros(1, 1),
+        };
+        model.precompute_coefficients();
+        model
     }
 
     /// Compute gravitational acceleration from spherical harmonic expansion.
@@ -1871,6 +1959,7 @@ mod tests {
                 relativity: false,
                 mass: None,
                 frame_transform: FrameTransformationModel::FullEarthRotation,
+                tides: None,
             },
             None,
             None,
@@ -1893,6 +1982,7 @@ mod tests {
                 relativity: false,
                 mass: None,
                 frame_transform: FrameTransformationModel::FullEarthRotation,
+                tides: None,
             },
             None,
             None,
@@ -1952,6 +2042,7 @@ mod tests {
                     relativity: false,
                     mass: None,
                     frame_transform: FrameTransformationModel::FullEarthRotation,
+                    tides: None,
                 },
                 None,
                 None,
@@ -2336,6 +2427,7 @@ mod tests {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::FullEarthRotation,
+            tides: None,
         };
 
         // Construction must succeed: the propagator has to be able to resolve

@@ -1,5 +1,5 @@
 Downloading NISAR TLE from CelesTrak...
-Downloaded NISAR TLE in 0.35 seconds.
+Downloaded NISAR TLE in 0.29 seconds.
 Epoch: 2026-07-10 14:38:32.531 UTC
 Semi-major axis: 7128.4 km
 
@@ -14,7 +14,7 @@ Creating ground track visualization with communication cones...
 Created ground track visualization in 1.18 seconds.
 
 Computing 7-day ground contacts...
-Computed 902 contact windows in 0.50 seconds.
+Computed 902 contact windows in 0.48 seconds.
 
 ================================================================================
 Sample Contact Windows (first 10)

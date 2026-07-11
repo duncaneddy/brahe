@@ -14,11 +14,8 @@ use crate::time::Epoch;
 use crate::utils::BraheError;
 
 use super::kernels::SPKKernel;
-use super::registry::{
-    NAIF_EARTH, NAIF_JUPITER_BARYCENTER, NAIF_MARS_BARYCENTER, NAIF_MERCURY, NAIF_MOON,
-    NAIF_NEPTUNE_BARYCENTER, NAIF_SATURN_BARYCENTER, NAIF_SSB, NAIF_SUN, NAIF_URANUS_BARYCENTER,
-    NAIF_VENUS, spk_position_in_kernel, spk_state_in_kernel, spk_velocity_in_kernel,
-};
+use super::naif_id::NAIFId;
+use super::registry::{spk_position_in_kernel, spk_state_in_kernel, spk_velocity_in_kernel};
 
 macro_rules! body_de_functions {
     ($body_name:literal, $target:expr, $pos_fn:ident, $vel_fn:ident, $state_fn:ident) => {
@@ -49,7 +46,7 @@ macro_rules! body_de_functions {
         /// # Ok::<(), brahe::utils::BraheError>(())
         /// ```
         pub fn $pos_fn(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-            spk_position_in_kernel(kernel.name(), $target, NAIF_EARTH, epc)
+            spk_position_in_kernel(kernel.name(), $target, NAIFId::Earth, epc)
         }
 
         #[doc = concat!("Calculate the velocity of ", $body_name, " relative to Earth using NAIF DE ephemerides.")]
@@ -79,7 +76,7 @@ macro_rules! body_de_functions {
         /// # Ok::<(), brahe::utils::BraheError>(())
         /// ```
         pub fn $vel_fn(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
-            spk_velocity_in_kernel(kernel.name(), $target, NAIF_EARTH, epc)
+            spk_velocity_in_kernel(kernel.name(), $target, NAIFId::Earth, epc)
         }
 
         #[doc = concat!("Calculate the state (position and velocity) of ", $body_name, " relative to Earth using NAIF DE ephemerides.")]
@@ -110,77 +107,77 @@ macro_rules! body_de_functions {
         /// # Ok::<(), brahe::utils::BraheError>(())
         /// ```
         pub fn $state_fn(epc: Epoch, kernel: SPKKernel) -> Result<Vector6<f64>, BraheError> {
-            spk_state_in_kernel(kernel.name(), $target, NAIF_EARTH, epc)
+            spk_state_in_kernel(kernel.name(), $target, NAIFId::Earth, epc)
         }
     };
 }
 
 body_de_functions!(
     "the Sun",
-    NAIF_SUN,
+    NAIFId::Sun,
     sun_position_de,
     sun_velocity_de,
     sun_state_de
 );
 body_de_functions!(
     "the Moon",
-    NAIF_MOON,
+    NAIFId::Moon,
     moon_position_de,
     moon_velocity_de,
     moon_state_de
 );
 body_de_functions!(
     "Mercury",
-    NAIF_MERCURY,
+    NAIFId::Mercury,
     mercury_position_de,
     mercury_velocity_de,
     mercury_state_de
 );
 body_de_functions!(
     "Venus",
-    NAIF_VENUS,
+    NAIFId::Venus,
     venus_position_de,
     venus_velocity_de,
     venus_state_de
 );
 body_de_functions!(
     "Mars (planetary-system barycenter)",
-    NAIF_MARS_BARYCENTER,
+    NAIFId::MarsBarycenter,
     mars_position_de,
     mars_velocity_de,
     mars_state_de
 );
 body_de_functions!(
     "Jupiter (planetary-system barycenter)",
-    NAIF_JUPITER_BARYCENTER,
+    NAIFId::JupiterBarycenter,
     jupiter_position_de,
     jupiter_velocity_de,
     jupiter_state_de
 );
 body_de_functions!(
     "Saturn (planetary-system barycenter)",
-    NAIF_SATURN_BARYCENTER,
+    NAIFId::SaturnBarycenter,
     saturn_position_de,
     saturn_velocity_de,
     saturn_state_de
 );
 body_de_functions!(
     "Uranus (planetary-system barycenter)",
-    NAIF_URANUS_BARYCENTER,
+    NAIFId::UranusBarycenter,
     uranus_position_de,
     uranus_velocity_de,
     uranus_state_de
 );
 body_de_functions!(
     "Neptune (planetary-system barycenter)",
-    NAIF_NEPTUNE_BARYCENTER,
+    NAIFId::NeptuneBarycenter,
     neptune_position_de,
     neptune_velocity_de,
     neptune_state_de
 );
 body_de_functions!(
     "the Solar System Barycenter",
-    NAIF_SSB,
+    NAIFId::SolarSystemBarycenter,
     solar_system_barycenter_position_de,
     solar_system_barycenter_velocity_de,
     solar_system_barycenter_state_de

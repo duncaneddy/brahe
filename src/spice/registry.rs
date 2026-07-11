@@ -27,49 +27,13 @@ use crate::time::Epoch;
 use crate::utils::BraheError;
 
 use super::daf::DAFFile;
+use super::naif_id::{FrameId, NAIFId};
 use super::pck::BPCK;
 use super::segments::{ChebyshevSegment, is_coverage_error};
 use super::spk::{
     ChainLink, SPK, evaluate_chain_position, evaluate_chain_state, evaluate_chain_velocity,
     evaluate_with_epoch_fallback, resolve_chain,
 };
-
-// ============================================================================
-// NAIF ID Constants
-// ============================================================================
-
-/// NAIF ID of the Solar System Barycenter.
-pub const NAIF_SSB: i32 = 0;
-/// NAIF ID of the Mercury Barycenter.
-pub const NAIF_MERCURY_BARYCENTER: i32 = 1;
-/// NAIF ID of the Venus Barycenter.
-pub const NAIF_VENUS_BARYCENTER: i32 = 2;
-/// NAIF ID of the Earth-Moon Barycenter.
-pub const NAIF_EMB: i32 = 3;
-/// NAIF ID of the Mars Barycenter.
-pub const NAIF_MARS_BARYCENTER: i32 = 4;
-/// NAIF ID of the Jupiter Barycenter.
-pub const NAIF_JUPITER_BARYCENTER: i32 = 5;
-/// NAIF ID of the Saturn Barycenter.
-pub const NAIF_SATURN_BARYCENTER: i32 = 6;
-/// NAIF ID of the Uranus Barycenter.
-pub const NAIF_URANUS_BARYCENTER: i32 = 7;
-/// NAIF ID of the Neptune Barycenter.
-pub const NAIF_NEPTUNE_BARYCENTER: i32 = 8;
-/// NAIF ID of the Pluto Barycenter.
-pub const NAIF_PLUTO_BARYCENTER: i32 = 9;
-/// NAIF ID of the Sun.
-pub const NAIF_SUN: i32 = 10;
-/// NAIF ID of the Mercury body center.
-pub const NAIF_MERCURY: i32 = 199;
-/// NAIF ID of the Venus body center.
-pub const NAIF_VENUS: i32 = 299;
-/// NAIF ID of the Earth body center.
-pub const NAIF_EARTH: i32 = 399;
-/// NAIF ID of the Moon body center.
-pub const NAIF_MOON: i32 = 301;
-/// NAIF ID of the Mars body center.
-pub const NAIF_MARS: i32 = 499;
 
 // ============================================================================
 // Global Registry State
@@ -407,14 +371,20 @@ fn ensure_default_ephemeris_loaded() -> Result<(), BraheError> {
 ///
 /// # Examples
 /// ```
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_position, initialize_ephemeris};
+/// use brahe::spice::{NAIFId, spk_position, initialize_ephemeris};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// initialize_ephemeris().unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let r_moon = spk_position(NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let r_moon = spk_position(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_position(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>, BraheError> {
+pub fn spk_position(
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
     ensure_default_ephemeris_loaded()?;
     let et = epoch_to_et(epc);
     let chain = global_chain(target, center)?;
@@ -442,14 +412,20 @@ pub fn spk_position(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>
 ///
 /// # Examples
 /// ```
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_velocity, initialize_ephemeris};
+/// use brahe::spice::{NAIFId, spk_velocity, initialize_ephemeris};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// initialize_ephemeris().unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let v_moon = spk_velocity(NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let v_moon = spk_velocity(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_velocity(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>, BraheError> {
+pub fn spk_velocity(
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
     ensure_default_ephemeris_loaded()?;
     let et = epoch_to_et(epc);
     let chain = global_chain(target, center)?;
@@ -477,14 +453,20 @@ pub fn spk_velocity(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>
 ///
 /// # Examples
 /// ```
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_state, initialize_ephemeris};
+/// use brahe::spice::{NAIFId, spk_state, initialize_ephemeris};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// initialize_ephemeris().unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let x_moon = spk_state(NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let x_moon = spk_state(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_state(target: i32, center: i32, epc: Epoch) -> Result<Vector6<f64>, BraheError> {
+pub fn spk_state(
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
+    epc: Epoch,
+) -> Result<Vector6<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
     ensure_default_ephemeris_loaded()?;
     let et = epoch_to_et(epc);
     let chain = global_chain(target, center)?;
@@ -534,18 +516,20 @@ fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_position_in_kernel};
+/// use brahe::spice::{NAIFId, spk_position_in_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let r_moon = spk_position_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let r_moon = spk_position_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
 pub fn spk_position_in_kernel(
     kernel_name: &str,
-    target: i32,
-    center: i32,
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
     epc: Epoch,
 ) -> Result<Vector3<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
     let spk = spk_kernel_for_query(kernel_name)?;
     spk.position(target, center, epoch_to_et(epc))
 }
@@ -570,18 +554,20 @@ pub fn spk_position_in_kernel(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_velocity_in_kernel};
+/// use brahe::spice::{NAIFId, spk_velocity_in_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let v_moon = spk_velocity_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let v_moon = spk_velocity_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
 pub fn spk_velocity_in_kernel(
     kernel_name: &str,
-    target: i32,
-    center: i32,
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
     epc: Epoch,
 ) -> Result<Vector3<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
     let spk = spk_kernel_for_query(kernel_name)?;
     spk.velocity(target, center, epoch_to_et(epc))
 }
@@ -606,18 +592,20 @@ pub fn spk_velocity_in_kernel(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_state_in_kernel};
+/// use brahe::spice::{NAIFId, spk_state_in_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let x_moon = spk_state_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let x_moon = spk_state_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
 pub fn spk_state_in_kernel(
     kernel_name: &str,
-    target: i32,
-    center: i32,
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
     epc: Epoch,
 ) -> Result<Vector6<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
     let spk = spk_kernel_for_query(kernel_name)?;
     spk.state(target, center, epoch_to_et(epc))
 }
@@ -681,17 +669,18 @@ fn pck_query<T>(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{load_kernel, pck_euler_angles};
+/// use brahe::spice::{FrameId, load_kernel, pck_euler_angles};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let (angles, rates) = pck_euler_angles(31008, epc).unwrap();
+/// let (angles, rates) = pck_euler_angles(FrameId::MoonPaDe440, epc).unwrap();
 /// ```
 pub fn pck_euler_angles(
-    frame_id: i32,
+    frame_id: impl Into<FrameId>,
     epc: Epoch,
 ) -> Result<(Vector3<f64>, Vector3<f64>), BraheError> {
+    let frame_id = frame_id.into().id();
     pck_query(frame_id, epc, |pck, f, et| pck.euler_angles(f, et))
 }
 
@@ -710,14 +699,18 @@ pub fn pck_euler_angles(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{load_kernel, pck_rotation_matrix};
+/// use brahe::spice::{FrameId, load_kernel, pck_rotation_matrix};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let r = pck_rotation_matrix(31008, epc).unwrap();
+/// let r = pck_rotation_matrix(FrameId::MoonPaDe440, epc).unwrap();
 /// ```
-pub fn pck_rotation_matrix(frame_id: i32, epc: Epoch) -> Result<Matrix3<f64>, BraheError> {
+pub fn pck_rotation_matrix(
+    frame_id: impl Into<FrameId>,
+    epc: Epoch,
+) -> Result<Matrix3<f64>, BraheError> {
+    let frame_id = frame_id.into().id();
     pck_query(frame_id, epc, |pck, f, et| pck.rotation_matrix(f, et))
 }
 
@@ -1043,7 +1036,7 @@ mod tests {
     #[serial]
     fn test_spk_position_generic() {
         setup_global_test_spice();
-        let r = spk_position(NAIF_MOON, NAIF_EARTH, epc_2025()).unwrap();
+        let r = spk_position(NAIFId::Moon, NAIFId::Earth, epc_2025()).unwrap();
         let d = r.norm();
         assert!(d > 3.5e8 && d < 4.1e8);
     }
@@ -1053,9 +1046,9 @@ mod tests {
     fn test_spk_state_matches_position_velocity() {
         setup_global_test_spice();
         let epc = epc_2025();
-        let x = spk_state(NAIF_SUN, NAIF_EARTH, epc).unwrap();
-        let r = spk_position(NAIF_SUN, NAIF_EARTH, epc).unwrap();
-        let v = spk_velocity(NAIF_SUN, NAIF_EARTH, epc).unwrap();
+        let x = spk_state(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
+        let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
+        let v = spk_velocity(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
         assert_abs_diff_eq!((x.fixed_rows::<3>(0) - r).norm(), 0.0, epsilon = 1e-9);
         assert_abs_diff_eq!((x.fixed_rows::<3>(3) - v).norm(), 0.0, epsilon = 1e-12);
     }
@@ -1066,7 +1059,7 @@ mod tests {
         setup_global_test_spice(); // ensures de440s is in the local cache
         clear_kernels();
         // Auto-init loads de440s from cache without an explicit load_kernel
-        let r = spk_position(NAIF_SUN, NAIF_EARTH, epc_2025()).unwrap();
+        let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc_2025()).unwrap();
         assert!(r.norm() > 1.4e11);
         assert_eq!(loaded_kernels(), vec!["de440s".to_string()]);
     }
@@ -1091,7 +1084,7 @@ mod tests {
             vec![pck_path.to_str().unwrap().to_string()]
         );
 
-        let r = spk_position(NAIF_SUN, NAIF_EARTH, epc_2025()).unwrap();
+        let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc_2025()).unwrap();
         assert!(r.norm() > 1.4e11);
         assert!(loaded_kernels().contains(&"de440s".to_string()));
 
@@ -1119,12 +1112,12 @@ mod tests {
         load_kernel(path_b.to_str().unwrap()).unwrap();
 
         // Later-loaded kernel B takes precedence (2.0 km = 2.0e3 m).
-        let r = spk_position(10, NAIF_SSB, epc_2025()).unwrap();
+        let r = spk_position(10, NAIFId::SolarSystemBarycenter, epc_2025()).unwrap();
         assert_abs_diff_eq!(r[0], 2.0e3, epsilon = 1e-9);
 
         // Unloading B invalidates the chain cache and falls back to A.
         unload_kernel(path_b.to_str().unwrap()).unwrap();
-        let r = spk_position(10, NAIF_SSB, epc_2025()).unwrap();
+        let r = spk_position(10, NAIFId::SolarSystemBarycenter, epc_2025()).unwrap();
         assert_abs_diff_eq!(r[0], 1.0e3, epsilon = 1e-9);
 
         // Restore global state for other tests.
@@ -1184,7 +1177,7 @@ mod tests {
     #[serial]
     fn test_spk_position_in_kernel_scoped() {
         setup_global_test_spice();
-        let r = spk_position_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc_2025()).unwrap();
+        let r = spk_position_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc_2025()).unwrap();
         assert!(r.norm() > 3.5e8 && r.norm() < 4.1e8);
     }
 
@@ -1197,7 +1190,9 @@ mod tests {
             .map(|i| {
                 std::thread::spawn(move || {
                     let epc = Epoch::from_date(2025, 1, 1 + i, TimeSystem::UTC);
-                    spk_position(NAIF_MOON, NAIF_EARTH, epc).unwrap().norm()
+                    spk_position(NAIFId::Moon, NAIFId::Earth, epc)
+                        .unwrap()
+                        .norm()
                 })
             })
             .collect();
@@ -1233,15 +1228,6 @@ mod tests {
         // Restore global state for other tests.
         clear_kernels();
         load_kernel("de440s").unwrap();
-    }
-
-    #[test]
-    fn test_naif_id_constants() {
-        assert_eq!(NAIF_SSB, 0);
-        assert_eq!(NAIF_EMB, 3);
-        assert_eq!(NAIF_SUN, 10);
-        assert_eq!(NAIF_MOON, 301);
-        assert_eq!(NAIF_EARTH, 399);
     }
 
     #[test]

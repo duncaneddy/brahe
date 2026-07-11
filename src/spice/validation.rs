@@ -11,7 +11,7 @@ use anise::prelude::{Almanac, Epoch as AniseEpoch, Frame, SPK as AniseSPK};
 use approx::assert_abs_diff_eq;
 use std::path::PathBuf;
 
-use crate::spice::registry::{NAIF_EARTH, NAIF_SSB};
+use crate::spice::naif_id::NAIFId;
 use crate::spice::spk::SPK;
 use crate::time::{Epoch, TimeSystem};
 
@@ -84,7 +84,7 @@ fn test_validation_position_velocity_vs_anise_matched_et() {
     let mut max_dv = 0.0_f64;
 
     for &(body, name) in BODIES {
-        for center in [NAIF_EARTH, NAIF_SSB] {
+        for center in [NAIFId::Earth.id(), NAIFId::SolarSystemBarycenter.id()] {
             for &et in &sample_ets() {
                 let r_native = native.position(body, center, et).unwrap();
                 let v_native = native.velocity(body, center, et).unwrap();
@@ -175,11 +175,11 @@ fn test_validation_end_to_end_epoch_path() {
 
     let mut max_dr = 0.0_f64;
     for &(body, _) in BODIES {
-        let r_native = native.position(body, NAIF_EARTH, et).unwrap();
+        let r_native = native.position(body, NAIFId::Earth.id(), et).unwrap();
         let state = almanac
             .translate(
                 Frame::from_ephem_j2000(body),
-                Frame::from_ephem_j2000(NAIF_EARTH),
+                Frame::from_ephem_j2000(NAIFId::Earth.id()),
                 anise_epoch,
                 Aberration::NONE,
             )
@@ -210,7 +210,7 @@ fn test_validation_frame_bias_removal_documented() {
     let Some((native, _)) = load_both() else {
         return;
     };
-    let r = native.position(10, NAIF_EARTH, 0.0).unwrap();
+    let r = native.position(10, NAIFId::Earth.id(), 0.0).unwrap();
 
     // The bias matrix formerly in positions.rs (IERS 2010 frame bias)
     let dxi = -16.6170e-3 * AS2RAD;

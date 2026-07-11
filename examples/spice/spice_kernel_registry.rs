@@ -8,7 +8,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::spice::SPKKernel;
+use brahe::spice::{NAIFId, SPKKernel};
 
 fn main() {
     bh::initialize_eop().unwrap();
@@ -21,9 +21,9 @@ fn main() {
     println!("Loaded kernels: {:?}", bh::spice::loaded_kernels());
 
     // Generic queries take NAIF IDs and resolve across all loaded SPK kernels.
-    let r_moon = bh::spice::spk_position(bh::spice::NAIF_MOON, bh::spice::NAIF_EARTH, epc).unwrap();
-    let v_moon = bh::spice::spk_velocity(bh::spice::NAIF_MOON, bh::spice::NAIF_EARTH, epc).unwrap();
-    let x_sun = bh::spice::spk_state(bh::spice::NAIF_SUN, bh::spice::NAIF_EARTH, epc).unwrap();
+    let r_moon = bh::spice::spk_position(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+    let v_moon = bh::spice::spk_velocity(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+    let x_sun = bh::spice::spk_state(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
 
     println!(
         "\nMoon position rel. Earth (km): [{:.3}, {:.3}, {:.3}]",
@@ -43,8 +43,7 @@ fn main() {
     // Kernel-scoped variants query a single named kernel directly, bypassing
     // cross-kernel chaining and precedence.
     let r_moon_de440s =
-        bh::spice::spk_position_in_kernel("de440s", bh::spice::NAIF_MOON, bh::spice::NAIF_EARTH, epc)
-            .unwrap();
+        bh::spice::spk_position_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
     println!(
         "\nMoon position from de440s directly (km): [{:.3}, {:.3}, {:.3}]",
         r_moon_de440s[0] / 1e3,

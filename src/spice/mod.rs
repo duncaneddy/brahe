@@ -9,6 +9,7 @@
 
 pub(crate) mod daf;
 pub mod kernels;
+pub mod naif_id;
 pub mod pck;
 pub mod positions;
 pub mod registry;
@@ -18,6 +19,7 @@ pub mod spk;
 mod validation;
 
 pub use kernels::*;
+pub use naif_id::*;
 pub use pck::BPCK;
 pub use positions::*;
 pub use registry::*;

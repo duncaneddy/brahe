@@ -19,7 +19,7 @@ use anise::prelude::{Almanac, Epoch as AniseEpoch, Frame, SPK as AniseSPK};
 
 use brahe::orbit_dynamics::third_body::accel_third_body;
 use brahe::propagators::force_model_config::{EphemerisSource, ThirdBody};
-use brahe::spice::{self, NAIF_EARTH, NAIF_MARS_BARYCENTER, NAIF_MOON, NAIF_SUN, SPK};
+use brahe::spice::{self, NAIFId, SPK};
 use brahe::time::{Epoch, TimeSystem};
 use brahe::utils::cache::get_naif_cache_dir;
 
@@ -56,26 +56,30 @@ fn bench_single_query(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("spice_single_query");
     for (name, target) in [
-        ("sun", NAIF_SUN),
-        ("moon", NAIF_MOON),
-        ("mars", NAIF_MARS_BARYCENTER),
+        ("sun", NAIFId::Sun.id()),
+        ("moon", NAIFId::Moon.id()),
+        ("mars", NAIFId::MarsBarycenter.id()),
     ] {
         group.bench_function(format!("native_position_{name}"), |b| {
-            b.iter(|| spice::spk_position(black_box(target), NAIF_EARTH, black_box(epc)).unwrap())
+            b.iter(|| {
+                spice::spk_position(black_box(target), NAIFId::Earth.id(), black_box(epc)).unwrap()
+            })
         });
         group.bench_function(format!("native_state_{name}"), |b| {
-            b.iter(|| spice::spk_state(black_box(target), NAIF_EARTH, black_box(epc)).unwrap())
+            b.iter(|| {
+                spice::spk_state(black_box(target), NAIFId::Earth.id(), black_box(epc)).unwrap()
+            })
         });
         group.bench_function(format!("native_direct_position_{name}"), |b| {
             b.iter(|| {
                 direct_spk
-                    .position(black_box(target), NAIF_EARTH, black_box(et))
+                    .position(black_box(target), NAIFId::Earth.id(), black_box(et))
                     .unwrap()
             })
         });
         group.bench_function(format!("anise_state_{name}"), |b| {
             let target_frame = Frame::from_ephem_j2000(target);
-            let center_frame = Frame::from_ephem_j2000(NAIF_EARTH);
+            let center_frame = Frame::from_ephem_j2000(NAIFId::Earth.id());
             let anise_epoch = AniseEpoch::from_et_seconds(et);
             b.iter(|| {
                 almanac
@@ -107,7 +111,7 @@ fn bench_sequential_pattern(c: &mut Criterion) {
             let mut acc = Vector3::zeros();
             for i in 0..N {
                 let epc = epc0 + (i as f64) * DT;
-                acc += spice::spk_position(NAIF_SUN, NAIF_EARTH, epc).unwrap();
+                acc += spice::spk_position(NAIFId::Sun.id(), NAIFId::Earth.id(), epc).unwrap();
             }
             black_box(acc)
         })
@@ -117,14 +121,16 @@ fn bench_sequential_pattern(c: &mut Criterion) {
             let mut acc = 0.0;
             for i in 0..N {
                 let epc = epc0 + (i as f64) * DT;
-                acc += spice::spk_state(NAIF_SUN, NAIF_EARTH, epc).unwrap().norm();
+                acc += spice::spk_state(NAIFId::Sun.id(), NAIFId::Earth.id(), epc)
+                    .unwrap()
+                    .norm();
             }
             black_box(acc)
         })
     });
     group.bench_function("anise_state", |b| {
-        let target = Frame::from_ephem_j2000(NAIF_SUN);
-        let center = Frame::from_ephem_j2000(NAIF_EARTH);
+        let target = Frame::from_ephem_j2000(NAIFId::Sun.id());
+        let center = Frame::from_ephem_j2000(NAIFId::Earth.id());
         b.iter(|| {
             let mut acc = 0.0;
             for i in 0..N {

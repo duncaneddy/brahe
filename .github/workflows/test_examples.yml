@@ -60,6 +60,8 @@ jobs:
       # test_assets/de440s.bsp always wins over a stale cached copy; only
       # moon_pa_de440/mar099s (not provided as test assets) are served from
       # this cache, which is why it can't sit with the other cache steps.
+      # Fixed key: actions/cache never re-saves after the first hit, so bump
+      # to naif-kernels-v2 when the examples' kernel set changes.
       - name: Cache NAIF kernels
         uses: actions/cache@v6.1.0
         with:

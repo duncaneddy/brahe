@@ -173,9 +173,9 @@ is loaded.
 `solar_system_barycenter_position_de` (alias: `ssb_position_de`) each have
 `_velocity_de` and `_state_de` counterparts, all queried relative to Earth
 (`NAIFId.EARTH` / `NAIFId::Earth`, ID 399). They take an `Epoch` and an
-ephemeris source (`EphemerisSource.DE440s` / `EphemerisSource.DE440` in
-Python, `EphemerisSource::DE440s` / `EphemerisSource::DE440` in Rust)
-selecting which DE kernel to query. Computing the state shares a single
+ephemeris source selecting which DE kernel to query (`EphemerisSource.DE440s` /
+`EphemerisSource.DE440` in Python, `NAIFKernel::DE440s` / `NAIFKernel::DE440`
+in Rust). Computing the state shares a single
 record lookup between position and velocity, so prefer `*_state_de` over
 separate position/velocity calls when both are needed.
 

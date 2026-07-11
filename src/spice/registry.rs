@@ -277,6 +277,9 @@ pub(crate) const ALL_KERNELS: &[NAIFKernel] = &[
 /// idempotent, so calling this alongside other [`load_kernel`] calls is
 /// safe.
 ///
+/// Loading is not atomic: on error, kernels already loaded before the
+/// failure remain resident, so the call can be safely retried.
+///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` if a kernel cannot be downloaded,
 ///   read, or parsed
@@ -301,6 +304,9 @@ pub fn load_common_kernels() -> Result<(), BraheError> {
 /// ~2.5 GB total on first download; cached thereafter. Prefer
 /// [`load_common_kernels`] unless outer-planet body centers or moons are
 /// needed.
+///
+/// Loading is not atomic: on error, kernels already loaded before the
+/// failure remain resident, so the call can be safely retried.
 ///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` if a kernel cannot be downloaded,

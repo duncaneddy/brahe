@@ -92,6 +92,9 @@ fn py_loaded_kernels() -> Vec<String> {
 /// ~46 MB total on first download; cached thereafter. Each kernel load is
 /// idempotent, so calling this alongside other `load_kernel` calls is safe.
 ///
+/// Loading is not atomic: on error, kernels already loaded before the
+/// failure remain resident, so the call can be safely retried.
+///
 /// Raises:
 ///     RuntimeError: If a kernel cannot be downloaded, read, or parsed
 ///
@@ -115,6 +118,9 @@ fn py_load_common_kernels() -> PyResult<()> {
 /// ~2.5 GB total on first download; cached thereafter. Prefer
 /// `load_common_kernels` unless outer-planet body centers or moons are
 /// needed.
+///
+/// Loading is not atomic: on error, kernels already loaded before the
+/// failure remain resident, so the call can be safely retried.
 ///
 /// Raises:
 ///     RuntimeError: If a kernel cannot be downloaded, read, or parsed

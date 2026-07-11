@@ -720,6 +720,13 @@ mod tests {
         // State/velocity variants agree with position/velocity decomposition.
         let x = mars_state_de(epc, NAIFKernel::DE440s).unwrap();
         assert_abs_diff_eq!(x.fixed_rows::<3>(0).into_owned(), r_body, epsilon = 1e-6);
+        let v_body = mars_velocity_de(epc, NAIFKernel::DE440s).unwrap();
+        assert_abs_diff_eq!(x.fixed_rows::<3>(3).into_owned(), v_body, epsilon = 1e-9);
+        // Same two-leg decomposition holds for velocity: body and barycenter
+        // velocities differ by a small but nonzero amount.
+        let v_bary = mars_barycenter_velocity_de(epc, NAIFKernel::DE440s).unwrap();
+        let dv = (v_body - v_bary).norm();
+        assert!(dv > 0.0 && dv < 1.0, "|v_body - v_bary| = {} m/s", dv);
     }
 
     #[test]

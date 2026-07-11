@@ -6,7 +6,7 @@ Load SPICE kernels and query ephemeris data from the global registry.
 
 This example demonstrates the generic NAIF-ID queries (spk_position/velocity/state),
 the kernel-scoped variants, and the per-body *_de convenience functions. Downloads
-the de440s kernel (~33 MB) on first run.
+the de440s (~33 MB) and mar099s (~68 MB) kernels on first run.
 """
 
 import brahe as bh

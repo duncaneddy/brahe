@@ -68,3 +68,10 @@ def test_mars_position_de_body_center():
     assert 0.0 < dr < 1.0e3, f"|body - barycenter| = {dr} m"
     x = bh.mars_state_de(epc, bh.EphemerisSource.DE440s)
     np.testing.assert_allclose(x[:3], r_body, atol=1e-6)
+    v_body = bh.mars_velocity_de(epc, bh.EphemerisSource.DE440s)
+    np.testing.assert_allclose(x[3:], v_body, atol=1e-9)
+    # Same two-leg decomposition holds for velocity: body and barycenter
+    # velocities differ by a small but nonzero amount.
+    v_bary = bh.mars_barycenter_velocity_de(epc, bh.EphemerisSource.DE440s)
+    dv = float(np.linalg.norm(v_body - v_bary))
+    assert 0.0 < dv < 1.0, f"|v_body - v_bary| = {dv} m/s"

@@ -4,13 +4,10 @@
 //! moon_pa_de440 kernel, whose principal-axis lunar frame is registered under
 //! NAIF frame class ID 31008 (MOON_PA_DE440). Downloads the PCK kernel on first
 //! run.
-//!
-//! FLAGS = ["IGNORE"]
 
 #[allow(unused_imports)]
 use brahe as bh;
-
-const MOON_PA_DE440: i32 = 31008;
+use brahe::spice::FrameId;
 
 fn main() {
     bh::initialize_eop().unwrap();
@@ -20,7 +17,7 @@ fn main() {
 
     let epc = bh::Epoch::from_date(2025, 1, 1, bh::TimeSystem::UTC);
 
-    let (angles, rates) = bh::spice::pck_euler_angles(MOON_PA_DE440, epc).unwrap();
+    let (angles, rates) = bh::spice::pck_euler_angles(FrameId::MoonPaDe440, epc).unwrap();
     println!(
         "Euler angles [phi, delta, w] (rad): [{:.6}, {:.6}, {:.6}]",
         angles[0], angles[1], angles[2]
@@ -30,7 +27,9 @@ fn main() {
         rates[0], rates[1], rates[2]
     );
 
-    let r = bh::spice::pck_rotation_matrix(MOON_PA_DE440, epc).unwrap();
+    let r = bh::spice::pck_rotation_matrix(FrameId::MoonPaDe440, epc)
+        .unwrap()
+        .to_matrix();
     println!("\nICRF -> Moon principal-axis rotation matrix:");
     for row in 0..3 {
         println!(

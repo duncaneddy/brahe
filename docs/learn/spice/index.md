@@ -25,13 +25,13 @@ auto-detects SPK vs. binary PCK from the file header:
 === "Python"
 
     ```python
-    --8<-- "./examples/spice/spice_kernel_registry.py:13"
+    --8<-- "./examples/spice/spice_kernel_registry.py:12"
     ```
 
 === "Rust"
 
     ```rust
-    --8<-- "./examples/spice/spice_kernel_registry.rs:10"
+    --8<-- "./examples/spice/spice_kernel_registry.rs:8"
     ```
 
 ??? example "Output"
@@ -231,13 +231,13 @@ pair:
 === "Python"
 
     ```python
-    --8<-- "./examples/spice/spice_pck_orientation.py:14"
+    --8<-- "./examples/spice/spice_pck_orientation.py:13"
     ```
 
 === "Rust"
 
     ```rust
-    --8<-- "./examples/spice/spice_pck_orientation.rs:11"
+    --8<-- "./examples/spice/spice_pck_orientation.rs:9"
     ```
 
 ??? example "Output"

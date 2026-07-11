@@ -3,8 +3,6 @@
 //! This example demonstrates the generic NAIF-ID queries (spk_position/velocity/state),
 //! the kernel-scoped variants, and the per-body *_de convenience functions. Downloads
 //! the de440s kernel (~33 MB) on first run.
-//!
-//! FLAGS = ["IGNORE"]
 
 #[allow(unused_imports)]
 use brahe as bh;

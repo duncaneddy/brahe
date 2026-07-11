@@ -56,6 +56,16 @@ jobs:
           name: brahe-cache
           path: ~/.cache/brahe/
 
+      # Restored before "Setup test assets in cache" below so the repo's
+      # test_assets/de440s.bsp always wins over a stale cached copy; only
+      # moon_pa_de440/mar099s (not provided as test assets) are served from
+      # this cache, which is why it can't sit with the other cache steps.
+      - name: Cache NAIF kernels
+        uses: actions/cache@v6.1.0
+        with:
+          path: ~/.cache/brahe/naif
+          key: naif-kernels-v1
+
       # Copy test assets to cache for examples that might use them
       - name: Setup test assets in cache
         run: |

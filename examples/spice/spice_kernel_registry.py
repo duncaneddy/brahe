@@ -1,6 +1,5 @@
 # /// script
 # dependencies = ["brahe", "numpy"]
-# FLAGS = ["IGNORE"]
 # ///
 """
 Load SPICE kernels and query ephemeris data from the global registry.

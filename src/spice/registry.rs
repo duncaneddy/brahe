@@ -25,7 +25,7 @@ use crate::time::Epoch;
 use crate::utils::BraheError;
 
 use super::daf::DAFFile;
-use super::kernels::KernelSource;
+use super::kernels::{KernelSource, NAIFKernel};
 use super::naif_id::{FrameId, NAIFId};
 use super::pck::BPCK;
 use super::segments::{ChebyshevSegment, is_coverage_error};
@@ -250,6 +250,72 @@ pub fn initialize_ephemeris() -> Result<(), BraheError> {
 /// ```
 pub fn initialize_ephemeris_with_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheError> {
     load_kernel(kernel)
+}
+
+/// Kernels loaded by [`load_common_kernels`]: `de440s` (planetary ephemeris)
+/// and `moon_pa_de440` (lunar principal-axes orientation).
+pub(crate) const COMMON_KERNELS: &[NAIFKernel] = &[NAIFKernel::DE440s, NAIFKernel::MoonPaDe440];
+
+/// Kernels loaded by [`load_all_kernels`]: [`COMMON_KERNELS`] plus every
+/// satellite-system kernel brahe knows how to download.
+pub(crate) const ALL_KERNELS: &[NAIFKernel] = &[
+    NAIFKernel::DE440s,
+    NAIFKernel::MoonPaDe440,
+    NAIFKernel::Mar099s,
+    NAIFKernel::Jup365,
+    NAIFKernel::Sat441,
+    NAIFKernel::Ura184,
+    NAIFKernel::Nep097,
+    NAIFKernel::Plu060,
+];
+
+/// Load the kernels most applications need: `de440s` (planetary ephemeris)
+/// and `moon_pa_de440` (lunar principal-axes orientation).
+///
+/// ~150 MB total on first download; cached thereafter. Each kernel load is
+/// idempotent, so calling this alongside other [`load_kernel`] calls is
+/// safe.
+///
+/// # Returns
+/// - `Ok(())` on success, or `BraheError` if a kernel cannot be downloaded,
+///   read, or parsed
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::load_common_kernels;
+///
+/// load_common_kernels().expect("Failed to load common kernels");
+/// ```
+pub fn load_common_kernels() -> Result<(), BraheError> {
+    for kernel in COMMON_KERNELS {
+        load_kernel(*kernel)?;
+    }
+    Ok(())
+}
+
+/// Load every kernel brahe knows how to download: `de440s`, `moon_pa_de440`,
+/// and the satellite-system kernels `mar099s`, `jup365`, `sat441`, `ura184`,
+/// `nep097`, `plu060`.
+///
+/// ~3.5 GB total on first download; cached thereafter. Prefer
+/// [`load_common_kernels`] unless outer-planet body centers or moons are
+/// needed.
+///
+/// # Returns
+/// - `Ok(())` on success, or `BraheError` if a kernel cannot be downloaded,
+///   read, or parsed
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::load_all_kernels;
+///
+/// load_all_kernels().expect("Failed to load all kernels");
+/// ```
+pub fn load_all_kernels() -> Result<(), BraheError> {
+    for kernel in ALL_KERNELS {
+        load_kernel(*kernel)?;
+    }
+    Ok(())
 }
 
 // ============================================================================
@@ -1233,5 +1299,45 @@ mod tests {
         use super::super::kernels::NAIFKernel;
         assert_eq!(NAIFKernel::DE440s.name(), "de440s");
         assert_eq!(NAIFKernel::DE440.name(), "de440");
+    }
+
+    /// The kernel sets are compile-time lists; assert contents so docs stay
+    /// honest.
+    #[test]
+    fn test_common_and_all_kernel_lists() {
+        assert_eq!(
+            COMMON_KERNELS,
+            &[NAIFKernel::DE440s, NAIFKernel::MoonPaDe440]
+        );
+        assert_eq!(
+            ALL_KERNELS,
+            &[
+                NAIFKernel::DE440s,
+                NAIFKernel::MoonPaDe440,
+                NAIFKernel::Mar099s,
+                NAIFKernel::Jup365,
+                NAIFKernel::Sat441,
+                NAIFKernel::Ura184,
+                NAIFKernel::Nep097,
+                NAIFKernel::Plu060,
+            ]
+        );
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)] // downloads moon_pa_de440
+    #[serial]
+    fn test_load_common_kernels() {
+        setup_global_test_spice();
+        clear_kernels();
+
+        load_common_kernels().unwrap();
+        let loaded = loaded_kernels();
+        assert!(loaded.contains(&"de440s".to_string()));
+        assert!(loaded.contains(&"moon_pa_de440".to_string()));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
     }
 }

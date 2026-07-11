@@ -115,6 +115,19 @@ def test_spk_state_from_kernel_agrees_with_pooled():
     np.testing.assert_allclose(x_from_kernel, x_pooled, atol=0.0)
 
 
+@pytest.mark.integration
+def test_load_common_kernels():
+    bh.clear_kernels()
+    bh.load_common_kernels()
+    loaded = bh.loaded_kernels()
+    assert "de440s" in loaded
+    assert "moon_pa_de440" in loaded
+
+    # Restore baseline registry state for other tests.
+    bh.clear_kernels()
+    bh.initialize_ephemeris()
+
+
 def test_spk_position_from_kernel_auto_loads():
     """The _from_kernel query auto-loads the named kernel if not already
     present in the registry."""

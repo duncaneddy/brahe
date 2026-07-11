@@ -989,6 +989,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_unload_kernel, module)?)?;
     module.add_function(wrap_pyfunction!(py_clear_kernels, module)?)?;
     module.add_function(wrap_pyfunction!(py_loaded_kernels, module)?)?;
+    module.add_function(wrap_pyfunction!(py_load_common_kernels, module)?)?;
+    module.add_function(wrap_pyfunction!(py_load_all_kernels, module)?)?;
     module.add_function(wrap_pyfunction!(py_spk_position, module)?)?;
     module.add_function(wrap_pyfunction!(py_spk_velocity, module)?)?;
     module.add_function(wrap_pyfunction!(py_spk_state, module)?)?;

@@ -7,6 +7,7 @@ queries against the registry.
 
 This module provides:
 - load_kernel / unload_kernel / clear_kernels / loaded_kernels: Kernel registry management
+- load_common_kernels / load_all_kernels: Bulk kernel pre-loading helpers
 - spk_position / spk_velocity / spk_state: Generic SPK queries against all loaded kernels
 - spk_position_from_kernel / spk_velocity_from_kernel / spk_state_from_kernel: SPK queries scoped to a single named kernel
 - pck_euler_angles / pck_rotation_matrix: Generic binary PCK orientation queries
@@ -27,6 +28,8 @@ from brahe._brahe import (
     unload_kernel,
     clear_kernels,
     loaded_kernels,
+    load_common_kernels,
+    load_all_kernels,
     spk_position,
     spk_velocity,
     spk_state,
@@ -58,6 +61,8 @@ __all__ = [
     "unload_kernel",
     "clear_kernels",
     "loaded_kernels",
+    "load_common_kernels",
+    "load_all_kernels",
     "spk_position",
     "spk_velocity",
     "spk_state",

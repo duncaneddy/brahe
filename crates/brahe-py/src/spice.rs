@@ -84,6 +84,52 @@ fn py_loaded_kernels() -> Vec<String> {
     spice::loaded_kernels()
 }
 
+/// Load the kernels most applications need: "de440s" (planetary ephemeris)
+/// and "moon_pa_de440" (lunar principal-axes orientation).
+///
+/// ~150 MB total on first download; cached thereafter. Each kernel load is
+/// idempotent, so calling this alongside other `load_kernel` calls is safe.
+///
+/// Raises:
+///     RuntimeError: If a kernel cannot be downloaded, read, or parsed
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.load_common_kernels()
+///     print(bh.loaded_kernels())
+///     ```
+#[pyfunction]
+#[pyo3(name = "load_common_kernels")]
+fn py_load_common_kernels() -> PyResult<()> {
+    spice::load_common_kernels().map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+}
+
+/// Load every kernel brahe knows how to download: "de440s", "moon_pa_de440",
+/// and the satellite-system kernels "mar099s", "jup365", "sat441", "ura184",
+/// "nep097", "plu060".
+///
+/// ~3.5 GB total on first download; cached thereafter. Prefer
+/// `load_common_kernels` unless outer-planet body centers or moons are
+/// needed.
+///
+/// Raises:
+///     RuntimeError: If a kernel cannot be downloaded, read, or parsed
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.load_all_kernels()
+///     print(bh.loaded_kernels())
+///     ```
+#[pyfunction]
+#[pyo3(name = "load_all_kernels")]
+fn py_load_all_kernels() -> PyResult<()> {
+    spice::load_all_kernels().map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+}
+
 /// Position of a target body relative to a center body from loaded SPK kernels.
 ///
 /// The result is expressed in the kernel's inertial frame (ICRF axes; NAIF

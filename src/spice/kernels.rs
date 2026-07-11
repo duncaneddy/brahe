@@ -176,7 +176,11 @@ impl NAIFKernel {
     }
 
     /// Every known kernel variant, for iterating over all downloadable
-    /// kernels (e.g. `load_all_kernels`) or documentation.
+    /// kernels or documentation.
+    ///
+    /// Not used by `load_all_kernels`, which loads a curated subset
+    /// (one DE ephemeris, not every DE version) rather than every variant
+    /// here.
     ///
     /// # Returns
     /// - `&'static [NAIFKernel]`: all variants

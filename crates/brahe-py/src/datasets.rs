@@ -168,7 +168,7 @@ fn py_groundstations_list_providers() -> Vec<String> {
 /// Note:
 ///     - DE kernels are long-term stable products and are not refreshed once cached
 ///     - Files are cached to ~/.cache/brahe/naif/ (or $BRAHE_CACHE/naif/ if set)
-///     - Kernel files vary in size (de440s: ~17MB, de440: ~114MB)
+///     - Kernel files vary in size (de440s: ~33 MB, de440: ~120 MB)
 ///     - Available at: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
 #[pyfunction]
 #[pyo3(name = "naif_download_de_kernel", signature = (name, output_path=None))]

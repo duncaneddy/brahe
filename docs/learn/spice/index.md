@@ -60,14 +60,14 @@ caching details.
 
 | Name | File | Size | Coverage | Contents |
 |---|---|---|---|---|
-| `de440s` | `de440s.bsp` | ~31 MB | 1849–2150 | Sun, Moon, all planets and planetary-system barycenters (default for `spk_*`/`*_de` auto-init) |
-| `de440` | `de440.bsp` | ~114 MB | 1550–2650 | Same content as `de440s`, wider time span |
-| `de430` | `de430.bsp` | ~114 MB | — | Standard precision, extended time span |
+| `de440s` | `de440s.bsp` | ~33 MB | 1849–2150 | Sun, Moon, all planets and planetary-system barycenters (default for `spk_*`/`*_de` auto-init) |
+| `de440` | `de440.bsp` | ~120 MB | 1550–2650 | Same content as `de440s`, wider time span |
+| `de430` | `de430.bsp` | ~120 MB | — | Standard precision, extended time span |
 | `de432s` | `de432s.bsp` | ~11 MB | — | Small variant tuned for New Horizons Pluto targeting |
-| `de435` | `de435.bsp` | ~114 MB | — | Higher accuracy for inner planets |
-| `de438` | `de438.bsp` | ~114 MB | — | Standard precision |
-| `de442` | `de442.bsp` | ~114 MB | — | Intended for the MESSENGER mission to Mercury |
-| `de442s` | `de442s.bsp` | ~31 MB | — | Small variant of `de442` |
+| `de435` | `de435.bsp` | ~120 MB | — | Higher accuracy for inner planets |
+| `de438` | `de438.bsp` | ~120 MB | — | Standard precision |
+| `de442` | `de442.bsp` | ~120 MB | — | Intended for the MESSENGER mission to Mercury |
+| `de442s` | `de442s.bsp` | ~33 MB | — | Small variant of `de442` |
 | `mar099s` | `mar099s.bsp` | ~68 MB | 1995–2050 | Mars, Phobos, Deimos (default Mars satellite kernel for body-center auto-download) |
 | `mar099` | `mar099.bsp` | ~1.1 GB | 1600–2600 | Mars, Phobos, Deimos, wider time span |
 | `jup365` | `jup365.bsp` | ~1.1 GB | 1600–2200 | Jupiter, Io, Europa, Ganymede, Callisto |

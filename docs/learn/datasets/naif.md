@@ -16,14 +16,14 @@ function both accept any of these — by name (`str`) in Python, by
 <div class="center-table" markdown="1">
 | Kernel    | File Size | Description |
 |-----------|-----------|-------------|
-| `de430`   | ~114 MB   | Standard precision, extended time span |
+| `de430`   | ~120 MB   | Standard precision, extended time span |
 | `de432s`  | ~11 MB    | Designed for New Horizons targeting Pluto |
-| `de435`   | ~114 MB   | Higher accuracy for inner planets |
-| `de438`   | ~114 MB   | Standard precision |
-| `de440`   | ~114 MB   | Latest standard precision (1550-2650) |
-| `de440s`  | ~31 MB    | Small variant of DE440 (1849-2150) |
-| `de442`   | ~114 MB   | Intended for the MESSENGER mission to Mercury |
-| `de442s`  | ~31 MB    | Small variant of DE442 |
+| `de435`   | ~120 MB   | Higher accuracy for inner planets |
+| `de438`   | ~120 MB   | Standard precision |
+| `de440`   | ~120 MB   | Latest standard precision (1550-2650) |
+| `de440s`  | ~33 MB    | Small variant of DE440 (1849-2150) |
+| `de442`   | ~120 MB   | Intended for the MESSENGER mission to Mercury |
+| `de442s`  | ~33 MB    | Small variant of DE442 |
 | `mar099s` | ~68 MB    | Mars satellite ephemeris — Phobos, Deimos (1995-2050) |
 | `mar099`  | ~1.1 GB   | Mars satellite ephemeris, wider time span (1600-2600) |
 | `jup365`  | ~1.1 GB   | Jupiter satellite ephemeris — Io, Europa, Ganymede, Callisto (1600-2200) |

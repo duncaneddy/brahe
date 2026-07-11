@@ -48,7 +48,7 @@ fn fetch_kernel(kernel: NAIFKernel) -> Result<Vec<u8>, BraheError> {
 }
 
 /// Download the bytes at `url`, reading the whole body without the default
-/// size limit (kernels can be large; e.g. de440 ~114MB).
+/// size limit (kernels can be large; e.g. de440 ~120MB).
 ///
 /// # Arguments
 /// * `url` - Full URL to fetch

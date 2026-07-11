@@ -8,8 +8,8 @@
 ///
 /// Values:
 ///     LowPrecision: Low-precision analytical ephemerides (~km level errors). Only Sun and Moon available. Fast evaluation.
-///     DE440s: High-precision JPL DE440s ephemerides (1550-2650 CE, ~m level accuracy). All planets available. File size ~17 MB.
-///     DE440: Full-precision JPL DE440 ephemerides (13200 BCE-17191 CE, ~mm level accuracy). All planets available. File size ~114 MB.
+///     DE440s: High-precision JPL DE440s ephemerides (1550-2650 CE, ~m level accuracy). All planets available. File size ~33 MB.
+///     DE440: Full-precision JPL DE440 ephemerides (13200 BCE-17191 CE, ~mm level accuracy). All planets available. File size ~120 MB.
 ///
 /// Example:
 ///     ```python

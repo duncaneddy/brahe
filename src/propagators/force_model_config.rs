@@ -887,7 +887,7 @@ pub enum EphemerisSource {
     /// Uses JPL Development Ephemeris 440 (small bodies version).
     /// High accuracy (~m level) but requires ephemeris file and slower evaluation.
     /// Valid over time range 1550-2650 CE.
-    /// All planets available. File size ~17 MB.
+    /// All planets available. File size ~33 MB.
     DE440s,
 
     /// Full-precision JPL DE440 ephemerides (13200 BCE-17191 CE)
@@ -895,7 +895,7 @@ pub enum EphemerisSource {
     /// Uses JPL Development Ephemeris 440 (full version).
     /// Highest accuracy (~mm level) but requires larger ephemeris file and slower evaluation.
     /// Valid over extended time range 13200 BCE-17191 CE.
-    /// All planets available. File size ~114 MB.
+    /// All planets available. File size ~120 MB.
     DE440,
 
     /// Custom SPK-backed ephemeris source.

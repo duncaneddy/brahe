@@ -16,6 +16,7 @@ pub mod registry;
 pub(crate) mod segments;
 pub mod spk;
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod validation;
 
 pub use kernels::*;

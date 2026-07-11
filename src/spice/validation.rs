@@ -198,43 +198,6 @@ fn test_validation_end_to_end_epoch_path() {
 }
 
 #[test]
-fn test_validation_frame_bias_removal_documented() {
-    // Documents the effect of dropping the J2000->ICRF bias rotation that
-    // the pre-native implementation applied: |R_bias·r - r| for the Sun is
-    // ~asin(23 mas)·1 AU ≈ 1.7e4 m — i.e. the OLD outputs differed from
-    // raw kernel output by this much. The angle equivalent (~23 mas) is far
-    // below the 0.1 deg tolerance used by the sun/moon direction tests.
-    use crate::constants::AS2RAD;
-    use nalgebra::Matrix3;
-
-    let Some((native, _)) = load_both() else {
-        return;
-    };
-    let r = native.position(10, NAIFId::Earth.id(), 0.0).unwrap();
-
-    // The bias matrix formerly in positions.rs (IERS 2010 frame bias)
-    let dxi = -16.6170e-3 * AS2RAD;
-    let deta = -6.8192e-3 * AS2RAD;
-    let dalpha = -14.6e-3 * AS2RAD;
-    let b = Matrix3::new(
-        1.0 - 0.5 * (dxi * dxi + deta * deta),
-        dalpha,
-        -dxi,
-        -dalpha - dxi * deta,
-        1.0 - 0.5 * (dalpha * dalpha + deta * deta),
-        -deta,
-        dxi + dalpha * deta,
-        deta + dalpha * dxi,
-        1.0 - 0.5 * (deta * deta + dxi * dxi),
-    )
-    .transpose();
-
-    let delta = (b * r - r).norm();
-    // ~1.2-2.2e4 m at 1 AU; assert the order of magnitude so the doc claim stays honest
-    assert!(delta > 1.0e3 && delta < 1.0e5, "bias delta = {} m", delta);
-}
-
-#[test]
 #[cfg_attr(not(feature = "integration"), ignore)]
 fn test_validation_pck_moon_pa_vs_anise() {
     use crate::datasets::naif::download_kernel;

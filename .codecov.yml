@@ -49,3 +49,4 @@ ignore:
   - "docs/"
   - "plots/"
   - "brahe/plots/"
+  - "src/spice/validation.rs"

@@ -552,6 +552,13 @@ fn py_mars_position_de<'py>(
 
 /// Calculate the velocity of Mars (body center) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
+/// This function returns the Mars body-center velocity, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Mars satellite-system kernel (mar099s,
+/// ~64 MB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `mars_barycenter_velocity_de`, which needs only
+/// the DE kernel.
+///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mars's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
@@ -579,6 +586,13 @@ fn py_mars_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 }
 
 /// Calculate the state (position and velocity) of Mars (body center) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function returns the Mars body-center state, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Mars satellite-system kernel (mar099s,
+/// ~64 MB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `mars_barycenter_state_de`, which needs only
+/// the DE kernel.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mars's state
@@ -655,6 +669,13 @@ fn py_jupiter_position_de<'py>(
 
 /// Calculate the velocity of Jupiter (body center) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
+/// This function returns the Jupiter body-center velocity, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Jupiter satellite-system kernel (jup365,
+/// ~1.1 GB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `jupiter_barycenter_velocity_de`, which needs only
+/// the DE kernel.
+///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Jupiter's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
@@ -682,6 +703,13 @@ fn py_jupiter_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
 }
 
 /// Calculate the state (position and velocity) of Jupiter (body center) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function returns the Jupiter body-center state, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Jupiter satellite-system kernel (jup365,
+/// ~1.1 GB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `jupiter_barycenter_state_de`, which needs only
+/// the DE kernel.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Jupiter's state
@@ -758,6 +786,13 @@ fn py_saturn_position_de<'py>(
 
 /// Calculate the velocity of Saturn (body center) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
+/// This function returns the Saturn body-center velocity, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Saturn satellite-system kernel (sat441,
+/// ~631 MB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `saturn_barycenter_velocity_de`, which needs only
+/// the DE kernel.
+///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Saturn's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
@@ -785,6 +820,13 @@ fn py_saturn_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
 }
 
 /// Calculate the state (position and velocity) of Saturn (body center) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function returns the Saturn body-center state, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Saturn satellite-system kernel (sat441,
+/// ~631 MB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `saturn_barycenter_state_de`, which needs only
+/// the DE kernel.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Saturn's state
@@ -861,6 +903,13 @@ fn py_uranus_position_de<'py>(
 
 /// Calculate the velocity of Uranus (body center) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
+/// This function returns the Uranus body-center velocity, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Uranus satellite-system kernel (ura184,
+/// ~387 MB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `uranus_barycenter_velocity_de`, which needs only
+/// the DE kernel.
+///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Uranus's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
@@ -888,6 +937,13 @@ fn py_uranus_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
 }
 
 /// Calculate the state (position and velocity) of Uranus (body center) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function returns the Uranus body-center state, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Uranus satellite-system kernel (ura184,
+/// ~387 MB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `uranus_barycenter_state_de`, which needs only
+/// the DE kernel.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Uranus's state
@@ -964,6 +1020,13 @@ fn py_neptune_position_de<'py>(
 
 /// Calculate the velocity of Neptune (body center) in the GCRF inertial frame using NAIF DE ephemeris.
 ///
+/// This function returns the Neptune body-center velocity, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Neptune satellite-system kernel (nep097,
+/// ~100 MB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `neptune_barycenter_velocity_de`, which needs only
+/// the DE kernel.
+///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Neptune's velocity
 ///     source (EphemerisSource): Ephemeris source to use (DE440s or DE440)
@@ -991,6 +1054,13 @@ fn py_neptune_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
 }
 
 /// Calculate the state (position and velocity) of Neptune (body center) in the GCRF inertial frame using NAIF DE ephemeris.
+///
+/// This function returns the Neptune body-center state, combining the
+/// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
+/// body-center offset from the Neptune satellite-system kernel (nep097,
+/// ~100 MB), which is auto-downloaded and loaded on first use. For third-body
+/// force applications prefer `neptune_barycenter_state_de`, which needs only
+/// the DE kernel.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Neptune's state

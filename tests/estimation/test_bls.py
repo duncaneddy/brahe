@@ -227,3 +227,38 @@ class TestBatchLeastSquares:
         bls.solve(position_observations)
 
         assert bls.converged()
+
+    def test_consider_parameters(self, two_body_leo, position_observations):
+        """Solve for position only, treating velocity as consider parameters."""
+        epoch, true_state = two_body_leo
+        initial_state = true_state.copy()
+        initial_state[0] += 500.0
+        initial_state[1] -= 250.0
+
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+        consider = bh.ConsiderParameterConfig(
+            n_solve=3, consider_covariance=np.diag([1e-2, 1e-2, 1e-2])
+        )
+        config = bh.BLSConfig(consider_params=consider)
+
+        bls = bh.BatchLeastSquares(
+            epoch,
+            initial_state,
+            p0,
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+            config=config,
+        )
+        bls.solve(position_observations)
+
+        assert bls.converged()
+        pos_error = np.linalg.norm(bls.current_state()[:3] - true_state[:3])
+        assert pos_error < 1.0
+
+        # Formal covariance is the 3x3 solve-for partition; total includes
+        # the consider contribution and must not be smaller on the diagonal
+        formal = bls.current_covariance()
+        assert formal.shape == (3, 3)
+        total = bls.total_covariance()
+        assert np.all(np.diag(total) >= np.diag(formal) - 1e-12)

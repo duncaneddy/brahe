@@ -33,16 +33,18 @@ fn main() {
     prop_config.variational.enable_stm = true;
 
     let prop = bh::propagators::DNumericalPropagator::new(
-        epoch, state.clone(), dynamics, prop_config, None, None, Some(p0),
+        epoch, state.clone(), dynamics, prop_config, None, None, None,
     ).unwrap();
 
-    // Create EKF from the pre-built propagator
+    // Create EKF from the pre-built propagator (converts into a DynamicsSource
+    // automatically; the filter owns the covariance)
     let models: Vec<Box<dyn bh::estimation::MeasurementModel>> = vec![
         Box::new(bh::estimation::InertialPositionMeasurementModel::new(10.0)),
     ];
 
     let mut ekf = bh::estimation::ExtendedKalmanFilter::from_propagator(
-        bh::estimation::DynamicsSource::GenericPropagator(prop),
+        prop,
+        p0,
         models,
         bh::estimation::EKFConfig::default(),
     ).unwrap();

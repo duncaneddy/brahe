@@ -29,21 +29,21 @@ Built-in measurement models for GPS-like observations in inertial and ECEF frame
 
 ---
 
-::: brahe.ECEFPositionMeasurementModel
+::: brahe.EcefPositionMeasurementModel
     options:
       show_root_heading: true
       show_root_full_path: false
 
 ---
 
-::: brahe.ECEFVelocityMeasurementModel
+::: brahe.EcefVelocityMeasurementModel
     options:
       show_root_heading: true
       show_root_full_path: false
 
 ---
 
-::: brahe.ECEFStateMeasurementModel
+::: brahe.EcefStateMeasurementModel
     options:
       show_root_heading: true
       show_root_full_path: false

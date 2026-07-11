@@ -115,12 +115,7 @@ impl EcefPositionMeasurementModel {
 }
 
 impl MeasurementModel for EcefPositionMeasurementModel {
-    fn predict(
-        &self,
-        epoch: &Epoch,
-        state: &DVector<f64>,
-        _params: Option<&DVector<f64>>,
-    ) -> Result<DVector<f64>, BraheError> {
+    fn predict(&self, epoch: &Epoch, state: &DVector<f64>) -> Result<DVector<f64>, BraheError> {
         if state.len() < 3 {
             return Err(BraheError::Error(format!(
                 "EcefPositionMeasurementModel requires state dimension >= 3, got {}",
@@ -239,12 +234,7 @@ impl EcefVelocityMeasurementModel {
 }
 
 impl MeasurementModel for EcefVelocityMeasurementModel {
-    fn predict(
-        &self,
-        epoch: &Epoch,
-        state: &DVector<f64>,
-        _params: Option<&DVector<f64>>,
-    ) -> Result<DVector<f64>, BraheError> {
+    fn predict(&self, epoch: &Epoch, state: &DVector<f64>) -> Result<DVector<f64>, BraheError> {
         if state.len() < 6 {
             return Err(BraheError::Error(format!(
                 "EcefVelocityMeasurementModel requires state dimension >= 6, got {}",
@@ -380,12 +370,7 @@ impl EcefStateMeasurementModel {
 }
 
 impl MeasurementModel for EcefStateMeasurementModel {
-    fn predict(
-        &self,
-        epoch: &Epoch,
-        state: &DVector<f64>,
-        _params: Option<&DVector<f64>>,
-    ) -> Result<DVector<f64>, BraheError> {
+    fn predict(&self, epoch: &Epoch, state: &DVector<f64>) -> Result<DVector<f64>, BraheError> {
         if state.len() < 6 {
             return Err(BraheError::Error(format!(
                 "EcefStateMeasurementModel requires state dimension >= 6, got {}",
@@ -484,7 +469,7 @@ mod tests {
         let state = test_eci_state();
 
         let model = EcefPositionMeasurementModel::new(5.0);
-        let z = model.predict(&epoch, &state, None).unwrap();
+        let z = model.predict(&epoch, &state).unwrap();
         assert_eq!(z.len(), 3);
 
         // Verify against direct frame conversion
@@ -517,7 +502,7 @@ mod tests {
         let state = test_eci_state();
 
         let model = EcefPositionMeasurementModel::new(5.0);
-        let h = model.jacobian(&epoch, &state, None).unwrap();
+        let h = model.jacobian(&epoch, &state).unwrap();
 
         // H should be 3x6 (3 measurement dims, 6 state dims)
         assert_eq!(h.nrows(), 3);
@@ -575,7 +560,7 @@ mod tests {
         let state = test_eci_state();
 
         let model = EcefVelocityMeasurementModel::new(0.05);
-        let z = model.predict(&epoch, &state, None).unwrap();
+        let z = model.predict(&epoch, &state).unwrap();
         assert_eq!(z.len(), 3);
 
         // Verify against direct frame conversion
@@ -599,7 +584,7 @@ mod tests {
         let model = EcefVelocityMeasurementModel::new(0.05);
         let short_state = DVector::from_vec(vec![1.0, 2.0, 3.0]); // only 3 elements
         let epoch = test_epoch();
-        let result = model.predict(&epoch, &short_state, None);
+        let result = model.predict(&epoch, &short_state);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains(">= 6"));
     }
@@ -647,7 +632,7 @@ mod tests {
         let state = test_eci_state();
 
         let model = EcefStateMeasurementModel::new(5.0, 0.05);
-        let z = model.predict(&epoch, &state, None).unwrap();
+        let z = model.predict(&epoch, &state).unwrap();
         assert_eq!(z.len(), 6);
 
         // Verify against direct frame conversion
@@ -671,7 +656,7 @@ mod tests {
         let model = EcefStateMeasurementModel::new(5.0, 0.05);
         let short_state = DVector::from_vec(vec![1.0, 2.0, 3.0]); // only 3 elements
         let epoch = test_epoch();
-        let result = model.predict(&epoch, &short_state, None);
+        let result = model.predict(&epoch, &short_state);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains(">= 6"));
     }

@@ -22,7 +22,6 @@ impl bh::estimation::MeasurementModel for RangeModel {
         &self,
         _epoch: &bh::time::Epoch,
         state: &DVector<f64>,
-        _params: Option<&DVector<f64>>,
     ) -> Result<DVector<f64>, bh::utils::errors::BraheError> {
         let range = (state.rows(0, 3) - &self.station_eci).norm();
         Ok(DVector::from_vec(vec![range]))
@@ -82,7 +81,6 @@ fn main() {
         p0,
         bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None, None, None,
         models,
         bh::estimation::EKFConfig::default(),
     ).unwrap();

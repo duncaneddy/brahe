@@ -65,7 +65,7 @@ After processing, the filter state is available through pass-through methods:
 
 ```python
 state = ekf.current_state()         # numpy 1D array
-cov = ekf.current_covariance()      # numpy 2D array or None
+cov = ekf.current_covariance()      # numpy 2D array
 epoch = ekf.current_epoch()         # Epoch
 records = ekf.records()             # list of FilterRecord
 ```

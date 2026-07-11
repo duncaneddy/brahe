@@ -15,7 +15,6 @@ use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy};
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
-#[allow(dead_code)]
 /// Compute measurement Jacobian H = dh/dx via finite differences using
 /// `PerturbationStrategy` from `math::jacobian`. This avoids duplicating the
 /// finite-diff logic already in `src/math/jacobian.rs`.
@@ -24,11 +23,13 @@ use crate::utils::errors::BraheError;
 /// which differs from dynamics Jacobians (n × n). We implement the finite-diff loop
 /// directly but reuse `PerturbationStrategy` for offset computation to keep
 /// perturbation sizing consistent across the library.
-pub fn measurement_jacobian_numerical(
-    model: &dyn MeasurementModel,
+///
+/// This is also the default implementation of [`MeasurementModel::jacobian`],
+/// with central differences and adaptive perturbation.
+pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
+    model: &M,
     epoch: &Epoch,
     state: &DVector<f64>,
-    params: Option<&DVector<f64>>,
     method: DifferenceMethod,
     perturbation: PerturbationStrategy,
 ) -> Result<DMatrix<f64>, BraheError> {
@@ -55,11 +56,11 @@ pub fn measurement_jacobian_numerical(
             for j in 0..n {
                 let mut state_plus = state.clone();
                 state_plus[j] += offsets[j];
-                let h_plus = model.predict(epoch, &state_plus, params)?;
+                let h_plus = model.predict(epoch, &state_plus)?;
 
                 let mut state_minus = state.clone();
                 state_minus[j] -= offsets[j];
-                let h_minus = model.predict(epoch, &state_minus, params)?;
+                let h_minus = model.predict(epoch, &state_minus)?;
 
                 for i in 0..m {
                     h_matrix[(i, j)] = (h_plus[i] - h_minus[i]) / (2.0 * offsets[j]);
@@ -67,11 +68,11 @@ pub fn measurement_jacobian_numerical(
             }
         }
         DifferenceMethod::Forward => {
-            let f0 = model.predict(epoch, state, params)?;
+            let f0 = model.predict(epoch, state)?;
             for j in 0..n {
                 let mut state_plus = state.clone();
                 state_plus[j] += offsets[j];
-                let fp = model.predict(epoch, &state_plus, params)?;
+                let fp = model.predict(epoch, &state_plus)?;
 
                 for i in 0..m {
                     h_matrix[(i, j)] = (fp[i] - f0[i]) / offsets[j];
@@ -79,11 +80,11 @@ pub fn measurement_jacobian_numerical(
             }
         }
         DifferenceMethod::Backward => {
-            let f0 = model.predict(epoch, state, params)?;
+            let f0 = model.predict(epoch, state)?;
             for j in 0..n {
                 let mut state_minus = state.clone();
                 state_minus[j] -= offsets[j];
-                let fm = model.predict(epoch, &state_minus, params)?;
+                let fm = model.predict(epoch, &state_minus)?;
 
                 for i in 0..m {
                     h_matrix[(i, j)] = (f0[i] - fm[i]) / offsets[j];
@@ -93,6 +94,62 @@ pub fn measurement_jacobian_numerical(
     }
 
     Ok(h_matrix)
+}
+
+/// Validate the shapes of measurement model outputs against the model's
+/// declared `measurement_dim` and the filter state dimension.
+///
+/// Measurement models are a user-extension boundary (including Python
+/// subclasses); a wrong-shaped output should surface as a structured error
+/// naming the model, not as an nalgebra dimension panic mid-update.
+pub(crate) fn validate_model_outputs(
+    model: &dyn MeasurementModel,
+    measurement: &DVector<f64>,
+    z_predicted: &DVector<f64>,
+    h: Option<&DMatrix<f64>>,
+    r: &DMatrix<f64>,
+    state_dim: usize,
+) -> Result<(), BraheError> {
+    let m = model.measurement_dim();
+    if measurement.len() != m {
+        return Err(BraheError::Error(format!(
+            "Observation measurement has {} elements but model '{}' declares measurement_dim {}",
+            measurement.len(),
+            model.name(),
+            m
+        )));
+    }
+    if z_predicted.len() != m {
+        return Err(BraheError::Error(format!(
+            "Model '{}' predict() returned {} elements, expected measurement_dim {}",
+            model.name(),
+            z_predicted.len(),
+            m
+        )));
+    }
+    if let Some(h) = h
+        && (h.nrows() != m || h.ncols() != state_dim)
+    {
+        return Err(BraheError::Error(format!(
+            "Model '{}' jacobian() returned a {}x{} matrix, expected {}x{}",
+            model.name(),
+            h.nrows(),
+            h.ncols(),
+            m,
+            state_dim
+        )));
+    }
+    if r.nrows() != m || r.ncols() != m {
+        return Err(BraheError::Error(format!(
+            "Model '{}' noise_covariance() is {}x{}, expected {}x{}",
+            model.name(),
+            r.nrows(),
+            r.ncols(),
+            m,
+            m
+        )));
+    }
+    Ok(())
 }
 
 /// Trait for defining measurement models used in estimation.
@@ -125,7 +182,6 @@ pub fn measurement_jacobian_numerical(
 ///         &self,
 ///         _epoch: &Epoch,
 ///         state: &DVector<f64>,
-///         _params: Option<&DVector<f64>>,
 ///     ) -> Result<DVector<f64>, BraheError> {
 ///         let range = (state.rows(0, 3) - &self.station_ecef).norm();
 ///         Ok(DVector::from_vec(vec![range]))
@@ -148,66 +204,44 @@ pub trait MeasurementModel: Send + Sync {
     ///
     /// * `epoch` - Current epoch
     /// * `state` - Current state vector (meters, m/s for orbital states)
-    /// * `params` - Optional parameter vector
     ///
     /// # Returns
     ///
     /// Predicted measurement vector
-    fn predict(
-        &self,
-        epoch: &Epoch,
-        state: &DVector<f64>,
-        params: Option<&DVector<f64>>,
-    ) -> Result<DVector<f64>, BraheError>;
+    fn predict(&self, epoch: &Epoch, state: &DVector<f64>) -> Result<DVector<f64>, BraheError>;
 
     /// Compute the measurement Jacobian H = dh/dx.
     ///
-    /// Default implementation uses central finite differences via
-    /// [`measurement_jacobian_numerical`]. Override for analytical Jacobians
-    /// when available for better performance and accuracy.
+    /// Default implementation uses central finite differences with adaptive
+    /// perturbation via [`measurement_jacobian_numerical`]. Override for
+    /// analytical Jacobians when available for better performance and accuracy.
     ///
     /// # Arguments
     ///
     /// * `epoch` - Current epoch
     /// * `state` - Current state vector
-    /// * `params` - Optional parameter vector
     ///
     /// # Returns
     ///
     /// Measurement Jacobian matrix (m x n) where m = measurement_dim, n = state_dim
-    fn jacobian(
-        &self,
-        epoch: &Epoch,
-        state: &DVector<f64>,
-        params: Option<&DVector<f64>>,
-    ) -> Result<DMatrix<f64>, BraheError> {
-        let m = self.measurement_dim();
-        let n = state.len();
-        let mut h_matrix = DMatrix::zeros(m, n);
-
-        // Central finite differences with adaptive perturbation (default strategy).
-        // Uses sqrt(machine_epsilon) * max(|x_j|, 1.0) for optimal step size.
-        let sqrt_eps = f64::EPSILON.sqrt();
-        for j in 0..n {
-            let h_j = sqrt_eps * state[j].abs().max(1.0);
-
-            let mut state_plus = state.clone();
-            state_plus[j] += h_j;
-            let h_plus = self.predict(epoch, &state_plus, params)?;
-
-            let mut state_minus = state.clone();
-            state_minus[j] -= h_j;
-            let h_minus = self.predict(epoch, &state_minus, params)?;
-
-            for i in 0..m {
-                h_matrix[(i, j)] = (h_plus[i] - h_minus[i]) / (2.0 * h_j);
-            }
-        }
-
-        Ok(h_matrix)
+    fn jacobian(&self, epoch: &Epoch, state: &DVector<f64>) -> Result<DMatrix<f64>, BraheError> {
+        measurement_jacobian_numerical(
+            self,
+            epoch,
+            state,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Adaptive {
+                scale_factor: 1.0,
+                min_value: 1.0,
+            },
+        )
     }
 
     /// Measurement noise covariance matrix R.
+    ///
+    /// R is constant per model: the method takes no epoch and estimators may
+    /// read it once per observation or cache it. Use separate model instances
+    /// (via `Observation::model_index`) for measurements with different noise.
     ///
     /// # Returns
     ///
@@ -257,7 +291,6 @@ mod tests {
             &model,
             &epoch,
             &state,
-            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
@@ -282,7 +315,6 @@ mod tests {
             &model,
             &epoch,
             &state,
-            None,
             DifferenceMethod::Forward,
             PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
@@ -305,7 +337,6 @@ mod tests {
             &model,
             &epoch,
             &state,
-            None,
             DifferenceMethod::Backward,
             PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
@@ -329,7 +360,6 @@ mod tests {
             &model,
             &epoch,
             &state,
-            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Fixed(1.0),
         )
@@ -343,7 +373,6 @@ mod tests {
             &model,
             &epoch,
             &nonzero_state,
-            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Percentage(1e-6),
         )
@@ -355,7 +384,6 @@ mod tests {
             &model,
             &epoch,
             &state,
-            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Adaptive {
                 scale_factor: 2.0,

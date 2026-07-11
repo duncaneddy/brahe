@@ -411,7 +411,7 @@ macro_rules! impl_measurement_model_binding {
                 state: PyReadonlyArray1<f64>,
             ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix1>>> {
                 let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
-                let vec = self.model.predict(&epoch.obj, &state_vec, None)
+                let vec = self.model.predict(&epoch.obj, &state_vec)
                     .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
                 let flat: Vec<f64> = (0..vec.len()).map(|i| vec[i]).collect();
                 Ok(flat.into_pyarray(py))
@@ -432,7 +432,7 @@ macro_rules! impl_measurement_model_binding {
                 state: PyReadonlyArray1<f64>,
             ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix2>>> {
                 let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
-                let mat = self.model.jacobian(&epoch.obj, &state_vec, None)
+                let mat = self.model.jacobian(&epoch.obj, &state_vec)
                     .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
                 let rows = mat.nrows();
                 let cols = mat.ncols();
@@ -753,7 +753,7 @@ impl_measurement_model_binding!(
 impl_measurement_model_binding!(
     PyEcefPositionMeasurementModel,
     estimation::EcefPositionMeasurementModel,
-    "ECEFPositionMeasurementModel",
+    "EcefPositionMeasurementModel",
     constructors: [
         /// Create an ECEF position measurement model.
         ///
@@ -797,7 +797,7 @@ impl_measurement_model_binding!(
         ///     noise_cov (numpy.ndarray): 3x3 noise covariance matrix (meters²).
         ///
         /// Returns:
-        ///     ECEFPositionMeasurementModel: New model instance.
+        ///     EcefPositionMeasurementModel: New model instance.
         #[staticmethod]
         fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
             let shape = noise_cov.shape();
@@ -816,7 +816,7 @@ impl_measurement_model_binding!(
         ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
         ///
         /// Returns:
-        ///     ECEFPositionMeasurementModel: New model instance.
+        ///     EcefPositionMeasurementModel: New model instance.
         #[staticmethod]
         fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
             let data = upper.as_slice().map_err(|e| {
@@ -833,7 +833,7 @@ impl_measurement_model_binding!(
 impl_measurement_model_binding!(
     PyEcefVelocityMeasurementModel,
     estimation::EcefVelocityMeasurementModel,
-    "ECEFVelocityMeasurementModel",
+    "EcefVelocityMeasurementModel",
     constructors: [
         /// Create an ECEF velocity measurement model.
         ///
@@ -877,7 +877,7 @@ impl_measurement_model_binding!(
         ///     noise_cov (numpy.ndarray): 3x3 noise covariance matrix ((m/s)²).
         ///
         /// Returns:
-        ///     ECEFVelocityMeasurementModel: New model instance.
+        ///     EcefVelocityMeasurementModel: New model instance.
         #[staticmethod]
         fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
             let shape = noise_cov.shape();
@@ -896,7 +896,7 @@ impl_measurement_model_binding!(
         ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
         ///
         /// Returns:
-        ///     ECEFVelocityMeasurementModel: New model instance.
+        ///     EcefVelocityMeasurementModel: New model instance.
         #[staticmethod]
         fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
             let data = upper.as_slice().map_err(|e| {
@@ -913,7 +913,7 @@ impl_measurement_model_binding!(
 impl_measurement_model_binding!(
     PyEcefStateMeasurementModel,
     estimation::EcefStateMeasurementModel,
-    "ECEFStateMeasurementModel",
+    "EcefStateMeasurementModel",
     constructors: [
         /// Create an ECEF state measurement model.
         ///
@@ -967,7 +967,7 @@ impl_measurement_model_binding!(
         ///     noise_cov (numpy.ndarray): 6x6 noise covariance matrix.
         ///
         /// Returns:
-        ///     ECEFStateMeasurementModel: New model instance.
+        ///     EcefStateMeasurementModel: New model instance.
         #[staticmethod]
         fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
             let shape = noise_cov.shape();
@@ -986,7 +986,7 @@ impl_measurement_model_binding!(
         ///     upper (numpy.ndarray): Upper-triangular elements (21 for 6x6).
         ///
         /// Returns:
-        ///     ECEFStateMeasurementModel: New model instance.
+        ///     EcefStateMeasurementModel: New model instance.
         #[staticmethod]
         fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
             let data = upper.as_slice().map_err(|e| {
@@ -1174,7 +1174,8 @@ impl PyMeasurementModel {
 
     /// Get measurement noise covariance R.
     ///
-    /// Override this method in your subclass.
+    /// Override this method in your subclass. The value is read once when the
+    /// model is registered with an estimator — R is constant per model.
     ///
     /// Returns:
     ///     numpy.ndarray: Noise covariance matrix (m x m).
@@ -1280,7 +1281,6 @@ impl MeasurementModel for RustMeasurementModelWrapper {
         &self,
         epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
-        _params: Option<&DVector<f64>>,
     ) -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
         Python::attach(|py| {
             let py_epoch = Py::new(py, PyEpoch { obj: *epoch })
@@ -1317,7 +1317,6 @@ impl MeasurementModel for RustMeasurementModelWrapper {
         &self,
         epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
-        params: Option<&DVector<f64>>,
     ) -> Result<DMatrix<f64>, brahe::utils::errors::BraheError> {
         // Try calling Python jacobian() first
         let py_result: Result<Option<DMatrix<f64>>, brahe::utils::errors::BraheError> =
@@ -1374,7 +1373,6 @@ impl MeasurementModel for RustMeasurementModelWrapper {
                     self,
                     epoch,
                     state,
-                    params,
                     DifferenceMethod::Central,
                     PerturbationStrategy::Adaptive {
                         scale_factor: 1.0,
@@ -1413,11 +1411,10 @@ impl MeasurementModel for MeasurementModelHolder {
         &self,
         epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
-        params: Option<&DVector<f64>>,
     ) -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
         match self {
-            MeasurementModelHolder::RustNative(m) => m.predict(epoch, state, params),
-            MeasurementModelHolder::PythonWrapper(m) => m.predict(epoch, state, params),
+            MeasurementModelHolder::RustNative(m) => m.predict(epoch, state),
+            MeasurementModelHolder::PythonWrapper(m) => m.predict(epoch, state),
         }
     }
 
@@ -1425,11 +1422,10 @@ impl MeasurementModel for MeasurementModelHolder {
         &self,
         epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
-        params: Option<&DVector<f64>>,
     ) -> Result<DMatrix<f64>, brahe::utils::errors::BraheError> {
         match self {
-            MeasurementModelHolder::RustNative(m) => m.jacobian(epoch, state, params),
-            MeasurementModelHolder::PythonWrapper(m) => m.jacobian(epoch, state, params),
+            MeasurementModelHolder::RustNative(m) => m.jacobian(epoch, state),
+            MeasurementModelHolder::PythonWrapper(m) => m.jacobian(epoch, state),
         }
     }
 
@@ -1672,7 +1668,7 @@ impl PyExtendedKalmanFilter {
                     >
             });
 
-        // Build the orbit propagator internally
+        // Build the orbit propagator internally (covariance is owned by the filter)
         let prop = propagators::DNumericalOrbitPropagator::new(
             epoch.obj,
             state_vec,
@@ -1681,7 +1677,7 @@ impl PyExtendedKalmanFilter {
             params_vec,
             additional_dynamics_fn,
             control_input_fn,
-            Some(cov_matrix),
+            None,
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
@@ -1695,8 +1691,10 @@ impl PyExtendedKalmanFilter {
             .map(|c| c.config.clone())
             .unwrap_or_default();
 
-        let ekf = estimation::ExtendedKalmanFilter::from_propagator(dynamics, models, ekf_config)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let ekf = estimation::ExtendedKalmanFilter::from_propagator(
+            dynamics, cov_matrix, models, ekf_config,
+        )
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         Ok(PyExtendedKalmanFilter { ekf })
     }
@@ -1752,16 +1750,12 @@ impl PyExtendedKalmanFilter {
     /// Get current covariance estimate.
     ///
     /// Returns:
-    ///     numpy.ndarray or None: Current covariance matrix, or None if unavailable.
-    fn current_covariance<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Option<Bound<'py, PyArray<f64, numpy::Ix2>>> {
-        self.ekf.current_covariance().map(|cov| {
-            let r = cov.nrows();
-            let c = cov.ncols();
-            matrix_to_numpy!(py, cov, r, c, f64)
-        })
+    ///     numpy.ndarray: Current covariance matrix.
+    fn current_covariance<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
+        let cov = self.ekf.current_covariance();
+        let r = cov.nrows();
+        let c = cov.ncols();
+        matrix_to_numpy!(py, cov, r, c, f64)
     }
 
     /// Get current epoch.
@@ -1805,7 +1799,7 @@ impl PyExtendedKalmanFilter {
 /// Example:
 ///     ```python
 ///     import brahe as bh
-///     config = bh.UKFConfig(state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0)
+///     config = bh.UKFConfig(alpha=1e-3, beta=2.0, kappa=0.0)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "UKFConfig")]
@@ -1818,8 +1812,9 @@ pub struct PyUKFConfig {
 impl PyUKFConfig {
     /// Create a new UKFConfig.
     ///
+    /// The state dimension is derived from the propagator at filter construction.
+    ///
     /// Args:
-    ///     state_dim (int): State vector dimension. Defaults to 6.
     ///     alpha (float): Sigma point spread parameter (typically 1e-3). Defaults to 1e-3.
     ///     beta (float): Distribution parameter (2.0 for Gaussian). Defaults to 2.0.
     ///     kappa (float): Secondary scaling parameter (typically 0.0). Defaults to 0.0.
@@ -1829,9 +1824,8 @@ impl PyUKFConfig {
     /// Returns:
     ///     UKFConfig: New UKF configuration.
     #[new]
-    #[pyo3(signature = (state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0, process_noise=None, store_records=true))]
+    #[pyo3(signature = (alpha=1e-3, beta=2.0, kappa=0.0, process_noise=None, store_records=true))]
     fn new(
-        state_dim: usize,
         alpha: f64,
         beta: f64,
         kappa: f64,
@@ -1841,7 +1835,6 @@ impl PyUKFConfig {
         PyUKFConfig {
             config: estimation::UKFConfig {
                 process_noise: process_noise.map(|pn| pn.config),
-                state_dim,
                 alpha,
                 beta,
                 kappa,
@@ -1853,18 +1846,13 @@ impl PyUKFConfig {
     /// Create a default UKF configuration.
     ///
     /// Returns:
-    ///     UKFConfig: Default configuration (state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0).
+    ///     UKFConfig: Default configuration (alpha=1e-3, beta=2.0, kappa=0.0).
     #[staticmethod]
     #[pyo3(name = "default")]
     fn py_default() -> Self {
         PyUKFConfig {
             config: estimation::UKFConfig::default(),
         }
-    }
-
-    #[getter]
-    fn state_dim(&self) -> usize {
-        self.config.state_dim
     }
 
     #[getter]
@@ -1889,11 +1877,8 @@ impl PyUKFConfig {
 
     fn __repr__(&self) -> String {
         format!(
-            "UKFConfig(state_dim={}, alpha={}, beta={}, kappa={})",
-            self.config.state_dim,
-            self.config.alpha,
-            self.config.beta,
-            self.config.kappa,
+            "UKFConfig(alpha={}, beta={}, kappa={})",
+            self.config.alpha, self.config.beta, self.config.kappa,
         )
     }
 }
@@ -2068,6 +2053,8 @@ impl PyUnscentedKalmanFilter {
                     >
             });
 
+        // Covariance is owned by the filter; the propagator carries no
+        // covariance so no STM propagation is enabled for the UKF.
         let prop = propagators::DNumericalOrbitPropagator::new(
             epoch.obj,
             state_vec,
@@ -2076,26 +2063,19 @@ impl PyUnscentedKalmanFilter {
             params_vec,
             additional_dynamics_fn,
             control_input_fn,
-            Some(cov_matrix),
+            None,
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         let dynamics = DynamicsSource::OrbitPropagator(prop);
         let models = process_measurement_models(py, measurement_models)?;
 
-        let ukf_config = config
-            .map(|c| {
-                let mut cfg = c.config.clone();
-                cfg.state_dim = state_dim;
-                cfg
-            })
-            .unwrap_or(estimation::UKFConfig {
-                state_dim,
-                ..estimation::UKFConfig::default()
-            });
+        let ukf_config = config.map(|c| c.config.clone()).unwrap_or_default();
 
-        let ukf = estimation::UnscentedKalmanFilter::from_propagator(dynamics, models, ukf_config)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let ukf = estimation::UnscentedKalmanFilter::from_propagator(
+            dynamics, cov_matrix, models, ukf_config,
+        )
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         Ok(PyUnscentedKalmanFilter { ukf })
     }
@@ -2837,18 +2817,25 @@ impl PyBatchLeastSquares {
             .map(|c| c.config.clone())
             .unwrap_or_default();
 
-        // Build BLS (this internally creates the propagator with STM enabled)
-        let bls = estimation::BatchLeastSquares::new(
+        // Build the orbit propagator with STM enabled (the a priori covariance
+        // is owned by the estimator, not the propagator)
+        let mut prop_config = propagation_config.config.clone();
+        prop_config.variational.enable_stm = true;
+
+        let prop = propagators::DNumericalOrbitPropagator::new(
             epoch.obj,
             state_vec,
-            cov_matrix,
-            propagation_config.config.clone(),
+            prop_config,
             force_config.config.clone(),
             params_vec,
             additional_dynamics_fn,
             control_input_fn,
-            models,
-            bls_config,
+            None,
+        )
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        let bls = estimation::BatchLeastSquares::from_propagator(
+            prop, cov_matrix, models, bls_config,
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
@@ -2890,14 +2877,29 @@ impl PyBatchLeastSquares {
         vector_to_numpy!(py, state, n, f64)
     }
 
-    /// Get current total covariance (formal + consider contribution).
+    /// Get current formal covariance (solve-for partition).
+    ///
+    /// Use ``total_covariance()`` for the formal + consider contribution.
     ///
     /// Returns:
-    ///     numpy.ndarray: Total covariance matrix (n x n).
+    ///     numpy.ndarray: Formal covariance matrix (n_solve x n_solve).
     fn current_covariance<'py>(
         &self,
         py: Python<'py>,
     ) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
+        let cov = self.bls.current_covariance();
+        let r = cov.nrows();
+        let c = cov.ncols();
+        matrix_to_numpy!(py, cov, r, c, f64)
+    }
+
+    /// Get total covariance: formal + consider contribution.
+    ///
+    /// Returns the formal covariance if consider parameters are not configured.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Total covariance matrix (n_solve x n_solve).
+    fn total_covariance<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
         let cov = self.bls.total_covariance();
         let r = cov.nrows();
         let c = cov.ncols();

@@ -164,7 +164,6 @@ def test_ukf_with_config(two_body_leo):
 
 def test_ukf_config_defaults():
     config = bh.UKFConfig.default()
-    assert config.state_dim == 6
     assert config.alpha == pytest.approx(1e-3)
     assert config.beta == pytest.approx(2.0)
     assert config.kappa == pytest.approx(0.0)
@@ -179,7 +178,6 @@ def test_ukf_config_custom_all_params():
         alpha=0.5,
         beta=3.0,
         kappa=1.0,
-        state_dim=6,
         process_noise=pn,
         store_records=False,
     )
@@ -187,7 +185,6 @@ def test_ukf_config_custom_all_params():
     assert config.alpha == pytest.approx(0.5)
     assert config.beta == pytest.approx(3.0)
     assert config.kappa == pytest.approx(1.0)
-    assert config.state_dim == 6
     assert config.store_records is False
 
 

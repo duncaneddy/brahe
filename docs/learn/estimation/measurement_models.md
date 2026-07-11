@@ -36,13 +36,13 @@ filter state remains in ECI — these models internally rotate the predicted sta
 to ECEF at each observation epoch. Jacobians are computed via central finite differences
 because the rotation is epoch-dependent.
 
-### ECEFPositionMeasurementModel
+### EcefPositionMeasurementModel
 
 - **State**: $\mathbf{x} = [x, y, z, v_x, v_y, v_z, \ldots]_{\text{ECI}}$ (meters, m/s)
 - **Measurement**: $\mathbf{z} = R_{\text{ECI} \to \text{ECEF}}(t) \cdot [x, y, z]_{\text{ECI}}$ — 3 values in meters
 - **Jacobian**: Numerical (finite difference)
 
-### ECEFVelocityMeasurementModel
+### EcefVelocityMeasurementModel
 
 Converts the full ECI state to ECEF and extracts velocity, properly accounting for Earth
 rotation effects.
@@ -51,7 +51,7 @@ rotation effects.
 - **Measurement**: $\mathbf{z} = [v_x, v_y, v_z]_{\text{ECEF}}$ — 3 values in m/s
 - **Jacobian**: Numerical (finite difference)
 
-### ECEFStateMeasurementModel
+### EcefStateMeasurementModel
 
 Full 6D position + velocity in ECEF. Useful when a GNSS receiver provides both solutions
 simultaneously.

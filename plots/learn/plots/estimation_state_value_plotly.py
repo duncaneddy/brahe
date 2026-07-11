@@ -61,7 +61,7 @@ ekf = bh.ExtendedKalmanFilter(
     epoch,
     initial_state,
     p0,
-    measurement_models=[bh.ECEFPositionMeasurementModel(5.0)],
+    measurement_models=[bh.EcefPositionMeasurementModel(5.0)],
     propagation_config=bh.NumericalPropagationConfig.default(),
     force_config=bh.ForceModelConfig.two_body(),
     config=ekf_config,

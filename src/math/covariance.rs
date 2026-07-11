@@ -70,8 +70,9 @@ pub fn diagonal_covariance(sigmas: &[f64]) -> DMatrix<f64> {
 
 /// Validate a user-provided covariance matrix.
 ///
-/// Checks that the matrix is square and symmetric within a relative
-/// tolerance. Returns the validated matrix on success.
+/// Checks that the matrix is square, has only finite entries, is symmetric
+/// within a relative tolerance, and is positive-definite (verified via
+/// Cholesky decomposition). Returns the validated matrix on success.
 ///
 /// # Arguments
 ///
@@ -80,7 +81,8 @@ pub fn diagonal_covariance(sigmas: &[f64]) -> DMatrix<f64> {
 /// # Returns
 ///
 /// * `Ok(DMatrix<f64>)` - The validated matrix (unchanged)
-/// * `Err(BraheError)` - If the matrix is not square or not symmetric
+/// * `Err(BraheError)` - If the matrix is not square, not finite, not
+///   symmetric, or not positive-definite
 ///
 /// # Examples
 ///
@@ -102,6 +104,20 @@ pub fn validate_covariance(matrix: DMatrix<f64>) -> Result<DMatrix<f64>, BraheEr
         )));
     }
 
+    // Check all entries are finite
+    for i in 0..n {
+        for j in 0..n {
+            if !matrix[(i, j)].is_finite() {
+                return Err(BraheError::Error(format!(
+                    "Covariance matrix must have finite entries: element ({},{})={}",
+                    i,
+                    j,
+                    matrix[(i, j)]
+                )));
+            }
+        }
+    }
+
     // Check symmetry: |a_ij - a_ji| <= tol * max(|a_ij|, |a_ji|, 1.0)
     let tol = 1e-10;
     for i in 0..n {
@@ -116,6 +132,15 @@ pub fn validate_covariance(matrix: DMatrix<f64>) -> Result<DMatrix<f64>, BraheEr
                 )));
             }
         }
+    }
+
+    // Check positive-definiteness via Cholesky decomposition. Estimators
+    // invert or factor covariance matrices; an indefinite matrix would
+    // produce statistically invalid results without erroring.
+    if matrix.clone().cholesky().is_none() {
+        return Err(BraheError::Error(
+            "Covariance matrix is not positive-definite".to_string(),
+        ));
     }
 
     Ok(matrix)
@@ -176,7 +201,7 @@ pub fn covariance_from_upper_triangular(
         }
     }
 
-    Ok(matrix)
+    validate_covariance(matrix)
 }
 
 #[cfg(test)]
@@ -262,6 +287,40 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_covariance_non_finite() {
+        let mut r = DMatrix::from_diagonal_element(3, 3, 100.0);
+        r[(1, 1)] = f64::NAN;
+        let result = validate_covariance(r);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("finite"));
+    }
+
+    #[test]
+    fn test_validate_covariance_indefinite() {
+        // Symmetric but indefinite: eigenvalues 101 and -99
+        let mut r = DMatrix::zeros(2, 2);
+        r[(0, 0)] = 1.0;
+        r[(1, 1)] = 1.0;
+        r[(0, 1)] = 100.0;
+        r[(1, 0)] = 100.0;
+        let result = validate_covariance(r);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("positive-definite")
+        );
+    }
+
+    #[test]
+    fn test_covariance_from_upper_triangular_indefinite() {
+        // Symmetric but indefinite 2x2: [[1, 100], [100, 1]]
+        let result = covariance_from_upper_triangular(2, &[1.0, 100.0, 1.0]);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_covariance_from_upper_triangular_3d() {
         // [c00, c01, c02, c11, c12, c22]
         let upper = [100.0, 5.0, 0.0, 225.0, 10.0, 400.0];
@@ -300,8 +359,9 @@ mod tests {
         upper[15] = 16.0; // (3,3)
         upper[18] = 25.0; // (4,4)
         upper[20] = 36.0; // (5,5)
-        // Set one off-diagonal: (0,3) at index 3
-        upper[3] = 7.5;
+        // Set one off-diagonal: (0,3) at index 3. Must satisfy
+        // |c03| < sqrt(c00 * c33) = 4 to keep the matrix positive-definite.
+        upper[3] = 2.5;
 
         let r = covariance_from_upper_triangular(6, &upper).unwrap();
         assert_eq!(r.nrows(), 6);
@@ -313,8 +373,8 @@ mod tests {
         assert_abs_diff_eq!(r[(5, 5)], 36.0, epsilon = 1e-15);
 
         // Off-diagonal symmetry
-        assert_abs_diff_eq!(r[(0, 3)], 7.5, epsilon = 1e-15);
-        assert_abs_diff_eq!(r[(3, 0)], 7.5, epsilon = 1e-15);
+        assert_abs_diff_eq!(r[(0, 3)], 2.5, epsilon = 1e-15);
+        assert_abs_diff_eq!(r[(3, 0)], 2.5, epsilon = 1e-15);
     }
 
     #[test]

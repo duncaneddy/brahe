@@ -14,9 +14,9 @@ State estimation filters and measurement models for orbit determination.
 - InertialStateMeasurementModel: 6D ECI state observations
 
 **Measurement Models (ECEF):**
-- ECEFPositionMeasurementModel: 3D ECEF position observations
-- ECEFVelocityMeasurementModel: 3D ECEF velocity observations
-- ECEFStateMeasurementModel: 6D ECEF state observations
+- EcefPositionMeasurementModel: 3D ECEF position observations
+- EcefVelocityMeasurementModel: 3D ECEF velocity observations
+- EcefStateMeasurementModel: 6D ECEF state observations
 
 **Custom Measurement Models:**
 - MeasurementModel: Base class for Python-defined measurement models
@@ -45,9 +45,9 @@ from brahe._brahe import (
     InertialPositionMeasurementModel,
     InertialVelocityMeasurementModel,
     InertialStateMeasurementModel,
-    ECEFPositionMeasurementModel,
-    ECEFVelocityMeasurementModel,
-    ECEFStateMeasurementModel,
+    EcefPositionMeasurementModel,
+    EcefVelocityMeasurementModel,
+    EcefStateMeasurementModel,
     # Covariance matrix helpers
     isotropic_covariance,
     diagonal_covariance,
@@ -73,9 +73,9 @@ __all__ = [
     "InertialPositionMeasurementModel",
     "InertialVelocityMeasurementModel",
     "InertialStateMeasurementModel",
-    "ECEFPositionMeasurementModel",
-    "ECEFVelocityMeasurementModel",
-    "ECEFStateMeasurementModel",
+    "EcefPositionMeasurementModel",
+    "EcefVelocityMeasurementModel",
+    "EcefStateMeasurementModel",
     "isotropic_covariance",
     "diagonal_covariance",
     "EKFConfig",

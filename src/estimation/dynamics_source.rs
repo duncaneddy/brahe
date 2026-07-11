@@ -12,7 +12,7 @@
 use nalgebra::{DMatrix, DVector};
 
 use crate::propagators::traits::DStatePropagator;
-use crate::propagators::{DNumericalOrbitPropagator, DNumericalPropagator};
+use crate::propagators::{DNumericalOrbitPropagator, DNumericalPropagator, TrajectoryMode};
 use crate::time::Epoch;
 
 /// Dynamics source for estimation filters.
@@ -21,16 +21,38 @@ use crate::time::Epoch;
 /// propagator (with user-defined dynamics) to provide state prediction,
 /// covariance propagation, and STM access needed by the estimation filters.
 ///
+/// Filter constructors accept `impl Into<DynamicsSource>`, so propagators can
+/// be passed directly without wrapping:
+///
+/// ```ignore
+/// let ekf = ExtendedKalmanFilter::from_propagator(prop, p0, models, config)?;
+/// ```
+///
 /// # Why an enum instead of a trait?
 ///
 /// The set of numerical propagator types is small and known (2 types). An enum
 /// avoids adding `stm()` to the `DStatePropagator` trait, which would force all
-/// propagator implementations (Keplerian, SGP4) to deal with it.
+/// propagator implementations (Keplerian, SGP4) to deal with it. The enum is
+/// `#[non_exhaustive]` so additional dynamics sources can be added without a
+/// breaking change.
+#[non_exhaustive]
 pub enum DynamicsSource {
     /// Built-in orbit propagator with force models
     OrbitPropagator(DNumericalOrbitPropagator),
     /// Generic propagator with user-defined dynamics
     GenericPropagator(DNumericalPropagator),
+}
+
+impl From<DNumericalOrbitPropagator> for DynamicsSource {
+    fn from(propagator: DNumericalOrbitPropagator) -> Self {
+        DynamicsSource::OrbitPropagator(propagator)
+    }
+}
+
+impl From<DNumericalPropagator> for DynamicsSource {
+    fn from(propagator: DNumericalPropagator) -> Self {
+        DynamicsSource::GenericPropagator(propagator)
+    }
 }
 
 impl DynamicsSource {
@@ -69,7 +91,7 @@ impl DynamicsSource {
     /// Get current propagated covariance P(t) (None if not set).
     ///
     /// The propagator computes `P(t) = Φ(t,t₀)·P₀·Φ(t,t₀)ᵀ` during each step
-    /// when a covariance was provided via [`reinitialize`].
+    /// when a covariance was provided via [`reinitialize`](Self::reinitialize).
     pub fn current_covariance(&self) -> Option<&DMatrix<f64>> {
         match self {
             DynamicsSource::OrbitPropagator(p) => p.current_covariance(),
@@ -107,6 +129,19 @@ impl DynamicsSource {
         match self {
             DynamicsSource::OrbitPropagator(p) => p.state_dim(),
             DynamicsSource::GenericPropagator(p) => p.state_dim(),
+        }
+    }
+
+    /// Set the trajectory storage mode on the underlying propagator.
+    ///
+    /// Estimation filters disable trajectory recording at construction:
+    /// filters repeatedly reinitialize and re-propagate the same time spans
+    /// (sigma points, Gauss-Newton iterations), which would otherwise
+    /// accumulate unbounded, interleaved trajectory data.
+    pub fn set_trajectory_mode(&mut self, mode: TrajectoryMode) {
+        match self {
+            DynamicsSource::OrbitPropagator(p) => p.set_trajectory_mode(mode),
+            DynamicsSource::GenericPropagator(p) => p.set_trajectory_mode(mode),
         }
     }
 }

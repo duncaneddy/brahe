@@ -1,6 +1,6 @@
 # NAIF Functions
 
-Functions for downloading planetary ephemeris kernels from NASA JPL's NAIF archive.
+Functions for downloading planetary DE, satellite-system, and lunar-orientation kernels from NASA JPL's NAIF archive.
 
 All functions are available via `brahe.datasets.naif.<function_name>`.
 
@@ -8,7 +8,16 @@ All functions are available via `brahe.datasets.naif.<function_name>`.
 
 ::: brahe._brahe.naif_download_de_kernel
 
+Despite the name, this function accepts any of the 16 kernels brahe knows
+how to download — the eight planetary DE kernels, the seven
+satellite-system kernels, and the `moon_pa_de440` binary PCK — not only DE
+kernels. See [NAIF Ephemeris Kernels](../../learn/datasets/naif.md#supported-kernels)
+for the full list. The equivalent Rust function is
+`brahe::datasets::naif::download_kernel(kernel: NAIFKernel, output_path: Option<PathBuf>)`,
+which takes a typed `NAIFKernel` variant rather than a string.
+
 ## See Also
 
-- [About NAIF and SPICE Kernels](#) - Learn more about NAIF ephemeris data (coming soon)
+- [NAIF Ephemeris Kernels](../../learn/datasets/naif.md) - Supported kernels, caching behavior, and usage examples
+- [SPICE Kernels](../../learn/spice/index.md) - Loading, querying, and PCK orientation
 - [NASA NAIF Website](https://naif.jpl.nasa.gov/) - Official NAIF data archive

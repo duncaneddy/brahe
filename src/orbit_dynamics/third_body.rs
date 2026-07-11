@@ -10,9 +10,9 @@ use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
 use crate::spice::{
-    NAIFKernel, jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
-    neptune_position_de, saturn_position_de, sun_position_de, uranus_position_de,
-    venus_position_de,
+    NAIFKernel, jupiter_barycenter_position_de, mars_barycenter_position_de, mercury_position_de,
+    moon_position_de, neptune_barycenter_position_de, saturn_barycenter_position_de,
+    sun_position_de, uranus_barycenter_position_de, venus_position_de,
 };
 use crate::time::Epoch;
 use crate::{
@@ -28,6 +28,10 @@ fn de_kernel_from_source(source: EphemerisSource) -> NAIFKernel {
 /// Calculate gravitational acceleration due to a celestial body using
 /// the specified ephemeris source. This function consolidates all
 /// body-specific and source-specific acceleration functions.
+///
+/// For the outer planets the system-barycenter position is used with the
+/// system GM; this is the standard third-body formulation and requires only
+/// the DE kernel (no satellite-system kernel download).
 ///
 /// # Arguments
 ///
@@ -115,7 +119,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Mars,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            mars_position_de(epc, de_kernel_from_source(source))
+            mars_barycenter_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Mars position"),
             GM_MARS,
         ),
@@ -123,7 +127,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Jupiter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            jupiter_position_de(epc, de_kernel_from_source(source))
+            jupiter_barycenter_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Jupiter position"),
             GM_JUPITER,
         ),
@@ -131,7 +135,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Saturn,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            saturn_position_de(epc, de_kernel_from_source(source))
+            saturn_barycenter_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Saturn position"),
             GM_SATURN,
         ),
@@ -139,7 +143,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Uranus,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            uranus_position_de(epc, de_kernel_from_source(source))
+            uranus_barycenter_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Uranus position"),
             GM_URANUS,
         ),
@@ -147,7 +151,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Neptune,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            neptune_position_de(epc, de_kernel_from_source(source))
+            neptune_barycenter_position_de(epc, de_kernel_from_source(source))
                 .expect("Failed to get Neptune position"),
             GM_NEPTUNE,
         ),

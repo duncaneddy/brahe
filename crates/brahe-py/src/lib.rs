@@ -1071,6 +1071,21 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_neptune_position_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_neptune_velocity_de, module)?)?;
     module.add_function(wrap_pyfunction!(py_neptune_state_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_barycenter_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_barycenter_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_barycenter_state_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_barycenter_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_barycenter_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_barycenter_state_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_barycenter_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_barycenter_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_barycenter_state_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_barycenter_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_barycenter_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_barycenter_state_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_barycenter_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_barycenter_velocity_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_barycenter_state_de, module)?)?;
     module.add_function(wrap_pyfunction!(
         py_solar_system_barycenter_position_de,
         module

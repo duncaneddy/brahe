@@ -66,6 +66,44 @@ Celestial body position calculations for Sun, Moon, and planets.
 
 ::: brahe.neptune_state_de
 
+## Planetary-System Barycenters
+
+The `*_position_de`, `*_velocity_de`, and `*_state_de` functions for Mars,
+Jupiter, Saturn, Uranus, and Neptune return the planet **body center**, which
+auto-downloads the planet's satellite-system kernel on first use. The
+`*_barycenter_*_de` variants below return the planetary-system **barycenter**
+using only the DE kernel and are preferred for third-body force applications.
+
+::: brahe.mars_barycenter_position_de
+
+::: brahe.mars_barycenter_velocity_de
+
+::: brahe.mars_barycenter_state_de
+
+::: brahe.jupiter_barycenter_position_de
+
+::: brahe.jupiter_barycenter_velocity_de
+
+::: brahe.jupiter_barycenter_state_de
+
+::: brahe.saturn_barycenter_position_de
+
+::: brahe.saturn_barycenter_velocity_de
+
+::: brahe.saturn_barycenter_state_de
+
+::: brahe.uranus_barycenter_position_de
+
+::: brahe.uranus_barycenter_velocity_de
+
+::: brahe.uranus_barycenter_state_de
+
+::: brahe.neptune_barycenter_position_de
+
+::: brahe.neptune_barycenter_velocity_de
+
+::: brahe.neptune_barycenter_state_de
+
 ::: brahe.solar_system_barycenter_position_de
 
 ::: brahe.solar_system_barycenter_velocity_de

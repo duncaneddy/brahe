@@ -11,9 +11,11 @@ use crate::attitude::RotationMatrix;
 use crate::constants::{AS2RAD, MJD_J2000, RADIANS};
 use crate::frames::rotation_eme2000_to_gcrf;
 pub use crate::spice::{
-    initialize_ephemeris, initialize_ephemeris_with_kernel, jupiter_position_de, mars_position_de,
-    mercury_position_de, moon_position_de, neptune_position_de, saturn_position_de,
-    solar_system_barycenter_position_de, ssb_position_de, sun_position_de, uranus_position_de,
+    initialize_ephemeris, initialize_ephemeris_with_kernel, jupiter_barycenter_position_de,
+    jupiter_position_de, mars_barycenter_position_de, mars_position_de, mercury_position_de,
+    moon_position_de, neptune_barycenter_position_de, neptune_position_de,
+    saturn_barycenter_position_de, saturn_position_de, solar_system_barycenter_position_de,
+    ssb_position_de, sun_position_de, uranus_barycenter_position_de, uranus_position_de,
     venus_position_de,
 };
 use crate::time::{Epoch, TimeSystem};

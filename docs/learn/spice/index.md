@@ -129,14 +129,24 @@ query. Computing the state shares a single record lookup between position
 and velocity, so prefer `*_state_de` over separate position/velocity calls
 when both are needed.
 
-The Mars/Jupiter/Saturn/Uranus/Neptune functions query the corresponding
-`NAIF_*_BARYCENTER` ID (see the table above), so they return the
-planetary-system barycenter, not the body center — for these five outer
-planets the two differ by up to a few hundred km due to large moons
-(e.g. ~290 km for Saturn from Titan, ~230 km for Jupiter from the Galilean
-moons). Sun, Moon, Mercury, and Venus have no
-significant satellites, so their functions' body-center and barycenter
-positions coincide.
+The Mars/Jupiter/Saturn/Uranus/Neptune functions return the planet **body
+center**. The DE kernel only carries the planetary-system barycenter for these
+outer planets, so the body center is computed as a two-leg sum: the
+barycenter relative to Earth from the DE kernel, plus the body center relative
+to the barycenter from the planet's satellite-system kernel. That satellite
+kernel is auto-downloaded and loaded on first use (mar099s ~64 MB, jup365
+~1.1 GB, sat441 ~631 MB, ura184 ~387 MB, nep097 ~100 MB).
+
+Each of the five outer planets also has `mars_barycenter_position_de`,
+`jupiter_barycenter_position_de`, and so on (with `_velocity_de` / `_state_de`
+counterparts) that return the planetary-system barycenter using **only** the
+DE kernel — no satellite-kernel download. The barycenter and body center
+differ by up to a few hundred km due to large moons (e.g. ~290 km for Saturn
+from Titan, ~230 km for Jupiter from the Galilean moons; only ~0.2 m for Mars).
+Prefer the `_barycenter_` variants for third-body force modeling, which uses
+the system barycenter with the system GM. Sun, Moon, Mercury, and Venus have
+no significant satellites, so their body-center and barycenter positions
+coincide and no barycenter variant is provided.
 
 ## PCK Orientation
 

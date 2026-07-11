@@ -35,6 +35,21 @@ Ephemerides:
 - neptune_position_de: High-precision Neptune position using NAIF DE ephemerides
 - neptune_velocity_de: High-precision Neptune velocity using NAIF DE ephemerides
 - neptune_state_de: High-precision Neptune state using NAIF DE ephemerides
+- mars_barycenter_position_de: Mars-system barycenter position (DE kernel only)
+- mars_barycenter_velocity_de: Mars-system barycenter velocity (DE kernel only)
+- mars_barycenter_state_de: Mars-system barycenter state (DE kernel only)
+- jupiter_barycenter_position_de: Jupiter-system barycenter position (DE kernel only)
+- jupiter_barycenter_velocity_de: Jupiter-system barycenter velocity (DE kernel only)
+- jupiter_barycenter_state_de: Jupiter-system barycenter state (DE kernel only)
+- saturn_barycenter_position_de: Saturn-system barycenter position (DE kernel only)
+- saturn_barycenter_velocity_de: Saturn-system barycenter velocity (DE kernel only)
+- saturn_barycenter_state_de: Saturn-system barycenter state (DE kernel only)
+- uranus_barycenter_position_de: Uranus-system barycenter position (DE kernel only)
+- uranus_barycenter_velocity_de: Uranus-system barycenter velocity (DE kernel only)
+- uranus_barycenter_state_de: Uranus-system barycenter state (DE kernel only)
+- neptune_barycenter_position_de: Neptune-system barycenter position (DE kernel only)
+- neptune_barycenter_velocity_de: Neptune-system barycenter velocity (DE kernel only)
+- neptune_barycenter_state_de: Neptune-system barycenter state (DE kernel only)
 - solar_system_barycenter_position_de: High-precision SSB position using NAIF DE ephemerides
 - solar_system_barycenter_velocity_de: High-precision SSB velocity using NAIF DE ephemerides
 - solar_system_barycenter_state_de: High-precision SSB state using NAIF DE ephemerides
@@ -122,6 +137,21 @@ from brahe._brahe import (
     neptune_position_de,
     neptune_velocity_de,
     neptune_state_de,
+    mars_barycenter_position_de,
+    mars_barycenter_velocity_de,
+    mars_barycenter_state_de,
+    jupiter_barycenter_position_de,
+    jupiter_barycenter_velocity_de,
+    jupiter_barycenter_state_de,
+    saturn_barycenter_position_de,
+    saturn_barycenter_velocity_de,
+    saturn_barycenter_state_de,
+    uranus_barycenter_position_de,
+    uranus_barycenter_velocity_de,
+    uranus_barycenter_state_de,
+    neptune_barycenter_position_de,
+    neptune_barycenter_velocity_de,
+    neptune_barycenter_state_de,
     solar_system_barycenter_position_de,
     solar_system_barycenter_velocity_de,
     solar_system_barycenter_state_de,
@@ -209,6 +239,21 @@ __all__ = [
     "neptune_position_de",
     "neptune_velocity_de",
     "neptune_state_de",
+    "mars_barycenter_position_de",
+    "mars_barycenter_velocity_de",
+    "mars_barycenter_state_de",
+    "jupiter_barycenter_position_de",
+    "jupiter_barycenter_velocity_de",
+    "jupiter_barycenter_state_de",
+    "saturn_barycenter_position_de",
+    "saturn_barycenter_velocity_de",
+    "saturn_barycenter_state_de",
+    "uranus_barycenter_position_de",
+    "uranus_barycenter_velocity_de",
+    "uranus_barycenter_state_de",
+    "neptune_barycenter_position_de",
+    "neptune_barycenter_velocity_de",
+    "neptune_barycenter_state_de",
     "solar_system_barycenter_position_de",
     "solar_system_barycenter_velocity_de",
     "solar_system_barycenter_state_de",

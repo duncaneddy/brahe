@@ -13,7 +13,7 @@ use nalgebra::{Vector3, Vector6};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::kernels::SPKKernel;
+use super::kernels::NAIFKernel;
 use super::naif_id::NAIFId;
 use super::registry::{spk_position_in_kernel, spk_state_in_kernel, spk_velocity_in_kernel};
 
@@ -37,15 +37,15 @@ macro_rules! body_de_functions {
         /// # Example
         ///
         /// ```
-        #[doc = concat!("use brahe::spice::{SPKKernel, ", stringify!($pos_fn), "};")]
+        #[doc = concat!("use brahe::spice::{NAIFKernel, ", stringify!($pos_fn), "};")]
         /// use brahe::time::Epoch;
         /// use brahe::TimeSystem;
         ///
         /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-        #[doc = concat!("let r = ", stringify!($pos_fn), "(epc, SPKKernel::DE440s)?;")]
+        #[doc = concat!("let r = ", stringify!($pos_fn), "(epc, NAIFKernel::DE440s)?;")]
         /// # Ok::<(), brahe::utils::BraheError>(())
         /// ```
-        pub fn $pos_fn(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
+        pub fn $pos_fn(epc: Epoch, kernel: NAIFKernel) -> Result<Vector3<f64>, BraheError> {
             spk_position_in_kernel(kernel.name(), $target, NAIFId::Earth, epc)
         }
 
@@ -67,15 +67,15 @@ macro_rules! body_de_functions {
         /// # Example
         ///
         /// ```
-        #[doc = concat!("use brahe::spice::{SPKKernel, ", stringify!($vel_fn), "};")]
+        #[doc = concat!("use brahe::spice::{NAIFKernel, ", stringify!($vel_fn), "};")]
         /// use brahe::time::Epoch;
         /// use brahe::TimeSystem;
         ///
         /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-        #[doc = concat!("let v = ", stringify!($vel_fn), "(epc, SPKKernel::DE440s)?;")]
+        #[doc = concat!("let v = ", stringify!($vel_fn), "(epc, NAIFKernel::DE440s)?;")]
         /// # Ok::<(), brahe::utils::BraheError>(())
         /// ```
-        pub fn $vel_fn(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
+        pub fn $vel_fn(epc: Epoch, kernel: NAIFKernel) -> Result<Vector3<f64>, BraheError> {
             spk_velocity_in_kernel(kernel.name(), $target, NAIFId::Earth, epc)
         }
 
@@ -98,15 +98,15 @@ macro_rules! body_de_functions {
         /// # Example
         ///
         /// ```
-        #[doc = concat!("use brahe::spice::{SPKKernel, ", stringify!($state_fn), "};")]
+        #[doc = concat!("use brahe::spice::{NAIFKernel, ", stringify!($state_fn), "};")]
         /// use brahe::time::Epoch;
         /// use brahe::TimeSystem;
         ///
         /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-        #[doc = concat!("let x = ", stringify!($state_fn), "(epc, SPKKernel::DE440s)?;")]
+        #[doc = concat!("let x = ", stringify!($state_fn), "(epc, NAIFKernel::DE440s)?;")]
         /// # Ok::<(), brahe::utils::BraheError>(())
         /// ```
-        pub fn $state_fn(epc: Epoch, kernel: SPKKernel) -> Result<Vector6<f64>, BraheError> {
+        pub fn $state_fn(epc: Epoch, kernel: NAIFKernel) -> Result<Vector6<f64>, BraheError> {
             spk_state_in_kernel(kernel.name(), $target, NAIFId::Earth, epc)
         }
     };
@@ -200,15 +200,15 @@ body_de_functions!(
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SPKKernel, ssb_position_de};
+/// use brahe::spice::{NAIFKernel, ssb_position_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let r_ssb = ssb_position_de(epc, SPKKernel::DE440s)?;
+/// let r_ssb = ssb_position_de(epc, NAIFKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn ssb_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn ssb_position_de(epc: Epoch, kernel: NAIFKernel) -> Result<Vector3<f64>, BraheError> {
     solar_system_barycenter_position_de(epc, kernel)
 }
 
@@ -229,15 +229,15 @@ pub fn ssb_position_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, Br
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SPKKernel, ssb_velocity_de};
+/// use brahe::spice::{NAIFKernel, ssb_velocity_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let v_ssb = ssb_velocity_de(epc, SPKKernel::DE440s)?;
+/// let v_ssb = ssb_velocity_de(epc, NAIFKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn ssb_velocity_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, BraheError> {
+pub fn ssb_velocity_de(epc: Epoch, kernel: NAIFKernel) -> Result<Vector3<f64>, BraheError> {
     solar_system_barycenter_velocity_de(epc, kernel)
 }
 
@@ -259,15 +259,15 @@ pub fn ssb_velocity_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector3<f64>, Br
 /// # Example
 ///
 /// ```
-/// use brahe::spice::{SPKKernel, ssb_state_de};
+/// use brahe::spice::{NAIFKernel, ssb_state_de};
 /// use brahe::time::Epoch;
 /// use brahe::TimeSystem;
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, TimeSystem::UTC);
-/// let x_ssb = ssb_state_de(epc, SPKKernel::DE440s)?;
+/// let x_ssb = ssb_state_de(epc, NAIFKernel::DE440s)?;
 /// # Ok::<(), brahe::utils::BraheError>(())
 /// ```
-pub fn ssb_state_de(epc: Epoch, kernel: SPKKernel) -> Result<Vector6<f64>, BraheError> {
+pub fn ssb_state_de(epc: Epoch, kernel: NAIFKernel) -> Result<Vector6<f64>, BraheError> {
     solar_system_barycenter_state_de(epc, kernel)
 }
 
@@ -296,7 +296,7 @@ mod tests {
 
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let r_analytical = sun_position(epc);
-        let r_de = sun_position_de(epc, SPKKernel::DE440s).unwrap();
+        let r_de = sun_position_de(epc, NAIFKernel::DE440s).unwrap();
 
         let dot = r_analytical.dot(&r_de) / (r_analytical.norm() * r_de.norm());
         let angle = dot.acos() * (180.0 / std::f64::consts::PI);
@@ -318,7 +318,7 @@ mod tests {
 
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
         let r_analytical = moon_position(epc);
-        let r_de = moon_position_de(epc, SPKKernel::DE440s).unwrap();
+        let r_de = moon_position_de(epc, NAIFKernel::DE440s).unwrap();
 
         let dot = r_analytical.dot(&r_de) / (r_analytical.norm() * r_de.norm());
         let angle = dot.acos() * (180.0 / std::f64::consts::PI);
@@ -338,7 +338,7 @@ mod tests {
     fn test_jupiter_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = jupiter_position_de(epc, SPKKernel::DE440s).unwrap();
+        let _r = jupiter_position_de(epc, NAIFKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -354,7 +354,7 @@ mod tests {
     fn test_mars_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = mars_position_de(epc, SPKKernel::DE440s).unwrap();
+        let _r = mars_position_de(epc, NAIFKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -370,7 +370,7 @@ mod tests {
     fn test_mercury_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = mercury_position_de(epc, SPKKernel::DE440s).unwrap();
+        let _r = mercury_position_de(epc, NAIFKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -386,7 +386,7 @@ mod tests {
     fn test_neptune_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = neptune_position_de(epc, SPKKernel::DE440s).unwrap();
+        let _r = neptune_position_de(epc, NAIFKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -402,7 +402,7 @@ mod tests {
     fn test_saturn_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = saturn_position_de(epc, SPKKernel::DE440s).unwrap();
+        let _r = saturn_position_de(epc, NAIFKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -418,7 +418,7 @@ mod tests {
     fn test_uranus_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = uranus_position_de(epc, SPKKernel::DE440s).unwrap();
+        let _r = uranus_position_de(epc, NAIFKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -434,7 +434,7 @@ mod tests {
     fn test_venus_position_de(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = venus_position_de(epc, SPKKernel::DE440s).unwrap();
+        let _r = venus_position_de(epc, NAIFKernel::DE440s).unwrap();
     }
 
     #[rstest]
@@ -454,14 +454,14 @@ mod tests {
     ) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
-        let _r = solar_system_barycenter_position_de(epc, SPKKernel::DE440s).unwrap();
+        let _r = solar_system_barycenter_position_de(epc, NAIFKernel::DE440s).unwrap();
     }
 
     #[test]
     fn test_sun_velocity_de() {
         setup_global_test_spice();
         let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);
-        let v = sun_velocity_de(epc, SPKKernel::DE440s).unwrap();
+        let v = sun_velocity_de(epc, NAIFKernel::DE440s).unwrap();
         // Geocentric solar velocity magnitude ~ 29-30.3 km/s
         assert!(v.norm() > 2.8e4 && v.norm() < 3.1e4);
     }
@@ -470,9 +470,9 @@ mod tests {
     fn test_moon_state_de_consistent() {
         setup_global_test_spice();
         let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);
-        let x = moon_state_de(epc, SPKKernel::DE440s).unwrap();
-        let r = moon_position_de(epc, SPKKernel::DE440s).unwrap();
-        let v = moon_velocity_de(epc, SPKKernel::DE440s).unwrap();
+        let x = moon_state_de(epc, NAIFKernel::DE440s).unwrap();
+        let r = moon_position_de(epc, NAIFKernel::DE440s).unwrap();
+        let v = moon_velocity_de(epc, NAIFKernel::DE440s).unwrap();
         assert_abs_diff_eq!((x.fixed_rows::<3>(0) - r).norm(), 0.0, epsilon = 1e-9);
         assert_abs_diff_eq!((x.fixed_rows::<3>(3) - v).norm(), 0.0, epsilon = 1e-12);
     }
@@ -483,44 +483,44 @@ mod tests {
         let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);
         for (v, x) in [
             (
-                sun_velocity_de(epc, SPKKernel::DE440s),
-                sun_state_de(epc, SPKKernel::DE440s),
+                sun_velocity_de(epc, NAIFKernel::DE440s),
+                sun_state_de(epc, NAIFKernel::DE440s),
             ),
             (
-                moon_velocity_de(epc, SPKKernel::DE440s),
-                moon_state_de(epc, SPKKernel::DE440s),
+                moon_velocity_de(epc, NAIFKernel::DE440s),
+                moon_state_de(epc, NAIFKernel::DE440s),
             ),
             (
-                mercury_velocity_de(epc, SPKKernel::DE440s),
-                mercury_state_de(epc, SPKKernel::DE440s),
+                mercury_velocity_de(epc, NAIFKernel::DE440s),
+                mercury_state_de(epc, NAIFKernel::DE440s),
             ),
             (
-                venus_velocity_de(epc, SPKKernel::DE440s),
-                venus_state_de(epc, SPKKernel::DE440s),
+                venus_velocity_de(epc, NAIFKernel::DE440s),
+                venus_state_de(epc, NAIFKernel::DE440s),
             ),
             (
-                mars_velocity_de(epc, SPKKernel::DE440s),
-                mars_state_de(epc, SPKKernel::DE440s),
+                mars_velocity_de(epc, NAIFKernel::DE440s),
+                mars_state_de(epc, NAIFKernel::DE440s),
             ),
             (
-                jupiter_velocity_de(epc, SPKKernel::DE440s),
-                jupiter_state_de(epc, SPKKernel::DE440s),
+                jupiter_velocity_de(epc, NAIFKernel::DE440s),
+                jupiter_state_de(epc, NAIFKernel::DE440s),
             ),
             (
-                saturn_velocity_de(epc, SPKKernel::DE440s),
-                saturn_state_de(epc, SPKKernel::DE440s),
+                saturn_velocity_de(epc, NAIFKernel::DE440s),
+                saturn_state_de(epc, NAIFKernel::DE440s),
             ),
             (
-                uranus_velocity_de(epc, SPKKernel::DE440s),
-                uranus_state_de(epc, SPKKernel::DE440s),
+                uranus_velocity_de(epc, NAIFKernel::DE440s),
+                uranus_state_de(epc, NAIFKernel::DE440s),
             ),
             (
-                neptune_velocity_de(epc, SPKKernel::DE440s),
-                neptune_state_de(epc, SPKKernel::DE440s),
+                neptune_velocity_de(epc, NAIFKernel::DE440s),
+                neptune_state_de(epc, NAIFKernel::DE440s),
             ),
             (
-                ssb_velocity_de(epc, SPKKernel::DE440s),
-                ssb_state_de(epc, SPKKernel::DE440s),
+                ssb_velocity_de(epc, NAIFKernel::DE440s),
+                ssb_state_de(epc, NAIFKernel::DE440s),
             ),
         ] {
             assert!(v.unwrap().iter().all(|c| c.is_finite()));

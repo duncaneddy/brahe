@@ -170,7 +170,13 @@ fn py_groundstations_list_providers() -> Vec<String> {
 #[pyo3(name = "naif_download_de_kernel", signature = (name, output_path=None))]
 fn py_naif_download_de_kernel(name: &str, output_path: Option<&str>) -> PyResult<String> {
     let output_pathbuf = output_path.map(PathBuf::from);
-    let result_path = naif::download_de_kernel(name, output_pathbuf)
+    let kernel = spice::NAIFKernel::from_name(name).ok_or_else(|| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+            "Unsupported kernel name '{}'",
+            name
+        ))
+    })?;
+    let result_path = naif::download_kernel(kernel, output_pathbuf)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
     result_path

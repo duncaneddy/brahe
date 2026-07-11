@@ -8,7 +8,7 @@
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::spice::{NAIFId, SPKKernel};
+use brahe::spice::{NAIFId, NAIFKernel};
 
 fn main() {
     bh::initialize_eop().unwrap();
@@ -52,10 +52,10 @@ fn main() {
     );
 
     // Per-body convenience functions wrap the same queries for the ten most
-    // commonly used bodies, selecting the kernel via SPKKernel.
-    let r_mars = bh::spice::mars_position_de(epc, SPKKernel::DE440s).unwrap();
-    let v_mars = bh::spice::mars_velocity_de(epc, SPKKernel::DE440s).unwrap();
-    let x_mars = bh::spice::mars_state_de(epc, SPKKernel::DE440s).unwrap();
+    // commonly used bodies, selecting the kernel via NAIFKernel.
+    let r_mars = bh::spice::mars_position_de(epc, NAIFKernel::DE440s).unwrap();
+    let v_mars = bh::spice::mars_velocity_de(epc, NAIFKernel::DE440s).unwrap();
+    let x_mars = bh::spice::mars_state_de(epc, NAIFKernel::DE440s).unwrap();
 
     println!(
         "\nMars position rel. Earth (km): [{:.3}, {:.3}, {:.3}]",

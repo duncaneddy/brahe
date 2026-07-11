@@ -46,18 +46,18 @@ impl From<PyEphemerisSource> for propagators::force_model_config::EphemerisSourc
     }
 }
 
-impl TryFrom<PyEphemerisSource> for spice::SPKKernel {
+impl TryFrom<PyEphemerisSource> for spice::NAIFKernel {
     type Error = PyErr;
 
     fn try_from(source: PyEphemerisSource) -> Result<Self, Self::Error> {
         let source = propagators::force_model_config::EphemerisSource::from(source);
-        spice::SPKKernel::try_from(source)
+        spice::NAIFKernel::try_from(source)
             .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
     }
 }
 
-fn de_kernel_from_py_source(source: PyEphemerisSource) -> PyResult<spice::SPKKernel> {
-    spice::SPKKernel::try_from(source)
+fn de_kernel_from_py_source(source: PyEphemerisSource) -> PyResult<spice::NAIFKernel> {
+    spice::NAIFKernel::try_from(source)
 }
 
 /// Calculate the position of the Sun in the GCRF inertial frame using low-precision analytical methods.

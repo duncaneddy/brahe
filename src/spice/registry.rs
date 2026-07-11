@@ -20,13 +20,12 @@ use std::sync::{Arc, RwLock};
 use nalgebra::{Matrix3, Vector3, Vector6};
 use once_cell::sync::Lazy;
 
-use crate::datasets::naif::{
-    SUPPORTED_KERNELS, SUPPORTED_PCK_KERNELS, download_de_kernel, download_pck_kernel,
-};
+use crate::datasets::naif::download_kernel;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
 use super::daf::DAFFile;
+use super::kernels::KernelSource;
 use super::naif_id::{FrameId, NAIFId};
 use super::pck::BPCK;
 use super::segments::{ChebyshevSegment, is_coverage_error};
@@ -68,31 +67,22 @@ pub(crate) fn epoch_to_et(epc: Epoch) -> f64 {
     epc.spice_et()
 }
 
-/// Resolve a kernel name or file path to a local file path, downloading
-/// (and caching) known DE kernel names via the NAIF dataset cache.
-///
-/// Known kernel names are looked up in `naif::SUPPORTED_KERNELS` (DE SPK
-/// kernels) and `naif::SUPPORTED_PCK_KERNELS` (binary PCK kernels) — the
-/// same lists `datasets::naif` validates against — rather than a second,
-/// independently maintained set of literals, so the two cannot drift out
-/// of sync.
-fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, BraheError> {
-    if SUPPORTED_KERNELS.contains(&name_or_path) {
-        download_de_kernel(name_or_path, None)
-    } else if SUPPORTED_PCK_KERNELS
-        .iter()
-        .any(|(name, _)| *name == name_or_path)
-    {
-        download_pck_kernel(name_or_path, None)
-    } else {
-        let path = Path::new(name_or_path);
-        if path.exists() {
-            Ok(path.to_path_buf())
-        } else {
-            Err(BraheError::IoError(format!(
-                "Kernel '{}' is neither a known kernel name nor an existing file path",
-                name_or_path
-            )))
+/// Resolve a [`KernelSource`] to a local file path, downloading (and
+/// caching) a known [`NAIFKernel`] via the NAIF dataset cache or validating
+/// that a bring-your-own path exists.
+fn resolve_kernel_path(source: &KernelSource) -> Result<std::path::PathBuf, BraheError> {
+    match source {
+        KernelSource::Kernel(kernel) => download_kernel(*kernel, None),
+        KernelSource::Path(path) => {
+            let p = Path::new(path);
+            if p.exists() {
+                Ok(p.to_path_buf())
+            } else {
+                Err(BraheError::IoError(format!(
+                    "Kernel '{}' is neither a known kernel name nor an existing file path",
+                    path
+                )))
+            }
         }
     }
 }
@@ -104,15 +94,16 @@ fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, Brahe
 /// Load a SPICE kernel into the global registry, auto-detecting SPK vs.
 /// PCK from the DAF ID word.
 ///
-/// Idempotent: calling with a `name_or_path` that is already loaded is a
-/// no-op. Known DE kernel names (`"de440s"`, `"de440"`, etc.) are
-/// downloaded and cached via [`crate::datasets::naif::download_de_kernel`];
-/// the known binary PCK name `"moon_pa_de440"` is downloaded and cached via
-/// [`crate::datasets::naif::download_pck_kernel`]; any other string is
-/// treated as a file path.
+/// Idempotent: calling with a source that is already loaded is a no-op.
+/// Accepts anything convertible into a [`KernelSource`]: a known kernel
+/// name string (`"de440s"`, `"moon_pa_de440"`, ...) or [`NAIFKernel`] is
+/// downloaded and cached via [`crate::datasets::naif::download_kernel`]; any
+/// other string is treated as a file path. The registry is keyed by
+/// [`KernelSource::key`] (the kernel name or the path string), so loading
+/// by name and by [`NAIFKernel`] refer to the same entry.
 ///
 /// # Arguments
-/// - `name_or_path`: A known DE kernel or PCK kernel name, or a path to a `.bsp`/`.bpc` file
+/// - `kernel`: A known kernel name/[`NAIFKernel`], or a path to a `.bsp`/`.bpc` file
 ///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` if the kernel cannot be resolved,
@@ -124,16 +115,19 @@ fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, Brahe
 ///
 /// load_kernel("de440s").expect("Failed to load DE440s");
 /// ```
-pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
+pub fn load_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheError> {
+    let source = kernel.into();
+    let key = source.key().to_string();
+
     // Idempotent short-circuit (read lock only) for the common case.
     {
         let reg = GLOBAL_SPICE.read().unwrap();
-        if reg.kernels.contains_key(name_or_path) {
+        if reg.kernels.contains_key(&key) {
             return Ok(());
         }
     }
 
-    let path = resolve_kernel_source(name_or_path)?;
+    let path = resolve_kernel_path(&source)?;
     let daf = DAFFile::from_file(&path)?;
     let kernel = match daf.id_word.as_str() {
         "DAF/SPK" => Kernel::Spk(Arc::new(SPK::from_daf(daf)?)),
@@ -141,7 +135,7 @@ pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
         other => {
             return Err(BraheError::IoError(format!(
                 "Unrecognized DAF ID word '{}' in kernel '{}'; expected 'DAF/SPK' or 'DAF/PCK'",
-                other, name_or_path
+                other, key
             )));
         }
     };
@@ -149,11 +143,11 @@ pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
     let mut reg = GLOBAL_SPICE.write().unwrap();
     // Double-checked locking: another thread may have loaded it while we
     // resolved and parsed the file.
-    if reg.kernels.contains_key(name_or_path) {
+    if reg.kernels.contains_key(&key) {
         return Ok(());
     }
-    reg.kernels.insert(name_or_path.to_string(), kernel);
-    reg.load_order.push(name_or_path.to_string());
+    reg.kernels.insert(key.clone(), kernel);
+    reg.load_order.push(key);
     reg.chain_cache.clear();
     Ok(())
 }
@@ -161,10 +155,11 @@ pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
 /// Unload a kernel previously loaded via [`load_kernel`].
 ///
 /// # Arguments
-/// - `name_or_path`: The same string originally passed to [`load_kernel`]
+/// - `kernel`: The same kernel name/[`NAIFKernel`]/path originally passed to
+///   [`load_kernel`]
 ///
 /// # Returns
-/// - `Ok(())` on success, or `BraheError` if `name_or_path` is not loaded
+/// - `Ok(())` on success, or `BraheError` if the kernel is not loaded
 ///
 /// # Examples
 /// ```no_run
@@ -173,15 +168,16 @@ pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
 /// load_kernel("de440s").unwrap();
 /// unload_kernel("de440s").expect("Failed to unload DE440s");
 /// ```
-pub fn unload_kernel(name_or_path: &str) -> Result<(), BraheError> {
+pub fn unload_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheError> {
+    let key = kernel.into().key().to_string();
     let mut reg = GLOBAL_SPICE.write().unwrap();
-    if reg.kernels.remove(name_or_path).is_none() {
+    if reg.kernels.remove(&key).is_none() {
         return Err(BraheError::Error(format!(
             "Kernel '{}' is not currently loaded",
-            name_or_path
+            key
         )));
     }
-    reg.load_order.retain(|k| k != name_or_path);
+    reg.load_order.retain(|k| k != &key);
     reg.chain_cache.clear();
     Ok(())
 }
@@ -241,7 +237,7 @@ pub fn initialize_ephemeris() -> Result<(), BraheError> {
 /// Equivalent to `load_kernel(kernel)`.
 ///
 /// # Arguments
-/// - `kernel`: A known DE kernel name (e.g. `"de440s"`, `"de440"`)
+/// - `kernel`: A known DE kernel name/[`NAIFKernel`] (e.g. `"de440s"`, `"de440"`)
 ///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` on download/parse failure
@@ -252,7 +248,7 @@ pub fn initialize_ephemeris() -> Result<(), BraheError> {
 ///
 /// initialize_ephemeris_with_kernel("de440").expect("Failed to initialize DE440");
 /// ```
-pub fn initialize_ephemeris_with_kernel(kernel: &str) -> Result<(), BraheError> {
+pub fn initialize_ephemeris_with_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheError> {
     load_kernel(kernel)
 }
 
@@ -1231,9 +1227,9 @@ mod tests {
     }
 
     #[test]
-    fn test_spk_kernel_name() {
-        use super::super::kernels::SPKKernel;
-        assert_eq!(SPKKernel::DE440s.name(), "de440s");
-        assert_eq!(SPKKernel::DE440.name(), "de440");
+    fn test_naif_kernel_name() {
+        use super::super::kernels::NAIFKernel;
+        assert_eq!(NAIFKernel::DE440s.name(), "de440s");
+        assert_eq!(NAIFKernel::DE440.name(), "de440");
     }
 }

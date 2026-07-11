@@ -4476,10 +4476,11 @@ impl PyThirdBodyConfiguration {
             propagators::EphemerisSource::LowPrecision => PyEphemerisSource::LowPrecision,
             propagators::EphemerisSource::DE440s => PyEphemerisSource::DE440s,
             propagators::EphemerisSource::DE440 => PyEphemerisSource::DE440,
-            propagators::EphemerisSource::SPK(spice::SPKKernel::DE440s) => {
-                PyEphemerisSource::DE440s
-            }
-            propagators::EphemerisSource::SPK(spice::SPKKernel::DE440) => PyEphemerisSource::DE440,
+            propagators::EphemerisSource::SPK(spice::NAIFKernel::DE440) => PyEphemerisSource::DE440,
+            // The Python `EphemerisSource` enum exposes only LowPrecision/DE440s/DE440,
+            // so it can never construct any other SPK kernel; map the remainder to
+            // DE440s as the closest Python-visible source.
+            propagators::EphemerisSource::SPK(_) => PyEphemerisSource::DE440s,
         }
     }
 

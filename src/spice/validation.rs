@@ -237,10 +237,11 @@ fn test_validation_frame_bias_removal_documented() {
 #[test]
 #[cfg_attr(not(feature = "integration"), ignore)]
 fn test_validation_pck_moon_pa_vs_anise() {
-    use crate::datasets::naif::download_pck_kernel;
+    use crate::datasets::naif::download_kernel;
+    use crate::spice::NAIFKernel;
     use crate::spice::pck::BPCK;
 
-    let path = download_pck_kernel("moon_pa_de440", None).unwrap();
+    let path = download_kernel(NAIFKernel::MoonPaDe440, None).unwrap();
     let bpck = BPCK::from_file(&path).unwrap();
 
     // The real moon_pa_de440_200625.bpc kernel stores frame class ID 31008

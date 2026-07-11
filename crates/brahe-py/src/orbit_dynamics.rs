@@ -507,7 +507,7 @@ fn py_venus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSou
 ///
 /// This function returns the Mars body center, combining the planetary-system
 /// barycenter from the DE kernel (DE440s or DE440) with the body-center offset
-/// from the Mars satellite-system kernel (mar099s, ~64 MB), which is
+/// from the Mars satellite-system kernel (mar099s, ~68 MB), which is
 /// auto-downloaded and loaded on first use. For third-body force applications
 /// prefer `mars_barycenter_position_de`, which needs only the DE kernel.
 /// Loaded kernels are cached in a global thread-safe context, making
@@ -555,7 +555,7 @@ fn py_mars_position_de<'py>(
 /// This function returns the Mars body-center velocity, combining the
 /// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
 /// body-center offset from the Mars satellite-system kernel (mar099s,
-/// ~64 MB), which is auto-downloaded and loaded on first use. For third-body
+/// ~68 MB), which is auto-downloaded and loaded on first use. For third-body
 /// force applications prefer `mars_barycenter_velocity_de`, which needs only
 /// the DE kernel.
 ///
@@ -590,7 +590,7 @@ fn py_mars_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 /// This function returns the Mars body-center state, combining the
 /// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
 /// body-center offset from the Mars satellite-system kernel (mar099s,
-/// ~64 MB), which is auto-downloaded and loaded on first use. For third-body
+/// ~68 MB), which is auto-downloaded and loaded on first use. For third-body
 /// force applications prefer `mars_barycenter_state_de`, which needs only
 /// the DE kernel.
 ///
@@ -741,7 +741,7 @@ fn py_jupiter_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisS
 ///
 /// This function returns the Saturn body center, combining the planetary-system
 /// barycenter from the DE kernel (DE440s or DE440) with the body-center offset
-/// from the Saturn satellite-system kernel (sat441, ~631 MB), which is
+/// from the Saturn satellite-system kernel (sat441, ~662 MB), which is
 /// auto-downloaded and loaded on first use. For third-body force applications
 /// prefer `saturn_barycenter_position_de`, which needs only the DE kernel.
 /// Loaded kernels are cached in a global thread-safe context, making
@@ -789,7 +789,7 @@ fn py_saturn_position_de<'py>(
 /// This function returns the Saturn body-center velocity, combining the
 /// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
 /// body-center offset from the Saturn satellite-system kernel (sat441,
-/// ~631 MB), which is auto-downloaded and loaded on first use. For third-body
+/// ~662 MB), which is auto-downloaded and loaded on first use. For third-body
 /// force applications prefer `saturn_barycenter_velocity_de`, which needs only
 /// the DE kernel.
 ///
@@ -824,7 +824,7 @@ fn py_saturn_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemeri
 /// This function returns the Saturn body-center state, combining the
 /// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
 /// body-center offset from the Saturn satellite-system kernel (sat441,
-/// ~631 MB), which is auto-downloaded and loaded on first use. For third-body
+/// ~662 MB), which is auto-downloaded and loaded on first use. For third-body
 /// force applications prefer `saturn_barycenter_state_de`, which needs only
 /// the DE kernel.
 ///
@@ -976,7 +976,7 @@ fn py_uranus_state_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemerisSo
 /// This function returns the Neptune body center, combining the
 /// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
 /// body-center offset from the Neptune satellite-system kernel (nep097,
-/// ~100 MB), which is auto-downloaded and loaded on first use. For third-body
+/// ~105 MB), which is auto-downloaded and loaded on first use. For third-body
 /// force applications prefer `neptune_barycenter_position_de`, which needs only
 /// the DE kernel. Loaded kernels are cached in a global thread-safe context,
 /// making subsequent calls very efficient.
@@ -1023,7 +1023,7 @@ fn py_neptune_position_de<'py>(
 /// This function returns the Neptune body-center velocity, combining the
 /// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
 /// body-center offset from the Neptune satellite-system kernel (nep097,
-/// ~100 MB), which is auto-downloaded and loaded on first use. For third-body
+/// ~105 MB), which is auto-downloaded and loaded on first use. For third-body
 /// force applications prefer `neptune_barycenter_velocity_de`, which needs only
 /// the DE kernel.
 ///
@@ -1058,7 +1058,7 @@ fn py_neptune_velocity_de<'py>(py: Python<'py>, epc: &PyEpoch, source: PyEphemer
 /// This function returns the Neptune body-center state, combining the
 /// planetary-system barycenter from the DE kernel (DE440s or DE440) with the
 /// body-center offset from the Neptune satellite-system kernel (nep097,
-/// ~100 MB), which is auto-downloaded and loaded on first use. For third-body
+/// ~105 MB), which is auto-downloaded and loaded on first use. For third-body
 /// force applications prefer `neptune_barycenter_state_de`, which needs only
 /// the DE kernel.
 ///

@@ -24,13 +24,13 @@ function both accept any of these — by name (`str`) in Python, by
 | `de440s`  | ~31 MB    | Small variant of DE440 (1849-2150) |
 | `de442`   | ~114 MB   | Intended for the MESSENGER mission to Mercury |
 | `de442s`  | ~31 MB    | Small variant of DE442 |
-| `mar099s` | ~64 MB    | Mars satellite ephemeris — Phobos, Deimos (1995-2050) |
+| `mar099s` | ~68 MB    | Mars satellite ephemeris — Phobos, Deimos (1995-2050) |
 | `mar099`  | ~1.1 GB   | Mars satellite ephemeris, wider time span (1600-2600) |
 | `jup365`  | ~1.1 GB   | Jupiter satellite ephemeris — Io, Europa, Ganymede, Callisto (1600-2200) |
-| `sat441`  | ~631 MB   | Saturn satellite ephemeris — Titan and mid-size moons (1750-2250) |
+| `sat441`  | ~662 MB   | Saturn satellite ephemeris — Titan and mid-size moons (1750-2250) |
 | `ura184`  | ~387 MB   | Uranus satellite ephemeris — Miranda, Ariel, Umbriel, Titania, Oberon (1600-2399) |
-| `nep097`  | ~100 MB   | Neptune satellite ephemeris — Triton (1600-2400) |
-| `plu060`  | ~129 MB   | Pluto-system ephemeris — Charon (1800-2200) |
+| `nep097`  | ~105 MB   | Neptune satellite ephemeris — Triton (1600-2400) |
+| `plu060`  | ~135 MB   | Pluto-system ephemeris — Charon (1800-2200) |
 | `moon_pa_de440` | ~13 MB | Lunar principal-axis binary PCK (orientation, not SPK) |
 </div>
 

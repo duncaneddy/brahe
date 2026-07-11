@@ -112,7 +112,7 @@ fn py_load_common_kernels() -> PyResult<()> {
 /// and the satellite-system kernels "mar099s", "jup365", "sat441", "ura184",
 /// "nep097", "plu060".
 ///
-/// ~2.4 GB total on first download; cached thereafter. Prefer
+/// ~2.5 GB total on first download; cached thereafter. Prefer
 /// `load_common_kernels` unless outer-planet body centers or moons are
 /// needed.
 ///

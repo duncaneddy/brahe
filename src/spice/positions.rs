@@ -336,7 +336,7 @@ body_center_de_functions!(
     NAIFId::Mars,
     NAIFId::MarsBarycenter,
     "mar099s",
-    "64 MB",
+    "68 MB",
     mars_position_de,
     mars_velocity_de,
     mars_state_de
@@ -356,7 +356,7 @@ body_center_de_functions!(
     NAIFId::Saturn,
     NAIFId::SaturnBarycenter,
     "sat441",
-    "631 MB",
+    "662 MB",
     saturn_position_de,
     saturn_velocity_de,
     saturn_state_de
@@ -376,7 +376,7 @@ body_center_de_functions!(
     NAIFId::Neptune,
     NAIFId::NeptuneBarycenter,
     "nep097",
-    "100 MB",
+    "105 MB",
     neptune_position_de,
     neptune_velocity_de,
     neptune_state_de
@@ -692,7 +692,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)] // downloads mar099s (~64 MB)
+    #[cfg_attr(not(feature = "integration"), ignore)] // downloads mar099s (~68 MB)
     fn test_mars_position_de_body_center() {
         setup_global_test_spice();
         let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);

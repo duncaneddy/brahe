@@ -68,13 +68,13 @@ caching details.
 | `de438` | `de438.bsp` | ~114 MB | — | Standard precision |
 | `de442` | `de442.bsp` | ~114 MB | — | Intended for the MESSENGER mission to Mercury |
 | `de442s` | `de442s.bsp` | ~31 MB | — | Small variant of `de442` |
-| `mar099s` | `mar099s.bsp` | ~64 MB | 1995–2050 | Mars, Phobos, Deimos (default Mars satellite kernel for body-center auto-download) |
+| `mar099s` | `mar099s.bsp` | ~68 MB | 1995–2050 | Mars, Phobos, Deimos (default Mars satellite kernel for body-center auto-download) |
 | `mar099` | `mar099.bsp` | ~1.1 GB | 1600–2600 | Mars, Phobos, Deimos, wider time span |
 | `jup365` | `jup365.bsp` | ~1.1 GB | 1600–2200 | Jupiter, Io, Europa, Ganymede, Callisto |
-| `sat441` | `sat441.bsp` | ~631 MB | 1750–2250 | Saturn, Titan and the mid-size moons |
+| `sat441` | `sat441.bsp` | ~662 MB | 1750–2250 | Saturn, Titan and the mid-size moons |
 | `ura184` | `ura184_part-3.bsp` | ~387 MB | 1600–2399 | Uranus, Miranda, Ariel, Umbriel, Titania, Oberon |
-| `nep097` | `nep097.bsp` | ~100 MB | 1600–2400 | Neptune, Triton |
-| `plu060` | `plu060.bsp` | ~129 MB | 1800–2200 | Pluto, Charon |
+| `nep097` | `nep097.bsp` | ~105 MB | 1600–2400 | Neptune, Triton |
+| `plu060` | `plu060.bsp` | ~135 MB | 1800–2200 | Pluto, Charon |
 | `moon_pa_de440` | `moon_pa_de440_200625.bpc` | ~13 MB | matches `de440`/`de440s` | Lunar principal-axis orientation (binary PCK, not an SPK) |
 
 Any string that does not match a name in this table is treated as a
@@ -105,7 +105,7 @@ the first time each body is queried:
 | Function | Loads | Download size |
 |---|---|---|
 | `load_common_kernels()` | `de440s`, `moon_pa_de440` | ~46 MB |
-| `load_all_kernels()` | `de440s`, `moon_pa_de440`, `mar099s`, `jup365`, `sat441`, `ura184`, `nep097`, `plu060` | ~2.4 GB |
+| `load_all_kernels()` | `de440s`, `moon_pa_de440`, `mar099s`, `jup365`, `sat441`, `ura184`, `nep097`, `plu060` | ~2.5 GB |
 
 Each kernel load within these calls is idempotent, so calling either
 alongside individual `load_kernel` calls is safe. Prefer
@@ -184,8 +184,8 @@ center**. The DE kernel only carries the planetary-system barycenter for these
 outer planets, so the body center is computed as a two-leg sum: the
 barycenter relative to Earth from the DE kernel, plus the body center relative
 to the barycenter from the planet's satellite-system kernel. That satellite
-kernel is auto-downloaded and loaded on first use (mar099s ~64 MB, jup365
-~1.1 GB, sat441 ~631 MB, ura184 ~387 MB, nep097 ~100 MB).
+kernel is auto-downloaded and loaded on first use (mar099s ~68 MB, jup365
+~1.1 GB, sat441 ~662 MB, ura184 ~387 MB, nep097 ~105 MB).
 
 Each of the five outer planets also has `mars_barycenter_position_de`,
 `jupiter_barycenter_position_de`, and so on (with `_velocity_de` / `_state_de`

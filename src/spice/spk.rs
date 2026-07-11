@@ -28,20 +28,27 @@ use super::daf::DAFFile;
 use super::segments::{ChebyshevSegment, coverage_error_multi, is_coverage_error};
 
 /// One link in a resolved target→center chain: the candidate segments for a
-/// single body pair (in input order; last-listed takes precedence) and the
-/// traversal sign.
+/// single body pair, each paired with its own traversal sign, kept in
+/// global input (load) order across *both* stored orientations. A stored
+/// segment `(target=node, center=prev)` contributes sign `+1.0`; one stored
+/// as `(target=prev, center=node)` contributes `-1.0`. Keeping both
+/// orientations merged in one input-ordered list (rather than preferring
+/// one direction outright) lets a later-loaded segment in either
+/// orientation override an earlier one, per SPICE last-loaded-wins
+/// precedence.
 #[derive(Debug, Clone)]
 pub(crate) struct ChainLink {
-    /// Candidate segments for this pair, kept in input order; evaluation
-    /// checks them last-to-first for ET coverage (last-listed wins).
-    pub segments: Vec<Arc<ChebyshevSegment>>,
-    /// +1.0 when the segment's (target rel center) direction matches the
-    /// traversal; −1.0 when traversed in reverse.
-    pub sign: f64,
+    /// Candidate `(segment, sign)` pairs for this pair, kept in input
+    /// order; evaluation checks them last-to-first for ET coverage
+    /// (last-listed wins).
+    pub candidates: Vec<(Arc<ChebyshevSegment>, f64)>,
 }
 
 /// Breadth-first search over the segment connectivity graph, returning the
-/// signed chain of links whose sum gives `target` rel `center`.
+/// signed chain of links whose sum gives `target` rel `center`. Each link's
+/// candidates merge both stored orientations for that pair in global input
+/// order, so last-loaded-wins precedence (see [`ChainLink`]) holds
+/// regardless of which orientation was loaded more recently.
 ///
 /// # Arguments
 /// - `segments`: Candidate segments to search (may span multiple kernels)
@@ -121,22 +128,21 @@ fn resolve_chain_filtered(
         return Ok(Vec::new());
     }
 
-    // Adjacency: body -> neighboring bodies. Pair key is (target, center)
-    // as stored in segments; candidates kept in input order (evaluation
-    // selects the last covering candidate, so later input wins).
-    let mut pair_segments: HashMap<(i32, i32), Vec<Arc<ChebyshevSegment>>> = HashMap::new();
+    // Adjacency: body -> neighboring bodies, for BFS topology only. `seen`
+    // dedupes adjacency entries per unordered pair; the actual candidate
+    // segments are gathered per edge below, in global input order across
+    // both orientations (see `ChainLink`).
+    let mut seen: HashSet<(i32, i32)> = HashSet::new();
     let mut adjacency: HashMap<i32, Vec<i32>> = HashMap::new();
     for seg in segments {
         if et.is_some_and(|et| !seg.covers(et)) {
             continue;
         }
         let key = (seg.target, seg.center);
-        let entry = pair_segments.entry(key).or_default();
-        if entry.is_empty() {
+        if seen.insert(key) {
             adjacency.entry(seg.target).or_default().push(seg.center);
             adjacency.entry(seg.center).or_default().push(seg.target);
         }
-        entry.push(Arc::clone(seg));
     }
 
     // BFS from center to target
@@ -173,59 +179,68 @@ fn resolve_chain_filtered(
     let mut node = target;
     while node != center {
         let prev = parent[&node];
-        // Edge prev -> node. A stored segment (target=node, center=prev)
-        // gives node rel prev directly (sign +1); (target=prev, center=node)
-        // gives the reverse (sign -1).
-        if let Some(segs) = pair_segments.get(&(node, prev)) {
-            chain.push(ChainLink {
-                segments: segs.clone(),
-                sign: 1.0,
-            });
-        } else {
-            let segs = pair_segments
-                .get(&(prev, node))
-                .expect("edge implies a stored pair in one direction");
-            chain.push(ChainLink {
-                segments: segs.clone(),
-                sign: -1.0,
-            });
+        // Merge candidates from both stored orientations in global input
+        // order so the registry's last-loaded-wins rule applies across
+        // direction: (target=node, center=prev) contributes sign +1,
+        // (target=prev, center=node) contributes sign -1.
+        let mut candidates: Vec<(Arc<ChebyshevSegment>, f64)> = Vec::new();
+        for seg in segments {
+            if et.is_some_and(|et| !seg.covers(et)) {
+                continue;
+            }
+            if seg.target == node && seg.center == prev {
+                candidates.push((Arc::clone(seg), 1.0));
+            } else if seg.target == prev && seg.center == node {
+                candidates.push((Arc::clone(seg), -1.0));
+            }
         }
+        debug_assert!(
+            !candidates.is_empty(),
+            "edge implies a stored pair in one direction"
+        );
+        chain.push(ChainLink { candidates });
         node = prev;
     }
     Ok(chain)
 }
 
-/// Select the last segment in `link` covering `et` (SPICE convention: the
-/// most recently loaded/last-listed segment takes precedence).
+/// Select the last candidate in `link` covering `et` (SPICE convention: the
+/// most recently loaded/last-listed segment takes precedence, checked
+/// across both stored orientations in global input order — see
+/// [`ChainLink`]).
 ///
 /// On a miss, the error reports the union of every candidate segment's
 /// coverage interval (not just the first candidate's, which can be far
 /// narrower than the union when a pair has multiple partial-coverage
 /// segments) and how many candidates were checked.
-fn covering_segment(link: &ChainLink, et: f64) -> Result<&Arc<ChebyshevSegment>, BraheError> {
-    link.segments
+fn covering_segment(
+    link: &ChainLink,
+    et: f64,
+) -> Result<(&Arc<ChebyshevSegment>, f64), BraheError> {
+    link.candidates
         .iter()
         .rev()
-        .find(|s| s.covers(et))
+        .find(|(s, _)| s.covers(et))
+        .map(|(s, sign)| (s, *sign))
         .ok_or_else(|| {
             let start_et = link
-                .segments
+                .candidates
                 .iter()
-                .map(|s| s.start_et)
+                .map(|(s, _)| s.start_et)
                 .fold(f64::INFINITY, f64::min);
             let end_et = link
-                .segments
+                .candidates
                 .iter()
-                .map(|s| s.end_et)
+                .map(|(s, _)| s.end_et)
                 .fold(f64::NEG_INFINITY, f64::max);
-            let s0 = &link.segments[0];
+            let (s0, _) = &link.candidates[0];
             coverage_error_multi(
                 et,
                 start_et,
                 end_et,
                 s0.target,
                 s0.center,
-                link.segments.len(),
+                link.candidates.len(),
             )
         })
 }
@@ -244,7 +259,8 @@ pub(crate) fn evaluate_chain_position(
 ) -> Result<Vector3<f64>, BraheError> {
     let mut r = Vector3::zeros();
     for link in chain {
-        r += covering_segment(link, et)?.position(et)? * link.sign;
+        let (seg, sign) = covering_segment(link, et)?;
+        r += seg.position(et)? * sign;
     }
     Ok(r)
 }
@@ -263,7 +279,8 @@ pub(crate) fn evaluate_chain_velocity(
 ) -> Result<Vector3<f64>, BraheError> {
     let mut v = Vector3::zeros();
     for link in chain {
-        v += covering_segment(link, et)?.velocity(et)? * link.sign;
+        let (seg, sign) = covering_segment(link, et)?;
+        v += seg.velocity(et)? * sign;
     }
     Ok(v)
 }
@@ -283,9 +300,10 @@ pub(crate) fn evaluate_chain_state(
     let mut r = Vector3::zeros();
     let mut v = Vector3::zeros();
     for link in chain {
-        let (lr, lv) = covering_segment(link, et)?.state(et)?;
-        r += lr * link.sign;
-        v += lv * link.sign;
+        let (seg, sign) = covering_segment(link, et)?;
+        let (lr, lv) = seg.state(et)?;
+        r += lr * sign;
+        v += lv * sign;
     }
     Ok((r, v))
 }
@@ -642,6 +660,21 @@ mod tests {
         // Only the earlier segment covers et=150: falls back to it.
         let r = evaluate_chain_position(&chain, 150.0).unwrap();
         assert_abs_diff_eq!(r[0], 1.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_resolve_chain_reversed_pair_last_loaded_wins() {
+        // Segment A: 301 rel 3 (direct), loaded first, x = 100.0.
+        // Segment B: 3 rel 301 (reversed), loaded second, x = -200.0 (i.e.
+        // 301 rel 3 = +200.0 by that segment's data).
+        let seg_direct = constant_segment(301, 3, 0.0, 1000.0, 100.0);
+        let seg_reverse = constant_segment(3, 301, 0.0, 1000.0, -200.0);
+        let chain = resolve_chain(&[seg_direct, seg_reverse], 301, 3).unwrap();
+
+        // Last-loaded-wins must apply across direction: the later reversed
+        // segment overrides the earlier direct one.
+        let r = evaluate_chain_position(&chain, 500.0).unwrap();
+        assert_abs_diff_eq!(r[0], 200.0, epsilon = 1e-12);
     }
 
     #[test]

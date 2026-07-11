@@ -413,6 +413,141 @@ fn py_pck_euler_angles<'py>(
     Ok((vector_to_numpy!(py, a, 3, f64), vector_to_numpy!(py, r, 3, f64)))
 }
 
+/// 3-1-3 Euler angle of a PCK body-fixed frame relative to ICRF.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via `bh.load_kernel(...)` first.
+///
+/// Args:
+///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+///     epc (Epoch): Epoch of the query
+///
+/// Returns:
+///     EulerAngle: ICRF to body-fixed orientation (order ZXZ, radians)
+///
+/// Raises:
+///     RuntimeError: If no loaded binary PCK provides the frame at the epoch
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.load_kernel("moon_pa_de440")
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     e = bh.pck_euler_angle(31008, epc)
+///     ```
+#[pyfunction]
+#[pyo3(name = "pck_euler_angle")]
+fn py_pck_euler_angle(frame_id: i32, epc: &PyEpoch) -> PyResult<PyEulerAngle> {
+    let e = spice::pck_euler_angle(frame_id, epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(PyEulerAngle { obj: e })
+}
+
+/// Time derivatives of the 3-1-3 Euler angles of a PCK body-fixed frame.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via `bh.load_kernel(...)` first.
+///
+/// Args:
+///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+///     epc (Epoch): Epoch of the query
+///
+/// Returns:
+///     np.ndarray: [phi_dot, delta_dot, w_dot] in rad/s
+///
+/// Raises:
+///     RuntimeError: If no loaded binary PCK provides the frame at the epoch
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.load_kernel("moon_pa_de440")
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     rates = bh.pck_euler_rates(31008, epc)
+///     ```
+#[pyfunction]
+#[pyo3(name = "pck_euler_rates")]
+fn py_pck_euler_rates<'py>(
+    py: Python<'py>,
+    frame_id: i32,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let r = spice::pck_euler_rates(frame_id, epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, r, 3, f64))
+}
+
+/// Typed Euler angle and its rates for a PCK body-fixed frame, from a
+/// single shared segment lookup.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via `bh.load_kernel(...)` first.
+///
+/// Args:
+///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+///     epc (Epoch): Epoch of the query
+///
+/// Returns:
+///     tuple: (EulerAngle, np.ndarray) — orientation (order ZXZ, radians)
+///         and rates [phi_dot, delta_dot, w_dot] in rad/s
+///
+/// Raises:
+///     RuntimeError: If no loaded binary PCK provides the frame at the epoch
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.load_kernel("moon_pa_de440")
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     angle, rates = bh.pck_euler_angle_and_rates(31008, epc)
+///     ```
+#[pyfunction]
+#[pyo3(name = "pck_euler_angle_and_rates")]
+fn py_pck_euler_angle_and_rates<'py>(
+    py: Python<'py>,
+    frame_id: i32,
+    epc: &PyEpoch,
+) -> PyResult<(PyEulerAngle, Bound<'py, PyArray<f64, Ix1>>)> {
+    let (e, r) = spice::pck_euler_angle_and_rates(frame_id, epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok((PyEulerAngle { obj: e }, vector_to_numpy!(py, r, 3, f64)))
+}
+
+/// Orientation of a PCK body-fixed frame relative to ICRF, as a unit
+/// quaternion.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via `bh.load_kernel(...)` first.
+///
+/// Args:
+///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+///     epc (Epoch): Epoch of the query
+///
+/// Returns:
+///     Quaternion: Unit quaternion (ICRF to body-fixed). Dimensionless.
+///
+/// Raises:
+///     RuntimeError: If no loaded binary PCK provides the frame at the epoch
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.load_kernel("moon_pa_de440")
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     q = bh.pck_quaternion(31008, epc)
+///     ```
+#[pyfunction]
+#[pyo3(name = "pck_quaternion")]
+fn py_pck_quaternion(frame_id: i32, epc: &PyEpoch) -> PyResult<PyQuaternion> {
+    let q = spice::pck_quaternion(frame_id, epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(PyQuaternion { obj: q })
+}
+
 /// Rotation matrix from ICRF to a PCK body-fixed frame.
 ///
 /// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
@@ -423,7 +558,7 @@ fn py_pck_euler_angles<'py>(
 ///     epc (Epoch): Epoch of the query
 ///
 /// Returns:
-///     np.ndarray: 3x3 rotation matrix (ICRF to body-fixed). Dimensionless.
+///     RotationMatrix: 3x3 rotation matrix (ICRF to body-fixed). Dimensionless.
 ///
 /// Raises:
 ///     RuntimeError: If no loaded binary PCK provides the frame at the epoch
@@ -438,12 +573,8 @@ fn py_pck_euler_angles<'py>(
 ///     ```
 #[pyfunction]
 #[pyo3(name = "pck_rotation_matrix")]
-fn py_pck_rotation_matrix<'py>(
-    py: Python<'py>,
-    frame_id: i32,
-    epc: &PyEpoch,
-) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+fn py_pck_rotation_matrix(frame_id: i32, epc: &PyEpoch) -> PyResult<PyRotationMatrix> {
     let m = spice::pck_rotation_matrix(frame_id, epc.obj)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok(matrix_to_numpy!(py, m, 3, 3, f64))
+    Ok(PyRotationMatrix { obj: m })
 }

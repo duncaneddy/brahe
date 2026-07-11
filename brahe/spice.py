@@ -10,7 +10,7 @@ This module provides:
 - load_common_kernels / load_all_kernels: Bulk kernel pre-loading helpers
 - spk_position / spk_velocity / spk_state: Generic SPK queries against all loaded kernels
 - spk_position_from_kernel / spk_velocity_from_kernel / spk_state_from_kernel: SPK queries scoped to a single named kernel
-- pck_euler_angles / pck_rotation_matrix: Generic binary PCK orientation queries
+- pck_euler_angles / pck_euler_angle / pck_euler_rates / pck_euler_angle_and_rates / pck_quaternion / pck_rotation_matrix: Generic binary PCK orientation queries
 - NAIF_* constants: NAIF body ID constants
 
 Example:
@@ -37,6 +37,10 @@ from brahe._brahe import (
     spk_velocity_from_kernel,
     spk_state_from_kernel,
     pck_euler_angles,
+    pck_euler_angle,
+    pck_euler_rates,
+    pck_euler_angle_and_rates,
+    pck_quaternion,
     pck_rotation_matrix,
     NAIF_SSB,
     NAIF_MERCURY_BARYCENTER,
@@ -70,6 +74,10 @@ __all__ = [
     "spk_velocity_from_kernel",
     "spk_state_from_kernel",
     "pck_euler_angles",
+    "pck_euler_angle",
+    "pck_euler_rates",
+    "pck_euler_angle_and_rates",
+    "pck_quaternion",
     "pck_rotation_matrix",
     "NAIF_SSB",
     "NAIF_MERCURY_BARYCENTER",

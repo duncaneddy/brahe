@@ -136,3 +136,28 @@ def test_spk_position_from_kernel_auto_loads():
     r = bh.spk_position_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
     assert r.shape == (3,)
     assert "de440s" in bh.loaded_kernels()
+
+
+@pytest.mark.integration
+def test_pck_typed_returns(eop):
+    bh.load_kernel("moon_pa_de440")
+    epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+    e = bh.pck_euler_angle(31008, epc)
+    assert isinstance(e, bh.EulerAngle)
+    r = bh.pck_rotation_matrix(31008, epc)
+    assert isinstance(r, bh.RotationMatrix)
+    q = bh.pck_quaternion(31008, epc)
+    assert isinstance(q, bh.Quaternion)
+    np.testing.assert_allclose(
+        e.to_rotation_matrix().to_matrix(), r.to_matrix(), atol=1e-12
+    )
+
+    rates = bh.pck_euler_rates(31008, epc)
+    e2, rates2 = bh.pck_euler_angle_and_rates(31008, epc)
+    assert isinstance(e2, bh.EulerAngle)
+    assert e2 == e
+    np.testing.assert_allclose(rates2, rates, atol=0.0)
+
+    # Restore baseline registry state for other tests.
+    bh.clear_kernels()
+    bh.initialize_ephemeris()

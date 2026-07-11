@@ -266,7 +266,7 @@ fn test_validation_pck_moon_pa_vs_anise() {
 
     let mut max_delta = 0.0_f64;
     for &et in &[0.0_f64, 1.0e8, 5.0e8, -1.0e8] {
-        let r_native = bpck.rotation_matrix(31008, et).unwrap();
+        let r_native = bpck.rotation_matrix(31008, et).unwrap().to_matrix();
         let epoch = AniseEpoch::from_et_seconds(et);
         let dcm = almanac.rotation_to_parent(moon_pa_frame, epoch).unwrap();
         for i in 0..3 {

@@ -17,9 +17,10 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use nalgebra::{Matrix3, Vector3, Vector6};
+use nalgebra::{Vector3, Vector6};
 use once_cell::sync::Lazy;
 
+use crate::attitude::{EulerAngle, Quaternion, RotationMatrix};
 use crate::datasets::naif::download_kernel;
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -747,6 +748,124 @@ pub fn pck_euler_angles(
     pck_query(frame_id, epc, |pck, f, et| pck.euler_angles(f, et))
 }
 
+/// 3-1-3 Euler angle of the body-fixed frame `frame_id` relative to its
+/// segment reference frame (ICRF for DE440-era kernels), searching loaded
+/// PCK kernels newest-first.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via [`load_kernel`] first.
+///
+/// # Arguments
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+/// - `epc`: Epoch at which to evaluate the orientation
+///
+/// # Returns
+/// - `EulerAngle` (order `ZXZ`, radians): ICRF to body-fixed orientation
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{FrameId, load_kernel, pck_euler_angle};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let e = pck_euler_angle(FrameId::MoonPaDe440, epc).unwrap();
+/// ```
+pub fn pck_euler_angle(frame_id: impl Into<FrameId>, epc: Epoch) -> Result<EulerAngle, BraheError> {
+    let frame_id = frame_id.into().id();
+    pck_query(frame_id, epc, |pck, f, et| pck.euler_angle(f, et))
+}
+
+/// Time derivatives of the 3-1-3 Euler angles of the body-fixed frame
+/// `frame_id`, searching loaded PCK kernels newest-first.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via [`load_kernel`] first.
+///
+/// # Arguments
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+/// - `epc`: Epoch at which to evaluate the orientation
+///
+/// # Returns
+/// - `[phi_dot, delta_dot, w_dot]` in [rad/s]
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{FrameId, load_kernel, pck_euler_rates};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let rates = pck_euler_rates(FrameId::MoonPaDe440, epc).unwrap();
+/// ```
+pub fn pck_euler_rates(
+    frame_id: impl Into<FrameId>,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    let frame_id = frame_id.into().id();
+    pck_query(frame_id, epc, |pck, f, et| pck.euler_rates(f, et))
+}
+
+/// Typed Euler angle and its rates for the body-fixed frame `frame_id`,
+/// from a single shared segment lookup, searching loaded PCK kernels
+/// newest-first.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via [`load_kernel`] first.
+///
+/// # Arguments
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+/// - `epc`: Epoch at which to evaluate the orientation
+///
+/// # Returns
+/// - `(angle, rates)`: `angle` is the `EulerAngle` (order `ZXZ`, radians);
+///   `rates` are `[phi_dot, delta_dot, w_dot]` in [rad/s]
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{FrameId, load_kernel, pck_euler_angle_and_rates};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let (angle, rates) = pck_euler_angle_and_rates(FrameId::MoonPaDe440, epc).unwrap();
+/// ```
+pub fn pck_euler_angle_and_rates(
+    frame_id: impl Into<FrameId>,
+    epc: Epoch,
+) -> Result<(EulerAngle, Vector3<f64>), BraheError> {
+    let frame_id = frame_id.into().id();
+    pck_query(frame_id, epc, |pck, f, et| pck.euler_angle_and_rates(f, et))
+}
+
+/// Orientation of the body-fixed frame `frame_id` relative to its segment
+/// reference frame (ICRF for DE440-era kernels), as a unit `Quaternion`,
+/// searching loaded PCK kernels newest-first.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via [`load_kernel`] first.
+///
+/// # Arguments
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+/// - `epc`: Epoch at which to evaluate the orientation
+///
+/// # Returns
+/// - Unit `Quaternion` (ICRF to body-fixed). Dimensionless.
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{FrameId, load_kernel, pck_quaternion};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let q = pck_quaternion(FrameId::MoonPaDe440, epc).unwrap();
+/// ```
+pub fn pck_quaternion(frame_id: impl Into<FrameId>, epc: Epoch) -> Result<Quaternion, BraheError> {
+    let frame_id = frame_id.into().id();
+    pck_query(frame_id, epc, |pck, f, et| pck.quaternion(f, et))
+}
+
 /// Rotation matrix from the segment reference frame (ICRF) to the
 /// body-fixed frame `frame_id`, searching loaded PCK kernels newest-first.
 ///
@@ -772,7 +891,7 @@ pub fn pck_euler_angles(
 pub fn pck_rotation_matrix(
     frame_id: impl Into<FrameId>,
     epc: Epoch,
-) -> Result<Matrix3<f64>, BraheError> {
+) -> Result<RotationMatrix, BraheError> {
     let frame_id = frame_id.into().id();
     pck_query(frame_id, epc, |pck, f, et| pck.rotation_matrix(f, et))
 }
@@ -781,9 +900,11 @@ pub fn pck_rotation_matrix(
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use nalgebra::Matrix3;
     use serial_test::serial;
 
     use super::*;
+    use crate::attitude::ToAttitude;
     use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_spice;
 
@@ -1285,9 +1406,15 @@ mod tests {
         assert_eq!(loaded_kernels(), vec!["moon_pa_de440".to_string()]);
 
         // Frame class 31008 (MOON_PA_DE440) has coverage at 2025-01-01.
-        let r = pck_rotation_matrix(31008, epc_2025()).unwrap();
+        let r = pck_rotation_matrix(31008, epc_2025()).unwrap().to_matrix();
         let rtr = r.transpose() * r;
         assert_abs_diff_eq!((rtr - Matrix3::identity()).norm(), 0.0, epsilon = 1e-9);
+
+        // Typed accessors agree with the rotation matrix at the same epoch.
+        let e = pck_euler_angle(31008, epc_2025()).unwrap();
+        assert_abs_diff_eq!(e.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
+        let q = pck_quaternion(31008, epc_2025()).unwrap();
+        assert_abs_diff_eq!(q.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
 
         // Restore global state for other tests.
         clear_kernels();

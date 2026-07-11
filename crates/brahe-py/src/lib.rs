@@ -998,6 +998,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_spk_velocity_from_kernel, module)?)?;
     module.add_function(wrap_pyfunction!(py_spk_state_from_kernel, module)?)?;
     module.add_function(wrap_pyfunction!(py_pck_euler_angles, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_euler_angle, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_euler_rates, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_euler_angle_and_rates, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_quaternion, module)?)?;
     module.add_function(wrap_pyfunction!(py_pck_rotation_matrix, module)?)?;
 
     // NAIF ID constants

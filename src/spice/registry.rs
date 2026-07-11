@@ -477,18 +477,19 @@ pub fn spk_state(
     ))
 }
 
-/// Fetch the loaded `Kernel::Spk` entry for `kernel_name`, loading it first
-/// if absent.
-fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
-    load_kernel(kernel_name)?;
+/// Fetch the loaded `Kernel::Spk` entry for `kernel`, loading it first if
+/// absent.
+fn spk_kernel_for_query(kernel: KernelSource) -> Result<Arc<SPK>, BraheError> {
+    let key = kernel.key().to_string();
+    load_kernel(kernel)?;
     let reg = GLOBAL_SPICE.read().unwrap();
-    match reg.kernels.get(kernel_name) {
+    match reg.kernels.get(&key) {
         Some(Kernel::Spk(spk)) => Ok(Arc::clone(spk)),
         Some(Kernel::Pck(_)) => Err(BraheError::Error(format!(
             "Kernel '{}' is a binary PCK, not an SPK",
-            kernel_name
+            key
         ))),
-        None => unreachable!("load_kernel just ensured '{kernel_name}' is present"),
+        None => unreachable!("load_kernel just ensured '{key}' is present"),
     }
 }
 
@@ -500,8 +501,8 @@ fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
 /// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel_name`: A known DE kernel name (e.g. `"de440s"`, `"de440"`), or
-///   a path to a `.bsp` file
+/// - `kernel`: A known kernel name/[`NAIFKernel`], or a path to a `.bsp`
+///   file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
 /// - `epc`: Epoch at which to evaluate the position
@@ -512,21 +513,21 @@ fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{NAIFId, spk_position_in_kernel};
+/// use brahe::spice::{NAIFId, spk_position_from_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let r_moon = spk_position_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+/// let r_moon = spk_position_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_position_in_kernel(
-    kernel_name: &str,
+pub fn spk_position_from_kernel(
+    kernel: impl Into<KernelSource>,
     target: impl Into<NAIFId>,
     center: impl Into<NAIFId>,
     epc: Epoch,
 ) -> Result<Vector3<f64>, BraheError> {
     let target = target.into().id();
     let center = center.into().id();
-    let spk = spk_kernel_for_query(kernel_name)?;
+    let spk = spk_kernel_for_query(kernel.into())?;
     spk.position(target, center, epoch_to_et(epc))
 }
 
@@ -538,8 +539,8 @@ pub fn spk_position_in_kernel(
 /// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel_name`: A known DE kernel name (e.g. `"de440s"`, `"de440"`), or
-///   a path to a `.bsp` file
+/// - `kernel`: A known kernel name/[`NAIFKernel`], or a path to a `.bsp`
+///   file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
 /// - `epc`: Epoch at which to evaluate the velocity
@@ -550,21 +551,21 @@ pub fn spk_position_in_kernel(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{NAIFId, spk_velocity_in_kernel};
+/// use brahe::spice::{NAIFId, spk_velocity_from_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let v_moon = spk_velocity_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+/// let v_moon = spk_velocity_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_velocity_in_kernel(
-    kernel_name: &str,
+pub fn spk_velocity_from_kernel(
+    kernel: impl Into<KernelSource>,
     target: impl Into<NAIFId>,
     center: impl Into<NAIFId>,
     epc: Epoch,
 ) -> Result<Vector3<f64>, BraheError> {
     let target = target.into().id();
     let center = center.into().id();
-    let spk = spk_kernel_for_query(kernel_name)?;
+    let spk = spk_kernel_for_query(kernel.into())?;
     spk.velocity(target, center, epoch_to_et(epc))
 }
 
@@ -576,8 +577,8 @@ pub fn spk_velocity_in_kernel(
 /// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel_name`: A known DE kernel name (e.g. `"de440s"`, `"de440"`), or
-///   a path to a `.bsp` file
+/// - `kernel`: A known kernel name/[`NAIFKernel`], or a path to a `.bsp`
+///   file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
 /// - `epc`: Epoch at which to evaluate the state
@@ -588,21 +589,21 @@ pub fn spk_velocity_in_kernel(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{NAIFId, spk_state_in_kernel};
+/// use brahe::spice::{NAIFId, spk_state_from_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let x_moon = spk_state_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+/// let x_moon = spk_state_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_state_in_kernel(
-    kernel_name: &str,
+pub fn spk_state_from_kernel(
+    kernel: impl Into<KernelSource>,
     target: impl Into<NAIFId>,
     center: impl Into<NAIFId>,
     epc: Epoch,
 ) -> Result<Vector6<f64>, BraheError> {
     let target = target.into().id();
     let center = center.into().id();
-    let spk = spk_kernel_for_query(kernel_name)?;
+    let spk = spk_kernel_for_query(kernel.into())?;
     spk.state(target, center, epoch_to_et(epc))
 }
 
@@ -1171,9 +1172,10 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_spk_position_in_kernel_scoped() {
+    fn test_spk_position_from_kernel_scoped() {
         setup_global_test_spice();
-        let r = spk_position_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc_2025()).unwrap();
+        let r =
+            spk_position_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc_2025()).unwrap();
         assert!(r.norm() > 3.5e8 && r.norm() < 4.1e8);
     }
 

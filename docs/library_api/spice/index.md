@@ -39,17 +39,17 @@ convenience functions, see the
 
 ## Kernel-Scoped SPK Queries
 
-### spk_position_in_kernel
+### spk_position_from_kernel
 
-::: brahe.spk_position_in_kernel
+::: brahe.spk_position_from_kernel
 
-### spk_velocity_in_kernel
+### spk_velocity_from_kernel
 
-::: brahe.spk_velocity_in_kernel
+::: brahe.spk_velocity_from_kernel
 
-### spk_state_in_kernel
+### spk_state_from_kernel
 
-::: brahe.spk_state_in_kernel
+::: brahe.spk_state_from_kernel
 
 ## PCK Orientation Queries
 

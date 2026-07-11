@@ -8,7 +8,7 @@ queries against the registry.
 This module provides:
 - load_kernel / unload_kernel / clear_kernels / loaded_kernels: Kernel registry management
 - spk_position / spk_velocity / spk_state: Generic SPK queries against all loaded kernels
-- spk_position_in_kernel / spk_velocity_in_kernel / spk_state_in_kernel: SPK queries scoped to a single named kernel
+- spk_position_from_kernel / spk_velocity_from_kernel / spk_state_from_kernel: SPK queries scoped to a single named kernel
 - pck_euler_angles / pck_rotation_matrix: Generic binary PCK orientation queries
 - NAIF_* constants: NAIF body ID constants
 
@@ -30,9 +30,9 @@ from brahe._brahe import (
     spk_position,
     spk_velocity,
     spk_state,
-    spk_position_in_kernel,
-    spk_velocity_in_kernel,
-    spk_state_in_kernel,
+    spk_position_from_kernel,
+    spk_velocity_from_kernel,
+    spk_state_from_kernel,
     pck_euler_angles,
     pck_rotation_matrix,
     NAIF_SSB,
@@ -61,9 +61,9 @@ __all__ = [
     "spk_position",
     "spk_velocity",
     "spk_state",
-    "spk_position_in_kernel",
-    "spk_velocity_in_kernel",
-    "spk_state_in_kernel",
+    "spk_position_from_kernel",
+    "spk_velocity_from_kernel",
+    "spk_state_from_kernel",
     "pck_euler_angles",
     "pck_rotation_matrix",
     "NAIF_SSB",

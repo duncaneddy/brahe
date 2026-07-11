@@ -43,7 +43,7 @@ fn main() {
     // Kernel-scoped variants query a single named kernel directly, bypassing
     // cross-kernel chaining and precedence.
     let r_moon_de440s =
-        bh::spice::spk_position_in_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        bh::spice::spk_position_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
     println!(
         "\nMoon position from de440s directly (km): [{:.3}, {:.3}, {:.3}]",
         r_moon_de440s[0] / 1e3,

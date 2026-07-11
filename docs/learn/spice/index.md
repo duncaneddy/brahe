@@ -108,7 +108,7 @@ brahe.
 
 ### Kernel-Scoped Queries
 
-`spk_position_in_kernel`, `spk_velocity_in_kernel`, and `spk_state_in_kernel`
+`spk_position_from_kernel`, `spk_velocity_from_kernel`, and `spk_state_from_kernel`
 take an additional `kernel_name` argument and query **that kernel only** —
 no cross-kernel chaining is performed and the registry's precedence rules do
 not apply. The named kernel is auto-loaded if not already resident. Use

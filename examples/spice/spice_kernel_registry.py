@@ -33,7 +33,7 @@ print(f"Sun distance rel. Earth (AU): {np.linalg.norm(x_sun[0:3]) / bh.AU:.6f}")
 
 # Kernel-scoped variants query a single named kernel directly, bypassing
 # cross-kernel chaining and precedence.
-r_moon_de440s = bh.spk_position_in_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+r_moon_de440s = bh.spk_position_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
 print(f"\nMoon position from de440s directly (km): {r_moon_de440s / 1e3}")
 
 # Per-body convenience functions wrap the same queries for the ten most

@@ -15,7 +15,7 @@ use crate::utils::BraheError;
 
 use super::kernels::NAIFKernel;
 use super::naif_id::NAIFId;
-use super::registry::{spk_position_in_kernel, spk_state_in_kernel, spk_velocity_in_kernel};
+use super::registry::{spk_position_from_kernel, spk_state_from_kernel, spk_velocity_from_kernel};
 
 macro_rules! body_de_functions {
     ($body_name:literal, $target:expr, $pos_fn:ident, $vel_fn:ident, $state_fn:ident) => {
@@ -46,7 +46,7 @@ macro_rules! body_de_functions {
         /// # Ok::<(), brahe::utils::BraheError>(())
         /// ```
         pub fn $pos_fn(epc: Epoch, kernel: NAIFKernel) -> Result<Vector3<f64>, BraheError> {
-            spk_position_in_kernel(kernel.name(), $target, NAIFId::Earth, epc)
+            spk_position_from_kernel(kernel, $target, NAIFId::Earth, epc)
         }
 
         #[doc = concat!("Calculate the velocity of ", $body_name, " relative to Earth using NAIF DE ephemerides.")]
@@ -76,7 +76,7 @@ macro_rules! body_de_functions {
         /// # Ok::<(), brahe::utils::BraheError>(())
         /// ```
         pub fn $vel_fn(epc: Epoch, kernel: NAIFKernel) -> Result<Vector3<f64>, BraheError> {
-            spk_velocity_in_kernel(kernel.name(), $target, NAIFId::Earth, epc)
+            spk_velocity_from_kernel(kernel, $target, NAIFId::Earth, epc)
         }
 
         #[doc = concat!("Calculate the state (position and velocity) of ", $body_name, " relative to Earth using NAIF DE ephemerides.")]
@@ -107,7 +107,7 @@ macro_rules! body_de_functions {
         /// # Ok::<(), brahe::utils::BraheError>(())
         /// ```
         pub fn $state_fn(epc: Epoch, kernel: NAIFKernel) -> Result<Vector6<f64>, BraheError> {
-            spk_state_in_kernel(kernel.name(), $target, NAIFId::Earth, epc)
+            spk_state_from_kernel(kernel, $target, NAIFId::Earth, epc)
         }
     };
 }

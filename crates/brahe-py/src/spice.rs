@@ -228,18 +228,18 @@ fn py_spk_state<'py>(
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     r = bh.spk_position_in_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+///     r = bh.spk_position_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "spk_position_in_kernel")]
-fn py_spk_position_in_kernel<'py>(
+#[pyo3(name = "spk_position_from_kernel")]
+fn py_spk_position_from_kernel<'py>(
     py: Python<'py>,
     kernel_name: &str,
     target: i32,
     center: i32,
     epc: &PyEpoch,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let r = spice::spk_position_in_kernel(kernel_name, target, center, epc.obj)
+    let r = spice::spk_position_from_kernel(kernel_name, target, center, epc.obj)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, r, 3, f64))
 }
@@ -271,18 +271,18 @@ fn py_spk_position_in_kernel<'py>(
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     v = bh.spk_velocity_in_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+///     v = bh.spk_velocity_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "spk_velocity_in_kernel")]
-fn py_spk_velocity_in_kernel<'py>(
+#[pyo3(name = "spk_velocity_from_kernel")]
+fn py_spk_velocity_from_kernel<'py>(
     py: Python<'py>,
     kernel_name: &str,
     target: i32,
     center: i32,
     epc: &PyEpoch,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let v = spice::spk_velocity_in_kernel(kernel_name, target, center, epc.obj)
+    let v = spice::spk_velocity_from_kernel(kernel_name, target, center, epc.obj)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, v, 3, f64))
 }
@@ -314,18 +314,18 @@ fn py_spk_velocity_in_kernel<'py>(
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     x = bh.spk_state_in_kernel("de440s", bh.NAIF_SUN, bh.NAIF_EARTH, epc)
+///     x = bh.spk_state_from_kernel("de440s", bh.NAIF_SUN, bh.NAIF_EARTH, epc)
 ///     ```
 #[pyfunction]
-#[pyo3(name = "spk_state_in_kernel")]
-fn py_spk_state_in_kernel<'py>(
+#[pyo3(name = "spk_state_from_kernel")]
+fn py_spk_state_from_kernel<'py>(
     py: Python<'py>,
     kernel_name: &str,
     target: i32,
     center: i32,
     epc: &PyEpoch,
 ) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
-    let x = spice::spk_state_in_kernel(kernel_name, target, center, epc.obj)
+    let x = spice::spk_state_from_kernel(kernel_name, target, center, epc.obj)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, x, 6, f64))
 }

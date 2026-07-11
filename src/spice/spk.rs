@@ -24,7 +24,7 @@ use nalgebra::{Vector3, Vector6};
 
 use crate::utils::BraheError;
 
-use super::daf::DafFile;
+use super::daf::DAFFile;
 use super::segments::{ChebyshevSegment, coverage_error_multi, is_coverage_error};
 
 /// One link in a resolved target→center chain: the candidate segments for a
@@ -382,7 +382,7 @@ impl SPK {
     /// let spk = SPK::from_file(Path::new("de440s.bsp")).unwrap();
     /// ```
     pub fn from_file(path: &Path) -> Result<Self, BraheError> {
-        let daf = DafFile::from_file(path)?;
+        let daf = DAFFile::from_file(path)?;
         Self::from_daf(daf)
     }
 
@@ -402,10 +402,10 @@ impl SPK {
     /// let _ = SPK::from_bytes(&bytes); // no-op if the test asset is absent
     /// ```
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, BraheError> {
-        Self::from_daf(DafFile::from_bytes(bytes)?)
+        Self::from_daf(DAFFile::from_bytes(bytes)?)
     }
 
-    pub(crate) fn from_daf(daf: DafFile) -> Result<Self, BraheError> {
+    pub(crate) fn from_daf(daf: DAFFile) -> Result<Self, BraheError> {
         if daf.id_word != "DAF/SPK" {
             return Err(BraheError::IoError(format!(
                 "Not an SPK kernel: ID word is '{}', expected 'DAF/SPK'",
@@ -927,7 +927,7 @@ mod tests {
         // A DAF/PCK ID word must be rejected by SPK::from_bytes. The DAF
         // must still be structurally valid (file record + one empty summary
         // record + its name record) so the failure is the SPK-level ID word
-        // check, not an earlier DafFile parse error.
+        // check, not an earlier DAFFile parse error.
         let mut file = vec![0u8; 3 * 1024];
         file[..8].copy_from_slice(b"DAF/PCK ");
         file[8..12].copy_from_slice(&2i32.to_le_bytes());

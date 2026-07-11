@@ -26,7 +26,7 @@ use crate::datasets::naif::{
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::daf::DafFile;
+use super::daf::DAFFile;
 use super::pck::BPCK;
 use super::segments::{ChebyshevSegment, is_coverage_error};
 use super::spk::{
@@ -170,7 +170,7 @@ pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
     }
 
     let path = resolve_kernel_source(name_or_path)?;
-    let daf = DafFile::from_file(&path)?;
+    let daf = DAFFile::from_file(&path)?;
     let kernel = match daf.id_word.as_str() {
         "DAF/SPK" => Kernel::Spk(Arc::new(SPK::from_daf(daf)?)),
         "DAF/PCK" => Kernel::Pck(Arc::new(BPCK::from_daf(daf)?)),

@@ -17,7 +17,7 @@ use nalgebra::Vector3;
 
 use crate::utils::BraheError;
 
-use super::daf::{DafFile, DafSummary};
+use super::daf::{DAFFile, DAFSummary};
 
 /// One Chebyshev-interpolated kernel segment with coefficients resident in
 /// memory. Covers SPK types 2/3 and binary PCK type 2.
@@ -265,7 +265,7 @@ impl ChebyshevSegment {
     /// # Returns
     /// - Parsed `ChebyshevSegment`, or `BraheError` on malformed data or an
     ///   unsupported segment type
-    pub fn from_spk_summary(daf: &DafFile, summary: &DafSummary) -> Result<Self, BraheError> {
+    pub fn from_spk_summary(daf: &DAFFile, summary: &DAFSummary) -> Result<Self, BraheError> {
         if summary.ints.len() < 6 || summary.doubles.len() < 2 {
             return Err(BraheError::IoError(format!(
                 "SPK segment '{}' summary has {} ints and {} doubles, expected 6 ints and at least 2 doubles",
@@ -297,7 +297,7 @@ impl ChebyshevSegment {
     /// # Returns
     /// - Parsed `ChebyshevSegment`, or `BraheError` on malformed data or an
     ///   unsupported segment type
-    pub fn from_pck_summary(daf: &DafFile, summary: &DafSummary) -> Result<Self, BraheError> {
+    pub fn from_pck_summary(daf: &DAFFile, summary: &DAFSummary) -> Result<Self, BraheError> {
         if summary.ints.len() < 5 || summary.doubles.len() < 2 {
             return Err(BraheError::IoError(format!(
                 "PCK segment '{}' summary has {} ints and {} doubles, expected 5 ints and at least 2 doubles",
@@ -339,8 +339,8 @@ impl ChebyshevSegment {
     ///   cover the descriptor's coverage interval
     #[allow(clippy::too_many_arguments)]
     fn from_summary(
-        daf: &DafFile,
-        summary: &DafSummary,
+        daf: &DAFFile,
+        summary: &DAFSummary,
         target: i32,
         center: i32,
         frame: i32,
@@ -758,7 +758,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         for summary in &daf.summaries {
             let seg = ChebyshevSegment::from_spk_summary(&daf, summary).unwrap();
             assert_eq!(seg.data_type, 2);
@@ -793,7 +793,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         summary.ints[3] = 13; // pretend type 13
         let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
@@ -810,11 +810,11 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         // PCK ints layout: [frame_class_id, reference_frame, type, start, end].
         // Type 3 is not supported for PCK (only SPK); the error must not
         // claim otherwise.
-        let summary = DafSummary {
+        let summary = DAFSummary {
             name: "TEST_PCK".to_string(),
             doubles: vec![0.0, 1.0],
             ints: vec![10, 1, 3, 1, 1],
@@ -837,7 +837,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         summary.ints[2] = 17; // ECLIPJ2000
         let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
@@ -856,8 +856,8 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
-        let summary = DafSummary {
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
+        let summary = DAFSummary {
             name: "TEST_PCK".to_string(),
             doubles: vec![0.0, 1.0],
             ints: vec![10, 17, 2, 1, 1],
@@ -876,7 +876,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         summary.ints.truncate(5); // one short of the required 6
         let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
@@ -928,7 +928,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         // Claim the descriptor covers far beyond the record directory.
         summary.doubles[1] += 1.0e9;
@@ -949,7 +949,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         // Claim the descriptor starts far before the record directory.
         summary.doubles[0] -= 1.0e9;

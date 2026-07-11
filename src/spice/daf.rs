@@ -22,7 +22,8 @@ const RECORD_WORDS: usize = 128;
 
 /// A single segment descriptor (summary) plus its name.
 #[derive(Debug, Clone)]
-pub(crate) struct DafSummary {
+#[allow(clippy::upper_case_acronyms)]
+pub(crate) struct DAFSummary {
     /// Segment name from the name record (trimmed).
     pub name: String,
     /// The ND double-precision summary components.
@@ -34,7 +35,8 @@ pub(crate) struct DafSummary {
 /// A parsed DAF container: file-record metadata, all segment summaries, and
 /// the file contents as endian-normalized 8-byte words.
 #[derive(Debug)]
-pub(crate) struct DafFile {
+#[allow(clippy::upper_case_acronyms)]
+pub(crate) struct DAFFile {
     /// ID word, e.g. "DAF/SPK" or "DAF/PCK" (trimmed).
     pub id_word: String,
     /// Number of double components per summary.
@@ -44,23 +46,23 @@ pub(crate) struct DafFile {
     #[allow(dead_code)]
     pub ni: usize,
     /// All segment summaries in file order.
-    pub summaries: Vec<DafSummary>,
+    pub summaries: Vec<DAFSummary>,
     /// Entire file as f64 words (native-endian after normalization).
     words: Vec<f64>,
 }
 
-fn read_i32(bytes: &[u8], offset: usize, big_endian: bool) -> i32 {
+fn read_i32(bytes: &[u8], offset: usize, is_big_endian: bool) -> i32 {
     let b: [u8; 4] = bytes[offset..offset + 4].try_into().unwrap();
-    if big_endian {
+    if is_big_endian {
         i32::from_be_bytes(b)
     } else {
         i32::from_le_bytes(b)
     }
 }
 
-fn read_f64(bytes: &[u8], offset: usize, big_endian: bool) -> f64 {
+fn read_f64(bytes: &[u8], offset: usize, is_big_endian: bool) -> f64 {
     let b: [u8; 8] = bytes[offset..offset + 8].try_into().unwrap();
-    if big_endian {
+    if is_big_endian {
         f64::from_be_bytes(b)
     } else {
         f64::from_le_bytes(b)
@@ -74,10 +76,10 @@ fn read_f64(bytes: &[u8], offset: usize, big_endian: bool) -> f64 {
 fn read_daf_count(
     bytes: &[u8],
     offset: usize,
-    big_endian: bool,
+    is_big_endian: bool,
     field: &str,
 ) -> Result<usize, BraheError> {
-    let v = read_f64(bytes, offset, big_endian);
+    let v = read_f64(bytes, offset, is_big_endian);
     if !v.is_finite() || v < 0.0 || v.fract() != 0.0 {
         return Err(BraheError::IoError(format!(
             "Invalid DAF: {} control value {} is not a nonnegative integer",
@@ -87,14 +89,14 @@ fn read_daf_count(
     Ok(v as usize)
 }
 
-impl DafFile {
+impl DAFFile {
     /// Parse a DAF from a file on disk.
     ///
     /// # Arguments
     /// - `path`: Path to a binary SPICE kernel (`.bsp`, `.bpc`)
     ///
     /// # Returns
-    /// - Parsed `DafFile`, or `BraheError::IoError` on read/parse failure
+    /// - Parsed `DAFFile`, or `BraheError::IoError` on read/parse failure
     pub fn from_file(path: &Path) -> Result<Self, BraheError> {
         let bytes = fs::read(path).map_err(|e| {
             BraheError::IoError(format!("Failed to read kernel {}: {}", path.display(), e))
@@ -108,7 +110,7 @@ impl DafFile {
     /// - `bytes`: Raw bytes of a binary SPICE kernel
     ///
     /// # Returns
-    /// - Parsed `DafFile`, or `BraheError::IoError` on parse failure
+    /// - Parsed `DAFFile`, or `BraheError::IoError` on parse failure
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, BraheError> {
         if bytes.len() < RECORD_BYTES || !bytes.len().is_multiple_of(RECORD_BYTES) {
             return Err(BraheError::IoError(format!(
@@ -129,7 +131,7 @@ impl DafFile {
         // Endianness from LOCFMT (bytes 88..96); fall back to an ND sanity
         // check for pre-LOCFMT files.
         let locfmt = String::from_utf8_lossy(&bytes[88..96]).trim().to_string();
-        let big_endian = match locfmt.as_str() {
+        let is_big_endian = match locfmt.as_str() {
             "LTL-IEEE" => false,
             "BIG-IEEE" => true,
             _ => {
@@ -153,10 +155,10 @@ impl DafFile {
         // Validate as signed values first: a corrupt/adversarial header could
         // otherwise encode a negative count that wraps to a huge `usize` on
         // cast, causing an overflow panic instead of a clean parse error.
-        let nd_raw = read_i32(bytes, 8, big_endian);
-        let ni_raw = read_i32(bytes, 12, big_endian);
-        let fward_raw = read_i32(bytes, 76, big_endian);
-        let bward_raw = read_i32(bytes, 80, big_endian);
+        let nd_raw = read_i32(bytes, 8, is_big_endian);
+        let ni_raw = read_i32(bytes, 12, is_big_endian);
+        let fward_raw = read_i32(bytes, 76, is_big_endian);
+        let bward_raw = read_i32(bytes, 80, is_big_endian);
         let n_records = bytes.len() / RECORD_BYTES;
         if nd_raw <= 0
             || ni_raw < 2
@@ -195,8 +197,8 @@ impl DafFile {
             }
 
             let rec_off = (record - 1) * RECORD_BYTES;
-            let next = read_daf_count(bytes, rec_off, big_endian, "NEXT")?;
-            let nsum = read_daf_count(bytes, rec_off + 16, big_endian, "NSUM")?;
+            let next = read_daf_count(bytes, rec_off, is_big_endian, "NEXT")?;
+            let nsum = read_daf_count(bytes, rec_off + 16, is_big_endian, "NSUM")?;
             let max_nsum = (RECORD_WORDS - 3) / ss;
             if nsum > max_nsum {
                 return Err(BraheError::IoError(format!(
@@ -213,17 +215,17 @@ impl DafFile {
                 let s_off = rec_off + (3 + i * ss) * 8;
                 let mut doubles = Vec::with_capacity(nd);
                 for d in 0..nd {
-                    doubles.push(read_f64(bytes, s_off + d * 8, big_endian));
+                    doubles.push(read_f64(bytes, s_off + d * 8, is_big_endian));
                 }
                 let mut ints = Vec::with_capacity(ni);
                 for k in 0..ni {
-                    ints.push(read_i32(bytes, s_off + nd * 8 + k * 4, big_endian));
+                    ints.push(read_i32(bytes, s_off + nd * 8 + k * 4, is_big_endian));
                 }
                 let name =
                     String::from_utf8_lossy(&bytes[name_off + i * nc..name_off + (i + 1) * nc])
                         .trim()
                         .to_string();
-                summaries.push(DafSummary {
+                summaries.push(DAFSummary {
                     name,
                     doubles,
                     ints,
@@ -237,14 +239,14 @@ impl DafFile {
         let mut words = Vec::with_capacity(bytes.len() / 8);
         for chunk in bytes.chunks_exact(8) {
             let b: [u8; 8] = chunk.try_into().unwrap();
-            words.push(if big_endian {
+            words.push(if is_big_endian {
                 f64::from_be_bytes(b)
             } else {
                 f64::from_le_bytes(b)
             });
         }
 
-        Ok(DafFile {
+        Ok(DAFFile {
             id_word,
             nd,
             ni,
@@ -291,7 +293,7 @@ mod tests {
     #[test]
     fn test_daf_from_file_de440s() {
         let Some(path) = de440s_path() else { return };
-        let daf = DafFile::from_file(&path).unwrap();
+        let daf = DAFFile::from_file(&path).unwrap();
 
         assert_eq!(daf.id_word, "DAF/SPK");
         assert_eq!(daf.nd, 2);
@@ -333,7 +335,7 @@ mod tests {
     #[test]
     fn test_daf_words_addressing() {
         let Some(path) = de440s_path() else { return };
-        let daf = DafFile::from_file(&path).unwrap();
+        let daf = DAFFile::from_file(&path).unwrap();
         let s = &daf.summaries[0];
         let (start, end) = (s.ints[4] as usize, s.ints[5] as usize);
         let w = daf.words(start, end).unwrap();
@@ -348,10 +350,10 @@ mod tests {
 
     #[test]
     fn test_daf_rejects_garbage() {
-        assert!(DafFile::from_bytes(&[0u8; 100]).is_err()); // too short
+        assert!(DAFFile::from_bytes(&[0u8; 100]).is_err()); // too short
         let mut junk = vec![0u8; 2048];
         junk[..8].copy_from_slice(b"NOTADAF ");
-        assert!(DafFile::from_bytes(&junk).is_err()); // bad ID word
+        assert!(DAFFile::from_bytes(&junk).is_err()); // bad ID word
     }
 
     #[test]
@@ -365,7 +367,7 @@ mod tests {
         file[76..80].copy_from_slice(&1i32.to_le_bytes()); // FWARD
         file[80..84].copy_from_slice(&1i32.to_le_bytes()); // BWARD
         file[88..96].copy_from_slice(b"LTL-IEEE");
-        assert!(DafFile::from_bytes(&file).is_err());
+        assert!(DAFFile::from_bytes(&file).is_err());
     }
 
     #[test]
@@ -384,7 +386,7 @@ mod tests {
         file[rec..rec + 8].copy_from_slice(&f64::NAN.to_le_bytes()); // NEXT
         file[rec + 8..rec + 16].copy_from_slice(&0f64.to_le_bytes()); // PREV
         file[rec + 16..rec + 24].copy_from_slice(&0f64.to_le_bytes()); // NSUM
-        assert!(DafFile::from_bytes(&file).is_err());
+        assert!(DAFFile::from_bytes(&file).is_err());
     }
 
     #[test]
@@ -418,7 +420,7 @@ mod tests {
             *b = b' ';
         }
 
-        let daf = DafFile::from_bytes(&file).unwrap();
+        let daf = DAFFile::from_bytes(&file).unwrap();
         assert_eq!(daf.nd, 2);
         assert_eq!(daf.ni, 6);
         assert_eq!(daf.summaries.len(), 1);

@@ -21,7 +21,7 @@ use crate::attitude::RotationMatrix;
 use crate::constants::AngleFormat;
 use crate::utils::BraheError;
 
-use super::daf::DafFile;
+use super::daf::DAFFile;
 use super::segments::{ChebyshevSegment, pck_frame_not_found_error, pck_out_of_coverage_error};
 
 /// A loaded binary PCK kernel with in-memory Chebyshev coefficients.
@@ -40,7 +40,7 @@ impl BPCK {
     /// # Returns
     /// - Loaded kernel, or an error naming any unsupported segment type
     pub fn from_file(path: &Path) -> Result<Self, BraheError> {
-        let daf = DafFile::from_file(path)?;
+        let daf = DAFFile::from_file(path)?;
         Self::from_daf(daf)
     }
 
@@ -52,10 +52,10 @@ impl BPCK {
     /// # Returns
     /// - Loaded kernel, or an error naming any unsupported segment type
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, BraheError> {
-        Self::from_daf(DafFile::from_bytes(bytes)?)
+        Self::from_daf(DAFFile::from_bytes(bytes)?)
     }
 
-    pub(crate) fn from_daf(daf: DafFile) -> Result<Self, BraheError> {
+    pub(crate) fn from_daf(daf: DAFFile) -> Result<Self, BraheError> {
         if daf.id_word != "DAF/PCK" {
             return Err(BraheError::IoError(format!(
                 "Not a binary PCK kernel: ID word is '{}', expected 'DAF/PCK'",

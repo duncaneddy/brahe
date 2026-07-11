@@ -475,12 +475,14 @@ pub fn ssb_state_de(epc: Epoch, kernel: NAIFKernel) -> Result<Vector6<f64>, Brah
 mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
+    use serial_test::serial;
 
     use super::*;
     use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
     use crate::utils::testing::setup_global_test_spice;
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -503,6 +505,7 @@ mod tests {
     }
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -525,6 +528,7 @@ mod tests {
     }
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -541,6 +545,7 @@ mod tests {
     }
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -561,6 +566,7 @@ mod tests {
     }
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -577,6 +583,7 @@ mod tests {
     }
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -593,6 +600,7 @@ mod tests {
     }
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -609,6 +617,7 @@ mod tests {
     }
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -625,6 +634,7 @@ mod tests {
     }
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -641,6 +651,7 @@ mod tests {
     }
 
     #[rstest]
+    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -661,6 +672,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_sun_velocity_de() {
         setup_global_test_spice();
         let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);
@@ -670,6 +682,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_moon_state_de_consistent() {
         setup_global_test_spice();
         let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);
@@ -681,6 +694,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_mars_barycenter_position_de() {
         // Single-leg barycenter query works with de440s alone (no network).
         setup_global_test_spice();
@@ -693,6 +707,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)] // downloads mar099s (~68 MB)
+    #[serial]
     fn test_mars_position_de_body_center() {
         setup_global_test_spice();
         let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
@@ -708,6 +723,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_all_bodies_have_velocity_and_state() {
         setup_global_test_spice();
         let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);

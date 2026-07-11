@@ -23,7 +23,7 @@ use once_cell::sync::Lazy;
 use crate::datasets::naif::{
     SUPPORTED_KERNELS, SUPPORTED_PCK_KERNELS, download_de_kernel, download_pck_kernel,
 };
-use crate::time::{Epoch, TimeSystem};
+use crate::time::Epoch;
 use crate::utils::BraheError;
 
 use super::daf::DafFile;
@@ -101,7 +101,7 @@ static GLOBAL_SPICE: Lazy<RwLock<KernelRegistry>> = Lazy::new(|| {
 /// Convert a brahe [`Epoch`] to SPICE ephemeris time (TDB seconds past
 /// J2000).
 pub(crate) fn epoch_to_et(epc: Epoch) -> f64 {
-    epc.seconds_past_j2000_as_time_system(TimeSystem::TDB)
+    epc.spice_et()
 }
 
 /// Resolve a kernel name or file path to a local file path, downloading
@@ -728,6 +728,7 @@ mod tests {
     use serial_test::serial;
 
     use super::*;
+    use crate::time::TimeSystem;
     use crate::utils::testing::setup_global_test_spice;
 
     fn epc_2025() -> Epoch {

@@ -411,7 +411,7 @@ def test_seconds_past_j2000_as_time_system(eop):
         0.0, abs=1e-9
     )
     assert epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TAI) == pytest.approx(
-        -32.184, abs=1e-9
+        bh.TAI_TT, abs=1e-9
     )
 
     epc2 = bh.Epoch.from_datetime(2000, 1, 2, 12, 0, 0.0, 0.0, bh.TimeSystem.TT)
@@ -423,6 +423,11 @@ def test_seconds_past_j2000_as_time_system(eop):
         bh.TimeSystem.TDB
     ) - epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TT)
     assert abs(d) < 1.7e-3
+
+
+def test_spice_et(eop):
+    epc = bh.Epoch.from_datetime(2025, 3, 15, 6, 30, 21.0, 0.0, bh.TimeSystem.UTC)
+    assert epc.spice_et() == epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TDB)
 
 
 def test_gps_date(eop):

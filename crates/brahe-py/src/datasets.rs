@@ -157,11 +157,11 @@ fn py_groundstations_list_providers() -> Vec<String> {
 ///     import brahe as bh
 ///
 ///     # Download and cache de440s kernel
-///     kernel_path = bh.datasets.naif.download_de_kernel("de440s")
+///     kernel_path = bh.datasets.naif.download_kernel("de440s")
 ///     print(f"Kernel cached at: {kernel_path}")
 ///
 ///     # Download and copy to specific location
-///     kernel_path = bh.datasets.naif.download_de_kernel("de440s", "/path/to/my_kernel.bsp")
+///     kernel_path = bh.datasets.naif.download_kernel("de440s", "/path/to/my_kernel.bsp")
 ///     print(f"Kernel saved to: {kernel_path}")
 ///     ```
 ///
@@ -171,8 +171,8 @@ fn py_groundstations_list_providers() -> Vec<String> {
 ///     - Kernel files vary in size (de440s: ~33 MB, de440: ~120 MB)
 ///     - Available at: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
 #[pyfunction]
-#[pyo3(name = "naif_download_de_kernel", signature = (name, output_path=None))]
-fn py_naif_download_de_kernel(name: &str, output_path: Option<&str>) -> PyResult<String> {
+#[pyo3(name = "download_naif_kernel", signature = (name, output_path=None))]
+fn py_download_naif_kernel(name: &str, output_path: Option<&str>) -> PyResult<String> {
     let output_pathbuf = output_path.map(PathBuf::from);
     let kernel = spice::NAIFKernel::from_name(name).ok_or_else(|| {
         let supported = spice::NAIFKernel::all()

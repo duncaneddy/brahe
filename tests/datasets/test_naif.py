@@ -9,7 +9,7 @@ import brahe as bh
 @pytest.mark.integration
 def test_download_de(naif_cache_setup):
     """Test downloading de440s kernel (smaller file for testing)."""
-    kernel_path = bh.datasets.naif.download_de_kernel("de440s")
+    kernel_path = bh.datasets.naif.download_kernel("de440s")
 
     assert isinstance(kernel_path, str)
     assert os.path.exists(kernel_path)
@@ -27,7 +27,7 @@ def test_download_with_output_path(naif_cache_setup):
     with tempfile.TemporaryDirectory() as tmpdir:
         output_path = os.path.join(tmpdir, "my_kernel.bsp")
 
-        kernel_path = bh.datasets.naif.download_de_kernel("de440s", output_path)
+        kernel_path = bh.datasets.naif.download_kernel("de440s", output_path)
 
         assert kernel_path == output_path
         assert os.path.exists(output_path)
@@ -41,11 +41,11 @@ def test_download_with_output_path(naif_cache_setup):
 def test_caching_behavior(naif_cache_setup):
     """Test that kernel is cached and not re-downloaded."""
     # First download
-    kernel_path1 = bh.datasets.naif.download_de_kernel("de440s")
+    kernel_path1 = bh.datasets.naif.download_kernel("de440s")
     mtime1 = os.path.getmtime(kernel_path1)
 
     # Second download - should use cache
-    kernel_path2 = bh.datasets.naif.download_de_kernel("de440s")
+    kernel_path2 = bh.datasets.naif.download_kernel("de440s")
     mtime2 = os.path.getmtime(kernel_path2)
 
     # Paths should be the same
@@ -58,7 +58,7 @@ def test_caching_behavior(naif_cache_setup):
 def test_unsupported_kernel():
     """Test that unsupported kernel name raises error."""
     with pytest.raises(RuntimeError, match="Unsupported kernel name"):
-        bh.datasets.naif.download_de_kernel("de999")
+        bh.datasets.naif.download_kernel("de999")
 
 
 @pytest.mark.integration
@@ -70,7 +70,7 @@ def test_supported_kernels():
         # Should not raise during validation
         # (will fail later if network is down, but that's OK for this test)
         try:
-            kernel_path = bh.datasets.naif.download_de_kernel(kernel)
+            kernel_path = bh.datasets.naif.download_kernel(kernel)
             assert os.path.exists(kernel_path)
         except RuntimeError as e:
             # Only allow network errors, not validation errors
@@ -84,7 +84,7 @@ def test_output_path_creates_directories(naif_cache_setup):
         # Create nested directory path that doesn't exist yet
         output_path = os.path.join(tmpdir, "subdir", "nested", "my_kernel.bsp")
 
-        kernel_path = bh.datasets.naif.download_de_kernel("de440s", output_path)
+        kernel_path = bh.datasets.naif.download_kernel("de440s", output_path)
 
         assert kernel_path == output_path
         assert os.path.exists(output_path)

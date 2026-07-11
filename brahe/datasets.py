@@ -22,7 +22,7 @@ Example:
     all_stations = datasets.groundstations.load_all()
 
     # Download NAIF DE kernel
-    kernel_path = datasets.naif.download_de_kernel("de440s")
+    kernel_path = datasets.naif.download_kernel("de440s")
 
     # GCAT satellite catalogs
     satcat = datasets.gcat.get_satcat()
@@ -41,7 +41,7 @@ from brahe._brahe import (
     groundstations_load_all,
     groundstations_list_providers,
     # NAIF functions
-    naif_download_de_kernel,
+    download_naif_kernel,
     # GCAT functions and types
     gcat_get_satcat,
     gcat_get_psatcat,
@@ -76,7 +76,7 @@ groundstations = _GroundstationsNamespace()
 class _NAIFNamespace:
     """NAIF data source namespace"""
 
-    download_de_kernel = staticmethod(naif_download_de_kernel)
+    download_kernel = staticmethod(download_naif_kernel)
 
 
 # Create NAIF namespace instance

@@ -967,7 +967,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_groundstations_load_from_file, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_list_providers, module)?)?;
-    module.add_function(wrap_pyfunction!(py_naif_download_de_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_download_naif_kernel, module)?)?;
 
     //* GCAT *//
     module.add_class::<PyGCATSatcatRecord>()?;

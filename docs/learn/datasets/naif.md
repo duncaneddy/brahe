@@ -8,7 +8,7 @@
 ## Supported Kernels
 
 Brahe supports downloading the following kernel files, enumerated by
-`NAIFKernel` (Rust). The Python `bh.datasets.naif.download_de_kernel(name, ...)`
+`NAIFKernel` (Rust). The Python `bh.datasets.naif.download_kernel(name, ...)`
 function and the Rust `brahe::datasets::naif::download_kernel(kernel, ...)`
 function both accept any of these — by name (`str`) in Python, by
 `NAIFKernel` variant in Rust:
@@ -92,7 +92,7 @@ The Python binding takes a kernel name as a string and validates it before attem
 
     ``` python
     try:
-        bh.datasets.naif.download_de_kernel("de999")
+        bh.datasets.naif.download_kernel("de999")
     except RuntimeError as e:
         print(e)
         # "Unsupported kernel name 'de999'. Supported kernels: de430, de432s, ..."

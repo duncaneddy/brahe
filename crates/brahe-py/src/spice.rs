@@ -4,12 +4,14 @@
 
 /// Load a SPICE kernel into the global registry.
 ///
-/// Known kernel names ("de440s", "de440", "de430", "de432s", "de435",
-/// "de438", "de442", "de442s") are downloaded from NAIF and cached; any
-/// other argument is treated as a local file path. SPK (.bsp) and binary
-/// PCK (.bpc) kernels are detected automatically from the file header.
-/// Loading is idempotent; kernels stay resident until unloaded, and later
-/// loads take precedence for overlapping coverage.
+/// Known kernel names are downloaded from NAIF and cached: the planetary
+/// (DE) ephemerides "de430", "de432s", "de435", "de438", "de440", "de440s",
+/// "de442", "de442s"; the satellite-system kernels "mar099", "mar099s",
+/// "jup365", "sat441", "ura184", "nep097", "plu060"; and the binary PCK
+/// "moon_pa_de440". Any other argument is treated as a local file path.
+/// SPK (.bsp) and binary PCK (.bpc) kernels are detected automatically from
+/// the file header. Loading is idempotent; kernels stay resident until
+/// unloaded, and later loads take precedence for overlapping coverage.
 ///
 /// Args:
 ///     name_or_path (str): Kernel name or filesystem path
@@ -87,7 +89,7 @@ fn py_loaded_kernels() -> Vec<String> {
 /// Load the kernels most applications need: "de440s" (planetary ephemeris)
 /// and "moon_pa_de440" (lunar principal-axes orientation).
 ///
-/// ~150 MB total on first download; cached thereafter. Each kernel load is
+/// ~46 MB total on first download; cached thereafter. Each kernel load is
 /// idempotent, so calling this alongside other `load_kernel` calls is safe.
 ///
 /// Raises:
@@ -110,7 +112,7 @@ fn py_load_common_kernels() -> PyResult<()> {
 /// and the satellite-system kernels "mar099s", "jup365", "sat441", "ura184",
 /// "nep097", "plu060".
 ///
-/// ~3.5 GB total on first download; cached thereafter. Prefer
+/// ~2.4 GB total on first download; cached thereafter. Prefer
 /// `load_common_kernels` unless outer-planet body centers or moons are
 /// needed.
 ///

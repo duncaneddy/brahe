@@ -273,7 +273,7 @@ pub(crate) const ALL_KERNELS: &[NAIFKernel] = &[
 /// Load the kernels most applications need: `de440s` (planetary ephemeris)
 /// and `moon_pa_de440` (lunar principal-axes orientation).
 ///
-/// ~150 MB total on first download; cached thereafter. Each kernel load is
+/// ~46 MB total on first download; cached thereafter. Each kernel load is
 /// idempotent, so calling this alongside other [`load_kernel`] calls is
 /// safe.
 ///
@@ -298,7 +298,7 @@ pub fn load_common_kernels() -> Result<(), BraheError> {
 /// and the satellite-system kernels `mar099s`, `jup365`, `sat441`, `ura184`,
 /// `nep097`, `plu060`.
 ///
-/// ~3.5 GB total on first download; cached thereafter. Prefer
+/// ~2.4 GB total on first download; cached thereafter. Prefer
 /// [`load_common_kernels`] unless outer-planet body centers or moons are
 /// needed.
 ///

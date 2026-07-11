@@ -138,8 +138,11 @@ fn py_groundstations_list_providers() -> Vec<String> {
 /// Optionally copies the kernel to a user-specified location.
 ///
 /// Args:
-///     name (str): Kernel name, e.g. "de440s", "mar099s", "moon_pa_de440".
-///         See `brahe.NAIFKernel` for the full list of supported kernels.
+///     name (str): Kernel name. Supported: the planetary (DE) ephemerides
+///         "de430", "de432s", "de435", "de438", "de440", "de440s", "de442",
+///         "de442s"; the satellite-system kernels "mar099", "mar099s",
+///         "jup365", "sat441", "ura184", "nep097", "plu060"; and the binary
+///         PCK "moon_pa_de440".
 ///     output_path (str, optional): Optional path to copy the kernel to after download/cache retrieval.
 ///         If not specified, returns the cache location.
 ///

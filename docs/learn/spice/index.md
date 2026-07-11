@@ -105,12 +105,12 @@ the first time each body is queried:
 | Function | Loads | Download size |
 |---|---|---|
 | `load_common_kernels()` | `de440s`, `moon_pa_de440` | ~46 MB |
-| `load_all_kernels()` | `de440s`, `moon_pa_de440`, `mar099s`, `jup365`, `sat441`, `ura184`, `nep097`, `plu060` | ~3.5 GB |
+| `load_all_kernels()` | `de440s`, `moon_pa_de440`, `mar099s`, `jup365`, `sat441`, `ura184`, `nep097`, `plu060` | ~2.4 GB |
 
 Each kernel load within these calls is idempotent, so calling either
 alongside individual `load_kernel` calls is safe. Prefer
 `load_common_kernels` unless outer-planet body centers, their moons, or
-Pluto are needed — `load_all_kernels` downloads over 3 GB on first use.
+Pluto are needed — `load_all_kernels` downloads over 2 GB on first use.
 
 ## Querying Ephemeris Data
 

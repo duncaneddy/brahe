@@ -27,23 +27,23 @@ def test_load_kernel_idempotent():
 
 def test_spk_position():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    r = bh.spk_position(bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+    r = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     assert r.shape == (3,)
     assert 3.5e8 < np.linalg.norm(r) < 4.1e8
 
 
 def test_spk_velocity():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    v = bh.spk_velocity(bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+    v = bh.spk_velocity(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     assert v.shape == (3,)
     assert 9.0e2 < np.linalg.norm(v) < 1.2e3
 
 
 def test_spk_state_consistent():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    x = bh.spk_state(bh.NAIF_SUN, bh.NAIF_EARTH, epc)
-    r = bh.spk_position(bh.NAIF_SUN, bh.NAIF_EARTH, epc)
-    v = bh.spk_velocity(bh.NAIF_SUN, bh.NAIF_EARTH, epc)
+    x = bh.spk_state(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
+    r = bh.spk_position(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
+    v = bh.spk_velocity(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
     assert x.shape == (6,)
     np.testing.assert_allclose(x[:3], r, atol=1e-9)
     np.testing.assert_allclose(x[3:], v, atol=1e-12)
@@ -52,7 +52,7 @@ def test_spk_state_consistent():
 def test_spk_no_path_error():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
     with pytest.raises(Exception, match="12345"):
-        bh.spk_position(bh.NAIF_MOON, 12345, epc)
+        bh.spk_position(bh.NAIFId.MOON, 12345, epc)
 
 
 def test_pck_query_without_pck_errors():
@@ -61,30 +61,39 @@ def test_pck_query_without_pck_errors():
         bh.pck_euler_angles(31006, epc)
 
 
-def test_naif_constants():
-    assert bh.NAIF_SSB == 0
-    assert bh.NAIF_SUN == 10
-    assert bh.NAIF_MOON == 301
-    assert bh.NAIF_EARTH == 399
+def test_naif_id_enum():
+    assert bh.NAIFId.SUN == 10
+    assert bh.NAIFId.EARTH == 399
+    assert bh.NAIFId.TITAN == 606
+    assert bh.FrameId.MOON_PA_DE440 == 31008
+    assert not hasattr(bh, "NAIF_SUN")
+
+
+def test_spk_position_accepts_enum_and_int(eop):
+    bh.load_kernel("test_assets/de440s.bsp")
+    epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+    r_enum = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
+    r_int = bh.spk_position(301, 399, epc)
+    np.testing.assert_array_equal(r_enum, r_int)
 
 
 def test_spk_position_from_kernel_shape():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    r = bh.spk_position_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+    r = bh.spk_position_from_kernel("de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     assert r.shape == (3,)
     assert 3.5e8 < np.linalg.norm(r) < 4.1e8
 
 
 def test_spk_velocity_from_kernel_shape():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    v = bh.spk_velocity_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+    v = bh.spk_velocity_from_kernel("de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     assert v.shape == (3,)
     assert 9.0e2 < np.linalg.norm(v) < 1.2e3
 
 
 def test_spk_state_from_kernel_shape():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    x = bh.spk_state_from_kernel("de440s", bh.NAIF_SUN, bh.NAIF_EARTH, epc)
+    x = bh.spk_state_from_kernel("de440s", bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
     assert x.shape == (6,)
 
 
@@ -92,26 +101,28 @@ def test_spk_position_from_kernel_agrees_with_pooled():
     """With only de440s loaded, the kernel-scoped query must agree exactly
     with the pooled registry query."""
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    r_pooled = bh.spk_position(bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+    r_pooled = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     r_from_kernel = bh.spk_position_from_kernel(
-        "de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc
+        "de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc
     )
     np.testing.assert_allclose(r_from_kernel, r_pooled, atol=0.0)
 
 
 def test_spk_velocity_from_kernel_agrees_with_pooled():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    v_pooled = bh.spk_velocity(bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+    v_pooled = bh.spk_velocity(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     v_from_kernel = bh.spk_velocity_from_kernel(
-        "de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc
+        "de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc
     )
     np.testing.assert_allclose(v_from_kernel, v_pooled, atol=0.0)
 
 
 def test_spk_state_from_kernel_agrees_with_pooled():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    x_pooled = bh.spk_state(bh.NAIF_SUN, bh.NAIF_EARTH, epc)
-    x_from_kernel = bh.spk_state_from_kernel("de440s", bh.NAIF_SUN, bh.NAIF_EARTH, epc)
+    x_pooled = bh.spk_state(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
+    x_from_kernel = bh.spk_state_from_kernel(
+        "de440s", bh.NAIFId.SUN, bh.NAIFId.EARTH, epc
+    )
     np.testing.assert_allclose(x_from_kernel, x_pooled, atol=0.0)
 
 
@@ -133,7 +144,7 @@ def test_spk_position_from_kernel_auto_loads():
     present in the registry."""
     bh.clear_kernels()
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-    r = bh.spk_position_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+    r = bh.spk_position_from_kernel("de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     assert r.shape == (3,)
     assert "de440s" in bh.loaded_kernels()
 

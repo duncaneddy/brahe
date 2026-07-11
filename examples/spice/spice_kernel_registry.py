@@ -23,9 +23,9 @@ bh.load_kernel("de440s")
 print(f"Loaded kernels: {bh.loaded_kernels()}")
 
 # Generic queries take NAIF IDs and resolve across all loaded SPK kernels.
-r_moon = bh.spk_position(bh.NAIF_MOON, bh.NAIF_EARTH, epc)
-v_moon = bh.spk_velocity(bh.NAIF_MOON, bh.NAIF_EARTH, epc)
-x_sun = bh.spk_state(bh.NAIF_SUN, bh.NAIF_EARTH, epc)
+r_moon = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
+v_moon = bh.spk_velocity(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
+x_sun = bh.spk_state(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
 
 print(f"\nMoon position rel. Earth (km): {r_moon / 1e3}")
 print(f"Moon velocity rel. Earth (m/s): {v_moon}")
@@ -33,7 +33,9 @@ print(f"Sun distance rel. Earth (AU): {np.linalg.norm(x_sun[0:3]) / bh.AU:.6f}")
 
 # Kernel-scoped variants query a single named kernel directly, bypassing
 # cross-kernel chaining and precedence.
-r_moon_de440s = bh.spk_position_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+r_moon_de440s = bh.spk_position_from_kernel(
+    "de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc
+)
 print(f"\nMoon position from de440s directly (km): {r_moon_de440s / 1e3}")
 
 # Per-body convenience functions wrap the same queries for the ten most

@@ -1004,48 +1004,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_pck_quaternion, module)?)?;
     module.add_function(wrap_pyfunction!(py_pck_rotation_matrix, module)?)?;
 
-    // NAIF ID constants
-    module.add("NAIF_SSB", brahe::spice::NAIFId::SolarSystemBarycenter.id())?;
-    module.add(
-        "NAIF_MERCURY_BARYCENTER",
-        brahe::spice::NAIFId::MercuryBarycenter.id(),
-    )?;
-    module.add(
-        "NAIF_VENUS_BARYCENTER",
-        brahe::spice::NAIFId::VenusBarycenter.id(),
-    )?;
-    module.add("NAIF_EMB", brahe::spice::NAIFId::EarthMoonBarycenter.id())?;
-    module.add(
-        "NAIF_MARS_BARYCENTER",
-        brahe::spice::NAIFId::MarsBarycenter.id(),
-    )?;
-    module.add(
-        "NAIF_JUPITER_BARYCENTER",
-        brahe::spice::NAIFId::JupiterBarycenter.id(),
-    )?;
-    module.add(
-        "NAIF_SATURN_BARYCENTER",
-        brahe::spice::NAIFId::SaturnBarycenter.id(),
-    )?;
-    module.add(
-        "NAIF_URANUS_BARYCENTER",
-        brahe::spice::NAIFId::UranusBarycenter.id(),
-    )?;
-    module.add(
-        "NAIF_NEPTUNE_BARYCENTER",
-        brahe::spice::NAIFId::NeptuneBarycenter.id(),
-    )?;
-    module.add(
-        "NAIF_PLUTO_BARYCENTER",
-        brahe::spice::NAIFId::PlutoBarycenter.id(),
-    )?;
-    module.add("NAIF_SUN", brahe::spice::NAIFId::Sun.id())?;
-    module.add("NAIF_MERCURY", brahe::spice::NAIFId::Mercury.id())?;
-    module.add("NAIF_VENUS", brahe::spice::NAIFId::Venus.id())?;
-    module.add("NAIF_EARTH", brahe::spice::NAIFId::Earth.id())?;
-    module.add("NAIF_MOON", brahe::spice::NAIFId::Moon.id())?;
-    module.add("NAIF_MARS", brahe::spice::NAIFId::Mars.id())?;
-
     //* Orbit Dynamics - Ephemerides *//
     module.add_class::<PyEphemerisSource>()?;
     module.add_function(wrap_pyfunction!(py_sun_position, module)?)?;

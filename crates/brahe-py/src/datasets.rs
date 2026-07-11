@@ -130,15 +130,16 @@ fn py_groundstations_list_providers() -> Vec<String> {
     groundstations::list_providers()
 }
 
-/// Download a DE kernel from NAIF with caching support
+/// Download a NAIF kernel with caching support
 ///
-/// Downloads the specified DE (Development Ephemeris) kernel file from NASA JPL's NAIF
-/// archive and caches it locally. If the kernel is already cached, returns the cached
-/// path without re-downloading. Optionally copies the kernel to a user-specified location.
+/// Downloads the named NAIF kernel file (planetary DE, satellite-system, or
+/// binary PCK) from NASA JPL's NAIF archive and caches it locally. If the
+/// kernel is already cached, returns the cached path without re-downloading.
+/// Optionally copies the kernel to a user-specified location.
 ///
 /// Args:
-///     name (str): Kernel name. Supported kernels: "de430", "de432s", "de435", "de438",
-///         "de440", "de440s", "de442", "de442s".
+///     name (str): Kernel name, e.g. "de440s", "mar099s", "moon_pa_de440".
+///         See `brahe.NAIFKernel` for the full list of supported kernels.
 ///     output_path (str, optional): Optional path to copy the kernel to after download/cache retrieval.
 ///         If not specified, returns the cache location.
 ///
@@ -164,16 +165,21 @@ fn py_groundstations_list_providers() -> Vec<String> {
 /// Note:
 ///     - DE kernels are long-term stable products and are not refreshed once cached
 ///     - Files are cached to ~/.cache/brahe/naif/ (or $BRAHE_CACHE/naif/ if set)
-///     - Kernel files are large (de440s: ~17MB, de440: ~114MB)
-///     - Available at: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/
+///     - Kernel files vary in size (de440s: ~17MB, de440: ~114MB)
+///     - Available at: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
 #[pyfunction]
 #[pyo3(name = "naif_download_de_kernel", signature = (name, output_path=None))]
 fn py_naif_download_de_kernel(name: &str, output_path: Option<&str>) -> PyResult<String> {
     let output_pathbuf = output_path.map(PathBuf::from);
     let kernel = spice::NAIFKernel::from_name(name).ok_or_else(|| {
+        let supported = spice::NAIFKernel::all()
+            .iter()
+            .map(|k| k.name())
+            .collect::<Vec<_>>()
+            .join(", ");
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-            "Unsupported kernel name '{}'",
-            name
+            "Unsupported kernel name '{}'. Supported kernels: {}",
+            name, supported
         ))
     })?;
     let result_path = naif::download_kernel(kernel, output_pathbuf)

@@ -137,8 +137,8 @@ fn py_load_all_kernels() -> PyResult<()> {
 /// automatically.
 ///
 /// Args:
-///     target (int): NAIF ID of the target body (e.g. bh.NAIF_MOON)
-///     center (int): NAIF ID of the center body (e.g. bh.NAIF_EARTH)
+///     target (int): NAIF ID of the target body (e.g. bh.NAIFId.MOON)
+///     center (int): NAIF ID of the center body (e.g. bh.NAIFId.EARTH)
 ///     epc (Epoch): Epoch of the query
 ///
 /// Returns:
@@ -153,7 +153,7 @@ fn py_load_all_kernels() -> PyResult<()> {
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     r = bh.spk_position(bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+///     r = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
 ///     ```
 #[pyfunction]
 #[pyo3(name = "spk_position")]
@@ -175,8 +175,8 @@ fn py_spk_position<'py>(
 /// automatically.
 ///
 /// Args:
-///     target (int): NAIF ID of the target body (e.g. bh.NAIF_MOON)
-///     center (int): NAIF ID of the center body (e.g. bh.NAIF_EARTH)
+///     target (int): NAIF ID of the target body (e.g. bh.NAIFId.MOON)
+///     center (int): NAIF ID of the center body (e.g. bh.NAIFId.EARTH)
 ///     epc (Epoch): Epoch of the query
 ///
 /// Returns:
@@ -191,7 +191,7 @@ fn py_spk_position<'py>(
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     v = bh.spk_velocity(bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+///     v = bh.spk_velocity(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
 ///     ```
 #[pyfunction]
 #[pyo3(name = "spk_velocity")]
@@ -215,8 +215,8 @@ fn py_spk_velocity<'py>(
 /// loaded automatically.
 ///
 /// Args:
-///     target (int): NAIF ID of the target body (e.g. bh.NAIF_MOON)
-///     center (int): NAIF ID of the center body (e.g. bh.NAIF_EARTH)
+///     target (int): NAIF ID of the target body (e.g. bh.NAIFId.MOON)
+///     center (int): NAIF ID of the center body (e.g. bh.NAIFId.EARTH)
 ///     epc (Epoch): Epoch of the query
 ///
 /// Returns:
@@ -232,7 +232,7 @@ fn py_spk_velocity<'py>(
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     x = bh.spk_state(bh.NAIF_SUN, bh.NAIF_EARTH, epc)
+///     x = bh.spk_state(bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
 ///     ```
 #[pyfunction]
 #[pyo3(name = "spk_state")]
@@ -257,8 +257,8 @@ fn py_spk_state<'py>(
 /// Args:
 ///     kernel_name (str): A known DE kernel name (e.g. "de440s", "de440"),
 ///         or a path to a .bsp file
-///     target (int): NAIF ID of the target body (e.g. bh.NAIF_MOON)
-///     center (int): NAIF ID of the center body (e.g. bh.NAIF_EARTH)
+///     target (int): NAIF ID of the target body (e.g. bh.NAIFId.MOON)
+///     center (int): NAIF ID of the center body (e.g. bh.NAIFId.EARTH)
 ///     epc (Epoch): Epoch of the query
 ///
 /// Returns:
@@ -274,7 +274,7 @@ fn py_spk_state<'py>(
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     r = bh.spk_position_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+///     r = bh.spk_position_from_kernel("de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
 ///     ```
 #[pyfunction]
 #[pyo3(name = "spk_position_from_kernel")]
@@ -300,8 +300,8 @@ fn py_spk_position_from_kernel<'py>(
 /// Args:
 ///     kernel_name (str): A known DE kernel name (e.g. "de440s", "de440"),
 ///         or a path to a .bsp file
-///     target (int): NAIF ID of the target body (e.g. bh.NAIF_MOON)
-///     center (int): NAIF ID of the center body (e.g. bh.NAIF_EARTH)
+///     target (int): NAIF ID of the target body (e.g. bh.NAIFId.MOON)
+///     center (int): NAIF ID of the center body (e.g. bh.NAIFId.EARTH)
 ///     epc (Epoch): Epoch of the query
 ///
 /// Returns:
@@ -317,7 +317,7 @@ fn py_spk_position_from_kernel<'py>(
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     v = bh.spk_velocity_from_kernel("de440s", bh.NAIF_MOON, bh.NAIF_EARTH, epc)
+///     v = bh.spk_velocity_from_kernel("de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
 ///     ```
 #[pyfunction]
 #[pyo3(name = "spk_velocity_from_kernel")]
@@ -343,8 +343,8 @@ fn py_spk_velocity_from_kernel<'py>(
 /// Args:
 ///     kernel_name (str): A known DE kernel name (e.g. "de440s", "de440"),
 ///         or a path to a .bsp file
-///     target (int): NAIF ID of the target body (e.g. bh.NAIF_MOON)
-///     center (int): NAIF ID of the center body (e.g. bh.NAIF_EARTH)
+///     target (int): NAIF ID of the target body (e.g. bh.NAIFId.MOON)
+///     center (int): NAIF ID of the center body (e.g. bh.NAIFId.EARTH)
 ///     epc (Epoch): Epoch of the query
 ///
 /// Returns:
@@ -360,7 +360,7 @@ fn py_spk_velocity_from_kernel<'py>(
 ///     import brahe as bh
 ///
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
-///     x = bh.spk_state_from_kernel("de440s", bh.NAIF_SUN, bh.NAIF_EARTH, epc)
+///     x = bh.spk_state_from_kernel("de440s", bh.NAIFId.SUN, bh.NAIFId.EARTH, epc)
 ///     ```
 #[pyfunction]
 #[pyo3(name = "spk_state_from_kernel")]

@@ -296,4 +296,96 @@ mod tests {
         ));
         assert_eq!(KernelSource::from("jup365").key(), "jup365");
     }
+
+    #[test]
+    fn test_naif_kernel_filename_exhaustive() {
+        // Every variant's on-disk file name, covering all arms of `filename`.
+        let cases = [
+            (NAIFKernel::DE430, "de430.bsp"),
+            (NAIFKernel::DE432s, "de432s.bsp"),
+            (NAIFKernel::DE435, "de435.bsp"),
+            (NAIFKernel::DE438, "de438.bsp"),
+            (NAIFKernel::DE440, "de440.bsp"),
+            (NAIFKernel::DE440s, "de440s.bsp"),
+            (NAIFKernel::DE442, "de442.bsp"),
+            (NAIFKernel::DE442s, "de442s.bsp"),
+            (NAIFKernel::Mar099, "mar099.bsp"),
+            (NAIFKernel::Mar099s, "mar099s.bsp"),
+            (NAIFKernel::Jup365, "jup365.bsp"),
+            (NAIFKernel::Sat441, "sat441.bsp"),
+            (NAIFKernel::Ura184, "ura184_part-3.bsp"),
+            (NAIFKernel::Nep097, "nep097.bsp"),
+            (NAIFKernel::Plu060, "plu060.bsp"),
+            (NAIFKernel::MoonPaDe440, "moon_pa_de440_200625.bpc"),
+        ];
+        for (kernel, filename) in cases {
+            assert_eq!(kernel.filename(), filename);
+        }
+    }
+
+    #[test]
+    fn test_naif_kernel_url_by_category() {
+        // Planetary DE kernels use the planets base URL.
+        assert_eq!(
+            NAIFKernel::DE440s.url(),
+            "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp"
+        );
+        for k in [
+            NAIFKernel::DE430,
+            NAIFKernel::DE432s,
+            NAIFKernel::DE435,
+            NAIFKernel::DE438,
+            NAIFKernel::DE440,
+            NAIFKernel::DE442,
+            NAIFKernel::DE442s,
+        ] {
+            assert!(k.url().contains("/spk/planets/"), "{}", k.url());
+        }
+
+        // Satellite-system kernels use the satellites base URL (and the
+        // filename override for Ura184).
+        assert_eq!(
+            NAIFKernel::Ura184.url(),
+            "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/ura184_part-3.bsp"
+        );
+        for k in [
+            NAIFKernel::Mar099,
+            NAIFKernel::Mar099s,
+            NAIFKernel::Jup365,
+            NAIFKernel::Sat441,
+            NAIFKernel::Nep097,
+            NAIFKernel::Plu060,
+        ] {
+            assert!(k.url().contains("/spk/satellites/"), "{}", k.url());
+        }
+
+        // The binary PCK kernel uses the pck base URL.
+        assert_eq!(
+            NAIFKernel::MoonPaDe440.url(),
+            "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/moon_pa_de440_200625.bpc"
+        );
+    }
+
+    #[test]
+    fn test_kernel_source_from_string_and_kernel() {
+        // From<String>: known name -> Kernel, unknown -> Path.
+        assert!(matches!(
+            KernelSource::from("de440s".to_string()),
+            KernelSource::Kernel(NAIFKernel::DE440s)
+        ));
+        assert!(matches!(
+            KernelSource::from("/tmp/custom.bsp".to_string()),
+            KernelSource::Path(_)
+        ));
+        // From<NAIFKernel>.
+        assert!(matches!(
+            KernelSource::from(NAIFKernel::Jup365),
+            KernelSource::Kernel(NAIFKernel::Jup365)
+        ));
+        // key() returns the path string for a bring-your-own source.
+        assert_eq!(
+            KernelSource::from("/tmp/custom.bsp".to_string()).key(),
+            "/tmp/custom.bsp"
+        );
+    }
 }

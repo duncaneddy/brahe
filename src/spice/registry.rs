@@ -912,7 +912,7 @@ mod tests {
     use super::*;
     use crate::attitude::ToAttitude;
     use crate::time::TimeSystem;
-    use crate::utils::testing::setup_global_test_spice;
+    use crate::utils::testing::{CacheRedirect, setup_global_test_spice};
 
     fn epc_2025() -> Epoch {
         Epoch::from_date(2025, 1, 1, TimeSystem::UTC)
@@ -1468,6 +1468,217 @@ mod tests {
         let loaded = loaded_kernels();
         assert!(loaded.contains(&"de440s".to_string()));
         assert!(loaded.contains(&"moon_pa_de440".to_string()));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_resolve_kernel_path_missing_file_errors() {
+        // A path source that is neither a known kernel name nor an existing
+        // file surfaces `resolve_kernel_path`'s IoError.
+        setup_global_test_spice();
+        let err = load_kernel("/nonexistent/path/to/kernel.bsp").unwrap_err();
+        assert!(format!("{}", err).contains("neither a known kernel name"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_kernel_rejects_unrecognized_daf_id_word() {
+        // A structurally valid DAF whose ID word is neither DAF/SPK nor
+        // DAF/PCK hits `load_kernel`'s `other` arm.
+        setup_global_test_spice();
+        clear_kernels();
+
+        let mut bytes = crate::utils::testing::synthetic_spk_kernel_bytes(&[(10, 0, 1.0)]);
+        bytes[..8].copy_from_slice(b"DAF/CK  ");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mystery.bin");
+        std::fs::write(&path, &bytes).unwrap();
+
+        let err = load_kernel(path.to_str().unwrap()).unwrap_err();
+        assert!(format!("{}", err).contains("Unrecognized DAF ID word"));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_initialize_ephemeris_variants() {
+        // `initialize_ephemeris` loads de440s; `initialize_ephemeris_with_kernel`
+        // loads a bring-your-own path (a valid synthetic SPK) without network.
+        setup_global_test_spice();
+        clear_kernels();
+
+        initialize_ephemeris().unwrap();
+        assert!(loaded_kernels().contains(&"de440s".to_string()));
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("byo.bsp");
+        std::fs::write(&path, synthetic_spk_bytes(1.0)).unwrap();
+        initialize_ephemeris_with_kernel(path.to_str().unwrap()).unwrap();
+        assert!(loaded_kernels().contains(&path.to_str().unwrap().to_string()));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_common_kernels_offline() {
+        // Offline counterpart of `test_load_common_kernels`. The real de440s
+        // is kept resident so `load_common_kernels`' de440s load hits the
+        // idempotent short-circuit (and any concurrent cache read stays
+        // valid); only the synthetic moon_pa_de440 PCK is fetched, from the
+        // redirected cache, so no download occurs.
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s();
+            cache.seed("moon_pa_de440_200625.bpc", &synthetic_bpck_bytes());
+
+            load_common_kernels().unwrap();
+            let loaded = loaded_kernels();
+            assert!(loaded.contains(&"de440s".to_string()));
+            assert!(loaded.contains(&"moon_pa_de440".to_string()));
+        }
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_all_kernels_offline() {
+        // Every kernel `load_all_kernels` pulls beyond de440s (the lunar PCK
+        // and one satellite-system SPK per outer planet) is seeded as a
+        // synthetic file; de440s stays resident and short-circuits.
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s();
+            cache.seed("moon_pa_de440_200625.bpc", &synthetic_bpck_bytes());
+            cache.seed("mar099s.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("jup365.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("sat441.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("ura184_part-3.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("nep097.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("plu060.bsp", &synthetic_spk_bytes(1.0));
+
+            load_all_kernels().unwrap();
+            let loaded = loaded_kernels();
+            for name in [
+                "de440s",
+                "moon_pa_de440",
+                "mar099s",
+                "jup365",
+                "sat441",
+                "ura184",
+                "nep097",
+                "plu060",
+            ] {
+                assert!(loaded.contains(&name.to_string()), "missing {}", name);
+            }
+        }
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_global_chain_errors_with_no_spk_loaded() {
+        // `global_chain`'s `return Err` branch: with no SPK kernel loaded the
+        // collected segment set is empty.
+        setup_global_test_spice();
+        clear_kernels();
+
+        let err = global_chain(1, 0).unwrap_err();
+        assert!(format!("{}", err).contains("No SPK kernels loaded"));
+
+        // Restore global state for other tests.
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_global_chain_cache_miss_then_hit() {
+        // First resolution is a cache miss (resolve + insert -> final `Ok`);
+        // the second identical query is a cache hit (early `return Ok`).
+        setup_global_test_spice();
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+
+        let c1 = global_chain(10, 0).unwrap();
+        let c2 = global_chain(10, 0).unwrap();
+        assert_eq!(c1.len(), c2.len());
+    }
+
+    #[test]
+    #[serial]
+    fn test_spk_kernel_for_query_rejects_pck() {
+        // Scoped SPK query against a loaded PCK hits `spk_kernel_for_query`'s
+        // PCK error arm.
+        setup_global_test_spice();
+        clear_kernels();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("orient.bpc");
+        std::fs::write(&path, synthetic_bpck_bytes()).unwrap();
+
+        let err = spk_position_from_kernel(
+            path.to_str().unwrap(),
+            NAIFId::Moon,
+            NAIFId::Earth,
+            epc_2025(),
+        )
+        .unwrap_err();
+        assert!(format!("{}", err).contains("binary PCK"));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_pck_typed_registry_functions_offline() {
+        // Exercises `pck_query`'s `Ok` path and every typed PCK registry
+        // accessor against a path-loaded synthetic PCK (frame 31006 covering
+        // ET [0, 1000]).
+        setup_global_test_spice();
+        clear_kernels();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("synthetic.bpc");
+        std::fs::write(&path, synthetic_bpck_bytes()).unwrap();
+        load_kernel(path.to_str().unwrap()).unwrap();
+
+        let epc = epc_from_et(500.0);
+        let angle = pck_euler_angle(31006, epc).unwrap();
+        let rates = pck_euler_rates(31006, epc).unwrap();
+        let (angle2, rates2) = pck_euler_angle_and_rates(31006, epc).unwrap();
+        assert_eq!(angle2, angle);
+        assert_abs_diff_eq!(rates2, rates, epsilon = 0.0);
+
+        let q = pck_quaternion(31006, epc).unwrap();
+        let r = pck_rotation_matrix(31006, epc).unwrap();
+        // Quaternion, rotation matrix, and typed EulerAngle all agree.
+        assert_abs_diff_eq!(
+            q.to_rotation_matrix().to_matrix(),
+            r.to_matrix(),
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            angle.to_rotation_matrix().to_matrix(),
+            r.to_matrix(),
+            epsilon = 1e-12
+        );
 
         // Restore global state for other tests.
         clear_kernels();

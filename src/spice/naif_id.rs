@@ -276,4 +276,84 @@ mod tests {
         assert_eq!(FrameId::Id(31006).id(), 31006);
         assert_eq!(FrameId::MoonPaDe440, FrameId::Id(31008));
     }
+
+    #[test]
+    fn test_naif_id_all_variants_exhaustive() {
+        // Every named variant maps to its documented NAIF integer ID,
+        // exercising all arms of `NAIFId::id`.
+        let cases = [
+            (NAIFId::SolarSystemBarycenter, 0),
+            (NAIFId::MercuryBarycenter, 1),
+            (NAIFId::VenusBarycenter, 2),
+            (NAIFId::EarthMoonBarycenter, 3),
+            (NAIFId::MarsBarycenter, 4),
+            (NAIFId::JupiterBarycenter, 5),
+            (NAIFId::SaturnBarycenter, 6),
+            (NAIFId::UranusBarycenter, 7),
+            (NAIFId::NeptuneBarycenter, 8),
+            (NAIFId::PlutoBarycenter, 9),
+            (NAIFId::Sun, 10),
+            (NAIFId::Mercury, 199),
+            (NAIFId::Venus, 299),
+            (NAIFId::Earth, 399),
+            (NAIFId::Moon, 301),
+            (NAIFId::Mars, 499),
+            (NAIFId::Jupiter, 599),
+            (NAIFId::Saturn, 699),
+            (NAIFId::Uranus, 799),
+            (NAIFId::Neptune, 899),
+            (NAIFId::Pluto, 999),
+            (NAIFId::Phobos, 401),
+            (NAIFId::Deimos, 402),
+            (NAIFId::Io, 501),
+            (NAIFId::Europa, 502),
+            (NAIFId::Ganymede, 503),
+            (NAIFId::Callisto, 504),
+            (NAIFId::Titan, 606),
+            (NAIFId::Ariel, 701),
+            (NAIFId::Umbriel, 702),
+            (NAIFId::Titania, 703),
+            (NAIFId::Oberon, 704),
+            (NAIFId::Miranda, 705),
+            (NAIFId::Triton, 801),
+            (NAIFId::Charon, 901),
+            (NAIFId::Id(-42), -42),
+        ];
+        for (variant, expected) in cases {
+            assert_eq!(variant.id(), expected);
+        }
+    }
+
+    #[test]
+    fn test_naif_id_hash_matches_by_id() {
+        use std::collections::HashSet;
+        // Hash follows the integer ID, so a named variant and its raw-ID
+        // form collapse to a single set entry.
+        let mut set = HashSet::new();
+        set.insert(NAIFId::Sun);
+        assert!(!set.insert(NAIFId::Id(10)));
+        assert_eq!(set.len(), 1);
+        // A distinct ID is a separate entry.
+        assert!(set.insert(NAIFId::Earth));
+        assert_eq!(set.len(), 2);
+    }
+
+    #[test]
+    fn test_frame_id_from_impls_and_hash() {
+        use std::collections::HashSet;
+        // From<i32> yields the raw-ID form; the named variant compares equal.
+        assert_eq!(FrameId::from(31008), FrameId::MoonPaDe440);
+        // From<FrameId> for i32 returns the underlying class ID.
+        let raw: i32 = FrameId::MoonPaDe440.into();
+        assert_eq!(raw, 31008);
+        let raw_other: i32 = FrameId::Id(31006).into();
+        assert_eq!(raw_other, 31006);
+        // Hash follows the class ID: named and raw forms collapse to one entry.
+        let mut set = HashSet::new();
+        set.insert(FrameId::MoonPaDe440);
+        assert!(!set.insert(FrameId::Id(31008)));
+        assert_eq!(set.len(), 1);
+        assert!(set.insert(FrameId::Id(31006)));
+        assert_eq!(set.len(), 2);
+    }
 }

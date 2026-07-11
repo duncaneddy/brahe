@@ -427,4 +427,100 @@ mod tests {
         assert_eq!(daf.summaries[0].doubles, vec![-1000.0, 1000.0]);
         assert_eq!(daf.summaries[0].ints, vec![10, 0, 1, 2, 257, 260]);
     }
+
+    #[test]
+    fn test_from_file_missing_path_errors() {
+        // `from_file`'s read error branch: a nonexistent path surfaces a
+        // clean IoError rather than panicking.
+        let err = DAFFile::from_file(Path::new("/nonexistent/does-not-exist.bsp")).unwrap_err();
+        assert!(format!("{}", err).contains("Failed to read kernel"));
+    }
+
+    #[test]
+    fn test_read_daf_count_rejects_non_integer_control_value() {
+        // Reach `read_daf_count`'s error branch: a summary record whose NEXT
+        // pointer is NaN. The file needs a third record so the summary
+        // record's name record is in range and parsing reaches the NEXT read
+        // rather than failing the earlier record-range check.
+        let mut file = vec![0u8; 3 * 1024];
+        file[..8].copy_from_slice(b"DAF/SPK ");
+        file[8..12].copy_from_slice(&2i32.to_le_bytes()); // ND
+        file[12..16].copy_from_slice(&6i32.to_le_bytes()); // NI
+        file[76..80].copy_from_slice(&2i32.to_le_bytes()); // FWARD -> record 2
+        file[80..84].copy_from_slice(&2i32.to_le_bytes()); // BWARD
+        file[88..96].copy_from_slice(b"LTL-IEEE");
+
+        let rec = 1024;
+        file[rec..rec + 8].copy_from_slice(&f64::NAN.to_le_bytes()); // NEXT = NaN
+        file[rec + 8..rec + 16].copy_from_slice(&0f64.to_le_bytes()); // PREV
+        file[rec + 16..rec + 24].copy_from_slice(&0f64.to_le_bytes()); // NSUM
+
+        let err = DAFFile::from_bytes(&file).unwrap_err();
+        assert!(format!("{}", err).contains("NEXT"));
+    }
+
+    /// Build a structurally valid DAF with no summaries whose LOCFMT tag
+    /// (bytes 88..96) is blank, forcing endianness inference from the ND
+    /// sanity check. `nd_be` selects big-endian header/word encoding.
+    fn locfmt_fallback_file(nd_big_endian: bool) -> Vec<u8> {
+        // Three records so the summary record's name record (record 3) is in
+        // range and parsing reaches the endianness-inference fallback.
+        let mut file = vec![0u8; 3 * 1024];
+        file[..8].copy_from_slice(b"DAF/SPK ");
+        let to_bytes = |v: i32| {
+            if nd_big_endian {
+                v.to_be_bytes()
+            } else {
+                v.to_le_bytes()
+            }
+        };
+        file[8..12].copy_from_slice(&to_bytes(2)); // ND
+        file[12..16].copy_from_slice(&to_bytes(6)); // NI
+        file[76..80].copy_from_slice(&to_bytes(2)); // FWARD -> record 2
+        file[80..84].copy_from_slice(&to_bytes(2)); // BWARD
+        // LOCFMT (88..96) left as zero bytes -> unrecognized tag.
+
+        // Summary record 2: NEXT=0, PREV=0, NSUM=0 (no segments).
+        let rec = 1024;
+        let f0 = if nd_big_endian {
+            0f64.to_be_bytes()
+        } else {
+            0f64.to_le_bytes()
+        };
+        file[rec..rec + 8].copy_from_slice(&f0); // NEXT
+        file[rec + 8..rec + 16].copy_from_slice(&f0); // PREV
+        file[rec + 16..rec + 24].copy_from_slice(&f0); // NSUM
+        file
+    }
+
+    #[test]
+    fn test_locfmt_fallback_infers_little_endian() {
+        // Unrecognized LOCFMT + ND valid as little-endian -> little-endian.
+        let daf = DAFFile::from_bytes(&locfmt_fallback_file(false)).unwrap();
+        assert_eq!(daf.nd, 2);
+        assert_eq!(daf.ni, 6);
+        assert_eq!(daf.summaries.len(), 0);
+    }
+
+    #[test]
+    fn test_locfmt_fallback_infers_big_endian() {
+        // Unrecognized LOCFMT + ND invalid as LE but valid as BE -> big-endian.
+        let daf = DAFFile::from_bytes(&locfmt_fallback_file(true)).unwrap();
+        assert_eq!(daf.nd, 2);
+        assert_eq!(daf.ni, 6);
+        assert_eq!(daf.summaries.len(), 0);
+    }
+
+    #[test]
+    fn test_locfmt_fallback_rejects_when_nd_implausible_both_ways() {
+        // Unrecognized LOCFMT and ND out of range as both LE and BE: the
+        // fallback cannot infer endianness and must error.
+        let mut file = vec![0u8; 1024];
+        file[..8].copy_from_slice(b"DAF/SPK ");
+        file[8..12].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // ND = -1 both ways
+        file[12..16].copy_from_slice(&6i32.to_le_bytes());
+        // LOCFMT left blank.
+        let err = DAFFile::from_bytes(&file).unwrap_err();
+        assert!(format!("{}", err).contains("unrecognized binary format tag"));
+    }
 }

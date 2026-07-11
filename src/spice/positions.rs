@@ -731,6 +731,152 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_body_center_de_two_leg_sum_offline() {
+        // Exercises every `body_center_de_functions!`-generated function (all
+        // five outer planets × position/velocity/state) fully offline. A
+        // synthetic DE kernel provides each planetary-system barycenter rel
+        // Earth; a synthetic satellite-system kernel per planet provides the
+        // body center rel its barycenter. Positions are constant on the
+        // x-axis, so each result is the exact two-leg sum and velocity is
+        // zero. This also covers all `system_kernel` match arms.
+        use crate::spice::{clear_kernels, load_kernel};
+        use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
+
+        setup_global_test_spice();
+        // Keep the real de440s resident so any concurrent cache-reading test
+        // still finds it (via load_kernel's idempotent short-circuit) while
+        // BRAHE_CACHE is redirected below. The barycenter leg uses the DE440
+        // (de440.bsp) slot, which no other default-suite test loads, so
+        // seeding a synthetic version there cannot corrupt a concurrent read.
+        load_kernel("de440s").unwrap();
+
+        let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s(); // keep de440s valid for concurrent reloads
+            cache.seed(
+                "de440.bsp",
+                &synthetic_spk_kernel_bytes(&[
+                    (4, 399, 4.0),
+                    (5, 399, 5.0),
+                    (6, 399, 6.0),
+                    (7, 399, 7.0),
+                    (8, 399, 8.0),
+                ]),
+            );
+            cache.seed("mar099s.bsp", &synthetic_spk_kernel_bytes(&[(499, 4, 0.4)]));
+            cache.seed("jup365.bsp", &synthetic_spk_kernel_bytes(&[(599, 5, 0.5)]));
+            cache.seed("sat441.bsp", &synthetic_spk_kernel_bytes(&[(699, 6, 0.6)]));
+            cache.seed(
+                "ura184_part-3.bsp",
+                &synthetic_spk_kernel_bytes(&[(799, 7, 0.7)]),
+            );
+            cache.seed("nep097.bsp", &synthetic_spk_kernel_bytes(&[(899, 8, 0.8)]));
+
+            // (position fn, velocity fn, state fn, expected x sum in meters)
+            type PosFn = fn(Epoch, NAIFKernel) -> Result<Vector3<f64>, BraheError>;
+            type StateFn = fn(Epoch, NAIFKernel) -> Result<Vector6<f64>, BraheError>;
+            let cases: [(PosFn, PosFn, StateFn, f64); 5] = [
+                (mars_position_de, mars_velocity_de, mars_state_de, 4400.0),
+                (
+                    jupiter_position_de,
+                    jupiter_velocity_de,
+                    jupiter_state_de,
+                    5500.0,
+                ),
+                (
+                    saturn_position_de,
+                    saturn_velocity_de,
+                    saturn_state_de,
+                    6600.0,
+                ),
+                (
+                    uranus_position_de,
+                    uranus_velocity_de,
+                    uranus_state_de,
+                    7700.0,
+                ),
+                (
+                    neptune_position_de,
+                    neptune_velocity_de,
+                    neptune_state_de,
+                    8800.0,
+                ),
+            ];
+            for (pos_fn, vel_fn, state_fn, expected_x) in cases {
+                let r = pos_fn(epc, NAIFKernel::DE440).unwrap();
+                assert_abs_diff_eq!(r[0], expected_x, epsilon = 1e-6);
+                assert_eq!(vel_fn(epc, NAIFKernel::DE440).unwrap(), Vector3::zeros());
+                let x = state_fn(epc, NAIFKernel::DE440).unwrap();
+                assert_abs_diff_eq!(x[0], expected_x, epsilon = 1e-6);
+                assert_eq!(x.fixed_rows::<3>(3).into_owned(), Vector3::zeros());
+            }
+        }
+        // Redirect dropped (real cache restored): drop the synthetic kernels
+        // and reload the real de440s.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    fn test_system_kernel_panics_for_unsupported_body() {
+        // The `_` arm of `system_kernel` panics for any body without a
+        // satellite-system kernel.
+        let result = std::panic::catch_unwind(|| system_kernel(NAIFId::Earth));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[serial]
+    fn test_ssb_position_de_alias_offline() {
+        // `ssb_position_de` forwards to `solar_system_barycenter_position_de`.
+        // A synthetic DE kernel provides SSB (0) rel Earth as a constant.
+        use crate::spice::{clear_kernels, load_kernel};
+        use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
+
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap(); // keep real de440s resident (see above)
+
+        let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s(); // keep de440s valid for concurrent reloads
+            // de440.bsp slot: not read by any concurrent default-suite test.
+            cache.seed("de440.bsp", &synthetic_spk_kernel_bytes(&[(0, 399, 3.0)]));
+            let r = ssb_position_de(epc, NAIFKernel::DE440).unwrap();
+            assert_abs_diff_eq!(r[0], 3000.0, epsilon = 1e-6);
+        }
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_solar_system_barycenter_position_de_error_offline() {
+        // Error branch: a cached-but-unparseable DE kernel makes the load
+        // fail, and the error propagates out of the generated position fn.
+        use crate::spice::{clear_kernels, load_kernel};
+        use crate::utils::testing::CacheRedirect;
+
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap(); // keep real de440s resident (see above)
+
+        let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s(); // keep de440s valid for concurrent reloads
+            // de440.bsp slot: seeding invalid bytes here cannot corrupt a
+            // concurrent test reading the real de440s.
+            cache.seed("de440.bsp", b"not a valid DAF kernel");
+            let err = solar_system_barycenter_position_de(epc, NAIFKernel::DE440).unwrap_err();
+            assert!(!format!("{}", err).is_empty());
+        }
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
     fn test_all_bodies_have_velocity_and_state() {
         setup_global_test_spice();
         let epc = Epoch::from_date(2025, 6, 1, crate::time::TimeSystem::UTC);

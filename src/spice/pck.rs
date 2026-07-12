@@ -15,13 +15,13 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use nalgebra::{Matrix3, Vector3};
+use nalgebra::Vector3;
 
-use crate::attitude::RotationMatrix;
+use crate::attitude::{EulerAngle, EulerAngleOrder, Quaternion, RotationMatrix, ToAttitude};
 use crate::constants::AngleFormat;
 use crate::utils::BraheError;
 
-use super::daf::DafFile;
+use super::daf::DAFFile;
 use super::segments::{ChebyshevSegment, pck_frame_not_found_error, pck_out_of_coverage_error};
 
 /// A loaded binary PCK kernel with in-memory Chebyshev coefficients.
@@ -40,7 +40,7 @@ impl BPCK {
     /// # Returns
     /// - Loaded kernel, or an error naming any unsupported segment type
     pub fn from_file(path: &Path) -> Result<Self, BraheError> {
-        let daf = DafFile::from_file(path)?;
+        let daf = DAFFile::from_file(path)?;
         Self::from_daf(daf)
     }
 
@@ -52,10 +52,10 @@ impl BPCK {
     /// # Returns
     /// - Loaded kernel, or an error naming any unsupported segment type
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, BraheError> {
-        Self::from_daf(DafFile::from_bytes(bytes)?)
+        Self::from_daf(DAFFile::from_bytes(bytes)?)
     }
 
-    pub(crate) fn from_daf(daf: DafFile) -> Result<Self, BraheError> {
+    pub(crate) fn from_daf(daf: DAFFile) -> Result<Self, BraheError> {
         if daf.id_word != "DAF/PCK" {
             return Err(BraheError::IoError(format!(
                 "Not a binary PCK kernel: ID word is '{}', expected 'DAF/PCK'",
@@ -109,6 +109,81 @@ impl BPCK {
         Ok((angles, rates))
     }
 
+    /// 3-1-3 Euler angle of the body-fixed frame relative to the segment
+    /// reference frame (ICRF for DE440-era kernels), as a typed
+    /// [`EulerAngle`].
+    ///
+    /// The kernel stores raw angles `a = [phi, delta, w]` composing as
+    /// `R = Rz(w) · Rx(delta) · Rz(phi)`. This maps directly onto brahe's
+    /// aerospace-sequence [`EulerAngleOrder::ZXZ`] convention (phi about Z
+    /// first, delta about X' second, w about Z'' third): `phi` binds to the
+    /// `EulerAngle`'s first slot, `delta` to the second, `w` to the third.
+    ///
+    /// # Arguments
+    /// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+    /// - `et`: TDB seconds past J2000
+    ///
+    /// # Returns
+    /// - `EulerAngle` (order `ZXZ`, radians): ICRF to body-fixed orientation
+    pub fn euler_angle(&self, frame_id: i32, et: f64) -> Result<EulerAngle, BraheError> {
+        let (a, _) = self.euler_angles(frame_id, et)?;
+        Ok(EulerAngle::new(
+            EulerAngleOrder::ZXZ,
+            a[0],
+            a[1],
+            a[2],
+            AngleFormat::Radians,
+        ))
+    }
+
+    /// Time derivatives of the 3-1-3 Euler angles, i.e. `euler_angle`'s
+    /// rates without the angles themselves.
+    ///
+    /// # Arguments
+    /// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+    /// - `et`: TDB seconds past J2000
+    ///
+    /// # Returns
+    /// - `[phi_dot, delta_dot, w_dot]` in [rad/s]
+    pub fn euler_rates(&self, frame_id: i32, et: f64) -> Result<Vector3<f64>, BraheError> {
+        Ok(self.euler_angles(frame_id, et)?.1)
+    }
+
+    /// Typed Euler angle and its rates from a single shared segment lookup.
+    ///
+    /// Equivalent to calling [`Self::euler_angle`] and [`Self::euler_rates`]
+    /// separately, but evaluates the underlying Chebyshev segment only once.
+    ///
+    /// # Arguments
+    /// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+    /// - `et`: TDB seconds past J2000
+    ///
+    /// # Returns
+    /// - `(angle, rates)`: `angle` is the `EulerAngle` (order `ZXZ`,
+    ///   radians); `rates` are `[phi_dot, delta_dot, w_dot]` in [rad/s]
+    pub fn euler_angle_and_rates(
+        &self,
+        frame_id: i32,
+        et: f64,
+    ) -> Result<(EulerAngle, Vector3<f64>), BraheError> {
+        let (a, rates) = self.euler_angles(frame_id, et)?;
+        let angle = EulerAngle::new(EulerAngleOrder::ZXZ, a[0], a[1], a[2], AngleFormat::Radians);
+        Ok((angle, rates))
+    }
+
+    /// Orientation of the body-fixed frame relative to the segment reference
+    /// frame (ICRF for DE440-era kernels), as a unit [`Quaternion`].
+    ///
+    /// # Arguments
+    /// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+    /// - `et`: TDB seconds past J2000
+    ///
+    /// # Returns
+    /// - Unit `Quaternion` (ICRF to body-fixed). Dimensionless.
+    pub fn quaternion(&self, frame_id: i32, et: f64) -> Result<Quaternion, BraheError> {
+        Ok(self.rotation_matrix(frame_id, et)?.to_quaternion())
+    }
+
     /// Rotation matrix from the segment reference frame (ICRF) to the
     /// body-fixed frame: `R = Rz(w) · Rx(delta) · Rz(phi)`.
     ///
@@ -118,11 +193,12 @@ impl BPCK {
     ///
     /// # Returns
     /// - 3x3 rotation matrix (ICRF to body-fixed). Dimensionless.
-    pub fn rotation_matrix(&self, frame_id: i32, et: f64) -> Result<Matrix3<f64>, BraheError> {
+    pub fn rotation_matrix(&self, frame_id: i32, et: f64) -> Result<RotationMatrix, BraheError> {
         let (a, _) = self.euler_angles(frame_id, et)?;
-        Ok(RotationMatrix::Rz(a[2], AngleFormat::Radians).to_matrix()
+        let m = RotationMatrix::Rz(a[2], AngleFormat::Radians).to_matrix()
             * RotationMatrix::Rx(a[1], AngleFormat::Radians).to_matrix()
-            * RotationMatrix::Rz(a[0], AngleFormat::Radians).to_matrix())
+            * RotationMatrix::Rz(a[0], AngleFormat::Radians).to_matrix();
+        RotationMatrix::from_matrix(m)
     }
 }
 
@@ -209,7 +285,7 @@ mod tests {
     fn test_bpck_rotation_matrix_is_313() {
         let bpck = BPCK::from_bytes(&synthetic_bpck_bytes()).unwrap();
         let (angles, _) = bpck.euler_angles(31006, 750.0).unwrap();
-        let r = bpck.rotation_matrix(31006, 750.0).unwrap();
+        let r = bpck.rotation_matrix(31006, 750.0).unwrap().to_matrix();
         // Orthonormal, det = +1
         let rtr = r.transpose() * r;
         assert_abs_diff_eq!(
@@ -225,6 +301,37 @@ mod tests {
             * RotationMatrix::Rx(angles[1], AngleFormat::Radians).to_matrix()
             * RotationMatrix::Rz(angles[0], AngleFormat::Radians).to_matrix();
         assert_abs_diff_eq!((r - expected).norm(), 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_pck_typed_returns_consistent() {
+        let bpck = BPCK::from_bytes(&synthetic_bpck_bytes()).unwrap();
+        let et = 250.0;
+        let (angles, rates) = bpck.euler_angles(31006, et).unwrap();
+
+        // EulerAngle carries the same three angles in ZXZ order
+        let e = bpck.euler_angle(31006, et).unwrap();
+        assert_eq!(e.order, EulerAngleOrder::ZXZ);
+
+        // The typed EulerAngle must reproduce the rotation matrix exactly
+        let r = bpck.rotation_matrix(31006, et).unwrap();
+        let r_from_euler = e.to_rotation_matrix();
+        assert_abs_diff_eq!(r.to_matrix(), r_from_euler.to_matrix(), epsilon = 1e-12);
+
+        // Quaternion round-trips through the same matrix
+        let q = bpck.quaternion(31006, et).unwrap();
+        assert_abs_diff_eq!(
+            q.to_rotation_matrix().to_matrix(),
+            r.to_matrix(),
+            epsilon = 1e-12
+        );
+
+        // Combined and rates-only accessors agree with the raw output
+        let (e2, rates2) = bpck.euler_angle_and_rates(31006, et).unwrap();
+        assert_eq!(e2, e);
+        assert_abs_diff_eq!(rates2, rates, epsilon = 0.0);
+        assert_abs_diff_eq!(bpck.euler_rates(31006, et).unwrap(), rates, epsilon = 0.0);
+        let _ = angles; // raw accessor retained
     }
 
     #[test]

@@ -108,23 +108,33 @@ def _unnormalize_zonal(c_n0: float, n: int) -> float:
 
 
 def test_J2_EARTH():
-    assert brahe.J2_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_2_0, 2), abs=1e-18)
+    assert brahe.J2_EARTH == pytest.approx(
+        _unnormalize_zonal(EGM2008_C_2_0, 2), abs=1e-18
+    )
 
 
 def test_J3_EARTH():
-    assert brahe.J3_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_3_0, 3), abs=1e-21)
+    assert brahe.J3_EARTH == pytest.approx(
+        _unnormalize_zonal(EGM2008_C_3_0, 3), abs=1e-21
+    )
 
 
 def test_J4_EARTH():
-    assert brahe.J4_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_4_0, 4), abs=1e-21)
+    assert brahe.J4_EARTH == pytest.approx(
+        _unnormalize_zonal(EGM2008_C_4_0, 4), abs=1e-21
+    )
 
 
 def test_J5_EARTH():
-    assert brahe.J5_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_5_0, 5), abs=1e-22)
+    assert brahe.J5_EARTH == pytest.approx(
+        _unnormalize_zonal(EGM2008_C_5_0, 5), abs=1e-22
+    )
 
 
 def test_J6_EARTH():
-    assert brahe.J6_EARTH == pytest.approx(_unnormalize_zonal(EGM2008_C_6_0, 6), abs=1e-21)
+    assert brahe.J6_EARTH == pytest.approx(
+        _unnormalize_zonal(EGM2008_C_6_0, 6), abs=1e-21
+    )
 
 
 def test_OMEGA_EARTH():

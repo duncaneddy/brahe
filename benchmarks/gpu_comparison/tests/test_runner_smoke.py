@@ -1,4 +1,5 @@
 """Runner smoke test using only the ping backends — no JAX, no Rust binary required."""
+
 import pytest
 
 from benchmarks.gpu_comparison.implementations import astrojax_kernels
@@ -11,12 +12,18 @@ class _PingTask(BatchTask):
     module = "ping"
     description = ""
     configs = [BatchConfig(name="astrojax-gpu", dtype="f32", backend="astrojax-gpu")]
-    def batch_sizes(self): return [1, 10]
-    def generate_inputs(self, b, s): return {"n": b}
+
+    def batch_sizes(self):
+        return [1, 10]
+
+    def generate_inputs(self, b, s):
+        return {"n": b}
 
 
 def _ping_builder(task, batch_size, dtype, seed, devices):
-    def kernel(args): return args["n"] * 2
+    def kernel(args):
+        return args["n"] * 2
+
     return kernel, {"n": batch_size}
 
 
@@ -37,8 +44,11 @@ def test_run_one_task_produces_cells_for_each_batch(monkeypatch):
     monkeypatch.setattr(astrojax_gpu, "_resolve_devices", _fake_resolve)
 
     cells = run_one_task(
-        _PingTask(), iterations=3, seed=42,
-        per_cell_budget_s=30.0, configs_filter=None,
+        _PingTask(),
+        iterations=3,
+        seed=42,
+        per_cell_budget_s=30.0,
+        configs_filter=None,
     )
     assert len(cells) == 2
     assert {c.batch_size for c in cells} == {1, 10}
@@ -58,9 +68,11 @@ def test_run_suite_enforces_global_budget(monkeypatch, tmp_path):
     real_time = runner.time.time
     t0 = real_time()
     calls = {"n": 0}
+
     def _fake_time():
         calls["n"] += 1
         return t0 if calls["n"] == 1 else t0 + 1e6
+
     monkeypatch.setattr(runner.time, "time", _fake_time)
 
     path = runner.run_suite(
@@ -70,6 +82,7 @@ def test_run_suite_enforces_global_budget(monkeypatch, tmp_path):
         output_dir=tmp_path,
     )
     import json
+
     cells = json.loads(path.read_text())["cells"]
     assert cells, "expected at least one skipped cell"
     assert all(c["status"] == "skipped" for c in cells)

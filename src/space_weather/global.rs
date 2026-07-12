@@ -574,6 +574,7 @@ mod tests {
 
     #[test]
     #[serial]
+    #[cfg_attr(not(feature = "integration"), ignore)] // Downloads from celestrak.org
     fn test_initialize_sw() {
         clear_test_global_sw();
         assert!(!get_global_sw_initialization());

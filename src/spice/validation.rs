@@ -11,7 +11,7 @@ use anise::prelude::{Almanac, Epoch as AniseEpoch, Frame, SPK as AniseSPK};
 use approx::assert_abs_diff_eq;
 use std::path::PathBuf;
 
-use crate::spice::registry::{NAIF_EARTH, NAIF_SSB};
+use crate::spice::naif_id::NAIFId;
 use crate::spice::spk::SPK;
 use crate::time::{Epoch, TimeSystem};
 
@@ -84,7 +84,7 @@ fn test_validation_position_velocity_vs_anise_matched_et() {
     let mut max_dv = 0.0_f64;
 
     for &(body, name) in BODIES {
-        for center in [NAIF_EARTH, NAIF_SSB] {
+        for center in [NAIFId::Earth.id(), NAIFId::SolarSystemBarycenter.id()] {
             for &et in &sample_ets() {
                 let r_native = native.position(body, center, et).unwrap();
                 let v_native = native.velocity(body, center, et).unwrap();
@@ -175,11 +175,11 @@ fn test_validation_end_to_end_epoch_path() {
 
     let mut max_dr = 0.0_f64;
     for &(body, _) in BODIES {
-        let r_native = native.position(body, NAIF_EARTH, et).unwrap();
+        let r_native = native.position(body, NAIFId::Earth.id(), et).unwrap();
         let state = almanac
             .translate(
                 Frame::from_ephem_j2000(body),
-                Frame::from_ephem_j2000(NAIF_EARTH),
+                Frame::from_ephem_j2000(NAIFId::Earth.id()),
                 anise_epoch,
                 Aberration::NONE,
             )
@@ -198,49 +198,13 @@ fn test_validation_end_to_end_epoch_path() {
 }
 
 #[test]
-fn test_validation_frame_bias_removal_documented() {
-    // Documents the effect of dropping the J2000->ICRF bias rotation that
-    // the pre-native implementation applied: |R_bias·r - r| for the Sun is
-    // ~asin(23 mas)·1 AU ≈ 1.7e4 m — i.e. the OLD outputs differed from
-    // raw kernel output by this much. The angle equivalent (~23 mas) is far
-    // below the 0.1 deg tolerance used by the sun/moon direction tests.
-    use crate::constants::AS2RAD;
-    use nalgebra::Matrix3;
-
-    let Some((native, _)) = load_both() else {
-        return;
-    };
-    let r = native.position(10, NAIF_EARTH, 0.0).unwrap();
-
-    // The bias matrix formerly in positions.rs (IERS 2010 frame bias)
-    let dxi = -16.6170e-3 * AS2RAD;
-    let deta = -6.8192e-3 * AS2RAD;
-    let dalpha = -14.6e-3 * AS2RAD;
-    let b = Matrix3::new(
-        1.0 - 0.5 * (dxi * dxi + deta * deta),
-        dalpha,
-        -dxi,
-        -dalpha - dxi * deta,
-        1.0 - 0.5 * (dalpha * dalpha + deta * deta),
-        -deta,
-        dxi + dalpha * deta,
-        deta + dalpha * dxi,
-        1.0 - 0.5 * (deta * deta + dxi * dxi),
-    )
-    .transpose();
-
-    let delta = (b * r - r).norm();
-    // ~1.2-2.2e4 m at 1 AU; assert the order of magnitude so the doc claim stays honest
-    assert!(delta > 1.0e3 && delta < 1.0e5, "bias delta = {} m", delta);
-}
-
-#[test]
 #[cfg_attr(not(feature = "integration"), ignore)]
 fn test_validation_pck_moon_pa_vs_anise() {
-    use crate::datasets::naif::download_pck_kernel;
+    use crate::datasets::naif::download_spice_kernel;
+    use crate::spice::SPICEKernel;
     use crate::spice::pck::BPCK;
 
-    let path = download_pck_kernel("moon_pa_de440", None).unwrap();
+    let path = download_spice_kernel(SPICEKernel::MoonPaDe440, None).unwrap();
     let bpck = BPCK::from_file(&path).unwrap();
 
     // The real moon_pa_de440_200625.bpc kernel stores frame class ID 31008
@@ -265,7 +229,7 @@ fn test_validation_pck_moon_pa_vs_anise() {
 
     let mut max_delta = 0.0_f64;
     for &et in &[0.0_f64, 1.0e8, 5.0e8, -1.0e8] {
-        let r_native = bpck.rotation_matrix(31008, et).unwrap();
+        let r_native = bpck.rotation_matrix(31008, et).unwrap().to_matrix();
         let epoch = AniseEpoch::from_et_seconds(et);
         let dcm = almanac.rotation_to_parent(moon_pa_frame, epoch).unwrap();
         for i in 0..3 {

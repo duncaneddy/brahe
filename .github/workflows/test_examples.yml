@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v7.0.0
 
       - name: Set up Rust toolchain with cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
 
@@ -55,6 +55,18 @@ jobs:
         with:
           name: brahe-cache
           path: ~/.cache/brahe/
+
+      # Restored before "Setup test assets in cache" below so the repo's
+      # test_assets/de440s.bsp always wins over a stale cached copy; only
+      # moon_pa_de440/mar099s (not provided as test assets) are served from
+      # this cache, which is why it can't sit with the other cache steps.
+      # Fixed key: actions/cache never re-saves after the first hit, so bump
+      # to naif-kernels-v2 when the examples' kernel set changes.
+      - name: Cache NAIF kernels
+        uses: actions/cache@v6.1.0
+        with:
+          path: ~/.cache/brahe/naif
+          key: naif-kernels-v1
 
       # Copy test assets to cache for examples that might use them
       - name: Setup test assets in cache

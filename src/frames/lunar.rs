@@ -63,7 +63,7 @@ use nalgebra::Vector3;
 
 use crate::constants::AS2RAD;
 use crate::math::{SMatrix3, SVector6};
-use crate::spice::{NAIF_EARTH, NAIF_MOON, spk_position, spk_state};
+use crate::spice::{NAIFId, spk_position, spk_state};
 use crate::time::Epoch;
 
 use super::iau_rotation::{euler313_omega_body, rx, ry, rz};
@@ -122,6 +122,7 @@ pub fn rotation_lci_to_lfpa(epc: Epoch) -> SMatrix3 {
     ensure_lunar_pck_loaded();
     crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)
         .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e))
+        .to_matrix()
 }
 
 /// Computes the rotation matrix from Lunar-Fixed Principal Axis (LFPA) to
@@ -369,7 +370,8 @@ pub fn state_lci_to_lfpa(epc: Epoch, x_lci: SVector6) -> SVector6 {
     let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
         .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
     let r_mat = crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
+        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e))
+        .to_matrix();
     let omega_b = euler313_omega_body(angles, rates);
 
     let r = x_lci.fixed_rows::<3>(0);
@@ -415,7 +417,8 @@ pub fn state_lfpa_to_lci(epc: Epoch, x_lfpa: SVector6) -> SVector6 {
     let (angles, rates) = crate::spice::pck_euler_angles(MOON_PA_FRAME_ID, epc)
         .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
     let r_mat = crate::spice::pck_rotation_matrix(MOON_PA_FRAME_ID, epc)
-        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e));
+        .unwrap_or_else(|e| panic!("Lunar PCK orientation query failed: {}", e))
+        .to_matrix();
     let omega_b = euler313_omega_body(angles, rates);
 
     let r_b: Vector3<f64> = x_lfpa.fixed_rows::<3>(0).into_owned();
@@ -542,7 +545,7 @@ pub fn state_lfme_to_lci(epc: Epoch, x_lfme: SVector6) -> SVector6 {
 /// let x_lci = position_eci_to_lci(epc, x_eci);
 /// ```
 pub fn position_eci_to_lci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIF_MOON, NAIF_EARTH, epc)
+    let offset = spk_position(NAIFId::Moon, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_eci - offset
 }
@@ -571,7 +574,7 @@ pub fn position_eci_to_lci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// let x_eci = position_lci_to_eci(epc, x_lci);
 /// ```
 pub fn position_lci_to_eci(epc: Epoch, x_lci: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIF_MOON, NAIF_EARTH, epc)
+    let offset = spk_position(NAIFId::Moon, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_lci + offset
 }
@@ -603,7 +606,7 @@ pub fn position_lci_to_eci(epc: Epoch, x_lci: Vector3<f64>) -> Vector3<f64> {
 /// let x_lci = state_eci_to_lci(epc, x_eci);
 /// ```
 pub fn state_eci_to_lci(epc: Epoch, x_eci: SVector6) -> SVector6 {
-    let offset = spk_state(NAIF_MOON, NAIF_EARTH, epc)
+    let offset = spk_state(NAIFId::Moon, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_eci - offset
 }
@@ -632,7 +635,7 @@ pub fn state_eci_to_lci(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// let x_eci = state_lci_to_eci(epc, x_lci);
 /// ```
 pub fn state_lci_to_eci(epc: Epoch, x_lci: SVector6) -> SVector6 {
-    let offset = spk_state(NAIF_MOON, NAIF_EARTH, epc)
+    let offset = spk_state(NAIFId::Moon, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_lci + offset
 }
@@ -815,7 +818,7 @@ mod tests {
         setup_global_test_spice();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([1e8, 2e8, 3e8, 1.0, 2.0, 3.0]);
-        let offset = crate::spice::spk_state(NAIF_MOON, NAIF_EARTH, epc).unwrap();
+        let offset = crate::spice::spk_state(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
         let expected = x - offset;
         let got = state_eci_to_lci(epc, x);
         for i in 0..6 {

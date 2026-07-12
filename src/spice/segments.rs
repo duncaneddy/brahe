@@ -17,7 +17,7 @@ use nalgebra::Vector3;
 
 use crate::utils::BraheError;
 
-use super::daf::{DafFile, DafSummary};
+use super::daf::{DAFFile, DAFSummary};
 
 /// One Chebyshev-interpolated kernel segment with coefficients resident in
 /// memory. Covers SPK types 2/3 and binary PCK type 2.
@@ -265,7 +265,7 @@ impl ChebyshevSegment {
     /// # Returns
     /// - Parsed `ChebyshevSegment`, or `BraheError` on malformed data or an
     ///   unsupported segment type
-    pub fn from_spk_summary(daf: &DafFile, summary: &DafSummary) -> Result<Self, BraheError> {
+    pub fn from_spk_summary(daf: &DAFFile, summary: &DAFSummary) -> Result<Self, BraheError> {
         if summary.ints.len() < 6 || summary.doubles.len() < 2 {
             return Err(BraheError::IoError(format!(
                 "SPK segment '{}' summary has {} ints and {} doubles, expected 6 ints and at least 2 doubles",
@@ -297,7 +297,7 @@ impl ChebyshevSegment {
     /// # Returns
     /// - Parsed `ChebyshevSegment`, or `BraheError` on malformed data or an
     ///   unsupported segment type
-    pub fn from_pck_summary(daf: &DafFile, summary: &DafSummary) -> Result<Self, BraheError> {
+    pub fn from_pck_summary(daf: &DAFFile, summary: &DAFSummary) -> Result<Self, BraheError> {
         if summary.ints.len() < 5 || summary.doubles.len() < 2 {
             return Err(BraheError::IoError(format!(
                 "PCK segment '{}' summary has {} ints and {} doubles, expected 5 ints and at least 2 doubles",
@@ -339,8 +339,8 @@ impl ChebyshevSegment {
     ///   cover the descriptor's coverage interval
     #[allow(clippy::too_many_arguments)]
     fn from_summary(
-        daf: &DafFile,
-        summary: &DafSummary,
+        daf: &DAFFile,
+        summary: &DAFSummary,
         target: i32,
         center: i32,
         frame: i32,
@@ -758,7 +758,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         for summary in &daf.summaries {
             let seg = ChebyshevSegment::from_spk_summary(&daf, summary).unwrap();
             assert_eq!(seg.data_type, 2);
@@ -793,7 +793,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         summary.ints[3] = 13; // pretend type 13
         let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
@@ -810,11 +810,11 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         // PCK ints layout: [frame_class_id, reference_frame, type, start, end].
         // Type 3 is not supported for PCK (only SPK); the error must not
         // claim otherwise.
-        let summary = DafSummary {
+        let summary = DAFSummary {
             name: "TEST_PCK".to_string(),
             doubles: vec![0.0, 1.0],
             ints: vec![10, 1, 3, 1, 1],
@@ -837,7 +837,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         summary.ints[2] = 17; // ECLIPJ2000
         let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
@@ -856,8 +856,8 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
-        let summary = DafSummary {
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
+        let summary = DAFSummary {
             name: "TEST_PCK".to_string(),
             doubles: vec![0.0, 1.0],
             ints: vec![10, 17, 2, 1, 1],
@@ -876,7 +876,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         summary.ints.truncate(5); // one short of the required 6
         let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
@@ -928,7 +928,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         // Claim the descriptor covers far beyond the record directory.
         summary.doubles[1] += 1.0e9;
@@ -936,6 +936,149 @@ mod tests {
         let msg = format!("{}", err);
         assert!(msg.contains(&summary.name));
         assert!(msg.contains("does not cover"));
+    }
+
+    #[test]
+    fn test_chebyshev_derivative_degree_zero_is_zero() {
+        // A degree-0 (single-coefficient) record has a constant position, so
+        // its analytic velocity is exactly zero. Exercises the n == 0 early
+        // return in `chebyshev_derivative` via `velocity`.
+        let degree = 0usize;
+        let rsize = 2 + 3 * (degree + 1); // 5
+        let coeffs = vec![50.0, 50.0, 7.0, 8.0, 9.0]; // MID, RADIUS, x0, y0, z0
+        let seg = ChebyshevSegment {
+            target: 10,
+            center: 0,
+            frame: 1,
+            data_type: 2,
+            ncomp: 3,
+            start_et: 0.0,
+            end_et: 100.0,
+            init: 0.0,
+            intlen: 100.0,
+            rsize,
+            n: 1,
+            degree,
+            coeffs,
+        };
+        let v = seg.velocity(50.0).unwrap();
+        assert_eq!(v, Vector3::zeros());
+        // Position returns the constant coefficients.
+        let p = seg.position(50.0).unwrap();
+        assert_abs_diff_eq!(p[0], 7.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(p[1], 8.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(p[2], 9.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_validate_count_rejects_invalid_values() {
+        // `validate_count`'s error branch rejects NaN, negative, and
+        // fractional counts; a finite nonnegative integer is accepted.
+        assert!(validate_count(f64::NAN, "N", "SPK", "seg").is_err());
+        assert!(validate_count(-1.0, "RSIZE", "SPK", "seg").is_err());
+        assert!(validate_count(2.5, "N", "PCK", "seg").is_err());
+        assert_eq!(validate_count(4.0, "N", "SPK", "seg").unwrap(), 4);
+    }
+
+    #[test]
+    fn test_type3_velocity_and_state_read_stored_velocity_polynomials() {
+        // SPK Type 3 stores velocity coefficients directly (rather than
+        // differentiating position), so `velocity` and `state` must read
+        // components 3..6 rather than the analytic derivative path.
+        let degree = 1usize;
+        let rsize = 2 + 6 * (degree + 1); // 14
+        let mut coeffs = vec![50.0, 50.0]; // MID, RADIUS
+        // Position components x, y, z (each a0 + a1*T1(s)).
+        coeffs.extend_from_slice(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        // Velocity components vx, vy, vz (read directly, not differentiated).
+        coeffs.extend_from_slice(&[7.0, 8.0, 9.0, 0.0, 10.0, 0.0]);
+        let seg = ChebyshevSegment {
+            target: 10,
+            center: 0,
+            frame: 1,
+            data_type: 3,
+            ncomp: 6,
+            start_et: 0.0,
+            end_et: 100.0,
+            init: 0.0,
+            intlen: 100.0,
+            rsize,
+            n: 1,
+            degree,
+            coeffs,
+        };
+        // et=75 -> s=0.5. Velocity comes from the stored velocity polynomials.
+        let v = seg.velocity(75.0).unwrap();
+        assert_abs_diff_eq!(v[0], 7.0 + 8.0 * 0.5, epsilon = 1e-12);
+        assert_abs_diff_eq!(v[1], 9.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(v[2], 10.0, epsilon = 1e-12);
+        // State shares the record lookup: position from comps 0..3, velocity
+        // from comps 3..6.
+        let (r, vs) = seg.state(75.0).unwrap();
+        assert_abs_diff_eq!(r[0], 1.0 + 2.0 * 0.5, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[1], 3.0 + 4.0 * 0.5, epsilon = 1e-12);
+        assert_abs_diff_eq!(r[2], 5.0 + 6.0 * 0.5, epsilon = 1e-12);
+        assert_eq!(vs, v);
+    }
+
+    #[test]
+    fn test_from_pck_summary_rejects_short_summary() {
+        // `from_pck_summary`'s guard: fewer than 5 ints must be rejected
+        // before any word access, so the DAF contents are irrelevant.
+        let daf = DAFFile::from_bytes(&crate::utils::testing::synthetic_spk_kernel_bytes(&[(
+            10, 0, 1.0,
+        )]))
+        .unwrap();
+        let summary = DAFSummary {
+            name: "SHORT_PCK".to_string(),
+            doubles: vec![0.0, 1.0],
+            ints: vec![10, 1, 2, 1], // one short of the required 5
+        };
+        let err = ChebyshevSegment::from_pck_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains('4'));
+    }
+
+    #[test]
+    fn test_from_summary_rejects_invalid_address_range() {
+        // A start address of 0 (below the 1-based minimum) is rejected.
+        let daf = DAFFile::from_bytes(&crate::utils::testing::synthetic_spk_kernel_bytes(&[(
+            10, 0, 1.0,
+        )]))
+        .unwrap();
+        let mut summary = daf.summaries[0].clone();
+        summary.ints[4] = 0; // start_addr < 1
+        let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("invalid address range"));
+    }
+
+    #[test]
+    fn test_from_summary_rejects_segment_too_short() {
+        // A one-word address range cannot hold the 4-word trailer.
+        let daf = DAFFile::from_bytes(&crate::utils::testing::synthetic_spk_kernel_bytes(&[(
+            10, 0, 1.0,
+        )]))
+        .unwrap();
+        let mut summary = daf.summaries[0].clone();
+        summary.ints[4] = 1;
+        summary.ints[5] = 1; // single word -> too short
+        let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("too short"));
+    }
+
+    #[test]
+    fn test_from_summary_rejects_inconsistent_directory() {
+        // Pointing the segment at the record's first four words makes the
+        // trailer read RSIZE=1, N=0 -- an internally inconsistent directory.
+        let daf = DAFFile::from_bytes(&crate::utils::testing::synthetic_spk_kernel_bytes(&[(
+            10, 0, 1.0,
+        )]))
+        .unwrap();
+        let mut summary = daf.summaries[0].clone();
+        // Data begins at word 385; [385, 388] are [MID, RADIUS, x0, x1].
+        summary.ints[4] = 385;
+        summary.ints[5] = 388;
+        let err = ChebyshevSegment::from_spk_summary(&daf, &summary).unwrap_err();
+        assert!(format!("{}", err).contains("inconsistent directory"));
     }
 
     #[test]
@@ -949,7 +1092,7 @@ mod tests {
         if !path.exists() {
             return;
         }
-        let daf = crate::spice::daf::DafFile::from_file(&path).unwrap();
+        let daf = crate::spice::daf::DAFFile::from_file(&path).unwrap();
         let mut summary = daf.summaries[0].clone();
         // Claim the descriptor starts far before the record directory.
         summary.doubles[0] -= 1.0e9;

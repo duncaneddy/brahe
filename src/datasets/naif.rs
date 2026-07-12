@@ -1,11 +1,14 @@
 /*!
- * NAIF data source implementation for downloading JPL ephemeris kernels.
+ * NAIF data source implementation for downloading JPL ephemeris and
+ * orientation kernels.
  *
  * NAIF (Navigation and Ancillary Information Facility) is NASA's archive of
- * planetary ephemerides, maintained by JPL. This module provides functions
- * to download DE (Development Ephemeris) kernels in SPK (SPICE Kernel) format.
+ * planetary ephemerides and orientation data, maintained by JPL. This module
+ * downloads and caches the kernels enumerated by [`SPICEKernel`] (planetary DE
+ * SPK kernels, satellite ephemeris kernels, and binary PCK kernels).
  */
 
+use crate::spice::SPICEKernel;
 use crate::utils::BraheError;
 use crate::utils::atomic_write;
 use crate::utils::cache::get_naif_cache_dir;
@@ -13,480 +16,121 @@ use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
 
-/// Base URL for NAIF generic kernels repository
-const NAIF_BASE_URL: &str = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/";
-
-/// Base URL for NAIF generic PCK kernels
-const NAIF_PCK_BASE_URL: &str = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/";
-
-/// Base URL for NAIF satellite SPK kernels
-const NAIF_SATELLITE_BASE_URL: &str =
-    "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/";
-
-/// Supported DE kernel names. `pub(crate)` so `spice::registry` can consult
-/// this single list instead of maintaining its own copy.
-pub(crate) const SUPPORTED_KERNELS: &[&str] = &[
-    "de430", "de432s", "de435", "de438", "de440", "de440s", "de442", "de442s",
-];
-
-/// Supported binary PCK kernels: (name, filename). `pub(crate)` so
-/// `spice::registry` can consult this single list instead of maintaining
-/// its own copy.
-pub(crate) const SUPPORTED_PCK_KERNELS: &[(&str, &str)] =
-    &[("moon_pa_de440", "moon_pa_de440_200625.bpc")];
-
-/// Supported satellite SPK kernels: (name, filename). `pub(crate)` so
-/// `spice::registry` can consult this single list instead of maintaining
-/// its own copy.
-pub(crate) const SUPPORTED_SATELLITE_KERNELS: &[(&str, &str)] = &[("mar099s", "mar099s.bsp")];
-
-/// Validate that a kernel name is supported
+/// Download a kernel's bytes from an explicit base URL.
+///
+/// Internal test seam: production code uses [`fetch_kernel`], which derives
+/// the full URL from the kernel via [`SPICEKernel::url`]. This override lets
+/// the mock-server tests point downloads at a local server while exercising
+/// the same read/error handling.
 ///
 /// # Arguments
-/// * `name` - Kernel name to validate
-///
-/// # Returns
-/// * `Result<(), BraheError>` - Ok if valid, error otherwise
-fn validate_kernel_name(name: &str) -> Result<(), BraheError> {
-    if SUPPORTED_KERNELS.contains(&name) {
-        Ok(())
-    } else {
-        Err(BraheError::Error(format!(
-            "Unsupported kernel name '{}'. Supported kernels: {}",
-            name,
-            SUPPORTED_KERNELS.join(", ")
-        )))
-    }
-}
-
-/// Validate that a binary PCK kernel name is supported and return its filename
-///
-/// # Arguments
-/// * `name` - PCK kernel name to validate (e.g., "moon_pa_de440")
-///
-/// # Returns
-/// * `Result<&'static str, BraheError>` - The kernel's filename if valid, error otherwise
-fn validate_pck_kernel_name(name: &str) -> Result<&'static str, BraheError> {
-    SUPPORTED_PCK_KERNELS
-        .iter()
-        .find(|(n, _)| *n == name)
-        .map(|(_, filename)| *filename)
-        .ok_or_else(|| {
-            BraheError::Error(format!(
-                "Unsupported PCK kernel name '{}'. Supported kernels: {}",
-                name,
-                SUPPORTED_PCK_KERNELS
-                    .iter()
-                    .map(|(n, _)| *n)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ))
-        })
-}
-
-/// Validate that a satellite SPK kernel name is supported and return its filename
-///
-/// # Arguments
-/// * `name` - Satellite kernel name to validate (e.g., "mar099s")
-///
-/// # Returns
-/// * `Result<&'static str, BraheError>` - The kernel's filename if valid, error otherwise
-fn validate_satellite_kernel_name(name: &str) -> Result<&'static str, BraheError> {
-    SUPPORTED_SATELLITE_KERNELS
-        .iter()
-        .find(|(n, _)| *n == name)
-        .map(|(_, filename)| *filename)
-        .ok_or_else(|| {
-            BraheError::Error(format!(
-                "Unsupported satellite kernel name '{}'. Supported kernels: {}",
-                name,
-                SUPPORTED_SATELLITE_KERNELS
-                    .iter()
-                    .map(|(n, _)| *n)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ))
-        })
-}
-
-/// Download a DE kernel file from NAIF with configurable base URL
-///
-/// This is an internal function for testing. Use `fetch_de_kernel()` or `download_de_kernel()` for the public API.
-///
-/// # Arguments
-/// * `name` - Kernel name (e.g., "de440", "de440s")
-/// * `base_url` - Base URL for the NAIF repository
+/// * `kernel` - Kernel to download (its [`SPICEKernel::filename`] is appended
+///   to `base_url`)
+/// * `base_url` - Base URL to fetch from
 ///
 /// # Returns
 /// * `Result<Vec<u8>, BraheError>` - Binary kernel data
-fn fetch_de_kernel_with_url(name: &str, base_url: &str) -> Result<Vec<u8>, BraheError> {
-    let filename = format!("{}.bsp", name);
-    let url = format!("{}{}", base_url, filename);
+#[cfg(test)]
+fn fetch_kernel_with_url(kernel: SPICEKernel, base_url: &str) -> Result<Vec<u8>, BraheError> {
+    let url = format!("{}{}", base_url, kernel.filename());
+    fetch_kernel_from_url(&url, kernel.name())
+}
 
-    let response = ureq::get(&url).call().map_err(|e| {
+/// Download a kernel's bytes from NAIF using the kernel's own archive URL.
+///
+/// # Arguments
+/// * `kernel` - Kernel to download
+///
+/// # Returns
+/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
+fn fetch_kernel(kernel: SPICEKernel) -> Result<Vec<u8>, BraheError> {
+    fetch_kernel_from_url(&kernel.url(), kernel.name())
+}
+
+/// Download the bytes at `url`, reading the whole body without the default
+/// size limit (kernels can be large; e.g. de440 ~120MB).
+///
+/// # Arguments
+/// * `url` - Full URL to fetch
+/// * `label` - Short kernel name used in error messages
+///
+/// # Returns
+/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
+fn fetch_kernel_from_url(url: &str, label: &str) -> Result<Vec<u8>, BraheError> {
+    let response = ureq::get(url).call().map_err(|e| {
         BraheError::Error(format!(
             "Failed to download kernel {} from NAIF: {}",
-            name, e
+            label, e
         ))
     })?;
 
-    // Read response body manually to avoid default size limits
-    // DE kernels can be large (de440s ~17MB, de440 ~114MB)
+    // Read response body manually to avoid default size limits.
     let mut buffer = Vec::new();
     let mut reader = response.into_body().into_reader();
 
     reader.read_to_end(&mut buffer).map_err(|e| {
         BraheError::Error(format!(
             "Failed to read kernel {} from NAIF response: {}",
-            name, e
+            label, e
         ))
     })?;
 
     if buffer.is_empty() {
         return Err(BraheError::Error(format!(
             "No data returned from NAIF for kernel '{}'",
-            name
+            label
         )));
     }
 
     Ok(buffer)
 }
 
-/// Download a DE kernel file from NAIF
+/// Download a NAIF kernel with caching support.
 ///
-/// This is an internal function. Use `download_de_kernel()` for the public API.
-///
-/// # Arguments
-/// * `name` - Kernel name (e.g., "de440", "de440s")
-///
-/// # Returns
-/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
-fn fetch_de_kernel(name: &str) -> Result<Vec<u8>, BraheError> {
-    fetch_de_kernel_with_url(name, NAIF_BASE_URL)
-}
-
-/// Download a DE kernel from NAIF with caching support
-///
-/// Downloads the specified DE kernel file and caches it locally. If the kernel
+/// Downloads the specified kernel file and caches it locally. If the kernel
 /// is already cached, returns the cached path without re-downloading.
 /// Optionally copies the kernel to a user-specified location.
 ///
 /// # Arguments
-/// * `name` - Kernel name (e.g., "de440", "de440s", "de430", "de432s", "de435", "de438", "de442", "de442s")
+/// * `kernel` - Which kernel to download (see [`SPICEKernel`])
 /// * `output_path` - Optional path to copy the kernel to after download/cache retrieval
 ///
 /// # Returns
-/// * `Result<PathBuf, BraheError>` - Path to the kernel file (cache location or output_path if specified)
+/// * `Result<PathBuf, BraheError>` - Path to the kernel file (cache location or `output_path` if specified)
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::datasets::naif::download_de_kernel;
+/// use brahe::datasets::naif::download_spice_kernel;
+/// use brahe::spice::SPICEKernel;
 /// use std::path::PathBuf;
 ///
-/// // Download and cache de440s kernel
-/// let kernel_path = download_de_kernel("de440s", None).unwrap();
+/// // Download and cache the de440s kernel
+/// let kernel_path = download_spice_kernel(SPICEKernel::DE440s, None).unwrap();
 /// println!("Kernel cached at: {}", kernel_path.display());
 ///
-/// // Download and copy to specific location
+/// // Download and copy to a specific location
 /// let output = PathBuf::from("/path/to/my_kernel.bsp");
-/// let kernel_path = download_de_kernel("de440s", Some(output.clone())).unwrap();
+/// let kernel_path = download_spice_kernel(SPICEKernel::DE440s, Some(output.clone())).unwrap();
 /// assert_eq!(kernel_path, output);
 /// ```
-pub fn download_de_kernel(name: &str, output_path: Option<PathBuf>) -> Result<PathBuf, BraheError> {
-    // Validate kernel name
-    validate_kernel_name(name)?;
-
-    // Determine cache filepath
-    let cache_dir = get_naif_cache_dir()?;
-    let cache_path = PathBuf::from(&cache_dir).join(format!("{}.bsp", name));
-
-    // Check if kernel is already cached
-    if !cache_path.exists() {
-        // Download kernel
-        let data = fetch_de_kernel(name)?;
-
-        // Cache it for future use
-        atomic_write(&cache_path, &data).map_err(|e| {
-            BraheError::Error(format!(
-                "Failed to cache kernel {} to {}: {}",
-                name,
-                cache_path.display(),
-                e
-            ))
-        })?;
-    }
-
-    // If output path is specified, copy the cached file there
-    if let Some(output) = output_path {
-        // Create parent directory if needed
-        if let Some(parent) = output.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                BraheError::Error(format!(
-                    "Failed to create output directory {}: {}",
-                    parent.display(),
-                    e
-                ))
-            })?;
-        }
-
-        // Copy file to output location
-        fs::copy(&cache_path, &output).map_err(|e| {
-            BraheError::Error(format!(
-                "Failed to copy kernel from {} to {}: {}",
-                cache_path.display(),
-                output.display(),
-                e
-            ))
-        })?;
-
-        Ok(output)
-    } else {
-        Ok(cache_path)
-    }
-}
-
-/// Download a binary PCK kernel file from NAIF with configurable base URL
-///
-/// This is an internal function for testing. Use `download_pck_kernel()` for the public API.
-///
-/// # Arguments
-/// * `filename` - PCK kernel filename (e.g., "moon_pa_de440_200625.bpc")
-/// * `base_url` - Base URL for the NAIF PCK repository
-///
-/// # Returns
-/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
-fn fetch_pck_kernel_with_url(filename: &str, base_url: &str) -> Result<Vec<u8>, BraheError> {
-    let url = format!("{}{}", base_url, filename);
-
-    let response = ureq::get(&url).call().map_err(|e| {
-        BraheError::Error(format!(
-            "Failed to download kernel {} from NAIF: {}",
-            filename, e
-        ))
-    })?;
-
-    // Read response body manually to avoid default size limits
-    let mut buffer = Vec::new();
-    let mut reader = response.into_body().into_reader();
-
-    reader.read_to_end(&mut buffer).map_err(|e| {
-        BraheError::Error(format!(
-            "Failed to read kernel {} from NAIF response: {}",
-            filename, e
-        ))
-    })?;
-
-    if buffer.is_empty() {
-        return Err(BraheError::Error(format!(
-            "No data returned from NAIF for kernel '{}'",
-            filename
-        )));
-    }
-
-    Ok(buffer)
-}
-
-/// Download a binary PCK kernel file from NAIF
-///
-/// This is an internal function. Use `download_pck_kernel()` for the public API.
-///
-/// # Arguments
-/// * `filename` - PCK kernel filename (e.g., "moon_pa_de440_200625.bpc")
-///
-/// # Returns
-/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
-fn fetch_pck_kernel(filename: &str) -> Result<Vec<u8>, BraheError> {
-    fetch_pck_kernel_with_url(filename, NAIF_PCK_BASE_URL)
-}
-
-/// Download a binary PCK kernel from NAIF with caching support
-///
-/// Downloads the specified binary PCK kernel file and caches it locally. If the
-/// kernel is already cached, returns the cached path without re-downloading.
-/// Optionally copies the kernel to a user-specified location.
-///
-/// # Arguments
-/// * `name` - PCK kernel name (e.g., "moon_pa_de440")
-/// * `output_path` - Optional path to copy the kernel to after download/cache retrieval
-///
-/// # Returns
-/// * `Result<PathBuf, BraheError>` - Path to the kernel file (cache location or output_path if specified)
-///
-/// # Examples
-/// ```no_run
-/// use brahe::datasets::naif::download_pck_kernel;
-/// use std::path::PathBuf;
-///
-/// // Download and cache the lunar principal-axes PCK
-/// let kernel_path = download_pck_kernel("moon_pa_de440", None).unwrap();
-/// println!("Kernel cached at: {}", kernel_path.display());
-///
-/// // Download and copy to specific location
-/// let output = PathBuf::from("/path/to/my_kernel.bpc");
-/// let kernel_path = download_pck_kernel("moon_pa_de440", Some(output.clone())).unwrap();
-/// assert_eq!(kernel_path, output);
-/// ```
-pub fn download_pck_kernel(
-    name: &str,
+pub fn download_spice_kernel(
+    kernel: SPICEKernel,
     output_path: Option<PathBuf>,
 ) -> Result<PathBuf, BraheError> {
-    // Validate kernel name and resolve its filename
-    let filename = validate_pck_kernel_name(name)?;
-
     // Determine cache filepath
     let cache_dir = get_naif_cache_dir()?;
-    let cache_path = PathBuf::from(&cache_dir).join(filename);
+    let cache_path = PathBuf::from(&cache_dir).join(kernel.filename());
 
     // Check if kernel is already cached
     if !cache_path.exists() {
         // Download kernel
-        let data = fetch_pck_kernel(filename)?;
+        let data = fetch_kernel(kernel)?;
 
         // Cache it for future use
         atomic_write(&cache_path, &data).map_err(|e| {
             BraheError::Error(format!(
                 "Failed to cache kernel {} to {}: {}",
-                filename,
-                cache_path.display(),
-                e
-            ))
-        })?;
-    }
-
-    // If output path is specified, copy the cached file there
-    if let Some(output) = output_path {
-        // Create parent directory if needed
-        if let Some(parent) = output.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                BraheError::Error(format!(
-                    "Failed to create output directory {}: {}",
-                    parent.display(),
-                    e
-                ))
-            })?;
-        }
-
-        // Copy file to output location
-        fs::copy(&cache_path, &output).map_err(|e| {
-            BraheError::Error(format!(
-                "Failed to copy kernel from {} to {}: {}",
-                cache_path.display(),
-                output.display(),
-                e
-            ))
-        })?;
-
-        Ok(output)
-    } else {
-        Ok(cache_path)
-    }
-}
-
-/// Download a satellite SPK kernel file from NAIF with configurable base URL
-///
-/// This is an internal function for testing. Use `download_satellite_kernel()` for the public API.
-///
-/// # Arguments
-/// * `filename` - Satellite kernel filename (e.g., "mar099s.bsp")
-/// * `base_url` - Base URL for the NAIF satellite SPK repository
-///
-/// # Returns
-/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
-fn fetch_satellite_kernel_with_url(filename: &str, base_url: &str) -> Result<Vec<u8>, BraheError> {
-    let url = format!("{}{}", base_url, filename);
-
-    let response = ureq::get(&url).call().map_err(|e| {
-        BraheError::Error(format!(
-            "Failed to download kernel {} from NAIF: {}",
-            filename, e
-        ))
-    })?;
-
-    // Read response body manually to avoid default size limits
-    // Satellite kernels can be large (mar099s ~67 MB)
-    let mut buffer = Vec::new();
-    let mut reader = response.into_body().into_reader();
-
-    reader.read_to_end(&mut buffer).map_err(|e| {
-        BraheError::Error(format!(
-            "Failed to read kernel {} from NAIF response: {}",
-            filename, e
-        ))
-    })?;
-
-    if buffer.is_empty() {
-        return Err(BraheError::Error(format!(
-            "No data returned from NAIF for kernel '{}'",
-            filename
-        )));
-    }
-
-    Ok(buffer)
-}
-
-/// Download a satellite SPK kernel file from NAIF
-///
-/// This is an internal function. Use `download_satellite_kernel()` for the public API.
-///
-/// # Arguments
-/// * `filename` - Satellite kernel filename (e.g., "mar099s.bsp")
-///
-/// # Returns
-/// * `Result<Vec<u8>, BraheError>` - Binary kernel data
-fn fetch_satellite_kernel(filename: &str) -> Result<Vec<u8>, BraheError> {
-    fetch_satellite_kernel_with_url(filename, NAIF_SATELLITE_BASE_URL)
-}
-
-/// Download a satellite SPK kernel from NAIF with caching support
-///
-/// Downloads the specified satellite SPK kernel file and caches it locally. If
-/// the kernel is already cached, returns the cached path without re-downloading.
-/// Optionally copies the kernel to a user-specified location.
-/// Contains Phobos (401), Deimos (402), and Mars (499) relative to the Mars system barycenter (4),
-/// plus Sun (10), EMB (3), and Earth (399) context segments from DE440.
-///
-/// # Arguments
-/// * `name` - Satellite kernel name (e.g., "mar099s", ~67 MB download, coverage 1995-2049)
-/// * `output_path` - Optional path to copy the kernel to after download/cache retrieval
-///
-/// # Returns
-/// * `Result<PathBuf, BraheError>` - Path to the kernel file (cache location or output_path if specified)
-///
-/// # Examples
-/// ```no_run
-/// use brahe::datasets::naif::download_satellite_kernel;
-/// use std::path::PathBuf;
-///
-/// // Download and cache the mar099s kernel (Mars system satellite ephemeris)
-/// let kernel_path = download_satellite_kernel("mar099s", None).unwrap();
-/// println!("Kernel cached at: {}", kernel_path.display());
-///
-/// // Download and copy to specific location
-/// let output = PathBuf::from("/path/to/my_kernel.bsp");
-/// let kernel_path = download_satellite_kernel("mar099s", Some(output.clone())).unwrap();
-/// assert_eq!(kernel_path, output);
-/// ```
-pub fn download_satellite_kernel(
-    name: &str,
-    output_path: Option<PathBuf>,
-) -> Result<PathBuf, BraheError> {
-    // Validate kernel name and resolve its filename
-    let filename = validate_satellite_kernel_name(name)?;
-
-    // Determine cache filepath
-    let cache_dir = get_naif_cache_dir()?;
-    let cache_path = PathBuf::from(&cache_dir).join(filename);
-
-    // Check if kernel is already cached
-    if !cache_path.exists() {
-        // Download kernel
-        let data = fetch_satellite_kernel(filename)?;
-
-        // Cache it for future use
-        atomic_write(&cache_path, &data).map_err(|e| {
-            BraheError::Error(format!(
-                "Failed to cache kernel {} to {}: {}",
-                filename,
+                kernel.name(),
                 cache_path.display(),
                 e
             ))
@@ -554,31 +198,13 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_kernel_name() {
-        // Valid kernels
-        assert!(validate_kernel_name("de430").is_ok());
-        assert!(validate_kernel_name("de432s").is_ok());
-        assert!(validate_kernel_name("de435").is_ok());
-        assert!(validate_kernel_name("de438").is_ok());
-        assert!(validate_kernel_name("de440").is_ok());
-        assert!(validate_kernel_name("de440s").is_ok());
-        assert!(validate_kernel_name("de442").is_ok());
-        assert!(validate_kernel_name("de442s").is_ok());
-
-        // Invalid kernels
-        assert!(validate_kernel_name("de999").is_err());
-        assert!(validate_kernel_name("invalid").is_err());
-        assert!(validate_kernel_name("").is_err());
-    }
-
-    #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_download_de_network() {
         setup_test_kernel();
 
         // Test downloading de440s kernel (smaller file)
-        let result = download_de_kernel("de440s", None);
+        let result = download_spice_kernel(SPICEKernel::DE440s, None);
         assert!(result.is_ok());
 
         let kernel_path = result.unwrap();
@@ -604,7 +230,7 @@ mod tests {
         let _ = fs::remove_file(&output_path);
 
         // Download kernel to specific location
-        let result = download_de_kernel("de440s", Some(output_path.clone()));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(output_path.clone()));
         assert!(result.is_ok());
 
         let returned_path = result.unwrap();
@@ -626,7 +252,7 @@ mod tests {
         setup_test_kernel();
 
         // First download
-        let result1 = download_de_kernel("de440s", None);
+        let result1 = download_spice_kernel(SPICEKernel::DE440s, None);
         assert!(result1.is_ok());
         let kernel_path = result1.unwrap();
 
@@ -638,7 +264,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(100));
 
         // Second download - should use cache
-        let result2 = download_de_kernel("de440s", None);
+        let result2 = download_spice_kernel(SPICEKernel::DE440s, None);
         assert!(result2.is_ok());
 
         //
@@ -650,39 +276,10 @@ mod tests {
         assert_eq!(modified1, modified2);
     }
 
-    #[test]
-    fn test_unsupported_kernel_name() {
-        let result = download_de_kernel("de999", None);
-        assert!(result.is_err());
-
-        let err = result.unwrap_err();
-        match err {
-            BraheError::Error(msg) => {
-                assert!(msg.contains("Unsupported kernel name"));
-                assert!(msg.contains("de999"));
-            }
-            _ => panic!("Expected BraheError::Error"),
-        }
-    }
-
-    #[test]
-    fn test_supported_kernels_list() {
-        // Verify all supported kernels are present
-        assert_eq!(SUPPORTED_KERNELS.len(), 8);
-        assert!(SUPPORTED_KERNELS.contains(&"de430"));
-        assert!(SUPPORTED_KERNELS.contains(&"de432s"));
-        assert!(SUPPORTED_KERNELS.contains(&"de435"));
-        assert!(SUPPORTED_KERNELS.contains(&"de438"));
-        assert!(SUPPORTED_KERNELS.contains(&"de440"));
-        assert!(SUPPORTED_KERNELS.contains(&"de440s"));
-        assert!(SUPPORTED_KERNELS.contains(&"de442"));
-        assert!(SUPPORTED_KERNELS.contains(&"de442s"));
-    }
-
     // ========== HTTP Error Tests ==========
 
     #[test]
-    fn test_fetch_de_kernel_http_404() {
+    fn test_fetch_kernel_http_404() {
         // Setup mock server that returns 404 Not Found
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
@@ -691,7 +288,7 @@ mod tests {
         });
 
         // Attempt to fetch kernel from mock server
-        let result = fetch_de_kernel_with_url("de440s", &server.url("/"));
+        let result = fetch_kernel_with_url(SPICEKernel::DE440s, &server.url("/"));
 
         // Should fail with appropriate error
         assert!(result.is_err());
@@ -706,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fetch_de_kernel_http_500() {
+    fn test_fetch_kernel_http_500() {
         // Setup mock server that returns 500 Server Error
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
@@ -715,7 +312,7 @@ mod tests {
         });
 
         // Attempt to fetch kernel from mock server
-        let result = fetch_de_kernel_with_url("de440s", &server.url("/"));
+        let result = fetch_kernel_with_url(SPICEKernel::DE440s, &server.url("/"));
 
         // Should fail with appropriate error
         assert!(result.is_err());
@@ -730,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fetch_de_kernel_empty_response() {
+    fn test_fetch_kernel_empty_response() {
         // Setup mock server that returns 200 OK with empty body
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
@@ -739,7 +336,7 @@ mod tests {
         });
 
         // Attempt to fetch kernel from mock server
-        let result = fetch_de_kernel_with_url("de440s", &server.url("/"));
+        let result = fetch_kernel_with_url(SPICEKernel::DE440s, &server.url("/"));
 
         // Should fail with "No data returned" error
         assert!(result.is_err());
@@ -751,6 +348,21 @@ mod tests {
             }
             _ => panic!("Expected BraheError::Error"),
         }
+    }
+
+    #[test]
+    fn test_fetch_kernel_with_url_uses_filename_override() {
+        // The Ura184 kernel's file name differs from its short name; the
+        // with-URL seam must append the *filename*, not the name.
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/ura184_part-3.bsp");
+            then.status(200).body("data");
+        });
+
+        let result = fetch_kernel_with_url(SPICEKernel::Ura184, &server.url("/"));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), b"data");
     }
 
     // ========== File I/O Error Tests ==========
@@ -766,7 +378,7 @@ mod tests {
         setup_test_kernel();
 
         // Attempt to download with output path pointing to a directory (not a file)
-        let result = download_de_kernel("de440s", Some(output_path.clone()));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(output_path.clone()));
 
         // Should fail because output path is a directory
         assert!(result.is_err());
@@ -806,7 +418,7 @@ mod tests {
         setup_test_kernel();
 
         // Attempt to copy to the read-only directory
-        let result = download_de_kernel("de440s", Some(output_path));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(output_path));
 
         // Restore permissions for cleanup
         let mut dir_perms = fs::metadata(temp_dir.path()).unwrap().permissions();
@@ -830,7 +442,7 @@ mod tests {
         setup_test_kernel();
 
         // Attempt to download with output path that exists as a directory
-        let result = download_de_kernel("de440s", Some(output_path));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(output_path));
 
         // Should fail because we can't overwrite a directory with a file
         assert!(result.is_err());
@@ -865,7 +477,7 @@ mod tests {
         assert!(!nested_path.parent().unwrap().exists());
 
         // Download should create all parent directories
-        let result = download_de_kernel("de440s", Some(nested_path.clone()));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(nested_path.clone()));
         assert!(result.is_ok());
         assert!(nested_path.exists());
         assert!(nested_path.parent().unwrap().exists());
@@ -878,45 +490,13 @@ mod tests {
     // ========== PCK Kernel Tests ==========
 
     #[test]
-    fn test_validate_pck_kernel_name() {
-        assert!(validate_pck_kernel_name("moon_pa_de440").is_ok());
-        assert!(validate_pck_kernel_name("not_a_pck").is_err());
-    }
-
-    #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_download_pck_network() {
-        let result = download_pck_kernel("moon_pa_de440", None);
+        let result = download_spice_kernel(SPICEKernel::MoonPaDe440, None);
         assert!(result.is_ok());
         let path = result.unwrap();
         assert!(path.exists());
         assert!(path.to_string_lossy().contains("moon_pa_de440_200625.bpc"));
-    }
-
-    // ========== Satellite Kernel Tests ==========
-
-    #[test]
-    fn test_validate_satellite_kernel_name() {
-        assert!(validate_satellite_kernel_name("mar099s").is_ok());
-        assert!(validate_satellite_kernel_name("not_a_satellite_kernel").is_err());
-    }
-
-    #[test]
-    fn test_unsupported_satellite_kernel_errors() {
-        let e = download_satellite_kernel("nonexistent", None);
-        assert!(e.is_err());
-        assert!(format!("{}", e.unwrap_err()).contains("mar099s"));
-    }
-
-    #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
-    #[serial]
-    fn test_download_satellite_network() {
-        let result = download_satellite_kernel("mar099s", None);
-        assert!(result.is_ok());
-        let path = result.unwrap();
-        assert!(path.exists());
-        assert!(path.to_string_lossy().contains("mar099s.bsp"));
     }
 }

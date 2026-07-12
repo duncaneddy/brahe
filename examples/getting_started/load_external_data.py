@@ -3,7 +3,7 @@
 
 import brahe as bh
 
-# Default initializers use caching providers that automatically download new 
+# Default initializers use caching providers that automatically download new
 # data if the local data is more than 7 days old. Only updates on initialization.
 bh.initialize_eop()
 bh.initialize_sw()

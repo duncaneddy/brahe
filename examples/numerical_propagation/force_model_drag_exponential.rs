@@ -30,5 +30,6 @@ fn main() {
         relativity: false,
         mass: Some(bh::ParameterSource::ParameterIndex(0)),
         frame_transform: bh::FrameTransformationModel::default(),
+        tides: None,
     };
 }

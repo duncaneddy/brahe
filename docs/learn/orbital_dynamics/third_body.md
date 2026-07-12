@@ -58,6 +58,17 @@ For high-precision applications, Brahe supports using JPL's DE440s ephemerides, 
 
 The Development Ephemeris 440s (DE440s) provides high-precision positions of all major solar system bodies using numerical integration over the time span of 1849 to 2150. They provide meter-level accuracy or better for planetary positions, but require downloading and managing SPICE kernel data files. Brahe generally will download and cache these files automatically on first use.
 
+For Mars, Jupiter, Saturn, Uranus, and Neptune, `accel_third_body` and the
+`accel_third_body_<planet>_spice` functions use the planetary-system
+**barycenter** position (from the DE kernel alone) together with the system
+gravitational parameter — the standard third-body formulation, and the same
+choice made by `*_barycenter_*_spice` in
+[Ephemerides](../../library_api/orbit_dynamics/ephemerides.md). This
+avoids downloading the ~68 MB-1.1 GB satellite ephemeris kernel that the true
+body-center `*_position_spice` functions require; the barycenter/body-center
+difference (up to a few hundred km for Jupiter and Saturn) is negligible
+relative to the differential third-body acceleration itself.
+
 ## Usage Examples
 
 ### Sun and Moon Perturbations

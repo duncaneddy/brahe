@@ -1289,10 +1289,11 @@ impl Epoch {
     /// Returns the number of seconds elapsed since the J2000 epoch
     /// (2000-01-01 12:00:00, JD 2451545.0) in the specified time system.
     ///
-    /// For `TimeSystem::TDB` this is the SPICE ephemeris time (ET) used by
-    /// SPK/PCK kernels. The computation uses the epoch's internal integer
-    /// day/second representation directly, avoiding the precision loss of a
-    /// floating-point Julian-date round-trip (sub-microsecond accuracy).
+    /// Passing `TimeSystem::TDB` is equivalent to [`spice_et`](Epoch::spice_et),
+    /// the SPICE ephemeris time (ET) used by SPK/PCK kernels. The computation
+    /// uses the epoch's internal integer day/second representation directly,
+    /// avoiding the precision loss of a floating-point Julian-date round-trip
+    /// (sub-microsecond accuracy).
     ///
     /// # Arguments
     /// - `time_system`: Time system in which to express seconds past J2000
@@ -1325,6 +1326,31 @@ impl Epoch {
             + self.seconds as f64
             + self.nanoseconds / NANOSECONDS_PER_SECOND_FLOAT
             + offset
+    }
+
+    /// Returns SPICE ephemeris time (ET): TDB seconds past the J2000 epoch.
+    ///
+    /// Convenience alias for
+    /// [`seconds_past_j2000_as_time_system`](Epoch::seconds_past_j2000_as_time_system)
+    /// with [`TimeSystem::TDB`]. This is the time argument used by SPK/PCK
+    /// kernel evaluation.
+    ///
+    /// # Returns
+    /// - SPICE ephemeris time (TDB seconds past J2000). Units: [s]
+    ///
+    /// # Example
+    /// ```
+    /// use brahe::eop::*;
+    /// use brahe::time::{Epoch, TimeSystem};
+    ///
+    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epc = Epoch::from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, TimeSystem::TT);
+    /// assert!(epc.spice_et().abs() < 1.0e-3); // TDB and TT agree to < 1.7 ms
+    /// ```
+    pub fn spice_et(&self) -> f64 {
+        self.seconds_past_j2000_as_time_system(TimeSystem::TDB)
     }
 
     /// Convert an `Epoch` into a GPS date representation, encoded as GPS weeks
@@ -2529,7 +2555,7 @@ mod tests {
         // i.e. negative seconds past J2000 as read on a TAI clock.
         assert_abs_diff_eq!(
             epc.seconds_past_j2000_as_time_system(TimeSystem::TAI),
-            -32.184,
+            TAI_TT,
             epsilon = 1.0e-9
         );
 
@@ -2565,6 +2591,17 @@ mod tests {
             epc3.seconds_past_j2000_as_time_system(TimeSystem::TT),
             via_mjd,
             epsilon = 1.0e-4
+        );
+    }
+
+    #[test]
+    fn test_spice_et() {
+        setup_global_test_eop();
+        let epc = Epoch::from_datetime(2025, 3, 15, 6, 30, 21.0, 0.0, TimeSystem::UTC);
+        assert_abs_diff_eq!(
+            epc.spice_et(),
+            epc.seconds_past_j2000_as_time_system(TimeSystem::TDB),
+            epsilon = 0.0
         );
     }
 

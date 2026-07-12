@@ -217,9 +217,7 @@ def numerical_twobody(params: dict, iterations: int) -> TaskResult:
         cart = brahe.state_koe_to_eci(oe, brahe.AngleFormat.DEGREES)
 
         def run():
-            prop = brahe.NumericalOrbitPropagator(
-                epc, cart, prop_config, force_config
-            )
+            prop = brahe.NumericalOrbitPropagator(epc, cart, prop_config, force_config)
             prop.set_trajectory_mode(brahe.TrajectoryMode.DISABLED)
             results = []
             for _ in range(n_steps):

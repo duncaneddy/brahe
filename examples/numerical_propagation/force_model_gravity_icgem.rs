@@ -34,6 +34,7 @@ fn main() {
         relativity: false,
         mass: None,
         frame_transform: bh::FrameTransformationModel::default(),
+        tides: None,
     };
 
     println!("Built ForceModelConfig with ICGEM gravity source: Earth/JGM3 (20x20)");

@@ -1,4 +1,3 @@
-
 /// Enumeration of supported time systems.
 ///
 /// Time systems define different conventions for measuring and representing time.
@@ -19,7 +18,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn GPS() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::GPS }
+        PyTimeSystem {
+            ts: time::TimeSystem::GPS,
+        }
     }
 
     /// `TAI` (International Atomic Time) time system.
@@ -29,7 +30,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn TAI() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::TAI }
+        PyTimeSystem {
+            ts: time::TimeSystem::TAI,
+        }
     }
 
     /// `TT` (Terrestrial Time) time system.
@@ -39,7 +42,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn TT() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::TT }
+        PyTimeSystem {
+            ts: time::TimeSystem::TT,
+        }
     }
 
     /// `UTC` (Coordinated Universal Time) time system.
@@ -49,7 +54,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn UTC() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::UTC }
+        PyTimeSystem {
+            ts: time::TimeSystem::UTC,
+        }
     }
 
     /// `UT1` (Universal Time 1) time system.
@@ -59,7 +66,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn UT1() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::UT1 }
+        PyTimeSystem {
+            ts: time::TimeSystem::UT1,
+        }
     }
 
     /// `TDB` (Barycentric Dynamical Time) time system.
@@ -69,7 +78,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn TDB() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::TDB }
+        PyTimeSystem {
+            ts: time::TimeSystem::TDB,
+        }
     }
 
     /// `TCG` (Geocentric Coordinate Time) time system.
@@ -79,7 +90,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn TCG() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::TCG }
+        PyTimeSystem {
+            ts: time::TimeSystem::TCG,
+        }
     }
 
     /// `TCB` (Barycentric Coordinate Time) time system.
@@ -89,7 +102,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn TCB() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::TCB }
+        PyTimeSystem {
+            ts: time::TimeSystem::TCB,
+        }
     }
 
     /// `BDT` (BeiDou Time) time system.
@@ -99,7 +114,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn BDT() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::BDT }
+        PyTimeSystem {
+            ts: time::TimeSystem::BDT,
+        }
     }
 
     /// `GST` (Galileo System Time) time system.
@@ -109,7 +126,9 @@ impl PyTimeSystem {
     #[classattr]
     #[allow(non_snake_case)]
     fn GST() -> Self {
-        PyTimeSystem { ts: time::TimeSystem::GST }
+        PyTimeSystem {
+            ts: time::TimeSystem::GST,
+        }
     }
 
     fn __str__(&self) -> String {
@@ -124,7 +143,9 @@ impl PyTimeSystem {
         match op {
             CompareOp::Eq => Ok(self.ts == other.ts),
             CompareOp::Ne => Ok(self.ts != other.ts),
-            _ => Err(exceptions::PyNotImplementedError::new_err("Comparison not supported")),
+            _ => Err(exceptions::PyNotImplementedError::new_err(
+                "Comparison not supported",
+            )),
         }
     }
 }
@@ -303,7 +324,11 @@ fn py_time_system_offset_for_mjd(
     time_system_src: PyRef<PyTimeSystem>,
     time_system_dst: PyRef<PyTimeSystem>,
 ) -> PyResult<f64> {
-    Ok(time::time_system_offset_for_mjd(mjd, time_system_src.ts, time_system_dst.ts))
+    Ok(time::time_system_offset_for_mjd(
+        mjd,
+        time_system_src.ts,
+        time_system_dst.ts,
+    ))
 }
 
 /// Calculate the offset between two time systems for a given Julian Date.
@@ -334,7 +359,11 @@ fn py_time_system_offset_for_jd(
     time_system_src: PyRef<PyTimeSystem>,
     time_system_dst: PyRef<PyTimeSystem>,
 ) -> PyResult<f64> {
-    Ok(time::time_system_offset_for_jd(jd, time_system_src.ts, time_system_dst.ts))
+    Ok(time::time_system_offset_for_jd(
+        jd,
+        time_system_src.ts,
+        time_system_dst.ts,
+    ))
 }
 
 /// Calculate the offset between two time systems for a given Gregorian calendar date.
@@ -366,7 +395,9 @@ fn py_time_system_offset_for_jd(
 ///     # Output: TT to TAI offset: -32.184 seconds
 ///     ```
 #[pyfunction]
-#[pyo3(text_signature = "(year, month, day, hour, minute, second, nanosecond, time_system_src, time_system_dst)")]
+#[pyo3(
+    text_signature = "(year, month, day, hour, minute, second, nanosecond, time_system_src, time_system_dst)"
+)]
 #[pyo3(name = "time_system_offset_for_datetime")]
 #[allow(clippy::too_many_arguments)]
 fn py_time_system_offset_for_datetime(
@@ -524,7 +555,10 @@ impl PyEpoch {
     ///     ```
     #[new]
     #[pyo3(signature = (*args, time_system=None))]
-    fn __new__(args: &Bound<'_, PyTuple>, time_system: Option<PyRef<PyTimeSystem>>) -> PyResult<Self> {
+    fn __new__(
+        args: &Bound<'_, PyTuple>,
+        time_system: Option<PyRef<PyTimeSystem>>,
+    ) -> PyResult<Self> {
         // Get default time system (UTC)
         let default_ts = time_system.map(|ts| ts.ts).unwrap_or(TimeSystem::UTC);
 
@@ -532,7 +566,7 @@ impl PyEpoch {
 
         if len == 0 {
             return Err(exceptions::PyValueError::new_err(
-                "No arguments provided for Epoch initialization"
+                "No arguments provided for Epoch initialization",
             ));
         }
 
@@ -545,9 +579,10 @@ impl PyEpoch {
                 let datestr = s.to_str()?;
                 return match time::Epoch::from_string(datestr) {
                     Some(epoch) => Ok(PyEpoch { obj: epoch }),
-                    None => Err(exceptions::PyValueError::new_err(
-                        format!("Failed to parse epoch string: {}", datestr)
-                    )),
+                    None => Err(exceptions::PyValueError::new_err(format!(
+                        "Failed to parse epoch string: {}",
+                        datestr
+                    ))),
                 };
             }
 
@@ -564,16 +599,14 @@ impl PyEpoch {
 
                 return Ok(PyEpoch {
                     obj: time::Epoch::from_datetime(
-                        year, month, day, hour, minute, second, nanosecond, default_ts
+                        year, month, day, hour, minute, second, nanosecond, default_ts,
                     ),
                 });
             }
 
             // Try Epoch copy
             if let Ok(epoch) = arg.extract::<PyRef<PyEpoch>>() {
-                return Ok(PyEpoch {
-                    obj: epoch.obj,
-                });
+                return Ok(PyEpoch { obj: epoch.obj });
             }
 
             // Try float (MJD or JD - auto-detect based on magnitude)
@@ -592,7 +625,7 @@ impl PyEpoch {
             }
 
             return Err(exceptions::PyTypeError::new_err(
-                "Single argument must be str, float/int (MJD/JD), datetime, or Epoch"
+                "Single argument must be str, float/int (MJD/JD), datetime, or Epoch",
             ));
         }
 
@@ -619,7 +652,7 @@ impl PyEpoch {
 
             return Ok(PyEpoch {
                 obj: time::Epoch::from_datetime(
-                    year, month, day, hour, minute, second, nanosecond, default_ts
+                    year, month, day, hour, minute, second, nanosecond, default_ts,
                 ),
             });
         }
@@ -629,21 +662,34 @@ impl PyEpoch {
             let year = args.get_item(0)?.extract::<u32>()?;
             let month = args.get_item(1)?.extract::<u8>()?;
             let day = args.get_item(2)?.extract::<u8>()?;
-            let hour = if len >= 4 { args.get_item(3)?.extract::<u8>()? } else { 0 };
-            let minute = if len >= 5 { args.get_item(4)?.extract::<u8>()? } else { 0 };
-            let second = if len >= 6 { args.get_item(5)?.extract::<f64>()? } else { 0.0 };
+            let hour = if len >= 4 {
+                args.get_item(3)?.extract::<u8>()?
+            } else {
+                0
+            };
+            let minute = if len >= 5 {
+                args.get_item(4)?.extract::<u8>()?
+            } else {
+                0
+            };
+            let second = if len >= 6 {
+                args.get_item(5)?.extract::<f64>()?
+            } else {
+                0.0
+            };
             let nanosecond = 0.0;
 
             return Ok(PyEpoch {
                 obj: time::Epoch::from_datetime(
-                    year, month, day, hour, minute, second, nanosecond, default_ts
+                    year, month, day, hour, minute, second, nanosecond, default_ts,
                 ),
             });
         }
 
-        Err(exceptions::PyTypeError::new_err(
-            format!("Invalid number of arguments ({}). Expected 1, 3-7 arguments", len)
-        ))
+        Err(exceptions::PyTypeError::new_err(format!(
+            "Invalid number of arguments ({}). Expected 1, 3-7 arguments",
+            len
+        )))
     }
 
     fn __repr__(&self) -> String {
@@ -661,7 +707,9 @@ impl PyEpoch {
     ///     TimeSystem: The time system used by this epoch
     #[getter]
     fn time_system(&self) -> PyTimeSystem {
-        PyTimeSystem { ts: self.obj.time_system }
+        PyTimeSystem {
+            ts: self.obj.time_system,
+        }
     }
 
     /// Create an Epoch from a calendar date at midnight.
@@ -698,12 +746,7 @@ impl PyEpoch {
         time_system: PyRef<PyTimeSystem>,
     ) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
-            obj: time::Epoch::from_date(
-                year,
-                month,
-                day,
-                time_system.ts,
-            ),
+            obj: time::Epoch::from_date(year, month, day, time_system.ts),
         })
     }
 
@@ -741,11 +784,7 @@ impl PyEpoch {
         time_system: PyRef<PyTimeSystem>,
     ) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
-            obj: time::Epoch::from_day_of_year(
-                year,
-                day_of_year,
-                time_system.ts,
-            ),
+            obj: time::Epoch::from_day_of_year(year, day_of_year, time_system.ts),
         })
     }
 
@@ -831,9 +870,10 @@ impl PyEpoch {
     pub fn from_string(_cls: &Bound<'_, PyType>, datestr: &str) -> PyResult<PyEpoch> {
         match time::Epoch::from_string(datestr) {
             Some(epoch) => Ok(PyEpoch { obj: epoch }),
-            None => Err(exceptions::PyValueError::new_err(
-                format!("Failed to parse epoch string: {}", datestr)
-            )),
+            None => Err(exceptions::PyValueError::new_err(format!(
+                "Failed to parse epoch string: {}",
+                datestr
+            ))),
         }
     }
 
@@ -861,7 +901,11 @@ impl PyEpoch {
     ///     # Output: JD: 2460000.0000000000
     ///     ```
     #[classmethod]
-    pub fn from_jd(_cls: &Bound<'_, PyType>, jd: f64, time_system: PyRef<PyTimeSystem>) -> PyResult<PyEpoch> {
+    pub fn from_jd(
+        _cls: &Bound<'_, PyType>,
+        jd: f64,
+        time_system: PyRef<PyTimeSystem>,
+    ) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_jd(jd, time_system.ts),
         })
@@ -891,7 +935,11 @@ impl PyEpoch {
     ///     print(f"J2000: {epc_j2000}")
     ///     ```
     #[classmethod]
-    pub fn from_mjd(_cls: &Bound<'_, PyType>, mjd: f64, time_system: PyRef<PyTimeSystem>) -> PyResult<PyEpoch> {
+    pub fn from_mjd(
+        _cls: &Bound<'_, PyType>,
+        mjd: f64,
+        time_system: PyRef<PyTimeSystem>,
+    ) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_mjd(mjd, time_system.ts),
         })
@@ -970,7 +1018,10 @@ impl PyEpoch {
     ///     print(f"Epoch: {epc}")
     ///     ```
     #[classmethod]
-    pub fn from_gps_nanoseconds(_cls: &Bound<'_, PyType>, gps_nanoseconds: u64) -> PyResult<PyEpoch> {
+    pub fn from_gps_nanoseconds(
+        _cls: &Bound<'_, PyType>,
+        gps_nanoseconds: u64,
+    ) -> PyResult<PyEpoch> {
         Ok(PyEpoch {
             obj: time::Epoch::from_gps_nanoseconds(gps_nanoseconds),
         })
@@ -1051,9 +1102,11 @@ impl PyEpoch {
     ///     print(f"TAI: {year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:06.3f}")
     ///     # Output: TAI: 2024-01-01 12:00:37.000
     ///     ```
-    pub fn to_datetime_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> (u32, u8, u8, u8, u8, f64, f64) {
-        self.obj
-            .to_datetime_as_time_system(time_system.ts)
+    pub fn to_datetime_as_time_system(
+        &self,
+        time_system: PyRef<PyTimeSystem>,
+    ) -> (u32, u8, u8, u8, u8, f64, f64) {
+        self.obj.to_datetime_as_time_system(time_system.ts)
     }
 
     /// Convert the epoch to Gregorian calendar date and time in the epoch's time system.
@@ -1123,7 +1176,7 @@ impl PyEpoch {
             minute,
             whole_seconds,
             microsecond,
-            Some(tzinfo)
+            Some(tzinfo),
         )
     }
 
@@ -1146,8 +1199,7 @@ impl PyEpoch {
     ///     print(f"JD TAI: {jd_tai:.10f}")
     ///     ```
     pub fn jd_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
-        self.obj
-            .jd_as_time_system(time_system.ts)
+        self.obj.jd_as_time_system(time_system.ts)
     }
 
     /// Get the Julian Date in the epoch's time system.
@@ -1187,8 +1239,7 @@ impl PyEpoch {
     ///     print(f"MJD GPS: {mjd_gps:.6f}")
     ///     ```
     pub fn mjd_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
-        self.obj
-            .mjd_as_time_system(time_system.ts)
+        self.obj.mjd_as_time_system(time_system.ts)
     }
 
     /// Get the Modified Julian Date in the epoch's time system.
@@ -1229,8 +1280,26 @@ impl PyEpoch {
     ///     et = epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TDB)
     ///     ```
     pub fn seconds_past_j2000_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> f64 {
-        self.obj
-            .seconds_past_j2000_as_time_system(time_system.ts)
+        self.obj.seconds_past_j2000_as_time_system(time_system.ts)
+    }
+
+    /// Returns SPICE ephemeris time (ET): TDB seconds past the J2000 epoch.
+    ///
+    /// Convenience alias for `seconds_past_j2000_as_time_system(TimeSystem.TDB)`.
+    /// This is the time argument used by SPK/PCK kernel evaluation.
+    ///
+    /// Returns:
+    ///     float: SPICE ephemeris time (TDB seconds past J2000). Units: (s)
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+    ///     et = epc.spice_et()
+    ///     ```
+    pub fn spice_et(&self) -> f64 {
+        self.obj.spice_et()
     }
 
     /// Get the GPS week number and seconds into the week.
@@ -1362,8 +1431,7 @@ impl PyEpoch {
     ///     # Shows same instant in different time systems
     ///     ```
     pub fn to_string_as_time_system(&self, time_system: PyRef<PyTimeSystem>) -> String {
-        self.obj
-            .to_string_as_time_system(time_system.ts)
+        self.obj.to_string_as_time_system(time_system.ts)
     }
 
     /// Get the Greenwich Apparent Sidereal Time (GAST) for this epoch.
@@ -1529,12 +1597,10 @@ impl PyEpoch {
         }
 
         // If neither worked, return type error
-        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            format!(
-                "unsupported operand type(s) for -: 'Epoch' and '{}'",
-                other.get_type().name()?
-            ),
-        ))
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+            "unsupported operand type(s) for -: 'Epoch' and '{}'",
+            other.get_type().name()?
+        )))
     }
 
     pub fn __isub__(&mut self, other: f64) {
@@ -1605,4 +1671,3 @@ impl PyTimeRange {
         slf.obj.next().map(|e| PyEpoch { obj: e })
     }
 }
-

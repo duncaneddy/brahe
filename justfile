@@ -50,6 +50,8 @@ download-resources: _setup
     @{{python}} -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
     @{{python}} -c "from brahe.plots.basemap import get_natural_earth_land_shapefile; get_natural_earth_land_shapefile()"
     @{{python}} {{scripts_dir}}/warm_cartopy.py
+    @{{python}} -c "import brahe as bh; bh.load_common_kernels()"
+    @{{python}} -c "import brahe as bh; bh.load_kernel('mar099s')"
 
 # Test all documentation examples (delegates to scripts/test_examples.py)
 test-examples *args: _setup

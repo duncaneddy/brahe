@@ -66,7 +66,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::math::{SMatrix3, SVector6};
-use crate::spice::{NAIF_EARTH, NAIF_EMB, NAIF_MARS_BARYCENTER, NAIF_MOON, NAIF_SSB};
+use crate::spice::NAIFId;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
@@ -153,11 +153,13 @@ impl ReferenceFrame {
     /// ```
     pub fn center_naif_id(&self) -> i32 {
         match self {
-            ReferenceFrame::GCRF | ReferenceFrame::ITRF | ReferenceFrame::EME2000 => NAIF_EARTH,
-            ReferenceFrame::LCI | ReferenceFrame::LFPA | ReferenceFrame::LFME => NAIF_MOON,
-            ReferenceFrame::MCI | ReferenceFrame::MCMF => NAIF_MARS_BARYCENTER,
-            ReferenceFrame::EMBI => NAIF_EMB,
-            ReferenceFrame::SSBI => NAIF_SSB,
+            ReferenceFrame::GCRF | ReferenceFrame::ITRF | ReferenceFrame::EME2000 => {
+                NAIFId::Earth.id()
+            }
+            ReferenceFrame::LCI | ReferenceFrame::LFPA | ReferenceFrame::LFME => NAIFId::Moon.id(),
+            ReferenceFrame::MCI | ReferenceFrame::MCMF => NAIFId::MarsBarycenter.id(),
+            ReferenceFrame::EMBI => NAIFId::EarthMoonBarycenter.id(),
+            ReferenceFrame::SSBI => NAIFId::SolarSystemBarycenter.id(),
             ReferenceFrame::BodyCenteredICRF(id) => *id,
             ReferenceFrame::BodyFixedIAU(id) => *id,
             ReferenceFrame::BodyFixedPCK { center, .. } => *center,
@@ -343,7 +345,7 @@ fn state_icrf_to_pck_body(
     x_icrf: SVector6,
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = crate::spice::pck_euler_angles(frame_id, epc)?;
-    let r_mat = crate::spice::pck_rotation_matrix(frame_id, epc)?;
+    let r_mat = crate::spice::pck_rotation_matrix(frame_id, epc)?.to_matrix();
     Ok(state_icrf_to_rotating(
         r_mat,
         euler313_omega_body(angles, rates),
@@ -359,7 +361,7 @@ fn state_pck_body_to_icrf(
     x_body: SVector6,
 ) -> Result<SVector6, BraheError> {
     let (angles, rates) = crate::spice::pck_euler_angles(frame_id, epc)?;
-    let r_mat = crate::spice::pck_rotation_matrix(frame_id, epc)?;
+    let r_mat = crate::spice::pck_rotation_matrix(frame_id, epc)?.to_matrix();
     Ok(state_rotating_to_icrf(
         r_mat,
         euler313_omega_body(angles, rates),
@@ -384,7 +386,7 @@ fn icrf_to_frame_dcm(frame: ReferenceFrame, epc: Epoch) -> Result<SMatrix3, Brah
         ReferenceFrame::MCMF => Ok(rotation_mci_to_mcmf(epc)),
         ReferenceFrame::BodyFixedIAU(id) => rotation_icrf_to_body_fixed_iau(id, epc),
         ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
-            crate::spice::pck_rotation_matrix(frame_id, epc)
+            crate::spice::pck_rotation_matrix(frame_id, epc).map(|r| r.to_matrix())
         }
     }
 }
@@ -565,7 +567,6 @@ mod tests {
     use crate::constants::{DEGREES, R_EARTH};
     use crate::coordinates::state_koe_to_eci;
     use crate::math::vector6_from_array;
-    use crate::spice::{NAIF_EARTH, NAIF_MARS_BARYCENTER};
     use crate::time::TimeSystem;
     use crate::utils::testing::{setup_global_test_eop, setup_global_test_spice};
 
@@ -758,14 +759,14 @@ mod tests {
 
     #[test]
     fn test_reference_frame_center_naif_id() {
-        assert_eq!(ReferenceFrame::GCRF.center_naif_id(), NAIF_EARTH);
-        assert_eq!(ReferenceFrame::ITRF.center_naif_id(), NAIF_EARTH);
-        assert_eq!(ReferenceFrame::EME2000.center_naif_id(), NAIF_EARTH);
+        assert_eq!(ReferenceFrame::GCRF.center_naif_id(), 399);
+        assert_eq!(ReferenceFrame::ITRF.center_naif_id(), 399);
+        assert_eq!(ReferenceFrame::EME2000.center_naif_id(), 399);
         assert_eq!(ReferenceFrame::LCI.center_naif_id(), 301);
         assert_eq!(ReferenceFrame::LFPA.center_naif_id(), 301);
         assert_eq!(ReferenceFrame::LFME.center_naif_id(), 301);
-        assert_eq!(ReferenceFrame::MCI.center_naif_id(), NAIF_MARS_BARYCENTER);
-        assert_eq!(ReferenceFrame::MCMF.center_naif_id(), NAIF_MARS_BARYCENTER);
+        assert_eq!(ReferenceFrame::MCI.center_naif_id(), 4);
+        assert_eq!(ReferenceFrame::MCMF.center_naif_id(), 4);
         assert_eq!(ReferenceFrame::EMBI.center_naif_id(), 3);
         assert_eq!(ReferenceFrame::SSBI.center_naif_id(), 0);
         assert_eq!(ReferenceFrame::BodyCenteredICRF(599).center_naif_id(), 599);

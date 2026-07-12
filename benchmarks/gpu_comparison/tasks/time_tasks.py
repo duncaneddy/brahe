@@ -47,6 +47,7 @@ class UtcMjdToTtMjdTask(BatchTask):
 
 def _jnp_dtype(dtype: str):
     import jax.numpy as jnp
+
     return jnp.float32 if dtype == "f32" else jnp.float64
 
 

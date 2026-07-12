@@ -16,5 +16,6 @@ fn main() {
         relativity: false,
         mass: None,
         frame_transform: bh::FrameTransformationModel::default(),
+        tides: None,
     };
 }

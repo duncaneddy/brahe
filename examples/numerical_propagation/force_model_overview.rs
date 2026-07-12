@@ -42,6 +42,8 @@ fn main() {
         // bias-precession-nutation + Earth rotation + polar motion. Use
         // EarthRotationOnly for a faster, slightly less accurate alternative.
         frame_transform: bh::FrameTransformationModel::FullEarthRotation,
+        // Tidal corrections to the gravity field (None disables tides)
+        tides: None,
     };
 
     println!("Gravity: {:?}", force_config.gravity);

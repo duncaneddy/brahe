@@ -8,39 +8,54 @@ Ephemerides:
 -----------
 - sun_position: Low-precision analytical solar position
 - moon_position: Low-precision analytical lunar position
-- sun_position_de: High-precision solar position using NAIF DE ephemerides
-- sun_velocity_de: High-precision solar velocity using NAIF DE ephemerides
-- sun_state_de: High-precision solar state using NAIF DE ephemerides
-- moon_position_de: High-precision lunar position using NAIF DE ephemerides
-- moon_velocity_de: High-precision lunar velocity using NAIF DE ephemerides
-- moon_state_de: High-precision lunar state using NAIF DE ephemerides
-- mercury_position_de: High-precision Mercury position using NAIF DE ephemerides
-- mercury_velocity_de: High-precision Mercury velocity using NAIF DE ephemerides
-- mercury_state_de: High-precision Mercury state using NAIF DE ephemerides
-- venus_position_de: High-precision Venus position using NAIF DE ephemerides
-- venus_velocity_de: High-precision Venus velocity using NAIF DE ephemerides
-- venus_state_de: High-precision Venus state using NAIF DE ephemerides
-- mars_position_de: High-precision Mars position using NAIF DE ephemerides
-- mars_velocity_de: High-precision Mars velocity using NAIF DE ephemerides
-- mars_state_de: High-precision Mars state using NAIF DE ephemerides
-- jupiter_position_de: High-precision Jupiter position using NAIF DE ephemerides
-- jupiter_velocity_de: High-precision Jupiter velocity using NAIF DE ephemerides
-- jupiter_state_de: High-precision Jupiter state using NAIF DE ephemerides
-- saturn_position_de: High-precision Saturn position using NAIF DE ephemerides
-- saturn_velocity_de: High-precision Saturn velocity using NAIF DE ephemerides
-- saturn_state_de: High-precision Saturn state using NAIF DE ephemerides
-- uranus_position_de: High-precision Uranus position using NAIF DE ephemerides
-- uranus_velocity_de: High-precision Uranus velocity using NAIF DE ephemerides
-- uranus_state_de: High-precision Uranus state using NAIF DE ephemerides
-- neptune_position_de: High-precision Neptune position using NAIF DE ephemerides
-- neptune_velocity_de: High-precision Neptune velocity using NAIF DE ephemerides
-- neptune_state_de: High-precision Neptune state using NAIF DE ephemerides
-- solar_system_barycenter_position_de: High-precision SSB position using NAIF DE ephemerides
-- solar_system_barycenter_velocity_de: High-precision SSB velocity using NAIF DE ephemerides
-- solar_system_barycenter_state_de: High-precision SSB state using NAIF DE ephemerides
-- ssb_position_de: Convenience alias for solar_system_barycenter_position_de
-- ssb_velocity_de: Convenience alias for solar_system_barycenter_velocity_de
-- ssb_state_de: Convenience alias for solar_system_barycenter_state_de
+- sun_position_spice: High-precision solar position using NAIF DE ephemerides
+- sun_velocity_spice: High-precision solar velocity using NAIF DE ephemerides
+- sun_state_spice: High-precision solar state using NAIF DE ephemerides
+- moon_position_spice: High-precision lunar position using NAIF DE ephemerides
+- moon_velocity_spice: High-precision lunar velocity using NAIF DE ephemerides
+- moon_state_spice: High-precision lunar state using NAIF DE ephemerides
+- mercury_position_spice: High-precision Mercury position using NAIF DE ephemerides
+- mercury_velocity_spice: High-precision Mercury velocity using NAIF DE ephemerides
+- mercury_state_spice: High-precision Mercury state using NAIF DE ephemerides
+- venus_position_spice: High-precision Venus position using NAIF DE ephemerides
+- venus_velocity_spice: High-precision Venus velocity using NAIF DE ephemerides
+- venus_state_spice: High-precision Venus state using NAIF DE ephemerides
+- mars_position_spice: High-precision Mars position using NAIF DE ephemerides
+- mars_velocity_spice: High-precision Mars velocity using NAIF DE ephemerides
+- mars_state_spice: High-precision Mars state using NAIF DE ephemerides
+- jupiter_position_spice: High-precision Jupiter position using NAIF DE ephemerides
+- jupiter_velocity_spice: High-precision Jupiter velocity using NAIF DE ephemerides
+- jupiter_state_spice: High-precision Jupiter state using NAIF DE ephemerides
+- saturn_position_spice: High-precision Saturn position using NAIF DE ephemerides
+- saturn_velocity_spice: High-precision Saturn velocity using NAIF DE ephemerides
+- saturn_state_spice: High-precision Saturn state using NAIF DE ephemerides
+- uranus_position_spice: High-precision Uranus position using NAIF DE ephemerides
+- uranus_velocity_spice: High-precision Uranus velocity using NAIF DE ephemerides
+- uranus_state_spice: High-precision Uranus state using NAIF DE ephemerides
+- neptune_position_spice: High-precision Neptune position using NAIF DE ephemerides
+- neptune_velocity_spice: High-precision Neptune velocity using NAIF DE ephemerides
+- neptune_state_spice: High-precision Neptune state using NAIF DE ephemerides
+- mars_barycenter_position_spice: Mars-system barycenter position (DE kernel only)
+- mars_barycenter_velocity_spice: Mars-system barycenter velocity (DE kernel only)
+- mars_barycenter_state_spice: Mars-system barycenter state (DE kernel only)
+- jupiter_barycenter_position_spice: Jupiter-system barycenter position (DE kernel only)
+- jupiter_barycenter_velocity_spice: Jupiter-system barycenter velocity (DE kernel only)
+- jupiter_barycenter_state_spice: Jupiter-system barycenter state (DE kernel only)
+- saturn_barycenter_position_spice: Saturn-system barycenter position (DE kernel only)
+- saturn_barycenter_velocity_spice: Saturn-system barycenter velocity (DE kernel only)
+- saturn_barycenter_state_spice: Saturn-system barycenter state (DE kernel only)
+- uranus_barycenter_position_spice: Uranus-system barycenter position (DE kernel only)
+- uranus_barycenter_velocity_spice: Uranus-system barycenter velocity (DE kernel only)
+- uranus_barycenter_state_spice: Uranus-system barycenter state (DE kernel only)
+- neptune_barycenter_position_spice: Neptune-system barycenter position (DE kernel only)
+- neptune_barycenter_velocity_spice: Neptune-system barycenter velocity (DE kernel only)
+- neptune_barycenter_state_spice: Neptune-system barycenter state (DE kernel only)
+- solar_system_barycenter_position_spice: High-precision SSB position using NAIF DE ephemerides
+- solar_system_barycenter_velocity_spice: High-precision SSB velocity using NAIF DE ephemerides
+- solar_system_barycenter_state_spice: High-precision SSB state using NAIF DE ephemerides
+- ssb_position_spice: Convenience alias for solar_system_barycenter_position_spice
+- ssb_velocity_spice: Convenience alias for solar_system_barycenter_velocity_spice
+- ssb_state_spice: Convenience alias for solar_system_barycenter_state_spice
 - initialize_ephemeris: Pre-initialize the DE ephemeris kernel
 
 Acceleration Models:
@@ -48,15 +63,15 @@ Acceleration Models:
 Third-Body Perturbations:
 - accel_third_body_sun: Sun perturbation using analytical ephemerides
 - accel_third_body_moon: Moon perturbation using analytical ephemerides
-- accel_third_body_sun_de: Sun perturbation using DE ephemerides
-- accel_third_body_moon_de: Moon perturbation using DE ephemerides
-- accel_third_body_mercury_de: Mercury perturbation using DE ephemerides
-- accel_third_body_venus_de: Venus perturbation using DE ephemerides
-- accel_third_body_mars_de: Mars perturbation using DE ephemerides
-- accel_third_body_jupiter_de: Jupiter perturbation using DE ephemerides
-- accel_third_body_saturn_de: Saturn perturbation using DE ephemerides
-- accel_third_body_uranus_de: Uranus perturbation using DE ephemerides
-- accel_third_body_neptune_de: Neptune perturbation using DE ephemerides
+- accel_third_body_sun_spice: Sun perturbation using DE ephemerides
+- accel_third_body_moon_spice: Moon perturbation using DE ephemerides
+- accel_third_body_mercury_spice: Mercury perturbation using DE ephemerides
+- accel_third_body_venus_spice: Venus perturbation using DE ephemerides
+- accel_third_body_mars_spice: Mars perturbation using DE ephemerides
+- accel_third_body_jupiter_spice: Jupiter perturbation using DE ephemerides
+- accel_third_body_saturn_spice: Saturn perturbation using DE ephemerides
+- accel_third_body_uranus_spice: Uranus perturbation using DE ephemerides
+- accel_third_body_neptune_spice: Neptune perturbation using DE ephemerides
 - accel_third_body_for_body: Central-body-aware third-body acceleration (Moon, Mars, EMB, SSB, Custom)
 
 Gravity:
@@ -66,8 +81,15 @@ Gravity:
 - GravityModelTideSystem: Enum for tide system conventions
 - GravityModelErrors: Enum for error estimation types
 - GravityModelNormalization: Enum for coefficient normalization conventions
+- GravityModelCoefficients: Enum for which precomputed coefficient sets a model builds
 - GravityModel: Spherical harmonic gravity model class
-- accel_gravity_spherical_harmonics: Spherical harmonic gravity acceleration
+- accel_gravity_spherical_harmonics: Spherical harmonic gravity acceleration (auto-dispatched)
+- accel_gravity_spherical_harmonics_clenshaw: Spherical harmonic gravity acceleration (Clenshaw kernel)
+- accel_gravity_spherical_harmonics_cunningham: Spherical harmonic gravity acceleration (Cunningham kernel)
+- set_global_gravity_model: Set the process-wide global gravity model
+- set_global_gravity_model_to_tide_system: Convert a model to a tide system, then set it as global
+- get_global_gravity_model: Get a copy of the process-wide global gravity model
+- clear_gravity_model_cache: Clear the process-wide gravity model cache
 
 Drag and SRP:
 - accel_drag: Atmospheric drag acceleration
@@ -93,52 +115,67 @@ from brahe._brahe import (
     # Ephemerides
     sun_position,
     moon_position,
-    sun_position_de,
-    sun_velocity_de,
-    sun_state_de,
-    moon_position_de,
-    moon_velocity_de,
-    moon_state_de,
-    mercury_position_de,
-    mercury_velocity_de,
-    mercury_state_de,
-    venus_position_de,
-    venus_velocity_de,
-    venus_state_de,
-    mars_position_de,
-    mars_velocity_de,
-    mars_state_de,
-    jupiter_position_de,
-    jupiter_velocity_de,
-    jupiter_state_de,
-    saturn_position_de,
-    saturn_velocity_de,
-    saturn_state_de,
-    uranus_position_de,
-    uranus_velocity_de,
-    uranus_state_de,
-    neptune_position_de,
-    neptune_velocity_de,
-    neptune_state_de,
-    solar_system_barycenter_position_de,
-    solar_system_barycenter_velocity_de,
-    solar_system_barycenter_state_de,
-    ssb_position_de,
-    ssb_velocity_de,
-    ssb_state_de,
+    sun_position_spice,
+    sun_velocity_spice,
+    sun_state_spice,
+    moon_position_spice,
+    moon_velocity_spice,
+    moon_state_spice,
+    mercury_position_spice,
+    mercury_velocity_spice,
+    mercury_state_spice,
+    venus_position_spice,
+    venus_velocity_spice,
+    venus_state_spice,
+    mars_position_spice,
+    mars_velocity_spice,
+    mars_state_spice,
+    jupiter_position_spice,
+    jupiter_velocity_spice,
+    jupiter_state_spice,
+    saturn_position_spice,
+    saturn_velocity_spice,
+    saturn_state_spice,
+    uranus_position_spice,
+    uranus_velocity_spice,
+    uranus_state_spice,
+    neptune_position_spice,
+    neptune_velocity_spice,
+    neptune_state_spice,
+    mars_barycenter_position_spice,
+    mars_barycenter_velocity_spice,
+    mars_barycenter_state_spice,
+    jupiter_barycenter_position_spice,
+    jupiter_barycenter_velocity_spice,
+    jupiter_barycenter_state_spice,
+    saturn_barycenter_position_spice,
+    saturn_barycenter_velocity_spice,
+    saturn_barycenter_state_spice,
+    uranus_barycenter_position_spice,
+    uranus_barycenter_velocity_spice,
+    uranus_barycenter_state_spice,
+    neptune_barycenter_position_spice,
+    neptune_barycenter_velocity_spice,
+    neptune_barycenter_state_spice,
+    solar_system_barycenter_position_spice,
+    solar_system_barycenter_velocity_spice,
+    solar_system_barycenter_state_spice,
+    ssb_position_spice,
+    ssb_velocity_spice,
+    ssb_state_spice,
     initialize_ephemeris,
     # Third-Body Accelerations
     accel_third_body_sun,
     accel_third_body_moon,
-    accel_third_body_sun_de,
-    accel_third_body_moon_de,
-    accel_third_body_mercury_de,
-    accel_third_body_venus_de,
-    accel_third_body_mars_de,
-    accel_third_body_jupiter_de,
-    accel_third_body_saturn_de,
-    accel_third_body_uranus_de,
-    accel_third_body_neptune_de,
+    accel_third_body_sun_spice,
+    accel_third_body_moon_spice,
+    accel_third_body_mercury_spice,
+    accel_third_body_venus_spice,
+    accel_third_body_mars_spice,
+    accel_third_body_jupiter_spice,
+    accel_third_body_saturn_spice,
+    accel_third_body_uranus_spice,
+    accel_third_body_neptune_spice,
     accel_third_body_for_body,
     # Gravity
     accel_point_mass_gravity,
@@ -147,8 +184,15 @@ from brahe._brahe import (
     GravityModelTideSystem,
     GravityModelErrors,
     GravityModelNormalization,
+    GravityModelCoefficients,
     GravityModel,
     accel_gravity_spherical_harmonics,
+    accel_gravity_spherical_harmonics_clenshaw,
+    accel_gravity_spherical_harmonics_cunningham,
+    set_global_gravity_model,
+    set_global_gravity_model_to_tide_system,
+    get_global_gravity_model,
+    clear_gravity_model_cache,
     # Atmospheric Density Models
     density_harris_priester,
     density_nrlmsise00,
@@ -178,52 +222,67 @@ __all__ = [
     # Ephemerides
     "sun_position",
     "moon_position",
-    "sun_position_de",
-    "sun_velocity_de",
-    "sun_state_de",
-    "moon_position_de",
-    "moon_velocity_de",
-    "moon_state_de",
-    "mercury_position_de",
-    "mercury_velocity_de",
-    "mercury_state_de",
-    "venus_position_de",
-    "venus_velocity_de",
-    "venus_state_de",
-    "mars_position_de",
-    "mars_velocity_de",
-    "mars_state_de",
-    "jupiter_position_de",
-    "jupiter_velocity_de",
-    "jupiter_state_de",
-    "saturn_position_de",
-    "saturn_velocity_de",
-    "saturn_state_de",
-    "uranus_position_de",
-    "uranus_velocity_de",
-    "uranus_state_de",
-    "neptune_position_de",
-    "neptune_velocity_de",
-    "neptune_state_de",
-    "solar_system_barycenter_position_de",
-    "solar_system_barycenter_velocity_de",
-    "solar_system_barycenter_state_de",
-    "ssb_position_de",
-    "ssb_velocity_de",
-    "ssb_state_de",
+    "sun_position_spice",
+    "sun_velocity_spice",
+    "sun_state_spice",
+    "moon_position_spice",
+    "moon_velocity_spice",
+    "moon_state_spice",
+    "mercury_position_spice",
+    "mercury_velocity_spice",
+    "mercury_state_spice",
+    "venus_position_spice",
+    "venus_velocity_spice",
+    "venus_state_spice",
+    "mars_position_spice",
+    "mars_velocity_spice",
+    "mars_state_spice",
+    "jupiter_position_spice",
+    "jupiter_velocity_spice",
+    "jupiter_state_spice",
+    "saturn_position_spice",
+    "saturn_velocity_spice",
+    "saturn_state_spice",
+    "uranus_position_spice",
+    "uranus_velocity_spice",
+    "uranus_state_spice",
+    "neptune_position_spice",
+    "neptune_velocity_spice",
+    "neptune_state_spice",
+    "mars_barycenter_position_spice",
+    "mars_barycenter_velocity_spice",
+    "mars_barycenter_state_spice",
+    "jupiter_barycenter_position_spice",
+    "jupiter_barycenter_velocity_spice",
+    "jupiter_barycenter_state_spice",
+    "saturn_barycenter_position_spice",
+    "saturn_barycenter_velocity_spice",
+    "saturn_barycenter_state_spice",
+    "uranus_barycenter_position_spice",
+    "uranus_barycenter_velocity_spice",
+    "uranus_barycenter_state_spice",
+    "neptune_barycenter_position_spice",
+    "neptune_barycenter_velocity_spice",
+    "neptune_barycenter_state_spice",
+    "solar_system_barycenter_position_spice",
+    "solar_system_barycenter_velocity_spice",
+    "solar_system_barycenter_state_spice",
+    "ssb_position_spice",
+    "ssb_velocity_spice",
+    "ssb_state_spice",
     "initialize_ephemeris",
     # Third-Body Accelerations
     "accel_third_body_sun",
     "accel_third_body_moon",
-    "accel_third_body_sun_de",
-    "accel_third_body_moon_de",
-    "accel_third_body_mercury_de",
-    "accel_third_body_venus_de",
-    "accel_third_body_mars_de",
-    "accel_third_body_jupiter_de",
-    "accel_third_body_saturn_de",
-    "accel_third_body_uranus_de",
-    "accel_third_body_neptune_de",
+    "accel_third_body_sun_spice",
+    "accel_third_body_moon_spice",
+    "accel_third_body_mercury_spice",
+    "accel_third_body_venus_spice",
+    "accel_third_body_mars_spice",
+    "accel_third_body_jupiter_spice",
+    "accel_third_body_saturn_spice",
+    "accel_third_body_uranus_spice",
+    "accel_third_body_neptune_spice",
     "accel_third_body_for_body",
     # Gravity
     "accel_point_mass_gravity",
@@ -232,8 +291,15 @@ __all__ = [
     "GravityModelTideSystem",
     "GravityModelErrors",
     "GravityModelNormalization",
+    "GravityModelCoefficients",
     "GravityModel",
     "accel_gravity_spherical_harmonics",
+    "accel_gravity_spherical_harmonics_clenshaw",
+    "accel_gravity_spherical_harmonics_cunningham",
+    "set_global_gravity_model",
+    "set_global_gravity_model_to_tide_system",
+    "get_global_gravity_model",
+    "clear_gravity_model_cache",
     # Atmospheric Density Models
     "density_harris_priester",
     "density_nrlmsise00",

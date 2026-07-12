@@ -17,60 +17,23 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use nalgebra::{Matrix3, Vector3, Vector6};
+use nalgebra::{Vector3, Vector6};
 use once_cell::sync::Lazy;
 
-use crate::datasets::naif::{
-    SUPPORTED_KERNELS, SUPPORTED_PCK_KERNELS, SUPPORTED_SATELLITE_KERNELS, download_de_kernel,
-    download_pck_kernel, download_satellite_kernel,
-};
-use crate::time::{Epoch, TimeSystem};
+use crate::attitude::{EulerAngle, Quaternion, RotationMatrix};
+use crate::datasets::naif::download_spice_kernel;
+use crate::time::Epoch;
 use crate::utils::BraheError;
 
-use super::daf::DafFile;
+use super::daf::DAFFile;
+use super::kernels::{KernelSource, SPICEKernel};
+use super::naif_id::{FrameId, NAIFId};
 use super::pck::BPCK;
 use super::segments::{ChebyshevSegment, is_coverage_error};
 use super::spk::{
     ChainLink, SPK, evaluate_chain_position, evaluate_chain_state, evaluate_chain_velocity,
     evaluate_with_epoch_fallback, resolve_chain,
 };
-
-// ============================================================================
-// NAIF ID Constants
-// ============================================================================
-
-/// NAIF ID of the Solar System Barycenter.
-pub const NAIF_SSB: i32 = 0;
-/// NAIF ID of the Mercury Barycenter.
-pub const NAIF_MERCURY_BARYCENTER: i32 = 1;
-/// NAIF ID of the Venus Barycenter.
-pub const NAIF_VENUS_BARYCENTER: i32 = 2;
-/// NAIF ID of the Earth-Moon Barycenter.
-pub const NAIF_EMB: i32 = 3;
-/// NAIF ID of the Mars Barycenter.
-pub const NAIF_MARS_BARYCENTER: i32 = 4;
-/// NAIF ID of the Jupiter Barycenter.
-pub const NAIF_JUPITER_BARYCENTER: i32 = 5;
-/// NAIF ID of the Saturn Barycenter.
-pub const NAIF_SATURN_BARYCENTER: i32 = 6;
-/// NAIF ID of the Uranus Barycenter.
-pub const NAIF_URANUS_BARYCENTER: i32 = 7;
-/// NAIF ID of the Neptune Barycenter.
-pub const NAIF_NEPTUNE_BARYCENTER: i32 = 8;
-/// NAIF ID of the Pluto Barycenter.
-pub const NAIF_PLUTO_BARYCENTER: i32 = 9;
-/// NAIF ID of the Sun.
-pub const NAIF_SUN: i32 = 10;
-/// NAIF ID of the Mercury body center.
-pub const NAIF_MERCURY: i32 = 199;
-/// NAIF ID of the Venus body center.
-pub const NAIF_VENUS: i32 = 299;
-/// NAIF ID of the Earth body center.
-pub const NAIF_EARTH: i32 = 399;
-/// NAIF ID of the Moon body center.
-pub const NAIF_MOON: i32 = 301;
-/// NAIF ID of the Mars body center.
-pub const NAIF_MARS: i32 = 499;
 
 // ============================================================================
 // Global Registry State
@@ -102,40 +65,25 @@ static GLOBAL_SPICE: Lazy<RwLock<KernelRegistry>> = Lazy::new(|| {
 /// Convert a brahe [`Epoch`] to SPICE ephemeris time (TDB seconds past
 /// J2000).
 pub(crate) fn epoch_to_et(epc: Epoch) -> f64 {
-    epc.seconds_past_j2000_as_time_system(TimeSystem::TDB)
+    epc.spice_et()
 }
 
-/// Resolve a kernel name or file path to a local file path, downloading
-/// (and caching) known DE kernel names via the NAIF dataset cache.
-///
-/// Known kernel names are looked up in `naif::SUPPORTED_KERNELS` (DE SPK
-/// kernels), `naif::SUPPORTED_PCK_KERNELS` (binary PCK kernels), and
-/// `naif::SUPPORTED_SATELLITE_KERNELS` (satellite SPK kernels) — the
-/// same lists `datasets::naif` validates against — rather than a second,
-/// independently maintained set of literals, so the two cannot drift out
-/// of sync.
-fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, BraheError> {
-    if SUPPORTED_KERNELS.contains(&name_or_path) {
-        download_de_kernel(name_or_path, None)
-    } else if SUPPORTED_PCK_KERNELS
-        .iter()
-        .any(|(name, _)| *name == name_or_path)
-    {
-        download_pck_kernel(name_or_path, None)
-    } else if SUPPORTED_SATELLITE_KERNELS
-        .iter()
-        .any(|(name, _)| *name == name_or_path)
-    {
-        download_satellite_kernel(name_or_path, None)
-    } else {
-        let path = Path::new(name_or_path);
-        if path.exists() {
-            Ok(path.to_path_buf())
-        } else {
-            Err(BraheError::IoError(format!(
-                "Kernel '{}' is neither a known kernel name nor an existing file path",
-                name_or_path
-            )))
+/// Resolve a [`KernelSource`] to a local file path, downloading (and
+/// caching) a known [`SPICEKernel`] via the NAIF dataset cache or validating
+/// that a bring-your-own path exists.
+fn resolve_kernel_path(source: &KernelSource) -> Result<std::path::PathBuf, BraheError> {
+    match source {
+        KernelSource::Kernel(kernel) => download_spice_kernel(*kernel, None),
+        KernelSource::Path(path) => {
+            let p = Path::new(path);
+            if p.exists() {
+                Ok(p.to_path_buf())
+            } else {
+                Err(BraheError::IoError(format!(
+                    "Kernel '{}' is neither a known kernel name nor an existing file path",
+                    path
+                )))
+            }
         }
     }
 }
@@ -147,17 +95,16 @@ fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, Brahe
 /// Load a SPICE kernel into the global registry, auto-detecting SPK vs.
 /// PCK from the DAF ID word.
 ///
-/// Idempotent: calling with a `name_or_path` that is already loaded is a
-/// no-op. Known DE kernel names (`"de440s"`, `"de440"`, etc.) are
-/// downloaded and cached via [`crate::datasets::naif::download_de_kernel`];
-/// the known binary PCK name `"moon_pa_de440"` is downloaded and cached via
-/// [`crate::datasets::naif::download_pck_kernel`]; the known satellite SPK
-/// name `"mar099s"` is downloaded and cached via
-/// [`crate::datasets::naif::download_satellite_kernel`]; any other string is
-/// treated as a file path.
+/// Idempotent: calling with a source that is already loaded is a no-op.
+/// Accepts anything convertible into a [`KernelSource`]: a known kernel
+/// name string (`"de440s"`, `"moon_pa_de440"`, ...) or [`SPICEKernel`] is
+/// downloaded and cached via [`crate::datasets::naif::download_spice_kernel`]; any
+/// other string is treated as a file path. The registry is keyed by
+/// [`KernelSource::key`] (the kernel name or the path string), so loading
+/// by name and by [`SPICEKernel`] refer to the same entry.
 ///
 /// # Arguments
-/// - `name_or_path`: A known DE, PCK, or satellite kernel name, or a path to a `.bsp`/`.bpc` file
+/// - `kernel`: A known kernel name/[`SPICEKernel`], or a path to a `.bsp`/`.bpc` file
 ///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` if the kernel cannot be resolved,
@@ -169,24 +116,27 @@ fn resolve_kernel_source(name_or_path: &str) -> Result<std::path::PathBuf, Brahe
 ///
 /// load_kernel("de440s").expect("Failed to load DE440s");
 /// ```
-pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
+pub fn load_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheError> {
+    let source = kernel.into();
+    let key = source.key().to_string();
+
     // Idempotent short-circuit (read lock only) for the common case.
     {
         let reg = GLOBAL_SPICE.read().unwrap();
-        if reg.kernels.contains_key(name_or_path) {
+        if reg.kernels.contains_key(&key) {
             return Ok(());
         }
     }
 
-    let path = resolve_kernel_source(name_or_path)?;
-    let daf = DafFile::from_file(&path)?;
+    let path = resolve_kernel_path(&source)?;
+    let daf = DAFFile::from_file(&path)?;
     let kernel = match daf.id_word.as_str() {
         "DAF/SPK" => Kernel::Spk(Arc::new(SPK::from_daf(daf)?)),
         "DAF/PCK" => Kernel::Pck(Arc::new(BPCK::from_daf(daf)?)),
         other => {
             return Err(BraheError::IoError(format!(
                 "Unrecognized DAF ID word '{}' in kernel '{}'; expected 'DAF/SPK' or 'DAF/PCK'",
-                other, name_or_path
+                other, key
             )));
         }
     };
@@ -194,11 +144,11 @@ pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
     let mut reg = GLOBAL_SPICE.write().unwrap();
     // Double-checked locking: another thread may have loaded it while we
     // resolved and parsed the file.
-    if reg.kernels.contains_key(name_or_path) {
+    if reg.kernels.contains_key(&key) {
         return Ok(());
     }
-    reg.kernels.insert(name_or_path.to_string(), kernel);
-    reg.load_order.push(name_or_path.to_string());
+    reg.kernels.insert(key.clone(), kernel);
+    reg.load_order.push(key);
     reg.chain_cache.clear();
     Ok(())
 }
@@ -206,10 +156,11 @@ pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
 /// Unload a kernel previously loaded via [`load_kernel`].
 ///
 /// # Arguments
-/// - `name_or_path`: The same string originally passed to [`load_kernel`]
+/// - `kernel`: The same kernel name/[`SPICEKernel`]/path originally passed to
+///   [`load_kernel`]
 ///
 /// # Returns
-/// - `Ok(())` on success, or `BraheError` if `name_or_path` is not loaded
+/// - `Ok(())` on success, or `BraheError` if the kernel is not loaded
 ///
 /// # Examples
 /// ```no_run
@@ -218,15 +169,16 @@ pub fn load_kernel(name_or_path: &str) -> Result<(), BraheError> {
 /// load_kernel("de440s").unwrap();
 /// unload_kernel("de440s").expect("Failed to unload DE440s");
 /// ```
-pub fn unload_kernel(name_or_path: &str) -> Result<(), BraheError> {
+pub fn unload_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheError> {
+    let key = kernel.into().key().to_string();
     let mut reg = GLOBAL_SPICE.write().unwrap();
-    if reg.kernels.remove(name_or_path).is_none() {
+    if reg.kernels.remove(&key).is_none() {
         return Err(BraheError::Error(format!(
             "Kernel '{}' is not currently loaded",
-            name_or_path
+            key
         )));
     }
-    reg.load_order.retain(|k| k != name_or_path);
+    reg.load_order.retain(|k| k != &key);
     reg.chain_cache.clear();
     Ok(())
 }
@@ -286,7 +238,7 @@ pub fn initialize_ephemeris() -> Result<(), BraheError> {
 /// Equivalent to `load_kernel(kernel)`.
 ///
 /// # Arguments
-/// - `kernel`: A known DE kernel name (e.g. `"de440s"`, `"de440"`)
+/// - `kernel`: A known DE kernel name/[`SPICEKernel`] (e.g. `"de440s"`, `"de440"`)
 ///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` on download/parse failure
@@ -297,8 +249,80 @@ pub fn initialize_ephemeris() -> Result<(), BraheError> {
 ///
 /// initialize_ephemeris_with_kernel("de440").expect("Failed to initialize DE440");
 /// ```
-pub fn initialize_ephemeris_with_kernel(kernel: &str) -> Result<(), BraheError> {
+pub fn initialize_ephemeris_with_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheError> {
     load_kernel(kernel)
+}
+
+/// Kernels loaded by [`load_common_kernels`]: `de440s` (planetary ephemeris)
+/// and `moon_pa_de440` (lunar principal-axes orientation).
+pub(crate) const COMMON_KERNELS: &[SPICEKernel] = &[SPICEKernel::DE440s, SPICEKernel::MoonPaDe440];
+
+/// Kernels loaded by [`load_all_kernels`]: [`COMMON_KERNELS`] plus every
+/// satellite ephemeris kernel brahe knows how to download.
+pub(crate) const ALL_KERNELS: &[SPICEKernel] = &[
+    SPICEKernel::DE440s,
+    SPICEKernel::MoonPaDe440,
+    SPICEKernel::Mar099s,
+    SPICEKernel::Jup365,
+    SPICEKernel::Sat441,
+    SPICEKernel::Ura184,
+    SPICEKernel::Nep097,
+    SPICEKernel::Plu060,
+];
+
+/// Load the kernels most applications need: `de440s` (planetary ephemeris)
+/// and `moon_pa_de440` (lunar principal-axes orientation).
+///
+/// ~46 MB total on first download; cached thereafter. Each kernel load is
+/// idempotent, so calling this alongside other [`load_kernel`] calls is
+/// safe.
+///
+/// Loading is not atomic: on error, kernels already loaded before the
+/// failure remain resident, so the call can be safely retried.
+///
+/// # Returns
+/// - `Ok(())` on success, or `BraheError` if a kernel cannot be downloaded,
+///   read, or parsed
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::load_common_kernels;
+///
+/// load_common_kernels().expect("Failed to load common kernels");
+/// ```
+pub fn load_common_kernels() -> Result<(), BraheError> {
+    for kernel in COMMON_KERNELS {
+        load_kernel(*kernel)?;
+    }
+    Ok(())
+}
+
+/// Load every kernel brahe knows how to download: `de440s`, `moon_pa_de440`,
+/// and the satellite ephemeris kernels `mar099s`, `jup365`, `sat441`, `ura184`,
+/// `nep097`, `plu060`.
+///
+/// ~2.5 GB total on first download; cached thereafter. Prefer
+/// [`load_common_kernels`] unless outer-planet body centers or moons are
+/// needed.
+///
+/// Loading is not atomic: on error, kernels already loaded before the
+/// failure remain resident, so the call can be safely retried.
+///
+/// # Returns
+/// - `Ok(())` on success, or `BraheError` if a kernel cannot be downloaded,
+///   read, or parsed
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::load_all_kernels;
+///
+/// load_all_kernels().expect("Failed to load all kernels");
+/// ```
+pub fn load_all_kernels() -> Result<(), BraheError> {
+    for kernel in ALL_KERNELS {
+        load_kernel(*kernel)?;
+    }
+    Ok(())
 }
 
 // ============================================================================
@@ -416,14 +440,20 @@ fn ensure_default_ephemeris_loaded() -> Result<(), BraheError> {
 ///
 /// # Examples
 /// ```
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_position, initialize_ephemeris};
+/// use brahe::spice::{NAIFId, spk_position, initialize_ephemeris};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// initialize_ephemeris().unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let r_moon = spk_position(NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let r_moon = spk_position(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_position(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>, BraheError> {
+pub fn spk_position(
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
     ensure_default_ephemeris_loaded()?;
     let et = epoch_to_et(epc);
     let chain = global_chain(target, center)?;
@@ -451,14 +481,20 @@ pub fn spk_position(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>
 ///
 /// # Examples
 /// ```
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_velocity, initialize_ephemeris};
+/// use brahe::spice::{NAIFId, spk_velocity, initialize_ephemeris};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// initialize_ephemeris().unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let v_moon = spk_velocity(NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let v_moon = spk_velocity(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_velocity(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>, BraheError> {
+pub fn spk_velocity(
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
     ensure_default_ephemeris_loaded()?;
     let et = epoch_to_et(epc);
     let chain = global_chain(target, center)?;
@@ -486,14 +522,20 @@ pub fn spk_velocity(target: i32, center: i32, epc: Epoch) -> Result<Vector3<f64>
 ///
 /// # Examples
 /// ```
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_state, initialize_ephemeris};
+/// use brahe::spice::{NAIFId, spk_state, initialize_ephemeris};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// initialize_ephemeris().unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let x_moon = spk_state(NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let x_moon = spk_state(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_state(target: i32, center: i32, epc: Epoch) -> Result<Vector6<f64>, BraheError> {
+pub fn spk_state(
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
+    epc: Epoch,
+) -> Result<Vector6<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
     ensure_default_ephemeris_loaded()?;
     let et = epoch_to_et(epc);
     let chain = global_chain(target, center)?;
@@ -508,18 +550,19 @@ pub fn spk_state(target: i32, center: i32, epc: Epoch) -> Result<Vector6<f64>, B
     ))
 }
 
-/// Fetch the loaded `Kernel::Spk` entry for `kernel_name`, loading it first
-/// if absent.
-fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
-    load_kernel(kernel_name)?;
+/// Fetch the loaded `Kernel::Spk` entry for `kernel`, loading it first if
+/// absent.
+fn spk_kernel_for_query(kernel: KernelSource) -> Result<Arc<SPK>, BraheError> {
+    let key = kernel.key().to_string();
+    load_kernel(kernel)?;
     let reg = GLOBAL_SPICE.read().unwrap();
-    match reg.kernels.get(kernel_name) {
+    match reg.kernels.get(&key) {
         Some(Kernel::Spk(spk)) => Ok(Arc::clone(spk)),
         Some(Kernel::Pck(_)) => Err(BraheError::Error(format!(
             "Kernel '{}' is a binary PCK, not an SPK",
-            kernel_name
+            key
         ))),
-        None => unreachable!("load_kernel just ensured '{kernel_name}' is present"),
+        None => unreachable!("load_kernel just ensured '{key}' is present"),
     }
 }
 
@@ -531,8 +574,8 @@ fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
 /// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel_name`: A known DE kernel name (e.g. `"de440s"`, `"de440"`), or
-///   a path to a `.bsp` file
+/// - `kernel`: A known kernel name/[`SPICEKernel`], or a path to a `.bsp`
+///   file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
 /// - `epc`: Epoch at which to evaluate the position
@@ -543,19 +586,21 @@ fn spk_kernel_for_query(kernel_name: &str) -> Result<Arc<SPK>, BraheError> {
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_position_in_kernel};
+/// use brahe::spice::{NAIFId, spk_position_from_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let r_moon = spk_position_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let r_moon = spk_position_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_position_in_kernel(
-    kernel_name: &str,
-    target: i32,
-    center: i32,
+pub fn spk_position_from_kernel(
+    kernel: impl Into<KernelSource>,
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
     epc: Epoch,
 ) -> Result<Vector3<f64>, BraheError> {
-    let spk = spk_kernel_for_query(kernel_name)?;
+    let target = target.into().id();
+    let center = center.into().id();
+    let spk = spk_kernel_for_query(kernel.into())?;
     spk.position(target, center, epoch_to_et(epc))
 }
 
@@ -567,8 +612,8 @@ pub fn spk_position_in_kernel(
 /// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel_name`: A known DE kernel name (e.g. `"de440s"`, `"de440"`), or
-///   a path to a `.bsp` file
+/// - `kernel`: A known kernel name/[`SPICEKernel`], or a path to a `.bsp`
+///   file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
 /// - `epc`: Epoch at which to evaluate the velocity
@@ -579,19 +624,21 @@ pub fn spk_position_in_kernel(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_velocity_in_kernel};
+/// use brahe::spice::{NAIFId, spk_velocity_from_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let v_moon = spk_velocity_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let v_moon = spk_velocity_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_velocity_in_kernel(
-    kernel_name: &str,
-    target: i32,
-    center: i32,
+pub fn spk_velocity_from_kernel(
+    kernel: impl Into<KernelSource>,
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
     epc: Epoch,
 ) -> Result<Vector3<f64>, BraheError> {
-    let spk = spk_kernel_for_query(kernel_name)?;
+    let target = target.into().id();
+    let center = center.into().id();
+    let spk = spk_kernel_for_query(kernel.into())?;
     spk.velocity(target, center, epoch_to_et(epc))
 }
 
@@ -603,8 +650,8 @@ pub fn spk_velocity_in_kernel(
 /// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel_name`: A known DE kernel name (e.g. `"de440s"`, `"de440"`), or
-///   a path to a `.bsp` file
+/// - `kernel`: A known kernel name/[`SPICEKernel`], or a path to a `.bsp`
+///   file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
 /// - `epc`: Epoch at which to evaluate the state
@@ -615,19 +662,21 @@ pub fn spk_velocity_in_kernel(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{NAIF_MOON, NAIF_EARTH, spk_state_in_kernel};
+/// use brahe::spice::{NAIFId, spk_state_from_kernel};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let x_moon = spk_state_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc).unwrap();
+/// let x_moon = spk_state_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
 /// ```
-pub fn spk_state_in_kernel(
-    kernel_name: &str,
-    target: i32,
-    center: i32,
+pub fn spk_state_from_kernel(
+    kernel: impl Into<KernelSource>,
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
     epc: Epoch,
 ) -> Result<Vector6<f64>, BraheError> {
-    let spk = spk_kernel_for_query(kernel_name)?;
+    let target = target.into().id();
+    let center = center.into().id();
+    let spk = spk_kernel_for_query(kernel.into())?;
     spk.state(target, center, epoch_to_et(epc))
 }
 
@@ -690,18 +739,137 @@ fn pck_query<T>(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{load_kernel, pck_euler_angles};
+/// use brahe::spice::{FrameId, load_kernel, pck_euler_angles};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let (angles, rates) = pck_euler_angles(31008, epc).unwrap();
+/// let (angles, rates) = pck_euler_angles(FrameId::MoonPaDe440, epc).unwrap();
 /// ```
 pub fn pck_euler_angles(
-    frame_id: i32,
+    frame_id: impl Into<FrameId>,
     epc: Epoch,
 ) -> Result<(Vector3<f64>, Vector3<f64>), BraheError> {
+    let frame_id = frame_id.into().id();
     pck_query(frame_id, epc, |pck, f, et| pck.euler_angles(f, et))
+}
+
+/// 3-1-3 Euler angle of the body-fixed frame `frame_id` relative to its
+/// segment reference frame (ICRF for DE440-era kernels), searching loaded
+/// PCK kernels newest-first.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via [`load_kernel`] first.
+///
+/// # Arguments
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+/// - `epc`: Epoch at which to evaluate the orientation
+///
+/// # Returns
+/// - `EulerAngle` (order `ZXZ`, radians): ICRF to body-fixed orientation
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{FrameId, load_kernel, pck_euler_angle};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let e = pck_euler_angle(FrameId::MoonPaDe440, epc).unwrap();
+/// ```
+pub fn pck_euler_angle(frame_id: impl Into<FrameId>, epc: Epoch) -> Result<EulerAngle, BraheError> {
+    let frame_id = frame_id.into().id();
+    pck_query(frame_id, epc, |pck, f, et| pck.euler_angle(f, et))
+}
+
+/// Time derivatives of the 3-1-3 Euler angles of the body-fixed frame
+/// `frame_id`, searching loaded PCK kernels newest-first.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via [`load_kernel`] first.
+///
+/// # Arguments
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+/// - `epc`: Epoch at which to evaluate the orientation
+///
+/// # Returns
+/// - `[phi_dot, delta_dot, w_dot]` in [rad/s]
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{FrameId, load_kernel, pck_euler_rates};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let rates = pck_euler_rates(FrameId::MoonPaDe440, epc).unwrap();
+/// ```
+pub fn pck_euler_rates(
+    frame_id: impl Into<FrameId>,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    let frame_id = frame_id.into().id();
+    pck_query(frame_id, epc, |pck, f, et| pck.euler_rates(f, et))
+}
+
+/// Typed Euler angle and its rates for the body-fixed frame `frame_id`,
+/// from a single shared segment lookup, searching loaded PCK kernels
+/// newest-first.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via [`load_kernel`] first.
+///
+/// # Arguments
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+/// - `epc`: Epoch at which to evaluate the orientation
+///
+/// # Returns
+/// - `(angle, rates)`: `angle` is the `EulerAngle` (order `ZXZ`, radians);
+///   `rates` are `[phi_dot, delta_dot, w_dot]` in [rad/s]
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{FrameId, load_kernel, pck_euler_angle_and_rates};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let (angle, rates) = pck_euler_angle_and_rates(FrameId::MoonPaDe440, epc).unwrap();
+/// ```
+pub fn pck_euler_angle_and_rates(
+    frame_id: impl Into<FrameId>,
+    epc: Epoch,
+) -> Result<(EulerAngle, Vector3<f64>), BraheError> {
+    let frame_id = frame_id.into().id();
+    pck_query(frame_id, epc, |pck, f, et| pck.euler_angle_and_rates(f, et))
+}
+
+/// Orientation of the body-fixed frame `frame_id` relative to its segment
+/// reference frame (ICRF for DE440-era kernels), as a unit `Quaternion`,
+/// searching loaded PCK kernels newest-first.
+///
+/// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
+/// via [`load_kernel`] first.
+///
+/// # Arguments
+/// - `frame_id`: Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
+/// - `epc`: Epoch at which to evaluate the orientation
+///
+/// # Returns
+/// - Unit `Quaternion` (ICRF to body-fixed). Dimensionless.
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{FrameId, load_kernel, pck_quaternion};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let q = pck_quaternion(FrameId::MoonPaDe440, epc).unwrap();
+/// ```
+pub fn pck_quaternion(frame_id: impl Into<FrameId>, epc: Epoch) -> Result<Quaternion, BraheError> {
+    let frame_id = frame_id.into().id();
+    pck_query(frame_id, epc, |pck, f, et| pck.quaternion(f, et))
 }
 
 /// Rotation matrix from the segment reference frame (ICRF) to the
@@ -719,14 +887,18 @@ pub fn pck_euler_angles(
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::spice::{load_kernel, pck_rotation_matrix};
+/// use brahe::spice::{FrameId, load_kernel, pck_rotation_matrix};
 /// use brahe::time::{Epoch, TimeSystem};
 ///
 /// load_kernel("/path/to/moon_pa_de440_200625.bpc").unwrap();
 /// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
-/// let r = pck_rotation_matrix(31008, epc).unwrap();
+/// let r = pck_rotation_matrix(FrameId::MoonPaDe440, epc).unwrap();
 /// ```
-pub fn pck_rotation_matrix(frame_id: i32, epc: Epoch) -> Result<Matrix3<f64>, BraheError> {
+pub fn pck_rotation_matrix(
+    frame_id: impl Into<FrameId>,
+    epc: Epoch,
+) -> Result<RotationMatrix, BraheError> {
+    let frame_id = frame_id.into().id();
     pck_query(frame_id, epc, |pck, f, et| pck.rotation_matrix(f, et))
 }
 
@@ -734,10 +906,13 @@ pub fn pck_rotation_matrix(frame_id: i32, epc: Epoch) -> Result<Matrix3<f64>, Br
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use approx::assert_abs_diff_eq;
+    use nalgebra::Matrix3;
     use serial_test::serial;
 
     use super::*;
-    use crate::utils::testing::setup_global_test_spice;
+    use crate::attitude::ToAttitude;
+    use crate::time::TimeSystem;
+    use crate::utils::testing::{CacheRedirect, setup_global_test_spice};
 
     fn epc_2025() -> Epoch {
         Epoch::from_date(2025, 1, 1, TimeSystem::UTC)
@@ -1051,7 +1226,7 @@ mod tests {
     #[serial]
     fn test_spk_position_generic() {
         setup_global_test_spice();
-        let r = spk_position(NAIF_MOON, NAIF_EARTH, epc_2025()).unwrap();
+        let r = spk_position(NAIFId::Moon, NAIFId::Earth, epc_2025()).unwrap();
         let d = r.norm();
         assert!(d > 3.5e8 && d < 4.1e8);
     }
@@ -1061,9 +1236,9 @@ mod tests {
     fn test_spk_state_matches_position_velocity() {
         setup_global_test_spice();
         let epc = epc_2025();
-        let x = spk_state(NAIF_SUN, NAIF_EARTH, epc).unwrap();
-        let r = spk_position(NAIF_SUN, NAIF_EARTH, epc).unwrap();
-        let v = spk_velocity(NAIF_SUN, NAIF_EARTH, epc).unwrap();
+        let x = spk_state(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
+        let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
+        let v = spk_velocity(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
         assert_abs_diff_eq!((x.fixed_rows::<3>(0) - r).norm(), 0.0, epsilon = 1e-9);
         assert_abs_diff_eq!((x.fixed_rows::<3>(3) - v).norm(), 0.0, epsilon = 1e-12);
     }
@@ -1074,7 +1249,7 @@ mod tests {
         setup_global_test_spice(); // ensures de440s is in the local cache
         clear_kernels();
         // Auto-init loads de440s from cache without an explicit load_kernel
-        let r = spk_position(NAIF_SUN, NAIF_EARTH, epc_2025()).unwrap();
+        let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc_2025()).unwrap();
         assert!(r.norm() > 1.4e11);
         assert_eq!(loaded_kernels(), vec!["de440s".to_string()]);
     }
@@ -1099,7 +1274,7 @@ mod tests {
             vec![pck_path.to_str().unwrap().to_string()]
         );
 
-        let r = spk_position(NAIF_SUN, NAIF_EARTH, epc_2025()).unwrap();
+        let r = spk_position(NAIFId::Sun, NAIFId::Earth, epc_2025()).unwrap();
         assert!(r.norm() > 1.4e11);
         assert!(loaded_kernels().contains(&"de440s".to_string()));
 
@@ -1127,12 +1302,12 @@ mod tests {
         load_kernel(path_b.to_str().unwrap()).unwrap();
 
         // Later-loaded kernel B takes precedence (2.0 km = 2.0e3 m).
-        let r = spk_position(10, NAIF_SSB, epc_2025()).unwrap();
+        let r = spk_position(10, NAIFId::SolarSystemBarycenter, epc_2025()).unwrap();
         assert_abs_diff_eq!(r[0], 2.0e3, epsilon = 1e-9);
 
         // Unloading B invalidates the chain cache and falls back to A.
         unload_kernel(path_b.to_str().unwrap()).unwrap();
-        let r = spk_position(10, NAIF_SSB, epc_2025()).unwrap();
+        let r = spk_position(10, NAIFId::SolarSystemBarycenter, epc_2025()).unwrap();
         assert_abs_diff_eq!(r[0], 1.0e3, epsilon = 1e-9);
 
         // Restore global state for other tests.
@@ -1190,9 +1365,10 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_spk_position_in_kernel_scoped() {
+    fn test_spk_position_from_kernel_scoped() {
         setup_global_test_spice();
-        let r = spk_position_in_kernel("de440s", NAIF_MOON, NAIF_EARTH, epc_2025()).unwrap();
+        let r =
+            spk_position_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc_2025()).unwrap();
         assert!(r.norm() > 3.5e8 && r.norm() < 4.1e8);
     }
 
@@ -1205,7 +1381,9 @@ mod tests {
             .map(|i| {
                 std::thread::spawn(move || {
                     let epc = Epoch::from_date(2025, 1, 1 + i, TimeSystem::UTC);
-                    spk_position(NAIF_MOON, NAIF_EARTH, epc).unwrap().norm()
+                    spk_position(NAIFId::Moon, NAIFId::Earth, epc)
+                        .unwrap()
+                        .norm()
                 })
             })
             .collect();
@@ -1234,9 +1412,15 @@ mod tests {
         assert_eq!(loaded_kernels(), vec!["moon_pa_de440".to_string()]);
 
         // Frame class 31008 (MOON_PA_DE440) has coverage at 2025-01-01.
-        let r = pck_rotation_matrix(31008, epc_2025()).unwrap();
+        let r = pck_rotation_matrix(31008, epc_2025()).unwrap().to_matrix();
         let rtr = r.transpose() * r;
         assert_abs_diff_eq!((rtr - Matrix3::identity()).norm(), 0.0, epsilon = 1e-9);
+
+        // Typed accessors agree with the rotation matrix at the same epoch.
+        let e = pck_euler_angle(31008, epc_2025()).unwrap();
+        assert_abs_diff_eq!(e.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
+        let q = pck_quaternion(31008, epc_2025()).unwrap();
+        assert_abs_diff_eq!(q.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
 
         // Restore global state for other tests.
         clear_kernels();
@@ -1255,10 +1439,10 @@ mod tests {
 
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         // Phobos (401) relative to Mars barycenter (4): |r| ~ 9376 km
-        let r = spk_position(401, NAIF_MARS_BARYCENTER, epc).unwrap();
+        let r = spk_position(NAIFId::Phobos, NAIFId::MarsBarycenter, epc).unwrap();
         assert!((r.norm() - 9.376e6).abs() < 0.2e6);
         // Deimos (402) relative to Mars barycenter (4): |r| ~ 23463 km
-        let r = spk_position(402, NAIF_MARS_BARYCENTER, epc).unwrap();
+        let r = spk_position(NAIFId::Deimos, NAIFId::MarsBarycenter, epc).unwrap();
         assert!((r.norm() - 2.3463e7).abs() < 0.5e6);
 
         // Restore global state for other tests.
@@ -1267,18 +1451,260 @@ mod tests {
     }
 
     #[test]
-    fn test_naif_id_constants() {
-        assert_eq!(NAIF_SSB, 0);
-        assert_eq!(NAIF_EMB, 3);
-        assert_eq!(NAIF_SUN, 10);
-        assert_eq!(NAIF_MOON, 301);
-        assert_eq!(NAIF_EARTH, 399);
+    fn test_naif_kernel_name() {
+        use super::super::kernels::SPICEKernel;
+        assert_eq!(SPICEKernel::DE440s.name(), "de440s");
+        assert_eq!(SPICEKernel::DE440.name(), "de440");
+    }
+
+    /// The kernel sets are compile-time lists; assert contents so docs stay
+    /// honest.
+    #[test]
+    fn test_common_and_all_kernel_lists() {
+        assert_eq!(
+            COMMON_KERNELS,
+            &[SPICEKernel::DE440s, SPICEKernel::MoonPaDe440]
+        );
+        assert_eq!(
+            ALL_KERNELS,
+            &[
+                SPICEKernel::DE440s,
+                SPICEKernel::MoonPaDe440,
+                SPICEKernel::Mar099s,
+                SPICEKernel::Jup365,
+                SPICEKernel::Sat441,
+                SPICEKernel::Ura184,
+                SPICEKernel::Nep097,
+                SPICEKernel::Plu060,
+            ]
+        );
     }
 
     #[test]
-    fn test_spk_kernel_name() {
-        use super::super::kernels::SPKKernel;
-        assert_eq!(SPKKernel::DE440s.name(), "de440s");
-        assert_eq!(SPKKernel::DE440.name(), "de440");
+    #[cfg_attr(not(feature = "integration"), ignore)] // downloads moon_pa_de440
+    #[serial]
+    fn test_load_common_kernels() {
+        setup_global_test_spice();
+        clear_kernels();
+
+        load_common_kernels().unwrap();
+        let loaded = loaded_kernels();
+        assert!(loaded.contains(&"de440s".to_string()));
+        assert!(loaded.contains(&"moon_pa_de440".to_string()));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_resolve_kernel_path_missing_file_errors() {
+        // A path source that is neither a known kernel name nor an existing
+        // file surfaces `resolve_kernel_path`'s IoError.
+        setup_global_test_spice();
+        let err = load_kernel("/nonexistent/path/to/kernel.bsp").unwrap_err();
+        assert!(format!("{}", err).contains("neither a known kernel name"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_kernel_rejects_unrecognized_daf_id_word() {
+        // A structurally valid DAF whose ID word is neither DAF/SPK nor
+        // DAF/PCK hits `load_kernel`'s `other` arm.
+        setup_global_test_spice();
+        clear_kernels();
+
+        let mut bytes = crate::utils::testing::synthetic_spk_kernel_bytes(&[(10, 0, 1.0)]);
+        bytes[..8].copy_from_slice(b"DAF/CK  ");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mystery.bin");
+        std::fs::write(&path, &bytes).unwrap();
+
+        let err = load_kernel(path.to_str().unwrap()).unwrap_err();
+        assert!(format!("{}", err).contains("Unrecognized DAF ID word"));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_initialize_ephemeris_variants() {
+        // `initialize_ephemeris` loads de440s; `initialize_ephemeris_with_kernel`
+        // loads a bring-your-own path (a valid synthetic SPK) without network.
+        setup_global_test_spice();
+        clear_kernels();
+
+        initialize_ephemeris().unwrap();
+        assert!(loaded_kernels().contains(&"de440s".to_string()));
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("byo.bsp");
+        std::fs::write(&path, synthetic_spk_bytes(1.0)).unwrap();
+        initialize_ephemeris_with_kernel(path.to_str().unwrap()).unwrap();
+        assert!(loaded_kernels().contains(&path.to_str().unwrap().to_string()));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_common_kernels_offline() {
+        // Offline counterpart of `test_load_common_kernels`. The real de440s
+        // is kept resident so `load_common_kernels`' de440s load hits the
+        // idempotent short-circuit (and any concurrent cache read stays
+        // valid); only the synthetic moon_pa_de440 PCK is fetched, from the
+        // redirected cache, so no download occurs.
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s();
+            cache.seed("moon_pa_de440_200625.bpc", &synthetic_bpck_bytes());
+
+            load_common_kernels().unwrap();
+            let loaded = loaded_kernels();
+            assert!(loaded.contains(&"de440s".to_string()));
+            assert!(loaded.contains(&"moon_pa_de440".to_string()));
+        }
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_all_kernels_offline() {
+        // Every kernel `load_all_kernels` pulls beyond de440s (the lunar PCK
+        // and one satellite ephemeris kernel per outer planet) is seeded as a
+        // synthetic file; de440s stays resident and short-circuits.
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s();
+            cache.seed("moon_pa_de440_200625.bpc", &synthetic_bpck_bytes());
+            cache.seed("mar099s.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("jup365.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("sat441.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("ura184_part-3.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("nep097.bsp", &synthetic_spk_bytes(1.0));
+            cache.seed("plu060.bsp", &synthetic_spk_bytes(1.0));
+
+            load_all_kernels().unwrap();
+            let loaded = loaded_kernels();
+            for name in [
+                "de440s",
+                "moon_pa_de440",
+                "mar099s",
+                "jup365",
+                "sat441",
+                "ura184",
+                "nep097",
+                "plu060",
+            ] {
+                assert!(loaded.contains(&name.to_string()), "missing {}", name);
+            }
+        }
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_global_chain_errors_with_no_spk_loaded() {
+        // `global_chain`'s `return Err` branch: with no SPK kernel loaded the
+        // collected segment set is empty.
+        setup_global_test_spice();
+        clear_kernels();
+
+        let err = global_chain(1, 0).unwrap_err();
+        assert!(format!("{}", err).contains("No SPK kernels loaded"));
+
+        // Restore global state for other tests.
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_global_chain_cache_miss_then_hit() {
+        // First resolution is a cache miss (resolve + insert -> final `Ok`);
+        // the second identical query is a cache hit (early `return Ok`).
+        setup_global_test_spice();
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+
+        let c1 = global_chain(10, 0).unwrap();
+        let c2 = global_chain(10, 0).unwrap();
+        assert_eq!(c1.len(), c2.len());
+    }
+
+    #[test]
+    #[serial]
+    fn test_spk_kernel_for_query_rejects_pck() {
+        // Scoped SPK query against a loaded PCK hits `spk_kernel_for_query`'s
+        // PCK error arm.
+        setup_global_test_spice();
+        clear_kernels();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("orient.bpc");
+        std::fs::write(&path, synthetic_bpck_bytes()).unwrap();
+
+        let err = spk_position_from_kernel(
+            path.to_str().unwrap(),
+            NAIFId::Moon,
+            NAIFId::Earth,
+            epc_2025(),
+        )
+        .unwrap_err();
+        assert!(format!("{}", err).contains("binary PCK"));
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_pck_typed_registry_functions_offline() {
+        // Exercises `pck_query`'s `Ok` path and every typed PCK registry
+        // accessor against a path-loaded synthetic PCK (frame 31006 covering
+        // ET [0, 1000]).
+        setup_global_test_spice();
+        clear_kernels();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("synthetic.bpc");
+        std::fs::write(&path, synthetic_bpck_bytes()).unwrap();
+        load_kernel(path.to_str().unwrap()).unwrap();
+
+        let epc = epc_from_et(500.0);
+        let angle = pck_euler_angle(31006, epc).unwrap();
+        let rates = pck_euler_rates(31006, epc).unwrap();
+        let (angle2, rates2) = pck_euler_angle_and_rates(31006, epc).unwrap();
+        assert_eq!(angle2, angle);
+        assert_abs_diff_eq!(rates2, rates, epsilon = 0.0);
+
+        let q = pck_quaternion(31006, epc).unwrap();
+        let r = pck_rotation_matrix(31006, epc).unwrap();
+        // Quaternion, rotation matrix, and typed EulerAngle all agree.
+        assert_abs_diff_eq!(
+            q.to_rotation_matrix().to_matrix(),
+            r.to_matrix(),
+            epsilon = 1e-12
+        );
+        assert_abs_diff_eq!(
+            angle.to_rotation_matrix().to_matrix(),
+            r.to_matrix(),
+            epsilon = 1e-12
+        );
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
     }
 }

@@ -29,6 +29,9 @@ This module provides:
 - OccultingBody: Occulting body for eclipse/shadow modeling in SRP calculations
 - ThirdBody: Third-body perturber enum
 - ThirdBodyConfiguration: Third-body perturbation configuration
+- SolidTideConfig: Solid Earth tide configuration
+- PermanentTideConfig: Permanent (zero-frequency) tide handling
+- TidesConfiguration: Tidal correction configuration
 
 **Functions:**
 - par_propagate_to: Propagate multiple propagators in parallel to a target epoch
@@ -62,6 +65,9 @@ from brahe._brahe import (
     OccultingBody,
     ThirdBody,
     ThirdBodyConfiguration,
+    SolidTideConfig,
+    PermanentTideConfig,
+    TidesConfiguration,
     TrajectoryMode,
     # Functions
     par_propagate_to,
@@ -91,6 +97,9 @@ __all__ = [
     "OccultingBody",
     "ThirdBody",
     "ThirdBodyConfiguration",
+    "SolidTideConfig",
+    "PermanentTideConfig",
+    "TidesConfiguration",
     "TrajectoryMode",
     # Functions
     "par_propagate_to",

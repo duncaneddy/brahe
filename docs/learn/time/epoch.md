@@ -296,7 +296,9 @@ Epochs can be converted to human-readable strings in various formats and time sy
 since the J2000 epoch (2000-01-01 12:00:00 TT), expressed in a chosen time
 system. Requesting `TimeSystem.TDB` gives SPICE ephemeris time (ET), the
 time argument used by SPK/PCK kernel queries (`spk_position`,
-`sun_position_de`, ...); see [SPICE Kernels](../spice/index.md).
+`sun_position_spice`, ...); see [SPICE Kernels](../spice/index.md).
+`spice_et()` is a convenience alias for
+`seconds_past_j2000_as_time_system(TimeSystem.TDB)`.
 
 === "Python"
 

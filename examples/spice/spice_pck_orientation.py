@@ -1,6 +1,5 @@
 # /// script
 # dependencies = ["brahe", "numpy"]
-# FLAGS = ["IGNORE"]
 # ///
 """
 Query lunar orientation from a binary PCK kernel.
@@ -21,12 +20,10 @@ bh.load_kernel("moon_pa_de440")
 
 epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
 
-MOON_PA_DE440 = 31008
-
-angles, rates = bh.pck_euler_angles(MOON_PA_DE440, epc)
+angles, rates = bh.pck_euler_angles(bh.FrameId.MOON_PA_DE440, epc)
 print(f"Euler angles [phi, delta, w] (rad): {angles}")
 print(f"Euler angle rates (rad/s): {rates}")
 
-R = bh.pck_rotation_matrix(MOON_PA_DE440, epc)
+R = bh.pck_rotation_matrix(bh.FrameId.MOON_PA_DE440, epc).to_matrix()
 print(f"\nICRF -> Moon principal-axis rotation matrix:\n{R}")
 print(f"Orthogonality check |R @ R^T - I|: {np.linalg.norm(R @ R.T - np.eye(3)):.3e}")

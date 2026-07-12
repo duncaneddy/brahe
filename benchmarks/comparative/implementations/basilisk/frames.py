@@ -36,7 +36,12 @@ from benchmarks.comparative.implementations.basilisk.base import (
 # kernel file but redundant calls are still cheap.
 _KERNELS_LOADED = False
 
-_HIGH_PREC_PCK = Path(os.environ.get("BSK_HIGH_PREC_PCK", str(Path.home() / ".cache" / "bsk-data" / "earth_latest_high_prec.bpc")))
+_HIGH_PREC_PCK = Path(
+    os.environ.get(
+        "BSK_HIGH_PREC_PCK",
+        str(Path.home() / ".cache" / "bsk-data" / "earth_latest_high_prec.bpc"),
+    )
+)
 
 
 def _ensure_kernels() -> None:
@@ -50,7 +55,9 @@ def _ensure_kernels() -> None:
             f"High-precision Earth PCK not found at {_HIGH_PREC_PCK}. "
             "Run `just _bench-compare-build-basilisk` to download it."
         )
-    pyswice.furnsh_c(str(_HIGH_PREC_PCK))  # binary PCK with ITRF93 high-precision rotation
+    pyswice.furnsh_c(
+        str(_HIGH_PREC_PCK)
+    )  # binary PCK with ITRF93 high-precision rotation
     _KERNELS_LOADED = True
 
 

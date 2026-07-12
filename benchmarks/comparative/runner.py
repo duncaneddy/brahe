@@ -342,11 +342,11 @@ def _get_java_command() -> list[str] | None:
     ``~/.gradle/``.  The ``gradlew run`` path is kept as a fallback for
     environments where the distribution has not been extracted yet.
     """
-    import os
-    import shutil
 
     # Prefer the pre-extracted application distribution (no Gradle required).
-    dist_binary = JAVA_PROJECT_DIR / "build" / "bench-comparative" / "bin" / "bench-comparative"
+    dist_binary = (
+        JAVA_PROJECT_DIR / "build" / "bench-comparative" / "bin" / "bench-comparative"
+    )
     if dist_binary.exists():
         # Resolve JAVA_HOME so the startup script finds java.
         _ensure_java_home()
@@ -380,7 +380,6 @@ def _ensure_java_home() -> None:
     setting it here before spawning subprocesses is sufficient.
     """
     import os
-    import shutil
     import subprocess
 
     # Already set and working — nothing to do.

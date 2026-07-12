@@ -1,89 +1,126 @@
 # SPICE Kernels
 
 Native SPICE kernel registry: loading/unloading SPK and binary PCK kernels,
-and generic NAIF-ID ephemeris/orientation queries. For the per-body `*_de`
+and generic NAIF-ID ephemeris/orientation queries. For the per-body `*_spice`
 convenience functions, see the
 [Ephemerides reference](../orbit_dynamics/ephemerides.md).
 
 ## Kernel Registry
 
-### load_kernel
-
 ::: brahe.load_kernel
-
-### unload_kernel
 
 ::: brahe.unload_kernel
 
-### clear_kernels
-
 ::: brahe.clear_kernels
-
-### loaded_kernels
 
 ::: brahe.loaded_kernels
 
-## Generic SPK Queries
+::: brahe.load_common_kernels
 
-### spk_position
+::: brahe.load_all_kernels
+
+## Generic SPK Queries
 
 ::: brahe.spk_position
 
-### spk_velocity
-
 ::: brahe.spk_velocity
-
-### spk_state
 
 ::: brahe.spk_state
 
 ## Kernel-Scoped SPK Queries
 
-### spk_position_in_kernel
+::: brahe.spk_position_from_kernel
 
-::: brahe.spk_position_in_kernel
+::: brahe.spk_velocity_from_kernel
 
-### spk_velocity_in_kernel
-
-::: brahe.spk_velocity_in_kernel
-
-### spk_state_in_kernel
-
-::: brahe.spk_state_in_kernel
+::: brahe.spk_state_from_kernel
 
 ## PCK Orientation Queries
 
-### pck_euler_angles
-
 ::: brahe.pck_euler_angles
 
-### pck_rotation_matrix
+::: brahe.pck_euler_angle
+
+::: brahe.pck_euler_rates
+
+::: brahe.pck_euler_angle_and_rates
+
+::: brahe.pck_quaternion
 
 ::: brahe.pck_rotation_matrix
 
-## NAIF ID Constants
+## NAIFId
 
-| Constant | NAIF ID | Body |
-|---|---|---|
-| `NAIF_SSB` | 0 | Solar System Barycenter |
-| `NAIF_MERCURY_BARYCENTER` | 1 | Mercury barycenter |
-| `NAIF_VENUS_BARYCENTER` | 2 | Venus barycenter |
-| `NAIF_EMB` | 3 | Earth-Moon Barycenter |
-| `NAIF_MARS_BARYCENTER` | 4 | Mars barycenter |
-| `NAIF_JUPITER_BARYCENTER` | 5 | Jupiter barycenter |
-| `NAIF_SATURN_BARYCENTER` | 6 | Saturn barycenter |
-| `NAIF_URANUS_BARYCENTER` | 7 | Uranus barycenter |
-| `NAIF_NEPTUNE_BARYCENTER` | 8 | Neptune barycenter |
-| `NAIF_PLUTO_BARYCENTER` | 9 | Pluto barycenter |
-| `NAIF_SUN` | 10 | Sun |
-| `NAIF_MERCURY` | 199 | Mercury body center |
-| `NAIF_VENUS` | 299 | Venus body center |
-| `NAIF_EARTH` | 399 | Earth body center |
-| `NAIF_MOON` | 301 | Moon body center |
-| `NAIF_MARS` | 499 | Mars body center |
+Full NAIF integer ID listing: [NAIF Integer ID Codes](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/naif_ids.html).
+
+::: brahe.NAIFId
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      members:
+        - SOLAR_SYSTEM_BARYCENTER
+        - MERCURY_BARYCENTER
+        - VENUS_BARYCENTER
+        - EARTH_MOON_BARYCENTER
+        - MARS_BARYCENTER
+        - JUPITER_BARYCENTER
+        - SATURN_BARYCENTER
+        - URANUS_BARYCENTER
+        - NEPTUNE_BARYCENTER
+        - PLUTO_BARYCENTER
+        - SUN
+        - MERCURY
+        - VENUS
+        - EARTH
+        - MOON
+        - MARS
+        - JUPITER
+        - SATURN
+        - URANUS
+        - NEPTUNE
+        - PLUTO
+        - PHOBOS
+        - DEIMOS
+        - IO
+        - EUROPA
+        - GANYMEDE
+        - CALLISTO
+        - TITAN
+        - ARIEL
+        - UMBRIEL
+        - TITANIA
+        - OBERON
+        - MIRANDA
+        - TRITON
+        - CHARON
+      show_bases: false
+      heading_level: 3
+
+Any other NAIF ID present in a loaded kernel (e.g. a spacecraft or minor
+body) also works — pass the raw integer directly. In Rust the equivalent
+catch-all is `NAIFId::Id(i32)`.
+
+## FrameId
+
+::: brahe.FrameId
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      members:
+        - MOON_PA_DE440
+      show_bases: false
+      heading_level: 3
+
+Any other frame class ID present in a loaded binary PCK also works — pass
+the raw integer directly. In Rust the equivalent catch-all is
+`FrameId::Id(i32)`. Full frame reference:
+[NAIF Frames Required Reading](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/frames.html).
 
 ## See Also
 
-- [SPICE Kernels Guide](../../learn/spice/index.md) - Kernel loading, registry semantics, and PCK orientation
+- [SPICE Kernels Guide](../../learn/spice/index.md) - Kernel loading, registry behavior, and PCK orientation
 - [Ephemerides](../orbit_dynamics/ephemerides.md) - Per-body position/velocity/state functions
 - [NAIF Functions](../datasets/naif.md) - Downloading and caching kernel files
+- [EulerAngle](../attitude/euler_angles.md) - Type returned by `pck_euler_angle`/`pck_euler_angle_and_rates`
+- [Quaternion](../attitude/quaternion.md) - Type returned by `pck_quaternion`
+- [RotationMatrix](../attitude/rotation_matrix.md) - Type returned by `pck_rotation_matrix`

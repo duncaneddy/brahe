@@ -20,9 +20,10 @@ use crate::constants::{
 };
 use crate::datasets::icgem::ICGEMBody;
 use crate::orbit_dynamics::ParallelMode;
-use crate::orbit_dynamics::gravity::GravityModelType;
+use crate::orbit_dynamics::gravity::{GravityModelTideSystem, GravityModelType};
+use crate::orbit_dynamics::tides::SolidTideConfig;
 use crate::propagators::central_body::CentralBody;
-use crate::spice::SPKKernel;
+use crate::spice::SPICEKernel;
 use crate::utils::BraheError;
 
 // =============================================================================
@@ -151,6 +152,10 @@ pub struct ForceModelConfig {
     /// to trade ~0.07° pole-tilt accuracy for ~1.5x faster ECI↔ECEF rotations.
     #[serde(default)]
     pub frame_transform: FrameTransformationModel,
+
+    /// Tidal corrections to the gravity field. `None` (default) disables tides.
+    #[serde(default)]
+    pub tides: Option<TidesConfiguration>,
 }
 
 impl Default for ForceModelConfig {
@@ -181,6 +186,7 @@ impl Default for ForceModelConfig {
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 }
@@ -298,6 +304,7 @@ impl ForceModelConfig {
     ///     relativity: false,
     ///     mass: Some(ParameterSource::ParameterIndex(0)),
     ///     frame_transform: Default::default(),
+    ///     tides: None,
     /// };
     ///
     /// // This will fail - config needs params but none provided
@@ -359,11 +366,12 @@ impl ForceModelConfig {
     /// Create a high-fidelity force model configuration
     ///
     /// Uses:
-    /// - 70×70 EGM2008 gravity
+    /// - 120x120 EGM2008 gravity
     /// - NRLMSISE-00 atmospheric model
     /// - SRP with conical eclipse
     /// - Sun, Moon, and all planets (DE440s ephemerides)
     /// - Relativistic corrections enabled
+    /// - Solid Earth tides with frequency-dependent corrections
     pub fn high_fidelity() -> Self {
         Self {
             central_body: CentralBody::Earth,
@@ -401,6 +409,12 @@ impl ForceModelConfig {
             relativity: true,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: Some(TidesConfiguration {
+                permanent: PermanentTideConfig::Auto,
+                solid: Some(SolidTideConfig {
+                    frequency_dependent: true,
+                }),
+            }),
         }
     }
 
@@ -420,6 +434,7 @@ impl ForceModelConfig {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -438,6 +453,7 @@ impl ForceModelConfig {
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -460,6 +476,7 @@ impl ForceModelConfig {
             relativity: true,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -494,6 +511,7 @@ impl ForceModelConfig {
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -524,9 +542,59 @@ impl ForceModelConfig {
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
+}
 
+// =============================================================================
+// Tides Configuration
+// =============================================================================
+
+/// Permanent (zero-frequency) tide handling for the static gravity field.
+///
+/// Controls how the loaded model's C̄20 is reconciled with the solid-tide
+/// model, which (IERS §6.2.1) produces the *total* tide including the
+/// permanent part — correct only against a conventional tide-free background.
+///
+/// **Applies only to propagator-owned models
+/// ([`GravityModelSource::ModelType`]).** For [`GravityModelSource::Global`] the
+/// shared model is read-only, so this setting has no effect — resolve the global
+/// model's tide system once, before install, with
+/// [`set_global_gravity_model_to_tide_system`](crate::gravity::set_global_gravity_model_to_tide_system).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum PermanentTideConfig {
+    /// Read the model's tide_system flag and convert C̄20 to conventional
+    /// tide-free (the convention the solid-tide model expects). Unknown flag
+    /// => no-op + warning. Default.
+    #[default]
+    Auto,
+    /// Force the field into the given tide system. Source = the model's flagged
+    /// system; errors at construction if the flag is Unknown.
+    ConvertTo(GravityModelTideSystem),
+    /// Leave C̄20 untouched.
+    Off,
+}
+
+/// Tidal correction configuration. `None` on `ForceModelConfig` disables all tides.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TidesConfiguration {
+    /// Permanent-tide / tide-system handling for the static field.
+    pub permanent: PermanentTideConfig,
+    /// Solid Earth tides. `None` disables solid tides (permanent-only is valid).
+    pub solid: Option<SolidTideConfig>,
+}
+
+impl Default for TidesConfiguration {
+    fn default() -> Self {
+        Self {
+            permanent: PermanentTideConfig::Auto,
+            solid: None,
+        }
+    }
+}
+
+impl ForceModelConfig {
     /// Create a force model configuration for a specific central body
     ///
     /// Convenience constructor that fills in `frame_transform` with its default
@@ -582,6 +650,7 @@ impl ForceModelConfig {
             relativity,
             mass,
             frame_transform: FrameTransformationModel::default(),
+            tides: None,
         }
     }
 
@@ -892,6 +961,12 @@ pub enum GravityModelSource {
     /// The gravity model must be set via `set_global_gravity_model()` before
     /// propagation. This is memory efficient when multiple propagators share
     /// the same gravity model.
+    ///
+    /// The shared model is read-only: the propagator never mutates it, so any
+    /// [`PermanentTideConfig`] in the force model has **no effect** for a global
+    /// source. Resolve the model's tide system once, before install, with
+    /// [`set_global_gravity_model_to_tide_system`](crate::gravity::set_global_gravity_model_to_tide_system)
+    /// (or a manual `convert_tide_system` before `set_global_gravity_model`).
     Global,
 
     /// Load a specific gravity model type
@@ -1285,7 +1360,7 @@ pub enum EphemerisSource {
     /// Uses JPL Development Ephemeris 440 (small bodies version).
     /// High accuracy (~m level) but requires ephemeris file and slower evaluation.
     /// Valid over time range 1550-2650 CE.
-    /// All planets available. File size ~17 MB.
+    /// All planets available. File size ~33 MB.
     DE440s,
 
     /// Full-precision JPL DE440 ephemerides (13200 BCE-17191 CE)
@@ -1293,23 +1368,23 @@ pub enum EphemerisSource {
     /// Uses JPL Development Ephemeris 440 (full version).
     /// Highest accuracy (~mm level) but requires larger ephemeris file and slower evaluation.
     /// Valid over extended time range 13200 BCE-17191 CE.
-    /// All planets available. File size ~114 MB.
+    /// All planets available. File size ~120 MB.
     DE440,
 
     /// Custom SPK-backed ephemeris source.
     ///
     /// Uses an explicitly selected SPK kernel while keeping the higher-level
     /// force-model interface centered on `EphemerisSource`.
-    SPK(SPKKernel),
+    SPK(SPICEKernel),
 }
 
-impl TryFrom<EphemerisSource> for SPKKernel {
+impl TryFrom<EphemerisSource> for SPICEKernel {
     type Error = BraheError;
 
     fn try_from(source: EphemerisSource) -> Result<Self, Self::Error> {
         match source {
-            EphemerisSource::DE440s => Ok(SPKKernel::DE440s),
-            EphemerisSource::DE440 => Ok(SPKKernel::DE440),
+            EphemerisSource::DE440s => Ok(SPICEKernel::DE440s),
+            EphemerisSource::DE440 => Ok(SPICEKernel::DE440),
             EphemerisSource::SPK(kernel) => Ok(kernel),
             EphemerisSource::LowPrecision => Err(BraheError::Error(
                 "LowPrecision is not a valid DE kernel - use DE440s, DE440, or EphemerisSource::SPK(...)"
@@ -1550,23 +1625,28 @@ mod tests {
             config.mass,
             Some(ParameterSource::ParameterIndex(0))
         ));
+
+        // Check solid Earth tides enabled with frequency-dependent corrections
+        let tides = config.tides.unwrap();
+        assert_eq!(tides.permanent, PermanentTideConfig::Auto);
+        assert!(tides.solid.unwrap().frequency_dependent);
     }
 
     #[test]
     fn test_ephemeris_source_to_spk_kernel() {
         assert_eq!(
-            SPKKernel::try_from(EphemerisSource::DE440s).unwrap(),
-            SPKKernel::DE440s
+            SPICEKernel::try_from(EphemerisSource::DE440s).unwrap(),
+            SPICEKernel::DE440s
         );
         assert_eq!(
-            SPKKernel::try_from(EphemerisSource::DE440).unwrap(),
-            SPKKernel::DE440
+            SPICEKernel::try_from(EphemerisSource::DE440).unwrap(),
+            SPICEKernel::DE440
         );
         assert_eq!(
-            SPKKernel::try_from(EphemerisSource::SPK(SPKKernel::DE440s)).unwrap(),
-            SPKKernel::DE440s
+            SPICEKernel::try_from(EphemerisSource::SPK(SPICEKernel::DE440s)).unwrap(),
+            SPICEKernel::DE440s
         );
-        assert!(SPKKernel::try_from(EphemerisSource::LowPrecision).is_err());
+        assert!(SPICEKernel::try_from(EphemerisSource::LowPrecision).is_err());
     }
 
     #[test]
@@ -1686,6 +1766,40 @@ mod tests {
     }
 
     #[test]
+    fn test_tides_config_default_none() {
+        let config = ForceModelConfig::default();
+        assert!(config.tides.is_none());
+    }
+
+    #[test]
+    fn test_permanent_tide_default_is_auto() {
+        assert_eq!(PermanentTideConfig::default(), PermanentTideConfig::Auto);
+    }
+
+    #[test]
+    fn test_tides_config_serde_roundtrip() {
+        use crate::orbit_dynamics::gravity::GravityModelTideSystem;
+        let cfg = TidesConfiguration {
+            permanent: PermanentTideConfig::ConvertTo(GravityModelTideSystem::ZeroTide),
+            solid: Some(crate::orbit_dynamics::tides::SolidTideConfig {
+                frequency_dependent: true,
+            }),
+        };
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: TidesConfiguration = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, cfg);
+    }
+
+    #[test]
+    fn test_force_config_missing_tides_field_deserializes() {
+        // Back-compat: configs serialized before this field still load.
+        let json = r#"{"gravity":"PointMass","drag":null,"srp":null,"third_body":null,
+            "relativity":false,"mass":null,"frame_transform":"FullEarthRotation"}"#;
+        let cfg: ForceModelConfig = serde_json::from_str(json).unwrap();
+        assert!(cfg.tides.is_none());
+    }
+
+    #[test]
     fn test_spherical_harmonic_parallel_serde_default() {
         // A JSON config missing `parallel` deserializes to Auto.
         let json =
@@ -1798,6 +1912,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_harris_priester_non_earth() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::Moon,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -1819,6 +1934,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_nrlmsise00_non_earth() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::Mars,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::NRLMSISE00,
@@ -1840,6 +1956,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_earth_zonal_non_earth() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::Moon,
             gravity: GravityConfiguration::EarthZonal {
                 degree: ZonalHarmonicsDegree::J2,
@@ -1859,6 +1976,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_earth_rotation_only_non_earth() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::Mars,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -1876,6 +1994,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_low_precision_ephemeris_non_earth() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::Moon,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -1896,6 +2015,7 @@ mod tests {
     #[test]
     fn test_validate_allows_low_precision_earth_sun_moon() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -1914,6 +2034,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_low_precision_earth_planet() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -1934,6 +2055,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_third_body_same_naif_id_as_central_body() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             drag: None,
@@ -1953,6 +2075,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_spherical_harmonic_barycenter() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::EMB,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::default(),
@@ -1975,6 +2098,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_drag_barycenter() {
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: CentralBody::SSB,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
@@ -2008,6 +2132,7 @@ mod tests {
             fixed_frame: None,
         });
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: custom,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
@@ -2041,6 +2166,7 @@ mod tests {
             fixed_frame: None,
         });
         let cfg = ForceModelConfig {
+            tides: None,
             central_body: custom,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::default(),

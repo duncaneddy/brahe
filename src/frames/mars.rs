@@ -25,7 +25,7 @@
 use nalgebra::Vector3;
 
 use crate::math::{SMatrix3, SVector6};
-use crate::spice::{NAIF_EARTH, NAIF_MARS, NAIF_MARS_BARYCENTER, spk_position, spk_state};
+use crate::spice::{NAIFId, spk_position, spk_state};
 use crate::time::Epoch;
 
 use super::iau_rotation::{
@@ -56,7 +56,7 @@ use super::iau_rotation::{
 ///   Coordinates and Rotational Elements: 2015", Celestial Mechanics and
 ///   Dynamical Astronomy 130, 22 (2018)](https://doi.org/10.1007/s10569-017-9805-5)
 pub fn rotation_mci_to_mcmf(epc: Epoch) -> SMatrix3 {
-    rotation_icrf_to_body_fixed_iau(NAIF_MARS, epc)
+    rotation_icrf_to_body_fixed_iau(NAIFId::Mars.id(), epc)
         .expect("IAU Mars rotation model missing from embedded WGCCRE table — this is a bug")
 }
 
@@ -164,7 +164,7 @@ pub fn position_mcmf_to_mci(epc: Epoch, x_mcmf: Vector3<f64>) -> Vector3<f64> {
 /// let x_mcmf = state_mci_to_mcmf(epc, x_mci);
 /// ```
 pub fn state_mci_to_mcmf(epc: Epoch, x_mci: SVector6) -> SVector6 {
-    let (angles, rates) = body_fixed_iau_angles_and_rates(NAIF_MARS, epc)
+    let (angles, rates) = body_fixed_iau_angles_and_rates(NAIFId::Mars.id(), epc)
         .expect("IAU Mars rotation model missing from embedded WGCCRE table — this is a bug");
     let r_mat = rotation_mci_to_mcmf(epc);
     let omega_b = euler313_omega_body(angles, rates);
@@ -207,7 +207,7 @@ pub fn state_mci_to_mcmf(epc: Epoch, x_mci: SVector6) -> SVector6 {
 /// let x_mci2 = state_mcmf_to_mci(epc, x_mcmf);
 /// ```
 pub fn state_mcmf_to_mci(epc: Epoch, x_mcmf: SVector6) -> SVector6 {
-    let (angles, rates) = body_fixed_iau_angles_and_rates(NAIF_MARS, epc)
+    let (angles, rates) = body_fixed_iau_angles_and_rates(NAIFId::Mars.id(), epc)
         .expect("IAU Mars rotation model missing from embedded WGCCRE table — this is a bug");
     let r_mat = rotation_mci_to_mcmf(epc);
     let omega_b = euler313_omega_body(angles, rates);
@@ -249,7 +249,7 @@ pub fn state_mcmf_to_mci(epc: Epoch, x_mcmf: SVector6) -> SVector6 {
 /// let x_mci = position_eci_to_mci(epc, x_eci);
 /// ```
 pub fn position_eci_to_mci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIF_MARS_BARYCENTER, NAIF_EARTH, epc)
+    let offset = spk_position(NAIFId::MarsBarycenter, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_eci - offset
 }
@@ -282,7 +282,7 @@ pub fn position_eci_to_mci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// let x_eci = position_mci_to_eci(epc, x_mci);
 /// ```
 pub fn position_mci_to_eci(epc: Epoch, x_mci: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIF_MARS_BARYCENTER, NAIF_EARTH, epc)
+    let offset = spk_position(NAIFId::MarsBarycenter, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_mci + offset
 }
@@ -315,7 +315,7 @@ pub fn position_mci_to_eci(epc: Epoch, x_mci: Vector3<f64>) -> Vector3<f64> {
 /// let x_mci = state_eci_to_mci(epc, x_eci);
 /// ```
 pub fn state_eci_to_mci(epc: Epoch, x_eci: SVector6) -> SVector6 {
-    let offset = spk_state(NAIF_MARS_BARYCENTER, NAIF_EARTH, epc)
+    let offset = spk_state(NAIFId::MarsBarycenter, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_eci - offset
 }
@@ -348,7 +348,7 @@ pub fn state_eci_to_mci(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// let x_eci = state_mci_to_eci(epc, x_mci);
 /// ```
 pub fn state_mci_to_eci(epc: Epoch, x_mci: SVector6) -> SVector6 {
-    let offset = spk_state(NAIF_MARS_BARYCENTER, NAIF_EARTH, epc)
+    let offset = spk_state(NAIFId::MarsBarycenter, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_mci + offset
 }
@@ -434,7 +434,7 @@ mod tests {
         setup_global_test_spice();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0]);
-        let offset = crate::spice::spk_state(NAIF_MARS_BARYCENTER, NAIF_EARTH, epc).unwrap();
+        let offset = crate::spice::spk_state(NAIFId::MarsBarycenter, NAIFId::Earth, epc).unwrap();
         let expected = x - offset;
         let got = state_eci_to_mci(epc, x);
         for i in 0..6 {

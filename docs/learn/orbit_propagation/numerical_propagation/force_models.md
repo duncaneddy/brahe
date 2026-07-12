@@ -459,15 +459,15 @@ When using parameter indices, the default layout is:
 Brahe provides preset configurations for common scenarios:
 
 <div class="center-table" markdown="1">
-| Preset | Gravity | Drag | SRP | Third-Body | Relativity | Requires Params |
-|------|-------|----|---|----------|----------|---------------|
-| `two_body()` | PointMass | None | None | None | No | No |
-| `earth_gravity()` | 20×20 | None | None | None | No | No |
-| `conservative_forces()` | 80×80 | None | None | Sun/Moon (DE440s) | Yes | No |
-| `default()` | 20×20 | Harris-Priester | Conical | Sun/Moon (LP) | No | Yes |
-| `leo_default()` | 30×30 | NRLMSISE-00 | Conical | Sun/Moon (DE440s) | No | Yes |
-| `geo_default()` | 8×8 | None | Conical | Sun/Moon (DE440s) | No | Yes |
-| `high_fidelity()` | 120×120 | NRLMSISE-00 | Conical | All planets (DE440s) | Yes | Yes |
+| Preset | Gravity | Drag | SRP | Third-Body | Relativity | Solid Tides | Requires Params |
+|------|-------|----|---|----------|----------|----------|---------------|
+| `two_body()` | PointMass | None | None | None | No | No | No |
+| `earth_gravity()` | 20×20 | None | None | None | No | No | No |
+| `conservative_forces()` | 80×80 | None | None | Sun/Moon (DE440s) | Yes | No | No |
+| `default()` | 20×20 | Harris-Priester | Conical | Sun/Moon (LP) | No | No | Yes |
+| `leo_default()` | 30×30 | NRLMSISE-00 | Conical | Sun/Moon (DE440s) | No | No | Yes |
+| `geo_default()` | 8×8 | None | Conical | Sun/Moon (DE440s) | No | No | Yes |
+| `high_fidelity()` | 120×120 | NRLMSISE-00 | Conical | All planets (DE440s) | Yes | Yes | Yes |
 </div>
 
 === "Python"

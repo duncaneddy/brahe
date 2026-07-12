@@ -11,7 +11,7 @@ Two ways to query loaded kernels are available:
 - **Generic queries** (`spk_position`/`spk_velocity`/`spk_state`,
   `pck_euler_angles`/`pck_rotation_matrix`) take NAIF IDs or frame class IDs
   directly and resolve against a process-wide kernel registry.
-- **Per-body convenience functions** (`sun_position_de`, `moon_state_de`, ...)
+- **Per-body convenience functions** (`sun_position_spice`, `moon_state_spice`, ...)
   wrap the same registry for the ten most commonly used bodies.
 
 For downloading and caching the underlying kernel files, see
@@ -25,13 +25,13 @@ auto-detects SPK vs. binary PCK from the file header:
 === "Python"
 
     ```python
-    --8<-- "./examples/spice/spice_kernel_registry.py:13"
+    --8<-- "./examples/spice/spice_kernel_registry.py:12"
     ```
 
 === "Rust"
 
     ```rust
-    --8<-- "./examples/spice/spice_kernel_registry.rs:10"
+    --8<-- "./examples/spice/spice_kernel_registry.rs:8"
     ```
 
 ??? example "Output"
@@ -45,14 +45,42 @@ auto-detects SPK vs. binary PCK from the file header:
         --8<-- "./docs/outputs/spice/spice_kernel_registry.rs.txt"
         ```
 
-Known DE kernel names (`de430`, `de432s`, `de435`, `de438`, `de440`,
-`de440s`, `de442`, `de442s`) and the binary PCK name `moon_pa_de440` are
-downloaded and cached automatically; any other string is treated as a path
-to a local `.bsp` or `.bpc` file. See
-[NAIF Ephemeris Kernels](../datasets/naif.md) for kernel sizes and caching
-details.
+Known kernel names — the eight planetary DE kernels (`de430`, `de432s`,
+`de435`, `de438`, `de440`, `de440s`, `de442`, `de442s`), the seven
+satellite ephemeris kernels (`mar099`, `mar099s`, `jup365`, `sat441`, `ura184`,
+`nep097`, `plu060`), and the binary PCK `moon_pa_de440` — are downloaded and
+cached automatically; any other string is treated as a path to a local
+`.bsp` or `.bpc` file (bring-your-own kernels). The `moon_pa_de440` binary
+PCK is derived from the same DE440 integration as `de440.bsp` but is
+distributed by NAIF as a separate file — SPK kernels carry only
+translational states. See [NAIF Ephemeris Kernels](../datasets/naif.md) for
+caching details.
 
-Registry semantics:
+### Downloadable Kernels
+
+| Name | File | Size | Coverage | Contents |
+|---|---|---|---|---|
+| `de440s` | `de440s.bsp` | ~33 MB | 1849–2150 | Sun, Moon, all planets and planetary-system barycenters (default for `spk_*`/`*_spice` auto-init) |
+| `de440` | `de440.bsp` | ~120 MB | 1550–2650 | Same content as `de440s`, wider time span |
+| `de430` | `de430.bsp` | ~120 MB | — | Standard precision, extended time span |
+| `de432s` | `de432s.bsp` | ~11 MB | — | Small variant tuned for New Horizons Pluto targeting |
+| `de435` | `de435.bsp` | ~120 MB | — | Higher accuracy for inner planets |
+| `de438` | `de438.bsp` | ~120 MB | — | Standard precision |
+| `de442` | `de442.bsp` | ~120 MB | — | Intended for the MESSENGER mission to Mercury |
+| `de442s` | `de442s.bsp` | ~33 MB | — | Small variant of `de442` |
+| `mar099s` | `mar099s.bsp` | ~68 MB | 1995–2050 | Mars, Phobos, Deimos (default Mars satellite kernel for body-center auto-download) |
+| `mar099` | `mar099.bsp` | ~1.1 GB | 1600–2600 | Mars, Phobos, Deimos, wider time span |
+| `jup365` | `jup365.bsp` | ~1.1 GB | 1600–2200 | Jupiter, Io, Europa, Ganymede, Callisto |
+| `sat441` | `sat441.bsp` | ~662 MB | 1750–2250 | Saturn, Titan and the mid-size moons |
+| `ura184` | `ura184_part-3.bsp` | ~387 MB | 1600–2399 | Uranus, Miranda, Ariel, Umbriel, Titania, Oberon |
+| `nep097` | `nep097.bsp` | ~105 MB | 1600–2400 | Neptune, Triton |
+| `plu060` | `plu060.bsp` | ~135 MB | 1800–2200 | Pluto, Charon |
+| `moon_pa_de440` | `moon_pa_de440_200625.bpc` | ~13 MB | matches `de440`/`de440s` | Lunar principal-axis orientation (binary PCK, not an SPK) |
+
+Any string that does not match a name in this table is treated as a
+filesystem path to a local `.bsp` or `.bpc` file.
+
+Registry behavior:
 
 - **Idempotent**: calling `load_kernel` with a name/path that is already
   loaded is a no-op.
@@ -70,6 +98,22 @@ Registry semantics:
   functions (see [Lunar Reference Frames](../frames/lunar_frames.md)) are a
   narrow exception: they auto-load `moon_pa_de440` on first use.
 
+### Loading Multiple Kernels at Once
+
+`load_common_kernels` and `load_all_kernels` pre-load a curated set of
+kernels in one call, so a session does not pay per-kernel download latency
+the first time each body is queried:
+
+| Function | Loads | Download size |
+|---|---|---|
+| `load_common_kernels()` | `de440s`, `moon_pa_de440` | ~46 MB |
+| `load_all_kernels()` | `de440s`, `moon_pa_de440`, `mar099s`, `jup365`, `sat441`, `ura184`, `nep097`, `plu060` | ~2.5 GB |
+
+Each kernel load within these calls is idempotent, so calling either
+alongside individual `load_kernel` calls is safe. Prefer
+`load_common_kernels` unless outer-planet body centers, their moons, or
+Pluto are needed — `load_all_kernels` downloads over 2 GB on first use.
+
 ## Querying Ephemeris Data
 
 ### Generic NAIF-ID Queries
@@ -83,34 +127,40 @@ center NAIF ID, and an `Epoch`, and resolve across all loaded SPK kernels:
 | `spk_velocity(target, center, epc)` | Velocity of `target` rel. `center` | m/s |
 | `spk_state(target, center, epc)` | `[x, y, z, vx, vy, vz]` of `target` rel. `center` | m, m/s |
 
-Common NAIF IDs are exposed as constants:
+Common NAIF IDs are exposed through the `NAIFId` enum (Python: `IntEnum`;
+Rust: `enum NAIFId` with an `Id(i32)` catch-all variant), covering the ten
+planetary-system barycenters, the Sun, the eight planet body centers, and
+the major natural satellites used elsewhere in brahe (Phobos, Deimos, the
+four Galilean moons, Titan, the five major Uranian moons, Triton, Charon).
+`NAIFId` values compare and pass equal to the equivalent raw integer, so
+either form works everywhere a NAIF ID is expected:
 
-| Constant | NAIF ID | Body |
-|---|---|---|
-| `NAIF_SSB` | 0 | Solar System Barycenter |
-| `NAIF_MERCURY_BARYCENTER` | 1 | Mercury barycenter |
-| `NAIF_VENUS_BARYCENTER` | 2 | Venus barycenter |
-| `NAIF_EMB` | 3 | Earth-Moon Barycenter |
-| `NAIF_MARS_BARYCENTER` | 4 | Mars barycenter |
-| `NAIF_JUPITER_BARYCENTER` | 5 | Jupiter barycenter |
-| `NAIF_SATURN_BARYCENTER` | 6 | Saturn barycenter |
-| `NAIF_URANUS_BARYCENTER` | 7 | Uranus barycenter |
-| `NAIF_NEPTUNE_BARYCENTER` | 8 | Neptune barycenter |
-| `NAIF_PLUTO_BARYCENTER` | 9 | Pluto barycenter |
-| `NAIF_SUN` | 10 | Sun |
-| `NAIF_MERCURY` | 199 | Mercury body center |
-| `NAIF_VENUS` | 299 | Venus body center |
-| `NAIF_EARTH` | 399 | Earth body center |
-| `NAIF_MOON` | 301 | Moon body center |
-| `NAIF_MARS` | 499 | Mars body center |
+=== "Python"
 
-Any other NAIF ID present in a loaded kernel (e.g. a specific outer-planet
-moon) also works; these constants only cover the bodies used elsewhere in
-brahe.
+    ```python
+    import brahe as bh
+
+    epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+    r1 = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
+    r2 = bh.spk_position(301, 399, epc)  # equivalent raw NAIF IDs
+    ```
+
+=== "Rust"
+
+    ```rust
+    use brahe::spice::{spk_position, NAIFId};
+
+    let r1 = spk_position(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+    let r2 = spk_position(301, 399, epc).unwrap(); // equivalent raw NAIF IDs
+    ```
+
+Any NAIF ID present in a loaded kernel but not named by the enum (e.g. a
+minor body or spacecraft) is passed as a raw integer (Python) or
+`NAIFId::Id(...)` (Rust). Full ID listing: [NAIF Integer ID Codes](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/naif_ids.html).
 
 ### Kernel-Scoped Queries
 
-`spk_position_in_kernel`, `spk_velocity_in_kernel`, and `spk_state_in_kernel`
+`spk_position_from_kernel`, `spk_velocity_from_kernel`, and `spk_state_from_kernel`
 take an additional `kernel_name` argument and query **that kernel only** —
 no cross-kernel chaining is performed and the registry's precedence rules do
 not apply. The named kernel is auto-loaded if not already resident. Use
@@ -119,44 +169,77 @@ is loaded.
 
 ### Per-Body Functions
 
-`sun_position_de`, `moon_position_de`, `mercury_position_de`,
-`venus_position_de`, `mars_position_de`, `jupiter_position_de`,
-`saturn_position_de`, `uranus_position_de`, `neptune_position_de`, and
-`solar_system_barycenter_position_de` (alias: `ssb_position_de`) each have
-`_velocity_de` and `_state_de` counterparts, all queried relative to Earth
-(`NAIF_EARTH`). They take an `Epoch` and an ephemeris source
-(`EphemerisSource.DE440s` / `EphemerisSource.DE440` in Python,
-`SPKKernel::DE440s` / `SPKKernel::DE440` in Rust) selecting which kernel to
-query. Computing the state shares a single record lookup between position
-and velocity, so prefer `*_state_de` over separate position/velocity calls
-when both are needed.
+`sun_position_spice`, `moon_position_spice`, `mercury_position_spice`,
+`venus_position_spice`, `mars_position_spice`, `jupiter_position_spice`,
+`saturn_position_spice`, `uranus_position_spice`, `neptune_position_spice`, and
+`solar_system_barycenter_position_spice` (alias: `ssb_position_spice`) each have
+`_velocity_spice` and `_state_spice` counterparts, all queried relative to Earth
+(`NAIFId.EARTH` / `NAIFId::Earth`, ID 399). They take an `Epoch` and an
+ephemeris source selecting which DE kernel to query (`EphemerisSource.DE440s` /
+`EphemerisSource.DE440` in Python, `SPICEKernel::DE440s` / `SPICEKernel::DE440`
+in Rust). Computing the state shares a single
+record lookup between position and velocity, so prefer `*_state_spice` over
+separate position/velocity calls when both are needed.
 
-The Mars/Jupiter/Saturn/Uranus/Neptune functions query the corresponding
-`NAIF_*_BARYCENTER` ID (see the table above), so they return the
-planetary-system barycenter, not the body center — for these five outer
-planets the two differ by up to a few hundred km due to large moons
-(e.g. ~290 km for Saturn from Titan, ~230 km for Jupiter from the Galilean
-moons). Sun, Moon, Mercury, and Venus have no
-significant satellites, so their functions' body-center and barycenter
-positions coincide.
+The Mars/Jupiter/Saturn/Uranus/Neptune functions return the planet **body
+center**. The DE kernel only carries the planetary-system barycenter for these
+outer planets, so the body center is computed as a two-leg sum: the
+barycenter relative to Earth from the DE kernel, plus the body center relative
+to the barycenter from the planet's satellite ephemeris kernel. That satellite
+kernel is auto-downloaded and loaded on first use (mar099s ~68 MB, jup365
+~1.1 GB, sat441 ~662 MB, ura184 ~387 MB, nep097 ~105 MB).
+
+Each of the five outer planets also has `mars_barycenter_position_spice`,
+`jupiter_barycenter_position_spice`, and so on (with `_velocity_spice` / `_state_spice`
+counterparts) that return the planetary-system barycenter using **only** the
+DE kernel — no satellite-kernel download. The barycenter and body center
+differ by up to a few hundred km due to large moons (e.g. ~290 km for Saturn
+from Titan, ~230 km for Jupiter from the Galilean moons; only ~0.2 m for Mars).
+Prefer the `_barycenter_` variants for third-body force modeling, which uses
+the system barycenter with the system GM. Sun, Moon, Mercury, and Venus have
+no significant satellites, so their body-center and barycenter positions
+coincide and no barycenter variant is provided.
 
 ## PCK Orientation
 
-`pck_euler_angles` and `pck_rotation_matrix` query body orientation from a
-loaded binary PCK, given a frame class ID. The lunar principal-axis frame
-from the `moon_pa_de440` kernel is registered under frame class ID `31008`
-(`MOON_PA_DE440`):
+PCK queries take a frame class ID — either a raw NAIF frame class ID or a
+`FrameId` enum value. The lunar principal-axis frame from the
+`moon_pa_de440` kernel is registered under frame class ID `31008`
+(`FrameId.MOON_PA_DE440` / `FrameId::MoonPaDe440`).
+
+| Function | Returns |
+|---|---|
+| `pck_euler_angles(frame_id, epc)` | `(angles, rates)` as raw arrays: `[phi, delta, w]` (rad) and their rates (rad/s) |
+| `pck_euler_angle(frame_id, epc)` | `EulerAngle` (order ZXZ, radians) |
+| `pck_euler_rates(frame_id, epc)` | `[phi_dot, delta_dot, w_dot]` (rad/s) as a raw array |
+| `pck_euler_angle_and_rates(frame_id, epc)` | `(EulerAngle, rates)` from a single shared segment lookup |
+| `pck_quaternion(frame_id, epc)` | `Quaternion` (unit quaternion, ICRF to body-fixed) |
+| `pck_rotation_matrix(frame_id, epc)` | `RotationMatrix` (ICRF to body-fixed) |
+
+`pck_euler_angles` (the original, tuple-of-arrays form) is unchanged and
+still available alongside the typed functions. `pck_rotation_matrix`
+returns a `RotationMatrix` object rather than a raw array — index it
+directly (`r[(0, 0)]`) or call `.to_matrix()` for a numpy array in Python;
+in Rust call `.to_matrix()` to get an `SMatrix3<f64>` indexable as
+`r.to_matrix()[(0, 0)]`. See the
+[EulerAngle](../../library_api/attitude/euler_angles.md),
+[Quaternion](../../library_api/attitude/quaternion.md), and
+[RotationMatrix](../../library_api/attitude/rotation_matrix.md) references
+for the full type APIs.
+
+The example below uses the original `pck_euler_angles`/`pck_rotation_matrix`
+pair:
 
 === "Python"
 
     ```python
-    --8<-- "./examples/spice/spice_pck_orientation.py:14"
+    --8<-- "./examples/spice/spice_pck_orientation.py:13"
     ```
 
 === "Rust"
 
     ```rust
-    --8<-- "./examples/spice/spice_pck_orientation.rs:11"
+    --8<-- "./examples/spice/spice_pck_orientation.rs:9"
     ```
 
 ??? example "Output"
@@ -170,10 +253,6 @@ from the `moon_pa_de440` kernel is registered under frame class ID `31008`
         --8<-- "./docs/outputs/spice/spice_pck_orientation.rs.txt"
         ```
 
-`pck_euler_angles` returns 3-1-3 Euler angles `[phi, delta, w]` (rad) and
-their rates (rad/s); `pck_rotation_matrix` returns the corresponding 3x3
-rotation matrix from the segment's reference frame to the body-fixed frame.
-
 ## Reference Frame
 
 SPK and PCK outputs are expressed in the kernel's inertial reference frame.
@@ -182,7 +261,7 @@ labels it "J2000" in kernel metadata and documentation — see the
 [NAIF Frames Required Reading](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/frames.html)
 for the frame-ID definitions and the historical "J2000" naming. Brahe
 applies no additional bias rotation between the kernel output and GCRF:
-values from `spk_*`/`*_de` queries are GCRF-compatible directly.
+values from `spk_*`/`*_spice` queries are GCRF-compatible directly.
 
 ## Performance
 
@@ -196,8 +275,13 @@ every call.
 
 ## See Also
 
-- [Ephemerides API Reference](../../library_api/orbit_dynamics/ephemerides.md) - Per-body `*_de` function reference
+- [Ephemerides API Reference](../../library_api/orbit_dynamics/ephemerides.md) - Per-body `*_spice` function reference
 - [SPICE Kernels API Reference](../../library_api/spice/index.md) - Kernel registry and generic query reference
 - [NAIF Ephemeris Kernels](../datasets/naif.md) - Downloading and caching DE/PCK kernel files
 - [Third-Body Perturbations](../orbital_dynamics/third_body.md) - Using DE ephemerides in force models
 - [Epoch](../time/epoch.md) - Converting to SPICE ephemeris time (ET)
+- [NAIF Integer ID Codes](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/naif_ids.html) - Full NAIF body ID reference
+- [NAIF DAF Required Reading](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/daf.html) - Double Precision Array File format underlying SPK and PCK
+- [NAIF SPK Required Reading](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/spk.html) - SPK ephemeris kernel format and data types
+- [NAIF PCK Required Reading](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/pck.html) - Binary PCK orientation kernel format
+- [NAIF Frames Required Reading](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/frames.html) - Reference frame definitions and the "J2000"/ICRF naming

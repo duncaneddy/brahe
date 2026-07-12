@@ -1,11 +1,11 @@
+use brahe::GM_EARTH;
 use brahe::frames::rotation_eci_to_ecef;
 use brahe::orbit_dynamics::{
-    accel_gravity_spherical_harmonics, accel_point_mass_gravity, accel_third_body_moon_de,
-    accel_third_body_sun_de, GravityModel, GravityModelType, ParallelMode,
+    GravityModel, GravityModelType, ParallelMode, accel_gravity_spherical_harmonics,
+    accel_point_mass_gravity, accel_third_body_moon_spice, accel_third_body_sun_spice,
 };
 use brahe::propagators::EphemerisSource;
 use brahe::time::{Epoch, TimeSystem};
-use brahe::GM_EARTH;
 use nalgebra::Vector3;
 use std::time::Instant;
 
@@ -129,7 +129,7 @@ pub fn accel_third_body_sun(
     iterations: usize,
 ) -> (Vec<f64>, serde_json::Value) {
     run_force_model(params, iterations, |epc, r| {
-        accel_third_body_sun_de(epc, r, EphemerisSource::DE440s)
+        accel_third_body_sun_spice(epc, r, EphemerisSource::DE440s)
     })
 }
 
@@ -138,6 +138,6 @@ pub fn accel_third_body_moon(
     iterations: usize,
 ) -> (Vec<f64>, serde_json::Value) {
     run_force_model(params, iterations, |epc, r| {
-        accel_third_body_moon_de(epc, r, EphemerisSource::DE440s)
+        accel_third_body_moon_spice(epc, r, EphemerisSource::DE440s)
     })
 }

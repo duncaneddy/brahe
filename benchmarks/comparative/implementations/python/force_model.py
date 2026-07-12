@@ -90,9 +90,7 @@ def accel_point_mass_gravity(params: dict, iterations: int) -> TaskResult:
         a = brahe.accel_point_mass_gravity(state[:3], r_cb, brahe.GM_EARTH)
         return a.tolist()
 
-    times, results = time_iterations(
-        _run_perf_or_sweep(params, eval_case), iterations
-    )
+    times, results = time_iterations(_run_perf_or_sweep(params, eval_case), iterations)
     return _result("force_model.accel_point_mass_gravity", iterations, times, results)
 
 
@@ -112,9 +110,7 @@ def _accel_spherical_harmonics(
         a = brahe.accel_gravity_spherical_harmonics(state[:3], rot, gravity_model, n, m)
         return a.tolist()
 
-    times, results = time_iterations(
-        _run_perf_or_sweep(params, eval_case), iterations
-    )
+    times, results = time_iterations(_run_perf_or_sweep(params, eval_case), iterations)
     return _result(task_name, iterations, times, results)
 
 
@@ -135,12 +131,12 @@ def accel_third_body_sun(params: dict, iterations: int) -> TaskResult:
     ensure_eop()
 
     def eval_case(epc: brahe.Epoch, state: np.ndarray) -> list[float]:
-        a = brahe.accel_third_body_sun_de(epc, state[:3], brahe.EphemerisSource.DE440s)
+        a = brahe.accel_third_body_sun_spice(
+            epc, state[:3], brahe.EphemerisSource.DE440s
+        )
         return a.tolist()
 
-    times, results = time_iterations(
-        _run_perf_or_sweep(params, eval_case), iterations
-    )
+    times, results = time_iterations(_run_perf_or_sweep(params, eval_case), iterations)
     return _result("force_model.accel_third_body_sun", iterations, times, results)
 
 
@@ -149,10 +145,10 @@ def accel_third_body_moon(params: dict, iterations: int) -> TaskResult:
     ensure_eop()
 
     def eval_case(epc: brahe.Epoch, state: np.ndarray) -> list[float]:
-        a = brahe.accel_third_body_moon_de(epc, state[:3], brahe.EphemerisSource.DE440s)
+        a = brahe.accel_third_body_moon_spice(
+            epc, state[:3], brahe.EphemerisSource.DE440s
+        )
         return a.tolist()
 
-    times, results = time_iterations(
-        _run_perf_or_sweep(params, eval_case), iterations
-    )
+    times, results = time_iterations(_run_perf_or_sweep(params, eval_case), iterations)
     return _result("force_model.accel_third_body_moon", iterations, times, results)

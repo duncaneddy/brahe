@@ -208,3 +208,28 @@ def test_ukf_with_process_noise(two_body_leo):
     )
 
     assert len(ukf.current_state()) == 6
+
+
+def test_ukf_invalid_sigma_parameters_raise(two_body_leo):
+    """Non-finite or degenerate sigma-point parameters must fail at
+    construction rather than silently producing NaN estimates."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    for bad_config in [
+        bh.UKFConfig(alpha=float("nan")),
+        bh.UKFConfig(kappa=float("nan")),
+        bh.UKFConfig(beta=float("nan")),
+        bh.UKFConfig(alpha=0.0),
+        bh.UKFConfig(kappa=-6.0),  # state_dim + kappa == 0 for a 6D state
+    ]:
+        with pytest.raises(RuntimeError):
+            bh.UnscentedKalmanFilter(
+                epoch,
+                state,
+                p0,
+                measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+                propagation_config=bh.NumericalPropagationConfig.default(),
+                force_config=bh.ForceModelConfig.two_body(),
+                config=bad_config,
+            )

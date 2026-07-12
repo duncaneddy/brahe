@@ -132,14 +132,14 @@ class TestInertialStateMeasurementModel:
 # =============================================================================
 
 
-class TestEcefPositionMeasurementModel:
+class TestECEFPositionMeasurementModel:
     def test_construction(self):
-        model = bh.EcefPositionMeasurementModel(5.0)
+        model = bh.ECEFPositionMeasurementModel(5.0)
         assert model.measurement_dim() == 3
         assert model.name() == "EcefPosition"
 
     def test_predict(self, test_state, test_epoch):
-        model = bh.EcefPositionMeasurementModel(5.0)
+        model = bh.ECEFPositionMeasurementModel(5.0)
         z = model.predict(test_epoch, test_state)
         assert len(z) == 3
         # ECEF position magnitude should match ECI magnitude
@@ -148,7 +148,7 @@ class TestEcefPositionMeasurementModel:
         assert ecef_mag == pytest.approx(eci_mag, abs=1.0)
 
     def test_jacobian(self, test_state, test_epoch):
-        model = bh.EcefPositionMeasurementModel(5.0)
+        model = bh.ECEFPositionMeasurementModel(5.0)
         h = model.jacobian(test_epoch, test_state)
         assert h.shape == (3, 6)
         # Position block should be non-zero (rotation matrix)
@@ -157,21 +157,21 @@ class TestEcefPositionMeasurementModel:
         assert np.linalg.norm(h[:, 3:]) < 1e-6
 
     def test_per_axis_noise(self):
-        model = bh.EcefPositionMeasurementModel.per_axis(3.0, 5.0, 8.0)
+        model = bh.ECEFPositionMeasurementModel.per_axis(3.0, 5.0, 8.0)
         r = model.noise_covariance()
         assert r[0, 0] == pytest.approx(9.0)
         assert r[1, 1] == pytest.approx(25.0)
         assert r[2, 2] == pytest.approx(64.0)
 
 
-class TestEcefVelocityMeasurementModel:
+class TestECEFVelocityMeasurementModel:
     def test_construction(self):
-        model = bh.EcefVelocityMeasurementModel(0.05)
+        model = bh.ECEFVelocityMeasurementModel(0.05)
         assert model.measurement_dim() == 3
         assert model.name() == "EcefVelocity"
 
     def test_predict(self, test_state, test_epoch):
-        model = bh.EcefVelocityMeasurementModel(0.05)
+        model = bh.ECEFVelocityMeasurementModel(0.05)
         z = model.predict(test_epoch, test_state)
         assert len(z) == 3
         # Velocity magnitude should be similar (not exactly equal due to Earth rotation)
@@ -180,7 +180,7 @@ class TestEcefVelocityMeasurementModel:
         assert ecef_vel_mag == pytest.approx(eci_vel_mag, rel=0.1)
 
     def test_jacobian(self, test_state, test_epoch):
-        model = bh.EcefVelocityMeasurementModel(0.05)
+        model = bh.ECEFVelocityMeasurementModel(0.05)
         h = model.jacobian(test_epoch, test_state)
         assert h.shape == (3, 6)
         # All columns should have some influence (velocity depends on both pos and vel
@@ -188,21 +188,21 @@ class TestEcefVelocityMeasurementModel:
         assert np.linalg.norm(h[:, 3:6]) > 0.1
 
     def test_per_axis(self):
-        model = bh.EcefVelocityMeasurementModel.per_axis(0.01, 0.02, 0.03)
+        model = bh.ECEFVelocityMeasurementModel.per_axis(0.01, 0.02, 0.03)
         r = model.noise_covariance()
         assert r[0, 0] == pytest.approx(0.0001)
         assert r[1, 1] == pytest.approx(0.0004)
         assert r[2, 2] == pytest.approx(0.0009)
 
 
-class TestEcefStateMeasurementModel:
+class TestECEFStateMeasurementModel:
     def test_construction(self):
-        model = bh.EcefStateMeasurementModel(5.0, 0.05)
+        model = bh.ECEFStateMeasurementModel(5.0, 0.05)
         assert model.measurement_dim() == 6
         assert model.name() == "EcefState"
 
     def test_predict(self, test_state, test_epoch):
-        model = bh.EcefStateMeasurementModel(5.0, 0.05)
+        model = bh.ECEFStateMeasurementModel(5.0, 0.05)
         z = model.predict(test_epoch, test_state)
         assert len(z) == 6
         # Position magnitude preserved by rotation
@@ -211,7 +211,7 @@ class TestEcefStateMeasurementModel:
         assert ecef_pos_mag == pytest.approx(eci_pos_mag, abs=1.0)
 
     def test_jacobian(self, test_state, test_epoch):
-        model = bh.EcefStateMeasurementModel(5.0, 0.05)
+        model = bh.ECEFStateMeasurementModel(5.0, 0.05)
         h = model.jacobian(test_epoch, test_state)
         assert h.shape == (6, 6)
         # Position block should be non-zero
@@ -220,7 +220,7 @@ class TestEcefStateMeasurementModel:
         assert abs(np.linalg.det(h)) > 0.1
 
     def test_per_axis(self):
-        model = bh.EcefStateMeasurementModel.per_axis(1.0, 2.0, 3.0, 0.1, 0.2, 0.3)
+        model = bh.ECEFStateMeasurementModel.per_axis(1.0, 2.0, 3.0, 0.1, 0.2, 0.3)
         r = model.noise_covariance()
         assert r[0, 0] == pytest.approx(1.0)
         assert r[5, 5] == pytest.approx(0.09)
@@ -300,13 +300,13 @@ class TestFromCovariance:
 
     def test_ecef_position_from_covariance(self):
         cov = np.diag([25.0, 25.0, 100.0])
-        model = bh.EcefPositionMeasurementModel.from_covariance(cov)
+        model = bh.ECEFPositionMeasurementModel.from_covariance(cov)
         r = model.noise_covariance()
         np.testing.assert_allclose(r[(2, 2)], 100.0)
 
     def test_ecef_state_from_covariance(self):
         cov = np.eye(6) * 10.0
-        model = bh.EcefStateMeasurementModel.from_covariance(cov)
+        model = bh.ECEFStateMeasurementModel.from_covariance(cov)
         assert model.measurement_dim() == 6
 
     def test_inertial_velocity_from_covariance(self):
@@ -318,23 +318,23 @@ class TestFromCovariance:
     def test_ecef_position_from_covariance_wrong_dim(self):
         cov = np.eye(6) * 100.0
         with pytest.raises(ValueError):
-            bh.EcefPositionMeasurementModel.from_covariance(cov)
+            bh.ECEFPositionMeasurementModel.from_covariance(cov)
 
     def test_ecef_velocity_from_covariance(self):
         cov = np.diag([0.01, 0.04, 0.09])
-        model = bh.EcefVelocityMeasurementModel.from_covariance(cov)
+        model = bh.ECEFVelocityMeasurementModel.from_covariance(cov)
         r = model.noise_covariance()
         np.testing.assert_allclose(r, cov)
 
     def test_ecef_velocity_from_covariance_wrong_dim(self):
         cov = np.eye(6) * 0.01
         with pytest.raises(ValueError):
-            bh.EcefVelocityMeasurementModel.from_covariance(cov)
+            bh.ECEFVelocityMeasurementModel.from_covariance(cov)
 
     def test_ecef_state_from_covariance_wrong_dim(self):
         cov = np.eye(3) * 100.0
         with pytest.raises(ValueError):
-            bh.EcefStateMeasurementModel.from_covariance(cov)
+            bh.ECEFStateMeasurementModel.from_covariance(cov)
 
 
 class TestFromUpperTriangular:
@@ -357,7 +357,7 @@ class TestFromUpperTriangular:
         upper[15] = 0.01  # (3,3)
         upper[18] = 0.01  # (4,4)
         upper[20] = 0.04  # (5,5)
-        model = bh.EcefStateMeasurementModel.from_upper_triangular(upper)
+        model = bh.ECEFStateMeasurementModel.from_upper_triangular(upper)
         r = model.noise_covariance()
         assert r.shape == (6, 6)
         np.testing.assert_allclose(r[0, 0], 100.0)
@@ -371,7 +371,7 @@ class TestFromUpperTriangular:
 
     def test_ecef_velocity_from_upper_triangular(self):
         upper = np.array([0.01, 0.0, 0.0, 0.04, 0.0, 0.09])
-        model = bh.EcefVelocityMeasurementModel.from_upper_triangular(upper)
+        model = bh.ECEFVelocityMeasurementModel.from_upper_triangular(upper)
         r = model.noise_covariance()
         assert r[0, 0] == pytest.approx(0.01)
         assert r[2, 2] == pytest.approx(0.09)

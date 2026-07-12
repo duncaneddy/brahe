@@ -4,7 +4,7 @@
 """
 Track a satellite using ECEF position measurements from a GNSS receiver.
 
-Demonstrates how EcefPositionMeasurementModel handles the ECI-to-ECEF
+Demonstrates how ECEFPositionMeasurementModel handles the ECI-to-ECEF
 frame rotation internally, so GNSS receiver outputs can be used directly.
 """
 
@@ -34,7 +34,7 @@ initial_state[4] += 1.0
 p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 
 # ECEF position model with typical GNSS accuracy (5 m noise)
-ecef_model = bh.EcefPositionMeasurementModel(5.0)
+ecef_model = bh.ECEFPositionMeasurementModel(5.0)
 
 ekf = bh.ExtendedKalmanFilter(
     epoch,
@@ -65,7 +65,7 @@ final_state = ekf.current_state()
 pos_error = np.linalg.norm(final_state[:3] - truth_final[:3])
 vel_error = np.linalg.norm(final_state[3:6] - truth_final[3:6])
 
-print("ECEF GNSS tracking with EcefPositionMeasurementModel:")
+print("ECEF GNSS tracking with ECEFPositionMeasurementModel:")
 print("  Initial position error: 1000.0 m")
 print(f"  Final position error:   {pos_error:.2f} m")
 print(f"  Final velocity error:   {vel_error:.4f} m/s")

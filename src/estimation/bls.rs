@@ -36,6 +36,7 @@
 
 use nalgebra::{DMatrix, DVector};
 
+use crate::integrators::traits::{DControlInput, DStateDynamics};
 use crate::propagators::force_model_config::ForceModelConfig;
 use crate::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, TrajectoryMode};
 use crate::time::Epoch;
@@ -71,6 +72,9 @@ use super::types::{BLSIterationRecord, BLSObservationResidual, Observation, sort
 ///     p0,
 ///     NumericalPropagationConfig::default(),
 ///     ForceModelConfig::two_body_gravity(),
+///     None,
+///     None,
+///     None,
 ///     vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
 ///     BLSConfig::default(),
 /// ).unwrap();
@@ -157,9 +161,10 @@ impl BatchLeastSquares {
     /// Create a Batch Least Squares estimator with orbit propagator dynamics.
     ///
     /// Builds a numerical orbit propagator internally with STM enabled for
-    /// the state transition matrix computation required by BLS. For custom
-    /// dynamics, force model parameters, control inputs, or a generic
-    /// propagator, build the propagator yourself and use
+    /// the state transition matrix computation required by BLS. The full
+    /// range of orbit propagator configuration is available: force model
+    /// parameters, additional dynamics, and control inputs pass through to
+    /// the propagator. For a generic propagator (`DNumericalPropagator`) use
     /// [`BatchLeastSquares::from_propagator`].
     ///
     /// # Arguments
@@ -169,14 +174,21 @@ impl BatchLeastSquares {
     /// * `apriori_covariance` - A priori covariance matrix (state_dim x state_dim)
     /// * `propagation_config` - Numerical propagation configuration
     /// * `force_config` - Force model configuration
+    /// * `params` - Optional parameter vector for force models
+    /// * `additional_dynamics` - Optional additional dynamics function
+    /// * `control_input` - Optional control input function
     /// * `measurement_models` - List of measurement models
     /// * `config` - BLS configuration
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         epoch: Epoch,
         state: DVector<f64>,
         apriori_covariance: DMatrix<f64>,
         propagation_config: NumericalPropagationConfig,
         force_config: ForceModelConfig,
+        params: Option<DVector<f64>>,
+        additional_dynamics: Option<DStateDynamics>,
+        control_input: DControlInput,
         measurement_models: Vec<Box<dyn MeasurementModel>>,
         config: BLSConfig,
     ) -> Result<Self, BraheError> {
@@ -189,9 +201,9 @@ impl BatchLeastSquares {
             state,
             prop_config,
             force_config,
-            None,
-            None,
-            None,
+            params,
+            additional_dynamics,
+            control_input,
             None,
         )
         .map_err(|e| BraheError::Error(format!("Failed to create propagator: {}", e)))?;
@@ -942,6 +954,7 @@ mod tests {
     use crate::propagators::force_model_config::ForceModelConfig;
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
+    use approx::assert_abs_diff_eq;
     use serial_test::serial;
 
     fn setup_global_test_eop() {
@@ -1007,6 +1020,9 @@ mod tests {
             p0,
             NumericalPropagationConfig::default(),
             ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
             models,
             config,
         )
@@ -1120,6 +1136,9 @@ mod tests {
             default_p0(),
             NumericalPropagationConfig::default(),
             ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             config,
         );
@@ -1144,6 +1163,9 @@ mod tests {
             DMatrix::identity(4, 4), // wrong dimensions for 6D state
             NumericalPropagationConfig::default(),
             ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             BLSConfig::default(),
         );
@@ -1639,6 +1661,132 @@ mod tests {
             record.cost
         );
         assert_eq!(bls.final_cost(), record.cost);
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_terminal_event_before_observation_errors() {
+        // A terminal event stopping propagation before an observation epoch
+        // must abort the solve with an error, leaving the estimate at the
+        // a priori values rather than silently fitting stale states.
+        use crate::events::DTimeEvent;
+
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let mut perturbed = true_state.clone();
+        perturbed[0] += 500.0;
+
+        let mut prop = create_stm_propagator(epoch, perturbed.clone());
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 15.0, "Terminal").set_terminal(),
+        ));
+
+        let mut bls = BatchLeastSquares::from_propagator(
+            prop,
+            default_p0(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            BLSConfig::default(),
+        )
+        .unwrap();
+
+        let obs = generate_position_observations(epoch, &true_state, 5, 30.0);
+        match bls.solve(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("before reaching observation epoch"),
+                "Error should mention stopping early: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error when terminal event stops propagation"),
+        }
+
+        // No correction may have been applied
+        assert!(!bls.converged());
+        assert_eq!(bls.iterations_completed(), 0);
+        assert_abs_diff_eq!(bls.current_state(), perturbed, epsilon = 1e-12);
+    }
+
+    /// Model that mis-shapes one of its outputs relative to its declared
+    /// measurement_dim of 3 — exercises the model-output shape validation.
+    struct MisshapenModel {
+        bad_predict: bool,
+        bad_jacobian: bool,
+    }
+    impl MeasurementModel for MisshapenModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+        ) -> Result<DVector<f64>, BraheError> {
+            let m = if self.bad_predict { 2 } else { 3 };
+            Ok(state.rows(0, m).into_owned())
+        }
+        fn jacobian(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+        ) -> Result<DMatrix<f64>, BraheError> {
+            let rows = if self.bad_jacobian { 2 } else { 3 };
+            let mut h = DMatrix::zeros(rows, state.len());
+            for i in 0..rows {
+                h[(i, i)] = 1.0;
+            }
+            Ok(h)
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * 100.0
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "Misshapen"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_model_output_shape_errors() {
+        // Malformed measurement-model outputs must abort the solve with a
+        // structured error naming the model, not a dimension panic.
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let obs = generate_position_observations(epoch, &true_state, 5, 30.0);
+
+        let cases: Vec<(MisshapenModel, &str)> = vec![
+            (
+                MisshapenModel {
+                    bad_predict: true,
+                    bad_jacobian: false,
+                },
+                "predict() returned",
+            ),
+            (
+                MisshapenModel {
+                    bad_predict: false,
+                    bad_jacobian: true,
+                },
+                "jacobian() returned",
+            ),
+        ];
+
+        for (model, expected_msg) in cases {
+            let mut bls = create_two_body_bls(
+                epoch,
+                true_state.clone(),
+                default_p0(),
+                vec![Box::new(model)],
+                BLSConfig::default(),
+            );
+            match bls.solve(&obs) {
+                Err(e) => assert!(
+                    e.to_string().contains(expected_msg),
+                    "Error should contain '{}': {}",
+                    expected_msg,
+                    e
+                ),
+                Ok(_) => panic!("Expected shape validation error for '{}'", expected_msg),
+            }
+        }
     }
 
     // =========================================================================

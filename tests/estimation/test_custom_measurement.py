@@ -208,3 +208,70 @@ class TestCustomModelWithEKF:
         assert record2.measurement_name == "Range"
 
         assert len(ekf.records()) == 2
+
+    def test_wrong_shape_predict_raises(self, two_body_setup):
+        """A model returning the wrong measurement dimension must raise a
+        structured error, not crash, and must leave the filter unmoved."""
+        epoch, true_state = two_body_setup
+
+        class WrongShapeModel(bh.MeasurementModel):
+            def predict(self, epoch, state):
+                return np.array([1.0, 2.0])  # 2 elements, declares 3
+
+            def noise_covariance(self):
+                return np.eye(3) * 100.0
+
+            def measurement_dim(self):
+                return 3
+
+            def name(self):
+                return "WrongShape"
+
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+        ekf = bh.ExtendedKalmanFilter(
+            epoch,
+            true_state.copy(),
+            p0,
+            measurement_models=[WrongShapeModel()],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+        )
+
+        obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
+        with pytest.raises(RuntimeError, match="predict"):
+            ekf.process_observation(obs)
+
+        # Filter must be rolled back to its pre-observation epoch
+        assert abs(ekf.current_epoch() - epoch) < 1e-9
+
+    def test_wrong_shape_noise_covariance_raises(self, two_body_setup):
+        """A model with a mis-sized noise covariance must raise a structured
+        error naming noise_covariance."""
+        epoch, true_state = two_body_setup
+
+        class WrongNoiseModel(bh.MeasurementModel):
+            def predict(self, epoch, state):
+                return np.asarray(state[:3])
+
+            def noise_covariance(self):
+                return np.eye(2) * 100.0  # 2x2, declares 3
+
+            def measurement_dim(self):
+                return 3
+
+            def name(self):
+                return "WrongNoise"
+
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+        ekf = bh.ExtendedKalmanFilter(
+            epoch,
+            true_state.copy(),
+            p0,
+            measurement_models=[WrongNoiseModel()],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+        )
+
+        obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
+        with pytest.raises(RuntimeError, match="noise_covariance"):
+            ekf.process_observation(obs)

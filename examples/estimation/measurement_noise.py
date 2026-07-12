@@ -12,12 +12,12 @@ import numpy as np
 import brahe as bh
 
 # --- Scalar sigma: same noise on all axes ---
-model = bh.EcefPositionMeasurementModel(5.0)
+model = bh.ECEFPositionMeasurementModel(5.0)
 print("Scalar (5 m isotropic):")
 print(model.noise_covariance())
 
 # --- Per-axis sigma: different noise per component ---
-model = bh.EcefPositionMeasurementModel.per_axis(3.0, 3.0, 8.0)
+model = bh.ECEFPositionMeasurementModel.per_axis(3.0, 3.0, 8.0)
 print("\nPer-axis (3, 3, 8 m):")
 print(model.noise_covariance())
 
@@ -29,14 +29,14 @@ cov = np.array(
         [0.0, 0.0, 64.0],
     ]
 )
-model = bh.EcefPositionMeasurementModel.from_covariance(cov)
+model = bh.ECEFPositionMeasurementModel.from_covariance(cov)
 print("\nFull covariance (with correlations):")
 print(model.noise_covariance())
 
 # --- Upper-triangular: compact packed form ---
 # Elements: [c00, c01, c02, c11, c12, c22]
 upper = np.array([9.0, 1.0, 0.0, 9.0, 0.0, 64.0])
-model = bh.EcefPositionMeasurementModel.from_upper_triangular(upper)
+model = bh.ECEFPositionMeasurementModel.from_upper_triangular(upper)
 print("\nUpper-triangular packed:")
 print(model.noise_covariance())
 

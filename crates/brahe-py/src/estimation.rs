@@ -751,9 +751,9 @@ impl_measurement_model_binding!(
 );
 
 impl_measurement_model_binding!(
-    PyEcefPositionMeasurementModel,
+    PyECEFPositionMeasurementModel,
     estimation::EcefPositionMeasurementModel,
-    "EcefPositionMeasurementModel",
+    "ECEFPositionMeasurementModel",
     constructors: [
         /// Create an ECEF position measurement model.
         ///
@@ -761,16 +761,16 @@ impl_measurement_model_binding!(
         ///     sigma (float): Position noise standard deviation (meters).
         ///
         /// Returns:
-        ///     EcefPositionMeasurementModel: New model instance.
+        ///     ECEFPositionMeasurementModel: New model instance.
         ///
         /// Example:
         ///     ```python
         ///     import brahe as bh
-        ///     model = bh.EcefPositionMeasurementModel(5.0)
+        ///     model = bh.ECEFPositionMeasurementModel(5.0)
         ///     ```
         #[new]
         fn new(sigma: f64) -> Self {
-            PyEcefPositionMeasurementModel {
+            PyECEFPositionMeasurementModel {
                 model: estimation::EcefPositionMeasurementModel::new(sigma),
             }
         }
@@ -783,10 +783,10 @@ impl_measurement_model_binding!(
         ///     sigma_z (float): Z-axis position noise (meters).
         ///
         /// Returns:
-        ///     EcefPositionMeasurementModel: New model instance.
+        ///     ECEFPositionMeasurementModel: New model instance.
         #[staticmethod]
         fn per_axis(sigma_x: f64, sigma_y: f64, sigma_z: f64) -> Self {
-            PyEcefPositionMeasurementModel {
+            PyECEFPositionMeasurementModel {
                 model: estimation::EcefPositionMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
         }
@@ -797,7 +797,7 @@ impl_measurement_model_binding!(
         ///     noise_cov (numpy.ndarray): 3x3 noise covariance matrix (meters²).
         ///
         /// Returns:
-        ///     EcefPositionMeasurementModel: New model instance.
+        ///     ECEFPositionMeasurementModel: New model instance.
         #[staticmethod]
         fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
             let shape = noise_cov.shape();
@@ -807,7 +807,7 @@ impl_measurement_model_binding!(
             let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
             let model = estimation::EcefPositionMeasurementModel::from_covariance(mat)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefPositionMeasurementModel { model })
+            Ok(PyECEFPositionMeasurementModel { model })
         }
 
         /// Create from upper-triangular covariance elements.
@@ -816,7 +816,7 @@ impl_measurement_model_binding!(
         ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
         ///
         /// Returns:
-        ///     EcefPositionMeasurementModel: New model instance.
+        ///     ECEFPositionMeasurementModel: New model instance.
         #[staticmethod]
         fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
             let data = upper.as_slice().map_err(|e| {
@@ -824,16 +824,16 @@ impl_measurement_model_binding!(
             })?;
             let model = estimation::EcefPositionMeasurementModel::from_upper_triangular(data)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefPositionMeasurementModel { model })
+            Ok(PyECEFPositionMeasurementModel { model })
         }
     ],
     doc: "ECEF position measurement model (3D ECEF position from GNSS).\n\nInternally converts ECI state to ECEF position."
 );
 
 impl_measurement_model_binding!(
-    PyEcefVelocityMeasurementModel,
+    PyECEFVelocityMeasurementModel,
     estimation::EcefVelocityMeasurementModel,
-    "EcefVelocityMeasurementModel",
+    "ECEFVelocityMeasurementModel",
     constructors: [
         /// Create an ECEF velocity measurement model.
         ///
@@ -841,16 +841,16 @@ impl_measurement_model_binding!(
         ///     sigma (float): Velocity noise standard deviation (m/s).
         ///
         /// Returns:
-        ///     EcefVelocityMeasurementModel: New model instance.
+        ///     ECEFVelocityMeasurementModel: New model instance.
         ///
         /// Example:
         ///     ```python
         ///     import brahe as bh
-        ///     model = bh.EcefVelocityMeasurementModel(0.05)
+        ///     model = bh.ECEFVelocityMeasurementModel(0.05)
         ///     ```
         #[new]
         fn new(sigma: f64) -> Self {
-            PyEcefVelocityMeasurementModel {
+            PyECEFVelocityMeasurementModel {
                 model: estimation::EcefVelocityMeasurementModel::new(sigma),
             }
         }
@@ -863,10 +863,10 @@ impl_measurement_model_binding!(
         ///     sigma_z (float): Z-axis velocity noise (m/s).
         ///
         /// Returns:
-        ///     EcefVelocityMeasurementModel: New model instance.
+        ///     ECEFVelocityMeasurementModel: New model instance.
         #[staticmethod]
         fn per_axis(sigma_x: f64, sigma_y: f64, sigma_z: f64) -> Self {
-            PyEcefVelocityMeasurementModel {
+            PyECEFVelocityMeasurementModel {
                 model: estimation::EcefVelocityMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
         }
@@ -877,7 +877,7 @@ impl_measurement_model_binding!(
         ///     noise_cov (numpy.ndarray): 3x3 noise covariance matrix ((m/s)²).
         ///
         /// Returns:
-        ///     EcefVelocityMeasurementModel: New model instance.
+        ///     ECEFVelocityMeasurementModel: New model instance.
         #[staticmethod]
         fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
             let shape = noise_cov.shape();
@@ -887,7 +887,7 @@ impl_measurement_model_binding!(
             let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
             let model = estimation::EcefVelocityMeasurementModel::from_covariance(mat)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefVelocityMeasurementModel { model })
+            Ok(PyECEFVelocityMeasurementModel { model })
         }
 
         /// Create from upper-triangular covariance elements.
@@ -896,7 +896,7 @@ impl_measurement_model_binding!(
         ///     upper (numpy.ndarray): Upper-triangular elements (6 for 3x3).
         ///
         /// Returns:
-        ///     EcefVelocityMeasurementModel: New model instance.
+        ///     ECEFVelocityMeasurementModel: New model instance.
         #[staticmethod]
         fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
             let data = upper.as_slice().map_err(|e| {
@@ -904,16 +904,16 @@ impl_measurement_model_binding!(
             })?;
             let model = estimation::EcefVelocityMeasurementModel::from_upper_triangular(data)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefVelocityMeasurementModel { model })
+            Ok(PyECEFVelocityMeasurementModel { model })
         }
     ],
     doc: "ECEF velocity measurement model (3D ECEF velocity from GNSS).\n\nInternally converts ECI state to ECEF velocity."
 );
 
 impl_measurement_model_binding!(
-    PyEcefStateMeasurementModel,
+    PyECEFStateMeasurementModel,
     estimation::EcefStateMeasurementModel,
-    "EcefStateMeasurementModel",
+    "ECEFStateMeasurementModel",
     constructors: [
         /// Create an ECEF state measurement model.
         ///
@@ -922,16 +922,16 @@ impl_measurement_model_binding!(
         ///     vel_sigma (float): Velocity noise standard deviation (m/s).
         ///
         /// Returns:
-        ///     EcefStateMeasurementModel: New model instance.
+        ///     ECEFStateMeasurementModel: New model instance.
         ///
         /// Example:
         ///     ```python
         ///     import brahe as bh
-        ///     model = bh.EcefStateMeasurementModel(5.0, 0.05)
+        ///     model = bh.ECEFStateMeasurementModel(5.0, 0.05)
         ///     ```
         #[new]
         fn new(pos_sigma: f64, vel_sigma: f64) -> Self {
-            PyEcefStateMeasurementModel {
+            PyECEFStateMeasurementModel {
                 model: estimation::EcefStateMeasurementModel::new(pos_sigma, vel_sigma),
             }
         }
@@ -947,13 +947,13 @@ impl_measurement_model_binding!(
         ///     vel_sigma_z (float): Z velocity noise (m/s).
         ///
         /// Returns:
-        ///     EcefStateMeasurementModel: New model instance.
+        ///     ECEFStateMeasurementModel: New model instance.
         #[staticmethod]
         fn per_axis(
             pos_sigma_x: f64, pos_sigma_y: f64, pos_sigma_z: f64,
             vel_sigma_x: f64, vel_sigma_y: f64, vel_sigma_z: f64,
         ) -> Self {
-            PyEcefStateMeasurementModel {
+            PyECEFStateMeasurementModel {
                 model: estimation::EcefStateMeasurementModel::new_per_axis(
                     pos_sigma_x, pos_sigma_y, pos_sigma_z,
                     vel_sigma_x, vel_sigma_y, vel_sigma_z,
@@ -967,7 +967,7 @@ impl_measurement_model_binding!(
         ///     noise_cov (numpy.ndarray): 6x6 noise covariance matrix.
         ///
         /// Returns:
-        ///     EcefStateMeasurementModel: New model instance.
+        ///     ECEFStateMeasurementModel: New model instance.
         #[staticmethod]
         fn from_covariance(noise_cov: PyReadonlyArray2<f64>) -> PyResult<Self> {
             let shape = noise_cov.shape();
@@ -977,7 +977,7 @@ impl_measurement_model_binding!(
             let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
             let model = estimation::EcefStateMeasurementModel::from_covariance(mat)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefStateMeasurementModel { model })
+            Ok(PyECEFStateMeasurementModel { model })
         }
 
         /// Create from upper-triangular covariance elements.
@@ -986,7 +986,7 @@ impl_measurement_model_binding!(
         ///     upper (numpy.ndarray): Upper-triangular elements (21 for 6x6).
         ///
         /// Returns:
-        ///     EcefStateMeasurementModel: New model instance.
+        ///     ECEFStateMeasurementModel: New model instance.
         #[staticmethod]
         fn from_upper_triangular(upper: PyReadonlyArray1<f64>) -> PyResult<Self> {
             let data = upper.as_slice().map_err(|e| {
@@ -994,7 +994,7 @@ impl_measurement_model_binding!(
             })?;
             let model = estimation::EcefStateMeasurementModel::from_upper_triangular(data)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefStateMeasurementModel { model })
+            Ok(PyECEFStateMeasurementModel { model })
         }
     ],
     doc: "ECEF state measurement model (6D ECEF state from GNSS).\n\nInternally converts ECI state to ECEF state."
@@ -1475,15 +1475,15 @@ fn process_measurement_models(
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));
-        } else if let Ok(m) = obj.extract::<PyRef<PyEcefPositionMeasurementModel>>() {
+        } else if let Ok(m) = obj.extract::<PyRef<PyECEFPositionMeasurementModel>>() {
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));
-        } else if let Ok(m) = obj.extract::<PyRef<PyEcefVelocityMeasurementModel>>() {
+        } else if let Ok(m) = obj.extract::<PyRef<PyECEFVelocityMeasurementModel>>() {
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));
-        } else if let Ok(m) = obj.extract::<PyRef<PyEcefStateMeasurementModel>>() {
+        } else if let Ok(m) = obj.extract::<PyRef<PyECEFStateMeasurementModel>>() {
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));

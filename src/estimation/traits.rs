@@ -37,6 +37,20 @@ pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
     let n = state.len();
     let mut h_matrix = DMatrix::zeros(m, n);
 
+    // predict() is a user-extension boundary; validate output lengths before
+    // indexing so a mis-shaped model surfaces as an error, not a panic.
+    let check_dim = |z: &DVector<f64>| -> Result<(), BraheError> {
+        if z.len() != m {
+            return Err(BraheError::Error(format!(
+                "Model '{}' predict() returned {} elements, expected measurement_dim {}",
+                model.name(),
+                z.len(),
+                m
+            )));
+        }
+        Ok(())
+    };
+
     // Compute perturbation offsets using the same strategy as DNumericalJacobian
     let offsets: DVector<f64> = match perturbation {
         PerturbationStrategy::Adaptive {
@@ -57,10 +71,12 @@ pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
                 let mut state_plus = state.clone();
                 state_plus[j] += offsets[j];
                 let h_plus = model.predict(epoch, &state_plus)?;
+                check_dim(&h_plus)?;
 
                 let mut state_minus = state.clone();
                 state_minus[j] -= offsets[j];
                 let h_minus = model.predict(epoch, &state_minus)?;
+                check_dim(&h_minus)?;
 
                 for i in 0..m {
                     h_matrix[(i, j)] = (h_plus[i] - h_minus[i]) / (2.0 * offsets[j]);
@@ -69,10 +85,12 @@ pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
         }
         DifferenceMethod::Forward => {
             let f0 = model.predict(epoch, state)?;
+            check_dim(&f0)?;
             for j in 0..n {
                 let mut state_plus = state.clone();
                 state_plus[j] += offsets[j];
                 let fp = model.predict(epoch, &state_plus)?;
+                check_dim(&fp)?;
 
                 for i in 0..m {
                     h_matrix[(i, j)] = (fp[i] - f0[i]) / offsets[j];
@@ -81,10 +99,12 @@ pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
         }
         DifferenceMethod::Backward => {
             let f0 = model.predict(epoch, state)?;
+            check_dim(&f0)?;
             for j in 0..n {
                 let mut state_minus = state.clone();
                 state_minus[j] -= offsets[j];
                 let fm = model.predict(epoch, &state_minus)?;
+                check_dim(&fm)?;
 
                 for i in 0..m {
                     h_matrix[(i, j)] = (f0[i] - fm[i]) / offsets[j];

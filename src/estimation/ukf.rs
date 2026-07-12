@@ -39,6 +39,7 @@
 
 use nalgebra::{DMatrix, DVector};
 
+use crate::integrators::traits::{DControlInput, DStateDynamics};
 use crate::propagators::force_model_config::ForceModelConfig;
 use crate::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, TrajectoryMode};
 use crate::time::Epoch;
@@ -73,6 +74,9 @@ use super::types::{FilterRecord, Observation, sort_by_epoch};
 ///     p0,
 ///     NumericalPropagationConfig::default(),
 ///     ForceModelConfig::two_body_gravity(),
+///     None,
+///     None,
+///     None,
 ///     vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
 ///     UKFConfig::default(),
 /// ).unwrap();
@@ -120,9 +124,10 @@ impl UnscentedKalmanFilter {
     /// Builds a numerical orbit propagator internally. Unlike the EKF, no STM
     /// propagation is enabled: the UKF captures uncertainty via sigma-point
     /// propagation, so each sigma point integrates only the state equations.
-    /// For custom dynamics, force model parameters, control inputs, or a
-    /// generic propagator, build the propagator yourself and use
-    /// [`UnscentedKalmanFilter::from_propagator`].
+    /// The full range of orbit propagator configuration is available: force
+    /// model parameters, additional dynamics, and control inputs pass through
+    /// to the propagator. For a generic propagator (`DNumericalPropagator`)
+    /// use [`UnscentedKalmanFilter::from_propagator`].
     ///
     /// # Arguments
     ///
@@ -131,14 +136,21 @@ impl UnscentedKalmanFilter {
     /// * `initial_covariance` - Initial covariance matrix (state_dim x state_dim)
     /// * `propagation_config` - Numerical propagation configuration
     /// * `force_config` - Force model configuration
+    /// * `params` - Optional parameter vector for force models
+    /// * `additional_dynamics` - Optional additional dynamics function
+    /// * `control_input` - Optional control input function
     /// * `measurement_models` - List of measurement models
     /// * `config` - UKF configuration (alpha, beta, kappa)
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         epoch: Epoch,
         state: DVector<f64>,
         initial_covariance: DMatrix<f64>,
         propagation_config: NumericalPropagationConfig,
         force_config: ForceModelConfig,
+        params: Option<DVector<f64>>,
+        additional_dynamics: Option<DStateDynamics>,
+        control_input: DControlInput,
         measurement_models: Vec<Box<dyn MeasurementModel>>,
         config: UKFConfig,
     ) -> Result<Self, BraheError> {
@@ -147,9 +159,9 @@ impl UnscentedKalmanFilter {
             state,
             propagation_config,
             force_config,
-            None,
-            None,
-            None,
+            params,
+            additional_dynamics,
+            control_input,
             None,
         )
         .map_err(|e| BraheError::Error(format!("Failed to create propagator: {}", e)))?;
@@ -650,6 +662,9 @@ mod tests {
             p0,
             NumericalPropagationConfig::default(),
             ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
             models,
             UKFConfig::default(),
         )
@@ -849,6 +864,126 @@ mod tests {
         }
     }
 
+    #[test]
+    #[serial]
+    fn test_ukf_terminal_event_before_observation_errors() {
+        use crate::events::DTimeEvent;
+
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let mut prop = create_plain_propagator(epoch, state.clone());
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 30.0, "Terminal").set_terminal(),
+        ));
+
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let mut ukf = UnscentedKalmanFilter::from_propagator(
+            prop,
+            p0,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            UKFConfig::default(),
+        )
+        .unwrap();
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+        match ukf.process_observation(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("before reaching observation epoch"),
+                "Error should mention stopping early: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error when terminal event stops propagation"),
+        }
+
+        // The failed observation must not have moved the filter, and the
+        // propagator must hold the mean state, not a sigma point
+        let epoch_drift: f64 = ukf.current_epoch() - epoch;
+        assert!(
+            epoch_drift.abs() < 1e-9,
+            "Filter epoch must be unchanged after a terminal-event error, drifted {} s",
+            epoch_drift
+        );
+        assert_abs_diff_eq!(ukf.current_state(), state, epsilon = 1e-9);
+    }
+
+    /// Model that mis-shapes one of its outputs relative to its declared
+    /// measurement_dim of 3 — exercises the model-output shape validation.
+    struct MisshapenModel {
+        bad_predict: bool,
+        bad_noise: bool,
+    }
+    impl MeasurementModel for MisshapenModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+        ) -> Result<DVector<f64>, BraheError> {
+            let m = if self.bad_predict { 2 } else { 3 };
+            Ok(state.rows(0, m).into_owned())
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            let m = if self.bad_noise { 2 } else { 3 };
+            DMatrix::identity(m, m) * 100.0
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "Misshapen"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_model_output_shape_errors() {
+        // Malformed measurement-model outputs must surface as structured
+        // errors, not dimension panics, and must leave the filter rolled
+        // back at its pre-observation epoch.
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let cases: Vec<(MisshapenModel, &str)> = vec![
+            (
+                MisshapenModel {
+                    bad_predict: true,
+                    bad_noise: false,
+                },
+                "predict() returned",
+            ),
+            (
+                MisshapenModel {
+                    bad_predict: false,
+                    bad_noise: true,
+                },
+                "noise_covariance() is",
+            ),
+        ];
+
+        for (model, expected_msg) in cases {
+            let mut ukf =
+                create_two_body_ukf(epoch, state.clone(), p0.clone(), vec![Box::new(model)]);
+
+            let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+            match ukf.process_observation(&obs) {
+                Err(e) => assert!(
+                    e.to_string().contains(expected_msg),
+                    "Error should contain '{}': {}",
+                    expected_msg,
+                    e
+                ),
+                Ok(_) => panic!("Expected shape validation error for '{}'", expected_msg),
+            }
+
+            let epoch_drift: f64 = ukf.current_epoch() - epoch;
+            assert!(
+                epoch_drift.abs() < 1e-9,
+                "Filter must be rolled back after shape error, drifted {} s",
+                epoch_drift
+            );
+        }
+    }
+
     /// Model that always fails predict() — exercises error paths that occur
     /// after the propagator has been advanced (mid sigma-point update the
     /// propagator otherwise holds an arbitrary sigma point, not the mean).
@@ -894,6 +1029,9 @@ mod tests {
                 p0.clone(),
                 NumericalPropagationConfig::default(),
                 ForceModelConfig::two_body_gravity(),
+                None,
+                None,
+                None,
                 models,
                 UKFConfig::default(),
             )

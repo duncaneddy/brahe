@@ -8996,7 +8996,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dnumericalorbitpropagator_force_third_body_planets_de() {
+    fn test_dnumericalorbitpropagator_force_third_body_planets_spice() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
         setup_global_test_eop();

@@ -200,11 +200,11 @@ fn test_validation_end_to_end_epoch_path() {
 #[test]
 #[cfg_attr(not(feature = "integration"), ignore)]
 fn test_validation_pck_moon_pa_vs_anise() {
-    use crate::datasets::naif::download_kernel;
-    use crate::spice::NAIFKernel;
+    use crate::datasets::naif::download_spice_kernel;
+    use crate::spice::SPICEKernel;
     use crate::spice::pck::BPCK;
 
-    let path = download_kernel(NAIFKernel::MoonPaDe440, None).unwrap();
+    let path = download_spice_kernel(SPICEKernel::MoonPaDe440, None).unwrap();
     let bpck = BPCK::from_file(&path).unwrap();
 
     // The real moon_pa_de440_200625.bpc kernel stores frame class ID 31008

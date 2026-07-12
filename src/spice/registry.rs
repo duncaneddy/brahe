@@ -21,12 +21,12 @@ use nalgebra::{Vector3, Vector6};
 use once_cell::sync::Lazy;
 
 use crate::attitude::{EulerAngle, Quaternion, RotationMatrix};
-use crate::datasets::naif::download_kernel;
+use crate::datasets::naif::download_spice_kernel;
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
 use super::daf::DAFFile;
-use super::kernels::{KernelSource, NAIFKernel};
+use super::kernels::{KernelSource, SPICEKernel};
 use super::naif_id::{FrameId, NAIFId};
 use super::pck::BPCK;
 use super::segments::{ChebyshevSegment, is_coverage_error};
@@ -69,11 +69,11 @@ pub(crate) fn epoch_to_et(epc: Epoch) -> f64 {
 }
 
 /// Resolve a [`KernelSource`] to a local file path, downloading (and
-/// caching) a known [`NAIFKernel`] via the NAIF dataset cache or validating
+/// caching) a known [`SPICEKernel`] via the NAIF dataset cache or validating
 /// that a bring-your-own path exists.
 fn resolve_kernel_path(source: &KernelSource) -> Result<std::path::PathBuf, BraheError> {
     match source {
-        KernelSource::Kernel(kernel) => download_kernel(*kernel, None),
+        KernelSource::Kernel(kernel) => download_spice_kernel(*kernel, None),
         KernelSource::Path(path) => {
             let p = Path::new(path);
             if p.exists() {
@@ -97,14 +97,14 @@ fn resolve_kernel_path(source: &KernelSource) -> Result<std::path::PathBuf, Brah
 ///
 /// Idempotent: calling with a source that is already loaded is a no-op.
 /// Accepts anything convertible into a [`KernelSource`]: a known kernel
-/// name string (`"de440s"`, `"moon_pa_de440"`, ...) or [`NAIFKernel`] is
-/// downloaded and cached via [`crate::datasets::naif::download_kernel`]; any
+/// name string (`"de440s"`, `"moon_pa_de440"`, ...) or [`SPICEKernel`] is
+/// downloaded and cached via [`crate::datasets::naif::download_spice_kernel`]; any
 /// other string is treated as a file path. The registry is keyed by
 /// [`KernelSource::key`] (the kernel name or the path string), so loading
-/// by name and by [`NAIFKernel`] refer to the same entry.
+/// by name and by [`SPICEKernel`] refer to the same entry.
 ///
 /// # Arguments
-/// - `kernel`: A known kernel name/[`NAIFKernel`], or a path to a `.bsp`/`.bpc` file
+/// - `kernel`: A known kernel name/[`SPICEKernel`], or a path to a `.bsp`/`.bpc` file
 ///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` if the kernel cannot be resolved,
@@ -156,7 +156,7 @@ pub fn load_kernel(kernel: impl Into<KernelSource>) -> Result<(), BraheError> {
 /// Unload a kernel previously loaded via [`load_kernel`].
 ///
 /// # Arguments
-/// - `kernel`: The same kernel name/[`NAIFKernel`]/path originally passed to
+/// - `kernel`: The same kernel name/[`SPICEKernel`]/path originally passed to
 ///   [`load_kernel`]
 ///
 /// # Returns
@@ -238,7 +238,7 @@ pub fn initialize_ephemeris() -> Result<(), BraheError> {
 /// Equivalent to `load_kernel(kernel)`.
 ///
 /// # Arguments
-/// - `kernel`: A known DE kernel name/[`NAIFKernel`] (e.g. `"de440s"`, `"de440"`)
+/// - `kernel`: A known DE kernel name/[`SPICEKernel`] (e.g. `"de440s"`, `"de440"`)
 ///
 /// # Returns
 /// - `Ok(())` on success, or `BraheError` on download/parse failure
@@ -255,19 +255,19 @@ pub fn initialize_ephemeris_with_kernel(kernel: impl Into<KernelSource>) -> Resu
 
 /// Kernels loaded by [`load_common_kernels`]: `de440s` (planetary ephemeris)
 /// and `moon_pa_de440` (lunar principal-axes orientation).
-pub(crate) const COMMON_KERNELS: &[NAIFKernel] = &[NAIFKernel::DE440s, NAIFKernel::MoonPaDe440];
+pub(crate) const COMMON_KERNELS: &[SPICEKernel] = &[SPICEKernel::DE440s, SPICEKernel::MoonPaDe440];
 
 /// Kernels loaded by [`load_all_kernels`]: [`COMMON_KERNELS`] plus every
-/// satellite-system kernel brahe knows how to download.
-pub(crate) const ALL_KERNELS: &[NAIFKernel] = &[
-    NAIFKernel::DE440s,
-    NAIFKernel::MoonPaDe440,
-    NAIFKernel::Mar099s,
-    NAIFKernel::Jup365,
-    NAIFKernel::Sat441,
-    NAIFKernel::Ura184,
-    NAIFKernel::Nep097,
-    NAIFKernel::Plu060,
+/// satellite ephemeris kernel brahe knows how to download.
+pub(crate) const ALL_KERNELS: &[SPICEKernel] = &[
+    SPICEKernel::DE440s,
+    SPICEKernel::MoonPaDe440,
+    SPICEKernel::Mar099s,
+    SPICEKernel::Jup365,
+    SPICEKernel::Sat441,
+    SPICEKernel::Ura184,
+    SPICEKernel::Nep097,
+    SPICEKernel::Plu060,
 ];
 
 /// Load the kernels most applications need: `de440s` (planetary ephemeris)
@@ -298,7 +298,7 @@ pub fn load_common_kernels() -> Result<(), BraheError> {
 }
 
 /// Load every kernel brahe knows how to download: `de440s`, `moon_pa_de440`,
-/// and the satellite-system kernels `mar099s`, `jup365`, `sat441`, `ura184`,
+/// and the satellite ephemeris kernels `mar099s`, `jup365`, `sat441`, `ura184`,
 /// `nep097`, `plu060`.
 ///
 /// ~2.5 GB total on first download; cached thereafter. Prefer
@@ -574,7 +574,7 @@ fn spk_kernel_for_query(kernel: KernelSource) -> Result<Arc<SPK>, BraheError> {
 /// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel`: A known kernel name/[`NAIFKernel`], or a path to a `.bsp`
+/// - `kernel`: A known kernel name/[`SPICEKernel`], or a path to a `.bsp`
 ///   file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
@@ -612,7 +612,7 @@ pub fn spk_position_from_kernel(
 /// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel`: A known kernel name/[`NAIFKernel`], or a path to a `.bsp`
+/// - `kernel`: A known kernel name/[`SPICEKernel`], or a path to a `.bsp`
 ///   file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
@@ -650,7 +650,7 @@ pub fn spk_velocity_from_kernel(
 /// kernel is auto-loaded by name or path if not already loaded.
 ///
 /// # Arguments
-/// - `kernel`: A known kernel name/[`NAIFKernel`], or a path to a `.bsp`
+/// - `kernel`: A known kernel name/[`SPICEKernel`], or a path to a `.bsp`
 ///   file
 /// - `target`: NAIF ID of the target body
 /// - `center`: NAIF ID of the center body
@@ -1429,9 +1429,9 @@ mod tests {
 
     #[test]
     fn test_naif_kernel_name() {
-        use super::super::kernels::NAIFKernel;
-        assert_eq!(NAIFKernel::DE440s.name(), "de440s");
-        assert_eq!(NAIFKernel::DE440.name(), "de440");
+        use super::super::kernels::SPICEKernel;
+        assert_eq!(SPICEKernel::DE440s.name(), "de440s");
+        assert_eq!(SPICEKernel::DE440.name(), "de440");
     }
 
     /// The kernel sets are compile-time lists; assert contents so docs stay
@@ -1440,19 +1440,19 @@ mod tests {
     fn test_common_and_all_kernel_lists() {
         assert_eq!(
             COMMON_KERNELS,
-            &[NAIFKernel::DE440s, NAIFKernel::MoonPaDe440]
+            &[SPICEKernel::DE440s, SPICEKernel::MoonPaDe440]
         );
         assert_eq!(
             ALL_KERNELS,
             &[
-                NAIFKernel::DE440s,
-                NAIFKernel::MoonPaDe440,
-                NAIFKernel::Mar099s,
-                NAIFKernel::Jup365,
-                NAIFKernel::Sat441,
-                NAIFKernel::Ura184,
-                NAIFKernel::Nep097,
-                NAIFKernel::Plu060,
+                SPICEKernel::DE440s,
+                SPICEKernel::MoonPaDe440,
+                SPICEKernel::Mar099s,
+                SPICEKernel::Jup365,
+                SPICEKernel::Sat441,
+                SPICEKernel::Ura184,
+                SPICEKernel::Nep097,
+                SPICEKernel::Plu060,
             ]
         );
     }
@@ -1556,7 +1556,7 @@ mod tests {
     #[serial]
     fn test_load_all_kernels_offline() {
         // Every kernel `load_all_kernels` pulls beyond de440s (the lunar PCK
-        // and one satellite-system SPK per outer planet) is seeded as a
+        // and one satellite ephemeris kernel per outer planet) is seeded as a
         // synthetic file; de440s stays resident and short-circuits.
         setup_global_test_spice();
         load_kernel("de440s").unwrap();

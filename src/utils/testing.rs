@@ -361,7 +361,7 @@ pub(crate) fn setup_global_test_spice() {
 /// exactly zero.
 ///
 /// Seed the returned bytes into a `BRAHE_CACHE`-redirected cache under a
-/// kernel's [`crate::spice::NAIFKernel::filename`] to make the download layer
+/// kernel's [`crate::spice::SPICEKernel::filename`] to make the download layer
 /// return it without touching the network, for offline registry/positions
 /// tests. The single record directory spans the full coverage so any epoch in
 /// range resolves.
@@ -518,7 +518,7 @@ impl CacheRedirect {
     }
 
     /// Write `bytes` into the redirected NAIF cache under `filename` (the
-    /// kernel's [`crate::spice::NAIFKernel::filename`]).
+    /// kernel's [`crate::spice::SPICEKernel::filename`]).
     pub(crate) fn seed(&self, filename: &str, bytes: &[u8]) {
         fs::write(self.naif_dir.join(filename), bytes).unwrap();
     }

@@ -967,7 +967,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_groundstations_load_from_file, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_list_providers, module)?)?;
-    module.add_function(wrap_pyfunction!(py_download_naif_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_download_spice_kernel, module)?)?;
 
     //* GCAT *//
     module.add_class::<PyGCATSatcatRecord>()?;
@@ -1008,63 +1008,87 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyEphemerisSource>()?;
     module.add_function(wrap_pyfunction!(py_sun_position, module)?)?;
     module.add_function(wrap_pyfunction!(py_moon_position, module)?)?;
-    module.add_function(wrap_pyfunction!(py_sun_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_sun_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_sun_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_moon_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_moon_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_moon_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mercury_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mercury_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mercury_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_venus_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_venus_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_venus_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mars_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mars_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mars_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jupiter_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jupiter_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jupiter_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_saturn_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_saturn_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_saturn_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_uranus_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_uranus_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_uranus_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_neptune_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_neptune_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_neptune_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mars_barycenter_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mars_barycenter_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mars_barycenter_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jupiter_barycenter_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jupiter_barycenter_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jupiter_barycenter_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_saturn_barycenter_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_saturn_barycenter_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_saturn_barycenter_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_uranus_barycenter_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_uranus_barycenter_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_uranus_barycenter_state_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_neptune_barycenter_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_neptune_barycenter_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_neptune_barycenter_state_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_barycenter_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_barycenter_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_barycenter_state_spice, module)?)?;
     module.add_function(wrap_pyfunction!(
-        py_solar_system_barycenter_position_de,
+        py_jupiter_barycenter_position_spice,
         module
     )?)?;
     module.add_function(wrap_pyfunction!(
-        py_solar_system_barycenter_velocity_de,
+        py_jupiter_barycenter_velocity_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_barycenter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_saturn_barycenter_position_spice,
         module
     )?)?;
     module.add_function(wrap_pyfunction!(
-        py_solar_system_barycenter_state_de,
+        py_saturn_barycenter_velocity_spice,
         module
     )?)?;
-    module.add_function(wrap_pyfunction!(py_ssb_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_ssb_velocity_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_ssb_state_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_barycenter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_uranus_barycenter_position_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_uranus_barycenter_velocity_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_barycenter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_neptune_barycenter_position_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_neptune_barycenter_velocity_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_barycenter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_position_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_velocity_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_state_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_state_spice, module)?)?;
     module.add_function(wrap_pyfunction!(py_initialize_ephemeris, module)?)?;
 
     //* Orbit Dynamics - Acceleration Models *//
@@ -1072,15 +1096,15 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Third-Body Accelerations
     module.add_function(wrap_pyfunction!(py_accel_third_body_sun, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_third_body_moon, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_mercury_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_jupiter_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_neptune_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mercury_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_jupiter_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_neptune_spice, module)?)?;
 
     // Gravity Accelerations
     module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;

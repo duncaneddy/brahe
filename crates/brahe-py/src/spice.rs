@@ -6,7 +6,7 @@
 ///
 /// Known kernel names are downloaded from NAIF and cached: the planetary
 /// (DE) ephemerides "de430", "de432s", "de435", "de438", "de440", "de440s",
-/// "de442", "de442s"; the satellite-system kernels "mar099", "mar099s",
+/// "de442", "de442s"; the satellite ephemeris kernels "mar099", "mar099s",
 /// "jup365", "sat441", "ura184", "nep097", "plu060"; and the binary PCK
 /// "moon_pa_de440". Any other argument is treated as a local file path.
 /// SPK (.bsp) and binary PCK (.bpc) kernels are detected automatically from
@@ -50,7 +50,8 @@ fn py_load_kernel(name_or_path: &str) -> PyResult<()> {
 #[pyfunction]
 #[pyo3(name = "unload_kernel")]
 fn py_unload_kernel(name_or_path: &str) -> PyResult<()> {
-    spice::unload_kernel(name_or_path).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    spice::unload_kernel(name_or_path)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Remove all kernels from the global registry.
@@ -112,7 +113,7 @@ fn py_load_common_kernels() -> PyResult<()> {
 }
 
 /// Load every kernel brahe knows how to download: "de440s", "moon_pa_de440",
-/// and the satellite-system kernels "mar099s", "jup365", "sat441", "ura184",
+/// and the satellite ephemeris kernels "mar099s", "jup365", "sat441", "ura184",
 /// "nep097", "plu060".
 ///
 /// ~2.5 GB total on first download; cached thereafter. Prefer
@@ -418,7 +419,10 @@ fn py_pck_euler_angles<'py>(
 ) -> PyResult<(Bound<'py, PyArray<f64, Ix1>>, Bound<'py, PyArray<f64, Ix1>>)> {
     let (a, r) = spice::pck_euler_angles(frame_id, epc.obj)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-    Ok((vector_to_numpy!(py, a, 3, f64), vector_to_numpy!(py, r, 3, f64)))
+    Ok((
+        vector_to_numpy!(py, a, 3, f64),
+        vector_to_numpy!(py, r, 3, f64),
+    ))
 }
 
 /// 3-1-3 Euler angle of a PCK body-fixed frame relative to ICRF.

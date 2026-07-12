@@ -5,7 +5,7 @@
 Load SPICE kernels and query ephemeris data from the global registry.
 
 This example demonstrates the generic NAIF-ID queries (spk_position/velocity/state),
-the kernel-scoped variants, and the per-body *_de convenience functions. Downloads
+the kernel-scoped variants, and the per-body *_spice convenience functions. Downloads
 the de440s (~33 MB) and mar099s (~68 MB) kernels on first run.
 """
 
@@ -39,9 +39,9 @@ print(f"\nMoon position from de440s directly (km): {r_moon_de440s / 1e3}")
 
 # Per-body convenience functions wrap the same queries for the ten most
 # commonly used bodies, selecting the kernel via EphemerisSource.
-r_mars = bh.mars_position_de(epc, bh.EphemerisSource.DE440s)
-v_mars = bh.mars_velocity_de(epc, bh.EphemerisSource.DE440s)
-x_mars = bh.mars_state_de(epc, bh.EphemerisSource.DE440s)
+r_mars = bh.mars_position_spice(epc, bh.EphemerisSource.DE440s)
+v_mars = bh.mars_velocity_spice(epc, bh.EphemerisSource.DE440s)
+x_mars = bh.mars_state_spice(epc, bh.EphemerisSource.DE440s)
 
 print(f"\nMars position rel. Earth (km): {r_mars / 1e3}")
 print(f"Mars velocity rel. Earth (m/s): {v_mars}")

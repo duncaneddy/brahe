@@ -110,10 +110,10 @@ class TestDEEphemerides:
         # Re-initialization should be safe
         bh.initialize_ephemeris()
 
-    def test_sun_position_de_returns_vector(self):
-        """Test that sun_position_de returns a 3-element position vector"""
+    def test_sun_position_spice_returns_vector(self):
+        """Test that sun_position_spice returns a 3-element position vector"""
         epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-        r_sun = bh.sun_position_de(epc, bh.EphemerisSource.DE440s)
+        r_sun = bh.sun_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_sun, np.ndarray)
         assert r_sun.shape == (3,)
@@ -121,10 +121,10 @@ class TestDEEphemerides:
         distance = np.linalg.norm(r_sun)
         assert 1.4e11 < distance < 1.6e11  # m
 
-    def test_moon_position_de_returns_vector(self):
-        """Test that moon_position_de returns a 3-element position vector"""
+    def test_moon_position_spice_returns_vector(self):
+        """Test that moon_position_spice returns a 3-element position vector"""
         epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-        r_moon = bh.moon_position_de(epc, bh.EphemerisSource.DE440s)
+        r_moon = bh.moon_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_moon, np.ndarray)
         assert r_moon.shape == (3,)
@@ -146,11 +146,11 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_sun_position_de_vs_analytical(self, year, month, day):
+    def test_sun_position_spice_vs_analytical(self, year, month, day):
         """Test that DE440s sun position is close to analytical (within ~0.1 degrees)"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
         r_sun_analytical = bh.sun_position(epc)
-        r_sun_de = bh.sun_position_de(epc, bh.EphemerisSource.DE440s)
+        r_sun_de = bh.sun_position_spice(epc, bh.EphemerisSource.DE440s)
 
         # Compute angle between vectors
         dot_product = np.dot(r_sun_analytical, r_sun_de) / (
@@ -175,11 +175,11 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_moon_position_de_vs_analytical(self, year, month, day):
+    def test_moon_position_spice_vs_analytical(self, year, month, day):
         """Test that DE440s moon position is close to analytical (within ~0.1 degrees)"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
         r_moon_analytical = bh.moon_position(epc)
-        r_moon_de = bh.moon_position_de(epc, bh.EphemerisSource.DE440s)
+        r_moon_de = bh.moon_position_spice(epc, bh.EphemerisSource.DE440s)
 
         # Compute angle between vectors
         dot_product = np.dot(r_moon_analytical, r_moon_de) / (
@@ -204,10 +204,10 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_mercury_position_de(self, year, month, day):
-        """Test that mercury_position_de returns valid position vector"""
+    def test_mercury_position_spice(self, year, month, day):
+        """Test that mercury_position_spice returns valid position vector"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
-        r_mercury = bh.mercury_position_de(epc, bh.EphemerisSource.DE440s)
+        r_mercury = bh.mercury_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_mercury, np.ndarray)
         assert r_mercury.shape == (3,)
@@ -226,10 +226,10 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_venus_position_de(self, year, month, day):
-        """Test that venus_position_de returns valid position vector"""
+    def test_venus_position_spice(self, year, month, day):
+        """Test that venus_position_spice returns valid position vector"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
-        r_venus = bh.venus_position_de(epc, bh.EphemerisSource.DE440s)
+        r_venus = bh.venus_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_venus, np.ndarray)
         assert r_venus.shape == (3,)
@@ -248,10 +248,10 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_mars_barycenter_position_de(self, year, month, day):
-        """Test that mars_barycenter_position_de returns valid position vector"""
+    def test_mars_barycenter_position_spice(self, year, month, day):
+        """Test that mars_barycenter_position_spice returns valid position vector"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
-        r_mars = bh.mars_barycenter_position_de(epc, bh.EphemerisSource.DE440s)
+        r_mars = bh.mars_barycenter_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_mars, np.ndarray)
         assert r_mars.shape == (3,)
@@ -270,10 +270,10 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_jupiter_barycenter_position_de(self, year, month, day):
-        """Test that jupiter_barycenter_position_de returns valid position vector"""
+    def test_jupiter_barycenter_position_spice(self, year, month, day):
+        """Test that jupiter_barycenter_position_spice returns valid position vector"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
-        r_jupiter = bh.jupiter_barycenter_position_de(epc, bh.EphemerisSource.DE440s)
+        r_jupiter = bh.jupiter_barycenter_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_jupiter, np.ndarray)
         assert r_jupiter.shape == (3,)
@@ -292,10 +292,10 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_saturn_barycenter_position_de(self, year, month, day):
-        """Test that saturn_barycenter_position_de returns valid position vector"""
+    def test_saturn_barycenter_position_spice(self, year, month, day):
+        """Test that saturn_barycenter_position_spice returns valid position vector"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
-        r_saturn = bh.saturn_barycenter_position_de(epc, bh.EphemerisSource.DE440s)
+        r_saturn = bh.saturn_barycenter_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_saturn, np.ndarray)
         assert r_saturn.shape == (3,)
@@ -314,10 +314,10 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_uranus_barycenter_position_de(self, year, month, day):
-        """Test that uranus_barycenter_position_de returns valid position vector"""
+    def test_uranus_barycenter_position_spice(self, year, month, day):
+        """Test that uranus_barycenter_position_spice returns valid position vector"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
-        r_uranus = bh.uranus_barycenter_position_de(epc, bh.EphemerisSource.DE440s)
+        r_uranus = bh.uranus_barycenter_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_uranus, np.ndarray)
         assert r_uranus.shape == (3,)
@@ -336,10 +336,10 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_neptune_barycenter_position_de(self, year, month, day):
-        """Test that neptune_barycenter_position_de returns valid position vector"""
+    def test_neptune_barycenter_position_spice(self, year, month, day):
+        """Test that neptune_barycenter_position_spice returns valid position vector"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
-        r_neptune = bh.neptune_barycenter_position_de(epc, bh.EphemerisSource.DE440s)
+        r_neptune = bh.neptune_barycenter_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_neptune, np.ndarray)
         assert r_neptune.shape == (3,)
@@ -358,10 +358,12 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_solar_system_barycenter_position_de(self, year, month, day):
-        """Test that solar_system_barycenter_position_de returns valid position vector"""
+    def test_solar_system_barycenter_position_spice(self, year, month, day):
+        """Test that solar_system_barycenter_position_spice returns valid position vector"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
-        r_ssb = bh.solar_system_barycenter_position_de(epc, bh.EphemerisSource.DE440s)
+        r_ssb = bh.solar_system_barycenter_position_spice(
+            epc, bh.EphemerisSource.DE440s
+        )
 
         assert isinstance(r_ssb, np.ndarray)
         assert r_ssb.shape == (3,)
@@ -380,10 +382,10 @@ class TestDEEphemerides:
             (2025, 12, 31),
         ],
     )
-    def test_ssb_position_de(self, year, month, day):
-        """Test that ssb_position_de (alias) returns valid position vector"""
+    def test_ssb_position_spice(self, year, month, day):
+        """Test that ssb_position_spice (alias) returns valid position vector"""
         epc = bh.Epoch.from_date(year, month, day, bh.TimeSystem.UTC)
-        r_ssb = bh.ssb_position_de(epc, bh.EphemerisSource.DE440s)
+        r_ssb = bh.ssb_position_spice(epc, bh.EphemerisSource.DE440s)
 
         assert isinstance(r_ssb, np.ndarray)
         assert r_ssb.shape == (3,)
@@ -397,13 +399,13 @@ class TestDEEphemerides:
 
         # First call (kernel should already be loaded from fixture)
         start = time.perf_counter()
-        _ = bh.sun_position_de(epc, bh.EphemerisSource.DE440s)
+        _ = bh.sun_position_spice(epc, bh.EphemerisSource.DE440s)
         first_call_time = time.perf_counter() - start
 
         # Subsequent calls should be much faster (no kernel loading)
         start = time.perf_counter()
         for _ in range(10):
-            _ = bh.sun_position_de(epc, bh.EphemerisSource.DE440s)
+            _ = bh.sun_position_spice(epc, bh.EphemerisSource.DE440s)
         avg_time = (time.perf_counter() - start) / 10
 
         # Average time should be similar to or faster than first call

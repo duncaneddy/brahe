@@ -1,12 +1,12 @@
 //! Load SPICE kernels and query ephemeris data from the global registry.
 //!
 //! This example demonstrates the generic NAIF-ID queries (spk_position/velocity/state),
-//! the kernel-scoped variants, and the per-body *_de convenience functions. Downloads
+//! the kernel-scoped variants, and the per-body *_spice convenience functions. Downloads
 //! the de440s (~33 MB) and mar099s (~68 MB) kernels on first run.
 
 #[allow(unused_imports)]
 use brahe as bh;
-use brahe::spice::{NAIFId, NAIFKernel};
+use brahe::spice::{NAIFId, SPICEKernel};
 
 fn main() {
     bh::initialize_eop().unwrap();
@@ -50,10 +50,10 @@ fn main() {
     );
 
     // Per-body convenience functions wrap the same queries for the ten most
-    // commonly used bodies, selecting the kernel via NAIFKernel.
-    let r_mars = bh::spice::mars_position_de(epc, NAIFKernel::DE440s).unwrap();
-    let v_mars = bh::spice::mars_velocity_de(epc, NAIFKernel::DE440s).unwrap();
-    let x_mars = bh::spice::mars_state_de(epc, NAIFKernel::DE440s).unwrap();
+    // commonly used bodies, selecting the kernel via SPICEKernel.
+    let r_mars = bh::spice::mars_position_spice(epc, SPICEKernel::DE440s).unwrap();
+    let v_mars = bh::spice::mars_velocity_spice(epc, SPICEKernel::DE440s).unwrap();
+    let x_mars = bh::spice::mars_state_spice(epc, SPICEKernel::DE440s).unwrap();
 
     println!(
         "\nMars position rel. Earth (km): [{:.3}, {:.3}, {:.3}]",

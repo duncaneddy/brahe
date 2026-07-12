@@ -20,7 +20,7 @@ pub use groundstations::{
 };
 
 // Re-export commonly used functions from naif
-pub use naif::download_kernel;
+pub use naif::download_spice_kernel;
 
 // Re-export commonly used types and functions from gcat
 pub use gcat::{

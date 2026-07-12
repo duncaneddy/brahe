@@ -9,7 +9,7 @@ fn main() {
     let epc = bh::Epoch::from_datetime(2025, 3, 15, 6, 30, 21.0, 0.0, bh::TimeSystem::UTC);
 
     // SPICE ephemeris time (ET) is TDB seconds past J2000. spk_position/velocity/state
-    // and the *_de functions convert epochs this way internally.
+    // and the *_spice functions convert epochs this way internally.
     let et = epc.seconds_past_j2000_as_time_system(bh::TimeSystem::TDB);
     println!("Epoch: {}", epc);
     println!("SPICE ET (TDB seconds past J2000): {:.6}", et);

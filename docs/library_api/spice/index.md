@@ -1,7 +1,7 @@
 # SPICE Kernels
 
 Native SPICE kernel registry: loading/unloading SPK and binary PCK kernels,
-and generic NAIF-ID ephemeris/orientation queries. For the per-body `*_de`
+and generic NAIF-ID ephemeris/orientation queries. For the per-body `*_spice`
 convenience functions, see the
 [Ephemerides reference](../orbit_dynamics/ephemerides.md).
 

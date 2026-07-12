@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use crate::orbit_dynamics::ParallelMode;
 use crate::orbit_dynamics::gravity::{GravityModelTideSystem, GravityModelType};
 use crate::orbit_dynamics::tides::SolidTideConfig;
-use crate::spice::NAIFKernel;
+use crate::spice::SPICEKernel;
 use crate::utils::BraheError;
 
 // =============================================================================
@@ -902,16 +902,16 @@ pub enum EphemerisSource {
     ///
     /// Uses an explicitly selected SPK kernel while keeping the higher-level
     /// force-model interface centered on `EphemerisSource`.
-    SPK(NAIFKernel),
+    SPK(SPICEKernel),
 }
 
-impl TryFrom<EphemerisSource> for NAIFKernel {
+impl TryFrom<EphemerisSource> for SPICEKernel {
     type Error = BraheError;
 
     fn try_from(source: EphemerisSource) -> Result<Self, Self::Error> {
         match source {
-            EphemerisSource::DE440s => Ok(NAIFKernel::DE440s),
-            EphemerisSource::DE440 => Ok(NAIFKernel::DE440),
+            EphemerisSource::DE440s => Ok(SPICEKernel::DE440s),
+            EphemerisSource::DE440 => Ok(SPICEKernel::DE440),
             EphemerisSource::SPK(kernel) => Ok(kernel),
             EphemerisSource::LowPrecision => Err(BraheError::Error(
                 "LowPrecision is not a valid DE kernel - use DE440s, DE440, or EphemerisSource::SPK(...)"
@@ -1080,18 +1080,18 @@ mod tests {
     #[test]
     fn test_ephemeris_source_to_spk_kernel() {
         assert_eq!(
-            NAIFKernel::try_from(EphemerisSource::DE440s).unwrap(),
-            NAIFKernel::DE440s
+            SPICEKernel::try_from(EphemerisSource::DE440s).unwrap(),
+            SPICEKernel::DE440s
         );
         assert_eq!(
-            NAIFKernel::try_from(EphemerisSource::DE440).unwrap(),
-            NAIFKernel::DE440
+            SPICEKernel::try_from(EphemerisSource::DE440).unwrap(),
+            SPICEKernel::DE440
         );
         assert_eq!(
-            NAIFKernel::try_from(EphemerisSource::SPK(NAIFKernel::DE440s)).unwrap(),
-            NAIFKernel::DE440s
+            SPICEKernel::try_from(EphemerisSource::SPK(SPICEKernel::DE440s)).unwrap(),
+            SPICEKernel::DE440s
         );
-        assert!(NAIFKernel::try_from(EphemerisSource::LowPrecision).is_err());
+        assert!(SPICEKernel::try_from(EphemerisSource::LowPrecision).is_err());
     }
 
     #[test]

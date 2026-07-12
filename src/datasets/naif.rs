@@ -4,11 +4,11 @@
  *
  * NAIF (Navigation and Ancillary Information Facility) is NASA's archive of
  * planetary ephemerides and orientation data, maintained by JPL. This module
- * downloads and caches the kernels enumerated by [`NAIFKernel`] (planetary DE
- * SPK kernels, satellite-system SPK kernels, and binary PCK kernels).
+ * downloads and caches the kernels enumerated by [`SPICEKernel`] (planetary DE
+ * SPK kernels, satellite ephemeris kernels, and binary PCK kernels).
  */
 
-use crate::spice::NAIFKernel;
+use crate::spice::SPICEKernel;
 use crate::utils::BraheError;
 use crate::utils::atomic_write;
 use crate::utils::cache::get_naif_cache_dir;
@@ -19,19 +19,19 @@ use std::path::PathBuf;
 /// Download a kernel's bytes from an explicit base URL.
 ///
 /// Internal test seam: production code uses [`fetch_kernel`], which derives
-/// the full URL from the kernel via [`NAIFKernel::url`]. This override lets
+/// the full URL from the kernel via [`SPICEKernel::url`]. This override lets
 /// the mock-server tests point downloads at a local server while exercising
 /// the same read/error handling.
 ///
 /// # Arguments
-/// * `kernel` - Kernel to download (its [`NAIFKernel::filename`] is appended
+/// * `kernel` - Kernel to download (its [`SPICEKernel::filename`] is appended
 ///   to `base_url`)
 /// * `base_url` - Base URL to fetch from
 ///
 /// # Returns
 /// * `Result<Vec<u8>, BraheError>` - Binary kernel data
 #[cfg(test)]
-fn fetch_kernel_with_url(kernel: NAIFKernel, base_url: &str) -> Result<Vec<u8>, BraheError> {
+fn fetch_kernel_with_url(kernel: SPICEKernel, base_url: &str) -> Result<Vec<u8>, BraheError> {
     let url = format!("{}{}", base_url, kernel.filename());
     fetch_kernel_from_url(&url, kernel.name())
 }
@@ -43,7 +43,7 @@ fn fetch_kernel_with_url(kernel: NAIFKernel, base_url: &str) -> Result<Vec<u8>, 
 ///
 /// # Returns
 /// * `Result<Vec<u8>, BraheError>` - Binary kernel data
-fn fetch_kernel(kernel: NAIFKernel) -> Result<Vec<u8>, BraheError> {
+fn fetch_kernel(kernel: SPICEKernel) -> Result<Vec<u8>, BraheError> {
     fetch_kernel_from_url(&kernel.url(), kernel.name())
 }
 
@@ -92,7 +92,7 @@ fn fetch_kernel_from_url(url: &str, label: &str) -> Result<Vec<u8>, BraheError> 
 /// Optionally copies the kernel to a user-specified location.
 ///
 /// # Arguments
-/// * `kernel` - Which kernel to download (see [`NAIFKernel`])
+/// * `kernel` - Which kernel to download (see [`SPICEKernel`])
 /// * `output_path` - Optional path to copy the kernel to after download/cache retrieval
 ///
 /// # Returns
@@ -100,21 +100,21 @@ fn fetch_kernel_from_url(url: &str, label: &str) -> Result<Vec<u8>, BraheError> 
 ///
 /// # Examples
 /// ```no_run
-/// use brahe::datasets::naif::download_kernel;
-/// use brahe::spice::NAIFKernel;
+/// use brahe::datasets::naif::download_spice_kernel;
+/// use brahe::spice::SPICEKernel;
 /// use std::path::PathBuf;
 ///
 /// // Download and cache the de440s kernel
-/// let kernel_path = download_kernel(NAIFKernel::DE440s, None).unwrap();
+/// let kernel_path = download_spice_kernel(SPICEKernel::DE440s, None).unwrap();
 /// println!("Kernel cached at: {}", kernel_path.display());
 ///
 /// // Download and copy to a specific location
 /// let output = PathBuf::from("/path/to/my_kernel.bsp");
-/// let kernel_path = download_kernel(NAIFKernel::DE440s, Some(output.clone())).unwrap();
+/// let kernel_path = download_spice_kernel(SPICEKernel::DE440s, Some(output.clone())).unwrap();
 /// assert_eq!(kernel_path, output);
 /// ```
-pub fn download_kernel(
-    kernel: NAIFKernel,
+pub fn download_spice_kernel(
+    kernel: SPICEKernel,
     output_path: Option<PathBuf>,
 ) -> Result<PathBuf, BraheError> {
     // Determine cache filepath
@@ -204,7 +204,7 @@ mod tests {
         setup_test_kernel();
 
         // Test downloading de440s kernel (smaller file)
-        let result = download_kernel(NAIFKernel::DE440s, None);
+        let result = download_spice_kernel(SPICEKernel::DE440s, None);
         assert!(result.is_ok());
 
         let kernel_path = result.unwrap();
@@ -230,7 +230,7 @@ mod tests {
         let _ = fs::remove_file(&output_path);
 
         // Download kernel to specific location
-        let result = download_kernel(NAIFKernel::DE440s, Some(output_path.clone()));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(output_path.clone()));
         assert!(result.is_ok());
 
         let returned_path = result.unwrap();
@@ -252,7 +252,7 @@ mod tests {
         setup_test_kernel();
 
         // First download
-        let result1 = download_kernel(NAIFKernel::DE440s, None);
+        let result1 = download_spice_kernel(SPICEKernel::DE440s, None);
         assert!(result1.is_ok());
         let kernel_path = result1.unwrap();
 
@@ -264,7 +264,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(100));
 
         // Second download - should use cache
-        let result2 = download_kernel(NAIFKernel::DE440s, None);
+        let result2 = download_spice_kernel(SPICEKernel::DE440s, None);
         assert!(result2.is_ok());
 
         //
@@ -288,7 +288,7 @@ mod tests {
         });
 
         // Attempt to fetch kernel from mock server
-        let result = fetch_kernel_with_url(NAIFKernel::DE440s, &server.url("/"));
+        let result = fetch_kernel_with_url(SPICEKernel::DE440s, &server.url("/"));
 
         // Should fail with appropriate error
         assert!(result.is_err());
@@ -312,7 +312,7 @@ mod tests {
         });
 
         // Attempt to fetch kernel from mock server
-        let result = fetch_kernel_with_url(NAIFKernel::DE440s, &server.url("/"));
+        let result = fetch_kernel_with_url(SPICEKernel::DE440s, &server.url("/"));
 
         // Should fail with appropriate error
         assert!(result.is_err());
@@ -336,7 +336,7 @@ mod tests {
         });
 
         // Attempt to fetch kernel from mock server
-        let result = fetch_kernel_with_url(NAIFKernel::DE440s, &server.url("/"));
+        let result = fetch_kernel_with_url(SPICEKernel::DE440s, &server.url("/"));
 
         // Should fail with "No data returned" error
         assert!(result.is_err());
@@ -360,7 +360,7 @@ mod tests {
             then.status(200).body("data");
         });
 
-        let result = fetch_kernel_with_url(NAIFKernel::Ura184, &server.url("/"));
+        let result = fetch_kernel_with_url(SPICEKernel::Ura184, &server.url("/"));
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), b"data");
     }
@@ -378,7 +378,7 @@ mod tests {
         setup_test_kernel();
 
         // Attempt to download with output path pointing to a directory (not a file)
-        let result = download_kernel(NAIFKernel::DE440s, Some(output_path.clone()));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(output_path.clone()));
 
         // Should fail because output path is a directory
         assert!(result.is_err());
@@ -418,7 +418,7 @@ mod tests {
         setup_test_kernel();
 
         // Attempt to copy to the read-only directory
-        let result = download_kernel(NAIFKernel::DE440s, Some(output_path));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(output_path));
 
         // Restore permissions for cleanup
         let mut dir_perms = fs::metadata(temp_dir.path()).unwrap().permissions();
@@ -442,7 +442,7 @@ mod tests {
         setup_test_kernel();
 
         // Attempt to download with output path that exists as a directory
-        let result = download_kernel(NAIFKernel::DE440s, Some(output_path));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(output_path));
 
         // Should fail because we can't overwrite a directory with a file
         assert!(result.is_err());
@@ -477,7 +477,7 @@ mod tests {
         assert!(!nested_path.parent().unwrap().exists());
 
         // Download should create all parent directories
-        let result = download_kernel(NAIFKernel::DE440s, Some(nested_path.clone()));
+        let result = download_spice_kernel(SPICEKernel::DE440s, Some(nested_path.clone()));
         assert!(result.is_ok());
         assert!(nested_path.exists());
         assert!(nested_path.parent().unwrap().exists());
@@ -493,7 +493,7 @@ mod tests {
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_download_pck_network() {
-        let result = download_kernel(NAIFKernel::MoonPaDe440, None);
+        let result = download_spice_kernel(SPICEKernel::MoonPaDe440, None);
         assert!(result.is_ok());
         let path = result.unwrap();
         assert!(path.exists());

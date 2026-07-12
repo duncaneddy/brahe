@@ -9,29 +9,29 @@ Third-body gravitational perturbation accelerations from the Sun, Moon, and plan
 
 ::: brahe.accel_third_body_sun
 
-::: brahe.accel_third_body_sun_de
+::: brahe.accel_third_body_sun_spice
 
 ## Moon Perturbations
 
 ::: brahe.accel_third_body_moon
 
-::: brahe.accel_third_body_moon_de
+::: brahe.accel_third_body_moon_spice
 
-::: brahe.accel_third_body_sun_de
+::: brahe.accel_third_body_sun_spice
 
-::: brahe.accel_third_body_mercury_de
+::: brahe.accel_third_body_mercury_spice
 
-::: brahe.accel_third_body_venus_de
+::: brahe.accel_third_body_venus_spice
 
-::: brahe.accel_third_body_mars_de
+::: brahe.accel_third_body_mars_spice
 
-::: brahe.accel_third_body_jupiter_de
+::: brahe.accel_third_body_jupiter_spice
 
-::: brahe.accel_third_body_saturn_de
+::: brahe.accel_third_body_saturn_spice
 
-::: brahe.accel_third_body_uranus_de
+::: brahe.accel_third_body_uranus_spice
 
-::: brahe.accel_third_body_neptune_de
+::: brahe.accel_third_body_neptune_spice
 
 ## See Also
 

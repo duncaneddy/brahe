@@ -16,15 +16,15 @@ bh.initialize_eop()
 
 # Download de440s kernel (smaller variant, ~33MB)
 # This will download once and cache for future use
-kernel_path = bh.datasets.naif.download_kernel("de440s")
+kernel_path = bh.datasets.naif.download_spice_kernel("de440s")
 
 print(f"Kernel cached at: {kernel_path}")
 
 # Subsequent calls use the cached file - no re-download
-kernel_path_again = bh.datasets.naif.download_kernel("de440s")
+kernel_path_again = bh.datasets.naif.download_spice_kernel("de440s")
 print(f"Retrieved from cache: {kernel_path_again}")
 
 # Optionally copy to a specific location
 output_path = "/tmp/my_kernel.bsp"
-copied_path = bh.datasets.naif.download_kernel("de440s", output_path)
+copied_path = bh.datasets.naif.download_spice_kernel("de440s", output_path)
 print(f"Copied to: {copied_path}")

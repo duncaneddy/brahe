@@ -11,7 +11,7 @@ Two ways to query loaded kernels are available:
 - **Generic queries** (`spk_position`/`spk_velocity`/`spk_state`,
   `pck_euler_angles`/`pck_rotation_matrix`) take NAIF IDs or frame class IDs
   directly and resolve against a process-wide kernel registry.
-- **Per-body convenience functions** (`sun_position_de`, `moon_state_de`, ...)
+- **Per-body convenience functions** (`sun_position_spice`, `moon_state_spice`, ...)
   wrap the same registry for the ten most commonly used bodies.
 
 For downloading and caching the underlying kernel files, see
@@ -47,7 +47,7 @@ auto-detects SPK vs. binary PCK from the file header:
 
 Known kernel names — the eight planetary DE kernels (`de430`, `de432s`,
 `de435`, `de438`, `de440`, `de440s`, `de442`, `de442s`), the seven
-satellite-system kernels (`mar099`, `mar099s`, `jup365`, `sat441`, `ura184`,
+satellite ephemeris kernels (`mar099`, `mar099s`, `jup365`, `sat441`, `ura184`,
 `nep097`, `plu060`), and the binary PCK `moon_pa_de440` — are downloaded and
 cached automatically; any other string is treated as a path to a local
 `.bsp` or `.bpc` file (bring-your-own kernels). The `moon_pa_de440` binary
@@ -60,7 +60,7 @@ caching details.
 
 | Name | File | Size | Coverage | Contents |
 |---|---|---|---|---|
-| `de440s` | `de440s.bsp` | ~33 MB | 1849–2150 | Sun, Moon, all planets and planetary-system barycenters (default for `spk_*`/`*_de` auto-init) |
+| `de440s` | `de440s.bsp` | ~33 MB | 1849–2150 | Sun, Moon, all planets and planetary-system barycenters (default for `spk_*`/`*_spice` auto-init) |
 | `de440` | `de440.bsp` | ~120 MB | 1550–2650 | Same content as `de440s`, wider time span |
 | `de430` | `de430.bsp` | ~120 MB | — | Standard precision, extended time span |
 | `de432s` | `de432s.bsp` | ~11 MB | — | Small variant tuned for New Horizons Pluto targeting |
@@ -167,28 +167,28 @@ is loaded.
 
 ### Per-Body Functions
 
-`sun_position_de`, `moon_position_de`, `mercury_position_de`,
-`venus_position_de`, `mars_position_de`, `jupiter_position_de`,
-`saturn_position_de`, `uranus_position_de`, `neptune_position_de`, and
-`solar_system_barycenter_position_de` (alias: `ssb_position_de`) each have
-`_velocity_de` and `_state_de` counterparts, all queried relative to Earth
+`sun_position_spice`, `moon_position_spice`, `mercury_position_spice`,
+`venus_position_spice`, `mars_position_spice`, `jupiter_position_spice`,
+`saturn_position_spice`, `uranus_position_spice`, `neptune_position_spice`, and
+`solar_system_barycenter_position_spice` (alias: `ssb_position_spice`) each have
+`_velocity_spice` and `_state_spice` counterparts, all queried relative to Earth
 (`NAIFId.EARTH` / `NAIFId::Earth`, ID 399). They take an `Epoch` and an
 ephemeris source selecting which DE kernel to query (`EphemerisSource.DE440s` /
-`EphemerisSource.DE440` in Python, `NAIFKernel::DE440s` / `NAIFKernel::DE440`
+`EphemerisSource.DE440` in Python, `SPICEKernel::DE440s` / `SPICEKernel::DE440`
 in Rust). Computing the state shares a single
-record lookup between position and velocity, so prefer `*_state_de` over
+record lookup between position and velocity, so prefer `*_state_spice` over
 separate position/velocity calls when both are needed.
 
 The Mars/Jupiter/Saturn/Uranus/Neptune functions return the planet **body
 center**. The DE kernel only carries the planetary-system barycenter for these
 outer planets, so the body center is computed as a two-leg sum: the
 barycenter relative to Earth from the DE kernel, plus the body center relative
-to the barycenter from the planet's satellite-system kernel. That satellite
+to the barycenter from the planet's satellite ephemeris kernel. That satellite
 kernel is auto-downloaded and loaded on first use (mar099s ~68 MB, jup365
 ~1.1 GB, sat441 ~662 MB, ura184 ~387 MB, nep097 ~105 MB).
 
-Each of the five outer planets also has `mars_barycenter_position_de`,
-`jupiter_barycenter_position_de`, and so on (with `_velocity_de` / `_state_de`
+Each of the five outer planets also has `mars_barycenter_position_spice`,
+`jupiter_barycenter_position_spice`, and so on (with `_velocity_spice` / `_state_spice`
 counterparts) that return the planetary-system barycenter using **only** the
 DE kernel — no satellite-kernel download. The barycenter and body center
 differ by up to a few hundred km due to large moons (e.g. ~290 km for Saturn
@@ -259,7 +259,7 @@ labels it "J2000" in kernel metadata and documentation — see the
 [NAIF Frames Required Reading](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/frames.html)
 for the frame-ID definitions and the historical "J2000" naming. Brahe
 applies no additional bias rotation between the kernel output and GCRF:
-values from `spk_*`/`*_de` queries are GCRF-compatible directly.
+values from `spk_*`/`*_spice` queries are GCRF-compatible directly.
 
 ## Performance
 
@@ -273,7 +273,7 @@ every call.
 
 ## See Also
 
-- [Ephemerides API Reference](../../library_api/orbit_dynamics/ephemerides.md) - Per-body `*_de` function reference
+- [Ephemerides API Reference](../../library_api/orbit_dynamics/ephemerides.md) - Per-body `*_spice` function reference
 - [SPICE Kernels API Reference](../../library_api/spice/index.md) - Kernel registry and generic query reference
 - [NAIF Ephemeris Kernels](../datasets/naif.md) - Downloading and caching DE/PCK kernel files
 - [Third-Body Perturbations](../orbital_dynamics/third_body.md) - Using DE ephemerides in force models

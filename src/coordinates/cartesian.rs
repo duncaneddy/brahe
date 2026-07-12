@@ -211,7 +211,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
-    use crate::constants::{DEG2RAD, DEGREES, RADIANS, R_EARTH};
+    use crate::constants::{DEG2RAD, DEGREES, R_EARTH, RADIANS};
     use crate::coordinates::*;
     use crate::math::*;
     use crate::orbits::*;

@@ -8,12 +8,12 @@ use nalgebra::Vector3;
 use crate::math::traits::IntoPosition;
 use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
-use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
 use crate::propagators::CentralBody;
+use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
 use crate::spice::{
-    jupiter_position_de, load_kernel, mars_position_de, mercury_position_de, moon_position_de,
-    neptune_position_de, saturn_position_de, spk_position, sun_position_de, uranus_position_de,
-    venus_position_de, SPKKernel,
+    SPKKernel, jupiter_position_de, load_kernel, mars_position_de, mercury_position_de,
+    moon_position_de, neptune_position_de, saturn_position_de, spk_position, sun_position_de,
+    uranus_position_de, venus_position_de,
 };
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -288,7 +288,9 @@ pub fn accel_third_body_for_body<P: IntoPosition>(
     if body.naif_id() == central_body.naif_id() {
         return Err(BraheError::Error(format!(
             "Third body {:?} has the same NAIF ID ({}) as the central body {:?} — a body cannot perturb its own center",
-            body, body.naif_id(), central_body
+            body,
+            body.naif_id(),
+            central_body
         )));
     }
 

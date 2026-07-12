@@ -86,9 +86,8 @@ pub(crate) fn read_index_file(path: &Path) -> Result<Option<IndexFile>, BraheErr
 
 /// Write an index file to disk atomically.
 pub(crate) fn write_index_file(path: &Path, file: &IndexFile) -> Result<(), BraheError> {
-    let data = serde_json::to_string_pretty(file).map_err(|e| {
-        BraheError::Error(format!("Failed to serialize ICGEM index: {}", e))
-    })?;
+    let data = serde_json::to_string_pretty(file)
+        .map_err(|e| BraheError::Error(format!("Failed to serialize ICGEM index: {}", e)))?;
     atomic_write(path, data.as_bytes()).map_err(|e| {
         BraheError::Error(format!(
             "Failed to write ICGEM index to {}: {}",
@@ -114,7 +113,11 @@ pub(crate) fn fetch_index_with_url(
     base_url: &str,
 ) -> Result<IndexFile, BraheError> {
     use std::io::Read;
-    let path = if body.is_earth() { EARTH_PATH } else { CELESTIAL_PATH };
+    let path = if body.is_earth() {
+        EARTH_PATH
+    } else {
+        CELESTIAL_PATH
+    };
     let url = format!("{}{}", base_url, path);
 
     let response = ureq::get(&url).call().map_err(|e| {
@@ -183,7 +186,8 @@ pub fn list_icgem_models_with_url(
             if let Some(stale) = existing {
                 eprintln!(
                     "Warning: ICGEM index refresh failed ({}); using stale cache from {}",
-                    fetch_err, path.display()
+                    fetch_err,
+                    path.display()
                 );
                 Ok(filter_for_body(stale.entries))
             } else {
@@ -313,7 +317,9 @@ mod tests {
     #[serial_test::serial]
     fn test_list_models_uses_fresh_cache() {
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         let path = index_path_for(&ICGEMBody::Earth).unwrap();
         let file = IndexFile {
@@ -333,7 +339,9 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "JGM3");
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
@@ -341,7 +349,9 @@ mod tests {
     fn test_list_models_refreshes_stale_cache() {
         use httpmock::prelude::*;
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         let path = index_path_for(&ICGEMBody::Earth).unwrap();
         let stale = IndexFile {
@@ -361,14 +371,18 @@ mod tests {
         let entries = list_icgem_models_with_url(&ICGEMBody::Earth, &server.base_url()).unwrap();
         assert!(!entries.is_empty());
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
     #[serial_test::serial]
     fn test_list_models_stale_fallback_on_network_failure() {
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         let path = index_path_for(&ICGEMBody::Earth).unwrap();
         let stale = IndexFile {
@@ -388,7 +402,9 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "STALE");
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 
     #[test]
@@ -398,7 +414,9 @@ mod tests {
         // list_icgem_models(Mars) must return only Mars entries — not Moon,
         // Venus, or Ceres ones that share the same file.
         let dir = tempfile::tempdir().unwrap();
-        unsafe { std::env::set_var("BRAHE_CACHE", dir.path()); }
+        unsafe {
+            std::env::set_var("BRAHE_CACHE", dir.path());
+        }
 
         let path = index_path_for(&ICGEMBody::Moon).unwrap(); // celestial index file
         let file = IndexFile {
@@ -451,6 +469,8 @@ mod tests {
             list_icgem_models_with_url(&ICGEMBody::Ceres, "http://127.0.0.1:1").unwrap();
         assert!(ceres_entries.is_empty());
 
-        unsafe { std::env::remove_var("BRAHE_CACHE"); }
+        unsafe {
+            std::env::remove_var("BRAHE_CACHE");
+        }
     }
 }

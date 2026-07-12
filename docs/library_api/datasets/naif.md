@@ -1,14 +1,13 @@
 # NAIF Functions
 
-Functions for downloading planetary ephemeris kernels from NASA JPL's NAIF archive.
+Functions for downloading planetary DE, satellite ephemeris, and lunar-orientation kernels from NASA JPL's NAIF archive.
 
 All functions are available via `brahe.datasets.naif.<function_name>`.
 
-## download_de_kernel
-
-::: brahe._brahe.naif_download_de_kernel
+::: brahe._brahe.download_spice_kernel
 
 ## See Also
 
-- [About NAIF and SPICE Kernels](#) - Learn more about NAIF ephemeris data (coming soon)
+- [NAIF Ephemeris Kernels](../../learn/datasets/naif.md) - Supported kernels, caching behavior, and usage examples
+- [SPICE Kernels](../../learn/spice/index.md) - Loading, querying, and PCK orientation
 - [NASA NAIF Website](https://naif.jpl.nasa.gov/) - Official NAIF data archive

@@ -290,8 +290,42 @@ Epochs can be converted to human-readable strings in various formats and time sy
         --8<-- "./docs/outputs/time/epoch_string_output.rs.txt"
         ```
 
+### Seconds Past J2000 in a Specific Time System
+
+`seconds_past_j2000_as_time_system` returns the number of seconds elapsed
+since the J2000 epoch (2000-01-01 12:00:00 TT), expressed in a chosen time
+system. Requesting `TimeSystem.TDB` gives SPICE ephemeris time (ET), the
+time argument used by SPK/PCK kernel queries (`spk_position`,
+`sun_position_spice`, ...); see [SPICE Kernels](../spice/index.md).
+`spice_et()` is a convenience alias for
+`seconds_past_j2000_as_time_system(TimeSystem.TDB)`.
+
+=== "Python"
+
+    ```python
+    --8<-- "./examples/time/epoch_spice_et.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/time/epoch_spice_et.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_spice_et.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_spice_et.rs.txt"
+        ```
+
 ---
 
 ## See Also
 
 - [Epoch API Reference](../../library_api/time/epoch.md)
+- [SPICE Kernels](../spice/index.md) - Using ET for kernel queries

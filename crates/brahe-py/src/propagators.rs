@@ -3789,22 +3789,24 @@ impl PyTidesConfiguration {
         permanent: &PyPermanentTideConfig,
         solid: Option<&PySolidTideConfig>,
     ) -> PyResult<Self> {
-        if let propagators::PermanentTideConfig::ConvertTo(sys) = &permanent.config 
-            && *sys != orbit_dynamics::GravityModelTideSystem::TideFree && solid.is_some() {
-                let msg = std::ffi::CString::new(format!(
-                    "PermanentTideConfig.convert_to(GravityModelTideSystem.{sys:?}) combined \
+        if let propagators::PermanentTideConfig::ConvertTo(sys) = &permanent.config
+            && *sys != orbit_dynamics::GravityModelTideSystem::TideFree
+            && solid.is_some()
+        {
+            let msg = std::ffi::CString::new(format!(
+                "PermanentTideConfig.convert_to(GravityModelTideSystem.{sys:?}) combined \
                      with solid Earth tides double-counts the permanent tide: the solid-tide \
                      model (IERS \u{a7}6.2.1) already includes the permanent part and expects a \
                      conventional tide-free background field. Use \
                      convert_to(GravityModelTideSystem.TideFree) or PermanentTideConfig.AUTO, \
                      or disable solid tides."
-                ))?;
-                PyErr::warn(
-                    py,
-                    &py.get_type::<pyo3::exceptions::PyUserWarning>(),
-                    &msg,
-                    2,
-                )?;
+            ))?;
+            PyErr::warn(
+                py,
+                &py.get_type::<pyo3::exceptions::PyUserWarning>(),
+                &msg,
+                2,
+            )?;
         }
         Ok(Self {
             config: propagators::TidesConfiguration {
@@ -4476,10 +4478,13 @@ impl PyThirdBodyConfiguration {
             propagators::EphemerisSource::LowPrecision => PyEphemerisSource::LowPrecision,
             propagators::EphemerisSource::DE440s => PyEphemerisSource::DE440s,
             propagators::EphemerisSource::DE440 => PyEphemerisSource::DE440,
-            propagators::EphemerisSource::SPK(spice::SPKKernel::DE440s) => {
-                PyEphemerisSource::DE440s
+            propagators::EphemerisSource::SPK(spice::SPICEKernel::DE440) => {
+                PyEphemerisSource::DE440
             }
-            propagators::EphemerisSource::SPK(spice::SPKKernel::DE440) => PyEphemerisSource::DE440,
+            // The Python `EphemerisSource` enum exposes only LowPrecision/DE440s/DE440,
+            // so it can never construct any other SPK kernel; map the remainder to
+            // DE440s as the closest Python-visible source.
+            propagators::EphemerisSource::SPK(_) => PyEphemerisSource::DE440s,
         }
     }
 

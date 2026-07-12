@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use crate::orbit_dynamics::ParallelMode;
 use crate::orbit_dynamics::gravity::{GravityModelTideSystem, GravityModelType};
 use crate::orbit_dynamics::tides::SolidTideConfig;
-use crate::spice::SPKKernel;
+use crate::spice::SPICEKernel;
 use crate::utils::BraheError;
 
 // =============================================================================
@@ -887,7 +887,7 @@ pub enum EphemerisSource {
     /// Uses JPL Development Ephemeris 440 (small bodies version).
     /// High accuracy (~m level) but requires ephemeris file and slower evaluation.
     /// Valid over time range 1550-2650 CE.
-    /// All planets available. File size ~17 MB.
+    /// All planets available. File size ~33 MB.
     DE440s,
 
     /// Full-precision JPL DE440 ephemerides (13200 BCE-17191 CE)
@@ -895,23 +895,23 @@ pub enum EphemerisSource {
     /// Uses JPL Development Ephemeris 440 (full version).
     /// Highest accuracy (~mm level) but requires larger ephemeris file and slower evaluation.
     /// Valid over extended time range 13200 BCE-17191 CE.
-    /// All planets available. File size ~114 MB.
+    /// All planets available. File size ~120 MB.
     DE440,
 
     /// Custom SPK-backed ephemeris source.
     ///
     /// Uses an explicitly selected SPK kernel while keeping the higher-level
     /// force-model interface centered on `EphemerisSource`.
-    SPK(SPKKernel),
+    SPK(SPICEKernel),
 }
 
-impl TryFrom<EphemerisSource> for SPKKernel {
+impl TryFrom<EphemerisSource> for SPICEKernel {
     type Error = BraheError;
 
     fn try_from(source: EphemerisSource) -> Result<Self, Self::Error> {
         match source {
-            EphemerisSource::DE440s => Ok(SPKKernel::DE440s),
-            EphemerisSource::DE440 => Ok(SPKKernel::DE440),
+            EphemerisSource::DE440s => Ok(SPICEKernel::DE440s),
+            EphemerisSource::DE440 => Ok(SPICEKernel::DE440),
             EphemerisSource::SPK(kernel) => Ok(kernel),
             EphemerisSource::LowPrecision => Err(BraheError::Error(
                 "LowPrecision is not a valid DE kernel - use DE440s, DE440, or EphemerisSource::SPK(...)"
@@ -1080,18 +1080,18 @@ mod tests {
     #[test]
     fn test_ephemeris_source_to_spk_kernel() {
         assert_eq!(
-            SPKKernel::try_from(EphemerisSource::DE440s).unwrap(),
-            SPKKernel::DE440s
+            SPICEKernel::try_from(EphemerisSource::DE440s).unwrap(),
+            SPICEKernel::DE440s
         );
         assert_eq!(
-            SPKKernel::try_from(EphemerisSource::DE440).unwrap(),
-            SPKKernel::DE440
+            SPICEKernel::try_from(EphemerisSource::DE440).unwrap(),
+            SPICEKernel::DE440
         );
         assert_eq!(
-            SPKKernel::try_from(EphemerisSource::SPK(SPKKernel::DE440s)).unwrap(),
-            SPKKernel::DE440s
+            SPICEKernel::try_from(EphemerisSource::SPK(SPICEKernel::DE440s)).unwrap(),
+            SPICEKernel::DE440s
         );
-        assert!(SPKKernel::try_from(EphemerisSource::LowPrecision).is_err());
+        assert!(SPICEKernel::try_from(EphemerisSource::LowPrecision).is_err());
     }
 
     #[test]

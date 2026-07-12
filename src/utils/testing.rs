@@ -9,7 +9,6 @@ use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
 
-use anise::prelude::{Almanac, SPK};
 use nalgebra::SVector;
 
 use crate::AngleFormat;
@@ -22,7 +21,6 @@ use crate::orbits::keplerian::{geo_sma, perigee_velocity, sun_synchronous_inclin
 use crate::space_weather::{
     FileSpaceWeatherProvider, SpaceWeatherExtrapolation, set_global_space_weather_provider,
 };
-use crate::spice::set_global_almanac;
 use crate::utils::get_naif_cache_dir;
 
 // =============================================================================
@@ -327,49 +325,228 @@ pub(crate) fn setup_global_test_gravity_model() {
     set_global_gravity_model(gravity_model);
 }
 
-/// Initialize global ANISE Almanac with DE440s kernel for ephemeris tests.
+/// Initialize the global SPICE kernel registry with the DE440s test asset.
 ///
-/// Copies `test_assets/de440s.bsp` to the NAIF cache directory and loads it as the
-/// global Almanac. This avoids network downloads during CI tests while providing
-/// the same DE440s ephemeris data for testing high-precision sun/moon positions.
-///
-/// Use at the start of tests requiring DE440s ephemeris (`sun_position_de()`,
-/// `moon_position_de()`). If the test asset doesn't exist, this function does
-/// nothing (allows running tests without the large kernel file).
+/// Copies `test_assets/de440s.bsp` into the NAIF cache directory (if present)
+/// and loads it into the global registry. Safe to call from multiple tests;
+/// initialization runs once.
 ///
 /// # Panics
 /// Panics if the test asset exists but cannot be copied or loaded.
-pub(crate) fn setup_global_test_almanac() {
-    // Use OnceLock to ensure single initialization across parallel tests
-    static ALMANAC_INIT: OnceLock<()> = OnceLock::new();
+pub(crate) fn setup_global_test_spice() {
+    static SPICE_INIT: OnceLock<()> = OnceLock::new();
 
-    ALMANAC_INIT.get_or_init(|| {
+    SPICE_INIT.get_or_init(|| {
         let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
         let test_asset_path = Path::new(&manifest_dir)
             .join("test_assets")
             .join("de440s.bsp");
 
-        // Only proceed if test asset exists (it might not in local dev)
         if !test_asset_path.exists() {
             return;
         }
 
         let cache_dir = get_naif_cache_dir().expect("Failed to get NAIF cache dir");
         let cache_path = Path::new(&cache_dir).join("de440s.bsp");
-
-        // Copy test asset to cache (overwrite if exists to ensure we have latest)
         fs::copy(&test_asset_path, &cache_path).expect("Failed to copy test asset to cache");
 
-        // Load SPK and create Almanac context
-        let cache_path_str = cache_path
-            .to_str()
-            .expect("Failed to convert path to string");
-        let spk = SPK::load(cache_path_str).expect("Failed to load DE440s test kernel");
-        let almanac = Almanac::from_spk(spk);
-
-        // Set as global
-        set_global_almanac(almanac);
+        crate::spice::load_kernel("de440s").expect("Failed to load DE440s test kernel");
     });
+}
+
+/// Build a minimal little-endian `DAF/SPK` kernel with one constant-position
+/// Type 2 segment per `(target, center, x_km)` entry, all covering ET
+/// `[-1e10, 1e10]` (so any modern epoch is in range). Each segment's position
+/// is the constant `x_km` on the x-axis (y = z = 0), so its velocity is
+/// exactly zero.
+///
+/// Seed the returned bytes into a `BRAHE_CACHE`-redirected cache under a
+/// kernel's [`crate::spice::SPICEKernel::filename`] to make the download layer
+/// return it without touching the network, for offline registry/positions
+/// tests. The single record directory spans the full coverage so any epoch in
+/// range resolves.
+pub(crate) fn synthetic_spk_kernel_bytes(segments: &[(i32, i32, f64)]) -> Vec<u8> {
+    let start_et = -1.0e10_f64;
+    let end_et = 1.0e10_f64;
+    let mid = (start_et + end_et) / 2.0;
+    let radius = (end_et - start_et) / 2.0;
+    let intlen = end_et - start_et;
+    let rsize = 8usize; // 2 + 3 * (degree 1 + 1)
+    let seg_words = 12usize; // 8-word record + 4-word trailer
+    let data_words_start = 385usize; // (record 4 - 1) * 128 + 1
+    let ss = 5usize; // ND(2) + ceil(NI(6)/2)(3)
+
+    let last_word = data_words_start - 1 + segments.len() * seg_words;
+    let n_records = (last_word * 8).div_ceil(1024).max(4);
+    let mut file = vec![0u8; n_records * 1024];
+
+    file[..8].copy_from_slice(b"DAF/SPK ");
+    file[8..12].copy_from_slice(&2i32.to_le_bytes()); // ND
+    file[12..16].copy_from_slice(&6i32.to_le_bytes()); // NI
+    file[76..80].copy_from_slice(&2i32.to_le_bytes()); // FWARD -> record 2
+    file[80..84].copy_from_slice(&2i32.to_le_bytes()); // BWARD
+    file[84..88].copy_from_slice(&500i32.to_le_bytes()); // FREE
+    file[88..96].copy_from_slice(b"LTL-IEEE");
+
+    // Summary record (record 2): NEXT=0, PREV=0, NSUM=segments.len()
+    let rec = 1024;
+    file[rec + 16..rec + 24].copy_from_slice(&(segments.len() as f64).to_le_bytes());
+    for (i, (target, center, x_km)) in segments.iter().enumerate() {
+        let s_off = rec + (3 + i * ss) * 8;
+        file[s_off..s_off + 8].copy_from_slice(&start_et.to_le_bytes());
+        file[s_off + 8..s_off + 16].copy_from_slice(&end_et.to_le_bytes());
+        let start_addr = (data_words_start + i * seg_words) as i32;
+        let end_addr = start_addr + seg_words as i32 - 1;
+        for (k, v) in [*target, *center, 1, 2, start_addr, end_addr]
+            .iter()
+            .enumerate()
+        {
+            let off = s_off + 16 + k * 4;
+            file[off..off + 4].copy_from_slice(&v.to_le_bytes());
+        }
+
+        // Name record (record 3): spaces, one name slot per summary.
+        let name_off = 2048 + i * (8 * ss);
+        for b in &mut file[name_off..name_off + 8 * ss] {
+            *b = b' ';
+        }
+
+        // Data: [MID, RADIUS, x0, x1, y0, y1, z0, z1, INIT, INTLEN, RSIZE, N]
+        let data = [
+            mid,
+            radius,
+            *x_km,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            start_et,
+            intlen,
+            rsize as f64,
+            1.0,
+        ];
+        let d_off = (start_addr as usize - 1) * 8;
+        for (j, v) in data.iter().enumerate() {
+            file[d_off + j * 8..d_off + j * 8 + 8].copy_from_slice(&v.to_le_bytes());
+        }
+    }
+    file
+}
+
+/// Build a minimal little-endian `DAF/PCK` kernel with one Type 2 segment for
+/// `frame_id` relative to frame 1, covering ET `[0, 1000]` with linear Euler
+/// angles. For offline tests needing a PCK-typed kernel seeded into a
+/// `BRAHE_CACHE`-redirected cache.
+pub(crate) fn synthetic_pck_kernel_bytes(frame_id: i32) -> Vec<u8> {
+    let rsize = 8usize; // 2 + 3 * (degree 1 + 1)
+    let data: [f64; 12] = [
+        500.0,
+        500.0, // MID, RADIUS
+        0.1,
+        0.2, // phi
+        0.3,
+        0.0, // delta
+        0.4,
+        0.5, // w
+        0.0,
+        1000.0,
+        rsize as f64,
+        1.0, // INIT, INTLEN, RSIZE, N
+    ];
+
+    let mut file = vec![0u8; 4 * 1024];
+    file[..8].copy_from_slice(b"DAF/PCK ");
+    file[8..12].copy_from_slice(&2i32.to_le_bytes()); // ND
+    file[12..16].copy_from_slice(&5i32.to_le_bytes()); // NI
+    file[76..80].copy_from_slice(&2i32.to_le_bytes()); // FWARD -> record 2
+    file[80..84].copy_from_slice(&2i32.to_le_bytes()); // BWARD
+    file[84..88].copy_from_slice(&500i32.to_le_bytes()); // FREE
+    file[88..96].copy_from_slice(b"LTL-IEEE");
+
+    let rec = 1024;
+    file[rec + 16..rec + 24].copy_from_slice(&1f64.to_le_bytes()); // NSUM
+    file[rec + 24..rec + 32].copy_from_slice(&0f64.to_le_bytes()); // start_et
+    file[rec + 32..rec + 40].copy_from_slice(&1000f64.to_le_bytes()); // end_et
+    let start_addr = 385i32;
+    let end_addr = start_addr + data.len() as i32 - 1;
+    for (i, v) in [frame_id, 1, 2, start_addr, end_addr].iter().enumerate() {
+        let off = rec + 40 + i * 4;
+        file[off..off + 4].copy_from_slice(&v.to_le_bytes());
+    }
+    for b in &mut file[2048..2048 + 40] {
+        *b = b' ';
+    }
+    for (i, v) in data.iter().enumerate() {
+        let off = 3 * 1024 + i * 8;
+        file[off..off + 8].copy_from_slice(&v.to_le_bytes());
+    }
+    file
+}
+
+/// Scoped redirect of the `BRAHE_CACHE` environment variable to a fresh
+/// temporary directory, restoring the previous value on drop. Lets offline
+/// tests seed synthetic kernels under `$BRAHE_CACHE/naif/<filename>` so the
+/// NAIF download layer returns them from cache without a network fetch.
+///
+/// `BRAHE_CACHE` is process-global, so every test using this must be
+/// `#[serial]`.
+pub(crate) struct CacheRedirect {
+    _dir: tempfile::TempDir,
+    naif_dir: std::path::PathBuf,
+    prev: Option<String>,
+}
+
+impl CacheRedirect {
+    /// Redirect `BRAHE_CACHE` to a new tempdir and create its `naif`
+    /// subdirectory.
+    pub(crate) fn new() -> Self {
+        let prev = env::var("BRAHE_CACHE").ok();
+        let dir = tempfile::tempdir().unwrap();
+        // SAFETY: single-threaded within a #[serial] test; no other thread
+        // reads the environment concurrently.
+        unsafe {
+            env::set_var("BRAHE_CACHE", dir.path());
+        }
+        let naif_dir = dir.path().join("naif");
+        fs::create_dir_all(&naif_dir).unwrap();
+        CacheRedirect {
+            _dir: dir,
+            naif_dir,
+            prev,
+        }
+    }
+
+    /// Write `bytes` into the redirected NAIF cache under `filename` (the
+    /// kernel's [`crate::spice::SPICEKernel::filename`]).
+    pub(crate) fn seed(&self, filename: &str, bytes: &[u8]) {
+        fs::write(self.naif_dir.join(filename), bytes).unwrap();
+    }
+
+    /// Copy the committed real de440s test asset into the redirected cache, if
+    /// present. Because `BRAHE_CACHE` is process-global, a concurrent test may
+    /// (re)load de440s while this redirect is active; seeding the real kernel
+    /// keeps that read valid instead of forcing a network download.
+    pub(crate) fn seed_real_de440s(&self) {
+        let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("test_assets")
+            .join("de440s.bsp");
+        if src.exists() {
+            fs::copy(&src, self.naif_dir.join("de440s.bsp")).unwrap();
+        }
+    }
+}
+
+impl Drop for CacheRedirect {
+    fn drop(&mut self) {
+        // SAFETY: single-threaded within a #[serial] test.
+        unsafe {
+            match &self.prev {
+                Some(v) => env::set_var("BRAHE_CACHE", v),
+                None => env::remove_var("BRAHE_CACHE"),
+            }
+        }
+    }
 }
 
 /// Initialize global space weather provider with test data for unit testing.

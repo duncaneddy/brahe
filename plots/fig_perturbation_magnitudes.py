@@ -61,8 +61,8 @@ accel_relativity_mag = np.zeros_like(altitudes_m)
 print("Calculating perturbation accelerations...")
 
 # Get Sun and Moon positions for reference epoch using DE ephemeris
-r_sun = bh.sun_position_de(epoch, bh.EphemerisSource.DE440s)
-r_moon = bh.moon_position_de(epoch, bh.EphemerisSource.DE440s)
+r_sun = bh.sun_position_spice(epoch, bh.EphemerisSource.DE440s)
+r_moon = bh.moon_position_spice(epoch, bh.EphemerisSource.DE440s)
 
 # Identity rotation matrix for gravity calculations (assuming circular equatorial orbit for simplicity)
 R_identity = np.eye(3)
@@ -99,23 +99,25 @@ for i, alt_m in enumerate(altitudes_m):
     accel_j22[i] = np.linalg.norm(a_sh_j22 - a_sh_j2)  # J22 perturbation only
 
     # Third-body: Sun (using DE ephemeris)
-    a_sun = bh.accel_third_body_sun_de(epoch, r_vec, bh.EphemerisSource.DE440s)
+    a_sun = bh.accel_third_body_sun_spice(epoch, r_vec, bh.EphemerisSource.DE440s)
     accel_sun[i] = np.linalg.norm(a_sun)
 
     # Third-body: Moon (using DE ephemeris)
-    a_moon = bh.accel_third_body_moon_de(epoch, r_vec, bh.EphemerisSource.DE440s)
+    a_moon = bh.accel_third_body_moon_spice(epoch, r_vec, bh.EphemerisSource.DE440s)
     accel_moon[i] = np.linalg.norm(a_moon)
 
     # Third-body: Venus (using DE ephemeris)
-    a_venus = bh.accel_third_body_venus_de(epoch, r_vec, bh.EphemerisSource.DE440s)
+    a_venus = bh.accel_third_body_venus_spice(epoch, r_vec, bh.EphemerisSource.DE440s)
     accel_venus[i] = np.linalg.norm(a_venus)
 
     # Third-body: Jupiter (using DE ephemeris)
-    a_jupiter = bh.accel_third_body_jupiter_de(epoch, r_vec, bh.EphemerisSource.DE440s)
+    a_jupiter = bh.accel_third_body_jupiter_spice(
+        epoch, r_vec, bh.EphemerisSource.DE440s
+    )
     accel_jupiter[i] = np.linalg.norm(a_jupiter)
 
     # Third-body: Saturn (using DE ephemeris)
-    a_saturn = bh.accel_third_body_saturn_de(epoch, r_vec, bh.EphemerisSource.DE440s)
+    a_saturn = bh.accel_third_body_saturn_spice(epoch, r_vec, bh.EphemerisSource.DE440s)
     accel_saturn[i] = np.linalg.norm(a_saturn)
 
     # Atmospheric drag (only significant below ~1000 km)

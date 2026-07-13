@@ -74,6 +74,8 @@ const MOON_PA_FRAME_ID: i32 = 31008;
 
 /// Idempotently loads the `moon_pa_de440` binary PCK (downloading it to
 /// `~/.cache/brahe/naif` if needed) into the global SPICE kernel registry.
+/// The registry is only consulted on the first call (`OnceLock`); unloading
+/// the kernel afterwards is not re-detected.
 ///
 /// Called automatically by every LFPA/LFME transformation in this module;
 /// not normally called directly.
@@ -82,18 +84,25 @@ const MOON_PA_FRAME_ID: i32 = 31008;
 /// Panics with an actionable message if the kernel cannot be loaded (e.g.
 /// no network access and no cached copy).
 pub(crate) fn ensure_lunar_pck_loaded() {
-    // Allocation-free registry check. Not a `OnceLock` latch: the registry
-    // can be cleared (`clear_kernels`) or the kernel unloaded at runtime, so
-    // the check must consult live registry state on every call.
-    if crate::spice::kernel_is_loaded("moon_pa_de440") {
-        return;
-    }
-    crate::spice::load_kernel("moon_pa_de440").unwrap_or_else(|e| {
-        panic!(
-            "Failed to auto-load lunar PCK 'moon_pa_de440': {}. \
-             Download manually and call brahe::spice::load_kernel(<path>).",
-            e
-        )
+    // OnceLock latch: the registry is checked (and the kernel loaded if
+    // absent) on the first call only. Unloading the kernel mid-operation
+    // afterwards is not re-detected; subsequent orientation queries will
+    // error instead. If the load fails the latch stays unset and the next
+    // call retries.
+    static LUNAR_PCK_LOADED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    LUNAR_PCK_LOADED.get_or_init(|| {
+        if crate::spice::kernel_is_loaded("moon_pa_de440") {
+            return;
+        }
+        crate::spice::load_kernel("moon_pa_de440").unwrap_or_else(|e| {
+            panic!(
+                "Failed to auto-load lunar PCK 'moon_pa_de440': {}. \
+                 Download it with brahe::datasets::naif::download_spice_kernel\
+                 (SPICEKernel::MoonPaDe440, None) and call \
+                 brahe::spice::load_kernel(<path>).",
+                e
+            )
+        });
     });
 }
 
@@ -111,7 +120,7 @@ pub(crate) fn ensure_lunar_pck_loaded() {
 /// - `r`: 3x3 Rotation matrix transforming LCI -> LFPA
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::rotation_lci_to_lfpa;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
@@ -135,7 +144,7 @@ pub fn rotation_lci_to_lfpa(epc: Epoch) -> SMatrix3 {
 /// - `r`: 3x3 Rotation matrix transforming LFPA -> LCI
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::rotation_lfpa_to_lci;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
@@ -204,7 +213,7 @@ pub fn rotation_lfpa_to_lfme() -> SMatrix3 {
 /// - `r`: 3x3 Rotation matrix transforming LCI -> LFME
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::rotation_lci_to_lfme;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
@@ -226,7 +235,7 @@ pub fn rotation_lci_to_lfme(epc: Epoch) -> SMatrix3 {
 /// - `r`: 3x3 Rotation matrix transforming LFME -> LCI
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::rotation_lfme_to_lci;
 /// use brahe::time::{Epoch, TimeSystem};
 ///
@@ -248,7 +257,7 @@ pub fn rotation_lfme_to_lci(epc: Epoch) -> SMatrix3 {
 /// - `x_lfpa`: Cartesian Lunar-Fixed Principal Axis (LFPA) position. Units: (*m*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::constants::R_MOON;
 /// use brahe::frames::position_lci_to_lfpa;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -273,7 +282,7 @@ pub fn position_lci_to_lfpa(epc: Epoch, x_lci: Vector3<f64>) -> Vector3<f64> {
 /// - `x_lci`: Cartesian Lunar-inertial (LCI) position. Units: (*m*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::constants::R_MOON;
 /// use brahe::frames::position_lfpa_to_lci;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -298,7 +307,7 @@ pub fn position_lfpa_to_lci(epc: Epoch, x_lfpa: Vector3<f64>) -> Vector3<f64> {
 /// - `x_lfme`: Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME) position. Units: (*m*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::constants::R_MOON;
 /// use brahe::frames::position_lci_to_lfme;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -323,7 +332,7 @@ pub fn position_lci_to_lfme(epc: Epoch, x_lci: Vector3<f64>) -> Vector3<f64> {
 /// - `x_lci`: Cartesian Lunar-inertial (LCI) position. Units: (*m*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::constants::R_MOON;
 /// use brahe::frames::position_lfme_to_lci;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -355,7 +364,7 @@ pub fn position_lfme_to_lci(epc: Epoch, x_lfme: Vector3<f64>) -> Vector3<f64> {
 /// - `x_lfpa`: Cartesian Lunar-Fixed Principal Axis (LFPA) state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::constants::R_MOON;
 /// use brahe::frames::state_lci_to_lfpa;
 /// use brahe::math::vector6_from_array;
@@ -399,7 +408,7 @@ pub fn state_lci_to_lfpa(epc: Epoch, x_lci: SVector6) -> SVector6 {
 /// - `x_lci`: Cartesian Lunar-inertial (LCI) state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::constants::R_MOON;
 /// use brahe::frames::{state_lci_to_lfpa, state_lfpa_to_lci};
 /// use brahe::math::vector6_from_array;
@@ -448,7 +457,7 @@ pub fn state_lfpa_to_lci(epc: Epoch, x_lfpa: SVector6) -> SVector6 {
 /// - `x_lfme`: Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME) state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::constants::R_MOON;
 /// use brahe::frames::state_lci_to_lfme;
 /// use brahe::math::vector6_from_array;
@@ -487,7 +496,7 @@ pub fn state_lci_to_lfme(epc: Epoch, x_lci: SVector6) -> SVector6 {
 /// - `x_lci`: Cartesian Lunar-inertial (LCI) state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::constants::R_MOON;
 /// use brahe::frames::{state_lci_to_lfme, state_lfme_to_lci};
 /// use brahe::math::vector6_from_array;
@@ -535,7 +544,7 @@ pub fn state_lfme_to_lci(epc: Epoch, x_lfme: SVector6) -> SVector6 {
 /// - `x_lci`: Cartesian Lunar-inertial (LCI) position. Units: (*m*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::position_eci_to_lci;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector3;
@@ -564,7 +573,7 @@ pub fn position_eci_to_lci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// - `x_eci`: Cartesian Earth-inertial (ECI) position. Units: (*m*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::position_lci_to_eci;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector3;
@@ -596,7 +605,7 @@ pub fn position_lci_to_eci(epc: Epoch, x_lci: Vector3<f64>) -> Vector3<f64> {
 /// - `x_lci`: Cartesian Lunar-inertial (LCI) state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::state_eci_to_lci;
 /// use brahe::math::vector6_from_array;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -625,7 +634,7 @@ pub fn state_eci_to_lci(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// - `x_eci`: Cartesian Earth-inertial (ECI) state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::state_lci_to_eci;
 /// use brahe::math::vector6_from_array;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -715,7 +724,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_rotation_lci_to_lfpa_matches_pck() {
         setup_global_test_spice();
@@ -730,7 +738,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_state_lci_to_lfpa_roundtrip() {
         setup_global_test_spice();
@@ -743,7 +750,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_state_lci_to_lfpa_transport_term() {
         // Same finite-difference pattern as the Mars module: numerically
@@ -763,7 +769,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_lfpa_surface_point_is_stationary() {
         // A point rotating with the Moon (in the PA frame) has near-zero
@@ -782,7 +787,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_lci_lfme_roundtrip() {
         setup_global_test_spice();
@@ -804,7 +808,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_lfme_surface_point_is_nearly_stationary() {
         // A point rotating with the Moon (in the LFME frame) has near-zero
@@ -824,7 +827,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_state_eci_to_lci_matches_spk() {
         setup_global_test_spice();
@@ -839,7 +841,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_state_eci_to_lci_roundtrip() {
         // Exercises position_eci_to_lci, position_lci_to_eci, and
@@ -914,9 +915,15 @@ mod tests {
 
             let epc = epc_synth();
 
-            // Auto-load path: first transform loads the PCK without a prior
-            // explicit load_kernel.
+            // Auto-load path: `ensure_lunar_pck_loaded` is a OnceLock latch,
+            // so it only loads the kernel if no earlier test in this process
+            // fired it. Load explicitly afterwards so the test is
+            // deterministic regardless of latch state.
             assert!(!crate::spice::kernel_is_loaded("moon_pa_de440"));
+            ensure_lunar_pck_loaded();
+            if !crate::spice::kernel_is_loaded("moon_pa_de440") {
+                load_kernel("moon_pa_de440").unwrap();
+            }
             let r_lci_lfpa = rotation_lci_to_lfpa(epc);
             assert!(crate::spice::kernel_is_loaded("moon_pa_de440"));
 
@@ -976,5 +983,10 @@ mod tests {
 
             unload_kernel("moon_pa_de440").unwrap();
         }
+        // The latch is now set but the kernel was just unloaded, so later
+        // latch-relying tests would see it missing. Best-effort restore of
+        // the real PCK (real cache; tolerated failure keeps this test
+        // offline-safe when nothing later needs the kernel).
+        let _ = load_kernel("moon_pa_de440");
     }
 }

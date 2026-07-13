@@ -629,7 +629,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_router_matches_pairwise_eci_lci_and_lfpa() {
         setup_global_test_spice();
@@ -661,7 +660,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_router_roundtrip_all_pairs() {
         setup_global_test_eop();
@@ -1090,7 +1088,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_body_fixed_iau_translation_auto_loads_satellite_kernel() {
         // BodyFixedIAU(499) is centered on Mars itself (NAIF 499). The DE

@@ -34,6 +34,9 @@ use super::iau_rotation::{
 /// barycenter (NAIF 4); `mar099s` provides the Mars body-center (NAIF
 /// 499) leg the MCI translation functions require.
 ///
+/// The registry is only consulted on the first call (`OnceLock`); unloading
+/// a kernel afterwards is not re-detected.
+///
 /// Called automatically by every MCI translation in this module; not
 /// normally called directly. Mirrors
 /// [`super::lunar::ensure_lunar_pck_loaded`].
@@ -42,25 +45,37 @@ use super::iau_rotation::{
 /// Panics with an actionable message if the kernel cannot be loaded (e.g.
 /// no network access and no cached copy).
 pub(crate) fn ensure_mars_spk_loaded() {
-    if crate::spice::kernel_is_loaded("mar099s") {
-        return;
-    }
-    // Loads the default DE ephemeris first when the registry is empty (a
-    // satellite kernel alone cannot resolve the Earth leg and would
-    // suppress the DE auto-initialization), then mar099s.
-    crate::spice::registry::ensure_bodies_loadable(&[NAIFId::Mars.id()]).unwrap_or_else(|e| {
-        panic!(
-            "Failed to auto-load Mars ephemeris kernels (de440s/mar099s): {}. \
-             Download manually and call brahe::spice::load_kernel(<path>).",
-            e
-        )
+    // OnceLock latch: the registry is checked (and the kernels loaded if
+    // absent) on the first call only. Unloading a kernel mid-operation
+    // afterwards is not re-detected; subsequent ephemeris queries will
+    // error instead. If the load fails the latch stays unset and the next
+    // call retries.
+    static MARS_SPK_LOADED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    MARS_SPK_LOADED.get_or_init(|| {
+        if crate::spice::kernel_is_loaded("mar099s") {
+            return;
+        }
+        // Loads the default DE ephemeris first when the registry is empty (a
+        // satellite kernel alone cannot resolve the Earth leg and would
+        // suppress the DE auto-initialization), then mar099s.
+        crate::spice::registry::ensure_bodies_loadable(&[NAIFId::Mars.id()]).unwrap_or_else(|e| {
+            panic!(
+                "Failed to auto-load Mars ephemeris kernels (de440s/mar099s): {}. \
+                 Download them with brahe::datasets::naif::download_spice_kernel \
+                 (SPICEKernel::DE440s / SPICEKernel::Mar099s, None) and call \
+                 brahe::spice::load_kernel(<path>).",
+                e
+            )
+        });
+        if !crate::spice::kernel_is_loaded("mar099s") {
+            panic!(
+                "Failed to auto-load Mars satellite ephemeris 'mar099s'. \
+                 Download it with brahe::datasets::naif::download_spice_kernel\
+                 (SPICEKernel::Mar099s, None) and call \
+                 brahe::spice::load_kernel(<path>)."
+            );
+        }
     });
-    if !crate::spice::kernel_is_loaded("mar099s") {
-        panic!(
-            "Failed to auto-load Mars satellite ephemeris 'mar099s'. \
-             Download manually and call brahe::spice::load_kernel(<path>)."
-        );
-    }
 }
 
 /// Computes the rotation matrix from Mars-Centered Inertial (MCI) to
@@ -270,7 +285,7 @@ pub fn state_mcmf_to_mci(epc: Epoch, x_mcmf: SVector6) -> SVector6 {
 /// - `x_mci`: Cartesian Mars-inertial (MCI) position. Units: (*m*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::position_eci_to_mci;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector3;
@@ -304,7 +319,7 @@ pub fn position_eci_to_mci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// - `x_eci`: Cartesian Earth-inertial (ECI) position. Units: (*m*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::position_mci_to_eci;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use nalgebra::Vector3;
@@ -338,7 +353,7 @@ pub fn position_mci_to_eci(epc: Epoch, x_mci: Vector3<f64>) -> Vector3<f64> {
 /// - `x_mci`: Cartesian Mars-inertial (MCI) state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::state_eci_to_mci;
 /// use brahe::math::vector6_from_array;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -372,7 +387,7 @@ pub fn state_eci_to_mci(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// - `x_eci`: Cartesian Earth-inertial (ECI) state (position, velocity). Units: (*m*; *m/s*)
 ///
 /// # Examples:
-/// ```no_run
+/// ```
 /// use brahe::frames::state_mci_to_eci;
 /// use brahe::math::vector6_from_array;
 /// use brahe::time::{Epoch, TimeSystem};
@@ -465,7 +480,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_state_eci_to_mci_matches_spk() {
         // x_mci = x_eci - state_of_mars_relative_to_earth
@@ -484,7 +498,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_state_eci_to_mci_roundtrip() {
         // Exercises position_eci_to_mci, position_mci_to_eci, and
@@ -527,9 +540,15 @@ mod tests {
             let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
             let x_eci = vector6_from_array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0]);
 
-            // Auto-load path: first translation loads mar099s without a prior
-            // explicit load.
+            // Auto-load path: `ensure_mars_spk_loaded` is a OnceLock latch,
+            // so it only loads the kernel if no earlier test in this process
+            // fired it. Load explicitly afterwards so the test is
+            // deterministic regardless of latch state.
             assert!(!crate::spice::kernel_is_loaded("mar099s"));
+            ensure_mars_spk_loaded();
+            if !crate::spice::kernel_is_loaded("mar099s") {
+                load_kernel("mar099s").unwrap();
+            }
             let x_mci = state_eci_to_mci(epc, x_eci);
             assert!(crate::spice::kernel_is_loaded("mar099s"));
 
@@ -556,5 +575,10 @@ mod tests {
 
             unload_kernel("mar099s").unwrap();
         }
+        // The latch is now set but the kernel was just unloaded, so later
+        // latch-relying tests would see it missing. Best-effort restore of
+        // the real mar099s (real cache; tolerated failure keeps this test
+        // offline-safe when nothing later needs the kernel).
+        let _ = load_kernel("mar099s");
     }
 }

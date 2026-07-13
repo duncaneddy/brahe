@@ -517,11 +517,14 @@ def test_mcmf_surface_point_is_stationary():
     np.testing.assert_allclose(back[3:6], 0.0, atol=1e-9)
 
 
-@pytest.mark.integration
 def test_state_eci_to_mci_matches_spk():
     # x_mci = x_eci - state_of_mars_relative_to_earth
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
+    # DE kernel first (Moon/Earth legs for the rest of this module), then the
+    # satellite kernel: loading mar099s alone would suppress the de440s
+    # auto-initialization, which only fires on an empty registry.
+    brahe.load_kernel("de440s")
     brahe.load_kernel("mar099s")  # 499 reference leg (transform auto-loads it too)
     offset = brahe.spk_state(brahe.NAIFId.MARS, brahe.NAIFId.EARTH, epc)
     expected = x - offset
@@ -529,7 +532,6 @@ def test_state_eci_to_mci_matches_spk():
     np.testing.assert_allclose(got, expected, atol=1e-6)
 
 
-@pytest.mark.integration
 def test_state_eci_to_mci_roundtrip():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x_eci = np.array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
@@ -560,14 +562,12 @@ def test_rotation_lfme_to_lfpa_is_lfpa_to_lfme_transpose():
     np.testing.assert_allclose(r_me_to_pa, r_pa_to_me.T, atol=1e-15)
 
 
-@pytest.mark.integration
 def test_rotation_lci_to_lfpa_orthonormal():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     r = brahe.rotation_lci_to_lfpa(epc)
     np.testing.assert_allclose(r @ r.T, np.eye(3), atol=1e-12)
 
 
-@pytest.mark.integration
 def test_rotation_lfpa_to_lci_is_transpose():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     r_fwd = brahe.rotation_lci_to_lfpa(epc)
@@ -575,15 +575,13 @@ def test_rotation_lfpa_to_lci_is_transpose():
     np.testing.assert_allclose(r_inv, r_fwd.T, atol=1e-12)
 
 
-@pytest.mark.integration
 def test_rotation_lci_to_lfpa_matches_pck():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     r = brahe.rotation_lci_to_lfpa(epc)
     r_pck = brahe.pck_rotation_matrix(31008, epc)
-    np.testing.assert_array_equal(r, r_pck)  # bit-identical: same code path
+    np.testing.assert_array_equal(r, r_pck.to_matrix())  # bit-identical: same code path
 
 
-@pytest.mark.integration
 def test_position_lci_to_lfpa_roundtrip():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x_lci = np.array([brahe.R_MOON + 100e3, 1e5, 2e5])
@@ -592,7 +590,6 @@ def test_position_lci_to_lfpa_roundtrip():
     np.testing.assert_allclose(x_lci2, x_lci, atol=1e-6)
 
 
-@pytest.mark.integration
 def test_state_lci_to_lfpa_roundtrip():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x_lci = np.array([brahe.R_MOON + 100e3, 1e5, 2e5, 0.0, 1.6e3, 0.0])
@@ -601,7 +598,6 @@ def test_state_lci_to_lfpa_roundtrip():
     np.testing.assert_allclose(x_lci2, x_lci, atol=1e-6)
 
 
-@pytest.mark.integration
 def test_state_lci_to_lfpa_transport_term():
     # Same finite-difference pattern as the Mars module: numerically
     # differentiate R(t)*r and compare with the analytic transport term.
@@ -616,7 +612,6 @@ def test_state_lci_to_lfpa_transport_term():
     np.testing.assert_allclose(v_analytic, v_fd, atol=1e-2)
 
 
-@pytest.mark.integration
 def test_lfpa_surface_point_is_stationary():
     # A point rotating with the Moon (in the PA frame) has near-zero
     # LFPA velocity.
@@ -629,7 +624,6 @@ def test_lfpa_surface_point_is_stationary():
     np.testing.assert_allclose(back[3:6], 0.0, atol=1e-9)
 
 
-@pytest.mark.integration
 def test_lci_lfme_roundtrip():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x_lci = np.array([brahe.R_MOON + 100e3, 1e5, 2e5, 0.0, 1.6e3, 0.0])
@@ -643,7 +637,6 @@ def test_lci_lfme_roundtrip():
     np.testing.assert_allclose(p_lci2, p_lci, atol=1e-6)
 
 
-@pytest.mark.integration
 def test_lfme_surface_point_is_nearly_stationary():
     # A point rotating with the Moon (in the LFME frame) has near-zero
     # LFME velocity, same as the LFPA case (LFME is rigidly offset from
@@ -657,7 +650,6 @@ def test_lfme_surface_point_is_nearly_stationary():
     np.testing.assert_allclose(back[3:6], 0.0, atol=1e-9)
 
 
-@pytest.mark.integration
 def test_state_eci_to_lci_matches_spk():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, 2e8, 3e8, 1.0, 2.0, 3.0])
@@ -667,7 +659,6 @@ def test_state_eci_to_lci_matches_spk():
     np.testing.assert_allclose(got, expected, atol=1e-6)
 
 
-@pytest.mark.integration
 def test_state_eci_to_lci_roundtrip():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x_eci = np.array([1e8, 2e8, 3e8, 1.0, 2.0, 3.0])
@@ -779,7 +770,6 @@ def test_reference_frame_generic_variants_equal_named():
     np.testing.assert_array_equal(a, b)
 
 
-@pytest.mark.integration
 def test_body_fixed_pck_generic_variant_equals_lfpa():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
@@ -825,7 +815,6 @@ def test_router_matches_pairwise_gcrf_itrf(eop):
     np.testing.assert_array_equal(via_router, pairwise)
 
 
-@pytest.mark.integration
 def test_router_matches_pairwise_eci_lci_and_lfpa():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
@@ -850,7 +839,6 @@ def test_router_matches_pairwise_eci_lci_and_lfpa():
     np.testing.assert_allclose(via_router_composed, composed, atol=1e-9)
 
 
-@pytest.mark.integration
 def test_router_roundtrip_all_pairs(eop):
     frames = [
         brahe.ReferenceFrame.GCRF,
@@ -879,7 +867,6 @@ def test_router_roundtrip_all_pairs(eop):
             np.testing.assert_allclose(back[3:6], x[3:6], atol=1e-6)
 
 
-@pytest.mark.integration
 def test_state_frame_to_frame_roundtrip_lci(eop):
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
@@ -892,7 +879,6 @@ def test_state_frame_to_frame_roundtrip_lci(eop):
     np.testing.assert_allclose(x2, x, atol=1e-4)
 
 
-@pytest.mark.integration
 def test_body_fixed_iau_translation_auto_loads_satellite_kernel():
     """Mirrors test_body_fixed_iau_translation_auto_loads_satellite_kernel.
 

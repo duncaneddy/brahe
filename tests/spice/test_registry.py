@@ -15,6 +15,24 @@ def ensure_kernel():
         pytest.skip(f"Could not initialize ephemeris: {e}")
 
 
+def restore_baseline_kernels():
+    """Restore the registry for tests that run later in the session.
+
+    The lunar/Mars frame auto-load guards (ensure_lunar_pck_loaded /
+    ensure_mars_spk_loaded) are one-shot OnceLock latches: once they have
+    fired, a later clear_kernels() is not re-detected, so any kernel they
+    already loaded must be restored here — not just de440s.
+    """
+    bh.clear_kernels()
+    bh.initialize_ephemeris()
+    for kernel in ("moon_pa_de440", "mar099s"):
+        try:
+            bh.load_kernel(kernel)
+        except Exception:
+            # Not cached and offline: nothing later can query it either.
+            pass
+
+
 def test_loaded_kernels():
     assert "de440s" in bh.loaded_kernels()
 
@@ -143,8 +161,7 @@ def test_load_common_kernels():
     assert "moon_pa_de440" in loaded
 
     # Restore baseline registry state for other tests.
-    bh.clear_kernels()
-    bh.initialize_ephemeris()
+    restore_baseline_kernels()
 
 
 def test_spk_position_from_kernel_auto_loads():
@@ -155,6 +172,9 @@ def test_spk_position_from_kernel_auto_loads():
     r = bh.spk_position_from_kernel("de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     assert r.shape == (3,)
     assert "de440s" in bh.loaded_kernels()
+
+    # Restore baseline registry state for other tests.
+    restore_baseline_kernels()
 
 
 @pytest.mark.integration
@@ -178,5 +198,4 @@ def test_pck_typed_returns(eop):
     np.testing.assert_allclose(rates2, rates, atol=0.0)
 
     # Restore baseline registry state for other tests.
-    bh.clear_kernels()
-    bh.initialize_ephemeris()
+    restore_baseline_kernels()

@@ -823,10 +823,18 @@ impl DNumericalOrbitPropagator {
             propagation_config.integrator,
         );
 
-        // Create trajectory storage (internally always ECI Cartesian)
+        // Create trajectory storage: samples are stored in the central
+        // body's inertial frame — ECI for Earth, body-centered inertial
+        // (LCI/MCI/EMBI/...) otherwise, so the frame metadata matches the
+        // stored states and Earth-frame trajectory conversions are rejected
+        // for non-Earth propagators.
+        let trajectory_frame = match force_config.central_body {
+            CentralBody::Earth => OrbitFrame::ECI,
+            _ => OrbitFrame::BodyCenteredInertial,
+        };
         let mut trajectory = DOrbitTrajectory::new(
             state_dim,
-            OrbitFrame::ECI,
+            trajectory_frame,
             OrbitRepresentation::Cartesian,
             None,
         );
@@ -2744,10 +2752,15 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
             }
         }
 
-        // Clear trajectory
+        // Clear trajectory, keeping the frame metadata consistent with the
+        // central body (ECI for Earth, body-centered inertial otherwise).
+        let trajectory_frame = match self.central_body.as_ref() {
+            CentralBody::Earth => OrbitFrame::ECI,
+            _ => OrbitFrame::BodyCenteredInertial,
+        };
         self.trajectory = DOrbitTrajectory::new(
             self.state_dim,
-            OrbitFrame::ECI,
+            trajectory_frame,
             OrbitRepresentation::Cartesian,
             None,
         );
@@ -12891,6 +12904,49 @@ mod tests {
         .unwrap();
 
         (prop, epoch0, x0)
+    }
+
+    /// A non-Earth propagator's stored trajectory is labeled
+    /// `BodyCenteredInertial`, so Earth-frame trajectory conversions are
+    /// rejected instead of silently treating body-centered samples as
+    /// geocentric ECI; an Earth propagator's trajectory stays `ECI`.
+    #[test]
+    #[serial_test::parallel]
+    fn test_trajectory_frame_matches_central_body() {
+        setup_global_test_eop();
+
+        let (mut prop, epoch0, _x0) = lunar_point_mass_propagator_at_epoch0();
+        assert_eq!(prop.trajectory().frame, OrbitFrame::BodyCenteredInertial);
+
+        // Earth-frame conversions on the body-centered trajectory error
+        // rather than mislabel LCI samples as geocentric.
+        prop.propagate_to(epoch0 + 60.0);
+        let err = prop.trajectory().state_eci(epoch0).unwrap_err();
+        assert!(err.to_string().contains("BodyCenteredInertial"));
+        let err = prop.trajectory().state_ecef(epoch0).unwrap_err();
+        assert!(err.to_string().contains("BodyCenteredInertial"));
+
+        // reset preserves the body-centered frame metadata.
+        prop.reset();
+        assert_eq!(prop.trajectory().frame, OrbitFrame::BodyCenteredInertial);
+
+        // Earth-centered propagators keep the ECI label and conversions.
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+        let mut earth_prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(earth_prop.trajectory().frame, OrbitFrame::ECI);
+        earth_prop.propagate_to(epoch + 60.0);
+        assert!(earth_prop.trajectory().state_eci(epoch).is_ok());
     }
 
     /// `state_eci` on a Moon-centered propagator must add the Moon's

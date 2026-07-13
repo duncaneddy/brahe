@@ -938,6 +938,30 @@ mod tests {
     }
 
     #[test]
+    fn test_spk_pair_position_error_for_unmapped_id() {
+        // `strict_anchor_and_leg` error branch: an ID that is neither
+        // DE-covered nor in a satellite system with a known ephemeris
+        // kernel errors before any kernel access (350 anchors to
+        // barycenter 3, which has no satellite kernel; a self-assigned
+        // negative ID has no system at all). Applies to both the target
+        // and the center argument.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        for (target, center) in [(350, 399), (399, 350), (-20001, 399)] {
+            let e = spk_pair_position_from_kernels(SPICEKernel::DE440s, target, center, epc);
+            assert!(
+                e.as_ref()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("not covered by a DE kernel"),
+                "expected strict-resolution error for ({}, {}), got {:?}",
+                target,
+                center,
+                e
+            );
+        }
+    }
+
+    #[test]
     #[serial]
     fn test_ssb_position_spice_alias_offline() {
         // `ssb_position_spice` forwards to `solar_system_barycenter_position_spice`.

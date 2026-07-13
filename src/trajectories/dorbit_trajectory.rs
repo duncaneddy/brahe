@@ -1880,6 +1880,9 @@ impl DOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial => {
+                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
@@ -1966,6 +1969,9 @@ impl DOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial => {
+                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
@@ -2053,6 +2059,9 @@ impl DOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial => {
+                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 -> GCRF -> ITRF
@@ -2141,6 +2150,9 @@ impl DOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial => {
+                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 -> GCRF -> ITRF
@@ -2229,6 +2241,9 @@ impl DOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial => {
+                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    }
                     OrbitFrame::EME2000 => {
                         // Already in EME2000 frame
                         self.states.clone()
@@ -2344,6 +2359,9 @@ impl DOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial => {
+                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 -> GCRF -> Keplerian
@@ -2551,6 +2569,11 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial, _) => {
+                return Err(BraheError::Error(
+                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
+                ));
+            }
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state, // GCRF treated as ECI
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_koe_to_eci(
@@ -2594,6 +2617,11 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial, _) => {
+                return Err(BraheError::Error(
+                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
+                ));
+            }
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state, // ECI treated as GCRF
             (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_koe_to_eci(
@@ -2637,6 +2665,11 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial, _) => {
+                return Err(BraheError::Error(
+                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
+                ));
+            }
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
@@ -2691,6 +2724,11 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial, _) => {
+                return Err(BraheError::Error(
+                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
+                ));
+            }
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
@@ -2745,6 +2783,11 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial, _) => {
+                return Err(BraheError::Error(
+                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
+                ));
+            }
             (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state),
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state), // ECI treated as GCRF
@@ -2802,6 +2845,11 @@ impl DOrbitStateProvider for DOrbitTrajectory {
         let state = Vector6::from_iterator(state_dvec.iter().take(6).copied());
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial, _) => {
+                return Err(BraheError::Error(
+                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
+                ));
+            }
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
                 // Already in Keplerian, just convert angle format if needed
                 let native_format = self.angle_format.unwrap_or(AngleFormat::Radians);
@@ -2894,6 +2942,9 @@ impl DOrbitCovarianceProvider for DOrbitTrajectory {
         let dim = cov_native.nrows();
 
         match self.frame {
+            OrbitFrame::BodyCenteredInertial => {
+                Err(BraheError::Error(crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string()))
+            }
             OrbitFrame::ECI | OrbitFrame::GCRF => Ok(cov_native),
             OrbitFrame::EME2000 => {
                 // Apply frame bias rotation to first 6x6 block only

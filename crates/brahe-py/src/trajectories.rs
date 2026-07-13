@@ -277,6 +277,19 @@ impl PyOrbitFrame {
         PyOrbitFrame { frame: trajectories::traits::OrbitFrame::ITRF }
     }
 
+    /// Body-centered inertial frame for a non-Earth central body (ICRF-aligned
+    /// axes centered on the propagator's central body, e.g. LCI/MCI/EMBI).
+    /// Produced by non-Earth `NumericalOrbitPropagator` trajectories;
+    /// Earth-frame conversions are undefined for it.
+    ///
+    /// Returns:
+    ///     OrbitFrame: Body-centered inertial frame constant
+    #[classattr]
+    #[pyo3(name = "BODY_CENTERED_INERTIAL")]
+    fn body_centered_inertial() -> Self {
+        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::BodyCenteredInertial }
+    }
+
     /// Get the full name of the reference frame.
     ///
     /// Returns:
@@ -288,6 +301,7 @@ impl PyOrbitFrame {
             trajectories::traits::OrbitFrame::GCRF => "Geocentric Celestial Reference Frame",
             trajectories::traits::OrbitFrame::EME2000 => "Earth Mean Equator and Equinox of J2000.0",
             trajectories::traits::OrbitFrame::ITRF => "International Terrestrial Reference Frame",
+            trajectories::traits::OrbitFrame::BodyCenteredInertial => "Body-Centered Inertial",
         }
     }
 
@@ -298,6 +312,7 @@ impl PyOrbitFrame {
             trajectories::traits::OrbitFrame::GCRF => "GCRF".to_string(),
             trajectories::traits::OrbitFrame::EME2000 => "EME2000".to_string(),
             trajectories::traits::OrbitFrame::ITRF => "ITRF".to_string(),
+            trajectories::traits::OrbitFrame::BodyCenteredInertial => "BCI".to_string(),
         }
     }
 

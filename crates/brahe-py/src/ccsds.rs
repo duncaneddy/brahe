@@ -30,6 +30,11 @@ fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Resu
             OrbitFrame::GCRF => traj.state_gcrf(*epoch)?,
             OrbitFrame::ECI => traj.state_eci(*epoch)?,
             OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch)?,
+            OrbitFrame::BodyCenteredInertial => {
+                return Err(brahe::utils::BraheError::Error(
+                    "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
+                ));
+            }
         };
         seg.states.push(OEMStateVector {
             epoch: *epoch,
@@ -1035,6 +1040,9 @@ impl PyOEMSegment {
                         OrbitFrame::GCRF => traj.state_gcrf(*epoch),
                         OrbitFrame::ECI => traj.state_eci(*epoch),
                         OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch),
+                        OrbitFrame::BodyCenteredInertial => Err(brahe::utils::BraheError::Error(
+                            "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
+                        )),
                     }.map_err(|e| {
                         pyo3::exceptions::PyRuntimeError::new_err(format!(
                             "Failed to convert trajectory state at {}: {}", epoch, e

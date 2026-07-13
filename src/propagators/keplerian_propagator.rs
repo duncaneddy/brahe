@@ -338,6 +338,12 @@ impl KeplerianPropagator {
             OrbitRepresentation::Cartesian => {
                 // First convert to ECI frame if needed
                 let eci_state = match frame {
+                    OrbitFrame::BodyCenteredInertial => {
+                        panic!(
+                            "{}",
+                            "OrbitFrame::BodyCenteredInertial is not supported by KeplerianPropagator (Earth-only)"
+                        )
+                    }
                     OrbitFrame::ECI => state,
                     OrbitFrame::GCRF => state,
                     OrbitFrame::EME2000 => state_eme2000_to_gcrf(state),
@@ -377,6 +383,12 @@ impl KeplerianPropagator {
 
                 // Convert to original frame if needed
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial => {
+                        panic!(
+                            "{}",
+                            "OrbitFrame::BodyCenteredInertial is not supported by KeplerianPropagator (Earth-only)"
+                        )
+                    }
                     OrbitFrame::ECI => eci_cartesian,
                     OrbitFrame::GCRF => eci_cartesian,
                     OrbitFrame::EME2000 => state_gcrf_to_eme2000(eci_cartesian),
@@ -657,6 +669,9 @@ impl DOrbitStateProvider for KeplerianPropagator {
         let state_eci = state_koe_to_eci(internal_state, AngleFormat::Radians);
 
         match self.frame {
+            OrbitFrame::BodyCenteredInertial => {
+                Err(BraheError::Error("OrbitFrame::BodyCenteredInertial is not supported by KeplerianPropagator (Earth-only)".to_string()))
+            }
             OrbitFrame::ECI | OrbitFrame::GCRF => Ok(state_eci),
             OrbitFrame::ECEF => Ok(state_ecef_to_eci(epoch, state_eci)),
             OrbitFrame::ITRF => {

@@ -1378,4 +1378,42 @@ mod tests {
             let _ = unload_kernel("plu060");
         }
     }
+
+    #[test]
+    fn test_accel_third_body_panics_for_unsupported_perturbers() {
+        // The Earth/Phobos/Deimos/Custom arm panics for every source: these
+        // bodies only make sense via `accel_third_body_for_body`. Panics
+        // before any ephemeris query, so this is offline.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        for body in [
+            ThirdBody::Earth,
+            ThirdBody::Phobos,
+            ThirdBody::Deimos,
+            ThirdBody::Custom {
+                name: "Ceres".to_string(),
+                naif_id: 2000001,
+                gm: 6.26325e10,
+            },
+        ] {
+            let result = std::panic::catch_unwind(|| {
+                accel_third_body(body.clone(), EphemerisSource::DE440s, epc, r)
+            });
+            assert!(result.is_err(), "expected panic for {:?}", body);
+        }
+    }
+
+    #[test]
+    fn test_accel_third_body_panics_for_planet_with_low_precision() {
+        // The low-precision arm panics for any body other than Sun/Moon.
+        // Panics before any ephemeris query, so this is offline.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        for body in [ThirdBody::Mars, ThirdBody::Jupiter, ThirdBody::Venus] {
+            let result = std::panic::catch_unwind(|| {
+                accel_third_body(body.clone(), EphemerisSource::LowPrecision, epc, r)
+            });
+            assert!(result.is_err(), "expected panic for {:?}", body);
+        }
+    }
 }

@@ -29,6 +29,12 @@ pub enum TrajectoryEvictionPolicy {
     KeepWithinDuration,
 }
 
+/// Error text for Earth-frame conversions attempted on a trajectory whose
+/// samples are in a non-Earth body-centered inertial frame.
+pub(crate) const BCI_CONVERSION_ERROR: &str = "trajectory frame is BodyCenteredInertial \
+     (non-Earth central body): Earth-frame conversions are undefined for it; query the \
+     owning propagator via state_in_frame/state_bci/state_bcbf instead";
+
 /// Enumeration of orbit reference frames
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrbitFrame {
@@ -42,6 +48,11 @@ pub enum OrbitFrame {
     ITRF,
     /// Earth Mean Equator and Equinox of J2000.0
     EME2000,
+    /// Body-centered inertial: ICRF-aligned axes centered on a non-Earth
+    /// central body (e.g. LCI/MCI/EMBI samples from a Moon/Mars/EMB
+    /// propagator). Earth-frame conversions are not defined for this frame;
+    /// convert through the owning propagator's `state_in_frame` instead.
+    BodyCenteredInertial,
 }
 
 impl fmt::Display for OrbitFrame {
@@ -52,6 +63,7 @@ impl fmt::Display for OrbitFrame {
             OrbitFrame::GCRF => write!(f, "GCRF"),
             OrbitFrame::ITRF => write!(f, "ITRF"),
             OrbitFrame::EME2000 => write!(f, "EME2000"),
+            OrbitFrame::BodyCenteredInertial => write!(f, "BCI"),
         }
     }
 }
@@ -65,6 +77,9 @@ impl fmt::Debug for OrbitFrame {
             OrbitFrame::ITRF => write!(f, "OrbitFrame(International Terrestrial Reference Frame)"),
             OrbitFrame::EME2000 => {
                 write!(f, "OrbitFrame(Earth Mean Equator and Equinox of J2000.0)")
+            }
+            OrbitFrame::BodyCenteredInertial => {
+                write!(f, "OrbitFrame(Body-Centered Inertial)")
             }
         }
     }

@@ -6,6 +6,7 @@ These tests mirror the Rust tests from src/propagators/dnumerical_orbit_propagat
 
 import pytest
 import numpy as np
+import brahe
 from brahe import (
     Epoch,
     TimeSystem,
@@ -22,6 +23,7 @@ from brahe import (
     orbital_period,
     GravityConfiguration,
     CentralBody,
+    OrbitFrame,
     ReferenceFrame,
     periapsis_velocity,
     spk_state,
@@ -5790,6 +5792,44 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         x_itrf = prop.state_in_frame(ReferenceFrame.ITRF, epoch)
         x_ecef = prop.state_ecef(epoch)
         assert np.allclose(x_itrf, x_ecef, atol=1e-9)
+
+    def test_trajectory_frame_matches_central_body(self):
+        """A non-Earth propagator's trajectory is labeled BODY_CENTERED_INERTIAL
+        and rejects Earth-frame conversions; an Earth propagator's stays ECI.
+        Mirrors test_trajectory_frame_matches_central_body."""
+        epoch = create_test_epoch()
+        a = R_MOON + 100e3
+        x0 = np.array([a, 0.0, 0.0, 0.0, periapsis_velocity(a, 0.0, gm=GM_MOON), 0.0])
+
+        force_config = ForceModelConfig.for_body(
+            CentralBody.Moon, GravityConfiguration.point_mass()
+        )
+        prop = NumericalOrbitPropagator(
+            epoch,
+            x0,
+            NumericalPropagationConfig.default(),
+            force_config,
+            None,
+        )
+        prop.propagate_to(epoch + 60.0)
+
+        traj = prop.trajectory
+        assert traj.frame == OrbitFrame.BODY_CENTERED_INERTIAL
+        with pytest.raises(brahe.BraheError, match="BodyCenteredInertial"):
+            traj.state_eci(epoch)
+        with pytest.raises(brahe.BraheError, match="BodyCenteredInertial"):
+            traj.state_ecef(epoch)
+
+        earth_prop = NumericalOrbitPropagator(
+            epoch,
+            create_leo_state(),
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+        earth_prop.propagate_to(epoch + 60.0)
+        assert earth_prop.trajectory.frame == OrbitFrame.ECI
+        assert np.all(np.isfinite(earth_prop.trajectory.state_eci(epoch)))
 
     def test_lunar_propagation_state_eci_adds_moon_offset(self, naif_cache_setup):
         """A lunar propagator's state_eci is the LCI state offset by the Moon's

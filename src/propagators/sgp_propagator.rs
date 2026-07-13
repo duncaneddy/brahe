@@ -112,6 +112,12 @@ fn convert_state_from_spg4_frame(
 
     match representation {
         OrbitRepresentation::Cartesian => match frame {
+            OrbitFrame::BodyCenteredInertial => {
+                panic!(
+                    "{}",
+                    "OrbitFrame::BodyCenteredInertial is not supported by SGPPropagator (Earth-only)"
+                )
+            }
             OrbitFrame::ECI => state_ecef_to_eci(epoch, ecef_state),
             OrbitFrame::GCRF => state_ecef_to_eci(epoch, ecef_state),
             OrbitFrame::EME2000 => {

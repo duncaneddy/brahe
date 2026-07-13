@@ -3252,6 +3252,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_default() {
         setup_global_test_eop();
         setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
@@ -3417,6 +3418,7 @@ mod tests {
     // covered by the rest of the propagator test suite.
 
     #[test]
+    #[serial_test::parallel]
     fn test_rotation_cache_hit_returns_same_matrix() {
         // First call is a miss-and-fill, second call must hit the cache and
         // return the identical matrix without recomputing.
@@ -3436,6 +3438,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rotation_cache_matches_uncached_call() {
         // Sanity: the cached result must agree with calling
         // `rotation_eci_to_ecef` directly. If a future change to the rotation
@@ -3456,6 +3459,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rotation_cache_distinct_epochs_distinct_entries() {
         // Two unrelated epochs must produce different matrices (sanity that
         // we're not accidentally caching a single rotation under multiple
@@ -3479,6 +3483,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rotation_cache_earth_rotation_only_path() {
         // Verify the FrameTransformationModel dispatch in get_or_compute by
         // comparing against the corresponding bare function. This is the
@@ -3499,6 +3504,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rotation_cache_rk4_stage_pattern_hits() {
         // Replay an RK4 stage sequence: (0, h/2, h/2, h) for two consecutive
         // steps. Hit assertions:
@@ -3533,6 +3539,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_rotation_cache_capacity_evicts_oldest() {
         // Fill the cache past capacity. The least-recently-used entry should
         // be evicted while the most recently inserted entries remain
@@ -3587,6 +3594,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstate_propagator_step_by() {
         setup_global_test_eop();
 
@@ -3632,6 +3640,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_propagate_to_forward() {
         setup_global_test_eop();
 
@@ -3680,6 +3689,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_step_by_backward() {
         setup_global_test_eop();
 
@@ -3735,6 +3745,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_propagate_to_backward() {
         setup_global_test_eop();
 
@@ -3790,6 +3801,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_propagate_steps() {
         setup_global_test_eop();
 
@@ -3848,6 +3860,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_reset() {
         setup_global_test_eop();
 
@@ -3924,6 +3937,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_eci() {
         setup_global_test_eop();
 
@@ -3962,6 +3976,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_ecef() {
         setup_global_test_eop();
 
@@ -3997,6 +4012,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_gcrf() {
         setup_global_test_eop();
 
@@ -4032,6 +4048,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_itrf() {
         setup_global_test_eop();
 
@@ -4067,6 +4084,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_eme2000() {
         setup_global_test_eop();
 
@@ -4102,6 +4120,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_osculating_elements_radians() {
         setup_global_test_eop();
 
@@ -4143,6 +4162,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_osculating_elements_degrees() {
         setup_global_test_eop();
 
@@ -4184,6 +4204,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_frame_conversion_roundtrip() {
         setup_global_test_eop();
 
@@ -4228,6 +4249,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_representation_conversion_roundtrip() {
         setup_global_test_eop();
 
@@ -4274,6 +4296,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_extended_state_preservation() {
         setup_global_test_eop();
 
@@ -4332,6 +4355,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_angle_format_handling() {
         setup_global_test_eop();
 
@@ -4390,6 +4414,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_interpolation_accuracy() {
         setup_global_test_eop();
 
@@ -4439,6 +4464,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_covariance_eci() {
         setup_global_test_eop();
 
@@ -4485,6 +4511,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_covariance_gcrf() {
         setup_global_test_eop();
 
@@ -4527,6 +4554,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_covariance_rtn() {
         setup_global_test_eop();
 
@@ -4589,6 +4617,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_interpolation_accuracy() {
         setup_global_test_eop();
 
@@ -4734,6 +4763,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_error_handling() {
         setup_global_test_eop();
 
@@ -4788,6 +4818,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_rejects_hermite_quintic_without_accelerations() {
         // Propagator construction must surface the config-validation error to the user.
         setup_global_test_eop();
@@ -4824,6 +4855,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_interpolationconfig_with_method() {
         setup_global_test_eop();
 
@@ -4849,6 +4881,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_interpolationconfig_set_and_get() {
         setup_global_test_eop();
 
@@ -4886,6 +4919,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_covarianceinterpolationconfig_with_method() {
         setup_global_test_eop();
 
@@ -4916,6 +4950,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_covarianceinterpolationconfig_set_and_get() {
         setup_global_test_eop();
 
@@ -4958,6 +4993,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_name() {
         setup_global_test_eop();
 
@@ -4983,6 +5019,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_id() {
         setup_global_test_eop();
 
@@ -5008,6 +5045,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_uuid() {
         setup_global_test_eop();
 
@@ -5035,6 +5073,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_new_uuid() {
         setup_global_test_eop();
 
@@ -5060,6 +5099,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_setters() {
         setup_global_test_eop();
 
@@ -5101,6 +5141,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_identity() {
         setup_global_test_eop();
 
@@ -5130,6 +5171,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_set_identity() {
         setup_global_test_eop();
 
@@ -5166,6 +5208,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_persistence_through_propagation() {
         setup_global_test_eop();
 
@@ -5217,6 +5260,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_api_methods() {
         setup_global_test_eop();
 
@@ -5259,6 +5303,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_time_event() {
         setup_global_test_eop();
 
@@ -5296,6 +5341,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_altitude_event() {
         setup_global_test_eop();
 
@@ -5346,6 +5392,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_no_altitude_events() {
         setup_global_test_eop();
 
@@ -5396,6 +5443,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_value_event_matches_altitude_event() {
         setup_global_test_eop();
 
@@ -5495,6 +5543,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_callback_state_mutation() {
         setup_global_test_eop();
 
@@ -5538,6 +5587,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_callback_parameter_mutation() {
         setup_global_test_eop();
 
@@ -5584,6 +5634,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_terminal_event() {
         setup_global_test_eop();
 
@@ -5638,6 +5689,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_multiple_no_callbacks() {
         setup_global_test_eop();
 
@@ -5675,6 +5727,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_smart_processing() {
         setup_global_test_eop();
 
@@ -5719,6 +5772,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_at_initial_epoch() {
         setup_global_test_eop();
 
@@ -5758,6 +5812,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_at_final_epoch() {
         setup_global_test_eop();
 
@@ -5791,6 +5846,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_simultaneous_events() {
         setup_global_test_eop();
 
@@ -5839,6 +5895,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_rapid_crossings() {
         setup_global_test_eop();
 
@@ -5887,6 +5944,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_with_backward_propagation() {
         setup_global_test_eop();
 
@@ -5937,6 +5995,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_log_persistence_across_reset_termination() {
         setup_global_test_eop();
 
@@ -5995,6 +6054,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_clear_vs_remove() {
         setup_global_test_eop();
 
@@ -6060,6 +6120,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_multiple_callbacks_same_step() {
         setup_global_test_eop();
 
@@ -6164,6 +6225,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_time_events_no_infinite_loop() {
         // Test that multiple TimeEvents with callbacks don't cause infinite loops
         // This was a bug where TimeEvents very close together with CONTINUE callbacks
@@ -6241,6 +6303,7 @@ mod tests {
     /// Tests at multiple offsets to verify accuracy is bounded by integrator precision,
     /// not by interpolation error.
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_callback_accuracy_at_different_times() {
         setup_global_test_eop();
 
@@ -6377,6 +6440,7 @@ mod tests {
     /// Test that multiple TimeEvent impulses in sequence produce the same result
     /// as chaining new propagators at each burn time.
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_callback_multi_impulse_accuracy() {
         setup_global_test_eop();
 
@@ -6496,6 +6560,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_continuous_control_via_control_input() {
         setup_global_test_eop();
 
@@ -6610,6 +6675,7 @@ mod tests {
     // -------------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_vs_keplerian() {
         use crate::propagators::KeplerianPropagator;
         use crate::propagators::traits::SStatePropagator;
@@ -6670,6 +6736,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_orbital_period() {
         setup_global_test_eop();
 
@@ -6710,6 +6777,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_adaptive_step_behavior() {
         setup_global_test_eop();
 
@@ -6772,6 +6840,7 @@ mod tests {
     // ------------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_energy_conservation_point_mass() {
         setup_global_test_eop();
 
@@ -6817,6 +6886,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_angular_momentum_conservation() {
         setup_global_test_eop();
 
@@ -6868,6 +6938,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_energy_drift_long_term() {
         setup_global_test_eop();
 
@@ -6914,6 +6985,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_orbital_stability_long_term() {
         setup_global_test_eop();
 
@@ -6964,6 +7036,7 @@ mod tests {
     // ---------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_leo_regime() {
         setup_global_test_eop();
 
@@ -7012,6 +7085,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_geo_regime() {
         setup_global_test_eop();
 
@@ -7060,6 +7134,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_heo_regime() {
         setup_global_test_eop();
 
@@ -7110,6 +7185,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_near_circular_stability() {
         setup_global_test_eop();
 
@@ -7166,6 +7242,7 @@ mod tests {
     // --------------------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_high_eccentricity() {
         setup_global_test_eop();
 
@@ -7215,6 +7292,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_equatorial_orbit() {
         setup_global_test_eop();
 
@@ -7254,6 +7332,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_polar_orbit() {
         setup_global_test_eop();
 
@@ -7298,6 +7377,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_very_short_step() {
         setup_global_test_eop();
 
@@ -7338,6 +7418,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_propagate_to_same_epoch() {
         setup_global_test_eop();
 
@@ -7369,6 +7450,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_backward_then_forward() {
         setup_global_test_eop();
 
@@ -7406,6 +7488,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_single_step_propagation() {
         setup_global_test_eop();
 
@@ -7440,6 +7523,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_with_custom_params() {
         setup_global_test_eop();
         setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
@@ -7469,6 +7553,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_ecef_frame() {
         setup_global_test_eop();
 
@@ -7499,6 +7584,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_extended_state() {
         setup_global_test_eop();
 
@@ -7539,6 +7625,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_with_additional_dynamics() {
         setup_global_test_eop();
 
@@ -7590,6 +7677,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_trajectory_stores_additional_states() {
         use approx::assert_abs_diff_eq;
         setup_global_test_eop();
@@ -7683,6 +7771,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_multiple_integrators() {
         setup_global_test_eop();
 
@@ -7762,6 +7851,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_current_epoch() {
         setup_global_test_eop();
 
@@ -7790,6 +7880,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_current_state() {
         setup_global_test_eop();
 
@@ -7818,6 +7909,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_current_params() {
         setup_global_test_eop();
         setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
@@ -7866,6 +7958,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_initial_epoch() {
         setup_global_test_eop();
 
@@ -7893,6 +7986,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_initial_state() {
         setup_global_test_eop();
 
@@ -7927,6 +8021,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_state_dim() {
         setup_global_test_eop();
 
@@ -7977,6 +8072,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_trajectory_access() {
         setup_global_test_eop();
 
@@ -8008,6 +8104,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_access() {
         setup_global_test_eop();
 
@@ -8054,6 +8151,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_access() {
         setup_global_test_eop();
 
@@ -8102,6 +8200,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_terminated_flag() {
         setup_global_test_eop();
 
@@ -8139,6 +8238,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_trajectory_mode() {
         setup_global_test_eop();
 
@@ -8194,6 +8294,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_trajectory_mode_getter() {
         setup_global_test_eop();
 
@@ -8217,6 +8318,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_step_size() {
         setup_global_test_eop();
 
@@ -8245,6 +8347,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_step_size_getter() {
         setup_global_test_eop();
 
@@ -8269,6 +8372,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_eviction_policy_max_size() {
         setup_global_test_eop();
 
@@ -8305,6 +8409,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_eviction_policy_max_age() {
         setup_global_test_eop();
 
@@ -8353,6 +8458,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_point_mass() {
         setup_global_test_eop();
 
@@ -8407,6 +8513,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_spherical_harmonic() {
         setup_global_test_eop();
 
@@ -8453,6 +8560,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_j2_perturbation() {
         setup_global_test_eop();
 
@@ -8528,6 +8636,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_degree_order_convergence() {
         setup_global_test_eop();
 
@@ -8593,6 +8702,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_global_vs_modeltype() {
         setup_global_test_eop();
         setup_global_test_gravity_model();
@@ -8688,6 +8798,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_harris_priester() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8747,6 +8858,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_exponential() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8799,6 +8911,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_nrlmsise00() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8856,6 +8969,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_magnitude_direction() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8918,6 +9032,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_orbital_decay() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8992,6 +9107,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_srp_no_eclipse() {
         use crate::propagators::force_model_config::{
             ParameterSource, SolarRadiationPressureConfiguration,
@@ -9046,6 +9162,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_srp_cylindrical_eclipse() {
         use crate::propagators::force_model_config::{
             ParameterSource, SolarRadiationPressureConfiguration,
@@ -9090,6 +9207,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_srp_conical_eclipse() {
         use crate::propagators::force_model_config::{
             ParameterSource, SolarRadiationPressureConfiguration,
@@ -9134,6 +9252,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_srp_eclipse_transition() {
         use crate::propagators::force_model_config::{
             ParameterSource, SolarRadiationPressureConfiguration,
@@ -9190,6 +9309,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_sun() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -9237,6 +9357,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_moon() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -9277,6 +9398,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_planets_spice() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -9317,6 +9439,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_jupiter() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -9420,6 +9543,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_mars() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -9464,6 +9588,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_relativity() {
         setup_global_test_eop();
 
@@ -9499,6 +9624,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_combined_leo() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -9530,6 +9656,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_combined_geo() {
         setup_global_test_eop();
 
@@ -9560,6 +9687,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_combined_high_fidelity() {
         use crate::propagators::force_model_config::{
             DragConfiguration, ParameterSource, SolarRadiationPressureConfiguration,
@@ -9637,6 +9765,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_parameter_sensitivity() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -9715,6 +9844,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_propagation_mode_state_only() {
         setup_global_test_eop();
 
@@ -9739,6 +9869,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_propagation_mode_with_stm() {
         setup_global_test_eop();
 
@@ -9788,6 +9919,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_propagation_mode_with_sensitivity() {
         setup_global_test_eop();
 
@@ -9826,6 +9958,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_propagation_mode_with_stm_and_sensitivity() {
         setup_global_test_eop();
 
@@ -9864,6 +9997,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_config_stm() {
         setup_global_test_eop();
 
@@ -9890,6 +10024,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_config_sensitivity() {
         setup_global_test_eop();
 
@@ -9918,6 +10053,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_config_stm_and_sensitivity() {
         setup_global_test_eop();
 
@@ -9952,6 +10088,7 @@ mod tests {
     // =========================================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_propagation_initialization() {
         setup_global_test_eop();
 
@@ -9996,6 +10133,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_propagates_with_stm() {
         setup_global_test_eop();
 
@@ -10035,6 +10173,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_stored_in_trajectory() {
         setup_global_test_eop();
 
@@ -10072,6 +10211,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_identity_initial_condition() {
         setup_global_test_eop();
 
@@ -10113,6 +10253,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_determinant_preservation() {
         setup_global_test_eop();
 
@@ -10153,6 +10294,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_composition_property() {
         setup_global_test_eop();
 
@@ -10237,6 +10379,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 
@@ -10299,6 +10442,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_at_methods() {
         setup_global_test_eop();
 
@@ -10361,6 +10505,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_with_different_jacobian_methods() {
         setup_global_test_eop();
 
@@ -10458,6 +10603,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_eigenvalue_analysis() {
         setup_global_test_eop();
 
@@ -10504,6 +10650,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_with_different_force_models() {
         setup_global_test_eop();
 
@@ -10626,6 +10773,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_interpolation_accuracy() {
         setup_global_test_eop();
 
@@ -10694,6 +10842,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_vs_finite_difference() {
         setup_global_test_eop();
 
@@ -10785,6 +10934,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_mass_physical_reasonableness() {
         setup_global_test_eop();
 
@@ -10853,6 +11003,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_drag_coefficient() {
         setup_global_test_eop();
 
@@ -10981,6 +11132,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_zero_for_unused_parameters() {
         setup_global_test_eop();
 
@@ -11024,6 +11176,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_storage_in_trajectory() {
         setup_global_test_eop();
 
@@ -11081,6 +11234,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_at_methods() {
         setup_global_test_eop();
 
@@ -11179,6 +11333,7 @@ mod tests {
     // The tests below add unique coverage not present in existing tests:
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_covariance_stm_formula_verification() {
         // Verify that covariance propagation follows P(t) = Φ·P₀·Φᵀ formula
         setup_global_test_eop();
@@ -11227,6 +11382,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_covariance_monte_carlo_validation() {
         // Validate covariance propagation against Monte Carlo simulation
         setup_global_test_eop();
@@ -11326,6 +11482,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_events_by_detector_index() {
         setup_global_test_eop();
 
@@ -11373,6 +11530,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_events_combined_filters() {
         setup_global_test_eop();
 
@@ -11418,6 +11576,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_query_with_iterator_methods() {
         setup_global_test_eop();
 
@@ -11469,6 +11628,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_query_edge_cases() {
         setup_global_test_eop();
 
@@ -11518,6 +11678,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_existing_methods_unchanged() {
         setup_global_test_eop();
 
@@ -11566,6 +11727,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_take_event_detectors() {
         setup_global_test_eop();
 
@@ -11603,6 +11765,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_event_detectors() {
         setup_global_test_eop();
 
@@ -11636,6 +11799,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_take_event_log() {
         setup_global_test_eop();
 
@@ -11674,6 +11838,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_terminated_is_terminated() {
         setup_global_test_eop();
 
@@ -11705,6 +11870,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detector_roundtrip() {
         setup_global_test_eop();
 
@@ -11774,6 +11940,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_gp_record_two_body() {
         setup_global_test_eop();
         let record = iss_gp_record();
@@ -11797,6 +11964,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_gp_record_earth_gravity() {
         setup_global_test_eop();
         let record = iss_gp_record();
@@ -11819,6 +11987,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_reinitialize_epoch_and_state() {
         setup_global_test_eop();
 
@@ -11878,6 +12047,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_reinitialize_stm_reset() {
         setup_global_test_eop();
 
@@ -11935,6 +12105,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_reinitialize_preserves_dynamics() {
         // Verify that reinitialize produces the same result as constructing a fresh propagator
         // at the same epoch/state (for time-independent dynamics like point mass gravity)
@@ -11991,6 +12162,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_minimal() {
         setup_global_test_eop();
 
@@ -12007,6 +12179,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_with_propagation_config() {
         setup_global_test_eop();
 
@@ -12024,6 +12197,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_with_params() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -12042,6 +12216,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_with_covariance() {
         setup_global_test_eop();
 
@@ -12061,6 +12236,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_full() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -12085,6 +12261,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_with_additional_dynamics_and_control_input() {
         setup_global_test_eop();
 
@@ -12138,6 +12315,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_matches_new() {
         setup_global_test_eop();
 
@@ -12238,6 +12416,7 @@ mod tests {
     /// incompatible with its central body — here NRLMSISE-00 drag (Earth-only)
     /// paired with a Moon central body.
     #[test]
+    #[serial_test::parallel]
     fn test_new_rejects_invalid_config() {
         setup_global_test_eop();
 
@@ -12438,6 +12617,7 @@ mod tests {
     /// has no central mass to define an orbit about, so it must return an
     /// error rather than silently computing nonsense elements with `gm = 0`.
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_koe_osc_barycenter_errors() {
         setup_global_test_eop();
 

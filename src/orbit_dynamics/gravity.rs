@@ -3390,6 +3390,7 @@ gfc    2     2  3.4670944268756000E-05 -2.4064244523445000E-10  4.87000000000000
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spherical_harmonic_agrees_with_fast_zonal() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);

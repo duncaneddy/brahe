@@ -13,7 +13,7 @@
 //! FLAGS = ["IGNORE"]
 
 use brahe as bh;
-use bh::traits::DStatePropagator;
+use bh::traits::{DOrbitStateProvider, DStatePropagator};
 use nalgebra as na;
 
 fn main() {

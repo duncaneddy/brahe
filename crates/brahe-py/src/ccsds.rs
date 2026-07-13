@@ -395,7 +395,7 @@ impl PyOEMStates {
     /// Extend with state vectors from an iterable.
     ///
     /// Args:
-    ///     iterable: Iterable of OEMStateVector objects
+    ///     iterable (Iterable[OEMStateVector]): Iterable of OEMStateVector objects
     fn extend(&self, py: Python, iterable: &Bound<'_, PyAny>) -> PyResult<()> {
         let parent_oem: &Bound<PyOEM> = self.parent.bind(py).cast()?;
         let iterator = iterable.try_iter()?;
@@ -1155,7 +1155,7 @@ impl PyOEMSegments {
     /// Extend with segments from an iterable.
     ///
     /// Args:
-    ///     iterable: Iterable of OEMSegment objects
+    ///     iterable (Iterable[OEMSegment]): Iterable of OEMSegment objects
     fn extend(&self, py: Python, iterable: &Bound<'_, PyAny>) -> PyResult<()> {
         let parent_oem: &Bound<PyOEM> = self.parent.bind(py).cast()?;
         let iterator = iterable.try_iter()?;
@@ -2354,7 +2354,7 @@ impl PyOPMManeuvers {
     /// Extend with maneuvers from an iterable.
     ///
     /// Args:
-    ///     iterable: Iterable of OPMManeuver objects
+    ///     iterable (Iterable[OPMManeuver]): Iterable of OPMManeuver objects
     fn extend(&self, py: Python, iterable: &Bound<'_, PyAny>) -> PyResult<()> {
         let parent_opm: &Bound<PyOPM> = self.parent.bind(py).cast()?;
         let iterator = iterable.try_iter()?;

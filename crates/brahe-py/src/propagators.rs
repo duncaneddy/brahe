@@ -5340,7 +5340,7 @@ impl PyNumericalPropagationConfig {
 ///         Default is None (disabled).
 ///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
 ///         Default is None (disabled).
-///     relativity (bool): Enable relativistic corrections. Default is False.
+///     relativity (bool, optional): Enable relativistic corrections. Default is False.
 ///     mass (ParameterSource, optional): Spacecraft mass source. Default is None.
 ///     frame_transform (FrameTransformationModel, optional): ECI-to-body-fixed rotation
 ///         used by every body-fixed force term. Defaults to ``FULL_EARTH_ROTATION``.
@@ -5385,7 +5385,7 @@ impl PyForceModelConfig {
     ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
     ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
     ///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
-    ///     relativity (bool): Enable relativistic corrections. Default is False.
+    ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
     ///     mass (ParameterSource, optional): Spacecraft mass source.
     ///     tides (TidesConfiguration, optional): Solid Earth tides configuration.
     ///
@@ -5531,7 +5531,7 @@ impl PyForceModelConfig {
     ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
     ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
     ///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
-    ///     relativity (bool): Enable relativistic corrections. Default is False.
+    ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
     ///     mass (ParameterSource, optional): Spacecraft mass source.
     ///
     /// Returns:

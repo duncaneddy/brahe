@@ -1,13 +1,13 @@
 # Cislunar and Lunar Propagation
 
-`NumericalOrbitPropagator` integrates relative to a `CentralBody`, which identifies the body an orbit is propagated about and bundles the GM, radius, spin rate, and inertial/fixed frame pair a force model needs. Two central bodies cover cislunar work: `Moon`, for orbits about the Moon, and `EMB`, the Earth-Moon barycenter, for cislunar transfer trajectories. `ForceModelConfig.lunar_default()` and `ForceModelConfig.cislunar_default()` pair each with a physically appropriate force model.
+`NumericalOrbitPropagator` integrates relative to a `CentralBody`, which identifies the body an orbit is propagated about and bundles the gravitational parameter (GM, $\mu$), radius, spin rate, and inertial/fixed frame pair needed for body-orientation based force models (gravity, drag). Two central bodies cover cislunar work: `Moon`, for orbits about the Moon, and `EMB`, the Earth-Moon barycenter, whose integration frame is `EMBI`, the inertial (ICRF-aligned) Earth-Moon barycenter frame, for cislunar transfer trajectories. `ForceModelConfig.lunar_default()` and `ForceModelConfig.cislunar_default()` pair each with a physically appropriate force model.
 
 | `CentralBody` | NAIF ID | Inertial frame | Fixed frame |
 |---|---|---|---|
 | `Moon` | 301 | `LCI` | `LFPA` |
 | `EMB` | 3 | `EMBI` | none |
 
-The propagator integrates in the central body's inertial frame (`LCI` for `Moon`, `EMBI` for `EMB`). `state_in_frame(epoch, frame)` converts the integrated state into any [`ReferenceFrame`](../../frames/frame_transformations.md); `state_bci(epoch)` returns the raw body-centered inertial state without conversion.
+The propagator integrates in the central body's inertial frame (`LCI` for `Moon`, `EMBI` for `EMB`). `state_in_frame(frame, epoch)` converts the integrated state into any [`ReferenceFrame`](../../frames/frame_transformations.md), routing directly from the integration frame: for a Moon-centered propagator, `state_in_frame(ReferenceFrame.LCI, epoch)` is the identity (no SPK round trip), and `state_in_frame(ReferenceFrame.LFPA, epoch)` gives the Moon-fixed state without first converting to Earth-centered `GCRF`. `state_bci(epoch)` returns the raw body-centered inertial state without conversion, and `state_bcbf(epoch)` returns the body-centered body-fixed state (`LFPA` for `Moon`; `EMB` has no body-fixed frame and returns an error).
 
 ## Force-Model Defaults
 
@@ -18,7 +18,7 @@ The propagator integrates in the central body's inertial frame (`LCI` for `Moon`
 | `lunar_default()` | `Moon` | 50x50 GRGM660PRIM | none | Moon, Earth | Earth, Sun |
 | `cislunar_default()` | `EMB` | Point mass | none | Earth, Moon | Earth, Moon, Sun |
 
-Both require a spacecraft parameter vector at propagator construction, since mass/area/coefficients are wired up via `ParameterSource::ParameterIndex`. Each expects `[mass, drag_area, Cd, srp_area, Cr]`; because neither model includes drag, the `drag_area` and `Cd` slots (indices 1 and 2) are unused placeholders but must still be present. Call `.validate()` on the resulting config to check it up front &mdash; it rejects Earth-specific options (e.g. Harris-Priester/NRLMSISE-00 drag, `EarthZonal` gravity) on non-Earth bodies, and rejects spherical-harmonic gravity or drag on the `EMB` barycenter, which has no mass or rotation of its own.
+Both require a spacecraft parameter vector at propagator construction, since mass/area/coefficients are wired up via `ParameterSource::ParameterIndex`. Each expects `[mass, drag_area, Cd, srp_area, Cr]`; because neither model includes drag, the `drag_area` and `Cd` slots (indices 1 and 2) are unused placeholders but must still be present. `.validate()` can be used on the config to check it up front for inconsistent configuration options. For example, with a `Moon` central body it fails on Earth-specific options (e.g. Harris-Priester or NRLMSISE-00 atmospheric drag, `EarthZonal` gravity), and with the `EMB` barycenter it rejects spherical-harmonic gravity or drag, since a barycenter has no mass or rotation of its own. The same validation also runs automatically when a `NumericalOrbitPropagator` is constructed, so a misconfigured force model fails at construction even without an explicit `.validate()` call.
 
 ## Barycenter Third-Body Physics
 

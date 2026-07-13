@@ -6,22 +6,24 @@
 
 The **transformation source** column names how each frame's orientation is realized: `native` frames are computed from models compiled into Brahe (no kernel), `SPICE` frames are evaluated from a loaded NAIF kernel. Re-centering between frames with different origins is a separate step resolved through the loaded SPK kernels in the global registry (last-loaded-wins for overlapping segments); the default `de440s` ephemeris is loaded automatically when no SPK is resident.
 
-| Frame | Kind | Transformation source |
-|---|---|---|
-| `GCRF` | Inertial | ICRF-aligned identity |
-| `ITRF` | Earth-fixed | IAU 2006/2000A (native) |
-| `EME2000` | Inertial | IAU 2006 frame bias (native) |
-| `LCI` | Inertial | ICRF-aligned identity |
-| `LFPA` | Moon-fixed | DE440 binary PCK (SPICE) |
-| `LFME` | Moon-fixed | DE440 PA + constant PA&rarr;ME rotation (native) |
-| `MCI` | Inertial | ICRF-aligned identity |
-| `MCMF` | Mars-fixed | IAU/WGCCRE analytic (native) |
-| `EMBI` | Inertial | ICRF-aligned identity |
-| `SSBI` | Inertial | ICRF-aligned identity |
-| `BodyCenteredICRF(naif_id)` | Inertial | ICRF-aligned identity |
-| `BodyFixedIAU(naif_id)` | Body-fixed | IAU/WGCCRE analytic (native) |
-| `BodyFixedPCK(center, frame_id)` | Body-fixed | Loaded binary PCK (SPICE) |
-| `BodyFixedCustom(center, key)` | Body-fixed | User rotation callback (native) |
+| Frame | Kind | NAIF ID (If Any) | Transformation source |
+|---|---|---|---|
+| `GCRF` | Inertial | 399 | ICRF-aligned identity |
+| `ITRF` | Earth-fixed | 399 | IAU 2006/2000A (native) |
+| `EME2000` | Inertial | 399 | IAU 2006 frame bias (native) |
+| `LCI` | Inertial | 301 | ICRF-aligned identity |
+| `LFPA` | Moon-fixed | 301 | DE440 binary PCK (SPICE) |
+| `LFME` | Moon-fixed | 301 | DE440 PA + constant PA&rarr;ME rotation (native) |
+| `MCI` | Inertial | 499 | ICRF-aligned identity |
+| `MCMF` | Mars-fixed | 499 | IAU/WGCCRE analytic (native) |
+| `EMBI` | Inertial | 3 | ICRF-aligned identity |
+| `SSBI` | Inertial | 0 | ICRF-aligned identity |
+| `BodyCenteredICRF(naif_id)` | Inertial | `naif_id` | ICRF-aligned identity |
+| `BodyFixedIAU(naif_id)` | Body-fixed | `naif_id` | IAU/WGCCRE analytic (native) |
+| `BodyFixedPCK(center, frame_id)` | Body-fixed | `center` | Loaded binary PCK (SPICE) |
+| `BodyFixedCustom(center, key)` | Body-fixed | `center` | User rotation callback (native) |
+
+The NAIF ID column gives the NAIF integer ID of the body each frame is centered on; it is the ID used to resolve the frame's origin through the SPK kernels when re-centering. For `BodyFixedCustom`, `center` is that same center NAIF ID, while `key` is an integer handle naming a rotation callback function previously registered with `register_custom_frame` &mdash; see [Generic NAIF-ID Variants](#generic-naif-id-variants) below.
 
 See [Lunar Reference Frames](lunar_frames.md) and [Mars Reference Frames](mars_frames.md) for `LCI`/`LFPA`/`LFME` and `MCI`/`MCMF` respectively.
 
@@ -61,7 +63,7 @@ Four variants cover bodies without a dedicated named frame:
 - **`BodyCenteredICRF(naif_id)`**: ICRF-aligned axes centered on `naif_id`. Requires an SPK segment for `naif_id` when translating to/from a differently-centered frame.
 - **`BodyFixedIAU(naif_id)`**: the compiled-in IAU/WGCCRE body-fixed rotation for `naif_id`, centered on `naif_id` itself. Requires no kernel. `iau_rotation_model_ids()` returns the supported NAIF IDs: the Sun, Mercury, Venus, the Moon (a lower-precision IAU model, distinct from `LFPA`), Mars, the Galilean moons (Io/Europa/Ganymede/Callisto), Phobos, Deimos, Enceladus, Titan, Jupiter, Saturn, Uranus, and Neptune.
 - **`BodyFixedPCK { center, frame_id }`**: a body-fixed frame evaluated from a loaded binary PCK's `frame_id` (e.g. 31008 for `MOON_PA_DE440`), centered on `center`. The PCK must already be loaded &mdash; the router never auto-loads a generic PCK.
-- **`BodyFixedCustom { center, key }`**: a body-fixed frame evaluated from a user-supplied rotation callback registered under `key` with `register_custom_frame(key, rotation, omega=None)`. The callback maps an epoch to the ICRF&rarr;body-fixed rotation matrix; an optional angular-velocity callback supplies the velocity transport term (derived numerically by central differencing when omitted). This plugs in orientation models Brahe does not ship &mdash; e.g. an asteroid spin state &mdash; without any change to the router API. For a body with no catalogued NAIF ID, self-assign a unique negative `center`, mirroring NAIF's convention for non-catalogued objects.
+- **`BodyFixedCustom { center, key }`**: a body-fixed frame evaluated from a user-supplied rotation callback. `center` is the NAIF ID of the body the frame is centered on (used for SPK re-centering, exactly like the other variants). `key` is an arbitrary integer handle, unrelated to NAIF IDs: it names a callback function previously registered with `register_custom_frame(key, rotation, omega=None)`, and the router looks the callback up by `key` at evaluation time. `rotation` is a proper callback function mapping an epoch to the 3&times;3 ICRF&rarr;body-fixed rotation matrix; `omega` is an optional second callback mapping an epoch to the frame's angular velocity vector (rad/s), which supplies the velocity transport term (derived numerically by central differencing of `rotation` when omitted). This enables support for user-defined orientation models, enabling the framework to extend to additional bodies without needing hard-coded support for them in the library. For a body with no catalogued NAIF ID, self-assign a unique negative `center`, mirroring NAIF's convention for non-catalogued objects. See [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md) for a worked registration example.
 
 ## Kernel Requirements Per Frame
 
@@ -74,16 +76,10 @@ Four variants cover bodies without a dedicated named frame:
 | `LFPA`, `LFME` | `moon_pa_de440` binary PCK | Yes, on first LCI &harr; LFPA/LFME conversion |
 | `MCMF` (rotation only) | None (compiled-in WGCCRE polynomial) | N/A |
 | `BodyFixedIAU(naif_id)` | None (compiled-in), if `naif_id` is in `iau_rotation_model_ids()` | N/A |
-| `BodyFixedPCK { .. }` | The named binary PCK | No &mdash; must be loaded explicitly with `load_kernel` |
+| `BodyFixedPCK { .. }` | The named binary PCK | No; must be loaded explicitly with `load_kernel` |
 | `BodyFixedCustom { .. }` | None (user callback) | N/A |
 
 The lunar PCK auto-load is a narrow exception to the general SPICE registry rule that binary PCKs are never auto-initialized (see [SPICE Kernels](../spice/index.md)); it exists because `LFPA`/`LFME` have no meaning without `moon_pa_de440` loaded, so every lunar body-fixed conversion loads it transparently on first use. `MCI`/`MCMF` are centered on the Mars body center (NAIF 499); a translation to or from another center resolves the body-center leg through the `mar099s` satellite ephemeris kernel, which is auto-loaded the same way.
-
-## Propagator State in Any Frame
-
-A `NumericalOrbitPropagator` integrates in its central body's inertial frame (`LCI` for `Moon`, `MCI` for `Mars`, `GCRF` for `Earth`, ...). `state_in_frame(epoch, frame)` converts the propagated state into any other `ReferenceFrame` by routing through `state_frame_to_frame(central_body.inertial_frame(), frame, epoch, x)` &mdash; for a Moon-centered propagator, `state_in_frame(epoch, ReferenceFrame.LCI)` is the identity (no SPK round trip), and `state_in_frame(epoch, ReferenceFrame.LFPA)` gives the Moon-fixed ground-track state directly, without first converting to Earth-centered `GCRF`. `state_bci(epoch)` returns the raw integrated body-centered inertial state with no frame conversion applied, and `state_bcbf(epoch)` returns the body-centered body-fixed state (the central body's fixed frame).
-
-The `CentralBody` that determines each propagator's integration frame, and the `ForceModelConfig` defaults that pair a central body with an appropriate force model, are documented alongside the propagation examples in [Cislunar and Lunar Propagation](../orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md) and [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md).
 
 ## See Also
 

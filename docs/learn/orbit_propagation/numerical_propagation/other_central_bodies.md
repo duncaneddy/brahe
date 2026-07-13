@@ -16,7 +16,7 @@ Beyond Earth and the cislunar bodies, `NumericalOrbitPropagator` integrates abou
 |---|---|---|---|---|---|
 | `mars_default()` | `Mars` | 50x50 GGM2B (`ggm2bc80`) | Exponential | Mars | Sun |
 
-`mars_default()` requires a spacecraft parameter vector `[mass, drag_area, Cd, srp_area, Cr]` at propagator construction; all five slots are used. Call `.validate()` to confirm the configuration is compatible with the central body before propagating.
+`mars_default()` requires a spacecraft parameter vector `[mass, drag_area, Cd, srp_area, Cr]` at propagator construction; all five slots are used. Configuration validation runs automatically when the propagator is constructed; `.validate()` can also be called directly to check a configuration earlier.
 
 ### Example: Propagating an Orbit About Mars
 
@@ -53,11 +53,44 @@ The example below builds a Mars force model with `ForceModelConfig.mars_default(
 
 For a body outside the built-in table, construct `CentralBody.Custom(name, naif_id, gm, radius=None, omega=None, fixed_frame=None)` with the body's physical properties. For a body without a catalogued NAIF ID (e.g. a newly observed asteroid), self-assign a unique **negative** `naif_id`, mirroring NAIF's own convention for non-catalogued objects. The ID is used for frame identity and force-model validation; ephemeris queries against it will surface an SPK lookup error unless a kernel covering that ID is loaded.
 
-Pair a custom body with a force model using `ForceModelConfig.for_body(central_body, gravity, drag=None, srp=None, third_body=None, relativity=False, mass=None)`, which fills in the frame-transformation default so callers specify only the terms that vary per body. `for_body` does not validate its result &mdash; call `.validate()` afterward to confirm the chosen options are compatible with the central body (for example, spherical-harmonic gravity requires the body to have a `fixed_frame`).
+Pair a custom body with a force model using `ForceModelConfig.for_body(central_body, gravity, drag=None, srp=None, third_body=None, relativity=False, mass=None)`, which fills in the frame-transformation default so callers specify only the terms that vary per body. Validation runs automatically when the propagator is constructed, rejecting options incompatible with the central body (for example, spherical-harmonic gravity requires the body to have a `fixed_frame`); `.validate()` can also be called directly to check a configuration earlier.
 
 ## Body-Fixed Frames Without SPICE Data
 
-A custom body that has no SPICE orientation kernel and no compiled-in IAU model can still be given a rotating body-fixed frame. Register a rotation callback with `register_custom_frame(key, rotation, omega=None)`: `rotation` maps an `Epoch` to the ICRF&rarr;body-fixed rotation matrix, and the optional `omega` callback supplies the frame's angular velocity for the velocity transport term (derived numerically by central differencing when omitted). Reference the registered frame as `ReferenceFrame.BodyFixedCustom(center, key)`, using the same `key`, and set it as the custom body's `fixed_frame`. This supports orientation models Brahe does not ship &mdash; e.g. an asteroid spin state from the DAMIT database &mdash; without any change to the propagator or router API. See [Generic NAIF-ID Variants](../../frames/frame_transformations.md#generic-naif-id-variants) for the frame-router side.
+A custom body that has no SPICE orientation kernel and no compiled-in IAU model can still be given a rotating body-fixed frame. Register a rotation callback with `register_custom_frame(key, rotation, omega=None)`:
+
+- `rotation` is a callback function: it receives an `Epoch` and returns the 3x3 ICRF&rarr;body-fixed rotation matrix at that instant.
+- `omega` is an optional second callback function: it receives an `Epoch` and returns the frame's angular velocity vector (rad/s), used for the exact velocity transport term. When omitted, the angular velocity is derived numerically by central differencing of `rotation`.
+- `key` is an arbitrary integer handle that names the registered callback. It does **not** need to match (and is unrelated to) the central body's NAIF ID; the body's NAIF ID appears separately as the `center` of the frame variant.
+
+Reference the registered frame as `ReferenceFrame.BodyFixedCustom(center, key)`, using the same `key`, and set it as the custom body's `fixed_frame`. This enables support for user-defined orientation models, enabling the framework to extend to additional bodies without needing hard-coded support for them in the library. See [Generic NAIF-ID Variants](../../frames/frame_transformations.md#generic-naif-id-variants) for the frame-router side.
+
+### Example: Registering a Custom Body-Fixed Frame
+
+The example below registers a uniform spin state for an uncatalogued body (self-assigned negative NAIF ID), converts a state between the body's inertial and body-fixed frames, and verifies that a co-rotating surface point is stationary in the body-fixed frame. No kernels are required.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/frames/custom_frame.py:9"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/frames/custom_frame.rs:5"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/frames/custom_frame.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/frames/custom_frame.rs.txt"
+        ```
 
 ## See Also
 

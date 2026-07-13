@@ -10,6 +10,8 @@ Functions for working with Cartesian state vectors and conversions.
 
 ## Arbitrary Central Body
 
+::: brahe.coordinates.state_koe_to_eci_for_body
+
 ::: brahe.coordinates.state_eci_to_koe_for_body
 
 ## See Also

@@ -12,7 +12,7 @@ LFPA is the DE440 lunar principal-axis frame[^park2021], distributed by NAIF as 
 
 ## LFME (Lunar-Fixed Mean-Earth/Polar-Axis)
 
-LFME is the "mean Earth/polar axis" frame, in which the Moon's mean pole and mean prime meridian (nominally facing Earth) are aligned with the frame axes. It is derived from LFPA by a small **constant** rotation of about 104 arcseconds total (roughly 875 m of surface displacement at the lunar radius), transcribed from NAIF's DE440 lunar frames kernel `moon_de440_220930.tf`:
+LFME is the "mean Earth/polar axis" frame, in which the Moon's mean pole and mean prime meridian (nominally facing Earth) are aligned with the frame axes. It is derived from LFPA by a small **constant** rotation[^lsdc]:
 
 $$
 R_{\text{LFME} \to \text{LFPA}} = R_z(67.8526'') \, R_y(78.6944'') \, R_x(0.2785'')
@@ -22,18 +22,18 @@ Because this rotation is constant, `rotation_lfme_to_lfpa`/`rotation_lfpa_to_lfm
 
 !!! info "PA vs. ME: which one should I use?"
 
-    LFPA is the frame the DE440 lunar orientation kernel defines directly and is the appropriate choice when working with other DE440-derived products (e.g. NAIF lunar surface data). LFME is the frame most lunar cartographic products (e.g. LOLA topography, landing site coordinates) are published in. Convert explicitly between them with `rotation_lfpa_to_lfme`/`rotation_lfme_to_lfpa` rather than assuming they are interchangeable &mdash; the ~875 m offset is significant for surface operations.
+    LFPA is the frame the DE440 lunar orientation kernel defines directly and is the appropriate choice when working with other DE440-derived products (e.g. NAIF lunar surface data). LFME is the frame most lunar cartographic products (e.g. LOLA topography, landing site coordinates) are published in. Convert explicitly between them with `rotation_lfpa_to_lfme`/`rotation_lfme_to_lfpa` rather than assuming they are interchangeable.
 
 ## Function Reference
 
-| Conversion | Rust / Python function |
+| Conversion | Function |
 |---|---|
-| LCI &rarr; LFPA | `rotation_lci_to_lfpa`, `position_lci_to_lfpa`, `state_lci_to_lfpa` |
-| LFPA &rarr; LCI | `rotation_lfpa_to_lci`, `position_lfpa_to_lci`, `state_lfpa_to_lci` |
-| LCI &rarr; LFME | `rotation_lci_to_lfme`, `position_lci_to_lfme`, `state_lci_to_lfme` |
-| LFME &rarr; LCI | `rotation_lfme_to_lci`, `position_lfme_to_lci`, `state_lfme_to_lci` |
-| LFPA &harr; LFME | `rotation_lfpa_to_lfme`, `rotation_lfme_to_lfpa` (constant, no epoch) |
-| ECI &harr; LCI | `position_eci_to_lci`/`position_lci_to_eci`, `state_eci_to_lci`/`state_lci_to_eci` |
+| LCI &rarr; LFPA | [`rotation_lci_to_lfpa`](../../library_api/frames/lunar.md#brahe.rotation_lci_to_lfpa), [`position_lci_to_lfpa`](../../library_api/frames/lunar.md#brahe.position_lci_to_lfpa), [`state_lci_to_lfpa`](../../library_api/frames/lunar.md#brahe.state_lci_to_lfpa) |
+| LFPA &rarr; LCI | [`rotation_lfpa_to_lci`](../../library_api/frames/lunar.md#brahe.rotation_lfpa_to_lci), [`position_lfpa_to_lci`](../../library_api/frames/lunar.md#brahe.position_lfpa_to_lci), [`state_lfpa_to_lci`](../../library_api/frames/lunar.md#brahe.state_lfpa_to_lci) |
+| LCI &rarr; LFME | [`rotation_lci_to_lfme`](../../library_api/frames/lunar.md#brahe.rotation_lci_to_lfme), [`position_lci_to_lfme`](../../library_api/frames/lunar.md#brahe.position_lci_to_lfme), [`state_lci_to_lfme`](../../library_api/frames/lunar.md#brahe.state_lci_to_lfme) |
+| LFME &rarr; LCI | [`rotation_lfme_to_lci`](../../library_api/frames/lunar.md#brahe.rotation_lfme_to_lci), [`position_lfme_to_lci`](../../library_api/frames/lunar.md#brahe.position_lfme_to_lci), [`state_lfme_to_lci`](../../library_api/frames/lunar.md#brahe.state_lfme_to_lci) |
+| LFPA &harr; LFME | [`rotation_lfpa_to_lfme`](../../library_api/frames/lunar.md#brahe.rotation_lfpa_to_lfme), [`rotation_lfme_to_lfpa`](../../library_api/frames/lunar.md#brahe.rotation_lfme_to_lfpa) (constant, no epoch) |
+| ECI &harr; LCI | [`position_eci_to_lci`](../../library_api/frames/lunar.md#brahe.position_eci_to_lci)/[`position_lci_to_eci`](../../library_api/frames/lunar.md#brahe.position_lci_to_eci), [`state_eci_to_lci`](../../library_api/frames/lunar.md#brahe.state_eci_to_lci)/[`state_lci_to_eci`](../../library_api/frames/lunar.md#brahe.state_lci_to_eci) |
 
 All rotation functions return a 3x3 direction cosine matrix; all `position_*`/`state_*` functions take and return SI units (m, m/s). See the [Lunar Frames API Reference](../../library_api/frames/lunar.md) for full signatures.
 
@@ -47,3 +47,5 @@ For propagating an orbit about the Moon and reporting it in the LFPA frame, see 
 - [Lunar Frames API Reference](../../library_api/frames/lunar.md)
 
 [^park2021]: Park, R. S., Folkner, W. M., Williams, J. G., & Boggs, D. H. (2021). The JPL Planetary and Lunar Ephemerides DE440 and DE441. *The Astronomical Journal*, 161(3), 105. The DE440 lunar orientation defines the principal-axis (PA) frame; the mean-Earth/polar-axis (ME) frame and the constant PA&rarr;ME rotation are given in NAIF's DE440 lunar frames kernel `moon_de440_220930.tf`.
+
+[^lsdc]: Folta, D., Bosanac, N., Elliott, I., Mann, L., Mesarch, R., & Rosales, J. (2022). [*Astrodynamics Convention and Modeling Reference for Lunar, Cislunar, and Libration Point Orbits*, NASA/TP-20220014814](https://ntrs.nasa.gov/api/citations/20220014814/downloads/NASA%20TP%2020220014814%20final.pdf), Equation 52, which gives the constant PA &rarr; ME frame-bias matrix $[\boldsymbol{B}_M] = [\boldsymbol{R}_1(-0.2785'')][\boldsymbol{R}_2(-78.6944'')][\boldsymbol{R}_3(-67.8526'')]$ &mdash; the transpose of the LFME &rarr; LFPA rotation above. The same angles appear in NAIF's DE440 lunar frames kernel `moon_de440_220930.tf`.

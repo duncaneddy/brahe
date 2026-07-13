@@ -12,11 +12,11 @@ MCMF is the body-fixed frame defined by the IAU Working Group on Cartographic Co
 
 ## Function Reference
 
-| Conversion | Rust / Python function |
+| Conversion | Function |
 |---|---|
-| MCI &rarr; MCMF | `rotation_mci_to_mcmf`, `position_mci_to_mcmf`, `state_mci_to_mcmf` |
-| MCMF &rarr; MCI | `rotation_mcmf_to_mci`, `position_mcmf_to_mci`, `state_mcmf_to_mci` |
-| ECI &harr; MCI | `position_eci_to_mci`/`position_mci_to_eci`, `state_eci_to_mci`/`state_mci_to_eci` |
+| MCI &rarr; MCMF | [`rotation_mci_to_mcmf`](../../library_api/frames/mars.md#brahe.rotation_mci_to_mcmf), [`position_mci_to_mcmf`](../../library_api/frames/mars.md#brahe.position_mci_to_mcmf), [`state_mci_to_mcmf`](../../library_api/frames/mars.md#brahe.state_mci_to_mcmf) |
+| MCMF &rarr; MCI | [`rotation_mcmf_to_mci`](../../library_api/frames/mars.md#brahe.rotation_mcmf_to_mci), [`position_mcmf_to_mci`](../../library_api/frames/mars.md#brahe.position_mcmf_to_mci), [`state_mcmf_to_mci`](../../library_api/frames/mars.md#brahe.state_mcmf_to_mci) |
+| ECI &harr; MCI | [`position_eci_to_mci`](../../library_api/frames/mars.md#brahe.position_eci_to_mci)/[`position_mci_to_eci`](../../library_api/frames/mars.md#brahe.position_mci_to_eci), [`state_eci_to_mci`](../../library_api/frames/mars.md#brahe.state_eci_to_mci)/[`state_mci_to_eci`](../../library_api/frames/mars.md#brahe.state_mci_to_eci) |
 
 All rotation functions return a 3x3 direction cosine matrix; all `position_*`/`state_*` functions take and return SI units (m, m/s). See the [Mars Frames API Reference](../../library_api/frames/mars.md) for full signatures.
 

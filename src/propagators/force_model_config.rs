@@ -1452,7 +1452,7 @@ impl ThirdBody {
     /// # Returns
     /// - `naif_id`: NAIF ID. Planet variants (other than Earth and Mars) use
     ///   the planetary-system barycenter, matching the targets used by the
-    ///   `*_position_de` ephemeris functions.
+    ///   `*_position_spice` ephemeris functions.
     ///
     /// # Examples
     /// ```

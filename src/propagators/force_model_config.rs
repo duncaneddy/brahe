@@ -771,7 +771,8 @@ impl ForceModelConfig {
     /// Checks six classes of central-body-dependent constraints:
     /// 1. Earth-specific options (`AtmosphericModel::HarrisPriester`/`NRLMSISE00`,
     ///    `GravityConfiguration::EarthZonal`, `FrameTransformationModel::EarthRotationOnly`,
-    ///    `EphemerisSource::LowPrecision`) are rejected for any non-Earth central body.
+    ///    `EphemerisSource::LowPrecision`, `TidesConfiguration`) are rejected for any
+    ///    non-Earth central body.
     /// 2. `EphemerisSource::LowPrecision` only models the Sun and Moon; any other
     ///    configured third body (e.g. a planet) is rejected regardless of central body,
     ///    since the underlying acceleration routines panic rather than compute a result
@@ -841,6 +842,14 @@ impl ForceModelConfig {
                 return Err(BraheError::Error(format!(
                     "FrameTransformationModel::EarthRotationOnly requires an Earth central \
                      body, but central_body is {}",
+                    self.central_body
+                )));
+            }
+
+            if self.tides.is_some() {
+                return Err(BraheError::Error(format!(
+                    "TidesConfiguration models solid Earth tides (IERS §6.2) and requires an \
+                     Earth central body, but central_body is {}",
                     self.central_body
                 )));
             }
@@ -1989,6 +1998,24 @@ mod tests {
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("EarthRotationOnly"), "{err}");
         assert!(err.contains("Mars"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_tides_non_earth() {
+        let cfg = ForceModelConfig {
+            tides: Some(TidesConfiguration::default()),
+            central_body: CentralBody::Moon,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: None,
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+        };
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("TidesConfiguration"), "{err}");
+        assert!(err.contains("Moon"), "{err}");
     }
 
     #[test]

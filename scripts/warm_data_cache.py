@@ -8,10 +8,8 @@ already-cached artifacts fast-path without hitting the network.
 Two manifest line forms are supported:
     <kernel-name>              -> brahe.load_kernel(name), which downloads and
                                    caches known DE/PCK/satellite kernel names
-                                   (only `download_de_kernel` is exposed
-                                   directly to Python; PCK and satellite
-                                   kernels are only reachable through
-                                   `load_kernel`'s name resolution).
+                                   via `download_spice_kernel`'s name
+                                   resolution.
     icgem:<body>:<model-name>  -> brahe.datasets.icgem.download_model(body, model-name)
 
 This is the download-only counterpart to `scripts/warm_cartopy.py`: CI

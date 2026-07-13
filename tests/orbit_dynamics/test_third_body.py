@@ -536,11 +536,11 @@ class TestThirdBodyForBody:
     """Tests for the central-body-aware accel_third_body_for_body."""
 
     def test_accel_third_body_for_body_earth_center_matches_legacy(self):
-        """CentralBody.Earth + ThirdBody.SUN matches the legacy accel_third_body_sun_de."""
+        """CentralBody.Earth + ThirdBody.SUN matches the legacy accel_third_body_sun_spice."""
         epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         r = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 
-        legacy = bh.accel_third_body_sun_de(epc, r, bh.EphemerisSource.DE440s)
+        legacy = bh.accel_third_body_sun_spice(epc, r, bh.EphemerisSource.DE440s)
         new = bh.accel_third_body_for_body(
             bh.CentralBody.Earth, bh.ThirdBody.SUN, bh.EphemerisSource.DE440s, epc, r
         )

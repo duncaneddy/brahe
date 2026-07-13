@@ -442,6 +442,20 @@ def test_forcemodelconfig_validate_rejects_custom_spherical_harmonic_without_fix
     assert "TestBody" in message
 
 
+def test_forcemodelconfig_validate_rejects_tides_non_earth():
+    """Mirrors test_validate_rejects_tides_non_earth"""
+    config = ForceModelConfig(
+        tides=brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.AUTO)
+    )
+    config.central_body = CentralBody.Moon
+
+    with pytest.raises(RuntimeError) as exc_info:
+        config.validate()
+    message = str(exc_info.value)
+    assert "TidesConfiguration" in message
+    assert "Moon" in message
+
+
 # =============================================================================
 # Tides Configuration Tests
 # =============================================================================

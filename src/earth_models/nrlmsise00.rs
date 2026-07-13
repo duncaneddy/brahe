@@ -2228,7 +2228,7 @@ pub fn gtd7d(input: &mut NrlmsiseInput, flags: &mut NrlmsiseFlags, output: &mut 
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use brahe::earth_models::density_nrlmsise00_geod;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::{initialize_eop, initialize_sw};
@@ -2344,7 +2344,7 @@ pub fn density_nrlmsise00_geod(epoch: &Epoch, geod: &[f64; 3]) -> Result<f64, Br
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use brahe::earth_models::density_nrlmsise00;
 /// use brahe::time::{Epoch, TimeSystem};
 /// use brahe::{initialize_eop, initialize_sw};

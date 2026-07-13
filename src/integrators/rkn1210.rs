@@ -1323,16 +1323,16 @@ mod tests {
     // Dynamic RKN1210DIntegrator tests
     // ========================================
 
-    use crate::eop::set_global_eop_provider;
     use crate::integrators::rkn1210::RKN1210DIntegrator;
     use crate::integrators::traits::DIntegrator;
     use nalgebra::{DMatrix, DVector};
 
-    fn setup_global_test_eop() {
-        use crate::eop::StaticEOPProvider;
-        let eop = StaticEOPProvider::from_zero();
-        set_global_eop_provider(eop);
-    }
+    // Install the same file-based EOP provider every other test module uses.
+    // These tests integrate pure two-body dynamics and never read EOP values,
+    // but they run concurrently with tests that do — a divergent provider
+    // (e.g. StaticEOPProvider::from_zero) installed here mid-run perturbs any
+    // concurrently propagating test that reads the global EOP.
+    use crate::utils::testing::setup_global_test_eop;
 
     fn point_earth_dynamic(
         _t: f64,

@@ -235,12 +235,16 @@ pub fn accel_third_body<P: IntoPosition>(
 /// (e.g. Phobos/Deimos via `mar099s`) comes from that system's satellite
 /// ephemeris kernel. Kernels are auto-downloaded and loaded on first use.
 ///
-/// The one exception is a [`ThirdBody::Custom`] perturber (or a
-/// [`CentralBody::Custom`] center) whose NAIF ID falls outside DE and known
-/// satellite-kernel coverage (e.g. an asteroid in a bring-your-own SPK):
-/// such pairs resolve across all loaded kernels via
-/// [`crate::spice::spk_position`], with the registry's last-loaded-wins
-/// precedence.
+/// Two cases resolve across all loaded kernels via
+/// [`crate::spice::spk_position`] instead (with the registry's
+/// last-loaded-wins precedence):
+/// - a [`ThirdBody::Custom`] perturber (or a [`CentralBody::Custom`] center)
+///   whose NAIF ID falls outside DE and known satellite-kernel coverage
+///   (e.g. an asteroid in a bring-your-own SPK);
+/// - a pair the kernel-scoped resolution fails on — e.g. a satellite-range
+///   NAIF ID that its system's ephemeris kernel does not actually carry, or
+///   an epoch outside the mapped kernel's coverage — so bring-your-own
+///   kernels still work for such bodies.
 ///
 /// # Arguments
 ///
@@ -326,17 +330,25 @@ pub fn accel_third_body_for_body<P: IntoPosition>(
         (source, body) => {
             let kernel = SPICEKernel::try_from(source)?;
             let (target, center) = (body.naif_id(), central_body.naif_id());
-            if spk_strictly_resolvable(target) && spk_strictly_resolvable(center) {
+            let strict = if spk_strictly_resolvable(target) && spk_strictly_resolvable(center) {
                 // Kernel-scoped resolution honoring `source` regardless of
                 // which other kernels are loaded (see the "Kernel selection"
                 // section above).
-                spk_pair_position_from_kernels(kernel, target, center, epc)?
+                spk_pair_position_from_kernels(kernel, target, center, epc).ok()
             } else {
-                // Bring-your-own-SPK bodies (Custom NAIF IDs outside DE and
-                // known satellite-kernel coverage) resolve across all loaded
-                // kernels with the registry's last-loaded-wins precedence.
-                load_kernel(kernel)?;
-                spk_position(target, center, epc)?
+                None
+            };
+            match strict {
+                Some(s) => s,
+                // Bring-your-own-SPK bodies — Custom NAIF IDs outside DE and
+                // known satellite-kernel coverage, or satellite-range IDs the
+                // mapped system kernel doesn't actually carry — resolve across
+                // all loaded kernels with the registry's last-loaded-wins
+                // precedence.
+                None => {
+                    load_kernel(kernel)?;
+                    spk_position(target, center, epc)?
+                }
             }
         }
     };
@@ -1067,14 +1079,16 @@ mod tests {
 
     // ----- EphemerisSource kernel selection -----
     //
-    // These tests seed synthetic DE430/DE432s/mar099s kernels with different
-    // constant positions into a redirected cache, so the source a caller
-    // configures is distinguishable from the last-loaded kernel without any
-    // network access. They deliberately never touch (or clear) "de440s":
-    // concurrent non-#[serial] tests resolve their queries against the real
-    // loaded de440s and stay unaffected, and the synthetic segments below use
-    // only Mercury/Venus/Mars-system legs that no non-#[serial] test queries
-    // through the global registry.
+    // These tests seed synthetic kernels with different constant positions
+    // into a redirected cache, so the source a caller configures is
+    // distinguishable from the last-loaded kernel without any network access.
+    // They deliberately never touch (or clear) "de440s" — concurrent
+    // non-#[serial] tests resolve their queries against the real loaded
+    // de440s — and the synthetic segments below use only legs that no
+    // non-#[serial] test queries through the global registry. (The
+    // `CacheRedirect` env-var window can still affect a concurrent test that
+    // triggers a fresh kernel *cache load* while it is active; that is an
+    // accepted limitation shared with the registry's offline tests.)
 
     use crate::spice::{load_kernel, unload_kernel};
     use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
@@ -1270,5 +1284,53 @@ mod tests {
         assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
 
         let _ = unload_kernel(path);
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_satellite_range_id_falls_back_to_global() {
+        // A Custom body with a satellite-range NAIF ID (Pluto system, 950)
+        // that the mapped system kernel (plu060) does NOT carry must fall
+        // back to global resolution so a bring-your-own SPK still works.
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1.0e3, 0.0, 0.0);
+        let gm = 1.0e9;
+
+        let body = ThirdBody::Custom {
+            name: "MysteryMoon".to_string(),
+            naif_id: 950,
+            gm,
+        };
+        // SSB central body: direct term only.
+        let a_expected = expected_accel(Vector3::new(33.0e3, 0.0, 0.0), r, gm, true);
+
+        {
+            let cache = CacheRedirect::new();
+            // plu060 carries only Pluto (999) rel its barycenter — no 950.
+            cache.seed("plu060.bsp", &synthetic_spk_kernel_bytes(&[(999, 9, 10.0)]));
+
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("mystery.bsp");
+            std::fs::write(&path, synthetic_spk_kernel_bytes(&[(950, 0, 33.0)])).unwrap();
+            let path = path.to_str().unwrap();
+
+            let _ = unload_kernel("plu060");
+            load_kernel("de440s").unwrap();
+            load_kernel(path).unwrap();
+
+            let a = accel_third_body_for_body(
+                &CentralBody::SSB,
+                &body,
+                EphemerisSource::DE440s,
+                epc,
+                r,
+            )
+            .unwrap();
+            assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
+
+            let _ = unload_kernel(path);
+            let _ = unload_kernel("plu060");
+        }
     }
 }

@@ -3004,6 +3004,214 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
 
+    #[test]
+    #[serial_test::serial]
+    fn test_sorbittrajectory_bci_all_frame_conversions() {
+        // BCI(301) arms: provider trait accessors, state_eci/gcrf/ecef/itrf/
+        // eme2000/koe_osc, all five to_* batch conversions, and covariance
+        // passthrough. Mirrors the DOrbitTrajectory BCI tests.
+        use crate::frames::ReferenceFrame;
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+        // Load the lunar PCK explicitly: this module's tests run after the
+        // spice registry-clearing tests in the serial order, and the lunar
+        // auto-load latch (OnceLock) does not re-detect the clear.
+        crate::spice::load_kernel("moon_pa_de440").unwrap();
+
+        let mut traj = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(301),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+        traj.covariances = Some(Vec::new());
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 4.0;
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        // Trait accessors: raw sample in BCI; LCI target is the identity.
+        let bci = traj.state_bci(epoch).unwrap();
+        let in_lci = traj.state_in_frame(ReferenceFrame::LCI, epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(bci[i], state[i], epsilon = 0.0);
+            assert_abs_diff_eq!(in_lci[i], state[i], epsilon = 0.0);
+        }
+
+        // ECI re-centers by the Moon's Earth-relative offset.
+        let offset = crate::spice::spk_state(301, 399, epoch).unwrap();
+        let eci = traj.state_eci(epoch).unwrap();
+        let gcrf = traj.state_gcrf(epoch).unwrap();
+        let itrf = traj.state_itrf(epoch).unwrap();
+        let ecef = traj.state_ecef(epoch).unwrap();
+        let eme = traj.state_eme2000(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(eci[i], state[i] + offset[i], epsilon = 1e-6);
+            assert_abs_diff_eq!(gcrf[i], eci[i], epsilon = 1e-9);
+            assert_abs_diff_eq!(
+                itrf[i],
+                crate::frames::state_gcrf_to_itrf(epoch, eci)[i],
+                epsilon = 1e-6
+            );
+            assert_abs_diff_eq!(ecef[i], itrf[i], epsilon = 1e-6);
+            assert_abs_diff_eq!(
+                eme[i],
+                crate::frames::state_gcrf_to_eme2000(eci)[i],
+                epsilon = 1e-6
+            );
+        }
+
+        // Elements about the Moon: round trip through the Moon's GM.
+        let koe = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
+        let back = crate::coordinates::state_koe_to_eci_for_body(
+            koe,
+            crate::constants::GM_MOON,
+            AngleFormat::Degrees,
+        );
+        for i in 0..6 {
+            assert_abs_diff_eq!(back[i], state[i], epsilon = 1e-3);
+        }
+
+        // state_bcbf (LFPA) preserves the position norm of the raw sample.
+        let bcbf = traj.state_bcbf(epoch).unwrap();
+        assert_abs_diff_eq!(
+            bcbf.fixed_rows::<3>(0).norm(),
+            state.fixed_rows::<3>(0).norm(),
+            epsilon = 1e-6
+        );
+
+        // Batch conversions agree with the point queries and are relabeled.
+        for (converted, expected, frame) in [
+            (traj.to_eci(), eci, OrbitFrame::ECI),
+            (traj.to_gcrf(), gcrf, OrbitFrame::GCRF),
+            (traj.to_ecef(), ecef, OrbitFrame::ECEF),
+            (traj.to_itrf(), itrf, OrbitFrame::ITRF),
+            (traj.to_eme2000(), eme, OrbitFrame::EME2000),
+        ] {
+            assert_eq!(converted.frame, frame);
+            let s0 = converted.states[0];
+            for i in 0..6 {
+                assert_abs_diff_eq!(s0[i], expected[i], epsilon = 1e-6);
+            }
+        }
+
+        // Covariance passthrough (identity rotation for ICRF-aligned axes).
+        let cov_eci = traj.covariance_eci(epoch).unwrap();
+        for i in 0..6 {
+            for j in 0..6 {
+                assert_abs_diff_eq!(cov_eci[(i, j)], cov[(i, j)], epsilon = 0.0);
+            }
+        }
+
+        // Keplerian-representation BCI trajectory: elements converted with
+        // the Moon's GM, both point queries and the batch path.
+        let mut traj_kep = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(301),
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        );
+        let oe = Vector6::new(
+            crate::constants::R_MOON + 100e3,
+            0.01,
+            45.0,
+            15.0,
+            30.0,
+            45.0,
+        );
+        traj_kep.add(epoch, oe);
+        let bci_kep = traj_kep.state_bci(epoch).unwrap();
+        let expected_cart = crate::coordinates::state_koe_to_eci_for_body(
+            oe,
+            crate::constants::GM_MOON,
+            AngleFormat::Degrees,
+        );
+        for i in 0..6 {
+            assert_abs_diff_eq!(bci_kep[i], expected_cart[i], epsilon = 1e-6);
+        }
+        let eci_kep_point = traj_kep.state_eci(epoch).unwrap();
+        let traj_kep_eci = traj_kep.to_eci();
+        assert_eq!(traj_kep_eci.frame, OrbitFrame::ECI);
+        let eci_kep_batch = traj_kep_eci.state_eci(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(eci_kep_batch[i], eci_kep_point[i], epsilon = 1e-6);
+        }
+
+        // Earth-frame trajectory keeps Earth semantics for the accessors.
+        let mut traj_e =
+            SOrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        let state_e = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj_e.add(epoch, state_e);
+        let gcrf_e = traj_e.state_gcrf(epoch).unwrap();
+        let itrf_e = traj_e.state_itrf(epoch).unwrap();
+        let bci_e = traj_e.state_bci(epoch).unwrap();
+        let bcbf_e = traj_e.state_bcbf(epoch).unwrap();
+        let in_itrf_e = traj_e.state_in_frame(ReferenceFrame::ITRF, epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(bci_e[i], gcrf_e[i], epsilon = 0.0);
+            assert_abs_diff_eq!(bcbf_e[i], itrf_e[i], epsilon = 0.0);
+            assert_abs_diff_eq!(in_itrf_e[i], itrf_e[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_sorbittrajectory_bci_error_branches() {
+        // Offline error branches, mirroring the DOrbitTrajectory test:
+        // elements about a barycenter, body-fixed frame for a barycenter or
+        // uncatalogued body, Keplerian samples about a barycenter, and the
+        // to_keplerian rejection.
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj_emb = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(3),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+        traj_emb.add(epoch, Vector6::new(1e8, 0.0, 0.0, 0.0, 1e3, 0.0));
+        assert!(
+            traj_emb
+                .state_koe_osc(epoch, AngleFormat::Degrees)
+                .unwrap_err()
+                .to_string()
+                .contains("barycenter")
+        );
+        assert!(
+            traj_emb
+                .state_bcbf(epoch)
+                .unwrap_err()
+                .to_string()
+                .contains("no body-fixed frame")
+        );
+
+        let mut traj_unknown = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(-20001),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+        traj_unknown.add(epoch, Vector6::new(1e5, 0.0, 0.0, 0.0, 1.0, 0.0));
+        assert!(traj_unknown.state_bcbf(epoch).is_err());
+        assert!(
+            traj_unknown
+                .state_koe_osc(epoch, AngleFormat::Degrees)
+                .is_err()
+        );
+
+        let mut traj_kep = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(3),
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        );
+        traj_kep.add(epoch, Vector6::new(1e8, 0.01, 10.0, 0.0, 0.0, 0.0));
+        assert!(
+            traj_kep
+                .state_bci(epoch)
+                .unwrap_err()
+                .to_string()
+                .contains("barycenter")
+        );
+
+        let result = std::panic::catch_unwind(|| traj_emb.to_keplerian(AngleFormat::Degrees));
+        assert!(result.is_err());
+    }
+
     fn create_test_trajectory() -> SOrbitTrajectory {
         let mut traj = SOrbitTrajectory::new(
             OrbitFrame::ECI,

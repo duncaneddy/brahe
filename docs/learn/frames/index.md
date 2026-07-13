@@ -15,7 +15,7 @@ Inertial reference frames currently supported in Brahe are:
 - **GCRF (Geocentric Celestial Reference Frame)**: The standard modern inertial reference frame for Earth-orbiting satellites, aligned with the International Celestial Reference Frame (ICRF)
 - **EME2000 (Earth Mean Equator and Equinox of J2000.0)**: Classical J2000.0 mean equator and mean equinox inertial frame. Derived from the FK5 catalog and widely used in older systems
 - **LCI (Lunar-Centered Inertial)**: ICRF-aligned, centered on the Moon
-- **MCI (Mars-Centered Inertial)**: ICRF-aligned, centered on the Mars system barycenter
+- **MCI (Mars-Centered Inertial)**: ICRF-aligned, centered on the Mars body center (NAIF ID 499)
 - **EMBI / SSBI**: ICRF-aligned, centered on the Earth-Moon and Solar System barycenters, respectively
 
 ### Earth-Fixed Frames (Rotating)
@@ -33,7 +33,7 @@ Brahe also supports Moon- and Mars-fixed frames for multibody propagation and re
 - **LFPA / LFME (Lunar-Fixed Principal Axis / Mean-Earth)**: Moon-fixed frames, evaluated from the DE440 lunar orientation kernel
 - **MCMF (Mars-Centered Mars-Fixed)**: Mars-fixed frame, evaluated from the IAU/WGCCRE rotation model
 
-See [Lunar Reference Frames](lunar_frames.md) and [Mars Reference Frames](mars_frames.md) for details, and [Frame Router & Multibody Propagation](frame_transformations.md) for the `ReferenceFrame` router that converts between any two frames (including generic NAIF-ID variants for bodies without a dedicated named frame) and for central-body propagation defaults.
+See [Lunar Reference Frames](lunar_frames.md) and [Mars Reference Frames](mars_frames.md) for details, and [Reference Frame Router](frame_transformations.md) for the `ReferenceFrame` router that converts between any two frames (including generic NAIF-ID variants for bodies without a dedicated named frame). Central-body propagation is covered in [Cislunar and Lunar Propagation](../orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md) and [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md).
 
 ## Available Transformations
 

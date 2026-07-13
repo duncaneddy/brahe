@@ -17,5 +17,5 @@ Atmospheric drag acceleration calculations.
 
 - [Atmospheric Drag (Learn)](../../learn/orbital_dynamics/drag.md) - Conceptual explanation and examples
 - [Atmospheric Density Models](atmospheric_density_models.md) - Density calculation functions
-- [Frame Router & Multibody Propagation](../../learn/frames/frame_transformations.md) - `CentralBody` and non-Earth propagation
+- [Propagation Around Other Central Bodies](../../learn/orbit_propagation/numerical_propagation/other_central_bodies.md) - `CentralBody` and non-Earth propagation
 - [Orbital Dynamics Module](index.md) - Complete orbit dynamics API reference

@@ -1,20 +1,14 @@
 # Mars Reference Frames
 
-Brahe provides two Mars-centered reference frames: **MCI** (inertial) and **MCMF** (body-fixed). MCI is used as the integration frame for Mars-centered propagation; MCMF expresses a state relative to Mars's rotating surface.
+Brahe provides two Mars-centered reference frames: **MCI** (inertial) and **MCMF** (body-fixed). MCI is used as the integration frame for Mars-centered propagation; MCMF expresses a state relative to Mars's rotating surface using the IAU/WGCCRE pole and prime-meridian model[^archinal2018].
 
 ## MCI (Mars-Centered Inertial)
 
-MCI axes are ICRF-aligned (treated as equivalent to J2000, consistent with the rest of Brahe). No kernel is required for the MCI orientation itself. Converting between MCI and ECI requires Mars's position relative to Earth, looked up from the `de440s` SPK kernel (auto-loaded on first use).
-
-!!! warning "MCI is centered on the Mars system barycenter, not the Mars body center"
-
-    The IAU/WGCCRE rotation model used by MCMF is defined for the Mars body center (NAIF ID 499). However, `state_eci_to_mci`/`state_mci_to_eci` (and the position-only equivalents) use the ephemeris state of the **Mars system barycenter** (NAIF ID 4) relative to Earth, because the bundled `de440s` kernel provides no direct ephemeris segment for body 499 &mdash; only for its barycenter. `CentralBody::Mars.naif_id()` and `ReferenceFrame::MCI`/`MCMF` both use NAIF ID 4 for this reason.
-
-    The offset between the Mars barycenter and the Mars body center is at the decimeter level (~0.1-0.2 m), dominated by the barycentric motion of Phobos and Deimos about their common center of mass with Mars. This is negligible for orbit propagation and most other uses, but is documented here for completeness. Use `OccultingBody::Mars.naif_id()` (499, the physical body) when the *shadow-casting* radius matters (e.g. eclipse modeling), and `OccultingBody::Mars.naif_position_id()` (4) when querying its ephemeris position.
+MCI axes are ICRF-aligned (treated as equivalent to J2000, consistent with the rest of Brahe) and centered on the Mars body center (NAIF ID 499). No kernel is required for the MCI orientation itself. Converting between MCI and ECI requires Mars's position relative to Earth: the bundled `de440s` SPK kernel carries only the Mars system barycenter (NAIF ID 4), so the body-center leg from the barycenter to NAIF 499 is resolved through the `mar099s` satellite ephemeris kernel, which is auto-loaded on first use alongside `de440s`.
 
 ## MCMF (Mars-Centered Mars-Fixed)
 
-MCMF is the body-fixed frame defined by the IAU Working Group on Cartographic Coordinates and Rotational Elements (WGCCRE) pole and prime-meridian model for Mars (NAIF ID 499). Unlike the Moon's LFPA frame, no external kernel is required &mdash; the WGCCRE polynomial model is compiled directly into Brahe (see [`rotation_icrf_to_body_fixed_iau`](frame_transformations.md#generic-naif-id-variants) and [`iau_rotation_model_ids`](frame_transformations.md#generic-naif-id-variants)).
+MCMF is the body-fixed frame defined by the IAU Working Group on Cartographic Coordinates and Rotational Elements (WGCCRE) pole and prime-meridian model for Mars[^archinal2018]. Unlike the Moon's LFPA frame, no external kernel is required &mdash; the WGCCRE polynomial model is compiled directly into Brahe (see [`rotation_icrf_to_body_fixed_iau`](frame_transformations.md#generic-naif-id-variants) and [`iau_rotation_model_ids`](frame_transformations.md#generic-naif-id-variants)). It is equivalent to the `IAU_MARS` frame realized by SPICE.
 
 ## Function Reference
 
@@ -26,35 +20,13 @@ MCMF is the body-fixed frame defined by the IAU Working Group on Cartographic Co
 
 All rotation functions return a 3x3 direction cosine matrix; all `position_*`/`state_*` functions take and return SI units (m, m/s). See the [Mars Frames API Reference](../../library_api/frames/mars.md) for full signatures.
 
-## Example: Propagating an Orbit About Mars
-
-The example below builds a Mars force model with [`ForceModelConfig.mars_default()`](frame_transformations.md#central-body-propagation-defaults), propagates a low Mars orbit for six hours, and reports the initial and final state in the Mars-fixed MCMF frame via `state_in_frame`.
-
-=== "Python"
-
-    ``` python
-    --8<-- "./examples/numerical_propagation/mars_orbit.py:18"
-    ```
-
-=== "Rust"
-
-    ``` rust
-    --8<-- "./examples/numerical_propagation/mars_orbit.rs:15"
-    ```
-
-??? example "Output"
-    === "Python"
-        ```
-        --8<-- "./docs/outputs/numerical_propagation/mars_orbit.py.txt"
-        ```
-
-    === "Rust"
-        ```
-        --8<-- "./docs/outputs/numerical_propagation/mars_orbit.rs.txt"
-        ```
+For propagating an orbit about Mars and reporting it in the MCMF frame, see [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md).
 
 ## See Also
 
 - [Lunar Reference Frames](lunar_frames.md) - LCI/LFPA/LFME frames
-- [Reference Frame Router and Multibody Propagation](frame_transformations.md) - `ReferenceFrame`, kernel requirements, and central-body propagation defaults
+- [Reference Frame Router](frame_transformations.md) - `ReferenceFrame`, kernel requirements, and cross-frame conversion
+- [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md) - Mars force-model defaults and a worked propagation example
 - [Mars Frames API Reference](../../library_api/frames/mars.md)
+
+[^archinal2018]: Archinal, B. A., Acton, C. H., A'Hearn, M. F., et al. (2018). Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements: 2015. *Celestial Mechanics and Dynamical Astronomy*, 130(3), 22. Brahe's embedded Mars pole/prime-meridian polynomial is taken from this report and matches SPICE's `IAU_MARS` realization.

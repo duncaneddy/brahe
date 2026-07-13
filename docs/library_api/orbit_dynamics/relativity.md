@@ -16,5 +16,5 @@ General relativistic corrections to satellite acceleration.
 ## See Also
 
 - [Relativistic Effects (Learn)](../../learn/orbital_dynamics/relativity.md) - Conceptual explanation and examples
-- [Frame Router & Multibody Propagation](../../learn/frames/frame_transformations.md) - `CentralBody` and non-Earth propagation
+- [Propagation Around Other Central Bodies](../../learn/orbit_propagation/numerical_propagation/other_central_bodies.md) - `CentralBody` and non-Earth propagation
 - [Orbital Dynamics Module](index.md) - Complete orbit dynamics API reference

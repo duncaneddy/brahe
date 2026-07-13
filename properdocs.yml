@@ -200,7 +200,7 @@ nav:
           - learn/frames/eme2000_gcrf.md
           - Lunar Frames: learn/frames/lunar_frames.md
           - Mars Frames: learn/frames/mars_frames.md
-          - Frame Router & Multibody Propagation: learn/frames/frame_transformations.md
+          - Reference Frame Router: learn/frames/frame_transformations.md
       - Orbits:
           - learn/orbits/index.md
           - Anomaly Conversions: learn/orbits/anomalies.md
@@ -244,6 +244,8 @@ nav:
               - Covariance and Sensitivity: learn/orbit_propagation/numerical_propagation/covariance_sensitivity.md
               - Extending Spacecraft State: learn/orbit_propagation/numerical_propagation/extending_state.md
               - General Dynamics Propagation: learn/orbit_propagation/numerical_propagation/generic_dynamics.md
+              - Cislunar and Lunar Propagation: learn/orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md
+              - Propagation Around Other Central Bodies: learn/orbit_propagation/numerical_propagation/other_central_bodies.md
       - Relative Motion:
           - learn/relative_motion/index.md
           - learn/relative_motion/rtn_transformations.md

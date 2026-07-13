@@ -24,5 +24,5 @@ Solar radiation pressure acceleration and eclipse modeling.
 ## See Also
 
 - [Solar Radiation Pressure (Learn)](../../learn/orbital_dynamics/solar_radiation_pressure.md) - Conceptual explanation and examples
-- [Frame Router & Multibody Propagation](../../learn/frames/frame_transformations.md) - `OccultingBody` and non-Earth propagation
+- [Propagation Around Other Central Bodies](../../learn/orbit_propagation/numerical_propagation/other_central_bodies.md) - `OccultingBody` and non-Earth propagation
 - [Orbital Dynamics Module](index.md) - Complete orbit dynamics API reference

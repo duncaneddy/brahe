@@ -126,6 +126,59 @@ def test_centralbody_properties():
     assert CentralBody.EMB.fixed_frame() is None
 
 
+def test_centralbody_all_builtin_accessors():
+    """Mirrors central_body::tests::test_central_body_all_builtin_accessors:
+    exercise every accessor arm for each built-in variant."""
+    import numpy as np
+
+    # gm
+    assert CentralBody.Moon.gm() == pytest.approx(brahe.GM_MOON)
+    assert CentralBody.Mars.gm() == pytest.approx(brahe.GM_MARS)
+    assert CentralBody.Earth.gm() == pytest.approx(brahe.GM_EARTH)
+    assert CentralBody.EMB.gm() == 0.0
+    assert CentralBody.SSB.gm() == 0.0
+    # radius
+    assert CentralBody.Earth.radius() == pytest.approx(brahe.R_EARTH)
+    assert CentralBody.Moon.radius() == pytest.approx(brahe.R_MOON)
+    assert CentralBody.Mars.radius() == pytest.approx(brahe.R_MARS)
+    assert CentralBody.EMB.radius() is None
+    assert CentralBody.SSB.radius() is None
+    # naif_id
+    assert CentralBody.Earth.naif_id() == 399
+    assert CentralBody.Moon.naif_id() == 301
+    assert CentralBody.Mars.naif_id() == 499
+    assert CentralBody.EMB.naif_id() == 3
+    assert CentralBody.SSB.naif_id() == 0
+    # omega_vector
+    np.testing.assert_allclose(
+        CentralBody.Earth.omega_vector(), [0.0, 0.0, brahe.OMEGA_EARTH]
+    )
+    np.testing.assert_allclose(
+        CentralBody.Moon.omega_vector(), [0.0, 0.0, brahe.OMEGA_MOON]
+    )
+    np.testing.assert_allclose(
+        CentralBody.Mars.omega_vector(), [0.0, 0.0, brahe.OMEGA_MARS]
+    )
+    assert CentralBody.EMB.omega_vector() is None
+    assert CentralBody.SSB.omega_vector() is None
+    # inertial_frame
+    assert CentralBody.Earth.inertial_frame() == brahe.ReferenceFrame.GCRF
+    assert CentralBody.Moon.inertial_frame() == brahe.ReferenceFrame.LCI
+    assert CentralBody.Mars.inertial_frame() == brahe.ReferenceFrame.MCI
+    assert CentralBody.EMB.inertial_frame() == brahe.ReferenceFrame.EMBI
+    assert CentralBody.SSB.inertial_frame() == brahe.ReferenceFrame.SSBI
+    # fixed_frame
+    assert CentralBody.Earth.fixed_frame() == brahe.ReferenceFrame.ITRF
+    assert CentralBody.Moon.fixed_frame() == brahe.ReferenceFrame.LFPA
+    assert CentralBody.Mars.fixed_frame() == brahe.ReferenceFrame.MCMF
+    assert CentralBody.EMB.fixed_frame() is None
+    assert CentralBody.SSB.fixed_frame() is None
+    # is_barycenter
+    assert not CentralBody.Earth.is_barycenter()
+    assert CentralBody.EMB.is_barycenter()
+    assert CentralBody.SSB.is_barycenter()
+
+
 def test_centralbody_from_naif_id():
     """Mirrors central_body::tests::test_from_naif_id"""
     assert CentralBody.from_naif_id(301) == CentralBody.Moon

@@ -489,6 +489,97 @@ mod tests {
     }
 
     #[test]
+    fn test_central_body_all_builtin_accessors() {
+        // Exercise every accessor arm for each built-in variant so no match
+        // arm is left uncovered.
+        // gm
+        assert_eq!(CentralBody::Earth.gm(), GM_EARTH);
+        assert_eq!(CentralBody::Moon.gm(), GM_MOON);
+        assert_eq!(CentralBody::Mars.gm(), GM_MARS);
+        assert_eq!(CentralBody::EMB.gm(), 0.0);
+        assert_eq!(CentralBody::SSB.gm(), 0.0);
+        // radius
+        assert_eq!(CentralBody::Earth.radius(), Some(R_EARTH));
+        assert_eq!(CentralBody::Moon.radius(), Some(R_MOON));
+        assert_eq!(CentralBody::Mars.radius(), Some(R_MARS));
+        assert_eq!(CentralBody::EMB.radius(), None);
+        assert_eq!(CentralBody::SSB.radius(), None);
+        // naif_id
+        assert_eq!(CentralBody::Earth.naif_id(), 399);
+        assert_eq!(CentralBody::Moon.naif_id(), 301);
+        assert_eq!(CentralBody::Mars.naif_id(), 499);
+        assert_eq!(CentralBody::EMB.naif_id(), 3);
+        assert_eq!(CentralBody::SSB.naif_id(), 0);
+        // omega_vector
+        assert_eq!(
+            CentralBody::Earth.omega_vector(),
+            Some(Vector3::new(0.0, 0.0, OMEGA_EARTH))
+        );
+        assert_eq!(
+            CentralBody::Moon.omega_vector(),
+            Some(Vector3::new(0.0, 0.0, OMEGA_MOON))
+        );
+        assert_eq!(
+            CentralBody::Mars.omega_vector(),
+            Some(Vector3::new(0.0, 0.0, OMEGA_MARS))
+        );
+        assert_eq!(CentralBody::EMB.omega_vector(), None);
+        assert_eq!(CentralBody::SSB.omega_vector(), None);
+        // inertial_frame
+        assert_eq!(CentralBody::Earth.inertial_frame(), ReferenceFrame::GCRF);
+        assert_eq!(CentralBody::Moon.inertial_frame(), ReferenceFrame::LCI);
+        assert_eq!(CentralBody::Mars.inertial_frame(), ReferenceFrame::MCI);
+        assert_eq!(CentralBody::EMB.inertial_frame(), ReferenceFrame::EMBI);
+        assert_eq!(CentralBody::SSB.inertial_frame(), ReferenceFrame::SSBI);
+        // fixed_frame
+        assert_eq!(CentralBody::Earth.fixed_frame(), Some(ReferenceFrame::ITRF));
+        assert_eq!(CentralBody::Moon.fixed_frame(), Some(ReferenceFrame::LFPA));
+        assert_eq!(CentralBody::Mars.fixed_frame(), Some(ReferenceFrame::MCMF));
+        assert_eq!(CentralBody::EMB.fixed_frame(), None);
+        assert_eq!(CentralBody::SSB.fixed_frame(), None);
+        // is_barycenter
+        assert!(!CentralBody::Earth.is_barycenter());
+        assert!(!CentralBody::Moon.is_barycenter());
+        assert!(!CentralBody::Mars.is_barycenter());
+        assert!(CentralBody::EMB.is_barycenter());
+        assert!(CentralBody::SSB.is_barycenter());
+        // Display
+        assert_eq!(CentralBody::Earth.to_string(), "Earth");
+        assert_eq!(CentralBody::Moon.to_string(), "Moon");
+        assert_eq!(CentralBody::Mars.to_string(), "Mars");
+        assert_eq!(CentralBody::EMB.to_string(), "Earth-Moon Barycenter");
+        assert_eq!(CentralBody::SSB.to_string(), "Solar System Barycenter");
+    }
+
+    #[test]
+    fn test_from_naif_id_builtin_barycenters() {
+        assert_eq!(CentralBody::from_naif_id(399).unwrap(), CentralBody::Earth);
+        assert_eq!(CentralBody::from_naif_id(3).unwrap(), CentralBody::EMB);
+        assert_eq!(CentralBody::from_naif_id(0).unwrap(), CentralBody::SSB);
+    }
+
+    #[test]
+    fn test_custom_body_omega_and_fixed_frame_accessors() {
+        // A Custom body with an explicit spin and fixed frame exercises the
+        // `Custom(c)` arms of omega_vector/fixed_frame/inertial_frame.
+        let body = CentralBody::Custom(CustomBody {
+            name: "Widget".to_string(),
+            naif_id: -42,
+            gm: 1.0,
+            radius: Some(2.0),
+            omega: Some(Vector3::new(0.0, 0.0, 3.0)),
+            fixed_frame: Some(ReferenceFrame::BodyFixedIAU(-42)),
+        });
+        assert_eq!(body.gm(), 1.0);
+        assert_eq!(body.radius(), Some(2.0));
+        assert_eq!(body.naif_id(), -42);
+        assert_eq!(body.omega_vector(), Some(Vector3::new(0.0, 0.0, 3.0)));
+        assert_eq!(body.inertial_frame(), ReferenceFrame::BodyCenteredICRF(-42));
+        assert_eq!(body.fixed_frame(), Some(ReferenceFrame::BodyFixedIAU(-42)));
+        assert!(!body.is_barycenter());
+    }
+
+    #[test]
     fn test_from_naif_id_all_table_entries_have_bodyfixediau() {
         for id in [199, 299, 599, 699, 799, 899, 10, 401, 402, 602, 606] {
             let body = CentralBody::from_naif_id(id).unwrap();

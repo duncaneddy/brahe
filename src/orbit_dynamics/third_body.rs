@@ -1052,6 +1052,49 @@ mod tests {
     }
 
     #[test]
+    fn test_accel_third_body_for_body_low_precision_earth_matches_legacy() {
+        // LowPrecision Sun/Moon about Earth: the differential form in
+        // `accel_third_body_for_body` (direct - GM s/|s|^3) is algebraically
+        // identical to the legacy `accel_third_body` point-mass third-body
+        // acceleration for an Earth-centered frame. Exercises the LowPrecision
+        // Sun and Moon arms without any SPK kernel.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 500e3, 1e5, 2e5);
+
+        for body in [ThirdBody::Sun, ThirdBody::Moon] {
+            let legacy = accel_third_body(body.clone(), EphemerisSource::LowPrecision, epc, r);
+            let new = accel_third_body_for_body(
+                &CentralBody::Earth,
+                &body,
+                EphemerisSource::LowPrecision,
+                epc,
+                r,
+            )
+            .unwrap();
+            assert!(new.norm() > 0.0);
+            for i in 0..3 {
+                assert_abs_diff_eq!(new[i], legacy[i], epsilon = 1e-18);
+            }
+        }
+    }
+
+    #[test]
+    fn test_accel_third_body_for_body_low_precision_planet_rejected() {
+        // LowPrecision is only valid for Sun/Moon; a planet perturber about
+        // Earth with LowPrecision hits the `(LowPrecision, other)` error arm.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let e = accel_third_body_for_body(
+            &CentralBody::Earth,
+            &ThirdBody::Jupiter,
+            EphemerisSource::LowPrecision,
+            epc,
+            Vector3::new(R_EARTH + 500e3, 0.0, 0.0),
+        );
+        assert!(e.is_err());
+        assert!(format!("{}", e.unwrap_err()).contains("Low-precision"));
+    }
+
+    #[test]
     fn test_low_precision_rejected_for_non_earth_center() {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let e = accel_third_body_for_body(

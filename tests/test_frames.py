@@ -908,3 +908,68 @@ def test_body_fixed_iau_translation_auto_loads_satellite_kernel():
         brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.MCMF, epc, x
     )
     np.testing.assert_allclose(via_iau, via_mcmf, atol=1e-9)
+
+
+# ------------------------------------------------------------------------
+# Offline router mirrors (no kernels / EOP required)
+# ------------------------------------------------------------------------
+
+
+def test_rotation_frame_to_frame_same_center_eme2000():
+    """Mirrors test_rotation_frame_to_frame_same_center_eme2000: GCRF <-> EME2000
+    is a same-center, EOP-free constant bias rotation."""
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    r = brahe.rotation_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.EME2000, epc
+    )
+    np.testing.assert_array_equal(r, brahe.rotation_gcrf_to_eme2000())
+    r_inv = brahe.rotation_frame_to_frame(
+        brahe.ReferenceFrame.EME2000, brahe.ReferenceFrame.GCRF, epc
+    )
+    np.testing.assert_allclose(r_inv @ r, np.eye(3), atol=1e-12)
+
+
+def test_state_frame_to_frame_same_center_eme2000_no_spk():
+    """Mirrors test_state_frame_to_frame_same_center_eme2000_no_spk: same-center
+    GCRF <-> EME2000 skips translation (no SPK) and needs no EOP."""
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([brahe.R_EARTH + 500e3, 1e5, 2e5, 1.0, 7.5e3, 0.5e3])
+    via_router = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.EME2000, epc, x
+    )
+    np.testing.assert_array_equal(via_router, brahe.state_gcrf_to_eme2000(x))
+    back = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.EME2000, brahe.ReferenceFrame.GCRF, epc, via_router
+    )
+    np.testing.assert_allclose(back, x, atol=1e-6)
+
+
+def test_router_body_fixed_iau_same_center_no_kernels():
+    """Mirrors test_router_body_fixed_iau_same_center_no_kernels:
+    BodyCenteredICRF(id) <-> BodyFixedIAU(id) is a same-center, kernel-free
+    rotation-only + transport path (IAU analytic model)."""
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    icrf = brahe.ReferenceFrame.BodyCenteredICRF(599)
+    fixed = brahe.ReferenceFrame.BodyFixedIAU(599)
+    x = np.array([7.0e7, -2.0e7, 3.0e7, 10.0, 25.0, -5.0])
+
+    x_fixed = brahe.state_frame_to_frame(icrf, fixed, epc, x)
+    x_back = brahe.state_frame_to_frame(fixed, icrf, epc, x_fixed)
+    np.testing.assert_allclose(x_back, x, atol=1e-6)
+
+    p = np.array([7.0e7, -2.0e7, 3.0e7])
+    p_fixed = brahe.position_frame_to_frame(icrf, fixed, epc, p)
+    p_back = brahe.position_frame_to_frame(fixed, icrf, epc, p_fixed)
+    np.testing.assert_allclose(p_back, p, atol=1e-6)
+
+
+def test_router_errors_on_unsupported_iau_body():
+    """Mirrors test_router_errors_on_unsupported_iau_body: a non-identity path
+    through an unsupported IAU body surfaces the rotation-model lookup error."""
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    with pytest.raises(RuntimeError):
+        brahe.rotation_frame_to_frame(
+            brahe.ReferenceFrame.BodyCenteredICRF(999999),
+            brahe.ReferenceFrame.BodyFixedIAU(999999),
+            epc,
+        )

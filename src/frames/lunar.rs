@@ -650,8 +650,20 @@ mod tests {
     use super::*;
     use crate::constants::R_MOON;
     use crate::math::vector6_from_array;
+    use crate::spice::{load_kernel, unload_kernel};
     use crate::time::TimeSystem;
-    use crate::utils::testing::setup_global_test_spice;
+    use crate::utils::testing::{
+        CacheRedirect, setup_global_test_spice, synthetic_pck_kernel_bytes,
+    };
+
+    /// Epoch at ET ~500 s past J2000 TDB, inside the [0, 1000] coverage of the
+    /// synthetic lunar PCK seeded by the offline tests below.
+    fn epc_synth() -> Epoch {
+        Epoch::from_jd(
+            crate::constants::JD_J2000 + 500.0 / crate::constants::SECONDS_PER_DAY,
+            TimeSystem::TDB,
+        )
+    }
 
     #[test]
     fn test_rotation_lfpa_to_lfme_is_small_constant() {
@@ -848,6 +860,121 @@ mod tests {
         let p_eci2 = position_lci_to_eci(epc, p_lci);
         for i in 0..3 {
             assert_abs_diff_eq!(p_eci2[i], p_eci[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_eci_lci_transforms_offline() {
+        // ECI <-> LCI translation needs only the (real) de440s ephemeris; no
+        // lunar PCK required. Exercises state_eci_to_lci/state_lci_to_eci and
+        // position_eci_to_lci/position_lci_to_eci offline.
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_eci = vector6_from_array([1e8, 2e8, 3e8, 1.0, 2.0, 3.0]);
+
+        let x_lci = state_eci_to_lci(epc, x_eci);
+        let x_eci2 = state_lci_to_eci(epc, x_lci);
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_eci2[i], x_eci[i], epsilon = 1e-6);
+        }
+
+        let p_eci = x_eci.fixed_rows::<3>(0).into_owned();
+        let p_lci = position_eci_to_lci(epc, p_eci);
+        let p_eci2 = position_lci_to_eci(epc, p_lci);
+        for i in 0..3 {
+            assert_abs_diff_eq!(p_eci2[i], p_eci[i], epsilon = 1e-6);
+        }
+        // Offset consistency: LCI is Earth->Moon translated.
+        let offset = crate::spice::spk_position(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        for i in 0..3 {
+            assert_abs_diff_eq!(p_lci[i], p_eci[i] - offset[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_lunar_pck_transforms_offline() {
+        // LFPA/LFME rotations and states auto-load the moon_pa_de440 PCK. Seed
+        // a synthetic PCK (frame class 31008, ET coverage [0, 1000]) into a
+        // redirected cache so the auto-load path resolves offline. The real
+        // de440s stays resident throughout (never cleared); only the lunar PCK
+        // is unloaded/reloaded so a prior panicked run cannot poison us.
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        let _ = unload_kernel("moon_pa_de440");
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s();
+            cache.seed(
+                "moon_pa_de440_200625.bpc",
+                &synthetic_pck_kernel_bytes(MOON_PA_FRAME_ID),
+            );
+
+            let epc = epc_synth();
+
+            // Auto-load path: first transform loads the PCK without a prior
+            // explicit load_kernel.
+            assert!(!crate::spice::kernel_is_loaded("moon_pa_de440"));
+            let r_lci_lfpa = rotation_lci_to_lfpa(epc);
+            assert!(crate::spice::kernel_is_loaded("moon_pa_de440"));
+
+            // rotation_lfpa_to_lci is the transpose of rotation_lci_to_lfpa.
+            let r_lfpa_lci = rotation_lfpa_to_lci(epc);
+            for i in 0..3 {
+                for j in 0..3 {
+                    assert_abs_diff_eq!(r_lfpa_lci[(i, j)], r_lci_lfpa[(j, i)], epsilon = 1e-15);
+                }
+            }
+
+            // rotation_lci_to_lfme = rotation_lfpa_to_lfme * rotation_lci_to_lfpa,
+            // and rotation_lfme_to_lci is its transpose.
+            let r_lci_lfme = rotation_lci_to_lfme(epc);
+            let expected_lfme = rotation_lfpa_to_lfme() * r_lci_lfpa;
+            for i in 0..3 {
+                for j in 0..3 {
+                    assert_abs_diff_eq!(r_lci_lfme[(i, j)], expected_lfme[(i, j)], epsilon = 1e-15);
+                }
+            }
+            let r_lfme_lci = rotation_lfme_to_lci(epc);
+            for i in 0..3 {
+                for j in 0..3 {
+                    assert_abs_diff_eq!(r_lfme_lci[(i, j)], r_lci_lfme[(j, i)], epsilon = 1e-15);
+                }
+            }
+
+            // Position round trips (LCI <-> LFPA, LCI <-> LFME).
+            let p_lci = Vector3::new(R_MOON + 100e3, 1e5, 2e5);
+            let p_lfpa = position_lci_to_lfpa(epc, p_lci);
+            let p_lci_back = position_lfpa_to_lci(epc, p_lfpa);
+            for i in 0..3 {
+                assert_abs_diff_eq!(p_lci_back[i], p_lci[i], epsilon = 1e-6);
+            }
+            let p_lfme = position_lci_to_lfme(epc, p_lci);
+            let p_lci_back2 = position_lfme_to_lci(epc, p_lfme);
+            for i in 0..3 {
+                assert_abs_diff_eq!(p_lci_back2[i], p_lci[i], epsilon = 1e-6);
+            }
+
+            // State round trips exercise the velocity transport terms.
+            let x_lci = vector6_from_array([R_MOON + 100e3, 1e5, 2e5, 0.0, 1.6e3, 0.0]);
+            let x_lfpa = state_lci_to_lfpa(epc, x_lci);
+            let x_lci_back = state_lfpa_to_lci(epc, x_lfpa);
+            for i in 0..6 {
+                assert_abs_diff_eq!(x_lci_back[i], x_lci[i], epsilon = 1e-6);
+            }
+            let x_lfme = state_lci_to_lfme(epc, x_lci);
+            let x_lci_back2 = state_lfme_to_lci(epc, x_lfme);
+            for i in 0..6 {
+                assert_abs_diff_eq!(x_lci_back2[i], x_lci[i], epsilon = 1e-6);
+            }
+
+            // ensure_lunar_pck_loaded is idempotent: a second call while loaded
+            // is a no-op (does not error).
+            ensure_lunar_pck_loaded();
+
+            unload_kernel("moon_pa_de440").unwrap();
         }
     }
 }

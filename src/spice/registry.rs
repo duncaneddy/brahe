@@ -1407,6 +1407,21 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_spk_state_and_velocity_from_kernel_scoped() {
+        // Scoped state/velocity queries against a single named kernel: the
+        // state's position/velocity halves must equal the position-only and
+        // velocity-only scoped queries.
+        setup_global_test_spice();
+        let epc = epc_2025();
+        let x = spk_state_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        let r = spk_position_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        let v = spk_velocity_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        assert_abs_diff_eq!((x.fixed_rows::<3>(0) - r).norm(), 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!((x.fixed_rows::<3>(3) - v).norm(), 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[serial]
     fn test_concurrent_queries() {
         setup_global_test_spice();
         load_kernel("de440s").unwrap();

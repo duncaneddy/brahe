@@ -792,6 +792,39 @@ mod tests {
     }
 
     #[test]
+    fn test_iau_angles_and_rates_all_bodies_finite_and_spin() {
+        // Every embedded body must yield finite Euler angles and rates, and a
+        // body-frame angular velocity whose magnitude is dominated by the prime
+        // meridian spin rate psi_dot (the fastest-growing angle). Exercises the
+        // rate-evaluation path of `eval` and `euler313_omega_body` for all
+        // bodies, not just Mars.
+        let epc = Epoch::from_datetime(2030, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        for id in iau_rotation_model_ids() {
+            let (angles, rates) = body_fixed_iau_angles_and_rates(id, epc).unwrap();
+            for k in 0..3 {
+                assert!(angles[k].is_finite(), "body {id} angle {k} not finite");
+                assert!(rates[k].is_finite(), "body {id} rate {k} not finite");
+            }
+            let omega = euler313_omega_body(angles, rates);
+            // psi_dot (prime-meridian spin) is the dominant contribution to
+            // omega_z; both are positive and of the same order for these bodies.
+            assert!(
+                omega.norm() > 0.0,
+                "body {id} produced a zero angular velocity"
+            );
+        }
+    }
+
+    #[test]
+    fn test_iau_angles_and_rates_unknown_body_errors() {
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let e = body_fixed_iau_angles_and_rates(123456, epc);
+        assert!(e.is_err());
+        // Error lists the supported IDs (Sun = 10 is always present).
+        assert!(format!("{}", e.unwrap_err()).contains("10"));
+    }
+
+    #[test]
     fn test_iau_rotation_orthonormal_for_all_bodies() {
         // Every embedded body should produce an orthonormal, proper (det = +1)
         // DCM across a range of epochs, not just Mars at J2000.

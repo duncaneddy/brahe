@@ -577,6 +577,38 @@ class TestThirdBodyForBody:
                 r,
             )
 
+    def test_accel_third_body_for_body_low_precision_earth_matches_legacy(self):
+        """Mirrors test_accel_third_body_for_body_low_precision_earth_matches_legacy:
+        LowPrecision Sun/Moon about Earth equals the legacy analytic third-body
+        acceleration (no SPK kernel required)."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([bh.R_EARTH + 500e3, 1e5, 2e5])
+
+        for body, legacy_fn in [
+            (bh.ThirdBody.SUN, bh.accel_third_body_sun),
+            (bh.ThirdBody.MOON, bh.accel_third_body_moon),
+        ]:
+            legacy = legacy_fn(epc, r)
+            new = bh.accel_third_body_for_body(
+                bh.CentralBody.Earth, body, bh.EphemerisSource.LowPrecision, epc, r
+            )
+            assert np.linalg.norm(new) > 0.0
+            np.testing.assert_allclose(new, legacy, atol=1e-18)
+
+    def test_accel_third_body_for_body_low_precision_planet_rejected(self):
+        """Mirrors test_accel_third_body_for_body_low_precision_planet_rejected:
+        LowPrecision is only valid for Sun/Moon; a planet perturber raises."""
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
+        with pytest.raises(RuntimeError):
+            bh.accel_third_body_for_body(
+                bh.CentralBody.Earth,
+                bh.ThirdBody.JUPITER,
+                bh.EphemerisSource.LowPrecision,
+                epc,
+                r,
+            )
+
     @pytest.mark.integration
     def test_emb_internal_bodies_use_direct_form(self):
         """Earth about EMB uses the direct term only (no indirect term at the barycenter)."""

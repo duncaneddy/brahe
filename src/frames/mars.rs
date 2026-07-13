@@ -389,8 +389,11 @@ mod tests {
     use super::*;
     use crate::constants::R_MARS;
     use crate::math::vector6_from_array;
+    use crate::spice::{load_kernel, unload_kernel};
     use crate::time::TimeSystem;
-    use crate::utils::testing::setup_global_test_spice;
+    use crate::utils::testing::{
+        CacheRedirect, setup_global_test_spice, synthetic_spk_kernel_bytes,
+    };
 
     #[test]
     fn test_state_mci_to_mcmf_roundtrip() {
@@ -493,6 +496,56 @@ mod tests {
         let p_eci2 = position_mci_to_eci(epc, p_mci);
         for i in 0..3 {
             assert_abs_diff_eq!(p_eci2[i], p_eci[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_eci_mci_transforms_offline() {
+        // The MCI translation functions need the Mars body-center (NAIF 499)
+        // leg, which the DE kernels don't carry — auto-loaded from `mar099s`.
+        // Seed a synthetic mar099s providing the (499, 4) leg into a redirected
+        // cache; the real de440s stays resident (never cleared) for the
+        // barycenter chain. Only mar099s is unloaded/reloaded here.
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        let _ = unload_kernel("mar099s");
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s();
+            cache.seed("mar099s.bsp", &synthetic_spk_kernel_bytes(&[(499, 4, 2.0)]));
+
+            let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+            let x_eci = vector6_from_array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0]);
+
+            // Auto-load path: first translation loads mar099s without a prior
+            // explicit load.
+            assert!(!crate::spice::kernel_is_loaded("mar099s"));
+            let x_mci = state_eci_to_mci(epc, x_eci);
+            assert!(crate::spice::kernel_is_loaded("mar099s"));
+
+            let x_eci2 = state_mci_to_eci(epc, x_mci);
+            for i in 0..6 {
+                assert_abs_diff_eq!(x_eci2[i], x_eci[i], epsilon = 1e-6);
+            }
+
+            let p_eci = x_eci.fixed_rows::<3>(0).into_owned();
+            let p_mci = position_eci_to_mci(epc, p_eci);
+            let p_eci2 = position_mci_to_eci(epc, p_mci);
+            for i in 0..3 {
+                assert_abs_diff_eq!(p_eci2[i], p_eci[i], epsilon = 1e-6);
+            }
+
+            // Offset consistency: MCI is the Earth->Mars-body-center translation.
+            let offset = crate::spice::spk_state(NAIFId::Mars, NAIFId::Earth, epc).unwrap();
+            for i in 0..6 {
+                assert_abs_diff_eq!(x_mci[i], x_eci[i] - offset[i], epsilon = 1e-6);
+            }
+
+            // ensure_mars_spk_loaded is idempotent while loaded.
+            ensure_mars_spk_loaded();
+
+            unload_kernel("mar099s").unwrap();
         }
     }
 }

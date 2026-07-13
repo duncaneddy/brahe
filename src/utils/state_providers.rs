@@ -969,4 +969,53 @@ mod tests {
         let refs = slice.to_refs();
         assert_eq!(refs.len(), 0);
     }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dorbit_state_provider_default_bci_bcbf_in_frame() {
+        // KeplerianPropagator is Earth-centered and does not override the
+        // DOrbitStateProvider default methods, so these exercise the default
+        // impls in this module: state_bci -> state_gcrf, state_bcbf ->
+        // state_itrf, state_in_frame -> convert from GCRF, state_koe_mean ->
+        // osc-to-mean of state_koe_osc.
+        use crate::utils::testing::setup_global_test_eop;
+        use approx::assert_abs_diff_eq;
+        setup_global_test_eop();
+
+        let prop = create_test_propagator();
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+
+        // state_bci default delegates to state_gcrf (Earth: BCI == GCRF).
+        let bci = prop.state_bci(epoch).unwrap();
+        let gcrf = prop.state_gcrf(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(bci[i], gcrf[i], epsilon = 0.0);
+        }
+
+        // state_bcbf default delegates to state_itrf (Earth: BCBF == ITRF).
+        let bcbf = prop.state_bcbf(epoch).unwrap();
+        let itrf = prop.state_itrf(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(bcbf[i], itrf[i], epsilon = 0.0);
+        }
+
+        // state_in_frame default: GCRF target is a no-op equal to state_gcrf.
+        let in_gcrf = prop.state_in_frame(epoch, ReferenceFrame::GCRF).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(in_gcrf[i], gcrf[i], epsilon = 0.0);
+        }
+        // ITRF target matches state_itrf via the same router path.
+        let in_itrf = prop.state_in_frame(epoch, ReferenceFrame::ITRF).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(in_itrf[i], itrf[i], epsilon = 1e-6);
+        }
+
+        // state_koe_mean default: osc-to-mean of the osculating elements.
+        let mean = prop.state_koe_mean(epoch, DEGREES).unwrap();
+        let osc = prop.state_koe_osc(epoch, DEGREES).unwrap();
+        let expected = crate::orbits::state_koe_osc_to_mean(&osc, DEGREES);
+        for i in 0..6 {
+            assert_abs_diff_eq!(mean[i], expected[i], epsilon = 1e-9);
+        }
+    }
 }

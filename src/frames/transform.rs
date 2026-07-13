@@ -933,6 +933,167 @@ mod tests {
     }
 
     #[test]
+    fn test_rotation_frame_to_frame_same_center_eme2000() {
+        // GCRF <-> EME2000 is a same-center (Earth), EOP-free constant bias
+        // rotation: rotation_frame_to_frame never touches SPK or EOP here.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r =
+            rotation_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::EME2000, epc).unwrap();
+        let pairwise = crate::frames::rotation_gcrf_to_eme2000();
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_eq!(r[(i, j)], pairwise[(i, j)]);
+            }
+        }
+        // Inverse composes back to the identity.
+        let r_inv =
+            rotation_frame_to_frame(ReferenceFrame::EME2000, ReferenceFrame::GCRF, epc).unwrap();
+        let should_be_identity = r_inv * r;
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_abs_diff_eq!(
+                    should_be_identity[(i, j)],
+                    if i == j { 1.0 } else { 0.0 },
+                    epsilon = 1e-12
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_state_frame_to_frame_same_center_eme2000_no_spk() {
+        // Same-center GCRF <-> EME2000 skips the translation step (no SPK) and
+        // needs no EOP: the result is bit-identical to the pairwise transform.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x = vector6_from_array([R_EARTH + 500e3, 1e5, 2e5, 1.0, 7.5e3, 0.5e3]);
+        let via_router =
+            state_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::EME2000, epc, x).unwrap();
+        let pairwise = crate::frames::state_gcrf_to_eme2000(x);
+        for i in 0..6 {
+            assert_eq!(via_router[i], pairwise[i]);
+        }
+        // Round trip recovers the input. The tolerance covers the tiny
+        // orthogonality residual of the constant `bias_eme2000` rotation
+        // (B^T*B - I ~ 4e-15) amplified by the ~6.9e6 m position magnitude.
+        let back = state_frame_to_frame(
+            ReferenceFrame::EME2000,
+            ReferenceFrame::GCRF,
+            epc,
+            via_router,
+        )
+        .unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(back[i], x[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_router_body_fixed_iau_same_center_no_kernels() {
+        // BodyCenteredICRF(id) <-> BodyFixedIAU(id) is a same-center, kernel-free
+        // rotation-only + transport-velocity path (IAU analytic model). Exercises
+        // state_icrf_to_iau_body / state_iau_body_to_icrf and the position path.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let icrf = ReferenceFrame::BodyCenteredICRF(599);
+        let fixed = ReferenceFrame::BodyFixedIAU(599);
+        let x = vector6_from_array([7.0e7, -2.0e7, 3.0e7, 10.0, 25.0, -5.0]);
+
+        let x_fixed = state_frame_to_frame(icrf, fixed, epc, x).unwrap();
+        let x_back = state_frame_to_frame(fixed, icrf, epc, x_fixed).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_back[i], x[i], epsilon = 1e-6);
+        }
+
+        // Position path (no transport term).
+        let p = Vector3::new(7.0e7, -2.0e7, 3.0e7);
+        let p_fixed = position_frame_to_frame(icrf, fixed, epc, p).unwrap();
+        let p_back = position_frame_to_frame(fixed, icrf, epc, p_fixed).unwrap();
+        for i in 0..3 {
+            assert_abs_diff_eq!(p_back[i], p[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_router_errors_on_unsupported_iau_body() {
+        // A non-identity path through an unsupported IAU body surfaces the
+        // rotation-model lookup error (icrf_to_frame_dcm error propagation).
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        assert!(
+            rotation_frame_to_frame(
+                ReferenceFrame::BodyCenteredICRF(999999),
+                ReferenceFrame::BodyFixedIAU(999999),
+                epc
+            )
+            .is_err()
+        );
+        let x = vector6_from_array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        assert!(
+            state_frame_to_frame(
+                ReferenceFrame::BodyCenteredICRF(999999),
+                ReferenceFrame::BodyFixedIAU(999999),
+                epc,
+                x
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn test_reference_frame_display_and_center_body_fixed_custom() {
+        // The BodyFixedCustom Display and center_naif_id arms are not covered by
+        // the other Display/center tests.
+        let f = ReferenceFrame::BodyFixedCustom {
+            center: -20001,
+            key: 7,
+        };
+        assert_eq!(f.to_string(), "BodyFixedCustom(center=-20001, key=7)");
+        assert_eq!(f.center_naif_id(), -20001);
+    }
+
+    #[test]
+    #[serial]
+    fn test_router_body_fixed_pck_same_center_offline() {
+        // BodyFixedPCK does not auto-load any kernel; load a synthetic PCK
+        // (frame class 31123, ET coverage [0, 1000]) from a temp path and query
+        // a same-center BodyCenteredICRF <-> BodyFixedPCK round trip offline.
+        // The frame id is unique to this test so no concurrent test queries it.
+        use crate::utils::testing::synthetic_pck_kernel_bytes;
+
+        setup_global_test_spice();
+        let frame_id = 31123;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("synthetic_bfpck.bpc");
+        std::fs::write(&path, synthetic_pck_kernel_bytes(frame_id)).unwrap();
+        let path = path.to_str().unwrap();
+        crate::spice::load_kernel(path).unwrap();
+
+        let epc = Epoch::from_jd(
+            crate::constants::JD_J2000 + 500.0 / crate::constants::SECONDS_PER_DAY,
+            TimeSystem::TDB,
+        );
+        let center = ReferenceFrame::BodyCenteredICRF(-30001);
+        let fixed = ReferenceFrame::BodyFixedPCK {
+            center: -30001,
+            frame_id,
+        };
+        let x = vector6_from_array([5.0e5, -1.0e5, 2.0e5, 3.0, -4.0, 1.0]);
+        let x_fixed = state_frame_to_frame(center, fixed, epc, x).unwrap();
+        let x_back = state_frame_to_frame(fixed, center, epc, x_fixed).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_back[i], x[i], epsilon = 1e-6);
+        }
+        // Rotation-only query dispatches through icrf_to_frame_dcm's PCK arm.
+        let r = rotation_frame_to_frame(center, fixed, epc).unwrap();
+        let rtr = r.transpose() * r;
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_abs_diff_eq!(rtr[(i, j)], if i == j { 1.0 } else { 0.0 }, epsilon = 1e-12);
+            }
+        }
+
+        crate::spice::unload_kernel(path).unwrap();
+    }
+
+    #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
     fn test_body_fixed_iau_translation_auto_loads_satellite_kernel() {

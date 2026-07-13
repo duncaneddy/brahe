@@ -12543,6 +12543,34 @@ mod tests {
         assert!(result.is_err());
     }
 
+    /// Construction must reject sensitivity propagation when no parameter
+    /// vector is supplied. Triggers the `enable_sensitivity && params.is_empty()`
+    /// guard in `new`, which fires before any frame/gravity work (no EOP needed).
+    #[test]
+    fn test_new_rejects_sensitivity_without_params() {
+        let mut prop_cfg = NumericalPropagationConfig::default();
+        prop_cfg.variational.enable_sensitivity = true;
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let result = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            prop_cfg,
+            ForceModelConfig::earth_gravity(),
+            None, // no params -> empty, so sensitivity must be rejected
+            None,
+            None,
+            None,
+        );
+
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(format!("{}", e).contains("Sensitivity"));
+        }
+    }
+
     /// Point-mass Moon two-body propagation must conserve specific orbital
     /// energy over one day. Exercises the `CentralBody::Moon` gravity path
     /// (GM from the central body) and the lunar rotation cache.

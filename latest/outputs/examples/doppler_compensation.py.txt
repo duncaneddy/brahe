@@ -1,16 +1,16 @@
 Downloading ISS TLE from CelesTrak...
 Downloaded ISS TLE in 0.00 seconds.
-Epoch: 2026-07-12 09:52:44.546 UTC
+Epoch: 2026-07-12 19:10:09.378 UTC
 Semi-major axis: 6797.8 km
 
 Loading NASA Near Earth Network ground stations...
 Loaded 18 NASA NEN ground stations in 0.00 seconds.
 
 Creating ground track visualization...
-Created ground track visualization in 2.24 seconds.
+Created ground track visualization in 3.31 seconds.
 
 Computing 72-hour access windows with Doppler compensation...
-Computed 13 access windows in 0.39 seconds.
+Computed 13 access windows in 0.38 seconds.
 
 ====================================================================================================
 Sample Access Windows with Doppler Time Series (first 5)
@@ -18,20 +18,20 @@ Sample Access Windows with Doppler Time Series (first 5)
 Start Time                  Duration   Max Elev  # Samples   Peak S-band   Peak X-band
 ----------------------------------------------------------------------------------------------------
 2026-07-12 22:20:10            7.4 m     21.4°       4459      44.17 kHz     168.66 kHz
-2026-07-12 23:56:46            7.6 m     22.6°       4572      44.22 kHz     168.84 kHz
+2026-07-12 23:56:46            7.6 m     22.6°       4573      44.22 kHz     168.84 kHz
 2026-07-13 06:31:00            7.0 m     16.6°       4196      40.10 kHz     153.10 kHz
 2026-07-13 08:07:18            8.1 m     32.6°       4845      47.74 kHz     182.27 kHz
-2026-07-13 21:33:47            5.6 m     11.0°       3365      33.32 kHz     127.23 kHz
+2026-07-13 21:33:47            5.6 m     11.0°       3365      33.32 kHz     127.24 kHz
 ====================================================================================================
 
-Analyzing detailed Doppler profile for window starting at 2026-07-12 22:20:10.326 UTC
+Analyzing detailed Doppler profile for window starting at 2026-07-12 22:20:10.329 UTC
 Window duration: 7.4 minutes
 Extracting precomputed Doppler time series...
 Extracted 4459 samples (0.1s interval) in 0.00 seconds.
 ✓ Exported 11 samples to docs/figures/doppler_compensation_data.csv
 
 Creating Doppler compensation visualization...
-Created Doppler visualization in 0.10 seconds.
+Created Doppler visualization in 0.12 seconds.
 
 ✓ Generated docs/figures/doppler_compensation_groundtrack_light.html
 ✓ Generated docs/figures/doppler_compensation_groundtrack_dark.html

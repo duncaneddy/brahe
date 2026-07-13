@@ -572,7 +572,6 @@ mod tests {
     use crate::utils::testing::setup_global_test_spice;
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -582,6 +581,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_sun_position_spice(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
 
@@ -595,7 +595,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -605,6 +604,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_moon_position_spice(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
 
@@ -618,7 +618,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -628,6 +627,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_jupiter_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,
@@ -639,7 +639,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -649,6 +648,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_mars_barycenter_position_spice_over_dates(
         #[case] year: u32,
         #[case] month: u8,
@@ -660,7 +660,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -670,6 +669,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_mercury_position_spice(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
@@ -677,7 +677,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -687,6 +686,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_neptune_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,
@@ -698,7 +698,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -708,6 +707,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_saturn_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,
@@ -719,7 +719,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -729,6 +728,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_uranus_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,
@@ -740,7 +740,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -750,6 +749,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_venus_position_spice(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
@@ -757,7 +757,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -767,6 +766,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_solar_system_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,

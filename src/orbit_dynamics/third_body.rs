@@ -790,6 +790,7 @@ mod tests {
     use crate::utils::testing::setup_global_test_spice;
 
     #[test]
+    #[serial]
     fn test_accel_third_body_sun_spice() {
         setup_global_test_spice();
 
@@ -804,6 +805,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_moon_spice() {
         setup_global_test_spice();
 
@@ -818,6 +820,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_mercury_spice() {
         setup_global_test_spice();
 
@@ -832,6 +835,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_venus_spice() {
         setup_global_test_spice();
 
@@ -846,6 +850,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_mars_spice() {
         setup_global_test_spice();
 
@@ -860,6 +865,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_jupiter_spice() {
         setup_global_test_spice();
 
@@ -874,6 +880,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_saturn_spice() {
         setup_global_test_spice();
 
@@ -888,6 +895,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_uranus_spice() {
         setup_global_test_spice();
 
@@ -902,6 +910,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_accel_third_body_neptune_spice() {
         setup_global_test_spice();
 

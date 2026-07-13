@@ -630,7 +630,12 @@ fn spk_kernel_for_query(kernel: KernelSource) -> Result<Arc<SPK>, BraheError> {
             "Kernel '{}' is a binary PCK, not an SPK",
             key
         ))),
-        None => unreachable!("load_kernel just ensured '{key}' is present"),
+        // Reachable if another thread unloads the kernel between the
+        // load_kernel call above and this lookup.
+        None => Err(BraheError::Error(format!(
+            "Kernel '{}' was unloaded concurrently during query",
+            key
+        ))),
     }
 }
 

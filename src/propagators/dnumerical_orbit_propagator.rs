@@ -1759,7 +1759,12 @@ impl DNumericalOrbitPropagator {
             let r_sun = if matches!(central, CentralBody::Earth) {
                 sun_position(epoch)
             } else {
-                spk_position(10, central.naif_id(), epoch).expect("SPK sun query failed")
+                // Ensure the DE ephemeris and any satellite-system kernel
+                // for the central body (e.g. mar099s for Mars, NAIF 499)
+                // are loaded before the registry query.
+                crate::spice::registry::ensure_bodies_loadable(&[central.naif_id()])
+                    .and_then(|_| spk_position(10, central.naif_id(), epoch))
+                    .expect("SPK sun query failed")
             };
 
             // Compute SRP acceleration (P0 = 4.56e-6 N/m² at 1 AU)
@@ -1778,8 +1783,14 @@ impl DNumericalOrbitPropagator {
                     let r_occ = if occ.naif_position_id() == central.naif_id() {
                         Vector3::zeros()
                     } else {
-                        spk_position(occ.naif_position_id(), central.naif_id(), epoch)
-                            .expect("SPK occulting-body query failed")
+                        crate::spice::registry::ensure_bodies_loadable(&[
+                            occ.naif_position_id(),
+                            central.naif_id(),
+                        ])
+                        .and_then(|_| {
+                            spk_position(occ.naif_position_id(), central.naif_id(), epoch)
+                        })
+                        .expect("SPK occulting-body query failed")
                     };
                     let factor = match srp_config.eclipse_model {
                         EclipseModel::Cylindrical => {
@@ -2915,7 +2926,10 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
         let x = self.state_central_inertial(epoch)?;
         match self.central_body.as_ref() {
             CentralBody::Earth => Ok(x),
-            cb => Ok(x + spk_state(cb.naif_id(), 399, epoch)?),
+            cb => {
+                crate::spice::registry::ensure_bodies_loadable(&[cb.naif_id()])?;
+                Ok(x + spk_state(cb.naif_id(), 399, epoch)?)
+            }
         }
     }
 

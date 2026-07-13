@@ -20,7 +20,7 @@
  * |---------|---------|-----------------|-------------------|
  * | Earth   | 399     | `GCRF`          | `ITRF`            |
  * | Moon    | 301     | `LCI`           | `LFPA`            |
- * | Mars    | 4       | `MCI`           | `MCMF`            |
+ * | Mars    | 499     | `MCI`           | `MCMF`            |
  * | EMB     | 3       | `EMBI`          | none              |
  * | SSB     | 0       | `SSBI`          | none              |
  *
@@ -99,7 +99,7 @@ pub enum CentralBody {
     Earth,
     /// Moon (NAIF ID 301).
     Moon,
-    /// Mars system barycenter (NAIF ID 4).
+    /// Mars (body center, NAIF ID 499).
     Mars,
     /// Earth-Moon barycenter (NAIF ID 3).
     EMB,

@@ -45,13 +45,22 @@ pub(crate) fn ensure_mars_spk_loaded() {
     if crate::spice::kernel_is_loaded("mar099s") {
         return;
     }
-    crate::spice::load_kernel("mar099s").unwrap_or_else(|e| {
+    // Loads the default DE ephemeris first when the registry is empty (a
+    // satellite kernel alone cannot resolve the Earth leg and would
+    // suppress the DE auto-initialization), then mar099s.
+    crate::spice::registry::ensure_bodies_loadable(&[NAIFId::Mars.id()]).unwrap_or_else(|e| {
         panic!(
-            "Failed to auto-load Mars satellite ephemeris 'mar099s': {}. \
+            "Failed to auto-load Mars ephemeris kernels (de440s/mar099s): {}. \
              Download manually and call brahe::spice::load_kernel(<path>).",
             e
         )
     });
+    if !crate::spice::kernel_is_loaded("mar099s") {
+        panic!(
+            "Failed to auto-load Mars satellite ephemeris 'mar099s'. \
+             Download manually and call brahe::spice::load_kernel(<path>)."
+        );
+    }
 }
 
 /// Computes the rotation matrix from Mars-Centered Inertial (MCI) to

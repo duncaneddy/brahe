@@ -4,7 +4,7 @@
 
 ## Available Frames
 
-The **transformation source** column names how each frame's orientation is realized: `native` frames are computed from models compiled into Brahe (no kernel), `SPICE` frames are evaluated from a loaded NAIF kernel. Re-centering between frames with different origins is a separate step that always uses the DE440 SPK ephemeris, regardless of the orientation source.
+The **transformation source** column names how each frame's orientation is realized: `native` frames are computed from models compiled into Brahe (no kernel), `SPICE` frames are evaluated from a loaded NAIF kernel. Re-centering between frames with different origins is a separate step resolved through the loaded SPK kernels in the global registry (last-loaded-wins for overlapping segments); the default `de440s` ephemeris is loaded automatically when no SPK is resident.
 
 | Frame | Kind | Transformation source |
 |---|---|---|

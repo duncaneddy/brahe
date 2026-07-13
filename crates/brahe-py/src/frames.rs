@@ -1794,7 +1794,7 @@ impl PyReferenceFrame {
         PyReferenceFrame { frame: frames::ReferenceFrame::LFME }
     }
 
-    /// Mars-Centered Inertial (ICRF-aligned, Mars system barycenter-centered).
+    /// Mars-Centered Inertial (ICRF-aligned, Mars-centered).
     #[classattr]
     #[allow(non_snake_case)]
     fn MCI() -> Self {

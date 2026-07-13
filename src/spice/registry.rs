@@ -448,6 +448,41 @@ fn ensure_default_ephemeris_loaded() -> Result<(), BraheError> {
     Ok(())
 }
 
+/// Ensures the kernels needed to resolve queries among `ids` are loaded:
+/// the default planetary DE ephemeris when no SPK is resident yet
+/// (**before** any satellite kernel, so a satellite load cannot suppress
+/// the DE auto-initialization), then each satellite-system ephemeris
+/// kernel for satellite-range IDs.
+///
+/// Satellite-kernel load failures are ignored: the ID may instead be
+/// covered by a bring-your-own kernel already in the registry, in which
+/// case the subsequent query succeeds; if nothing covers it, the query
+/// surfaces the chain-resolution error.
+///
+/// An explicitly loaded alternative DE kernel (e.g. `de440`) keeps its
+/// precedence — the default is only loaded into an SPK-empty registry.
+///
+/// # Arguments
+/// - `ids`: NAIF IDs the caller is about to query through the registry
+///
+/// # Returns
+/// - `Ok(())` on success, or `BraheError` if the default DE ephemeris
+///   cannot be loaded
+pub(crate) fn ensure_bodies_loadable(ids: &[i32]) -> Result<(), BraheError> {
+    use super::positions::{de_kernel_covers, satellite_system_kernel};
+
+    ensure_default_ephemeris_loaded()?;
+    for &id in ids {
+        if !de_kernel_covers(id)
+            && (400..=999).contains(&id)
+            && let Some(kernel) = satellite_system_kernel(id / 100)
+        {
+            let _ = load_kernel(kernel);
+        }
+    }
+    Ok(())
+}
+
 // ============================================================================
 // Generic SPK Queries
 // ============================================================================
@@ -1553,6 +1588,44 @@ mod tests {
         setup_global_test_spice();
         let err = load_kernel("/nonexistent/path/to/kernel.bsp").unwrap_err();
         assert!(format!("{}", err).contains("neither a known kernel name"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_bodies_loadable_loads_de_before_satellite_kernel() {
+        // From an SPK-empty registry, the default DE ephemeris must load
+        // BEFORE the satellite kernel: a satellite kernel alone would
+        // suppress the DE auto-initialization and leave e.g. the Earth leg
+        // of a 499<->399 query unresolvable.
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s();
+            cache.seed(
+                "mar099s.bsp",
+                &crate::utils::testing::synthetic_spk_kernel_bytes(&[(499, 4, 2.0)]),
+            );
+
+            clear_kernels();
+            ensure_bodies_loadable(&[499]).unwrap();
+            assert_eq!(
+                loaded_kernels(),
+                vec!["de440s".to_string(), "mar099s".to_string()]
+            );
+
+            // Idempotent: a second call adds nothing.
+            ensure_bodies_loadable(&[499]).unwrap();
+            assert_eq!(loaded_kernels().len(), 2);
+
+            // DE-covered IDs load no satellite kernel.
+            clear_kernels();
+            ensure_bodies_loadable(&[301, 399]).unwrap();
+            assert_eq!(loaded_kernels(), vec!["de440s".to_string()]);
+        }
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
     }
 
     #[test]

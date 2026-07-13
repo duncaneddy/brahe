@@ -588,16 +588,12 @@ pub(crate) fn center_offset_state(
     epc: Epoch,
 ) -> Result<SVector6, BraheError> {
     // Satellite-system body centers (Mars 499, outer-planet moons, ...) are
-    // not carried by the DE kernels; idempotently load their system's
-    // satellite ephemeris kernel so the cross-kernel chain resolves,
-    // mirroring the dedicated lunar/Mars frame helpers.
-    for id in [from_center, to_center] {
-        if (400..=999).contains(&id)
-            && let Some(kernel) = crate::spice::positions::satellite_system_kernel(id / 100)
-        {
-            crate::spice::load_kernel(kernel)?;
-        }
-    }
+    // not carried by the DE kernels; idempotently load the default DE
+    // ephemeris (when none is resident) and each system's satellite
+    // ephemeris kernel so the cross-kernel chain resolves, mirroring the
+    // dedicated lunar/Mars frame helpers. Satellite-kernel load failures
+    // are tolerated — a bring-your-own kernel may cover the ID instead.
+    crate::spice::registry::ensure_bodies_loadable(&[from_center, to_center])?;
     crate::spice::spk_state(to_center, from_center, epc)
 }
 

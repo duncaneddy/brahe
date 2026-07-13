@@ -373,7 +373,19 @@
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/learn/frames/frame_transformations.html</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
          <loc>https://duncaneddy.github.io/brahe/latest/learn/frames/gcrf_itrf.html</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/learn/frames/lunar_frames.html</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/learn/frames/mars_frames.html</loc>
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>
@@ -433,6 +445,10 @@
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/learn/orbit_propagation/numerical_propagation/cislunar_lunar_propagation.html</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
          <loc>https://duncaneddy.github.io/brahe/latest/learn/orbit_propagation/numerical_propagation/covariance_sensitivity.html</loc>
          <lastmod>2026-07-13</lastmod>
     </url>
@@ -466,6 +482,10 @@
     </url>
     <url>
          <loc>https://duncaneddy.github.io/brahe/latest/learn/orbit_propagation/numerical_propagation/numerical_orbit_propagator.html</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/learn/orbit_propagation/numerical_propagation/other_central_bodies.html</loc>
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>
@@ -890,6 +910,18 @@
     </url>
     <url>
          <loc>https://duncaneddy.github.io/brahe/latest/library_api/frames/gcrf_itrf.html</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/frames/lunar.html</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/frames/mars.html</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://duncaneddy.github.io/brahe/latest/library_api/frames/router.html</loc>
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>

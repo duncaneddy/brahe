@@ -1,5 +1,5 @@
 Downloading Capella satellite TLEs from CelesTrak...
-Found 9 Capella satellites in 0.82 seconds
+Found 9 Capella satellites in 0.29 seconds
   - CAPELLA-11 (ACADIA-1)
   - CAPELLA-14 (ACADIA-4)
   - CAPELLA-13 (ACADIA-3)
@@ -53,21 +53,21 @@ Using 33 external stations for downlink:
   - Weilheim (11.08, 47.88)
 
 Computing AOI exit events...
-Found 248 AOI exit events in 1.39 seconds
+Found 295 AOI exit events in 1.77 seconds
 
 Computing ground station contacts...
-Computed 11595 ground contact windows in 5.42 seconds
+Computed 11601 ground contact windows in 6.10 seconds
 
 Computing imaging data latencies...
-Computed 247 latency values in 0.05 seconds
+Computed 295 latency values in 0.06 seconds
 
 ====================================================================================================
 Imaging Data Latency Statistics
 ====================================================================================================
-  Worst (Max):  54 minutes and 25.03 seconds
+  Worst (Max):  54 minutes and 23.07 seconds
   Best (Min):   10.12 seconds
-  Average:      14 minutes and 19.26 seconds
-  Median:       5 minutes and 36.23 seconds
+  Average:      14 minutes and 55.47 seconds
+  Median:       5 minutes and 43.63 seconds
 ====================================================================================================
 
 ========================================================================================================================
@@ -75,21 +75,21 @@ Top 5 Worst Imaging Data Latencies
 ========================================================================================================================
 Satellite                 AOI Exit Time                Contact Start                Station                      Latency
 ------------------------------------------------------------------------------------------------------------------------
-CAPELLA-19 (ACADIA-9)     2026-07-13 11:26:40          2026-07-13 12:21:05          Bangalore            54 minutes and 25.03 seconds
-CAPELLA-20 (ACADIA-10)    2026-07-16 08:48:26          2026-07-16 09:42:49          Bangalore            54 minutes and 23.05 seconds
-CAPELLA-17 (ACADIA-7)     2026-07-13 19:10:27          2026-07-13 20:04:50          Bangalore            54 minutes and 22.98 seconds
-CAPELLA-20 (ACADIA-10)    2026-07-15 08:39:51          2026-07-15 09:33:54          Bangalore            54 minutes and 3.02 seconds
-CAPELLA-17 (ACADIA-7)     2026-07-12 19:01:47          2026-07-12 19:55:50          Bangalore            54 minutes and 2.61 seconds
+CAPELLA-20 (ACADIA-10)    2026-07-16 08:48:27          2026-07-16 09:42:50          Bangalore            54 minutes and 23.07 seconds
+CAPELLA-17 (ACADIA-7)     2026-07-13 19:10:27          2026-07-13 20:04:50          Bangalore            54 minutes and 22.99 seconds
+CAPELLA-20 (ACADIA-10)    2026-07-15 08:39:52          2026-07-15 09:33:55          Bangalore            54 minutes and 3.02 seconds
+CAPELLA-20 (ACADIA-10)    2026-07-17 08:57:02          2026-07-17 09:46:42          Mauritius            49 minutes and 39.92 seconds
+CAPELLA-17 (ACADIA-7)     2026-07-14 19:19:06          2026-07-14 20:08:41          Mauritius            49 minutes and 34.80 seconds
 ========================================================================================================================
 
 ✓ Exported top 5 latencies to docs/figures/imaging_data_latency_top5.csv
 ✓ Exported statistics to docs/figures/imaging_data_latency_stats.csv
 
 Creating ground track visualization for top 3 worst latencies...
-  Gap 1: 55 points, 2 segments, latency=54m 25s
-  Gap 2: 56 points, 2 segments, latency=54m 23s
-  Gap 3: 55 points, 2 segments, latency=54m 22s
-Created ground track visualization in 0.19 seconds.
+  Gap 1: 55 points, 2 segments, latency=54m 23s
+  Gap 2: 55 points, 2 segments, latency=54m 22s
+  Gap 3: 55 points, 2 segments, latency=54m 3s
+Created ground track visualization in 0.22 seconds.
 
 ✓ Generated imaging_data_latency_groundtrack_light.svg
 ✓ Generated imaging_data_latency_groundtrack_dark.svg

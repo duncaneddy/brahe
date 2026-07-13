@@ -99,9 +99,9 @@ pub fn eclipse_conical<P: IntoPosition>(r_object: P, r_sun: Vector3<f64>) -> f64
 ///
 /// # Arguments
 ///
-/// - `r_object`: Position vector of the object in the ECI frame, or state vector (position + velocity).
+/// - `r_object`: Position vector of the object in the body-centered inertial frame, or state vector (position + velocity).
 /// - `r_sun`: Position vector of the sun. If the sun is at the origin, this is the zero vector.
-/// - `r_occulter`: Position vector of the occulting body in the ECI frame.
+/// - `r_occulter`: Position vector of the occulting body in the body-centered inertial frame.
 /// - `radius_occulter`: Mean physical radius of the occulting body.
 ///
 /// # Returns
@@ -198,9 +198,9 @@ pub fn eclipse_cylindrical<P: IntoPosition>(r_object: P, r_sun: Vector3<f64>) ->
 ///
 /// # Arguments
 ///
-/// - `r_object`: Position vector of the object in the ECI frame, or state vector (position + velocity).
+/// - `r_object`: Position vector of the object in the body-centered inertial frame, or state vector (position + velocity).
 /// - `r_sun`: Position vector of the sun. If the sun is at the origin, this is the zero vector.
-/// - `r_occulter`: Position vector of the occulting body in the ECI frame.
+/// - `r_occulter`: Position vector of the occulting body in the body-centered inertial frame.
 /// - `radius_occulter`: Mean physical radius of the occulting body.
 ///
 /// # Returns

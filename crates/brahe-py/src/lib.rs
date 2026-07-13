@@ -578,6 +578,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("AS2RAD", constants::AS2RAD)?;
     module.add("RAD2AS", constants::RAD2AS)?;
     module.add("SECONDS_PER_DAY", constants::SECONDS_PER_DAY)?;
+    module.add(
+        "SECONDS_PER_JULIAN_CENTURY",
+        constants::SECONDS_PER_JULIAN_CENTURY,
+    )?;
     module.add("MJD_ZERO", constants::MJD_ZERO)?;
     module.add("MJD_J2000", constants::MJD_J2000)?;
     module.add("JD_J2000", constants::JD_J2000)?;
@@ -1042,6 +1046,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_unload_kernel, module)?)?;
     module.add_function(wrap_pyfunction!(py_clear_kernels, module)?)?;
     module.add_function(wrap_pyfunction!(py_loaded_kernels, module)?)?;
+    module.add_function(wrap_pyfunction!(py_kernel_is_loaded, module)?)?;
     module.add_function(wrap_pyfunction!(py_load_common_kernels, module)?)?;
     module.add_function(wrap_pyfunction!(py_load_all_kernels, module)?)?;
     module.add_function(wrap_pyfunction!(py_spk_position, module)?)?;

@@ -1193,14 +1193,16 @@ mod tests {
         // de430: 50 + (400 - 40) = 410 km; de432s: 50 + (800 - 80) = 770 km.
         let a_de430 = expected_accel(Vector3::new(410.0e3, 0.0, 0.0), r, gm_phobos, false);
         let a_de432s = expected_accel(Vector3::new(770.0e3, 0.0, 0.0), r, gm_phobos, false);
-        // Phobos rel Mars barycenter needs no DE leg at all: 50 km.
-        let a_mars = expected_accel(Vector3::new(50.0e3, 0.0, 0.0), r, gm_phobos, false);
+        // Phobos rel Mars (body center, 499) stays within mar099s: both
+        // anchor to the Mars system barycenter, so no DE leg is involved:
+        // 50 - 2 = 48 km.
+        let a_mars = expected_accel(Vector3::new(48.0e3, 0.0, 0.0), r, gm_phobos, false);
 
         {
             let cache = CacheRedirect::new();
             cache.seed(
                 "mar099s.bsp",
-                &synthetic_spk_kernel_bytes(&[(401, 4, 50.0)]),
+                &synthetic_spk_kernel_bytes(&[(401, 4, 50.0), (499, 4, 2.0)]),
             );
             cache.seed(
                 "de430.bsp",

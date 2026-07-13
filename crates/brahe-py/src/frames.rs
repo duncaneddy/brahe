@@ -1025,7 +1025,8 @@ fn py_state_mcmf_to_mci<'py>(
 /// Transforms a Cartesian Earth-inertial (ECI) position into the equivalent
 /// Cartesian Mars-inertial (MCI) position.
 ///
-/// The MCI origin is the Mars system barycenter (NAIF ID 4). Auto-initializes
+/// The MCI origin is the Mars body center (NAIF ID 499); the `mar099s`
+/// satellite ephemeris kernel is auto-loaded for the body-center leg. Auto-initializes
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
@@ -1058,7 +1059,8 @@ fn py_position_eci_to_mci<'py>(
 /// Transforms a Cartesian Mars-inertial (MCI) position into the equivalent
 /// Cartesian Earth-inertial (ECI) position.
 ///
-/// The MCI origin is the Mars system barycenter (NAIF ID 4). Auto-initializes
+/// The MCI origin is the Mars body center (NAIF ID 499); the `mar099s`
+/// satellite ephemeris kernel is auto-loaded for the body-center leg. Auto-initializes
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
@@ -1091,7 +1093,8 @@ fn py_position_mci_to_eci<'py>(
 /// Transforms a Cartesian Earth-inertial (ECI) state (position and velocity)
 /// into the equivalent Cartesian Mars-inertial (MCI) state.
 ///
-/// The MCI origin is the Mars system barycenter (NAIF ID 4). Auto-initializes
+/// The MCI origin is the Mars body center (NAIF ID 499); the `mar099s`
+/// satellite ephemeris kernel is auto-loaded for the body-center leg. Auto-initializes
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
@@ -1124,7 +1127,8 @@ fn py_state_eci_to_mci<'py>(
 /// Transforms a Cartesian Mars-inertial (MCI) state (position and velocity)
 /// into the equivalent Cartesian Earth-inertial (ECI) state.
 ///
-/// The MCI origin is the Mars system barycenter (NAIF ID 4). Auto-initializes
+/// The MCI origin is the Mars body center (NAIF ID 499); the `mar099s`
+/// satellite ephemeris kernel is auto-loaded for the body-center leg. Auto-initializes
 /// the default `de440s` ephemeris if no SPK kernel is loaded.
 ///
 /// Args:
@@ -1712,7 +1716,7 @@ fn py_state_lci_to_eci<'py>(
 /// `BodyFixedPCK(center, frame_id)`.
 ///
 /// Frame centers (NAIF ID): GCRF/ITRF/EME2000 -> Earth (399); LCI/LFPA/LFME
-/// -> Moon (301); MCI/MCMF -> Mars system barycenter (4); EMBI -> 3; SSBI ->
+/// -> Moon (301); MCI/MCMF -> Mars (499); EMBI -> 3; SSBI ->
 /// 0; `BodyCenteredICRF(id)`/`BodyFixedIAU(id)` -> `id`; `BodyFixedPCK` ->
 /// its `center`.
 ///

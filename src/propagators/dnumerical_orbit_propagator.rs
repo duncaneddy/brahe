@@ -3418,7 +3418,7 @@ mod tests {
     // covered by the rest of the propagator test suite.
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_rotation_cache_hit_returns_same_matrix() {
         // First call is a miss-and-fill, second call must hit the cache and
         // return the identical matrix without recomputing.
@@ -3438,7 +3438,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_rotation_cache_matches_uncached_call() {
         // Sanity: the cached result must agree with calling
         // `rotation_eci_to_ecef` directly. If a future change to the rotation
@@ -3459,7 +3459,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_rotation_cache_distinct_epochs_distinct_entries() {
         // Two unrelated epochs must produce different matrices (sanity that
         // we're not accidentally caching a single rotation under multiple
@@ -3483,7 +3483,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_rotation_cache_earth_rotation_only_path() {
         // Verify the FrameTransformationModel dispatch in get_or_compute by
         // comparing against the corresponding bare function. This is the
@@ -3504,7 +3504,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_rotation_cache_rk4_stage_pattern_hits() {
         // Replay an RK4 stage sequence: (0, h/2, h/2, h) for two consecutive
         // steps. Hit assertions:
@@ -3539,7 +3539,7 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::parallel]
+    #[serial_test::serial]
     fn test_rotation_cache_capacity_evicts_oldest() {
         // Fill the cache past capacity. The least-recently-used entry should
         // be evicted while the most recently inserted entries remain

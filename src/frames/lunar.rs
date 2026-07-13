@@ -82,10 +82,10 @@ const MOON_PA_FRAME_ID: i32 = 31008;
 /// Panics with an actionable message if the kernel cannot be loaded (e.g.
 /// no network access and no cached copy).
 pub(crate) fn ensure_lunar_pck_loaded() {
-    if crate::spice::loaded_kernels()
-        .iter()
-        .any(|k| k.contains("moon_pa_de440"))
-    {
+    // Allocation-free registry check. Not a `OnceLock` latch: the registry
+    // can be cleared (`clear_kernels`) or the kernel unloaded at runtime, so
+    // the check must consult live registry state on every call.
+    if crate::spice::kernel_is_loaded("moon_pa_de440") {
         return;
     }
     crate::spice::load_kernel("moon_pa_de440").unwrap_or_else(|e| {

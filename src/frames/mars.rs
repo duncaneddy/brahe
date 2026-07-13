@@ -8,18 +8,14 @@
  * frame defined by the IAU/WGCCRE pole and prime-meridian model for Mars
  * (NAIF ID 499), evaluated by [`rotation_icrf_to_body_fixed_iau`].
  *
- * # MCI origin caveat
+ * # MCI origin
  *
- * The IAU rotation model is defined for the Mars body center (NAIF 499),
- * but the `state_eci_to_mci`/`state_mci_to_eci` (and position-only)
- * transformations use the ephemeris state of the Mars system barycenter
- * (NAIF 4) relative to Earth, because the bundled DE440s kernel provides
- * no direct segment for body 499. The Mars barycenter is offset from the
- * Mars body center by the Mars-Phobos-Deimos system's barycentric motion
- * about their common center of mass, which is at the decimeter level
- * (~0.1-0.2 m) for Mars itself (Phobos and Deimos are many orders of
- * magnitude less massive than Mars). This is negligible for essentially all use cases but
- * is documented here for completeness.
+ * The MCI origin is the Mars body center (NAIF 499), matching the IAU
+ * rotation model. The DE kernels only carry the Mars *system* barycenter
+ * (NAIF 4); the body-center leg comes from the `mar099s` satellite
+ * ephemeris kernel, which the translation functions in this module
+ * auto-download and load on first use (mirroring the lunar PCK
+ * auto-load in [`super::lunar`]).
  */
 
 use nalgebra::Vector3;
@@ -31,6 +27,32 @@ use crate::time::Epoch;
 use super::iau_rotation::{
     body_fixed_iau_angles_and_rates, euler313_omega_body, rotation_icrf_to_body_fixed_iau,
 };
+
+/// Idempotently loads the `mar099s` Mars satellite ephemeris kernel
+/// (downloading it to `~/.cache/brahe/naif` if needed) into the global
+/// SPICE kernel registry. The DE kernels only carry the Mars *system*
+/// barycenter (NAIF 4); `mar099s` provides the Mars body-center (NAIF
+/// 499) leg the MCI translation functions require.
+///
+/// Called automatically by every MCI translation in this module; not
+/// normally called directly. Mirrors
+/// [`super::lunar::ensure_lunar_pck_loaded`].
+///
+/// # Panics
+/// Panics with an actionable message if the kernel cannot be loaded (e.g.
+/// no network access and no cached copy).
+pub(crate) fn ensure_mars_spk_loaded() {
+    if crate::spice::kernel_is_loaded("mar099s") {
+        return;
+    }
+    crate::spice::load_kernel("mar099s").unwrap_or_else(|e| {
+        panic!(
+            "Failed to auto-load Mars satellite ephemeris 'mar099s': {}. \
+             Download manually and call brahe::spice::load_kernel(<path>).",
+            e
+        )
+    });
+}
 
 /// Computes the rotation matrix from Mars-Centered Inertial (MCI) to
 /// Mars-Centered Mars-Fixed (MCMF), using the IAU/WGCCRE pole and
@@ -224,12 +246,12 @@ pub fn state_mcmf_to_mci(epc: Epoch, x_mcmf: SVector6) -> SVector6 {
 /// Transforms a Cartesian Earth-inertial (ECI) position into the
 /// equivalent Cartesian Mars-inertial (MCI) position.
 ///
-/// The MCI origin is the Mars system barycenter (NAIF ID 4); see the
-/// module-level documentation for the resulting decimeter-level offset
-/// from the Mars body center.
+/// The MCI origin is the Mars body center (NAIF ID 499); see the
+/// module-level documentation.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
-/// loaded; see [`crate::spice::spk_position`].
+/// loaded and auto-loads the `mar099s` satellite ephemeris kernel for
+/// the body-center leg; see [`crate::spice::spk_position`].
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -249,7 +271,8 @@ pub fn state_mcmf_to_mci(epc: Epoch, x_mcmf: SVector6) -> SVector6 {
 /// let x_mci = position_eci_to_mci(epc, x_eci);
 /// ```
 pub fn position_eci_to_mci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIFId::MarsBarycenter, NAIFId::Earth, epc)
+    ensure_mars_spk_loaded();
+    let offset = spk_position(NAIFId::Mars, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_eci - offset
 }
@@ -257,12 +280,12 @@ pub fn position_eci_to_mci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// Transforms a Cartesian Mars-inertial (MCI) position into the
 /// equivalent Cartesian Earth-inertial (ECI) position.
 ///
-/// The MCI origin is the Mars system barycenter (NAIF ID 4); see the
-/// module-level documentation for the resulting decimeter-level offset
-/// from the Mars body center.
+/// The MCI origin is the Mars body center (NAIF ID 499); see the
+/// module-level documentation.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
-/// loaded; see [`crate::spice::spk_position`].
+/// loaded and auto-loads the `mar099s` satellite ephemeris kernel for
+/// the body-center leg; see [`crate::spice::spk_position`].
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -282,7 +305,8 @@ pub fn position_eci_to_mci(epc: Epoch, x_eci: Vector3<f64>) -> Vector3<f64> {
 /// let x_eci = position_mci_to_eci(epc, x_mci);
 /// ```
 pub fn position_mci_to_eci(epc: Epoch, x_mci: Vector3<f64>) -> Vector3<f64> {
-    let offset = spk_position(NAIFId::MarsBarycenter, NAIFId::Earth, epc)
+    ensure_mars_spk_loaded();
+    let offset = spk_position(NAIFId::Mars, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_mci + offset
 }
@@ -290,12 +314,12 @@ pub fn position_mci_to_eci(epc: Epoch, x_mci: Vector3<f64>) -> Vector3<f64> {
 /// Transforms a Cartesian Earth-inertial (ECI) state (position and
 /// velocity) into the equivalent Cartesian Mars-inertial (MCI) state.
 ///
-/// The MCI origin is the Mars system barycenter (NAIF ID 4); see the
-/// module-level documentation for the resulting decimeter-level offset
-/// from the Mars body center.
+/// The MCI origin is the Mars body center (NAIF ID 499); see the
+/// module-level documentation.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
-/// loaded; see [`crate::spice::spk_state`].
+/// loaded and auto-loads the `mar099s` satellite ephemeris kernel for
+/// the body-center leg; see [`crate::spice::spk_state`].
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -315,7 +339,8 @@ pub fn position_mci_to_eci(epc: Epoch, x_mci: Vector3<f64>) -> Vector3<f64> {
 /// let x_mci = state_eci_to_mci(epc, x_eci);
 /// ```
 pub fn state_eci_to_mci(epc: Epoch, x_eci: SVector6) -> SVector6 {
-    let offset = spk_state(NAIFId::MarsBarycenter, NAIFId::Earth, epc)
+    ensure_mars_spk_loaded();
+    let offset = spk_state(NAIFId::Mars, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_eci - offset
 }
@@ -323,12 +348,12 @@ pub fn state_eci_to_mci(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// Transforms a Cartesian Mars-inertial (MCI) state (position and
 /// velocity) into the equivalent Cartesian Earth-inertial (ECI) state.
 ///
-/// The MCI origin is the Mars system barycenter (NAIF ID 4); see the
-/// module-level documentation for the resulting decimeter-level offset
-/// from the Mars body center.
+/// The MCI origin is the Mars body center (NAIF ID 499); see the
+/// module-level documentation.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
-/// loaded; see [`crate::spice::spk_state`].
+/// loaded and auto-loads the `mar099s` satellite ephemeris kernel for
+/// the body-center leg; see [`crate::spice::spk_state`].
 ///
 /// # Arguments
 /// - `epc`: Epoch instant for computation of the transformation
@@ -348,7 +373,8 @@ pub fn state_eci_to_mci(epc: Epoch, x_eci: SVector6) -> SVector6 {
 /// let x_eci = state_mci_to_eci(epc, x_mci);
 /// ```
 pub fn state_mci_to_eci(epc: Epoch, x_mci: SVector6) -> SVector6 {
-    let offset = spk_state(NAIFId::MarsBarycenter, NAIFId::Earth, epc)
+    ensure_mars_spk_loaded();
+    let offset = spk_state(NAIFId::Mars, NAIFId::Earth, epc)
         .expect("SPK query failed: ensure a DE kernel is available (auto-init de440s)");
     x_mci + offset
 }
@@ -432,9 +458,12 @@ mod tests {
     fn test_state_eci_to_mci_matches_spk() {
         // x_mci = x_eci - state_of_mars_relative_to_earth
         setup_global_test_spice();
+        // The 499 reference query below needs mar099s loaded (the transform
+        // under test auto-loads it, but the reference is computed first).
+        ensure_mars_spk_loaded();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0]);
-        let offset = crate::spice::spk_state(NAIFId::MarsBarycenter, NAIFId::Earth, epc).unwrap();
+        let offset = crate::spice::spk_state(NAIFId::Mars, NAIFId::Earth, epc).unwrap();
         let expected = x - offset;
         let got = state_eci_to_mci(epc, x);
         for i in 0..6 {

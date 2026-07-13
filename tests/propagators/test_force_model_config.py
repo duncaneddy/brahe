@@ -119,7 +119,7 @@ def test_centralbody_properties():
     """Mirrors central_body::tests::test_central_body_properties"""
     assert CentralBody.Earth.naif_id() == 399
     assert CentralBody.Moon.gm() == pytest.approx(4902800066000.0)
-    assert CentralBody.Mars.naif_id() == 4
+    assert CentralBody.Mars.naif_id() == 499
     assert CentralBody.EMB.gm() == 0.0
     assert CentralBody.SSB.is_barycenter()
     assert CentralBody.Moon.fixed_frame() is not None
@@ -171,9 +171,8 @@ def test_occultingbody_radius_and_naif_ids():
     assert OccultingBody.Earth.naif_id() == 399
     assert OccultingBody.Earth.naif_position_id() == 399
     assert OccultingBody.Moon.naif_id() == 301
-    # Mars: physical body (499) vs. SPK position id (4) differ.
     assert OccultingBody.Mars.naif_id() == 499
-    assert OccultingBody.Mars.naif_position_id() == 4
+    assert OccultingBody.Mars.naif_position_id() == 499
 
     custom = OccultingBody.Custom(name="Europa", naif_id=502, radius=1560.8e3)
     assert custom.radius() == 1560.8e3

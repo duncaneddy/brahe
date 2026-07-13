@@ -889,6 +889,19 @@ impl ForceModelConfig {
                         self.central_body
                     )));
                 }
+                // ThirdBody::Mars is the Mars system barycenter (NAIF 4),
+                // which sits inside the planet (~0.1-0.2 m from its center):
+                // pairing it with a Mars-centered propagation would divide by
+                // a near-zero perturber distance. Mars's own gravity is the
+                // central-body force, not a third-body perturbation.
+                if matches!(body, ThirdBody::Mars) && matches!(self.central_body, CentralBody::Mars)
+                {
+                    return Err(BraheError::Error(
+                        "ThirdBody::Mars (the Mars system barycenter) cannot perturb a \
+                         Mars-centered propagation — Mars's gravity is the central-body force"
+                            .to_string(),
+                    ));
+                }
             }
         }
 
@@ -1294,23 +1307,17 @@ impl OccultingBody {
 
     /// NAIF ID to use when resolving the occulting body's position via SPK ephemerides
     ///
-    /// For most bodies this is identical to [`OccultingBody::naif_id`]. Mars is the
-    /// exception: standard planetary SPK kernels (e.g. DE440) provide the position
-    /// of the Mars system barycenter (NAIF ID 4) rather than the planet center (NAIF
-    /// ID 499), since no dedicated Mars-only position segment is guaranteed to be
-    /// present. The barycenter-to-planet-center offset for Mars is on the order of
-    /// decimeters (~0.1-0.2 m) (dominated by the much smaller moons Phobos and
-    /// Deimos), which is negligible for occultation geometry, so `naif_position_id` returns 4 while
-    /// `naif_id` returns 499 to reflect the physical body used for shadow sizing.
+    /// Identical to [`OccultingBody::naif_id`] for every variant: the occulter's
+    /// position is queried for the physical body center. For Mars (NAIF 499) this
+    /// requires the `mar099s` satellite ephemeris kernel when the occulter is not
+    /// co-located with the propagation's central body (a Mars-centered propagation
+    /// short-circuits the query entirely).
     ///
     /// # Returns
     ///
     /// - NAIF integer ID to use for SPK position queries.
     pub fn naif_position_id(&self) -> i32 {
-        match self {
-            OccultingBody::Mars => 4,
-            other => other.naif_id(),
-        }
+        self.naif_id()
     }
 }
 
@@ -1450,9 +1457,10 @@ impl ThirdBody {
     /// NAIF ID of the perturbing body.
     ///
     /// # Returns
-    /// - `naif_id`: NAIF ID. Planet variants (other than Earth and Mars) use
-    ///   the planetary-system barycenter, matching the targets used by the
-    ///   `*_position_spice` ephemeris functions.
+    /// - `naif_id`: NAIF ID. Planet variants from Mars outward use the
+    ///   planetary-system barycenter (Mars is `4`, not `499`), matching the
+    ///   targets used by the `*_barycenter_position_spice` ephemeris
+    ///   functions; Mercury, Venus, Earth, and the Moon use body centers.
     ///
     /// # Examples
     /// ```
@@ -1847,7 +1855,7 @@ mod tests {
 
         assert_eq!(OccultingBody::Mars.radius(), R_MARS);
         assert_eq!(OccultingBody::Mars.naif_id(), 499);
-        assert_eq!(OccultingBody::Mars.naif_position_id(), 4);
+        assert_eq!(OccultingBody::Mars.naif_position_id(), 499);
 
         let custom = OccultingBody::Custom {
             name: "Europa".to_string(),

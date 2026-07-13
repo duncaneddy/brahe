@@ -4298,7 +4298,7 @@ impl PyCentralBody {
         PyCentralBody { body: propagators::CentralBody::Moon }
     }
 
-    /// Mars system barycenter (NAIF ID 4).
+    /// Mars (body center, NAIF ID 499).
     #[classattr]
     #[allow(non_snake_case)]
     fn Mars() -> Self {
@@ -4530,8 +4530,8 @@ impl PyOccultingBody {
     /// NAIF ID to use when resolving the occulting body's position via SPK ephemerides.
     ///
     /// Returns:
-    ///     int: NAIF integer ID to use for SPK position queries. Differs from `naif_id`
-    ///     for `Mars` (499 vs. 4 -- see the Rust `OccultingBody::naif_position_id` docs).
+    ///     int: NAIF integer ID to use for SPK position queries. Identical to `naif_id`
+    ///     for every variant (the physical body center).
     fn naif_position_id(&self) -> i32 {
         self.body.naif_position_id()
     }

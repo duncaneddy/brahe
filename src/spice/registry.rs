@@ -215,6 +215,39 @@ pub fn loaded_kernels() -> Vec<String> {
     GLOBAL_SPICE.read().unwrap().load_order.clone()
 }
 
+/// True when a loaded kernel's registry key contains `fragment`.
+///
+/// A registry key is the known-kernel name (`"de440s"`, `"moon_pa_de440"`,
+/// ...) or, for bring-your-own kernels, the file-path string it was loaded
+/// from — so a fragment like `"moon_pa_de440"` matches both a name-loaded
+/// kernel and a path-loaded copy of the same file. Allocation-free
+/// read-lock check, cheap enough for per-call guards (unlike cloning
+/// [`loaded_kernels`]); unlike a `OnceLock` latch it stays correct across
+/// [`clear_kernels`]/[`unload_kernel`].
+///
+/// # Arguments
+/// - `fragment`: Substring to search for in each loaded kernel's key
+///
+/// # Returns
+/// - `true` if any loaded kernel's key contains `fragment`
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{kernel_is_loaded, load_kernel};
+///
+/// load_kernel("de440s").unwrap();
+/// assert!(kernel_is_loaded("de440s"));
+/// assert!(!kernel_is_loaded("de440x"));
+/// ```
+pub fn kernel_is_loaded(fragment: &str) -> bool {
+    GLOBAL_SPICE
+        .read()
+        .unwrap()
+        .load_order
+        .iter()
+        .any(|k| k.contains(fragment))
+}
+
 /// Initialize the global ephemeris with the default DE440s kernel.
 ///
 /// Equivalent to `load_kernel("de440s")`. Optional: `spk_position` and
@@ -1505,6 +1538,17 @@ mod tests {
         setup_global_test_spice();
         let err = load_kernel("/nonexistent/path/to/kernel.bsp").unwrap_err();
         assert!(format!("{}", err).contains("neither a known kernel name"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_kernel_is_loaded() {
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        assert!(kernel_is_loaded("de440s"));
+        // Substring of a loaded key matches; an unknown fragment does not.
+        assert!(kernel_is_loaded("de440"));
+        assert!(!kernel_is_loaded("nonexistent_kernel"));
     }
 
     #[test]

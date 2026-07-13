@@ -36,6 +36,8 @@ from brahe._brahe import (
     GST_ZERO,
     UNIX_EPOCH_JD,
     UNIX_EPOCH_MJD,
+    SECONDS_PER_DAY,
+    SECONDS_PER_JULIAN_CENTURY,
     # Physical constants
     C_LIGHT,
     AU,
@@ -101,6 +103,8 @@ __all__ = [
     "BDT_ZERO",
     "GST_ZERO",
     "UNIX_EPOCH_JD",
+    "SECONDS_PER_DAY",
+    "SECONDS_PER_JULIAN_CENTURY",
     "UNIX_EPOCH_MJD",
     # Physical constants
     "C_LIGHT",

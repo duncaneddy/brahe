@@ -87,6 +87,32 @@ fn py_loaded_kernels() -> Vec<String> {
     spice::loaded_kernels()
 }
 
+/// Check whether a loaded kernel's registry key contains `fragment`.
+///
+/// A registry key is the known-kernel name (`"de440s"`, `"moon_pa_de440"`, ...)
+/// or, for bring-your-own kernels, the file-path string it was loaded from —
+/// so a fragment like `"moon_pa_de440"` matches both a name-loaded kernel and
+/// a path-loaded copy of the same file.
+///
+/// Args:
+///     fragment (str): Substring to search for in each loaded kernel's key.
+///
+/// Returns:
+///     bool: True if any loaded kernel's key contains `fragment`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     bh.initialize_ephemeris()
+///     assert bh.kernel_is_loaded("de440s")
+///     ```
+#[pyfunction]
+#[pyo3(name = "kernel_is_loaded")]
+fn py_kernel_is_loaded(fragment: &str) -> bool {
+    spice::kernel_is_loaded(fragment)
+}
+
 /// Load the kernels most applications need: "de440s" (planetary ephemeris)
 /// and "moon_pa_de440" (lunar principal-axes orientation).
 ///

@@ -2741,31 +2741,12 @@ mod tests {
         // unprefixed "gravity_constant" header key instead of
         // "earth_gravity_constant", and may write both it and "radius" using
         // Fortran-style "D" exponents (e.g. "0.4902799806931690D+13") rather
-        // than "E". This is a trimmed excerpt of a real Moon gfc file's header.
-        let gfc = "\
-*** model converted into ICGEM-format by ICGEM, GFZ Potsdam
-begin_of_head ===================================
-product_type                  gravity_field
-body                          moon
-modelname                     GRGM660PRIM
-gravity_constant              0.4902799806931690D+13
-radius                        0.1738000D+07
-tide_system                   tide_free
-max_degree                    2
-errors                        formal
-norm                          fully_normalized
-key    L    M           C                       S                    sigma C                sigma S
-end_of_head =================================================================================================
-gfc    0     0  1.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
-gfc    1     0  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
-gfc    1     1  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00  0.0000000000000000E+00
-gfc    2     0 -9.0882923650771000E-05  0.0000000000000000E+00  1.5300000000000000E-10  0.0000000000000000E+00
-gfc    2     1  8.4954064857652000E-11  9.7726994478963000E-10  6.1700000000000000E-12  7.1800000000000000E-12
-gfc    2     2  3.4670944268756000E-05 -2.4064244523445000E-10  4.8700000000000000E-11  9.2700000000000000E-12
-";
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("test_moon_header.gfc");
-        std::fs::write(&path, gfc).unwrap();
+        // than "E". The test asset is a trimmed excerpt of a real Moon gfc
+        // file's header.
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let path = std::path::Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("grgm660prim_header_sample.gfc");
 
         let gravity_model = GravityModel::from_file(&path).unwrap();
 

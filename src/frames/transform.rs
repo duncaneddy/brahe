@@ -41,24 +41,17 @@
  * |---|---|
  * | GCRF, ITRF, EME2000 | Earth (399) |
  * | LCI, LFPA, LFME | Moon (301) |
- * | MCI, MCMF | Mars system barycenter (4) |
+ * | MCI, MCMF | Mars (499) |
  * | EMBI | Earth-Moon barycenter (3) |
  * | SSBI | Solar System barycenter (0) |
  * | `BodyCenteredICRF(id)` | `id` |
- * | `BodyFixedIAU(id)` | `id` (the body itself, e.g. 499 for Mars — see caveat below) |
+ * | `BodyFixedIAU(id)` | `id` (the body itself) |
  * | `BodyFixedPCK { center, .. }` | `center` |
  *
- * `BodyFixedIAU(id)` is centered on the body itself rather than its
- * system barycenter. For bodies without a direct SPK ephemeris segment
- * for that body ID (e.g. Mars, NAIF 499, whose ephemeris is only
- * available for its barycenter, NAIF 4 — see
- * [`crate::frames::mars`]), a translation into or out of
- * `BodyFixedIAU(id)` from a differently-centered frame will surface the
- * underlying SPK lookup error. Use [`ReferenceFrame::MCMF`] (or another
- * named, barycenter-anchored frame) for translated Mars-system
- * conversions; `BodyFixedIAU(499)` remains exact and always available for
- * *rotation-only* queries (its orientation dispatch is identical to
- * `MCMF`'s).
+ * Translations involving a satellite-system body center (e.g. Mars, NAIF
+ * 499, or an outer-planet moon) auto-load that system's satellite
+ * ephemeris kernel (`mar099s`, `jup365`, ...) for the body-rel-barycenter
+ * leg; see [`center_offset_state`].
  */
 
 use nalgebra::Vector3;
@@ -112,7 +105,7 @@ pub enum ReferenceFrame {
     LFPA,
     /// Lunar-Fixed Mean Earth/polar-axis.
     LFME,
-    /// Mars-Centered Inertial (ICRF-aligned, Mars system barycenter-centered).
+    /// Mars-Centered Inertial (ICRF-aligned, Mars-centered).
     MCI,
     /// Mars-Centered Mars-Fixed (IAU/WGCCRE Mars rotation model).
     MCMF,
@@ -157,7 +150,7 @@ impl ReferenceFrame {
                 NAIFId::Earth.id()
             }
             ReferenceFrame::LCI | ReferenceFrame::LFPA | ReferenceFrame::LFME => NAIFId::Moon.id(),
-            ReferenceFrame::MCI | ReferenceFrame::MCMF => NAIFId::MarsBarycenter.id(),
+            ReferenceFrame::MCI | ReferenceFrame::MCMF => NAIFId::Mars.id(),
             ReferenceFrame::EMBI => NAIFId::EarthMoonBarycenter.id(),
             ReferenceFrame::SSBI => NAIFId::SolarSystemBarycenter.id(),
             ReferenceFrame::BodyCenteredICRF(id) => *id,
@@ -334,11 +327,12 @@ fn state_iau_body_to_icrf(
 
 /// Rotates an ICRF-axis state into the body-fixed frame defined by binary
 /// PCK `frame_id`, including the velocity transport term induced by the
-/// frame's rotation. Generic form of
-/// [`super::lunar::state_lci_to_lfpa`], parameterized over `frame_id` for
-/// use by [`ReferenceFrame::BodyFixedPCK`]. Unlike the lunar-specific
-/// helpers, this does not auto-load any PCK — the caller's kernel must
-/// already be loaded (see [`crate::spice::pck_rotation_matrix`]).
+/// frame's rotation. This is a general SPICE-PCK-backed transformation,
+/// parameterized over `frame_id` for use by
+/// [`ReferenceFrame::BodyFixedPCK`]. Unlike the lunar-specific helpers
+/// (e.g. [`super::lunar::state_lci_to_lfpa`]), this does not auto-load any
+/// PCK — the caller's kernel must already be loaded (see
+/// [`crate::spice::pck_rotation_matrix`]).
 fn state_icrf_to_pck_body(
     frame_id: i32,
     epc: Epoch,
@@ -542,7 +536,9 @@ pub fn state_frame_to_frame(
 ///
 /// # Returns
 /// - `x`: State `[x, y, z, vx, vy, vz]` of `to_center` relative to
-///   `from_center`, in ICRF axes. Units: (*m*; *m/s*)
+///   `from_center`, in ICRF axes — i.e. `from_center + offset = to_center`.
+///   Re-centering an object state therefore subtracts it:
+///   `x_about_to = x_about_from - offset`. Units: (*m*; *m/s*)
 ///
 /// # Examples
 /// ```ignore
@@ -554,6 +550,17 @@ pub(crate) fn center_offset_state(
     to_center: i32,
     epc: Epoch,
 ) -> Result<SVector6, BraheError> {
+    // Satellite-system body centers (Mars 499, outer-planet moons, ...) are
+    // not carried by the DE kernels; idempotently load their system's
+    // satellite ephemeris kernel so the cross-kernel chain resolves,
+    // mirroring the dedicated lunar/Mars frame helpers.
+    for id in [from_center, to_center] {
+        if (400..=999).contains(&id)
+            && let Some(kernel) = crate::spice::positions::satellite_system_kernel(id / 100)
+        {
+            crate::spice::load_kernel(kernel)?;
+        }
+    }
     crate::spice::spk_state(to_center, from_center, epc)
 }
 
@@ -765,8 +772,8 @@ mod tests {
         assert_eq!(ReferenceFrame::LCI.center_naif_id(), 301);
         assert_eq!(ReferenceFrame::LFPA.center_naif_id(), 301);
         assert_eq!(ReferenceFrame::LFME.center_naif_id(), 301);
-        assert_eq!(ReferenceFrame::MCI.center_naif_id(), 4);
-        assert_eq!(ReferenceFrame::MCMF.center_naif_id(), 4);
+        assert_eq!(ReferenceFrame::MCI.center_naif_id(), 499);
+        assert_eq!(ReferenceFrame::MCMF.center_naif_id(), 499);
         assert_eq!(ReferenceFrame::EMBI.center_naif_id(), 3);
         assert_eq!(ReferenceFrame::SSBI.center_naif_id(), 0);
         assert_eq!(ReferenceFrame::BodyCenteredICRF(599).center_naif_id(), 599);
@@ -825,21 +832,27 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial]
-    fn test_body_fixed_iau_translation_surfaces_spk_error() {
-        // BodyFixedIAU(499) is centered on Mars itself (NAIF 499), which
-        // has no direct SPK segment in the bundled de440s ephemeris (only
-        // the Mars system barycenter, NAIF 4, does) -- translating into
-        // it from a differently-centered frame must surface that error
-        // rather than silently substituting the barycenter.
+    fn test_body_fixed_iau_translation_auto_loads_satellite_kernel() {
+        // BodyFixedIAU(499) is centered on Mars itself (NAIF 499). The DE
+        // kernels only carry the Mars system barycenter (NAIF 4);
+        // `center_offset_state` auto-loads the `mar099s` satellite ephemeris
+        // kernel for the body-center leg, so the translated transform
+        // succeeds and agrees with MCMF (identical rotation dispatch and,
+        // now, identical body-center origin).
         setup_global_test_spice();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
-        let result = state_frame_to_frame(
+        let via_iau = state_frame_to_frame(
             ReferenceFrame::GCRF,
             ReferenceFrame::BodyFixedIAU(499),
             epc,
             x,
-        );
-        assert!(result.is_err());
+        )
+        .unwrap();
+        let via_mcmf =
+            state_frame_to_frame(ReferenceFrame::GCRF, ReferenceFrame::MCMF, epc, x).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(via_iau[i], via_mcmf[i], epsilon = 1e-9);
+        }
     }
 }

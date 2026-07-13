@@ -24,14 +24,13 @@
  * | EMB     | 3       | `EMBI`          | none              |
  * | SSB     | 0       | `SSBI`          | none              |
  *
- * `Mars` uses NAIF ID **4** (the Mars *system* barycenter) rather than
- * 499 (the Mars body center). This matches the origin of the `MCI`
- * frame and the coverage of the DE440s planetary ephemeris, at the cost
- * of a decimeter-level (~0.1-0.2 m) offset between the system barycenter and the
- * planet center (Mars has two small moons, Phobos and Deimos, so the
- * barycenter offset from the planet center is negligible for orbit
- * propagation purposes). [`CentralBody::from_naif_id`] accepts both 4
- * and 499 and maps either to `CentralBody::Mars`.
+ * `Mars` uses NAIF ID **499** (the Mars body center), matching the
+ * origin of the `MCI` frame. Ephemeris legs between the body center and
+ * the Mars system barycenter (NAIF 4) resolve through the `mar099s`
+ * satellite ephemeris kernel, which is auto-loaded on first use.
+ * [`CentralBody::from_naif_id`] accepts both 4 and 499 and maps either
+ * to `CentralBody::Mars` (the system barycenter sits inside the planet,
+ * ~0.1-0.2 m from its center).
  */
 
 use nalgebra::Vector3;
@@ -155,8 +154,8 @@ impl CentralBody {
     /// NAIF ID of the central body.
     ///
     /// # Returns
-    /// - `naif_id`: NAIF ID. `399` for `Earth`, `301` for `Moon`, `4`
-    ///   for `Mars` (system barycenter — see module-level docs), `3` for
+    /// - `naif_id`: NAIF ID. `399` for `Earth`, `301` for `Moon`, `499`
+    ///   for `Mars` (body center — see module-level docs), `3` for
     ///   `EMB`, `0` for `SSB`.
     ///
     /// # Examples
@@ -164,13 +163,13 @@ impl CentralBody {
     /// use brahe::propagators::CentralBody;
     ///
     /// assert_eq!(CentralBody::Earth.naif_id(), 399);
-    /// assert_eq!(CentralBody::Mars.naif_id(), 4);
+    /// assert_eq!(CentralBody::Mars.naif_id(), 499);
     /// ```
     pub fn naif_id(&self) -> i32 {
         match self {
             CentralBody::Earth => 399,
             CentralBody::Moon => 301,
-            CentralBody::Mars => 4,
+            CentralBody::Mars => 499,
             CentralBody::EMB => 3,
             CentralBody::SSB => 0,
             CentralBody::Custom(c) => c.naif_id,
@@ -417,7 +416,7 @@ mod tests {
     fn test_central_body_properties() {
         assert_eq!(CentralBody::Earth.naif_id(), 399);
         assert_eq!(CentralBody::Moon.gm(), GM_MOON);
-        assert_eq!(CentralBody::Mars.naif_id(), 4);
+        assert_eq!(CentralBody::Mars.naif_id(), 499);
         assert_eq!(CentralBody::EMB.gm(), 0.0);
         assert!(CentralBody::SSB.is_barycenter());
         assert_eq!(CentralBody::Moon.fixed_frame(), Some(ReferenceFrame::LFPA));

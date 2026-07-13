@@ -1327,11 +1327,6 @@ mod tests {
     use crate::integrators::traits::DIntegrator;
     use nalgebra::{DMatrix, DVector};
 
-    // Install the same file-based EOP provider every other test module uses.
-    // These tests integrate pure two-body dynamics and never read EOP values,
-    // but they run concurrently with tests that do — a divergent provider
-    // (e.g. StaticEOPProvider::from_zero) installed here mid-run perturbs any
-    // concurrently propagating test that reads the global EOP.
     use crate::utils::testing::setup_global_test_eop;
 
     fn point_earth_dynamic(

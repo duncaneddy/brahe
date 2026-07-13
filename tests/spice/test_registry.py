@@ -25,6 +25,14 @@ def test_load_kernel_idempotent():
     assert bh.loaded_kernels().count("de440s") == 1
 
 
+def test_kernel_is_loaded():
+    """Mirrors registry::tests::test_kernel_is_loaded."""
+    bh.load_kernel("de440s")
+    assert bh.kernel_is_loaded("de440s")
+    assert bh.kernel_is_loaded("de440")
+    assert not bh.kernel_is_loaded("nonexistent_kernel")
+
+
 def test_spk_position():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
     r = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)

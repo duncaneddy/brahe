@@ -35,21 +35,21 @@
  * resulting DCM rotating ICRF vectors into the body-fixed frame is the
  * 3-1-3 sequence `R = Rz(W) * Rx(90 - delta) * Rz(90 + alpha)`.
  *
- * # Known limitations
+ * # Lunar orientation
  *
- * - The Moon uses the IAU low-precision model (`pck00011.tpc`'s
- *   `BODY301_*` polynomials), not the higher-fidelity DE440 PA rotation
- *   provided by the lunar principal-axis binary PCK.
+ * The Moon's entry evaluates the IAU low-precision model (`pck00011.tpc`'s
+ * `BODY301_*` polynomials) — appropriate when the IAU variant is requested
+ * explicitly. The default lunar frame transformations
+ * ([`super::lunar`]) use the higher-fidelity DE440 principal-axis
+ * rotation from the lunar binary PCK instead.
  */
 use nalgebra::Vector3;
 
+use crate::attitude::RotationMatrix;
+use crate::constants::{AngleFormat, SECONDS_PER_JULIAN_CENTURY};
 use crate::math::SMatrix3;
 use crate::time::{Epoch, TimeSystem};
 use crate::utils::BraheError;
-
-/// Number of seconds in one Julian century, used to convert
-/// `deg/century` nutation-precession rates to `deg/s`.
-const SECONDS_PER_CENTURY: f64 = 36525.0 * 86400.0;
 
 /// IAU/WGCCRE rotation model for a single body: polynomial pole
 /// right-ascension, pole declination, and prime-meridian coefficients,
@@ -70,7 +70,8 @@ const SECONDS_PER_CENTURY: f64 = 36525.0 * 86400.0;
 /// coefficients present in the source PCK must be preserved to keep
 /// indices aligned).
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct IauRotationModel {
+#[allow(clippy::upper_case_acronyms)]
+pub(crate) struct IAURotationModel {
     /// NAIF ID of the body (e.g. `499` for Mars).
     pub naif_id: i32,
     /// Pole right ascension polynomial coefficients `[deg, deg/century, deg/century^2]`.
@@ -196,9 +197,9 @@ const MERCURY_NUT_PREC_ANGLES: &[[f64; 3]] = &[
 /// Embedded IAU/WGCCRE rotation models, transcribed from `pck00011.tpc`.
 /// Order is not significant; [`iau_rotation_model_ids`] returns the
 /// sorted NAIF IDs.
-const MODELS: &[IauRotationModel] = &[
+const IAU_ROTATION_MODELS: &[IAURotationModel] = &[
     // Sun. `BODY10_POLE_RA/POLE_DEC/PM`; no nutation-precession terms.
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 10,
         pole_ra: [286.13, 0.0, 0.0],
         pole_dec: [63.87, 0.0, 0.0],
@@ -211,7 +212,7 @@ const MODELS: &[IauRotationModel] = &[
     // Mercury. `BODY199_POLE_RA/POLE_DEC/PM`, `BODY199_NUT_PREC_PM`
     // (RA/DEC nutation-precession coefficients are all zero in the
     // source and are omitted), `BODY1_NUT_PREC_ANGLES`.
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 199,
         pole_ra: [281.0103, -0.0328, 0.0],
         pole_dec: [61.4155, -0.0049, 0.0],
@@ -228,7 +229,7 @@ const MODELS: &[IauRotationModel] = &[
         ],
     },
     // Venus. `BODY299_POLE_RA/POLE_DEC/PM`; no nutation-precession terms.
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 299,
         pole_ra: [272.76, 0.0, 0.0],
         pole_dec: [67.16, 0.0, 0.0],
@@ -242,7 +243,7 @@ const MODELS: &[IauRotationModel] = &[
     // `BODY301_NUT_PREC_RA/DEC/PM` against `BODY3_NUT_PREC_ANGLES`. The
     // PM quadratic coefficient `-1.4D-12` (Fortran D-exponent notation)
     // is `-1.4e-12` deg/day^2.
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 301,
         pole_ra: [269.9949, 0.0031, 0.0],
         pole_dec: [66.5392, 0.0130, 0.0],
@@ -263,7 +264,7 @@ const MODELS: &[IauRotationModel] = &[
     },
     // Mars. `BODY499_POLE_RA/POLE_DEC/PM` and
     // `BODY499_NUT_PREC_RA/DEC/PM` against `BODY4_NUT_PREC_ANGLES`.
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 499,
         pole_ra: [317.269202, -0.10927547, 0.0],
         pole_dec: [54.432516, -0.05827105, 0.0],
@@ -286,7 +287,7 @@ const MODELS: &[IauRotationModel] = &[
     // `BODY599_NUT_PREC_RA/DEC` against `BODY5_NUT_PREC_ANGLES` (PM
     // nutation-precession coefficients are all zero in the source and
     // are omitted).
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 599,
         pole_ra: [268.056595, -0.006499, 0.0],
         pole_dec: [64.495303, 0.002413, 0.0],
@@ -305,7 +306,7 @@ const MODELS: &[IauRotationModel] = &[
     // Saturn. `BODY699_POLE_RA/POLE_DEC/PM`; no nutation-precession
     // terms (Saturn's `S1-S8` angle list is only used by its satellites,
     // none of which are in this table).
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 699,
         pole_ra: [40.589, -0.036, 0.0],
         pole_dec: [83.537, -0.004, 0.0],
@@ -318,7 +319,7 @@ const MODELS: &[IauRotationModel] = &[
     // Uranus. `BODY799_POLE_RA/POLE_DEC/PM`; no nutation-precession
     // terms (Uranus' `U1-U18` angle list is only used by its satellites,
     // none of which are in this table).
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 799,
         pole_ra: [257.311, 0.0, 0.0],
         pole_dec: [-15.175, 0.0, 0.0],
@@ -331,7 +332,7 @@ const MODELS: &[IauRotationModel] = &[
     // Neptune. `BODY899_POLE_RA/POLE_DEC/PM` and
     // `BODY899_NUT_PREC_RA/DEC/PM` against `BODY8_NUT_PREC_ANGLES`
     // (only the first angle, N, has a nonzero coefficient).
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 899,
         pole_ra: [299.36, 0.0, 0.0],
         pole_dec: [43.46, 0.0, 0.0],
@@ -345,7 +346,7 @@ const MODELS: &[IauRotationModel] = &[
     // `BODY401_NUT_PREC_RA/DEC/PM` against `BODY4_NUT_PREC_ANGLES`. PM's
     // fifth coefficient multiplies Mars-system angle index 4 (M1), which
     // carries the table's one nonzero quadratic (deg/century^2) term.
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 401,
         pole_ra: [317.67071657, -0.10844326, 0.0],
         pole_dec: [52.88627266, -0.06134706, 0.0],
@@ -357,7 +358,7 @@ const MODELS: &[IauRotationModel] = &[
     },
     // Deimos. `BODY402_POLE_RA/POLE_DEC/PM` and
     // `BODY402_NUT_PREC_RA/DEC/PM` against `BODY4_NUT_PREC_ANGLES`.
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 402,
         pole_ra: [316.65705808, -0.10518014, 0.0],
         pole_dec: [53.50992033, -0.05979094, 0.0],
@@ -393,7 +394,7 @@ const MODELS: &[IauRotationModel] = &[
     },
     // Io. `BODY501_POLE_RA/POLE_DEC/PM` and `BODY501_NUT_PREC_RA/DEC/PM`
     // against `BODY5_NUT_PREC_ANGLES` (angles J3, J4).
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 501,
         pole_ra: [268.05, -0.009, 0.0],
         pole_dec: [64.50, 0.003, 0.0],
@@ -406,7 +407,7 @@ const MODELS: &[IauRotationModel] = &[
     // Europa. `BODY502_POLE_RA/POLE_DEC/PM` and
     // `BODY502_NUT_PREC_RA/DEC/PM` against `BODY5_NUT_PREC_ANGLES`
     // (angles J4-J7).
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 502,
         pole_ra: [268.08, -0.009, 0.0],
         pole_dec: [64.51, 0.003, 0.0],
@@ -419,7 +420,7 @@ const MODELS: &[IauRotationModel] = &[
     // Ganymede. `BODY503_POLE_RA/POLE_DEC/PM` and
     // `BODY503_NUT_PREC_RA/DEC/PM` against `BODY5_NUT_PREC_ANGLES`
     // (angles J4-J6).
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 503,
         pole_ra: [268.20, -0.009, 0.0],
         pole_dec: [64.57, 0.003, 0.0],
@@ -432,7 +433,7 @@ const MODELS: &[IauRotationModel] = &[
     // Callisto. `BODY504_POLE_RA/POLE_DEC/PM` and
     // `BODY504_NUT_PREC_RA/DEC/PM` against `BODY5_NUT_PREC_ANGLES`
     // (angles J5-J8).
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 504,
         pole_ra: [268.72, -0.009, 0.0],
         pole_dec: [64.83, 0.003, 0.0],
@@ -444,7 +445,7 @@ const MODELS: &[IauRotationModel] = &[
     },
     // Enceladus. `BODY602_POLE_RA/POLE_DEC/PM`; no nutation-precession
     // terms (pure linear model in the source).
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 602,
         pole_ra: [40.66, -0.036, 0.0],
         pole_dec: [83.52, -0.004, 0.0],
@@ -457,7 +458,7 @@ const MODELS: &[IauRotationModel] = &[
     // Titan. `BODY606_POLE_RA/POLE_DEC/PM`; `BODY606_NUT_PREC_RA/DEC/PM`
     // are present in the source but all zero ("removal of dependence on
     // the nutation precession angles") and are omitted.
-    IauRotationModel {
+    IAURotationModel {
         naif_id: 606,
         pole_ra: [39.4827, 0.0, 0.0],
         pole_dec: [83.4279, 0.0, 0.0],
@@ -483,24 +484,27 @@ const MODELS: &[IauRotationModel] = &[
 /// assert!(ids.contains(&499)); // Mars
 /// ```
 pub fn iau_rotation_model_ids() -> Vec<i32> {
-    let mut ids: Vec<i32> = MODELS.iter().map(|m| m.naif_id).collect();
+    let mut ids: Vec<i32> = IAU_ROTATION_MODELS.iter().map(|m| m.naif_id).collect();
     ids.sort_unstable();
     ids
 }
 
 /// Looks up the embedded rotation model for `naif_id`.
-fn model_for_id(naif_id: i32) -> Result<&'static IauRotationModel, BraheError> {
-    MODELS.iter().find(|m| m.naif_id == naif_id).ok_or_else(|| {
-        BraheError::Error(format!(
-            "No IAU/WGCCRE rotation model for NAIF ID {}. Supported IDs: {}",
-            naif_id,
-            iau_rotation_model_ids()
-                .iter()
-                .map(|id| id.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ))
-    })
+fn model_for_id(naif_id: i32) -> Result<&'static IAURotationModel, BraheError> {
+    IAU_ROTATION_MODELS
+        .iter()
+        .find(|m| m.naif_id == naif_id)
+        .ok_or_else(|| {
+            BraheError::Error(format!(
+                "No IAU/WGCCRE rotation model for NAIF ID {}. Supported IDs: {}",
+                naif_id,
+                iau_rotation_model_ids()
+                    .iter()
+                    .map(|id| id.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))
+        })
 }
 
 /// Evaluates a model's pole right ascension, pole declination, and prime
@@ -509,7 +513,7 @@ fn model_for_id(naif_id: i32) -> Result<&'static IauRotationModel, BraheError> {
 /// # Returns:
 /// - `(alpha, delta, w, dalpha, ddelta, dw)`: `alpha`/`delta`/`w` in
 ///   degrees, `dalpha`/`ddelta`/`dw` in degrees/second.
-fn eval(model: &IauRotationModel, epc: Epoch) -> (f64, f64, f64, f64, f64, f64) {
+fn eval(model: &IAURotationModel, epc: Epoch) -> (f64, f64, f64, f64, f64, f64) {
     let et = epc.seconds_past_j2000_as_time_system(TimeSystem::TDB);
     let d = et / 86400.0;
     let t = d / 36525.0;
@@ -521,13 +525,13 @@ fn eval(model: &IauRotationModel, epc: Epoch) -> (f64, f64, f64, f64, f64, f64) 
         .map(|[a0, a1, a2]| {
             (
                 a0 + a1 * t + a2 * t * t,
-                (a1 + 2.0 * a2 * t) / SECONDS_PER_CENTURY,
+                (a1 + 2.0 * a2 * t) / SECONDS_PER_JULIAN_CENTURY,
             )
         })
         .collect();
 
     let mut alpha = model.pole_ra[0] + model.pole_ra[1] * t + model.pole_ra[2] * t * t;
-    let mut dalpha = (model.pole_ra[1] + 2.0 * model.pole_ra[2] * t) / SECONDS_PER_CENTURY;
+    let mut dalpha = (model.pole_ra[1] + 2.0 * model.pole_ra[2] * t) / SECONDS_PER_JULIAN_CENTURY;
     for (i, c) in model.ra_nut_prec.iter().enumerate() {
         let (th, dth) = thetas[i];
         alpha += c * th.to_radians().sin();
@@ -535,7 +539,7 @@ fn eval(model: &IauRotationModel, epc: Epoch) -> (f64, f64, f64, f64, f64, f64) 
     }
 
     let mut delta = model.pole_dec[0] + model.pole_dec[1] * t + model.pole_dec[2] * t * t;
-    let mut ddelta = (model.pole_dec[1] + 2.0 * model.pole_dec[2] * t) / SECONDS_PER_CENTURY;
+    let mut ddelta = (model.pole_dec[1] + 2.0 * model.pole_dec[2] * t) / SECONDS_PER_JULIAN_CENTURY;
     for (i, c) in model.dec_nut_prec.iter().enumerate() {
         let (th, dth) = thetas[i];
         delta += c * th.to_radians().cos();
@@ -604,24 +608,21 @@ pub fn body_fixed_iau_angles_and_rates(
 /// the SPICE `[angle]_1` convention used by TK frame kernels (see
 /// `frames.req`): `v_out = rx(angle) * v_in`.
 pub(crate) fn rx(angle: f64) -> SMatrix3 {
-    let (s, c) = angle.sin_cos();
-    SMatrix3::new(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c)
+    RotationMatrix::Rx(angle, AngleFormat::Radians).to_matrix()
 }
 
 /// Rotation matrix about the body-fixed y-axis by `angle` [rad]. Matches
 /// the SPICE `[angle]_2` convention used by TK frame kernels (see
 /// `frames.req`): `v_out = ry(angle) * v_in`.
 pub(crate) fn ry(angle: f64) -> SMatrix3 {
-    let (s, c) = angle.sin_cos();
-    SMatrix3::new(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c)
+    RotationMatrix::Ry(angle, AngleFormat::Radians).to_matrix()
 }
 
 /// Rotation matrix about the body-fixed z-axis by `angle` [rad]. Matches
 /// the SPICE `[angle]_3` convention used by TK frame kernels (see
 /// `frames.req`): `v_out = rz(angle) * v_in`.
 pub(crate) fn rz(angle: f64) -> SMatrix3 {
-    let (s, c) = angle.sin_cos();
-    SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0)
+    RotationMatrix::Rz(angle, AngleFormat::Radians).to_matrix()
 }
 
 /// Computes the rotation matrix from the ICRF to the body-fixed frame of
@@ -719,7 +720,7 @@ mod tests {
 
     #[test]
     fn test_iau_mars_transcription_guard() {
-        // Regression guard for direct transcription errors in the `MODELS`
+        // Regression guard for direct transcription errors in the `IAU_ROTATION_MODELS`
         // table that the orthonormality tests above cannot catch (any
         // rotation matrix, correct or not, is orthonormal). `epc` is
         // 2020-06-15T12:00:00 TDB, which is exactly
@@ -889,7 +890,7 @@ mod tests {
     /// `HIFITIME_CENTURY_REL_ERROR` scaled by the body's accumulated
     /// prime-meridian angle `|psi|` [rad] (the fastest-growing, and thus
     /// dominant, angle in the model). A genuine transcription error in
-    /// `MODELS` would show up as a *constant*, non-epoch-scaling offset
+    /// `IAU_ROTATION_MODELS` would show up as a *constant*, non-epoch-scaling offset
     /// even at `T ~ 0` (a periodic term has a nonzero phase at J2000 too)
     /// and would not be masked by this tolerance.
     fn validation_tolerance(psi_rad: f64) -> f64 {

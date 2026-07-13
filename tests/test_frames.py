@@ -522,7 +522,8 @@ def test_state_eci_to_mci_matches_spk():
     # x_mci = x_eci - state_of_mars_relative_to_earth
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
-    offset = brahe.spk_state(brahe.NAIF_MARS_BARYCENTER, brahe.NAIF_EARTH, epc)
+    brahe.load_kernel("mar099s")  # 499 reference leg (transform auto-loads it too)
+    offset = brahe.spk_state(brahe.NAIFId.MARS, brahe.NAIFId.EARTH, epc)
     expected = x - offset
     got = brahe.state_eci_to_mci(epc, x)
     np.testing.assert_allclose(got, expected, atol=1e-6)
@@ -660,7 +661,7 @@ def test_lfme_surface_point_is_nearly_stationary():
 def test_state_eci_to_lci_matches_spk():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, 2e8, 3e8, 1.0, 2.0, 3.0])
-    offset = brahe.spk_state(brahe.NAIF_MOON, brahe.NAIF_EARTH, epc)
+    offset = brahe.spk_state(brahe.NAIFId.MOON, brahe.NAIFId.EARTH, epc)
     expected = x - offset
     got = brahe.state_eci_to_lci(epc, x)
     np.testing.assert_allclose(got, expected, atol=1e-6)
@@ -824,15 +825,18 @@ def test_state_frame_to_frame_roundtrip_lci(eop):
 
 
 @pytest.mark.integration
-def test_body_fixed_iau_translation_surfaces_error():
-    """BodyFixedIAU(499) is centered on Mars itself (NAIF 499), which has no
-    direct SPK segment in the bundled de440s ephemeris (only the Mars system
-    barycenter, NAIF 4, does) -- translating into it from a
-    differently-centered frame must raise rather than silently substituting
-    the barycenter."""
+def test_body_fixed_iau_translation_auto_loads_satellite_kernel():
+    """Mirrors test_body_fixed_iau_translation_auto_loads_satellite_kernel.
+
+    BodyFixedIAU(499) is centered on Mars itself (NAIF 499); the mar099s
+    satellite ephemeris kernel is auto-loaded for the body-center leg, so the
+    translated transform succeeds and agrees with MCMF."""
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
     x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
-    with pytest.raises(RuntimeError):
-        brahe.state_frame_to_frame(
-            brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.BodyFixedIAU(499), epc, x
-        )
+    via_iau = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.BodyFixedIAU(499), epc, x
+    )
+    via_mcmf = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.GCRF, brahe.ReferenceFrame.MCMF, epc, x
+    )
+    np.testing.assert_allclose(via_iau, via_mcmf, atol=1e-9)

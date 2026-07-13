@@ -5733,11 +5733,11 @@ class TestNumericalOrbitPropagatorKOE:
 
 
 class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
-    """Test state_central_inertial and state_in_frame, mirroring
+    """Test state_bci and state_in_frame, mirroring
     dnumerical_orbit_propagator::tests for Task 12's central-body-aware accessors."""
 
-    def test_state_central_inertial_matches_state_eci_for_earth_propagator(self):
-        """For an Earth-centered propagator, state_central_inertial == state_eci."""
+    def test_state_bci_matches_state_eci_for_earth_propagator(self):
+        """For an Earth-centered propagator, state_bci == state_eci."""
         epoch = create_test_epoch()
         state = create_leo_state()
 
@@ -5750,10 +5750,28 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         )
         prop.propagate_to(epoch + 60.0)
 
-        x_central = prop.state_central_inertial(epoch)
+        x_central = prop.state_bci(epoch)
         x_eci = prop.state_eci(epoch)
         assert np.allclose(x_central, x_eci, atol=1e-9)
         assert np.allclose(x_central, state, atol=1e-9)
+
+    def test_state_bcbf_matches_state_ecef_for_earth_propagator(self):
+        """Mirrors test_dnumericalorbitpropagator_dorbitstateprovider_state_bci_bcbf_earth."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+        prop.propagate_to(epoch + 60.0)
+
+        x_bcbf = prop.state_bcbf(epoch)
+        x_ecef = prop.state_ecef(epoch)
+        assert np.allclose(x_bcbf, x_ecef, atol=1e-6)
 
     def test_state_in_frame_default_impl_earth_propagator(self):
         """state_in_frame(epc, ITRF) matches state_ecef(epc) for an Earth propagator."""
@@ -5800,7 +5818,7 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
     def test_state_in_frame_lci_equals_central_inertial_for_lunar_propagator(
         self, naif_cache_setup
     ):
-        """state_in_frame(epc, LCI) is identical to state_central_inertial(epc) for a
+        """state_in_frame(epc, LCI) is identical to state_bci(epc) for a
         Moon-centered propagator (identity short-circuit, no SPK round trip)."""
         epoch = create_test_epoch()
         a = R_MOON + 100e3
@@ -5818,5 +5836,5 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         )
 
         x_lci = prop.state_in_frame(epoch, ReferenceFrame.LCI)
-        x_central = prop.state_central_inertial(epoch)
+        x_central = prop.state_bci(epoch)
         assert np.array_equal(x_lci, x_central)

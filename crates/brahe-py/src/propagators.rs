@@ -6053,10 +6053,9 @@ impl PyNumericalOrbitPropagator {
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
-    /// Get the raw integrated state at the given epoch, expressed in the
-    /// inertial frame centered on this propagator's central body (`GCRF` for
-    /// an `Earth`-centered propagator, `LCI` for a `Moon`-centered one, `MCI`
-    /// for `Mars`, etc.).
+    /// Get the state at the given epoch in the central body's body-centered
+    /// inertial (BCI) frame (`GCRF` for an `Earth`-centered propagator, `LCI`
+    /// for a `Moon`-centered one, `MCI` for `Mars`, etc.).
     ///
     /// This is the state the integrator actually propagates: no central-body
     /// offset or axis rotation is applied. `state_eci` always returns an
@@ -6075,8 +6074,39 @@ impl PyNumericalOrbitPropagator {
     ///     RuntimeError: If `epoch` is outside the propagator's stored trajectory
     ///         and does not match the current epoch.
     #[pyo3(text_signature = "(epoch)")]
-    pub fn state_central_inertial<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = self.propagator.state_central_inertial(epoch.obj)
+    pub fn state_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_bci(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// body-fixed (BCBF) frame (`ITRF` for an `Earth`-centered propagator,
+    /// `LFPA` for a `Moon`-centered one, `MCMF` for `Mars`, the configured
+    /// fixed frame for a custom body).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     body-fixed frame.
+    ///
+    /// Raises:
+    ///     RuntimeError: If `epoch` is outside the propagator's stored trajectory,
+    ///         or the central body has no body-fixed frame (`EMB`/`SSB`
+    ///         barycenters, custom bodies without a configured frame).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_bcbf(&self.propagator, epoch.obj)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }

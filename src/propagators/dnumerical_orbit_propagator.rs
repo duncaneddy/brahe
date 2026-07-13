@@ -2881,9 +2881,10 @@ impl DNumericalOrbitPropagator {
     ///     ForceModelConfig::two_body_gravity(), None, None, None, None,
     /// ).unwrap();
     ///
-    /// let x = prop.state_central_inertial(epoch).unwrap();
+    /// use brahe::utils::state_providers::DOrbitStateProvider;
+    /// let x = prop.state_bci(epoch).unwrap();
     /// ```
-    pub fn state_central_inertial(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+    fn state_central_inertial(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Try to interpolate from trajectory
         if let Ok(state) = self.trajectory.interpolate(&epoch) {
             return Ok(state.fixed_rows::<6>(0).into());
@@ -2936,6 +2937,31 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
     fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let gcrf_state = self.state_gcrf(epoch)?;
         Ok(crate::frames::state_gcrf_to_eme2000(gcrf_state))
+    }
+
+    /// Returns this propagator's native state: its trajectory is integrated
+    /// directly in the central body's inertial frame, so no conversion is
+    /// performed.
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_central_inertial(epoch)
+    }
+
+    /// Converts the native body-centered inertial state into the central
+    /// body's body-fixed frame (`ITRF` for Earth, `LFPA` for the Moon,
+    /// `MCMF` for Mars, the configured `fixed_frame` for a custom body).
+    /// Errors for central bodies without a body-fixed frame (`EMB`/`SSB`
+    /// barycenters, custom bodies without a configured frame).
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_central_inertial(epoch)?;
+        match self.central_body.fixed_frame() {
+            Some(fixed_frame) => {
+                state_frame_to_frame(self.central_body.inertial_frame(), fixed_frame, epoch, x)
+            }
+            None => Err(BraheError::Error(format!(
+                "central body {} has no body-fixed frame",
+                self.central_body
+            ))),
+        }
     }
 
     /// Converts this propagator's state to `frame`, routing through its own
@@ -4009,6 +4035,72 @@ mod tests {
         let pos_mag =
             (ecef_state[0].powi(2) + ecef_state[1].powi(2) + ecef_state[2].powi(2)).sqrt();
         assert!(pos_mag > R_EARTH && pos_mag < R_EARTH + 1000e3);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_dorbitstateprovider_state_bci_bcbf_earth() {
+        // For an Earth-centered propagator, BCI is the native GCRF state and
+        // BCBF matches ITRF.
+        use approx::assert_abs_diff_eq;
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        prop.step_by(1800.0);
+        let query_epoch = epoch + 900.0;
+
+        let bci = prop.state_bci(query_epoch).unwrap();
+        let gcrf = prop.state_gcrf(query_epoch).unwrap();
+        for k in 0..6 {
+            assert_eq!(bci[k], gcrf[k]);
+        }
+
+        let bcbf = prop.state_bcbf(query_epoch).unwrap();
+        let itrf = prop.state_itrf(query_epoch).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(bcbf[k], itrf[k], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_state_bcbf_errors_for_barycenter() {
+        // EMB has no body-fixed frame, so BCBF must error.
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0e9, 0.0, 0.0, 0.0, 500.0, 0.0]);
+
+        let mut cfg = ForceModelConfig::two_body_gravity();
+        cfg.central_body = CentralBody::EMB;
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let err = prop.state_bcbf(epoch).unwrap_err();
+        assert!(format!("{}", err).contains("no body-fixed frame"));
     }
 
     #[test]

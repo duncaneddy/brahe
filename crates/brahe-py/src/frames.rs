@@ -1750,6 +1750,22 @@ impl PyReferenceFrame {
         PyReferenceFrame { frame: frames::ReferenceFrame::ITRF }
     }
 
+    /// Alias for `ReferenceFrame.GCRF`: the Earth-Centered Inertial (ECI)
+    /// frame is realized as GCRF.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ECI() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ECI }
+    }
+
+    /// Alias for `ReferenceFrame.ITRF`: the Earth-Centered Earth-Fixed (ECEF)
+    /// frame is realized as ITRF.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ECEF() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ECEF }
+    }
+
     /// Earth Mean Equator and Equinox of J2000.0.
     #[classattr]
     #[allow(non_snake_case)]

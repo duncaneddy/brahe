@@ -134,3 +134,22 @@ def test_state_eci_to_koe_for_body_lunar_circular_orbit(eop):
 
     assert osc[0] == approx(a, abs=1e-6)
     assert osc[1] == approx(0.0, abs=1e-9)
+
+
+def test_state_koe_to_eci_for_body_earth_matches_legacy(eop):
+    """Mirrors test_state_koe_to_eci_for_body_earth_matches_default."""
+    osc = np.array([brahe.R_EARTH + 500e3, 0.01, 97.8, 75.0, 25.0, 45.0])
+    via_default = brahe.state_koe_to_eci(osc, AngleFormat.DEGREES)
+    via_body = brahe.state_koe_to_eci_for_body(osc, brahe.GM_EARTH, AngleFormat.DEGREES)
+    np.testing.assert_array_equal(via_default, via_body)
+
+
+def test_state_koe_to_eci_for_body_round_trip(eop):
+    """Mirrors test_round_trip_conversion_for_body: koe -> eci -> koe about the Moon."""
+    osc = np.array([1_838_000.0, 0.01, 85.0, 15.0, 30.0, 45.0])
+    cart = brahe.state_koe_to_eci_for_body(osc, brahe.GM_MOON, AngleFormat.DEGREES)
+    osc_back = brahe.state_eci_to_koe_for_body(cart, brahe.GM_MOON, AngleFormat.DEGREES)
+
+    assert osc_back[0] == approx(osc[0], abs=1e-8)
+    for k in range(1, 6):
+        assert osc_back[k] == approx(osc[k], abs=1e-9)

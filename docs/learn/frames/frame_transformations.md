@@ -106,7 +106,7 @@ For a body without a dedicated `CentralBody` variant, build a custom force model
 
 ### `state_in_frame`
 
-A `NumericalOrbitPropagator` integrates in its central body's inertial frame (`LCI` for `Moon`, `MCI` for `Mars`, `GCRF` for `Earth`, ...). `state_in_frame(epoch, frame)` converts the propagated state into any other `ReferenceFrame` by routing through `state_frame_to_frame(central_body.inertial_frame(), frame, epoch, x)` &mdash; for a Moon-centered propagator, `state_in_frame(epoch, ReferenceFrame.LCI)` is the identity (no SPK round trip), and `state_in_frame(epoch, ReferenceFrame.LFPA)` gives the Moon-fixed ground-track state directly, without first converting to Earth-centered `GCRF`. `state_central_inertial(epoch)` returns the raw integrated state with no frame conversion applied at all.
+A `NumericalOrbitPropagator` integrates in its central body's inertial frame (`LCI` for `Moon`, `MCI` for `Mars`, `GCRF` for `Earth`, ...). `state_in_frame(epoch, frame)` converts the propagated state into any other `ReferenceFrame` by routing through `state_frame_to_frame(central_body.inertial_frame(), frame, epoch, x)` &mdash; for a Moon-centered propagator, `state_in_frame(epoch, ReferenceFrame.LCI)` is the identity (no SPK round trip), and `state_in_frame(epoch, ReferenceFrame.LFPA)` gives the Moon-fixed ground-track state directly, without first converting to Earth-centered `GCRF`. `state_bci(epoch)` returns the raw integrated state with no frame conversion applied at all.
 
 See the [Lunar Orbit](lunar_frames.md#example-propagating-an-orbit-about-the-moon) and [Mars Orbit](mars_frames.md#example-propagating-an-orbit-about-mars) examples for `state_in_frame` used end-to-end with `lunar_default()`/`mars_default()`.
 

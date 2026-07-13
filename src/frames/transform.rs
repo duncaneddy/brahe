@@ -129,6 +129,14 @@ pub enum ReferenceFrame {
 }
 
 impl ReferenceFrame {
+    /// Alias for [`ReferenceFrame::GCRF`]: the crate's Earth-Centered
+    /// Inertial (ECI) frame is realized as GCRF.
+    pub const ECI: ReferenceFrame = ReferenceFrame::GCRF;
+
+    /// Alias for [`ReferenceFrame::ITRF`]: the crate's Earth-Centered
+    /// Earth-Fixed (ECEF) frame is realized as ITRF.
+    pub const ECEF: ReferenceFrame = ReferenceFrame::ITRF;
+
     /// NAIF ID of this frame's origin.
     ///
     /// See the module-level documentation for the full frame-to-center
@@ -679,6 +687,9 @@ mod tests {
             "ECEF".parse::<ReferenceFrame>().unwrap(),
             ReferenceFrame::ITRF
         );
+        // Associated-constant aliases mirror the string aliases.
+        assert_eq!(ReferenceFrame::ECI, ReferenceFrame::GCRF);
+        assert_eq!(ReferenceFrame::ECEF, ReferenceFrame::ITRF);
         assert_eq!(
             "LFPA".parse::<ReferenceFrame>().unwrap(),
             ReferenceFrame::LFPA

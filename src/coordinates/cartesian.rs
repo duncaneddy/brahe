@@ -46,6 +46,44 @@ use crate::orbits;
 /// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 24, eq. 2.43 & 2.44, 2012.
 #[allow(non_snake_case)]
 pub fn state_koe_to_eci(x_oe: SVector6, angle_format: AngleFormat) -> SVector6 {
+    state_koe_to_eci_for_body(x_oe, GM_EARTH, angle_format)
+}
+
+/// Convert an osculating orbital element state vector into the equivalent
+/// Cartesian (position and velocity) inertial state, for an object orbiting
+/// a central body with an arbitrary gravitational parameter. Inverse of
+/// [`state_eci_to_koe_for_body`].
+///
+/// The osculating elements are (in order):
+/// 1. _a_, Semi-major axis Units: (*m*)
+/// 2. _e_, Eccentricity. Units: (*dimensionless*)
+/// 3. _i_, Inclination. Units: (*rad* or *deg*)
+/// 4. _Ω_, Right Ascension of the Ascending Node (RAAN). Units: (*rad*)
+/// 5. _ω_, Argument of Perigee. Units: (*rad* or *deg*)
+/// 6. _M_, Mean anomaly. Units: (*rad* or *deg*)
+///
+/// # Arguments
+/// - `x_oe`: Osculating orbital elements
+/// - `gm`: Gravitational parameter of the central body. Units: (*m³/s²*)
+/// - `angle_format`: Format for angular elements (Radians or Degrees)
+///
+/// # Returns
+/// - `x_cart`: Cartesian inertial state about the same central body. Units: (_m_; _m/s_)
+///
+/// # Examples
+/// ```
+/// use brahe::constants::{GM_MOON, R_MOON, RADIANS};
+/// use brahe::vector6_from_array;
+/// use brahe::coordinates::*;
+///
+/// let osc = vector6_from_array([R_MOON + 100e3, 0.0, 0.0, 0.0, 0.0, 0.0]);
+/// let cart = state_koe_to_eci_for_body(osc, GM_MOON, RADIANS);
+/// ```
+///
+/// # Reference
+/// 1. O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, pp. 24, eq. 2.43 & 2.44, 2012.
+#[allow(non_snake_case)]
+pub fn state_koe_to_eci_for_body(x_oe: SVector6, gm: f64, angle_format: AngleFormat) -> SVector6 {
     // Unpack input
     let a = x_oe[0];
     let e = x_oe[1];
@@ -76,8 +114,7 @@ pub fn state_koe_to_eci(x_oe: SVector6, angle_format: AngleFormat) -> SVector6 {
     );
 
     let p = a * (E.cos() - e) * P + a * (1.0 - e * e).sqrt() * E.sin() * Q;
-    let v = (constants::GM_EARTH * a).sqrt() / p.norm()
-        * (-E.sin() * P + (1.0 - e * e).sqrt() * E.cos() * Q);
+    let v = (gm * a).sqrt() / p.norm() * (-E.sin() * P + (1.0 - e * e).sqrt() * E.cos() * Q);
     SVector6::new(p[0], p[1], p[2], v[0], v[1], v[2])
 }
 
@@ -329,5 +366,39 @@ mod tests {
         assert_abs_diff_eq!(osc[3], osc_back[3], epsilon = 1e-9);
         assert_abs_diff_eq!(osc[4], osc_back[4], epsilon = 1e-9);
         assert_abs_diff_eq!(osc[5], osc_back[5], epsilon = 1e-9);
+    }
+
+    #[test]
+    fn test_state_koe_to_eci_for_body_earth_matches_default() {
+        // With GM_EARTH the body-parameterized form is identical to the
+        // Earth-specific function.
+        let osc = vector6_from_array([R_EARTH + 500e3, 0.01, 97.8, 75.0, 25.0, 45.0]);
+        let via_default = state_koe_to_eci(osc, DEGREES);
+        let via_body = state_koe_to_eci_for_body(osc, crate::constants::GM_EARTH, DEGREES);
+        for k in 0..6 {
+            assert_eq!(via_default[k], via_body[k]);
+        }
+    }
+
+    #[rstest]
+    #[case(crate::constants::GM_MOON, 1_838_000.0)]
+    #[case(crate::constants::GM_MARS, 3_796_000.0)]
+    fn test_round_trip_conversion_for_body(#[case] gm: f64, #[case] a: f64) {
+        // koe -> eci -> koe about a non-Earth body must recover the input.
+        let osc = vector6_from_array([
+            a,
+            0.01,
+            85.0 * DEG2RAD,
+            15.0 * DEG2RAD,
+            30.0 * DEG2RAD,
+            45.0 * DEG2RAD,
+        ]);
+        let cart = state_koe_to_eci_for_body(osc, gm, RADIANS);
+        let osc_back = state_eci_to_koe_for_body(cart, gm, RADIANS);
+
+        assert_abs_diff_eq!(osc[0], osc_back[0], epsilon = 1e-8);
+        for k in 1..6 {
+            assert_abs_diff_eq!(osc[k], osc_back[k], epsilon = 1e-9);
+        }
     }
 }

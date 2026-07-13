@@ -465,6 +465,50 @@ pub trait DOrbitStateProvider: DStateProvider {
         state_frame_to_frame(ReferenceFrame::GCRF, frame, epoch, x_gcrf)
     }
 
+    /// Returns the state at the given epoch in the provider's central body's
+    /// body-centered inertial (BCI) frame: ICRF-aligned axes centered on the
+    /// body the provider's states are propagated about.
+    ///
+    /// The default implementation delegates to [`state_gcrf`][`Self::state_gcrf`],
+    /// which is exact for Earth-centered implementors (BCI = GCRF).
+    /// Implementors centered on a different body (e.g. a lunar or Martian
+    /// orbit propagator) should override this to return their native
+    /// body-centered inertial state.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
+    ///   in the central body's inertial frame
+    /// * `Err(BraheError)` - If the state cannot be computed
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_gcrf(epoch)
+    }
+
+    /// Returns the state at the given epoch in the provider's central body's
+    /// body-centered body-fixed (BCBF) frame: the rotating frame fixed to the
+    /// body the provider's states are propagated about.
+    ///
+    /// The default implementation delegates to [`state_itrf`][`Self::state_itrf`],
+    /// which is exact for Earth-centered implementors (BCBF = ITRF).
+    /// Implementors centered on a different body should override this to
+    /// convert into that body's fixed frame (e.g. `LFPA` for the Moon, `MCMF`
+    /// for Mars); bodies without a body-fixed frame (barycenters, custom
+    /// bodies without a configured frame) should return an `Err`.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
+    ///   in the central body's body-fixed frame
+    /// * `Err(BraheError)` - If the state cannot be computed or the central body
+    ///   has no body-fixed frame
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_itrf(epoch)
+    }
+
     /// Returns the state at the given epoch as osculating orbital elements.
     ///
     /// Elements are about the provider's own central body (Earth unless

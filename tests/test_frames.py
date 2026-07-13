@@ -693,6 +693,12 @@ def test_reference_frame_from_string_aliases():
         brahe.ReferenceFrame.from_string("bogus")
 
 
+def test_reference_frame_class_aliases():
+    """ECI/ECEF class attributes alias GCRF/ITRF."""
+    assert brahe.ReferenceFrame.ECI == brahe.ReferenceFrame.GCRF
+    assert brahe.ReferenceFrame.ECEF == brahe.ReferenceFrame.ITRF
+
+
 def test_reference_frame_str():
     assert str(brahe.ReferenceFrame.GCRF) == "GCRF"
     assert str(brahe.ReferenceFrame.LFPA) == "LFPA"

@@ -338,7 +338,7 @@ impl KeplerianPropagator {
             OrbitRepresentation::Cartesian => {
                 // First convert to ECI frame if needed
                 let eci_state = match frame {
-                    OrbitFrame::BodyCenteredInertial => {
+                    OrbitFrame::BodyCenteredInertial(_) => {
                         panic!(
                             "{}",
                             "OrbitFrame::BodyCenteredInertial is not supported by KeplerianPropagator (Earth-only)"
@@ -383,7 +383,7 @@ impl KeplerianPropagator {
 
                 // Convert to original frame if needed
                 match self.frame {
-                    OrbitFrame::BodyCenteredInertial => {
+                    OrbitFrame::BodyCenteredInertial(_) => {
                         panic!(
                             "{}",
                             "OrbitFrame::BodyCenteredInertial is not supported by KeplerianPropagator (Earth-only)"
@@ -654,6 +654,32 @@ impl DStateProvider for KeplerianPropagator {
 }
 
 impl DOrbitStateProvider for KeplerianPropagator {
+    /// Earth-centered propagator: the body-centered inertial frame is GCRF.
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_gcrf(epoch)
+    }
+
+    /// Earth-centered propagator: the body-centered body-fixed frame is ITRF.
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_itrf(epoch)
+    }
+
+    /// Converts the propagated state from GCRF (this propagator's central
+    /// body's inertial frame) into `frame` via the reference frame router.
+    fn state_in_frame(
+        &self,
+        frame: crate::frames::ReferenceFrame,
+        epoch: Epoch,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let x_gcrf = self.state_gcrf(epoch)?;
+        crate::frames::state_frame_to_frame(
+            crate::frames::ReferenceFrame::GCRF,
+            frame,
+            epoch,
+            x_gcrf,
+        )
+    }
+
     fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         self.state_gcrf(epoch)
     }
@@ -669,7 +695,7 @@ impl DOrbitStateProvider for KeplerianPropagator {
         let state_eci = state_koe_to_eci(internal_state, AngleFormat::Radians);
 
         match self.frame {
-            OrbitFrame::BodyCenteredInertial => {
+            OrbitFrame::BodyCenteredInertial(_) => {
                 Err(BraheError::Error("OrbitFrame::BodyCenteredInertial is not supported by KeplerianPropagator (Earth-only)".to_string()))
             }
             OrbitFrame::ECI | OrbitFrame::GCRF => Ok(state_eci),

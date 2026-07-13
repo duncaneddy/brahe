@@ -30,7 +30,7 @@ fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Resu
             OrbitFrame::GCRF => traj.state_gcrf(*epoch)?,
             OrbitFrame::ECI => traj.state_eci(*epoch)?,
             OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch)?,
-            OrbitFrame::BodyCenteredInertial => {
+            OrbitFrame::BodyCenteredInertial(_) => {
                 return Err(brahe::utils::BraheError::Error(
                     "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
                 ));
@@ -1040,7 +1040,7 @@ impl PyOEMSegment {
                         OrbitFrame::GCRF => traj.state_gcrf(*epoch),
                         OrbitFrame::ECI => traj.state_eci(*epoch),
                         OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch),
-                        OrbitFrame::BodyCenteredInertial => Err(brahe::utils::BraheError::Error(
+                        OrbitFrame::BodyCenteredInertial(_) => Err(brahe::utils::BraheError::Error(
                             "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
                         )),
                     }.map_err(|e| {

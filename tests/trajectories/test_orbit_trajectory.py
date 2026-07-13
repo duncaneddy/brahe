@@ -3924,3 +3924,38 @@ def test_orbittrajectory_state_koe_mean():
     osc_deg = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
     # Semi-major axis may differ slightly due to J2 averaging
     assert mean_deg[0] != pytest.approx(osc_deg[0], abs=0.01)  # Should differ
+
+
+def test_orbittrajectory_body_centered_inertial_providers(naif_cache_setup):
+    """A BodyCenteredInertial(301) trajectory: state_bci returns the raw LCI
+    sample, state_in_frame(LCI) is the identity, and state_eci re-centers
+    through SPK. Mirrors test_dorbittrajectory_body_centered_inertial_providers."""
+    import brahe as bh
+
+    traj = OrbitTrajectory(
+        6, OrbitFrame.BodyCenteredInertial(301), OrbitRepresentation.CARTESIAN, None
+    )
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    state = np.array([2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0])
+    traj.add(epoch, state)
+
+    np.testing.assert_array_equal(traj.state_bci(epoch), state)
+    np.testing.assert_array_equal(
+        traj.state_in_frame(bh.ReferenceFrame.LCI, epoch), state
+    )
+
+    offset = bh.spk_state(301, 399, epoch)
+    np.testing.assert_allclose(traj.state_eci(epoch), state + offset, atol=1e-6)
+
+    # Batch conversion matches the per-epoch provider result.
+    traj_eci = traj.to_eci()
+    assert traj_eci.frame == OrbitFrame.ECI
+    np.testing.assert_allclose(
+        traj_eci.state_eci(epoch), traj.state_eci(epoch), atol=1e-6
+    )
+
+    # Earth-frame trajectory: state_bci == state_gcrf.
+    traj_e = OrbitTrajectory(6, OrbitFrame.GCRF, OrbitRepresentation.CARTESIAN, None)
+    state_e = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj_e.add(epoch, state_e)
+    np.testing.assert_array_equal(traj_e.state_bci(epoch), traj_e.state_gcrf(epoch))

@@ -112,7 +112,7 @@ fn convert_state_from_spg4_frame(
 
     match representation {
         OrbitRepresentation::Cartesian => match frame {
-            OrbitFrame::BodyCenteredInertial => {
+            OrbitFrame::BodyCenteredInertial(_) => {
                 panic!(
                     "{}",
                     "OrbitFrame::BodyCenteredInertial is not supported by SGPPropagator (Earth-only)"
@@ -1756,6 +1756,32 @@ impl SStateProvider for SGPPropagator {
 }
 
 impl SOrbitStateProvider for SGPPropagator {
+    /// Earth-centered propagator: the body-centered inertial frame is GCRF.
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_gcrf(epoch)
+    }
+
+    /// Earth-centered propagator: the body-centered body-fixed frame is ITRF.
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_itrf(epoch)
+    }
+
+    /// Converts the propagated state from GCRF (this propagator's central
+    /// body's inertial frame) into `frame` via the reference frame router.
+    fn state_in_frame(
+        &self,
+        frame: crate::frames::ReferenceFrame,
+        epoch: Epoch,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let x_gcrf = self.state_gcrf(epoch)?;
+        crate::frames::state_frame_to_frame(
+            crate::frames::ReferenceFrame::GCRF,
+            frame,
+            epoch,
+            x_gcrf,
+        )
+    }
+
     fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let state_ecef = self.state_ecef(epoch)?;
 
@@ -1832,6 +1858,22 @@ impl crate::utils::DStateProvider for SGPPropagator {
 
 // Implement DOrbitStateProvider for SGPPropagator
 impl crate::utils::DOrbitStateProvider for SGPPropagator {
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_bci(self, epoch)
+    }
+
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_bcbf(self, epoch)
+    }
+
+    fn state_in_frame(
+        &self,
+        frame: crate::frames::ReferenceFrame,
+        epoch: Epoch,
+    ) -> Result<Vector6<f64>, BraheError> {
+        <Self as SOrbitStateProvider>::state_in_frame(self, frame, epoch)
+    }
+
     fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         <Self as SOrbitStateProvider>::state_eci(self, epoch)
     }
@@ -3058,6 +3100,36 @@ mod tests {
         // Velocity magnitude should be reasonable for LEO (~7-8 km/s)
         let v = (state[3].powi(2) + state[4].powi(2) + state[5].powi(2)).sqrt();
         assert!(v > 7_000.0 && v < 8_000.0);
+    }
+
+    #[test]
+    fn test_sgppropagator_bci_bcbf_in_frame() {
+        // SGPPropagator is Earth-centered: state_bci is its GCRF state,
+        // state_bcbf its ITRF state, and state_in_frame converts from GCRF
+        // via the reference frame router.
+        use crate::frames::ReferenceFrame;
+        use approx::assert_abs_diff_eq;
+        setup_global_test_eop();
+
+        let prop = SGPPropagator::from_tle(ISS_LINE1, ISS_LINE2, 60.0).unwrap();
+        let epoch = prop.initial_epoch();
+
+        let bci = prop.state_bci(epoch).unwrap();
+        let gcrf = prop.state_gcrf(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(bci[i], gcrf[i], epsilon = 0.0);
+        }
+
+        let bcbf = prop.state_bcbf(epoch).unwrap();
+        let itrf = prop.state_itrf(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(bcbf[i], itrf[i], epsilon = 0.0);
+        }
+
+        let in_itrf = prop.state_in_frame(ReferenceFrame::ITRF, epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(in_itrf[i], itrf[i], epsilon = 1e-6);
+        }
     }
 
     #[test]

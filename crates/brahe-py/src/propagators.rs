@@ -489,6 +489,67 @@ impl PySGPPropagator {
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
+    /// Get the state at the given epoch in the central body's body-centered
+    /// inertial (BCI) frame: ICRF-aligned axes centered on the body the
+    /// states are defined about (GCRF for Earth-centered sources, LCI/MCI
+    /// for a Moon/Mars-centered trajectory).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     inertial frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_bci(&self.propagator, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// body-fixed (BCBF) frame (ITRF for Earth-centered sources, LFPA/MCMF
+    /// for a Moon/Mars-centered trajectory).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     body-fixed frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_bcbf(&self.propagator, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch expressed in an arbitrary reference
+    /// frame, converting from the source's native central-body frame.
+    ///
+    /// Args:
+    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in `frame` (meters, m/s).
+    #[pyo3(text_signature = "(frame, epoch)")]
+    pub fn state_in_frame<'a>(
+        &self,
+        py: Python<'a>,
+        frame: &PyReferenceFrame,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_in_frame(&self.propagator, frame.frame, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
     /// Compute state at a specific epoch in EME2000 coordinates.
     ///
     /// Args:
@@ -2318,6 +2379,67 @@ impl PyKeplerianPropagator {
         epoch: PyRef<PyEpoch>,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = self.propagator.state_gcrf(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// inertial (BCI) frame. KeplerianPropagator is Earth-centered, so this
+    /// is the GCRF state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     inertial frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_bci(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// body-fixed (BCBF) frame. KeplerianPropagator is Earth-centered, so
+    /// this is the ITRF state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     body-fixed frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_bcbf(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch expressed in an arbitrary reference
+    /// frame, converting from GCRF (this propagator's central body's
+    /// inertial frame).
+    ///
+    /// Args:
+    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in `frame` (meters, m/s).
+    #[pyo3(text_signature = "(frame, epoch)")]
+    pub fn state_in_frame<'a>(
+        &self,
+        py: Python<'a>,
+        frame: &PyReferenceFrame,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_in_frame(frame.frame, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 

@@ -277,17 +277,23 @@ impl PyOrbitFrame {
         PyOrbitFrame { frame: trajectories::traits::OrbitFrame::ITRF }
     }
 
-    /// Body-centered inertial frame for a non-Earth central body (ICRF-aligned
-    /// axes centered on the propagator's central body, e.g. LCI/MCI/EMBI).
-    /// Produced by non-Earth `NumericalOrbitPropagator` trajectories;
-    /// Earth-frame conversions are undefined for it.
+    /// Body-centered inertial frame for a non-Earth central body: ICRF-aligned
+    /// axes centered on the body with the given NAIF ID (e.g. 301 for LCI
+    /// samples from a Moon-centered propagator, 499 for MCI). Produced by
+    /// non-Earth `NumericalOrbitPropagator` trajectories; Earth-frame
+    /// conversions re-center through the loaded SPK kernels.
+    ///
+    /// Args:
+    ///     naif_id (int): NAIF ID of the body the frame is centered on.
     ///
     /// Returns:
-    ///     OrbitFrame: Body-centered inertial frame constant
-    #[classattr]
-    #[pyo3(name = "BODY_CENTERED_INERTIAL")]
-    fn body_centered_inertial() -> Self {
-        PyOrbitFrame { frame: trajectories::traits::OrbitFrame::BodyCenteredInertial }
+    ///     OrbitFrame: Body-centered inertial frame for that body
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn BodyCenteredInertial(naif_id: i32) -> Self {
+        PyOrbitFrame {
+            frame: trajectories::traits::OrbitFrame::BodyCenteredInertial(naif_id),
+        }
     }
 
     /// Get the full name of the reference frame.
@@ -301,7 +307,7 @@ impl PyOrbitFrame {
             trajectories::traits::OrbitFrame::GCRF => "Geocentric Celestial Reference Frame",
             trajectories::traits::OrbitFrame::EME2000 => "Earth Mean Equator and Equinox of J2000.0",
             trajectories::traits::OrbitFrame::ITRF => "International Terrestrial Reference Frame",
-            trajectories::traits::OrbitFrame::BodyCenteredInertial => "Body-Centered Inertial",
+            trajectories::traits::OrbitFrame::BodyCenteredInertial(_) => "Body-Centered Inertial",
         }
     }
 
@@ -312,7 +318,7 @@ impl PyOrbitFrame {
             trajectories::traits::OrbitFrame::GCRF => "GCRF".to_string(),
             trajectories::traits::OrbitFrame::EME2000 => "EME2000".to_string(),
             trajectories::traits::OrbitFrame::ITRF => "ITRF".to_string(),
-            trajectories::traits::OrbitFrame::BodyCenteredInertial => "BCI".to_string(),
+            trajectories::traits::OrbitFrame::BodyCenteredInertial(center) => format!("BCI({})", center),
         }
     }
 
@@ -1932,6 +1938,67 @@ impl PyOrbitalTrajectory {
     #[pyo3(text_signature = "(epoch)")]
     pub fn state_gcrf<'a>(&self, py: Python<'a>, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = DOrbitStateProvider::state_gcrf(&self.trajectory, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// inertial (BCI) frame: ICRF-aligned axes centered on the body the
+    /// states are defined about (GCRF for Earth-centered sources, LCI/MCI
+    /// for a Moon/Mars-centered trajectory).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     inertial frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_bci(&self.trajectory, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// body-fixed (BCBF) frame (ITRF for Earth-centered sources, LFPA/MCMF
+    /// for a Moon/Mars-centered trajectory).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     body-fixed frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_bcbf(&self.trajectory, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch expressed in an arbitrary reference
+    /// frame, converting from the source's native central-body frame.
+    ///
+    /// Args:
+    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in `frame` (meters, m/s).
+    #[pyo3(text_signature = "(frame, epoch)")]
+    pub fn state_in_frame<'a>(
+        &self,
+        py: Python<'a>,
+        frame: &PyReferenceFrame,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = DOrbitStateProvider::state_in_frame(&self.trajectory, frame.frame, epoch.obj)?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 

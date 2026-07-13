@@ -830,7 +830,7 @@ impl DNumericalOrbitPropagator {
         // for non-Earth propagators.
         let trajectory_frame = match force_config.central_body {
             CentralBody::Earth => OrbitFrame::ECI,
-            _ => OrbitFrame::BodyCenteredInertial,
+            ref cb => OrbitFrame::BodyCenteredInertial(cb.naif_id()),
         };
         let mut trajectory = DOrbitTrajectory::new(
             state_dim,
@@ -2756,7 +2756,7 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
         // central body (ECI for Earth, body-centered inertial otherwise).
         let trajectory_frame = match self.central_body.as_ref() {
             CentralBody::Earth => OrbitFrame::ECI,
-            _ => OrbitFrame::BodyCenteredInertial,
+            cb => OrbitFrame::BodyCenteredInertial(cb.naif_id()),
         };
         self.trajectory = DOrbitTrajectory::new(
             self.state_dim,
@@ -2905,6 +2905,7 @@ impl DNumericalOrbitPropagator {
     ///     ForceModelConfig::two_body_gravity(), None, None, None, None,
     /// ).unwrap();
     ///
+    /// use brahe::utils::state_providers::DOrbitStateProvider;
     /// let x = prop.state_bci(epoch).unwrap();
     /// ```
     fn state_central_inertial(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
@@ -2927,7 +2928,13 @@ impl DNumericalOrbitPropagator {
             epoch, start, end
         )))
     }
+}
 
+// =============================================================================
+// DOrbitStateProvider Trait
+// =============================================================================
+
+impl DOrbitStateProvider for DNumericalOrbitPropagator {
     /// Returns the state at the given epoch in this propagator's central
     /// body's body-centered inertial (BCI) frame: ICRF-aligned axes centered
     /// on the body configured in [`ForceModelConfig::central_body`] (`GCRF`
@@ -2945,7 +2952,7 @@ impl DNumericalOrbitPropagator {
     ///   in the central body's inertial frame
     /// * `Err(BraheError)` - If `epoch` is outside the propagator's stored trajectory
     ///   and does not match the current epoch
-    pub fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         self.state_central_inertial(epoch)
     }
 
@@ -2963,7 +2970,7 @@ impl DNumericalOrbitPropagator {
     /// * `Err(BraheError)` - If the state cannot be computed, or the central body
     ///   has no body-fixed frame (`EMB`/`SSB` barycenters, custom bodies without
     ///   a configured frame)
-    pub fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let x = self.state_central_inertial(epoch)?;
         match self.central_body.fixed_frame() {
             Some(fixed_frame) => {
@@ -2990,7 +2997,7 @@ impl DNumericalOrbitPropagator {
     /// # Returns
     /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in `frame`
     /// * `Err(BraheError)` - If the state cannot be computed or the frame conversion fails
-    pub fn state_in_frame(
+    fn state_in_frame(
         &self,
         frame: ReferenceFrame,
         epoch: Epoch,
@@ -2998,13 +3005,7 @@ impl DNumericalOrbitPropagator {
         let x = self.state_central_inertial(epoch)?;
         state_frame_to_frame(self.central_body.inertial_frame(), frame, epoch, x)
     }
-}
 
-// =============================================================================
-// DOrbitStateProvider Trait
-// =============================================================================
-
-impl DOrbitStateProvider for DNumericalOrbitPropagator {
     fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let x = self.state_central_inertial(epoch)?;
         match self.central_body.as_ref() {
@@ -12916,19 +12917,50 @@ mod tests {
         setup_global_test_eop();
 
         let (mut prop, epoch0, _x0) = lunar_point_mass_propagator_at_epoch0();
-        assert_eq!(prop.trajectory().frame, OrbitFrame::BodyCenteredInertial);
+        assert_eq!(
+            prop.trajectory().frame,
+            OrbitFrame::BodyCenteredInertial(301)
+        );
 
-        // Earth-frame conversions on the body-centered trajectory error
-        // rather than mislabel LCI samples as geocentric.
+        // Earth-frame conversions on the body-centered trajectory re-center
+        // through SPK instead of mislabeling LCI samples as geocentric: the
+        // trajectory's state_eci matches the propagator's own state_eci, and
+        // its provider trait accessors are frame-aware.
+        crate::utils::testing::setup_global_test_spice();
         prop.propagate_to(epoch0 + 60.0);
-        let err = prop.trajectory().state_eci(epoch0).unwrap_err();
-        assert!(err.to_string().contains("BodyCenteredInertial"));
-        let err = prop.trajectory().state_ecef(epoch0).unwrap_err();
-        assert!(err.to_string().contains("BodyCenteredInertial"));
+        use approx::assert_abs_diff_eq;
+        let x_eci_traj = prop.trajectory().state_eci(epoch0).unwrap();
+        let x_eci_prop = DOrbitStateProvider::state_eci(&prop, epoch0).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_eci_traj[i], x_eci_prop[i], epsilon = 1e-6);
+        }
+        // state_bci on the trajectory is the raw LCI sample; state_in_frame
+        // to LCI is the identity on it.
+        let x_bci_traj = prop.trajectory().state_bci(epoch0).unwrap();
+        let x_bci_prop = prop.state_bci(epoch0).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_bci_traj[i], x_bci_prop[i], epsilon = 0.0);
+        }
+        let x_lci = prop
+            .trajectory()
+            .state_in_frame(ReferenceFrame::LCI, epoch0)
+            .unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_lci[i], x_bci_traj[i], epsilon = 0.0);
+        }
+        // state_bcbf on the trajectory matches the propagator's (LFPA).
+        let x_bcbf_traj = prop.trajectory().state_bcbf(epoch0).unwrap();
+        let x_bcbf_prop = prop.state_bcbf(epoch0).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_bcbf_traj[i], x_bcbf_prop[i], epsilon = 1e-6);
+        }
 
         // reset preserves the body-centered frame metadata.
         prop.reset();
-        assert_eq!(prop.trajectory().frame, OrbitFrame::BodyCenteredInertial);
+        assert_eq!(
+            prop.trajectory().frame,
+            OrbitFrame::BodyCenteredInertial(301)
+        );
 
         // Earth-centered propagators keep the ECI label and conversions.
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);

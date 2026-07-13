@@ -1663,8 +1663,26 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
-                    OrbitFrame::BodyCenteredInertial => {
-                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::GCRF,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
                     }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1739,8 +1757,26 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
-                    OrbitFrame::BodyCenteredInertial => {
-                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::GCRF,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
                     }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1815,8 +1851,26 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
-                    OrbitFrame::BodyCenteredInertial => {
-                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::ITRF,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
                     }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1888,8 +1942,26 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
-                    OrbitFrame::BodyCenteredInertial => {
-                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::ITRF,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
                     }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1960,8 +2032,26 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
-                    OrbitFrame::BodyCenteredInertial => {
-                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::EME2000,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
                     }
                     OrbitFrame::EME2000 => {
                         // Already in EME2000 frame
@@ -2058,8 +2148,12 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
-                    OrbitFrame::BodyCenteredInertial => {
-                        panic!("{}", crate::trajectories::traits::BCI_CONVERSION_ERROR)
+                    OrbitFrame::BodyCenteredInertial(_) => {
+                        panic!(
+                            "to_keplerian labels its result ECI, which is undefined for a \
+                             body-centered inertial trajectory; use state_koe_osc for \
+                             per-epoch elements about the trajectory's own center"
+                        )
                     }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
@@ -2123,16 +2217,109 @@ impl SStateProvider for SOrbitTrajectory {
     }
 }
 
+impl SOrbitTrajectory {
+    /// Native Cartesian orbital state about this BodyCenteredInertial
+    /// trajectory's own center: identity for Cartesian representation,
+    /// elements-to-Cartesian about the center body (using its GM) for
+    /// Keplerian representation.
+    fn bci_native_cartesian(
+        &self,
+        center: i32,
+        state: Vector6<f64>,
+    ) -> Result<Vector6<f64>, BraheError> {
+        match self.representation {
+            OrbitRepresentation::Cartesian => Ok(state),
+            OrbitRepresentation::Keplerian => {
+                let cb = crate::propagators::CentralBody::from_naif_id(center)?;
+                if cb.is_barycenter() {
+                    return Err(BraheError::Error(format!(
+                        "Keplerian elements are undefined about massless barycenter {}",
+                        center
+                    )));
+                }
+                Ok(crate::coordinates::state_koe_to_eci_for_body(
+                    state,
+                    cb.gm(),
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                ))
+            }
+        }
+    }
+}
+
 impl SOrbitStateProvider for SOrbitTrajectory {
+    /// Returns the state in this trajectory's own body-centered inertial
+    /// frame: the raw interpolated state for a `BodyCenteredInertial`
+    /// trajectory (converted from elements if Keplerian), `GCRF` for
+    /// Earth-frame trajectories.
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        match self.frame {
+            OrbitFrame::BodyCenteredInertial(center) => {
+                let state = self.interpolate(&epoch)?;
+                self.bci_native_cartesian(center, state)
+            }
+            _ => self.state_gcrf(epoch),
+        }
+    }
+
+    /// Returns the state in this trajectory's central body's body-fixed
+    /// frame (`ITRF` for Earth-frame trajectories, `LFPA`/`MCMF`/IAU frame
+    /// for a `BodyCenteredInertial` trajectory); errors for centers without
+    /// a body-fixed frame (barycenters, uncatalogued bodies).
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        match self.frame {
+            OrbitFrame::BodyCenteredInertial(center) => {
+                let fixed =
+                    crate::trajectories::traits::bci_fixed_frame(center).ok_or_else(|| {
+                        BraheError::Error(format!(
+                            "central body {} has no body-fixed frame",
+                            center
+                        ))
+                    })?;
+                let x = self.state_bci(epoch)?;
+                crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    fixed,
+                    epoch,
+                    x,
+                )
+            }
+            _ => self.state_itrf(epoch),
+        }
+    }
+
+    /// Returns the state expressed in an arbitrary reference frame,
+    /// converting directly from this trajectory's own native frame (no
+    /// Earth round trip for `BodyCenteredInertial` trajectories).
+    fn state_in_frame(
+        &self,
+        frame: crate::frames::ReferenceFrame,
+        epoch: Epoch,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_bci(epoch)?;
+        let native = match self.frame {
+            OrbitFrame::BodyCenteredInertial(center) => {
+                crate::trajectories::traits::bci_reference_frame(center)
+            }
+            _ => crate::frames::ReferenceFrame::GCRF,
+        };
+        crate::frames::state_frame_to_frame(native, frame, epoch, x)
+    }
+
     fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get state in native format then convert to ECI Cartesian
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial, _) => {
-                return Err(BraheError::Error(
-                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
-                ));
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::GCRF,
+                    epoch,
+                    x,
+                );
             }
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
@@ -2174,10 +2361,14 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial, _) => {
-                return Err(BraheError::Error(
-                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
-                ));
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::GCRF,
+                    epoch,
+                    x,
+                );
             }
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state, // ECI treated as GCRF
@@ -2219,10 +2410,14 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial, _) => {
-                return Err(BraheError::Error(
-                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
-                ));
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::ITRF,
+                    epoch,
+                    x,
+                );
             }
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
@@ -2275,10 +2470,14 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial, _) => {
-                return Err(BraheError::Error(
-                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
-                ));
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::ITRF,
+                    epoch,
+                    x,
+                );
             }
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
@@ -2331,10 +2530,14 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial, _) => {
-                return Err(BraheError::Error(
-                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
-                ));
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::EME2000,
+                    epoch,
+                    x,
+                );
             }
             (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state),
@@ -2390,9 +2593,21 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
-            (OrbitFrame::BodyCenteredInertial, _) => {
-                return Err(BraheError::Error(
-                    crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                // Osculating elements about the trajectory's own center,
+                // using that body's gravitational parameter.
+                let cb = crate::propagators::CentralBody::from_naif_id(center)?;
+                if cb.is_barycenter() {
+                    return Err(BraheError::Error(format!(
+                        "osculating elements are undefined about massless barycenter {}",
+                        center
+                    )));
+                }
+                let x = self.bci_native_cartesian(center, state)?;
+                return Ok(crate::coordinates::state_eci_to_koe_for_body(
+                    x,
+                    cb.gm(),
+                    angle_format,
                 ));
             }
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
@@ -2568,9 +2783,10 @@ impl SOrbitCovarianceProvider for SOrbitTrajectory {
 
         // Transform to ECI if needed
         match self.frame {
-            OrbitFrame::BodyCenteredInertial => Err(BraheError::Error(
-                crate::trajectories::traits::BCI_CONVERSION_ERROR.to_string(),
-            )),
+            // Body-centered inertial axes are ICRF-aligned, so the covariance
+            // is identical under the identity rotation (the center offset is a
+            // translation, which does not affect covariance).
+            OrbitFrame::BodyCenteredInertial(_) => Ok(cov_native),
             OrbitFrame::ECI | OrbitFrame::GCRF => Ok(cov_native),
             OrbitFrame::ECEF | OrbitFrame::ITRF => Err(BraheError::Error(
                 "Covariance transformation from ECEF/ITRF to ECI not implemented".to_string(),

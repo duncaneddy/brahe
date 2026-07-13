@@ -6,7 +6,6 @@ These tests mirror the Rust tests from src/propagators/dnumerical_orbit_propagat
 
 import pytest
 import numpy as np
-import brahe
 from brahe import (
     Epoch,
     TimeSystem,
@@ -5793,9 +5792,10 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         x_ecef = prop.state_ecef(epoch)
         assert np.allclose(x_itrf, x_ecef, atol=1e-9)
 
-    def test_trajectory_frame_matches_central_body(self):
-        """A non-Earth propagator's trajectory is labeled BODY_CENTERED_INERTIAL
-        and rejects Earth-frame conversions; an Earth propagator's stays ECI.
+    def test_trajectory_frame_matches_central_body(self, naif_cache_setup):
+        """A non-Earth propagator's trajectory is labeled BodyCenteredInertial
+        (with its center NAIF ID) and re-centers Earth-frame conversions
+        through SPK; an Earth propagator's stays ECI.
         Mirrors test_trajectory_frame_matches_central_body."""
         epoch = create_test_epoch()
         a = R_MOON + 100e3
@@ -5814,11 +5814,20 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         prop.propagate_to(epoch + 60.0)
 
         traj = prop.trajectory
-        assert traj.frame == OrbitFrame.BODY_CENTERED_INERTIAL
-        with pytest.raises(brahe.BraheError, match="BodyCenteredInertial"):
-            traj.state_eci(epoch)
-        with pytest.raises(brahe.BraheError, match="BodyCenteredInertial"):
-            traj.state_ecef(epoch)
+        assert traj.frame == OrbitFrame.BodyCenteredInertial(301)
+        # Earth-frame conversions re-center through SPK: the trajectory's
+        # state_eci matches the propagator's own state_eci.
+        np.testing.assert_allclose(
+            traj.state_eci(epoch), prop.state_eci(epoch), atol=1e-6
+        )
+        # Provider trait accessors are frame-aware on the trajectory too.
+        np.testing.assert_array_equal(traj.state_bci(epoch), prop.state_bci(epoch))
+        np.testing.assert_array_equal(
+            traj.state_in_frame(ReferenceFrame.LCI, epoch), traj.state_bci(epoch)
+        )
+        np.testing.assert_allclose(
+            traj.state_bcbf(epoch), prop.state_bcbf(epoch), atol=1e-6
+        )
 
         earth_prop = NumericalOrbitPropagator(
             epoch,

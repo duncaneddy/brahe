@@ -2892,7 +2892,6 @@ impl DNumericalOrbitPropagator {
     ///     ForceModelConfig::two_body_gravity(), None, None, None, None,
     /// ).unwrap();
     ///
-    /// use brahe::utils::state_providers::DOrbitStateProvider;
     /// let x = prop.state_bci(epoch).unwrap();
     /// ```
     fn state_central_inertial(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
@@ -2914,6 +2913,77 @@ impl DNumericalOrbitPropagator {
              Call step_by() or propagate_to() to advance the propagator first.",
             epoch, start, end
         )))
+    }
+
+    /// Returns the state at the given epoch in this propagator's central
+    /// body's body-centered inertial (BCI) frame: ICRF-aligned axes centered
+    /// on the body configured in [`ForceModelConfig::central_body`] (`GCRF`
+    /// for Earth, `LCI` for the Moon, `MCI` for Mars, etc.).
+    ///
+    /// This is the propagator's native state: its trajectory is integrated
+    /// directly in the central body's inertial frame, so no conversion is
+    /// performed.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
+    ///   in the central body's inertial frame
+    /// * `Err(BraheError)` - If `epoch` is outside the propagator's stored trajectory
+    ///   and does not match the current epoch
+    pub fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_central_inertial(epoch)
+    }
+
+    /// Returns the state at the given epoch in this propagator's central
+    /// body's body-centered body-fixed (BCBF) frame: the rotating frame fixed
+    /// to the central body (`ITRF` for Earth, `LFPA` for the Moon, `MCMF`
+    /// for Mars, the configured `fixed_frame` for a custom body).
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
+    ///   in the central body's body-fixed frame
+    /// * `Err(BraheError)` - If the state cannot be computed, or the central body
+    ///   has no body-fixed frame (`EMB`/`SSB` barycenters, custom bodies without
+    ///   a configured frame)
+    pub fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_central_inertial(epoch)?;
+        match self.central_body.fixed_frame() {
+            Some(fixed_frame) => {
+                state_frame_to_frame(self.central_body.inertial_frame(), fixed_frame, epoch, x)
+            }
+            None => Err(BraheError::Error(format!(
+                "central body {} has no body-fixed frame",
+                self.central_body
+            ))),
+        }
+    }
+
+    /// Returns the state at the given epoch expressed in an arbitrary
+    /// reference frame, routing through this propagator's own central body's
+    /// inertial frame. For an `Earth`-centered propagator this converts from
+    /// `GCRF`; for a lunar/Martian propagator it converts directly from
+    /// `LCI`/`MCI`, avoiding an unnecessary Earth round trip (and the
+    /// associated precision loss).
+    ///
+    /// # Arguments
+    /// * `frame` - The reference frame to express the state in
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in `frame`
+    /// * `Err(BraheError)` - If the state cannot be computed or the frame conversion fails
+    pub fn state_in_frame(
+        &self,
+        frame: ReferenceFrame,
+        epoch: Epoch,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_central_inertial(epoch)?;
+        state_frame_to_frame(self.central_body.inertial_frame(), frame, epoch, x)
     }
 }
 
@@ -2951,46 +3021,6 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
     fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         let gcrf_state = self.state_gcrf(epoch)?;
         Ok(crate::frames::state_gcrf_to_eme2000(gcrf_state))
-    }
-
-    /// Returns this propagator's native state: its trajectory is integrated
-    /// directly in the central body's inertial frame, so no conversion is
-    /// performed.
-    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        self.state_central_inertial(epoch)
-    }
-
-    /// Converts the native body-centered inertial state into the central
-    /// body's body-fixed frame (`ITRF` for Earth, `LFPA` for the Moon,
-    /// `MCMF` for Mars, the configured `fixed_frame` for a custom body).
-    /// Errors for central bodies without a body-fixed frame (`EMB`/`SSB`
-    /// barycenters, custom bodies without a configured frame).
-    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        let x = self.state_central_inertial(epoch)?;
-        match self.central_body.fixed_frame() {
-            Some(fixed_frame) => {
-                state_frame_to_frame(self.central_body.inertial_frame(), fixed_frame, epoch, x)
-            }
-            None => Err(BraheError::Error(format!(
-                "central body {} has no body-fixed frame",
-                self.central_body
-            ))),
-        }
-    }
-
-    /// Converts this propagator's state to `frame`, routing through its own
-    /// central body's inertial frame rather than the default trait
-    /// implementation's Earth/GCRF hub. For an `Earth`-centered propagator
-    /// this is equivalent to the default implementation; for a lunar/Martian
-    /// propagator it avoids an unnecessary Earth round trip (and the
-    /// associated precision loss) by converting directly from e.g. `LCI`/`MCI`.
-    fn state_in_frame(
-        &self,
-        epoch: Epoch,
-        frame: ReferenceFrame,
-    ) -> Result<Vector6<f64>, BraheError> {
-        let x = self.state_central_inertial(epoch)?;
-        state_frame_to_frame(self.central_body.inertial_frame(), frame, epoch, x)
     }
 
     /// Computes osculating Keplerian elements about this propagator's own
@@ -12868,7 +12898,6 @@ mod tests {
     /// should never be equal to the raw state itself for a body other than
     /// Earth.
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_lunar_propagation_state_eci_adds_moon_offset() {
         use approx::assert_abs_diff_eq;
@@ -12887,14 +12916,13 @@ mod tests {
         }
     }
 
-    /// `state_in_frame(epoch, LCI)` on a Moon-centered propagator must equal
+    /// `state_in_frame(LCI, epoch)` on a Moon-centered propagator must equal
     /// `state_central_inertial(epoch)` exactly: the override converts via
     /// `state_frame_to_frame(central.inertial_frame(), frame, ...)`, and since
     /// `central.inertial_frame() == LCI` here, `state_frame_to_frame` takes
     /// its `from == to` identity short-circuit and returns the input
     /// unchanged (no rotation/SPK lookup performed).
     #[test]
-    #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_state_in_frame_lci_equals_central_inertial_for_lunar_propagator() {
         setup_global_test_eop();
@@ -12902,13 +12930,13 @@ mod tests {
 
         let (prop, epoch0, _x0) = lunar_point_mass_propagator_at_epoch0();
 
-        let x_lci = prop.state_in_frame(epoch0, ReferenceFrame::LCI).unwrap();
+        let x_lci = prop.state_in_frame(ReferenceFrame::LCI, epoch0).unwrap();
         let x_central = prop.state_central_inertial(epoch0).unwrap();
 
         assert_eq!(x_lci, x_central);
     }
 
-    /// For an Earth-centered propagator, `state_in_frame(epoch, ITRF)` and
+    /// For an Earth-centered propagator, `state_in_frame(ITRF, epoch)` and
     /// `state_ecef(epoch)` both convert the same GCRF state via
     /// `state_gcrf_to_itrf` (the `GCRF -> ITRF` leg of `state_frame_to_frame`
     /// dispatches to the same underlying function `state_ecef` calls
@@ -12937,7 +12965,7 @@ mod tests {
         )
         .unwrap();
 
-        let x_in_frame = prop.state_in_frame(epoch, ReferenceFrame::ITRF).unwrap();
+        let x_in_frame = prop.state_in_frame(ReferenceFrame::ITRF, epoch).unwrap();
         let x_ecef = prop.state_ecef(epoch).unwrap();
 
         for i in 0..6 {

@@ -57,9 +57,9 @@ fn main() {
     // state_in_frame routes the propagator's native MCI state through the
     // reference frame router into any other supported frame. MCMF is the
     // Mars-fixed, IAU/WGCCRE body-fixed frame.
-    let x0_mcmf = prop.state_in_frame(epoch, bh::ReferenceFrame::MCMF).unwrap();
+    let x0_mcmf = prop.state_in_frame(bh::ReferenceFrame::MCMF, epoch).unwrap();
     let xf_mcmf = prop
-        .state_in_frame(final_epoch, bh::ReferenceFrame::MCMF)
+        .state_in_frame(bh::ReferenceFrame::MCMF, final_epoch)
         .unwrap();
 
     println!("Initial epoch: {}", epoch);

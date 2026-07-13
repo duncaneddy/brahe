@@ -5774,7 +5774,7 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         assert np.allclose(x_bcbf, x_ecef, atol=1e-6)
 
     def test_state_in_frame_default_impl_earth_propagator(self):
-        """state_in_frame(epc, ITRF) matches state_ecef(epc) for an Earth propagator."""
+        """state_in_frame(ITRF, epc) matches state_ecef(epc) for an Earth propagator."""
         epoch = create_test_epoch()
         state = create_leo_state()
 
@@ -5787,11 +5787,10 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         )
         prop.propagate_to(epoch + 60.0)
 
-        x_itrf = prop.state_in_frame(epoch, ReferenceFrame.ITRF)
+        x_itrf = prop.state_in_frame(ReferenceFrame.ITRF, epoch)
         x_ecef = prop.state_ecef(epoch)
         assert np.allclose(x_itrf, x_ecef, atol=1e-9)
 
-    @pytest.mark.integration
     def test_lunar_propagation_state_eci_adds_moon_offset(self, naif_cache_setup):
         """A lunar propagator's state_eci is the LCI state offset by the Moon's
         position relative to Earth (via SPK)."""
@@ -5814,11 +5813,10 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         expected = x0 + spk_state(301, 399, epoch)
         assert np.allclose(x_eci, expected, atol=1e-9)
 
-    @pytest.mark.integration
     def test_state_in_frame_lci_equals_central_inertial_for_lunar_propagator(
         self, naif_cache_setup
     ):
-        """state_in_frame(epc, LCI) is identical to state_bci(epc) for a
+        """state_in_frame(LCI, epc) is identical to state_bci(epc) for a
         Moon-centered propagator (identity short-circuit, no SPK round trip)."""
         epoch = create_test_epoch()
         a = R_MOON + 100e3
@@ -5835,6 +5833,6 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
             None,
         )
 
-        x_lci = prop.state_in_frame(epoch, ReferenceFrame.LCI)
+        x_lci = prop.state_in_frame(ReferenceFrame.LCI, epoch)
         x_central = prop.state_bci(epoch)
         assert np.array_equal(x_lci, x_central)

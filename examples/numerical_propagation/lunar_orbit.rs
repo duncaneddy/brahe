@@ -58,9 +58,9 @@ fn main() {
     // state_in_frame routes the propagator's native LCI state through the
     // reference frame router into any other supported frame. LFPA is the
     // Moon-fixed, DE440 principal-axis frame.
-    let x0_lfpa = prop.state_in_frame(epoch, bh::ReferenceFrame::LFPA).unwrap();
+    let x0_lfpa = prop.state_in_frame(bh::ReferenceFrame::LFPA, epoch).unwrap();
     let xf_lfpa = prop
-        .state_in_frame(final_epoch, bh::ReferenceFrame::LFPA)
+        .state_in_frame(bh::ReferenceFrame::LFPA, final_epoch)
         .unwrap();
 
     println!("Initial epoch: {}", epoch);

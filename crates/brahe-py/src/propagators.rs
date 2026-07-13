@@ -6079,7 +6079,9 @@ impl PyNumericalOrbitPropagator {
         py: Python<'a>,
         epoch: &PyEpoch,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = DOrbitStateProvider::state_bci(&self.propagator, epoch.obj)
+        let state = self
+            .propagator
+            .state_bci(epoch.obj)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -6106,7 +6108,9 @@ impl PyNumericalOrbitPropagator {
         py: Python<'a>,
         epoch: &PyEpoch,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = DOrbitStateProvider::state_bcbf(&self.propagator, epoch.obj)
+        let state = self
+            .propagator
+            .state_bcbf(epoch.obj)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
@@ -6118,17 +6122,19 @@ impl PyNumericalOrbitPropagator {
     /// propagator.
     ///
     /// Args:
-    ///     epoch (Epoch): Target epoch for state computation.
     ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     epoch (Epoch): Target epoch for state computation.
     ///
     /// Returns:
     ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in `frame`.
     ///
     /// Raises:
     ///     RuntimeError: If the state cannot be computed or the frame conversion fails.
-    #[pyo3(text_signature = "(epoch, frame)")]
-    pub fn state_in_frame<'a>(&self, py: Python<'a>, epoch: &PyEpoch, frame: &PyReferenceFrame) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
-        let state = DOrbitStateProvider::state_in_frame(&self.propagator, epoch.obj, frame.frame)
+    #[pyo3(text_signature = "(frame, epoch)")]
+    pub fn state_in_frame<'a>(&self, py: Python<'a>, frame: &PyReferenceFrame, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self
+            .propagator
+            .state_in_frame(frame.frame, epoch.obj)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }

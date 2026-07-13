@@ -24,7 +24,6 @@
 use nalgebra::{DMatrix, DVector, SMatrix, Vector6};
 
 use crate::constants::AngleFormat;
-use crate::frames::{ReferenceFrame, state_frame_to_frame};
 use crate::orbits::state_koe_osc_to_mean;
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
@@ -439,75 +438,6 @@ pub trait DOrbitStateProvider: DStateProvider {
     /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in EME2000
     /// * `Err(BraheError)` - If the state cannot be computed
     fn state_eme2000(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError>;
-
-    /// Returns the state at the given epoch in an arbitrary reference frame.
-    ///
-    /// The default implementation converts through [`state_gcrf`][`Self::state_gcrf`]
-    /// via [`state_frame_to_frame`], so it is only exact for Earth-centered
-    /// implementors. Implementors whose native state is centered on a
-    /// different body (e.g. a lunar or Martian orbit propagator) should
-    /// override this method to convert directly from their own central
-    /// body's inertial frame, avoiding a round trip through Earth.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
-    /// * `frame` - The reference frame to express the state in
-    ///
-    /// # Returns
-    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in `frame`
-    /// * `Err(BraheError)` - If the state cannot be computed or the frame conversion fails
-    fn state_in_frame(
-        &self,
-        epoch: Epoch,
-        frame: ReferenceFrame,
-    ) -> Result<Vector6<f64>, BraheError> {
-        let x_gcrf = self.state_gcrf(epoch)?;
-        state_frame_to_frame(ReferenceFrame::GCRF, frame, epoch, x_gcrf)
-    }
-
-    /// Returns the state at the given epoch in the provider's central body's
-    /// body-centered inertial (BCI) frame: ICRF-aligned axes centered on the
-    /// body the provider's states are propagated about.
-    ///
-    /// The default implementation delegates to [`state_gcrf`][`Self::state_gcrf`],
-    /// which is exact for Earth-centered implementors (BCI = GCRF).
-    /// Implementors centered on a different body (e.g. a lunar or Martian
-    /// orbit propagator) should override this to return their native
-    /// body-centered inertial state.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
-    ///
-    /// # Returns
-    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
-    ///   in the central body's inertial frame
-    /// * `Err(BraheError)` - If the state cannot be computed
-    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        self.state_gcrf(epoch)
-    }
-
-    /// Returns the state at the given epoch in the provider's central body's
-    /// body-centered body-fixed (BCBF) frame: the rotating frame fixed to the
-    /// body the provider's states are propagated about.
-    ///
-    /// The default implementation delegates to [`state_itrf`][`Self::state_itrf`],
-    /// which is exact for Earth-centered implementors (BCBF = ITRF).
-    /// Implementors centered on a different body should override this to
-    /// convert into that body's fixed frame (e.g. `LFPA` for the Moon, `MCMF`
-    /// for Mars); bodies without a body-fixed frame (barycenters, custom
-    /// bodies without a configured frame) should return an `Err`.
-    ///
-    /// # Arguments
-    /// * `epoch` - The epoch at which to compute the state
-    ///
-    /// # Returns
-    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
-    ///   in the central body's body-fixed frame
-    /// * `Err(BraheError)` - If the state cannot be computed or the central body
-    ///   has no body-fixed frame
-    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
-        self.state_itrf(epoch)
-    }
 
     /// Returns the state at the given epoch as osculating orbital elements.
     ///
@@ -972,43 +902,16 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
-    fn test_dorbit_state_provider_default_bci_bcbf_in_frame() {
-        // KeplerianPropagator is Earth-centered and does not override the
-        // DOrbitStateProvider default methods, so these exercise the default
-        // impls in this module: state_bci -> state_gcrf, state_bcbf ->
-        // state_itrf, state_in_frame -> convert from GCRF, state_koe_mean ->
-        // osc-to-mean of state_koe_osc.
+    fn test_dorbit_state_provider_default_koe_mean() {
+        // KeplerianPropagator does not override the DOrbitStateProvider
+        // default state_koe_mean, so this exercises the default impl in this
+        // module: osc-to-mean of state_koe_osc.
         use crate::utils::testing::setup_global_test_eop;
         use approx::assert_abs_diff_eq;
         setup_global_test_eop();
 
         let prop = create_test_propagator();
         let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
-
-        // state_bci default delegates to state_gcrf (Earth: BCI == GCRF).
-        let bci = prop.state_bci(epoch).unwrap();
-        let gcrf = prop.state_gcrf(epoch).unwrap();
-        for i in 0..6 {
-            assert_abs_diff_eq!(bci[i], gcrf[i], epsilon = 0.0);
-        }
-
-        // state_bcbf default delegates to state_itrf (Earth: BCBF == ITRF).
-        let bcbf = prop.state_bcbf(epoch).unwrap();
-        let itrf = prop.state_itrf(epoch).unwrap();
-        for i in 0..6 {
-            assert_abs_diff_eq!(bcbf[i], itrf[i], epsilon = 0.0);
-        }
-
-        // state_in_frame default: GCRF target is a no-op equal to state_gcrf.
-        let in_gcrf = prop.state_in_frame(epoch, ReferenceFrame::GCRF).unwrap();
-        for i in 0..6 {
-            assert_abs_diff_eq!(in_gcrf[i], gcrf[i], epsilon = 0.0);
-        }
-        // ITRF target matches state_itrf via the same router path.
-        let in_itrf = prop.state_in_frame(epoch, ReferenceFrame::ITRF).unwrap();
-        for i in 0..6 {
-            assert_abs_diff_eq!(in_itrf[i], itrf[i], epsilon = 1e-6);
-        }
 
         // state_koe_mean default: osc-to-mean of the osculating elements.
         let mean = prop.state_koe_mean(epoch, DEGREES).unwrap();

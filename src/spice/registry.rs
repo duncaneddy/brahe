@@ -215,6 +215,39 @@ pub fn loaded_kernels() -> Vec<String> {
     GLOBAL_SPICE.read().unwrap().load_order.clone()
 }
 
+/// True when a loaded kernel's registry key contains `fragment`.
+///
+/// A registry key is the known-kernel name (`"de440s"`, `"moon_pa_de440"`,
+/// ...) or, for bring-your-own kernels, the file-path string it was loaded
+/// from — so a fragment like `"moon_pa_de440"` matches both a name-loaded
+/// kernel and a path-loaded copy of the same file. Allocation-free
+/// read-lock check, cheap enough for per-call guards (unlike cloning
+/// [`loaded_kernels`]); unlike a `OnceLock` latch it stays correct across
+/// [`clear_kernels`]/[`unload_kernel`].
+///
+/// # Arguments
+/// - `fragment`: Substring to search for in each loaded kernel's key
+///
+/// # Returns
+/// - `true` if any loaded kernel's key contains `fragment`
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{kernel_is_loaded, load_kernel};
+///
+/// load_kernel("de440s").unwrap();
+/// assert!(kernel_is_loaded("de440s"));
+/// assert!(!kernel_is_loaded("de440x"));
+/// ```
+pub fn kernel_is_loaded(fragment: &str) -> bool {
+    GLOBAL_SPICE
+        .read()
+        .unwrap()
+        .load_order
+        .iter()
+        .any(|k| k.contains(fragment))
+}
+
 /// Initialize the global ephemeris with the default DE440s kernel.
 ///
 /// Equivalent to `load_kernel("de440s")`. Optional: `spk_position` and
@@ -415,6 +448,41 @@ fn ensure_default_ephemeris_loaded() -> Result<(), BraheError> {
     Ok(())
 }
 
+/// Ensures the kernels needed to resolve queries among `ids` are loaded:
+/// the default planetary DE ephemeris when no SPK is resident yet
+/// (**before** any satellite kernel, so a satellite load cannot suppress
+/// the DE auto-initialization), then each satellite-system ephemeris
+/// kernel for satellite-range IDs.
+///
+/// Satellite-kernel load failures are ignored: the ID may instead be
+/// covered by a bring-your-own kernel already in the registry, in which
+/// case the subsequent query succeeds; if nothing covers it, the query
+/// surfaces the chain-resolution error.
+///
+/// An explicitly loaded alternative DE kernel (e.g. `de440`) keeps its
+/// precedence — the default is only loaded into an SPK-empty registry.
+///
+/// # Arguments
+/// - `ids`: NAIF IDs the caller is about to query through the registry
+///
+/// # Returns
+/// - `Ok(())` on success, or `BraheError` if the default DE ephemeris
+///   cannot be loaded
+pub(crate) fn ensure_bodies_loadable(ids: &[i32]) -> Result<(), BraheError> {
+    use super::positions::{de_kernel_covers, satellite_system_kernel};
+
+    ensure_default_ephemeris_loaded()?;
+    for &id in ids {
+        if !de_kernel_covers(id)
+            && (400..=999).contains(&id)
+            && let Some(kernel) = satellite_system_kernel(id / 100)
+        {
+            let _ = load_kernel(kernel);
+        }
+    }
+    Ok(())
+}
+
 // ============================================================================
 // Generic SPK Queries
 // ============================================================================
@@ -562,7 +630,12 @@ fn spk_kernel_for_query(kernel: KernelSource) -> Result<Arc<SPK>, BraheError> {
             "Kernel '{}' is a binary PCK, not an SPK",
             key
         ))),
-        None => unreachable!("load_kernel just ensured '{key}' is present"),
+        // Reachable if another thread unloads the kernel between the
+        // load_kernel call above and this lookup.
+        None => Err(BraheError::Error(format!(
+            "Kernel '{}' was unloaded concurrently during query",
+            key
+        ))),
     }
 }
 
@@ -1374,6 +1447,21 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_spk_state_and_velocity_from_kernel_scoped() {
+        // Scoped state/velocity queries against a single named kernel: the
+        // state's position/velocity halves must equal the position-only and
+        // velocity-only scoped queries.
+        setup_global_test_spice();
+        let epc = epc_2025();
+        let x = spk_state_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        let r = spk_position_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        let v = spk_velocity_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        assert_abs_diff_eq!((x.fixed_rows::<3>(0) - r).norm(), 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!((x.fixed_rows::<3>(3) - v).norm(), 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[serial]
     fn test_concurrent_queries() {
         setup_global_test_spice();
         load_kernel("de440s").unwrap();
@@ -1421,6 +1509,29 @@ mod tests {
         assert_abs_diff_eq!(e.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
         let q = pck_quaternion(31008, epc_2025()).unwrap();
         assert_abs_diff_eq!(q.to_rotation_matrix().to_matrix(), r, epsilon = 1e-9);
+
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_load_mar099s_and_query_phobos_deimos_network() {
+        setup_global_test_spice();
+        clear_kernels();
+
+        load_kernel("mar099s").unwrap();
+        assert_eq!(loaded_kernels(), vec!["mar099s".to_string()]);
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        // Phobos (401) relative to Mars barycenter (4): |r| ~ 9376 km
+        let r = spk_position(NAIFId::Phobos, NAIFId::MarsBarycenter, epc).unwrap();
+        assert!((r.norm() - 9.376e6).abs() < 0.2e6);
+        // Deimos (402) relative to Mars barycenter (4): |r| ~ 23463 km
+        let r = spk_position(NAIFId::Deimos, NAIFId::MarsBarycenter, epc).unwrap();
+        assert!((r.norm() - 2.3463e7).abs() < 0.5e6);
 
         // Restore global state for other tests.
         clear_kernels();
@@ -1482,6 +1593,55 @@ mod tests {
         setup_global_test_spice();
         let err = load_kernel("/nonexistent/path/to/kernel.bsp").unwrap_err();
         assert!(format!("{}", err).contains("neither a known kernel name"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_ensure_bodies_loadable_loads_de_before_satellite_kernel() {
+        // From an SPK-empty registry, the default DE ephemeris must load
+        // BEFORE the satellite kernel: a satellite kernel alone would
+        // suppress the DE auto-initialization and leave e.g. the Earth leg
+        // of a 499<->399 query unresolvable.
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        {
+            let cache = CacheRedirect::new();
+            cache.seed_real_de440s();
+            cache.seed(
+                "mar099s.bsp",
+                &crate::utils::testing::synthetic_spk_kernel_bytes(&[(499, 4, 2.0)]),
+            );
+
+            clear_kernels();
+            ensure_bodies_loadable(&[499]).unwrap();
+            assert_eq!(
+                loaded_kernels(),
+                vec!["de440s".to_string(), "mar099s".to_string()]
+            );
+
+            // Idempotent: a second call adds nothing.
+            ensure_bodies_loadable(&[499]).unwrap();
+            assert_eq!(loaded_kernels().len(), 2);
+
+            // DE-covered IDs load no satellite kernel.
+            clear_kernels();
+            ensure_bodies_loadable(&[301, 399]).unwrap();
+            assert_eq!(loaded_kernels(), vec!["de440s".to_string()]);
+        }
+        // Restore global state for other tests.
+        clear_kernels();
+        load_kernel("de440s").unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_kernel_is_loaded() {
+        setup_global_test_spice();
+        load_kernel("de440s").unwrap();
+        assert!(kernel_is_loaded("de440s"));
+        // Substring of a loaded key matches; an unknown fragment does not.
+        assert!(kernel_is_loaded("de440"));
+        assert!(!kernel_is_loaded("nonexistent_kernel"));
     }
 
     #[test]

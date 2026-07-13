@@ -1323,16 +1323,11 @@ mod tests {
     // Dynamic RKN1210DIntegrator tests
     // ========================================
 
-    use crate::eop::set_global_eop_provider;
     use crate::integrators::rkn1210::RKN1210DIntegrator;
     use crate::integrators::traits::DIntegrator;
     use nalgebra::{DMatrix, DVector};
 
-    fn setup_global_test_eop() {
-        use crate::eop::StaticEOPProvider;
-        let eop = StaticEOPProvider::from_zero();
-        set_global_eop_provider(eop);
-    }
+    use crate::utils::testing::setup_global_test_eop;
 
     fn point_earth_dynamic(
         _t: f64,

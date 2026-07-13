@@ -30,6 +30,11 @@ fn push_trajectory_states(seg: &mut OEMSegment, traj: &DOrbitTrajectory) -> Resu
             OrbitFrame::GCRF => traj.state_gcrf(*epoch)?,
             OrbitFrame::ECI => traj.state_eci(*epoch)?,
             OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch)?,
+            OrbitFrame::BodyCenteredInertial(_) => {
+                return Err(brahe::utils::BraheError::Error(
+                    "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
+                ));
+            }
         };
         seg.states.push(OEMStateVector {
             epoch: *epoch,
@@ -390,7 +395,7 @@ impl PyOEMStates {
     /// Extend with state vectors from an iterable.
     ///
     /// Args:
-    ///     iterable: Iterable of OEMStateVector objects
+    ///     iterable (Iterable[OEMStateVector]): Iterable of OEMStateVector objects
     fn extend(&self, py: Python, iterable: &Bound<'_, PyAny>) -> PyResult<()> {
         let parent_oem: &Bound<PyOEM> = self.parent.bind(py).cast()?;
         let iterator = iterable.try_iter()?;
@@ -1035,6 +1040,9 @@ impl PyOEMSegment {
                         OrbitFrame::GCRF => traj.state_gcrf(*epoch),
                         OrbitFrame::ECI => traj.state_eci(*epoch),
                         OrbitFrame::ECEF | OrbitFrame::ITRF => traj.state_itrf(*epoch),
+                        OrbitFrame::BodyCenteredInertial(_) => Err(brahe::utils::BraheError::Error(
+                            "body-centered inertial (non-Earth) trajectories cannot be exported to CCSDS Earth reference frames".to_string(),
+                        )),
                     }.map_err(|e| {
                         pyo3::exceptions::PyRuntimeError::new_err(format!(
                             "Failed to convert trajectory state at {}: {}", epoch, e
@@ -1147,7 +1155,7 @@ impl PyOEMSegments {
     /// Extend with segments from an iterable.
     ///
     /// Args:
-    ///     iterable: Iterable of OEMSegment objects
+    ///     iterable (Iterable[OEMSegment]): Iterable of OEMSegment objects
     fn extend(&self, py: Python, iterable: &Bound<'_, PyAny>) -> PyResult<()> {
         let parent_oem: &Bound<PyOEM> = self.parent.bind(py).cast()?;
         let iterator = iterable.try_iter()?;
@@ -2346,7 +2354,7 @@ impl PyOPMManeuvers {
     /// Extend with maneuvers from an iterable.
     ///
     /// Args:
-    ///     iterable: Iterable of OPMManeuver objects
+    ///     iterable (Iterable[OPMManeuver]): Iterable of OPMManeuver objects
     fn extend(&self, py: Python, iterable: &Bound<'_, PyAny>) -> PyResult<()> {
         let parent_opm: &Bound<PyOPM> = self.parent.bind(py).cast()?;
         let iterator = iterable.try_iter()?;

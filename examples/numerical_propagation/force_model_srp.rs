@@ -16,6 +16,7 @@ fn main() {
         area: bh::ParameterSource::ParameterIndex(3), // srp_area from params[3]
         cr: bh::ParameterSource::ParameterIndex(4),   // Cr from params[4]
         eclipse_model: bh::EclipseModel::None,
+        occulting_bodies: vec![bh::OccultingBody::Earth],
     };
 
     // Option 2: Cylindrical shadow model
@@ -24,6 +25,7 @@ fn main() {
         area: bh::ParameterSource::ParameterIndex(3),
         cr: bh::ParameterSource::ParameterIndex(4),
         eclipse_model: bh::EclipseModel::Cylindrical,
+        occulting_bodies: vec![bh::OccultingBody::Earth],
     };
 
     // Option 3: Conical shadow model (recommended)
@@ -32,6 +34,7 @@ fn main() {
         area: bh::ParameterSource::ParameterIndex(3),
         cr: bh::ParameterSource::ParameterIndex(4),
         eclipse_model: bh::EclipseModel::Conical,
+        occulting_bodies: vec![bh::OccultingBody::Earth],
     };
 }
 

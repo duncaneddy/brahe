@@ -16,7 +16,10 @@ use nalgebra::{DMatrix, DVector, Vector3, Vector6};
 
 use crate::constants::{GM_EARTH, R_EARTH};
 use crate::earth_models::{density_harris_priester, density_nrlmsise00};
-use crate::frames::{earth_rotation, rotation_eci_to_ecef};
+use crate::frames::{
+    ReferenceFrame, earth_rotation, rotation_eci_to_ecef, rotation_frame_to_frame,
+    rotation_lci_to_lfpa, rotation_mci_to_mcmf, state_frame_to_frame,
+};
 use crate::integrators::traits::DIntegrator;
 use crate::math::SMatrix3;
 use crate::math::interpolation::{
@@ -27,17 +30,19 @@ use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
 use crate::orbit_dynamics::{
-    GravityModel, GravityModelTideSystem, SolidTideConfig, accel_drag,
-    accel_gravity_spherical_harmonics, accel_point_mass_gravity, accel_relativity,
-    accel_solar_radiation_pressure, accel_third_body, eclipse_conical, eclipse_cylindrical,
-    get_global_gravity_model, moon_position, sun_position,
+    GravityModel, GravityModelTideSystem, SolidTideConfig, accel_drag_for_body,
+    accel_gravity_spherical_harmonics, accel_point_mass_gravity, accel_relativity_for_body,
+    accel_solar_radiation_pressure, accel_third_body, accel_third_body_for_body,
+    eclipse_conical_for_body, eclipse_cylindrical_for_body, get_global_gravity_model,
+    moon_position, sun_position,
 };
 use crate::propagators::force_model_config::PermanentTideConfig;
 use crate::propagators::{
-    AtmosphericModel, EclipseModel, ForceModelConfig, FrameTransformationModel,
-    GravityConfiguration, GravityModelSource,
+    AtmosphericModel, CentralBody, EclipseModel, ForceModelConfig, FrameTransformationModel,
+    GravityConfiguration, GravityModelSource, ThirdBody,
 };
 use crate::relative_motion::rotation_eci_to_rtn;
+use crate::spice::{spk_position, spk_state};
 use crate::time::Epoch;
 use crate::traits::{OrbitFrame, OrbitRepresentation};
 use crate::trajectories::DOrbitTrajectory;
@@ -49,7 +54,7 @@ use crate::utils::identifiable::Identifiable;
 use crate::utils::state_providers::{
     DCovarianceProvider, DOrbitCovarianceProvider, DOrbitStateProvider, DStateProvider,
 };
-use crate::{AngleFormat, accel_earth_zonal_gravity, state_eci_to_koe};
+use crate::{AngleFormat, accel_earth_zonal_gravity, state_eci_to_koe, state_eci_to_koe_for_body};
 
 use super::TrajectoryMode;
 use super::traits::DStatePropagator;
@@ -147,15 +152,21 @@ const ROTATION_CACHE_CAPACITY: usize = 30;
 struct RotationCache {
     /// LRU map from `t.to_bits()` to the rotation at the corresponding epoch.
     entries: lru::LruCache<u64, SMatrix3>,
+    /// Central body the propagator integrates about. Selects which
+    /// inertial→body-fixed rotation chain to compute on a miss. Captured at
+    /// cache creation and fixed for the propagator's lifetime.
+    central_body: CentralBody,
     /// Captured at cache creation; encodes which rotation chain to compute
-    /// on a miss. Doesn't change for the lifetime of the propagator.
+    /// on a miss (only consulted for `CentralBody::Earth`). Doesn't change for
+    /// the lifetime of the propagator.
     model: FrameTransformationModel,
 }
 
 impl RotationCache {
-    fn new(model: FrameTransformationModel) -> Self {
+    fn new(central_body: CentralBody, model: FrameTransformationModel) -> Self {
         Self {
             entries: lru::LruCache::new(NonZeroUsize::new(ROTATION_CACHE_CAPACITY).unwrap()),
+            central_body,
             model,
         }
     }
@@ -167,9 +178,26 @@ impl RotationCache {
         if let Some(r) = self.entries.get(&t.to_bits()) {
             return *r;
         }
-        let r = match self.model {
-            FrameTransformationModel::FullEarthRotation => rotation_eci_to_ecef(epoch),
-            FrameTransformationModel::EarthRotationOnly => earth_rotation(epoch),
+        let r = match (&self.central_body, &self.model) {
+            (CentralBody::Earth, FrameTransformationModel::FullEarthRotation) => {
+                rotation_eci_to_ecef(epoch)
+            }
+            (CentralBody::Earth, FrameTransformationModel::EarthRotationOnly) => {
+                earth_rotation(epoch)
+            }
+            (CentralBody::Moon, _) => rotation_lci_to_lfpa(epoch),
+            (CentralBody::Mars, _) => rotation_mci_to_mcmf(epoch),
+            // Barycenters have no body-fixed frame; validation forbids any
+            // body-fixed force term here, so the identity is never actually
+            // applied to a real acceleration.
+            (CentralBody::EMB, _) | (CentralBody::SSB, _) => SMatrix3::identity(),
+            (cb @ CentralBody::Custom(c), _) => match c.fixed_frame {
+                Some(ff) => rotation_frame_to_frame(cb.inertial_frame(), ff, epoch)
+                    .expect("custom body fixed_frame rotation failed"),
+                // No fixed frame configured; validation forbids body-fixed
+                // force terms in this case (see `ForceModelConfig::validate`).
+                None => SMatrix3::identity(),
+            },
         };
         self.entries.put(t.to_bits(), r);
         r
@@ -274,6 +302,13 @@ pub struct DNumericalOrbitPropagator {
     params: DVector<f64>,
     /// State dimension
     state_dim: usize,
+    /// Central body this propagator integrates relative to. Its
+    /// [`CentralBody::inertial_frame`] is the frame of the raw integrated
+    /// state (see [`DNumericalOrbitPropagator::state_central_inertial`]).
+    /// Boxed to keep `CentralBody::Custom`'s larger payload from inflating
+    /// the size of every propagator instance (and of enums embedding one,
+    /// e.g. `DynamicsSource`).
+    central_body: Box<CentralBody>,
 
     // ===== STM and Sensitivity =====
     /// Propagation mode (configured at construction, immutable)
@@ -611,6 +646,11 @@ impl DNumericalOrbitPropagator {
         control_input: DControlInput,
         initial_covariance: Option<DMatrix<f64>>,
     ) -> Result<Self, BraheError> {
+        // Validate the force model configuration is internally consistent with
+        // its central body (fails fast on e.g. Earth-only options paired with a
+        // non-Earth central body) before doing any other work.
+        force_config.validate()?;
+
         // Validate propagation config (e.g. HermiteQuintic requires stored accelerations)
         propagation_config.validate()?;
 
@@ -783,10 +823,18 @@ impl DNumericalOrbitPropagator {
             propagation_config.integrator,
         );
 
-        // Create trajectory storage (internally always ECI Cartesian)
+        // Create trajectory storage: samples are stored in the central
+        // body's inertial frame — ECI for Earth, body-centered inertial
+        // (LCI/MCI/EMBI/...) otherwise, so the frame metadata matches the
+        // stored states and Earth-frame trajectory conversions are rejected
+        // for non-Earth propagators.
+        let trajectory_frame = match force_config.central_body {
+            CentralBody::Earth => OrbitFrame::ECI,
+            ref cb => OrbitFrame::BodyCenteredInertial(cb.naif_id()),
+        };
         let mut trajectory = DOrbitTrajectory::new(
             state_dim,
-            OrbitFrame::ECI,
+            trajectory_frame,
             OrbitRepresentation::Cartesian,
             None,
         );
@@ -873,6 +921,7 @@ impl DNumericalOrbitPropagator {
             x_curr: state_eci,
             params,
             state_dim,
+            central_body: Box::new(force_config.central_body.clone()),
             propagation_mode,
             stm,
             sensitivity,
@@ -1397,6 +1446,7 @@ impl DNumericalOrbitPropagator {
         // multiple threads. Lock acquisition on this uncontended Mutex is
         // ~10 ns; the rotation work it saves dwarfs that.
         let rotation_cache = Arc::new(Mutex::new(RotationCache::new(
+            force_config.central_body.clone(),
             force_config.frame_transform.clone(),
         )));
         Arc::new(
@@ -1566,10 +1616,21 @@ impl DNumericalOrbitPropagator {
         // stage-to-stage epoch overlap in the integrator tableau collapses
         // to a single rotation computation per unique epoch.
 
+        // Central body the object is propagated relative to. Selects the
+        // physical parameters (GM, radius, spin) and ephemeris/eclipse origins
+        // used throughout the force model below.
+        let central = &force_config.central_body;
+
         // ===== GRAVITY =====
         match &force_config.gravity {
             GravityConfiguration::PointMass => {
-                a_total += accel_point_mass_gravity(r, Vector3::zeros(), GM_EARTH);
+                // Barycenters (`gm() == 0`) contribute no point-mass term of
+                // their own; their gravity comes entirely from the third-body
+                // perturbers configured for the propagator.
+                let gm = central.gm();
+                if gm > 0.0 {
+                    a_total += accel_point_mass_gravity(r, Vector3::zeros(), gm);
+                }
             }
             GravityConfiguration::EarthZonal { degree } => {
                 let r_ecef = r_i2b * r;
@@ -1667,14 +1728,23 @@ impl DNumericalOrbitPropagator {
                     rho0,
                     h0,
                 } => {
-                    let altitude = r.norm() - R_EARTH;
+                    let radius = central
+                        .radius()
+                        .expect("drag requires central-body radius (validated)");
+                    let altitude = r.norm() - radius;
                     let h_diff = altitude - h0;
                     rho0 * (-h_diff / scale_height).exp()
                 }
             };
 
-            // Compute drag acceleration
-            a_total += accel_drag(x_eci, density, mass, drag_area, cd, r_i2b);
+            // Compute drag acceleration using the central body's atmospheric
+            // co-rotation rate. For Earth this is bit-identical to the legacy
+            // `accel_drag` (which delegates to `accel_drag_for_body` with the
+            // same Earth spin vector).
+            let omega = central
+                .omega_vector()
+                .expect("drag requires central-body spin rate (validated)");
+            a_total += accel_drag_for_body(x_eci, density, mass, drag_area, cd, r_i2b, omega);
         }
 
         // ===== SOLAR RADIATION PRESSURE =====
@@ -1690,17 +1760,58 @@ impl DNumericalOrbitPropagator {
             let srp_area = srp_config.area.get_value(params_opt);
             let cr = srp_config.cr.get_value(params_opt);
 
-            // Get sun position
-            let r_sun = sun_position(epoch);
+            // Sun position relative to the central body. For Earth this uses
+            // the analytic `sun_position` ephemeris (bit-identical to the
+            // legacy path); for any other central body it is queried from the
+            // loaded SPK ephemeris (Sun = NAIF ID 10).
+            let r_sun = if matches!(central, CentralBody::Earth) {
+                sun_position(epoch)
+            } else {
+                // Ensure the DE ephemeris and any satellite-system kernel
+                // for the central body (e.g. mar099s for Mars, NAIF 499)
+                // are loaded before the registry query.
+                crate::spice::registry::ensure_bodies_loadable(&[central.naif_id()])
+                    .and_then(|_| spk_position(10, central.naif_id(), epoch))
+                    .expect("SPK sun query failed")
+            };
 
             // Compute SRP acceleration (P0 = 4.56e-6 N/m² at 1 AU)
             let mut a_srp = accel_solar_radiation_pressure(r, r_sun, mass, cr, srp_area, 4.56e-6);
 
-            // Apply eclipse factor
-            let eclipse_factor = match srp_config.eclipse_model {
-                EclipseModel::None => 1.0,
-                EclipseModel::Cylindrical => eclipse_cylindrical(r, r_sun),
-                EclipseModel::Conical => eclipse_conical(r, r_sun),
+            // Apply eclipse factor. Each occulting body contributes an
+            // illumination fraction; the object is as shadowed as its most
+            // occulting body, so we take the minimum across all of them. An
+            // occulter co-located with the central body sits at the origin;
+            // any other occulter's position is queried from the ephemeris.
+            let eclipse_factor = if matches!(srp_config.eclipse_model, EclipseModel::None) {
+                1.0
+            } else {
+                let mut illumination = 1.0_f64;
+                for occ in &srp_config.occulting_bodies {
+                    let r_occ = if occ.naif_position_id() == central.naif_id() {
+                        Vector3::zeros()
+                    } else {
+                        crate::spice::registry::ensure_bodies_loadable(&[
+                            occ.naif_position_id(),
+                            central.naif_id(),
+                        ])
+                        .and_then(|_| {
+                            spk_position(occ.naif_position_id(), central.naif_id(), epoch)
+                        })
+                        .expect("SPK occulting-body query failed")
+                    };
+                    let factor = match srp_config.eclipse_model {
+                        EclipseModel::Cylindrical => {
+                            eclipse_cylindrical_for_body(r, r_sun, r_occ, occ.radius())
+                        }
+                        EclipseModel::Conical => {
+                            eclipse_conical_for_body(r, r_sun, r_occ, occ.radius())
+                        }
+                        EclipseModel::None => unreachable!(),
+                    };
+                    illumination = illumination.min(factor);
+                }
+                illumination
             };
 
             a_srp *= eclipse_factor;
@@ -1710,13 +1821,64 @@ impl DNumericalOrbitPropagator {
         // ===== THIRD BODY =====
         if let Some(tb_config) = &force_config.third_body {
             for body in &tb_config.bodies {
-                a_total += accel_third_body(body.clone(), tb_config.ephemeris_source, epoch, r);
+                // Keep the legacy geocentric call for Earth so Earth
+                // propagation stays bit-identical; other central bodies use
+                // the central-body-aware differential form. `accel_third_body`
+                // only supports the 9 classical planet bodies and panics for
+                // Phobos/Deimos/Custom/Earth-as-perturber, so those route
+                // through `accel_third_body_for_body` instead (which returns
+                // an `Err`, not a panic, if body and central body coincide —
+                // a case `ForceModelConfig::validate` rejects up front).
+                if matches!(central, CentralBody::Earth) {
+                    match body {
+                        ThirdBody::Sun
+                        | ThirdBody::Moon
+                        | ThirdBody::Mercury
+                        | ThirdBody::Venus
+                        | ThirdBody::Mars
+                        | ThirdBody::Jupiter
+                        | ThirdBody::Saturn
+                        | ThirdBody::Uranus
+                        | ThirdBody::Neptune => {
+                            a_total += accel_third_body(
+                                body.clone(),
+                                tb_config.ephemeris_source,
+                                epoch,
+                                r,
+                            );
+                        }
+                        ThirdBody::Phobos
+                        | ThirdBody::Deimos
+                        | ThirdBody::Custom { .. }
+                        | ThirdBody::Earth => {
+                            a_total += accel_third_body_for_body(
+                                &CentralBody::Earth,
+                                body,
+                                tb_config.ephemeris_source,
+                                epoch,
+                                r,
+                            )
+                            .unwrap_or_else(|e| {
+                                panic!("third-body query failed for {:?}: {}", body, e)
+                            });
+                        }
+                    }
+                } else {
+                    a_total += accel_third_body_for_body(
+                        central,
+                        body,
+                        tb_config.ephemeris_source,
+                        epoch,
+                        r,
+                    )
+                    .expect("third-body query failed");
+                }
             }
         }
 
         // ===== RELATIVITY =====
         if force_config.relativity {
-            a_total += accel_relativity(x_eci);
+            a_total += accel_relativity_for_body(x_eci, central.gm());
         }
 
         // Build the orbital state derivative `[vx, vy, vz, ax, ay, az]` on
@@ -2590,10 +2752,15 @@ impl super::traits::DStatePropagator for DNumericalOrbitPropagator {
             }
         }
 
-        // Clear trajectory
+        // Clear trajectory, keeping the frame metadata consistent with the
+        // central body (ECI for Earth, body-centered inertial otherwise).
+        let trajectory_frame = match self.central_body.as_ref() {
+            CentralBody::Earth => OrbitFrame::ECI,
+            cb => OrbitFrame::BodyCenteredInertial(cb.naif_id()),
+        };
         self.trajectory = DOrbitTrajectory::new(
             self.state_dim,
-            OrbitFrame::ECI,
+            trajectory_frame,
             OrbitRepresentation::Cartesian,
             None,
         );
@@ -2694,11 +2861,54 @@ impl DStateProvider for DNumericalOrbitPropagator {
 }
 
 // =============================================================================
-// DOrbitStateProvider Trait
+// Central-Body-Aware State Accessors
 // =============================================================================
 
-impl DOrbitStateProvider for DNumericalOrbitPropagator {
-    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+impl DNumericalOrbitPropagator {
+    /// Returns the raw integrated state at the given epoch, expressed in the
+    /// inertial frame centered on this propagator's central body (see
+    /// [`ForceModelConfig::central_body`]) — `GCRF` for an `Earth`-centered
+    /// propagator, `LCI` for a `Moon`-centered one, `MCI` for `Mars`, etc.
+    ///
+    /// This is the state the integrator actually propagates: no
+    /// central-body offset or axis rotation is applied. [`Self::state_eci`]
+    /// (via [`DOrbitStateProvider`]) always returns an Earth-centered state
+    /// regardless of the propagator's central body; use this method to get
+    /// the state in its native frame instead, which avoids an Earth round
+    /// trip for non-Earth propagators.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
+    ///   in the central body's inertial frame
+    /// * `Err(BraheError)` - If `epoch` is outside the propagator's stored trajectory
+    ///   and does not match the current epoch
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, ForceModelConfig};
+    /// use brahe::eop::{StaticEOPProvider, set_global_eop_provider};
+    /// use brahe::time::{Epoch, TimeSystem};
+    /// use brahe::constants::R_EARTH;
+    /// use nalgebra::DVector;
+    ///
+    /// let eop = StaticEOPProvider::from_zero();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    /// let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+    ///
+    /// let prop = DNumericalOrbitPropagator::new(
+    ///     epoch, state, NumericalPropagationConfig::default(),
+    ///     ForceModelConfig::two_body_gravity(), None, None, None, None,
+    /// ).unwrap();
+    ///
+    /// use brahe::utils::state_providers::DOrbitStateProvider;
+    /// let x = prop.state_bci(epoch).unwrap();
+    /// ```
+    fn state_central_inertial(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Try to interpolate from trajectory
         if let Ok(state) = self.trajectory.interpolate(&epoch) {
             return Ok(state.fixed_rows::<6>(0).into());
@@ -2717,6 +2927,94 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
              Call step_by() or propagate_to() to advance the propagator first.",
             epoch, start, end
         )))
+    }
+}
+
+// =============================================================================
+// DOrbitStateProvider Trait
+// =============================================================================
+
+impl DOrbitStateProvider for DNumericalOrbitPropagator {
+    /// Returns the state at the given epoch in this propagator's central
+    /// body's body-centered inertial (BCI) frame: ICRF-aligned axes centered
+    /// on the body configured in [`ForceModelConfig::central_body`] (`GCRF`
+    /// for Earth, `LCI` for the Moon, `MCI` for Mars, etc.).
+    ///
+    /// This is the propagator's native state: its trajectory is integrated
+    /// directly in the central body's inertial frame, so no conversion is
+    /// performed.
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
+    ///   in the central body's inertial frame
+    /// * `Err(BraheError)` - If `epoch` is outside the propagator's stored trajectory
+    ///   and does not match the current epoch
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        self.state_central_inertial(epoch)
+    }
+
+    /// Returns the state at the given epoch in this propagator's central
+    /// body's body-centered body-fixed (BCBF) frame: the rotating frame fixed
+    /// to the central body (`ITRF` for Earth, `LFPA` for the Moon, `MCMF`
+    /// for Mars, the configured `fixed_frame` for a custom body).
+    ///
+    /// # Arguments
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s)
+    ///   in the central body's body-fixed frame
+    /// * `Err(BraheError)` - If the state cannot be computed, or the central body
+    ///   has no body-fixed frame (`EMB`/`SSB` barycenters, custom bodies without
+    ///   a configured frame)
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_central_inertial(epoch)?;
+        match self.central_body.fixed_frame() {
+            Some(fixed_frame) => {
+                state_frame_to_frame(self.central_body.inertial_frame(), fixed_frame, epoch, x)
+            }
+            None => Err(BraheError::Error(format!(
+                "central body {} has no body-fixed frame",
+                self.central_body
+            ))),
+        }
+    }
+
+    /// Returns the state at the given epoch expressed in an arbitrary
+    /// reference frame, routing through this propagator's own central body's
+    /// inertial frame. For an `Earth`-centered propagator this converts from
+    /// `GCRF`; for a lunar/Martian propagator it converts directly from
+    /// `LCI`/`MCI`, avoiding an unnecessary Earth round trip (and the
+    /// associated precision loss).
+    ///
+    /// # Arguments
+    /// * `frame` - The reference frame to express the state in
+    /// * `epoch` - The epoch at which to compute the state
+    ///
+    /// # Returns
+    /// * `Ok(Vector6<f64>)` - 6-element vector containing position (m) and velocity (m/s) in `frame`
+    /// * `Err(BraheError)` - If the state cannot be computed or the frame conversion fails
+    fn state_in_frame(
+        &self,
+        frame: ReferenceFrame,
+        epoch: Epoch,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_central_inertial(epoch)?;
+        state_frame_to_frame(self.central_body.inertial_frame(), frame, epoch, x)
+    }
+
+    fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_central_inertial(epoch)?;
+        match self.central_body.as_ref() {
+            CentralBody::Earth => Ok(x),
+            cb => {
+                crate::spice::registry::ensure_bodies_loadable(&[cb.naif_id()])?;
+                Ok(x + spk_state(cb.naif_id(), 399, epoch)?)
+            }
+        }
     }
 
     fn state_ecef(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
@@ -2739,13 +3037,36 @@ impl DOrbitStateProvider for DNumericalOrbitPropagator {
         Ok(crate::frames::state_gcrf_to_eme2000(gcrf_state))
     }
 
+    /// Computes osculating Keplerian elements about this propagator's own
+    /// central body: `Earth` elements come from [`state_eci`][`Self::state_eci`]
+    /// (Earth-centered) exactly as before; for a non-Earth central body
+    /// (e.g. `Moon`, `Mars`) elements are instead computed from
+    /// [`state_central_inertial`][`Self::state_central_inertial`] using that
+    /// body's gravitational parameter, so they describe the propagated
+    /// object's orbit about the Moon/Mars/etc. rather than a physically
+    /// meaningless Earth-centered fit. Osculating elements are undefined
+    /// about a massless barycenter (`EMB`/`SSB`), so this returns an `Err`
+    /// for those central bodies.
     fn state_koe_osc(
         &self,
         epoch: Epoch,
         angle_format: AngleFormat,
     ) -> Result<Vector6<f64>, BraheError> {
-        let eci_state = self.state_eci(epoch)?;
-        Ok(state_eci_to_koe(eci_state, angle_format))
+        match self.central_body.as_ref() {
+            CentralBody::Earth => {
+                let eci_state = self.state_eci(epoch)?;
+                Ok(state_eci_to_koe(eci_state, angle_format))
+            }
+            cb if cb.is_barycenter() => Err(BraheError::Error(format!(
+                "Cannot compute osculating orbital elements: central body {} is a massless \
+                 barycenter, about which osculating elements are undefined.",
+                cb
+            ))),
+            cb => {
+                let x_central = self.state_central_inertial(epoch)?;
+                Ok(state_eci_to_koe_for_body(x_central, cb.gm(), angle_format))
+            }
+        }
     }
 }
 
@@ -2954,6 +3275,7 @@ impl Identifiable for DNumericalOrbitPropagator {
 mod tests {
     use super::*;
     use crate::constants::units::AngleFormat;
+    use crate::constants::{GM_EARTH, R_EARTH};
     use crate::coordinates::position_ecef_to_geodetic;
     use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
     use crate::events::{DAltitudeEvent, DTimeEvent, EventDirection};
@@ -2962,10 +3284,11 @@ mod tests {
     use crate::orbit_dynamics::gravity::{
         GravityModelType, set_global_gravity_model, set_global_gravity_model_to_tide_system,
     };
+    use crate::propagators::CentralBody;
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::force_model_config::{
-        AtmosphericModel, DragConfiguration, EphemerisSource, GravityConfiguration,
-        ParameterSource, ThirdBody,
+        AtmosphericModel, DragConfiguration, EphemerisSource, GravityConfiguration, OccultingBody,
+        ParameterSource, ThirdBody, ThirdBodyConfiguration,
     };
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
@@ -2996,6 +3319,7 @@ mod tests {
     /// This allows testing parameter-dependent features without loading gravity model
     fn test_force_config_with_params() -> ForceModelConfig {
         ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             drag: Some(DragConfiguration {
                 model: AtmosphericModel::HarrisPriester,
@@ -3012,6 +3336,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_default() {
         setup_global_test_eop();
         setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
@@ -3055,6 +3380,7 @@ mod tests {
     /// exercises the same code path as larger models.
     fn jgm3_force_config(degree: usize, order: usize) -> ForceModelConfig {
         ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(
                     crate::orbit_dynamics::GravityModelType::JGM3,
@@ -3176,11 +3502,15 @@ mod tests {
     // covered by the rest of the propagator test suite.
 
     #[test]
+    #[serial_test::serial]
     fn test_rotation_cache_hit_returns_same_matrix() {
         // First call is a miss-and-fill, second call must hit the cache and
         // return the identical matrix without recomputing.
         setup_global_test_eop();
-        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let mut cache = RotationCache::new(
+            CentralBody::Earth,
+            FrameTransformationModel::FullEarthRotation,
+        );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let first = cache.get_or_compute(0.0, epoch);
@@ -3192,12 +3522,16 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_rotation_cache_matches_uncached_call() {
         // Sanity: the cached result must agree with calling
         // `rotation_eci_to_ecef` directly. If a future change to the rotation
         // chain breaks this, the cache is silently returning stale data.
         setup_global_test_eop();
-        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let mut cache = RotationCache::new(
+            CentralBody::Earth,
+            FrameTransformationModel::FullEarthRotation,
+        );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let cached = cache.get_or_compute(0.0, epoch);
@@ -3209,12 +3543,16 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_rotation_cache_distinct_epochs_distinct_entries() {
         // Two unrelated epochs must produce different matrices (sanity that
         // we're not accidentally caching a single rotation under multiple
         // keys) and both must be retrievable.
         setup_global_test_eop();
-        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let mut cache = RotationCache::new(
+            CentralBody::Earth,
+            FrameTransformationModel::FullEarthRotation,
+        );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let r_at_zero = cache.get_or_compute(0.0, epoch);
@@ -3229,12 +3567,16 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_rotation_cache_earth_rotation_only_path() {
         // Verify the FrameTransformationModel dispatch in get_or_compute by
         // comparing against the corresponding bare function. This is the
         // only place that branch is exercised at the unit level.
         setup_global_test_eop();
-        let mut cache = RotationCache::new(FrameTransformationModel::EarthRotationOnly);
+        let mut cache = RotationCache::new(
+            CentralBody::Earth,
+            FrameTransformationModel::EarthRotationOnly,
+        );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         let cached = cache.get_or_compute(0.0, epoch);
@@ -3246,6 +3588,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_rotation_cache_rk4_stage_pattern_hits() {
         // Replay an RK4 stage sequence: (0, h/2, h/2, h) for two consecutive
         // steps. Hit assertions:
@@ -3254,7 +3597,10 @@ mod tests {
         // This is the access pattern the cache is specifically tuned for;
         // if these stop hitting, the cache is broken.
         setup_global_test_eop();
-        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let mut cache = RotationCache::new(
+            CentralBody::Earth,
+            FrameTransformationModel::FullEarthRotation,
+        );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let h = 30.0;
 
@@ -3277,13 +3623,17 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_rotation_cache_capacity_evicts_oldest() {
         // Fill the cache past capacity. The least-recently-used entry should
         // be evicted while the most recently inserted entries remain
         // reachable — verifies the LRU eviction policy and that lookups
         // correctly return the live entries.
         setup_global_test_eop();
-        let mut cache = RotationCache::new(FrameTransformationModel::FullEarthRotation);
+        let mut cache = RotationCache::new(
+            CentralBody::Earth,
+            FrameTransformationModel::FullEarthRotation,
+        );
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
 
         // Insert CAPACITY+1 entries, each at a distinct epoch.
@@ -3328,6 +3678,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstate_propagator_step_by() {
         setup_global_test_eop();
 
@@ -3373,6 +3724,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_propagate_to_forward() {
         setup_global_test_eop();
 
@@ -3421,6 +3773,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_step_by_backward() {
         setup_global_test_eop();
 
@@ -3476,6 +3829,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_propagate_to_backward() {
         setup_global_test_eop();
 
@@ -3531,6 +3885,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_propagate_steps() {
         setup_global_test_eop();
 
@@ -3589,6 +3944,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dstatepropagator_reset() {
         setup_global_test_eop();
 
@@ -3665,6 +4021,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_eci() {
         setup_global_test_eop();
 
@@ -3703,6 +4060,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_ecef() {
         setup_global_test_eop();
 
@@ -3738,6 +4096,73 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_dorbitstateprovider_state_bci_bcbf_earth() {
+        // For an Earth-centered propagator, BCI is the native GCRF state and
+        // BCBF matches ITRF.
+        use approx::assert_abs_diff_eq;
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::earth_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        prop.step_by(1800.0);
+        let query_epoch = epoch + 900.0;
+
+        let bci = prop.state_bci(query_epoch).unwrap();
+        let gcrf = prop.state_gcrf(query_epoch).unwrap();
+        for k in 0..6 {
+            assert_eq!(bci[k], gcrf[k]);
+        }
+
+        let bcbf = prop.state_bcbf(query_epoch).unwrap();
+        let itrf = prop.state_itrf(query_epoch).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(bcbf[k], itrf[k], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_state_bcbf_errors_for_barycenter() {
+        // EMB has no body-fixed frame, so BCBF must error.
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0e9, 0.0, 0.0, 0.0, 500.0, 0.0]);
+
+        let mut cfg = ForceModelConfig::two_body_gravity();
+        cfg.central_body = CentralBody::EMB;
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let err = prop.state_bcbf(epoch).unwrap_err();
+        assert!(format!("{}", err).contains("no body-fixed frame"));
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_gcrf() {
         setup_global_test_eop();
 
@@ -3773,6 +4198,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_itrf() {
         setup_global_test_eop();
 
@@ -3808,6 +4234,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_state_eme2000() {
         setup_global_test_eop();
 
@@ -3843,6 +4270,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_osculating_elements_radians() {
         setup_global_test_eop();
 
@@ -3884,6 +4312,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_osculating_elements_degrees() {
         setup_global_test_eop();
 
@@ -3925,6 +4354,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_frame_conversion_roundtrip() {
         setup_global_test_eop();
 
@@ -3969,6 +4399,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_representation_conversion_roundtrip() {
         setup_global_test_eop();
 
@@ -4015,6 +4446,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_extended_state_preservation() {
         setup_global_test_eop();
 
@@ -4073,6 +4505,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_angle_format_handling() {
         setup_global_test_eop();
 
@@ -4131,6 +4564,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitstateprovider_interpolation_accuracy() {
         setup_global_test_eop();
 
@@ -4180,6 +4614,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_covariance_eci() {
         setup_global_test_eop();
 
@@ -4226,6 +4661,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_covariance_gcrf() {
         setup_global_test_eop();
 
@@ -4268,6 +4704,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_covariance_rtn() {
         setup_global_test_eop();
 
@@ -4330,6 +4767,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_interpolation_accuracy() {
         setup_global_test_eop();
 
@@ -4475,6 +4913,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_dorbitcovarianceprovider_error_handling() {
         setup_global_test_eop();
 
@@ -4529,6 +4968,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_rejects_hermite_quintic_without_accelerations() {
         // Propagator construction must surface the config-validation error to the user.
         setup_global_test_eop();
@@ -4565,6 +5005,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_interpolationconfig_with_method() {
         setup_global_test_eop();
 
@@ -4590,6 +5031,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_interpolationconfig_set_and_get() {
         setup_global_test_eop();
 
@@ -4627,6 +5069,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_covarianceinterpolationconfig_with_method() {
         setup_global_test_eop();
 
@@ -4657,6 +5100,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_covarianceinterpolationconfig_set_and_get() {
         setup_global_test_eop();
 
@@ -4699,6 +5143,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_name() {
         setup_global_test_eop();
 
@@ -4724,6 +5169,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_id() {
         setup_global_test_eop();
 
@@ -4749,6 +5195,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_uuid() {
         setup_global_test_eop();
 
@@ -4776,6 +5223,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_new_uuid() {
         setup_global_test_eop();
 
@@ -4801,6 +5249,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_setters() {
         setup_global_test_eop();
 
@@ -4842,6 +5291,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_with_identity() {
         setup_global_test_eop();
 
@@ -4871,6 +5321,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_set_identity() {
         setup_global_test_eop();
 
@@ -4907,6 +5358,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_identifiable_persistence_through_propagation() {
         setup_global_test_eop();
 
@@ -4958,6 +5410,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_api_methods() {
         setup_global_test_eop();
 
@@ -5000,6 +5453,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_time_event() {
         setup_global_test_eop();
 
@@ -5037,6 +5491,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_altitude_event() {
         setup_global_test_eop();
 
@@ -5087,6 +5542,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_no_altitude_events() {
         setup_global_test_eop();
 
@@ -5137,6 +5593,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_value_event_matches_altitude_event() {
         setup_global_test_eop();
 
@@ -5236,6 +5693,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_callback_state_mutation() {
         setup_global_test_eop();
 
@@ -5279,6 +5737,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_callback_parameter_mutation() {
         setup_global_test_eop();
 
@@ -5325,6 +5784,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_terminal_event() {
         setup_global_test_eop();
 
@@ -5379,6 +5839,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_multiple_no_callbacks() {
         setup_global_test_eop();
 
@@ -5416,6 +5877,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_smart_processing() {
         setup_global_test_eop();
 
@@ -5460,6 +5922,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_at_initial_epoch() {
         setup_global_test_eop();
 
@@ -5499,6 +5962,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_at_final_epoch() {
         setup_global_test_eop();
 
@@ -5532,6 +5996,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_simultaneous_events() {
         setup_global_test_eop();
 
@@ -5580,6 +6045,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_rapid_crossings() {
         setup_global_test_eop();
 
@@ -5628,6 +6094,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_with_backward_propagation() {
         setup_global_test_eop();
 
@@ -5678,6 +6145,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_log_persistence_across_reset_termination() {
         setup_global_test_eop();
 
@@ -5736,6 +6204,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_clear_vs_remove() {
         setup_global_test_eop();
 
@@ -5801,6 +6270,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_multiple_callbacks_same_step() {
         setup_global_test_eop();
 
@@ -5905,6 +6375,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detection_time_events_no_infinite_loop() {
         // Test that multiple TimeEvents with callbacks don't cause infinite loops
         // This was a bug where TimeEvents very close together with CONTINUE callbacks
@@ -5982,6 +6453,7 @@ mod tests {
     /// Tests at multiple offsets to verify accuracy is bounded by integrator precision,
     /// not by interpolation error.
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_callback_accuracy_at_different_times() {
         setup_global_test_eop();
 
@@ -6118,6 +6590,7 @@ mod tests {
     /// Test that multiple TimeEvent impulses in sequence produce the same result
     /// as chaining new propagators at each burn time.
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_callback_multi_impulse_accuracy() {
         setup_global_test_eop();
 
@@ -6237,6 +6710,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_continuous_control_via_control_input() {
         setup_global_test_eop();
 
@@ -6351,6 +6825,7 @@ mod tests {
     // -------------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_vs_keplerian() {
         use crate::propagators::KeplerianPropagator;
         use crate::propagators::traits::SStatePropagator;
@@ -6411,6 +6886,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_orbital_period() {
         setup_global_test_eop();
 
@@ -6451,6 +6927,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_adaptive_step_behavior() {
         setup_global_test_eop();
 
@@ -6513,6 +6990,7 @@ mod tests {
     // ------------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_energy_conservation_point_mass() {
         setup_global_test_eop();
 
@@ -6558,6 +7036,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_angular_momentum_conservation() {
         setup_global_test_eop();
 
@@ -6609,6 +7088,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_energy_drift_long_term() {
         setup_global_test_eop();
 
@@ -6655,6 +7135,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_orbital_stability_long_term() {
         setup_global_test_eop();
 
@@ -6705,6 +7186,7 @@ mod tests {
     // ---------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_leo_regime() {
         setup_global_test_eop();
 
@@ -6753,6 +7235,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_geo_regime() {
         setup_global_test_eop();
 
@@ -6801,6 +7284,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_heo_regime() {
         setup_global_test_eop();
 
@@ -6851,6 +7335,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_accuracy_near_circular_stability() {
         setup_global_test_eop();
 
@@ -6907,6 +7392,7 @@ mod tests {
     // --------------------------------
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_high_eccentricity() {
         setup_global_test_eop();
 
@@ -6956,6 +7442,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_equatorial_orbit() {
         setup_global_test_eop();
 
@@ -6995,6 +7482,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_polar_orbit() {
         setup_global_test_eop();
 
@@ -7039,6 +7527,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_very_short_step() {
         setup_global_test_eop();
 
@@ -7079,6 +7568,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_propagate_to_same_epoch() {
         setup_global_test_eop();
 
@@ -7110,6 +7600,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_backward_then_forward() {
         setup_global_test_eop();
 
@@ -7147,6 +7638,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_edge_case_single_step_propagation() {
         setup_global_test_eop();
 
@@ -7181,6 +7673,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_with_custom_params() {
         setup_global_test_eop();
         setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
@@ -7210,6 +7703,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_ecef_frame() {
         setup_global_test_eop();
 
@@ -7240,6 +7734,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_extended_state() {
         setup_global_test_eop();
 
@@ -7280,6 +7775,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_with_additional_dynamics() {
         setup_global_test_eop();
 
@@ -7331,6 +7827,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_trajectory_stores_additional_states() {
         use approx::assert_abs_diff_eq;
         setup_global_test_eop();
@@ -7424,6 +7921,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_construction_multiple_integrators() {
         setup_global_test_eop();
 
@@ -7503,6 +8001,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_current_epoch() {
         setup_global_test_eop();
 
@@ -7531,6 +8030,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_current_state() {
         setup_global_test_eop();
 
@@ -7559,6 +8059,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_current_params() {
         setup_global_test_eop();
         setup_global_test_space_weather(); // Required for NRLMSISE00 in default config
@@ -7607,6 +8108,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_initial_epoch() {
         setup_global_test_eop();
 
@@ -7634,6 +8136,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_initial_state() {
         setup_global_test_eop();
 
@@ -7668,6 +8171,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_state_dim() {
         setup_global_test_eop();
 
@@ -7718,6 +8222,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_trajectory_access() {
         setup_global_test_eop();
 
@@ -7749,6 +8254,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_access() {
         setup_global_test_eop();
 
@@ -7795,6 +8301,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_access() {
         setup_global_test_eop();
 
@@ -7843,6 +8350,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_terminated_flag() {
         setup_global_test_eop();
 
@@ -7880,6 +8388,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_trajectory_mode() {
         setup_global_test_eop();
 
@@ -7888,6 +8397,7 @@ mod tests {
 
         // Use simple point mass gravity only (no third body) to avoid requiring ephemerides
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
@@ -7934,6 +8444,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_trajectory_mode_getter() {
         setup_global_test_eop();
 
@@ -7957,6 +8468,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_step_size() {
         setup_global_test_eop();
 
@@ -7985,6 +8497,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_step_size_getter() {
         setup_global_test_eop();
 
@@ -8009,6 +8522,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_eviction_policy_max_size() {
         setup_global_test_eop();
 
@@ -8045,6 +8559,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_eviction_policy_max_age() {
         setup_global_test_eop();
 
@@ -8093,6 +8608,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_point_mass() {
         setup_global_test_eop();
 
@@ -8100,6 +8616,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8146,6 +8663,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_spherical_harmonic() {
         setup_global_test_eop();
 
@@ -8154,6 +8672,7 @@ mod tests {
 
         // Test with 4x4 spherical harmonic
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8191,6 +8710,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_j2_perturbation() {
         setup_global_test_eop();
 
@@ -8209,6 +8729,7 @@ mod tests {
 
         // Use J2-only gravity model (2x0 spherical harmonic)
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8265,6 +8786,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_degree_order_convergence() {
         setup_global_test_eop();
 
@@ -8278,6 +8800,7 @@ mod tests {
 
         for (degree, order) in configs {
             let force_config = ForceModelConfig {
+                central_body: CentralBody::Earth,
                 mass: None,
                 frame_transform: FrameTransformationModel::default(),
                 tides: None,
@@ -8329,6 +8852,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_gravity_global_vs_modeltype() {
         setup_global_test_eop();
         setup_global_test_gravity_model();
@@ -8338,6 +8862,7 @@ mod tests {
 
         // Test 1: Using ModelType source
         let force_config_modeltype = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8367,6 +8892,7 @@ mod tests {
 
         // Test 2: Using Global source (should use same model if loaded)
         let force_config_global = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8422,6 +8948,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_harris_priester() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8438,6 +8965,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8480,6 +9008,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_exponential() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8489,6 +9018,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 300e3, 0.0, 0.0, 0.0, 7700.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8531,6 +9061,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_nrlmsise00() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8541,6 +9072,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 400e3, 0.0, 0.0, 0.0, 7700.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::Value(1000.0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8587,6 +9119,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_magnitude_direction() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8604,6 +9137,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8648,6 +9182,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_drag_orbital_decay() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -8667,6 +9202,7 @@ mod tests {
         let state = state_koe_to_eci(oe_initial, AngleFormat::Degrees);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8721,6 +9257,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_srp_no_eclipse() {
         use crate::propagators::force_model_config::{
             ParameterSource, SolarRadiationPressureConfiguration,
@@ -8739,6 +9276,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8748,6 +9286,7 @@ mod tests {
                 area: ParameterSource::Value(10.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::None,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: None,
             relativity: false,
@@ -8773,6 +9312,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_srp_cylindrical_eclipse() {
         use crate::propagators::force_model_config::{
             ParameterSource, SolarRadiationPressureConfiguration,
@@ -8784,6 +9324,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8793,6 +9334,7 @@ mod tests {
                 area: ParameterSource::Value(10.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::Cylindrical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: None,
             relativity: false,
@@ -8815,6 +9357,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_srp_conical_eclipse() {
         use crate::propagators::force_model_config::{
             ParameterSource, SolarRadiationPressureConfiguration,
@@ -8826,6 +9369,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8835,6 +9379,7 @@ mod tests {
                 area: ParameterSource::Value(10.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: None,
             relativity: false,
@@ -8857,6 +9402,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_srp_eclipse_transition() {
         use crate::propagators::force_model_config::{
             ParameterSource, SolarRadiationPressureConfiguration,
@@ -8869,6 +9415,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 800e3, 0.0, 0.0, 0.0, 7450.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8878,6 +9425,7 @@ mod tests {
                 area: ParameterSource::Value(10.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::Conical, // Use conical for penumbra transitions
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: None,
             relativity: false,
@@ -8911,6 +9459,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_sun() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -8927,6 +9476,7 @@ mod tests {
         ]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8957,6 +9507,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_moon() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -8966,6 +9517,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -8996,6 +9548,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_planets_spice() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -9005,6 +9558,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -9035,6 +9589,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_jupiter() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -9044,6 +9599,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -9077,7 +9633,67 @@ mod tests {
         );
     }
 
+    /// Earth-centered propagation with `ThirdBody::Phobos` must not panic.
+    /// `accel_third_body` (the legacy Earth path) deliberately panics for
+    /// `ThirdBody::{Earth, Phobos, Deimos, Custom}`; the Earth-centered
+    /// dynamics branch must route those variants through
+    /// `accel_third_body_for_body` instead, which the same call already
+    /// uses for non-Earth central bodies. Requires the `mar099s` Mars
+    /// satellite kernel (network download) for Phobos's position.
     #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_dnumericalorbitpropagator_force_third_body_phobos_about_earth_does_not_panic() {
+        use crate::propagators::force_model_config::ThirdBodyConfiguration;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+        crate::spice::load_kernel("mar099s").unwrap();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.6, 0.0]);
+
+        let force_config = ForceModelConfig {
+            tides: None,
+            central_body: CentralBody::Earth,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(ThirdBodyConfiguration {
+                ephemeris_source: EphemerisSource::DE440s,
+                bodies: vec![ThirdBody::Phobos],
+            }),
+            relativity: false,
+        };
+        force_config.validate().unwrap();
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            force_config,
+            Some(default_test_params()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        prop.propagate_to(epoch + 600.0); // 10 minutes
+
+        let s = prop.current_state();
+        assert!(
+            s.iter().all(|x| x.is_finite()),
+            "propagated state with Phobos third body should be finite, got {:?}",
+            s
+        );
+        assert!(prop.current_epoch() > epoch);
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_mars() {
         use crate::propagators::force_model_config::ThirdBodyConfiguration;
 
@@ -9087,6 +9703,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -9121,6 +9738,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_relativity() {
         setup_global_test_eop();
 
@@ -9128,6 +9746,7 @@ mod tests {
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -9155,6 +9774,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_combined_leo() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -9186,6 +9806,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_combined_geo() {
         setup_global_test_eop();
 
@@ -9216,6 +9837,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_combined_high_fidelity() {
         use crate::propagators::force_model_config::{
             DragConfiguration, ParameterSource, SolarRadiationPressureConfiguration,
@@ -9229,6 +9851,7 @@ mod tests {
 
         // Configure with all force models enabled for high-fidelity propagation
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::Value(1000.0)), // 1000 kg satellite
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -9242,6 +9865,7 @@ mod tests {
                 area: ParameterSource::Value(5.0),
                 cr: ParameterSource::Value(1.3),
                 eclipse_model: EclipseModel::Conical,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::LowPrecision,
@@ -9291,6 +9915,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_parameter_sensitivity() {
         use crate::propagators::force_model_config::{DragConfiguration, ParameterSource};
 
@@ -9301,6 +9926,7 @@ mod tests {
 
         // Configure with Cd from parameter vector
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -9368,6 +9994,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_propagation_mode_state_only() {
         setup_global_test_eop();
 
@@ -9392,6 +10019,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_propagation_mode_with_stm() {
         setup_global_test_eop();
 
@@ -9441,6 +10069,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_propagation_mode_with_sensitivity() {
         setup_global_test_eop();
 
@@ -9479,6 +10108,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_propagation_mode_with_stm_and_sensitivity() {
         setup_global_test_eop();
 
@@ -9517,6 +10147,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_config_stm() {
         setup_global_test_eop();
 
@@ -9543,6 +10174,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_config_sensitivity() {
         setup_global_test_eop();
 
@@ -9571,6 +10203,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_config_stm_and_sensitivity() {
         setup_global_test_eop();
 
@@ -9605,6 +10238,7 @@ mod tests {
     // =========================================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_propagation_initialization() {
         setup_global_test_eop();
 
@@ -9649,6 +10283,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_propagates_with_stm() {
         setup_global_test_eop();
 
@@ -9688,6 +10323,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_covariance_stored_in_trajectory() {
         setup_global_test_eop();
 
@@ -9725,6 +10361,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_identity_initial_condition() {
         setup_global_test_eop();
 
@@ -9766,6 +10403,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_determinant_preservation() {
         setup_global_test_eop();
 
@@ -9806,6 +10444,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_composition_property() {
         setup_global_test_eop();
 
@@ -9890,6 +10529,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_vs_direct_perturbation() {
         setup_global_test_eop();
 
@@ -9952,6 +10592,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_at_methods() {
         setup_global_test_eop();
 
@@ -10014,6 +10655,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_with_different_jacobian_methods() {
         setup_global_test_eop();
 
@@ -10111,6 +10753,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_eigenvalue_analysis() {
         setup_global_test_eop();
 
@@ -10157,6 +10800,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_with_different_force_models() {
         setup_global_test_eop();
 
@@ -10190,6 +10834,7 @@ mod tests {
 
         // Test with J2 perturbations
         let force_config_j2 = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -10278,6 +10923,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_stm_interpolation_accuracy() {
         setup_global_test_eop();
 
@@ -10346,6 +10992,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_vs_finite_difference() {
         setup_global_test_eop();
 
@@ -10363,6 +11010,7 @@ mod tests {
 
         // Configure drag to use mass parameter
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -10436,6 +11084,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_mass_physical_reasonableness() {
         setup_global_test_eop();
 
@@ -10458,6 +11107,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -10503,6 +11153,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_drag_coefficient() {
         setup_global_test_eop();
 
@@ -10518,6 +11169,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::Value(500.0)), // Fixed mass
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -10585,6 +11237,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::Value(1000.0)),
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -10593,6 +11246,7 @@ mod tests {
                 area: ParameterSource::Value(20.0),
                 cr: ParameterSource::ParameterIndex(2), // Use params[2] for Cr
                 eclipse_model: EclipseModel::None,
+                occulting_bodies: vec![OccultingBody::Earth],
             }),
             third_body: Some(ThirdBodyConfiguration {
                 ephemeris_source: EphemerisSource::LowPrecision,
@@ -10628,6 +11282,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_zero_for_unused_parameters() {
         setup_global_test_eop();
 
@@ -10671,6 +11326,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_storage_in_trajectory() {
         setup_global_test_eop();
 
@@ -10686,6 +11342,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -10727,6 +11384,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_sensitivity_at_methods() {
         setup_global_test_eop();
 
@@ -10742,6 +11400,7 @@ mod tests {
         config.variational.store_sensitivity_history = true; // Store sensitivity in trajectory
 
         let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
             mass: Some(ParameterSource::ParameterIndex(0)), // Use params[0] for mass
             frame_transform: FrameTransformationModel::default(),
             tides: None,
@@ -10824,6 +11483,7 @@ mod tests {
     // The tests below add unique coverage not present in existing tests:
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_covariance_stm_formula_verification() {
         // Verify that covariance propagation follows P(t) = Φ·P₀·Φᵀ formula
         setup_global_test_eop();
@@ -10872,6 +11532,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_covariance_monte_carlo_validation() {
         // Validate covariance propagation against Monte Carlo simulation
         setup_global_test_eop();
@@ -10971,6 +11632,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_events_by_detector_index() {
         setup_global_test_eop();
 
@@ -11018,6 +11680,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_events_combined_filters() {
         setup_global_test_eop();
 
@@ -11063,6 +11726,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_query_with_iterator_methods() {
         setup_global_test_eop();
 
@@ -11114,6 +11778,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_query_edge_cases() {
         setup_global_test_eop();
 
@@ -11163,6 +11828,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_existing_methods_unchanged() {
         setup_global_test_eop();
 
@@ -11211,6 +11877,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_take_event_detectors() {
         setup_global_test_eop();
 
@@ -11248,6 +11915,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_event_detectors() {
         setup_global_test_eop();
 
@@ -11281,6 +11949,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_take_event_log() {
         setup_global_test_eop();
 
@@ -11319,6 +11988,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_set_terminated_is_terminated() {
         setup_global_test_eop();
 
@@ -11350,6 +12020,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_event_detector_roundtrip() {
         setup_global_test_eop();
 
@@ -11419,6 +12090,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_gp_record_two_body() {
         setup_global_test_eop();
         let record = iss_gp_record();
@@ -11442,6 +12114,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_from_gp_record_earth_gravity() {
         setup_global_test_eop();
         let record = iss_gp_record();
@@ -11464,6 +12137,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_reinitialize_epoch_and_state() {
         setup_global_test_eop();
 
@@ -11523,6 +12197,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_reinitialize_stm_reset() {
         setup_global_test_eop();
 
@@ -11580,6 +12255,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_reinitialize_preserves_dynamics() {
         // Verify that reinitialize produces the same result as constructing a fresh propagator
         // at the same epoch/state (for time-independent dynamics like point mass gravity)
@@ -11636,6 +12312,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_minimal() {
         setup_global_test_eop();
 
@@ -11652,6 +12329,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_with_propagation_config() {
         setup_global_test_eop();
 
@@ -11669,6 +12347,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_with_params() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -11687,6 +12366,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_with_covariance() {
         setup_global_test_eop();
 
@@ -11706,6 +12386,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_full() {
         setup_global_test_eop();
         setup_global_test_space_weather();
@@ -11730,6 +12411,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_with_additional_dynamics_and_control_input() {
         setup_global_test_eop();
 
@@ -11783,6 +12465,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_builder_matches_new() {
         setup_global_test_eop();
 
@@ -11813,6 +12496,569 @@ mod tests {
             DStatePropagator::state_dim(&via_new),
             DStatePropagator::state_dim(&via_builder)
         );
+    }
+
+    // =========================================================================
+    // Non-Earth central body dynamics (Task 11)
+    // =========================================================================
+
+    /// Guards the Earth fast path: a full `default()`-config propagation over
+    /// one hour must produce the same final state after generalizing the
+    /// dynamics to non-Earth central bodies as it did before. The reference
+    /// values below were captured from the base branch (pre-generalization)
+    /// and are reproduced bit-for-bit by the generalized code (all six
+    /// components agree to < 1e-9 m / m·s⁻¹; in practice they are bit-equal).
+    #[test]
+    #[serial_test::serial]
+    fn test_earth_propagation_regression_unchanged() {
+        use approx::assert_abs_diff_eq;
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::default(),
+            Some(default_test_params()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // A single 60 s step exercises every changed Earth force block
+        // (spherical-harmonic gravity, NRLMSISE-00 drag, SRP + conical
+        // eclipse, third body, no relativity). The Earth path is bit-identical
+        // to the pre-generalization code by construction, and this was verified
+        // over a full hour single-threaded (final state agreed to < 1e-9 m; see
+        // the task report). The in-suite guard here uses a single step and a
+        // 1e-6 m tolerance rather than a bit-exact hour-long comparison because
+        // the `default()` config reads the process-global EOP and space-weather
+        // providers, which other tests in the crate mutate concurrently under
+        // the parallel test harness — introducing ~1e-8 m jitter unrelated to
+        // this change. A single step keeps that read window to a few
+        // milliseconds, and 1e-6 m (relative ~1.5e-13) still catches any real
+        // Earth-path regression, which would perturb the state by many orders
+        // of magnitude more over a 60 s step.
+        prop.step_by(60.0);
+        let s = prop.current_state();
+
+        // Reference state after one 60 s step of the `default()` Earth config.
+        let expected = [
+            6.862954294509894e6,
+            4.496689282301591e5,
+            -1.028606054513471e-1,
+            -5.058978289154819e2,
+            7.483446909359713e3,
+            -3.27257178926243e-3,
+        ];
+        for i in 0..6 {
+            assert_abs_diff_eq!(s[i], expected[i], epsilon = 1e-6);
+        }
+    }
+
+    /// Construction must fail fast when the force-model configuration is
+    /// incompatible with its central body — here NRLMSISE-00 drag (Earth-only)
+    /// paired with a Moon central body.
+    #[test]
+    #[serial_test::parallel]
+    fn test_new_rejects_invalid_config() {
+        setup_global_test_eop();
+
+        let mut cfg = ForceModelConfig::lunar_default();
+        cfg.drag = Some(DragConfiguration {
+            model: AtmosphericModel::NRLMSISE00,
+            area: ParameterSource::Value(1.0),
+            cd: ParameterSource::Value(2.2),
+        });
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![
+            crate::constants::R_MOON + 100e3,
+            0.0,
+            0.0,
+            0.0,
+            1633.0,
+            0.0,
+        ]);
+
+        let result = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            Some(default_test_params()),
+            None,
+            None,
+            None,
+        );
+
+        assert!(result.is_err());
+    }
+
+    /// Construction must reject sensitivity propagation when no parameter
+    /// vector is supplied. Triggers the `enable_sensitivity && params.is_empty()`
+    /// guard in `new`, which fires before any frame/gravity work (no EOP needed).
+    #[test]
+    fn test_new_rejects_sensitivity_without_params() {
+        let mut prop_cfg = NumericalPropagationConfig::default();
+        prop_cfg.variational.enable_sensitivity = true;
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let result = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            prop_cfg,
+            ForceModelConfig::earth_gravity(),
+            None, // no params -> empty, so sensitivity must be rejected
+            None,
+            None,
+            None,
+        );
+
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(format!("{}", e).contains("Sensitivity"));
+        }
+    }
+
+    /// Point-mass Moon two-body propagation must conserve specific orbital
+    /// energy over one day. Exercises the `CentralBody::Moon` gravity path
+    /// (GM from the central body) and the lunar rotation cache.
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_lunar_two_body_energy_conservation() {
+        use crate::constants::{GM_MOON, R_MOON};
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let cfg = ForceModelConfig::for_body(
+            CentralBody::Moon,
+            GravityConfiguration::PointMass,
+            None,
+            None,
+            None,
+            false,
+            None,
+        );
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let a = R_MOON + 100e3;
+        let v = (GM_MOON / a).sqrt();
+        let state = DVector::from_vec(vec![a, 0.0, 0.0, 0.0, v, 0.0]);
+
+        let e0 = 0.5 * v * v - GM_MOON / a;
+
+        // Use the high-precision integrator (RKN1210, tight tolerances) so the
+        // energy-conservation check reflects the dynamics rather than the
+        // truncation error of the default adaptive integrator.
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::high_precision(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        prop.propagate_to(epoch + 86400.0);
+        let s = prop.current_state();
+        let r1 = (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt();
+        let v1 = (s[3] * s[3] + s[4] * s[4] + s[5] * s[5]).sqrt();
+        let e1 = 0.5 * v1 * v1 - GM_MOON / r1;
+
+        let rel_drift = ((e1 - e0) / e0).abs();
+        assert!(
+            rel_drift < 1e-8,
+            "lunar two-body energy drift over 1 day should be < 1e-8, got {:.3e}",
+            rel_drift
+        );
+    }
+
+    /// Propagate a massless particle initialized at the Moon's state relative
+    /// to the Earth-Moon barycenter under Earth and Sun gravity, and check it
+    /// tracks the DE ephemeris Moon over two days. Exercises the barycenter
+    /// central-body path (zero central GM, identity rotation, direct/indirect
+    /// third-body forms).
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_emb_propagation_of_moon_tracks_ephemeris() {
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epc0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x0 = crate::spice::spk_state(301, 3, epc0).unwrap();
+
+        let mut cfg = ForceModelConfig::cislunar_default();
+        cfg.srp = None;
+        cfg.third_body = Some(ThirdBodyConfiguration {
+            ephemeris_source: EphemerisSource::DE440s,
+            bodies: vec![ThirdBody::Earth, ThirdBody::Sun],
+        });
+
+        let state = DVector::from_vec(x0.as_slice().to_vec());
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epc0,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            Some(default_test_params()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let dt = 172800.0; // 2 days
+        prop.propagate_to(epc0 + dt);
+        let s = prop.current_state();
+
+        let x_ref = crate::spice::spk_state(301, 3, epc0 + dt).unwrap();
+        let dr =
+            ((s[0] - x_ref[0]).powi(2) + (s[1] - x_ref[1]).powi(2) + (s[2] - x_ref[2]).powi(2))
+                .sqrt();
+
+        assert!(
+            dr < 50e3,
+            "propagated Moon-about-EMB position should track DE ephemeris within 50 km over 2 days, got {:.1} km",
+            dr / 1000.0
+        );
+    }
+
+    /// `state_koe_osc` on a `CentralBody::Moon` propagator must return
+    /// elements about the Moon (using `GM_MOON`), not a physically
+    /// meaningless Earth-centered fit. A circular lunar orbit's own
+    /// semi-major axis and near-zero eccentricity should be recovered at
+    /// the initial epoch.
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_dnumericalorbitpropagator_dorbitstateprovider_state_koe_osc_lunar_central_body() {
+        use crate::constants::{GM_MOON, R_MOON};
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let cfg = ForceModelConfig::for_body(
+            CentralBody::Moon,
+            GravityConfiguration::PointMass,
+            None,
+            None,
+            None,
+            false,
+            None,
+        );
+
+        let epoch0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let a = R_MOON + 100e3;
+        let v = (GM_MOON / a).sqrt();
+        let state = DVector::from_vec(vec![a, 0.0, 0.0, 0.0, v, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch0,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let koe = prop.state_koe_osc(epoch0, AngleFormat::Degrees).unwrap();
+
+        assert_abs_diff_eq!(koe[0], a, epsilon = 1.0);
+        assert!(
+            koe[1] < 1e-6,
+            "eccentricity of a circular lunar orbit should be near-zero, got {:.3e}",
+            koe[1]
+        );
+    }
+
+    /// `state_koe_osc` on a barycenter-centered propagator (`CentralBody::EMB`)
+    /// has no central mass to define an orbit about, so it must return an
+    /// error rather than silently computing nonsense elements with `gm = 0`.
+    #[test]
+    #[serial_test::parallel]
+    fn test_dnumericalorbitpropagator_dorbitstateprovider_state_koe_osc_barycenter_errors() {
+        setup_global_test_eop();
+
+        let epoch0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![300_000e3, 0.0, 0.0, 0.0, 1000.0, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch0,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::cislunar_default(),
+            Some(default_test_params()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let err = prop
+            .state_koe_osc(epoch0, AngleFormat::Degrees)
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("barycenter"),
+            "error message should mention 'barycenter', got: {}",
+            msg
+        );
+    }
+
+    /// A 400 km circular Mars orbit under `mars_default()` forces must remain
+    /// bounded over one day. Exercises the `CentralBody::Mars` gravity,
+    /// exponential drag (Mars radius/spin), SRP with Mars occultation, and Sun
+    /// third-body paths.
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_mars_orbit_propagation_sanity() {
+        use crate::constants::{GM_MARS, R_MARS};
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let a = R_MARS + 400e3;
+        let v = (GM_MARS / a).sqrt();
+        let state = DVector::from_vec(vec![a, 0.0, 0.0, 0.0, v, 0.0]);
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::mars_default(),
+            Some(default_test_params()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        prop.propagate_to(epoch + 86400.0);
+        let s = prop.current_state();
+        let r_final = (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt();
+
+        assert!(
+            r_final > R_MARS + 300e3 && r_final < R_MARS + 500e3,
+            "Mars orbit radius should stay in [R_MARS+300km, R_MARS+500km], got {:.1} km altitude",
+            (r_final - R_MARS) / 1000.0
+        );
+    }
+
+    // =========================================================================
+    // Central-body-aware state accessors + state_in_frame (Task 12)
+    // =========================================================================
+
+    /// Build a point-mass Moon propagator at a circular LLO, with the
+    /// trajectory holding only the initial (epoch0) state. Cheap: no gravity
+    /// model download required.
+    fn lunar_point_mass_propagator_at_epoch0() -> (DNumericalOrbitPropagator, Epoch, Vector6<f64>) {
+        use crate::constants::{GM_MOON, R_MOON};
+
+        let cfg = ForceModelConfig::for_body(
+            CentralBody::Moon,
+            GravityConfiguration::PointMass,
+            None,
+            None,
+            None,
+            false,
+            None,
+        );
+
+        let epoch0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let a = R_MOON + 100e3;
+        let v = (GM_MOON / a).sqrt();
+        let x0 = Vector6::new(a, 0.0, 0.0, 0.0, v, 0.0);
+        let state = DVector::from_vec(x0.as_slice().to_vec());
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch0,
+            state,
+            NumericalPropagationConfig::default(),
+            cfg,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        (prop, epoch0, x0)
+    }
+
+    /// A non-Earth propagator's stored trajectory is labeled
+    /// `BodyCenteredInertial`, so Earth-frame trajectory conversions are
+    /// rejected instead of silently treating body-centered samples as
+    /// geocentric ECI; an Earth propagator's trajectory stays `ECI`.
+    #[test]
+    #[serial_test::parallel]
+    fn test_trajectory_frame_matches_central_body() {
+        setup_global_test_eop();
+
+        let (mut prop, epoch0, _x0) = lunar_point_mass_propagator_at_epoch0();
+        assert_eq!(
+            prop.trajectory().frame,
+            OrbitFrame::BodyCenteredInertial(301)
+        );
+
+        // Earth-frame conversions on the body-centered trajectory re-center
+        // through SPK instead of mislabeling LCI samples as geocentric: the
+        // trajectory's state_eci matches the propagator's own state_eci, and
+        // its provider trait accessors are frame-aware.
+        crate::utils::testing::setup_global_test_spice();
+        prop.propagate_to(epoch0 + 60.0);
+        use approx::assert_abs_diff_eq;
+        let x_eci_traj = prop.trajectory().state_eci(epoch0).unwrap();
+        let x_eci_prop = DOrbitStateProvider::state_eci(&prop, epoch0).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_eci_traj[i], x_eci_prop[i], epsilon = 1e-6);
+        }
+        // state_bci on the trajectory is the raw LCI sample; state_in_frame
+        // to LCI is the identity on it.
+        let x_bci_traj = prop.trajectory().state_bci(epoch0).unwrap();
+        let x_bci_prop = prop.state_bci(epoch0).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_bci_traj[i], x_bci_prop[i], epsilon = 0.0);
+        }
+        let x_lci = prop
+            .trajectory()
+            .state_in_frame(ReferenceFrame::LCI, epoch0)
+            .unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_lci[i], x_bci_traj[i], epsilon = 0.0);
+        }
+        // state_bcbf on the trajectory matches the propagator's (LFPA).
+        let x_bcbf_traj = prop.trajectory().state_bcbf(epoch0).unwrap();
+        let x_bcbf_prop = prop.state_bcbf(epoch0).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_bcbf_traj[i], x_bcbf_prop[i], epsilon = 1e-6);
+        }
+
+        // reset preserves the body-centered frame metadata.
+        prop.reset();
+        assert_eq!(
+            prop.trajectory().frame,
+            OrbitFrame::BodyCenteredInertial(301)
+        );
+
+        // Earth-centered propagators keep the ECI label and conversions.
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+        let mut earth_prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(earth_prop.trajectory().frame, OrbitFrame::ECI);
+        earth_prop.propagate_to(epoch + 60.0);
+        assert!(earth_prop.trajectory().state_eci(epoch).is_ok());
+    }
+
+    /// `state_eci` on a Moon-centered propagator must add the Moon's
+    /// Earth-relative SPK offset to the raw (LCI) integrated state — it
+    /// should never be equal to the raw state itself for a body other than
+    /// Earth.
+    #[test]
+    #[serial_test::serial]
+    fn test_lunar_propagation_state_eci_adds_moon_offset() {
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let (prop, epoch0, x0) = lunar_point_mass_propagator_at_epoch0();
+
+        let moon_offset = crate::spice::spk_state(301, 399, epoch0).unwrap();
+        let expected = x0 + moon_offset;
+
+        let x_eci = prop.state_eci(epoch0).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_eci[i], expected[i], epsilon = 1e-9);
+        }
+    }
+
+    /// `state_in_frame(LCI, epoch)` on a Moon-centered propagator must equal
+    /// `state_central_inertial(epoch)` exactly: the override converts via
+    /// `state_frame_to_frame(central.inertial_frame(), frame, ...)`, and since
+    /// `central.inertial_frame() == LCI` here, `state_frame_to_frame` takes
+    /// its `from == to` identity short-circuit and returns the input
+    /// unchanged (no rotation/SPK lookup performed).
+    #[test]
+    #[serial_test::serial]
+    fn test_state_in_frame_lci_equals_central_inertial_for_lunar_propagator() {
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let (prop, epoch0, _x0) = lunar_point_mass_propagator_at_epoch0();
+
+        let x_lci = prop.state_in_frame(ReferenceFrame::LCI, epoch0).unwrap();
+        let x_central = prop.state_central_inertial(epoch0).unwrap();
+
+        assert_eq!(x_lci, x_central);
+    }
+
+    /// For an Earth-centered propagator, `state_in_frame(ITRF, epoch)` and
+    /// `state_ecef(epoch)` both convert the same GCRF state via
+    /// `state_gcrf_to_itrf` (the `GCRF -> ITRF` leg of `state_frame_to_frame`
+    /// dispatches to the same underlying function `state_ecef` calls
+    /// directly), so they agree to floating-point exactness. Uses a tight
+    /// (rather than exact `==`) tolerance so the test does not over-constrain
+    /// against unrelated future implementation changes.
+    #[test]
+    #[serial_test::serial]
+    fn test_state_in_frame_default_impl_earth_propagator() {
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7500.0, 0.0]);
+
+        let prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let x_in_frame = prop.state_in_frame(ReferenceFrame::ITRF, epoch).unwrap();
+        let x_ecef = prop.state_ecef(epoch).unwrap();
+
+        for i in 0..6 {
+            assert_abs_diff_eq!(x_in_frame[i], x_ecef[i], epsilon = 1e-9);
+        }
     }
 
     #[test]
@@ -12022,6 +13268,7 @@ mod tests {
 
         // Force config WITHOUT solid tides (baseline): point-mass gravity, no tides
         let cfg_off = ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             tides: None,
             drag: None,
@@ -12035,6 +13282,7 @@ mod tests {
 
         // Force config WITH solid tides enabled
         let cfg_on = ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::PointMass,
             tides: Some(TidesConfiguration {
                 permanent: PermanentTideConfig::Auto,

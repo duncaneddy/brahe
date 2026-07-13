@@ -128,16 +128,106 @@ macro_rules! body_spice_functions {
 /// - The satellite ephemeris [`SPICEKernel`] providing that planet's body center
 ///
 /// # Panics
-/// Panics if `planet` is not one of the five supported outer planets.
+/// Panics if `planet` is not in a planetary system with a supported
+/// satellite ephemeris kernel.
 pub(crate) const fn system_kernel(planet: NAIFId) -> SPICEKernel {
-    match planet.id() {
-        499 => SPICEKernel::Mar099s,
-        599 => SPICEKernel::Jup365,
-        699 => SPICEKernel::Sat441,
-        799 => SPICEKernel::Ura184,
-        899 => SPICEKernel::Nep097,
-        _ => panic!("no satellite ephemeris kernel for this body"),
+    match satellite_system_kernel(planet.id() / 100) {
+        Some(kernel) => kernel,
+        None => panic!("no satellite ephemeris kernel for this body"),
     }
+}
+
+/// Satellite ephemeris kernel for the planetary system whose barycenter has
+/// NAIF ID `barycenter`, or `None` if the system has no supported kernel.
+///
+/// # Arguments
+/// - `barycenter`: Planetary-system barycenter NAIF ID (`4`..=`9`)
+///
+/// # Returns
+/// - The system's satellite ephemeris [`SPICEKernel`], or `None`
+pub(crate) const fn satellite_system_kernel(barycenter: i32) -> Option<SPICEKernel> {
+    match barycenter {
+        4 => Some(SPICEKernel::Mar099s),
+        5 => Some(SPICEKernel::Jup365),
+        6 => Some(SPICEKernel::Sat441),
+        7 => Some(SPICEKernel::Ura184),
+        8 => Some(SPICEKernel::Nep097),
+        9 => Some(SPICEKernel::Plu060),
+        _ => None,
+    }
+}
+
+/// True when `id` is carried directly by a planetary DE kernel: the solar
+/// system barycenter (0), the planetary-system barycenters (1-9), the Sun
+/// (10), and the bodies DE kernels chain to their system barycenter
+/// (Mercury 199, Venus 299, Moon 301, Earth 399).
+pub(crate) const fn de_kernel_covers(id: i32) -> bool {
+    matches!(id, 0..=10 | 199 | 299 | 301 | 399)
+}
+
+/// True when a query for `id` can be resolved without consulting the global
+/// registry's load order: either the DE kernel carries `id` directly, or
+/// `id` belongs to a planetary system with a known satellite ephemeris
+/// kernel (see [`satellite_system_kernel`]).
+pub(crate) const fn spk_strictly_resolvable(id: i32) -> bool {
+    de_kernel_covers(id) || (400 <= id && id <= 999 && satellite_system_kernel(id / 100).is_some())
+}
+
+/// Anchor `id` to a body the DE kernel carries: DE-covered IDs anchor to
+/// themselves with a zero leg; satellite-system bodies anchor to their
+/// system barycenter with the body-rel-barycenter leg queried from that
+/// system's satellite ephemeris kernel (kernel-scoped, auto-loaded).
+fn strict_anchor_and_leg(id: i32, epc: Epoch) -> Result<(i32, Vector3<f64>), BraheError> {
+    if de_kernel_covers(id) {
+        return Ok((id, Vector3::zeros()));
+    }
+    let barycenter = id / 100;
+    let kernel = satellite_system_kernel(barycenter).ok_or_else(|| {
+        BraheError::Error(format!(
+            "NAIF ID {} is not covered by a DE kernel or a known satellite ephemeris kernel",
+            id
+        ))
+    })?;
+    Ok((
+        barycenter,
+        spk_position_from_kernel(kernel, id, barycenter, epc)?,
+    ))
+}
+
+/// Position of `target` relative to `center` resolved strictly from
+/// `de_kernel` plus (for satellite-system bodies) their system ephemeris
+/// kernels — the configured kernel is honored regardless of which other
+/// kernels are loaded in the global registry, unlike
+/// [`spk_position`](crate::spice::spk_position)'s last-loaded-wins
+/// precedence.
+///
+/// Both `target` and `center` must satisfy [`spk_strictly_resolvable`].
+///
+/// # Arguments
+/// - `de_kernel`: DE kernel providing every leg between DE-covered bodies
+/// - `target`: NAIF ID of the target body
+/// - `center`: NAIF ID of the center body
+/// - `epc`: Epoch at which to evaluate the position
+///
+/// # Returns
+/// - `Ok(Vector3<f64>)`: Position of `target` relative to `center` in the
+///   kernel's inertial frame (ICRF axes). Units: [m]
+/// - `Err(BraheError)`: If either ID is not strictly resolvable or a kernel
+///   cannot be loaded or queried
+pub(crate) fn spk_pair_position_from_kernels(
+    de_kernel: SPICEKernel,
+    target: i32,
+    center: i32,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    let (target_anchor, target_leg) = strict_anchor_and_leg(target, epc)?;
+    let (center_anchor, center_leg) = strict_anchor_and_leg(center, epc)?;
+    let de_leg = if target_anchor == center_anchor {
+        Vector3::zeros()
+    } else {
+        spk_position_from_kernel(de_kernel, target_anchor, center_anchor, epc)?
+    };
+    Ok(target_leg + de_leg - center_leg)
 }
 
 macro_rules! body_center_spice_functions {
@@ -482,7 +572,6 @@ mod tests {
     use crate::utils::testing::setup_global_test_spice;
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -492,6 +581,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_sun_position_spice(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
 
@@ -505,7 +595,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -515,6 +604,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_moon_position_spice(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
 
@@ -528,7 +618,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -538,6 +627,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_jupiter_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,
@@ -549,7 +639,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -559,6 +648,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_mars_barycenter_position_spice_over_dates(
         #[case] year: u32,
         #[case] month: u8,
@@ -570,7 +660,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -580,6 +669,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_mercury_position_spice(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
@@ -587,7 +677,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -597,6 +686,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_neptune_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,
@@ -608,7 +698,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -618,6 +707,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_saturn_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,
@@ -629,7 +719,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -639,6 +728,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_uranus_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,
@@ -650,7 +740,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -660,6 +749,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_venus_position_spice(#[case] year: u32, #[case] month: u8, #[case] day: u8) {
         setup_global_test_spice();
         let epc = Epoch::from_date(year, month, day, crate::time::TimeSystem::UTC);
@@ -667,7 +757,6 @@ mod tests {
     }
 
     #[rstest]
-    #[serial]
     #[case(2025, 1, 1)]
     #[case(2025, 2, 15)]
     #[case(2025, 3, 30)]
@@ -677,6 +766,7 @@ mod tests {
     #[case(2025, 10, 1)]
     #[case(2025, 11, 15)]
     #[case(2025, 12, 31)]
+    #[serial]
     fn test_solar_system_barycenter_position_spice(
         #[case] year: u32,
         #[case] month: u8,
@@ -845,6 +935,30 @@ mod tests {
         // satellite ephemeris kernel.
         let result = std::panic::catch_unwind(|| system_kernel(NAIFId::Earth));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_spk_pair_position_error_for_unmapped_id() {
+        // `strict_anchor_and_leg` error branch: an ID that is neither
+        // DE-covered nor in a satellite system with a known ephemeris
+        // kernel errors before any kernel access (350 anchors to
+        // barycenter 3, which has no satellite kernel; a self-assigned
+        // negative ID has no system at all). Applies to both the target
+        // and the center argument.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, crate::time::TimeSystem::UTC);
+        for (target, center) in [(350, 399), (399, 350), (-20001, 399)] {
+            let e = spk_pair_position_from_kernels(SPICEKernel::DE440s, target, center, epc);
+            assert!(
+                e.as_ref()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("not covered by a DE kernel"),
+                "expected strict-resolution error for ({}, {}), got {:?}",
+                target,
+                center,
+                e
+            );
+        }
     }
 
     #[test]

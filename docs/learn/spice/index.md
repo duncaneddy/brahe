@@ -93,8 +93,10 @@ Registry behavior:
   at the requested epoch.
 - **Auto-initialization**: `spk_position`/`spk_velocity`/`spk_state` load
   `de440s` automatically if no SPK kernel has been loaded yet. Binary PCKs
-  are never auto-loaded — `load_kernel("moon_pa_de440")` (or an explicit
-  path) must be called first.
+  are never auto-loaded through this generic interface — `load_kernel("moon_pa_de440")`
+  (or an explicit path) must be called first. The Moon's `LFPA`/`LFME` frame
+  functions (see [Lunar Reference Frames](../frames/lunar_frames.md)) are a
+  narrow exception: they auto-load `moon_pa_de440` on first use.
 
 ### Loading Multiple Kernels at Once
 

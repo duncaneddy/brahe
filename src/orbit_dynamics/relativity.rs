@@ -29,6 +29,33 @@ use crate::constants::{C_LIGHT, GM_EARTH};
 /// let a_relativity = accel_relativity(x_object);
 /// ```
 pub fn accel_relativity(x_object: Vector6<f64>) -> Vector3<f64> {
+    accel_relativity_for_body(x_object, GM_EARTH)
+}
+
+/// Calculate the acceleration due to special and general relativity for an object orbiting a
+/// central body with an arbitrary gravitational parameter.
+///
+/// # Arguments
+///
+/// - `x_object`: State vector of the object in the central body's inertial frame.
+/// - `gm`: Gravitational parameter of the central body [m^3/s^2].
+///
+/// # Returns
+///
+/// - `a_relativity` : Acceleration due to special and general relativity.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::coordinates::state_koe_to_eci;
+/// use brahe::orbit_dynamics::accel_relativity_for_body;
+/// use nalgebra::Vector6;
+/// use brahe::{R_EARTH, GM_EARTH};
+///
+/// let x_object = Vector6::new(R_EARTH + 500.0e3, 0.0, 0.0, 0.0, 0.0, 0.0);
+/// let a_relativity = accel_relativity_for_body(x_object, GM_EARTH);
+/// ```
+pub fn accel_relativity_for_body(x_object: Vector6<f64>, gm: f64) -> Vector3<f64> {
     // Extract state variables
     let r = x_object.fixed_rows::<3>(0);
     let v = x_object.fixed_rows::<3>(3);
@@ -45,8 +72,7 @@ pub fn accel_relativity(x_object: Vector6<f64>) -> Vector3<f64> {
     let ev = v / norm_v;
 
     // Compute perturbation acceleration and return
-    GM_EARTH / r2
-        * ((4.0 * GM_EARTH / (c2 * norm_r) - v2 / c2) * er + 4.0 * v2 / c2 * er.dot(&ev) * ev)
+    gm / r2 * ((4.0 * gm / (c2 * norm_r) - v2 / c2) * er + 4.0 * v2 / c2 * er.dot(&ev) * ev)
 }
 
 #[cfg(test)]
@@ -69,5 +95,21 @@ mod tests {
         // According to Motenbruck and Gill this should be on ghd order of ~1e-8 for a satellite
         // around 500 km altitude.
         assert!(a.norm() < 1.0e-7);
+    }
+
+    #[test]
+    fn test_accel_relativity_for_body_matches_legacy_for_earth_gm() {
+        use super::*;
+        use approx::assert_abs_diff_eq;
+
+        let x = state_koe_to_eci(
+            Vector6::new(R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0),
+            DEGREES,
+        );
+        let legacy = accel_relativity(x);
+        let new = accel_relativity_for_body(x, GM_EARTH);
+        for i in 0..3 {
+            assert_abs_diff_eq!(new[i], legacy[i], epsilon = 1e-20);
+        }
     }
 }

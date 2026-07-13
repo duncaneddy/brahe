@@ -138,6 +138,92 @@ fn py_state_eci_to_koe<'py>(
 }
 
 #[pyfunction]
+#[pyo3(text_signature = "(x_cart, gm, angle_format)")]
+#[pyo3(name = "state_eci_to_koe_for_body")]
+/// Convert Cartesian state to osculating orbital elements about a central body
+/// with an arbitrary gravitational parameter.
+///
+/// Generalizes `state_eci_to_koe` to central bodies other than Earth (e.g. the
+/// Moon or Mars). `state_eci_to_koe` is equivalent to calling this with
+/// `gm = GM_EARTH`.
+///
+/// Args:
+///     x_cart (numpy.ndarray or list): Cartesian state `[x, y, z, vx, vy, vz]` in the
+///         central body's inertial frame, where position is in meters and velocity is
+///         in meters per second.
+///     gm (float): Gravitational parameter of the central body. Units: (m^3/s^2)
+///     angle_format (AngleFormat): Angle format for output angular elements (`RADIANS` or `DEGREES`).
+///
+/// Returns:
+///     numpy.ndarray: Osculating orbital elements `[a, e, i, RAAN, omega, M]` about the
+///         central body with gravitational parameter `gm`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Cartesian state vector about the Moon
+///     x_cart = np.array([1837.4e3, 0.0, 0.0, 0.0, 1600.0, 0.0])
+///     oe = bh.state_eci_to_koe_for_body(x_cart, bh.GM_MOON, bh.AngleFormat.RADIANS)
+///     ```
+fn py_state_eci_to_koe_for_body<'py>(
+    py: Python<'py>,
+    x_cart: Bound<'py, PyAny>,
+    gm: f64,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = coordinates::state_eci_to_koe_for_body(
+        pyany_to_svector::<6>(&x_cart)?,
+        gm,
+        angle_format.value,
+    );
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+#[pyfunction]
+#[pyo3(text_signature = "(x_oe, gm, angle_format)")]
+#[pyo3(name = "state_koe_to_eci_for_body")]
+/// Convert osculating orbital elements to a Cartesian state about a central body
+/// with an arbitrary gravitational parameter. Inverse of `state_eci_to_koe_for_body`.
+///
+/// Generalizes `state_koe_to_eci` to central bodies other than Earth (e.g. the
+/// Moon or Mars). `state_koe_to_eci` is equivalent to calling this with
+/// `gm = GM_EARTH`.
+///
+/// Args:
+///     x_oe (numpy.ndarray or list): Osculating orbital elements `[a, e, i, RAAN, omega, M]`,
+///         where the semi-major axis is in meters and angles are in the given format.
+///     gm (float): Gravitational parameter of the central body. Units: (m^3/s^2)
+///     angle_format (AngleFormat): Angle format for input angular elements (`RADIANS` or `DEGREES`).
+///
+/// Returns:
+///     numpy.ndarray: Cartesian state `[x, y, z, vx, vy, vz]` in the central body's
+///         inertial frame. Units: (m; m/s)
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///     import numpy as np
+///
+///     # Low lunar orbit elements to a Moon-centered Cartesian state
+///     oe = np.array([bh.R_MOON + 100e3, 0.0, 90.0, 0.0, 0.0, 0.0])
+///     x_cart = bh.state_koe_to_eci_for_body(oe, bh.GM_MOON, bh.AngleFormat.DEGREES)
+///     ```
+fn py_state_koe_to_eci_for_body<'py>(
+    py: Python<'py>,
+    x_oe: Bound<'py, PyAny>,
+    gm: f64,
+    angle_format: &PyAngleFormat,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec =
+        coordinates::state_koe_to_eci_for_body(pyany_to_svector::<6>(&x_oe)?, gm, angle_format.value);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+#[pyfunction]
 #[pyo3(text_signature = "(x_geoc, angle_format)")]
 #[pyo3(name = "position_geocentric_to_ecef")]
 /// Convert geocentric position to `ECEF` Cartesian coordinates.

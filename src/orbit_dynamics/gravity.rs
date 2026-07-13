@@ -1162,10 +1162,17 @@ impl GravityModel {
             // Parse the header
             if line.starts_with("modelname") {
                 model_name = String::from(line.split_whitespace().last().unwrap());
-            } else if line.starts_with("earth_gravity_constant") {
-                gm = line.split_whitespace().last().unwrap().parse::<f64>()?;
+            } else if line.starts_with("earth_gravity_constant")
+                || line.starts_with("gravity_constant")
+            {
+                // Non-Earth ICGEM models (Moon, Mars, ...) use the unprefixed
+                // "gravity_constant" key and, like the coefficient rows, may use
+                // Fortran-style "D" exponents (e.g. "0.4902799806931690D+13").
+                let token = line.split_whitespace().last().unwrap();
+                gm = token.replace(['D', 'd'], "e").parse::<f64>()?;
             } else if line.starts_with("radius") {
-                radius = line.split_whitespace().last().unwrap().parse::<f64>()?;
+                let token = line.split_whitespace().last().unwrap();
+                radius = token.replace(['D', 'd'], "e").parse::<f64>()?;
             } else if line.starts_with("max_degree") {
                 n_max = line.split_whitespace().last().unwrap().parse::<usize>()?;
                 m_max = n_max;
@@ -1206,7 +1213,8 @@ impl GravityModel {
         // Confirm that the header contained all required fields
         if gm == 0.0 {
             return Err(BraheError::ParseError(
-                "Gravity model file header missing required field: \"earth_gravity_constant\""
+                "Gravity model file header missing required field: \"earth_gravity_constant\" \
+                 or \"gravity_constant\""
                     .to_string(),
             ));
         }
@@ -2700,10 +2708,11 @@ mod tests {
     use crate::traits::DStatePropagator;
     use crate::utils::testing::setup_global_test_eop;
     use crate::{
-        AngleFormat, DNumericalOrbitPropagator, EOPExtrapolation, Epoch, FileEOPProvider,
-        FileSpaceWeatherProvider, ForceModelConfig, FrameTransformationModel, GravityConfiguration,
-        GravityModelSource, NumericalPropagationConfig, SVector6, TimeSystem, ZonalHarmonicsDegree,
-        set_global_eop_provider, set_global_space_weather_provider, state_koe_to_eci,
+        AngleFormat, CentralBody, DNumericalOrbitPropagator, EOPExtrapolation, Epoch,
+        FileEOPProvider, FileSpaceWeatherProvider, ForceModelConfig, FrameTransformationModel,
+        GravityConfiguration, GravityModelSource, NumericalPropagationConfig, SVector6, TimeSystem,
+        ZonalHarmonicsDegree, set_global_eop_provider, set_global_space_weather_provider,
+        state_koe_to_eci,
     };
 
     use super::*;
@@ -2724,6 +2733,28 @@ mod tests {
             gravity_model.normalization,
             GravityModelNormalization::FullyNormalized
         );
+    }
+
+    #[test]
+    fn test_gravity_model_from_file_non_earth_header_with_fortran_exponents() {
+        // Non-Earth ICGEM models (e.g. GRGM660PRIM for the Moon) use the
+        // unprefixed "gravity_constant" header key instead of
+        // "earth_gravity_constant", and may write both it and "radius" using
+        // Fortran-style "D" exponents (e.g. "0.4902799806931690D+13") rather
+        // than "E". The test asset is a trimmed excerpt of a real Moon gfc
+        // file's header.
+        let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let path = std::path::Path::new(&manifest_dir)
+            .join("test_assets")
+            .join("grgm660prim_header_sample.gfc");
+
+        let gravity_model = GravityModel::from_file(&path).unwrap();
+
+        assert_eq!(gravity_model.model_name, "GRGM660PRIM");
+        assert_abs_diff_eq!(gravity_model.gm, 4.902_799_806_931_69e12, epsilon = 1.0);
+        assert_abs_diff_eq!(gravity_model.radius, 1.738e6, epsilon = 1e-6);
+        assert_eq!(gravity_model.n_max, 2);
+        assert_eq!(gravity_model.m_max, 2);
     }
 
     #[test]
@@ -3340,6 +3371,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
     fn test_spherical_harmonic_agrees_with_fast_zonal() {
         let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
         set_global_eop_provider(eop);
@@ -3359,6 +3391,7 @@ mod tests {
             dstate.clone(),
             NumericalPropagationConfig::default(),
             ForceModelConfig {
+                central_body: CentralBody::Earth,
                 gravity: GravityConfiguration::SphericalHarmonic {
                     source: GravityModelSource::default(),
                     degree: (&degree).into(),
@@ -3385,6 +3418,7 @@ mod tests {
             dstate.clone(),
             NumericalPropagationConfig::default(),
             ForceModelConfig {
+                central_body: CentralBody::Earth,
                 gravity: GravityConfiguration::EarthZonal {
                     degree: ZonalHarmonicsDegree::J6,
                 },
@@ -3447,6 +3481,7 @@ mod tests {
                 dstate.clone(),
                 NumericalPropagationConfig::default(),
                 ForceModelConfig {
+                    central_body: CentralBody::Earth,
                     gravity,
                     drag: None,
                     srp: None,
@@ -3866,6 +3901,7 @@ mod tests {
             name: "JGM3".into(),
         };
         let force_model = ForceModelConfig {
+            central_body: CentralBody::Earth,
             gravity: GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(icgem_model),
                 degree: 20,

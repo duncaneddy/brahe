@@ -8,6 +8,7 @@ fn main() {
     // Uses only central body gravity (mu/r^2)
     // No spherical harmonics, J2, or higher-order terms
     let _force_config = bh::ForceModelConfig {
+        central_body: bh::CentralBody::Earth,
         gravity: bh::GravityConfiguration::PointMass,
         drag: None,
         srp: None,
@@ -18,4 +19,3 @@ fn main() {
         tides: None,
     };
 }
-

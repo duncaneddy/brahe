@@ -1766,3 +1766,22 @@ class TestSGPPropagatorAdditionalMethods:
             # Verify states_eme2000 matches state_eme2000 at each epoch
             single = prop.state_eme2000(epochs[i])
             assert state == pytest.approx(single, rel=1e-10)
+
+
+def test_sgppropagator_bci_bcbf_in_frame(iss_tle):
+    """Earth-centered propagator: state_bci == state_gcrf, state_bcbf ==
+    state_itrf, state_in_frame converts from GCRF.
+    Mirrors test_sgppropagator_bci_bcbf_in_frame."""
+    import numpy as np
+
+    line1, line2 = iss_tle
+    prop = brahe.SGPPropagator.from_tle(line1, line2, 60.0)
+    epoch = prop.epoch
+
+    np.testing.assert_array_equal(prop.state_bci(epoch), prop.state_gcrf(epoch))
+    np.testing.assert_array_equal(prop.state_bcbf(epoch), prop.state_itrf(epoch))
+    np.testing.assert_allclose(
+        prop.state_in_frame(brahe.ReferenceFrame.ITRF, epoch),
+        prop.state_itrf(epoch),
+        atol=1e-6,
+    )

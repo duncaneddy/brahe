@@ -72,6 +72,7 @@ Third-Body Perturbations:
 - accel_third_body_saturn_spice: Saturn perturbation using DE ephemerides
 - accel_third_body_uranus_spice: Uranus perturbation using DE ephemerides
 - accel_third_body_neptune_spice: Neptune perturbation using DE ephemerides
+- accel_third_body_for_body: Central-body-aware third-body acceleration (Moon, Mars, EMB, SSB, Custom)
 
 Gravity:
 - accel_point_mass_gravity: Point-mass gravity acceleration
@@ -92,12 +93,16 @@ Gravity:
 
 Drag and SRP:
 - accel_drag: Atmospheric drag acceleration
+- accel_drag_for_body: Atmospheric drag acceleration about an arbitrary central body
 - accel_solar_radiation_pressure: Solar radiation pressure acceleration
 - eclipse_conical: Conical (penumbral) shadow model for eclipse detection
+- eclipse_conical_for_body: Conical shadow model with an arbitrary occulting body
 - eclipse_cylindrical: Cylindrical shadow model for eclipse detection
+- eclipse_cylindrical_for_body: Cylindrical shadow model with an arbitrary occulting body
 
 Relativity:
 - accel_relativity: Relativistic acceleration effects
+- accel_relativity_for_body: Relativistic acceleration about a central body with arbitrary GM
 
 The DE ephemeris functions use a global, thread-safe ephemeris context that is loaded
 once and shared across all calls for performance. Choose between DE440s or DE440 kernels
@@ -171,6 +176,7 @@ from brahe._brahe import (
     accel_third_body_saturn_spice,
     accel_third_body_uranus_spice,
     accel_third_body_neptune_spice,
+    accel_third_body_for_body,
     # Gravity
     accel_point_mass_gravity,
     accel_earth_zonal_gravity,
@@ -200,10 +206,14 @@ from brahe._brahe import (
     wmmhr_ecef,
     # Drag, SRP, and Relativity
     accel_drag,
+    accel_drag_for_body,
     accel_solar_radiation_pressure,
     eclipse_conical,
+    eclipse_conical_for_body,
     eclipse_cylindrical,
+    eclipse_cylindrical_for_body,
     accel_relativity,
+    accel_relativity_for_body,
 )
 
 __all__ = [
@@ -273,6 +283,7 @@ __all__ = [
     "accel_third_body_saturn_spice",
     "accel_third_body_uranus_spice",
     "accel_third_body_neptune_spice",
+    "accel_third_body_for_body",
     # Gravity
     "accel_point_mass_gravity",
     "accel_earth_zonal_gravity",
@@ -302,8 +313,12 @@ __all__ = [
     "wmmhr_ecef",
     # Drag, SRP, and Relativity
     "accel_drag",
+    "accel_drag_for_body",
     "accel_solar_radiation_pressure",
     "eclipse_conical",
+    "eclipse_conical_for_body",
     "eclipse_cylindrical",
+    "eclipse_cylindrical_for_body",
     "accel_relativity",
+    "accel_relativity_for_body",
 ]

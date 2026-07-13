@@ -779,3 +779,1363 @@ fn py_state_eme2000_to_gcrf<'py>(
 
     Ok(vector_to_numpy!(py, vec, 6, f64))
 }
+
+// ============================================================================
+// IAU/WGCCRE Body Rotation Model
+// ============================================================================
+
+/// Computes the rotation matrix from the ICRF to the IAU/WGCCRE body-fixed
+/// frame of `naif_id` at `epc`.
+///
+/// Args:
+///     naif_id (int): NAIF ID of the body (see `iau_rotation_model_ids` for the supported set)
+///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming ICRF -> body-fixed
+///
+/// Raises:
+///     RuntimeError: If no IAU/WGCCRE rotation model is embedded for `naif_id`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_icrf_to_body_fixed_iau(499, epc)  # Mars
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(naif_id, epc)")]
+#[pyo3(name = "rotation_icrf_to_body_fixed_iau")]
+unsafe fn py_rotation_icrf_to_body_fixed_iau<'py>(
+    py: Python<'py>,
+    naif_id: i32,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let mat = frames::rotation_icrf_to_body_fixed_iau(naif_id, epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+}
+
+/// Sorted list of NAIF IDs with an embedded IAU/WGCCRE rotation model.
+///
+/// Returns:
+///     list[int]: Sorted NAIF IDs supported by `rotation_icrf_to_body_fixed_iau`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     ids = bh.iau_rotation_model_ids()
+///     assert 499 in ids  # Mars
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "iau_rotation_model_ids")]
+fn py_iau_rotation_model_ids() -> Vec<i32> {
+    frames::iau_rotation_model_ids()
+}
+
+// ============================================================================
+// Mars Reference Frames (MCI, MCMF)
+// ============================================================================
+
+/// Computes the rotation matrix from Mars-Centered Inertial (MCI) to
+/// Mars-Centered Mars-Fixed (MCMF), using the IAU/WGCCRE pole and
+/// prime-meridian model for Mars.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming MCI -> MCMF
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_mci_to_mcmf(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_mci_to_mcmf")]
+unsafe fn py_rotation_mci_to_mcmf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_mci_to_mcmf(epc.obj);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the rotation matrix from Mars-Centered Mars-Fixed (MCMF) to
+/// Mars-Centered Inertial (MCI). Inverse of `rotation_mci_to_mcmf`.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming MCMF -> MCI
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_mcmf_to_mci(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_mcmf_to_mci")]
+unsafe fn py_rotation_mcmf_to_mci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_mcmf_to_mci(epc.obj);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Transforms a Cartesian Mars-inertial (MCI) position into the equivalent
+/// Cartesian Mars-fixed (MCMF) position.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_mci (numpy.ndarray or list): Cartesian MCI position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian MCMF position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_mcmf = bh.position_mci_to_mcmf(epc, [bh.R_MARS + 400e3, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_mci)")]
+#[pyo3(name = "position_mci_to_mcmf")]
+fn py_position_mci_to_mcmf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_mci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_mci_to_mcmf(epc.obj, pyany_to_svector::<3>(&x_mci)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Mars-fixed (MCMF) position into the equivalent
+/// Cartesian Mars-inertial (MCI) position.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_mcmf (numpy.ndarray or list): Cartesian MCMF position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian MCI position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_mci = bh.position_mcmf_to_mci(epc, [bh.R_MARS, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_mcmf)")]
+#[pyo3(name = "position_mcmf_to_mci")]
+fn py_position_mcmf_to_mci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_mcmf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_mcmf_to_mci(epc.obj, pyany_to_svector::<3>(&x_mcmf)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Mars-inertial (MCI) state (position and velocity)
+/// into the equivalent Cartesian Mars-fixed (MCMF) state.
+///
+/// The velocity transformation accounts for the transport term induced by
+/// Mars' rotation.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_mci (numpy.ndarray or list): Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian MCMF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_mci = [bh.R_MARS + 400e3, 0.0, 0.0, 0.0, 3.4e3, 0.0]
+///     x_mcmf = bh.state_mci_to_mcmf(epc, x_mci)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_mci)")]
+#[pyo3(name = "state_mci_to_mcmf")]
+fn py_state_mci_to_mcmf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_mci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_mci_to_mcmf(epc.obj, pyany_to_svector::<6>(&x_mci)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Mars-fixed (MCMF) state (position and velocity)
+/// into the equivalent Cartesian Mars-inertial (MCI) state. Inverse of
+/// `state_mci_to_mcmf`.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_mcmf (numpy.ndarray or list): Cartesian MCMF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_mci = [bh.R_MARS + 400e3, 0.0, 0.0, 0.0, 3.4e3, 0.0]
+///     x_mcmf = bh.state_mci_to_mcmf(epc, x_mci)
+///     x_mci2 = bh.state_mcmf_to_mci(epc, x_mcmf)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_mcmf)")]
+#[pyo3(name = "state_mcmf_to_mci")]
+fn py_state_mcmf_to_mci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_mcmf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_mcmf_to_mci(epc.obj, pyany_to_svector::<6>(&x_mcmf)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Earth-inertial (ECI) position into the equivalent
+/// Cartesian Mars-inertial (MCI) position.
+///
+/// The MCI origin is the Mars body center (NAIF ID 499); the `mar099s`
+/// satellite ephemeris kernel is auto-loaded for the body-center leg. Auto-initializes
+/// the default `de440s` ephemeris if no SPK kernel is loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian MCI position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_mci = bh.position_eci_to_mci(epc, [1e7, 2e7, 3e7])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(name = "position_eci_to_mci")]
+fn py_position_eci_to_mci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_eci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_eci_to_mci(epc.obj, pyany_to_svector::<3>(&x_eci)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Mars-inertial (MCI) position into the equivalent
+/// Cartesian Earth-inertial (ECI) position.
+///
+/// The MCI origin is the Mars body center (NAIF ID 499); the `mar099s`
+/// satellite ephemeris kernel is auto-loaded for the body-center leg. Auto-initializes
+/// the default `de440s` ephemeris if no SPK kernel is loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_mci (numpy.ndarray or list): Cartesian MCI position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_eci = bh.position_mci_to_eci(epc, [1e7, 2e7, 3e7])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_mci)")]
+#[pyo3(name = "position_mci_to_eci")]
+fn py_position_mci_to_eci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_mci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_mci_to_eci(epc.obj, pyany_to_svector::<3>(&x_mci)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Earth-inertial (ECI) state (position and velocity)
+/// into the equivalent Cartesian Mars-inertial (MCI) state.
+///
+/// The MCI origin is the Mars body center (NAIF ID 499); the `mar099s`
+/// satellite ephemeris kernel is auto-loaded for the body-center leg. Auto-initializes
+/// the default `de440s` ephemeris if no SPK kernel is loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_eci (numpy.ndarray or list): Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_mci = bh.state_eci_to_mci(epc, [1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(name = "state_eci_to_mci")]
+fn py_state_eci_to_mci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_eci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_eci_to_mci(epc.obj, pyany_to_svector::<6>(&x_eci)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Mars-inertial (MCI) state (position and velocity)
+/// into the equivalent Cartesian Earth-inertial (ECI) state.
+///
+/// The MCI origin is the Mars body center (NAIF ID 499); the `mar099s`
+/// satellite ephemeris kernel is auto-loaded for the body-center leg. Auto-initializes
+/// the default `de440s` ephemeris if no SPK kernel is loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_mci (numpy.ndarray or list): Cartesian MCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_eci = bh.state_mci_to_eci(epc, [1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_mci)")]
+#[pyo3(name = "state_mci_to_eci")]
+fn py_state_mci_to_eci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_mci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_mci_to_eci(epc.obj, pyany_to_svector::<6>(&x_mci)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+// ============================================================================
+// Lunar Reference Frames (LCI, LFPA, LFME)
+// ============================================================================
+
+/// Computes the rotation matrix from Lunar-Centered Inertial (LCI) to
+/// Lunar-Fixed Principal Axis (LFPA), using the DE440 lunar principal-axis
+/// binary PCK (`moon_pa_de440`).
+///
+/// Auto-loads the `moon_pa_de440` PCK (downloading it to `~/.cache/brahe/naif`
+/// if needed).
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming LCI -> LFPA
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_lci_to_lfpa(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_lci_to_lfpa")]
+unsafe fn py_rotation_lci_to_lfpa<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_lci_to_lfpa(epc.obj);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the rotation matrix from Lunar-Fixed Principal Axis (LFPA) to
+/// Lunar-Centered Inertial (LCI). Inverse of `rotation_lci_to_lfpa`.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming LFPA -> LCI
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_lfpa_to_lci(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_lfpa_to_lci")]
+unsafe fn py_rotation_lfpa_to_lci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_lfpa_to_lci(epc.obj);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the constant rotation matrix from Lunar-Fixed Mean Earth/polar-axis
+/// (LFME) to Lunar-Fixed Principal Axis (LFPA).
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming LFME -> LFPA
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     r = bh.rotation_lfme_to_lfpa()
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "rotation_lfme_to_lfpa")]
+unsafe fn py_rotation_lfme_to_lfpa<'py>(py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_lfme_to_lfpa();
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the constant rotation matrix from Lunar-Fixed Principal Axis
+/// (LFPA) to Lunar-Fixed Mean Earth/polar-axis (LFME). Inverse of
+/// `rotation_lfme_to_lfpa`.
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming LFPA -> LFME
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     r = bh.rotation_lfpa_to_lfme()
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+#[pyo3(name = "rotation_lfpa_to_lfme")]
+unsafe fn py_rotation_lfpa_to_lfme<'py>(py: Python<'py>) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_lfpa_to_lfme();
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the rotation matrix from Lunar-Centered Inertial (LCI) to
+/// Lunar-Fixed Mean Earth/polar-axis (LFME).
+///
+/// Auto-loads the `moon_pa_de440` PCK (downloading it to `~/.cache/brahe/naif`
+/// if needed).
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming LCI -> LFME
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_lci_to_lfme(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_lci_to_lfme")]
+unsafe fn py_rotation_lci_to_lfme<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_lci_to_lfme(epc.obj);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Computes the rotation matrix from Lunar-Fixed Mean Earth/polar-axis (LFME)
+/// to Lunar-Centered Inertial (LCI). Inverse of `rotation_lci_to_lfme`.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation matrix
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming LFME -> LCI
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_lfme_to_lci(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_lfme_to_lci")]
+unsafe fn py_rotation_lfme_to_lci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> Bound<'py, PyArray<f64, Ix2>> {
+    let mat = frames::rotation_lfme_to_lci(epc.obj);
+    matrix_to_numpy!(py, mat, 3, 3, f64)
+}
+
+/// Transforms a Cartesian Lunar-inertial (LCI) position into the equivalent
+/// Cartesian Lunar-Fixed Principal Axis (LFPA) position.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LFPA position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lfpa = bh.position_lci_to_lfpa(epc, [bh.R_MOON + 100e3, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(name = "position_lci_to_lfpa")]
+fn py_position_lci_to_lfpa<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_lci_to_lfpa(epc.obj, pyany_to_svector::<3>(&x_lci)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Lunar-Fixed Principal Axis (LFPA) position into the
+/// equivalent Cartesian Lunar-inertial (LCI) position.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lfpa (numpy.ndarray or list): Cartesian LFPA position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lci = bh.position_lfpa_to_lci(epc, [bh.R_MOON, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lfpa)")]
+#[pyo3(name = "position_lfpa_to_lci")]
+fn py_position_lfpa_to_lci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lfpa: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_lfpa_to_lci(epc.obj, pyany_to_svector::<3>(&x_lfpa)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Lunar-inertial (LCI) position into the equivalent
+/// Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME) position.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LFME position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lfme = bh.position_lci_to_lfme(epc, [bh.R_MOON + 100e3, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(name = "position_lci_to_lfme")]
+fn py_position_lci_to_lfme<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_lci_to_lfme(epc.obj, pyany_to_svector::<3>(&x_lci)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME) position
+/// into the equivalent Cartesian Lunar-inertial (LCI) position.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lfme (numpy.ndarray or list): Cartesian LFME position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lci = bh.position_lfme_to_lci(epc, [bh.R_MOON, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lfme)")]
+#[pyo3(name = "position_lfme_to_lci")]
+fn py_position_lfme_to_lci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lfme: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_lfme_to_lci(epc.obj, pyany_to_svector::<3>(&x_lfme)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Lunar-inertial (LCI) state (position and velocity)
+/// into the equivalent Cartesian Lunar-Fixed Principal Axis (LFPA) state.
+///
+/// The velocity transformation accounts for the transport term induced by
+/// the Moon's rotation.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LFPA state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lci = [bh.R_MOON + 100e3, 0.0, 0.0, 0.0, 1.6e3, 0.0]
+///     x_lfpa = bh.state_lci_to_lfpa(epc, x_lci)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(name = "state_lci_to_lfpa")]
+fn py_state_lci_to_lfpa<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_lci_to_lfpa(epc.obj, pyany_to_svector::<6>(&x_lci)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Lunar-Fixed Principal Axis (LFPA) state (position
+/// and velocity) into the equivalent Cartesian Lunar-inertial (LCI) state.
+/// Inverse of `state_lci_to_lfpa`.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lfpa (numpy.ndarray or list): Cartesian LFPA state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lci = [bh.R_MOON + 100e3, 0.0, 0.0, 0.0, 1.6e3, 0.0]
+///     x_lfpa = bh.state_lci_to_lfpa(epc, x_lci)
+///     x_lci2 = bh.state_lfpa_to_lci(epc, x_lfpa)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lfpa)")]
+#[pyo3(name = "state_lfpa_to_lci")]
+fn py_state_lfpa_to_lci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lfpa: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_lfpa_to_lci(epc.obj, pyany_to_svector::<6>(&x_lfpa)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Lunar-inertial (LCI) state (position and velocity)
+/// into the equivalent Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME)
+/// state.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LFME state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lci = [bh.R_MOON + 100e3, 0.0, 0.0, 0.0, 1.6e3, 0.0]
+///     x_lfme = bh.state_lci_to_lfme(epc, x_lci)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(name = "state_lci_to_lfme")]
+fn py_state_lci_to_lfme<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_lci_to_lfme(epc.obj, pyany_to_svector::<6>(&x_lci)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Lunar-Fixed Mean Earth/polar-axis (LFME) state
+/// (position and velocity) into the equivalent Cartesian Lunar-inertial (LCI)
+/// state. Inverse of `state_lci_to_lfme`.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lfme (numpy.ndarray or list): Cartesian LFME state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lci = [bh.R_MOON + 100e3, 0.0, 0.0, 0.0, 1.6e3, 0.0]
+///     x_lfme = bh.state_lci_to_lfme(epc, x_lci)
+///     x_lci2 = bh.state_lfme_to_lci(epc, x_lfme)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lfme)")]
+#[pyo3(name = "state_lfme_to_lci")]
+fn py_state_lfme_to_lci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lfme: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_lfme_to_lci(epc.obj, pyany_to_svector::<6>(&x_lfme)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Earth-inertial (ECI) position into the equivalent
+/// Cartesian Lunar-inertial (LCI) position.
+///
+/// The LCI origin is the Moon's body center (NAIF ID 301). Auto-initializes
+/// the default `de440s` ephemeris if no SPK kernel is loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_eci (numpy.ndarray or list): Cartesian ECI position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LCI position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lci = bh.position_eci_to_lci(epc, [1e7, 2e7, 3e7])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(name = "position_eci_to_lci")]
+fn py_position_eci_to_lci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_eci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_eci_to_lci(epc.obj, pyany_to_svector::<3>(&x_eci)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Lunar-inertial (LCI) position into the equivalent
+/// Cartesian Earth-inertial (ECI) position.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lci (numpy.ndarray or list): Cartesian LCI position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian ECI position (m), shape `(3,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_eci = bh.position_lci_to_eci(epc, [1e7, 2e7, 3e7])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(name = "position_lci_to_eci")]
+fn py_position_lci_to_eci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_lci_to_eci(epc.obj, pyany_to_svector::<3>(&x_lci)?);
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Earth-inertial (ECI) state (position and velocity)
+/// into the equivalent Cartesian Lunar-inertial (LCI) state.
+///
+/// The LCI origin is the Moon's body center (NAIF ID 301). Auto-initializes
+/// the default `de440s` ephemeris if no SPK kernel is loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_eci (numpy.ndarray or list): Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_lci = bh.state_eci_to_lci(epc, [1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_eci)")]
+#[pyo3(name = "state_eci_to_lci")]
+fn py_state_eci_to_lci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_eci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_eci_to_lci(epc.obj, pyany_to_svector::<6>(&x_eci)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Lunar-inertial (LCI) state (position and velocity)
+/// into the equivalent Cartesian Earth-inertial (ECI) state.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_lci (numpy.ndarray or list): Cartesian LCI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian ECI state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_eci = bh.state_lci_to_eci(epc, [1e7, 2e7, 3e7, 1.0, 2.0, 3.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_lci)")]
+#[pyo3(name = "state_lci_to_eci")]
+fn py_state_lci_to_eci<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_lci: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_lci_to_eci(epc.obj, pyany_to_svector::<6>(&x_lci)?);
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+// ============================================================================
+// Reference Frame Router
+// ============================================================================
+
+/// A reference frame supported by the centralized frame router
+/// (`rotation_frame_to_frame`, `position_frame_to_frame`, `state_frame_to_frame`).
+///
+/// Includes every named frame defined elsewhere in this module (`GCRF`,
+/// `ITRF`, `EME2000`, the lunar frames `LFPA`/`LFME`, and the Mars frame
+/// `MCMF`, plus the corresponding inertial frames `LCI`/`MCI`), the
+/// Earth-Moon and Solar System barycentric inertial frames (`EMBI`, `SSBI`),
+/// and three generic constructors for bodies without a dedicated named
+/// frame: `BodyCenteredICRF(naif_id)`, `BodyFixedIAU(naif_id)`, and
+/// `BodyFixedPCK(center, frame_id)`.
+///
+/// Frame centers (NAIF ID): GCRF/ITRF/EME2000 -> Earth (399); LCI/LFPA/LFME
+/// -> Moon (301); MCI/MCMF -> Mars (499); EMBI -> 3; SSBI ->
+/// 0; `BodyCenteredICRF(id)`/`BodyFixedIAU(id)` -> `id`; `BodyFixedPCK` ->
+/// its `center`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_frame_to_frame(bh.ReferenceFrame.MCI, bh.ReferenceFrame.MCMF, epc)
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "ReferenceFrame")]
+#[derive(Clone, PartialEq)]
+pub struct PyReferenceFrame {
+    pub(crate) frame: frames::ReferenceFrame,
+}
+
+#[pymethods]
+impl PyReferenceFrame {
+    /// Geocentric Celestial Reference Frame (ICRF-aligned, Earth-centered).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GCRF() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::GCRF }
+    }
+
+    /// International Terrestrial Reference Frame (Earth-fixed).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ITRF() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ITRF }
+    }
+
+    /// Alias for `ReferenceFrame.GCRF`: the Earth-Centered Inertial (ECI)
+    /// frame is realized as GCRF.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ECI() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ECI }
+    }
+
+    /// Alias for `ReferenceFrame.ITRF`: the Earth-Centered Earth-Fixed (ECEF)
+    /// frame is realized as ITRF.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn ECEF() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::ECEF }
+    }
+
+    /// Earth Mean Equator and Equinox of J2000.0.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn EME2000() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::EME2000 }
+    }
+
+    /// Lunar-Centered Inertial (ICRF-aligned, Moon-centered).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn LCI() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::LCI }
+    }
+
+    /// Lunar-Fixed Principal Axis (DE440 `MOON_PA_DE440`).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn LFPA() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::LFPA }
+    }
+
+    /// Lunar-Fixed Mean Earth/polar-axis.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn LFME() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::LFME }
+    }
+
+    /// Mars-Centered Inertial (ICRF-aligned, Mars-centered).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn MCI() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::MCI }
+    }
+
+    /// Mars-Centered Mars-Fixed (IAU/WGCCRE Mars rotation model).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn MCMF() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::MCMF }
+    }
+
+    /// Earth-Moon Barycentric Inertial (ICRF-aligned).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn EMBI() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::EMBI }
+    }
+
+    /// Solar System Barycentric Inertial (ICRF-aligned).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SSBI() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::SSBI }
+    }
+
+    /// ICRF-aligned axes centered on the given NAIF ID.
+    ///
+    /// Args:
+    ///     naif_id (int): NAIF ID of the frame's center
+    ///
+    /// Returns:
+    ///     ReferenceFrame: ICRF-aligned frame centered on `naif_id`
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn BodyCenteredICRF(naif_id: i32) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::BodyCenteredICRF(naif_id) }
+    }
+
+    /// IAU/WGCCRE body-fixed frame of the given NAIF ID, centered on that
+    /// same NAIF ID.
+    ///
+    /// Args:
+    ///     naif_id (int): NAIF ID of the body (see `iau_rotation_model_ids` for the supported set)
+    ///
+    /// Returns:
+    ///     ReferenceFrame: IAU/WGCCRE body-fixed frame of `naif_id`
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn BodyFixedIAU(naif_id: i32) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedIAU(naif_id) }
+    }
+
+    /// Body-fixed frame evaluated from a loaded binary PCK's `frame_id`,
+    /// centered on `center`.
+    ///
+    /// Args:
+    ///     center (int): NAIF ID of the frame's center
+    ///     frame_id (int): NAIF binary PCK frame class ID (e.g. 31008 for `MOON_PA_DE440`)
+    ///
+    /// Returns:
+    ///     ReferenceFrame: Body-fixed frame for `frame_id`, centered on `center`
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn BodyFixedPCK(center: i32, frame_id: i32) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedPCK { center, frame_id } }
+    }
+
+    /// Body-fixed frame evaluated from a user-registered rotation callback
+    /// (see `register_custom_frame`), centered on `center`.
+    ///
+    /// For a body without a catalogued NAIF ID, self-assign a unique negative
+    /// `center` (mirroring NAIF's convention for non-catalogued objects):
+    /// rotation-only queries never consult the center, and translations will
+    /// raise unless an ephemeris covering that ID is loaded.
+    ///
+    /// Args:
+    ///     center (int): NAIF ID of the frame's center (may be self-assigned negative)
+    ///     key (int): Registry key the frame's callbacks were registered under
+    ///
+    /// Returns:
+    ///     ReferenceFrame: Custom body-fixed frame for `key`, centered on `center`
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn BodyFixedCustom(center: i32, key: u32) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedCustom { center, key } }
+    }
+
+    /// Parses a `ReferenceFrame` from its string representation (named
+    /// variants only, case-insensitive), plus the common aliases `"ECI"`
+    /// (-> `GCRF`) and `"ECEF"` (-> `ITRF`).
+    ///
+    /// Args:
+    ///     s (str): String representation of the reference frame
+    ///
+    /// Returns:
+    ///     ReferenceFrame: Parsed reference frame
+    ///
+    /// Raises:
+    ///     ValueError: If `s` is not a recognized reference frame name
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     assert bh.ReferenceFrame.from_string("ECI") == bh.ReferenceFrame.GCRF
+    ///     ```
+    #[staticmethod]
+    fn from_string(s: &str) -> PyResult<Self> {
+        s.parse::<frames::ReferenceFrame>()
+            .map(|frame| PyReferenceFrame { frame })
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    fn __str__(&self) -> String {
+        self.frame.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ReferenceFrame.{}", self.frame)
+    }
+}
+
+/// Computes the rotation matrix transforming `from_frame` axes into
+/// `to_frame` axes at `epc`.
+///
+/// Purely an orientation query: does not depend on, and does not query,
+/// either frame's center (in particular, this never touches SPK).
+///
+/// Args:
+///     from_frame (ReferenceFrame): Source reference frame
+///     to_frame (ReferenceFrame): Target reference frame
+///     epc (Epoch): Epoch instant for computation of the transformation
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming `from_frame` -> `to_frame`
+///
+/// Raises:
+///     RuntimeError: If either frame's orientation cannot be evaluated at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_frame_to_frame(bh.ReferenceFrame.MCI, bh.ReferenceFrame.MCMF, epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(from_frame, to_frame, epc)")]
+#[pyo3(name = "rotation_frame_to_frame")]
+unsafe fn py_rotation_frame_to_frame<'py>(
+    py: Python<'py>,
+    from_frame: PyReferenceFrame,
+    to_frame: PyReferenceFrame,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let mat = frames::rotation_frame_to_frame(from_frame.frame, to_frame.frame, epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+}
+
+/// Registers (or replaces) a user-defined body-fixed frame under `key`.
+///
+/// The frame becomes usable as `ReferenceFrame.BodyFixedCustom(center, key)`
+/// in every frame-router function. `rotation` must be a callable taking an
+/// `Epoch` and returning a 3x3 rotation matrix (ICRF -> body-fixed, i.e.
+/// `v_body = R @ v_icrf`) as a numpy array or nested list. If `omega` is
+/// omitted, the angular velocity used for the velocity transport term is
+/// derived numerically from `rotation` by central differencing; provide an
+/// `omega` callable (Epoch -> length-3 array, rad/s, body-fixed axes) when
+/// the spin model has an analytic rate.
+///
+/// This enables custom orientation models — e.g. asteroid spin states from
+/// the DAMIT database — without any change to the frame-router API.
+///
+/// Args:
+///     key (int): Identifier to register the frame under; the same value is
+///         passed to `ReferenceFrame.BodyFixedCustom`.
+///     rotation (callable): Callable `Epoch -> 3x3 array` returning the
+///         ICRF -> body-fixed rotation matrix.
+///     omega (callable, optional): Callable `Epoch -> length-3 array`
+///         returning the frame's angular velocity in body-fixed axes (rad/s).
+///
+/// Example:
+///     ```python
+///     import numpy as np
+///     import brahe as bh
+///
+///     t0 = bh.Epoch.from_date(2024, 1, 1, bh.TimeSystem.TDB)
+///
+///     def spin(epc):
+///         theta = 1.0e-3 * (epc - t0)
+///         c, s = np.cos(theta), np.sin(theta)
+///         return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+///
+///     bh.register_custom_frame(42, spin)
+///     frame = bh.ReferenceFrame.BodyFixedCustom(-20001, 42)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(key, rotation, omega=None)")]
+#[pyo3(name = "register_custom_frame")]
+#[pyo3(signature = (key, rotation, omega=None))]
+fn py_register_custom_frame(key: u32, rotation: Py<PyAny>, omega: Option<Py<PyAny>>) {
+    let rotation_fn = move |epc: time::Epoch| -> SMatrix3 {
+        Python::attach(|py| {
+            let py_epc = PyEpoch { obj: epc };
+            let result = rotation
+                .call1(py, (py_epc,))
+                .expect("custom frame rotation callback raised an exception");
+            pyany_to_smatrix::<3, 3>(result.bind(py))
+                .expect("custom frame rotation callback must return a 3x3 matrix")
+        })
+    };
+    let omega_fn = omega.map(|omega| -> Box<frames::CustomFrameOmega> {
+        Box::new(move |epc: time::Epoch| {
+            Python::attach(|py| {
+                let py_epc = PyEpoch { obj: epc };
+                let result = omega
+                    .call1(py, (py_epc,))
+                    .expect("custom frame omega callback raised an exception");
+                pyany_to_svector::<3>(result.bind(py))
+                    .expect("custom frame omega callback must return a length-3 vector")
+            })
+        })
+    });
+    frames::register_custom_frame(key, rotation_fn, omega_fn);
+}
+
+/// Removes the custom frame registered under `key`.
+///
+/// Args:
+///     key (int): Identifier the frame was registered under.
+///
+/// Returns:
+///     bool: True if a frame was registered under `key` and has been removed.
+#[pyfunction]
+#[pyo3(text_signature = "(key)")]
+#[pyo3(name = "unregister_custom_frame")]
+fn py_unregister_custom_frame(key: u32) -> bool {
+    frames::unregister_custom_frame(key)
+}
+
+/// Transforms a Cartesian position from `from_frame` to `to_frame` at `epc`.
+///
+/// Same hub-and-spoke design as `state_frame_to_frame`, without the velocity
+/// transport terms. Same-center conversions never touch SPK.
+///
+/// Args:
+///     from_frame (ReferenceFrame): Source reference frame
+///     to_frame (ReferenceFrame): Target reference frame
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x (numpy.ndarray or list): Cartesian position in `from_frame` axes/center (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian position in `to_frame` axes/center (m), shape `(3,)`
+///
+/// Raises:
+///     RuntimeError: If either frame's orientation cannot be evaluated at
+///         `epc`, or if the two frames have different centers and no
+///         ephemeris path exists between them
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_gcrf = [bh.R_EARTH + 500e3, 0.0, 0.0]
+///     x_itrf = bh.position_frame_to_frame(bh.ReferenceFrame.GCRF, bh.ReferenceFrame.ITRF, epc, x_gcrf)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(from_frame, to_frame, epc, x)")]
+#[pyo3(name = "position_frame_to_frame")]
+fn py_position_frame_to_frame<'py>(
+    py: Python<'py>,
+    from_frame: PyReferenceFrame,
+    to_frame: PyReferenceFrame,
+    epc: &PyEpoch,
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_frame_to_frame(
+        from_frame.frame,
+        to_frame.frame,
+        epc.obj,
+        pyany_to_svector::<3>(&x)?,
+    )
+    .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian state (position and velocity) from `from_frame` to
+/// `to_frame` at `epc`.
+///
+/// Uses a hub-and-spoke design: the state is first rotated from
+/// `from_frame` axes into ICRF axes (an exact orientation +
+/// velocity-transport transform, still centered on `from_frame`'s origin),
+/// then re-centered onto `to_frame`'s origin if the two frames have
+/// different centers, then rotated into `to_frame` axes. Same-center
+/// conversions (e.g. GCRF <-> ITRF) skip the re-centering step and never
+/// touch SPK.
+///
+/// Args:
+///     from_frame (ReferenceFrame): Source reference frame
+///     to_frame (ReferenceFrame): Target reference frame
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x (numpy.ndarray or list): Cartesian state in `from_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian state in `to_frame` axes/center `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Raises:
+///     RuntimeError: If either frame's orientation cannot be evaluated at
+///         `epc`, or if the two frames have different centers and no
+///         ephemeris path exists between them
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_gcrf = [1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]
+///     x_lfpa = bh.state_frame_to_frame(bh.ReferenceFrame.GCRF, bh.ReferenceFrame.LFPA, epc, x_gcrf)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(from_frame, to_frame, epc, x)")]
+#[pyo3(name = "state_frame_to_frame")]
+fn py_state_frame_to_frame<'py>(
+    py: Python<'py>,
+    from_frame: PyReferenceFrame,
+    to_frame: PyReferenceFrame,
+    epc: &PyEpoch,
+    x: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_frame_to_frame(
+        from_frame.frame,
+        to_frame.frame,
+        epc.obj,
+        pyany_to_svector::<6>(&x)?,
+    )
+    .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}

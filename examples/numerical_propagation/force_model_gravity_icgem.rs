@@ -7,9 +7,9 @@
 //!
 //! FLAGS = ["IGNORE"]
 
-use brahe as bh;
 use bh::GravityModelType;
 use bh::datasets::icgem::ICGEMBody;
+use brahe as bh;
 
 fn main() {
     // Reference an ICGEM Earth model. Use
@@ -21,6 +21,7 @@ fn main() {
     };
 
     let _force_config = bh::ForceModelConfig {
+        central_body: bh::CentralBody::Earth,
         gravity: bh::GravityConfiguration::SphericalHarmonic {
             source: bh::GravityModelSource::ModelType(grav_type),
             degree: 20,

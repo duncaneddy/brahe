@@ -88,12 +88,55 @@ pub fn accel_solar_radiation_pressure<P: IntoPosition>(
 /// ```
 #[allow(non_snake_case)] // To better comply with the literature
 pub fn eclipse_conical<P: IntoPosition>(r_object: P, r_sun: Vector3<f64>) -> f64 {
+    eclipse_conical_for_body(r_object, r_sun, Vector3::zeros(), R_EARTH)
+}
+
+/// Calculate the fraction of the object that is illuminated by the sun using a conical model
+/// for shadowing by an arbitrary occulting body.
+///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+/// When a state vector is provided, only the position component is used.
+///
+/// # Arguments
+///
+/// - `r_object`: Position vector of the object in the body-centered inertial frame, or state vector (position + velocity).
+/// - `r_sun`: Position vector of the sun. If the sun is at the origin, this is the zero vector.
+/// - `r_occulter`: Position vector of the occulting body in the body-centered inertial frame.
+/// - `radius_occulter`: Mean physical radius of the occulting body.
+///
+/// # Returns
+///
+/// - `nu`: Illumination fraction of the object (0.0 = fully shadowed, 1.0 = fully illuminated).
+///
+/// # Examples
+///
+/// ```
+/// use brahe::orbit_dynamics::eclipse_conical_for_body;
+/// use nalgebra::Vector3;
+/// use brahe::constants::R_EARTH;
+///
+/// let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
+/// let r_sun = Vector3::new(0.0, 0.0, 0.0);
+///
+/// let nu = eclipse_conical_for_body(r_object, r_sun, Vector3::zeros(), R_EARTH);
+///
+/// // The object is shadowed, so the illumination fraction should be 0.0
+/// assert_eq!(nu, 0.0);
+/// ```
+#[allow(non_snake_case)] // To better comply with the literature
+pub fn eclipse_conical_for_body<P: IntoPosition>(
+    r_object: P,
+    r_sun: Vector3<f64>,
+    r_occulter: Vector3<f64>,
+    radius_occulter: f64,
+) -> f64 {
     let r = r_object.position();
+    let r_rel = r - r_occulter;
 
     // Occultation Geometry
     let a = (R_SUN / (r_sun - r).norm()).asin();
-    let b = (R_EARTH / r.norm()).asin();
-    let c = (-r.dot(&(r_sun - r)) / (r.norm() * (r_sun - r).norm())).acos();
+    let b = (radius_occulter / r_rel.norm()).asin();
+    let c = (-r_rel.dot(&(r_sun - r)) / (r_rel.norm() * (r_sun - r).norm())).acos();
 
     // Test Occulation Conditions and return illumination fraction
     if (a - b).abs() < c && c < (a + b) {
@@ -144,16 +187,64 @@ pub fn eclipse_conical<P: IntoPosition>(r_object: P, r_sun: Vector3<f64>) -> f64
 /// assert_eq!(nu, 0.0);
 /// ```
 pub fn eclipse_cylindrical<P: IntoPosition>(r_object: P, r_sun: Vector3<f64>) -> f64 {
+    eclipse_cylindrical_for_body(r_object, r_sun, Vector3::zeros(), R_EARTH)
+}
+
+/// Calculate the fraction of the object that is illuminated by the sun using a cylindrical model
+/// for shadowing by an arbitrary occulting body.
+///
+/// This function accepts either a 3D position vector or a 6D state vector for `r_object`.
+/// When a state vector is provided, only the position component is used.
+///
+/// # Arguments
+///
+/// - `r_object`: Position vector of the object in the body-centered inertial frame, or state vector (position + velocity).
+/// - `r_sun`: Position vector of the sun. If the sun is at the origin, this is the zero vector.
+/// - `r_occulter`: Position vector of the occulting body in the body-centered inertial frame.
+/// - `radius_occulter`: Mean physical radius of the occulting body.
+///
+/// # Returns
+///
+/// - `nu`: Illumination fraction of the object.
+///
+/// # Examples
+///
+/// ```
+/// use brahe::orbit_dynamics::eclipse_cylindrical_for_body;
+/// use nalgebra::Vector3;
+/// use brahe::constants::R_EARTH;
+///
+/// let r_object = Vector3::new(R_EARTH, 0.0, 0.0);
+/// let r_sun = Vector3::new(0.0, 0.0, 0.0);
+///
+/// let nu = eclipse_cylindrical_for_body(r_object, r_sun, Vector3::zeros(), R_EARTH);
+///
+/// // The object is shadowed, so the illumination fraction should be 0.0
+/// assert_eq!(nu, 0.0);
+/// ```
+pub fn eclipse_cylindrical_for_body<P: IntoPosition>(
+    r_object: P,
+    r_sun: Vector3<f64>,
+    r_occulter: Vector3<f64>,
+    radius_occulter: f64,
+) -> f64 {
     let r = r_object.position();
+    let r_rel = r - r_occulter;
 
-    // Unit vector in the direction of the sun
-    let e_sun = r_sun / r_sun.norm();
+    // Unit vector from the occulting body toward the sun
+    let d_sun = r_sun - r_occulter;
+    let e_sun = d_sun / d_sun.norm();
 
-    // Projection of spacecraft position vector onto the sun vector
-    let r_proj = r.dot(&e_sun);
+    // Projection of the occulter-relative object position onto the sun vector
+    let r_proj = r_rel.dot(&e_sun);
 
-    // Compute illumination fraction
-    if r_proj >= 1.0 || (r - r_proj * e_sun).norm() > R_EARTH {
+    // NOTE: `r_proj >= 1.0` is a legacy sentinel inherited from the original
+    // Earth-only implementation: it checks whether the sunward projection (in
+    // meters) is at least 1 meter, rather than checking its sign (>= 0.0).
+    // This is a pre-existing quirk, not a physically motivated threshold, and
+    // is preserved here unchanged so that delegation from `eclipse_cylindrical`
+    // remains bit-identical to the legacy behavior.
+    if r_proj >= 1.0 || (r_rel - r_proj * e_sun).norm() > radius_occulter {
         1.0
     } else {
         0.0
@@ -167,9 +258,42 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use rstest::rstest;
 
+    use crate::constants::R_MOON;
     use crate::{Epoch, TimeSystem, sun_position};
 
     use super::*;
+
+    #[test]
+    fn test_eclipse_for_body_earth_at_origin_matches_legacy() {
+        let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        let r_sun = Vector3::new(-AU, 0.0, 0.0); // object behind Earth
+        assert_eq!(
+            eclipse_conical(r_object, r_sun),
+            eclipse_conical_for_body(r_object, r_sun, Vector3::zeros(), R_EARTH)
+        );
+        assert_eq!(
+            eclipse_cylindrical(r_object, r_sun),
+            eclipse_cylindrical_for_body(r_object, r_sun, Vector3::zeros(), R_EARTH)
+        );
+    }
+
+    #[test]
+    fn test_eclipse_for_body_offset_occulter() {
+        // Moon occulting: object 2000 km behind the Moon on the anti-Sun line, Moon offset from origin
+        let r_moon = Vector3::new(3.844e8, 0.0, 0.0);
+        let r_sun = Vector3::new(1.5e11, 0.0, 0.0);
+        // Object on the anti-Sun side of the Moon, 2000 km behind it
+        let r_object = Vector3::new(r_moon[0] - 2.0e6, 0.0, 0.0);
+        let nu = eclipse_cylindrical_for_body(r_object, r_sun, r_moon, R_MOON);
+        assert_eq!(nu, 0.0); // fully shadowed
+        let nu_free = eclipse_cylindrical_for_body(
+            Vector3::new(r_moon[0], 1.0e7, 0.0),
+            r_sun,
+            r_moon,
+            R_MOON,
+        );
+        assert_eq!(nu_free, 1.0);
+    }
 
     #[test]
     fn test_accel_solar_radiation_pressure() {

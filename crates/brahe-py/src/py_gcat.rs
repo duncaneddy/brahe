@@ -63,7 +63,7 @@ use brahe::datasets::gcat;
 ///         print(f"Name: {record.name}")
 ///         print(f"Perigee: {record.perigee} km")
 ///     ```
-#[pyclass(name = "GCATSatcatRecord", from_py_object)]
+#[pyclass(name = "GCATSatcatRecord", module = "brahe._brahe", from_py_object)]
 #[derive(Clone)]
 struct PyGCATSatcatRecord {
     inner: gcat::GCATSatcatRecord,
@@ -303,7 +303,7 @@ impl PyGCATSatcatRecord {
 ///         print(f"Program: {record.program}")
 ///         print(f"Category: {record.category}")
 ///     ```
-#[pyclass(name = "GCATPsatcatRecord", from_py_object)]
+#[pyclass(name = "GCATPsatcatRecord", module = "brahe._brahe", from_py_object)]
 #[derive(Clone)]
 struct PyGCATPsatcatRecord {
     inner: gcat::GCATPsatcatRecord,
@@ -463,7 +463,7 @@ impl PyGCATPsatcatRecord {
 ///     df = satcat.to_dataframe()
 ///     print(df.head())
 ///     ```
-#[pyclass(name = "GCATSatcat")]
+#[pyclass(name = "GCATSatcat", module = "brahe._brahe")]
 struct PyGCATSatcat {
     inner: gcat::GCATSatcat,
 }
@@ -793,7 +793,7 @@ impl PyGCATSatcat {
 ///     # Convert to DataFrame
 ///     df = psatcat.to_dataframe()
 ///     ```
-#[pyclass(name = "GCATPsatcat")]
+#[pyclass(name = "GCATPsatcat", module = "brahe._brahe")]
 struct PyGCATPsatcat {
     inner: gcat::GCATPsatcat,
 }

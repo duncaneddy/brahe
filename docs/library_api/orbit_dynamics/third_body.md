@@ -33,8 +33,13 @@ Third-body gravitational perturbation accelerations from the Sun, Moon, and plan
 
 ::: brahe.accel_third_body_neptune_spice
 
+## Arbitrary Central Body
+
+::: brahe.accel_third_body_for_body
+
 ## See Also
 
 - [Third-Body Perturbations (Learn)](../../learn/orbital_dynamics/third_body.md) - Conceptual explanation and examples
 - [Ephemerides](ephemerides.md) - Sun and Moon position functions
+- [Propagation Around Other Central Bodies](../../learn/orbit_propagation/numerical_propagation/other_central_bodies.md) - `CentralBody` and non-Earth propagation
 - [Orbital Dynamics Module](index.md) - Complete orbit dynamics API reference

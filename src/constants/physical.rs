@@ -217,6 +217,46 @@ pub const GM_NEPTUNE: f64 = 6836527.100580 * 1e9;
 //     Applications*, 2012.
 pub const GM_PLUTO: f64 = 977.000000 * 1e9;
 
+/// Mars equatorial radius. Units: (m)
+///
+/// # References:
+///
+///  1. Archinal et al., *Report of the IAU Working Group on Cartographic
+///     Coordinates and Rotational Elements: 2015*, Celest Mech Dyn Astr, 2018.
+pub const R_MARS: f64 = 3.39619e6;
+
+/// Mars axial rotation rate, derived from the WGCCRE 2015 prime-meridian
+/// rate of 350.891982443297 deg/day. Units: [rad/s]
+///
+/// # References:
+///
+///  1. Archinal et al., *Report of the IAU Working Group on Cartographic
+///     Coordinates and Rotational Elements: 2015*, Celest Mech Dyn Astr, 2018.
+pub const OMEGA_MARS: f64 = 7.088_218_070_006_562e-5;
+
+/// Moon mean axial rotation rate, derived from the IAU prime-meridian
+/// rate of 13.17635815 deg/day. Units: [rad/s]
+///
+/// # References:
+///
+///  1. Archinal et al., *Report of the IAU Working Group on Cartographic
+///     Coordinates and Rotational Elements: 2015*, Celest Mech Dyn Astr, 2018.
+pub const OMEGA_MOON: f64 = 2.6616994576329732e-6;
+
+/// Gravitational constant of Phobos. Units: [m^3/s^2]
+///
+/// # References:
+///
+///  1. NAIF, *gm_de440.tpc* Planetary Constants Kernel.
+pub const GM_PHOBOS: f64 = 7.087546066894452e5;
+
+/// Gravitational constant of Deimos. Units: [m^3/s^2]
+///
+/// # References:
+///
+///  1. NAIF, *gm_de440.tpc* Planetary Constants Kernel.
+pub const GM_DEIMOS: f64 = 9.615569648120313e4;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,5 +319,33 @@ mod tests {
             unnormalize_zonal(EGM2008_C_6_0, 6),
             epsilon = 1e-21
         );
+    }
+
+    #[test]
+    fn test_mars_rotation_constants() {
+        // OMEGA_MARS derives from the WGCCRE 2015 prime-meridian rate (350.891982443297 deg/day)
+        assert_abs_diff_eq!(
+            OMEGA_MARS,
+            350.891982443297_f64.to_radians() / 86400.0,
+            epsilon = 1e-15
+        );
+        assert_abs_diff_eq!(R_MARS, 3.39619e6, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_moon_rotation_constant() {
+        // OMEGA_MOON derives from the IAU W1 rate for the Moon (13.17635815 deg/day)
+        assert_abs_diff_eq!(
+            OMEGA_MOON,
+            13.17635815_f64.to_radians() / 86400.0,
+            epsilon = 1e-15
+        );
+    }
+
+    #[test]
+    fn test_mars_moon_gm_constants() {
+        // Values from NAIF gm_de440.tpc (km^3/s^2 -> m^3/s^2); verify against the file
+        assert_abs_diff_eq!(GM_PHOBOS, 7.087546066894452e5, epsilon = 1e-3);
+        assert_abs_diff_eq!(GM_DEIMOS, 9.615569648120313e4, epsilon = 1e-3);
     }
 }

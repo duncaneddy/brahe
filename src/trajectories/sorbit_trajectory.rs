@@ -1565,6 +1565,34 @@ impl CovarianceInterpolationConfig for SOrbitTrajectory {
 }
 
 // Implementation of OrbitalTrajectory trait
+impl SOrbitTrajectory {
+    /// Cartesian twin of a Keplerian `BodyCenteredInertial` trajectory:
+    /// converts each element set to Cartesian about the center body using
+    /// that body's gravitational parameter. Panics for unknown centers and
+    /// barycenters, matching the infallible `to_*` signatures.
+    fn bci_keplerian_to_cartesian(&self, center: i32) -> Self {
+        let cb = crate::propagators::CentralBody::from_naif_id(center)
+            .unwrap_or_else(|err| panic!("BCI trajectory conversion failed: {}", err));
+        assert!(
+            !cb.is_barycenter(),
+            "Keplerian elements are undefined about massless barycenter {}",
+            center
+        );
+        let angle_fmt = self
+            .angle_format
+            .expect("Keplerian representation must have angle_format");
+        let mut out = self.clone();
+        out.states = self
+            .states
+            .iter()
+            .map(|s| crate::coordinates::state_koe_to_eci_for_body(*s, cb.gm(), angle_fmt))
+            .collect();
+        out.representation = OrbitRepresentation::Cartesian;
+        out.angle_format = None;
+        out
+    }
+}
+
 impl OrbitalTrajectory for SOrbitTrajectory {
     /// Create orbital trajectory from data with specified orbital properties.
     ///
@@ -1647,6 +1675,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_eci();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1663,6 +1699,27 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::GCRF,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
@@ -1720,6 +1777,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_gcrf();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1736,6 +1801,27 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::GCRF,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
@@ -1793,6 +1879,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_ecef();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1809,6 +1903,27 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::ITRF,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
@@ -1862,6 +1977,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_itrf();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1879,6 +2002,27 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::ITRF,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // EME2000 Cartesian to GCRF Cartesian (no epoch needed)
@@ -1932,6 +2076,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_eme2000();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1948,6 +2100,27 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial(center) => {
+                        // Re-center through the frame router (SPK-resolved
+                        // center offset); panics if the required kernels are
+                        // unavailable, matching this method's infallible
+                        // signature.
+                        let native = crate::trajectories::traits::bci_reference_frame(center);
+                        let mut states_converted = Vec::with_capacity(self.states.len());
+                        for (e, s) in self.into_iter() {
+                            let converted = crate::frames::state_frame_to_frame(
+                                native,
+                                crate::frames::ReferenceFrame::EME2000,
+                                e,
+                                s,
+                            )
+                            .unwrap_or_else(|err| {
+                                panic!("BCI trajectory conversion failed: {}", err)
+                            });
+                            states_converted.push(converted);
+                        }
+                        states_converted
+                    }
                     OrbitFrame::EME2000 => {
                         // Already in EME2000 frame
                         self.states.clone()
@@ -2043,6 +2216,13 @@ impl OrbitalTrajectory for SOrbitTrajectory {
             }
             OrbitRepresentation::Cartesian => {
                 match self.frame {
+                    OrbitFrame::BodyCenteredInertial(_) => {
+                        panic!(
+                            "to_keplerian labels its result ECI, which is undefined for a \
+                             body-centered inertial trajectory; use state_koe_osc for \
+                             per-epoch elements about the trajectory's own center"
+                        )
+                    }
                     OrbitFrame::EME2000 => {
                         let mut states_converted = Vec::with_capacity(self.states.len());
                         // ITRF/ECEF Cartesian to GCRF Cartesian (requires epoch)
@@ -2105,12 +2285,110 @@ impl SStateProvider for SOrbitTrajectory {
     }
 }
 
+impl SOrbitTrajectory {
+    /// Native Cartesian orbital state about this BodyCenteredInertial
+    /// trajectory's own center: identity for Cartesian representation,
+    /// elements-to-Cartesian about the center body (using its GM) for
+    /// Keplerian representation.
+    fn bci_native_cartesian(
+        &self,
+        center: i32,
+        state: Vector6<f64>,
+    ) -> Result<Vector6<f64>, BraheError> {
+        match self.representation {
+            OrbitRepresentation::Cartesian => Ok(state),
+            OrbitRepresentation::Keplerian => {
+                let cb = crate::propagators::CentralBody::from_naif_id(center)?;
+                if cb.is_barycenter() {
+                    return Err(BraheError::Error(format!(
+                        "Keplerian elements are undefined about massless barycenter {}",
+                        center
+                    )));
+                }
+                Ok(crate::coordinates::state_koe_to_eci_for_body(
+                    state,
+                    cb.gm(),
+                    self.angle_format
+                        .expect("Keplerian representation must have angle_format"),
+                ))
+            }
+        }
+    }
+}
+
 impl SOrbitStateProvider for SOrbitTrajectory {
+    /// Returns the state in this trajectory's own body-centered inertial
+    /// frame: the raw interpolated state for a `BodyCenteredInertial`
+    /// trajectory (converted from elements if Keplerian), `GCRF` for
+    /// Earth-frame trajectories.
+    fn state_bci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        match self.frame {
+            OrbitFrame::BodyCenteredInertial(center) => {
+                let state = self.interpolate(&epoch)?;
+                self.bci_native_cartesian(center, state)
+            }
+            _ => self.state_gcrf(epoch),
+        }
+    }
+
+    /// Returns the state in this trajectory's central body's body-fixed
+    /// frame (`ITRF` for Earth-frame trajectories, `LFPA`/`MCMF`/IAU frame
+    /// for a `BodyCenteredInertial` trajectory); errors for centers without
+    /// a body-fixed frame (barycenters, uncatalogued bodies).
+    fn state_bcbf(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
+        match self.frame {
+            OrbitFrame::BodyCenteredInertial(center) => {
+                let fixed =
+                    crate::trajectories::traits::bci_fixed_frame(center).ok_or_else(|| {
+                        BraheError::Error(format!(
+                            "central body {} has no body-fixed frame",
+                            center
+                        ))
+                    })?;
+                let x = self.state_bci(epoch)?;
+                crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    fixed,
+                    epoch,
+                    x,
+                )
+            }
+            _ => self.state_itrf(epoch),
+        }
+    }
+
+    /// Returns the state expressed in an arbitrary reference frame,
+    /// converting directly from this trajectory's own native frame (no
+    /// Earth round trip for `BodyCenteredInertial` trajectories).
+    fn state_in_frame(
+        &self,
+        frame: crate::frames::ReferenceFrame,
+        epoch: Epoch,
+    ) -> Result<Vector6<f64>, BraheError> {
+        let x = self.state_bci(epoch)?;
+        let native = match self.frame {
+            OrbitFrame::BodyCenteredInertial(center) => {
+                crate::trajectories::traits::bci_reference_frame(center)
+            }
+            _ => crate::frames::ReferenceFrame::GCRF,
+        };
+        crate::frames::state_frame_to_frame(native, frame, epoch, x)
+    }
+
     fn state_eci(&self, epoch: Epoch) -> Result<Vector6<f64>, BraheError> {
         // Get state in native format then convert to ECI Cartesian
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::GCRF,
+                    epoch,
+                    x,
+                );
+            }
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => state_koe_to_eci(
@@ -2151,6 +2429,15 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::GCRF,
+                    epoch,
+                    x,
+                );
+            }
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state, // ECI treated as GCRF
             (OrbitFrame::GCRF, OrbitRepresentation::Keplerian) => state_koe_to_eci(
@@ -2191,6 +2478,15 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::ITRF,
+                    epoch,
+                    x,
+                );
+            }
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
@@ -2242,6 +2538,15 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::ITRF,
+                    epoch,
+                    x,
+                );
+            }
             (OrbitFrame::ECEF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ITRF, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_eci_to_ecef(epoch, state),
@@ -2293,6 +2598,15 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                let x = self.bci_native_cartesian(center, state)?;
+                return crate::frames::state_frame_to_frame(
+                    crate::trajectories::traits::bci_reference_frame(center),
+                    crate::frames::ReferenceFrame::EME2000,
+                    epoch,
+                    x,
+                );
+            }
             (OrbitFrame::EME2000, OrbitRepresentation::Cartesian) => state,
             (OrbitFrame::GCRF, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state),
             (OrbitFrame::ECI, OrbitRepresentation::Cartesian) => state_gcrf_to_eme2000(state), // ECI treated as GCRF
@@ -2347,6 +2661,23 @@ impl SOrbitStateProvider for SOrbitTrajectory {
         let state = self.interpolate(&epoch)?;
 
         Ok(match (self.frame, self.representation) {
+            (OrbitFrame::BodyCenteredInertial(center), _) => {
+                // Osculating elements about the trajectory's own center,
+                // using that body's gravitational parameter.
+                let cb = crate::propagators::CentralBody::from_naif_id(center)?;
+                if cb.is_barycenter() {
+                    return Err(BraheError::Error(format!(
+                        "osculating elements are undefined about massless barycenter {}",
+                        center
+                    )));
+                }
+                let x = self.bci_native_cartesian(center, state)?;
+                return Ok(crate::coordinates::state_eci_to_koe_for_body(
+                    x,
+                    cb.gm(),
+                    angle_format,
+                ));
+            }
             (OrbitFrame::ECI, OrbitRepresentation::Keplerian) => {
                 // Already in Keplerian, just convert angle format if needed
                 let native_format = self.angle_format.unwrap_or(AngleFormat::Radians);
@@ -2520,6 +2851,10 @@ impl SOrbitCovarianceProvider for SOrbitTrajectory {
 
         // Transform to ECI if needed
         match self.frame {
+            // Body-centered inertial axes are ICRF-aligned, so the covariance
+            // is identical under the identity rotation (the center offset is a
+            // translation, which does not affect covariance).
+            OrbitFrame::BodyCenteredInertial(_) => Ok(cov_native),
             OrbitFrame::ECI | OrbitFrame::GCRF => Ok(cov_native),
             OrbitFrame::ECEF | OrbitFrame::ITRF => Err(BraheError::Error(
                 "Covariance transformation from ECEF/ITRF to ECI not implemented".to_string(),
@@ -2668,6 +3003,214 @@ mod tests {
     use crate::utils::testing::setup_global_test_eop;
     use approx::assert_abs_diff_eq;
     use nalgebra::Vector3;
+
+    #[test]
+    #[serial_test::serial]
+    fn test_sorbittrajectory_bci_all_frame_conversions() {
+        // BCI(301) arms: provider trait accessors, state_eci/gcrf/ecef/itrf/
+        // eme2000/koe_osc, all five to_* batch conversions, and covariance
+        // passthrough. Mirrors the DOrbitTrajectory BCI tests.
+        use crate::frames::ReferenceFrame;
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+        // Load the lunar PCK explicitly: this module's tests run after the
+        // spice registry-clearing tests in the serial order, and the lunar
+        // auto-load latch (OnceLock) does not re-detect the clear.
+        crate::spice::load_kernel("moon_pa_de440").unwrap();
+
+        let mut traj = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(301),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+        traj.covariances = Some(Vec::new());
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = Vector6::new(2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0);
+        let cov = SMatrix::<f64, 6, 6>::identity() * 4.0;
+        traj.add_state_and_covariance(epoch, state, cov);
+
+        // Trait accessors: raw sample in BCI; LCI target is the identity.
+        let bci = traj.state_bci(epoch).unwrap();
+        let in_lci = traj.state_in_frame(ReferenceFrame::LCI, epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(bci[i], state[i], epsilon = 0.0);
+            assert_abs_diff_eq!(in_lci[i], state[i], epsilon = 0.0);
+        }
+
+        // ECI re-centers by the Moon's Earth-relative offset.
+        let offset = crate::spice::spk_state(301, 399, epoch).unwrap();
+        let eci = traj.state_eci(epoch).unwrap();
+        let gcrf = traj.state_gcrf(epoch).unwrap();
+        let itrf = traj.state_itrf(epoch).unwrap();
+        let ecef = traj.state_ecef(epoch).unwrap();
+        let eme = traj.state_eme2000(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(eci[i], state[i] + offset[i], epsilon = 1e-6);
+            assert_abs_diff_eq!(gcrf[i], eci[i], epsilon = 1e-9);
+            assert_abs_diff_eq!(
+                itrf[i],
+                crate::frames::state_gcrf_to_itrf(epoch, eci)[i],
+                epsilon = 1e-6
+            );
+            assert_abs_diff_eq!(ecef[i], itrf[i], epsilon = 1e-6);
+            assert_abs_diff_eq!(
+                eme[i],
+                crate::frames::state_gcrf_to_eme2000(eci)[i],
+                epsilon = 1e-6
+            );
+        }
+
+        // Elements about the Moon: round trip through the Moon's GM.
+        let koe = traj.state_koe_osc(epoch, AngleFormat::Degrees).unwrap();
+        let back = crate::coordinates::state_koe_to_eci_for_body(
+            koe,
+            crate::constants::GM_MOON,
+            AngleFormat::Degrees,
+        );
+        for i in 0..6 {
+            assert_abs_diff_eq!(back[i], state[i], epsilon = 1e-3);
+        }
+
+        // state_bcbf (LFPA) preserves the position norm of the raw sample.
+        let bcbf = traj.state_bcbf(epoch).unwrap();
+        assert_abs_diff_eq!(
+            bcbf.fixed_rows::<3>(0).norm(),
+            state.fixed_rows::<3>(0).norm(),
+            epsilon = 1e-6
+        );
+
+        // Batch conversions agree with the point queries and are relabeled.
+        for (converted, expected, frame) in [
+            (traj.to_eci(), eci, OrbitFrame::ECI),
+            (traj.to_gcrf(), gcrf, OrbitFrame::GCRF),
+            (traj.to_ecef(), ecef, OrbitFrame::ECEF),
+            (traj.to_itrf(), itrf, OrbitFrame::ITRF),
+            (traj.to_eme2000(), eme, OrbitFrame::EME2000),
+        ] {
+            assert_eq!(converted.frame, frame);
+            let s0 = converted.states[0];
+            for i in 0..6 {
+                assert_abs_diff_eq!(s0[i], expected[i], epsilon = 1e-6);
+            }
+        }
+
+        // Covariance passthrough (identity rotation for ICRF-aligned axes).
+        let cov_eci = traj.covariance_eci(epoch).unwrap();
+        for i in 0..6 {
+            for j in 0..6 {
+                assert_abs_diff_eq!(cov_eci[(i, j)], cov[(i, j)], epsilon = 0.0);
+            }
+        }
+
+        // Keplerian-representation BCI trajectory: elements converted with
+        // the Moon's GM, both point queries and the batch path.
+        let mut traj_kep = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(301),
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        );
+        let oe = Vector6::new(
+            crate::constants::R_MOON + 100e3,
+            0.01,
+            45.0,
+            15.0,
+            30.0,
+            45.0,
+        );
+        traj_kep.add(epoch, oe);
+        let bci_kep = traj_kep.state_bci(epoch).unwrap();
+        let expected_cart = crate::coordinates::state_koe_to_eci_for_body(
+            oe,
+            crate::constants::GM_MOON,
+            AngleFormat::Degrees,
+        );
+        for i in 0..6 {
+            assert_abs_diff_eq!(bci_kep[i], expected_cart[i], epsilon = 1e-6);
+        }
+        let eci_kep_point = traj_kep.state_eci(epoch).unwrap();
+        let traj_kep_eci = traj_kep.to_eci();
+        assert_eq!(traj_kep_eci.frame, OrbitFrame::ECI);
+        let eci_kep_batch = traj_kep_eci.state_eci(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(eci_kep_batch[i], eci_kep_point[i], epsilon = 1e-6);
+        }
+
+        // Earth-frame trajectory keeps Earth semantics for the accessors.
+        let mut traj_e =
+            SOrbitTrajectory::new(OrbitFrame::GCRF, OrbitRepresentation::Cartesian, None);
+        let state_e = Vector6::new(7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0);
+        traj_e.add(epoch, state_e);
+        let gcrf_e = traj_e.state_gcrf(epoch).unwrap();
+        let itrf_e = traj_e.state_itrf(epoch).unwrap();
+        let bci_e = traj_e.state_bci(epoch).unwrap();
+        let bcbf_e = traj_e.state_bcbf(epoch).unwrap();
+        let in_itrf_e = traj_e.state_in_frame(ReferenceFrame::ITRF, epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(bci_e[i], gcrf_e[i], epsilon = 0.0);
+            assert_abs_diff_eq!(bcbf_e[i], itrf_e[i], epsilon = 0.0);
+            assert_abs_diff_eq!(in_itrf_e[i], itrf_e[i], epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_sorbittrajectory_bci_error_branches() {
+        // Offline error branches, mirroring the DOrbitTrajectory test:
+        // elements about a barycenter, body-fixed frame for a barycenter or
+        // uncatalogued body, Keplerian samples about a barycenter, and the
+        // to_keplerian rejection.
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+
+        let mut traj_emb = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(3),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+        traj_emb.add(epoch, Vector6::new(1e8, 0.0, 0.0, 0.0, 1e3, 0.0));
+        assert!(
+            traj_emb
+                .state_koe_osc(epoch, AngleFormat::Degrees)
+                .unwrap_err()
+                .to_string()
+                .contains("barycenter")
+        );
+        assert!(
+            traj_emb
+                .state_bcbf(epoch)
+                .unwrap_err()
+                .to_string()
+                .contains("no body-fixed frame")
+        );
+
+        let mut traj_unknown = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(-20001),
+            OrbitRepresentation::Cartesian,
+            None,
+        );
+        traj_unknown.add(epoch, Vector6::new(1e5, 0.0, 0.0, 0.0, 1.0, 0.0));
+        assert!(traj_unknown.state_bcbf(epoch).is_err());
+        assert!(
+            traj_unknown
+                .state_koe_osc(epoch, AngleFormat::Degrees)
+                .is_err()
+        );
+
+        let mut traj_kep = SOrbitTrajectory::new(
+            OrbitFrame::BodyCenteredInertial(3),
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        );
+        traj_kep.add(epoch, Vector6::new(1e8, 0.01, 10.0, 0.0, 0.0, 0.0));
+        assert!(
+            traj_kep
+                .state_bci(epoch)
+                .unwrap_err()
+                .to_string()
+                .contains("barycenter")
+        );
+
+        let result = std::panic::catch_unwind(|| traj_emb.to_keplerian(AngleFormat::Degrees));
+        assert!(result.is_err());
+    }
 
     fn create_test_trajectory() -> SOrbitTrajectory {
         let mut traj = SOrbitTrajectory::new(

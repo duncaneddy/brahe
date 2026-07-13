@@ -191,3 +191,29 @@ def test_GM_NEPTUNE():
 
 def test_GM_PLUTO():
     assert brahe.GM_PLUTO == 977.000000 * 1e9
+
+
+def test_R_MARS():
+    assert brahe.R_MARS == pytest.approx(3.39619e6, abs=1.0)
+
+
+def test_OMEGA_MARS():
+    # OMEGA_MARS derives from the WGCCRE 2015 prime-meridian rate (350.891982443297 deg/day)
+    assert brahe.OMEGA_MARS == pytest.approx(
+        math.radians(350.891982443297) / 86400.0, abs=1e-15
+    )
+
+
+def test_OMEGA_MOON():
+    # OMEGA_MOON derives from the IAU W1 rate for the Moon (13.17635815 deg/day)
+    assert brahe.OMEGA_MOON == pytest.approx(
+        math.radians(13.17635815) / 86400.0, abs=1e-15
+    )
+
+
+def test_GM_PHOBOS():
+    assert brahe.GM_PHOBOS == pytest.approx(7.087546066894452e5, abs=1e-3)
+
+
+def test_GM_DEIMOS():
+    assert brahe.GM_DEIMOS == pytest.approx(9.615569648120313e4, abs=1e-3)

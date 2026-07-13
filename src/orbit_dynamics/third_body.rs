@@ -10,6 +10,7 @@ use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
 use crate::propagators::CentralBody;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
+use crate::spice::positions::{spk_pair_position_from_kernels, spk_strictly_resolvable};
 use crate::spice::{
     SPICEKernel, jupiter_barycenter_position_spice, load_kernel, mars_barycenter_position_spice,
     mercury_position_spice, moon_position_spice, neptune_barycenter_position_spice,
@@ -226,16 +227,20 @@ pub fn accel_third_body<P: IntoPosition>(
 ///
 /// # Kernel selection
 ///
-/// Unlike [`accel_third_body`] (which always queries the process-wide SPICE
-/// kernel registry via [`crate::spice::spk_position`], relying on whatever
-/// kernel happens to be loaded), this function loads the DE kernel named by
-/// `source` immediately before querying. The `source` kernel is loaded
-/// idempotently, so `source` selects the kernel only when it is not already
-/// superseded by a more-recently-loaded DE kernel; once both DE440s and DE440
-/// are loaded, precedence stays last-loaded-wins regardless of `source`.
-/// Kernels already loaded for bodies the DE kernel itself doesn't cover
-/// (e.g. Phobos/Deimos, which require the `mar099s` satellite kernel) remain
-/// loaded and still participate in cross-kernel chain resolution.
+/// The perturber's position is resolved with kernel-scoped queries that
+/// honor `source` regardless of which other kernels are loaded in the
+/// process-wide registry: legs between DE-covered bodies (barycenters, Sun,
+/// Mercury, Venus, Earth, Moon) come from the DE kernel named by `source`,
+/// and a satellite-system body's leg relative to its system barycenter
+/// (e.g. Phobos/Deimos via `mar099s`) comes from that system's satellite
+/// ephemeris kernel. Kernels are auto-downloaded and loaded on first use.
+///
+/// The one exception is a [`ThirdBody::Custom`] perturber (or a
+/// [`CentralBody::Custom`] center) whose NAIF ID falls outside DE and known
+/// satellite-kernel coverage (e.g. an asteroid in a bring-your-own SPK):
+/// such pairs resolve across all loaded kernels via
+/// [`crate::spice::spk_position`], with the registry's last-loaded-wins
+/// precedence.
 ///
 /// # Arguments
 ///
@@ -319,12 +324,20 @@ pub fn accel_third_body_for_body<P: IntoPosition>(
             )));
         }
         (source, body) => {
-            // Load the requested DE kernel so it takes precedence over any
-            // other DE kernel already loaded for this (target, center) pair
-            // (see the "Kernel selection" section above).
             let kernel = SPICEKernel::try_from(source)?;
-            load_kernel(kernel)?;
-            spk_position(body.naif_id(), central_body.naif_id(), epc)?
+            let (target, center) = (body.naif_id(), central_body.naif_id());
+            if spk_strictly_resolvable(target) && spk_strictly_resolvable(center) {
+                // Kernel-scoped resolution honoring `source` regardless of
+                // which other kernels are loaded (see the "Kernel selection"
+                // section above).
+                spk_pair_position_from_kernels(kernel, target, center, epc)?
+            } else {
+                // Bring-your-own-SPK bodies (Custom NAIF IDs outside DE and
+                // known satellite-kernel coverage) resolve across all loaded
+                // kernels with the registry's last-loaded-wins precedence.
+                load_kernel(kernel)?;
+                spk_position(target, center, epc)?
+            }
         }
     };
 
@@ -1050,5 +1063,212 @@ mod tests {
             Vector3::new(R_EARTH + 500e3, 0.0, 0.0),
         );
         assert!(e.is_err());
+    }
+
+    // ----- EphemerisSource kernel selection -----
+    //
+    // These tests seed synthetic DE430/DE432s/mar099s kernels with different
+    // constant positions into a redirected cache, so the source a caller
+    // configures is distinguishable from the last-loaded kernel without any
+    // network access. They deliberately never touch (or clear) "de440s":
+    // concurrent non-#[serial] tests resolve their queries against the real
+    // loaded de440s and stay unaffected, and the synthetic segments below use
+    // only Mercury/Venus/Mars-system legs that no non-#[serial] test queries
+    // through the global registry.
+
+    use crate::spice::{load_kernel, unload_kernel};
+    use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
+
+    /// Third-body acceleration formula replicated for expected values.
+    fn expected_accel(
+        s: Vector3<f64>,
+        r: Vector3<f64>,
+        gm: f64,
+        direct_only: bool,
+    ) -> Vector3<f64> {
+        let d = s - r;
+        let direct = gm * d / d.norm().powi(3);
+        if direct_only {
+            direct
+        } else {
+            direct - gm * s / s.norm().powi(3)
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_honors_ephemeris_source() {
+        // With BOTH DE430 and DE432s loaded — in either order — the position
+        // used must come from the kernel named by `source`, not from
+        // whichever kernel was loaded last.
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1.0e3, 0.0, 0.0);
+        let central = CentralBody::from_naif_id(299).unwrap(); // Venus
+
+        // Mercury rel Venus resolves as seg(1,0) + seg(199,1) - seg(2,0) - seg(299,2) [km].
+        // de430: 100 + 10 - 200 - 20 = -110 km; de432s: 300 + 30 - 600 - 60 = -330 km.
+        let a_de430 = expected_accel(Vector3::new(-110.0e3, 0.0, 0.0), r, GM_MERCURY, false);
+        let a_de432s = expected_accel(Vector3::new(-330.0e3, 0.0, 0.0), r, GM_MERCURY, false);
+
+        {
+            let cache = CacheRedirect::new();
+            cache.seed(
+                "de430.bsp",
+                &synthetic_spk_kernel_bytes(&[
+                    (1, 0, 100.0),
+                    (199, 1, 10.0),
+                    (2, 0, 200.0),
+                    (299, 2, 20.0),
+                ]),
+            );
+            cache.seed(
+                "de432s.bsp",
+                &synthetic_spk_kernel_bytes(&[
+                    (1, 0, 300.0),
+                    (199, 1, 30.0),
+                    (2, 0, 600.0),
+                    (299, 2, 60.0),
+                ]),
+            );
+
+            for order in [["de430", "de432s"], ["de432s", "de430"]] {
+                let _ = unload_kernel("de430");
+                let _ = unload_kernel("de432s");
+                for name in order {
+                    load_kernel(name).unwrap();
+                }
+
+                let a = accel_third_body_for_body(
+                    &central,
+                    &ThirdBody::Mercury,
+                    EphemerisSource::SPK(SPICEKernel::DE430),
+                    epc,
+                    r,
+                )
+                .unwrap();
+                assert_abs_diff_eq!(a, a_de430, epsilon = a_de430.norm() * 1e-12);
+
+                let a = accel_third_body_for_body(
+                    &central,
+                    &ThirdBody::Mercury,
+                    EphemerisSource::SPK(SPICEKernel::DE432s),
+                    epc,
+                    r,
+                )
+                .unwrap();
+                assert_abs_diff_eq!(a, a_de432s, epsilon = a_de432s.norm() * 1e-12);
+            }
+            let _ = unload_kernel("de430");
+            let _ = unload_kernel("de432s");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_satellite_body_uses_source_de_leg() {
+        // Phobos (401) is not in a DE kernel: its body-rel-Mars-barycenter
+        // leg comes from mar099s, while the Mars-barycenter-rel-central leg
+        // must still honor the configured DE kernel.
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1.0e3, 0.0, 0.0);
+        let gm_phobos = ThirdBody::Phobos.gm();
+
+        // Phobos rel EMB = seg(401,4) + [seg(4,0) - seg(3,0)].
+        // de430: 50 + (400 - 40) = 410 km; de432s: 50 + (800 - 80) = 770 km.
+        let a_de430 = expected_accel(Vector3::new(410.0e3, 0.0, 0.0), r, gm_phobos, false);
+        let a_de432s = expected_accel(Vector3::new(770.0e3, 0.0, 0.0), r, gm_phobos, false);
+        // Phobos rel Mars barycenter needs no DE leg at all: 50 km.
+        let a_mars = expected_accel(Vector3::new(50.0e3, 0.0, 0.0), r, gm_phobos, false);
+
+        {
+            let cache = CacheRedirect::new();
+            cache.seed(
+                "mar099s.bsp",
+                &synthetic_spk_kernel_bytes(&[(401, 4, 50.0)]),
+            );
+            cache.seed(
+                "de430.bsp",
+                &synthetic_spk_kernel_bytes(&[(4, 0, 400.0), (3, 0, 40.0)]),
+            );
+            cache.seed(
+                "de432s.bsp",
+                &synthetic_spk_kernel_bytes(&[(4, 0, 800.0), (3, 0, 80.0)]),
+            );
+            let _ = unload_kernel("mar099s");
+            let _ = unload_kernel("de430");
+            let _ = unload_kernel("de432s");
+            load_kernel("de430").unwrap();
+            load_kernel("de432s").unwrap();
+
+            let a = accel_third_body_for_body(
+                &CentralBody::EMB,
+                &ThirdBody::Phobos,
+                EphemerisSource::SPK(SPICEKernel::DE430),
+                epc,
+                r,
+            )
+            .unwrap();
+            assert_abs_diff_eq!(a, a_de430, epsilon = a_de430.norm() * 1e-12);
+
+            let a = accel_third_body_for_body(
+                &CentralBody::EMB,
+                &ThirdBody::Phobos,
+                EphemerisSource::SPK(SPICEKernel::DE432s),
+                epc,
+                r,
+            )
+            .unwrap();
+            assert_abs_diff_eq!(a, a_de432s, epsilon = a_de432s.norm() * 1e-12);
+
+            let a = accel_third_body_for_body(
+                &CentralBody::Mars,
+                &ThirdBody::Phobos,
+                EphemerisSource::SPK(SPICEKernel::DE430),
+                epc,
+                r,
+            )
+            .unwrap();
+            assert_abs_diff_eq!(a, a_mars, epsilon = a_mars.norm() * 1e-12);
+
+            let _ = unload_kernel("mar099s");
+            let _ = unload_kernel("de430");
+            let _ = unload_kernel("de432s");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_custom_body_uses_global_resolution() {
+        // A Custom body with an ID outside DE and known satellite-kernel
+        // coverage resolves across all loaded kernels (bring-your-own SPK).
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1.0e3, 0.0, 0.0);
+        let gm = 6.26325e10; // Ceres
+
+        let body = ThirdBody::Custom {
+            name: "Ceres".to_string(),
+            naif_id: 2000001,
+            gm,
+        };
+        // SSB central body: direct term only.
+        let a_expected = expected_accel(Vector3::new(77.0e3, 0.0, 0.0), r, gm, true);
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ceres.bsp");
+        std::fs::write(&path, synthetic_spk_kernel_bytes(&[(2000001, 0, 77.0)])).unwrap();
+        let path = path.to_str().unwrap();
+
+        load_kernel("de440s").unwrap();
+        load_kernel(path).unwrap();
+
+        let a =
+            accel_third_body_for_body(&CentralBody::SSB, &body, EphemerisSource::DE440s, epc, r)
+                .unwrap();
+        assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
+
+        let _ = unload_kernel(path);
     }
 }

@@ -2382,6 +2382,11 @@ fn py_accel_third_body_neptune_spice<'py>(
 ///         acceleration are expressed relative to.
 ///     body (ThirdBody): Perturbing celestial body.
 ///     source (EphemerisSource): Ephemeris source for the perturber's position.
+///         Honored via kernel-scoped queries regardless of which other kernels are
+///         loaded; satellite-system bodies (e.g. `ThirdBody.PHOBOS`) take their
+///         body-relative-to-barycenter leg from their system's satellite ephemeris
+///         kernel. Custom NAIF IDs outside DE and known satellite-kernel coverage
+///         resolve across all loaded kernels instead.
 ///         `EphemerisSource.LowPrecision` is only valid when `central_body` is
 ///         `CentralBody.Earth` and `body` is `ThirdBody.SUN` or `ThirdBody.MOON`.
 ///     epc (Epoch): Epoch for ephemeris lookup.

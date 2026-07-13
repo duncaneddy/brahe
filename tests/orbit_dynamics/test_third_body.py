@@ -634,3 +634,34 @@ class TestThirdBodyForBody:
         )
 
         assert 0.0 < np.linalg.norm(a) < 1e-8
+
+    @pytest.mark.integration
+    def test_accel_third_body_for_body_honors_ephemeris_source(self):
+        """Mirrors test_accel_third_body_for_body_honors_ephemeris_source.
+
+        The perturber position must match the kernel-scoped reference for the
+        configured DE kernel even with additional kernels loaded after it
+        (mar099s, which carries Sun/EMB/Earth context segments). The
+        load-order-independence of the selection itself is pinned by the Rust
+        offline tests with synthetic kernels, which Python cannot construct.
+        """
+        bh.load_kernel("de440s")
+        bh.load_kernel("mar099s")
+        epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+        r = np.array([1e6, -2e6, 5e5])
+
+        s = bh.spk_position_from_kernel("de440s", 10, 301, epc)
+        d = s - r
+        # Same term ordering as the implementation so the comparison is not
+        # limited by catastrophic cancellation between the direct and
+        # indirect terms.
+        expected = (
+            bh.GM_SUN * d / np.linalg.norm(d) ** 3
+            - bh.GM_SUN * s / np.linalg.norm(s) ** 3
+        )
+
+        got = bh.accel_third_body_for_body(
+            bh.CentralBody.Moon, bh.ThirdBody.SUN, bh.EphemerisSource.DE440s, epc, r
+        )
+
+        assert np.allclose(got, expected, rtol=1e-12, atol=0.0)

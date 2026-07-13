@@ -199,7 +199,7 @@ class TestBatchLeastSquares:
         epoch, true_state = two_body_leo
 
         class PositionModel(bh.MeasurementModel):
-            def predict(self, epoch, state):
+            def predict(self, epoch, state, params=None):
                 return state[:3]
 
             def noise_covariance(self):

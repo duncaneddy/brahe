@@ -132,6 +132,17 @@ impl DynamicsSource {
         }
     }
 
+    /// Get the parameter vector supplied to the propagator (None if not provided).
+    ///
+    /// These are the force-model / consider parameters shared by the
+    /// dynamics, control input, and measurement models.
+    pub fn params(&self) -> Option<&DVector<f64>> {
+        match self {
+            DynamicsSource::OrbitPropagator(p) => p.params(),
+            DynamicsSource::GenericPropagator(p) => p.params(),
+        }
+    }
+
     /// Set the trajectory storage mode on the underlying propagator.
     ///
     /// Estimation filters disable trajectory recording at construction:

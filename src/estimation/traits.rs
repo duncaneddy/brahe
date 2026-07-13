@@ -30,6 +30,7 @@ pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
     model: &M,
     epoch: &Epoch,
     state: &DVector<f64>,
+    params: Option<&DVector<f64>>,
     method: DifferenceMethod,
     perturbation: PerturbationStrategy,
 ) -> Result<DMatrix<f64>, BraheError> {
@@ -70,12 +71,12 @@ pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
             for j in 0..n {
                 let mut state_plus = state.clone();
                 state_plus[j] += offsets[j];
-                let h_plus = model.predict(epoch, &state_plus)?;
+                let h_plus = model.predict(epoch, &state_plus, params)?;
                 check_dim(&h_plus)?;
 
                 let mut state_minus = state.clone();
                 state_minus[j] -= offsets[j];
-                let h_minus = model.predict(epoch, &state_minus)?;
+                let h_minus = model.predict(epoch, &state_minus, params)?;
                 check_dim(&h_minus)?;
 
                 for i in 0..m {
@@ -84,12 +85,12 @@ pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
             }
         }
         DifferenceMethod::Forward => {
-            let f0 = model.predict(epoch, state)?;
+            let f0 = model.predict(epoch, state, params)?;
             check_dim(&f0)?;
             for j in 0..n {
                 let mut state_plus = state.clone();
                 state_plus[j] += offsets[j];
-                let fp = model.predict(epoch, &state_plus)?;
+                let fp = model.predict(epoch, &state_plus, params)?;
                 check_dim(&fp)?;
 
                 for i in 0..m {
@@ -98,12 +99,12 @@ pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
             }
         }
         DifferenceMethod::Backward => {
-            let f0 = model.predict(epoch, state)?;
+            let f0 = model.predict(epoch, state, params)?;
             check_dim(&f0)?;
             for j in 0..n {
                 let mut state_minus = state.clone();
                 state_minus[j] -= offsets[j];
-                let fm = model.predict(epoch, &state_minus)?;
+                let fm = model.predict(epoch, &state_minus, params)?;
                 check_dim(&fm)?;
 
                 for i in 0..m {
@@ -202,6 +203,7 @@ pub(crate) fn validate_model_outputs(
 ///         &self,
 ///         _epoch: &Epoch,
 ///         state: &DVector<f64>,
+///         _params: Option<&DVector<f64>>,
 ///     ) -> Result<DVector<f64>, BraheError> {
 ///         let range = (state.rows(0, 3) - &self.station_ecef).norm();
 ///         Ok(DVector::from_vec(vec![range]))
@@ -218,17 +220,26 @@ pub(crate) fn validate_model_outputs(
 pub trait MeasurementModel: Send + Sync {
     /// Compute the predicted measurement from the current state.
     ///
-    /// h(x, t) -> z_predicted
+    /// h(x, t, p) -> z_predicted
     ///
     /// # Arguments
     ///
     /// * `epoch` - Current epoch
     /// * `state` - Current state vector (meters, m/s for orbital states)
+    /// * `params` - Optional parameter vector. The estimation filters pass
+    ///   through the propagator's force-model / consider parameters, so
+    ///   consider values (e.g., measurement biases) can affect the predicted
+    ///   measurement.
     ///
     /// # Returns
     ///
     /// Predicted measurement vector
-    fn predict(&self, epoch: &Epoch, state: &DVector<f64>) -> Result<DVector<f64>, BraheError>;
+    fn predict(
+        &self,
+        epoch: &Epoch,
+        state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
+    ) -> Result<DVector<f64>, BraheError>;
 
     /// Compute the measurement Jacobian H = dh/dx.
     ///
@@ -240,15 +251,22 @@ pub trait MeasurementModel: Send + Sync {
     ///
     /// * `epoch` - Current epoch
     /// * `state` - Current state vector
+    /// * `params` - Optional parameter vector (see [`predict`](Self::predict))
     ///
     /// # Returns
     ///
     /// Measurement Jacobian matrix (m x n) where m = measurement_dim, n = state_dim
-    fn jacobian(&self, epoch: &Epoch, state: &DVector<f64>) -> Result<DMatrix<f64>, BraheError> {
+    fn jacobian(
+        &self,
+        epoch: &Epoch,
+        state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
+    ) -> Result<DMatrix<f64>, BraheError> {
         measurement_jacobian_numerical(
             self,
             epoch,
             state,
+            params,
             DifferenceMethod::Central,
             PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
@@ -311,6 +329,7 @@ mod tests {
             &model,
             &epoch,
             &state,
+            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
@@ -335,6 +354,7 @@ mod tests {
             &model,
             &epoch,
             &state,
+            None,
             DifferenceMethod::Forward,
             PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
@@ -357,6 +377,7 @@ mod tests {
             &model,
             &epoch,
             &state,
+            None,
             DifferenceMethod::Backward,
             PerturbationStrategy::Adaptive {
                 scale_factor: 1.0,
@@ -380,6 +401,7 @@ mod tests {
             &model,
             &epoch,
             &state,
+            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Fixed(1.0),
         )
@@ -393,6 +415,7 @@ mod tests {
             &model,
             &epoch,
             &nonzero_state,
+            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Percentage(1e-6),
         )
@@ -404,6 +427,7 @@ mod tests {
             &model,
             &epoch,
             &state,
+            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Adaptive {
                 scale_factor: 2.0,

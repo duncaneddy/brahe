@@ -1065,6 +1065,19 @@ impl DNumericalPropagator {
         )
     }
 
+    /// Get the parameter vector supplied at construction.
+    ///
+    /// Returns `None` if no parameters were provided. These are the
+    /// dynamics / consider parameters passed to the dynamics function,
+    /// control input, and (via the estimation filters) measurement models.
+    pub fn params(&self) -> Option<&DVector<f64>> {
+        if self.params.is_empty() {
+            None
+        } else {
+            Some(&self.params)
+        }
+    }
+
     /// Check if propagation was terminated
     pub fn terminated(&self) -> bool {
         self.terminated

@@ -116,7 +116,12 @@ impl InertialPositionMeasurementModel {
 }
 
 impl MeasurementModel for InertialPositionMeasurementModel {
-    fn predict(&self, _epoch: &Epoch, state: &DVector<f64>) -> Result<DVector<f64>, BraheError> {
+    fn predict(
+        &self,
+        _epoch: &Epoch,
+        state: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> Result<DVector<f64>, BraheError> {
         if state.len() < 3 {
             return Err(BraheError::Error(format!(
                 "InertialPositionMeasurementModel requires state dimension >= 3, got {}",
@@ -126,7 +131,12 @@ impl MeasurementModel for InertialPositionMeasurementModel {
         Ok(state.rows(0, 3).into_owned())
     }
 
-    fn jacobian(&self, _epoch: &Epoch, state: &DVector<f64>) -> Result<DMatrix<f64>, BraheError> {
+    fn jacobian(
+        &self,
+        _epoch: &Epoch,
+        state: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> Result<DMatrix<f64>, BraheError> {
         let n = state.len();
         let mut h = DMatrix::zeros(3, n);
         h[(0, 0)] = 1.0;
@@ -238,7 +248,12 @@ impl InertialVelocityMeasurementModel {
 }
 
 impl MeasurementModel for InertialVelocityMeasurementModel {
-    fn predict(&self, _epoch: &Epoch, state: &DVector<f64>) -> Result<DVector<f64>, BraheError> {
+    fn predict(
+        &self,
+        _epoch: &Epoch,
+        state: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> Result<DVector<f64>, BraheError> {
         if state.len() < 6 {
             return Err(BraheError::Error(format!(
                 "InertialVelocityMeasurementModel requires state dimension >= 6, got {}",
@@ -248,7 +263,12 @@ impl MeasurementModel for InertialVelocityMeasurementModel {
         Ok(state.rows(3, 3).into_owned())
     }
 
-    fn jacobian(&self, _epoch: &Epoch, state: &DVector<f64>) -> Result<DMatrix<f64>, BraheError> {
+    fn jacobian(
+        &self,
+        _epoch: &Epoch,
+        state: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> Result<DMatrix<f64>, BraheError> {
         let n = state.len();
         let mut h = DMatrix::zeros(3, n);
         h[(0, 3)] = 1.0;
@@ -380,7 +400,12 @@ impl InertialStateMeasurementModel {
 }
 
 impl MeasurementModel for InertialStateMeasurementModel {
-    fn predict(&self, _epoch: &Epoch, state: &DVector<f64>) -> Result<DVector<f64>, BraheError> {
+    fn predict(
+        &self,
+        _epoch: &Epoch,
+        state: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> Result<DVector<f64>, BraheError> {
         if state.len() < 6 {
             return Err(BraheError::Error(format!(
                 "InertialStateMeasurementModel requires state dimension >= 6, got {}",
@@ -390,7 +415,12 @@ impl MeasurementModel for InertialStateMeasurementModel {
         Ok(state.rows(0, 6).into_owned())
     }
 
-    fn jacobian(&self, _epoch: &Epoch, state: &DVector<f64>) -> Result<DMatrix<f64>, BraheError> {
+    fn jacobian(
+        &self,
+        _epoch: &Epoch,
+        state: &DVector<f64>,
+        _params: Option<&DVector<f64>>,
+    ) -> Result<DMatrix<f64>, BraheError> {
         let n = state.len();
         let mut h = DMatrix::zeros(6, n);
         for i in 0..6 {
@@ -434,11 +464,12 @@ mod tests {
         let epoch = test_epoch();
         let state = test_state();
 
-        let analytical = model.jacobian(&epoch, &state).unwrap();
+        let analytical = model.jacobian(&epoch, &state, None).unwrap();
         let numerical = measurement_jacobian_numerical(
             &model,
             &epoch,
             &state,
+            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Fixed(1.0),
         )
@@ -461,11 +492,12 @@ mod tests {
         let epoch = test_epoch();
         let state = test_state();
 
-        let analytical = model.jacobian(&epoch, &state).unwrap();
+        let analytical = model.jacobian(&epoch, &state, None).unwrap();
         let numerical = measurement_jacobian_numerical(
             &model,
             &epoch,
             &state,
+            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Fixed(1.0),
         )
@@ -488,11 +520,12 @@ mod tests {
         let epoch = test_epoch();
         let state = test_state();
 
-        let analytical = model.jacobian(&epoch, &state).unwrap();
+        let analytical = model.jacobian(&epoch, &state, None).unwrap();
         let numerical = measurement_jacobian_numerical(
             &model,
             &epoch,
             &state,
+            None,
             DifferenceMethod::Central,
             PerturbationStrategy::Fixed(1.0),
         )
@@ -579,7 +612,7 @@ mod tests {
         let model = InertialPositionMeasurementModel::new(10.0);
         let epoch = test_epoch();
         let state = test_state();
-        let z = model.predict(&epoch, &state).unwrap();
+        let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 3);
         assert_abs_diff_eq!(z[0], state[0], epsilon = 1e-12);
         assert_abs_diff_eq!(z[1], state[1], epsilon = 1e-12);
@@ -591,7 +624,7 @@ mod tests {
         let model = InertialVelocityMeasurementModel::new(0.05);
         let epoch = test_epoch();
         let state = test_state();
-        let z = model.predict(&epoch, &state).unwrap();
+        let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 3);
         assert_abs_diff_eq!(z[0], state[3], epsilon = 1e-12);
         assert_abs_diff_eq!(z[1], state[4], epsilon = 1e-12);
@@ -603,7 +636,7 @@ mod tests {
         let model = InertialStateMeasurementModel::new(5.0, 0.05);
         let epoch = test_epoch();
         let state = test_state();
-        let z = model.predict(&epoch, &state).unwrap();
+        let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 6);
         for i in 0..6 {
             assert_abs_diff_eq!(z[i], state[i], epsilon = 1e-12);

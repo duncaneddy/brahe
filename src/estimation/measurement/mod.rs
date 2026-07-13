@@ -66,7 +66,7 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let z = model.predict(&epoch, &state).unwrap();
+        let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 3);
         assert_abs_diff_eq!(z[0], 6878.0e3, epsilon = 1e-10);
         assert_abs_diff_eq!(z[1], 100.0e3, epsilon = 1e-10);
@@ -79,7 +79,7 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let h = model.jacobian(&epoch, &state).unwrap();
+        let h = model.jacobian(&epoch, &state, None).unwrap();
         assert_eq!(h.nrows(), 3);
         assert_eq!(h.ncols(), 6);
 
@@ -121,10 +121,10 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let h = model.jacobian(&epoch, &state).unwrap();
+        let h = model.jacobian(&epoch, &state, None).unwrap();
         let dx = DVector::from_vec(vec![1.0, 2.0, 3.0, 0.1, 0.2, 0.3]);
-        let z_base = model.predict(&epoch, &state).unwrap();
-        let z_pert = model.predict(&epoch, &(&state + &dx)).unwrap();
+        let z_base = model.predict(&epoch, &state, None).unwrap();
+        let z_pert = model.predict(&epoch, &(&state + &dx), None).unwrap();
         let dz_actual = &z_pert - &z_base;
         let dz_predicted = &h * &dx;
         for i in 0..3 {
@@ -142,7 +142,7 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let z = model.predict(&epoch, &state).unwrap();
+        let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 3);
         assert_abs_diff_eq!(z[0], 0.0, epsilon = 1e-10);
         assert_abs_diff_eq!(z[1], 7612.0, epsilon = 1e-10);
@@ -155,7 +155,7 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let h = model.jacobian(&epoch, &state).unwrap();
+        let h = model.jacobian(&epoch, &state, None).unwrap();
         assert_abs_diff_eq!(h[(0, 3)], 1.0, epsilon = 1e-10);
         assert_abs_diff_eq!(h[(1, 4)], 1.0, epsilon = 1e-10);
         assert_abs_diff_eq!(h[(2, 5)], 1.0, epsilon = 1e-10);
@@ -179,7 +179,7 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let z = model.predict(&epoch, &state).unwrap();
+        let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 6);
         assert_abs_diff_eq!(z[0], 6878.0e3, epsilon = 1e-10);
         assert_abs_diff_eq!(z[4], 7612.0, epsilon = 1e-10);
@@ -191,7 +191,7 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let h = model.jacobian(&epoch, &state).unwrap();
+        let h = model.jacobian(&epoch, &state, None).unwrap();
         for i in 0..6 {
             for j in 0..6 {
                 let expected = if i == j { 1.0 } else { 0.0 };
@@ -234,7 +234,7 @@ mod tests {
         let state = DVector::from_vec(vec![6878.0e3, 100.0e3, 50.0e3, 0.0, 7612.0, 100.0, 1000.0]);
         let epoch = test_epoch();
 
-        let h = model.jacobian(&epoch, &state).unwrap();
+        let h = model.jacobian(&epoch, &state, None).unwrap();
         assert_eq!(h.ncols(), 7);
         assert_abs_diff_eq!(h[(0, 6)], 0.0, epsilon = 1e-10);
     }
@@ -244,7 +244,7 @@ mod tests {
         let model = InertialPositionMeasurementModel::new(10.0);
         let state = DVector::from_vec(vec![1.0, 2.0]);
         let epoch = test_epoch();
-        assert!(model.predict(&epoch, &state).is_err());
+        assert!(model.predict(&epoch, &state, None).is_err());
     }
 
     #[test]
@@ -252,7 +252,7 @@ mod tests {
         let model = InertialVelocityMeasurementModel::new(0.1);
         let state = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let epoch = test_epoch();
-        assert!(model.predict(&epoch, &state).is_err());
+        assert!(model.predict(&epoch, &state, None).is_err());
     }
 
     // =========================================================================
@@ -267,6 +267,7 @@ mod tests {
                 &self,
                 _epoch: &Epoch,
                 state: &DVector<f64>,
+                _params: Option<&DVector<f64>>,
             ) -> Result<DVector<f64>, BraheError> {
                 let range =
                     (state[0] * state[0] + state[1] * state[1] + state[2] * state[2]).sqrt();
@@ -287,7 +288,7 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let h = model.jacobian(&epoch, &state).unwrap();
+        let h = model.jacobian(&epoch, &state, None).unwrap();
         let r = (state[0] * state[0] + state[1] * state[1] + state[2] * state[2]).sqrt();
         assert_abs_diff_eq!(h[(0, 0)], state[0] / r, epsilon = 1e-5);
         assert_abs_diff_eq!(h[(0, 1)], state[1] / r, epsilon = 1e-5);
@@ -308,7 +309,7 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let z = model.predict(&epoch, &state).unwrap();
+        let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 3);
 
         // The ECEF position should differ from ECI due to Earth rotation
@@ -334,7 +335,7 @@ mod tests {
         let state = test_state();
         let epoch = test_epoch();
 
-        let z = model.predict(&epoch, &state).unwrap();
+        let z = model.predict(&epoch, &state, None).unwrap();
         assert_eq!(z.len(), 6);
 
         // Compare with direct state_eci_to_ecef
@@ -373,7 +374,7 @@ mod tests {
         let model = EcefStateMeasurementModel::new(5.0, 0.05);
         let state = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let epoch = test_epoch();
-        assert!(model.predict(&epoch, &state).is_err());
+        assert!(model.predict(&epoch, &state, None).is_err());
     }
 
     // =========================================================================

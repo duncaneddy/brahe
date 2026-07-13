@@ -14,7 +14,7 @@ class RangeModel(bh.MeasurementModel):
         self.station_eci = np.array(station_eci)
         self.sigma = sigma
 
-    def predict(self, epoch, state):
+    def predict(self, epoch, state, params=None):
         pos = state[:3]
         return np.array([np.linalg.norm(pos - self.station_eci)])
 
@@ -38,11 +38,11 @@ class RangeModelWithJacobian(bh.MeasurementModel):
         self.station_eci = np.array(station_eci)
         self.sigma = sigma
 
-    def predict(self, epoch, state):
+    def predict(self, epoch, state, params=None):
         pos = state[:3]
         return np.array([np.linalg.norm(pos - self.station_eci)])
 
-    def jacobian(self, epoch, state):
+    def jacobian(self, epoch, state, params=None):
         pos = state[:3]
         diff = pos - self.station_eci
         r = np.linalg.norm(diff)
@@ -215,7 +215,7 @@ class TestCustomModelWithEKF:
         epoch, true_state = two_body_setup
 
         class WrongShapeModel(bh.MeasurementModel):
-            def predict(self, epoch, state):
+            def predict(self, epoch, state, params=None):
                 return np.array([1.0, 2.0])  # 2 elements, declares 3
 
             def noise_covariance(self):
@@ -250,7 +250,7 @@ class TestCustomModelWithEKF:
         epoch, true_state = two_body_setup
 
         class WrongNoiseModel(bh.MeasurementModel):
-            def predict(self, epoch, state):
+            def predict(self, epoch, state, params=None):
                 return np.asarray(state[:3])
 
             def noise_covariance(self):
@@ -275,3 +275,41 @@ class TestCustomModelWithEKF:
         obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
         with pytest.raises(RuntimeError, match="noise_covariance"):
             ekf.process_observation(obs)
+
+    def test_model_receives_propagator_params(self, two_body_setup):
+        """The propagator's consider / force-model params must be passed
+        through to Python measurement models."""
+        epoch, true_state = two_body_setup
+        expected = np.array([2.2, 1.3])
+        received = {}
+
+        class ParamsCheckingModel(bh.MeasurementModel):
+            def predict(self, epoch, state, params=None):
+                received["params"] = None if params is None else np.array(params)
+                return np.asarray(state[:3])
+
+            def noise_covariance(self):
+                return np.eye(3) * 100.0
+
+            def measurement_dim(self):
+                return 3
+
+            def name(self):
+                return "ParamsChecking"
+
+        p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+        ekf = bh.ExtendedKalmanFilter(
+            epoch,
+            true_state.copy(),
+            p0,
+            measurement_models=[ParamsCheckingModel()],
+            propagation_config=bh.NumericalPropagationConfig.default(),
+            force_config=bh.ForceModelConfig.two_body(),
+            params=expected,
+        )
+
+        obs = bh.Observation(epoch + 60.0, true_state[:3], model_index=0)
+        ekf.process_observation(obs)
+
+        assert received["params"] is not None
+        np.testing.assert_allclose(received["params"], expected)

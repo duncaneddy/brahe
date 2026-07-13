@@ -401,17 +401,25 @@ macro_rules! impl_measurement_model_binding {
             /// Args:
             ///     epoch (Epoch): Current epoch.
             ///     state (numpy.ndarray): Current state vector.
+            ///     params (numpy.ndarray or None): Optional consider / force-model
+            ///         parameter vector (unused by built-in models).
             ///
             /// Returns:
             ///     numpy.ndarray: Predicted measurement vector.
+            #[pyo3(signature = (epoch, state, params=None))]
             fn predict<'py>(
                 &self,
                 py: Python<'py>,
                 epoch: &PyEpoch,
                 state: PyReadonlyArray1<f64>,
+                params: Option<PyReadonlyArray1<f64>>,
             ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix1>>> {
                 let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
-                let vec = self.model.predict(&epoch.obj, &state_vec)
+                let params_vec = match &params {
+                    Some(p) => Some(nalgebra::DVector::from_column_slice(p.as_slice()?)),
+                    None => None,
+                };
+                let vec = self.model.predict(&epoch.obj, &state_vec, params_vec.as_ref())
                     .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
                 let flat: Vec<f64> = (0..vec.len()).map(|i| vec[i]).collect();
                 Ok(flat.into_pyarray(py))
@@ -422,17 +430,25 @@ macro_rules! impl_measurement_model_binding {
             /// Args:
             ///     epoch (Epoch): Current epoch.
             ///     state (numpy.ndarray): Current state vector.
+            ///     params (numpy.ndarray or None): Optional consider / force-model
+            ///         parameter vector (unused by built-in models).
             ///
             /// Returns:
             ///     numpy.ndarray: Measurement Jacobian matrix (m x n).
+            #[pyo3(signature = (epoch, state, params=None))]
             fn jacobian<'py>(
                 &self,
                 py: Python<'py>,
                 epoch: &PyEpoch,
                 state: PyReadonlyArray1<f64>,
+                params: Option<PyReadonlyArray1<f64>>,
             ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix2>>> {
                 let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
-                let mat = self.model.jacobian(&epoch.obj, &state_vec)
+                let params_vec = match &params {
+                    Some(p) => Some(nalgebra::DVector::from_column_slice(p.as_slice()?)),
+                    None => None,
+                };
+                let mat = self.model.jacobian(&epoch.obj, &state_vec, params_vec.as_ref())
                     .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
                 let rows = mat.nrows();
                 let cols = mat.ncols();
@@ -1132,19 +1148,25 @@ impl PyMeasurementModel {
 
     /// Compute predicted measurement from state.
     ///
-    /// Override this method in your subclass.
+    /// Override this method in your subclass with the signature
+    /// ``predict(self, epoch, state, params)``.
     ///
     /// Args:
     ///     epoch (Epoch): Current epoch.
     ///     state (numpy.ndarray): Current state vector.
+    ///     params (numpy.ndarray or None): Optional consider / force-model
+    ///         parameter vector passed through from the estimator's
+    ///         propagator; None when the propagator has no parameters.
     ///
     /// Returns:
     ///     numpy.ndarray: Predicted measurement vector.
     #[allow(unused_variables)]
+    #[pyo3(signature = (epoch, state, params=None))]
     fn predict(
         &self,
         epoch: &PyEpoch,
         state: PyReadonlyArray1<f64>,
+        params: Option<PyReadonlyArray1<f64>>,
     ) -> PyResult<Py<PyAny>> {
         Err(exceptions::PyNotImplementedError::new_err(
             "Subclasses must implement predict()",
@@ -1153,20 +1175,26 @@ impl PyMeasurementModel {
 
     /// Compute measurement Jacobian H = dh/dx.
     ///
-    /// Override this method to provide an analytical Jacobian.
+    /// Override this method to provide an analytical Jacobian, with the
+    /// signature ``jacobian(self, epoch, state, params)``.
     /// Return None to use automatic finite-difference computation.
     ///
     /// Args:
     ///     epoch (Epoch): Current epoch.
     ///     state (numpy.ndarray): Current state vector.
+    ///     params (numpy.ndarray or None): Optional consider / force-model
+    ///         parameter vector passed through from the estimator's
+    ///         propagator; None when the propagator has no parameters.
     ///
     /// Returns:
     ///     numpy.ndarray or None: Jacobian matrix, or None for finite-diff.
     #[allow(unused_variables)]
+    #[pyo3(signature = (epoch, state, params=None))]
     fn jacobian(
         &self,
         epoch: &PyEpoch,
         state: PyReadonlyArray1<f64>,
+        params: Option<PyReadonlyArray1<f64>>,
     ) -> PyResult<Py<PyAny>> {
         // Default: return None to signal finite-diff fallback
         Python::attach(|py| Ok(py.None()))
@@ -1281,16 +1309,21 @@ impl MeasurementModel for RustMeasurementModelWrapper {
         &self,
         epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
     ) -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
         Python::attach(|py| {
             let py_epoch = Py::new(py, PyEpoch { obj: *epoch })
                 .map_err(|e| brahe::utils::errors::BraheError::Error(e.to_string()))?;
             let state_np = state.as_slice().to_pyarray(py);
+            let params_py: Py<PyAny> = match params {
+                Some(p) => p.as_slice().to_pyarray(py).into_any().unbind(),
+                None => py.None(),
+            };
 
             let result = self
                 .py_model
                 .bind(py)
-                .call_method1("predict", (py_epoch, state_np))
+                .call_method1("predict", (py_epoch, state_np, params_py))
                 .map_err(|e| {
                     brahe::utils::errors::BraheError::Error(format!(
                         "Python predict() failed: {}",
@@ -1317,6 +1350,7 @@ impl MeasurementModel for RustMeasurementModelWrapper {
         &self,
         epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
     ) -> Result<DMatrix<f64>, brahe::utils::errors::BraheError> {
         // Try calling Python jacobian() first
         let py_result: Result<Option<DMatrix<f64>>, brahe::utils::errors::BraheError> =
@@ -1328,11 +1362,15 @@ impl MeasurementModel for RustMeasurementModelWrapper {
                     ))
                 })?;
                 let state_np = state.as_slice().to_pyarray(py);
+                let params_py: Py<PyAny> = match params {
+                    Some(p) => p.as_slice().to_pyarray(py).into_any().unbind(),
+                    None => py.None(),
+                };
 
                 let result = self
                     .py_model
                     .bind(py)
-                    .call_method1("jacobian", (py_epoch, state_np))
+                    .call_method1("jacobian", (py_epoch, state_np, params_py))
                     .map_err(|e| {
                         brahe::utils::errors::BraheError::Error(format!(
                             "Python jacobian() raised an exception: {}",
@@ -1373,6 +1411,7 @@ impl MeasurementModel for RustMeasurementModelWrapper {
                     self,
                     epoch,
                     state,
+                    params,
                     DifferenceMethod::Central,
                     PerturbationStrategy::Adaptive {
                         scale_factor: 1.0,
@@ -1411,10 +1450,11 @@ impl MeasurementModel for MeasurementModelHolder {
         &self,
         epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
     ) -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
         match self {
-            MeasurementModelHolder::RustNative(m) => m.predict(epoch, state),
-            MeasurementModelHolder::PythonWrapper(m) => m.predict(epoch, state),
+            MeasurementModelHolder::RustNative(m) => m.predict(epoch, state, params),
+            MeasurementModelHolder::PythonWrapper(m) => m.predict(epoch, state, params),
         }
     }
 
@@ -1422,10 +1462,11 @@ impl MeasurementModel for MeasurementModelHolder {
         &self,
         epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
+        params: Option<&DVector<f64>>,
     ) -> Result<DMatrix<f64>, brahe::utils::errors::BraheError> {
         match self {
-            MeasurementModelHolder::RustNative(m) => m.jacobian(epoch, state),
-            MeasurementModelHolder::PythonWrapper(m) => m.jacobian(epoch, state),
+            MeasurementModelHolder::RustNative(m) => m.jacobian(epoch, state, params),
+            MeasurementModelHolder::PythonWrapper(m) => m.jacobian(epoch, state, params),
         }
     }
 

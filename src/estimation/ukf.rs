@@ -404,6 +404,10 @@ impl UnscentedKalmanFilter {
         let n = self.state_dim;
         let current_state = self.dynamics.current_state();
 
+        // Propagator force-model / consider parameters, passed through to the
+        // measurement model so consider values can affect the measurement.
+        let params = self.dynamics.params().cloned();
+
         // === PREDICT (time update via sigma point propagation) ===
 
         // Generate sigma points from current state and covariance
@@ -466,7 +470,7 @@ impl UnscentedKalmanFilter {
         // Transform sigma points through measurement model
         let mut z_sigmas = Vec::with_capacity(2 * n + 1);
         for sp in &update_sigmas {
-            let z_i = model.predict(&observation.epoch, sp)?;
+            let z_i = model.predict(&observation.epoch, sp, params.as_ref())?;
             z_sigmas.push(z_i);
         }
 
@@ -529,7 +533,7 @@ impl UnscentedKalmanFilter {
         let p_updated = 0.5 * (&p_updated + p_updated.transpose());
 
         // Post-fit residual
-        let z_postfit = model.predict(&observation.epoch, &state_updated)?;
+        let z_postfit = model.predict(&observation.epoch, &state_updated, params.as_ref())?;
         let postfit_residual = &observation.measurement - &z_postfit;
 
         // Build record
@@ -917,6 +921,7 @@ mod tests {
             &self,
             _epoch: &Epoch,
             state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
         ) -> Result<DVector<f64>, BraheError> {
             let m = if self.bad_predict { 2 } else { 3 };
             Ok(state.rows(0, m).into_owned())
@@ -984,6 +989,64 @@ mod tests {
         }
     }
 
+    /// Model that requires the propagator's parameter vector to be passed
+    /// through — errors if params are missing or wrong.
+    struct ParamsAssertingModel {
+        expected: DVector<f64>,
+    }
+    impl MeasurementModel for ParamsAssertingModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            match params {
+                Some(p) if p == &self.expected => Ok(state.rows(0, 3).into_owned()),
+                other => Err(BraheError::Error(format!(
+                    "expected params Some({:?}), got {:?}",
+                    self.expected, other
+                ))),
+            }
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * 100.0
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "ParamsAsserting"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_passes_propagator_params_to_measurement_models() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let expected = DVector::from_vec(vec![2.2, 1.3]);
+
+        let mut ukf = UnscentedKalmanFilter::new(
+            epoch,
+            state.clone(),
+            p0,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            Some(expected.clone()),
+            None,
+            None,
+            vec![Box::new(ParamsAssertingModel { expected })],
+            UKFConfig::default(),
+        )
+        .unwrap();
+
+        let obs = Observation::new(epoch + 60.0, state.rows(0, 3).into_owned(), 0);
+        ukf.process_observation(&obs)
+            .expect("model should receive the propagator params");
+    }
+
     /// Model that always fails predict() — exercises error paths that occur
     /// after the propagator has been advanced (mid sigma-point update the
     /// propagator otherwise holds an arbitrary sigma point, not the mean).
@@ -993,6 +1056,7 @@ mod tests {
             &self,
             _epoch: &Epoch,
             _state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
         ) -> Result<DVector<f64>, BraheError> {
             Err(BraheError::Error("intentional model failure".to_string()))
         }

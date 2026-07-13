@@ -469,6 +469,10 @@ impl BatchLeastSquares {
         // Sort observations by epoch
         let sorted_obs = sort_by_epoch(observations);
 
+        // Propagator force-model / consider parameters, passed through to the
+        // measurement models so consider values can affect the measurements.
+        let params = self.dynamics.params().cloned();
+
         // Determine solve-for dimension
         let state_dim = self.current_state.len();
         let n_solve = self
@@ -513,10 +517,10 @@ impl BatchLeastSquares {
                 let model = &self.measurement_models[obs.model_index];
 
                 // Compute predicted measurement
-                let z_predicted = model.predict(&obs.epoch, &state_at_obs)?;
+                let z_predicted = model.predict(&obs.epoch, &state_at_obs, params.as_ref())?;
 
                 // Get local Jacobian H̃ (m x n_state)
-                let h_local = model.jacobian(&obs.epoch, &state_at_obs)?;
+                let h_local = model.jacobian(&obs.epoch, &state_at_obs, params.as_ref())?;
 
                 // Measurement noise covariance
                 let r = model.noise_covariance();
@@ -609,7 +613,7 @@ impl BatchLeastSquares {
                 self.propagate_dynamics_to(obs.epoch)?;
                 let state_at_obs = self.dynamics.current_state();
                 let model = &self.measurement_models[obs.model_index];
-                let z_predicted = model.predict(&obs.epoch, &state_at_obs)?;
+                let z_predicted = model.predict(&obs.epoch, &state_at_obs, params.as_ref())?;
                 postfit_residuals.push(&obs.measurement - &z_predicted);
             }
 
@@ -1705,6 +1709,63 @@ mod tests {
         assert_abs_diff_eq!(bls.current_state(), perturbed, epsilon = 1e-12);
     }
 
+    /// Model that requires the propagator's parameter vector to be passed
+    /// through — errors if params are missing or wrong.
+    struct ParamsAssertingModel {
+        expected: DVector<f64>,
+    }
+    impl MeasurementModel for ParamsAssertingModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            match params {
+                Some(p) if p == &self.expected => Ok(state.rows(0, 3).into_owned()),
+                other => Err(BraheError::Error(format!(
+                    "expected params Some({:?}), got {:?}",
+                    self.expected, other
+                ))),
+            }
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * 100.0
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "ParamsAsserting"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_passes_propagator_params_to_measurement_models() {
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let expected = DVector::from_vec(vec![2.2, 1.3]);
+        let obs = generate_position_observations(epoch, &true_state, 5, 30.0);
+
+        let mut bls = BatchLeastSquares::new(
+            epoch,
+            true_state,
+            default_p0(),
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            Some(expected.clone()),
+            None,
+            None,
+            vec![Box::new(ParamsAssertingModel { expected })],
+            BLSConfig::default(),
+        )
+        .unwrap();
+
+        bls.solve(&obs)
+            .expect("models should receive the propagator params");
+    }
+
     /// Model that mis-shapes one of its outputs relative to its declared
     /// measurement_dim of 3 — exercises the model-output shape validation.
     struct MisshapenModel {
@@ -1716,6 +1777,7 @@ mod tests {
             &self,
             _epoch: &Epoch,
             state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
         ) -> Result<DVector<f64>, BraheError> {
             let m = if self.bad_predict { 2 } else { 3 };
             Ok(state.rows(0, m).into_owned())
@@ -1724,6 +1786,7 @@ mod tests {
             &self,
             _epoch: &Epoch,
             state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
         ) -> Result<DMatrix<f64>, BraheError> {
             let rows = if self.bad_jacobian { 2 } else { 3 };
             let mut h = DMatrix::zeros(rows, state.len());

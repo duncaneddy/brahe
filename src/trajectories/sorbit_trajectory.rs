@@ -1565,6 +1565,34 @@ impl CovarianceInterpolationConfig for SOrbitTrajectory {
 }
 
 // Implementation of OrbitalTrajectory trait
+impl SOrbitTrajectory {
+    /// Cartesian twin of a Keplerian `BodyCenteredInertial` trajectory:
+    /// converts each element set to Cartesian about the center body using
+    /// that body's gravitational parameter. Panics for unknown centers and
+    /// barycenters, matching the infallible `to_*` signatures.
+    fn bci_keplerian_to_cartesian(&self, center: i32) -> Self {
+        let cb = crate::propagators::CentralBody::from_naif_id(center)
+            .unwrap_or_else(|err| panic!("BCI trajectory conversion failed: {}", err));
+        assert!(
+            !cb.is_barycenter(),
+            "Keplerian elements are undefined about massless barycenter {}",
+            center
+        );
+        let angle_fmt = self
+            .angle_format
+            .expect("Keplerian representation must have angle_format");
+        let mut out = self.clone();
+        out.states = self
+            .states
+            .iter()
+            .map(|s| crate::coordinates::state_koe_to_eci_for_body(*s, cb.gm(), angle_fmt))
+            .collect();
+        out.representation = OrbitRepresentation::Cartesian;
+        out.angle_format = None;
+        out
+    }
+}
+
 impl OrbitalTrajectory for SOrbitTrajectory {
     /// Create orbital trajectory from data with specified orbital properties.
     ///
@@ -1647,6 +1675,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_eci();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1741,6 +1777,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_gcrf();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1835,6 +1879,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_ecef();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1925,6 +1977,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_itrf();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -2016,6 +2076,14 @@ impl OrbitalTrajectory for SOrbitTrajectory {
     where
         Self: Sized,
     {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_eme2000();
+        }
         let states_converted = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());

@@ -1851,6 +1851,36 @@ impl DOrbitTrajectory {
         }
     }
 
+    /// Cartesian twin of a Keplerian `BodyCenteredInertial` trajectory:
+    /// converts each element set to Cartesian about the center body using
+    /// that body's gravitational parameter. Panics for unknown centers and
+    /// barycenters, matching the infallible `to_*` signatures.
+    fn bci_keplerian_to_cartesian(&self, center: i32) -> Self {
+        let cb = crate::propagators::CentralBody::from_naif_id(center)
+            .unwrap_or_else(|err| panic!("BCI trajectory conversion failed: {}", err));
+        assert!(
+            !cb.is_barycenter(),
+            "Keplerian elements are undefined about massless barycenter {}",
+            center
+        );
+        let angle_fmt = self
+            .angle_format
+            .expect("Keplerian representation must have angle_format");
+        let mut out = self.clone();
+        out.states = self
+            .states
+            .iter()
+            .map(|s| {
+                self.convert_orbital_preserving_additional(s, |orbital| {
+                    crate::coordinates::state_koe_to_eci_for_body(orbital, cb.gm(), angle_fmt)
+                })
+            })
+            .collect();
+        out.representation = OrbitRepresentation::Cartesian;
+        out.angle_format = None;
+        out
+    }
+
     /// Convert trajectory to ECI (Earth-Centered Inertial) frame with Cartesian representation.
     ///
     /// Converts all states to ECI frame and Cartesian representation.
@@ -1863,6 +1893,14 @@ impl DOrbitTrajectory {
     /// # Returns
     /// New trajectory in ECI frame with Cartesian states, preserving dimension.
     pub fn to_eci(&self) -> Self {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_eci();
+        }
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -1973,6 +2011,14 @@ impl DOrbitTrajectory {
     /// # Returns
     /// New trajectory in GCRF frame with Cartesian states, preserving dimension.
     pub fn to_gcrf(&self) -> Self {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_gcrf();
+        }
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -2083,6 +2129,14 @@ impl DOrbitTrajectory {
     /// # Returns
     /// New trajectory in ECEF frame with Cartesian states, preserving dimension.
     pub fn to_ecef(&self) -> Self {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_ecef();
+        }
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -2195,6 +2249,14 @@ impl DOrbitTrajectory {
     /// # Returns
     /// New trajectory in ITRF frame with Cartesian states, preserving dimension.
     pub fn to_itrf(&self) -> Self {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_itrf();
+        }
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -2307,6 +2369,14 @@ impl DOrbitTrajectory {
     /// # Returns
     /// New trajectory in EME2000 frame with Cartesian states, preserving dimension.
     pub fn to_eme2000(&self) -> Self {
+        // Keplerian samples about a non-Earth center would otherwise be
+        // converted with Earth's GM and no re-centering: convert to native
+        // Cartesian about the center first, then take the Cartesian path.
+        if let OrbitFrame::BodyCenteredInertial(center) = self.frame
+            && self.representation == OrbitRepresentation::Keplerian
+        {
+            return self.bci_keplerian_to_cartesian(center).to_eme2000();
+        }
         let states_converted: Vec<DVector<f64>> = match self.representation {
             OrbitRepresentation::Keplerian => {
                 let mut states_converted = Vec::with_capacity(self.states.len());
@@ -6038,6 +6108,43 @@ mod tests {
         for i in 0..6 {
             assert_abs_diff_eq!(bci_e[i], gcrf_e[i], epsilon = 0.0);
         }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_dorbittrajectory_bci_keplerian_to_eci_uses_center_gm() {
+        // A Keplerian BodyCenteredInertial(301) trajectory converts elements
+        // with the Moon's GM and re-centers through SPK, matching the
+        // point-query provider result exactly.
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let mut traj = DOrbitTrajectory::new(
+            6,
+            OrbitFrame::BodyCenteredInertial(301),
+            OrbitRepresentation::Keplerian,
+            Some(AngleFormat::Degrees),
+        );
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = DVector::from_vec(vec![
+            crate::constants::R_MOON + 100e3,
+            0.01,
+            45.0,
+            15.0,
+            30.0,
+            45.0,
+        ]);
+        traj.add(epoch, oe);
+
+        let eci_point = traj.state_eci(epoch).unwrap();
+        let traj_eci = traj.to_eci();
+        assert_eq!(traj_eci.frame, OrbitFrame::ECI);
+        let eci_batch = traj_eci.state_eci(epoch).unwrap();
+        for i in 0..6 {
+            assert_abs_diff_eq!(eci_batch[i], eci_point[i], epsilon = 1e-6);
+        }
+        // Sanity: the position is Moon-distance from Earth, not Earth-local.
+        assert!(eci_batch.fixed_rows::<3>(0).norm() > 300_000e3);
     }
 
     #[test]

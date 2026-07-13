@@ -1864,6 +1864,26 @@ impl PyReferenceFrame {
         PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedPCK { center, frame_id } }
     }
 
+    /// Body-fixed frame evaluated from a user-registered rotation callback
+    /// (see `register_custom_frame`), centered on `center`.
+    ///
+    /// For a body without a catalogued NAIF ID, self-assign a unique negative
+    /// `center` (mirroring NAIF's convention for non-catalogued objects):
+    /// rotation-only queries never consult the center, and translations will
+    /// raise unless an ephemeris covering that ID is loaded.
+    ///
+    /// Args:
+    ///     center (int): NAIF ID of the frame's center (may be self-assigned negative)
+    ///     key (int): Registry key the frame's callbacks were registered under
+    ///
+    /// Returns:
+    ///     ReferenceFrame: Custom body-fixed frame for `key`, centered on `center`
+    #[staticmethod]
+    #[allow(non_snake_case)]
+    fn BodyFixedCustom(center: i32, key: u32) -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::BodyFixedCustom { center, key } }
+    }
+
     /// Parses a `ReferenceFrame` from its string representation (named
     /// variants only, case-insensitive), plus the common aliases `"ECI"`
     /// (-> `GCRF`) and `"ECEF"` (-> `ITRF`).
@@ -1935,6 +1955,87 @@ unsafe fn py_rotation_frame_to_frame<'py>(
     let mat = frames::rotation_frame_to_frame(from_frame.frame, to_frame.frame, epc.obj)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+}
+
+/// Registers (or replaces) a user-defined body-fixed frame under `key`.
+///
+/// The frame becomes usable as `ReferenceFrame.BodyFixedCustom(center, key)`
+/// in every frame-router function. `rotation` must be a callable taking an
+/// `Epoch` and returning a 3x3 rotation matrix (ICRF -> body-fixed, i.e.
+/// `v_body = R @ v_icrf`) as a numpy array or nested list. If `omega` is
+/// omitted, the angular velocity used for the velocity transport term is
+/// derived numerically from `rotation` by central differencing; provide an
+/// `omega` callable (Epoch -> length-3 array, rad/s, body-fixed axes) when
+/// the spin model has an analytic rate.
+///
+/// This enables custom orientation models — e.g. asteroid spin states from
+/// the DAMIT database — without any change to the frame-router API.
+///
+/// Args:
+///     key (int): Identifier to register the frame under; the same value is
+///         passed to `ReferenceFrame.BodyFixedCustom`.
+///     rotation (callable): Callable `Epoch -> 3x3 array` returning the
+///         ICRF -> body-fixed rotation matrix.
+///     omega (callable, optional): Callable `Epoch -> length-3 array`
+///         returning the frame's angular velocity in body-fixed axes (rad/s).
+///
+/// Example:
+///     ```python
+///     import numpy as np
+///     import brahe as bh
+///
+///     t0 = bh.Epoch.from_date(2024, 1, 1, bh.TimeSystem.TDB)
+///
+///     def spin(epc):
+///         theta = 1.0e-3 * (epc - t0)
+///         c, s = np.cos(theta), np.sin(theta)
+///         return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+///
+///     bh.register_custom_frame(42, spin)
+///     frame = bh.ReferenceFrame.BodyFixedCustom(-20001, 42)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(key, rotation, omega=None)")]
+#[pyo3(name = "register_custom_frame")]
+#[pyo3(signature = (key, rotation, omega=None))]
+fn py_register_custom_frame(key: u32, rotation: Py<PyAny>, omega: Option<Py<PyAny>>) {
+    let rotation_fn = move |epc: time::Epoch| -> SMatrix3 {
+        Python::attach(|py| {
+            let py_epc = PyEpoch { obj: epc };
+            let result = rotation
+                .call1(py, (py_epc,))
+                .expect("custom frame rotation callback raised an exception");
+            pyany_to_smatrix::<3, 3>(result.bind(py))
+                .expect("custom frame rotation callback must return a 3x3 matrix")
+        })
+    };
+    let omega_fn = omega.map(|omega| -> Box<frames::CustomFrameOmega> {
+        Box::new(move |epc: time::Epoch| {
+            Python::attach(|py| {
+                let py_epc = PyEpoch { obj: epc };
+                let result = omega
+                    .call1(py, (py_epc,))
+                    .expect("custom frame omega callback raised an exception");
+                pyany_to_svector::<3>(result.bind(py))
+                    .expect("custom frame omega callback must return a length-3 vector")
+            })
+        })
+    });
+    frames::register_custom_frame(key, rotation_fn, omega_fn);
+}
+
+/// Removes the custom frame registered under `key`.
+///
+/// Args:
+///     key (int): Identifier the frame was registered under.
+///
+/// Returns:
+///     bool: True if a frame was registered under `key` and has been removed.
+#[pyfunction]
+#[pyo3(text_signature = "(key)")]
+#[pyo3(name = "unregister_custom_frame")]
+fn py_unregister_custom_frame(key: u32) -> bool {
+    frames::unregister_custom_frame(key)
 }
 
 /// Transforms a Cartesian position from `from_frame` to `to_frame` at `epc`.

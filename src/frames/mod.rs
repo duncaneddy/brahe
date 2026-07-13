@@ -8,6 +8,7 @@
  * - EME2000: Earth Mean Equator and Equinox of J2000.0
  */
 
+pub mod custom;
 pub mod eci_ecef;
 pub mod eme_2000;
 pub mod gcrf_itrf;
@@ -16,6 +17,7 @@ pub mod lunar;
 pub mod mars;
 pub mod transform;
 
+pub use custom::*;
 pub use eci_ecef::*;
 pub use eme_2000::*;
 pub use gcrf_itrf::*;

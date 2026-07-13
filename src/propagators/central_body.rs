@@ -57,6 +57,15 @@ pub struct CustomBody {
     /// Human-readable name (e.g. `"Enceladus"`).
     pub name: String,
     /// NAIF ID of the body.
+    ///
+    /// For a body without a catalogued NAIF ID (e.g. a newly observed
+    /// asteroid), self-assign a unique negative ID, mirroring NAIF's own
+    /// convention for non-catalogued objects. The ID is used for frame
+    /// identity and force-model validation; ephemeris queries against it
+    /// will surface an SPK lookup error unless a kernel covering that ID
+    /// is loaded, and a body-fixed frame can be supplied without any
+    /// ephemeris via [`crate::frames::register_custom_frame`] and
+    /// [`crate::frames::ReferenceFrame::BodyFixedCustom`].
     pub naif_id: i32,
     /// Gravitational parameter. Units: (m^3/s^2)
     pub gm: f64,

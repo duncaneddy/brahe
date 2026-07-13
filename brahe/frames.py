@@ -91,6 +91,8 @@ from brahe._brahe import (
     # Reference frame router
     ReferenceFrame,
     rotation_frame_to_frame,
+    register_custom_frame,
+    unregister_custom_frame,
     position_frame_to_frame,
     state_frame_to_frame,
 )
@@ -156,6 +158,8 @@ __all__ = [
     # Reference frame router
     "ReferenceFrame",
     "rotation_frame_to_frame",
+    "register_custom_frame",
+    "unregister_custom_frame",
     "position_frame_to_frame",
     "state_frame_to_frame",
 ]

@@ -693,6 +693,68 @@ def test_reference_frame_from_string_aliases():
         brahe.ReferenceFrame.from_string("bogus")
 
 
+def test_body_fixed_custom_frame_round_trip():
+    """Mirrors test_body_fixed_custom_router_round_trip: a Python rotation
+    callback routes through the frame router with a numerically derived
+    transport term."""
+    t0 = brahe.Epoch.from_date(2024, 3, 1, brahe.TimeSystem.TDB)
+    rate = 5.0e-4
+
+    def spin(epc):
+        theta = rate * (epc - t0)
+        c, s = np.cos(theta), np.sin(theta)
+        return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+
+    brahe.register_custom_frame(1042, spin)
+    inertial = brahe.ReferenceFrame.BodyCenteredICRF(-20001)
+    fixed = brahe.ReferenceFrame.BodyFixedCustom(-20001, 1042)
+
+    epc = t0 + 600.0
+    x = np.array([7.0e5, -2.0e5, 3.0e5, 10.0, 25.0, -5.0])
+
+    x_fixed = brahe.state_frame_to_frame(inertial, fixed, epc, x)
+
+    # Analytic rotating-frame state: r_b = R r, v_b = R v - w x r_b.
+    r_mat = spin(epc)
+    r_b = r_mat @ x[:3]
+    v_b = r_mat @ x[3:] - np.cross(np.array([0.0, 0.0, rate]), r_b)
+    np.testing.assert_allclose(x_fixed[:3], r_b, atol=1e-6)
+    np.testing.assert_allclose(x_fixed[3:], v_b, atol=1e-4)
+
+    x_back = brahe.state_frame_to_frame(fixed, inertial, epc, x_fixed)
+    np.testing.assert_allclose(x_back, x, atol=1e-6)
+
+    assert brahe.unregister_custom_frame(1042)
+    assert not brahe.unregister_custom_frame(1042)
+
+
+def test_body_fixed_custom_frame_explicit_omega():
+    """An explicit omega callback is honored (exact transport term)."""
+    t0 = brahe.Epoch.from_date(2024, 3, 1, brahe.TimeSystem.TDB)
+    rate = 2.0e-4
+
+    def spin(epc):
+        theta = rate * (epc - t0)
+        c, s = np.cos(theta), np.sin(theta)
+        return np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+
+    brahe.register_custom_frame(1043, spin, lambda epc: np.array([0.0, 0.0, rate]))
+    inertial = brahe.ReferenceFrame.BodyCenteredICRF(-20002)
+    fixed = brahe.ReferenceFrame.BodyFixedCustom(-20002, 1043)
+
+    epc = t0 + 300.0
+    x = np.array([7.0e5, -2.0e5, 3.0e5, 10.0, 25.0, -5.0])
+    x_fixed = brahe.state_frame_to_frame(inertial, fixed, epc, x)
+
+    r_mat = spin(epc)
+    r_b = r_mat @ x[:3]
+    v_b = r_mat @ x[3:] - np.cross(np.array([0.0, 0.0, rate]), r_b)
+    np.testing.assert_allclose(x_fixed[:3], r_b, atol=1e-6)
+    np.testing.assert_allclose(x_fixed[3:], v_b, atol=1e-9)
+
+    assert brahe.unregister_custom_frame(1043)
+
+
 def test_reference_frame_class_aliases():
     """ECI/ECEF class attributes alias GCRF/ITRF."""
     assert brahe.ReferenceFrame.ECI == brahe.ReferenceFrame.GCRF

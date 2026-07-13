@@ -126,6 +126,20 @@ pub enum ReferenceFrame {
         /// NAIF binary PCK frame class ID (e.g. 31008 for `MOON_PA_DE440`).
         frame_id: i32,
     },
+    /// Body-fixed frame evaluated from a user-registered rotation callback
+    /// (see [`super::register_custom_frame`]), centered on `center`.
+    ///
+    /// For a body without a catalogued NAIF ID, self-assign a unique
+    /// negative `center` (mirroring NAIF's convention for non-catalogued
+    /// objects): rotation-only queries never consult the center, and
+    /// translations will surface an SPK lookup error unless an ephemeris
+    /// covering that ID is loaded.
+    BodyFixedCustom {
+        /// NAIF ID of the frame's center (may be self-assigned negative).
+        center: i32,
+        /// Registry key the frame's callbacks were registered under.
+        key: u32,
+    },
 }
 
 impl ReferenceFrame {
@@ -164,6 +178,7 @@ impl ReferenceFrame {
             ReferenceFrame::BodyCenteredICRF(id) => *id,
             ReferenceFrame::BodyFixedIAU(id) => *id,
             ReferenceFrame::BodyFixedPCK { center, .. } => *center,
+            ReferenceFrame::BodyFixedCustom { center, .. } => *center,
         }
     }
 
@@ -188,6 +203,10 @@ impl ReferenceFrame {
             ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
                 state_pck_body_to_icrf(*frame_id, epc, x)
             }
+            ReferenceFrame::BodyFixedCustom { key, .. } => {
+                let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
+                Ok(state_rotating_to_icrf(r_mat, omega, x))
+            }
         }
     }
 
@@ -211,6 +230,10 @@ impl ReferenceFrame {
             ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
                 state_icrf_to_pck_body(*frame_id, epc, x_icrf)
             }
+            ReferenceFrame::BodyFixedCustom { key, .. } => {
+                let (r_mat, omega) = super::custom::custom_frame_rotation_and_omega(*key, epc)?;
+                Ok(state_icrf_to_rotating(r_mat, omega, x_icrf))
+            }
         }
     }
 }
@@ -232,6 +255,9 @@ impl fmt::Display for ReferenceFrame {
             ReferenceFrame::BodyFixedIAU(id) => write!(f, "BodyFixedIAU({})", id),
             ReferenceFrame::BodyFixedPCK { center, frame_id } => {
                 write!(f, "BodyFixedPCK(center={}, frame_id={})", center, frame_id)
+            }
+            ReferenceFrame::BodyFixedCustom { center, key } => {
+                write!(f, "BodyFixedCustom(center={}, key={})", center, key)
             }
         }
     }
@@ -389,6 +415,9 @@ fn icrf_to_frame_dcm(frame: ReferenceFrame, epc: Epoch) -> Result<SMatrix3, Brah
         ReferenceFrame::BodyFixedIAU(id) => rotation_icrf_to_body_fixed_iau(id, epc),
         ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
             crate::spice::pck_rotation_matrix(frame_id, epc).map(|r| r.to_matrix())
+        }
+        ReferenceFrame::BodyFixedCustom { key, .. } => {
+            super::custom::custom_frame_rotation(key, epc)
         }
     }
 }
@@ -838,6 +867,69 @@ mod tests {
         for i in 0..3 {
             assert_eq!(via_router[i], pairwise[i]);
         }
+    }
+
+    #[test]
+    fn test_body_fixed_custom_router_round_trip() {
+        // A user-registered uniform-spin frame routes through the frame
+        // router: the rotation matches the callback, the state transform's
+        // transport term matches the analytic rotating-frame velocity, and
+        // the round trip recovers the input.
+        use crate::frames::custom::{register_custom_frame, unregister_custom_frame};
+
+        let t0 = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::TDB);
+        let rate = 5.0e-4;
+        register_custom_frame(
+            777,
+            move |epc: Epoch| {
+                let theta = rate * (epc - t0);
+                let (s, c) = theta.sin_cos();
+                SMatrix3::new(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0)
+            },
+            None,
+        );
+        // Same (self-assigned) center as the source frame: rotation-only.
+        let inertial = ReferenceFrame::BodyCenteredICRF(-20001);
+        let fixed = ReferenceFrame::BodyFixedCustom {
+            center: -20001,
+            key: 777,
+        };
+
+        let epc = t0 + 600.0;
+        let x = vector6_from_array([7.0e5, -2.0e5, 3.0e5, 10.0, 25.0, -5.0]);
+
+        let x_fixed = state_frame_to_frame(inertial, fixed, epc, x).unwrap();
+
+        // Analytic rotating-frame state: r_b = R r, v_b = R v - w x r_b.
+        let theta = rate * (epc - t0);
+        let (s_t, c_t) = theta.sin_cos();
+        let r_mat = SMatrix3::new(c_t, s_t, 0.0, -s_t, c_t, 0.0, 0.0, 0.0, 1.0);
+        let r_i = Vector3::new(x[0], x[1], x[2]);
+        let v_i = Vector3::new(x[3], x[4], x[5]);
+        let omega = Vector3::new(0.0, 0.0, rate);
+        let r_b = r_mat * r_i;
+        let v_b = r_mat * v_i - omega.cross(&r_b);
+        for k in 0..3 {
+            assert_abs_diff_eq!(x_fixed[k], r_b[k], epsilon = 1e-6);
+            // Velocity tolerance covers the O(h^2) truncation of the numeric
+            // angular-velocity fallback (central difference over +/-1 s).
+            assert_abs_diff_eq!(x_fixed[k + 3], v_b[k], epsilon = 1e-4);
+        }
+
+        // Round trip recovers the input.
+        let x_back = state_frame_to_frame(fixed, inertial, epc, x_fixed).unwrap();
+        for k in 0..6 {
+            assert_abs_diff_eq!(x_back[k], x[k], epsilon = 1e-6);
+        }
+
+        // Unregistered key surfaces an actionable error through the router.
+        let missing = ReferenceFrame::BodyFixedCustom {
+            center: -20001,
+            key: 778,
+        };
+        assert!(state_frame_to_frame(inertial, missing, epc, x).is_err());
+
+        assert!(unregister_custom_frame(777));
     }
 
     #[test]

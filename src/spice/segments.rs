@@ -73,19 +73,18 @@ fn chebyshev_value(a: &[f64], s: f64) -> f64 {
     s * b1 - b2 + a[0]
 }
 
-/// Evaluate the derivative (d/ds) of a Chebyshev series at `s` by building
-/// the derivative-series coefficients and applying Clenshaw.
+/// Build the derivative-series coefficients of a Chebyshev series `a`, in
+/// the same (unhalved-`c_0`) convention accepted by [`chebyshev_value`].
 ///
 /// # Arguments
 /// - `a`: Coefficients `a_0..a_n` of the series being differentiated
-/// - `s`: Normalized argument in [-1, 1]
 ///
 /// # Returns
-/// - `p'(s)`, the derivative with respect to `s` (not `et`)
-fn chebyshev_derivative(a: &[f64], s: f64) -> f64 {
+/// - Coefficients `c_0..c_{n-1}` of `p'(s)` (a single `[0.0]` when `n = 0`)
+fn chebyshev_derivative_series(a: &[f64]) -> Vec<f64> {
     let n = a.len() - 1;
     if n == 0 {
-        return 0.0;
+        return vec![0.0];
     }
     // c_k coefficients of p'(s): c_{n-1} = 2n·a_n;
     // c_k = c_{k+2} + 2(k+1)·a_{k+1} for k = n-2..1; c_0 = c_2/2 + a_1.
@@ -102,7 +101,37 @@ fn chebyshev_derivative(a: &[f64], s: f64) -> f64 {
         c[k] = c.get(k + 2).copied().unwrap_or(0.0) + 2.0 * (k + 1) as f64 * a[k + 1];
     }
     c[0] = c.get(2).copied().unwrap_or(0.0) / 2.0 + a[1];
-    chebyshev_value(&c, s)
+    c
+}
+
+/// Evaluate the derivative (d/ds) of a Chebyshev series at `s` by building
+/// the derivative-series coefficients and applying Clenshaw.
+///
+/// # Arguments
+/// - `a`: Coefficients `a_0..a_n` of the series being differentiated
+/// - `s`: Normalized argument in [-1, 1]
+///
+/// # Returns
+/// - `p'(s)`, the derivative with respect to `s` (not `et`)
+fn chebyshev_derivative(a: &[f64], s: f64) -> f64 {
+    chebyshev_value(&chebyshev_derivative_series(a), s)
+}
+
+/// Evaluate the second derivative (d²/ds²) of a Chebyshev series at `s` by
+/// applying the derivative-series construction twice.
+///
+/// # Arguments
+/// - `a`: Coefficients `a_0..a_n` of the series being differentiated
+/// - `s`: Normalized argument in [-1, 1]
+///
+/// # Returns
+/// - `p''(s)`, the second derivative with respect to `s` (not `et`)
+#[allow(dead_code)]
+fn chebyshev_second_derivative(a: &[f64], s: f64) -> f64 {
+    chebyshev_value(
+        &chebyshev_derivative_series(&chebyshev_derivative_series(a)),
+        s,
+    )
 }
 
 /// Validate that `v` is a finite, nonnegative, integer-valued count and
@@ -551,6 +580,34 @@ impl ChebyshevSegment {
         )
     }
 
+    /// Evaluate the second time derivative (d²/det²) of three consecutive
+    /// components of `rec` at `s`.
+    ///
+    /// # Arguments
+    /// - `rec`: A single record's words
+    /// - `degree`: Chebyshev polynomial degree
+    /// - `start`: 0-based index of the first of three consecutive components
+    /// - `s`: Normalized Chebyshev argument in [-1, 1]
+    /// - `radius`: Record `RADIUS`, used to scale d²/ds² to d²/det². Units: [s]
+    ///
+    /// # Returns
+    /// - The three evaluated second derivatives
+    #[allow(dead_code)]
+    fn eval_triple_second_derivative(
+        rec: &[f64],
+        degree: usize,
+        start: usize,
+        s: f64,
+        radius: f64,
+    ) -> Vector3<f64> {
+        let r2 = radius * radius;
+        Vector3::new(
+            chebyshev_second_derivative(Self::component(rec, degree, start), s) / r2,
+            chebyshev_second_derivative(Self::component(rec, degree, start + 1), s) / r2,
+            chebyshev_second_derivative(Self::component(rec, degree, start + 2), s) / r2,
+        )
+    }
+
     /// Evaluate the first three components at `et`.
     ///
     /// # Arguments
@@ -601,6 +658,28 @@ impl ChebyshevSegment {
             _ => Self::eval_triple_derivative(rec, self.degree, 0, s, radius),
         };
         Ok((r, v))
+    }
+
+    /// Evaluate the second time derivative of the first three components at
+    /// `et`.
+    ///
+    /// Type 2 differentiates the position polynomials twice analytically;
+    /// type 3 differentiates the stored velocity polynomials once.
+    ///
+    /// # Arguments
+    /// - `et`: Epoch to evaluate at. Units: [s] (TDB past J2000)
+    ///
+    /// # Returns
+    /// - Acceleration in kernel-natural units (km/s² for SPK, rad/s² for
+    ///   PCK), or `BraheError` if `et` is out of coverage
+    #[allow(dead_code)]
+    pub fn acceleration(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
+        let (rec, s) = self.record(et)?;
+        let radius = rec[1];
+        Ok(match self.data_type {
+            3 => Self::eval_triple_derivative(rec, self.degree, 3, s, radius),
+            _ => Self::eval_triple_second_derivative(rec, self.degree, 0, s, radius),
+        })
     }
 }
 
@@ -697,6 +776,86 @@ mod tests {
         assert_abs_diff_eq!(v[0], 5.0 / 50.0, epsilon = 1e-12);
         assert_abs_diff_eq!(v[1], -2.0 / 50.0, epsilon = 1e-12);
         assert_abs_diff_eq!(v[2], 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_chebyshev_acceleration_exact() {
+        let seg = synthetic_segment();
+        // d²/ds²: T0''=T1''=0, T2''=4, T3''=24s. At s=0.5 (et=75):
+        // x'' = 3*4 = 12; y'' = 0; z'' = 6*(24*0.5) = 72
+        // d²/det² = d²/ds² / RADIUS² = /2500
+        let a = seg.acceleration(75.0).unwrap();
+        assert_abs_diff_eq!(a[0], 12.0 / 2500.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(a[1], 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(a[2], 72.0 / 2500.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_chebyshev_acceleration_degree_one() {
+        // p(s) = a0 + a1*s has zero second derivative for all s.
+        let degree = 1usize;
+        let rsize = 2 + 3 * (degree + 1);
+        let mut coeffs = Vec::new();
+        coeffs.extend_from_slice(&[50.0, 50.0]); // MID, RADIUS
+        coeffs.extend_from_slice(&[3.0, 5.0]); // x = 3 + 5s
+        coeffs.extend_from_slice(&[1.0, -2.0]); // y = 1 - 2s
+        coeffs.extend_from_slice(&[0.0, 0.0]); // z = 0
+        let seg = ChebyshevSegment {
+            target: 10,
+            center: 0,
+            frame: 1,
+            data_type: 2,
+            ncomp: 3,
+            start_et: 0.0,
+            end_et: 100.0,
+            init: 0.0,
+            intlen: 100.0,
+            rsize,
+            n: 1,
+            degree,
+            coeffs,
+        };
+        let a = seg.acceleration(75.0).unwrap();
+        for i in 0..3 {
+            assert_abs_diff_eq!(a[i], 0.0, epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    fn test_chebyshev_acceleration_type_3() {
+        // Type 3: components 0-2 position, 3-5 velocity polynomials.
+        // Acceleration = d/det of the stored velocity polynomials.
+        let degree = 3usize;
+        let rsize = 2 + 6 * (degree + 1);
+        let mut coeffs = Vec::new();
+        coeffs.extend_from_slice(&[50.0, 50.0]); // MID, RADIUS
+        coeffs.extend_from_slice(&[1.0, 2.0, 3.0, 0.0]); // x (unused here)
+        coeffs.extend_from_slice(&[0.0, 4.0, 0.0, 0.0]); // y
+        coeffs.extend_from_slice(&[5.0, 0.0, 0.0, 6.0]); // z
+        coeffs.extend_from_slice(&[1.0, 2.0, 3.0, 0.0]); // vx = T0+2T1+3T2
+        coeffs.extend_from_slice(&[0.0, 4.0, 0.0, 0.0]); // vy = 4T1
+        coeffs.extend_from_slice(&[5.0, 0.0, 0.0, 6.0]); // vz = 5T0+6T3
+        let seg = ChebyshevSegment {
+            target: 10,
+            center: 0,
+            frame: 1,
+            data_type: 3,
+            ncomp: 6,
+            start_et: 0.0,
+            end_et: 100.0,
+            init: 0.0,
+            intlen: 100.0,
+            rsize,
+            n: 1,
+            degree,
+            coeffs,
+        };
+        // Same series as test_chebyshev_velocity_exact, differentiated once:
+        // vx' = 8, vy' = 4, vz' = 0 at s=0.5; /RADIUS = /50
+        let a = seg.acceleration(75.0).unwrap();
+        assert_abs_diff_eq!(a[0], 8.0 / 50.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(a[1], 4.0 / 50.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(a[2], 0.0, epsilon = 1e-12);
     }
 
     #[test]

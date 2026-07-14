@@ -383,6 +383,58 @@ pub trait SOrbitStateProvider: SStateProvider {
             .collect()
     }
 
+    /// Returns states at multiple epochs in the provider's central body's
+    /// body-centered inertial (BCI) frame.
+    ///
+    /// See [`Self::state_bci`] for frame semantics.
+    ///
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s)
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_bci(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
+        epochs.iter().map(|&epoch| self.state_bci(epoch)).collect()
+    }
+
+    /// Returns states at multiple epochs in the provider's central body's
+    /// body-centered body-fixed (BCBF) frame.
+    ///
+    /// See [`Self::state_bcbf`] for frame semantics.
+    ///
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s)
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_bcbf(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
+        epochs.iter().map(|&epoch| self.state_bcbf(epoch)).collect()
+    }
+
+    /// Returns states at multiple epochs expressed in an arbitrary reference frame.
+    ///
+    /// See [`Self::state_in_frame`] for frame semantics.
+    ///
+    /// # Arguments
+    /// * `frame` - The reference frame to express the states in
+    /// * `epochs` - Slice of epochs at which to compute states
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s) in `frame`
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_in_frame(
+        &self,
+        frame: ReferenceFrame,
+        epochs: &[Epoch],
+    ) -> Result<Vec<Vector6<f64>>, BraheError> {
+        epochs
+            .iter()
+            .map(|&epoch| self.state_in_frame(frame, epoch))
+            .collect()
+    }
+
     /// Returns states at multiple epochs as osculating orbital elements.
     ///
     /// # Arguments
@@ -641,6 +693,58 @@ pub trait DOrbitStateProvider: DStateProvider {
         epochs
             .iter()
             .map(|&epoch| self.state_eme2000(epoch))
+            .collect()
+    }
+
+    /// Returns states at multiple epochs in the provider's central body's
+    /// body-centered inertial (BCI) frame.
+    ///
+    /// See [`Self::state_bci`] for frame semantics.
+    ///
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s)
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_bci(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
+        epochs.iter().map(|&epoch| self.state_bci(epoch)).collect()
+    }
+
+    /// Returns states at multiple epochs in the provider's central body's
+    /// body-centered body-fixed (BCBF) frame.
+    ///
+    /// See [`Self::state_bcbf`] for frame semantics.
+    ///
+    /// # Arguments
+    /// * `epochs` - Slice of epochs at which to compute states
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s)
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_bcbf(&self, epochs: &[Epoch]) -> Result<Vec<Vector6<f64>>, BraheError> {
+        epochs.iter().map(|&epoch| self.state_bcbf(epoch)).collect()
+    }
+
+    /// Returns states at multiple epochs expressed in an arbitrary reference frame.
+    ///
+    /// See [`Self::state_in_frame`] for frame semantics.
+    ///
+    /// # Arguments
+    /// * `frame` - The reference frame to express the states in
+    /// * `epochs` - Slice of epochs at which to compute states
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Vector6<f64>>)` - Vector of 6-element vectors containing position (m) and velocity (m/s) in `frame`
+    /// * `Err(BraheError)` - If any state cannot be computed
+    fn states_in_frame(
+        &self,
+        frame: ReferenceFrame,
+        epochs: &[Epoch],
+    ) -> Result<Vec<Vector6<f64>>, BraheError> {
+        epochs
+            .iter()
+            .map(|&epoch| self.state_in_frame(frame, epoch))
             .collect()
     }
 

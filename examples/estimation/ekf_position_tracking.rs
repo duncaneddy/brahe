@@ -43,7 +43,9 @@ fn main() {
         p0,
         bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None, None, None,
+        None,
+        None,
+        None,
         models,
         bh::estimation::EKFConfig::default(),
     ).unwrap();
@@ -74,11 +76,10 @@ fn main() {
     println!("Observations processed: {}", ekf.records().len());
 
     // Show final covariance diagonal (1-sigma uncertainties)
-    if let Some(cov) = ekf.current_covariance() {
-        println!("\n1-sigma uncertainties:");
-        println!("  Position: [{:.1}, {:.1}, {:.1}] m",
-            cov[(0,0)].sqrt(), cov[(1,1)].sqrt(), cov[(2,2)].sqrt());
-        println!("  Velocity: [{:.4}, {:.4}, {:.4}] m/s",
-            cov[(3,3)].sqrt(), cov[(4,4)].sqrt(), cov[(5,5)].sqrt());
-    }
+    let cov = ekf.current_covariance();
+    println!("\n1-sigma uncertainties:");
+    println!("  Position: [{:.1}, {:.1}, {:.1}] m",
+        cov[(0,0)].sqrt(), cov[(1,1)].sqrt(), cov[(2,2)].sqrt());
+    println!("  Velocity: [{:.4}, {:.4}, {:.4}] m/s",
+        cov[(3,3)].sqrt(), cov[(4,4)].sqrt(), cov[(5,5)].sqrt());
 }

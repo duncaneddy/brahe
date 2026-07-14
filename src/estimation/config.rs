@@ -18,8 +18,9 @@ pub struct ProcessNoiseConfig {
 
     /// Whether Q scales with the time step duration.
     ///
-    /// If true: Q_effective = Q * dt (continuous-time process noise model)
-    /// If false: Q_effective = Q (discrete-time, applied as-is)
+    /// If true: Q_effective = Q * |dt|, where dt is the time since the last
+    /// update. Q must then be a noise *rate* (units of state² per second).
+    /// If false: Q_effective = Q (discrete-time, applied as-is per update)
     pub scale_with_dt: bool,
 }
 
@@ -48,13 +49,12 @@ impl Default for EKFConfig {
 }
 
 /// Configuration for the Unscented Kalman Filter.
+///
+/// The state dimension is derived from the propagator at filter construction.
 #[derive(Clone, Debug)]
 pub struct UKFConfig {
     /// Process noise configuration
     pub process_noise: Option<ProcessNoiseConfig>,
-
-    /// State dimension
-    pub state_dim: usize,
 
     /// Alpha parameter for sigma point spread (typically 1e-3)
     pub alpha: f64,
@@ -74,7 +74,6 @@ impl Default for UKFConfig {
     fn default() -> Self {
         Self {
             process_noise: None,
-            state_dim: 6,
             alpha: 1e-3,
             beta: 2.0,
             kappa: 0.0,
@@ -84,10 +83,16 @@ impl Default for UKFConfig {
 }
 
 /// Solver formulation for Batch Least Squares.
+///
+/// Both formulations apply the full (possibly correlated) measurement noise
+/// covariance R and produce the same estimate; they differ in numerical
+/// conditioning and memory footprint.
 #[derive(Clone, Debug)]
 pub enum BLSSolverMethod {
-    /// Build full H matrix and residual vector, solve via QR decomposition.
-    /// Better numerical conditioning. Memory: O(m_total × n_solve).
+    /// Whiten and stack all observation blocks into one matrix, then solve the
+    /// least squares problem directly via QR decomposition. Avoids forming the
+    /// normal equations, so the effective condition number is not squared.
+    /// Memory: O(m_total × n_solve).
     StackedObservationMatrix,
     /// Accumulate information matrix Λ and normal vector N, solve via Cholesky.
     /// Memory-efficient: O(n_solve²). Standard Tapley/Schutz/Born formulation.

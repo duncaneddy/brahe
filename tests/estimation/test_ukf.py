@@ -164,7 +164,6 @@ def test_ukf_with_config(two_body_leo):
 
 def test_ukf_config_defaults():
     config = bh.UKFConfig.default()
-    assert config.state_dim == 6
     assert config.alpha == pytest.approx(1e-3)
     assert config.beta == pytest.approx(2.0)
     assert config.kappa == pytest.approx(0.0)
@@ -179,7 +178,6 @@ def test_ukf_config_custom_all_params():
         alpha=0.5,
         beta=3.0,
         kappa=1.0,
-        state_dim=6,
         process_noise=pn,
         store_records=False,
     )
@@ -187,7 +185,6 @@ def test_ukf_config_custom_all_params():
     assert config.alpha == pytest.approx(0.5)
     assert config.beta == pytest.approx(3.0)
     assert config.kappa == pytest.approx(1.0)
-    assert config.state_dim == 6
     assert config.store_records is False
 
 
@@ -211,3 +208,28 @@ def test_ukf_with_process_noise(two_body_leo):
     )
 
     assert len(ukf.current_state()) == 6
+
+
+def test_ukf_invalid_sigma_parameters_raise(two_body_leo):
+    """Non-finite or degenerate sigma-point parameters must fail at
+    construction rather than silently producing NaN estimates."""
+    epoch, state = two_body_leo
+    p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+    for bad_config in [
+        bh.UKFConfig(alpha=float("nan")),
+        bh.UKFConfig(kappa=float("nan")),
+        bh.UKFConfig(beta=float("nan")),
+        bh.UKFConfig(alpha=0.0),
+        bh.UKFConfig(kappa=-6.0),  # state_dim + kappa == 0 for a 6D state
+    ]:
+        with pytest.raises(RuntimeError):
+            bh.UnscentedKalmanFilter(
+                epoch,
+                state,
+                p0,
+                measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
+                propagation_config=bh.NumericalPropagationConfig.default(),
+                force_config=bh.ForceModelConfig.two_body(),
+                config=bad_config,
+            )

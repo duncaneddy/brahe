@@ -1065,6 +1065,46 @@ impl DNumericalPropagator {
         )
     }
 
+    /// Get the parameter vector supplied at construction.
+    ///
+    /// Returns `None` if no parameters were provided. These are the
+    /// dynamics / consider parameters passed to the dynamics function,
+    /// control input, and (via the estimation filters) measurement models.
+    pub fn params(&self) -> Option<&DVector<f64>> {
+        if self.params.is_empty() {
+            None
+        } else {
+            Some(&self.params)
+        }
+    }
+
+    /// Disable STM (variational equation) propagation.
+    ///
+    /// Providing an initial covariance at construction enables STM
+    /// propagation automatically (the STM drives `P(t) = Φ·P₀·Φᵀ`). When the
+    /// STM is not needed — for example when only the state trajectory is of
+    /// interest, or in sigma-point filters that capture uncertainty without
+    /// linearization — disabling it removes the cost of integrating the n²
+    /// variational equations at every step.
+    ///
+    /// Covariance propagation requires the STM, so any covariance held by
+    /// the propagator is cleared: [`stm()`](Self::stm) and
+    /// [`current_covariance()`](Self::current_covariance) return `None`
+    /// afterwards, and a covariance passed to
+    /// [`reinitialize`](Self::reinitialize) will no longer be propagated.
+    /// Sensitivity propagation, if enabled, is unaffected. No-op if STM
+    /// propagation is not enabled.
+    pub fn disable_stm_propagation(&mut self) {
+        self.propagation_mode = match self.propagation_mode {
+            PropagationMode::WithSTM => PropagationMode::StateOnly,
+            PropagationMode::WithSTMAndSensitivity => PropagationMode::WithSensitivity,
+            other => other,
+        };
+        self.stm = None;
+        self.initial_covariance = None;
+        self.current_covariance = None;
+    }
+
     /// Check if propagation was terminated
     pub fn terminated(&self) -> bool {
         self.terminated
@@ -2084,6 +2124,55 @@ mod tests {
         assert_abs_diff_eq!(stm[(1, 1)], 1.0, epsilon = 1e-12);
         assert_abs_diff_eq!(stm[(0, 1)], 0.0, epsilon = 1e-12);
         assert_abs_diff_eq!(stm[(1, 0)], 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_dnumericalpropagator_disable_stm_propagation() {
+        // Providing a covariance auto-enables STM propagation
+        let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![1.0, 0.0]);
+        let p0 = DMatrix::<f64>::identity(2, 2);
+
+        let mut prop = DNumericalPropagator::new(
+            epoch,
+            state.clone(),
+            sho_dynamics(1.0),
+            NumericalPropagationConfig::default(),
+            None,
+            None,
+            Some(p0),
+        )
+        .unwrap();
+        assert!(prop.has_stm());
+        assert!(prop.current_covariance().is_some());
+
+        // Disabling STM propagation clears the STM and the covariance, which
+        // can no longer be propagated
+        prop.disable_stm_propagation();
+        assert!(!prop.has_stm());
+        assert!(prop.stm().is_none());
+        assert!(prop.current_covariance().is_none());
+
+        // State propagation continues and matches a propagator that never
+        // had STM propagation enabled
+        let mut reference = DNumericalPropagator::new(
+            epoch,
+            state,
+            sho_dynamics(1.0),
+            NumericalPropagationConfig::default(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        prop.propagate_to(epoch + 5.0);
+        reference.propagate_to(epoch + 5.0);
+        assert_abs_diff_eq!(
+            prop.current_state(),
+            reference.current_state(),
+            epsilon = 1e-12
+        );
     }
 
     #[test]

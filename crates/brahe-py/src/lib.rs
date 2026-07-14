@@ -1400,9 +1400,9 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyInertialPositionMeasurementModel>()?;
     module.add_class::<PyInertialVelocityMeasurementModel>()?;
     module.add_class::<PyInertialStateMeasurementModel>()?;
-    module.add_class::<PyEcefPositionMeasurementModel>()?;
-    module.add_class::<PyEcefVelocityMeasurementModel>()?;
-    module.add_class::<PyEcefStateMeasurementModel>()?;
+    module.add_class::<PyECEFPositionMeasurementModel>()?;
+    module.add_class::<PyECEFVelocityMeasurementModel>()?;
+    module.add_class::<PyECEFStateMeasurementModel>()?;
     module.add_class::<PyExtendedKalmanFilter>()?;
     module.add_class::<PyUKFConfig>()?;
     module.add_class::<PyUnscentedKalmanFilter>()?;

@@ -36,13 +36,14 @@ fn main() {
         epoch, state.clone(), dynamics, prop_config, None, None, Some(p0),
     ).unwrap();
 
-    // Create EKF from the pre-built propagator
+    // Create EKF from the pre-built propagator (converts into a DynamicsSource
+    // automatically; the filter starts from the propagator's initial covariance)
     let models: Vec<Box<dyn bh::estimation::MeasurementModel>> = vec![
         Box::new(bh::estimation::InertialPositionMeasurementModel::new(10.0)),
     ];
 
     let mut ekf = bh::estimation::ExtendedKalmanFilter::from_propagator(
-        bh::estimation::DynamicsSource::GenericPropagator(prop),
+        prop,
         models,
         bh::estimation::EKFConfig::default(),
     ).unwrap();

@@ -13,7 +13,6 @@
 
 use brahe::estimation;
 use brahe::estimation::MeasurementModel;
-use brahe::estimation::DynamicsSource;
 use brahe::math::jacobian::{DifferenceMethod, PerturbationStrategy};
 
 // =============================================================================
@@ -401,17 +400,25 @@ macro_rules! impl_measurement_model_binding {
             /// Args:
             ///     epoch (Epoch): Current epoch.
             ///     state (numpy.ndarray): Current state vector.
+            ///     params (numpy.ndarray or None): Optional consider / force-model
+            ///         parameter vector (unused by built-in models).
             ///
             /// Returns:
             ///     numpy.ndarray: Predicted measurement vector.
+            #[pyo3(signature = (epoch, state, params=None))]
             fn predict<'py>(
                 &self,
                 py: Python<'py>,
                 epoch: &PyEpoch,
                 state: PyReadonlyArray1<f64>,
+                params: Option<PyReadonlyArray1<f64>>,
             ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix1>>> {
                 let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
-                let vec = self.model.predict(&epoch.obj, &state_vec, None)
+                let params_vec = match &params {
+                    Some(p) => Some(nalgebra::DVector::from_column_slice(p.as_slice()?)),
+                    None => None,
+                };
+                let vec = self.model.predict(&epoch.obj, &state_vec, params_vec.as_ref())
                     .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
                 let flat: Vec<f64> = (0..vec.len()).map(|i| vec[i]).collect();
                 Ok(flat.into_pyarray(py))
@@ -422,17 +429,25 @@ macro_rules! impl_measurement_model_binding {
             /// Args:
             ///     epoch (Epoch): Current epoch.
             ///     state (numpy.ndarray): Current state vector.
+            ///     params (numpy.ndarray or None): Optional consider / force-model
+            ///         parameter vector (unused by built-in models).
             ///
             /// Returns:
             ///     numpy.ndarray: Measurement Jacobian matrix (m x n).
+            #[pyo3(signature = (epoch, state, params=None))]
             fn jacobian<'py>(
                 &self,
                 py: Python<'py>,
                 epoch: &PyEpoch,
                 state: PyReadonlyArray1<f64>,
+                params: Option<PyReadonlyArray1<f64>>,
             ) -> PyResult<Bound<'py, PyArray<f64, numpy::Ix2>>> {
                 let state_vec = nalgebra::DVector::from_column_slice(state.as_slice()?);
-                let mat = self.model.jacobian(&epoch.obj, &state_vec, None)
+                let params_vec = match &params {
+                    Some(p) => Some(nalgebra::DVector::from_column_slice(p.as_slice()?)),
+                    None => None,
+                };
+                let mat = self.model.jacobian(&epoch.obj, &state_vec, params_vec.as_ref())
                     .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
                 let rows = mat.nrows();
                 let cols = mat.ncols();
@@ -751,7 +766,7 @@ impl_measurement_model_binding!(
 );
 
 impl_measurement_model_binding!(
-    PyEcefPositionMeasurementModel,
+    PyECEFPositionMeasurementModel,
     estimation::EcefPositionMeasurementModel,
     "ECEFPositionMeasurementModel",
     constructors: [
@@ -761,16 +776,16 @@ impl_measurement_model_binding!(
         ///     sigma (float): Position noise standard deviation (meters).
         ///
         /// Returns:
-        ///     EcefPositionMeasurementModel: New model instance.
+        ///     ECEFPositionMeasurementModel: New model instance.
         ///
         /// Example:
         ///     ```python
         ///     import brahe as bh
-        ///     model = bh.EcefPositionMeasurementModel(5.0)
+        ///     model = bh.ECEFPositionMeasurementModel(5.0)
         ///     ```
         #[new]
         fn new(sigma: f64) -> Self {
-            PyEcefPositionMeasurementModel {
+            PyECEFPositionMeasurementModel {
                 model: estimation::EcefPositionMeasurementModel::new(sigma),
             }
         }
@@ -783,10 +798,10 @@ impl_measurement_model_binding!(
         ///     sigma_z (float): Z-axis position noise (meters).
         ///
         /// Returns:
-        ///     EcefPositionMeasurementModel: New model instance.
+        ///     ECEFPositionMeasurementModel: New model instance.
         #[staticmethod]
         fn per_axis(sigma_x: f64, sigma_y: f64, sigma_z: f64) -> Self {
-            PyEcefPositionMeasurementModel {
+            PyECEFPositionMeasurementModel {
                 model: estimation::EcefPositionMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
         }
@@ -807,7 +822,7 @@ impl_measurement_model_binding!(
             let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
             let model = estimation::EcefPositionMeasurementModel::from_covariance(mat)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefPositionMeasurementModel { model })
+            Ok(PyECEFPositionMeasurementModel { model })
         }
 
         /// Create from upper-triangular covariance elements.
@@ -824,14 +839,14 @@ impl_measurement_model_binding!(
             })?;
             let model = estimation::EcefPositionMeasurementModel::from_upper_triangular(data)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefPositionMeasurementModel { model })
+            Ok(PyECEFPositionMeasurementModel { model })
         }
     ],
     doc: "ECEF position measurement model (3D ECEF position from GNSS).\n\nInternally converts ECI state to ECEF position."
 );
 
 impl_measurement_model_binding!(
-    PyEcefVelocityMeasurementModel,
+    PyECEFVelocityMeasurementModel,
     estimation::EcefVelocityMeasurementModel,
     "ECEFVelocityMeasurementModel",
     constructors: [
@@ -841,16 +856,16 @@ impl_measurement_model_binding!(
         ///     sigma (float): Velocity noise standard deviation (m/s).
         ///
         /// Returns:
-        ///     EcefVelocityMeasurementModel: New model instance.
+        ///     ECEFVelocityMeasurementModel: New model instance.
         ///
         /// Example:
         ///     ```python
         ///     import brahe as bh
-        ///     model = bh.EcefVelocityMeasurementModel(0.05)
+        ///     model = bh.ECEFVelocityMeasurementModel(0.05)
         ///     ```
         #[new]
         fn new(sigma: f64) -> Self {
-            PyEcefVelocityMeasurementModel {
+            PyECEFVelocityMeasurementModel {
                 model: estimation::EcefVelocityMeasurementModel::new(sigma),
             }
         }
@@ -863,10 +878,10 @@ impl_measurement_model_binding!(
         ///     sigma_z (float): Z-axis velocity noise (m/s).
         ///
         /// Returns:
-        ///     EcefVelocityMeasurementModel: New model instance.
+        ///     ECEFVelocityMeasurementModel: New model instance.
         #[staticmethod]
         fn per_axis(sigma_x: f64, sigma_y: f64, sigma_z: f64) -> Self {
-            PyEcefVelocityMeasurementModel {
+            PyECEFVelocityMeasurementModel {
                 model: estimation::EcefVelocityMeasurementModel::new_per_axis(sigma_x, sigma_y, sigma_z),
             }
         }
@@ -887,7 +902,7 @@ impl_measurement_model_binding!(
             let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
             let model = estimation::EcefVelocityMeasurementModel::from_covariance(mat)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefVelocityMeasurementModel { model })
+            Ok(PyECEFVelocityMeasurementModel { model })
         }
 
         /// Create from upper-triangular covariance elements.
@@ -904,14 +919,14 @@ impl_measurement_model_binding!(
             })?;
             let model = estimation::EcefVelocityMeasurementModel::from_upper_triangular(data)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefVelocityMeasurementModel { model })
+            Ok(PyECEFVelocityMeasurementModel { model })
         }
     ],
     doc: "ECEF velocity measurement model (3D ECEF velocity from GNSS).\n\nInternally converts ECI state to ECEF velocity."
 );
 
 impl_measurement_model_binding!(
-    PyEcefStateMeasurementModel,
+    PyECEFStateMeasurementModel,
     estimation::EcefStateMeasurementModel,
     "ECEFStateMeasurementModel",
     constructors: [
@@ -922,16 +937,16 @@ impl_measurement_model_binding!(
         ///     vel_sigma (float): Velocity noise standard deviation (m/s).
         ///
         /// Returns:
-        ///     EcefStateMeasurementModel: New model instance.
+        ///     ECEFStateMeasurementModel: New model instance.
         ///
         /// Example:
         ///     ```python
         ///     import brahe as bh
-        ///     model = bh.EcefStateMeasurementModel(5.0, 0.05)
+        ///     model = bh.ECEFStateMeasurementModel(5.0, 0.05)
         ///     ```
         #[new]
         fn new(pos_sigma: f64, vel_sigma: f64) -> Self {
-            PyEcefStateMeasurementModel {
+            PyECEFStateMeasurementModel {
                 model: estimation::EcefStateMeasurementModel::new(pos_sigma, vel_sigma),
             }
         }
@@ -947,13 +962,13 @@ impl_measurement_model_binding!(
         ///     vel_sigma_z (float): Z velocity noise (m/s).
         ///
         /// Returns:
-        ///     EcefStateMeasurementModel: New model instance.
+        ///     ECEFStateMeasurementModel: New model instance.
         #[staticmethod]
         fn per_axis(
             pos_sigma_x: f64, pos_sigma_y: f64, pos_sigma_z: f64,
             vel_sigma_x: f64, vel_sigma_y: f64, vel_sigma_z: f64,
         ) -> Self {
-            PyEcefStateMeasurementModel {
+            PyECEFStateMeasurementModel {
                 model: estimation::EcefStateMeasurementModel::new_per_axis(
                     pos_sigma_x, pos_sigma_y, pos_sigma_z,
                     vel_sigma_x, vel_sigma_y, vel_sigma_z,
@@ -977,7 +992,7 @@ impl_measurement_model_binding!(
             let mat = nalgebra::DMatrix::from_row_slice(shape[0], shape[1], data);
             let model = estimation::EcefStateMeasurementModel::from_covariance(mat)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefStateMeasurementModel { model })
+            Ok(PyECEFStateMeasurementModel { model })
         }
 
         /// Create from upper-triangular covariance elements.
@@ -994,7 +1009,7 @@ impl_measurement_model_binding!(
             })?;
             let model = estimation::EcefStateMeasurementModel::from_upper_triangular(data)
                 .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-            Ok(PyEcefStateMeasurementModel { model })
+            Ok(PyECEFStateMeasurementModel { model })
         }
     ],
     doc: "ECEF state measurement model (6D ECEF state from GNSS).\n\nInternally converts ECI state to ECEF state."
@@ -1132,19 +1147,25 @@ impl PyMeasurementModel {
 
     /// Compute predicted measurement from state.
     ///
-    /// Override this method in your subclass.
+    /// Override this method in your subclass with the signature
+    /// ``predict(self, epoch, state, params)``.
     ///
     /// Args:
     ///     epoch (Epoch): Current epoch.
     ///     state (numpy.ndarray): Current state vector.
+    ///     params (numpy.ndarray or None): Optional consider / force-model
+    ///         parameter vector passed through from the estimator's
+    ///         propagator; None when the propagator has no parameters.
     ///
     /// Returns:
     ///     numpy.ndarray: Predicted measurement vector.
     #[allow(unused_variables)]
+    #[pyo3(signature = (epoch, state, params=None))]
     fn predict(
         &self,
         epoch: &PyEpoch,
         state: PyReadonlyArray1<f64>,
+        params: Option<PyReadonlyArray1<f64>>,
     ) -> PyResult<Py<PyAny>> {
         Err(exceptions::PyNotImplementedError::new_err(
             "Subclasses must implement predict()",
@@ -1153,20 +1174,26 @@ impl PyMeasurementModel {
 
     /// Compute measurement Jacobian H = dh/dx.
     ///
-    /// Override this method to provide an analytical Jacobian.
+    /// Override this method to provide an analytical Jacobian, with the
+    /// signature ``jacobian(self, epoch, state, params)``.
     /// Return None to use automatic finite-difference computation.
     ///
     /// Args:
     ///     epoch (Epoch): Current epoch.
     ///     state (numpy.ndarray): Current state vector.
+    ///     params (numpy.ndarray or None): Optional consider / force-model
+    ///         parameter vector passed through from the estimator's
+    ///         propagator; None when the propagator has no parameters.
     ///
     /// Returns:
     ///     numpy.ndarray or None: Jacobian matrix, or None for finite-diff.
     #[allow(unused_variables)]
+    #[pyo3(signature = (epoch, state, params=None))]
     fn jacobian(
         &self,
         epoch: &PyEpoch,
         state: PyReadonlyArray1<f64>,
+        params: Option<PyReadonlyArray1<f64>>,
     ) -> PyResult<Py<PyAny>> {
         // Default: return None to signal finite-diff fallback
         Python::attach(|py| Ok(py.None()))
@@ -1174,7 +1201,8 @@ impl PyMeasurementModel {
 
     /// Get measurement noise covariance R.
     ///
-    /// Override this method in your subclass.
+    /// Override this method in your subclass. The value is read once when the
+    /// model is registered with an estimator — R is constant per model.
     ///
     /// Returns:
     ///     numpy.ndarray: Noise covariance matrix (m x m).
@@ -1280,17 +1308,21 @@ impl MeasurementModel for RustMeasurementModelWrapper {
         &self,
         epoch: &brahe::time::Epoch,
         state: &DVector<f64>,
-        _params: Option<&DVector<f64>>,
+        params: Option<&DVector<f64>>,
     ) -> Result<DVector<f64>, brahe::utils::errors::BraheError> {
         Python::attach(|py| {
             let py_epoch = Py::new(py, PyEpoch { obj: *epoch })
                 .map_err(|e| brahe::utils::errors::BraheError::Error(e.to_string()))?;
             let state_np = state.as_slice().to_pyarray(py);
+            let params_py: Py<PyAny> = match params {
+                Some(p) => p.as_slice().to_pyarray(py).into_any().unbind(),
+                None => py.None(),
+            };
 
             let result = self
                 .py_model
                 .bind(py)
-                .call_method1("predict", (py_epoch, state_np))
+                .call_method1("predict", (py_epoch, state_np, params_py))
                 .map_err(|e| {
                     brahe::utils::errors::BraheError::Error(format!(
                         "Python predict() failed: {}",
@@ -1329,11 +1361,15 @@ impl MeasurementModel for RustMeasurementModelWrapper {
                     ))
                 })?;
                 let state_np = state.as_slice().to_pyarray(py);
+                let params_py: Py<PyAny> = match params {
+                    Some(p) => p.as_slice().to_pyarray(py).into_any().unbind(),
+                    None => py.None(),
+                };
 
                 let result = self
                     .py_model
                     .bind(py)
-                    .call_method1("jacobian", (py_epoch, state_np))
+                    .call_method1("jacobian", (py_epoch, state_np, params_py))
                     .map_err(|e| {
                         brahe::utils::errors::BraheError::Error(format!(
                             "Python jacobian() raised an exception: {}",
@@ -1479,15 +1515,15 @@ fn process_measurement_models(
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));
-        } else if let Ok(m) = obj.extract::<PyRef<PyEcefPositionMeasurementModel>>() {
+        } else if let Ok(m) = obj.extract::<PyRef<PyECEFPositionMeasurementModel>>() {
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));
-        } else if let Ok(m) = obj.extract::<PyRef<PyEcefVelocityMeasurementModel>>() {
+        } else if let Ok(m) = obj.extract::<PyRef<PyECEFVelocityMeasurementModel>>() {
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));
-        } else if let Ok(m) = obj.extract::<PyRef<PyEcefStateMeasurementModel>>() {
+        } else if let Ok(m) = obj.extract::<PyRef<PyECEFStateMeasurementModel>>() {
             result.push(Box::new(MeasurementModelHolder::RustNative(Box::new(
                 m.model.clone(),
             ))));
@@ -1589,8 +1625,7 @@ impl PyExtendedKalmanFilter {
         let cov_matrix = DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
 
         // Clone propagation config and force STM enabled
-        let mut prop_config = propagation_config.config.clone();
-        prop_config.variational.enable_stm = true;
+        let prop_config = propagation_config.config.clone();
 
         let params_vec =
             params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
@@ -1672,21 +1707,6 @@ impl PyExtendedKalmanFilter {
                     >
             });
 
-        // Build the orbit propagator internally
-        let prop = propagators::DNumericalOrbitPropagator::new(
-            epoch.obj,
-            state_vec,
-            prop_config,
-            force_config.config.clone(),
-            params_vec,
-            additional_dynamics_fn,
-            control_input_fn,
-            Some(cov_matrix),
-        )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        let dynamics = DynamicsSource::OrbitPropagator(prop);
-
         // Process measurement models
         let models = process_measurement_models(py, measurement_models)?;
 
@@ -1695,8 +1715,19 @@ impl PyExtendedKalmanFilter {
             .map(|c| c.config.clone())
             .unwrap_or_default();
 
-        let ekf = estimation::ExtendedKalmanFilter::from_propagator(dynamics, models, ekf_config)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let ekf = estimation::ExtendedKalmanFilter::new(
+            epoch.obj,
+            state_vec,
+            cov_matrix,
+            prop_config,
+            force_config.config.clone(),
+            params_vec,
+            additional_dynamics_fn,
+            control_input_fn,
+            models,
+            ekf_config,
+        )
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         Ok(PyExtendedKalmanFilter { ekf })
     }
@@ -1752,16 +1783,12 @@ impl PyExtendedKalmanFilter {
     /// Get current covariance estimate.
     ///
     /// Returns:
-    ///     numpy.ndarray or None: Current covariance matrix, or None if unavailable.
-    fn current_covariance<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Option<Bound<'py, PyArray<f64, numpy::Ix2>>> {
-        self.ekf.current_covariance().map(|cov| {
-            let r = cov.nrows();
-            let c = cov.ncols();
-            matrix_to_numpy!(py, cov, r, c, f64)
-        })
+    ///     numpy.ndarray: Current covariance matrix.
+    fn current_covariance<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
+        let cov = self.ekf.current_covariance();
+        let r = cov.nrows();
+        let c = cov.ncols();
+        matrix_to_numpy!(py, cov, r, c, f64)
     }
 
     /// Get current epoch.
@@ -1805,7 +1832,7 @@ impl PyExtendedKalmanFilter {
 /// Example:
 ///     ```python
 ///     import brahe as bh
-///     config = bh.UKFConfig(state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0)
+///     config = bh.UKFConfig(alpha=1e-3, beta=2.0, kappa=0.0)
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "UKFConfig")]
@@ -1818,8 +1845,9 @@ pub struct PyUKFConfig {
 impl PyUKFConfig {
     /// Create a new UKFConfig.
     ///
+    /// The state dimension is derived from the propagator at filter construction.
+    ///
     /// Args:
-    ///     state_dim (int): State vector dimension. Defaults to 6.
     ///     alpha (float): Sigma point spread parameter (typically 1e-3). Defaults to 1e-3.
     ///     beta (float): Distribution parameter (2.0 for Gaussian). Defaults to 2.0.
     ///     kappa (float): Secondary scaling parameter (typically 0.0). Defaults to 0.0.
@@ -1829,9 +1857,8 @@ impl PyUKFConfig {
     /// Returns:
     ///     UKFConfig: New UKF configuration.
     #[new]
-    #[pyo3(signature = (state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0, process_noise=None, store_records=true))]
+    #[pyo3(signature = (alpha=1e-3, beta=2.0, kappa=0.0, process_noise=None, store_records=true))]
     fn new(
-        state_dim: usize,
         alpha: f64,
         beta: f64,
         kappa: f64,
@@ -1841,7 +1868,6 @@ impl PyUKFConfig {
         PyUKFConfig {
             config: estimation::UKFConfig {
                 process_noise: process_noise.map(|pn| pn.config),
-                state_dim,
                 alpha,
                 beta,
                 kappa,
@@ -1853,18 +1879,13 @@ impl PyUKFConfig {
     /// Create a default UKF configuration.
     ///
     /// Returns:
-    ///     UKFConfig: Default configuration (state_dim=6, alpha=1e-3, beta=2.0, kappa=0.0).
+    ///     UKFConfig: Default configuration (alpha=1e-3, beta=2.0, kappa=0.0).
     #[staticmethod]
     #[pyo3(name = "default")]
     fn py_default() -> Self {
         PyUKFConfig {
             config: estimation::UKFConfig::default(),
         }
-    }
-
-    #[getter]
-    fn state_dim(&self) -> usize {
-        self.config.state_dim
     }
 
     #[getter]
@@ -1889,11 +1910,8 @@ impl PyUKFConfig {
 
     fn __repr__(&self) -> String {
         format!(
-            "UKFConfig(state_dim={}, alpha={}, beta={}, kappa={})",
-            self.config.state_dim,
-            self.config.alpha,
-            self.config.beta,
-            self.config.kappa,
+            "UKFConfig(alpha={}, beta={}, kappa={})",
+            self.config.alpha, self.config.beta, self.config.kappa,
         )
     }
 }
@@ -2068,34 +2086,25 @@ impl PyUnscentedKalmanFilter {
                     >
             });
 
-        let prop = propagators::DNumericalOrbitPropagator::new(
+        let models = process_measurement_models(py, measurement_models)?;
+
+        let ukf_config = config.map(|c| c.config.clone()).unwrap_or_default();
+
+        // UnscentedKalmanFilter::new builds a propagator without STM
+        // propagation; the covariance is owned by the filter.
+        let ukf = estimation::UnscentedKalmanFilter::new(
             epoch.obj,
             state_vec,
+            cov_matrix,
             prop_config,
             force_config.config.clone(),
             params_vec,
             additional_dynamics_fn,
             control_input_fn,
-            Some(cov_matrix),
+            models,
+            ukf_config,
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        let dynamics = DynamicsSource::OrbitPropagator(prop);
-        let models = process_measurement_models(py, measurement_models)?;
-
-        let ukf_config = config
-            .map(|c| {
-                let mut cfg = c.config.clone();
-                cfg.state_dim = state_dim;
-                cfg
-            })
-            .unwrap_or(estimation::UKFConfig {
-                state_dim,
-                ..estimation::UKFConfig::default()
-            });
-
-        let ukf = estimation::UnscentedKalmanFilter::from_propagator(dynamics, models, ukf_config)
-            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         Ok(PyUnscentedKalmanFilter { ukf })
     }
@@ -2837,7 +2846,6 @@ impl PyBatchLeastSquares {
             .map(|c| c.config.clone())
             .unwrap_or_default();
 
-        // Build BLS (this internally creates the propagator with STM enabled)
         let bls = estimation::BatchLeastSquares::new(
             epoch.obj,
             state_vec,
@@ -2890,14 +2898,29 @@ impl PyBatchLeastSquares {
         vector_to_numpy!(py, state, n, f64)
     }
 
-    /// Get current total covariance (formal + consider contribution).
+    /// Get current formal covariance (solve-for partition).
+    ///
+    /// Use ``total_covariance()`` for the formal + consider contribution.
     ///
     /// Returns:
-    ///     numpy.ndarray: Total covariance matrix (n x n).
+    ///     numpy.ndarray: Formal covariance matrix (n_solve x n_solve).
     fn current_covariance<'py>(
         &self,
         py: Python<'py>,
     ) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
+        let cov = self.bls.current_covariance();
+        let r = cov.nrows();
+        let c = cov.ncols();
+        matrix_to_numpy!(py, cov, r, c, f64)
+    }
+
+    /// Get total covariance: formal + consider contribution.
+    ///
+    /// Returns the formal covariance if consider parameters are not configured.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Total covariance matrix (n_solve x n_solve).
+    fn total_covariance<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray<f64, numpy::Ix2>> {
         let cov = self.bls.total_covariance();
         let r = cov.nrows();
         let c = cov.ncols();

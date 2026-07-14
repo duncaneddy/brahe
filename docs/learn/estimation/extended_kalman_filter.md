@@ -65,7 +65,7 @@ After processing, the filter state is available through pass-through methods:
 
 ```python
 state = ekf.current_state()         # numpy 1D array
-cov = ekf.current_covariance()      # numpy 2D array or None
+cov = ekf.current_covariance()      # numpy 2D array
 epoch = ekf.current_epoch()         # Epoch
 records = ekf.records()             # list of FilterRecord
 ```
@@ -116,9 +116,11 @@ model). When `False`, $Q$ is applied as-is at each step (discrete-time model).
 
 ## Using Custom Dynamics
 
-For systems beyond standard orbital mechanics, you can supply custom dynamics. In Python,
-pass an `additional_dynamics` callable to the EKF constructor. In Rust, build a
-`DNumericalPropagator` with your dynamics function and pass it to `from_propagator()`:
+For systems beyond standard orbital mechanics, you can supply custom dynamics. In both
+languages the EKF constructor accepts an `additional_dynamics` function (along with force
+model `params` and a `control_input`) that passes through to the internal orbit
+propagator. Alternatively, in Rust, build a `DNumericalPropagator` with a fully custom
+dynamics function and pass it to `from_propagator()`:
 
 === "Python"
     ``` python

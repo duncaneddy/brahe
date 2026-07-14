@@ -16,7 +16,8 @@
  *    - Mapped Jacobian: H_i = H̃_i * Φ(t_i, t₀) (solve-for partition)
  * 3. Solve for state correction δx via either:
  *    - **Normal Equations**: Λ = P̄₀⁻¹ + Σ Hᵢᵀ Rᵢ⁻¹ Hᵢ, N = Σ Hᵢᵀ Rᵢ⁻¹ δyᵢ
- *    - **Stacked Observation Matrix**: Build full H and δy, solve HᵀWH δx = HᵀW δy
+ *    - **Stacked Observation Matrix**: Whiten and stack all Hᵢ and δyᵢ, solve
+ *      the least squares problem directly via QR decomposition
  * 4. Apply correction: x_{k+1} = x_k + δx
  * 5. Check convergence (state correction norm and/or cost function change)
  *
@@ -37,14 +38,14 @@ use nalgebra::{DMatrix, DVector};
 
 use crate::integrators::traits::{DControlInput, DStateDynamics};
 use crate::propagators::force_model_config::ForceModelConfig;
-use crate::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig};
+use crate::propagators::{DNumericalOrbitPropagator, NumericalPropagationConfig, TrajectoryMode};
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
 use super::config::{BLSConfig, BLSSolverMethod};
 use super::dynamics_source::DynamicsSource;
-use super::traits::MeasurementModel;
-use super::types::{BLSIterationRecord, BLSObservationResidual, Observation};
+use super::traits::{MeasurementModel, validate_model_outputs};
+use super::types::{BLSIterationRecord, BLSObservationResidual, Observation, sort_by_epoch};
 
 /// Batch Least Squares estimator for orbit determination.
 ///
@@ -65,14 +66,25 @@ use super::types::{BLSIterationRecord, BLSObservationResidual, Observation};
 /// let state = DVector::from_vec(vec![6878e3, 0.0, 0.0, 0.0, 7612.0, 0.0]);
 /// let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
 ///
-/// // let mut bls = BatchLeastSquares::new(
-/// //     epoch, state, p0,
-/// //     NumericalPropagationConfig::default(),
-/// //     ForceModelConfig::two_body_gravity(),
-/// //     None, None, None,
-/// //     models, BLSConfig::default(),
-/// // )?;
-/// // bls.solve(&observations)?;
+/// let mut bls = BatchLeastSquares::new(
+///     epoch,
+///     state,
+///     p0,
+///     NumericalPropagationConfig::default(),
+///     ForceModelConfig::two_body_gravity(),
+///     None,
+///     None,
+///     None,
+///     vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+///     BLSConfig::default(),
+/// ).unwrap();
+///
+/// let observations = vec![
+///     Observation::new(epoch + 60.0, DVector::from_vec(vec![6877.8e3, 456.7e3, 0.0]), 0),
+///     Observation::new(epoch + 120.0, DVector::from_vec(vec![6877.0e3, 913.2e3, 0.0]), 0),
+/// ];
+/// bls.solve(&observations).unwrap();
+/// println!("converged: {}", bls.converged());
 /// ```
 pub struct BatchLeastSquares {
     /// Dynamics source (propagator).
@@ -149,13 +161,17 @@ impl BatchLeastSquares {
     /// Create a Batch Least Squares estimator with orbit propagator dynamics.
     ///
     /// Builds a numerical orbit propagator internally with STM enabled for
-    /// the state transition matrix computation required by BLS.
+    /// the state transition matrix computation required by BLS. The full
+    /// range of orbit propagator configuration is available: force model
+    /// parameters, additional dynamics, and control inputs pass through to
+    /// the propagator. For a generic propagator (`DNumericalPropagator`) use
+    /// [`BatchLeastSquares::from_propagator`].
     ///
     /// # Arguments
     ///
     /// * `epoch` - Initial (reference) epoch
     /// * `state` - Initial state vector (meters, m/s)
-    /// * `initial_covariance` - A priori covariance matrix
+    /// * `apriori_covariance` - A priori covariance matrix (state_dim x state_dim)
     /// * `propagation_config` - Numerical propagation configuration
     /// * `force_config` - Force model configuration
     /// * `params` - Optional parameter vector for force models
@@ -167,7 +183,7 @@ impl BatchLeastSquares {
     pub fn new(
         epoch: Epoch,
         state: DVector<f64>,
-        initial_covariance: DMatrix<f64>,
+        apriori_covariance: DMatrix<f64>,
         propagation_config: NumericalPropagationConfig,
         force_config: ForceModelConfig,
         params: Option<DVector<f64>>,
@@ -188,47 +204,77 @@ impl BatchLeastSquares {
             params,
             additional_dynamics,
             control_input,
-            Some(initial_covariance),
+            None,
         )
         .map_err(|e| BraheError::Error(format!("Failed to create propagator: {}", e)))?;
 
-        Self::from_propagator(
-            DynamicsSource::OrbitPropagator(prop),
-            measurement_models,
-            config,
-        )
+        Self::from_parts(prop.into(), apriori_covariance, measurement_models, config)
     }
 
     /// Create a Batch Least Squares estimator from an existing propagator.
     ///
-    /// Use this when you have a pre-built propagator with custom dynamics
-    /// or need full control over propagator configuration.
+    /// Use this when you have a pre-built propagator — custom dynamics
+    /// (`DNumericalPropagator`), force model parameters, control inputs, or
+    /// any other propagator configuration not covered by
+    /// [`BatchLeastSquares::new`]. Both propagator types convert into
+    /// [`DynamicsSource`] automatically.
+    ///
+    /// The propagator's current epoch and state become the a priori (reference)
+    /// epoch and state for the batch, and its `initial_covariance` becomes the
+    /// a priori covariance; construct the propagator with the covariance you
+    /// want the batch to start from. Trajectory recording on the propagator is
+    /// disabled: each Gauss-Newton iteration re-propagates the full observation
+    /// arc, which would otherwise accumulate unbounded trajectory data.
     ///
     /// # Arguments
     ///
-    /// * `propagator` - Pre-built dynamics source (must have STM enabled and covariance set)
+    /// * `propagator` - Pre-built propagator (must have an initial covariance;
+    ///   providing one enables the STM propagation BLS requires)
     /// * `measurement_models` - List of measurement models
     /// * `config` - BLS configuration
     ///
     /// # Errors
     ///
     /// Returns error if:
+    /// - The propagator was not initialized with an initial covariance
     /// - STM propagation is not enabled
     /// - No measurement models are provided
-    /// - Covariance dimensions do not match state dimensions
     /// - No convergence threshold is configured
     /// - Consider parameter dimensions are inconsistent
     pub fn from_propagator(
-        propagator: DynamicsSource,
+        propagator: impl Into<DynamicsSource>,
+        measurement_models: Vec<Box<dyn MeasurementModel>>,
+        config: BLSConfig,
+    ) -> Result<Self, BraheError> {
+        let dynamics = propagator.into();
+
+        let apriori_covariance = dynamics
+            .current_covariance()
+            .ok_or_else(|| {
+                BraheError::Error(
+                    "BatchLeastSquares requires an initial covariance on the propagator. \
+                     Initialize the propagator with an initial_covariance."
+                        .to_string(),
+                )
+            })?
+            .clone();
+
+        Self::from_parts(dynamics, apriori_covariance, measurement_models, config)
+    }
+
+    /// Shared constructor: validates and assembles the estimator from a
+    /// dynamics source and an explicit a priori covariance.
+    fn from_parts(
+        mut dynamics: DynamicsSource,
+        apriori_covariance: DMatrix<f64>,
         measurement_models: Vec<Box<dyn MeasurementModel>>,
         config: BLSConfig,
     ) -> Result<Self, BraheError> {
         // Validate STM enabled
-        if !propagator.has_stm() {
+        if !dynamics.has_stm() {
             return Err(BraheError::Error(
                 "BatchLeastSquares requires STM propagation to be enabled. \
-                 Set propagation_config.variational.enable_stm = true or provide \
-                 an initial_covariance to the propagator constructor."
+                 Set propagation_config.variational.enable_stm = true on the propagator."
                     .to_string(),
             ));
         }
@@ -240,19 +286,8 @@ impl BatchLeastSquares {
             ));
         }
 
-        // Validate covariance is set and dimensions match
-        let covariance = propagator
-            .current_covariance()
-            .ok_or_else(|| {
-                BraheError::Error(
-                    "BatchLeastSquares requires an initial covariance on the propagator. \
-                     Provide initial_covariance when constructing the propagator."
-                        .to_string(),
-                )
-            })?
-            .clone();
-
-        let state_dim = propagator.state_dim();
+        let covariance = apriori_covariance;
+        let state_dim = dynamics.state_dim();
         if covariance.nrows() != state_dim || covariance.ncols() != state_dim {
             return Err(BraheError::Error(format!(
                 "Covariance dimensions ({}x{}) do not match state dimension ({})",
@@ -296,11 +331,13 @@ impl BatchLeastSquares {
             }
         }
 
-        let epoch = propagator.current_epoch();
-        let state = propagator.current_state();
+        let epoch = dynamics.current_epoch();
+        let state = dynamics.current_state();
+
+        dynamics.set_trajectory_mode(TrajectoryMode::Disabled);
 
         Ok(Self {
-            dynamics: propagator,
+            dynamics,
             measurement_models,
             config,
             apriori_epoch: epoch,
@@ -323,8 +360,18 @@ impl BatchLeastSquares {
     // =========================================================================
 
     /// Get current state estimate at the reference epoch.
-    pub fn current_state(&self) -> &DVector<f64> {
-        &self.current_state
+    pub fn current_state(&self) -> DVector<f64> {
+        self.current_state.clone()
+    }
+
+    /// Immutable access to the underlying dynamics source.
+    pub fn dynamics(&self) -> &DynamicsSource {
+        &self.dynamics
+    }
+
+    /// Consume the estimator, returning the underlying dynamics source.
+    pub fn into_dynamics(self) -> DynamicsSource {
+        self.dynamics
     }
 
     /// Get current formal covariance (solve-for partition).
@@ -347,7 +394,7 @@ impl BatchLeastSquares {
         self.iterations_completed
     }
 
-    /// Final cost function value J.
+    /// Final cost function value J, evaluated at the final state estimate.
     pub fn final_cost(&self) -> f64 {
         self.final_cost
     }
@@ -443,13 +490,11 @@ impl BatchLeastSquares {
         }
 
         // Sort observations by epoch
-        let mut sorted_obs: Vec<&Observation> = observations.iter().collect();
-        sorted_obs.sort_by(|a, b| {
-            let dt: f64 = a.epoch - b.epoch;
-            dt.partial_cmp(&0.0)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then(std::cmp::Ordering::Equal)
-        });
+        let sorted_obs = sort_by_epoch(observations);
+
+        // Propagator force-model / consider parameters, passed through to the
+        // measurement models so consider values can affect the measurements.
+        let params = self.dynamics.params().cloned();
 
         // Determine solve-for dimension
         let state_dim = self.current_state.len();
@@ -471,12 +516,13 @@ impl BatchLeastSquares {
         let mut prev_cost = f64::INFINITY;
 
         for iteration in 0..self.config.max_iterations {
-            // Reinitialize propagator at reference epoch with current state
-            self.dynamics.reinitialize(
-                self.apriori_epoch,
-                self.current_state.clone(),
-                Some(self.current_covariance.clone()),
-            );
+            // Reinitialize propagator at reference epoch with current state.
+            // No covariance is passed: BLS maintains the formal covariance
+            // itself and only needs the STM from the propagator. (With consider
+            // parameters the formal covariance is n_solve-sized and must not
+            // reach the full-state propagator.)
+            self.dynamics
+                .reinitialize(self.apriori_epoch, self.current_state.clone(), None);
 
             // Collect residuals and mapped Jacobians at each observation epoch
             let mut residuals: Vec<DVector<f64>> = Vec::with_capacity(sorted_obs.len());
@@ -488,19 +534,33 @@ impl BatchLeastSquares {
 
             for obs in &sorted_obs {
                 // Propagate to observation epoch
-                self.dynamics.propagate_to(obs.epoch);
+                self.propagate_dynamics_to(obs.epoch)?;
 
                 let state_at_obs = self.dynamics.current_state();
                 let model = &self.measurement_models[obs.model_index];
 
                 // Compute predicted measurement
-                let z_predicted = model.predict(&obs.epoch, &state_at_obs, None)?;
+                let z_predicted = model.predict(&obs.epoch, &state_at_obs, params.as_ref())?;
+
+                // Get local Jacobian H̃ (m x n_state)
+                let h_local = model.jacobian(&obs.epoch, &state_at_obs, params.as_ref())?;
+
+                // Measurement noise covariance
+                let r = model.noise_covariance();
+
+                // Measurement models are a user-extension boundary; validate
+                // output shapes so mistakes surface as errors, not panics.
+                validate_model_outputs(
+                    model.as_ref(),
+                    &obs.measurement,
+                    &z_predicted,
+                    Some(&h_local),
+                    &r,
+                    state_dim,
+                )?;
 
                 // Compute residual: δy = y - h(x_k(t_i))
                 let residual = &obs.measurement - &z_predicted;
-
-                // Get local Jacobian H̃ (m x n_state)
-                let h_local = model.jacobian(&obs.epoch, &state_at_obs, None)?;
 
                 // Get STM Φ(t_i, t_0) from propagator
                 let stm = self
@@ -524,7 +584,7 @@ impl BatchLeastSquares {
                 if self.config.consider_params.is_some() {
                     h_mapped_full.push(h_full);
                 }
-                r_matrices.push(model.noise_covariance());
+                r_matrices.push(r);
                 obs_epochs.push(obs.epoch);
                 obs_model_names.push(model.name().to_string());
             }
@@ -549,21 +609,6 @@ impl BatchLeastSquares {
                 )?,
             };
 
-            // Compute cost function J = Σ δy_iᵀ R_i⁻¹ δy_i + (x̄₀ - x_k)ᵀ P̄₀⁻¹ (x̄₀ - x_k)
-            let mut cost = 0.0;
-            for (i, residual) in residuals.iter().enumerate() {
-                let r_inv = r_matrices[i].clone().try_inverse().ok_or_else(|| {
-                    BraheError::NumericalError(format!(
-                        "Measurement noise covariance R is singular for observation {}",
-                        i
-                    ))
-                })?;
-                cost += (residual.transpose() * &r_inv * residual)[(0, 0)];
-            }
-            let apriori_diff = self.apriori_state.rows(0, n_solve).into_owned()
-                - self.current_state.rows(0, n_solve).into_owned();
-            cost += (apriori_diff.transpose() * &p0_solve_inv * &apriori_diff)[(0, 0)];
-
             // Compute pre-fit RMS
             let total_meas: usize = residuals.iter().map(|r| r.len()).sum();
             let prefit_rms = if total_meas > 0 {
@@ -583,18 +628,15 @@ impl BatchLeastSquares {
             self.consider_info = solver_result.consider_info;
 
             // Compute post-fit residuals by re-propagating with updated state
-            self.dynamics.reinitialize(
-                self.apriori_epoch,
-                self.current_state.clone(),
-                Some(self.current_covariance.clone()),
-            );
+            self.dynamics
+                .reinitialize(self.apriori_epoch, self.current_state.clone(), None);
 
             let mut postfit_residuals: Vec<DVector<f64>> = Vec::with_capacity(sorted_obs.len());
             for obs in &sorted_obs {
-                self.dynamics.propagate_to(obs.epoch);
+                self.propagate_dynamics_to(obs.epoch)?;
                 let state_at_obs = self.dynamics.current_state();
                 let model = &self.measurement_models[obs.model_index];
-                let z_predicted = model.predict(&obs.epoch, &state_at_obs, None)?;
+                let z_predicted = model.predict(&obs.epoch, &state_at_obs, params.as_ref())?;
                 postfit_residuals.push(&obs.measurement - &z_predicted);
             }
 
@@ -604,6 +646,24 @@ impl BatchLeastSquares {
             } else {
                 0.0
             };
+
+            // Compute cost function at the corrected state x_{k+1}:
+            // J = Σ δy_iᵀ R_i⁻¹ δy_i + (x̄₀ - x_{k+1})ᵀ P̄₀⁻¹ (x̄₀ - x_{k+1})
+            // using the post-fit residuals, so the recorded cost describes the
+            // same state stored in the iteration record.
+            let mut cost = 0.0;
+            for (i, residual) in postfit_residuals.iter().enumerate() {
+                let r_inv = r_matrices[i].clone().try_inverse().ok_or_else(|| {
+                    BraheError::NumericalError(format!(
+                        "Measurement noise covariance R is singular for observation {}",
+                        i
+                    ))
+                })?;
+                cost += (residual.transpose() * &r_inv * residual)[(0, 0)];
+            }
+            let apriori_diff = self.apriori_state.rows(0, n_solve).into_owned()
+                - self.current_state.rows(0, n_solve).into_owned();
+            cost += (apriori_diff.transpose() * &p0_solve_inv * &apriori_diff)[(0, 0)];
 
             // Store iteration record
             if self.config.store_iteration_records {
@@ -665,6 +725,22 @@ impl BatchLeastSquares {
         }
 
         self.current_epoch = self.apriori_epoch;
+        Ok(())
+    }
+
+    /// Propagate the dynamics to a target epoch, erroring if the propagator
+    /// stopped short (e.g., a terminal event fired during propagation).
+    fn propagate_dynamics_to(&mut self, epoch: Epoch) -> Result<(), BraheError> {
+        self.dynamics.propagate_to(epoch);
+        let reached_epoch = self.dynamics.current_epoch();
+        let epoch_gap: f64 = epoch - reached_epoch;
+        if epoch_gap.abs() > 1e-6 {
+            return Err(BraheError::Error(format!(
+                "Propagation stopped at {} before reaching observation epoch {} \
+                 (a terminal event may have fired); the batch solution is incomplete",
+                reached_epoch, epoch
+            )));
+        }
         Ok(())
     }
 
@@ -758,11 +834,13 @@ impl BatchLeastSquares {
 
     /// Solve using the Stacked Observation Matrix formulation.
     ///
-    /// Builds the augmented system:
-    /// - Stack all Hᵢ and δyᵢ into H (m_total x n_solve) and δy (m_total)
-    /// - Augment with a priori: append √(P̄₀⁻¹) rows and √(P̄₀⁻¹)(x̄₀ - xₖ)
-    /// - Apply weights √(Rᵢ⁻¹) to observation rows
-    /// - Solve via Cholesky on HᵀWH
+    /// Builds the whitened augmented system and solves the linear least
+    /// squares problem directly via QR decomposition, avoiding formation of
+    /// the normal equations (which would square the condition number):
+    /// - Whiten each observation block with the Cholesky factor of Rᵢ:
+    ///   H̃ᵢ = Lᵢ⁻¹Hᵢ, δỹᵢ = Lᵢ⁻¹δyᵢ where Rᵢ = LᵢLᵢᵀ (supports full/correlated R)
+    /// - Augment with a priori rows √(P̄₀⁻¹) and √(P̄₀⁻¹)(x̄₀ - xₖ)
+    /// - Solve min‖H̃δx - δỹ‖ via QR: Rδx = Qᵀδỹ
     fn solve_stacked_matrix(
         &self,
         residuals: &[DVector<f64>],
@@ -777,7 +855,7 @@ impl BatchLeastSquares {
         // Total measurement dimension
         let m_total: usize = residuals.iter().map(|r| r.len()).sum();
 
-        // Build weighted H and δy matrices
+        // Build whitened H and δy matrices
         // Total rows = m_total (observations) + n_solve (a priori)
         let total_rows = m_total + n_solve;
         let mut h_stacked = DMatrix::zeros(total_rows, n_solve);
@@ -787,32 +865,32 @@ impl BatchLeastSquares {
         for i in 0..residuals.len() {
             let m_i = residuals[i].len();
 
-            // Compute √(R⁻¹) via diagonal (valid for diagonal R)
-            let r_inv = r_matrices[i].clone().try_inverse().ok_or_else(|| {
+            // Whitening factor: R = L·Lᵀ, whitened block = L⁻¹·(...)
+            // so that (L⁻¹H)ᵀ(L⁻¹H) = HᵀR⁻¹H for full (correlated) R.
+            let r_chol = r_matrices[i].clone().cholesky().ok_or_else(|| {
                 BraheError::NumericalError(format!(
-                    "Measurement noise covariance R is singular for observation {}",
+                    "Measurement noise covariance R is not positive-definite for observation {}",
                     i
                 ))
             })?;
+            let l = r_chol.l();
 
-            // For diagonal R, √(R⁻¹) is element-wise sqrt of diagonal
-            let sqrt_r_inv =
-                DMatrix::from_fn(
-                    m_i,
-                    m_i,
-                    |r, c| {
-                        if r == c { r_inv[(r, c)].sqrt() } else { 0.0 }
-                    },
-                );
-
-            // Weighted H row block: √(R⁻¹) * H_i
-            let weighted_h = &sqrt_r_inv * &h_solve[i];
+            let weighted_h = l.solve_lower_triangular(&h_solve[i]).ok_or_else(|| {
+                BraheError::NumericalError(format!(
+                    "Whitening of measurement Jacobian failed for observation {}",
+                    i
+                ))
+            })?;
             h_stacked
                 .view_mut((row, 0), (m_i, n_solve))
                 .copy_from(&weighted_h);
 
-            // Weighted residual: √(R⁻¹) * δy_i
-            let weighted_dy = &sqrt_r_inv * &residuals[i];
+            let weighted_dy = l.solve_lower_triangular(&residuals[i]).ok_or_else(|| {
+                BraheError::NumericalError(format!(
+                    "Whitening of residual failed for observation {}",
+                    i
+                ))
+            })?;
             dy_stacked.rows_mut(row, m_i).copy_from(&weighted_dy);
 
             row += m_i;
@@ -839,18 +917,27 @@ impl BatchLeastSquares {
             .rows_mut(row, n_solve)
             .copy_from(&weighted_apriori);
 
-        // Solve via HᵀH δx = Hᵀ δy (the weighting is already in H and δy)
-        let hth = h_stacked.transpose() * &h_stacked;
-        let htdy = h_stacked.transpose() * &dy_stacked;
+        // Solve the least squares problem min‖H̃δx - δỹ‖ via QR decomposition
+        let qr = h_stacked.qr();
+        let qt_dy = qr.q().transpose() * &dy_stacked;
+        let r_qr = qr.r();
 
-        let chol = hth.clone().cholesky().ok_or_else(|| {
+        let dx = r_qr.solve_upper_triangular(&qt_dy).ok_or_else(|| {
             BraheError::NumericalError(
-                "Cholesky decomposition of HᵀWH failed in stacked matrix formulation".to_string(),
+                "QR solve failed in stacked matrix formulation: system is rank-deficient"
+                    .to_string(),
             )
         })?;
 
-        let dx = chol.solve(&htdy);
-        let lambda_inv = chol.inverse();
+        // Formal covariance: (H̃ᵀH̃)⁻¹ = R⁻¹R⁻ᵀ from the QR factor
+        let r_inv = r_qr
+            .solve_upper_triangular(&DMatrix::identity(n_solve, n_solve))
+            .ok_or_else(|| {
+                BraheError::NumericalError(
+                    "QR factor inversion failed in stacked matrix formulation".to_string(),
+                )
+            })?;
+        let lambda_inv = &r_inv * r_inv.transpose();
 
         // Compute cross-term for consider parameters if configured
         let has_consider = self.config.consider_params.is_some();
@@ -886,12 +973,15 @@ mod tests {
     use super::*;
     use crate::constants::physical::GM_EARTH;
     use crate::eop::{EOPExtrapolation, FileEOPProvider, set_global_eop_provider};
-    use crate::estimation::{BLSConfig, BLSSolverMethod, InertialPositionMeasurementModel};
+    use crate::estimation::{
+        BLSConfig, BLSSolverMethod, ConsiderParameterConfig, InertialPositionMeasurementModel,
+    };
     use crate::propagators::DNumericalOrbitPropagator;
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::force_model_config::ForceModelConfig;
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
+    use approx::assert_abs_diff_eq;
     use serial_test::serial;
 
     fn setup_global_test_eop() {
@@ -966,6 +1056,27 @@ mod tests {
         .unwrap()
     }
 
+    /// Create a propagator with STM enabled (no covariance) for from_propagator tests.
+    fn create_stm_propagator(
+        epoch: Epoch,
+        state: DVector<f64>,
+        covariance: Option<DMatrix<f64>>,
+    ) -> DNumericalOrbitPropagator {
+        let mut prop_config = NumericalPropagationConfig::default();
+        prop_config.variational.enable_stm = true;
+        DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            prop_config,
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            covariance,
+        )
+        .unwrap()
+    }
+
     // =========================================================================
     // Construction tests
     // =========================================================================
@@ -990,29 +1101,24 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_bls_construction_no_stm_errors() {
+    fn test_bls_from_propagator_no_covariance_errors() {
+        // A propagator without an initial covariance cannot seed the batch
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-
-        let prop = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            NumericalPropagationConfig::default(), // no STM
-            ForceModelConfig::two_body_gravity(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let prop = create_stm_propagator(epoch, state, None);
 
         let result = BatchLeastSquares::from_propagator(
-            DynamicsSource::OrbitPropagator(prop),
+            prop,
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             BLSConfig::default(),
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("STM"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("initial covariance")
+        );
     }
 
     #[test]
@@ -1020,24 +1126,10 @@ mod tests {
     fn test_bls_construction_no_models_errors() {
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-
-        let mut prop_config = NumericalPropagationConfig::default();
-        prop_config.variational.enable_stm = true;
-
-        let prop = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            prop_config,
-            ForceModelConfig::two_body_gravity(),
-            None,
-            None,
-            None,
-            Some(default_p0()),
-        )
-        .unwrap();
+        let prop = create_stm_propagator(epoch, state, Some(default_p0()));
 
         let result = BatchLeastSquares::from_propagator(
-            DynamicsSource::OrbitPropagator(prop),
+            prop,
             vec![], // no models
             BLSConfig::default(),
         );
@@ -1089,28 +1181,26 @@ mod tests {
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
 
-        // The propagator validates covariance dimensions internally, so this
-        // will fail at the propagator level. We verify the error propagates up.
-        let p_wrong = DMatrix::identity(4, 4);
-        let result = std::panic::catch_unwind(|| {
-            BatchLeastSquares::new(
-                epoch,
-                state,
-                p_wrong,
-                NumericalPropagationConfig::default(),
-                ForceModelConfig::two_body_gravity(),
-                None,
-                None,
-                None,
-                vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
-                BLSConfig::default(),
-            )
-        });
-        // The propagator panics on dimension mismatch, so we expect a panic or error
-        assert!(
-            result.is_err() || result.unwrap().is_err(),
-            "Should fail with mismatched covariance dimensions"
+        let result = BatchLeastSquares::new(
+            epoch,
+            state,
+            DMatrix::identity(4, 4), // wrong dimensions for 6D state
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            BLSConfig::default(),
         );
+        match result {
+            Err(e) => assert!(
+                e.to_string().contains("dimensions"),
+                "Error should mention dimensions: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for covariance dimension mismatch"),
+        }
     }
 
     // =========================================================================
@@ -1490,6 +1580,384 @@ mod tests {
             bls_ne.final_cost(),
             bls_sm.final_cost()
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_formulation_equivalence_correlated_noise() {
+        // With correlated measurement noise (off-diagonal R) and measurements
+        // that cannot all be fit exactly, the weighted least squares minimizer
+        // depends on the full weight matrix. Both solver formulations must
+        // apply the full R and therefore agree.
+        setup_global_test_eop();
+
+        let (epoch, true_state) = two_body_leo();
+        let mut perturbed = true_state.clone();
+        perturbed[0] += 500.0;
+
+        // Deterministic measurement offsets so residuals cannot all vanish
+        let mut obs = generate_position_observations(epoch, &true_state, 15, 30.0);
+        for (i, o) in obs.iter_mut().enumerate() {
+            let s = (i as f64) * 0.7;
+            o.measurement[0] += 20.0 * s.sin();
+            o.measurement[1] += 20.0 * s.cos();
+            o.measurement[2] += 10.0 * (1.3 * s).sin();
+        }
+
+        // Correlated measurement noise covariance
+        let r =
+            DMatrix::from_row_slice(3, 3, &[100.0, 40.0, 0.0, 40.0, 100.0, 0.0, 0.0, 0.0, 100.0]);
+
+        let solve_with = |method: BLSSolverMethod| {
+            let config = BLSConfig {
+                solver_method: method,
+                max_iterations: 8,
+                ..BLSConfig::default()
+            };
+            let mut bls = create_two_body_bls(
+                epoch,
+                perturbed.clone(),
+                default_p0(),
+                vec![Box::new(
+                    InertialPositionMeasurementModel::from_covariance(r.clone()).unwrap(),
+                )],
+                config,
+            );
+            bls.solve(&obs).unwrap();
+            bls
+        };
+
+        let bls_ne = solve_with(BLSSolverMethod::NormalEquations);
+        let bls_sm = solve_with(BLSSolverMethod::StackedObservationMatrix);
+
+        assert!(bls_ne.converged());
+        assert!(bls_sm.converged());
+
+        let state_diff = (bls_ne.current_state() - bls_sm.current_state()).norm();
+        assert!(
+            state_diff < 1e-6,
+            "Formulations must agree with correlated R: diff={:.6e}m",
+            state_diff
+        );
+
+        let cov_diff = (bls_ne.current_covariance() - bls_sm.current_covariance()).norm();
+        assert!(
+            cov_diff < 1e-9,
+            "Formal covariances must agree with correlated R: diff={:.6e}",
+            cov_diff
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_record_cost_reflects_recorded_state() {
+        // The cost stored in an iteration record must be evaluated at the
+        // state stored in that record (post-correction), not at the previous
+        // iterate. With noise-free observations and a large initial offset,
+        // the post-correction cost after one iteration is small while the
+        // pre-correction cost would be enormous.
+        setup_global_test_eop();
+
+        let (epoch, true_state) = two_body_leo();
+        let mut perturbed = true_state.clone();
+        perturbed[0] += 500.0;
+
+        let obs = generate_position_observations(epoch, &true_state, 15, 30.0);
+
+        let config = BLSConfig {
+            max_iterations: 1,
+            ..BLSConfig::default()
+        };
+
+        let mut bls = create_two_body_bls(
+            epoch,
+            perturbed,
+            default_p0(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            config,
+        );
+        bls.solve(&obs).unwrap();
+
+        let record = &bls.iteration_records()[0];
+        assert!(
+            record.cost < 100.0,
+            "Recorded cost should describe the post-correction state, got {:.1}",
+            record.cost
+        );
+        assert_eq!(bls.final_cost(), record.cost);
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_terminal_event_before_observation_errors() {
+        // A terminal event stopping propagation before an observation epoch
+        // must abort the solve with an error, leaving the estimate at the
+        // a priori values rather than silently fitting stale states.
+        use crate::events::DTimeEvent;
+
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let mut perturbed = true_state.clone();
+        perturbed[0] += 500.0;
+
+        let mut prop = create_stm_propagator(epoch, perturbed.clone(), Some(default_p0()));
+        prop.add_event_detector(Box::new(
+            DTimeEvent::new(epoch + 15.0, "Terminal").set_terminal(),
+        ));
+
+        let mut bls = BatchLeastSquares::from_propagator(
+            prop,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            BLSConfig::default(),
+        )
+        .unwrap();
+
+        let obs = generate_position_observations(epoch, &true_state, 5, 30.0);
+        match bls.solve(&obs) {
+            Err(e) => assert!(
+                e.to_string().contains("before reaching observation epoch"),
+                "Error should mention stopping early: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error when terminal event stops propagation"),
+        }
+
+        // No correction may have been applied
+        assert!(!bls.converged());
+        assert_eq!(bls.iterations_completed(), 0);
+        assert_abs_diff_eq!(bls.current_state(), perturbed, epsilon = 1e-12);
+    }
+
+    /// Model that requires the propagator's parameter vector to be passed
+    /// through — errors if params are missing or wrong.
+    struct ParamsAssertingModel {
+        expected: DVector<f64>,
+    }
+    impl MeasurementModel for ParamsAssertingModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            match params {
+                Some(p) if p == &self.expected => Ok(state.rows(0, 3).into_owned()),
+                other => Err(BraheError::Error(format!(
+                    "expected params Some({:?}), got {:?}",
+                    self.expected, other
+                ))),
+            }
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * 100.0
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "ParamsAsserting"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_passes_propagator_params_to_measurement_models() {
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let expected = DVector::from_vec(vec![2.2, 1.3]);
+        let obs = generate_position_observations(epoch, &true_state, 5, 30.0);
+
+        let mut bls = BatchLeastSquares::new(
+            epoch,
+            true_state,
+            default_p0(),
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            Some(expected.clone()),
+            None,
+            None,
+            vec![Box::new(ParamsAssertingModel { expected })],
+            BLSConfig::default(),
+        )
+        .unwrap();
+
+        bls.solve(&obs)
+            .expect("models should receive the propagator params");
+    }
+
+    /// Model that mis-shapes one of its outputs relative to its declared
+    /// measurement_dim of 3 — exercises the model-output shape validation.
+    struct MisshapenModel {
+        bad_predict: bool,
+        bad_jacobian: bool,
+    }
+    impl MeasurementModel for MisshapenModel {
+        fn predict(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DVector<f64>, BraheError> {
+            let m = if self.bad_predict { 2 } else { 3 };
+            Ok(state.rows(0, m).into_owned())
+        }
+        fn jacobian(
+            &self,
+            _epoch: &Epoch,
+            state: &DVector<f64>,
+            _params: Option<&DVector<f64>>,
+        ) -> Result<DMatrix<f64>, BraheError> {
+            let rows = if self.bad_jacobian { 2 } else { 3 };
+            let mut h = DMatrix::zeros(rows, state.len());
+            for i in 0..rows {
+                h[(i, i)] = 1.0;
+            }
+            Ok(h)
+        }
+        fn noise_covariance(&self) -> DMatrix<f64> {
+            DMatrix::identity(3, 3) * 100.0
+        }
+        fn measurement_dim(&self) -> usize {
+            3
+        }
+        fn name(&self) -> &str {
+            "Misshapen"
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_model_output_shape_errors() {
+        // Malformed measurement-model outputs must abort the solve with a
+        // structured error naming the model, not a dimension panic.
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let obs = generate_position_observations(epoch, &true_state, 5, 30.0);
+
+        let cases: Vec<(MisshapenModel, &str)> = vec![
+            (
+                MisshapenModel {
+                    bad_predict: true,
+                    bad_jacobian: false,
+                },
+                "predict() returned",
+            ),
+            (
+                MisshapenModel {
+                    bad_predict: false,
+                    bad_jacobian: true,
+                },
+                "jacobian() returned",
+            ),
+        ];
+
+        for (model, expected_msg) in cases {
+            let mut bls = create_two_body_bls(
+                epoch,
+                true_state.clone(),
+                default_p0(),
+                vec![Box::new(model)],
+                BLSConfig::default(),
+            );
+            match bls.solve(&obs) {
+                Err(e) => assert!(
+                    e.to_string().contains(expected_msg),
+                    "Error should contain '{}': {}",
+                    expected_msg,
+                    e
+                ),
+                Ok(_) => panic!("Expected shape validation error for '{}'", expected_msg),
+            }
+        }
+    }
+
+    // =========================================================================
+    // Consider parameter tests
+    // =========================================================================
+
+    /// Solve for position only (n_solve=3), treating velocity as consider
+    /// parameters. Truth and filter velocities are identical, so a position-only
+    /// solve with exact dynamics should recover the true position.
+    fn run_consider_params_solve(solver_method: BLSSolverMethod) -> BatchLeastSquares {
+        setup_global_test_eop();
+
+        let (epoch, true_state) = two_body_leo();
+        let mut perturbed = true_state.clone();
+        perturbed[0] += 500.0;
+        perturbed[1] -= 250.0;
+
+        let obs = generate_position_observations(epoch, &true_state, 15, 30.0);
+
+        let config = BLSConfig {
+            solver_method,
+            consider_params: Some(ConsiderParameterConfig {
+                n_solve: 3,
+                consider_covariance: DMatrix::from_diagonal(&DVector::from_vec(vec![
+                    1e-2, 1e-2, 1e-2,
+                ])),
+            }),
+            ..BLSConfig::default()
+        };
+
+        let mut bls = create_two_body_bls(
+            epoch,
+            perturbed,
+            default_p0(),
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            config,
+        );
+        bls.solve(&obs).unwrap();
+        bls
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_consider_params_normal_equations_solves() {
+        let bls = run_consider_params_solve(BLSSolverMethod::NormalEquations);
+
+        assert!(bls.converged(), "Consider-parameter BLS should converge");
+
+        let (_, true_state) = two_body_leo();
+        let pos_error = (bls.current_state().rows(0, 3) - true_state.rows(0, 3)).norm();
+        assert!(
+            pos_error < 1.0,
+            "Position error should be <1m with consider params, got {:.3}m",
+            pos_error
+        );
+
+        // Formal covariance is the solve-for partition (3x3)
+        assert_eq!(bls.current_covariance().nrows(), 3);
+
+        // Consider covariance contribution must be available and inflate the total
+        let p_consider = bls
+            .consider_covariance()
+            .expect("consider covariance should be available after solve");
+        assert_eq!(p_consider.nrows(), 3);
+
+        let p_total = bls.total_covariance();
+        for i in 0..3 {
+            assert!(
+                p_total[(i, i)] >= bls.current_covariance()[(i, i)] - 1e-12,
+                "Total covariance diagonal must not be smaller than formal"
+            );
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_bls_consider_params_stacked_matrix_solves() {
+        let bls = run_consider_params_solve(BLSSolverMethod::StackedObservationMatrix);
+
+        assert!(bls.converged(), "Consider-parameter BLS should converge");
+
+        let (_, true_state) = two_body_leo();
+        let pos_error = (bls.current_state().rows(0, 3) - true_state.rows(0, 3)).norm();
+        assert!(
+            pos_error < 1.0,
+            "Position error should be <1m with consider params, got {:.3}m",
+            pos_error
+        );
+        assert!(bls.consider_covariance().is_some());
     }
 
     #[test]

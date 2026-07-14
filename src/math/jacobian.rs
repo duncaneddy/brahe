@@ -9,6 +9,8 @@
 
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
+use crate::utils::errors::BraheError;
+
 /// Finite difference method for numerical Jacobian approximation.
 ///
 /// Different methods trade off accuracy vs computational cost:
@@ -588,125 +590,144 @@ impl DNumericalJacobian {
         self.method = method;
         self
     }
-
-    /// Compute perturbation offsets for each state component.
-    fn compute_offsets(&self, state: &DVector<f64>) -> DVector<f64> {
-        match self.perturbation {
-            PerturbationStrategy::Adaptive {
-                scale_factor,
-                min_value,
-            } => {
-                // Industry standard: h = sqrt(eps) * max(|x|, value)
-                #[allow(non_snake_case)]
-                let SQRT_EPS: f64 = f64::EPSILON.sqrt();
-                let base_offset = scale_factor * SQRT_EPS;
-
-                state.map(|x| base_offset * x.abs().max(min_value))
-            }
-            PerturbationStrategy::Fixed(offset) => DVector::from_element(state.len(), offset),
-            PerturbationStrategy::Percentage(pct) => state.map(|x| x.abs() * pct),
-        }
-    }
-
-    /// Compute Jacobian using forward finite differences.
-    ///
-    /// Cost: dimension + 1 function evaluations
-    fn compute_forward(
-        &self,
-        t: f64,
-        state: &DVector<f64>,
-        params: Option<&DVector<f64>>,
-    ) -> DMatrix<f64> {
-        let offsets = self.compute_offsets(state);
-        let dimension = state.len();
-
-        // Evaluate unperturbed dynamics
-        let f0 = (self.dynamics_fn)(t, state, params);
-
-        // Initialize Jacobian matrix
-        let mut jacobian = DMatrix::<f64>::zeros(dimension, dimension);
-
-        // Compute each column: ∂f/∂x_i ≈ (f(x + h*e_i) - f(x)) / h
-        for i in 0..dimension {
-            let mut perturbed = state.clone();
-            perturbed[i] += offsets[i];
-
-            let fp = (self.dynamics_fn)(t, &perturbed, params);
-            jacobian.set_column(i, &((fp - &f0) / offsets[i]));
-        }
-
-        jacobian
-    }
-
-    /// Compute Jacobian using central finite differences.
-    ///
-    /// Cost: 2*dimension function evaluations (more accurate than forward differences)
-    fn compute_central(
-        &self,
-        t: f64,
-        state: &DVector<f64>,
-        params: Option<&DVector<f64>>,
-    ) -> DMatrix<f64> {
-        let offsets = self.compute_offsets(state);
-        let dimension = state.len();
-
-        // Initialize Jacobian matrix
-        let mut jacobian = DMatrix::<f64>::zeros(dimension, dimension);
-
-        // Compute each column: ∂f/∂x_i ≈ (f(x + h*e_i) - f(x - h*e_i)) / (2h)
-        for i in 0..dimension {
-            let mut perturbed_plus = state.clone();
-            let mut perturbed_minus = state.clone();
-            perturbed_plus[i] += offsets[i];
-            perturbed_minus[i] -= offsets[i];
-
-            let fp = (self.dynamics_fn)(t, &perturbed_plus, params);
-            let fm = (self.dynamics_fn)(t, &perturbed_minus, params);
-            jacobian.set_column(i, &((fp - fm) / (2.0 * offsets[i])));
-        }
-
-        jacobian
-    }
-
-    /// Compute Jacobian using backward finite differences.
-    ///
-    /// Cost: dimension + 1 function evaluations
-    fn compute_backward(
-        &self,
-        t: f64,
-        state: &DVector<f64>,
-        params: Option<&DVector<f64>>,
-    ) -> DMatrix<f64> {
-        let offsets = self.compute_offsets(state);
-        let dimension = state.len();
-
-        // Evaluate unperturbed dynamics
-        let f0 = (self.dynamics_fn)(t, state, params);
-
-        // Initialize Jacobian matrix
-        let mut jacobian = DMatrix::<f64>::zeros(dimension, dimension);
-
-        // Compute each column: ∂f/∂x_i ≈ (f(x) - f(x - h*e_i)) / h
-        for i in 0..dimension {
-            let mut perturbed = state.clone();
-            perturbed[i] -= offsets[i];
-
-            let fm = (self.dynamics_fn)(t, &perturbed, params);
-            jacobian.set_column(i, &((f0.clone() - fm) / offsets[i]));
-        }
-
-        jacobian
-    }
 }
 
 impl DJacobianProvider for DNumericalJacobian {
     fn compute(&self, t: f64, state: &DVector<f64>, params: Option<&DVector<f64>>) -> DMatrix<f64> {
-        match self.method {
-            DifferenceMethod::Forward => self.compute_forward(t, state, params),
-            DifferenceMethod::Central => self.compute_central(t, state, params),
-            DifferenceMethod::Backward => self.compute_backward(t, state, params),
+        numerical_jacobian(
+            |x| Ok((self.dynamics_fn)(t, x, params)),
+            state,
+            self.method,
+            self.perturbation,
+        )
+        .expect("infallible dynamics function cannot produce a finite-difference error")
+    }
+}
+
+/// Compute perturbation offsets for each component of `x` under a
+/// [`PerturbationStrategy`].
+pub fn compute_perturbation_offsets(
+    x: &DVector<f64>,
+    perturbation: PerturbationStrategy,
+) -> DVector<f64> {
+    match perturbation {
+        PerturbationStrategy::Adaptive {
+            scale_factor,
+            min_value,
+        } => {
+            // Industry standard: h = sqrt(eps) * max(|x|, value)
+            let sqrt_eps: f64 = f64::EPSILON.sqrt();
+            let base_offset = scale_factor * sqrt_eps;
+
+            x.map(|v| base_offset * v.abs().max(min_value))
+        }
+        PerturbationStrategy::Fixed(offset) => DVector::from_element(x.len(), offset),
+        PerturbationStrategy::Percentage(pct) => x.map(|v| v.abs() * pct),
+    }
+}
+
+/// Compute the Jacobian ∂f/∂x of an arbitrary vector-valued function via
+/// finite differences.
+///
+/// The function may be rectangular: the output dimension `m` is inferred from
+/// the function's output and need not equal the input dimension `n = x.len()`.
+/// This is the shared finite-difference engine behind [`DNumericalJacobian`]
+/// (dynamics Jacobians, n×n), `DNumericalSensitivity` (parameter
+/// sensitivities, n×p, differentiated with respect to the parameter vector),
+/// and the estimation module's measurement Jacobians (m×n).
+///
+/// # Arguments
+///
+/// * `f` - Function to differentiate. May fail; errors propagate to the caller.
+/// * `x` - Point at which to evaluate the Jacobian (also the perturbed vector)
+/// * `method` - Finite difference method
+/// * `perturbation` - Perturbation sizing strategy
+///
+/// # Returns
+///
+/// The m×n Jacobian matrix, or an error if `f` fails or returns vectors of
+/// inconsistent dimensions.
+pub fn numerical_jacobian<F>(
+    f: F,
+    x: &DVector<f64>,
+    method: DifferenceMethod,
+    perturbation: PerturbationStrategy,
+) -> Result<DMatrix<f64>, BraheError>
+where
+    F: Fn(&DVector<f64>) -> Result<DVector<f64>, BraheError>,
+{
+    let n = x.len();
+    let offsets = compute_perturbation_offsets(x, perturbation);
+
+    let mut output_dim: Option<usize> = None;
+    let check_dim = |v: &DVector<f64>, dim: &mut Option<usize>| -> Result<(), BraheError> {
+        match dim {
+            None => {
+                *dim = Some(v.len());
+                Ok(())
+            }
+            Some(expected) if v.len() == *expected => Ok(()),
+            Some(expected) => Err(BraheError::Error(format!(
+                "Function returned inconsistent output dimension during finite \
+                 differencing: got {}, expected {}",
+                v.len(),
+                expected
+            ))),
+        }
+    };
+
+    let mut columns: Vec<DVector<f64>> = Vec::with_capacity(n);
+    match method {
+        DifferenceMethod::Central => {
+            // ∂f/∂x_j ≈ (f(x + h*e_j) - f(x - h*e_j)) / (2h)
+            for j in 0..n {
+                let mut x_plus = x.clone();
+                x_plus[j] += offsets[j];
+                let fp = f(&x_plus)?;
+                check_dim(&fp, &mut output_dim)?;
+
+                let mut x_minus = x.clone();
+                x_minus[j] -= offsets[j];
+                let fm = f(&x_minus)?;
+                check_dim(&fm, &mut output_dim)?;
+
+                columns.push((fp - fm) / (2.0 * offsets[j]));
+            }
+        }
+        DifferenceMethod::Forward => {
+            // ∂f/∂x_j ≈ (f(x + h*e_j) - f(x)) / h
+            let f0 = f(x)?;
+            check_dim(&f0, &mut output_dim)?;
+            for j in 0..n {
+                let mut x_plus = x.clone();
+                x_plus[j] += offsets[j];
+                let fp = f(&x_plus)?;
+                check_dim(&fp, &mut output_dim)?;
+
+                columns.push((fp - &f0) / offsets[j]);
+            }
+        }
+        DifferenceMethod::Backward => {
+            // ∂f/∂x_j ≈ (f(x) - f(x - h*e_j)) / h
+            let f0 = f(x)?;
+            check_dim(&f0, &mut output_dim)?;
+            for j in 0..n {
+                let mut x_minus = x.clone();
+                x_minus[j] -= offsets[j];
+                let fm = f(&x_minus)?;
+                check_dim(&fm, &mut output_dim)?;
+
+                columns.push((&f0 - fm) / offsets[j]);
+            }
         }
     }
+
+    let m = output_dim.unwrap_or(0);
+    let mut jacobian = DMatrix::<f64>::zeros(m, n);
+    for (j, column) in columns.iter().enumerate() {
+        jacobian.set_column(j, column);
+    }
+    Ok(jacobian)
 }
 
 #[cfg(test)]
@@ -871,5 +892,80 @@ mod tests {
 
         let jacobian = provider.compute(0.0, &state, None);
         assert_abs_diff_eq!(jacobian, expected, epsilon = 1e-5);
+    }
+
+    #[test]
+    fn test_numerical_jacobian_rectangular() {
+        // f: R^3 -> R^2, f(x) = [x0 + 2*x1, x1 * x2]
+        // Jacobian: [[1, 2, 0], [0, x2, x1]]
+        let f = |x: &DVector<f64>| -> Result<DVector<f64>, BraheError> {
+            Ok(DVector::from_vec(vec![x[0] + 2.0 * x[1], x[1] * x[2]]))
+        };
+        let x = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+
+        for method in [
+            DifferenceMethod::Central,
+            DifferenceMethod::Forward,
+            DifferenceMethod::Backward,
+        ] {
+            let jac = numerical_jacobian(
+                f,
+                &x,
+                method,
+                PerturbationStrategy::Adaptive {
+                    scale_factor: 1.0,
+                    min_value: 1.0,
+                },
+            )
+            .unwrap();
+
+            assert_eq!(jac.nrows(), 2);
+            assert_eq!(jac.ncols(), 3);
+            let expected = DMatrix::from_row_slice(2, 3, &[1.0, 2.0, 0.0, 0.0, 3.0, 2.0]);
+            assert_abs_diff_eq!(jac, expected, epsilon = 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_numerical_jacobian_propagates_function_error() {
+        let f = |_x: &DVector<f64>| -> Result<DVector<f64>, BraheError> {
+            Err(BraheError::Error("function failure".to_string()))
+        };
+        let x = DVector::from_vec(vec![1.0, 2.0]);
+
+        let result = numerical_jacobian(
+            f,
+            &x,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Fixed(1e-6),
+        );
+        match result {
+            Err(e) => assert!(e.to_string().contains("function failure")),
+            Ok(_) => panic!("Expected the function error to propagate"),
+        }
+    }
+
+    #[test]
+    fn test_numerical_jacobian_inconsistent_output_dim_errors() {
+        // Function whose output length depends on the sign of a perturbation
+        let f = |x: &DVector<f64>| -> Result<DVector<f64>, BraheError> {
+            if x[0] > 1.0 {
+                Ok(DVector::from_vec(vec![x[0], x[1]]))
+            } else {
+                Ok(DVector::from_vec(vec![x[0]]))
+            }
+        };
+        let x = DVector::from_vec(vec![1.0, 2.0]);
+
+        let result = numerical_jacobian(
+            f,
+            &x,
+            DifferenceMethod::Central,
+            PerturbationStrategy::Fixed(0.5),
+        );
+        match result {
+            Err(e) => assert!(e.to_string().contains("inconsistent output dimension")),
+            Ok(_) => panic!("Expected inconsistent-dimension error"),
+        }
     }
 }

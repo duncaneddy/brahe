@@ -82,7 +82,9 @@ fn main() {
         p0,
         bh::propagators::NumericalPropagationConfig::default(),
         bh::propagators::force_model_config::ForceModelConfig::two_body_gravity(),
-        None, None, None,
+        None,
+        None,
+        None,
         models,
         bh::estimation::EKFConfig::default(),
     ).unwrap();

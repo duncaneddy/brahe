@@ -9,7 +9,7 @@
  * covariance analysis.
  */
 
-use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy};
+use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy, numerical_jacobian};
 use nalgebra::{DMatrix, DVector, SMatrix, SVector};
 
 // ============================================================================
@@ -298,61 +298,20 @@ impl DNumericalSensitivity {
         self.strategy = strategy;
         self
     }
-
-    fn compute_perturbation(&self, value: f64) -> f64 {
-        match self.strategy {
-            PerturbationStrategy::Adaptive {
-                scale_factor,
-                min_value,
-            } => {
-                let eps = f64::EPSILON;
-                scale_factor * eps.sqrt() * value.abs().max(min_value)
-            }
-            PerturbationStrategy::Fixed(h) => h,
-            PerturbationStrategy::Percentage(pct) => value.abs() * pct,
-        }
-    }
 }
 
 impl DSensitivityProvider for DNumericalSensitivity {
     fn compute(&self, t: f64, state: &DVector<f64>, params: &DVector<f64>) -> DMatrix<f64> {
-        let s = state.len();
-        let p = params.len();
-        let mut sensitivity = DMatrix::<f64>::zeros(s, p);
-
-        for j in 0..p {
-            let h = self.compute_perturbation(params[j]);
-
-            let column = match self.method {
-                DifferenceMethod::Forward => {
-                    let mut params_plus = params.clone();
-                    params_plus[j] += h;
-                    let f_plus = (self.dynamics_fn)(t, state, &params_plus);
-                    let f_0 = (self.dynamics_fn)(t, state, params);
-                    (f_plus - f_0) / h
-                }
-                DifferenceMethod::Central => {
-                    let mut params_plus = params.clone();
-                    let mut params_minus = params.clone();
-                    params_plus[j] += h;
-                    params_minus[j] -= h;
-                    let f_plus = (self.dynamics_fn)(t, state, &params_plus);
-                    let f_minus = (self.dynamics_fn)(t, state, &params_minus);
-                    (f_plus - f_minus) / (2.0 * h)
-                }
-                DifferenceMethod::Backward => {
-                    let mut params_minus = params.clone();
-                    params_minus[j] -= h;
-                    let f_0 = (self.dynamics_fn)(t, state, params);
-                    let f_minus = (self.dynamics_fn)(t, state, &params_minus);
-                    (f_0 - f_minus) / h
-                }
-            };
-
-            sensitivity.set_column(j, &column);
-        }
-
-        sensitivity
+        // The sensitivity matrix ∂f/∂p is the Jacobian of the dynamics with
+        // respect to the parameter vector; delegate to the shared
+        // finite-difference engine, differentiating over `params`.
+        numerical_jacobian(
+            |p| Ok((self.dynamics_fn)(t, state, p)),
+            params,
+            self.method,
+            self.strategy,
+        )
+        .expect("infallible dynamics function cannot produce a finite-difference error")
     }
 }
 

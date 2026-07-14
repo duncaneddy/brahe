@@ -23,7 +23,7 @@ class RangeModel(bh.MeasurementModel):
         self.station_eci = np.array(station_eci)
         self.sigma = sigma
 
-    def predict(self, epoch, state):
+    def predict(self, epoch, state, params=None):
         pos = state[:3]
         return np.array([np.linalg.norm(pos - self.station_eci)])
 

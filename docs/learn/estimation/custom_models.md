@@ -37,9 +37,12 @@ assigning different `model_index` values.
 
 Every custom model must implement these four methods:
 
-**`predict(epoch, state) -> numpy.ndarray`** -- compute the predicted measurement
-$h(\mathbf{x}, t)$. The `epoch` is a `brahe.Epoch` and `state` is a 1D numpy array.
-Return a 1D numpy array of length `measurement_dim()`.
+**`predict(epoch, state, params) -> numpy.ndarray`** -- compute the predicted measurement
+$h(\mathbf{x}, t, \mathbf{p})$. The `epoch` is a `brahe.Epoch`, `state` is a 1D numpy
+array, and `params` is the propagator's consider / force-model parameter vector (a 1D
+numpy array, or `None` when the propagator has no parameters), so consider values such as
+measurement biases can affect the prediction. Return a 1D numpy array of length
+`measurement_dim()`.
 
 **`noise_covariance() -> numpy.ndarray`** -- return the measurement noise covariance
 matrix $R$ as a 2D numpy array of shape `(m, m)`. This is called once at construction and
@@ -67,10 +70,10 @@ class RangeModelAnalytical(bh.MeasurementModel):
         self.station_eci = np.array(station_eci)
         self.sigma = sigma
 
-    def predict(self, epoch, state):
+    def predict(self, epoch, state, params=None):
         return np.array([np.linalg.norm(state[:3] - self.station_eci)])
 
-    def jacobian(self, epoch, state):
+    def jacobian(self, epoch, state, params=None):
         diff = state[:3] - self.station_eci
         r = np.linalg.norm(diff)
         h = np.zeros((1, len(state)))

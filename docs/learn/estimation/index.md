@@ -60,7 +60,7 @@ analysis of filter performance, consistency checks, and residual monitoring.
 
 ## What's Available
 
-The current release includes two sequential filters:
+The current release includes three estimators:
 
 - **Extended Kalman Filter (EKF)** -- linearizes dynamics and measurements using STM and
   Jacobians. Efficient (one propagation per step) and well-suited for mildly nonlinear

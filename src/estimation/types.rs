@@ -47,6 +47,13 @@ impl Observation {
     }
 }
 
+/// Sort observations chronologically, returning references in epoch order.
+pub(crate) fn sort_by_epoch(observations: &[Observation]) -> Vec<&Observation> {
+    let mut sorted: Vec<&Observation> = observations.iter().collect();
+    sorted.sort_by_key(|a| a.epoch);
+    sorted
+}
+
 /// Record of a single sequential filter update step.
 ///
 /// Contains all intermediate products for analysis of filter performance,
@@ -93,7 +100,8 @@ pub struct BLSIterationRecord {
     pub state_correction: DVector<f64>,
     /// Norm of the state correction ||δx||
     pub state_correction_norm: f64,
-    /// Cost function value J at this iteration
+    /// Cost function value J evaluated at the post-correction state
+    /// (the same state stored in this record)
     pub cost: f64,
     /// RMS of all pre-fit residuals at this iteration
     pub rms_prefit_residual: f64,

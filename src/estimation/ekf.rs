@@ -147,7 +147,7 @@ impl ExtendedKalmanFilter {
         )
         .map_err(|e| BraheError::Error(format!("Failed to create propagator: {}", e)))?;
 
-        Self::from_propagator(prop, initial_covariance, measurement_models, config)
+        Self::from_parts(prop.into(), initial_covariance, measurement_models, config)
     }
 
     /// Create an Extended Kalman Filter from an existing propagator.
@@ -158,6 +158,10 @@ impl ExtendedKalmanFilter {
     /// [`ExtendedKalmanFilter::new`]. Both propagator types convert into
     /// [`DynamicsSource`] automatically.
     ///
+    /// The filter's initial covariance is taken from the propagator's
+    /// `initial_covariance`; construct the propagator with the covariance you
+    /// want the filter to start from.
+    ///
     /// Trajectory recording on the propagator is disabled: the filter
     /// re-propagates overlapping time spans, which would otherwise accumulate
     /// unbounded trajectory data. The estimation history is available via
@@ -165,24 +169,45 @@ impl ExtendedKalmanFilter {
     ///
     /// # Arguments
     ///
-    /// * `propagator` - Pre-built propagator (must have STM enabled)
-    /// * `initial_covariance` - Initial covariance matrix (state_dim x state_dim)
+    /// * `propagator` - Pre-built propagator (must have an initial covariance;
+    ///   providing one enables the STM propagation the EKF requires)
     /// * `measurement_models` - List of measurement models
     /// * `config` - EKF configuration
     ///
     /// # Errors
     ///
-    /// Returns error if the propagator does not have STM enabled, if the
-    /// covariance dimensions do not match the state dimension, or if no
-    /// measurement models are provided.
+    /// Returns error if the propagator was not initialized with an initial
+    /// covariance, if STM propagation is not enabled, or if no measurement
+    /// models are provided.
     pub fn from_propagator(
         propagator: impl Into<DynamicsSource>,
+        measurement_models: Vec<Box<dyn MeasurementModel>>,
+        config: EKFConfig,
+    ) -> Result<Self, BraheError> {
+        let dynamics = propagator.into();
+
+        let initial_covariance = dynamics
+            .current_covariance()
+            .ok_or_else(|| {
+                BraheError::Error(
+                    "ExtendedKalmanFilter requires an initial covariance on the propagator. \
+                     Initialize the propagator with an initial_covariance."
+                        .to_string(),
+                )
+            })?
+            .clone();
+
+        Self::from_parts(dynamics, initial_covariance, measurement_models, config)
+    }
+
+    /// Shared constructor: validates and assembles the filter from a dynamics
+    /// source and an explicit initial covariance.
+    fn from_parts(
+        mut dynamics: DynamicsSource,
         initial_covariance: DMatrix<f64>,
         measurement_models: Vec<Box<dyn MeasurementModel>>,
         config: EKFConfig,
     ) -> Result<Self, BraheError> {
-        let mut dynamics = propagator.into();
-
         // Validate propagation mode includes STM
         if !dynamics.has_stm() {
             return Err(BraheError::Error(
@@ -589,7 +614,11 @@ mod tests {
     }
 
     /// Create a propagator with STM enabled (no covariance) for from_propagator tests.
-    fn create_stm_propagator(epoch: Epoch, state: DVector<f64>) -> DNumericalOrbitPropagator {
+    fn create_stm_propagator(
+        epoch: Epoch,
+        state: DVector<f64>,
+        covariance: Option<DMatrix<f64>>,
+    ) -> DNumericalOrbitPropagator {
         let mut prop_config = NumericalPropagationConfig::default();
         prop_config.variational.enable_stm = true;
         DNumericalOrbitPropagator::new(
@@ -600,7 +629,7 @@ mod tests {
             None,
             None,
             None,
-            None,
+            covariance,
         )
         .unwrap()
     }
@@ -644,50 +673,42 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_ekf_construction_no_stm_errors() {
+    fn test_ekf_from_propagator_no_covariance_errors() {
+        // A propagator without an initial covariance cannot seed the filter
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
-
-        let prop = DNumericalOrbitPropagator::new(
-            epoch,
-            state.clone(),
-            NumericalPropagationConfig::default(), // no STM
-            ForceModelConfig::two_body_gravity(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let prop = create_stm_propagator(epoch, state, None);
 
         let result = ExtendedKalmanFilter::from_propagator(
             prop,
-            p0,
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             EKFConfig::default(),
         );
-        assert!(result.is_err());
         match result {
             Err(e) => assert!(
-                e.to_string().contains("STM"),
-                "Error should mention STM: {}",
+                e.to_string().contains("initial covariance"),
+                "Error should mention initial covariance: {}",
                 e
             ),
-            Ok(_) => panic!("Expected error"),
+            Ok(_) => panic!("Expected error for missing covariance"),
         }
     }
 
     #[test]
     #[serial]
-    fn test_ekf_from_propagator_covariance_dim_mismatch_errors() {
+    fn test_ekf_covariance_dim_mismatch_errors() {
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-        let prop = create_stm_propagator(epoch, state);
 
-        let result = ExtendedKalmanFilter::from_propagator(
-            prop,
+        let result = ExtendedKalmanFilter::new(
+            epoch,
+            state,
             DMatrix::identity(4, 4), // wrong dimensions for 6D state
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             EKFConfig::default(),
         );
@@ -706,12 +727,11 @@ mod tests {
     fn test_ekf_from_propagator_no_models_errors() {
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-        let prop = create_stm_propagator(epoch, state);
-
         let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let prop = create_stm_propagator(epoch, state, Some(p0));
+
         let result = ExtendedKalmanFilter::from_propagator(
             prop,
-            p0,
             vec![], // no models
             EKFConfig::default(),
         );
@@ -765,15 +785,14 @@ mod tests {
 
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-        let mut prop = create_stm_propagator(epoch, state.clone());
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let mut prop = create_stm_propagator(epoch, state.clone(), Some(p0));
         prop.add_event_detector(Box::new(
             DTimeEvent::new(epoch + 30.0, "Terminal").set_terminal(),
         ));
 
-        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
         let mut ekf = ExtendedKalmanFilter::from_propagator(
             prop,
-            p0,
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             EKFConfig::default(),
         )
@@ -1435,11 +1454,10 @@ mod tests {
         let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
         let obs = generate_position_observations(epoch, &true_state, 5, 60.0);
 
-        let prop = create_stm_propagator(epoch, true_state);
+        let prop = create_stm_propagator(epoch, true_state, Some(p0));
 
         let mut ekf = ExtendedKalmanFilter::from_propagator(
             prop,
-            p0,
             vec![Box::new(InertialPositionMeasurementModel::new(50.0))],
             EKFConfig {
                 process_noise: None,

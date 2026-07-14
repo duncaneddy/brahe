@@ -166,7 +166,7 @@ impl UnscentedKalmanFilter {
         )
         .map_err(|e| BraheError::Error(format!("Failed to create propagator: {}", e)))?;
 
-        Self::from_propagator(prop, initial_covariance, measurement_models, config)
+        Self::from_parts(prop.into(), initial_covariance, measurement_models, config)
     }
 
     /// Create an Unscented Kalman Filter from an existing propagator.
@@ -177,9 +177,15 @@ impl UnscentedKalmanFilter {
     /// [`UnscentedKalmanFilter::new`]. Both propagator types convert into
     /// [`DynamicsSource`] automatically.
     ///
-    /// The UKF does not require STM propagation. If the propagator has STM
-    /// enabled it will still work, but every sigma-point propagation pays the
-    /// cost of integrating the variational equations for no benefit.
+    /// The filter's initial covariance is taken from the propagator's
+    /// `initial_covariance`; construct the propagator with the covariance you
+    /// want the filter to start from.
+    ///
+    /// Note that providing a covariance to a propagator enables its STM
+    /// propagation, which the UKF does not need — every sigma-point
+    /// propagation then also integrates the variational equations. When this
+    /// overhead matters, prefer [`UnscentedKalmanFilter::new`], which builds
+    /// its propagator without STM propagation.
     ///
     /// Trajectory recording on the propagator is disabled: sigma-point
     /// propagation re-propagates each time span 2n+1 times, which would
@@ -187,24 +193,45 @@ impl UnscentedKalmanFilter {
     ///
     /// # Arguments
     ///
-    /// * `propagator` - Pre-built propagator
-    /// * `initial_covariance` - Initial covariance matrix (state_dim x state_dim)
+    /// * `propagator` - Pre-built propagator (must have an initial covariance)
     /// * `measurement_models` - List of measurement models
     /// * `config` - UKF configuration (alpha, beta, kappa)
     ///
     /// # Errors
     ///
-    /// Returns error if the covariance dimensions do not match the state
-    /// dimension, if no measurement models are provided, or if the sigma-point
-    /// parameters are invalid (`alpha <= 0` or `state_dim + kappa <= 0`).
+    /// Returns error if the propagator was not initialized with an initial
+    /// covariance, if no measurement models are provided, or if the
+    /// sigma-point parameters are invalid (`alpha <= 0` or
+    /// `state_dim + kappa <= 0`).
     pub fn from_propagator(
         propagator: impl Into<DynamicsSource>,
+        measurement_models: Vec<Box<dyn MeasurementModel>>,
+        config: UKFConfig,
+    ) -> Result<Self, BraheError> {
+        let dynamics = propagator.into();
+
+        let initial_covariance = dynamics
+            .current_covariance()
+            .ok_or_else(|| {
+                BraheError::Error(
+                    "UnscentedKalmanFilter requires an initial covariance on the propagator. \
+                     Initialize the propagator with an initial_covariance."
+                        .to_string(),
+                )
+            })?
+            .clone();
+
+        Self::from_parts(dynamics, initial_covariance, measurement_models, config)
+    }
+
+    /// Shared constructor: validates and assembles the filter from a dynamics
+    /// source and an explicit initial covariance.
+    fn from_parts(
+        mut dynamics: DynamicsSource,
         initial_covariance: DMatrix<f64>,
         measurement_models: Vec<Box<dyn MeasurementModel>>,
         config: UKFConfig,
     ) -> Result<Self, BraheError> {
-        let mut dynamics = propagator.into();
-
         let n = dynamics.state_dim();
         if initial_covariance.nrows() != n || initial_covariance.ncols() != n {
             return Err(BraheError::Error(format!(
@@ -676,7 +703,11 @@ mod tests {
     }
 
     /// Create a plain propagator (no STM, no covariance) for from_propagator tests.
-    fn create_plain_propagator(epoch: Epoch, state: DVector<f64>) -> DNumericalOrbitPropagator {
+    fn create_plain_propagator(
+        epoch: Epoch,
+        state: DVector<f64>,
+        covariance: Option<DMatrix<f64>>,
+    ) -> DNumericalOrbitPropagator {
         DNumericalOrbitPropagator::new(
             epoch,
             state,
@@ -685,7 +716,7 @@ mod tests {
             None,
             None,
             None,
-            None,
+            covariance,
         )
         .unwrap()
     }
@@ -727,18 +758,42 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_ukf_covariance_dim_mismatch_errors() {
+    fn test_ukf_from_propagator_no_covariance_errors() {
+        // A propagator without an initial covariance cannot seed the filter
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-        let prop = create_plain_propagator(epoch, state);
+        let prop = create_plain_propagator(epoch, state, None);
 
         let models: Vec<Box<dyn MeasurementModel>> =
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))];
 
-        let result = UnscentedKalmanFilter::from_propagator(
-            prop,
+        let result = UnscentedKalmanFilter::from_propagator(prop, models, UKFConfig::default());
+        match result {
+            Err(e) => assert!(
+                e.to_string().contains("initial covariance"),
+                "Error should mention initial covariance: {}",
+                e
+            ),
+            Ok(_) => panic!("Expected error for missing covariance"),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_covariance_dim_mismatch_errors() {
+        setup_global_test_eop();
+        let (epoch, state) = two_body_leo();
+
+        let result = UnscentedKalmanFilter::new(
+            epoch,
+            state,
             DMatrix::identity(4, 4), // wrong dimensions for 6D state
-            models,
+            NumericalPropagationConfig::default(),
+            ForceModelConfig::two_body_gravity(),
+            None,
+            None,
+            None,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             UKFConfig::default(),
         );
         match result {
@@ -756,12 +811,11 @@ mod tests {
     fn test_ukf_from_propagator_no_models_errors() {
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-        let prop = create_plain_propagator(epoch, state);
-
         let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let prop = create_plain_propagator(epoch, state, Some(p0));
+
         let result = UnscentedKalmanFilter::from_propagator(
             prop,
-            p0,
             vec![], // no models
             UKFConfig::default(),
         );
@@ -784,8 +838,7 @@ mod tests {
 
         // alpha <= 0
         let result = UnscentedKalmanFilter::from_propagator(
-            create_plain_propagator(epoch, state.clone()),
-            p0.clone(),
+            create_plain_propagator(epoch, state.clone(), Some(p0.clone())),
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             UKFConfig {
                 alpha: 0.0,
@@ -803,8 +856,7 @@ mod tests {
 
         // n + kappa <= 0 (kappa = -6 for a 6D state)
         let result = UnscentedKalmanFilter::from_propagator(
-            create_plain_propagator(epoch, state),
-            p0,
+            create_plain_propagator(epoch, state, Some(p0)),
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             UKFConfig {
                 kappa: -6.0,
@@ -853,8 +905,7 @@ mod tests {
             },
         ] {
             let result = UnscentedKalmanFilter::from_propagator(
-                create_plain_propagator(epoch, state.clone()),
-                p0.clone(),
+                create_plain_propagator(epoch, state.clone(), Some(p0.clone())),
                 models(),
                 config.clone(),
             );
@@ -875,15 +926,14 @@ mod tests {
 
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-        let mut prop = create_plain_propagator(epoch, state.clone());
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+        let mut prop = create_plain_propagator(epoch, state.clone(), Some(p0));
         prop.add_event_detector(Box::new(
             DTimeEvent::new(epoch + 30.0, "Terminal").set_terminal(),
         ));
 
-        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
         let mut ukf = UnscentedKalmanFilter::from_propagator(
             prop,
-            p0,
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             UKFConfig::default(),
         )
@@ -1293,11 +1343,10 @@ mod tests {
         let models: Vec<Box<dyn MeasurementModel>> =
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))];
 
-        let prop = create_plain_propagator(epoch, true_state.clone());
+        let prop = create_plain_propagator(epoch, true_state.clone(), Some(p0));
 
         let mut ukf = UnscentedKalmanFilter::from_propagator(
             prop,
-            p0,
             models,
             UKFConfig {
                 store_records: false,

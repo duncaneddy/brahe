@@ -11,18 +11,18 @@
 
 use nalgebra::{DMatrix, DVector};
 
-use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy};
+use crate::math::jacobian::{DifferenceMethod, PerturbationStrategy, numerical_jacobian};
 use crate::time::Epoch;
 use crate::utils::errors::BraheError;
 
-/// Compute measurement Jacobian H = dh/dx via finite differences using
-/// `PerturbationStrategy` from `math::jacobian`. This avoids duplicating the
-/// finite-diff logic already in `src/math/jacobian.rs`.
+/// Compute measurement Jacobian H = dh/dx via finite differences.
 ///
-/// The measurement Jacobian is (m × n) where m = measurement_dim and n = state_dim,
-/// which differs from dynamics Jacobians (n × n). We implement the finite-diff loop
-/// directly but reuse `PerturbationStrategy` for offset computation to keep
-/// perturbation sizing consistent across the library.
+/// Delegates to the shared finite-difference engine
+/// [`numerical_jacobian`](crate::math::jacobian::numerical_jacobian) in
+/// `math::jacobian`, which also backs the dynamics Jacobian and parameter
+/// sensitivity providers, so perturbation sizing and differencing are
+/// consistent across the library. The measurement Jacobian is (m × n) where
+/// m = measurement_dim and n = state_dim.
 ///
 /// This is also the default implementation of [`MeasurementModel::jacobian`],
 /// with central differences and adaptive perturbation.
@@ -35,86 +35,27 @@ pub fn measurement_jacobian_numerical<M: MeasurementModel + ?Sized>(
     perturbation: PerturbationStrategy,
 ) -> Result<DMatrix<f64>, BraheError> {
     let m = model.measurement_dim();
-    let n = state.len();
-    let mut h_matrix = DMatrix::zeros(m, n);
 
-    // predict() is a user-extension boundary; validate output lengths before
-    // indexing so a mis-shaped model surfaces as an error, not a panic.
-    let check_dim = |z: &DVector<f64>| -> Result<(), BraheError> {
-        if z.len() != m {
-            return Err(BraheError::Error(format!(
-                "Model '{}' predict() returned {} elements, expected measurement_dim {}",
-                model.name(),
-                z.len(),
-                m
-            )));
-        }
-        Ok(())
-    };
-
-    // Compute perturbation offsets using the same strategy as DNumericalJacobian
-    let offsets: DVector<f64> = match perturbation {
-        PerturbationStrategy::Adaptive {
-            scale_factor,
-            min_value,
-        } => {
-            let sqrt_eps = f64::EPSILON.sqrt();
-            let base_offset = scale_factor * sqrt_eps;
-            state.map(|x| base_offset * x.abs().max(min_value))
-        }
-        PerturbationStrategy::Fixed(offset) => DVector::from_element(n, offset),
-        PerturbationStrategy::Percentage(pct) => state.map(|x| x.abs() * pct),
-    };
-
-    match method {
-        DifferenceMethod::Central => {
-            for j in 0..n {
-                let mut state_plus = state.clone();
-                state_plus[j] += offsets[j];
-                let h_plus = model.predict(epoch, &state_plus, params)?;
-                check_dim(&h_plus)?;
-
-                let mut state_minus = state.clone();
-                state_minus[j] -= offsets[j];
-                let h_minus = model.predict(epoch, &state_minus, params)?;
-                check_dim(&h_minus)?;
-
-                for i in 0..m {
-                    h_matrix[(i, j)] = (h_plus[i] - h_minus[i]) / (2.0 * offsets[j]);
-                }
+    numerical_jacobian(
+        |x| {
+            let z = model.predict(epoch, x, params)?;
+            // predict() is a user-extension boundary; validate the output
+            // length so a mis-shaped model surfaces as an error naming the
+            // model, not a dimension panic.
+            if z.len() != m {
+                return Err(BraheError::Error(format!(
+                    "Model '{}' predict() returned {} elements, expected measurement_dim {}",
+                    model.name(),
+                    z.len(),
+                    m
+                )));
             }
-        }
-        DifferenceMethod::Forward => {
-            let f0 = model.predict(epoch, state, params)?;
-            check_dim(&f0)?;
-            for j in 0..n {
-                let mut state_plus = state.clone();
-                state_plus[j] += offsets[j];
-                let fp = model.predict(epoch, &state_plus, params)?;
-                check_dim(&fp)?;
-
-                for i in 0..m {
-                    h_matrix[(i, j)] = (fp[i] - f0[i]) / offsets[j];
-                }
-            }
-        }
-        DifferenceMethod::Backward => {
-            let f0 = model.predict(epoch, state, params)?;
-            check_dim(&f0)?;
-            for j in 0..n {
-                let mut state_minus = state.clone();
-                state_minus[j] -= offsets[j];
-                let fm = model.predict(epoch, &state_minus, params)?;
-                check_dim(&fm)?;
-
-                for i in 0..m {
-                    h_matrix[(i, j)] = (f0[i] - fm[i]) / offsets[j];
-                }
-            }
-        }
-    }
-
-    Ok(h_matrix)
+            Ok(z)
+        },
+        state,
+        method,
+        perturbation,
+    )
 }
 
 /// Validate the shapes of measurement model outputs against the model's

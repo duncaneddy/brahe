@@ -208,7 +208,7 @@ impl BatchLeastSquares {
         )
         .map_err(|e| BraheError::Error(format!("Failed to create propagator: {}", e)))?;
 
-        Self::from_propagator(prop, apriori_covariance, measurement_models, config)
+        Self::from_parts(prop.into(), apriori_covariance, measurement_models, config)
     }
 
     /// Create a Batch Least Squares estimator from an existing propagator.
@@ -220,33 +220,56 @@ impl BatchLeastSquares {
     /// [`DynamicsSource`] automatically.
     ///
     /// The propagator's current epoch and state become the a priori (reference)
-    /// epoch and state for the batch. Trajectory recording on the propagator is
+    /// epoch and state for the batch, and its `initial_covariance` becomes the
+    /// a priori covariance; construct the propagator with the covariance you
+    /// want the batch to start from. Trajectory recording on the propagator is
     /// disabled: each Gauss-Newton iteration re-propagates the full observation
     /// arc, which would otherwise accumulate unbounded trajectory data.
     ///
     /// # Arguments
     ///
-    /// * `propagator` - Pre-built propagator (must have STM enabled)
-    /// * `apriori_covariance` - A priori covariance matrix (state_dim x state_dim)
+    /// * `propagator` - Pre-built propagator (must have an initial covariance;
+    ///   providing one enables the STM propagation BLS requires)
     /// * `measurement_models` - List of measurement models
     /// * `config` - BLS configuration
     ///
     /// # Errors
     ///
     /// Returns error if:
+    /// - The propagator was not initialized with an initial covariance
     /// - STM propagation is not enabled
     /// - No measurement models are provided
-    /// - Covariance dimensions do not match state dimensions
     /// - No convergence threshold is configured
     /// - Consider parameter dimensions are inconsistent
     pub fn from_propagator(
         propagator: impl Into<DynamicsSource>,
+        measurement_models: Vec<Box<dyn MeasurementModel>>,
+        config: BLSConfig,
+    ) -> Result<Self, BraheError> {
+        let dynamics = propagator.into();
+
+        let apriori_covariance = dynamics
+            .current_covariance()
+            .ok_or_else(|| {
+                BraheError::Error(
+                    "BatchLeastSquares requires an initial covariance on the propagator. \
+                     Initialize the propagator with an initial_covariance."
+                        .to_string(),
+                )
+            })?
+            .clone();
+
+        Self::from_parts(dynamics, apriori_covariance, measurement_models, config)
+    }
+
+    /// Shared constructor: validates and assembles the estimator from a
+    /// dynamics source and an explicit a priori covariance.
+    fn from_parts(
+        mut dynamics: DynamicsSource,
         apriori_covariance: DMatrix<f64>,
         measurement_models: Vec<Box<dyn MeasurementModel>>,
         config: BLSConfig,
     ) -> Result<Self, BraheError> {
-        let mut dynamics = propagator.into();
-
         // Validate STM enabled
         if !dynamics.has_stm() {
             return Err(BraheError::Error(
@@ -1034,7 +1057,11 @@ mod tests {
     }
 
     /// Create a propagator with STM enabled (no covariance) for from_propagator tests.
-    fn create_stm_propagator(epoch: Epoch, state: DVector<f64>) -> DNumericalOrbitPropagator {
+    fn create_stm_propagator(
+        epoch: Epoch,
+        state: DVector<f64>,
+        covariance: Option<DMatrix<f64>>,
+    ) -> DNumericalOrbitPropagator {
         let mut prop_config = NumericalPropagationConfig::default();
         prop_config.variational.enable_stm = true;
         DNumericalOrbitPropagator::new(
@@ -1045,7 +1072,7 @@ mod tests {
             None,
             None,
             None,
-            None,
+            covariance,
         )
         .unwrap()
     }
@@ -1074,30 +1101,24 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_bls_construction_no_stm_errors() {
+    fn test_bls_from_propagator_no_covariance_errors() {
+        // A propagator without an initial covariance cannot seed the batch
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-
-        let prop = DNumericalOrbitPropagator::new(
-            epoch,
-            state,
-            NumericalPropagationConfig::default(), // no STM
-            ForceModelConfig::two_body_gravity(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let prop = create_stm_propagator(epoch, state, None);
 
         let result = BatchLeastSquares::from_propagator(
             prop,
-            default_p0(),
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             BLSConfig::default(),
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("STM"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("initial covariance")
+        );
     }
 
     #[test]
@@ -1105,11 +1126,10 @@ mod tests {
     fn test_bls_construction_no_models_errors() {
         setup_global_test_eop();
         let (epoch, state) = two_body_leo();
-        let prop = create_stm_propagator(epoch, state);
+        let prop = create_stm_propagator(epoch, state, Some(default_p0()));
 
         let result = BatchLeastSquares::from_propagator(
             prop,
-            default_p0(),
             vec![], // no models
             BLSConfig::default(),
         );
@@ -1680,14 +1700,13 @@ mod tests {
         let mut perturbed = true_state.clone();
         perturbed[0] += 500.0;
 
-        let mut prop = create_stm_propagator(epoch, perturbed.clone());
+        let mut prop = create_stm_propagator(epoch, perturbed.clone(), Some(default_p0()));
         prop.add_event_detector(Box::new(
             DTimeEvent::new(epoch + 15.0, "Terminal").set_terminal(),
         ));
 
         let mut bls = BatchLeastSquares::from_propagator(
             prop,
-            default_p0(),
             vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
             BLSConfig::default(),
         )

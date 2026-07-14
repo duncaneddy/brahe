@@ -13,7 +13,6 @@
 
 use brahe::estimation;
 use brahe::estimation::MeasurementModel;
-use brahe::estimation::DynamicsSource;
 use brahe::math::jacobian::{DifferenceMethod, PerturbationStrategy};
 
 // =============================================================================
@@ -1626,8 +1625,7 @@ impl PyExtendedKalmanFilter {
         let cov_matrix = DMatrix::from_row_slice(state_dim, state_dim, &cov_data);
 
         // Clone propagation config and force STM enabled
-        let mut prop_config = propagation_config.config.clone();
-        prop_config.variational.enable_stm = true;
+        let prop_config = propagation_config.config.clone();
 
         let params_vec =
             params.map(|p| DVector::from_column_slice(p.as_slice().unwrap()));
@@ -1709,21 +1707,6 @@ impl PyExtendedKalmanFilter {
                     >
             });
 
-        // Build the orbit propagator internally (covariance is owned by the filter)
-        let prop = propagators::DNumericalOrbitPropagator::new(
-            epoch.obj,
-            state_vec,
-            prop_config,
-            force_config.config.clone(),
-            params_vec,
-            additional_dynamics_fn,
-            control_input_fn,
-            None,
-        )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        let dynamics = DynamicsSource::OrbitPropagator(prop);
-
         // Process measurement models
         let models = process_measurement_models(py, measurement_models)?;
 
@@ -1732,8 +1715,17 @@ impl PyExtendedKalmanFilter {
             .map(|c| c.config.clone())
             .unwrap_or_default();
 
-        let ekf = estimation::ExtendedKalmanFilter::from_propagator(
-            dynamics, cov_matrix, models, ekf_config,
+        let ekf = estimation::ExtendedKalmanFilter::new(
+            epoch.obj,
+            state_vec,
+            cov_matrix,
+            prop_config,
+            force_config.config.clone(),
+            params_vec,
+            additional_dynamics_fn,
+            control_input_fn,
+            models,
+            ekf_config,
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
@@ -2094,27 +2086,23 @@ impl PyUnscentedKalmanFilter {
                     >
             });
 
-        // Covariance is owned by the filter; the propagator carries no
-        // covariance so no STM propagation is enabled for the UKF.
-        let prop = propagators::DNumericalOrbitPropagator::new(
+        let models = process_measurement_models(py, measurement_models)?;
+
+        let ukf_config = config.map(|c| c.config.clone()).unwrap_or_default();
+
+        // UnscentedKalmanFilter::new builds a propagator without STM
+        // propagation; the covariance is owned by the filter.
+        let ukf = estimation::UnscentedKalmanFilter::new(
             epoch.obj,
             state_vec,
+            cov_matrix,
             prop_config,
             force_config.config.clone(),
             params_vec,
             additional_dynamics_fn,
             control_input_fn,
-            None,
-        )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        let dynamics = DynamicsSource::OrbitPropagator(prop);
-        let models = process_measurement_models(py, measurement_models)?;
-
-        let ukf_config = config.map(|c| c.config.clone()).unwrap_or_default();
-
-        let ukf = estimation::UnscentedKalmanFilter::from_propagator(
-            dynamics, cov_matrix, models, ukf_config,
+            models,
+            ukf_config,
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
@@ -2858,25 +2846,17 @@ impl PyBatchLeastSquares {
             .map(|c| c.config.clone())
             .unwrap_or_default();
 
-        // Build the orbit propagator with STM enabled (the a priori covariance
-        // is owned by the estimator, not the propagator)
-        let mut prop_config = propagation_config.config.clone();
-        prop_config.variational.enable_stm = true;
-
-        let prop = propagators::DNumericalOrbitPropagator::new(
+        let bls = estimation::BatchLeastSquares::new(
             epoch.obj,
             state_vec,
-            prop_config,
+            cov_matrix,
+            propagation_config.config.clone(),
             force_config.config.clone(),
             params_vec,
             additional_dynamics_fn,
             control_input_fn,
-            None,
-        )
-        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        let bls = estimation::BatchLeastSquares::from_propagator(
-            prop, cov_matrix, models, bls_config,
+            models,
+            bls_config,
         )
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
 

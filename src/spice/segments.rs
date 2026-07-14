@@ -126,7 +126,6 @@ fn chebyshev_derivative(a: &[f64], s: f64) -> f64 {
 ///
 /// # Returns
 /// - `p''(s)`, the second derivative with respect to `s` (not `et`)
-#[allow(dead_code)]
 fn chebyshev_second_derivative(a: &[f64], s: f64) -> f64 {
     chebyshev_value(
         &chebyshev_derivative_series(&chebyshev_derivative_series(a)),
@@ -592,7 +591,6 @@ impl ChebyshevSegment {
     ///
     /// # Returns
     /// - The three evaluated second derivatives
-    #[allow(dead_code)]
     fn eval_triple_second_derivative(
         rec: &[f64],
         degree: usize,
@@ -672,7 +670,6 @@ impl ChebyshevSegment {
     /// # Returns
     /// - Acceleration in kernel-natural units (km/s² for SPK, rad/s² for
     ///   PCK), or `BraheError` if `et` is out of coverage
-    #[allow(dead_code)]
     pub fn acceleration(&self, et: f64) -> Result<Vector3<f64>, BraheError> {
         let (rec, s) = self.record(et)?;
         let radius = rec[1];

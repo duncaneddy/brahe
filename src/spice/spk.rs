@@ -308,6 +308,26 @@ pub(crate) fn evaluate_chain_state(
     Ok((r, v))
 }
 
+/// Sum link accelerations along a chain. Units: kernel-natural (km/s²).
+///
+/// # Arguments
+/// - `chain`: Resolved chain from [`resolve_chain`]
+/// - `et`: Epoch to evaluate at. Units: [s] (TDB past J2000)
+///
+/// # Returns
+/// - Summed acceleration. Units: [km/s²]
+pub(crate) fn evaluate_chain_acceleration(
+    chain: &[ChainLink],
+    et: f64,
+) -> Result<Vector3<f64>, BraheError> {
+    let mut a = Vector3::zeros();
+    for link in chain {
+        let (seg, sign) = covering_segment(link, et)?;
+        a += seg.acceleration(et)? * sign;
+    }
+    Ok(a)
+}
+
 /// Evaluate a cached (topology-only) `chain` at `et` via `eval`; on an
 /// out-of-coverage failure, fall back to an epoch-aware chain resolved
 /// over `segments_for_fallback()` and retry.
@@ -575,6 +595,48 @@ impl SPK {
             v[1] * 1.0e3,
             v[2] * 1.0e3,
         ))
+    }
+
+    /// Acceleration of `target` relative to `center` at ET `et`.
+    ///
+    /// Resolves the segment chain once per `(target, center)` pair and
+    /// caches it. If the cached chain's segments don't cover `et` (e.g. a
+    /// cached direct link with only partial temporal coverage, while a
+    /// longer path through other segments does cover `et`), transparently
+    /// falls back to an epoch-aware re-resolution; see
+    /// `resolve_chain_for_epoch`. This fallback is not cached.
+    ///
+    /// # Arguments
+    /// - `target`: NAIF ID of the target body
+    /// - `center`: NAIF ID of the observing/center body
+    /// - `et`: TDB seconds past J2000
+    ///
+    /// # Returns
+    /// - Acceleration in the kernel's inertial frame (ICRF axes). Units: [m/s²]
+    ///
+    /// # Example
+    /// ```no_run
+    /// use std::path::Path;
+    /// use brahe::spice::SPK;
+    ///
+    /// let spk = SPK::from_file(Path::new("de440s.bsp")).unwrap();
+    /// let a_sun = spk.acceleration(10, 399, 0.0).unwrap(); // Sun rel Earth at J2000
+    /// ```
+    pub fn acceleration(
+        &self,
+        target: i32,
+        center: i32,
+        et: f64,
+    ) -> Result<Vector3<f64>, BraheError> {
+        let chain = self.chain(target, center)?;
+        Ok(evaluate_with_epoch_fallback(
+            &chain,
+            target,
+            center,
+            et,
+            || self.segments.clone(),
+            evaluate_chain_acceleration,
+        )? * 1.0e3)
     }
 }
 
@@ -926,6 +988,20 @@ mod tests {
             / (2.0 * h);
         // Central difference O(h^2): agreement to ~1e-4 m/s at these scales
         assert!((v - fd).norm() < 1.0e-2, "|v - fd| = {}", (v - fd).norm());
+    }
+
+    #[test]
+    fn test_spk_acceleration_finite_difference() {
+        let Some(spk) = load_de440s() else { return };
+        let et = 0.0;
+        let dt = 10.0;
+        let a = spk.acceleration(301, 399, et).unwrap();
+        let v_p = spk.velocity(301, 399, et + dt).unwrap();
+        let v_m = spk.velocity(301, 399, et - dt).unwrap();
+        let a_fd = (v_p - v_m) / (2.0 * dt);
+        for i in 0..3 {
+            assert_abs_diff_eq!(a[i], a_fd[i], epsilon = 1e-6);
+        }
     }
 
     #[test]

@@ -25,6 +25,13 @@ jobs:
                     rustup default ${{ matrix.rust-toolchain }}
             -   name: Install cargo-llvm-cov
                 uses: taiki-e/install-action@cargo-llvm-cov
+            -   name: Cache brahe data (kernels, gravity models)
+                uses: actions/cache@v6.1.0
+                with:
+                    path: ~/.cache/brahe
+                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-data-v1-
             -   name: Run Rust tests with coverage
                 # Limit rust-unit coverage to the core `brahe` crate. The `brahe-py`
                 # workspace member has no Rust unit tests (it's exercised by pytest),
@@ -75,6 +82,13 @@ jobs:
                 run: |
                     rustup update ${{ matrix.rust-toolchain }}
                     rustup default ${{ matrix.rust-toolchain }}
+            -   name: Cache brahe data (kernels, gravity models)
+                uses: actions/cache@v6.1.0
+                with:
+                    path: ~/.cache/brahe
+                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-data-v1-
             -   name: Run Rust doc tests
                 run: cargo test --doc -- --test-threads=1
     

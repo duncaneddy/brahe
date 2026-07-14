@@ -13,7 +13,6 @@ use crate::utils::BraheError;
 use crate::utils::atomic_write;
 use crate::utils::cache::get_naif_cache_dir;
 use std::fs;
-use std::io::Read;
 use std::path::PathBuf;
 
 /// Download a kernel's bytes from an explicit base URL.
@@ -57,20 +56,12 @@ fn fetch_kernel(kernel: SPICEKernel) -> Result<Vec<u8>, BraheError> {
 /// # Returns
 /// * `Result<Vec<u8>, BraheError>` - Binary kernel data
 fn fetch_kernel_from_url(url: &str, label: &str) -> Result<Vec<u8>, BraheError> {
-    let response = ureq::get(url).call().map_err(|e| {
+    // Retries transient network/server failures with exponential backoff so a
+    // single dropped connection to NAIF (e.g. "Connection refused") doesn't fail
+    // an otherwise-recoverable download.
+    let buffer = crate::utils::download::download_bytes(url).map_err(|e| {
         BraheError::Error(format!(
             "Failed to download kernel {} from NAIF: {}",
-            label, e
-        ))
-    })?;
-
-    // Read response body manually to avoid default size limits.
-    let mut buffer = Vec::new();
-    let mut reader = response.into_body().into_reader();
-
-    reader.read_to_end(&mut buffer).map_err(|e| {
-        BraheError::Error(format!(
-            "Failed to read kernel {} from NAIF response: {}",
             label, e
         ))
     })?;

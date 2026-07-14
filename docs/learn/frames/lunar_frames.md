@@ -4,11 +4,11 @@ Brahe provides three Moon-centered reference frames: **LCI** (inertial), **LFPA*
 
 ## LCI (Lunar-Centered Inertial)
 
-LCI axes are ICRF-aligned (treated as equivalent to J2000, consistent with the rest of Brahe) and centered on the Moon (NAIF ID 301). No kernel is required for the LCI orientation itself, since it shares axes with GCRF. Converting between LCI and ECI requires the Moon's position relative to Earth, which is looked up from the `de440s` SPK kernel (auto-loaded on first use of any of the functions in the [Function Reference](#function-reference) below, or via `initialize_ephemeris`).
+LCI axes are ICRF-aligned (treated as equivalent to J2000, consistent with the rest of Brahe) and centered on the Moon (NAIF ID 301). No kernel is required for the LCI orientation itself, since it shares axes with GCRF. Converting between LCI and ECI requires the Moon's position relative to Earth, which is looked up from the `de440s` SPK kernel (auto-loaded on first use of any of the functions in the [Function Reference](#function-reference) below, or via `load_common_spice_kernels`).
 
 ## LFPA (Lunar-Fixed Principal Axis)
 
-LFPA is the DE440 lunar principal-axis frame[^park2021], distributed by NAIF as the binary PCK `moon_pa_de440` (frame class ID 31008). It is evaluated live from that kernel, which is downloaded and cached automatically the first time any LCI &harr; LFPA/LFME function is called &mdash; no explicit `load_kernel` call is required for this specific frame pair (see [Kernel Requirements](frame_transformations.md#kernel-requirements-per-frame) for the general rule this is an exception to).
+LFPA is the DE440 lunar principal-axis frame[^park2021], distributed by NAIF as the binary PCK `moon_pa_de440` (frame class ID 31008). It is evaluated live from that kernel, which is downloaded and cached automatically the first time any LCI &harr; LFPA/LFME function is called &mdash; no explicit `load_spice_kernel` call is required for this specific frame pair (see [Kernel Requirements](frame_transformations.md#kernel-requirements-per-frame) for the general rule this is an exception to).
 
 ## LFME (Lunar-Fixed Mean-Earth/Polar-Axis)
 

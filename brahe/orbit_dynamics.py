@@ -56,7 +56,6 @@ Ephemerides:
 - ssb_position_spice: Convenience alias for solar_system_barycenter_position_spice
 - ssb_velocity_spice: Convenience alias for solar_system_barycenter_velocity_spice
 - ssb_state_spice: Convenience alias for solar_system_barycenter_state_spice
-- initialize_ephemeris: Pre-initialize the DE ephemeris kernel
 
 Acceleration Models:
 -------------------
@@ -163,7 +162,6 @@ from brahe._brahe import (
     ssb_position_spice,
     ssb_velocity_spice,
     ssb_state_spice,
-    initialize_ephemeris,
     # Third-Body Accelerations
     accel_third_body_sun,
     accel_third_body_moon,
@@ -270,7 +268,6 @@ __all__ = [
     "ssb_position_spice",
     "ssb_velocity_spice",
     "ssb_state_spice",
-    "initialize_ephemeris",
     # Third-Body Accelerations
     "accel_third_body_sun",
     "accel_third_body_moon",

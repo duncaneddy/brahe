@@ -8,7 +8,7 @@ fn main() {
     // Initialize EOP and the DE440s ephemeris used to re-center GCRF (Earth)
     // to LCI (Moon) inside the router.
     bh::initialize_eop().unwrap();
-    bh::initialize_ephemeris().unwrap();
+    bh::load_common_spice_kernels().unwrap();
 
     let epc = bh::Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh::TimeSystem::UTC);
 

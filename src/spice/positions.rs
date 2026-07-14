@@ -845,16 +845,16 @@ mod tests {
         // body center rel its barycenter. Positions are constant on the
         // x-axis, so each result is the exact two-leg sum and velocity is
         // zero. This also covers all `system_kernel` match arms.
-        use crate::spice::{clear_kernels, load_kernel};
+        use crate::spice::{clear_spice_kernels, load_spice_kernel};
         use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
 
         setup_global_test_spice();
         // Keep the real de440s resident so any concurrent cache-reading test
-        // still finds it (via load_kernel's idempotent short-circuit) while
+        // still finds it (via load_spice_kernel's idempotent short-circuit) while
         // BRAHE_CACHE is redirected below. The barycenter leg uses the DE440
         // (de440.bsp) slot, which no other default-suite test loads, so
         // seeding a synthetic version there cannot corrupt a concurrent read.
-        load_kernel("de440s").unwrap();
+        load_spice_kernel("de440s").unwrap();
 
         let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
         {
@@ -925,8 +925,8 @@ mod tests {
         }
         // Redirect dropped (real cache restored): drop the synthetic kernels
         // and reload the real de440s.
-        clear_kernels();
-        load_kernel("de440s").unwrap();
+        clear_spice_kernels();
+        load_spice_kernel("de440s").unwrap();
     }
 
     #[test]
@@ -966,11 +966,11 @@ mod tests {
     fn test_ssb_position_spice_alias_offline() {
         // `ssb_position_spice` forwards to `solar_system_barycenter_position_spice`.
         // A synthetic DE kernel provides SSB (0) rel Earth as a constant.
-        use crate::spice::{clear_kernels, load_kernel};
+        use crate::spice::{clear_spice_kernels, load_spice_kernel};
         use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
 
         setup_global_test_spice();
-        load_kernel("de440s").unwrap(); // keep real de440s resident (see above)
+        load_spice_kernel("de440s").unwrap(); // keep real de440s resident (see above)
 
         let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
         {
@@ -981,8 +981,8 @@ mod tests {
             let r = ssb_position_spice(epc, SPICEKernel::DE440).unwrap();
             assert_abs_diff_eq!(r[0], 3000.0, epsilon = 1e-6);
         }
-        clear_kernels();
-        load_kernel("de440s").unwrap();
+        clear_spice_kernels();
+        load_spice_kernel("de440s").unwrap();
     }
 
     #[test]
@@ -990,11 +990,11 @@ mod tests {
     fn test_solar_system_barycenter_position_spice_error_offline() {
         // Error branch: a cached-but-unparseable DE kernel makes the load
         // fail, and the error propagates out of the generated position fn.
-        use crate::spice::{clear_kernels, load_kernel};
+        use crate::spice::{clear_spice_kernels, load_spice_kernel};
         use crate::utils::testing::CacheRedirect;
 
         setup_global_test_spice();
-        load_kernel("de440s").unwrap(); // keep real de440s resident (see above)
+        load_spice_kernel("de440s").unwrap(); // keep real de440s resident (see above)
 
         let epc = Epoch::from_date(2025, 1, 1, crate::time::TimeSystem::UTC);
         {
@@ -1006,8 +1006,8 @@ mod tests {
             let err = solar_system_barycenter_position_spice(epc, SPICEKernel::DE440).unwrap_err();
             assert!(!format!("{}", err).is_empty());
         }
-        clear_kernels();
-        load_kernel("de440s").unwrap();
+        clear_spice_kernels();
+        load_spice_kernel("de440s").unwrap();
     }
 
     #[test]

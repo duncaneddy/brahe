@@ -94,12 +94,12 @@ pub(crate) fn ensure_lunar_pck_loaded() {
         if crate::spice::kernel_is_loaded("moon_pa_de440") {
             return;
         }
-        crate::spice::load_kernel("moon_pa_de440").unwrap_or_else(|e| {
+        crate::spice::load_spice_kernel("moon_pa_de440").unwrap_or_else(|e| {
             panic!(
                 "Failed to auto-load lunar PCK 'moon_pa_de440': {}. \
                  Download it with brahe::datasets::naif::download_spice_kernel\
                  (SPICEKernel::MoonPaDe440, None) and call \
-                 brahe::spice::load_kernel(<path>).",
+                 brahe::spice::load_spice_kernel(<path>).",
                 e
             )
         });
@@ -659,7 +659,7 @@ mod tests {
     use super::*;
     use crate::constants::R_MOON;
     use crate::math::vector6_from_array;
-    use crate::spice::{load_kernel, unload_kernel};
+    use crate::spice::{load_spice_kernel, unload_spice_kernel};
     use crate::time::TimeSystem;
     use crate::utils::testing::{
         CacheRedirect, setup_global_test_spice, synthetic_pck_kernel_bytes,
@@ -871,7 +871,7 @@ mod tests {
         // lunar PCK required. Exercises state_eci_to_lci/state_lci_to_eci and
         // position_eci_to_lci/position_lci_to_eci offline.
         setup_global_test_spice();
-        load_kernel("de440s").unwrap();
+        load_spice_kernel("de440s").unwrap();
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x_eci = vector6_from_array([1e8, 2e8, 3e8, 1.0, 2.0, 3.0]);
 
@@ -903,8 +903,8 @@ mod tests {
         // de440s stays resident throughout (never cleared); only the lunar PCK
         // is unloaded/reloaded so a prior panicked run cannot poison us.
         setup_global_test_spice();
-        load_kernel("de440s").unwrap();
-        let _ = unload_kernel("moon_pa_de440");
+        load_spice_kernel("de440s").unwrap();
+        let _ = unload_spice_kernel("moon_pa_de440");
         {
             let cache = CacheRedirect::new();
             cache.seed_real_de440s();
@@ -922,7 +922,7 @@ mod tests {
             assert!(!crate::spice::kernel_is_loaded("moon_pa_de440"));
             ensure_lunar_pck_loaded();
             if !crate::spice::kernel_is_loaded("moon_pa_de440") {
-                load_kernel("moon_pa_de440").unwrap();
+                load_spice_kernel("moon_pa_de440").unwrap();
             }
             let r_lci_lfpa = rotation_lci_to_lfpa(epc);
             assert!(crate::spice::kernel_is_loaded("moon_pa_de440"));
@@ -981,12 +981,12 @@ mod tests {
             // is a no-op (does not error).
             ensure_lunar_pck_loaded();
 
-            unload_kernel("moon_pa_de440").unwrap();
+            unload_spice_kernel("moon_pa_de440").unwrap();
         }
         // The latch is now set but the kernel was just unloaded, so later
         // latch-relying tests would see it missing. Best-effort restore of
         // the real PCK (real cache; tolerated failure keeps this test
         // offline-safe when nothing later needs the kernel).
-        let _ = load_kernel("moon_pa_de440");
+        let _ = load_spice_kernel("moon_pa_de440");
     }
 }

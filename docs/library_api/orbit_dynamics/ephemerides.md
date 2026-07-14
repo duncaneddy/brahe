@@ -10,8 +10,6 @@ Celestial body position calculations for Sun, Moon, and planets.
 
 ## DE440 Ephemerides
 
-::: brahe.initialize_ephemeris
-
 ::: brahe.sun_position_spice
 
 ::: brahe.sun_velocity_spice

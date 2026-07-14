@@ -7,17 +7,17 @@ convenience functions, see the
 
 ## Kernel Registry
 
-::: brahe.load_kernel
+::: brahe.load_spice_kernel
 
-::: brahe.unload_kernel
+::: brahe.unload_spice_kernel
 
-::: brahe.clear_kernels
+::: brahe.clear_spice_kernels
 
-::: brahe.loaded_kernels
+::: brahe.loaded_spice_kernels
 
-::: brahe.load_common_kernels
+::: brahe.load_common_spice_kernels
 
-::: brahe.load_all_kernels
+::: brahe.load_all_spice_kernels
 
 ## Generic SPK Queries
 

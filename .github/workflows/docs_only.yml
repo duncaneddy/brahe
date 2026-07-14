@@ -72,6 +72,14 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v4
 
+      - name: Cache brahe data (kernels, gravity models)
+        uses: actions/cache@v6.1.0
+        with:
+          path: ~/.cache/brahe
+          key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+          restore-keys: |
+            brahe-data-v1-
+
       - name: Test examples (including CI-ONLY)
         run: just test-examples --ci-only
 

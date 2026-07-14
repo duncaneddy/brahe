@@ -10,7 +10,7 @@ import brahe as bh
 @pytest.fixture(autouse=True)
 def ensure_kernel():
     try:
-        bh.initialize_ephemeris()
+        bh.load_spice_kernel("de440s")
     except Exception as e:
         pytest.skip(f"Could not initialize ephemeris: {e}")
 

@@ -40,7 +40,7 @@ function both accept any of these — by name (`str`) in Python, by
 !!! info "Binary PCK Kernels"
     Brahe also downloads and caches the `moon_pa_de440` binary PCK (lunar
     principal-axis orientation) the same way. Load it with
-    `bh.load_kernel("moon_pa_de440")`, or with `bh.load_common_kernels()`,
+    `bh.load_spice_kernel("moon_pa_de440")`, or with `bh.load_common_spice_kernels()`,
     which loads `de440s` and `moon_pa_de440` together — see
     [SPICE Kernels](../spice/index.md) for orientation queries against it.
 

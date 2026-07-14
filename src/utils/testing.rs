@@ -350,7 +350,7 @@ pub(crate) fn setup_global_test_spice() {
         let cache_path = Path::new(&cache_dir).join("de440s.bsp");
         fs::copy(&test_asset_path, &cache_path).expect("Failed to copy test asset to cache");
 
-        crate::spice::load_kernel("de440s").expect("Failed to load DE440s test kernel");
+        crate::spice::load_spice_kernel("de440s").expect("Failed to load DE440s test kernel");
     });
 }
 

@@ -7,10 +7,10 @@ Loading NASA Near Earth Network ground stations...
 Loaded 18 NASA NEN ground stations in 0.00 seconds.
 
 Creating ground track visualization...
-Created ground track visualization in 2.93 seconds.
+Created ground track visualization in 2.22 seconds.
 
 Computing 72-hour access windows with Doppler compensation...
-Computed 13 access windows in 0.39 seconds.
+Computed 13 access windows in 0.46 seconds.
 
 ====================================================================================================
 Sample Access Windows with Doppler Time Series (first 5)
@@ -31,7 +31,7 @@ Extracted 5117 samples (0.1s interval) in 0.00 seconds.
 ✓ Exported 11 samples to docs/figures/doppler_compensation_data.csv
 
 Creating Doppler compensation visualization...
-Created Doppler visualization in 0.15 seconds.
+Created Doppler visualization in 0.11 seconds.
 
 ✓ Generated docs/figures/doppler_compensation_groundtrack_light.html
 ✓ Generated docs/figures/doppler_compensation_groundtrack_dark.html

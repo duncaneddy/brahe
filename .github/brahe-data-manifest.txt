@@ -3,7 +3,7 @@
 # workflows and warm_data_cache.yml, so any change here invalidates and
 # reseeds the cache.
 #
-# NAIF kernels (name resolved via brahe.load_kernel):
+# NAIF kernels (name resolved via brahe.load_spice_kernel):
 de440s
 moon_pa_de440
 mar099s

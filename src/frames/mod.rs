@@ -26,4 +26,5 @@ pub use gcrf_itrf::*;
 pub use iau_rotation::*;
 pub use lunar::*;
 pub use mars::*;
+pub use synodic::*;
 pub use transform::*;

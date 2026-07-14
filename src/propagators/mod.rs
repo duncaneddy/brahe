@@ -2,6 +2,7 @@
  * The propagators module contains orbit propagation implementations and traits.
  */
 
+pub mod central_body;
 pub mod dnumerical_orbit_propagator;
 pub mod dnumerical_propagator;
 pub mod force_model_config;
@@ -11,6 +12,7 @@ pub mod numerical_propagation_config;
 pub mod sgp_propagator;
 pub mod traits;
 
+pub use central_body::*;
 pub use dnumerical_orbit_propagator::*;
 pub use dnumerical_propagator::*;
 pub use force_model_config::*;

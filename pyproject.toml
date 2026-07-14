@@ -123,7 +123,7 @@ include = [
 
 [tool.pytest.ini_options]
 markers = [
-    "integration: marks tests that require network access to remote hosts (run with -m integration)",
+    "integration: marks tests that require network access to remote hosts or long runtimes (run with -m integration); tests that only read SPICE kernels are NOT gated — kernels are expected cached (run `just setup`)",
 ]
 # By default, exclude integration tests unless explicitly requested with -m integration
 addopts = "-m 'not integration'"

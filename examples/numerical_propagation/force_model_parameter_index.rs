@@ -24,6 +24,7 @@ fn main() {
         area: bh::ParameterSource::ParameterIndex(3), // params[3] = srp_area
         cr: bh::ParameterSource::ParameterIndex(4),   // params[4] = Cr
         eclipse_model: bh::EclipseModel::Conical,
+        occulting_bodies: vec![bh::OccultingBody::Earth],
     };
 
     // Custom parameter layout example

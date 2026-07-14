@@ -23,6 +23,10 @@ const OMEGA_VECTOR: Vector3<f64> = Vector3::new(0.0, 0.0, OMEGA_EARTH);
 /// drag assuming that the ballistic properties of the spacecraft are captured by
 /// the coefficient of drag.
 ///
+/// Assumes an Earth-centered inertial frame and Earth's atmospheric co-rotation
+/// rate. For propagation about a non-Earth central body, use
+/// [`accel_drag_for_body`] with that body's spin vector.
+///
 /// Arguments:
 ///
 /// - `x_object`: Satellite Cartesean state in the inertial reference frame [m; m/s]
@@ -49,12 +53,59 @@ pub fn accel_drag(
     drag_coefficient: f64,
     T: SMatrix3,
 ) -> Vector3<f64> {
+    accel_drag_for_body(
+        x_object,
+        density,
+        mass,
+        area,
+        drag_coefficient,
+        T,
+        OMEGA_VECTOR,
+    )
+}
+
+/// Computes the perturbing, non-conservative acceleration caused by atmospheric
+/// drag about an arbitrary central body, using that body's atmospheric
+/// co-rotation rate.
+///
+/// Generalizes [`accel_drag`] to non-Earth central bodies. `accel_drag`
+/// delegates to this function with Earth's spin vector
+/// (`Vector3::new(0.0, 0.0, OMEGA_EARTH)`), so the two are bit-identical when
+/// `omega` is Earth's rate.
+///
+/// # Arguments
+///
+/// - `x_object`: Satellite Cartesian state in the central body's inertial frame [m; m/s]
+/// - `density`: atmospheric density [kg/m^3]
+/// - `mass`: Spacecraft mass [kg]
+/// - `area`: Wind-facing cross-sectional area [m^2]
+/// - `drag_coefficient`: coefficient of drag [dimensionless]
+/// - `T`: Rotation matrix from the inertial to the body-fixed (true-of-date) frame
+/// - `omega`: Body-fixed axial spin vector of the central body [rad/s]
+///
+/// # Returns
+///
+/// - `a`: Acceleration due to drag in the X, Y, and Z inertial directions. [m/s^2]
+///
+/// # References
+///
+/// 1. O. Montenbruck, and E. Gill, _Satellite Orbits: Models, Methods and Applications_, 2012, p.83-86.
+#[allow(non_snake_case)]
+pub fn accel_drag_for_body(
+    x_object: Vector6<f64>,
+    density: f64,
+    mass: f64,
+    area: f64,
+    drag_coefficient: f64,
+    T: SMatrix3,
+    omega: Vector3<f64>,
+) -> Vector3<f64> {
     // Position and velocity in true-of-date system
     let r_tod: Vector3<f64> = T * x_object.fixed_rows::<3>(0);
     let v_tod: Vector3<f64> = T * x_object.fixed_rows::<3>(3);
 
-    // Velocity relative to the Earth's atmosphere
-    let v_rel = v_tod - OMEGA_VECTOR.cross(&r_tod);
+    // Velocity relative to the co-rotating atmosphere
+    let v_rel = v_tod - omega.cross(&r_tod);
     let v_abs = v_rel.norm();
 
     // Acceleration
@@ -88,6 +139,29 @@ mod tests {
         let a = accel_drag(x_object, 1.0e-12, 1000.0, 1.0, 2.0, SMatrix3::identity());
 
         assert_abs_diff_eq!(a.norm(), 5.97601877277239e-8, epsilon = 1.0e-10);
+    }
+
+    #[test]
+    fn test_accel_drag_for_body_earth_omega_matches_legacy() {
+        // `accel_drag` delegates to `accel_drag_for_body` with Earth's spin
+        // vector; passing the same rate must reproduce it bit-for-bit.
+        let oe = Vector6::new(R_EARTH + 500e3, 0.01, 97.3, 15.0, 30.0, 45.0);
+        let x_object = state_koe_to_eci(oe, DEGREES);
+
+        let legacy = accel_drag(x_object, 1.0e-12, 1000.0, 1.0, 2.0, SMatrix3::identity());
+        let for_body = accel_drag_for_body(
+            x_object,
+            1.0e-12,
+            1000.0,
+            1.0,
+            2.0,
+            SMatrix3::identity(),
+            OMEGA_VECTOR,
+        );
+
+        for i in 0..3 {
+            assert_eq!(legacy[i], for_body[i]);
+        }
     }
 
     #[rstest]

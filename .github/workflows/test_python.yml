@@ -33,11 +33,19 @@ jobs:
                     rustup default ${{ matrix.rust-toolchain }}
             -   uses: actions/checkout@v7.0.0
             -   name: Install the latest version of uv
-                uses: astral-sh/setup-uv@v8.2.0
+                uses: astral-sh/setup-uv@v8.3.0
                 with:
                     enable-cache: true
             -   name: Install Python ${{ matrix.python-version }}
                 run: uv python install ${{ matrix.python-version }}
+
+            -   name: Cache brahe data (kernels, gravity models)
+                uses: actions/cache@v6.1.0
+                with:
+                    path: ~/.cache/brahe
+                    key: brahe-data-v1-${{ hashFiles('.github/brahe-data-manifest.txt') }}
+                    restore-keys: |
+                        brahe-data-v1-
 
             -   name: Install dependencies
                 run: uv sync --group test --all-extras --frozen --python ${{ matrix.python-version }}

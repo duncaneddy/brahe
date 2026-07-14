@@ -489,6 +489,67 @@ impl PySGPPropagator {
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
+    /// Get the state at the given epoch in the central body's body-centered
+    /// inertial (BCI) frame: ICRF-aligned axes centered on the body the
+    /// states are defined about (GCRF for Earth-centered sources, LCI/MCI
+    /// for a Moon/Mars-centered trajectory).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     inertial frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_bci(&self.propagator, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// body-fixed (BCBF) frame (ITRF for Earth-centered sources, LFPA/MCMF
+    /// for a Moon/Mars-centered trajectory).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     body-fixed frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_bcbf(&self.propagator, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch expressed in an arbitrary reference
+    /// frame, converting from the source's native central-body frame.
+    ///
+    /// Args:
+    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in `frame` (meters, m/s).
+    #[pyo3(text_signature = "(frame, epoch)")]
+    pub fn state_in_frame<'a>(
+        &self,
+        py: Python<'a>,
+        frame: &PyReferenceFrame,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = SOrbitStateProvider::state_in_frame(&self.propagator, frame.frame, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
     /// Compute state at a specific epoch in EME2000 coordinates.
     ///
     /// Args:
@@ -2321,6 +2382,67 @@ impl PyKeplerianPropagator {
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }
 
+    /// Get the state at the given epoch in the central body's body-centered
+    /// inertial (BCI) frame. KeplerianPropagator is Earth-centered, so this
+    /// is the GCRF state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     inertial frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_bci(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// body-fixed (BCBF) frame. KeplerianPropagator is Earth-centered, so
+    /// this is the ITRF state.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     body-fixed frame (meters, m/s).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_bcbf(epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch expressed in an arbitrary reference
+    /// frame, converting from GCRF (this propagator's central body's
+    /// inertial frame).
+    ///
+    /// Args:
+    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in `frame` (meters, m/s).
+    #[pyo3(text_signature = "(frame, epoch)")]
+    pub fn state_in_frame<'a>(
+        &self,
+        py: Python<'a>,
+        frame: &PyReferenceFrame,
+        epoch: PyRef<PyEpoch>,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self.propagator.state_in_frame(frame.frame, epoch.obj)?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
     /// Compute state at a specific epoch in EME2000 coordinates.
     ///
     /// Args:
@@ -3789,22 +3911,24 @@ impl PyTidesConfiguration {
         permanent: &PyPermanentTideConfig,
         solid: Option<&PySolidTideConfig>,
     ) -> PyResult<Self> {
-        if let propagators::PermanentTideConfig::ConvertTo(sys) = &permanent.config 
-            && *sys != orbit_dynamics::GravityModelTideSystem::TideFree && solid.is_some() {
-                let msg = std::ffi::CString::new(format!(
-                    "PermanentTideConfig.convert_to(GravityModelTideSystem.{sys:?}) combined \
+        if let propagators::PermanentTideConfig::ConvertTo(sys) = &permanent.config
+            && *sys != orbit_dynamics::GravityModelTideSystem::TideFree
+            && solid.is_some()
+        {
+            let msg = std::ffi::CString::new(format!(
+                "PermanentTideConfig.convert_to(GravityModelTideSystem.{sys:?}) combined \
                      with solid Earth tides double-counts the permanent tide: the solid-tide \
                      model (IERS \u{a7}6.2.1) already includes the permanent part and expects a \
                      conventional tide-free background field. Use \
                      convert_to(GravityModelTideSystem.TideFree) or PermanentTideConfig.AUTO, \
                      or disable solid tides."
-                ))?;
-                PyErr::warn(
-                    py,
-                    &py.get_type::<pyo3::exceptions::PyUserWarning>(),
-                    &msg,
-                    2,
-                )?;
+            ))?;
+            PyErr::warn(
+                py,
+                &py.get_type::<pyo3::exceptions::PyUserWarning>(),
+                &msg,
+                2,
+            )?;
         }
         Ok(Self {
             config: propagators::TidesConfiguration {
@@ -4252,6 +4376,294 @@ impl PyDragConfiguration {
 }
 
 // =============================================================================
+// Central Body
+// =============================================================================
+
+/// The central body an orbit is propagated relative to.
+///
+/// `Earth`, `Moon`, and `Mars` are built in because they have dedicated named
+/// inertial/fixed frame pairs elsewhere in brahe (`GCRF`/`ITRF`, `LCI`/`LFPA`,
+/// `MCI`/`MCMF`). `EMB` and `SSB` are the Earth-Moon and Solar System
+/// barycenters -- useful as propagation origins for heliocentric or cislunar
+/// trajectories, but they have no physical radius, spin, or fixed frame. Any
+/// other body is constructed via `CentralBody.Custom(...)` or
+/// `CentralBody.from_naif_id(...)`.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     earth = bh.CentralBody.Earth
+///     moon = bh.CentralBody.Moon
+///     enceladus = bh.CentralBody.from_naif_id(602)
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "CentralBody")]
+#[derive(Clone, PartialEq)]
+pub struct PyCentralBody {
+    pub(crate) body: propagators::CentralBody,
+}
+
+#[pymethods]
+impl PyCentralBody {
+    /// Earth (NAIF ID 399).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Earth() -> Self {
+        PyCentralBody { body: propagators::CentralBody::Earth }
+    }
+
+    /// Moon (NAIF ID 301).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Moon() -> Self {
+        PyCentralBody { body: propagators::CentralBody::Moon }
+    }
+
+    /// Mars (body center, NAIF ID 499).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Mars() -> Self {
+        PyCentralBody { body: propagators::CentralBody::Mars }
+    }
+
+    /// Earth-Moon barycenter (NAIF ID 3).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn EMB() -> Self {
+        PyCentralBody { body: propagators::CentralBody::EMB }
+    }
+
+    /// Solar System barycenter (NAIF ID 0).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SSB() -> Self {
+        PyCentralBody { body: propagators::CentralBody::SSB }
+    }
+
+    /// Construct a user-defined central body.
+    ///
+    /// Args:
+    ///     name (str): Human-readable name (e.g. `"Enceladus"`).
+    ///     naif_id (int): NAIF ID of the body.
+    ///     gm (float): Gravitational parameter. Units: (m^3/s^2)
+    ///     radius (float, optional): Mean or equatorial radius, if known. Units: (m)
+    ///     omega (numpy.ndarray or list, optional): Body-fixed axial spin vector, if known. Units: (rad/s)
+    ///     fixed_frame (ReferenceFrame, optional): Body-fixed reference frame, required for
+    ///         spherical-harmonic gravity and body-fixed rotations.
+    ///
+    /// Returns:
+    ///     CentralBody: A user-defined central body.
+    #[staticmethod]
+    #[pyo3(signature = (name, naif_id, gm, radius=None, omega=None, fixed_frame=None))]
+    #[allow(non_snake_case)]
+    fn Custom(
+        name: String,
+        naif_id: i32,
+        gm: f64,
+        radius: Option<f64>,
+        omega: Option<Bound<'_, PyAny>>,
+        fixed_frame: Option<PyReferenceFrame>,
+    ) -> PyResult<Self> {
+        let omega_vec = match omega {
+            Some(o) => Some(pyany_to_svector::<3>(&o)?),
+            None => None,
+        };
+        Ok(PyCentralBody {
+            body: propagators::CentralBody::Custom(propagators::CustomBody {
+                name,
+                naif_id,
+                gm,
+                radius,
+                omega: omega_vec,
+                fixed_frame: fixed_frame.map(|f| f.frame),
+            }),
+        })
+    }
+
+    /// Construct a `CentralBody` from a NAIF ID.
+    ///
+    /// `399`, `301`, `4`/`499`, `3`, and `0` map to the built-in `Earth`,
+    /// `Moon`, `Mars`, `EMB`, and `SSB` variants respectively. A fixed table of
+    /// other commonly used bodies maps to a pre-populated `Custom` variant.
+    ///
+    /// Args:
+    ///     naif_id (int): NAIF ID of the body.
+    ///
+    /// Returns:
+    ///     CentralBody: The corresponding central body.
+    ///
+    /// Raises:
+    ///     ValueError: If `naif_id` is not a built-in body or in the embedded table.
+    #[staticmethod]
+    fn from_naif_id(naif_id: i32) -> PyResult<Self> {
+        propagators::CentralBody::from_naif_id(naif_id)
+            .map(|body| PyCentralBody { body })
+            .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Gravitational parameter of the central body.
+    ///
+    /// Returns:
+    ///     float: Gravitational parameter. Units: (m^3/s^2). `0.0` for the `EMB` and `SSB` barycenters.
+    fn gm(&self) -> f64 {
+        self.body.gm()
+    }
+
+    /// Mean or equatorial radius of the central body.
+    ///
+    /// Returns:
+    ///     float or None: Radius, if known. Units: (m). `None` for the `EMB` and `SSB` barycenters.
+    fn radius(&self) -> Option<f64> {
+        self.body.radius()
+    }
+
+    /// NAIF ID of the central body.
+    ///
+    /// Returns:
+    ///     int: NAIF ID.
+    fn naif_id(&self) -> i32 {
+        self.body.naif_id()
+    }
+
+    /// Body-fixed axial spin vector of the central body.
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: Spin vector expressed in the body's inertial frame, if
+    ///     known. Units: (rad/s). `None` for the `EMB`/`SSB` barycenters and for `Custom`
+    ///     bodies unless `omega` was set explicitly.
+    fn omega_vector<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray<f64, Ix1>>> {
+        self.body.omega_vector().map(|v| vector_to_numpy!(py, v, 3, f64))
+    }
+
+    /// ICRF-aligned inertial reference frame centered on this body.
+    ///
+    /// Returns:
+    ///     ReferenceFrame: `GCRF` for `Earth`, `LCI` for `Moon`, `MCI` for `Mars`, `EMBI`
+    ///     for `EMB`, `SSBI` for `SSB`, and `BodyCenteredICRF(naif_id)` for `Custom` bodies.
+    fn inertial_frame(&self) -> PyReferenceFrame {
+        PyReferenceFrame { frame: self.body.inertial_frame() }
+    }
+
+    /// Body-fixed reference frame of this body, if one is defined.
+    ///
+    /// Returns:
+    ///     ReferenceFrame or None: `ITRF` for `Earth`, `LFPA` for `Moon`, `MCMF` for `Mars`,
+    ///     `None` for `EMB`/`SSB`, and `custom.fixed_frame` for `Custom` bodies.
+    fn fixed_frame(&self) -> Option<PyReferenceFrame> {
+        self.body.fixed_frame().map(|frame| PyReferenceFrame { frame })
+    }
+
+    /// Whether this central body is a barycenter (`EMB` or `SSB`).
+    ///
+    /// Returns:
+    ///     bool: `True` for `EMB`/`SSB`, `False` otherwise.
+    fn is_barycenter(&self) -> bool {
+        self.body.is_barycenter()
+    }
+
+    fn __str__(&self) -> String {
+        self.body.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("CentralBody.{:?}", self.body)
+    }
+}
+
+// =============================================================================
+// Occulting Body
+// =============================================================================
+
+/// Occulting body for eclipse/shadow modeling in solar radiation pressure calculations.
+///
+/// Identifies a celestial body whose shadow may occult the sun as seen from the
+/// spacecraft.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     earth = bh.OccultingBody.Earth
+///     custom = bh.OccultingBody.Custom(name="Europa", naif_id=502, radius=1560.8e3)
+///     ```
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
+#[pyo3(name = "OccultingBody")]
+#[derive(Clone, PartialEq)]
+pub struct PyOccultingBody {
+    pub(crate) body: propagators::OccultingBody,
+}
+
+#[pymethods]
+impl PyOccultingBody {
+    /// Earth.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Earth() -> Self {
+        PyOccultingBody { body: propagators::OccultingBody::Earth }
+    }
+
+    /// Moon.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Moon() -> Self {
+        PyOccultingBody { body: propagators::OccultingBody::Moon }
+    }
+
+    /// Mars.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn Mars() -> Self {
+        PyOccultingBody { body: propagators::OccultingBody::Mars }
+    }
+
+    /// Construct a user-defined occulting body.
+    ///
+    /// Args:
+    ///     name (str): Descriptive name of the body.
+    ///     naif_id (int): NAIF ID of the physical body.
+    ///     radius (float): Mean physical radius of the body. Units: (m)
+    ///
+    /// Returns:
+    ///     OccultingBody: A user-defined occulting body.
+    #[staticmethod]
+    #[pyo3(signature = (name, naif_id, radius))]
+    #[allow(non_snake_case)]
+    fn Custom(name: String, naif_id: i32, radius: f64) -> Self {
+        PyOccultingBody { body: propagators::OccultingBody::Custom { name, naif_id, radius } }
+    }
+
+    /// Mean physical radius of the occulting body.
+    ///
+    /// Returns:
+    ///     float: Physical radius of the body. Units: (m)
+    fn radius(&self) -> f64 {
+        self.body.radius()
+    }
+
+    /// NAIF ID of the physical occulting body.
+    ///
+    /// Returns:
+    ///     int: NAIF integer ID of the physical body.
+    fn naif_id(&self) -> i32 {
+        self.body.naif_id()
+    }
+
+    /// NAIF ID to use when resolving the occulting body's position via SPK ephemerides.
+    ///
+    /// Returns:
+    ///     int: NAIF integer ID to use for SPK position queries. Identical to `naif_id`
+    ///     for every variant (the physical body center).
+    fn naif_position_id(&self) -> i32 {
+        self.body.naif_position_id()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("OccultingBody.{:?}", self.body)
+    }
+}
+
+// =============================================================================
 // SRP Configuration
 // =============================================================================
 
@@ -4263,11 +4675,14 @@ impl PyDragConfiguration {
 ///     area (ParameterSource): SRP cross-sectional area source [m²].
 ///     cr (ParameterSource): Coefficient of reflectivity source (dimensionless).
 ///     eclipse_model (EclipseModel): Eclipse model for shadow effects.
+///     occulting_bodies (list[OccultingBody], optional): Bodies whose shadow may occult
+///         the sun. Defaults to `[OccultingBody.Earth]`.
 ///
 /// Attributes:
 ///     area (ParameterSource): SRP area source
 ///     cr (ParameterSource): Reflectivity coefficient source
 ///     eclipse_model (EclipseModel): Eclipse model
+///     occulting_bodies (list[OccultingBody]): Bodies whose shadow may occult the sun
 ///
 /// Example:
 ///     ```python
@@ -4294,18 +4709,24 @@ impl PySolarRadiationPressureConfiguration {
     ///     area (ParameterSource): SRP cross-sectional area source [m²].
     ///     cr (ParameterSource): Coefficient of reflectivity source (dimensionless).
     ///     eclipse_model (EclipseModel): Eclipse model for shadow effects.
+    ///     occulting_bodies (list[OccultingBody], optional): Bodies whose shadow may occult
+    ///         the sun. Defaults to `[OccultingBody.Earth]`.
     #[new]
-    #[pyo3(signature = (area, cr, eclipse_model))]
+    #[pyo3(signature = (area, cr, eclipse_model, occulting_bodies=None))]
     fn new(
         area: &PyParameterSource,
         cr: &PyParameterSource,
         eclipse_model: &PyEclipseModel,
+        occulting_bodies: Option<Vec<PyOccultingBody>>,
     ) -> Self {
         PySolarRadiationPressureConfiguration {
             config: propagators::SolarRadiationPressureConfiguration {
                 area: area.source.clone(),
                 cr: cr.source.clone(),
                 eclipse_model: eclipse_model.model.clone(),
+                occulting_bodies: occulting_bodies
+                    .map(|bodies| bodies.into_iter().map(|b| b.body).collect())
+                    .unwrap_or_else(|| vec![propagators::OccultingBody::Earth]),
             },
         }
     }
@@ -4352,10 +4773,22 @@ impl PySolarRadiationPressureConfiguration {
         self.config.eclipse_model = eclipse_model.model.clone();
     }
 
+    /// Get the bodies whose shadow may occult the sun.
+    #[getter]
+    fn occulting_bodies(&self) -> Vec<PyOccultingBody> {
+        self.config.occulting_bodies.iter().map(|b| PyOccultingBody { body: b.clone() }).collect()
+    }
+
+    /// Set the bodies whose shadow may occult the sun.
+    #[setter]
+    fn set_occulting_bodies(&mut self, occulting_bodies: Vec<PyOccultingBody>) {
+        self.config.occulting_bodies = occulting_bodies.into_iter().map(|b| b.body).collect();
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "SolarRadiationPressureConfiguration(area={:?}, cr={:?}, eclipse_model={:?})",
-            self.config.area, self.config.cr, self.config.eclipse_model
+            "SolarRadiationPressureConfiguration(area={:?}, cr={:?}, eclipse_model={:?}, occulting_bodies={:?})",
+            self.config.area, self.config.cr, self.config.eclipse_model, self.config.occulting_bodies
         )
     }
 }
@@ -4374,52 +4807,136 @@ impl PySolarRadiationPressureConfiguration {
 ///
 ///     sun = bh.ThirdBody.SUN
 ///     moon = bh.ThirdBody.MOON
+///     ceres = bh.ThirdBody.Custom(name="Ceres", naif_id=2000001, gm=6.26325e10)
 ///     ```
-#[pyclass(module = "brahe._brahe", eq, eq_int, from_py_object)]
+#[pyclass(module = "brahe._brahe", eq, from_py_object)]
 #[pyo3(name = "ThirdBody")]
-#[derive(Clone, PartialEq, Eq)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum PyThirdBody {
-    SUN,
-    MOON,
-    MERCURY,
-    VENUS,
-    MARS,
-    JUPITER,
-    SATURN,
-    URANUS,
-    NEPTUNE,
+#[derive(Clone, PartialEq)]
+pub struct PyThirdBody {
+    pub(crate) body: propagators::ThirdBody,
 }
 
-impl From<PyThirdBody> for propagators::ThirdBody {
-    fn from(body: PyThirdBody) -> Self {
-        match body {
-            PyThirdBody::SUN => propagators::ThirdBody::Sun,
-            PyThirdBody::MOON => propagators::ThirdBody::Moon,
-            PyThirdBody::MERCURY => propagators::ThirdBody::Mercury,
-            PyThirdBody::VENUS => propagators::ThirdBody::Venus,
-            PyThirdBody::MARS => propagators::ThirdBody::Mars,
-            PyThirdBody::JUPITER => propagators::ThirdBody::Jupiter,
-            PyThirdBody::SATURN => propagators::ThirdBody::Saturn,
-            PyThirdBody::URANUS => propagators::ThirdBody::Uranus,
-            PyThirdBody::NEPTUNE => propagators::ThirdBody::Neptune,
-        }
+#[pymethods]
+impl PyThirdBody {
+    /// Sun.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SUN() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Sun }
     }
-}
 
-impl From<propagators::ThirdBody> for PyThirdBody {
-    fn from(body: propagators::ThirdBody) -> Self {
-        match body {
-            propagators::ThirdBody::Sun => PyThirdBody::SUN,
-            propagators::ThirdBody::Moon => PyThirdBody::MOON,
-            propagators::ThirdBody::Mercury => PyThirdBody::MERCURY,
-            propagators::ThirdBody::Venus => PyThirdBody::VENUS,
-            propagators::ThirdBody::Mars => PyThirdBody::MARS,
-            propagators::ThirdBody::Jupiter => PyThirdBody::JUPITER,
-            propagators::ThirdBody::Saturn => PyThirdBody::SATURN,
-            propagators::ThirdBody::Uranus => PyThirdBody::URANUS,
-            propagators::ThirdBody::Neptune => PyThirdBody::NEPTUNE,
-        }
+    /// Moon.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn MOON() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Moon }
+    }
+
+    /// Mercury.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn MERCURY() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Mercury }
+    }
+
+    /// Venus.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn VENUS() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Venus }
+    }
+
+    /// Mars.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn MARS() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Mars }
+    }
+
+    /// Jupiter.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn JUPITER() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Jupiter }
+    }
+
+    /// Saturn.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SATURN() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Saturn }
+    }
+
+    /// Uranus.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn URANUS() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Uranus }
+    }
+
+    /// Neptune.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn NEPTUNE() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Neptune }
+    }
+
+    /// Earth. Only meaningful as a perturber when the central body is not
+    /// Earth itself (e.g. `CentralBody.EMB` or `CentralBody.Mars`).
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn EARTH() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Earth }
+    }
+
+    /// Phobos, the larger of Mars's two moons.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn PHOBOS() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Phobos }
+    }
+
+    /// Deimos, the smaller of Mars's two moons.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn DEIMOS() -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Deimos }
+    }
+
+    /// Construct a user-defined perturbing body.
+    ///
+    /// Args:
+    ///     name (str): Human-readable name (e.g. `"Ceres"`).
+    ///     naif_id (int): NAIF ID of the body.
+    ///     gm (float): Gravitational parameter. Units: (m^3/s^2)
+    ///
+    /// Returns:
+    ///     ThirdBody: A user-defined perturbing body.
+    #[staticmethod]
+    #[pyo3(signature = (name, naif_id, gm))]
+    #[allow(non_snake_case)]
+    fn Custom(name: String, naif_id: i32, gm: f64) -> Self {
+        PyThirdBody { body: propagators::ThirdBody::Custom { name, naif_id, gm } }
+    }
+
+    /// NAIF ID of the perturbing body.
+    ///
+    /// Returns:
+    ///     int: NAIF ID.
+    fn naif_id(&self) -> i32 {
+        self.body.naif_id()
+    }
+
+    /// Gravitational parameter of the perturbing body.
+    ///
+    /// Returns:
+    ///     float: Gravitational parameter. Units: (m^3/s^2)
+    fn gm(&self) -> f64 {
+        self.body.gm()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ThirdBody.{:?}", self.body)
     }
 }
 
@@ -4464,7 +4981,7 @@ impl PyThirdBodyConfiguration {
         PyThirdBodyConfiguration {
             config: propagators::ThirdBodyConfiguration {
                 ephemeris_source: ephemeris_source.into(),
-                bodies: bodies.into_iter().map(|b| b.into()).collect(),
+                bodies: bodies.into_iter().map(|b| b.body).collect(),
             },
         }
     }
@@ -4476,10 +4993,13 @@ impl PyThirdBodyConfiguration {
             propagators::EphemerisSource::LowPrecision => PyEphemerisSource::LowPrecision,
             propagators::EphemerisSource::DE440s => PyEphemerisSource::DE440s,
             propagators::EphemerisSource::DE440 => PyEphemerisSource::DE440,
-            propagators::EphemerisSource::SPK(spice::SPKKernel::DE440s) => {
-                PyEphemerisSource::DE440s
+            propagators::EphemerisSource::SPK(spice::SPICEKernel::DE440) => {
+                PyEphemerisSource::DE440
             }
-            propagators::EphemerisSource::SPK(spice::SPKKernel::DE440) => PyEphemerisSource::DE440,
+            // The Python `EphemerisSource` enum exposes only LowPrecision/DE440s/DE440,
+            // so it can never construct any other SPK kernel; map the remainder to
+            // DE440s as the closest Python-visible source.
+            propagators::EphemerisSource::SPK(_) => PyEphemerisSource::DE440s,
         }
     }
 
@@ -4495,14 +5015,14 @@ impl PyThirdBodyConfiguration {
         self.config
             .bodies
             .iter()
-            .map(|b| b.clone().into())
+            .map(|b| PyThirdBody { body: b.clone() })
             .collect()
     }
 
     /// Set the list of third bodies.
     #[setter]
     fn set_bodies(&mut self, bodies: Vec<PyThirdBody>) {
-        self.config.bodies = bodies.into_iter().map(|b| b.into()).collect();
+        self.config.bodies = bodies.into_iter().map(|b| b.body).collect();
     }
 
     fn __repr__(&self) -> String {
@@ -4820,7 +5340,7 @@ impl PyNumericalPropagationConfig {
 ///         Default is None (disabled).
 ///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
 ///         Default is None (disabled).
-///     relativity (bool): Enable relativistic corrections. Default is False.
+///     relativity (bool, optional): Enable relativistic corrections. Default is False.
 ///     mass (ParameterSource, optional): Spacecraft mass source. Default is None.
 ///     frame_transform (FrameTransformationModel, optional): ECI-to-body-fixed rotation
 ///         used by every body-fixed force term. Defaults to ``FULL_EARTH_ROTATION``.
@@ -4865,7 +5385,7 @@ impl PyForceModelConfig {
     ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
     ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
     ///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
-    ///     relativity (bool): Enable relativistic corrections. Default is False.
+    ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
     ///     mass (ParameterSource, optional): Spacecraft mass source.
     ///     tides (TidesConfiguration, optional): Solid Earth tides configuration.
     ///
@@ -4896,6 +5416,7 @@ impl PyForceModelConfig {
     ) -> Self {
         PyForceModelConfig {
             config: propagators::ForceModelConfig {
+                central_body: propagators::CentralBody::default(),
                 gravity: gravity
                     .map(|g| g.config.clone())
                     .unwrap_or(propagators::GravityConfiguration::PointMass),
@@ -4996,6 +5517,107 @@ impl PyForceModelConfig {
         }
     }
 
+    /// Create a force model configuration for a specific central body.
+    ///
+    /// Convenience constructor that fills in `frame_transform` with its default
+    /// (`FrameTransformationModel.FULL_EARTH_ROTATION`) so callers only need to
+    /// specify the options that vary per central body. Does not validate the
+    /// resulting configuration -- call `validate()` to check that the chosen
+    /// options are compatible with `central_body`.
+    ///
+    /// Args:
+    ///     central_body (CentralBody): Body the orbit is propagated relative to.
+    ///     gravity (GravityConfiguration): Gravity model configuration.
+    ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
+    ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
+    ///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
+    ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
+    ///     mass (ParameterSource, optional): Spacecraft mass source.
+    ///
+    /// Returns:
+    ///     ForceModelConfig: A force model configuration for `central_body`.
+    #[classmethod]
+    #[pyo3(signature = (central_body, gravity, drag=None, srp=None, third_body=None, relativity=false, mass=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn for_body(
+        _cls: &Bound<'_, PyType>,
+        central_body: &PyCentralBody,
+        gravity: &PyGravityConfiguration,
+        drag: Option<&PyDragConfiguration>,
+        srp: Option<&PySolarRadiationPressureConfiguration>,
+        third_body: Option<&PyThirdBodyConfiguration>,
+        relativity: bool,
+        mass: Option<&PyParameterSource>,
+    ) -> Self {
+        PyForceModelConfig {
+            config: propagators::ForceModelConfig::for_body(
+                central_body.body.clone(),
+                gravity.config.clone(),
+                drag.map(|d| d.config.clone()),
+                srp.map(|s| s.config.clone()),
+                third_body.map(|t| t.config.clone()),
+                relativity,
+                mass.map(|m| m.source.clone()),
+            ),
+        }
+    }
+
+    /// Create a configuration suitable for propagation about the Moon.
+    ///
+    /// Uses 50x50 GRGM660PRIM lunar gravity, no drag, SRP occulted by the Moon
+    /// and Earth, and Earth/Sun third-body perturbations (DE440s ephemerides).
+    /// Requires parameter vector: [mass, _, _, srp_area, Cr]
+    ///
+    /// Returns:
+    ///     ForceModelConfig: Configuration with the Moon as the central body.
+    #[classmethod]
+    fn lunar_default(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig { config: propagators::ForceModelConfig::lunar_default() }
+    }
+
+    /// Create a configuration suitable for propagation about Mars.
+    ///
+    /// Uses 50x50 GMM-2B Mars gravity, exponential atmospheric drag, SRP
+    /// occulted by Mars, and Sun third-body perturbations (DE440s ephemerides).
+    /// Requires parameter vector: [mass, drag_area, Cd, srp_area, Cr]
+    ///
+    /// Returns:
+    ///     ForceModelConfig: Configuration with Mars as the central body.
+    #[classmethod]
+    fn mars_default(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig { config: propagators::ForceModelConfig::mars_default() }
+    }
+
+    /// Create a configuration suitable for cislunar propagation about the Earth-Moon barycenter.
+    ///
+    /// Uses point mass gravity (the barycenter has no mass of its own), no
+    /// drag, SRP occulted by Earth and the Moon, and Earth/Moon/Sun third-body
+    /// perturbations (DE440s ephemerides).
+    /// Requires parameter vector: [mass, _, _, srp_area, Cr]
+    ///
+    /// Returns:
+    ///     ForceModelConfig: Configuration with the Earth-Moon barycenter as the central body.
+    #[classmethod]
+    fn cislunar_default(_cls: &Bound<'_, PyType>) -> Self {
+        PyForceModelConfig { config: propagators::ForceModelConfig::cislunar_default() }
+    }
+
+    /// Validate that this configuration's options are compatible with its central body.
+    ///
+    /// This method is called automatically at propagator construction; it may
+    /// also be called explicitly ahead of time on a standalone configuration for
+    /// early feedback.
+    ///
+    /// Returns:
+    ///     None: If the configuration is internally consistent.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the configuration is internally inconsistent (naming both
+    ///         the offending option and the central body).
+    pub fn validate(&self) -> PyResult<()> {
+        self.config.validate().map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    }
+
     /// Check if this configuration requires a parameter vector.
     pub fn requires_params(&self) -> bool {
         self.config.requires_params()
@@ -5004,6 +5626,18 @@ impl PyForceModelConfig {
     // =========================================================================
     // Field Accessors
     // =========================================================================
+
+    /// Get the central body this configuration propagates relative to.
+    #[getter]
+    fn central_body(&self) -> PyCentralBody {
+        PyCentralBody { body: self.config.central_body.clone() }
+    }
+
+    /// Set the central body this configuration propagates relative to.
+    #[setter]
+    fn set_central_body(&mut self, central_body: &PyCentralBody) {
+        self.config.central_body = central_body.body.clone();
+    }
 
     /// Get the gravity configuration.
     #[getter]
@@ -5537,6 +6171,92 @@ impl PyNumericalOrbitPropagator {
         epoch: &PyEpoch,
     ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
         let state = DOrbitStateProvider::state_eci(&self.propagator, epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// inertial (BCI) frame (`GCRF` for an `Earth`-centered propagator, `LCI`
+    /// for a `Moon`-centered one, `MCI` for `Mars`, etc.).
+    ///
+    /// This is the state the integrator actually propagates: no central-body
+    /// offset or axis rotation is applied. `state_eci` always returns an
+    /// Earth-centered state regardless of the propagator's central body; use
+    /// this method to get the state in its native frame instead, which avoids
+    /// an Earth round trip for non-Earth propagators.
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     inertial frame.
+    ///
+    /// Raises:
+    ///     RuntimeError: If `epoch` is outside the propagator's stored trajectory
+    ///         and does not match the current epoch.
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self
+            .propagator
+            .state_bci(epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Get the state at the given epoch in the central body's body-centered
+    /// body-fixed (BCBF) frame (`ITRF` for an `Earth`-centered propagator,
+    /// `LFPA` for a `Moon`-centered one, `MCMF` for `Mars`, the configured
+    /// fixed frame for a custom body).
+    ///
+    /// Args:
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in the central body's
+    ///     body-fixed frame.
+    ///
+    /// Raises:
+    ///     RuntimeError: If `epoch` is outside the propagator's stored trajectory,
+    ///         or the central body has no body-fixed frame (`EMB`/`SSB`
+    ///         barycenters, custom bodies without a configured frame).
+    #[pyo3(text_signature = "(epoch)")]
+    pub fn state_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epoch: &PyEpoch,
+    ) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self
+            .propagator
+            .state_bcbf(epoch.obj)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(state.as_slice().to_pyarray(py).to_owned())
+    }
+
+    /// Compute the state at the given epoch in an arbitrary reference frame.
+    ///
+    /// Converts directly from this propagator's own central body's inertial
+    /// frame, avoiding an unnecessary Earth round trip for a lunar/Martian
+    /// propagator.
+    ///
+    /// Args:
+    ///     frame (ReferenceFrame): Reference frame to express the state in.
+    ///     epoch (Epoch): Target epoch for state computation.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: State vector [x, y, z, vx, vy, vz] in `frame`.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the state cannot be computed or the frame conversion fails.
+    #[pyo3(text_signature = "(frame, epoch)")]
+    pub fn state_in_frame<'a>(&self, py: Python<'a>, frame: &PyReferenceFrame, epoch: &PyEpoch) -> PyResult<Bound<'a, PyArray<f64, Ix1>>> {
+        let state = self
+            .propagator
+            .state_in_frame(frame.frame, epoch.obj)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(state.as_slice().to_pyarray(py).to_owned())
     }

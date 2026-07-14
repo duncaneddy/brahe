@@ -541,6 +541,7 @@ include!("time.rs");
 include!("frames.rs");
 include!("coordinates.rs");
 include!("orbits.rs");
+include!("spice.rs");
 include!("orbit_dynamics.rs"); // Must come before propagators.rs (uses PyEphemerisSource)
 include!("integrators.rs"); // Must come before propagators.rs (uses PyIntegratorConfig)
 include!("events.rs"); // Must come before propagators.rs (premade events used in add_event_detector)
@@ -577,6 +578,10 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("AS2RAD", constants::AS2RAD)?;
     module.add("RAD2AS", constants::RAD2AS)?;
     module.add("SECONDS_PER_DAY", constants::SECONDS_PER_DAY)?;
+    module.add(
+        "SECONDS_PER_JULIAN_CENTURY",
+        constants::SECONDS_PER_JULIAN_CENTURY,
+    )?;
     module.add("MJD_ZERO", constants::MJD_ZERO)?;
     module.add("MJD_J2000", constants::MJD_J2000)?;
     module.add("JD_J2000", constants::JD_J2000)?;
@@ -621,6 +626,11 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("GM_URANUS", constants::GM_URANUS)?;
     module.add("GM_NEPTUNE", constants::GM_NEPTUNE)?;
     module.add("GM_PLUTO", constants::GM_PLUTO)?;
+    module.add("R_MARS", constants::R_MARS)?;
+    module.add("OMEGA_MARS", constants::OMEGA_MARS)?;
+    module.add("OMEGA_MOON", constants::OMEGA_MOON)?;
+    module.add("GM_PHOBOS", constants::GM_PHOBOS)?;
+    module.add("GM_DEIMOS", constants::GM_DEIMOS)?;
 
     //* EOP *//
 
@@ -823,6 +833,53 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_gcrf_to_eme2000, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eme2000_to_gcrf, module)?)?;
 
+    // IAU/WGCCRE body rotation model
+    module.add_function(wrap_pyfunction!(
+        py_rotation_icrf_to_body_fixed_iau,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_iau_rotation_model_ids, module)?)?;
+
+    // Mars reference frames (MCI, MCMF)
+    module.add_function(wrap_pyfunction!(py_rotation_mci_to_mcmf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_mcmf_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_mci_to_mcmf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_mcmf_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_mci_to_mcmf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_mcmf_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_eci_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_mci_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_mci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_mci_to_eci, module)?)?;
+
+    // Lunar reference frames (LCI, LFPA, LFME)
+    module.add_function(wrap_pyfunction!(py_rotation_lci_to_lfpa, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lfpa_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lfme_to_lfpa, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lfpa_to_lfme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lci_to_lfme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_lfme_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lci_to_lfpa, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lfpa_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lci_to_lfme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lfme_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lci_to_lfpa, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lfpa_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lci_to_lfme, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lfme_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_eci_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_lci_to_eci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_lci, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_lci_to_eci, module)?)?;
+
+    // Reference frame router
+    module.add_class::<PyReferenceFrame>()?;
+    module.add_function(wrap_pyfunction!(py_rotation_frame_to_frame, module)?)?;
+    module.add_function(wrap_pyfunction!(py_register_custom_frame, module)?)?;
+    module.add_function(wrap_pyfunction!(py_unregister_custom_frame, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_frame_to_frame, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_frame_to_frame, module)?)?;
+
     //* Coordinates *//
 
     // Coordinate Types
@@ -831,6 +888,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Cartesian
     module.add_function(wrap_pyfunction!(py_state_koe_to_eci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_eci_to_koe, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_eci_to_koe_for_body, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_koe_to_eci_for_body, module)?)?;
 
     // Geocentric
     module.add_function(wrap_pyfunction!(py_position_geocentric_to_ecef, module)?)?;
@@ -896,6 +955,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyZonalHarmonicsDegree>()?;
     module.add_class::<PyParallelMode>()?;
     module.add_class::<PyFrameTransformationModel>()?;
+    module.add_class::<PyCentralBody>()?;
+    module.add_class::<PyOccultingBody>()?;
     module.add_class::<PyNumericalPropagationConfig>()?;
     module.add_class::<PyVariationalConfig>()?;
     module.add_class::<PyParameterSource>()?;
@@ -966,7 +1027,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_groundstations_load_from_file, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_load_all, module)?)?;
     module.add_function(wrap_pyfunction!(py_groundstations_list_providers, module)?)?;
-    module.add_function(wrap_pyfunction!(py_naif_download_de_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_download_spice_kernel, module)?)?;
 
     //* GCAT *//
     module.add_class::<PyGCATSatcatRecord>()?;
@@ -983,24 +1044,112 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_icgem_refresh_all_indexes, module)?)?;
     module.add_function(wrap_pyfunction!(py_icgem_download_model, module)?)?;
 
+    //* SPICE Kernel Registry *//
+    module.add_function(wrap_pyfunction!(py_load_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_unload_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_clear_kernels, module)?)?;
+    module.add_function(wrap_pyfunction!(py_loaded_kernels, module)?)?;
+    module.add_function(wrap_pyfunction!(py_kernel_is_loaded, module)?)?;
+    module.add_function(wrap_pyfunction!(py_load_common_kernels, module)?)?;
+    module.add_function(wrap_pyfunction!(py_load_all_kernels, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_position, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_velocity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_state, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_position_from_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_velocity_from_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_state_from_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_euler_angles, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_euler_angle, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_euler_rates, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_euler_angle_and_rates, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_quaternion, module)?)?;
+    module.add_function(wrap_pyfunction!(py_pck_rotation_matrix, module)?)?;
+
     //* Orbit Dynamics - Ephemerides *//
     module.add_class::<PyEphemerisSource>()?;
     module.add_function(wrap_pyfunction!(py_sun_position, module)?)?;
     module.add_function(wrap_pyfunction!(py_moon_position, module)?)?;
-    module.add_function(wrap_pyfunction!(py_sun_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_moon_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mercury_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_venus_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_mars_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_jupiter_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_saturn_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_uranus_position_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_neptune_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_sun_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_moon_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mercury_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_venus_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_barycenter_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_barycenter_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_mars_barycenter_state_spice, module)?)?;
     module.add_function(wrap_pyfunction!(
-        py_solar_system_barycenter_position_de,
+        py_jupiter_barycenter_position_spice,
         module
     )?)?;
-    module.add_function(wrap_pyfunction!(py_ssb_position_de, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_jupiter_barycenter_velocity_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_jupiter_barycenter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_saturn_barycenter_position_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_saturn_barycenter_velocity_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_saturn_barycenter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_uranus_barycenter_position_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_uranus_barycenter_velocity_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_uranus_barycenter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_neptune_barycenter_position_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_neptune_barycenter_velocity_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_neptune_barycenter_state_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_position_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_velocity_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(
+        py_solar_system_barycenter_state_spice,
+        module
+    )?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_position_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_velocity_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_ssb_state_spice, module)?)?;
     module.add_function(wrap_pyfunction!(py_initialize_ephemeris, module)?)?;
 
     //* Orbit Dynamics - Acceleration Models *//
@@ -1008,15 +1157,16 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Third-Body Accelerations
     module.add_function(wrap_pyfunction!(py_accel_third_body_sun, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_third_body_moon, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_mercury_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_jupiter_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_de, module)?)?;
-    module.add_function(wrap_pyfunction!(py_accel_third_body_neptune_de, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_sun_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_moon_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mercury_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_venus_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_mars_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_jupiter_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_saturn_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_uranus_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_neptune_spice, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_third_body_for_body, module)?)?;
 
     // Gravity Accelerations
     module.add_function(wrap_pyfunction!(py_accel_point_mass_gravity, module)?)?;
@@ -1062,10 +1212,14 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Drag, SRP, and Relativity
     module.add_function(wrap_pyfunction!(py_accel_drag, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_drag_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_solar_radiation_pressure, module)?)?;
     module.add_function(wrap_pyfunction!(py_eclipse_conical, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_conical_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_eclipse_cylindrical, module)?)?;
+    module.add_function(wrap_pyfunction!(py_eclipse_cylindrical_for_body, module)?)?;
     module.add_function(wrap_pyfunction!(py_accel_relativity, module)?)?;
+    module.add_function(wrap_pyfunction!(py_accel_relativity_for_body, module)?)?;
 
     //* Access *//
 

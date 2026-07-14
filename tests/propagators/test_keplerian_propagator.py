@@ -654,6 +654,34 @@ def test_keplerianpropagator_analyticpropagator_state_ecef():
         assert abs(computed_elements[i] - elements[i]) < 1e-6
 
 
+def test_keplerianpropagator_bci_bcbf_in_frame():
+    """Earth-centered propagator: state_bci == state_gcrf, state_bcbf ==
+    state_itrf, state_in_frame converts from GCRF.
+    Mirrors test_keplerian_propagator_bci_bcbf_in_frame."""
+    import numpy as np
+    from brahe import ReferenceFrame
+
+    epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)
+    propagator = KeplerianPropagator.from_keplerian(
+        epoch,
+        create_test_elements(),
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    np.testing.assert_array_equal(
+        propagator.state_bci(epoch), propagator.state_gcrf(epoch)
+    )
+    np.testing.assert_array_equal(
+        propagator.state_bcbf(epoch), propagator.state_itrf(epoch)
+    )
+    np.testing.assert_allclose(
+        propagator.state_in_frame(ReferenceFrame.ITRF, epoch),
+        propagator.state_itrf(epoch),
+        atol=1e-6,
+    )
+
+
 def test_keplerianpropagator_analyticpropagator_state_gcrf():
     """Test state_gcrf() method"""
     epoch = Epoch.from_jd(TEST_EPOCH_JD, TimeSystem.UTC)

@@ -36,6 +36,8 @@ from brahe._brahe import (
     GST_ZERO,
     UNIX_EPOCH_JD,
     UNIX_EPOCH_MJD,
+    SECONDS_PER_DAY,
+    SECONDS_PER_JULIAN_CENTURY,
     # Physical constants
     C_LIGHT,
     AU,
@@ -67,6 +69,14 @@ from brahe._brahe import (
     GM_URANUS,
     GM_NEPTUNE,
     GM_PLUTO,
+    # Mars constants
+    R_MARS,
+    OMEGA_MARS,
+    # Moon constants
+    OMEGA_MOON,
+    # Martian moon constants
+    GM_PHOBOS,
+    GM_DEIMOS,
 )
 
 __all__ = [
@@ -93,6 +103,8 @@ __all__ = [
     "BDT_ZERO",
     "GST_ZERO",
     "UNIX_EPOCH_JD",
+    "SECONDS_PER_DAY",
+    "SECONDS_PER_JULIAN_CENTURY",
     "UNIX_EPOCH_MJD",
     # Physical constants
     "C_LIGHT",
@@ -125,4 +137,12 @@ __all__ = [
     "GM_URANUS",
     "GM_NEPTUNE",
     "GM_PLUTO",
+    # Mars constants
+    "R_MARS",
+    "OMEGA_MARS",
+    # Moon constants
+    "OMEGA_MOON",
+    # Martian moon constants
+    "GM_PHOBOS",
+    "GM_DEIMOS",
 ]

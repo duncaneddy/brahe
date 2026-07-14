@@ -50,6 +50,8 @@ download-resources: _setup
     @{{python}} -c "from brahe.plots.texture_utils import download_natural_earth_texture; download_natural_earth_texture('50m')"
     @{{python}} -c "from brahe.plots.basemap import get_natural_earth_land_shapefile; get_natural_earth_land_shapefile()"
     @{{python}} {{scripts_dir}}/warm_cartopy.py
+    @{{python}} -c "import brahe as bh; bh.load_common_kernels()"
+    @{{python}} -c "import brahe as bh; bh.load_kernel('mar099s')"
 
 # Test all documentation examples (delegates to scripts/test_examples.py)
 test-examples *args: _setup
@@ -350,6 +352,20 @@ bench-compare-publish *args: _setup
     echo "✓ Benchmark artifacts staged. Review with 'git status' and commit when ready."
 
 # ───── Profiling ─────
+
+# One-time local development setup: uv venv (Python 3.14) + dev deps,
+# pre-commit hooks, and the major SPICE kernels tests expect to be cached
+# (de440s, moon_pa_de440, mar099s). Idempotent: kernel downloads fast-path
+# when already cached.
+setup:
+    @which uv > /dev/null 2>&1 || { echo "Error: uv is not installed. Install from https://docs.astral.sh/uv/"; exit 1; }
+    uv venv --python 3.14 --allow-existing
+    uv sync --group dev
+    uv pip install -e . --quiet
+    .venv/bin/pre-commit install
+    @{{python}} -c "import brahe as bh; bh.load_common_kernels()"
+    @{{python}} -c "import brahe as bh; bh.load_kernel('mar099s')"
+    @echo "✓ Setup complete (.venv ready, pre-commit hooks installed, kernels cached)"
 
 # Set up the full dev environment (Python dev deps + Rust dev tools).
 # Idempotent: only installs samply if not already on PATH.

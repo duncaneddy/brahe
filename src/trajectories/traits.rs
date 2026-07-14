@@ -29,6 +29,39 @@ pub enum TrajectoryEvictionPolicy {
     KeepWithinDuration,
 }
 
+/// Reference-frame-router frame with ICRF-aligned axes centered on `center`,
+/// used to convert `OrbitFrame::BodyCenteredInertial(center)` trajectory
+/// samples (named frames for the bodies that have them, generic
+/// `BodyCenteredICRF` otherwise).
+pub(crate) fn bci_reference_frame(center: i32) -> crate::frames::ReferenceFrame {
+    use crate::frames::ReferenceFrame;
+    match center {
+        399 => ReferenceFrame::GCRF,
+        301 => ReferenceFrame::LCI,
+        499 => ReferenceFrame::MCI,
+        3 => ReferenceFrame::EMBI,
+        0 => ReferenceFrame::SSBI,
+        id => ReferenceFrame::BodyCenteredICRF(id),
+    }
+}
+
+/// Body-fixed frame for the body with NAIF ID `center`, if one is defined
+/// (mirrors `CentralBody::fixed_frame`): `ITRF` for Earth, `LFPA` for the
+/// Moon, `MCMF` for Mars, the compiled-in IAU/WGCCRE frame for bodies in the
+/// embedded rotation table, and `None` for barycenters and unknown bodies.
+pub(crate) fn bci_fixed_frame(center: i32) -> Option<crate::frames::ReferenceFrame> {
+    use crate::frames::ReferenceFrame;
+    match center {
+        399 => Some(ReferenceFrame::ITRF),
+        301 => Some(ReferenceFrame::LFPA),
+        499 => Some(ReferenceFrame::MCMF),
+        id if crate::frames::iau_rotation_model_ids().contains(&id) => {
+            Some(ReferenceFrame::BodyFixedIAU(id))
+        }
+        _ => None,
+    }
+}
+
 /// Enumeration of orbit reference frames
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrbitFrame {
@@ -42,6 +75,12 @@ pub enum OrbitFrame {
     ITRF,
     /// Earth Mean Equator and Equinox of J2000.0
     EME2000,
+    /// Body-centered inertial: ICRF-aligned axes centered on the non-Earth
+    /// body with the given NAIF ID (e.g. `BodyCenteredInertial(301)` for
+    /// LCI samples from a Moon-centered propagator, `499` for MCI, `3` for
+    /// EMBI). Earth-frame conversions resolve the center offset through the
+    /// loaded SPK kernels via the reference frame router.
+    BodyCenteredInertial(i32),
 }
 
 impl fmt::Display for OrbitFrame {
@@ -52,6 +91,7 @@ impl fmt::Display for OrbitFrame {
             OrbitFrame::GCRF => write!(f, "GCRF"),
             OrbitFrame::ITRF => write!(f, "ITRF"),
             OrbitFrame::EME2000 => write!(f, "EME2000"),
+            OrbitFrame::BodyCenteredInertial(center) => write!(f, "BCI({})", center),
         }
     }
 }
@@ -65,6 +105,9 @@ impl fmt::Debug for OrbitFrame {
             OrbitFrame::ITRF => write!(f, "OrbitFrame(International Terrestrial Reference Frame)"),
             OrbitFrame::EME2000 => {
                 write!(f, "OrbitFrame(Earth Mean Equator and Equinox of J2000.0)")
+            }
+            OrbitFrame::BodyCenteredInertial(center) => {
+                write!(f, "OrbitFrame(Body-Centered Inertial, NAIF ID {})", center)
             }
         }
     }

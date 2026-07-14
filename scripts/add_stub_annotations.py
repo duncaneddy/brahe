@@ -6,6 +6,7 @@ This script extracts all docstrings, methods, and properties from the compiled P
 a complete .pyi stub file for IDE support and documentation with proper type annotations.
 """
 
+import ast
 import inspect
 import sys
 import re
@@ -282,6 +283,19 @@ def parse_params_from_docstring(doc: str) -> list:
         if not param_type or not param_type.strip():
             py_type = "Any"
         params.append((param_name, py_type, is_optional, is_keyword_only))
+
+    # Python forbids a positional parameter without a default after one with a
+    # default. The runtime (pyo3) signature always satisfies this, so if a
+    # docstring omits "optional" on a later parameter, force a default rather
+    # than emitting an unparseable stub.
+    seen_optional = False
+    for i, (param_name, py_type, is_optional, is_keyword_only) in enumerate(params):
+        if is_keyword_only:
+            continue
+        if is_optional:
+            seen_optional = True
+        elif seen_optional:
+            params[i] = (param_name, py_type, True, is_keyword_only)
 
     return params
 
@@ -619,7 +633,7 @@ def main():
     output_lines.append('"""Type stubs for brahe._brahe module - AUTO-GENERATED"""')
     output_lines.append("")
     output_lines.append(
-        "from typing import Any, List, Sequence, Tuple, Optional, Union"
+        "from typing import Any, Iterable, List, Sequence, Tuple, Optional, Union"
     )
     output_lines.append("import numpy as np")
     output_lines.append("")
@@ -694,8 +708,21 @@ def main():
             else:
                 output_lines.append(f"{name}: Any")
 
-    # Write output
+    # Validate before writing: an unparseable stub is silently discarded by
+    # tools like griffe, which then fall back to bare inspection of the
+    # compiled module and lose every annotation.
     output = "\n".join(output_lines)
+    try:
+        ast.parse(output)
+    except SyntaxError as e:
+        print(
+            f"Error: generated stub is not valid Python (line {e.lineno}): {e.msg}",
+            file=sys.stderr,
+        )
+        if e.text:
+            print(f"    {e.text.strip()}", file=sys.stderr)
+        return 1
+
     with open(stub_path, "w") as f:
         f.write(output)
 

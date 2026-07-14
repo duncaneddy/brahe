@@ -3924,3 +3924,96 @@ def test_orbittrajectory_state_koe_mean():
     osc_deg = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
     # Semi-major axis may differ slightly due to J2 averaging
     assert mean_deg[0] != pytest.approx(osc_deg[0], abs=0.01)  # Should differ
+
+
+def test_orbittrajectory_body_centered_inertial_providers(naif_cache_setup):
+    """A BodyCenteredInertial(301) trajectory: state_bci returns the raw LCI
+    sample, state_in_frame(LCI) is the identity, and state_eci re-centers
+    through SPK. Mirrors test_dorbittrajectory_body_centered_inertial_providers."""
+    import brahe as bh
+
+    traj = OrbitTrajectory(
+        6, OrbitFrame.BodyCenteredInertial(301), OrbitRepresentation.CARTESIAN, None
+    )
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    state = np.array([2.0e6, 1.0e5, -3.0e5, 10.0, 1.6e3, -5.0])
+    traj.add(epoch, state)
+
+    np.testing.assert_array_equal(traj.state_bci(epoch), state)
+    np.testing.assert_array_equal(
+        traj.state_in_frame(bh.ReferenceFrame.LCI, epoch), state
+    )
+
+    offset = bh.spk_state(301, 399, epoch)
+    np.testing.assert_allclose(traj.state_eci(epoch), state + offset, atol=1e-6)
+
+    # Batch conversion matches the per-epoch provider result.
+    traj_eci = traj.to_eci()
+    assert traj_eci.frame == OrbitFrame.ECI
+    np.testing.assert_allclose(
+        traj_eci.state_eci(epoch), traj.state_eci(epoch), atol=1e-6
+    )
+
+    # Remaining Earth-frame conversions agree with the pairwise conversions
+    # of state_eci, and batch conversions match the point queries.
+    eci = traj.state_eci(epoch)
+    np.testing.assert_allclose(traj.state_gcrf(epoch), eci, atol=1e-9)
+    np.testing.assert_allclose(
+        traj.state_itrf(epoch), bh.state_gcrf_to_itrf(epoch, eci), atol=1e-6
+    )
+    np.testing.assert_allclose(
+        traj.state_ecef(epoch), traj.state_itrf(epoch), atol=1e-6
+    )
+    np.testing.assert_allclose(
+        traj.state_eme2000(epoch), bh.state_gcrf_to_eme2000(eci), atol=1e-6
+    )
+    for converted, expected in [
+        (traj.to_gcrf(), traj.state_gcrf(epoch)),
+        (traj.to_ecef(), traj.state_ecef(epoch)),
+        (traj.to_itrf(), traj.state_itrf(epoch)),
+        (traj.to_eme2000(), traj.state_eme2000(epoch)),
+    ]:
+        np.testing.assert_allclose(converted.state(epoch), expected, atol=1e-6)
+
+    # Elements about the Moon round-trip through the Moon's GM.
+    koe = traj.state_koe_osc(epoch, AngleFormat.DEGREES)
+    back = bh.state_koe_to_eci_for_body(koe, bh.GM_MOON, AngleFormat.DEGREES)
+    np.testing.assert_allclose(back, state, atol=1e-3)
+
+    # state_bcbf (LFPA) preserves the position norm of the raw sample.
+    bcbf = traj.state_bcbf(epoch)
+    assert abs(np.linalg.norm(bcbf[:3]) - np.linalg.norm(state[:3])) < 1e-6
+
+    # Earth-frame trajectory: state_bci == state_gcrf.
+    traj_e = OrbitTrajectory(6, OrbitFrame.GCRF, OrbitRepresentation.CARTESIAN, None)
+    state_e = np.array([7000e3, 0.0, 0.0, 0.0, 7.5e3, 0.0])
+    traj_e.add(epoch, state_e)
+    np.testing.assert_array_equal(traj_e.state_bci(epoch), traj_e.state_gcrf(epoch))
+    np.testing.assert_array_equal(traj_e.state_bcbf(epoch), traj_e.state_itrf(epoch))
+
+
+def test_orbittrajectory_body_centered_inertial_error_branches():
+    """Offline BCI error branches: elements/body-fixed frame about a
+    barycenter or uncatalogued center.
+    Mirrors test_dorbittrajectory_bci_error_branches."""
+    import brahe as bh
+
+    epoch = Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+
+    traj_emb = OrbitTrajectory(
+        6, OrbitFrame.BodyCenteredInertial(3), OrbitRepresentation.CARTESIAN, None
+    )
+    traj_emb.add(epoch, np.array([1e8, 0.0, 0.0, 0.0, 1e3, 0.0]))
+    with pytest.raises(bh.BraheError, match="barycenter"):
+        traj_emb.state_koe_osc(epoch, AngleFormat.DEGREES)
+    with pytest.raises(bh.BraheError, match="no body-fixed frame"):
+        traj_emb.state_bcbf(epoch)
+
+    traj_unknown = OrbitTrajectory(
+        6, OrbitFrame.BodyCenteredInertial(-20001), OrbitRepresentation.CARTESIAN, None
+    )
+    traj_unknown.add(epoch, np.array([1e5, 0.0, 0.0, 0.0, 1.0, 0.0]))
+    with pytest.raises(bh.BraheError):
+        traj_unknown.state_bcbf(epoch)
+    with pytest.raises(bh.BraheError):
+        traj_unknown.state_koe_osc(epoch, AngleFormat.DEGREES)

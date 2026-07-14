@@ -156,6 +156,9 @@ pub const DAYS_PER_JULIAN_CENTURY: f64 = 36525.0;
 /// Seconds per day. Units: (s)
 pub const SECONDS_PER_DAY: f64 = 86400.0;
 
+/// Seconds per Julian century. Units: (s)
+pub const SECONDS_PER_JULIAN_CENTURY: f64 = DAYS_PER_JULIAN_CENTURY * SECONDS_PER_DAY;
+
 /// Julian Date of the Unix epoch (January 1, 1970 00:00:00 UTC).
 pub const UNIX_EPOCH_JD: f64 = 2440587.5;
 

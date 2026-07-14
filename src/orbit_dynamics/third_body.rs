@@ -8,19 +8,23 @@ use nalgebra::Vector3;
 use crate::math::traits::IntoPosition;
 use crate::orbit_dynamics::ephemerides::{moon_position, sun_position};
 use crate::orbit_dynamics::gravity::accel_point_mass_gravity;
+use crate::propagators::CentralBody;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
+use crate::spice::positions::{spk_pair_position_from_kernels, spk_strictly_resolvable};
 use crate::spice::{
-    SPKKernel, jupiter_position_de, mars_position_de, mercury_position_de, moon_position_de,
-    neptune_position_de, saturn_position_de, sun_position_de, uranus_position_de,
-    venus_position_de,
+    SPICEKernel, jupiter_barycenter_position_spice, load_kernel, mars_barycenter_position_spice,
+    mercury_position_spice, moon_position_spice, neptune_barycenter_position_spice,
+    saturn_barycenter_position_spice, spk_position, sun_position_spice,
+    uranus_barycenter_position_spice, venus_position_spice,
 };
 use crate::time::Epoch;
+use crate::utils::BraheError;
 use crate::{
     GM_JUPITER, GM_MARS, GM_MERCURY, GM_MOON, GM_NEPTUNE, GM_SATURN, GM_SUN, GM_URANUS, GM_VENUS,
 };
 
-fn de_kernel_from_source(source: EphemerisSource) -> SPKKernel {
-    SPKKernel::try_from(source).expect("DE ephemeris source should map to a DE kernel")
+fn de_kernel_from_source(source: EphemerisSource) -> SPICEKernel {
+    SPICEKernel::try_from(source).expect("DE ephemeris source should map to a DE kernel")
 }
 
 /// Unified third-body acceleration with source enumeration.
@@ -28,6 +32,10 @@ fn de_kernel_from_source(source: EphemerisSource) -> SPKKernel {
 /// Calculate gravitational acceleration due to a celestial body using
 /// the specified ephemeris source. This function consolidates all
 /// body-specific and source-specific acceleration functions.
+///
+/// For the outer planets the system-barycenter position is used with the
+/// system GM; this is the standard third-body formulation and requires only
+/// the DE kernel (no satellite ephemeris kernel download).
 ///
 /// # Arguments
 ///
@@ -83,7 +91,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Sun,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            sun_position_de(epc, de_kernel_from_source(source))
+            sun_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Sun position"),
             GM_SUN,
         ),
@@ -91,7 +99,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Moon,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            moon_position_de(epc, de_kernel_from_source(source))
+            moon_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Moon position"),
             GM_MOON,
         ),
@@ -99,7 +107,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Mercury,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            mercury_position_de(epc, de_kernel_from_source(source))
+            mercury_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Mercury position"),
             GM_MERCURY,
         ),
@@ -107,7 +115,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Venus,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            venus_position_de(epc, de_kernel_from_source(source))
+            venus_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Venus position"),
             GM_VENUS,
         ),
@@ -115,7 +123,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Mars,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            mars_position_de(epc, de_kernel_from_source(source))
+            mars_barycenter_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Mars position"),
             GM_MARS,
         ),
@@ -123,7 +131,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Jupiter,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            jupiter_position_de(epc, de_kernel_from_source(source))
+            jupiter_barycenter_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Jupiter position"),
             GM_JUPITER,
         ),
@@ -131,7 +139,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Saturn,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            saturn_position_de(epc, de_kernel_from_source(source))
+            saturn_barycenter_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Saturn position"),
             GM_SATURN,
         ),
@@ -139,7 +147,7 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Uranus,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            uranus_position_de(epc, de_kernel_from_source(source))
+            uranus_barycenter_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Uranus position"),
             GM_URANUS,
         ),
@@ -147,10 +155,28 @@ pub fn accel_third_body<P: IntoPosition>(
             ThirdBody::Neptune,
             source @ (EphemerisSource::DE440s | EphemerisSource::DE440 | EphemerisSource::SPK(_)),
         ) => (
-            neptune_position_de(epc, de_kernel_from_source(source))
+            neptune_barycenter_position_spice(epc, de_kernel_from_source(source))
                 .expect("Failed to get Neptune position"),
             GM_NEPTUNE,
         ),
+
+        // Invalid: bodies only supported through `accel_third_body_for_body`
+        // (Earth, Phobos, Deimos, and Custom only make sense relative to a
+        // non-Earth central body, which this Earth-centered function does
+        // not model).
+        (
+            body @ (ThirdBody::Earth
+            | ThirdBody::Phobos
+            | ThirdBody::Deimos
+            | ThirdBody::Custom { .. }),
+            _,
+        ) => {
+            panic!(
+                "accel_third_body only supports Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, \
+                Uranus, and Neptune. Requested {:?}. Use accel_third_body_for_body for other bodies.",
+                body
+            )
+        }
 
         // Invalid: planets with low-precision
         (body, EphemerisSource::LowPrecision) => {
@@ -163,6 +189,185 @@ pub fn accel_third_body<P: IntoPosition>(
     };
 
     accel_point_mass_gravity(r_object, r_body, gm)
+}
+
+/// Central-body-aware third-body acceleration, including barycenter handling.
+///
+/// `accel_third_body` implicitly assumes the frame is centered on Earth,
+/// which is not accelerated by the bodies it perturbs (Earth's own gravity
+/// on itself is not part of the third-body sum). When the frame is instead
+/// centered on some other body, that assumption breaks: the perturbing
+/// body's gravity also acts on the central body itself, which moves the
+/// origin of the frame the object's position is expressed in. The
+/// acceleration relative to that moving origin is therefore a *difference*
+/// of two terms:
+///
+/// - the **direct term**, GM(s - r)/|s - r|³ — the perturber's attraction on
+///   the object, where `s` is the perturber's position relative to
+///   `central_body` and `r` is the object's position relative to
+///   `central_body`;
+/// - the **indirect term**, GM·s/|s|³ — the perturber's attraction on
+///   `central_body` itself, which must be subtracted because it also
+///   accelerates the (non-inertial) frame origin.
+///
+/// Two cases use the direct term only, because nothing accelerates the
+/// frame origin there:
+/// - `CentralBody::SSB`: the Solar System Barycenter is not accelerated by
+///   any body's gravity (nothing external to the solar system is in the
+///   force model), for any perturber.
+/// - `CentralBody::EMB`, for `body` = `ThirdBody::Earth` or `ThirdBody::Moon`
+///   only: internal Earth-Moon gravitational forces are equal and opposite
+///   (Newton's third law), so neither body can accelerate their own mutual
+///   barycenter. Other perturbers (Sun, planets) still use the differential
+///   form about `EMB`, since they accelerate the Earth-Moon system as a
+///   whole.
+///
+/// `CentralBody::Custom` always uses the differential form: a general body
+/// is, in principle, accelerated by every other body in the force model.
+///
+/// # Kernel selection
+///
+/// The perturber's position is resolved with kernel-scoped queries that
+/// honor `source` regardless of which other kernels are loaded in the
+/// process-wide registry: legs between DE-covered bodies (barycenters, Sun,
+/// Mercury, Venus, Earth, Moon) come from the DE kernel named by `source`,
+/// and a satellite-system body's leg relative to its system barycenter
+/// (e.g. Phobos/Deimos via `mar099s`) comes from that system's satellite
+/// ephemeris kernel. Kernels are auto-downloaded and loaded on first use.
+///
+/// Two cases resolve across all loaded kernels via
+/// [`crate::spice::spk_position`] instead (with the registry's
+/// last-loaded-wins precedence):
+/// - a [`ThirdBody::Custom`] perturber (or a [`CentralBody::Custom`] center)
+///   whose NAIF ID falls outside DE and known satellite-kernel coverage
+///   (e.g. an asteroid in a bring-your-own SPK);
+/// - a pair the kernel-scoped resolution fails on — e.g. a satellite-range
+///   NAIF ID that its system's ephemeris kernel does not actually carry, or
+///   an epoch outside the mapped kernel's coverage — so bring-your-own
+///   kernels still work for such bodies.
+///
+/// # Arguments
+///
+/// * `central_body` - Body the object's position and the returned
+///   acceleration are expressed relative to
+/// * `body` - Perturbing celestial body
+/// * `source` - Ephemeris source for the perturber's position.
+///   `EphemerisSource::LowPrecision` is only valid when `central_body` is
+///   `CentralBody::Earth` and `body` is `ThirdBody::Sun` or `ThirdBody::Moon`
+///   (the analytic ephemerides are geocentric)
+/// * `epc` - Epoch for ephemeris lookup
+/// * `r_object` - Position of the object relative to `central_body` (or a 6D
+///   state vector, position only used). Units: [m]
+///
+/// # Returns
+///
+/// * `Ok(Vector3<f64>)` - Acceleration in the inertial frame centered on
+///   `central_body`. Units: [m/s²]
+/// * `Err(BraheError)` - If `source` is `EphemerisSource::LowPrecision` with
+///   a non-Earth `central_body` or a `body` other than `Sun`/`Moon`, or if
+///   the ephemeris kernel cannot be loaded or queried
+///
+/// # Example
+///
+/// ```no_run
+/// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
+/// use brahe::time::Epoch;
+/// use brahe::third_body::accel_third_body_for_body;
+/// use brahe::propagators::CentralBody;
+/// use brahe::propagators::force_model_config::{ThirdBody, EphemerisSource};
+/// use brahe::constants::R_EARTH;
+/// use nalgebra::Vector3;
+///
+/// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
+/// set_global_eop_provider(eop);
+///
+/// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
+/// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+///
+/// let a_sun = accel_third_body_for_body(
+///     &CentralBody::Earth,
+///     &ThirdBody::Sun,
+///     EphemerisSource::DE440s,
+///     epc,
+///     r_object,
+/// ).unwrap();
+/// ```
+pub fn accel_third_body_for_body<P: IntoPosition>(
+    central_body: &CentralBody,
+    body: &ThirdBody,
+    source: EphemerisSource,
+    epc: Epoch,
+    r_object: P,
+) -> Result<Vector3<f64>, BraheError> {
+    if body.naif_id() == central_body.naif_id() {
+        return Err(BraheError::Error(format!(
+            "Third body {:?} has the same NAIF ID ({}) as the central body {:?} — a body cannot perturb its own center",
+            body,
+            body.naif_id(),
+            central_body
+        )));
+    }
+
+    if matches!(source, EphemerisSource::LowPrecision) && *central_body != CentralBody::Earth {
+        return Err(BraheError::Error(
+            "LowPrecision ephemerides are geocentric; use a DE/SPK source for non-Earth central bodies"
+                .to_string(),
+        ));
+    }
+
+    let r = r_object.position();
+
+    let s = match (source, body) {
+        (EphemerisSource::LowPrecision, ThirdBody::Sun) => sun_position(epc),
+        (EphemerisSource::LowPrecision, ThirdBody::Moon) => moon_position(epc),
+        (EphemerisSource::LowPrecision, other) => {
+            return Err(BraheError::Error(format!(
+                "Low-precision ephemerides only support Sun and Moon. Requested {:?}. \
+                Use EphemerisSource::DE440s, DE440, or SPK(...) for other bodies.",
+                other
+            )));
+        }
+        (source, body) => {
+            let kernel = SPICEKernel::try_from(source)?;
+            let (target, center) = (body.naif_id(), central_body.naif_id());
+            let strict = if spk_strictly_resolvable(target) && spk_strictly_resolvable(center) {
+                // Kernel-scoped resolution honoring `source` regardless of
+                // which other kernels are loaded (see the "Kernel selection"
+                // section above).
+                spk_pair_position_from_kernels(kernel, target, center, epc).ok()
+            } else {
+                None
+            };
+            match strict {
+                Some(s) => s,
+                // Bring-your-own-SPK bodies — Custom NAIF IDs outside DE and
+                // known satellite-kernel coverage, or satellite-range IDs the
+                // mapped system kernel doesn't actually carry — resolve across
+                // all loaded kernels with the registry's last-loaded-wins
+                // precedence.
+                None => {
+                    load_kernel(kernel)?;
+                    spk_position(target, center, epc)?
+                }
+            }
+        }
+    };
+
+    let gm = body.gm();
+    let d = s - r;
+    let direct = gm * d / d.norm().powi(3);
+
+    let direct_only = match central_body {
+        CentralBody::SSB => true,
+        CentralBody::EMB => matches!(body, ThirdBody::Earth | ThirdBody::Moon),
+        _ => false,
+    };
+
+    Ok(if direct_only {
+        direct
+    } else {
+        direct - gm * s / s.norm().powi(3)
+    })
 }
 
 /// Calculate the acceleration due to the Sun on an object at a given epoch.
@@ -276,7 +481,7 @@ pub fn accel_third_body_moon<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector
 /// ```
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
 /// use brahe::time::Epoch;
-/// use brahe::third_body::accel_third_body_sun_de;
+/// use brahe::third_body::accel_third_body_sun_spice;
 /// use brahe::propagators::force_model_config::EphemerisSource;
 /// use brahe::constants::R_EARTH;
 /// use brahe::ephemerides::initialize_ephemeris;
@@ -289,9 +494,9 @@ pub fn accel_third_body_moon<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = accel_third_body_sun_de(epc, r_object, EphemerisSource::DE440s);
+/// let a = accel_third_body_sun_spice(epc, r_object, EphemerisSource::DE440s);
 /// ```
-pub fn accel_third_body_sun_de<P: IntoPosition>(
+pub fn accel_third_body_sun_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
@@ -323,7 +528,7 @@ pub fn accel_third_body_sun_de<P: IntoPosition>(
 /// ```
 /// use brahe::eop::{set_global_eop_provider, FileEOPProvider, EOPExtrapolation};
 /// use brahe::time::Epoch;
-/// use brahe::third_body::accel_third_body_moon_de;
+/// use brahe::third_body::accel_third_body_moon_spice;
 /// use brahe::propagators::force_model_config::EphemerisSource;
 /// use brahe::constants::R_EARTH;
 /// use brahe::ephemerides::initialize_ephemeris;
@@ -336,9 +541,9 @@ pub fn accel_third_body_sun_de<P: IntoPosition>(
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 ///
-/// let a = accel_third_body_moon_de(epc, r_object, EphemerisSource::DE440s);
+/// let a = accel_third_body_moon_spice(epc, r_object, EphemerisSource::DE440s);
 /// ```
-pub fn accel_third_body_moon_de<P: IntoPosition>(
+pub fn accel_third_body_moon_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
@@ -360,7 +565,7 @@ pub fn accel_third_body_moon_de<P: IntoPosition>(
 /// # Returns
 ///
 /// * `a` - Acceleration due to Mercury. Units: [m/s^2]
-pub fn accel_third_body_mercury_de<P: IntoPosition>(
+pub fn accel_third_body_mercury_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
@@ -382,7 +587,7 @@ pub fn accel_third_body_mercury_de<P: IntoPosition>(
 /// # Returns
 ///
 /// * `a` - Acceleration due to Venus. Units: [m/s^2]
-pub fn accel_third_body_venus_de<P: IntoPosition>(
+pub fn accel_third_body_venus_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
@@ -404,7 +609,7 @@ pub fn accel_third_body_venus_de<P: IntoPosition>(
 /// # Returns
 ///
 /// * `a` - Acceleration due to Mars. Units: [m/s^2]
-pub fn accel_third_body_mars_de<P: IntoPosition>(
+pub fn accel_third_body_mars_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
@@ -426,7 +631,7 @@ pub fn accel_third_body_mars_de<P: IntoPosition>(
 /// # Returns
 ///
 /// * `a` - Acceleration due to Jupiter. Units: [m/s^2]
-pub fn accel_third_body_jupiter_de<P: IntoPosition>(
+pub fn accel_third_body_jupiter_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
@@ -448,7 +653,7 @@ pub fn accel_third_body_jupiter_de<P: IntoPosition>(
 /// # Returns
 ///
 /// * `a` - Acceleration due to Saturn. Units: [m/s^2]
-pub fn accel_third_body_saturn_de<P: IntoPosition>(
+pub fn accel_third_body_saturn_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
@@ -470,7 +675,7 @@ pub fn accel_third_body_saturn_de<P: IntoPosition>(
 /// # Returns
 ///
 /// * `a` - Acceleration due to Uranus. Units: [m/s^2]
-pub fn accel_third_body_uranus_de<P: IntoPosition>(
+pub fn accel_third_body_uranus_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
@@ -492,7 +697,7 @@ pub fn accel_third_body_uranus_de<P: IntoPosition>(
 /// # Returns
 ///
 /// * `a` - Acceleration due to Neptune. Units: [m/s^2]
-pub fn accel_third_body_neptune_de<P: IntoPosition>(
+pub fn accel_third_body_neptune_spice<P: IntoPosition>(
     epc: Epoch,
     r_object: P,
     source: EphemerisSource,
@@ -582,16 +787,17 @@ mod tests {
         assert_abs_diff_eq!(a[2], az, epsilon = 1e-9);
     }
 
-    use crate::utils::testing::setup_global_test_almanac;
+    use crate::utils::testing::setup_global_test_spice;
 
     #[test]
-    fn test_accel_third_body_sun_de() {
-        setup_global_test_almanac();
+    #[serial]
+    fn test_accel_third_body_sun_spice() {
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_sun_de(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_sun_spice(epc, r_object, EphemerisSource::DE440s);
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -599,13 +805,14 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_moon_de() {
-        setup_global_test_almanac();
+    #[serial]
+    fn test_accel_third_body_moon_spice() {
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_moon_de(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_moon_spice(epc, r_object, EphemerisSource::DE440s);
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -613,13 +820,14 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_mercury_de() {
-        setup_global_test_almanac();
+    #[serial]
+    fn test_accel_third_body_mercury_spice() {
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_mercury_de(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_mercury_spice(epc, r_object, EphemerisSource::DE440s);
 
         // Should return a valid acceleration vector (very small for Mercury)
         assert!(a.norm() > 0.0);
@@ -627,13 +835,14 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_venus_de() {
-        setup_global_test_almanac();
+    #[serial]
+    fn test_accel_third_body_venus_spice() {
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_venus_de(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_venus_spice(epc, r_object, EphemerisSource::DE440s);
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -641,13 +850,14 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_mars_de() {
-        setup_global_test_almanac();
+    #[serial]
+    fn test_accel_third_body_mars_spice() {
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_mars_de(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_mars_spice(epc, r_object, EphemerisSource::DE440s);
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -655,13 +865,14 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_jupiter_de() {
-        setup_global_test_almanac();
+    #[serial]
+    fn test_accel_third_body_jupiter_spice() {
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_jupiter_de(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_jupiter_spice(epc, r_object, EphemerisSource::DE440s);
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -669,13 +880,14 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_saturn_de() {
-        setup_global_test_almanac();
+    #[serial]
+    fn test_accel_third_body_saturn_spice() {
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_saturn_de(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_saturn_spice(epc, r_object, EphemerisSource::DE440s);
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -683,13 +895,14 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_uranus_de() {
-        setup_global_test_almanac();
+    #[serial]
+    fn test_accel_third_body_uranus_spice() {
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_uranus_de(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_uranus_spice(epc, r_object, EphemerisSource::DE440s);
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
@@ -697,16 +910,519 @@ mod tests {
     }
 
     #[test]
-    fn test_accel_third_body_neptune_de() {
-        setup_global_test_almanac();
+    #[serial]
+    fn test_accel_third_body_neptune_spice() {
+        setup_global_test_spice();
 
         let epc = Epoch::from_mjd(60310.0, TimeSystem::TT);
         let r_object = Vector3::new(4884992.30378986, 4553508.53744864, 1330313.60479734);
 
-        let a = accel_third_body_neptune_de(epc, r_object, EphemerisSource::DE440s);
+        let a = accel_third_body_neptune_spice(epc, r_object, EphemerisSource::DE440s);
 
         // Should return a valid acceleration vector
         assert!(a.norm() > 0.0);
         assert!(a.norm() < 1e-11); // Neptune effect is very small
+    }
+
+    use crate::{GM_EARTH, R_EARTH, R_MARS};
+    use serial_test::serial;
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_accel_third_body_for_body_earth_center_matches_legacy() {
+        setup_global_test_spice();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+
+        let legacy = accel_third_body(ThirdBody::Sun, EphemerisSource::DE440s, epc, r);
+        let new = accel_third_body_for_body(
+            &CentralBody::Earth,
+            &ThirdBody::Sun,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(new[i], legacy[i], epsilon = 1e-15);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_emb_internal_bodies_use_direct_form() {
+        setup_global_test_spice();
+
+        // For EMB center, Earth's contribution at position r is exactly
+        // GM_EARTH * (s - r)/|s - r|^3 with NO indirect term, since internal
+        // Earth-Moon forces cannot accelerate their own barycenter.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1e8, 2e8, -5e7);
+        let s = crate::spice::spk_position(399, 3, epc).unwrap();
+        let d = s - r;
+        let expected = GM_EARTH * d / d.norm().powi(3);
+
+        let got = accel_third_body_for_body(
+            &CentralBody::EMB,
+            &ThirdBody::Earth,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(got[i], expected[i], epsilon = 1e-18);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_emb_external_body_uses_differential_form() {
+        setup_global_test_spice();
+
+        // Sun about EMB: differential form (direct minus indirect-at-EMB),
+        // since the Sun does accelerate the Earth-Moon barycenter.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1e8, 2e8, -5e7);
+        let s = crate::spice::spk_position(10, 3, epc).unwrap();
+        let d = s - r;
+        let expected = GM_SUN * (d / d.norm().powi(3) - s / s.norm().powi(3));
+
+        let got = accel_third_body_for_body(
+            &CentralBody::EMB,
+            &ThirdBody::Sun,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(got[i], expected[i], epsilon = 1e-18);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_ssb_all_bodies_direct() {
+        setup_global_test_spice();
+
+        // Nothing accelerates the Solar System Barycenter, so every
+        // perturber (here Jupiter) uses the direct term only.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1e8, 2e8, -5e7);
+        let s = crate::spice::spk_position(5, 0, epc).unwrap();
+        let d = s - r;
+        let expected = GM_JUPITER * d / d.norm().powi(3);
+
+        let got = accel_third_body_for_body(
+            &CentralBody::SSB,
+            &ThirdBody::Jupiter,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(got[i], expected[i], epsilon = 1e-18);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial]
+    fn test_phobos_third_body_about_mars() {
+        setup_global_test_spice();
+        crate::spice::load_kernel("mar099s").unwrap();
+
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_MARS + 400e3, 0.0, 0.0);
+
+        let a = accel_third_body_for_body(
+            &CentralBody::Mars,
+            &ThirdBody::Phobos,
+            EphemerisSource::DE440s,
+            epc,
+            r,
+        )
+        .unwrap();
+
+        // Phobos is tiny (GM_PHOBOS ~ 7e5 m^3/s^2), so its perturbation on a
+        // Mars-orbiting object is small but nonzero.
+        assert!(a.norm() > 0.0 && a.norm() < 1e-8);
+    }
+
+    #[test]
+    fn test_accel_third_body_for_body_low_precision_earth_matches_legacy() {
+        // LowPrecision Sun/Moon about Earth: the differential form in
+        // `accel_third_body_for_body` (direct - GM s/|s|^3) is algebraically
+        // identical to the legacy `accel_third_body` point-mass third-body
+        // acceleration for an Earth-centered frame. Exercises the LowPrecision
+        // Sun and Moon arms without any SPK kernel.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 500e3, 1e5, 2e5);
+
+        for body in [ThirdBody::Sun, ThirdBody::Moon] {
+            let legacy = accel_third_body(body.clone(), EphemerisSource::LowPrecision, epc, r);
+            let new = accel_third_body_for_body(
+                &CentralBody::Earth,
+                &body,
+                EphemerisSource::LowPrecision,
+                epc,
+                r,
+            )
+            .unwrap();
+            assert!(new.norm() > 0.0);
+            for i in 0..3 {
+                assert_abs_diff_eq!(new[i], legacy[i], epsilon = 1e-18);
+            }
+        }
+    }
+
+    #[test]
+    fn test_accel_third_body_for_body_low_precision_planet_rejected() {
+        // LowPrecision is only valid for Sun/Moon; a planet perturber about
+        // Earth with LowPrecision hits the `(LowPrecision, other)` error arm.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let e = accel_third_body_for_body(
+            &CentralBody::Earth,
+            &ThirdBody::Jupiter,
+            EphemerisSource::LowPrecision,
+            epc,
+            Vector3::new(R_EARTH + 500e3, 0.0, 0.0),
+        );
+        assert!(e.is_err());
+        assert!(format!("{}", e.unwrap_err()).contains("Low-precision"));
+    }
+
+    #[test]
+    fn test_low_precision_rejected_for_non_earth_center() {
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let e = accel_third_body_for_body(
+            &CentralBody::Moon,
+            &ThirdBody::Sun,
+            EphemerisSource::LowPrecision,
+            epc,
+            Vector3::new(2e6, 0.0, 0.0),
+        );
+        assert!(e.is_err());
+    }
+
+    #[test]
+    fn test_accel_third_body_for_body_rejects_body_equal_to_center() {
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let e = accel_third_body_for_body(
+            &CentralBody::Earth,
+            &ThirdBody::Earth,
+            EphemerisSource::DE440s,
+            epc,
+            Vector3::new(R_EARTH + 500e3, 0.0, 0.0),
+        );
+        assert!(e.is_err());
+    }
+
+    // ----- EphemerisSource kernel selection -----
+    //
+    // These tests seed synthetic kernels with different constant positions
+    // into a redirected cache, so the source a caller configures is
+    // distinguishable from the last-loaded kernel without any network access.
+    // They deliberately never touch (or clear) "de440s" — concurrent
+    // non-#[serial] tests resolve their queries against the real loaded
+    // de440s — and the synthetic segments below use only legs that no
+    // non-#[serial] test queries through the global registry. (The
+    // `CacheRedirect` env-var window can still affect a concurrent test that
+    // triggers a fresh kernel *cache load* while it is active; that is an
+    // accepted limitation shared with the registry's offline tests.)
+
+    use crate::spice::{load_kernel, unload_kernel};
+    use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
+
+    /// Third-body acceleration formula replicated for expected values.
+    fn expected_accel(
+        s: Vector3<f64>,
+        r: Vector3<f64>,
+        gm: f64,
+        direct_only: bool,
+    ) -> Vector3<f64> {
+        let d = s - r;
+        let direct = gm * d / d.norm().powi(3);
+        if direct_only {
+            direct
+        } else {
+            direct - gm * s / s.norm().powi(3)
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_honors_ephemeris_source() {
+        // With BOTH DE430 and DE432s loaded — in either order — the position
+        // used must come from the kernel named by `source`, not from
+        // whichever kernel was loaded last.
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1.0e3, 0.0, 0.0);
+        let central = CentralBody::from_naif_id(299).unwrap(); // Venus
+
+        // Mercury rel Venus resolves as seg(1,0) + seg(199,1) - seg(2,0) - seg(299,2) [km].
+        // de430: 100 + 10 - 200 - 20 = -110 km; de432s: 300 + 30 - 600 - 60 = -330 km.
+        let a_de430 = expected_accel(Vector3::new(-110.0e3, 0.0, 0.0), r, GM_MERCURY, false);
+        let a_de432s = expected_accel(Vector3::new(-330.0e3, 0.0, 0.0), r, GM_MERCURY, false);
+
+        {
+            let cache = CacheRedirect::new();
+            cache.seed(
+                "de430.bsp",
+                &synthetic_spk_kernel_bytes(&[
+                    (1, 0, 100.0),
+                    (199, 1, 10.0),
+                    (2, 0, 200.0),
+                    (299, 2, 20.0),
+                ]),
+            );
+            cache.seed(
+                "de432s.bsp",
+                &synthetic_spk_kernel_bytes(&[
+                    (1, 0, 300.0),
+                    (199, 1, 30.0),
+                    (2, 0, 600.0),
+                    (299, 2, 60.0),
+                ]),
+            );
+
+            for order in [["de430", "de432s"], ["de432s", "de430"]] {
+                let _ = unload_kernel("de430");
+                let _ = unload_kernel("de432s");
+                for name in order {
+                    load_kernel(name).unwrap();
+                }
+
+                let a = accel_third_body_for_body(
+                    &central,
+                    &ThirdBody::Mercury,
+                    EphemerisSource::SPK(SPICEKernel::DE430),
+                    epc,
+                    r,
+                )
+                .unwrap();
+                assert_abs_diff_eq!(a, a_de430, epsilon = a_de430.norm() * 1e-12);
+
+                let a = accel_third_body_for_body(
+                    &central,
+                    &ThirdBody::Mercury,
+                    EphemerisSource::SPK(SPICEKernel::DE432s),
+                    epc,
+                    r,
+                )
+                .unwrap();
+                assert_abs_diff_eq!(a, a_de432s, epsilon = a_de432s.norm() * 1e-12);
+            }
+            let _ = unload_kernel("de430");
+            let _ = unload_kernel("de432s");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_satellite_body_uses_source_de_leg() {
+        // Phobos (401) is not in a DE kernel: its body-rel-Mars-barycenter
+        // leg comes from mar099s, while the Mars-barycenter-rel-central leg
+        // must still honor the configured DE kernel.
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1.0e3, 0.0, 0.0);
+        let gm_phobos = ThirdBody::Phobos.gm();
+
+        // Phobos rel EMB = seg(401,4) + [seg(4,0) - seg(3,0)].
+        // de430: 50 + (400 - 40) = 410 km; de432s: 50 + (800 - 80) = 770 km.
+        let a_de430 = expected_accel(Vector3::new(410.0e3, 0.0, 0.0), r, gm_phobos, false);
+        let a_de432s = expected_accel(Vector3::new(770.0e3, 0.0, 0.0), r, gm_phobos, false);
+        // Phobos rel Mars (body center, 499) stays within mar099s: both
+        // anchor to the Mars system barycenter, so no DE leg is involved:
+        // 50 - 2 = 48 km.
+        let a_mars = expected_accel(Vector3::new(48.0e3, 0.0, 0.0), r, gm_phobos, false);
+
+        {
+            let cache = CacheRedirect::new();
+            cache.seed(
+                "mar099s.bsp",
+                &synthetic_spk_kernel_bytes(&[(401, 4, 50.0), (499, 4, 2.0)]),
+            );
+            cache.seed(
+                "de430.bsp",
+                &synthetic_spk_kernel_bytes(&[(4, 0, 400.0), (3, 0, 40.0)]),
+            );
+            cache.seed(
+                "de432s.bsp",
+                &synthetic_spk_kernel_bytes(&[(4, 0, 800.0), (3, 0, 80.0)]),
+            );
+            let _ = unload_kernel("mar099s");
+            let _ = unload_kernel("de430");
+            let _ = unload_kernel("de432s");
+            load_kernel("de430").unwrap();
+            load_kernel("de432s").unwrap();
+
+            let a = accel_third_body_for_body(
+                &CentralBody::EMB,
+                &ThirdBody::Phobos,
+                EphemerisSource::SPK(SPICEKernel::DE430),
+                epc,
+                r,
+            )
+            .unwrap();
+            assert_abs_diff_eq!(a, a_de430, epsilon = a_de430.norm() * 1e-12);
+
+            let a = accel_third_body_for_body(
+                &CentralBody::EMB,
+                &ThirdBody::Phobos,
+                EphemerisSource::SPK(SPICEKernel::DE432s),
+                epc,
+                r,
+            )
+            .unwrap();
+            assert_abs_diff_eq!(a, a_de432s, epsilon = a_de432s.norm() * 1e-12);
+
+            let a = accel_third_body_for_body(
+                &CentralBody::Mars,
+                &ThirdBody::Phobos,
+                EphemerisSource::SPK(SPICEKernel::DE430),
+                epc,
+                r,
+            )
+            .unwrap();
+            assert_abs_diff_eq!(a, a_mars, epsilon = a_mars.norm() * 1e-12);
+
+            let _ = unload_kernel("mar099s");
+            let _ = unload_kernel("de430");
+            let _ = unload_kernel("de432s");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_custom_body_uses_global_resolution() {
+        // A Custom body with an ID outside DE and known satellite-kernel
+        // coverage resolves across all loaded kernels (bring-your-own SPK).
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1.0e3, 0.0, 0.0);
+        let gm = 6.26325e10; // Ceres
+
+        let body = ThirdBody::Custom {
+            name: "Ceres".to_string(),
+            naif_id: 2000001,
+            gm,
+        };
+        // SSB central body: direct term only.
+        let a_expected = expected_accel(Vector3::new(77.0e3, 0.0, 0.0), r, gm, true);
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ceres.bsp");
+        std::fs::write(&path, synthetic_spk_kernel_bytes(&[(2000001, 0, 77.0)])).unwrap();
+        let path = path.to_str().unwrap();
+
+        load_kernel("de440s").unwrap();
+        load_kernel(path).unwrap();
+
+        let a =
+            accel_third_body_for_body(&CentralBody::SSB, &body, EphemerisSource::DE440s, epc, r)
+                .unwrap();
+        assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
+
+        let _ = unload_kernel(path);
+    }
+
+    #[test]
+    #[serial]
+    fn test_accel_third_body_for_body_satellite_range_id_falls_back_to_global() {
+        // A Custom body with a satellite-range NAIF ID (Pluto system, 950)
+        // that the mapped system kernel (plu060) does NOT carry must fall
+        // back to global resolution so a bring-your-own SPK still works.
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(1.0e3, 0.0, 0.0);
+        let gm = 1.0e9;
+
+        let body = ThirdBody::Custom {
+            name: "MysteryMoon".to_string(),
+            naif_id: 950,
+            gm,
+        };
+        // SSB central body: direct term only.
+        let a_expected = expected_accel(Vector3::new(33.0e3, 0.0, 0.0), r, gm, true);
+
+        {
+            let cache = CacheRedirect::new();
+            // plu060 carries only Pluto (999) rel its barycenter — no 950.
+            cache.seed("plu060.bsp", &synthetic_spk_kernel_bytes(&[(999, 9, 10.0)]));
+
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("mystery.bsp");
+            std::fs::write(&path, synthetic_spk_kernel_bytes(&[(950, 0, 33.0)])).unwrap();
+            let path = path.to_str().unwrap();
+
+            let _ = unload_kernel("plu060");
+            load_kernel("de440s").unwrap();
+            load_kernel(path).unwrap();
+
+            let a = accel_third_body_for_body(
+                &CentralBody::SSB,
+                &body,
+                EphemerisSource::DE440s,
+                epc,
+                r,
+            )
+            .unwrap();
+            assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
+
+            let _ = unload_kernel(path);
+            let _ = unload_kernel("plu060");
+        }
+    }
+
+    #[test]
+    fn test_accel_third_body_panics_for_unsupported_perturbers() {
+        // The Earth/Phobos/Deimos/Custom arm panics for every source: these
+        // bodies only make sense via `accel_third_body_for_body`. Panics
+        // before any ephemeris query, so this is offline.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        for body in [
+            ThirdBody::Earth,
+            ThirdBody::Phobos,
+            ThirdBody::Deimos,
+            ThirdBody::Custom {
+                name: "Ceres".to_string(),
+                naif_id: 2000001,
+                gm: 6.26325e10,
+            },
+        ] {
+            let result = std::panic::catch_unwind(|| {
+                accel_third_body(body.clone(), EphemerisSource::DE440s, epc, r)
+            });
+            assert!(result.is_err(), "expected panic for {:?}", body);
+        }
+    }
+
+    #[test]
+    fn test_accel_third_body_panics_for_planet_with_low_precision() {
+        // The low-precision arm panics for any body other than Sun/Moon.
+        // Panics before any ephemeris query, so this is offline.
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let r = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
+        for body in [ThirdBody::Mars, ThirdBody::Jupiter, ThirdBody::Venus] {
+            let result = std::panic::catch_unwind(|| {
+                accel_third_body(body.clone(), EphemerisSource::LowPrecision, epc, r)
+            });
+            assert!(result.is_err(), "expected panic for {:?}", body);
+        }
     }
 }

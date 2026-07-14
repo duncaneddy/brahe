@@ -131,7 +131,9 @@ def accel_third_body_sun(params: dict, iterations: int) -> TaskResult:
     ensure_eop()
 
     def eval_case(epc: brahe.Epoch, state: np.ndarray) -> list[float]:
-        a = brahe.accel_third_body_sun_de(epc, state[:3], brahe.EphemerisSource.DE440s)
+        a = brahe.accel_third_body_sun_spice(
+            epc, state[:3], brahe.EphemerisSource.DE440s
+        )
         return a.tolist()
 
     times, results = time_iterations(_run_perf_or_sweep(params, eval_case), iterations)
@@ -143,7 +145,9 @@ def accel_third_body_moon(params: dict, iterations: int) -> TaskResult:
     ensure_eop()
 
     def eval_case(epc: brahe.Epoch, state: np.ndarray) -> list[float]:
-        a = brahe.accel_third_body_moon_de(epc, state[:3], brahe.EphemerisSource.DE440s)
+        a = brahe.accel_third_body_moon_spice(
+            epc, state[:3], brahe.EphemerisSource.DE440s
+        )
         return a.tolist()
 
     times, results = time_iterations(_run_perf_or_sweep(params, eval_case), iterations)

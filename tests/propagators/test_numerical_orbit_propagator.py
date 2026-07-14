@@ -17,8 +17,15 @@ from brahe import (
     state_koe_to_eci,
     state_eci_to_koe,
     R_EARTH,
+    R_MOON,
+    GM_MOON,
     orbital_period,
     GravityConfiguration,
+    CentralBody,
+    OrbitFrame,
+    ReferenceFrame,
+    periapsis_velocity,
+    spk_state,
 )
 
 
@@ -5768,3 +5775,160 @@ def test_numericalorbitpropagator_params_accessor():
         np.array([2.2, 1.3]),
     )
     np.testing.assert_allclose(prop.params(), np.array([2.2, 1.3]))
+# =============================================================================
+# Central-Body-Aware State Accessors
+# =============================================================================
+
+
+class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
+    """Test state_bci and state_in_frame, mirroring
+    dnumerical_orbit_propagator::tests for Task 12's central-body-aware accessors."""
+
+    def test_state_bci_matches_state_eci_for_earth_propagator(self):
+        """For an Earth-centered propagator, state_bci == state_eci."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+        prop.propagate_to(epoch + 60.0)
+
+        x_central = prop.state_bci(epoch)
+        x_eci = prop.state_eci(epoch)
+        assert np.allclose(x_central, x_eci, atol=1e-9)
+        assert np.allclose(x_central, state, atol=1e-9)
+
+    def test_state_bcbf_matches_state_ecef_for_earth_propagator(self):
+        """Mirrors test_dnumericalorbitpropagator_dorbitstateprovider_state_bci_bcbf_earth."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+        prop.propagate_to(epoch + 60.0)
+
+        x_bcbf = prop.state_bcbf(epoch)
+        x_ecef = prop.state_ecef(epoch)
+        assert np.allclose(x_bcbf, x_ecef, atol=1e-6)
+
+    def test_state_in_frame_default_impl_earth_propagator(self):
+        """state_in_frame(ITRF, epc) matches state_ecef(epc) for an Earth propagator."""
+        epoch = create_test_epoch()
+        state = create_leo_state()
+
+        prop = NumericalOrbitPropagator(
+            epoch,
+            state,
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+        prop.propagate_to(epoch + 60.0)
+
+        x_itrf = prop.state_in_frame(ReferenceFrame.ITRF, epoch)
+        x_ecef = prop.state_ecef(epoch)
+        assert np.allclose(x_itrf, x_ecef, atol=1e-9)
+
+    def test_trajectory_frame_matches_central_body(self, naif_cache_setup):
+        """A non-Earth propagator's trajectory is labeled BodyCenteredInertial
+        (with its center NAIF ID) and re-centers Earth-frame conversions
+        through SPK; an Earth propagator's stays ECI.
+        Mirrors test_trajectory_frame_matches_central_body."""
+        epoch = create_test_epoch()
+        a = R_MOON + 100e3
+        x0 = np.array([a, 0.0, 0.0, 0.0, periapsis_velocity(a, 0.0, gm=GM_MOON), 0.0])
+
+        force_config = ForceModelConfig.for_body(
+            CentralBody.Moon, GravityConfiguration.point_mass()
+        )
+        prop = NumericalOrbitPropagator(
+            epoch,
+            x0,
+            NumericalPropagationConfig.default(),
+            force_config,
+            None,
+        )
+        prop.propagate_to(epoch + 60.0)
+
+        traj = prop.trajectory
+        assert traj.frame == OrbitFrame.BodyCenteredInertial(301)
+        # Earth-frame conversions re-center through SPK: the trajectory's
+        # state_eci matches the propagator's own state_eci.
+        np.testing.assert_allclose(
+            traj.state_eci(epoch), prop.state_eci(epoch), atol=1e-6
+        )
+        # Provider trait accessors are frame-aware on the trajectory too.
+        np.testing.assert_array_equal(traj.state_bci(epoch), prop.state_bci(epoch))
+        np.testing.assert_array_equal(
+            traj.state_in_frame(ReferenceFrame.LCI, epoch), traj.state_bci(epoch)
+        )
+        np.testing.assert_allclose(
+            traj.state_bcbf(epoch), prop.state_bcbf(epoch), atol=1e-6
+        )
+
+        earth_prop = NumericalOrbitPropagator(
+            epoch,
+            create_leo_state(),
+            NumericalPropagationConfig.default(),
+            ForceModelConfig.two_body(),
+            None,
+        )
+        earth_prop.propagate_to(epoch + 60.0)
+        assert earth_prop.trajectory.frame == OrbitFrame.ECI
+        assert np.all(np.isfinite(earth_prop.trajectory.state_eci(epoch)))
+
+    def test_lunar_propagation_state_eci_adds_moon_offset(self, naif_cache_setup):
+        """A lunar propagator's state_eci is the LCI state offset by the Moon's
+        position relative to Earth (via SPK)."""
+        epoch = create_test_epoch()
+        a = R_MOON + 100e3
+        x0 = np.array([a, 0.0, 0.0, 0.0, periapsis_velocity(a, 0.0, gm=GM_MOON), 0.0])
+
+        force_config = ForceModelConfig.for_body(
+            CentralBody.Moon, GravityConfiguration.point_mass()
+        )
+        prop = NumericalOrbitPropagator(
+            epoch,
+            x0,
+            NumericalPropagationConfig.default(),
+            force_config,
+            None,
+        )
+
+        x_eci = prop.state_eci(epoch)
+        expected = x0 + spk_state(301, 399, epoch)
+        assert np.allclose(x_eci, expected, atol=1e-9)
+
+    def test_state_in_frame_lci_equals_central_inertial_for_lunar_propagator(
+        self, naif_cache_setup
+    ):
+        """state_in_frame(LCI, epc) is identical to state_bci(epc) for a
+        Moon-centered propagator (identity short-circuit, no SPK round trip)."""
+        epoch = create_test_epoch()
+        a = R_MOON + 100e3
+        x0 = np.array([a, 0.0, 0.0, 0.0, periapsis_velocity(a, 0.0, gm=GM_MOON), 0.0])
+
+        force_config = ForceModelConfig.for_body(
+            CentralBody.Moon, GravityConfiguration.point_mass()
+        )
+        prop = NumericalOrbitPropagator(
+            epoch,
+            x0,
+            NumericalPropagationConfig.default(),
+            force_config,
+            None,
+        )
+
+        x_lci = prop.state_in_frame(ReferenceFrame.LCI, epoch)
+        x_central = prop.state_bci(epoch)
+        assert np.array_equal(x_lci, x_central)

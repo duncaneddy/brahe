@@ -15,6 +15,7 @@ CLAUDE.md
 *.dSYM/
 *dSYM/
 scratch.py
+worktrees/
 
 # Coverage
 lcov.info

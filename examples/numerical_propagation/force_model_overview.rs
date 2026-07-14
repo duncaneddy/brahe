@@ -1,13 +1,13 @@
 //! Complete overview of ForceModelConfig showing all configuration fields.
 //! This example demonstrates every configurable option for force modeling.
 
-use brahe as bh;
 use bh::GravityModelType;
+use brahe as bh;
 
 fn main() {
-
     // Create a fully-configured force model
     let force_config = bh::ForceModelConfig {
+        central_body: bh::CentralBody::Earth,
         // Gravity: Spherical harmonic model (EGM2008, 20x20 degree/order)
         gravity: bh::GravityConfiguration::SphericalHarmonic {
             source: bh::GravityModelSource::ModelType(GravityModelType::EGM2008_360),
@@ -26,6 +26,7 @@ fn main() {
             area: bh::ParameterSource::ParameterIndex(3),
             cr: bh::ParameterSource::ParameterIndex(4),
             eclipse_model: bh::EclipseModel::Conical,
+            occulting_bodies: vec![bh::OccultingBody::Earth],
         }),
         // Third-body: Sun and Moon with DE440s ephemeris
         third_body: Some(bh::ThirdBodyConfiguration {
@@ -53,4 +54,3 @@ fn main() {
     println!("Mass: {:?}", force_config.mass);
     println!("Frame transform: {:?}", force_config.frame_transform);
 }
-

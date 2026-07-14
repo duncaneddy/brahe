@@ -674,6 +674,91 @@ def test_state_eci_to_lci_roundtrip():
     np.testing.assert_allclose(p_eci2, p_eci, atol=1e-6)
 
 
+# ---------------------------------------------------------------------------
+# Synodic frames (EMR, SER, GSE)
+# ---------------------------------------------------------------------------
+
+
+def test_reference_frame_synodic_attrs():
+    assert brahe.ReferenceFrame.from_string("EMR") == brahe.ReferenceFrame.EMR
+    assert brahe.ReferenceFrame.from_string("ser") == brahe.ReferenceFrame.SER
+    assert brahe.ReferenceFrame.from_string("GSE") == brahe.ReferenceFrame.GSE
+    assert str(brahe.ReferenceFrame.EMR) == "EMR"
+
+
+def test_state_gcrf_to_emr_moon_on_x_axis():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_moon_gcrf = brahe.spk_state(brahe.NAIFId.MOON, brahe.NAIFId.EARTH, epc)
+    x_moon_emr = brahe.state_gcrf_to_emr(epc, x_moon_gcrf)
+    assert 3.4e8 < x_moon_emr[0] < 4.1e8
+    assert x_moon_emr[1] == approx(0.0, abs=1e-3)
+    assert x_moon_emr[2] == approx(0.0, abs=1e-3)
+    assert x_moon_emr[4] == approx(0.0, abs=1e-6)
+    assert x_moon_emr[5] == approx(0.0, abs=1e-6)
+
+
+def test_state_gcrf_to_ser_earth_position():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_earth_ser = brahe.state_gcrf_to_ser(epc, np.zeros(6))
+    d = np.linalg.norm(brahe.spk_state(brahe.NAIFId.EARTH, brahe.NAIFId.SUN, epc)[:3])
+    expected_x = d * brahe.GM_SUN / (brahe.GM_SUN + brahe.GM_EARTH)
+    assert x_earth_ser[0] == approx(expected_x, abs=1.0)
+    assert x_earth_ser[1] == approx(0.0, abs=1e-2)
+    assert x_earth_ser[2] == approx(0.0, abs=1e-2)
+
+
+def test_state_gcrf_to_gse_sun_on_x_axis():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_sun_gcrf = brahe.spk_state(brahe.NAIFId.SUN, brahe.NAIFId.EARTH, epc)
+    x_sun_gse = brahe.state_gcrf_to_gse(epc, x_sun_gcrf)
+    d = np.linalg.norm(x_sun_gcrf[:3])
+    assert x_sun_gse[0] == approx(d, abs=1e-3)
+    assert x_sun_gse[1] == approx(0.0, abs=1e-2)
+    assert x_sun_gse[2] == approx(0.0, abs=1e-2)
+
+
+def test_gse_z_axis_near_ecliptic_pole():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    s = brahe.rotation_gcrf_to_gse(epc)
+    angle_deg = np.degrees(np.arccos(s[2, 2]))
+    assert abs(angle_deg - 23.439) < 0.5
+
+
+def test_synodic_pairwise_roundtrips():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+    for to_frame, from_frame in [
+        (brahe.state_gcrf_to_emr, brahe.state_emr_to_gcrf),
+        (brahe.state_gcrf_to_ser, brahe.state_ser_to_gcrf),
+        (brahe.state_gcrf_to_gse, brahe.state_gse_to_gcrf),
+    ]:
+        x_back = from_frame(epc, to_frame(epc, x))
+        np.testing.assert_allclose(x_back[:3], x[:3], atol=1e-2)
+        np.testing.assert_allclose(x_back[3:], x[3:], atol=1e-7)
+
+    x3 = np.array([1e8, -2e8, 5e7])
+    for to_frame, from_frame in [
+        (brahe.position_gcrf_to_emr, brahe.position_emr_to_gcrf),
+        (brahe.position_gcrf_to_ser, brahe.position_ser_to_gcrf),
+        (brahe.position_gcrf_to_gse, brahe.position_gse_to_gcrf),
+    ]:
+        np.testing.assert_allclose(from_frame(epc, to_frame(epc, x3)), x3, atol=1e-2)
+
+
+def test_synodic_router_matches_pairwise():
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x = np.array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+    for frame, pairwise in [
+        (brahe.ReferenceFrame.EMR, brahe.state_gcrf_to_emr(epc, x)),
+        (brahe.ReferenceFrame.SER, brahe.state_gcrf_to_ser(epc, x)),
+        (brahe.ReferenceFrame.GSE, brahe.state_gcrf_to_gse(epc, x)),
+    ]:
+        via_router = brahe.state_frame_to_frame(
+            brahe.ReferenceFrame.GCRF, frame, epc, x
+        )
+        np.testing.assert_allclose(via_router, pairwise, atol=1e-9)
+
+
 # ReferenceFrame router tests
 
 

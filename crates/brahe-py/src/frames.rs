@@ -1701,6 +1701,666 @@ fn py_state_lci_to_eci<'py>(
 }
 
 // ============================================================================
+// Synodic Reference Frames (EMR, SER, GSE)
+// ============================================================================
+
+/// Computes the rotation matrix from GCRF axes to Earth-Moon Rotating (EMR)
+/// frame axes (NASA TP-20220014814 §4.6.2): x̂ Earth→Moon, ẑ along the
+/// Moon's orbital angular momentum relative to Earth.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming GCRF -> EMR axes
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_gcrf_to_emr(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_gcrf_to_emr")]
+unsafe fn py_rotation_gcrf_to_emr<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let mat = frames::rotation_gcrf_to_emr(epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+}
+
+/// Computes the rotation matrix from Earth-Moon Rotating (EMR) frame axes to
+/// GCRF axes. Inverse of `rotation_gcrf_to_emr`.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming EMR -> GCRF axes
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_emr_to_gcrf(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_emr_to_gcrf")]
+unsafe fn py_rotation_emr_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let mat = frames::rotation_emr_to_gcrf(epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+}
+
+/// Transforms a Cartesian GCRF position into the equivalent Earth-Moon
+/// Rotating (EMR) frame position. The EMR origin is the Earth-Moon
+/// barycenter.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian EMR position (m), shape `(3,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_emr = bh.position_gcrf_to_emr(epc, [1e8, -2e8, 5e7])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(name = "position_gcrf_to_emr")]
+fn py_position_gcrf_to_emr<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_gcrf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_gcrf_to_emr(epc.obj, pyany_to_svector::<3>(&x_gcrf)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Earth-Moon Rotating (EMR) frame position into the
+/// equivalent Cartesian GCRF position. Inverse of `position_gcrf_to_emr`.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_emr (numpy.ndarray or list): Cartesian EMR position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_gcrf = bh.position_emr_to_gcrf(epc, [3.8e8, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_emr)")]
+#[pyo3(name = "position_emr_to_gcrf")]
+fn py_position_emr_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_emr: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_emr_to_gcrf(epc.obj, pyany_to_svector::<3>(&x_emr)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian GCRF state (position and velocity) into the
+/// equivalent Earth-Moon Rotating (EMR) frame state. The EMR origin is the
+/// Earth-Moon barycenter; the velocity transform uses the exact rotation-
+/// matrix time derivative (including dẑ/dt) evaluated from SPK
+/// acceleration.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian EMR state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_emr = bh.state_gcrf_to_emr(epc, [1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(name = "state_gcrf_to_emr")]
+fn py_state_gcrf_to_emr<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_gcrf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_gcrf_to_emr(epc.obj, pyany_to_svector::<6>(&x_gcrf)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Earth-Moon Rotating (EMR) frame state (position
+/// and velocity) into the equivalent Cartesian GCRF state. Inverse of
+/// `state_gcrf_to_emr`.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_emr (numpy.ndarray or list): Cartesian EMR state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_emr = [3.8e8, 0.0, 0.0, 0.0, 1.0e3, 0.0]
+///     x_gcrf = bh.state_emr_to_gcrf(epc, x_emr)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_emr)")]
+#[pyo3(name = "state_emr_to_gcrf")]
+fn py_state_emr_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_emr: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_emr_to_gcrf(epc.obj, pyany_to_svector::<6>(&x_emr)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Computes the rotation matrix from GCRF axes to Sun-Earth Rotating (SER)
+/// frame axes (NASA TP-20220014814 §4.6.1): x̂ Sun→Earth, ẑ along Earth's
+/// orbital angular momentum relative to the Sun.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming GCRF -> SER axes
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_gcrf_to_ser(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_gcrf_to_ser")]
+unsafe fn py_rotation_gcrf_to_ser<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let mat = frames::rotation_gcrf_to_ser(epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+}
+
+/// Computes the rotation matrix from Sun-Earth Rotating (SER) frame axes to
+/// GCRF axes. Inverse of `rotation_gcrf_to_ser`.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming SER -> GCRF axes
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_ser_to_gcrf(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_ser_to_gcrf")]
+unsafe fn py_rotation_ser_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let mat = frames::rotation_ser_to_gcrf(epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+}
+
+/// Transforms a Cartesian GCRF position into the equivalent Sun-Earth
+/// Rotating (SER) frame position. The SER origin is the (computed)
+/// Sun-Earth barycenter.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian SER position (m), shape `(3,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_ser = bh.position_gcrf_to_ser(epc, [1e8, -2e8, 5e7])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(name = "position_gcrf_to_ser")]
+fn py_position_gcrf_to_ser<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_gcrf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_gcrf_to_ser(epc.obj, pyany_to_svector::<3>(&x_gcrf)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Sun-Earth Rotating (SER) frame position into the
+/// equivalent Cartesian GCRF position. Inverse of `position_gcrf_to_ser`.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_ser (numpy.ndarray or list): Cartesian SER position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_gcrf = bh.position_ser_to_gcrf(epc, [1.5e11, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_ser)")]
+#[pyo3(name = "position_ser_to_gcrf")]
+fn py_position_ser_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_ser: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_ser_to_gcrf(epc.obj, pyany_to_svector::<3>(&x_ser)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian GCRF state (position and velocity) into the
+/// equivalent Sun-Earth Rotating (SER) frame state. The SER origin is the
+/// (computed) Sun-Earth barycenter; the velocity transform uses the exact
+/// rotation-matrix time derivative (including dẑ/dt) evaluated from SPK
+/// acceleration.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian SER state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_ser = bh.state_gcrf_to_ser(epc, [1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(name = "state_gcrf_to_ser")]
+fn py_state_gcrf_to_ser<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_gcrf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_gcrf_to_ser(epc.obj, pyany_to_svector::<6>(&x_gcrf)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Sun-Earth Rotating (SER) frame state (position
+/// and velocity) into the equivalent Cartesian GCRF state. Inverse of
+/// `state_gcrf_to_ser`.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_ser (numpy.ndarray or list): Cartesian SER state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_ser = [1.5e11, 0.0, 0.0, 0.0, 1.0e3, 0.0]
+///     x_gcrf = bh.state_ser_to_gcrf(epc, x_ser)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_ser)")]
+#[pyo3(name = "state_ser_to_gcrf")]
+fn py_state_ser_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_ser: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_ser_to_gcrf(epc.obj, pyany_to_svector::<6>(&x_ser)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Computes the rotation matrix from GCRF axes to Geocentric Solar Ecliptic
+/// (GSE) frame axes (NASA TP-20220014814 §2.5.4): x̂ Earth→Sun, ẑ normal to
+/// the instantaneous ecliptic plane.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming GCRF -> GSE axes
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_gcrf_to_gse(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_gcrf_to_gse")]
+unsafe fn py_rotation_gcrf_to_gse<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let mat = frames::rotation_gcrf_to_gse(epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+}
+
+/// Computes the rotation matrix from Geocentric Solar Ecliptic (GSE) frame
+/// axes to GCRF axes. Inverse of `rotation_gcrf_to_gse`.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///
+/// Returns:
+///     numpy.ndarray: 3x3 rotation matrix transforming GSE -> GCRF axes
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     r = bh.rotation_gse_to_gcrf(epc)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc)")]
+#[pyo3(name = "rotation_gse_to_gcrf")]
+unsafe fn py_rotation_gse_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
+    let mat = frames::rotation_gse_to_gcrf(epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(matrix_to_numpy!(py, mat, 3, 3, f64))
+}
+
+/// Transforms a Cartesian GCRF position into the equivalent Geocentric
+/// Solar Ecliptic (GSE) frame position. GSE is Earth-centered.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian GSE position (m), shape `(3,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_gse = bh.position_gcrf_to_gse(epc, [1e8, -2e8, 5e7])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(name = "position_gcrf_to_gse")]
+fn py_position_gcrf_to_gse<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_gcrf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_gcrf_to_gse(epc.obj, pyany_to_svector::<3>(&x_gcrf)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian Geocentric Solar Ecliptic (GSE) frame position
+/// into the equivalent Cartesian GCRF position. Inverse of
+/// `position_gcrf_to_gse`.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_gse (numpy.ndarray or list): Cartesian GSE position (m), shape `(3,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian GCRF position (m), shape `(3,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_gcrf = bh.position_gse_to_gcrf(epc, [1.5e11, 0.0, 0.0])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_gse)")]
+#[pyo3(name = "position_gse_to_gcrf")]
+fn py_position_gse_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_gse: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::position_gse_to_gcrf(epc.obj, pyany_to_svector::<3>(&x_gse)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 3, f64))
+}
+
+/// Transforms a Cartesian GCRF state (position and velocity) into the
+/// equivalent Geocentric Solar Ecliptic (GSE) frame state. GSE is
+/// Earth-centered; the velocity transform uses the exact rotation-matrix
+/// time derivative (including dẑ/dt) evaluated from SPK acceleration.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_gcrf (numpy.ndarray or list): Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian GSE state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_gse = bh.state_gcrf_to_gse(epc, [1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3])
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_gcrf)")]
+#[pyo3(name = "state_gcrf_to_gse")]
+fn py_state_gcrf_to_gse<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_gcrf: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_gcrf_to_gse(epc.obj, pyany_to_svector::<6>(&x_gcrf)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+/// Transforms a Cartesian Geocentric Solar Ecliptic (GSE) frame state
+/// (position and velocity) into the equivalent Cartesian GCRF state.
+/// Inverse of `state_gcrf_to_gse`.
+///
+/// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
+/// loaded.
+///
+/// Args:
+///     epc (Epoch): Epoch instant for computation of the transformation
+///     x_gse (numpy.ndarray or list): Cartesian GSE state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Returns:
+///     numpy.ndarray: Cartesian GCRF state `[position (m), velocity (m/s)]`, shape `(6,)`
+///
+/// Raises:
+///     RuntimeError: If the SPK lookup fails at `epc`
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.UTC)
+///     x_gse = [1.5e11, 0.0, 0.0, 0.0, 1.0e3, 0.0]
+///     x_gcrf = bh.state_gse_to_gcrf(epc, x_gse)
+///     ```
+#[pyfunction]
+#[pyo3(text_signature = "(epc, x_gse)")]
+#[pyo3(name = "state_gse_to_gcrf")]
+fn py_state_gse_to_gcrf<'py>(
+    py: Python<'py>,
+    epc: &PyEpoch,
+    x_gse: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let vec = frames::state_gse_to_gcrf(epc.obj, pyany_to_svector::<6>(&x_gse)?)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, vec, 6, f64))
+}
+
+// ============================================================================
 // Reference Frame Router
 // ============================================================================
 
@@ -1820,6 +2480,32 @@ impl PyReferenceFrame {
     #[allow(non_snake_case)]
     fn SSBI() -> Self {
         PyReferenceFrame { frame: frames::ReferenceFrame::SSBI }
+    }
+
+    /// Earth-Moon Rotating frame (NASA TP-20220014814): x̂ Earth→Moon, ẑ
+    /// along the Moon's orbital angular momentum relative to Earth;
+    /// centered on the Earth-Moon barycenter.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn EMR() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::EMR }
+    }
+
+    /// Sun-Earth Rotating frame (NASA TP-20220014814): x̂ Sun→Earth, ẑ
+    /// along Earth's orbital angular momentum relative to the Sun;
+    /// centered on the (computed) Sun-Earth barycenter.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn SER() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::SER }
+    }
+
+    /// Geocentric Solar Ecliptic frame (NASA TP-20220014814): x̂ Earth→Sun,
+    /// ẑ normal to the instantaneous ecliptic plane; Earth-centered.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn GSE() -> Self {
+        PyReferenceFrame { frame: frames::ReferenceFrame::GSE }
     }
 
     /// ICRF-aligned axes centered on the given NAIF ID.

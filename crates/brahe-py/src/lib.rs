@@ -872,6 +872,26 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_state_eci_to_lci, module)?)?;
     module.add_function(wrap_pyfunction!(py_state_lci_to_eci, module)?)?;
 
+    // Synodic reference frames (EMR, SER, GSE)
+    module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_emr, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_emr_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_gcrf_to_emr, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_emr_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_gcrf_to_emr, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_emr_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_ser, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_ser_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_gcrf_to_ser, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_ser_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_gcrf_to_ser, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_ser_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_gcrf_to_gse, module)?)?;
+    module.add_function(wrap_pyfunction!(py_rotation_gse_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_gcrf_to_gse, module)?)?;
+    module.add_function(wrap_pyfunction!(py_position_gse_to_gcrf, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_gcrf_to_gse, module)?)?;
+    module.add_function(wrap_pyfunction!(py_state_gse_to_gcrf, module)?)?;
+
     // Reference frame router
     module.add_class::<PyReferenceFrame>()?;
     module.add_function(wrap_pyfunction!(py_rotation_frame_to_frame, module)?)?;

@@ -367,7 +367,8 @@ pub(crate) fn evaluate_chain_acceleration(
 /// - `segments_for_fallback`: Lazily produces the full candidate segment
 ///   list to re-resolve against, only called if `eval(chain, et)` fails
 /// - `eval`: Evaluator (one of [`evaluate_chain_position`],
-///   [`evaluate_chain_velocity`], [`evaluate_chain_state`])
+///   [`evaluate_chain_velocity`], [`evaluate_chain_state`],
+///   [`evaluate_chain_acceleration`])
 ///
 /// # Returns
 /// - The evaluated result; the original error if it was not a coverage

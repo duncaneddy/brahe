@@ -32,22 +32,51 @@ use crate::utils::BraheError;
 /// - `(S, Ṡ)`: Rotation matrix from inertial axes to synodic axes, and its
 ///   time derivative. Units: [-], [1/s]
 ///
+/// # Errors
+/// Returns [`BraheError::Error`] if `r12`, `v12`, or `a12` is non-finite,
+/// if `r12` is zero/negligibly small (undefined x̂), or if `r12` and `v12`
+/// are zero/negligibly non-collinear (undefined ẑ, i.e. `r12 × v12 ≈ 0`).
+/// The angular-momentum check is relative-scale
+/// (`‖r₁₂×v₁₂‖ <= f64::EPSILON * ‖r₁₂‖ * ‖v₁₂‖`, i.e. comparing against
+/// the maximum possible cross-product magnitude) rather than an absolute
+/// threshold, so legitimate small-scale two-body systems are not
+/// incorrectly rejected.
+///
 /// # Examples
 /// ```ignore
 /// // Crate-internal: circular orbit in the xy-plane => S = I and Ṡ is the
 /// // instantaneous rotation rate about ẑ.
-/// let (s, s_dot) = synodic_axes(r12, v12, a12);
+/// let (s, s_dot) = synodic_axes(r12, v12, a12).unwrap();
 /// ```
 pub(crate) fn synodic_axes(
     r12: Vector3<f64>,
     v12: Vector3<f64>,
     a12: Vector3<f64>,
-) -> (SMatrix3, SMatrix3) {
+) -> Result<(SMatrix3, SMatrix3), BraheError> {
+    if !r12.iter().all(|c| c.is_finite())
+        || !v12.iter().all(|c| c.is_finite())
+        || !a12.iter().all(|c| c.is_finite())
+    {
+        return Err(BraheError::Error(
+            "synodic_axes: r12, v12, and a12 must all be finite".to_string(),
+        ));
+    }
+
     let r_norm = r12.norm();
+    if r_norm <= f64::EPSILON * r12.amax() {
+        return Err(BraheError::Error(
+            "synodic_axes: r12 is zero/negligibly small — x̂ is undefined".to_string(),
+        ));
+    }
     let x_hat = r12 / r_norm;
 
     let h = r12.cross(&v12);
     let h_norm = h.norm();
+    if h_norm <= f64::EPSILON * r_norm * v12.norm() {
+        return Err(BraheError::Error(
+            "synodic_axes: r12 and v12 are collinear (r12 x v12 ~ 0) — ẑ is undefined".to_string(),
+        ));
+    }
     let z_hat = h / h_norm;
 
     let y_hat = z_hat.cross(&x_hat);
@@ -69,7 +98,7 @@ pub(crate) fn synodic_axes(
         y_hat_dot.transpose(),
         z_hat_dot.transpose(),
     ]);
-    (s, s_dot)
+    Ok((s, s_dot))
 }
 
 /// Transforms an inertial-axis state (already translated to the synodic
@@ -124,11 +153,11 @@ pub(crate) fn state_synodic_to_inertial(s: &SMatrix3, s_dot: &SMatrix3, x: SVect
 pub(crate) fn emr_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
     let x12 = spk_state(NAIFId::Moon, NAIFId::Earth, epc)?;
     let a12 = spk_acceleration(NAIFId::Moon, NAIFId::Earth, epc)?;
-    Ok(synodic_axes(
+    synodic_axes(
         x12.fixed_rows::<3>(0).into_owned(),
         x12.fixed_rows::<3>(3).into_owned(),
         a12,
-    ))
+    )
 }
 
 /// Computes the rotation matrix from Geocentric Celestial Reference Frame
@@ -355,11 +384,11 @@ pub(crate) fn sun_earth_barycenter_state(epc: Epoch) -> Result<SVector6, BraheEr
 pub(crate) fn ser_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
     let x12 = spk_state(NAIFId::Earth, NAIFId::Sun, epc)?;
     let a12 = spk_acceleration(NAIFId::Earth, NAIFId::Sun, epc)?;
-    Ok(synodic_axes(
+    synodic_axes(
         x12.fixed_rows::<3>(0).into_owned(),
         x12.fixed_rows::<3>(3).into_owned(),
         a12,
-    ))
+    )
 }
 
 /// GSE (Geocentric Solar Ecliptic) frame axes at `epc`: the inertial→GSE
@@ -377,11 +406,11 @@ pub(crate) fn ser_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
 pub(crate) fn gse_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
     let x12 = spk_state(NAIFId::Sun, NAIFId::Earth, epc)?;
     let a12 = spk_acceleration(NAIFId::Sun, NAIFId::Earth, epc)?;
-    Ok(synodic_axes(
+    synodic_axes(
         x12.fixed_rows::<3>(0).into_owned(),
         x12.fixed_rows::<3>(3).into_owned(),
         a12,
-    ))
+    )
 }
 
 /// Earth→SEB origin offset in ICRF axes (SEB state minus Earth state,
@@ -800,7 +829,7 @@ mod tests {
         let radius = 3.844e8;
         let omega = 2.66e-6;
         let (r, v, a) = circular_rel_state(radius, omega, 0.0);
-        let (s, s_dot) = synodic_axes(r, v, a);
+        let (s, s_dot) = synodic_axes(r, v, a).unwrap();
 
         // At theta = 0 the synodic axes coincide with the inertial axes.
         for i in 0..3 {
@@ -823,7 +852,7 @@ mod tests {
         let r = Vector3::new(2.5e8, -1.2e8, 0.9e8);
         let v = Vector3::new(300.0, 800.0, -150.0);
         let a = Vector3::new(-1.9e-3, 0.9e-3, -0.7e-3);
-        let (s, s_dot) = synodic_axes(r, v, a);
+        let (s, s_dot) = synodic_axes(r, v, a).unwrap();
 
         let identity = s * s.transpose();
         for i in 0..3 {
@@ -854,12 +883,12 @@ mod tests {
         let dt = 1.0;
 
         let (r, v, a) = circular_rel_state(radius, omega, theta);
-        let (_, s_dot) = synodic_axes(r, v, a);
+        let (_, s_dot) = synodic_axes(r, v, a).unwrap();
 
         let (rp, vp, ap) = circular_rel_state(radius, omega, theta + omega * dt);
-        let (sp, _) = synodic_axes(rp, vp, ap);
+        let (sp, _) = synodic_axes(rp, vp, ap).unwrap();
         let (rm, vm, am) = circular_rel_state(radius, omega, theta - omega * dt);
-        let (sm, _) = synodic_axes(rm, vm, am);
+        let (sm, _) = synodic_axes(rm, vm, am).unwrap();
 
         for i in 0..3 {
             for j in 0..3 {
@@ -874,11 +903,33 @@ mod tests {
 
     #[test]
     #[parallel]
+    fn test_synodic_axes_zero_separation_errs() {
+        // r12 = 0 leaves x_hat = r12/||r12|| undefined.
+        let r = Vector3::zeros();
+        let v = Vector3::new(300.0, 800.0, -150.0);
+        let a = Vector3::new(-1.9e-3, 0.9e-3, -0.7e-3);
+        let err = synodic_axes(r, v, a).unwrap_err().to_string();
+        assert!(err.contains("r12"), "error should name r12: {err}");
+    }
+
+    #[test]
+    #[parallel]
+    fn test_synodic_axes_collinear_errs() {
+        // r12 parallel to v12 => r12 x v12 = 0 leaves z_hat undefined.
+        let r = Vector3::new(1.0e8, 0.0, 0.0);
+        let v = Vector3::new(2.0e3, 0.0, 0.0);
+        let a = Vector3::new(-1.9e-3, 0.9e-3, -0.7e-3);
+        let err = synodic_axes(r, v, a).unwrap_err().to_string();
+        assert!(err.contains("v12"), "error should name v12: {err}");
+    }
+
+    #[test]
+    #[parallel]
     fn test_state_transform_roundtrip() {
         let r = Vector3::new(2.5e8, -1.2e8, 0.9e8);
         let v = Vector3::new(300.0, 800.0, -150.0);
         let a = Vector3::new(-1.9e-3, 0.9e-3, -0.7e-3);
-        let (s, s_dot) = synodic_axes(r, v, a);
+        let (s, s_dot) = synodic_axes(r, v, a).unwrap();
 
         let x = SVector6::new(1.0e8, -2.0e8, 5.0e7, 1.0e3, -2.0e3, 0.5e3);
         let x_syn = state_inertial_to_synodic(&s, &s_dot, x);

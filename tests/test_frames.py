@@ -696,6 +696,12 @@ def test_state_gcrf_to_emr_moon_on_x_axis():
     assert x_moon_emr[4] == approx(0.0, abs=1e-6)
     assert x_moon_emr[5] == approx(0.0, abs=1e-6)
 
+    # Earth sits on -x_hat at the EMB offset (~4.7e6 m).
+    x_earth_emr = brahe.state_gcrf_to_emr(epc, np.zeros(6))
+    assert -5.5e6 < x_earth_emr[0] < -4.0e6
+    assert x_earth_emr[1] == approx(0.0, abs=1e-3)
+    assert x_earth_emr[2] == approx(0.0, abs=1e-3)
+
 
 def test_state_gcrf_to_ser_earth_position():
     epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
@@ -705,6 +711,13 @@ def test_state_gcrf_to_ser_earth_position():
     assert x_earth_ser[0] == approx(expected_x, abs=1.0)
     assert x_earth_ser[1] == approx(0.0, abs=1e-2)
     assert x_earth_ser[2] == approx(0.0, abs=1e-2)
+
+    # The Sun sits on -x_hat at the small SEB offset (~4.5e5 m).
+    x_sun_gcrf = brahe.spk_state(brahe.NAIFId.SUN, brahe.NAIFId.EARTH, epc)
+    x_sun_ser = brahe.state_gcrf_to_ser(epc, x_sun_gcrf)
+    assert -6.0e5 < x_sun_ser[0] < -3.0e5
+    assert x_sun_ser[1] == approx(0.0, abs=1e-2)
+    assert x_sun_ser[2] == approx(0.0, abs=1e-2)
 
 
 def test_state_gcrf_to_gse_sun_on_x_axis():
@@ -757,6 +770,20 @@ def test_synodic_router_matches_pairwise():
             brahe.ReferenceFrame.GCRF, frame, epc, x
         )
         np.testing.assert_allclose(via_router, pairwise, atol=1e-9)
+
+
+def test_router_lci_to_emr():
+    # TP §4.6.3: Moon-centered inertial to EMR. The Moon (LCI origin) must
+    # land on EMR's +x_hat axis with zero transverse velocity.
+    epc = brahe.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, brahe.UTC)
+    x_moon_emr = brahe.state_frame_to_frame(
+        brahe.ReferenceFrame.LCI, brahe.ReferenceFrame.EMR, epc, np.zeros(6)
+    )
+    assert 3.4e8 < x_moon_emr[0] < 4.1e8
+    assert x_moon_emr[1] == approx(0.0, abs=1e-3)
+    assert x_moon_emr[2] == approx(0.0, abs=1e-3)
+    assert x_moon_emr[4] == approx(0.0, abs=1e-6)
+    assert x_moon_emr[5] == approx(0.0, abs=1e-6)
 
 
 # ReferenceFrame router tests

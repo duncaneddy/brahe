@@ -1924,7 +1924,7 @@ fn py_state_emr_to_gcrf<'py>(
 }
 
 /// Computes the rotation matrix from GCRF axes to Sun-Earth Rotating (SER)
-/// frame axes (NASA TP-20220014814 §4.6.1): x̂ Sun→Earth, ẑ along Earth's
+/// frame axes (NASA TP-20220014814 §4.6.4): x̂ Sun→Earth, ẑ along Earth's
 /// orbital angular momentum relative to the Sun.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
@@ -2143,8 +2143,8 @@ fn py_state_ser_to_gcrf<'py>(
 }
 
 /// Computes the rotation matrix from GCRF axes to Geocentric Solar Ecliptic
-/// (GSE) frame axes (NASA TP-20220014814 §2.5.4): x̂ Earth→Sun, ẑ normal to
-/// the instantaneous ecliptic plane.
+/// (GSE) frame axes (NASA TP-20220014814 §2.5.4/§4.6.5): x̂ Earth→Sun, ẑ
+/// normal to the instantaneous ecliptic plane.
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
 /// loaded.
@@ -2609,7 +2609,10 @@ impl PyReferenceFrame {
 /// `to_frame` axes at `epc`.
 ///
 /// Purely an orientation query: does not depend on, and does not query,
-/// either frame's center (in particular, this never touches SPK).
+/// either frame's center. This does not mean SPK is never touched: EMR,
+/// SER, and GSE orientations are themselves derived from SPK
+/// state/acceleration (auto-loading `de440s`), so a query involving one
+/// of those frames still queries SPK.
 ///
 /// Args:
 ///     from_frame (ReferenceFrame): Source reference frame
@@ -2727,7 +2730,10 @@ fn py_unregister_custom_frame(key: u32) -> bool {
 /// Transforms a Cartesian position from `from_frame` to `to_frame` at `epc`.
 ///
 /// Same hub-and-spoke design as `state_frame_to_frame`, without the velocity
-/// transport terms. Same-center conversions never touch SPK.
+/// transport terms. Same-center conversions skip the translation lookup,
+/// but EMR/SER/GSE orientation still queries SPK ephemerides
+/// (auto-loading `de440s`), so a same-center conversion involving one of
+/// those frames is not SPK-free.
 ///
 /// Args:
 ///     from_frame (ReferenceFrame): Source reference frame
@@ -2780,8 +2786,10 @@ fn py_position_frame_to_frame<'py>(
 /// velocity-transport transform, still centered on `from_frame`'s origin),
 /// then re-centered onto `to_frame`'s origin if the two frames have
 /// different centers, then rotated into `to_frame` axes. Same-center
-/// conversions (e.g. GCRF <-> ITRF) skip the re-centering step and never
-/// touch SPK.
+/// conversions (e.g. GCRF <-> ITRF) skip the re-centering step, so that
+/// step never touches SPK; EMR/SER/GSE orientation still queries SPK
+/// ephemerides (auto-loading `de440s`) even for a same-center conversion
+/// like GCRF <-> GSE.
 ///
 /// Args:
 ///     from_frame (ReferenceFrame): Source reference frame

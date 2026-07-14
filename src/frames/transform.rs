@@ -31,9 +31,12 @@
  *
  * The target frame's axes are then produced by inverting step 1 for the
  * target frame. Same-center conversions (e.g. GCRF <-> ITRF, LCI <->
- * LFPA) skip the translation step entirely and never query SPK — the
- * router is bit-identical to the underlying pairwise function in that
- * case.
+ * LFPA) skip the translation step entirely, so that step never queries
+ * SPK. This does not make step 1 SPK-free for every frame: EMR, SER, and
+ * GSE orientations are themselves derived from SPK state/acceleration
+ * (auto-loading `de440s`), so even a same-center conversion like GCRF <->
+ * GSE queries SPK during step 1. The router is bit-identical to the
+ * underlying pairwise function in every case.
  *
  * # Frame centers
  *
@@ -494,9 +497,12 @@ fn icrf_to_frame_dcm(frame: ReferenceFrame, epc: Epoch) -> Result<SMatrix3, Brah
 /// at `epc`.
 ///
 /// Purely an orientation query: does not depend on, and does not query,
-/// either frame's center (in particular, this never touches SPK).
-/// Equivalent to `R_to(epc) * R_from(epc)^T`, where `R_x` is `x`'s
-/// ICRF -> `x` rotation matrix (identity for ICRF-aligned frames).
+/// either frame's center. This does not mean SPK is never touched: EMR,
+/// SER, and GSE orientations are themselves derived from SPK
+/// state/acceleration (auto-loading `de440s`), so a query involving one
+/// of those frames still queries SPK. Equivalent to
+/// `R_to(epc) * R_from(epc)^T`, where `R_x` is `x`'s ICRF -> `x` rotation
+/// matrix (identity for ICRF-aligned frames).
 ///
 /// # Arguments
 /// - `from`: Source reference frame
@@ -530,7 +536,10 @@ pub fn rotation_frame_to_frame(
 /// Transforms a Cartesian position from `from` to `to` at `epc`.
 ///
 /// Same hub-and-spoke design as [`state_frame_to_frame`], without the
-/// velocity transport terms. Same-center conversions never touch SPK.
+/// velocity transport terms. Same-center conversions skip the
+/// translation lookup, but EMR/SER/GSE orientation still queries SPK
+/// ephemerides (auto-loading `de440s`), so a same-center conversion
+/// involving one of those frames is not SPK-free.
 ///
 /// # Arguments
 /// - `from`: Source reference frame
@@ -582,9 +591,11 @@ pub fn position_frame_to_frame(
 /// transform, still centered on `from`'s origin), then re-centered onto
 /// `to`'s origin via `center_offset_state` if the two frames have
 /// different centers, then rotated into `to` axes. Same-center
-/// conversions (e.g. GCRF <-> ITRF) skip the re-centering step and never
-/// touch SPK — the result is bit-identical to the underlying pairwise
-/// function.
+/// conversions (e.g. GCRF <-> ITRF) skip the re-centering step, so that
+/// step never touches SPK; EMR/SER/GSE orientation still queries SPK
+/// ephemerides (auto-loading `de440s`) even for a same-center conversion
+/// like GCRF <-> GSE. The result is bit-identical to the underlying
+/// pairwise function.
 ///
 /// # Arguments
 /// - `from`: Source reference frame

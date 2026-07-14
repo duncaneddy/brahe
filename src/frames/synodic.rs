@@ -15,11 +15,11 @@ use crate::spice::{NAIFId, spk_acceleration, spk_position, spk_state};
 use crate::time::Epoch;
 use crate::utils::BraheError;
 
-/// Computes the inertial→synodic rotation matrix `S` and its exact time
-/// derivative `Ṡ` from the relative state of the two primaries
+/// Computes the inertial→synodic rotation matrix `R` and its exact time
+/// derivative `Ṙ` from the relative state of the two primaries
 /// (NASA TP-20220014814 Eq. 66/69).
 ///
-/// Axes: x̂ = r₁₂/‖r₁₂‖, ẑ = (r₁₂×v₁₂)/‖r₁₂×v₁₂‖, ŷ = ẑ×x̂; `S` has rows
+/// Axes: x̂ = r₁₂/‖r₁₂‖, ẑ = (r₁₂×v₁₂)/‖r₁₂×v₁₂‖, ŷ = ẑ×x̂; `R` has rows
 /// x̂ᵀ, ŷᵀ, ẑᵀ. The derivative rows use dẑ/dt evaluated from `a12` (exact
 /// GTDS/STK convention).
 ///
@@ -29,7 +29,7 @@ use crate::utils::BraheError;
 /// - `a12`: Acceleration of the secondary relative to the primary. Units: [m/s²]
 ///
 /// # Returns
-/// - `(S, Ṡ)`: Rotation matrix from inertial axes to synodic axes, and its
+/// - `(R, Ṙ)`: Rotation matrix from inertial axes to synodic axes, and its
 ///   time derivative. Units: [-], [1/s]
 ///
 /// # Errors
@@ -44,9 +44,9 @@ use crate::utils::BraheError;
 ///
 /// # Examples
 /// ```ignore
-/// // Crate-internal: circular orbit in the xy-plane => S = I and Ṡ is the
+/// // Crate-internal: circular orbit in the xy-plane => R = I and Ṙ is the
 /// // instantaneous rotation rate about ẑ.
-/// let (s, s_dot) = synodic_axes(r12, v12, a12).unwrap();
+/// let (r_mat, r_dot_mat) = synodic_axes(r12, v12, a12).unwrap();
 /// ```
 pub(crate) fn synodic_axes(
     r12: Vector3<f64>,
@@ -92,50 +92,58 @@ pub(crate) fn synodic_axes(
 
     let y_hat_dot = z_hat_dot.cross(&x_hat) + z_hat.cross(&x_hat_dot);
 
-    let s = SMatrix3::from_rows(&[x_hat.transpose(), y_hat.transpose(), z_hat.transpose()]);
-    let s_dot = SMatrix3::from_rows(&[
+    let r_mat = SMatrix3::from_rows(&[x_hat.transpose(), y_hat.transpose(), z_hat.transpose()]);
+    let r_dot_mat = SMatrix3::from_rows(&[
         x_hat_dot.transpose(),
         y_hat_dot.transpose(),
         z_hat_dot.transpose(),
     ]);
-    Ok((s, s_dot))
+    Ok((r_mat, r_dot_mat))
 }
 
 /// Transforms an inertial-axis state (already translated to the synodic
-/// frame's origin) into synodic axes: `r_s = S r`, `v_s = S v + Ṡ r`
+/// frame's origin) into synodic axes: `r_s = R r`, `v_s = R v + Ṙ r`
 /// (NASA TP-20220014814 Eq. 67/70, translation handled by the caller).
 ///
 /// # Arguments
-/// - `s`: Inertial→synodic rotation matrix from [`synodic_axes`]
-/// - `s_dot`: Its time derivative. Units: [1/s]
+/// - `r_mat`: Inertial→synodic rotation matrix from [`synodic_axes`]
+/// - `r_dot_mat`: Its time derivative. Units: [1/s]
 /// - `x`: Cartesian state (position, velocity), inertial axes. Units: [m; m/s]
 ///
 /// # Returns
 /// - Cartesian state in synodic axes. Units: [m; m/s]
-pub(crate) fn state_inertial_to_synodic(s: &SMatrix3, s_dot: &SMatrix3, x: SVector6) -> SVector6 {
+pub(crate) fn state_inertial_to_synodic(
+    r_mat: &SMatrix3,
+    r_dot_mat: &SMatrix3,
+    x: SVector6,
+) -> SVector6 {
     let r = x.fixed_rows::<3>(0).into_owned();
     let v = x.fixed_rows::<3>(3).into_owned();
-    let r_s: Vector3<f64> = s * r;
-    let v_s: Vector3<f64> = s * v + s_dot * r;
+    let r_s: Vector3<f64> = r_mat * r;
+    let v_s: Vector3<f64> = r_mat * v + r_dot_mat * r;
     SVector6::new(r_s[0], r_s[1], r_s[2], v_s[0], v_s[1], v_s[2])
 }
 
-/// Inverse of [`state_inertial_to_synodic`]: `r = Sᵀ r_s`,
-/// `v = Sᵀ v_s + Ṡᵀ r_s` (using Ṡᵀ = −SᵀṠSᵀ from d/dt(SᵀS) = 0, which
+/// Inverse of [`state_inertial_to_synodic`]: `r = Rᵀ r_s`,
+/// `v = Rᵀ v_s + Ṙᵀ r_s` (using Ṙᵀ = −RᵀṘRᵀ from d/dt(RᵀR) = 0, which
 /// reduces TP Eq. 68/71 to this form).
 ///
 /// # Arguments
-/// - `s`: Inertial→synodic rotation matrix from [`synodic_axes`]
-/// - `s_dot`: Its time derivative. Units: [1/s]
+/// - `r_mat`: Inertial→synodic rotation matrix from [`synodic_axes`]
+/// - `r_dot_mat`: Its time derivative. Units: [1/s]
 /// - `x`: Cartesian state (position, velocity), synodic axes. Units: [m; m/s]
 ///
 /// # Returns
 /// - Cartesian state in inertial axes. Units: [m; m/s]
-pub(crate) fn state_synodic_to_inertial(s: &SMatrix3, s_dot: &SMatrix3, x: SVector6) -> SVector6 {
+pub(crate) fn state_synodic_to_inertial(
+    r_mat: &SMatrix3,
+    r_dot_mat: &SMatrix3,
+    x: SVector6,
+) -> SVector6 {
     let r_s = x.fixed_rows::<3>(0).into_owned();
     let v_s = x.fixed_rows::<3>(3).into_owned();
-    let r: Vector3<f64> = s.transpose() * r_s;
-    let v: Vector3<f64> = s.transpose() * v_s + s_dot.transpose() * r_s;
+    let r: Vector3<f64> = r_mat.transpose() * r_s;
+    let v: Vector3<f64> = r_mat.transpose() * v_s + r_dot_mat.transpose() * r_s;
     SVector6::new(r[0], r[1], r[2], v[0], v[1], v[2])
 }
 
@@ -148,7 +156,7 @@ pub(crate) fn state_synodic_to_inertial(s: &SMatrix3, s_dot: &SMatrix3, x: SVect
 /// - `epc`: Epoch instant for computation of the transformation
 ///
 /// # Returns
-/// - `(S, Ṡ)`: Rotation matrix from GCRF to EMR axes, and its time
+/// - `(R, Ṙ)`: Rotation matrix from GCRF to EMR axes, and its time
 ///   derivative. Units: [-], [1/s]
 pub(crate) fn emr_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
     let x12 = spk_state(NAIFId::Moon, NAIFId::Earth, epc)?;
@@ -244,9 +252,9 @@ pub fn rotation_emr_to_gcrf(epc: Epoch) -> Result<SMatrix3, BraheError> {
 /// let x_emr = position_gcrf_to_emr(epc, x_gcrf).unwrap();
 /// ```
 pub fn position_gcrf_to_emr(epc: Epoch, x_gcrf: Vector3<f64>) -> Result<Vector3<f64>, BraheError> {
-    let (s, _) = emr_axes(epc)?;
+    let (r_mat, _) = emr_axes(epc)?;
     let offset = spk_position(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
-    Ok(s * (x_gcrf - offset))
+    Ok(r_mat * (x_gcrf - offset))
 }
 
 /// Transforms a Cartesian Earth-Moon Rotating (EMR) position into the
@@ -277,9 +285,9 @@ pub fn position_gcrf_to_emr(epc: Epoch, x_gcrf: Vector3<f64>) -> Result<Vector3<
 /// let x_gcrf2 = position_emr_to_gcrf(epc, x_emr).unwrap();
 /// ```
 pub fn position_emr_to_gcrf(epc: Epoch, x_emr: Vector3<f64>) -> Result<Vector3<f64>, BraheError> {
-    let (s, _) = emr_axes(epc)?;
+    let (r_mat, _) = emr_axes(epc)?;
     let offset = spk_position(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
-    Ok(s.transpose() * x_emr + offset)
+    Ok(r_mat.transpose() * x_emr + offset)
 }
 
 /// Transforms a Cartesian GCRF state (position and velocity) into the
@@ -288,7 +296,7 @@ pub fn position_emr_to_gcrf(epc: Epoch, x_emr: Vector3<f64>) -> Result<Vector3<f
 /// The EMR origin is the Earth-Moon Barycenter (NASA TP-20220014814
 /// §2.5.1); the input is re-centered from Earth to the barycenter, then
 /// rotated into EMR axes using the exact (GTDS/STK-convention) rotation
-/// rate of §4.6.2 (including the transport term from `Ṡ`).
+/// rate of §4.6.2 (including the transport term from `Ṙ`).
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
 /// loaded; see [`crate::spice::spk_state`].
@@ -311,10 +319,14 @@ pub fn position_emr_to_gcrf(epc: Epoch, x_emr: Vector3<f64>) -> Result<Vector3<f
 /// let x_emr = state_gcrf_to_emr(epc, x_gcrf).unwrap();
 /// ```
 pub fn state_gcrf_to_emr(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, BraheError> {
-    let (s, s_dot) = emr_axes(epc)?;
+    let (r_mat, r_dot_mat) = emr_axes(epc)?;
     // EMB relative to Earth in ICRF axes: re-center Earth → EMB, then rotate.
     let offset = spk_state(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
-    Ok(state_inertial_to_synodic(&s, &s_dot, x_gcrf - offset))
+    Ok(state_inertial_to_synodic(
+        &r_mat,
+        &r_dot_mat,
+        x_gcrf - offset,
+    ))
 }
 
 /// Transforms a Cartesian Earth-Moon Rotating (EMR) state (position and
@@ -345,9 +357,9 @@ pub fn state_gcrf_to_emr(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, Brahe
 /// let x_gcrf2 = state_emr_to_gcrf(epc, x_emr).unwrap();
 /// ```
 pub fn state_emr_to_gcrf(epc: Epoch, x_emr: SVector6) -> Result<SVector6, BraheError> {
-    let (s, s_dot) = emr_axes(epc)?;
+    let (r_mat, r_dot_mat) = emr_axes(epc)?;
     let offset = spk_state(NAIFId::EarthMoonBarycenter, NAIFId::Earth, epc)?;
-    Ok(state_synodic_to_inertial(&s, &s_dot, x_emr) + offset)
+    Ok(state_synodic_to_inertial(&r_mat, &r_dot_mat, x_emr) + offset)
 }
 
 /// State of the Sun-Earth barycenter (SEB) relative to the Solar System
@@ -379,7 +391,7 @@ pub(crate) fn sun_earth_barycenter_state(epc: Epoch) -> Result<SVector6, BraheEr
 /// - `epc`: Epoch instant for computation of the transformation
 ///
 /// # Returns
-/// - `(S, Ṡ)`: Rotation matrix from GCRF to SER axes, and its time
+/// - `(R, Ṙ)`: Rotation matrix from GCRF to SER axes, and its time
 ///   derivative. Units: [-], [1/s]
 pub(crate) fn ser_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
     let x12 = spk_state(NAIFId::Earth, NAIFId::Sun, epc)?;
@@ -401,7 +413,7 @@ pub(crate) fn ser_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
 /// - `epc`: Epoch instant for computation of the transformation
 ///
 /// # Returns
-/// - `(S, Ṡ)`: Rotation matrix from GCRF to GSE axes, and its time
+/// - `(R, Ṙ)`: Rotation matrix from GCRF to GSE axes, and its time
 ///   derivative. Units: [-], [1/s]
 pub(crate) fn gse_axes(epc: Epoch) -> Result<(SMatrix3, SMatrix3), BraheError> {
     let x12 = spk_state(NAIFId::Sun, NAIFId::Earth, epc)?;
@@ -505,9 +517,9 @@ pub fn rotation_ser_to_gcrf(epc: Epoch) -> Result<SMatrix3, BraheError> {
 /// let x_ser = position_gcrf_to_ser(epc, x_gcrf).unwrap();
 /// ```
 pub fn position_gcrf_to_ser(epc: Epoch, x_gcrf: Vector3<f64>) -> Result<Vector3<f64>, BraheError> {
-    let (s, _) = ser_axes(epc)?;
+    let (r_mat, _) = ser_axes(epc)?;
     let offset = seb_offset_from_earth(epc)?.fixed_rows::<3>(0).into_owned();
-    Ok(s * (x_gcrf - offset))
+    Ok(r_mat * (x_gcrf - offset))
 }
 
 /// Transforms a Cartesian Sun-Earth Rotating (SER) position into the
@@ -538,9 +550,9 @@ pub fn position_gcrf_to_ser(epc: Epoch, x_gcrf: Vector3<f64>) -> Result<Vector3<
 /// let x_gcrf2 = position_ser_to_gcrf(epc, x_ser).unwrap();
 /// ```
 pub fn position_ser_to_gcrf(epc: Epoch, x_ser: Vector3<f64>) -> Result<Vector3<f64>, BraheError> {
-    let (s, _) = ser_axes(epc)?;
+    let (r_mat, _) = ser_axes(epc)?;
     let offset = seb_offset_from_earth(epc)?.fixed_rows::<3>(0).into_owned();
-    Ok(s.transpose() * x_ser + offset)
+    Ok(r_mat.transpose() * x_ser + offset)
 }
 
 /// Transforms a Cartesian GCRF state (position and velocity) into the
@@ -549,7 +561,7 @@ pub fn position_ser_to_gcrf(epc: Epoch, x_ser: Vector3<f64>) -> Result<Vector3<f
 /// The SER origin is the (true, GM-weighted) Sun-Earth Barycenter (NASA
 /// TP-20220014814 §2.5.3); the input is re-centered from Earth to the
 /// SEB, then rotated into SER axes using the exact (GTDS/STK-convention)
-/// rotation rate of §4.6.4 (including the transport term from `Ṡ`).
+/// rotation rate of §4.6.4 (including the transport term from `Ṙ`).
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
 /// loaded; see [`crate::spice::spk_state`].
@@ -572,10 +584,14 @@ pub fn position_ser_to_gcrf(epc: Epoch, x_ser: Vector3<f64>) -> Result<Vector3<f
 /// let x_ser = state_gcrf_to_ser(epc, x_gcrf).unwrap();
 /// ```
 pub fn state_gcrf_to_ser(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, BraheError> {
-    let (s, s_dot) = ser_axes(epc)?;
+    let (r_mat, r_dot_mat) = ser_axes(epc)?;
     // SEB relative to Earth in ICRF axes: re-center Earth → SEB, then rotate.
     let offset = seb_offset_from_earth(epc)?;
-    Ok(state_inertial_to_synodic(&s, &s_dot, x_gcrf - offset))
+    Ok(state_inertial_to_synodic(
+        &r_mat,
+        &r_dot_mat,
+        x_gcrf - offset,
+    ))
 }
 
 /// Transforms a Cartesian Sun-Earth Rotating (SER) state (position and
@@ -606,9 +622,9 @@ pub fn state_gcrf_to_ser(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, Brahe
 /// let x_gcrf2 = state_ser_to_gcrf(epc, x_ser).unwrap();
 /// ```
 pub fn state_ser_to_gcrf(epc: Epoch, x_ser: SVector6) -> Result<SVector6, BraheError> {
-    let (s, s_dot) = ser_axes(epc)?;
+    let (r_mat, r_dot_mat) = ser_axes(epc)?;
     let offset = seb_offset_from_earth(epc)?;
-    Ok(state_synodic_to_inertial(&s, &s_dot, x_ser) + offset)
+    Ok(state_synodic_to_inertial(&r_mat, &r_dot_mat, x_ser) + offset)
 }
 
 /// Computes the rotation matrix from Geocentric Celestial Reference Frame
@@ -735,7 +751,7 @@ pub fn position_gse_to_gcrf(epc: Epoch, x_gse: Vector3<f64>) -> Result<Vector3<f
 /// GSE is Earth-centered (NASA TP-20220014814 §2.5.4); unlike EMR and
 /// SER, no translation is applied — only the rotation into GSE axes,
 /// using the exact (GTDS/STK-convention) rotation rate of §4.6.5
-/// (including the transport term from `Ṡ`).
+/// (including the transport term from `Ṙ`).
 ///
 /// Auto-initializes the default `de440s` ephemeris if no SPK kernel is
 /// loaded; see [`crate::spice::spk_state`].
@@ -758,8 +774,8 @@ pub fn position_gse_to_gcrf(epc: Epoch, x_gse: Vector3<f64>) -> Result<Vector3<f
 /// let x_gse = state_gcrf_to_gse(epc, x_gcrf).unwrap();
 /// ```
 pub fn state_gcrf_to_gse(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, BraheError> {
-    let (s, s_dot) = gse_axes(epc)?;
-    Ok(state_inertial_to_synodic(&s, &s_dot, x_gcrf))
+    let (r_mat, r_dot_mat) = gse_axes(epc)?;
+    Ok(state_inertial_to_synodic(&r_mat, &r_dot_mat, x_gcrf))
 }
 
 /// Transforms a Cartesian Geocentric Solar Ecliptic (GSE) state (position
@@ -790,8 +806,8 @@ pub fn state_gcrf_to_gse(epc: Epoch, x_gcrf: SVector6) -> Result<SVector6, Brahe
 /// let x_gcrf2 = state_gse_to_gcrf(epc, x_gse).unwrap();
 /// ```
 pub fn state_gse_to_gcrf(epc: Epoch, x_gse: SVector6) -> Result<SVector6, BraheError> {
-    let (s, s_dot) = gse_axes(epc)?;
-    Ok(state_synodic_to_inertial(&s, &s_dot, x_gse))
+    let (r_mat, r_dot_mat) = gse_axes(epc)?;
+    Ok(state_synodic_to_inertial(&r_mat, &r_dot_mat, x_gse))
 }
 
 #[cfg(test)]
@@ -829,32 +845,36 @@ mod tests {
         let radius = 3.844e8;
         let omega = 2.66e-6;
         let (r, v, a) = circular_rel_state(radius, omega, 0.0);
-        let (s, s_dot) = synodic_axes(r, v, a).unwrap();
+        let (r_mat, r_dot_mat) = synodic_axes(r, v, a).unwrap();
 
         // At theta = 0 the synodic axes coincide with the inertial axes.
         for i in 0..3 {
             for j in 0..3 {
-                assert_abs_diff_eq!(s[(i, j)], if i == j { 1.0 } else { 0.0 }, epsilon = 1e-14);
+                assert_abs_diff_eq!(
+                    r_mat[(i, j)],
+                    if i == j { 1.0 } else { 0.0 },
+                    epsilon = 1e-14
+                );
             }
         }
-        // Ṡ is the instantaneous rotation about ẑ at rate omega.
-        assert_abs_diff_eq!(s_dot[(0, 1)], omega, epsilon = 1e-18);
-        assert_abs_diff_eq!(s_dot[(1, 0)], -omega, epsilon = 1e-18);
-        assert_abs_diff_eq!(s_dot[(2, 0)], 0.0, epsilon = 1e-18);
-        assert_abs_diff_eq!(s_dot[(2, 1)], 0.0, epsilon = 1e-18);
+        // Ṙ is the instantaneous rotation about ẑ at rate omega.
+        assert_abs_diff_eq!(r_dot_mat[(0, 1)], omega, epsilon = 1e-18);
+        assert_abs_diff_eq!(r_dot_mat[(1, 0)], -omega, epsilon = 1e-18);
+        assert_abs_diff_eq!(r_dot_mat[(2, 0)], 0.0, epsilon = 1e-18);
+        assert_abs_diff_eq!(r_dot_mat[(2, 1)], 0.0, epsilon = 1e-18);
     }
 
     #[test]
     #[parallel]
     fn test_synodic_axes_orthonormal_and_skew() {
         // Generic inclined, non-circular input: orthonormality and the
-        // rigid-rotation identity ṠSᵀ + SṠᵀ = 0 must hold regardless.
+        // rigid-rotation identity ṘRᵀ + RṘᵀ = 0 must hold regardless.
         let r = Vector3::new(2.5e8, -1.2e8, 0.9e8);
         let v = Vector3::new(300.0, 800.0, -150.0);
         let a = Vector3::new(-1.9e-3, 0.9e-3, -0.7e-3);
-        let (s, s_dot) = synodic_axes(r, v, a).unwrap();
+        let (r_mat, r_dot_mat) = synodic_axes(r, v, a).unwrap();
 
-        let identity = s * s.transpose();
+        let identity = r_mat * r_mat.transpose();
         for i in 0..3 {
             for j in 0..3 {
                 assert_abs_diff_eq!(
@@ -864,9 +884,9 @@ mod tests {
                 );
             }
         }
-        assert_abs_diff_eq!(s.determinant(), 1.0, epsilon = 1e-14);
+        assert_abs_diff_eq!(r_mat.determinant(), 1.0, epsilon = 1e-14);
 
-        let skew = s_dot * s.transpose() + s * s_dot.transpose();
+        let skew = r_dot_mat * r_mat.transpose() + r_mat * r_dot_mat.transpose();
         for i in 0..3 {
             for j in 0..3 {
                 assert_abs_diff_eq!(skew[(i, j)], 0.0, epsilon = 1e-18);
@@ -883,18 +903,18 @@ mod tests {
         let dt = 1.0;
 
         let (r, v, a) = circular_rel_state(radius, omega, theta);
-        let (_, s_dot) = synodic_axes(r, v, a).unwrap();
+        let (_, r_dot_mat) = synodic_axes(r, v, a).unwrap();
 
         let (rp, vp, ap) = circular_rel_state(radius, omega, theta + omega * dt);
-        let (sp, _) = synodic_axes(rp, vp, ap).unwrap();
+        let (r_mat_p, _) = synodic_axes(rp, vp, ap).unwrap();
         let (rm, vm, am) = circular_rel_state(radius, omega, theta - omega * dt);
-        let (sm, _) = synodic_axes(rm, vm, am).unwrap();
+        let (r_mat_m, _) = synodic_axes(rm, vm, am).unwrap();
 
         for i in 0..3 {
             for j in 0..3 {
                 assert_abs_diff_eq!(
-                    s_dot[(i, j)],
-                    (sp[(i, j)] - sm[(i, j)]) / (2.0 * dt),
+                    r_dot_mat[(i, j)],
+                    (r_mat_p[(i, j)] - r_mat_m[(i, j)]) / (2.0 * dt),
                     epsilon = 1e-12
                 );
             }
@@ -929,11 +949,11 @@ mod tests {
         let r = Vector3::new(2.5e8, -1.2e8, 0.9e8);
         let v = Vector3::new(300.0, 800.0, -150.0);
         let a = Vector3::new(-1.9e-3, 0.9e-3, -0.7e-3);
-        let (s, s_dot) = synodic_axes(r, v, a).unwrap();
+        let (r_mat, r_dot_mat) = synodic_axes(r, v, a).unwrap();
 
         let x = SVector6::new(1.0e8, -2.0e8, 5.0e7, 1.0e3, -2.0e3, 0.5e3);
-        let x_syn = state_inertial_to_synodic(&s, &s_dot, x);
-        let x_back = state_synodic_to_inertial(&s, &s_dot, x_syn);
+        let x_syn = state_inertial_to_synodic(&r_mat, &r_dot_mat, x);
+        let x_back = state_synodic_to_inertial(&r_mat, &r_dot_mat, x_syn);
         for i in 0..3 {
             assert_abs_diff_eq!(x_back[i], x[i], epsilon = 1e-6);
         }
@@ -995,21 +1015,21 @@ mod tests {
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let dt = 10.0;
 
-        let (_, s_dot) = emr_axes(epc).unwrap();
-        let s_p = rotation_gcrf_to_emr(epc + dt).unwrap();
-        let s_m = rotation_gcrf_to_emr(epc + (-dt)).unwrap();
+        let (_, r_dot_mat) = emr_axes(epc).unwrap();
+        let r_mat_p = rotation_gcrf_to_emr(epc + dt).unwrap();
+        let r_mat_m = rotation_gcrf_to_emr(epc + (-dt)).unwrap();
         for i in 0..3 {
             for j in 0..3 {
                 assert_abs_diff_eq!(
-                    s_dot[(i, j)],
-                    (s_p[(i, j)] - s_m[(i, j)]) / (2.0 * dt),
+                    r_dot_mat[(i, j)],
+                    (r_mat_p[(i, j)] - r_mat_m[(i, j)]) / (2.0 * dt),
                     epsilon = 1e-11
                 );
             }
         }
         // Proper rotation
-        let s = rotation_gcrf_to_emr(epc).unwrap();
-        assert_abs_diff_eq!(s.determinant(), 1.0, epsilon = 1e-12);
+        let r_mat = rotation_gcrf_to_emr(epc).unwrap();
+        assert_abs_diff_eq!(r_mat.determinant(), 1.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -1086,8 +1106,8 @@ mod tests {
         // GSE ẑ is the instantaneous ecliptic normal: ~23.44 deg (the mean
         // obliquity) from the GCRF z-axis. The Moon-induced wobble of the
         // Earth's heliocentric velocity perturbs this by well under 0.5 deg.
-        let s = rotation_gcrf_to_gse(epc).unwrap();
-        let cos_angle = s[(2, 2)]; // ẑ_gse · ẑ_gcrf
+        let r_mat = rotation_gcrf_to_gse(epc).unwrap();
+        let cos_angle = r_mat[(2, 2)]; // ẑ_gse · ẑ_gcrf
         let angle_deg = cos_angle.acos().to_degrees();
         assert!(
             (angle_deg - 23.439).abs() < 0.5,

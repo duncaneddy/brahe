@@ -710,6 +710,76 @@ impl PySGPPropagator {
             .collect())
     }
 
+    /// Compute states at multiple epochs in the propagator's central body's
+    /// body-centered inertial (BCI) frame.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of BCI state vectors [x, y, z, vx, vy, vz] (meters, m/s).
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = SOrbitStateProvider::states_bci(&self.propagator, &epoch_vec)?;
+        Ok(states
+            .iter()
+            .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
+    /// Compute states at multiple epochs in the propagator's central body's
+    /// body-centered body-fixed (BCBF) frame.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of BCBF state vectors [x, y, z, vx, vy, vz] (meters, m/s).
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = SOrbitStateProvider::states_bcbf(&self.propagator, &epoch_vec)?;
+        Ok(states
+            .iter()
+            .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
+    /// Compute states at multiple epochs expressed in an arbitrary
+    /// reference frame, converting from the propagator's native
+    /// central-body frame.
+    ///
+    /// Args:
+    ///     frame (ReferenceFrame): The reference frame to express the states in.
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of state vectors [x, y, z, vx, vy, vz] in `frame` (meters, m/s).
+    #[pyo3(text_signature = "(frame, epochs)")]
+    pub fn states_in_frame<'a>(
+        &self,
+        py: Python<'a>,
+        frame: &PyReferenceFrame,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states =
+            SOrbitStateProvider::states_in_frame(&self.propagator, frame.frame, &epoch_vec)?;
+        Ok(states
+            .iter()
+            .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
     /// Step forward by the default step size.
     ///
     /// Example:
@@ -2617,6 +2687,76 @@ impl PyKeplerianPropagator {
     ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = DOrbitStateProvider::states_eme2000(&self.propagator, &epoch_vec)?;
+        Ok(states
+            .iter()
+            .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
+    /// Compute states at multiple epochs in the propagator's central body's
+    /// body-centered inertial (BCI) frame.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of BCI state vectors [x, y, z, vx, vy, vz] (meters, m/s).
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_bci(&self.propagator, &epoch_vec)?;
+        Ok(states
+            .iter()
+            .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
+    /// Compute states at multiple epochs in the propagator's central body's
+    /// body-centered body-fixed (BCBF) frame.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of BCBF state vectors [x, y, z, vx, vy, vz] (meters, m/s).
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_bcbf(&self.propagator, &epoch_vec)?;
+        Ok(states
+            .iter()
+            .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
+    /// Compute states at multiple epochs expressed in an arbitrary
+    /// reference frame, converting from the propagator's native
+    /// central-body frame.
+    ///
+    /// Args:
+    ///     frame (ReferenceFrame): The reference frame to express the states in.
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of state vectors [x, y, z, vx, vy, vz] in `frame` (meters, m/s).
+    #[pyo3(text_signature = "(frame, epochs)")]
+    pub fn states_in_frame<'a>(
+        &self,
+        py: Python<'a>,
+        frame: &PyReferenceFrame,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states =
+            DOrbitStateProvider::states_in_frame(&self.propagator, frame.frame, &epoch_vec)?;
         Ok(states
             .iter()
             .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
@@ -6425,6 +6565,79 @@ impl PyNumericalOrbitPropagator {
         let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
         let states = DOrbitStateProvider::states_eme2000(&self.propagator, &epoch_vec)
             .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states
+            .iter()
+            .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
+    /// Compute states at multiple epochs in the propagator's central body's
+    /// body-centered inertial (BCI) frame.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of BCI state vectors [x, y, z, vx, vy, vz] (meters, m/s).
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_bci<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_bci(&self.propagator, &epoch_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states
+            .iter()
+            .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
+    /// Compute states at multiple epochs in the propagator's central body's
+    /// body-centered body-fixed (BCBF) frame.
+    ///
+    /// Args:
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of BCBF state vectors [x, y, z, vx, vy, vz] (meters, m/s).
+    #[pyo3(text_signature = "(epochs)")]
+    pub fn states_bcbf<'a>(
+        &self,
+        py: Python<'a>,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states = DOrbitStateProvider::states_bcbf(&self.propagator, &epoch_vec)
+            .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        Ok(states
+            .iter()
+            .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())
+            .collect())
+    }
+
+    /// Compute states at multiple epochs expressed in an arbitrary
+    /// reference frame, converting from the propagator's native
+    /// central-body frame.
+    ///
+    /// Args:
+    ///     frame (ReferenceFrame): The reference frame to express the states in.
+    ///     epochs (list[Epoch]): List of epochs for state computation.
+    ///
+    /// Returns:
+    ///     list[numpy.ndarray]: List of state vectors [x, y, z, vx, vy, vz] in `frame` (meters, m/s).
+    #[pyo3(text_signature = "(frame, epochs)")]
+    pub fn states_in_frame<'a>(
+        &self,
+        py: Python<'a>,
+        frame: &PyReferenceFrame,
+        epochs: Vec<PyRef<PyEpoch>>,
+    ) -> PyResult<Vec<Bound<'a, PyArray<f64, Ix1>>>> {
+        let epoch_vec: Vec<_> = epochs.iter().map(|e| e.obj).collect();
+        let states =
+            DOrbitStateProvider::states_in_frame(&self.propagator, frame.frame, &epoch_vec)
+                .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(states
             .iter()
             .map(|s: &Vector6<f64>| s.as_slice().to_pyarray(py).to_owned())

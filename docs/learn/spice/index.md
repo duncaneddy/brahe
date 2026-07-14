@@ -8,7 +8,7 @@ SPICE binding at runtime.
 
 Two ways to query loaded kernels are available:
 
-- **Generic queries** (`spk_position`/`spk_velocity`/`spk_state`,
+- **Generic queries** (`spk_position`/`spk_velocity`/`spk_state`/`spk_acceleration`,
   `pck_euler_angles`/`pck_rotation_matrix`) take NAIF IDs or frame class IDs
   directly and resolve against a process-wide kernel registry.
 - **Per-body convenience functions** (`sun_position_spice`, `moon_state_spice`, ...)
@@ -91,8 +91,8 @@ Registry behavior:
   kernel wins (matching SPICE's own "last loaded wins" convention). `pck_*`
   queries search loaded PCK kernels newest-first for a frame with coverage
   at the requested epoch.
-- **Auto-initialization**: `spk_position`/`spk_velocity`/`spk_state` load
-  `de440s` automatically if no SPK kernel has been loaded yet. Binary PCKs
+- **Auto-initialization**: `spk_position`/`spk_velocity`/`spk_state`/`spk_acceleration`
+  load `de440s` automatically if no SPK kernel has been loaded yet. Binary PCKs
   are never auto-loaded through this generic interface — `load_spice_kernel("moon_pa_de440")`
   (or an explicit path) must be called first. The Moon's `LFPA`/`LFME` frame
   functions (see [Lunar Reference Frames](../frames/lunar_frames.md)) are a
@@ -118,14 +118,16 @@ Pluto are needed — `load_all_spice_kernels` downloads over 2 GB on first use.
 
 ### Generic NAIF-ID Queries
 
-`spk_position`, `spk_velocity`, and `spk_state` take a target NAIF ID, a
-center NAIF ID, and an `Epoch`, and resolve across all loaded SPK kernels:
+`spk_position`, `spk_velocity`, `spk_state`, and `spk_acceleration` take a
+target NAIF ID, a center NAIF ID, and an `Epoch`, and resolve across all
+loaded SPK kernels:
 
 | Function | Returns | Units |
 |---|---|---|
 | `spk_position(target, center, epc)` | Position of `target` rel. `center` | m |
 | `spk_velocity(target, center, epc)` | Velocity of `target` rel. `center` | m/s |
 | `spk_state(target, center, epc)` | `[x, y, z, vx, vy, vz]` of `target` rel. `center` | m, m/s |
+| `spk_acceleration(target, center, epc)` | Acceleration of `target` rel. `center` | m/s&sup2; |
 
 Common NAIF IDs are exposed through the `NAIFId` enum (Python: `IntEnum`;
 Rust: `enum NAIFId` with an `Id(i32)` catch-all variant), covering the ten
@@ -160,8 +162,9 @@ minor body or spacecraft) is passed as a raw integer (Python) or
 
 ### Kernel-Scoped Queries
 
-`spk_position_from_kernel`, `spk_velocity_from_kernel`, and `spk_state_from_kernel`
-take an additional `kernel_name` argument and query **that kernel only** —
+`spk_position_from_kernel`, `spk_velocity_from_kernel`, `spk_state_from_kernel`,
+and `spk_acceleration_from_kernel` take an additional `kernel_name` argument
+and query **that kernel only** —
 no cross-kernel chaining is performed and the registry's precedence rules do
 not apply. The named kernel is auto-loaded if not already resident. Use
 these when a query must come from a specific kernel regardless of what else

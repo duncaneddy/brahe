@@ -27,6 +27,8 @@ convenience functions, see the
 
 ::: brahe.spk_state
 
+::: brahe.spk_acceleration
+
 ## Kernel-Scoped SPK Queries
 
 ::: brahe.spk_position_from_kernel
@@ -34,6 +36,8 @@ convenience functions, see the
 ::: brahe.spk_velocity_from_kernel
 
 ::: brahe.spk_state_from_kernel
+
+::: brahe.spk_acceleration_from_kernel
 
 ## PCK Orientation Queries
 

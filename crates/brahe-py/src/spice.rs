@@ -29,7 +29,8 @@
 #[pyfunction]
 #[pyo3(name = "load_spice_kernel")]
 fn py_load_kernel(name_or_path: &str) -> PyResult<()> {
-    spice::load_spice_kernel(name_or_path).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    spice::load_spice_kernel(name_or_path)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Unload a SPICE kernel from the global registry.
@@ -135,7 +136,8 @@ fn py_kernel_is_loaded(fragment: &str) -> bool {
 #[pyfunction]
 #[pyo3(name = "load_common_spice_kernels")]
 fn py_load_common_kernels() -> PyResult<()> {
-    spice::load_common_spice_kernels().map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    spice::load_common_spice_kernels()
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Load every kernel brahe knows how to download: "de440s", "moon_pa_de440",
@@ -282,6 +284,48 @@ fn py_spk_state<'py>(
     Ok(vector_to_numpy!(py, x, 6, f64))
 }
 
+/// Acceleration of a target body relative to a center body from loaded SPK
+/// kernels.
+///
+/// The result is expressed in the kernel's inertial frame (ICRF axes),
+/// evaluated by analytically differentiating the kernel's Chebyshev
+/// polynomials (twice for Type 2 segments; once, of the stored velocity
+/// polynomials, for Type 3). If no kernels are loaded, DE440s is loaded
+/// automatically.
+///
+/// Args:
+///     target (int): NAIF ID of the target body (e.g. bh.NAIFId.MOON)
+///     center (int): NAIF ID of the center body (e.g. bh.NAIFId.EARTH)
+///     epc (Epoch): Epoch of the query
+///
+/// Returns:
+///     np.ndarray: Acceleration [ax, ay, az] of target relative to center.
+///         Units: (m/s^2)
+///
+/// Raises:
+///     RuntimeError: If no ephemeris path exists between the bodies or the
+///         epoch is outside kernel coverage
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     a = bh.spk_acceleration(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
+///     ```
+#[pyfunction]
+#[pyo3(name = "spk_acceleration")]
+fn py_spk_acceleration<'py>(
+    py: Python<'py>,
+    target: i32,
+    center: i32,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let a = spice::spk_acceleration(target, center, epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, a, 3, f64))
+}
+
 /// Position of a target body relative to a center body, queried from a
 /// single named kernel.
 ///
@@ -409,6 +453,49 @@ fn py_spk_state_from_kernel<'py>(
     let x = spice::spk_state_from_kernel(kernel_name, target, center, epc.obj)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, x, 6, f64))
+}
+
+/// Acceleration of a target body relative to a center body, queried from a
+/// single named kernel.
+///
+/// Queries that kernel only — no cross-kernel chaining is performed and
+/// the registry's last-loaded-wins precedence semantics do not apply. The
+/// kernel is auto-loaded by name or path if not already loaded.
+///
+/// Args:
+///     kernel_name (str): A known DE kernel name (e.g. "de440s", "de440"),
+///         or a path to a .bsp file
+///     target (int): NAIF ID of the target body (e.g. bh.NAIFId.MOON)
+///     center (int): NAIF ID of the center body (e.g. bh.NAIFId.EARTH)
+///     epc (Epoch): Epoch of the query
+///
+/// Returns:
+///     np.ndarray: Acceleration [ax, ay, az] of target relative to center
+///         in the kernel's inertial frame (ICRF axes). Units: (m/s^2)
+///
+/// Raises:
+///     RuntimeError: If the kernel cannot be loaded, does not contain the
+///         requested bodies, or does not cover the epoch
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+///     a = bh.spk_acceleration_from_kernel("de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
+///     ```
+#[pyfunction]
+#[pyo3(name = "spk_acceleration_from_kernel")]
+fn py_spk_acceleration_from_kernel<'py>(
+    py: Python<'py>,
+    kernel_name: &str,
+    target: i32,
+    center: i32,
+    epc: &PyEpoch,
+) -> PyResult<Bound<'py, PyArray<f64, Ix1>>> {
+    let a = spice::spk_acceleration_from_kernel(kernel_name, target, center, epc.obj)
+        .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    Ok(vector_to_numpy!(py, a, 3, f64))
 }
 
 /// 3-1-3 Euler angles and rates of a PCK body-fixed frame relative to ICRF.

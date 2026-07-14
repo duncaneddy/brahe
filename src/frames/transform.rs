@@ -31,9 +31,12 @@
  *
  * The target frame's axes are then produced by inverting step 1 for the
  * target frame. Same-center conversions (e.g. GCRF <-> ITRF, LCI <->
- * LFPA) skip the translation step entirely and never query SPK — the
- * router is bit-identical to the underlying pairwise function in that
- * case.
+ * LFPA) skip the translation step entirely, so that step never queries
+ * SPK. This does not make step 1 SPK-free for every frame: EMR, SER, and
+ * GSE orientations are themselves derived from SPK state/acceleration
+ * (auto-loading `de440s`), so even a same-center conversion like GCRF <->
+ * GSE queries SPK during step 1. The router is bit-identical to the
+ * underlying pairwise function in every case.
  *
  * # Frame centers
  *
@@ -47,6 +50,9 @@
  * | `BodyCenteredICRF(id)` | `id` |
  * | `BodyFixedIAU(id)` | `id` (the body itself) |
  * | `BodyFixedPCK { center, .. }` | `center` |
+ * | EMR | Earth-Moon barycenter (3) |
+ * | SER | Sun-Earth barycenter (synthetic, see [`SUN_EARTH_BARYCENTER_ID`]) |
+ * | GSE | Earth (399) |
  *
  * Translations involving a satellite-system body center (e.g. Mars, NAIF
  * 499, or an outer-planet moon) auto-load that system's satellite
@@ -71,6 +77,15 @@ use super::iau_rotation::{
 use super::lunar::{rotation_lci_to_lfme, rotation_lci_to_lfpa};
 use super::mars::rotation_mci_to_mcmf;
 
+/// Brahe-internal synthetic center ID for the Sun-Earth barycenter, the
+/// origin of [`ReferenceFrame::SER`]. The SEB has no catalogued NAIF ID
+/// or SPK segment; the ID is negative following NAIF's convention for
+/// non-catalogued objects (magnitude mnemonic: Sun 10, Earth 399). It is
+/// never passed to SPK — `center_offset_state` computes the barycenter
+/// analytically as the GM-weighted combination of the Sun and Earth SPK
+/// states.
+pub const SUN_EARTH_BARYCENTER_ID: i32 = -1_000_010_399;
+
 /// A reference frame supported by the centralized frame router
 /// ([`rotation_frame_to_frame`], [`position_frame_to_frame`],
 /// [`state_frame_to_frame`]).
@@ -78,8 +93,9 @@ use super::mars::rotation_mci_to_mcmf;
 /// Includes every named frame defined elsewhere in [`crate::frames`]
 /// (`GCRF`, `ITRF`, `EME2000`, the lunar frames `LCI`/`LFPA`/`LFME`, and
 /// the Mars frames `MCI`/`MCMF`), the Earth-Moon and Solar System
-/// barycentric inertial frames (`EMBI`, `SSBI`), and three generic
-/// variants for bodies without a dedicated named frame:
+/// barycentric inertial frames (`EMBI`, `SSBI`), the synodic (rotating)
+/// frames (`EMR`, `SER`, `GSE`), and three generic variants for bodies
+/// without a dedicated named frame:
 ///
 /// - `BodyCenteredICRF(naif_id)`: ICRF-aligned axes centered on `naif_id`.
 /// - `BodyFixedIAU(naif_id)`: the IAU/WGCCRE body-fixed frame of
@@ -113,6 +129,19 @@ pub enum ReferenceFrame {
     EMBI,
     /// Solar System Barycentric Inertial (ICRF-aligned).
     SSBI,
+    /// Earth-Moon Rotating frame (NASA TP-20220014814 §2.5.1): x̂ from
+    /// Earth to Moon, ẑ along the Moon's instantaneous orbital angular
+    /// momentum relative to Earth; centered on the Earth-Moon barycenter.
+    EMR,
+    /// Sun-Earth Rotating frame (NASA TP-20220014814 §2.5.3): x̂ from Sun
+    /// to Earth, ẑ along Earth's instantaneous orbital angular momentum
+    /// relative to the Sun; centered on the Sun-Earth barycenter
+    /// (computed GM-weighted; see [`SUN_EARTH_BARYCENTER_ID`]).
+    SER,
+    /// Geocentric Solar Ecliptic frame (NASA TP-20220014814 §2.5.4): x̂
+    /// from Earth to Sun (note: reversed sense relative to SER), ẑ normal
+    /// to the instantaneous ecliptic plane; Earth-centered.
+    GSE,
     /// ICRF-aligned axes centered on the given NAIF ID.
     BodyCenteredICRF(i32),
     /// IAU/WGCCRE body-fixed frame of the given NAIF ID, centered on that
@@ -175,6 +204,9 @@ impl ReferenceFrame {
             ReferenceFrame::MCI | ReferenceFrame::MCMF => NAIFId::Mars.id(),
             ReferenceFrame::EMBI => NAIFId::EarthMoonBarycenter.id(),
             ReferenceFrame::SSBI => NAIFId::SolarSystemBarycenter.id(),
+            ReferenceFrame::EMR => NAIFId::EarthMoonBarycenter.id(),
+            ReferenceFrame::SER => SUN_EARTH_BARYCENTER_ID,
+            ReferenceFrame::GSE => NAIFId::Earth.id(),
             ReferenceFrame::BodyCenteredICRF(id) => *id,
             ReferenceFrame::BodyFixedIAU(id) => *id,
             ReferenceFrame::BodyFixedPCK { center, .. } => *center,
@@ -199,6 +231,18 @@ impl ReferenceFrame {
             ReferenceFrame::LFPA => Ok(super::lunar::state_lfpa_to_lci(epc, x)),
             ReferenceFrame::LFME => Ok(super::lunar::state_lfme_to_lci(epc, x)),
             ReferenceFrame::MCMF => Ok(super::mars::state_mcmf_to_mci(epc, x)),
+            ReferenceFrame::EMR => {
+                let (s, s_dot) = super::synodic::emr_axes(epc)?;
+                Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
+            }
+            ReferenceFrame::SER => {
+                let (s, s_dot) = super::synodic::ser_axes(epc)?;
+                Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
+            }
+            ReferenceFrame::GSE => {
+                let (s, s_dot) = super::synodic::gse_axes(epc)?;
+                Ok(super::synodic::state_synodic_to_inertial(&s, &s_dot, x))
+            }
             ReferenceFrame::BodyFixedIAU(id) => state_iau_body_to_icrf(*id, epc, x),
             ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
                 state_pck_body_to_icrf(*frame_id, epc, x)
@@ -226,6 +270,24 @@ impl ReferenceFrame {
             ReferenceFrame::LFPA => Ok(super::lunar::state_lci_to_lfpa(epc, x_icrf)),
             ReferenceFrame::LFME => Ok(super::lunar::state_lci_to_lfme(epc, x_icrf)),
             ReferenceFrame::MCMF => Ok(super::mars::state_mci_to_mcmf(epc, x_icrf)),
+            ReferenceFrame::EMR => {
+                let (s, s_dot) = super::synodic::emr_axes(epc)?;
+                Ok(super::synodic::state_inertial_to_synodic(
+                    &s, &s_dot, x_icrf,
+                ))
+            }
+            ReferenceFrame::SER => {
+                let (s, s_dot) = super::synodic::ser_axes(epc)?;
+                Ok(super::synodic::state_inertial_to_synodic(
+                    &s, &s_dot, x_icrf,
+                ))
+            }
+            ReferenceFrame::GSE => {
+                let (s, s_dot) = super::synodic::gse_axes(epc)?;
+                Ok(super::synodic::state_inertial_to_synodic(
+                    &s, &s_dot, x_icrf,
+                ))
+            }
             ReferenceFrame::BodyFixedIAU(id) => state_icrf_to_iau_body(*id, epc, x_icrf),
             ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
                 state_icrf_to_pck_body(*frame_id, epc, x_icrf)
@@ -251,6 +313,9 @@ impl fmt::Display for ReferenceFrame {
             ReferenceFrame::MCMF => write!(f, "MCMF"),
             ReferenceFrame::EMBI => write!(f, "EMBI"),
             ReferenceFrame::SSBI => write!(f, "SSBI"),
+            ReferenceFrame::EMR => write!(f, "EMR"),
+            ReferenceFrame::SER => write!(f, "SER"),
+            ReferenceFrame::GSE => write!(f, "GSE"),
             ReferenceFrame::BodyCenteredICRF(id) => write!(f, "BodyCenteredICRF({})", id),
             ReferenceFrame::BodyFixedIAU(id) => write!(f, "BodyFixedIAU({})", id),
             ReferenceFrame::BodyFixedPCK { center, frame_id } => {
@@ -288,9 +353,12 @@ impl FromStr for ReferenceFrame {
             "MCMF" => Ok(ReferenceFrame::MCMF),
             "EMBI" => Ok(ReferenceFrame::EMBI),
             "SSBI" => Ok(ReferenceFrame::SSBI),
+            "EMR" => Ok(ReferenceFrame::EMR),
+            "SER" => Ok(ReferenceFrame::SER),
+            "GSE" => Ok(ReferenceFrame::GSE),
             _ => Err(BraheError::ParseError(format!(
                 "Unknown reference frame '{}'. Supported: GCRF (alias ECI), ITRF (alias ECEF), \
-                 EME2000, LCI, LFPA, LFME, MCI, MCMF, EMBI, SSBI",
+                 EME2000, LCI, LFPA, LFME, MCI, MCMF, EMBI, SSBI, EMR, SER, GSE",
                 s
             ))),
         }
@@ -412,6 +480,9 @@ fn icrf_to_frame_dcm(frame: ReferenceFrame, epc: Epoch) -> Result<SMatrix3, Brah
         ReferenceFrame::LFPA => Ok(rotation_lci_to_lfpa(epc)),
         ReferenceFrame::LFME => Ok(rotation_lci_to_lfme(epc)),
         ReferenceFrame::MCMF => Ok(rotation_mci_to_mcmf(epc)),
+        ReferenceFrame::EMR => Ok(super::synodic::emr_axes(epc)?.0),
+        ReferenceFrame::SER => Ok(super::synodic::ser_axes(epc)?.0),
+        ReferenceFrame::GSE => Ok(super::synodic::gse_axes(epc)?.0),
         ReferenceFrame::BodyFixedIAU(id) => rotation_icrf_to_body_fixed_iau(id, epc),
         ReferenceFrame::BodyFixedPCK { frame_id, .. } => {
             crate::spice::pck_rotation_matrix(frame_id, epc).map(|r| r.to_matrix())
@@ -426,9 +497,12 @@ fn icrf_to_frame_dcm(frame: ReferenceFrame, epc: Epoch) -> Result<SMatrix3, Brah
 /// at `epc`.
 ///
 /// Purely an orientation query: does not depend on, and does not query,
-/// either frame's center (in particular, this never touches SPK).
-/// Equivalent to `R_to(epc) * R_from(epc)^T`, where `R_x` is `x`'s
-/// ICRF -> `x` rotation matrix (identity for ICRF-aligned frames).
+/// either frame's center. This does not mean SPK is never touched: EMR,
+/// SER, and GSE orientations are themselves derived from SPK
+/// state/acceleration (auto-loading `de440s`), so a query involving one
+/// of those frames still queries SPK. Equivalent to
+/// `R_to(epc) * R_from(epc)^T`, where `R_x` is `x`'s ICRF -> `x` rotation
+/// matrix (identity for ICRF-aligned frames).
 ///
 /// # Arguments
 /// - `from`: Source reference frame
@@ -462,7 +536,10 @@ pub fn rotation_frame_to_frame(
 /// Transforms a Cartesian position from `from` to `to` at `epc`.
 ///
 /// Same hub-and-spoke design as [`state_frame_to_frame`], without the
-/// velocity transport terms. Same-center conversions never touch SPK.
+/// velocity transport terms. Same-center conversions skip the
+/// translation lookup, but EMR/SER/GSE orientation still queries SPK
+/// ephemerides (auto-loading `de440s`), so a same-center conversion
+/// involving one of those frames is not SPK-free.
 ///
 /// # Arguments
 /// - `from`: Source reference frame
@@ -514,9 +591,11 @@ pub fn position_frame_to_frame(
 /// transform, still centered on `from`'s origin), then re-centered onto
 /// `to`'s origin via `center_offset_state` if the two frames have
 /// different centers, then rotated into `to` axes. Same-center
-/// conversions (e.g. GCRF <-> ITRF) skip the re-centering step and never
-/// touch SPK — the result is bit-identical to the underlying pairwise
-/// function.
+/// conversions (e.g. GCRF <-> ITRF) skip the re-centering step, so that
+/// step never touches SPK; EMR/SER/GSE orientation still queries SPK
+/// ephemerides (auto-loading `de440s`) even for a same-center conversion
+/// like GCRF <-> GSE. The result is bit-identical to the underlying
+/// pairwise function.
 ///
 /// # Arguments
 /// - `from`: Source reference frame
@@ -587,6 +666,22 @@ pub(crate) fn center_offset_state(
     to_center: i32,
     epc: Epoch,
 ) -> Result<SVector6, BraheError> {
+    // The Sun-Earth barycenter (SER's origin) has no NAIF ID or SPK
+    // segment; resolve either endpoint against the SSB analytically.
+    if from_center == SUN_EARTH_BARYCENTER_ID || to_center == SUN_EARTH_BARYCENTER_ID {
+        let state_rel_ssb = |center: i32| -> Result<SVector6, BraheError> {
+            if center == SUN_EARTH_BARYCENTER_ID {
+                super::synodic::sun_earth_barycenter_state(epc)
+            } else if center == NAIFId::SolarSystemBarycenter.id() {
+                Ok(SVector6::zeros())
+            } else {
+                crate::spice::registry::ensure_bodies_loadable(&[center])?;
+                crate::spice::spk_state(center, NAIFId::SolarSystemBarycenter, epc)
+            }
+        };
+        return Ok(state_rel_ssb(to_center)? - state_rel_ssb(from_center)?);
+    }
+
     // Satellite-system body centers (Mars 499, outer-planet moons, ...) are
     // not carried by the DE kernels; idempotently load the default DE
     // ephemeris (when none is resident) and each system's satellite
@@ -661,6 +756,76 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_router_matches_pairwise_synodic() {
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);
+
+        for (frame, pairwise) in [
+            (
+                ReferenceFrame::EMR,
+                crate::frames::state_gcrf_to_emr(epc, x).unwrap(),
+            ),
+            (
+                ReferenceFrame::SER,
+                crate::frames::state_gcrf_to_ser(epc, x).unwrap(),
+            ),
+            (
+                ReferenceFrame::GSE,
+                crate::frames::state_gcrf_to_gse(epc, x).unwrap(),
+            ),
+        ] {
+            let via_router = state_frame_to_frame(ReferenceFrame::GCRF, frame, epc, x).unwrap();
+            for i in 0..6 {
+                assert_abs_diff_eq!(via_router[i], pairwise[i], epsilon = 1e-9);
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_router_lci_to_emr() {
+        // TP §4.6.3: Moon-centered inertial to EMR. The Moon (LCI origin)
+        // must land on EMR's +x̂ axis with zero transverse velocity.
+        setup_global_test_spice();
+        let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_moon_emr = state_frame_to_frame(
+            ReferenceFrame::LCI,
+            ReferenceFrame::EMR,
+            epc,
+            SVector6::zeros(),
+        )
+        .unwrap();
+        assert!(x_moon_emr[0] > 3.4e8 && x_moon_emr[0] < 4.1e8);
+        assert_abs_diff_eq!(x_moon_emr[1], 0.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(x_moon_emr[2], 0.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(x_moon_emr[4], 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(x_moon_emr[5], 0.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_synodic_frame_parse_and_display() {
+        for (s, f) in [
+            ("EMR", ReferenceFrame::EMR),
+            ("SER", ReferenceFrame::SER),
+            ("GSE", ReferenceFrame::GSE),
+            ("emr", ReferenceFrame::EMR),
+        ] {
+            assert_eq!(s.parse::<ReferenceFrame>().unwrap(), f);
+        }
+        assert_eq!(ReferenceFrame::EMR.to_string(), "EMR");
+        assert_eq!(ReferenceFrame::SER.to_string(), "SER");
+        assert_eq!(ReferenceFrame::GSE.to_string(), "GSE");
+        assert_eq!(ReferenceFrame::EMR.center_naif_id(), 3);
+        assert_eq!(ReferenceFrame::GSE.center_naif_id(), 399);
+        assert_eq!(
+            ReferenceFrame::SER.center_naif_id(),
+            SUN_EARTH_BARYCENTER_ID
+        );
+    }
+
+    #[test]
+    #[serial]
     fn test_router_roundtrip_all_pairs() {
         setup_global_test_eop();
         setup_global_test_spice();
@@ -675,6 +840,9 @@ mod tests {
             ReferenceFrame::MCMF,
             ReferenceFrame::EMBI,
             ReferenceFrame::SSBI,
+            ReferenceFrame::EMR,
+            ReferenceFrame::SER,
+            ReferenceFrame::GSE,
         ];
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let x = vector6_from_array([1e8, -2e8, 5e7, 1.0e3, -2.0e3, 0.5e3]);

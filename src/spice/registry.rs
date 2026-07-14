@@ -31,8 +31,8 @@ use super::naif_id::{FrameId, NAIFId};
 use super::pck::BPCK;
 use super::segments::{ChebyshevSegment, is_coverage_error};
 use super::spk::{
-    ChainLink, SPK, evaluate_chain_position, evaluate_chain_state, evaluate_chain_velocity,
-    evaluate_with_epoch_fallback, resolve_chain,
+    ChainLink, SPK, evaluate_chain_acceleration, evaluate_chain_position, evaluate_chain_state,
+    evaluate_chain_velocity, evaluate_with_epoch_fallback, resolve_chain,
 };
 
 // ============================================================================
@@ -581,6 +581,47 @@ pub fn spk_state(
     ))
 }
 
+/// Acceleration of `target` relative to `center` at `epc`, resolved across
+/// all loaded SPK kernels.
+///
+/// Auto-initializes with `de440s` if no kernels are loaded. The
+/// cross-kernel chain is resolved once per `(target, center)` pair and
+/// cached (topology only, ignoring epoch); if the cached chain's segments
+/// don't cover `epc` while a different path through the loaded kernels
+/// does, this transparently falls back to an epoch-aware re-resolution
+/// (not cached) — see `evaluate_with_epoch_fallback`.
+///
+/// # Arguments
+/// - `target`: NAIF ID of the target body
+/// - `center`: NAIF ID of the center body
+/// - `epc`: Epoch at which to evaluate the acceleration
+///
+/// # Returns
+/// - Acceleration of `target` relative to `center` in the kernel's inertial
+///   frame (ICRF axes). Units: [m/s²]
+///
+/// # Examples
+/// ```
+/// use brahe::spice::{NAIFId, spk_acceleration, load_common_spice_kernels};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// load_common_spice_kernels().unwrap();
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let a_moon = spk_acceleration(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+/// ```
+pub fn spk_acceleration(
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
+    ensure_default_ephemeris_loaded()?;
+    let et = epoch_to_et(epc);
+    let chain = global_chain(target, center)?;
+    Ok(global_eval(target, center, et, &chain, evaluate_chain_acceleration)? * 1.0e3)
+}
+
 /// Fetch the loaded `Kernel::Spk` entry for `kernel`, loading it first if
 /// absent.
 fn spk_kernel_for_query(kernel: KernelSource) -> Result<Arc<SPK>, BraheError> {
@@ -714,6 +755,44 @@ pub fn spk_state_from_kernel(
     let center = center.into().id();
     let spk = spk_kernel_for_query(kernel.into())?;
     spk.state(target, center, epoch_to_et(epc))
+}
+
+/// Acceleration of `target` relative to `center` at `epc`, queried from a
+/// single named kernel.
+///
+/// Queries **that kernel only**: no cross-kernel chaining is performed and
+/// the registry's last-loaded-wins precedence semantics do not apply. The
+/// kernel is auto-loaded by name or path if not already loaded.
+///
+/// # Arguments
+/// - `kernel`: A known kernel name/[`SPICEKernel`], or a path to a `.bsp`
+///   file
+/// - `target`: NAIF ID of the target body
+/// - `center`: NAIF ID of the center body
+/// - `epc`: Epoch at which to evaluate the acceleration
+///
+/// # Returns
+/// - Acceleration of `target` relative to `center` in the kernel's inertial
+///   frame (ICRF axes). Units: [m/s²]
+///
+/// # Examples
+/// ```no_run
+/// use brahe::spice::{NAIFId, spk_acceleration_from_kernel};
+/// use brahe::time::{Epoch, TimeSystem};
+///
+/// let epc = Epoch::from_date(2025, 1, 1, TimeSystem::UTC);
+/// let a_moon = spk_acceleration_from_kernel("de440s", NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+/// ```
+pub fn spk_acceleration_from_kernel(
+    kernel: impl Into<KernelSource>,
+    target: impl Into<NAIFId>,
+    center: impl Into<NAIFId>,
+    epc: Epoch,
+) -> Result<Vector3<f64>, BraheError> {
+    let target = target.into().id();
+    let center = center.into().id();
+    let spk = spk_kernel_for_query(kernel.into())?;
+    spk.acceleration(target, center, epoch_to_et(epc))
 }
 
 // ============================================================================
@@ -1277,6 +1356,26 @@ mod tests {
         let v = spk_velocity(NAIFId::Sun, NAIFId::Earth, epc).unwrap();
         assert_abs_diff_eq!((x.fixed_rows::<3>(0) - r).norm(), 0.0, epsilon = 1e-9);
         assert_abs_diff_eq!((x.fixed_rows::<3>(3) - v).norm(), 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    #[serial]
+    fn test_spk_acceleration_matches_finite_difference() {
+        setup_global_test_spice();
+        let epc = epc_2025();
+        let dt = 10.0; // seconds
+
+        let a = spk_acceleration(NAIFId::Moon, NAIFId::Earth, epc).unwrap();
+        let v_p = spk_velocity(NAIFId::Moon, NAIFId::Earth, epc + dt).unwrap();
+        let v_m = spk_velocity(NAIFId::Moon, NAIFId::Earth, epc + (-dt)).unwrap();
+        let a_fd = (v_p - v_m) / (2.0 * dt);
+
+        // Moon geocentric acceleration ~2.7e-3 m/s²; central-difference
+        // truncation error ~ dt²/6 * jerk ~ 1e-7 m/s³ — 1e-6 is comfortable.
+        for i in 0..3 {
+            assert_abs_diff_eq!(a[i], a_fd[i], epsilon = 1e-6);
+        }
+        assert!(a.norm() > 2.0e-3 && a.norm() < 4.0e-3);
     }
 
     #[test]

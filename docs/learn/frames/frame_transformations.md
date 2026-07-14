@@ -18,6 +18,9 @@ The **transformation source** column names how each frame's orientation is reali
 | `MCMF` | Mars-fixed | 499 | IAU/WGCCRE analytic (native) |
 | `EMBI` | Inertial | 3 | ICRF-aligned identity |
 | `SSBI` | Inertial | 0 | ICRF-aligned identity |
+| `EMR` | Rotating | 3 | SPK-derived, analytic (native) |
+| `SER` | Rotating | &mdash; (synthetic barycenter) | SPK-derived, analytic (native) |
+| `GSE` | Rotating | 399 | SPK-derived, analytic (native) |
 | `BodyCenteredICRF(naif_id)` | Inertial | `naif_id` | ICRF-aligned identity |
 | `BodyFixedIAU(naif_id)` | Body-fixed | `naif_id` | IAU/WGCCRE analytic (native) |
 | `BodyFixedPCK(center, frame_id)` | Body-fixed | `center` | Loaded binary PCK (SPICE) |
@@ -25,7 +28,7 @@ The **transformation source** column names how each frame's orientation is reali
 
 The NAIF ID column gives the NAIF integer ID of the body each frame is centered on; it is the ID used to resolve the frame's origin through the SPK kernels when re-centering. For `BodyFixedCustom`, `center` is that same center NAIF ID, while `key` is an integer handle naming a rotation callback function previously registered with `register_custom_frame` &mdash; see [Generic NAIF-ID Variants](#generic-naif-id-variants) below.
 
-See [Lunar Reference Frames](lunar_frames.md) and [Mars Reference Frames](mars_frames.md) for `LCI`/`LFPA`/`LFME` and `MCI`/`MCMF` respectively.
+See [Lunar Reference Frames](lunar_frames.md) and [Mars Reference Frames](mars_frames.md) for `LCI`/`LFPA`/`LFME` and `MCI`/`MCMF` respectively, and [Synodic Reference Frames](synodic_frames.md) for `EMR`/`SER`/`GSE`.
 
 ## Router Functions
 
@@ -75,6 +78,7 @@ Four variants cover bodies without a dedicated named frame:
 | `MCI`, `MCMF` (translation to/from another center) | `de440s` SPK + `mar099s` satellite ephemeris | Yes, on first Mars body-center query |
 | `LFPA`, `LFME` | `moon_pa_de440` binary PCK | Yes, on first LCI &harr; LFPA/LFME conversion |
 | `MCMF` (rotation only) | None (compiled-in WGCCRE polynomial) | N/A |
+| `EMR`, `SER`, `GSE` | `de440s` SPK | Yes, on first query |
 | `BodyFixedIAU(naif_id)` | None (compiled-in), if `naif_id` is in `iau_rotation_model_ids()` | N/A |
 | `BodyFixedPCK { .. }` | The named binary PCK | No; must be loaded explicitly with `load_spice_kernel` |
 | `BodyFixedCustom { .. }` | None (user callback) | N/A |
@@ -85,6 +89,7 @@ The lunar PCK auto-load is a narrow exception to the general SPICE registry rule
 
 - [Lunar Reference Frames](lunar_frames.md)
 - [Mars Reference Frames](mars_frames.md)
+- [Synodic Reference Frames](synodic_frames.md)
 - [ECI &harr; ECEF Transformations](eci_ecef.md) - Earth-only frame transformations
 - [Cislunar and Lunar Propagation](../orbit_propagation/numerical_propagation/cislunar_lunar_propagation.md) - `Moon`/`EMB` central bodies and force-model defaults
 - [Propagation Around Other Central Bodies](../orbit_propagation/numerical_propagation/other_central_bodies.md) - `Mars`, custom bodies, and user-defined body-fixed frames

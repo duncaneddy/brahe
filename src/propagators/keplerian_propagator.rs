@@ -746,6 +746,7 @@ mod tests {
     use super::*;
     use crate::DEGREES;
     use crate::coordinates::state_eci_to_koe;
+    use crate::frames::ReferenceFrame;
     use crate::orbits::keplerian::orbital_period;
     use crate::time::{Epoch, TimeSystem};
     use crate::utils::testing::setup_global_test_eop;
@@ -1446,6 +1447,65 @@ mod tests {
             let computed_elements = state_eci_to_koe(eci_state, DEGREES);
             for j in 0..6 {
                 assert_abs_diff_eq!(computed_elements[j], elements[j], epsilon = 1e-6);
+            }
+        }
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_states_bci() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+        let propagator =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        let epochs = vec![epoch, epoch + 60.0, epoch + 120.0];
+        let states = propagator.states_bci(&epochs).unwrap();
+        assert_eq!(states.len(), 3);
+        for (i, epc) in epochs.iter().enumerate() {
+            let single = propagator.state_bci(*epc).unwrap();
+            for j in 0..6 {
+                assert_eq!(states[i][j], single[j]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_states_bcbf() {
+        setup_global_test_eop();
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+        let propagator =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        let epochs = vec![epoch, epoch + 60.0, epoch + 120.0];
+        let states = propagator.states_bcbf(&epochs).unwrap();
+        assert_eq!(states.len(), 3);
+        for (i, epc) in epochs.iter().enumerate() {
+            let single = propagator.state_bcbf(*epc).unwrap();
+            for j in 0..6 {
+                assert_eq!(states[i][j], single[j]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_keplerianpropagator_analyticpropagator_states_in_frame() {
+        let epoch = Epoch::from_jd(TEST_EPOCH_JD, TimeSystem::UTC);
+        let elements = create_test_elements();
+        let propagator =
+            KeplerianPropagator::from_keplerian(epoch, elements, AngleFormat::Degrees, 60.0);
+
+        let epochs = vec![epoch, epoch + 60.0, epoch + 120.0];
+        let states = propagator
+            .states_in_frame(ReferenceFrame::GCRF, &epochs)
+            .unwrap();
+        assert_eq!(states.len(), 3);
+        for (i, epc) in epochs.iter().enumerate() {
+            let single = propagator
+                .state_in_frame(ReferenceFrame::GCRF, *epc)
+                .unwrap();
+            for j in 0..6 {
+                assert_eq!(states[i][j], single[j]);
             }
         }
     }

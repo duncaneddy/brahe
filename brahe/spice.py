@@ -8,8 +8,8 @@ queries against the registry.
 This module provides:
 - load_spice_kernel / unload_spice_kernel / clear_spice_kernels / loaded_spice_kernels / kernel_is_loaded: Kernel registry management
 - load_common_spice_kernels / load_all_spice_kernels: Bulk kernel pre-loading helpers
-- spk_position / spk_velocity / spk_state: Generic SPK queries against all loaded kernels
-- spk_position_from_kernel / spk_velocity_from_kernel / spk_state_from_kernel: SPK queries scoped to a single named kernel
+- spk_position / spk_velocity / spk_state / spk_acceleration: Generic SPK queries against all loaded kernels
+- spk_position_from_kernel / spk_velocity_from_kernel / spk_state_from_kernel / spk_acceleration_from_kernel: SPK queries scoped to a single named kernel
 - pck_euler_angles / pck_euler_angle / pck_euler_rates / pck_euler_angle_and_rates / pck_quaternion / pck_rotation_matrix: Generic binary PCK orientation queries
 - NAIFId / FrameId: NAIF body ID and PCK frame ID IntEnums
 
@@ -36,9 +36,11 @@ from brahe._brahe import (
     spk_position,
     spk_velocity,
     spk_state,
+    spk_acceleration,
     spk_position_from_kernel,
     spk_velocity_from_kernel,
     spk_state_from_kernel,
+    spk_acceleration_from_kernel,
     pck_euler_angles,
     pck_euler_angle,
     pck_euler_rates,
@@ -110,9 +112,11 @@ __all__ = [
     "spk_position",
     "spk_velocity",
     "spk_state",
+    "spk_acceleration",
     "spk_position_from_kernel",
     "spk_velocity_from_kernel",
     "spk_state_from_kernel",
+    "spk_acceleration_from_kernel",
     "pck_euler_angles",
     "pck_euler_angle",
     "pck_euler_rates",

@@ -1,4 +1,4 @@
-# Development Installation
+# Installation
 
 Brahe is available for both Python and Rust. Choose the installation method that best fits your workflow.
 
@@ -28,6 +28,15 @@ pip install "brahe[plots]"
 
 Without the `plots` extra, `import brahe` and all core functionality work normally;
 calling a plotting function raises an error explaining how to install the extra.
+
+#### All Dependencies
+
+If you want to install all optional dependencies if more than plots are added in the future, use the `all` extra:
+
+```bash
+# Install with all optional dependencies
+pip install "brahe[all]"
+```
 
 ### Using uv (Fast Alternative)
 
@@ -101,50 +110,15 @@ cd brahe
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Sync dependencies and create virtual environment
-uv sync
+uv sync --dev
 
 # Build and install in editable mode
-uv pip install -e .
+uv pip install -e ".[all]"
 
 # Activate the virtual environment
 source .venv/bin/activate  # On Unix/macOS
 # or
 .venv\Scripts\activate  # On Windows
-```
-
-### Building with pip and maturin
-
-```bash
-# Clone the repository
-git clone https://github.com/duncaneddy/brahe.git
-cd brahe
-
-# Create and activate a virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Unix/macOS
-# or
-.venv\Scripts\activate  # On Windows
-
-# Install maturin (the build tool for PyO3)
-pip install maturin
-
-# Build and install in development mode
-maturin develop --release
-
-# Or install normally
-pip install -e .
-```
-
-### Development Installation
-
-For development work, install with development dependencies:
-
-```bash
-# With uv
-uv sync --dev
-
-# With pip
-pip install -e ".[dev]"
 ```
 
 This includes tools for:
@@ -168,12 +142,19 @@ cargo test
 pytest tests/ --cov=brahe --cov-report=html
 ```
 
-### Updating Type Stubs
+### Docs 
 
-If you modify the Rust Python bindings, regenerate Python type stubs:
+To build and serve the documentation locally:
 
 ```bash
-./scripts/generate_stubs.sh
+just docs-serve
+```
+
+You may need to also built the examples and plots if you haven't done so:
+
+```bash
+just test-examples
+just make-plots
 ```
 
 ## Rust Installation

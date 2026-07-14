@@ -116,11 +116,13 @@ pub(crate) fn download_to_file(
 pub(crate) fn download_bytes(url: &str) -> Result<Vec<u8>, BraheError> {
     let mut attempt: u32 = 0;
 
-    let response = loop {
+    loop {
         attempt += 1;
 
-        match ureq::get(url).call() {
-            Ok(response) => break response,
+        // Connection/status phase. ureq surfaces 4xx/5xx as `Err(StatusCode)`,
+        // so this covers both transport failures and retryable server statuses.
+        let response = match ureq::get(url).call() {
+            Ok(response) => response,
             Err(e) => {
                 if attempt < MAX_DOWNLOAD_ATTEMPTS && is_retryable_error(&e) {
                     sleep(backoff_delay(attempt));
@@ -131,19 +133,27 @@ pub(crate) fn download_bytes(url: &str) -> Result<Vec<u8>, BraheError> {
                     url, attempt, e
                 )));
             }
+        };
+
+        // Body phase, read through a streaming reader to bypass ureq's default
+        // in-memory size limit. A failure here (connection reset, truncated
+        // transfer, unexpected EOF) is a transport error too, so retry the whole
+        // request rather than surfacing a partial download.
+        let mut buffer = Vec::new();
+        match response.into_body().into_reader().read_to_end(&mut buffer) {
+            Ok(_) => return Ok(buffer),
+            Err(e) => {
+                if attempt < MAX_DOWNLOAD_ATTEMPTS {
+                    sleep(backoff_delay(attempt));
+                    continue;
+                }
+                return Err(BraheError::Error(format!(
+                    "reading response body from {} failed after {} attempt(s): {}",
+                    url, attempt, e
+                )));
+            }
         }
-    };
-
-    let mut buffer = Vec::new();
-    response
-        .into_body()
-        .into_reader()
-        .read_to_end(&mut buffer)
-        .map_err(|e| {
-            BraheError::Error(format!("failed reading response body from {}: {}", url, e))
-        })?;
-
-    Ok(buffer)
+    }
 }
 
 #[cfg(test)]

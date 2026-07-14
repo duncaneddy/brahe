@@ -75,6 +75,26 @@ def test_spk_state_consistent():
     np.testing.assert_allclose(x[3:], v, atol=1e-12)
 
 
+def test_spk_acceleration_matches_finite_difference():
+    epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+    dt = 10.0
+    a = bh.spk_acceleration(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
+    v_p = bh.spk_velocity(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc + dt)
+    v_m = bh.spk_velocity(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc + (-dt))
+    a_fd = (v_p - v_m) / (2.0 * dt)
+    assert a.shape == (3,)
+    np.testing.assert_allclose(a, a_fd, atol=1e-6)
+
+
+def test_spk_acceleration_from_kernel_matches_registry():
+    epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
+    a = bh.spk_acceleration(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
+    a_k = bh.spk_acceleration_from_kernel(
+        "de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc
+    )
+    np.testing.assert_allclose(a, a_k, atol=1e-12)
+
+
 def test_spk_no_path_error():
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
     with pytest.raises(Exception, match="12345"):

@@ -1058,6 +1058,8 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_spk_position_from_kernel, module)?)?;
     module.add_function(wrap_pyfunction!(py_spk_velocity_from_kernel, module)?)?;
     module.add_function(wrap_pyfunction!(py_spk_state_from_kernel, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_acceleration, module)?)?;
+    module.add_function(wrap_pyfunction!(py_spk_acceleration_from_kernel, module)?)?;
     module.add_function(wrap_pyfunction!(py_pck_euler_angles, module)?)?;
     module.add_function(wrap_pyfunction!(py_pck_euler_angle, module)?)?;
     module.add_function(wrap_pyfunction!(py_pck_euler_rates, module)?)?;

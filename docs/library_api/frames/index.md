@@ -1,6 +1,6 @@
 # Reference Frames Module
 
-Reference frame transformations between inertial and body-fixed coordinate systems for Earth, the Moon, and Mars, plus a generic router for any two supported frames.
+Reference frame transformations between inertial and body-fixed coordinate systems for Earth, the Moon, and Mars, synodic (two-body rotating) frames, plus a generic router for any two supported frames.
 
 ## Transformation Categories
 
@@ -23,6 +23,10 @@ Transformations between Lunar-Centered Inertial (LCI) and the Moon-fixed LFPA/LF
 ### [Mars Frames](mars.md)
 
 Transformations between Mars-Centered Inertial (MCI) and the Mars-fixed MCMF frame.
+
+### [Synodic Frames](synodic.md)
+
+Transformations between GCRF and the synodic EMR, SER, and GSE frames.
 
 ### [Reference Frame Router](router.md)
 

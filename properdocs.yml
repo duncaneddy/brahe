@@ -200,6 +200,7 @@ nav:
           - learn/frames/eme2000_gcrf.md
           - Lunar Frames: learn/frames/lunar_frames.md
           - Mars Frames: learn/frames/mars_frames.md
+          - Synodic Frames: learn/frames/synodic_frames.md
           - Reference Frame Router: learn/frames/frame_transformations.md
       - Orbits:
           - learn/orbits/index.md
@@ -369,6 +370,7 @@ nav:
           - EME2000 ↔ GCRF: library_api/frames/eme2000_gcrf.md
           - Lunar Frames: library_api/frames/lunar.md
           - Mars Frames: library_api/frames/mars.md
+          - Synodic Frames: library_api/frames/synodic.md
           - Reference Frame Router: library_api/frames/router.md
       - Orbits:
           - library_api/orbits/index.md

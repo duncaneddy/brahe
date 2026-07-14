@@ -23,13 +23,13 @@
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_kernel("de440s")
-///     print(bh.loaded_kernels())
+///     bh.load_spice_kernel("de440s")
+///     print(bh.loaded_spice_kernels())
 ///     ```
 #[pyfunction]
-#[pyo3(name = "load_kernel")]
+#[pyo3(name = "load_spice_kernel")]
 fn py_load_kernel(name_or_path: &str) -> PyResult<()> {
-    spice::load_kernel(name_or_path).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    spice::load_spice_kernel(name_or_path).map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Unload a SPICE kernel from the global registry.
@@ -44,13 +44,13 @@ fn py_load_kernel(name_or_path: &str) -> PyResult<()> {
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_kernel("de440s")
-///     bh.unload_kernel("de440s")
+///     bh.load_spice_kernel("de440s")
+///     bh.unload_spice_kernel("de440s")
 ///     ```
 #[pyfunction]
-#[pyo3(name = "unload_kernel")]
+#[pyo3(name = "unload_spice_kernel")]
 fn py_unload_kernel(name_or_path: &str) -> PyResult<()> {
-    spice::unload_kernel(name_or_path)
+    spice::unload_spice_kernel(name_or_path)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
@@ -60,13 +60,13 @@ fn py_unload_kernel(name_or_path: &str) -> PyResult<()> {
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.clear_kernels()
-///     assert bh.loaded_kernels() == []
+///     bh.clear_spice_kernels()
+///     assert bh.loaded_spice_kernels() == []
 ///     ```
 #[pyfunction]
-#[pyo3(name = "clear_kernels")]
+#[pyo3(name = "clear_spice_kernels")]
 fn py_clear_kernels() {
-    spice::clear_kernels()
+    spice::clear_spice_kernels()
 }
 
 /// List the kernels currently loaded in the global registry, in load order.
@@ -78,13 +78,13 @@ fn py_clear_kernels() {
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.initialize_ephemeris()
-///     assert "de440s" in bh.loaded_kernels()
+///     bh.load_common_spice_kernels()
+///     assert "de440s" in bh.loaded_spice_kernels()
 ///     ```
 #[pyfunction]
-#[pyo3(name = "loaded_kernels")]
+#[pyo3(name = "loaded_spice_kernels")]
 fn py_loaded_kernels() -> Vec<String> {
-    spice::loaded_kernels()
+    spice::loaded_spice_kernels()
 }
 
 /// Check whether a loaded kernel's registry key contains `fragment`.
@@ -104,7 +104,7 @@ fn py_loaded_kernels() -> Vec<String> {
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///     assert bh.kernel_is_loaded("de440s")
 ///     ```
 #[pyfunction]
@@ -117,7 +117,7 @@ fn py_kernel_is_loaded(fragment: &str) -> bool {
 /// and "moon_pa_de440" (lunar principal-axes orientation).
 ///
 /// ~46 MB total on first download; cached thereafter. Each kernel load is
-/// idempotent, so calling this alongside other `load_kernel` calls is safe.
+/// idempotent, so calling this alongside other `load_spice_kernel` calls is safe.
 ///
 /// Loading is not atomic: on error, kernels already loaded before the
 /// failure remain resident, so the call can be safely retried.
@@ -129,13 +129,13 @@ fn py_kernel_is_loaded(fragment: &str) -> bool {
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_common_kernels()
-///     print(bh.loaded_kernels())
+///     bh.load_common_spice_kernels()
+///     print(bh.loaded_spice_kernels())
 ///     ```
 #[pyfunction]
-#[pyo3(name = "load_common_kernels")]
+#[pyo3(name = "load_common_spice_kernels")]
 fn py_load_common_kernels() -> PyResult<()> {
-    spice::load_common_kernels().map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    spice::load_common_spice_kernels().map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Load every kernel brahe knows how to download: "de440s", "moon_pa_de440",
@@ -143,7 +143,7 @@ fn py_load_common_kernels() -> PyResult<()> {
 /// "nep097", "plu060".
 ///
 /// ~2.5 GB total on first download; cached thereafter. Prefer
-/// `load_common_kernels` unless outer-planet body centers or moons are
+/// `load_common_spice_kernels` unless outer-planet body centers or moons are
 /// needed.
 ///
 /// Loading is not atomic: on error, kernels already loaded before the
@@ -156,13 +156,13 @@ fn py_load_common_kernels() -> PyResult<()> {
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_all_kernels()
-///     print(bh.loaded_kernels())
+///     bh.load_all_spice_kernels()
+///     print(bh.loaded_spice_kernels())
 ///     ```
 #[pyfunction]
-#[pyo3(name = "load_all_kernels")]
+#[pyo3(name = "load_all_spice_kernels")]
 fn py_load_all_kernels() -> PyResult<()> {
-    spice::load_all_kernels().map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
+    spice::load_all_spice_kernels().map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
 /// Position of a target body relative to a center body from loaded SPK kernels.
@@ -414,7 +414,7 @@ fn py_spk_state_from_kernel<'py>(
 /// 3-1-3 Euler angles and rates of a PCK body-fixed frame relative to ICRF.
 ///
 /// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
-/// via `bh.load_kernel(...)` first.
+/// via `bh.load_spice_kernel(...)` first.
 ///
 /// Args:
 ///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
@@ -431,7 +431,7 @@ fn py_spk_state_from_kernel<'py>(
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_kernel("moon_pa_de440")
+///     bh.load_spice_kernel("moon_pa_de440")
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
 ///     angles, rates = bh.pck_euler_angles(31008, epc)
 ///     ```
@@ -454,7 +454,7 @@ fn py_pck_euler_angles<'py>(
 /// 3-1-3 Euler angle of a PCK body-fixed frame relative to ICRF.
 ///
 /// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
-/// via `bh.load_kernel(...)` first.
+/// via `bh.load_spice_kernel(...)` first.
 ///
 /// Args:
 ///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
@@ -470,7 +470,7 @@ fn py_pck_euler_angles<'py>(
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_kernel("moon_pa_de440")
+///     bh.load_spice_kernel("moon_pa_de440")
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
 ///     e = bh.pck_euler_angle(31008, epc)
 ///     ```
@@ -485,7 +485,7 @@ fn py_pck_euler_angle(frame_id: i32, epc: &PyEpoch) -> PyResult<PyEulerAngle> {
 /// Time derivatives of the 3-1-3 Euler angles of a PCK body-fixed frame.
 ///
 /// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
-/// via `bh.load_kernel(...)` first.
+/// via `bh.load_spice_kernel(...)` first.
 ///
 /// Args:
 ///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
@@ -501,7 +501,7 @@ fn py_pck_euler_angle(frame_id: i32, epc: &PyEpoch) -> PyResult<PyEulerAngle> {
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_kernel("moon_pa_de440")
+///     bh.load_spice_kernel("moon_pa_de440")
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
 ///     rates = bh.pck_euler_rates(31008, epc)
 ///     ```
@@ -521,7 +521,7 @@ fn py_pck_euler_rates<'py>(
 /// single shared segment lookup.
 ///
 /// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
-/// via `bh.load_kernel(...)` first.
+/// via `bh.load_spice_kernel(...)` first.
 ///
 /// Args:
 ///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
@@ -538,7 +538,7 @@ fn py_pck_euler_rates<'py>(
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_kernel("moon_pa_de440")
+///     bh.load_spice_kernel("moon_pa_de440")
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
 ///     angle, rates = bh.pck_euler_angle_and_rates(31008, epc)
 ///     ```
@@ -558,7 +558,7 @@ fn py_pck_euler_angle_and_rates<'py>(
 /// quaternion.
 ///
 /// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
-/// via `bh.load_kernel(...)` first.
+/// via `bh.load_spice_kernel(...)` first.
 ///
 /// Args:
 ///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
@@ -574,7 +574,7 @@ fn py_pck_euler_angle_and_rates<'py>(
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_kernel("moon_pa_de440")
+///     bh.load_spice_kernel("moon_pa_de440")
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
 ///     q = bh.pck_quaternion(31008, epc)
 ///     ```
@@ -589,7 +589,7 @@ fn py_pck_quaternion(frame_id: i32, epc: &PyEpoch) -> PyResult<PyQuaternion> {
 /// Rotation matrix from ICRF to a PCK body-fixed frame.
 ///
 /// PCKs are never auto-initialized; a PCK kernel must be explicitly loaded
-/// via `bh.load_kernel(...)` first.
+/// via `bh.load_spice_kernel(...)` first.
 ///
 /// Args:
 ///     frame_id (int): Body-frame class ID (e.g. 31008 for MOON_PA_DE440)
@@ -605,7 +605,7 @@ fn py_pck_quaternion(frame_id: i32, epc: &PyEpoch) -> PyResult<PyQuaternion> {
 ///     ```python
 ///     import brahe as bh
 ///
-///     bh.load_kernel("moon_pa_de440")
+///     bh.load_spice_kernel("moon_pa_de440")
 ///     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
 ///     R = bh.pck_rotation_matrix(31008, epc)
 ///     ```

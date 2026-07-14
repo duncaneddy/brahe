@@ -6,8 +6,8 @@ Provides access to the native SPICE kernel registry: loading/unloading SPK
 queries against the registry.
 
 This module provides:
-- load_kernel / unload_kernel / clear_kernels / loaded_kernels / kernel_is_loaded: Kernel registry management
-- load_common_kernels / load_all_kernels: Bulk kernel pre-loading helpers
+- load_spice_kernel / unload_spice_kernel / clear_spice_kernels / loaded_spice_kernels / kernel_is_loaded: Kernel registry management
+- load_common_spice_kernels / load_all_spice_kernels: Bulk kernel pre-loading helpers
 - spk_position / spk_velocity / spk_state: Generic SPK queries against all loaded kernels
 - spk_position_from_kernel / spk_velocity_from_kernel / spk_state_from_kernel: SPK queries scoped to a single named kernel
 - pck_euler_angles / pck_euler_angle / pck_euler_rates / pck_euler_angle_and_rates / pck_quaternion / pck_rotation_matrix: Generic binary PCK orientation queries
@@ -17,7 +17,7 @@ Example:
     ```python
     import brahe as bh
 
-    bh.load_kernel("de440s")
+    bh.load_spice_kernel("de440s")
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
     r_moon = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     ```
@@ -26,13 +26,13 @@ Example:
 from enum import IntEnum
 
 from brahe._brahe import (
-    load_kernel,
-    unload_kernel,
-    clear_kernels,
-    loaded_kernels,
+    load_spice_kernel,
+    unload_spice_kernel,
+    clear_spice_kernels,
+    loaded_spice_kernels,
     kernel_is_loaded,
-    load_common_kernels,
-    load_all_kernels,
+    load_common_spice_kernels,
+    load_all_spice_kernels,
     spk_position,
     spk_velocity,
     spk_state,
@@ -100,13 +100,13 @@ class FrameId(IntEnum):
 
 
 __all__ = [
-    "load_kernel",
-    "unload_kernel",
-    "clear_kernels",
-    "loaded_kernels",
+    "load_spice_kernel",
+    "unload_spice_kernel",
+    "clear_spice_kernels",
+    "loaded_spice_kernels",
     "kernel_is_loaded",
-    "load_common_kernels",
-    "load_all_kernels",
+    "load_common_spice_kernels",
+    "load_all_spice_kernels",
     "spk_position",
     "spk_velocity",
     "spk_state",

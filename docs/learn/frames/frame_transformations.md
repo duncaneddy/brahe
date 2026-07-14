@@ -76,7 +76,7 @@ Four variants cover bodies without a dedicated named frame:
 | `LFPA`, `LFME` | `moon_pa_de440` binary PCK | Yes, on first LCI &harr; LFPA/LFME conversion |
 | `MCMF` (rotation only) | None (compiled-in WGCCRE polynomial) | N/A |
 | `BodyFixedIAU(naif_id)` | None (compiled-in), if `naif_id` is in `iau_rotation_model_ids()` | N/A |
-| `BodyFixedPCK { .. }` | The named binary PCK | No; must be loaded explicitly with `load_kernel` |
+| `BodyFixedPCK { .. }` | The named binary PCK | No; must be loaded explicitly with `load_spice_kernel` |
 | `BodyFixedCustom { .. }` | None (user callback) | N/A |
 
 The lunar PCK auto-load is a narrow exception to the general SPICE registry rule that binary PCKs are never auto-initialized (see [SPICE Kernels](../spice/index.md)); it exists because `LFPA`/`LFME` have no meaning without `moon_pa_de440` loaded, so every lunar body-fixed conversion loads it transparently on first use. `MCI`/`MCMF` are centered on the Mars body center (NAIF 499); a translation to or from another center resolves the body-center leg through the `mar099s` satellite ephemeris kernel, which is auto-loaded the same way.

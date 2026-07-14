@@ -1058,7 +1058,7 @@ mod tests {
         let path = dir.path().join("synthetic_bfpck.bpc");
         std::fs::write(&path, synthetic_pck_kernel_bytes(frame_id)).unwrap();
         let path = path.to_str().unwrap();
-        crate::spice::load_kernel(path).unwrap();
+        crate::spice::load_spice_kernel(path).unwrap();
 
         let epc = Epoch::from_jd(
             crate::constants::JD_J2000 + 500.0 / crate::constants::SECONDS_PER_DAY,
@@ -1084,7 +1084,7 @@ mod tests {
             }
         }
 
-        crate::spice::unload_kernel(path).unwrap();
+        crate::spice::unload_spice_kernel(path).unwrap();
     }
 
     #[test]

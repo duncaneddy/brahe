@@ -10,7 +10,7 @@ import brahe as bh
 def ensure_kernel():
     """Load the default kernel once per test module (cached on disk)."""
     try:
-        bh.initialize_ephemeris()
+        bh.load_spice_kernel("de440s")
     except Exception as e:
         pytest.skip(f"Could not initialize ephemeris: {e}")
 
@@ -20,32 +20,32 @@ def restore_baseline_kernels():
 
     The lunar/Mars frame auto-load guards (ensure_lunar_pck_loaded /
     ensure_mars_spk_loaded) are one-shot OnceLock latches: once they have
-    fired, a later clear_kernels() is not re-detected, so any kernel they
+    fired, a later clear_spice_kernels() is not re-detected, so any kernel they
     already loaded must be restored here — not just de440s.
     """
-    bh.clear_kernels()
-    bh.initialize_ephemeris()
+    bh.clear_spice_kernels()
+    bh.load_spice_kernel("de440s")
     for kernel in ("moon_pa_de440", "mar099s"):
         try:
-            bh.load_kernel(kernel)
+            bh.load_spice_kernel(kernel)
         except Exception:
             # Not cached and offline: nothing later can query it either.
             pass
 
 
 def test_loaded_kernels():
-    assert "de440s" in bh.loaded_kernels()
+    assert "de440s" in bh.loaded_spice_kernels()
 
 
 def test_load_kernel_idempotent():
-    bh.load_kernel("de440s")
-    bh.load_kernel("de440s")
-    assert bh.loaded_kernels().count("de440s") == 1
+    bh.load_spice_kernel("de440s")
+    bh.load_spice_kernel("de440s")
+    assert bh.loaded_spice_kernels().count("de440s") == 1
 
 
 def test_kernel_is_loaded():
     """Mirrors registry::tests::test_kernel_is_loaded."""
-    bh.load_kernel("de440s")
+    bh.load_spice_kernel("de440s")
     assert bh.kernel_is_loaded("de440s")
     assert bh.kernel_is_loaded("de440")
     assert not bh.kernel_is_loaded("nonexistent_kernel")
@@ -96,7 +96,7 @@ def test_naif_id_enum():
 
 
 def test_spk_position_accepts_enum_and_int(eop):
-    bh.load_kernel("test_assets/de440s.bsp")
+    bh.load_spice_kernel("test_assets/de440s.bsp")
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
     r_enum = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     r_int = bh.spk_position(301, 399, epc)
@@ -154,9 +154,9 @@ def test_spk_state_from_kernel_agrees_with_pooled():
 
 @pytest.mark.integration
 def test_load_common_kernels():
-    bh.clear_kernels()
-    bh.load_common_kernels()
-    loaded = bh.loaded_kernels()
+    bh.clear_spice_kernels()
+    bh.load_common_spice_kernels()
+    loaded = bh.loaded_spice_kernels()
     assert "de440s" in loaded
     assert "moon_pa_de440" in loaded
 
@@ -167,11 +167,11 @@ def test_load_common_kernels():
 def test_spk_position_from_kernel_auto_loads():
     """The _from_kernel query auto-loads the named kernel if not already
     present in the registry."""
-    bh.clear_kernels()
+    bh.clear_spice_kernels()
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
     r = bh.spk_position_from_kernel("de440s", bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)
     assert r.shape == (3,)
-    assert "de440s" in bh.loaded_kernels()
+    assert "de440s" in bh.loaded_spice_kernels()
 
     # Restore baseline registry state for other tests.
     restore_baseline_kernels()
@@ -179,7 +179,7 @@ def test_spk_position_from_kernel_auto_loads():
 
 @pytest.mark.integration
 def test_pck_typed_returns(eop):
-    bh.load_kernel("moon_pa_de440")
+    bh.load_spice_kernel("moon_pa_de440")
     epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
     e = bh.pck_euler_angle(31008, epc)
     assert isinstance(e, bh.EulerAngle)

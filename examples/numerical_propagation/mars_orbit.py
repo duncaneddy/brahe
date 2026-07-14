@@ -22,7 +22,7 @@ import brahe as bh
 # Initialize EOP data and the DE440s planetary ephemeris used for third-body
 # perturbations and ECI <-> MCI frame conversions.
 bh.initialize_eop()
-bh.initialize_ephemeris()
+bh.load_common_spice_kernels()
 
 # Initial epoch
 epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)

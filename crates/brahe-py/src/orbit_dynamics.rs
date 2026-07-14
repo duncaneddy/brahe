@@ -115,7 +115,7 @@ fn py_moon_position<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate the Sun's position
@@ -132,7 +132,7 @@ fn py_moon_position<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_sun = bh.sun_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -222,7 +222,7 @@ fn py_sun_state_spice<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate the Moon's position
@@ -239,7 +239,7 @@ fn py_sun_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_moon = bh.moon_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -329,7 +329,7 @@ fn py_moon_state_spice<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mercury's position
@@ -346,7 +346,7 @@ fn py_moon_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_mercury = bh.mercury_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -436,7 +436,7 @@ fn py_mercury_state_spice<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Venus's position
@@ -453,7 +453,7 @@ fn py_mercury_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_venus = bh.venus_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -547,7 +547,7 @@ fn py_venus_state_spice<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Mars's position
@@ -564,7 +564,7 @@ fn py_venus_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_mars = bh.mars_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -672,7 +672,7 @@ fn py_mars_state_spice<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Jupiter's position
@@ -689,7 +689,7 @@ fn py_mars_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_jupiter = bh.jupiter_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -797,7 +797,7 @@ fn py_jupiter_state_spice<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Saturn's position
@@ -814,7 +814,7 @@ fn py_jupiter_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_saturn = bh.saturn_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -922,7 +922,7 @@ fn py_saturn_state_spice<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Uranus's position
@@ -939,7 +939,7 @@ fn py_saturn_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_uranus = bh.uranus_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -1047,7 +1047,7 @@ fn py_uranus_state_spice<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate Neptune's position
@@ -1064,7 +1064,7 @@ fn py_uranus_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_neptune = bh.neptune_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -1698,7 +1698,7 @@ fn py_neptune_barycenter_state_spice<'py>(
 ///
 /// If the ephemeris has not been initialized, it will be automatically loaded on the
 /// first call. For more control over initialization and error handling, use
-/// `initialize_ephemeris()` explicitly.
+/// `load_common_spice_kernels()` explicitly.
 ///
 /// Args:
 ///     epc (Epoch): Epoch at which to calculate the Solar System Barycenter position
@@ -1715,7 +1715,7 @@ fn py_neptune_barycenter_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_ssb = bh.solar_system_barycenter_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -1817,7 +1817,7 @@ fn py_solar_system_barycenter_state_spice<'py>(
 ///     import brahe as bh
 ///
 ///     # Optional: Pre-initialize for better error handling
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_ssb = bh.ssb_position_spice(epc, bh.EphemerisSource.DE440s)
@@ -1903,44 +1903,6 @@ fn py_ssb_state_spice<'py>(
     let x = spice::ssb_state_spice(epc.obj, kernel)
         .map_err(|e| exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(vector_to_numpy!(py, x, 6, f64))
-}
-
-/// Initialize the global ephemeris provider with the default DE440s kernel.
-///
-/// This function downloads (or uses a cached copy of) the NAIF DE440s ephemeris
-/// kernel and sets it as the global Almanac provider. This initialization is
-/// optional - if not called, the Almanac will be lazily initialized on the first
-/// call to `sun_position_spice()` or `moon_position_spice()`.
-///
-/// Calling this function explicitly is recommended when you want to:
-/// - Control when the kernel download/loading occurs (avoid latency on first use)
-/// - Handle initialization errors explicitly
-/// - Pre-load the kernel during application startup
-///
-/// Returns:
-///     None: Successfully initialized the ephemeris
-///
-/// Raises:
-///     Exception: If kernel download or loading failed
-///
-/// Example:
-///     ```python
-///     import brahe as bh
-///
-///     # Initialize at application startup
-///     bh.initialize_ephemeris()
-///
-///     # Now use DE440s ephemeris functions
-///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
-///     r_sun = bh.sun_position_spice(epc)
-///     r_moon = bh.moon_position_spice(epc)
-///     ```
-#[pyfunction]
-#[pyo3(name = "initialize_ephemeris")]
-fn py_initialize_ephemeris() -> PyResult<()> {
-    spice::initialize_ephemeris().map_err(|e| {
-        exceptions::PyRuntimeError::new_err(format!("Failed to initialize ephemeris: {}", e))
-    })
 }
 
 // ============================================================================
@@ -2054,7 +2016,7 @@ fn py_accel_third_body_moon<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_object = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 ///     a = bh.accel_third_body_sun_spice(epc, r_object, bh.EphemerisSource.DE440s)
@@ -2099,7 +2061,7 @@ fn py_accel_third_body_sun_spice<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_object = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
 ///     a = bh.accel_third_body_moon_spice(epc, r_object, bh.EphemerisSource.DE440s)
@@ -2406,7 +2368,7 @@ fn py_accel_third_body_neptune_spice<'py>(
 ///     import brahe as bh
 ///     import numpy as np
 ///
-///     bh.initialize_ephemeris()
+///     bh.load_common_spice_kernels()
 ///     epc = bh.Epoch.from_date(2024, 2, 25, bh.TimeSystem.UTC)
 ///     r_object = np.array([bh.R_MOON + 100e3, 0.0, 0.0])
 ///     a_earth = bh.accel_third_body_for_body(

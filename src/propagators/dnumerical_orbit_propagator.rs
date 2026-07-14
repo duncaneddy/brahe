@@ -9648,7 +9648,7 @@ mod tests {
 
         setup_global_test_eop();
         crate::utils::testing::setup_global_test_spice();
-        crate::spice::load_kernel("mar099s").unwrap();
+        crate::spice::load_spice_kernel("mar099s").unwrap();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let state = DVector::from_vec(vec![R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.6, 0.0]);

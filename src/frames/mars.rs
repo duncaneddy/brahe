@@ -63,7 +63,7 @@ pub(crate) fn ensure_mars_spk_loaded() {
                 "Failed to auto-load Mars ephemeris kernels (de440s/mar099s): {}. \
                  Download them with brahe::datasets::naif::download_spice_kernel \
                  (SPICEKernel::DE440s / SPICEKernel::Mar099s, None) and call \
-                 brahe::spice::load_kernel(<path>).",
+                 brahe::spice::load_spice_kernel(<path>).",
                 e
             )
         });
@@ -72,7 +72,7 @@ pub(crate) fn ensure_mars_spk_loaded() {
                 "Failed to auto-load Mars satellite ephemeris 'mar099s'. \
                  Download it with brahe::datasets::naif::download_spice_kernel\
                  (SPICEKernel::Mar099s, None) and call \
-                 brahe::spice::load_kernel(<path>)."
+                 brahe::spice::load_spice_kernel(<path>)."
             );
         }
     });
@@ -413,7 +413,7 @@ mod tests {
     use super::*;
     use crate::constants::R_MARS;
     use crate::math::vector6_from_array;
-    use crate::spice::{load_kernel, unload_kernel};
+    use crate::spice::{load_spice_kernel, unload_spice_kernel};
     use crate::time::TimeSystem;
     use crate::utils::testing::{
         CacheRedirect, setup_global_test_spice, synthetic_spk_kernel_bytes,
@@ -530,8 +530,8 @@ mod tests {
         // cache; the real de440s stays resident (never cleared) for the
         // barycenter chain. Only mar099s is unloaded/reloaded here.
         setup_global_test_spice();
-        load_kernel("de440s").unwrap();
-        let _ = unload_kernel("mar099s");
+        load_spice_kernel("de440s").unwrap();
+        let _ = unload_spice_kernel("mar099s");
         {
             let cache = CacheRedirect::new();
             cache.seed_real_de440s();
@@ -547,7 +547,7 @@ mod tests {
             assert!(!crate::spice::kernel_is_loaded("mar099s"));
             ensure_mars_spk_loaded();
             if !crate::spice::kernel_is_loaded("mar099s") {
-                load_kernel("mar099s").unwrap();
+                load_spice_kernel("mar099s").unwrap();
             }
             let x_mci = state_eci_to_mci(epc, x_eci);
             assert!(crate::spice::kernel_is_loaded("mar099s"));
@@ -573,12 +573,12 @@ mod tests {
             // ensure_mars_spk_loaded is idempotent while loaded.
             ensure_mars_spk_loaded();
 
-            unload_kernel("mar099s").unwrap();
+            unload_spice_kernel("mar099s").unwrap();
         }
         // The latch is now set but the kernel was just unloaded, so later
         // latch-relying tests would see it missing. Best-effort restore of
         // the real mar099s (real cache; tolerated failure keeps this test
         // offline-safe when nothing later needs the kernel).
-        let _ = load_kernel("mar099s");
+        let _ = load_spice_kernel("mar099s");
     }
 }

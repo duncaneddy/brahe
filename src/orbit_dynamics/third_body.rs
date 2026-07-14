@@ -12,10 +12,10 @@ use crate::propagators::CentralBody;
 use crate::propagators::force_model_config::{EphemerisSource, ThirdBody};
 use crate::spice::positions::{spk_pair_position_from_kernels, spk_strictly_resolvable};
 use crate::spice::{
-    SPICEKernel, jupiter_barycenter_position_spice, load_kernel, mars_barycenter_position_spice,
-    mercury_position_spice, moon_position_spice, neptune_barycenter_position_spice,
-    saturn_barycenter_position_spice, spk_position, sun_position_spice,
-    uranus_barycenter_position_spice, venus_position_spice,
+    SPICEKernel, jupiter_barycenter_position_spice, load_spice_kernel,
+    mars_barycenter_position_spice, mercury_position_spice, moon_position_spice,
+    neptune_barycenter_position_spice, saturn_barycenter_position_spice, spk_position,
+    sun_position_spice, uranus_barycenter_position_spice, venus_position_spice,
 };
 use crate::time::Epoch;
 use crate::utils::BraheError;
@@ -346,7 +346,7 @@ pub fn accel_third_body_for_body<P: IntoPosition>(
                 // all loaded kernels with the registry's last-loaded-wins
                 // precedence.
                 None => {
-                    load_kernel(kernel)?;
+                    load_spice_kernel(kernel)?;
                     spk_position(target, center, epc)?
                 }
             }
@@ -484,12 +484,12 @@ pub fn accel_third_body_moon<P: IntoPosition>(epc: Epoch, r_object: P) -> Vector
 /// use brahe::third_body::accel_third_body_sun_spice;
 /// use brahe::propagators::force_model_config::EphemerisSource;
 /// use brahe::constants::R_EARTH;
-/// use brahe::ephemerides::initialize_ephemeris;
+/// use brahe::spice::load_common_spice_kernels;
 /// use nalgebra::Vector3;
 ///
 /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
 /// set_global_eop_provider(eop);
-/// initialize_ephemeris().unwrap();
+/// load_common_spice_kernels().unwrap();
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
@@ -531,12 +531,12 @@ pub fn accel_third_body_sun_spice<P: IntoPosition>(
 /// use brahe::third_body::accel_third_body_moon_spice;
 /// use brahe::propagators::force_model_config::EphemerisSource;
 /// use brahe::constants::R_EARTH;
-/// use brahe::ephemerides::initialize_ephemeris;
+/// use brahe::spice::load_common_spice_kernels;
 /// use nalgebra::Vector3;
 ///
 /// let eop = FileEOPProvider::from_default_standard(true, EOPExtrapolation::Hold).unwrap();
 /// set_global_eop_provider(eop);
-/// initialize_ephemeris().unwrap();
+/// load_common_spice_kernels().unwrap();
 ///
 /// let epc = Epoch::from_date(2024, 2, 25, brahe::TimeSystem::UTC);
 /// let r_object = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
@@ -1041,7 +1041,7 @@ mod tests {
     #[serial]
     fn test_phobos_third_body_about_mars() {
         setup_global_test_spice();
-        crate::spice::load_kernel("mar099s").unwrap();
+        crate::spice::load_spice_kernel("mar099s").unwrap();
 
         let epc = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
         let r = Vector3::new(R_MARS + 400e3, 0.0, 0.0);
@@ -1142,7 +1142,7 @@ mod tests {
     // triggers a fresh kernel *cache load* while it is active; that is an
     // accepted limitation shared with the registry's offline tests.)
 
-    use crate::spice::{load_kernel, unload_kernel};
+    use crate::spice::{load_spice_kernel, unload_spice_kernel};
     use crate::utils::testing::{CacheRedirect, synthetic_spk_kernel_bytes};
 
     /// Third-body acceleration formula replicated for expected values.
@@ -1199,10 +1199,10 @@ mod tests {
             );
 
             for order in [["de430", "de432s"], ["de432s", "de430"]] {
-                let _ = unload_kernel("de430");
-                let _ = unload_kernel("de432s");
+                let _ = unload_spice_kernel("de430");
+                let _ = unload_spice_kernel("de432s");
                 for name in order {
-                    load_kernel(name).unwrap();
+                    load_spice_kernel(name).unwrap();
                 }
 
                 let a = accel_third_body_for_body(
@@ -1225,8 +1225,8 @@ mod tests {
                 .unwrap();
                 assert_abs_diff_eq!(a, a_de432s, epsilon = a_de432s.norm() * 1e-12);
             }
-            let _ = unload_kernel("de430");
-            let _ = unload_kernel("de432s");
+            let _ = unload_spice_kernel("de430");
+            let _ = unload_spice_kernel("de432s");
         }
     }
 
@@ -1264,11 +1264,11 @@ mod tests {
                 "de432s.bsp",
                 &synthetic_spk_kernel_bytes(&[(4, 0, 800.0), (3, 0, 80.0)]),
             );
-            let _ = unload_kernel("mar099s");
-            let _ = unload_kernel("de430");
-            let _ = unload_kernel("de432s");
-            load_kernel("de430").unwrap();
-            load_kernel("de432s").unwrap();
+            let _ = unload_spice_kernel("mar099s");
+            let _ = unload_spice_kernel("de430");
+            let _ = unload_spice_kernel("de432s");
+            load_spice_kernel("de430").unwrap();
+            load_spice_kernel("de432s").unwrap();
 
             let a = accel_third_body_for_body(
                 &CentralBody::EMB,
@@ -1300,9 +1300,9 @@ mod tests {
             .unwrap();
             assert_abs_diff_eq!(a, a_mars, epsilon = a_mars.norm() * 1e-12);
 
-            let _ = unload_kernel("mar099s");
-            let _ = unload_kernel("de430");
-            let _ = unload_kernel("de432s");
+            let _ = unload_spice_kernel("mar099s");
+            let _ = unload_spice_kernel("de430");
+            let _ = unload_spice_kernel("de432s");
         }
     }
 
@@ -1329,15 +1329,15 @@ mod tests {
         std::fs::write(&path, synthetic_spk_kernel_bytes(&[(2000001, 0, 77.0)])).unwrap();
         let path = path.to_str().unwrap();
 
-        load_kernel("de440s").unwrap();
-        load_kernel(path).unwrap();
+        load_spice_kernel("de440s").unwrap();
+        load_spice_kernel(path).unwrap();
 
         let a =
             accel_third_body_for_body(&CentralBody::SSB, &body, EphemerisSource::DE440s, epc, r)
                 .unwrap();
         assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
 
-        let _ = unload_kernel(path);
+        let _ = unload_spice_kernel(path);
     }
 
     #[test]
@@ -1369,9 +1369,9 @@ mod tests {
             std::fs::write(&path, synthetic_spk_kernel_bytes(&[(950, 0, 33.0)])).unwrap();
             let path = path.to_str().unwrap();
 
-            let _ = unload_kernel("plu060");
-            load_kernel("de440s").unwrap();
-            load_kernel(path).unwrap();
+            let _ = unload_spice_kernel("plu060");
+            load_spice_kernel("de440s").unwrap();
+            load_spice_kernel(path).unwrap();
 
             let a = accel_third_body_for_body(
                 &CentralBody::SSB,
@@ -1383,8 +1383,8 @@ mod tests {
             .unwrap();
             assert_abs_diff_eq!(a, a_expected, epsilon = a_expected.norm() * 1e-12);
 
-            let _ = unload_kernel(path);
-            let _ = unload_kernel("plu060");
+            let _ = unload_spice_kernel(path);
+            let _ = unload_spice_kernel("plu060");
         }
     }
 

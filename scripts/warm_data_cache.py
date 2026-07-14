@@ -6,7 +6,7 @@ each entry via brahe's own caching downloaders, so a warm run is idempotent:
 already-cached artifacts fast-path without hitting the network.
 
 Two manifest line forms are supported:
-    <kernel-name>              -> brahe.load_kernel(name), which downloads and
+    <kernel-name>              -> brahe.load_spice_kernel(name), which downloads and
                                    caches known DE/PCK/satellite kernel names
                                    via `download_spice_kernel`'s name
                                    resolution.
@@ -40,9 +40,9 @@ def _warm_entry(entry: str) -> str:
         path = datasets.icgem.download_model(body, model_name)
         return path
 
-    bh.load_kernel(entry)
-    assert entry in bh.loaded_kernels(), (
-        f"{entry!r} not in loaded_kernels() after load_kernel()"
+    bh.load_spice_kernel(entry)
+    assert entry in bh.loaded_spice_kernels(), (
+        f"{entry!r} not in loaded_spice_kernels() after load_spice_kernel()"
     )
     return "loaded"
 

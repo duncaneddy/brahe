@@ -3016,7 +3016,7 @@ mod tests {
         // Load the lunar PCK explicitly: this module's tests run after the
         // spice registry-clearing tests in the serial order, and the lunar
         // auto-load latch (OnceLock) does not re-detect the clear.
-        crate::spice::load_kernel("moon_pa_de440").unwrap();
+        crate::spice::load_spice_kernel("moon_pa_de440").unwrap();
 
         let mut traj = SOrbitTrajectory::new(
             OrbitFrame::BodyCenteredInertial(301),

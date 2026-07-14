@@ -181,7 +181,7 @@ impl SPICEKernel {
     /// Every known kernel variant, for iterating over all downloadable
     /// kernels or documentation.
     ///
-    /// Not used by `load_all_kernels`, which loads a curated subset
+    /// Not used by `load_all_spice_kernels`, which loads a curated subset
     /// (one DE ephemeris, not every DE version) rather than every variant
     /// here.
     ///
@@ -214,8 +214,8 @@ impl SPICEKernel {
 ///
 /// [`From<&str>`](KernelSource::from) resolves the string to a
 /// [`SPICEKernel`] if it matches a known kernel name and otherwise treats it
-/// as a file path, so `load_kernel("de440s")` and
-/// `load_kernel("/path/to/custom.bsp")` both work.
+/// as a file path, so `load_spice_kernel("de440s")` and
+/// `load_spice_kernel("/path/to/custom.bsp")` both work.
 #[derive(Debug, Clone)]
 pub enum KernelSource {
     /// A known NAIF kernel, downloaded and cached on demand.

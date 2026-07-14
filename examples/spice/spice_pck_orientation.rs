@@ -13,7 +13,7 @@ fn main() {
     bh::initialize_eop().unwrap();
 
     // PCKs are never auto-initialized; they must be loaded explicitly.
-    bh::spice::load_kernel("moon_pa_de440").unwrap();
+    bh::spice::load_spice_kernel("moon_pa_de440").unwrap();
 
     let epc = bh::Epoch::from_date(2025, 1, 1, bh::TimeSystem::UTC);
 

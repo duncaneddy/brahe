@@ -16,7 +16,7 @@ import numpy as np
 bh.initialize_eop()
 
 # PCKs are never auto-initialized; they must be loaded explicitly.
-bh.load_kernel("moon_pa_de440")
+bh.load_spice_kernel("moon_pa_de440")
 
 epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
 

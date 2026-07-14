@@ -10,9 +10,9 @@ import brahe as bh
 
 
 @pytest.fixture(scope="module", autouse=True)
-def initialize_ephemeris():
+def ensure_ephemeris():
     """Initialize DE ephemeris for all tests."""
-    bh.initialize_ephemeris()
+    bh.load_spice_kernel("de440s")
 
 
 class TestAnalyticalThirdBody:
@@ -657,7 +657,7 @@ class TestThirdBodyForBody:
     @pytest.mark.integration
     def test_phobos_third_body_about_mars(self):
         """Phobos as a third body about a Mars-centered object is small but nonzero."""
-        bh.load_kernel("mar099s")
+        bh.load_spice_kernel("mar099s")
         epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         r = np.array([bh.R_MARS + 400e3, 0.0, 0.0])
 
@@ -677,8 +677,8 @@ class TestThirdBodyForBody:
         load-order-independence of the selection itself is pinned by the Rust
         offline tests with synthetic kernels, which Python cannot construct.
         """
-        bh.load_kernel("de440s")
-        bh.load_kernel("mar099s")
+        bh.load_spice_kernel("de440s")
+        bh.load_spice_kernel("mar099s")
         epc = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
         r = np.array([1e6, -2e6, 5e5])
 

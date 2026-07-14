@@ -15,8 +15,8 @@ fn main() {
 
     // Loading is idempotent and explicit; spk_* queries also auto-load de440s
     // if no kernel has been loaded yet.
-    bh::spice::load_kernel("de440s").unwrap();
-    println!("Loaded kernels: {:?}", bh::spice::loaded_kernels());
+    bh::spice::load_spice_kernel("de440s").unwrap();
+    println!("Loaded kernels: {:?}", bh::spice::loaded_spice_kernels());
 
     // Generic queries take NAIF IDs and resolve across all loaded SPK kernels.
     let r_moon = bh::spice::spk_position(NAIFId::Moon, NAIFId::Earth, epc).unwrap();

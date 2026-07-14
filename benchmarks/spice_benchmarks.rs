@@ -32,14 +32,14 @@ fn kernel_path() -> PathBuf {
 }
 
 fn setup_native() {
-    // Seed the NAIF cache from the test asset (so `load_kernel("de440s")`
+    // Seed the NAIF cache from the test asset (so `load_spice_kernel("de440s")`
     // resolves locally) and register it in the global kernel registry.
     let cache_dir = get_naif_cache_dir().unwrap();
     let cache_path = PathBuf::from(cache_dir).join("de440s.bsp");
     if !cache_path.exists() {
         std::fs::copy(kernel_path(), &cache_path).unwrap();
     }
-    spice::load_kernel("de440s").unwrap();
+    spice::load_spice_kernel("de440s").unwrap();
 }
 
 fn setup_anise() -> Almanac {

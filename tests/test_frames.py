@@ -524,8 +524,10 @@ def test_state_eci_to_mci_matches_spk():
     # DE kernel first (Moon/Earth legs for the rest of this module), then the
     # satellite kernel: loading mar099s alone would suppress the de440s
     # auto-initialization, which only fires on an empty registry.
-    brahe.load_kernel("de440s")
-    brahe.load_kernel("mar099s")  # 499 reference leg (transform auto-loads it too)
+    brahe.load_spice_kernel("de440s")
+    brahe.load_spice_kernel(
+        "mar099s"
+    )  # 499 reference leg (transform auto-loads it too)
     offset = brahe.spk_state(brahe.NAIFId.MARS, brahe.NAIFId.EARTH, epc)
     expected = x - offset
     got = brahe.state_eci_to_mci(epc, x)

@@ -5,6 +5,7 @@
  * files resiliently and write them to disk atomically.
  */
 
+use std::io::Read;
 use std::path::Path;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -104,10 +105,105 @@ pub(crate) fn download_to_file(
     Ok(())
 }
 
+/// Fetch the raw bytes of `url`, retrying transient failures with exponential
+/// backoff and jitter, and return them in memory.
+///
+/// Unlike [`download_to_file`], the response body is read through a streaming
+/// reader rather than ureq's convenience string method, so large binary payloads
+/// (e.g. multi-MB SPICE kernels) are not subject to ureq's default in-memory
+/// response size limit. The returned error carries the URL and attempt count;
+/// callers are expected to wrap it with product-specific context.
+pub(crate) fn download_bytes(url: &str) -> Result<Vec<u8>, BraheError> {
+    let mut attempt: u32 = 0;
+
+    loop {
+        attempt += 1;
+
+        // Connection/status phase. ureq surfaces 4xx/5xx as `Err(StatusCode)`,
+        // so this covers both transport failures and retryable server statuses.
+        let response = match ureq::get(url).call() {
+            Ok(response) => response,
+            Err(e) => {
+                if attempt < MAX_DOWNLOAD_ATTEMPTS && is_retryable_error(&e) {
+                    sleep(backoff_delay(attempt));
+                    continue;
+                }
+                return Err(BraheError::Error(format!(
+                    "request to {} failed after {} attempt(s): {}",
+                    url, attempt, e
+                )));
+            }
+        };
+
+        // Body phase, read through a streaming reader to bypass ureq's default
+        // in-memory size limit. A failure here (connection reset, truncated
+        // transfer, unexpected EOF) is a transport error too, so retry the whole
+        // request rather than surfacing a partial download.
+        let mut buffer = Vec::new();
+        match response.into_body().into_reader().read_to_end(&mut buffer) {
+            Ok(_) => return Ok(buffer),
+            Err(e) => {
+                if attempt < MAX_DOWNLOAD_ATTEMPTS {
+                    sleep(backoff_delay(attempt));
+                    continue;
+                }
+                return Err(BraheError::Error(format!(
+                    "reading response body from {} failed after {} attempt(s): {}",
+                    url, attempt, e
+                )));
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
+    use httpmock::prelude::*;
+
     use super::*;
+
+    #[test]
+    fn test_download_bytes_returns_body_on_success() {
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/kernel.bsp");
+            then.status(200).body("kernel-bytes");
+        });
+
+        let bytes = download_bytes(&server.url("/kernel.bsp")).unwrap();
+        assert_eq!(bytes, b"kernel-bytes");
+    }
+
+    #[test]
+    fn test_download_bytes_retries_transient_failure() {
+        // A persistently transient (503) endpoint is retried up to the attempt
+        // cap before failing, so the mock records exactly MAX_DOWNLOAD_ATTEMPTS
+        // requests — proving the retry loop is wired into download_bytes.
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/kernel.bsp");
+            then.status(503);
+        });
+
+        let result = download_bytes(&server.url("/kernel.bsp"));
+        assert!(result.is_err());
+        assert_eq!(mock.calls(), MAX_DOWNLOAD_ATTEMPTS as usize);
+    }
+
+    #[test]
+    fn test_download_bytes_does_not_retry_client_error() {
+        // A 404 is not transient: download_bytes must fail after a single request.
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/kernel.bsp");
+            then.status(404);
+        });
+
+        let result = download_bytes(&server.url("/kernel.bsp"));
+        assert!(result.is_err());
+        assert_eq!(mock.calls(), 1);
+    }
 
     #[test]
     fn test_is_retryable_error() {

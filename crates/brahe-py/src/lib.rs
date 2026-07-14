@@ -1150,7 +1150,6 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(py_ssb_position_spice, module)?)?;
     module.add_function(wrap_pyfunction!(py_ssb_velocity_spice, module)?)?;
     module.add_function(wrap_pyfunction!(py_ssb_state_spice, module)?)?;
-    module.add_function(wrap_pyfunction!(py_initialize_ephemeris, module)?)?;
 
     //* Orbit Dynamics - Acceleration Models *//
 

@@ -18,8 +18,8 @@ epc = bh.Epoch.from_date(2025, 1, 1, bh.TimeSystem.UTC)
 
 # Loading is idempotent and explicit; spk_* queries also auto-load de440s if
 # no kernel has been loaded yet.
-bh.load_kernel("de440s")
-print(f"Loaded kernels: {bh.loaded_kernels()}")
+bh.load_spice_kernel("de440s")
+print(f"Loaded kernels: {bh.loaded_spice_kernels()}")
 
 # Generic queries take NAIF IDs and resolve across all loaded SPK kernels.
 r_moon = bh.spk_position(bh.NAIFId.MOON, bh.NAIFId.EARTH, epc)

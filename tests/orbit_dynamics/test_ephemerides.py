@@ -101,14 +101,9 @@ class TestDEEphemerides:
                     shutil.copy(test_asset, cache_path)
 
             # Initialize ephemeris
-            bh.initialize_ephemeris()
+            bh.load_spice_kernel("de440s")
         except Exception as e:
             pytest.skip(f"Could not initialize ephemeris: {e}")
-
-    def test_initialize_ephemeris(self):
-        """Test that initialize_ephemeris completes without error"""
-        # Re-initialization should be safe
-        bh.initialize_ephemeris()
 
     def test_sun_position_spice_returns_vector(self):
         """Test that sun_position_spice returns a 3-element position vector"""

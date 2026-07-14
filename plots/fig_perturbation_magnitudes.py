@@ -30,7 +30,7 @@ os.makedirs(OUTDIR, exist_ok=True)
 bh.initialize_eop()
 
 # Initialize DE440s ephemeris for high-accuracy planetary positions
-bh.initialize_ephemeris()
+bh.load_common_spice_kernels()
 
 # Reference epoch for calculations (J2000)
 epoch = bh.Epoch.from_datetime(2000, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)

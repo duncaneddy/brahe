@@ -19,7 +19,7 @@ For downloading and caching the underlying kernel files, see
 
 ## Loading Kernels
 
-`load_kernel` accepts either a known kernel name or a filesystem path, and
+`load_spice_kernel` accepts either a known kernel name or a filesystem path, and
 auto-detects SPK vs. binary PCK from the file header:
 
 === "Python"
@@ -82,10 +82,10 @@ filesystem path to a local `.bsp` or `.bpc` file.
 
 Registry behavior:
 
-- **Idempotent**: calling `load_kernel` with a name/path that is already
+- **Idempotent**: calling `load_spice_kernel` with a name/path that is already
   loaded is a no-op.
-- **Persistent**: kernels stay resident until `unload_kernel` or
-  `clear_kernels` is called.
+- **Persistent**: kernels stay resident until `unload_spice_kernel` or
+  `clear_spice_kernels` is called.
 - **Precedence**: `spk_*` queries resolve across every loaded SPK kernel; for
   body pairs covered by more than one kernel, the most recently loaded
   kernel wins (matching SPICE's own "last loaded wins" convention). `pck_*`
@@ -93,26 +93,26 @@ Registry behavior:
   at the requested epoch.
 - **Auto-initialization**: `spk_position`/`spk_velocity`/`spk_state` load
   `de440s` automatically if no SPK kernel has been loaded yet. Binary PCKs
-  are never auto-loaded through this generic interface — `load_kernel("moon_pa_de440")`
+  are never auto-loaded through this generic interface — `load_spice_kernel("moon_pa_de440")`
   (or an explicit path) must be called first. The Moon's `LFPA`/`LFME` frame
   functions (see [Lunar Reference Frames](../frames/lunar_frames.md)) are a
   narrow exception: they auto-load `moon_pa_de440` on first use.
 
 ### Loading Multiple Kernels at Once
 
-`load_common_kernels` and `load_all_kernels` pre-load a curated set of
+`load_common_spice_kernels` and `load_all_spice_kernels` pre-load a curated set of
 kernels in one call, so a session does not pay per-kernel download latency
 the first time each body is queried:
 
 | Function | Loads | Download size |
 |---|---|---|
-| `load_common_kernels()` | `de440s`, `moon_pa_de440` | ~46 MB |
-| `load_all_kernels()` | `de440s`, `moon_pa_de440`, `mar099s`, `jup365`, `sat441`, `ura184`, `nep097`, `plu060` | ~2.5 GB |
+| `load_common_spice_kernels()` | `de440s`, `moon_pa_de440` | ~46 MB |
+| `load_all_spice_kernels()` | `de440s`, `moon_pa_de440`, `mar099s`, `jup365`, `sat441`, `ura184`, `nep097`, `plu060` | ~2.5 GB |
 
 Each kernel load within these calls is idempotent, so calling either
-alongside individual `load_kernel` calls is safe. Prefer
-`load_common_kernels` unless outer-planet body centers, their moons, or
-Pluto are needed — `load_all_kernels` downloads over 2 GB on first use.
+alongside individual `load_spice_kernel` calls is safe. Prefer
+`load_common_spice_kernels` unless outer-planet body centers, their moons, or
+Pluto are needed — `load_all_spice_kernels` downloads over 2 GB on first use.
 
 ## Querying Ephemeris Data
 
@@ -265,7 +265,7 @@ values from `spk_*`/`*_spice` queries are GCRF-compatible directly.
 
 ## Performance
 
-SPK and PCK kernels are parsed once, at `load_kernel` time, into an
+SPK and PCK kernels are parsed once, at `load_spice_kernel` time, into an
 in-memory segment table. Queries take a short-lived read lock on the shared
 registry only to look up the relevant segment chain; the Chebyshev
 evaluation itself runs outside any lock. Repeated queries for the same

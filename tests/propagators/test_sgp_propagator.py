@@ -1767,6 +1767,29 @@ class TestSGPPropagatorAdditionalMethods:
             single = prop.state_eme2000(epochs[i])
             assert state == pytest.approx(single, rel=1e-10)
 
+    def test_states_bci_bcbf_in_frame(self, iss_tle):
+        """Test states_bci, states_bcbf, states_in_frame batch methods."""
+        prop = brahe.SGPPropagator.from_tle(iss_tle[0], iss_tle[1], 60.0)
+        initial_epoch = prop.epoch
+        epochs = [initial_epoch + i * 60.0 for i in range(3)]
+
+        states_bci = prop.states_bci(epochs)
+        assert len(states_bci) == 3
+        for i, epoch in enumerate(epochs):
+            np.testing.assert_array_equal(states_bci[i], prop.state_bci(epoch))
+
+        states_bcbf = prop.states_bcbf(epochs)
+        assert len(states_bcbf) == 3
+        for i, epoch in enumerate(epochs):
+            np.testing.assert_array_equal(states_bcbf[i], prop.state_bcbf(epoch))
+
+        states_itrf = prop.states_in_frame(brahe.ReferenceFrame.ITRF, epochs)
+        assert len(states_itrf) == 3
+        for i, epoch in enumerate(epochs):
+            np.testing.assert_array_equal(
+                states_itrf[i], prop.state_in_frame(brahe.ReferenceFrame.ITRF, epoch)
+            )
+
 
 def test_sgppropagator_bci_bcbf_in_frame(iss_tle):
     """Earth-centered propagator: state_bci == state_gcrf, state_bcbf ==

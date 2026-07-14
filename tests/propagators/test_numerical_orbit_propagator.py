@@ -1250,6 +1250,32 @@ def test_numericalorbitpropagator_dorbitstateprovider_states_eme2000(
         np.testing.assert_allclose(state, single, rtol=1e-10)
 
 
+def test_numericalorbitpropagator_dorbitstateprovider_states_bci_bcbf_in_frame(
+    propagated_orbit_prop,
+):
+    """Test states_bci(), states_bcbf(), states_in_frame() batch methods."""
+    prop, epoch = propagated_orbit_prop
+    epochs = [epoch + i * 120.0 for i in range(5)]
+
+    states_bci = prop.states_bci(epochs)
+    assert len(states_bci) == 5
+    for i, state in enumerate(states_bci):
+        single = prop.state_bci(epochs[i])
+        np.testing.assert_allclose(state, single, rtol=1e-10)
+
+    states_bcbf = prop.states_bcbf(epochs)
+    assert len(states_bcbf) == 5
+    for i, state in enumerate(states_bcbf):
+        single = prop.state_bcbf(epochs[i])
+        np.testing.assert_allclose(state, single, rtol=1e-10)
+
+    states_itrf = prop.states_in_frame(ReferenceFrame.ITRF, epochs)
+    assert len(states_itrf) == 5
+    for i, state in enumerate(states_itrf):
+        single = prop.state_in_frame(ReferenceFrame.ITRF, epochs[i])
+        np.testing.assert_allclose(state, single, rtol=1e-10)
+
+
 def test_numericalorbitpropagator_states_empty_epochs(propagated_orbit_prop):
     """Bulk state methods should return an empty list when given no epochs."""
     prop, _ = propagated_orbit_prop
@@ -5775,6 +5801,8 @@ def test_numericalorbitpropagator_params_accessor():
         np.array([2.2, 1.3]),
     )
     np.testing.assert_allclose(prop.params(), np.array([2.2, 1.3]))
+
+
 # =============================================================================
 # Central-Body-Aware State Accessors
 # =============================================================================

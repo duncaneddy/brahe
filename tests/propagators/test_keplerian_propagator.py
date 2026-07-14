@@ -1292,6 +1292,42 @@ def test_state_provider_states_itrf():
             assert not np.allclose(states[i], states[j])
 
 
+def test_state_provider_states_bci_bcbf_in_frame():
+    """Test StateProvider states_bci(), states_bcbf(), states_in_frame()
+    batch methods."""
+    from brahe import ReferenceFrame
+
+    epoch = Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem.UTC)
+    elements = np.array([6878e3, 0.01, 45.0, 15.0, 30.0, 60.0])
+    prop = KeplerianPropagator(
+        epoch,
+        elements,
+        OrbitFrame.ECI,
+        OrbitRepresentation.KEPLERIAN,
+        AngleFormat.DEGREES,
+        60.0,
+    )
+
+    epochs = [epoch, epoch + 120.0, epoch + 240.0]
+
+    states_bci = prop.states_bci(epochs)
+    assert len(states_bci) == 3
+    for i, epc in enumerate(epochs):
+        np.testing.assert_array_equal(states_bci[i], prop.state_bci(epc))
+
+    states_bcbf = prop.states_bcbf(epochs)
+    assert len(states_bcbf) == 3
+    for i, epc in enumerate(epochs):
+        np.testing.assert_array_equal(states_bcbf[i], prop.state_bcbf(epc))
+
+    states_itrf = prop.states_in_frame(ReferenceFrame.ITRF, epochs)
+    assert len(states_itrf) == 3
+    for i, epc in enumerate(epochs):
+        np.testing.assert_array_equal(
+            states_itrf[i], prop.state_in_frame(ReferenceFrame.ITRF, epc)
+        )
+
+
 # =============================================================================
 # Mean Keplerian Elements Tests
 # =============================================================================

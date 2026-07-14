@@ -1,5 +1,9 @@
 # Development Guide
 
+!!! tip "TLDR"
+
+    Install [rustup](https://rustup.rs/), [uv](https://uv.sh/), and [just](https://github.com/casey/just). Then run `just setup` to install all dependencies and setup your development environment. Use `just --list` to see all available commands.
+
 ## Development Workflow
 
 For all development we recommend using [uv](https://uv.sh/) to manage your environment.
@@ -9,9 +13,26 @@ The guidelines for contributing, developing, and extending brahe assume you are 
 
 If you need to setup the development environment, including installing the necessary development dependencies.
 
-First, you need to install Rust from [rustup.rs](https://rustup.rs/).
+First, you need to install Rust from [rustup.rs](https://rustup.rs/) and [just](https://github.com/casey/just). 
+Brahe uses `just` commands extensively to provide helpful shortcuts for building, testing, and development. You can check the available commands with:
 
-After this you can now setup your python environment with:
+```bash
+just --list
+```
+
+To get a list of all available commands and their descriptions.
+
+To setup your development environment, run the following command:
+
+```bash
+just setup
+```
+
+to setup your development environment. This will install all necessary dependencies, including Python, and setup a virtual environment for you.
+
+Alternatively you can run the following commands to setup your environment manually:
+
+Setup your python environment with:
 
 ```bash
 uv sync --dev

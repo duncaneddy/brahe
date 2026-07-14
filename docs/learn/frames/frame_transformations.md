@@ -78,7 +78,7 @@ Four variants cover bodies without a dedicated named frame:
 | `MCI`, `MCMF` (translation to/from another center) | `de440s` SPK + `mar099s` satellite ephemeris | Yes, on first Mars body-center query |
 | `LFPA`, `LFME` | `moon_pa_de440` binary PCK | Yes, on first LCI &harr; LFPA/LFME conversion |
 | `MCMF` (rotation only) | None (compiled-in WGCCRE polynomial) | N/A |
-| `EMR`, `SER`, `GSE` | `de440s` SPK (no EOP required) | Yes, on first query |
+| `EMR`, `SER`, `GSE` | `de440s` SPK | Yes, on first query |
 | `BodyFixedIAU(naif_id)` | None (compiled-in), if `naif_id` is in `iau_rotation_model_ids()` | N/A |
 | `BodyFixedPCK { .. }` | The named binary PCK | No; must be loaded explicitly with `load_spice_kernel` |
 | `BodyFixedCustom { .. }` | None (user callback) | N/A |

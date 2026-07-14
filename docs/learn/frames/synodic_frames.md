@@ -10,7 +10,7 @@ $$
 \hat{\boldsymbol{y}} = \hat{\boldsymbol{z}} \times \hat{\boldsymbol{x}}
 $$
 
-The velocity transformation uses the exact time derivative of the rotation matrix (the GTDS/STK convention in TP-20220014814 §4.6.1), including the $d\hat{\boldsymbol{z}}/dt$ term evaluated from the relative acceleration $\boldsymbol{a}_{12}$, which Brahe computes by analytically differentiating the SPK ephemeris Chebyshev polynomials (see `spk_acceleration`). No Earth-orientation (EOP) data is required by any synodic frame.
+The velocity transformation uses the exact time derivative of the rotation matrix (the GTDS/STK convention in TP-20220014814 §4.6.1), including the $d\hat{\boldsymbol{z}}/dt$ term evaluated from the relative acceleration $\boldsymbol{a}_{12}$, which Brahe computes by analytically differentiating the SPK ephemeris Chebyshev polynomials (see `spk_acceleration`).
 
 ## EMR (Earth-Moon Rotating)
 

@@ -155,4 +155,18 @@ impl DynamicsSource {
             DynamicsSource::GenericPropagator(p) => p.set_trajectory_mode(mode),
         }
     }
+
+    /// Disable STM (variational equation) propagation on the underlying
+    /// propagator, clearing any covariance it holds.
+    ///
+    /// The UKF uses this at construction: providing a covariance to a
+    /// propagator auto-enables STM propagation, but sigma-point filters
+    /// capture uncertainty without linearization and would otherwise pay the
+    /// cost of integrating the variational equations for every sigma point.
+    pub fn disable_stm_propagation(&mut self) {
+        match self {
+            DynamicsSource::OrbitPropagator(p) => p.disable_stm_propagation(),
+            DynamicsSource::GenericPropagator(p) => p.disable_stm_propagation(),
+        }
+    }
 }

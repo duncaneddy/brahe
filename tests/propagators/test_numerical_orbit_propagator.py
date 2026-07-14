@@ -5719,3 +5719,52 @@ class TestNumericalOrbitPropagatorKOE:
             assert all(np.isfinite(elements))
             assert elements[0] > R_EARTH
             assert elements[1] < 1.0  # Eccentricity < 1
+
+
+def test_numericalorbitpropagator_disable_stm_propagation():
+    """Providing a covariance auto-enables STM propagation;
+    disable_stm_propagation() turns it off and clears STM and covariance."""
+    epoch = create_test_epoch()
+    state = create_leo_state()
+    p0 = np.diag([100.0, 100.0, 100.0, 0.01, 0.01, 0.01])
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.two_body(),
+        None,
+        initial_covariance=p0,
+    )
+    assert prop.stm() is not None
+
+    prop.disable_stm_propagation()
+    assert prop.stm() is None
+
+    # State propagation still works
+    prop.propagate_to(epoch + 600.0)
+    assert len(prop.current_state()) == 6
+
+
+def test_numericalorbitpropagator_params_accessor():
+    """params() returns the parameter vector supplied at construction."""
+    epoch = create_test_epoch()
+    state = create_leo_state()
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.two_body(),
+        None,
+    )
+    assert prop.params() is None
+
+    prop = NumericalOrbitPropagator(
+        epoch,
+        state,
+        NumericalPropagationConfig.default(),
+        ForceModelConfig.two_body(),
+        np.array([2.2, 1.3]),
+    )
+    np.testing.assert_allclose(prop.params(), np.array([2.2, 1.3]))

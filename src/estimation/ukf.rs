@@ -181,11 +181,10 @@ impl UnscentedKalmanFilter {
     /// `initial_covariance`; construct the propagator with the covariance you
     /// want the filter to start from.
     ///
-    /// Note that providing a covariance to a propagator enables its STM
-    /// propagation, which the UKF does not need — every sigma-point
-    /// propagation then also integrates the variational equations. When this
-    /// overhead matters, prefer [`UnscentedKalmanFilter::new`], which builds
-    /// its propagator without STM propagation.
+    /// Providing a covariance to a propagator auto-enables its STM
+    /// propagation, which the UKF does not use; the filter disables STM
+    /// propagation on the propagator at construction so sigma-point
+    /// propagation only integrates the state equations.
     ///
     /// Trajectory recording on the propagator is disabled: sigma-point
     /// propagation re-propagates each time span 2n+1 times, which would
@@ -304,6 +303,12 @@ impl UnscentedKalmanFilter {
         }
 
         dynamics.set_trajectory_mode(TrajectoryMode::Disabled);
+
+        // The UKF captures uncertainty via sigma points and never reads the
+        // STM; disable its propagation (auto-enabled when the propagator was
+        // constructed with a covariance) so sigma-point propagation only
+        // integrates the state equations.
+        dynamics.disable_stm_propagation();
 
         Ok(Self {
             dynamics,
@@ -917,6 +922,36 @@ mod tests {
                 config.kappa
             );
         }
+    }
+
+    #[test]
+    #[serial]
+    fn test_ukf_from_propagator_disables_stm() {
+        // Providing a covariance to a propagator auto-enables STM propagation,
+        // which the UKF never uses; from_propagator must disable it so
+        // sigma-point propagation does not integrate variational equations.
+        setup_global_test_eop();
+        let (epoch, true_state) = two_body_leo();
+        let p0 = DMatrix::from_diagonal(&DVector::from_vec(vec![1e6, 1e6, 1e6, 1e2, 1e2, 1e2]));
+
+        let prop = create_plain_propagator(epoch, true_state.clone(), Some(p0));
+        assert!(prop.has_stm(), "covariance should have auto-enabled STM");
+
+        let mut ukf = UnscentedKalmanFilter::from_propagator(
+            prop,
+            vec![Box::new(InertialPositionMeasurementModel::new(10.0))],
+            UKFConfig::default(),
+        )
+        .unwrap();
+        assert!(
+            !ukf.dynamics().has_stm(),
+            "UKF must disable STM propagation on its propagator"
+        );
+
+        // The filter still works end-to-end
+        let obs = generate_position_observations(epoch, &true_state, 3, 60.0);
+        ukf.process_observations(&obs).unwrap();
+        assert_eq!(ukf.current_covariance().nrows(), 6);
     }
 
     #[test]

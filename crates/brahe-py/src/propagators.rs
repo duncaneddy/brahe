@@ -5839,6 +5839,35 @@ impl PyNumericalOrbitPropagator {
         })
     }
 
+    /// Get the parameter vector supplied at construction.
+    ///
+    /// These are the force-model / consider parameters passed to the dynamics,
+    /// control input, and (via the estimation filters) measurement models.
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: Parameter vector, or None if no parameters were provided.
+    #[pyo3(text_signature = "()")]
+    pub fn params<'a>(&self, py: Python<'a>) -> Option<Bound<'a, PyArray<f64, Ix1>>> {
+        self.propagator.params().map(|p| {
+            let flat: Vec<f64> = p.iter().copied().collect();
+            flat.into_pyarray(py)
+        })
+    }
+
+    /// Disable STM (variational equation) propagation.
+    ///
+    /// Providing an initial covariance at construction enables STM propagation
+    /// automatically. When the STM is not needed, disabling it removes the cost
+    /// of integrating the variational equations at every step. Covariance
+    /// propagation requires the STM, so any covariance held by the propagator
+    /// is cleared: ``stm()`` and ``current_covariance()`` return None afterwards.
+    /// Sensitivity propagation, if enabled, is unaffected. No-op if STM
+    /// propagation is not enabled.
+    #[pyo3(text_signature = "()")]
+    pub fn disable_stm_propagation(&mut self) {
+        self.propagator.disable_stm_propagation();
+    }
+
     /// Get current sensitivity matrix if enabled.
     ///
     /// Returns:
@@ -7091,6 +7120,35 @@ impl PyNumericalPropagator {
                 .collect();
             flat.into_pyarray(py).reshape([n, n]).unwrap()
         })
+    }
+
+    /// Get the parameter vector supplied at construction.
+    ///
+    /// These are the force-model / consider parameters passed to the dynamics,
+    /// control input, and (via the estimation filters) measurement models.
+    ///
+    /// Returns:
+    ///     numpy.ndarray or None: Parameter vector, or None if no parameters were provided.
+    #[pyo3(text_signature = "()")]
+    pub fn params<'a>(&self, py: Python<'a>) -> Option<Bound<'a, PyArray<f64, Ix1>>> {
+        self.propagator.params().map(|p| {
+            let flat: Vec<f64> = p.iter().copied().collect();
+            flat.into_pyarray(py)
+        })
+    }
+
+    /// Disable STM (variational equation) propagation.
+    ///
+    /// Providing an initial covariance at construction enables STM propagation
+    /// automatically. When the STM is not needed, disabling it removes the cost
+    /// of integrating the variational equations at every step. Covariance
+    /// propagation requires the STM, so any covariance held by the propagator
+    /// is cleared: ``stm()`` and ``current_covariance()`` return None afterwards.
+    /// Sensitivity propagation, if enabled, is unaffected. No-op if STM
+    /// propagation is not enabled.
+    #[pyo3(text_signature = "()")]
+    pub fn disable_stm_propagation(&mut self) {
+        self.propagator.disable_stm_propagation();
     }
 
     /// Get current sensitivity matrix if enabled.

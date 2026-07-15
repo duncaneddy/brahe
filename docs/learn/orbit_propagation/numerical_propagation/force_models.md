@@ -149,7 +149,7 @@ available:
 <div class="center-table" markdown="1">
 | Constructor                                  | Source                                                  |
 |----------------------------------------------|---------------------------------------------------------|
-| `GravityModelType.EGM2008_360`               | Packaged with Brahe (Earth, 360×360)                    |
+| `GravityModelType.EGM2008_120`               | Packaged with Brahe (Earth, 120×120)                    |
 | `GravityModelType.GGM05S`                    | Packaged with Brahe (Earth, 180×180)                    |
 | `GravityModelType.JGM3`                      | Packaged with Brahe (Earth, 70×70)                      |
 | `GravityModelType.from_file("path.gfc")`     | Any `.gfc` file on disk                                 |
@@ -503,16 +503,23 @@ When using parameter indices, the default layout is:
 Brahe provides preset configurations for common scenarios:
 
 <div class="center-table" markdown="1">
-| Preset | Gravity | Drag | SRP | Third-Body | Relativity | Solid Tides | Requires Params |
-|------|-------|----|---|----------|----------|----------|---------------|
-| `two_body()` | PointMass | None | None | None | No | No | No |
-| `earth_gravity()` | 20×20 | None | None | None | No | No | No |
-| `conservative_forces()` | 80×80 | None | None | Sun/Moon (DE440s) | Yes | No | No |
-| `default()` | 20×20 | Harris-Priester | Conical | Sun/Moon (LP) | No | No | Yes |
-| `leo_default()` | 30×30 | NRLMSISE-00 | Conical | Sun/Moon (DE440s) | No | No | Yes |
-| `geo_default()` | 8×8 | None | Conical | Sun/Moon (DE440s) | No | No | Yes |
-| `high_fidelity()` | 120×120 | NRLMSISE-00 | Conical | All planets (DE440s) | Yes | Yes | Yes |
+| Preset | Gravity | Drag | SRP | Third-Body | Relativity | Solid Tides | Ocean Tides | Requires Params |
+|------|-------|----|---|----------|----------|----------|----------|---------------|
+| `two_body()` | PointMass | None | None | None | No | No | No | No |
+| `earth_gravity()` | 20×20 | None | None | None | No | No | No | No |
+| `conservative_forces()` | 80×80 | None | None | Sun/Moon (DE440s) | Yes | No | No | No |
+| `default()` | 20×20 | Harris-Priester | Conical | Sun/Moon (LP) | No | No | No | Yes |
+| `leo_default()` | 30×30 | NRLMSISE-00 | Conical | Sun/Moon (DE440s) | No | No | No | Yes |
+| `geo_default()` | 8×8 | None | Conical | Sun/Moon (DE440s) | No | No | No | Yes |
+| `high_fidelity()` | 120×120 | NRLMSISE-00 | Conical | All planets (DE440s) | Yes | Yes | Yes (30×30) | Yes |
 </div>
+
+`high_fidelity()` enables every tidal correction Brahe supports (solid Earth
+tides, both pole tides, and FES2004 ocean tides) — see
+[Tidal Corrections](../../orbital_dynamics/tides.md). Its ocean tide
+component downloads the FES2004 coefficient file once, the first time a
+propagator built from it is constructed; see
+[Ocean Tides: Coefficient Download](../../orbital_dynamics/tides.md#coefficient-download).
 
 === "Python"
 

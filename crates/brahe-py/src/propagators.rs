@@ -3895,18 +3895,22 @@ impl PyParallelMode {
 
 /// Solid Earth tide settings.
 ///
-/// Controls whether Step 2 (frequency-dependent) IERS corrections are applied.
+/// Controls whether Step 2 (frequency-dependent) IERS corrections are applied,
+/// and whether the solid Earth pole tide is applied.
 ///
 /// Args:
 ///     frequency_dependent (bool): Apply IERS Step 2 frequency-dependent corrections.
 ///         Default is False.
+///     pole_tide (bool): Apply the solid Earth pole tide ΔC̄21/ΔS̄21 (IERS
+///         TN36 Section 6.4). Requires EOP initialization. Default is False.
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     solid = bh.SolidTideConfig(frequency_dependent=True)
+///     solid = bh.SolidTideConfig(frequency_dependent=True, pole_tide=True)
 ///     assert solid.frequency_dependent is True
+///     assert solid.pole_tide is True
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
 #[pyo3(name = "SolidTideConfig")]
@@ -3918,11 +3922,12 @@ pub struct PySolidTideConfig {
 #[pymethods]
 impl PySolidTideConfig {
     #[new]
-    #[pyo3(signature = (frequency_dependent=false))]
-    fn new(frequency_dependent: bool) -> Self {
+    #[pyo3(signature = (frequency_dependent=false, pole_tide=false))]
+    fn new(frequency_dependent: bool, pole_tide: bool) -> Self {
         Self {
             config: brahe::orbit_dynamics::tides::SolidTideConfig {
                 frequency_dependent,
+                pole_tide,
             },
         }
     }
@@ -3939,10 +3944,128 @@ impl PySolidTideConfig {
         self.config.frequency_dependent = v;
     }
 
+    /// Whether the solid Earth pole tide is enabled.
+    #[getter]
+    fn pole_tide(&self) -> bool {
+        self.config.pole_tide
+    }
+
+    /// Set whether the solid Earth pole tide is enabled.
+    #[setter]
+    fn set_pole_tide(&mut self, v: bool) {
+        self.config.pole_tide = v;
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "SolidTideConfig(frequency_dependent={})",
-            self.config.frequency_dependent
+            "SolidTideConfig(frequency_dependent={}, pole_tide={})",
+            self.config.frequency_dependent, self.config.pole_tide
+        )
+    }
+}
+
+/// FES2004 ocean tide configuration (IERS TN36 Section 6.3) plus the ocean
+/// pole tide (Section 6.5).
+///
+/// Requires a one-time download of the IERS FES2004 coefficient file into
+/// the brahe cache on first use.
+///
+/// Args:
+///     degree (int): Truncation degree, 2-100. Defaults to 20.
+///     order (int): Truncation order, <= degree. Defaults to 20.
+///     include_admittance (bool): Add secondary waves by admittance
+///         interpolation (TN36 Table 6.7). Defaults to True.
+///     pole_tide (bool): Apply the ocean pole tide (2,1) term (TN36
+///         Eq. 6.24). Requires EOP initialization. Defaults to False.
+///
+/// Example:
+///     ```python
+///     import brahe as bh
+///
+///     ocean = bh.OceanTideConfig(degree=30, order=30)
+///     tides = bh.TidesConfiguration(
+///         permanent=bh.PermanentTideConfig.AUTO,
+///         solid=bh.SolidTideConfig(frequency_dependent=True, pole_tide=True),
+///         ocean=ocean,
+///     )
+///     ```
+#[pyclass(module = "brahe._brahe", from_py_object)]
+#[pyo3(name = "OceanTideConfig")]
+#[derive(Clone)]
+pub struct PyOceanTideConfig {
+    pub config: propagators::OceanTideConfig,
+}
+
+#[pymethods]
+impl PyOceanTideConfig {
+    #[new]
+    #[pyo3(signature = (degree=20, order=20, include_admittance=true, pole_tide=false))]
+    fn new(degree: usize, order: usize, include_admittance: bool, pole_tide: bool) -> Self {
+        Self {
+            config: propagators::OceanTideConfig {
+                degree,
+                order,
+                include_admittance,
+                pole_tide,
+            },
+        }
+    }
+
+    /// Truncation degree of the ocean tide expansion.
+    #[getter]
+    fn degree(&self) -> usize {
+        self.config.degree
+    }
+
+    /// Set the truncation degree of the ocean tide expansion.
+    #[setter]
+    fn set_degree(&mut self, v: usize) {
+        self.config.degree = v;
+    }
+
+    /// Truncation order of the ocean tide expansion.
+    #[getter]
+    fn order(&self) -> usize {
+        self.config.order
+    }
+
+    /// Set the truncation order of the ocean tide expansion.
+    #[setter]
+    fn set_order(&mut self, v: usize) {
+        self.config.order = v;
+    }
+
+    /// Whether secondary waves are added by admittance interpolation.
+    #[getter]
+    fn include_admittance(&self) -> bool {
+        self.config.include_admittance
+    }
+
+    /// Set whether secondary waves are added by admittance interpolation.
+    #[setter]
+    fn set_include_admittance(&mut self, v: bool) {
+        self.config.include_admittance = v;
+    }
+
+    /// Whether the ocean pole tide is enabled.
+    #[getter]
+    fn pole_tide(&self) -> bool {
+        self.config.pole_tide
+    }
+
+    /// Set whether the ocean pole tide is enabled.
+    #[setter]
+    fn set_pole_tide(&mut self, v: bool) {
+        self.config.pole_tide = v;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "OceanTideConfig(degree={}, order={}, include_admittance={}, pole_tide={})",
+            self.config.degree,
+            self.config.order,
+            self.config.include_admittance,
+            self.config.pole_tide
         )
     }
 }
@@ -4027,6 +4150,14 @@ impl PyPermanentTideConfig {
 ///     permanent (PermanentTideConfig): Permanent-tide / tide-system handling.
 ///     solid (SolidTideConfig, optional): Solid Earth tide configuration.
 ///         None disables solid tides. Default is None.
+///     ocean (OceanTideConfig, optional): Ocean tide configuration. None
+///         disables ocean tides. Default is None.
+///     ephemeris_source (EphemerisSource, optional): Source for the Sun and
+///         Moon positions the tidal corrections are computed from. Defaults to
+///         EphemerisSource.LowPrecision (the analytic geocentric ephemerides),
+///         which is accurate enough for the ~1e-7 m/s^2 tidal perturbation. Set
+///         to a high-precision source to share positions with a third-body
+///         perturbation configured against the same source.
 ///
 /// Example:
 ///     ```python
@@ -4045,11 +4176,13 @@ pub struct PyTidesConfiguration {
 #[pymethods]
 impl PyTidesConfiguration {
     #[new]
-    #[pyo3(signature = (permanent, solid=None))]
+    #[pyo3(signature = (permanent, solid=None, ocean=None, ephemeris_source=PyEphemerisSource::LowPrecision))]
     fn new(
         py: Python,
         permanent: &PyPermanentTideConfig,
         solid: Option<&PySolidTideConfig>,
+        ocean: Option<&PyOceanTideConfig>,
+        ephemeris_source: PyEphemerisSource,
     ) -> PyResult<Self> {
         if let propagators::PermanentTideConfig::ConvertTo(sys) = &permanent.config
             && *sys != orbit_dynamics::GravityModelTideSystem::TideFree
@@ -4074,6 +4207,8 @@ impl PyTidesConfiguration {
             config: propagators::TidesConfiguration {
                 permanent: permanent.config.clone(),
                 solid: solid.map(|s| s.config),
+                ocean: ocean.map(|o| o.config),
+                ephemeris_source: ephemeris_source.into(),
             },
         })
     }
@@ -4092,10 +4227,39 @@ impl PyTidesConfiguration {
         self.config.solid.map(|s| PySolidTideConfig { config: s })
     }
 
+    /// Get the ocean tide configuration (None if disabled).
+    #[getter]
+    fn ocean(&self) -> Option<PyOceanTideConfig> {
+        self.config.ocean.map(|o| PyOceanTideConfig { config: o })
+    }
+
+    /// Get the ephemeris source for the tidal Sun and Moon positions.
+    #[getter]
+    fn ephemeris_source(&self) -> PyEphemerisSource {
+        match self.config.ephemeris_source {
+            propagators::EphemerisSource::LowPrecision => PyEphemerisSource::LowPrecision,
+            propagators::EphemerisSource::DE440s => PyEphemerisSource::DE440s,
+            propagators::EphemerisSource::DE440 => PyEphemerisSource::DE440,
+            propagators::EphemerisSource::SPK(spice::SPICEKernel::DE440) => {
+                PyEphemerisSource::DE440
+            }
+            // The Python `EphemerisSource` enum exposes only LowPrecision/DE440s/DE440,
+            // so it can never construct any other SPK kernel; map the remainder to
+            // DE440s as the closest Python-visible source.
+            propagators::EphemerisSource::SPK(_) => PyEphemerisSource::DE440s,
+        }
+    }
+
+    /// Set the ephemeris source for the tidal Sun and Moon positions.
+    #[setter]
+    fn set_ephemeris_source(&mut self, source: PyEphemerisSource) {
+        self.config.ephemeris_source = source.into();
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "TidesConfiguration(permanent={:?}, solid={:?})",
-            self.config.permanent, self.config.solid
+            "TidesConfiguration(permanent={:?}, solid={:?}, ocean={:?}, ephemeris_source={:?})",
+            self.config.permanent, self.config.solid, self.config.ocean, self.config.ephemeris_source
         )
     }
 }
@@ -4114,7 +4278,7 @@ impl PyTidesConfiguration {
 ///     order (int, optional): Maximum order of spherical harmonic expansion.
 ///         If None, uses point mass gravity.
 ///     model_type (GravityModelType, optional): Gravity model to use.
-///         Defaults to EGM2008_360.
+///         Defaults to EGM2008_120.
 ///     use_global (bool, optional): If True, use global gravity model.
 ///         Defaults to False.
 ///     parallel (ParallelMode, optional): Parallelization mode for the
@@ -4157,7 +4321,7 @@ impl PyGravityConfiguration {
     ///     order (int, optional): Maximum order of spherical harmonic expansion.
     ///         If None, uses point mass gravity.
     ///     model_type (GravityModelType, optional): Gravity model to use.
-    ///         Defaults to EGM2008_360.
+    ///         Defaults to EGM2008_120.
     ///     use_global (bool, optional): If True, use global gravity model.
     ///         Defaults to False.
     ///     parallel (ParallelMode, optional): Parallelization mode for the
@@ -4197,7 +4361,7 @@ impl PyGravityConfiguration {
                 } else {
                     let model = model_type
                         .map(|mt| mt.model.clone())
-                        .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
+                        .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_120);
                     propagators::GravityModelSource::ModelType(model)
                 };
                 let parallel_mode = parallel
@@ -4249,7 +4413,7 @@ impl PyGravityConfiguration {
     ///     degree (int): Maximum degree of expansion.
     ///     order (int): Maximum order of expansion.
     ///     model_type (GravityModelType, optional): Gravity model to use.
-    ///         Defaults to EGM2008_360.
+    ///         Defaults to EGM2008_120.
     ///     use_global (bool, optional): If True, use global gravity model.
     ///         Defaults to False.
     ///     parallel (ParallelMode, optional): Parallelization mode for the
@@ -4285,7 +4449,7 @@ impl PyGravityConfiguration {
         } else {
             let model = model_type
                 .map(|mt| mt.model.clone())
-                .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_360);
+                .unwrap_or(brahe::orbit_dynamics::gravity::GravityModelType::EGM2008_120);
             propagators::GravityModelSource::ModelType(model)
         };
         let parallel_mode = parallel
@@ -5777,7 +5941,11 @@ impl PyForceModelConfig {
     /// - SRP with conical eclipse
     /// - Sun, Moon, and all planets (DE440s ephemerides)
     /// - Relativistic corrections
-    /// - Solid Earth tides with frequency-dependent corrections
+    /// - Solid Earth tides with frequency-dependent corrections and the
+    ///   solid pole tide
+    /// - Ocean tides (FES2004, 30x30) with admittance and the ocean pole
+    ///   tide; requires a one-time cached download of the IERS FES2004
+    ///   coefficient file
     ///
     /// Requires parameter vector: [mass, drag_area, Cd, srp_area, Cr]
     #[classmethod]

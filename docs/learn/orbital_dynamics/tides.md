@@ -7,8 +7,8 @@ orbit satellites. For a 500 km LEO satellite propagated over one orbital period,
 solid Earth tides shift the position by roughly 1–2 m relative to a tide-free
 model.
 
-Brahe implements the solid Earth tide model from Chapter 6 of the IERS
-Conventions (2010), Technical Note 36 (TN36):
+Brahe implements the solid Earth tide, ocean tide, and pole tide models from
+Chapter 6 of the IERS Conventions (2010), Technical Note 36 (TN36):
 <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 
 !!! question "Validation Help Desired"
@@ -148,9 +148,10 @@ $$
 $$
 
 The resulting $\Delta\bar{C}_{nm}/\Delta\bar{S}_{nm}$ corrections (up to
-degree 4) are evaluated as a spherical-harmonic acceleration using the
-Cunningham V/W recursion, then added directly to the static-gravity
-acceleration.
+degree 4) are folded into the static gravity field's packed coefficient
+table and evaluated together with it in a single Clenshaw pass per dynamics
+call (see the fold-in evaluation described below), rather than as a separate
+acceleration term.
 
 ### Time-Varying Correction (Optional)
 
@@ -175,7 +176,124 @@ sub-millimetre position effect per orbit for LEO satellites. They are
 recommended for precise orbit determination but can be omitted for most
 mission-analysis applications.
 
+### Solid Earth Pole Tide (Optional)
+
+Setting `pole_tide=True` on `SolidTideConfig` adds the solid Earth pole tide
+(IERS TN36 §6.4), the elastic deformation caused by the centrifugal effect of
+polar motion. It contributes to $\bar{C}_{21}$ and $\bar{S}_{21}$ only:
+
+$$
+\Delta\bar{C}_{21} = -1.333\times10^{-9}\,(m_1 + 0.0115\,m_2), \qquad
+\Delta\bar{S}_{21} = -1.333\times10^{-9}\,(m_2 - 0.0115\,m_1)
+$$
+
+The wobble parameters $(m_1, m_2)$ are the polar motion coordinates $(x_p,
+y_p)$ relative to the IERS secular pole $(\bar{x}_s, \bar{y}_s)$:
+
+$$
+m_1 = x_p - \bar{x}_s, \qquad m_2 = -(y_p - \bar{y}_s)
+$$
+
+Brahe evaluates the secular pole with the updated linear model (IERS
+Conventions §7.1.4, Eq. 21, version 2018/02/01), which supersedes the cubic
+mean-pole model published in TN36 (2010) and is consistent with ITRF2014:
+
+$$
+\bar{x}_s = 55.0 + 1.677\,(t - 2000.0)\ \text{mas}, \qquad
+\bar{y}_s = 320.5 + 3.460\,(t - 2000.0)\ \text{mas}
+$$
+
+with $t$ in Julian years of TT since J2000.0.
+
+The solid Earth pole tide requires initialized global EOP data (for $x_p$,
+$y_p$); enabling `pole_tide` without EOP initialized returns an error at
+propagator construction.
+
+## Ocean Tides
+
+Ocean tides redistribute mass as the tidal bulge moves through the world's
+oceans, producing a geopotential contribution distinct from, and generally
+smaller than, the solid Earth tide. Brahe implements the FES2004 ocean tide
+model (IERS TN36 §6.3):
+
+$$
+\Delta\bar{C}_{nm} = \sum_f \left[ (C_f^{+} + C_f^{-})\cos\theta_f
++ (S_f^{+} + S_f^{-})\sin\theta_f \right]
+$$
+
+$$
+\Delta\bar{S}_{nm} = \sum_f \left[ (S_f^{+} - S_f^{-})\cos\theta_f
+- (C_f^{+} - C_f^{-})\sin\theta_f \right]
+$$
+
+(the real form of Eq. 6.15, summed over tidal constituents $f$, exactly as
+implemented), where
+$C_f^{\pm}, S_f^{\pm}$ are the prograde (+) and retrograde (−) fully
+normalized Stokes-coefficient amplitudes of constituent $f$, and $\theta_f$ is
+its Doodson/Delaunay tidal argument (§6.2.1) — the same argument construction
+used by the solid-tide time-varying correction.
+
+### Coefficient Download
+
+FES2004 coefficients are not bundled with Brahe. The first time a propagator
+is constructed with ocean tides enabled, Brahe downloads the IERS
+coefficient file (`fes2004_Cnm-Snm.dat`, ~3.7 MB) into `$BRAHE_CACHE/tides/`
+and reuses the cached copy on every subsequent call; no network access is
+needed once the file is cached. Degree-1 rows present in the file are skipped:
+they represent geocenter motion, not geopotential coefficients about the
+Earth's center of mass.
+
+### Degree, Order, and Admittance
+
+`OceanTideConfig.degree` / `.order` truncate the expansion (2–100, default
+20). The FES2004 file tabulates 18 main tidal constituents directly; setting
+`include_admittance=True` (the default) completes the model with the ~63
+secondary constituents of Table 6.7, obtained by linear admittance
+interpolation between neighboring main waves (Eq. 6.16). The admittance-wave
+coefficients are constant linear combinations of the main-wave coefficients,
+computed once when the model is loaded.
+
+### Ocean Pole Tide
+
+Setting `pole_tide=True` on `OceanTideConfig` adds the dominant $(2,1)$ term
+of the ocean's self-consistent equilibrium response to polar motion (IERS
+TN36 §6.5, Eq. 6.24), which captures roughly 90% of the ocean pole tide
+potential variance:
+
+$$
+\Delta\bar{C}_{21} = -2.1778\times10^{-10}\,(m_1 - 0.01724\,m_2), \qquad
+\Delta\bar{S}_{21} = -1.7232\times10^{-10}\,(m_2 - 0.03365\,m_1)
+$$
+
+using the same wobble parameters $(m_1, m_2)$ and secular pole as the solid
+Earth pole tide above. Like the solid pole tide, it requires initialized
+global EOP data.
+
 ## Configuring Tides
+
+!!! note "Loading configurations saved before ocean tides"
+    `TidesConfiguration` gained an `ocean` field when ocean tides were added.
+    Configurations serialized before this change deserialize without error,
+    with `ocean` defaulting to `None` — ocean tides stay disabled unless the
+    field is set explicitly.
+
+### Sun and Moon Ephemeris Source
+
+The tidal corrections are driven by the Sun and Moon positions. The
+`ephemeris_source` field of `TidesConfiguration` selects how those positions
+are computed and defaults to `EphemerisSource.LowPrecision` (the analytic
+geocentric ephemerides), which is accurate enough for the ~$10^{-7}$ m/s²
+tidal perturbation. Set it to a high-precision source
+(`EphemerisSource.DE440s`/`DE440`) to match a third-body perturbation
+configured against the same source — when the sources match, the propagator
+evaluates the Sun and Moon positions once per epoch and shares them between the
+tidal and third-body force terms. `ForceModelConfig.high_fidelity()` sets
+`ephemeris_source=EphemerisSource.DE440s` for exactly this consistency with its
+third-body configuration.
+
+A configuration serialized before this field existed fails to deserialize;
+add an explicit `ephemeris_source` key (e.g. `LowPrecision`) when loading
+older serialized configurations.
 
 ### Permanent Tide Only
 
@@ -225,6 +343,28 @@ as-is, use `PermanentTideConfig.OFF`.
     --8<-- "./examples/numerical_propagation/tides_static_time_varying.rs:3"
     ```
 
+### Full Tide Model
+
+Enables every tidal correction Brahe supports: static and time-varying solid
+Earth tides, the solid Earth pole tide, and FES2004 ocean tides (with
+admittance and the ocean pole tide) to degree/order 30. This is the same
+tide configuration used internally by `ForceModelConfig.high_fidelity()`.
+Building the configuration does not touch the network; the FES2004 download
+(see [Ocean Tides](#ocean-tides)) happens once, the first time a propagator
+with ocean tides enabled is constructed.
+
+=== "Python"
+
+    ```python
+    --8<-- "./examples/numerical_propagation/tides_full.py:9"
+    ```
+
+=== "Rust"
+
+    ```rust
+    --8<-- "./examples/numerical_propagation/tides_full.rs:6"
+    ```
+
 ## Worked Example
 
 The example below propagates a 500 km LEO satellite for one full orbital period
@@ -233,13 +373,13 @@ with tides enabled and disabled, then prints the peak position difference.
 === "Python"
 
     ```python
-    --8<-- "./examples/numerical_propagation/force_model_tides.py:10"
+    --8<-- "./examples/numerical_propagation/force_model_tides.py:16"
     ```
 
 === "Rust"
 
     ```rust
-    --8<-- "./examples/numerical_propagation/force_model_tides.rs:5"
+    --8<-- "./examples/numerical_propagation/force_model_tides.rs:12"
     ```
 
 ??? example "Output"
@@ -252,6 +392,19 @@ with tides enabled and disabled, then prints the peak position difference.
         ```
         --8<-- "./docs/outputs/numerical_propagation/force_model_tides.rs.txt"
         ```
+
+## Evaluation Cost
+
+When gravity is configured as spherical harmonics, the propagator folds the
+static $\bar{C}_{nm}/\bar{S}_{nm}$ coefficients together with every enabled
+tidal correction (solid Step 1/2, both pole tides, and the ocean tide) into a
+single packed coefficient table, evaluated with one Clenshaw pass per
+dynamics call. This fold-in is exact by linearity of the spherical-harmonic
+sum: the marginal cost of enabling tides is only the per-epoch
+$\Delta\bar{C}_{nm}/\Delta\bar{S}_{nm}$ computation, not a second gravity
+evaluation. Point-mass and zonal gravity configurations still get a
+delta-only field, since there is no static spherical-harmonic table to fold
+into.
 
 ## Ephemeris Source Notes
 
@@ -271,4 +424,7 @@ third-body configuration.
 
 - Petit, G., & Luzum, B. (Eds.) (2010). *IERS Conventions (2010)*, Technical Note 36, Chapter 6: Geopotential. IERS. <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 - Petit, G., & Luzum, B. (Eds.) (2010). *IERS Conventions (2010)*, Technical Note 36, Chapter 1: General Definitions and Numerical Standards. IERS. (§1.1 tide-system definitions.) <https://iers-conventions.obspm.fr/content/chapter1/icc1.pdf>
+- Petit, G., & Luzum, B. (Eds.) (2010). *IERS Conventions (2010)*, Technical Note 36, Chapter 7: Displacement of Reference Points (§7.1.4, secular pole; updated for the linear secular-pole model). IERS. <https://iers-conventions.obspm.fr/content/chapter7/icc7.pdf>
 - Lemoine, F. G., et al. (1998). *The Development of the Joint NASA GSFC and the National Imagery and Mapping Agency (NIMA) Geopotential Model EGM96*. NASA/TP-1998-206861. (§11.1: tide-system definitions, direct/indirect terminology, and permanent-tide conversion formulas.) <https://cddis.nasa.gov/926/egm96/doc/S11.HTML>
+- Lyard, F., Lefèvre, F., Letellier, T., & Francis, O. (2006). Modelling the global ocean tides: modern insights from FES2004. *Ocean Dynamics*, 56, 394–415. (FES2004 ocean tide model.)
+- Desai, S. D. (2002). Observing the pole tide with satellite altimetry. *Journal of Geophysical Research*, 107(C11), 3186. (Ocean pole tide equilibrium model.)

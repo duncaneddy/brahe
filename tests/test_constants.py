@@ -93,7 +93,7 @@ def test_ECC_EARTH():
 
 
 # EGM2008 fully-normalized Stokes coefficients C_n,0
-# Source: data/gravity_models/EGM2008_360.gfc (degree n, order m=0 entries)
+# Source: data/gravity_models/EGM2008_120.gfc (degree n, order m=0 entries)
 EGM2008_C_2_0 = -0.484165143790815e-03
 EGM2008_C_3_0 = 0.957161207093473e-06
 EGM2008_C_4_0 = 0.539965866638991e-06

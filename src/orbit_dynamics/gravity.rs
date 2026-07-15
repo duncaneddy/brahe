@@ -19,8 +19,8 @@ use crate::math::kronecker_delta;
 use crate::utils::BraheError;
 use crate::utils::threading::get_thread_pool;
 
-/// Packaged EGM2008_360 Data File
-static PACKAGED_EGM2008_360: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_360.gfc");
+/// Packaged EGM2008_120 Data File
+static PACKAGED_EGM2008_120: &[u8] = include_bytes!("../../data/gravity_models/EGM2008_120.gfc");
 
 /// Packaged GGM05S Data File
 static PACKAGED_GGM05S: &[u8] = include_bytes!("../../data/gravity_models/GGM05S.gfc");
@@ -93,7 +93,7 @@ pub fn clear_gravity_model_cache() {
 /// ```
 /// use brahe::gravity::{GravityModel, set_global_gravity_model, GravityModelType};
 ///
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 /// set_global_gravity_model(gravity_model);
 /// ```
 pub fn set_global_gravity_model(gravity_model: GravityModel) {
@@ -167,7 +167,7 @@ pub fn set_global_gravity_model_to_tide_system(
 /// ```
 /// use brahe::gravity::{GravityModel, set_global_gravity_model, get_global_gravity_model, GravityModelType};
 ///
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 /// set_global_gravity_model(gravity_model);
 ///
 /// let model = get_global_gravity_model();
@@ -566,9 +566,10 @@ const CLENSHAW_SCALE: f64 = f64::from_bits(0x1990_0000_0000_0000); // 2^-614
 /// Models can either be packaged with Brahe or loaded from external files.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, serde::Serialize, serde::Deserialize)]
 pub enum GravityModelType {
-    /// Earth Gravitational Model 2008, truncated to degree/order 360. High-accuracy
-    /// global model developed by NGA. Best for precision orbit determination.
-    EGM2008_360,
+    /// Earth Gravitational Model 2008, truncated to degree/order 120 (truncated
+    /// from the EGM2008 model for package size; download the full model via
+    /// `GravityModelType::ICGEMModel` if higher degrees are needed).
+    EGM2008_120,
     /// Goddard Earth Model from GRACE mission, degree/order 180. Derived from
     /// satellite gravity measurements. Good balance of accuracy and computation speed.
     GGM05S,
@@ -675,6 +676,72 @@ impl ClenshawCoefficients {
     fn index(&self, n: usize, m: usize) -> usize {
         m * (2 * self.n_stride - m + 1) / 2 + n
     }
+
+    /// All-zero coefficient tables at the given storage stride (square layout,
+    /// `m_max = n_stride`), with the square-root table sized for the stride.
+    /// Used to evaluate delta-only fields (tidal corrections) through the
+    /// Clenshaw kernel without a backing `GravityModel`.
+    ///
+    /// # Arguments
+    /// - `n_stride`: storage-layout degree; determines the packing stride
+    ///   and the size of the square-root table.
+    ///
+    /// # Returns
+    /// A zero-initialized `ClenshawCoefficients` sized for `n_stride`.
+    pub(crate) fn zeros(n_stride: usize) -> Self {
+        let c_len = n_stride * (2 * n_stride - n_stride + 1) / 2 + n_stride + 1;
+        let s_len = c_len.saturating_sub(n_stride + 1);
+        let sqrt_len = (2 * n_stride + 5).max(15) + 1;
+        ClenshawCoefficients {
+            n_stride,
+            c: vec![0.0; c_len],
+            s: vec![0.0; s_len],
+            sqrt_table: (0..sqrt_len).map(|k| (k as f64).sqrt()).collect(),
+        }
+    }
+
+    /// Overwrite the fully-normalized coefficient pair at `(n, m)`.
+    /// `m = 0` ignores `s` (the sine column is not stored). Panics (debug) if
+    /// `n > n_stride` or `m > n` — callers bound-check at construction.
+    ///
+    /// # Arguments
+    /// - `n`, `m`: degree and order of the coefficient to overwrite.
+    /// - `c`: fully-normalized cosine coefficient `C̄nm`.
+    /// - `s`: fully-normalized sine coefficient `S̄nm` (ignored when `m = 0`).
+    ///
+    /// # Returns
+    /// (none)
+    pub(crate) fn set_normalized(&mut self, n: usize, m: usize, c: f64, s: f64) {
+        debug_assert!(n <= self.n_stride && m <= n);
+        let idx = self.index(n, m);
+        self.c[idx] = c;
+        if m > 0 {
+            self.s[idx - (self.n_stride + 1)] = s;
+        }
+    }
+
+    /// Read the fully-normalized coefficient pair at `(n, m)` (companion to
+    /// [`ClenshawCoefficients::set_normalized`], same triangular index
+    /// arithmetic). `m = 0` returns `s = 0.0` (the sine column is not stored).
+    /// Panics (debug) if `n > n_stride` or `m > n` — callers bound-check at
+    /// construction.
+    ///
+    /// # Arguments
+    /// - `n`, `m`: degree and order of the coefficient to read.
+    ///
+    /// # Returns
+    /// Tuple `(C̄nm, S̄nm)`, fully-normalized; `S̄nm = 0.0` when `m = 0`.
+    pub(crate) fn get_normalized(&self, n: usize, m: usize) -> (f64, f64) {
+        debug_assert!(n <= self.n_stride && m <= n);
+        let idx = self.index(n, m);
+        let c = self.c[idx];
+        let s = if m > 0 {
+            self.s[idx - (self.n_stride + 1)]
+        } else {
+            0.0
+        };
+        (c, s)
+    }
 }
 
 /// Per-order partial sums produced by one inner Clenshaw sweep over degree.
@@ -769,6 +836,137 @@ fn clenshaw_inner_sweep(
         wtc: wtc + mf * tu * wc,
         wts: wts + mf * tu * ws,
     }
+}
+
+/// Evaluate body-fixed gravitational acceleration from packed Clenshaw tables.
+///
+/// Free-function core of [`GravityModel::compute_spherical_harmonics_clenshaw`],
+/// decoupled from a `GravityModel` so delta-coefficient fields (tidal
+/// corrections) can be evaluated through the same kernel.
+///
+/// # Arguments
+/// - `tables`: packed fully-normalized coefficients (see [`ClenshawCoefficients`]).
+/// - `r_body`: position in the body-fixed frame [m].
+/// - `n_max`, `m_max`: evaluation truncation; must satisfy
+///   `m_max <= n_max <= tables.n_stride`.
+/// - `gm`: gravitational parameter [m³/s²]; `radius`: reference radius [m].
+/// - `parallel`: execution policy (see [`should_parallelize_clenshaw`]).
+///
+/// # Returns
+/// Acceleration in the body-fixed frame [m/s²].
+///
+/// # Errors
+/// `BraheError::OutOfBoundsError` if `n_max > tables.n_stride` or `m_max > n_max`.
+pub(crate) fn clenshaw_acceleration(
+    tables: &ClenshawCoefficients,
+    r_body: Vector3<f64>,
+    n_max: usize,
+    m_max: usize,
+    gm: f64,
+    radius: f64,
+    parallel: ParallelMode,
+) -> Result<Vector3<f64>, BraheError> {
+    if n_max > tables.n_stride || m_max > n_max {
+        return Err(BraheError::OutOfBoundsError(format!(
+            "clenshaw_acceleration(n_max={n_max}, m_max={m_max}) out of bounds for tables \
+             (n_stride={})",
+            tables.n_stride
+        )));
+    }
+
+    // Geometry (GeographicLib SphericalEngine.cpp:161–173). theta is
+    // colatitude; lambda longitude. The pole guard nudges u = sin(theta)
+    // away from zero — the apparent 1/u singularities cancel in the
+    // final Cartesian assembly.
+    let (x, y, z) = (r_body[0], r_body[1], r_body[2]);
+    let p = x.hypot(y);
+    let cl = if p != 0.0 { x / p } else { 1.0 };
+    let sl = if p != 0.0 { y / p } else { 0.0 };
+    let r = z.hypot(p);
+    let t = if r != 0.0 { z / r } else { 0.0 };
+    let pole_eps = f64::EPSILON * f64::EPSILON.sqrt();
+    let u = if r != 0.0 { (p / r).max(pole_eps) } else { 1.0 };
+    let q = radius / r;
+    let q2 = q * q;
+    let uq = u * q;
+    let uq2 = uq * uq;
+    let tu = t / u;
+
+    // Each order's inner sweep is independent of every other order, so
+    // they can run as a plain serial for-loop or fan out across the
+    // managed rayon pool; `ParallelMode` (via `should_parallelize_clenshaw`)
+    // picks which, and the two paths produce bit-for-bit identical sums.
+    let sums: Vec<PerOrderSums> = if should_parallelize_clenshaw(parallel, n_max) {
+        get_thread_pool().install(|| {
+            (0..=m_max)
+                .into_par_iter()
+                .map(|m| clenshaw_inner_sweep(tables, m, n_max, t, u, q, q2, tu))
+                .collect()
+        })
+    } else {
+        (0..=m_max)
+            .map(|m| clenshaw_inner_sweep(tables, m, n_max, t, u, q, q2, tu))
+            .collect()
+    };
+
+    // Sequential outer Clenshaw over order in cos/sin(m * lambda)
+    // (SphericalEngine.cpp:232–284), consuming the buffer high-to-low.
+    let root = &tables.sqrt_table;
+    let (mut vc, mut vc2, mut vs, mut vs2) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+    let (mut vrc, mut vrc2, mut vrs, mut vrs2) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+    let (mut vtc, mut vtc2, mut vts, mut vts2) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+    let (mut vlc, mut vlc2, mut vls, mut vls2) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+
+    for m in (1..=m_max).rev() {
+        let sm = &sums[m];
+        let v = root[2] * root[2 * m + 3] / root[m + 1];
+        let a = cl * v * uq;
+        let b = -v * root[2 * m + 5] / (root[8] * root[m + 2]) * uq2;
+        let mf = m as f64;
+        let next = a * vc + b * vc2 + sm.wc;
+        vc2 = vc;
+        vc = next;
+        let next = a * vs + b * vs2 + sm.ws;
+        vs2 = vs;
+        vs = next;
+        let next = a * vrc + b * vrc2 + sm.wrc;
+        vrc2 = vrc;
+        vrc = next;
+        let next = a * vrs + b * vrs2 + sm.wrs;
+        vrs2 = vrs;
+        vrs = next;
+        let next = a * vtc + b * vtc2 + sm.wtc;
+        vtc2 = vtc;
+        vtc = next;
+        let next = a * vts + b * vts2 + sm.wts;
+        vts2 = vts;
+        vts = next;
+        let next = a * vlc + b * vlc2 + mf * sm.ws;
+        vlc2 = vlc;
+        vlc = next;
+        let next = a * vls + b * vls2 - mf * sm.wc;
+        vls2 = vls;
+        vls = next;
+    }
+
+    // m = 0 closure: F[0] = q, F[1] = sqrt(3) * u * q^2 * cos(lambda),
+    // beta[1] = -sqrt(15)/2 * u^2 * q^2 (SphericalEngine.cpp:259–284).
+    let s0 = &sums[0];
+    let a = root[3] * uq;
+    let b = -root[15] / 2.0 * uq2;
+    let qs = q / CLENSHAW_SCALE / r;
+    // Spherical gradient components: vr = dV/dr, vt = (1/r) dV/dtheta,
+    // vl = 1/(r*u) dV/dlambda — all still missing the GM/radius factor.
+    let vr = -qs * (s0.wrc + a * (cl * vrc + sl * vrs) + b * vrc2);
+    let vt = qs * (s0.wtc + a * (cl * vtc + sl * vts) + b * vtc2);
+    let vl = qs / u * (a * (cl * vlc + sl * vls) + b * vlc2);
+
+    // Rotate into body-fixed Cartesian coordinates.
+    let gx = cl * (u * vr + t * vt) - sl * vl;
+    let gy = sl * (u * vr + t * vt) + cl * vl;
+    let gz = t * vr - u * vt;
+
+    Ok((gm / radius) * Vector3::new(gx, gy, gz))
 }
 
 /// The `GravityModel` struct is for storing spherical harmonic gravity models.
@@ -968,18 +1166,43 @@ impl GravityModel {
         }
     }
 
-    fn build_clenshaw_coefficients(&self) -> ClenshawCoefficients {
-        let n_stride = self.n_max;
-        // index(n_max, m_max) + 1 entries; the m = 0 column has n_max + 1.
-        let c_len = self.m_max * (2 * n_stride - self.m_max + 1) / 2 + self.n_max + 1;
-        let s_len = c_len.saturating_sub(n_stride + 1);
-        let mut c = vec![0.0; c_len];
-        let mut s = vec![0.0; s_len];
-
-        for m in 0..=self.m_max {
-            let col0 = m * (2 * n_stride - m + 1) / 2;
-            for n in m..=self.n_max {
-                let idx = col0 + n;
+    /// Build packed Clenshaw tables holding this model's fully-normalized
+    /// coefficients truncated to `(n_max, m_max)`, laid out at storage stride
+    /// `n_stride >= n_max` (entries above the truncation are zero). Used by
+    /// the propagator's tidal fold-in field, where the stride is
+    /// `max(gravity degree, tide degree)`.
+    ///
+    /// # Arguments
+    /// - `n_max`: maximum degree to copy from the model's coefficients.
+    /// - `m_max`: maximum order to copy from the model's coefficients.
+    /// - `n_stride`: storage-layout degree for the returned tables; must be
+    ///   `>= n_max`.
+    ///
+    /// # Returns
+    /// `ClenshawCoefficients` holding the truncated, fully-normalized
+    /// coefficients at storage stride `n_stride`.
+    ///
+    /// # Errors
+    /// `BraheError::OutOfBoundsError` if `n_max > self.n_max`, `m_max > self.m_max`,
+    /// `m_max > n_max`, or `n_stride < n_max`.
+    pub(crate) fn build_clenshaw_tables(
+        &self,
+        n_max: usize,
+        m_max: usize,
+        n_stride: usize,
+    ) -> Result<ClenshawCoefficients, BraheError> {
+        if n_max > self.n_max || m_max > self.m_max || m_max > n_max || n_stride < n_max {
+            return Err(BraheError::OutOfBoundsError(format!(
+                "build_clenshaw_tables(n_max={n_max}, m_max={m_max}, n_stride={n_stride}) out of \
+                 bounds for model (n_max={}, m_max={})",
+                self.n_max, self.m_max
+            )));
+        }
+        let mut tables = ClenshawCoefficients::zeros(n_stride);
+        for m in 0..=m_max {
+            for n in m..=n_max {
+                // Same source-matrix layout and normalization handling as before:
+                // C at data[(n, m)], S at data[(m - 1, n)] for m >= 1.
                 let c_raw = self.data[(n, m)];
                 let s_raw = if m > 0 { self.data[(m - 1, n)] } else { 0.0 };
                 let (c_norm, s_norm) = match self.normalization {
@@ -997,22 +1220,22 @@ impl GravityModel {
                         (c_raw / f, s_raw / f)
                     }
                 };
-                c[idx] = c_norm;
-                if m > 0 {
-                    s[idx - (n_stride + 1)] = s_norm;
-                }
+                tables.set_normalized(n, m, c_norm, s_norm);
             }
         }
+        Ok(tables)
+    }
 
-        let sqrt_len = (2 * n_stride + 5).max(15) + 1;
-        let sqrt_table = (0..sqrt_len).map(|k| (k as f64).sqrt()).collect();
-
-        ClenshawCoefficients {
-            n_stride,
-            c,
-            s,
-            sqrt_table,
-        }
+    /// Precompute the full-model Clenshaw tables (stride = `n_max`). Bounds
+    /// are self-consistent by construction, so the underlying
+    /// `build_clenshaw_tables` call cannot be out of bounds.
+    ///
+    /// # Returns
+    /// `ClenshawCoefficients` holding the model's full fully-normalized
+    /// coefficients at storage stride `n_max`.
+    fn build_clenshaw_coefficients(&self) -> ClenshawCoefficients {
+        self.build_clenshaw_tables(self.n_max, self.m_max, self.n_max)
+            .expect("full-model Clenshaw table build cannot be out of bounds")
     }
 
     /// Precompute the Clenshaw-summation kernel coefficients (fully-normalized
@@ -1290,7 +1513,7 @@ impl GravityModel {
     /// use brahe::gravity::GravityModel;
     /// use std::path::Path;
     ///
-    /// let filepath = Path::new("./data/gravity_models/EGM2008_360.gfc");
+    /// let filepath = Path::new("./data/gravity_models/EGM2008_120.gfc");
     /// let gravity_model = GravityModel::from_file(filepath).unwrap();
     /// ```
     pub fn from_file(filepath: &Path) -> Result<Self, BraheError> {
@@ -1318,7 +1541,7 @@ impl GravityModel {
     /// use brahe::gravity::{GravityModel, GravityModelCoefficients};
     /// use std::path::Path;
     ///
-    /// let filepath = Path::new("./data/gravity_models/EGM2008_360.gfc");
+    /// let filepath = Path::new("./data/gravity_models/EGM2008_120.gfc");
     /// let model = GravityModel::from_file_with_coefficients(filepath, GravityModelCoefficients::Both).unwrap();
     /// ```
     pub fn from_file_with_coefficients(
@@ -1333,7 +1556,7 @@ impl GravityModel {
     /// Load a gravity model from packaged models or file.
     ///
     /// The available packaged models are:
-    /// - `EGM2008_360` - a truncated 360x360 version of the full 2190x2190 EGM2008 model.
+    /// - `EGM2008_120` - a truncated 120x120 version of the full 2190x2190 EGM2008 model.
     /// - `GGM05S` - The full 180x180 GGM05S model.
     /// - `JGM3` - The full 70x70 JGM3 model.
     ///
@@ -1346,7 +1569,7 @@ impl GravityModel {
     /// Loads are backed by a process-wide cache: the first call for a given
     /// `GravityModelType` parses the underlying `.gfc` data once, and every
     /// subsequent call returns an owned clone of the cached model (~1 ms
-    /// memcpy instead of ~60 ms disk parse for EGM2008_360). Use
+    /// memcpy instead of ~60 ms disk parse for EGM2008_120). Use
     /// [`clear_gravity_model_cache`] to drop cached entries, or
     /// [`Self::load_uncached`] to bypass the cache entirely (useful when
     /// profiling cold-load behavior or asserting deterministic memory).
@@ -1471,8 +1694,8 @@ impl GravityModel {
     /// - `Result<Self, BraheError>` : Freshly parsed gravity model, or load error.
     pub fn load_uncached(model: &GravityModelType) -> Result<Self, BraheError> {
         match model {
-            GravityModelType::EGM2008_360 => {
-                let reader = BufReader::new(PACKAGED_EGM2008_360);
+            GravityModelType::EGM2008_120 => {
+                let reader = BufReader::new(PACKAGED_EGM2008_120);
                 Self::from_bufreader(reader)
             }
             GravityModelType::GGM05S => {
@@ -1589,10 +1812,10 @@ impl GravityModel {
     /// ```
     /// use brahe::gravity::{GravityModel, GravityModelType};
     ///
-    /// let mut model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
-    /// assert_eq!(model.n_max, 360);
+    /// let mut model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
+    /// assert_eq!(model.n_max, 120);
     ///
-    /// // Reduce from 360×360 to 70×70 to save memory
+    /// // Reduce from 120×120 to 70×70 to save memory
     /// model.set_max_degree_order(70, 70).unwrap();
     /// assert_eq!(model.n_max, 70);
     /// assert_eq!(model.m_max, 70);
@@ -2113,7 +2336,7 @@ impl GravityModel {
     /// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
     /// use brahe::R_EARTH;
     ///
-    /// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    /// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
     /// let r_body = Vector3::new(R_EARTH + 500.0e3, 0.0, 0.0);
     /// let a_grav = gravity_model
     ///     .compute_spherical_harmonics_clenshaw(r_body, 20, 20, ParallelMode::Auto)
@@ -2148,99 +2371,7 @@ impl GravityModel {
             )));
         }
 
-        // Geometry (GeographicLib SphericalEngine.cpp:161–173). theta is
-        // colatitude; lambda longitude. The pole guard nudges u = sin(theta)
-        // away from zero — the apparent 1/u singularities cancel in the
-        // final Cartesian assembly.
-        let (x, y, z) = (r_body[0], r_body[1], r_body[2]);
-        let p = x.hypot(y);
-        let cl = if p != 0.0 { x / p } else { 1.0 };
-        let sl = if p != 0.0 { y / p } else { 0.0 };
-        let r = z.hypot(p);
-        let t = if r != 0.0 { z / r } else { 0.0 };
-        let pole_eps = f64::EPSILON * f64::EPSILON.sqrt();
-        let u = if r != 0.0 { (p / r).max(pole_eps) } else { 1.0 };
-        let q = self.radius / r;
-        let q2 = q * q;
-        let uq = u * q;
-        let uq2 = uq * uq;
-        let tu = t / u;
-
-        // Each order's inner sweep is independent of every other order, so
-        // they can run as a plain serial for-loop or fan out across the
-        // managed rayon pool; `ParallelMode` (via `should_parallelize_clenshaw`)
-        // picks which, and the two paths produce bit-for-bit identical sums.
-        let sums: Vec<PerOrderSums> = if should_parallelize_clenshaw(parallel, n_max) {
-            get_thread_pool().install(|| {
-                (0..=m_max)
-                    .into_par_iter()
-                    .map(|m| clenshaw_inner_sweep(tables, m, n_max, t, u, q, q2, tu))
-                    .collect()
-            })
-        } else {
-            (0..=m_max)
-                .map(|m| clenshaw_inner_sweep(tables, m, n_max, t, u, q, q2, tu))
-                .collect()
-        };
-
-        // Sequential outer Clenshaw over order in cos/sin(m * lambda)
-        // (SphericalEngine.cpp:232–284), consuming the buffer high-to-low.
-        let root = &tables.sqrt_table;
-        let (mut vc, mut vc2, mut vs, mut vs2) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
-        let (mut vrc, mut vrc2, mut vrs, mut vrs2) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
-        let (mut vtc, mut vtc2, mut vts, mut vts2) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
-        let (mut vlc, mut vlc2, mut vls, mut vls2) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
-
-        for m in (1..=m_max).rev() {
-            let sm = &sums[m];
-            let v = root[2] * root[2 * m + 3] / root[m + 1];
-            let a = cl * v * uq;
-            let b = -v * root[2 * m + 5] / (root[8] * root[m + 2]) * uq2;
-            let mf = m as f64;
-            let next = a * vc + b * vc2 + sm.wc;
-            vc2 = vc;
-            vc = next;
-            let next = a * vs + b * vs2 + sm.ws;
-            vs2 = vs;
-            vs = next;
-            let next = a * vrc + b * vrc2 + sm.wrc;
-            vrc2 = vrc;
-            vrc = next;
-            let next = a * vrs + b * vrs2 + sm.wrs;
-            vrs2 = vrs;
-            vrs = next;
-            let next = a * vtc + b * vtc2 + sm.wtc;
-            vtc2 = vtc;
-            vtc = next;
-            let next = a * vts + b * vts2 + sm.wts;
-            vts2 = vts;
-            vts = next;
-            let next = a * vlc + b * vlc2 + mf * sm.ws;
-            vlc2 = vlc;
-            vlc = next;
-            let next = a * vls + b * vls2 - mf * sm.wc;
-            vls2 = vls;
-            vls = next;
-        }
-
-        // m = 0 closure: F[0] = q, F[1] = sqrt(3) * u * q^2 * cos(lambda),
-        // beta[1] = -sqrt(15)/2 * u^2 * q^2 (SphericalEngine.cpp:259–284).
-        let s0 = &sums[0];
-        let a = root[3] * uq;
-        let b = -root[15] / 2.0 * uq2;
-        let qs = q / CLENSHAW_SCALE / r;
-        // Spherical gradient components: vr = dV/dr, vt = (1/r) dV/dtheta,
-        // vl = 1/(r*u) dV/dlambda — all still missing the GM/radius factor.
-        let vr = -qs * (s0.wrc + a * (cl * vrc + sl * vrs) + b * vrc2);
-        let vt = qs * (s0.wtc + a * (cl * vtc + sl * vts) + b * vtc2);
-        let vl = qs / u * (a * (cl * vlc + sl * vls) + b * vlc2);
-
-        // Rotate into body-fixed Cartesian coordinates.
-        let gx = cl * (u * vr + t * vt) - sl * vl;
-        let gy = sl * (u * vr + t * vt) + cl * vl;
-        let gz = t * vr - u * vt;
-
-        Ok((self.gm / self.radius) * Vector3::new(gx, gy, gz))
+        clenshaw_acceleration(tables, r_body, n_max, m_max, self.gm, self.radius, parallel)
     }
 
     /// Compute gravitational acceleration from spherical harmonic expansion.
@@ -2278,7 +2409,7 @@ impl GravityModel {
     /// use brahe::gravity::{GravityModel, GravityModelType, ParallelMode};
     /// use brahe::R_EARTH;
     ///
-    /// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    /// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
     /// let r_body = Vector3::new(R_EARTH + 500.0e3, 0.0, 0.0);
     /// let a_grav = gravity_model
     ///     .compute_spherical_harmonics(r_body, 20, 20, ParallelMode::Auto)
@@ -2380,7 +2511,7 @@ impl std::fmt::Debug for GravityModel {
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -2408,7 +2539,7 @@ impl std::fmt::Debug for GravityModel {
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 ///
 /// // Compute the acceleration due to gravity using state vector directly
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -2480,7 +2611,7 @@ pub fn accel_gravity_spherical_harmonics<P: IntoPosition>(
 ///
 /// // Create a gravity model with Cunningham coefficients (not built by default)
 /// let gravity_model = GravityModel::from_model_type_with_coefficients(
-///     &GravityModelType::EGM2008_360,
+///     &GravityModelType::EGM2008_120,
 ///     GravityModelCoefficients::Cunningham,
 /// )
 /// .unwrap();
@@ -2561,7 +2692,7 @@ pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 ///
 /// // Compute the acceleration due to gravity
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -2589,7 +2720,7 @@ pub fn accel_gravity_spherical_harmonics_cunningham<P: IntoPosition>(
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 ///
 /// // Create a gravity model
-/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+/// let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 ///
 /// // Compute the acceleration due to gravity using state vector directly
 /// let oe = Vector6::new(R_EARTH + 500.0e3, 0.01, 97.3, 0.0, 0.0, 0.0);
@@ -2652,7 +2783,7 @@ pub fn accel_gravity_spherical_harmonics_clenshaw<P: IntoPosition>(
 /// let R_i2b = rotation_eci_to_ecef(epoch);
 /// // Cunningham coefficients are not built by default; request them explicitly.
 /// let gravity_model = GravityModel::from_model_type_with_coefficients(
-///     &GravityModelType::EGM2008_360,
+///     &GravityModelType::EGM2008_120,
 ///     GravityModelCoefficients::Cunningham,
 /// )
 /// .unwrap();
@@ -2719,14 +2850,14 @@ mod tests {
 
     #[test]
     fn test_gravity_model_from_file() {
-        let filepath = Path::new("data/gravity_models/EGM2008_360.gfc");
+        let filepath = Path::new("data/gravity_models/EGM2008_120.gfc");
         let gravity_model = GravityModel::from_file(filepath).unwrap();
 
         assert_eq!(gravity_model.model_name, "EGM2008");
         assert_eq!(gravity_model.gm, GM_EARTH);
         assert_eq!(gravity_model.radius, R_EARTH);
-        assert_eq!(gravity_model.n_max, 360);
-        assert_eq!(gravity_model.m_max, 360);
+        assert_eq!(gravity_model.n_max, 120);
+        assert_eq!(gravity_model.m_max, 120);
         assert_eq!(gravity_model.tide_system, GravityModelTideSystem::TideFree);
         assert_eq!(gravity_model.model_errors, GravityModelErrors::Calibrated);
         assert_eq!(
@@ -2758,14 +2889,14 @@ mod tests {
     }
 
     #[test]
-    fn test_gravity_model_from_model_type_egm2008_360() {
-        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    fn test_gravity_model_from_model_type_egm2008_120() {
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
         assert_eq!(gravity_model.model_name, "EGM2008");
         assert_eq!(gravity_model.gm, GM_EARTH);
         assert_eq!(gravity_model.radius, R_EARTH);
-        assert_eq!(gravity_model.n_max, 360);
-        assert_eq!(gravity_model.m_max, 360);
+        assert_eq!(gravity_model.n_max, 120);
+        assert_eq!(gravity_model.m_max, 120);
         assert_eq!(gravity_model.tide_system, GravityModelTideSystem::TideFree);
         assert_eq!(gravity_model.model_errors, GravityModelErrors::Calibrated);
         assert_eq!(
@@ -2854,7 +2985,7 @@ mod tests {
         // We deliberately load all three packaged types and check pairwise
         // distinctness via both Arc-pointer inequality and model-name inequality.
         clear_gravity_model_cache();
-        let egm = GravityModel::shared(&GravityModelType::EGM2008_360).unwrap();
+        let egm = GravityModel::shared(&GravityModelType::EGM2008_120).unwrap();
         let ggm = GravityModel::shared(&GravityModelType::GGM05S).unwrap();
         let jgm = GravityModel::shared(&GravityModelType::JGM3).unwrap();
         assert!(!Arc::ptr_eq(&egm, &ggm));
@@ -3025,7 +3156,7 @@ mod tests {
 
     #[test]
     fn test_gravity_model_get() {
-        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
         let (c, s) = gravity_model.get(2, 0).unwrap();
         assert_abs_diff_eq!(c, -0.484165143790815e-03, epsilon = 1e-12);
@@ -3035,17 +3166,17 @@ mod tests {
         assert_abs_diff_eq!(c, 0.721321757121568e-06, epsilon = 1e-12);
         assert_abs_diff_eq!(s, 0.141434926192941e-05, epsilon = 1e-12);
 
-        let (c, s) = gravity_model.get(360, 360).unwrap();
-        assert_abs_diff_eq!(c, 0.200046056782130e-10, epsilon = 1e-12);
-        assert_abs_diff_eq!(s, -0.958653755280305e-10, epsilon = 1e-12);
+        let (c, s) = gravity_model.get(120, 120).unwrap();
+        assert_abs_diff_eq!(c, -0.650974846637476e-09, epsilon = 1e-12);
+        assert_abs_diff_eq!(s, -0.147710757794803e-08, epsilon = 1e-12);
 
-        let result = gravity_model.get(361, 0);
+        let result = gravity_model.get(121, 0);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_gravity_model_get_c_get_s() {
-        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
         assert_abs_diff_eq!(
             gravity_model.get_c(2, 0).unwrap(),
@@ -3141,7 +3272,7 @@ mod tests {
         setup_global_test_eop();
 
         let gravity_model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -3167,7 +3298,7 @@ mod tests {
     #[test]
     fn test_clenshaw_matches_cunningham() {
         let model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -3177,7 +3308,7 @@ mod tests {
         // mpmath-confirmed precision loss at exact-equator geometry above
         // n ~ 120); those points are pinned against a 40-digit mpmath
         // reference in `test_clenshaw_high_precision_reference` instead.
-        const ALL_DEGREES: [(usize, usize); 11] = [
+        const ALL_DEGREES: [(usize, usize); 8] = [
             (2, 2),
             (5, 5),
             (10, 10),
@@ -3186,11 +3317,8 @@ mod tests {
             (80, 80),
             (90, 45),
             (120, 120),
-            (160, 160),
-            (200, 200),
-            (200, 100),
         ];
-        const MID_LAT_LEO_DEGREES: [(usize, usize); 9] = [
+        const MID_LAT_LEO_DEGREES: [(usize, usize); 8] = [
             (2, 2),
             (5, 5),
             (10, 10),
@@ -3199,7 +3327,6 @@ mod tests {
             (80, 80),
             (90, 45),
             (120, 120),
-            (200, 100),
         ];
         const EQUATORIAL_LEO_DEGREES: [(usize, usize); 7] = [
             (2, 2),
@@ -3251,36 +3378,66 @@ mod tests {
     #[allow(clippy::excessive_precision)]
     fn test_clenshaw_high_precision_reference() {
         // Reference accelerations from an independent mpmath (40-digit)
-        // evaluation of the same truncated EGM2008_360 sums (forward-column
+        // evaluation of the same truncated EGM2008_120 sums (forward-column
         // normalized-ALF recurrence + analytic theta-derivative identity),
         // generated by `scripts/generate_clenshaw_gravity_reference.py`.
         // Pins the Clenshaw kernel at exactly the (position, degree) points
         // excluded from `test_clenshaw_matches_cunningham` because the
         // Cunningham reference is degraded or overflows there and cannot
         // validate them itself.
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let mid_lat_leo = Vector3::new(6.5e6, 1.2e6, 3.1e6);
         let equatorial_leo = Vector3::new(R_EARTH + 500e3, 0.0, 0.0);
 
         let cases: [(Vector3<f64>, usize, usize, Vector3<f64>); 6] = [
             (
                 mid_lat_leo,
-                160,
-                160,
+                80,
+                80,
                 Vector3::new(
-                    -6.6591315830515751841,
-                    -1.2294146745011928897,
-                    -3.1837468168152788115,
+                    -6.6591315832501313647,
+                    -1.2294146745193537451,
+                    -3.1837468163000173342,
                 ),
             ),
             (
                 mid_lat_leo,
-                200,
-                200,
+                120,
+                120,
                 Vector3::new(
-                    -6.6591315830515740167,
-                    -1.2294146745011972695,
-                    -3.1837468168152737831,
+                    -6.6591315830550156814,
+                    -1.2294146744995601873,
+                    -3.183746816815777076,
+                ),
+            ),
+            (
+                equatorial_leo,
+                60,
+                60,
+                Vector3::new(
+                    -8.4373561803435000907,
+                    -2.3378351406397803666e-5,
+                    2.9872522103706018501e-5,
+                ),
+            ),
+            (
+                equatorial_leo,
+                90,
+                90,
+                Vector3::new(
+                    -8.4373560639340267021,
+                    -2.3361624126555661813e-5,
+                    3.0046975679021508159e-5,
+                ),
+            ),
+            (
+                equatorial_leo,
+                120,
+                60,
+                Vector3::new(
+                    -8.4373560918581597986,
+                    -2.3456424417072501052e-5,
+                    3.0008850348723617943e-5,
                 ),
             ),
             (
@@ -3291,36 +3448,6 @@ mod tests {
                     -8.4373560608626760559,
                     -2.3378538552167687078e-5,
                     3.0066034851689928739e-5,
-                ),
-            ),
-            (
-                equatorial_leo,
-                160,
-                160,
-                Vector3::new(
-                    -8.4373560595369940899,
-                    -2.3377716801670622287e-5,
-                    3.0068172954120995242e-5,
-                ),
-            ),
-            (
-                equatorial_leo,
-                200,
-                100,
-                Vector3::new(
-                    -8.4373560583252716778,
-                    -2.3376084094462712969e-5,
-                    3.0067260172799924015e-5,
-                ),
-            ),
-            (
-                equatorial_leo,
-                200,
-                200,
-                Vector3::new(
-                    -8.4373560595550198218,
-                    -2.3377609235339850357e-5,
-                    3.0068241451976491269e-5,
                 ),
             ),
         ];
@@ -3344,7 +3471,7 @@ mod tests {
 
     #[test]
     fn test_clenshaw_point_mass_equivalence() {
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
         let a = model
             .compute_spherical_harmonics_clenshaw(r_body, 0, 0, ParallelMode::Never)
@@ -3743,7 +3870,7 @@ mod tests {
         // elsewhere (the packed triangular layout has an m = 0 column wider
         // than every other column) — exercise it directly here.
         let mut model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -3776,7 +3903,7 @@ mod tests {
     #[test]
     fn test_gravity_model_type_from_file_valid_path() {
         let model_type =
-            GravityModelType::from_file("data/gravity_models/EGM2008_360.gfc").unwrap();
+            GravityModelType::from_file("data/gravity_models/EGM2008_120.gfc").unwrap();
         assert!(matches!(model_type, GravityModelType::FromFile(_)));
     }
 
@@ -3999,13 +4126,13 @@ mod tests {
 
     #[test]
     fn test_clenshaw_parallel_bitwise_matches_serial() {
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let positions = [
             Vector3::new(6.5e6, 1.2e6, 3.1e6),
             Vector3::new(0.0, 0.0, 7.0e6),
         ];
         for r_body in positions {
-            for &(n, m) in &[(10usize, 10usize), (60, 60), (90, 45), (240, 240)] {
+            for &(n, m) in &[(10usize, 10usize), (60, 60), (90, 45), (120, 120)] {
                 let serial = model
                     .compute_spherical_harmonics_clenshaw(r_body, n, m, ParallelMode::Never)
                     .unwrap();
@@ -4024,13 +4151,121 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
+    fn test_clenshaw_acceleration_free_fn_matches_method() {
+        let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let r = Vector3::new(5.5e6, 3.0e6, 2.0e6);
+        let a_method = model
+            .compute_spherical_harmonics_clenshaw(r, 20, 20, ParallelMode::Never)
+            .unwrap();
+        let tables = model.build_clenshaw_tables(20, 20, 20).unwrap();
+        let a_free = clenshaw_acceleration(
+            &tables,
+            r,
+            20,
+            20,
+            model.gm,
+            model.radius,
+            ParallelMode::Never,
+        )
+        .unwrap();
+        assert_eq!(a_method, a_free);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_clenshaw_acceleration_out_of_bounds() {
+        // Both bounds violations return OutOfBoundsError: n_max above the
+        // storage stride, and m_max above n_max.
+        let tables = ClenshawCoefficients::zeros(4);
+        let r = Vector3::new(7.0e6, 0.0, 0.0);
+        let err = clenshaw_acceleration(&tables, r, 5, 0, GM_EARTH, R_EARTH, ParallelMode::Never)
+            .unwrap_err();
+        assert!(
+            matches!(err, BraheError::OutOfBoundsError(_)),
+            "n_max > n_stride: expected OutOfBoundsError, got: {err}"
+        );
+        let err = clenshaw_acceleration(&tables, r, 3, 4, GM_EARTH, R_EARTH, ParallelMode::Never)
+            .unwrap_err();
+        assert!(
+            matches!(err, BraheError::OutOfBoundsError(_)),
+            "m_max > n_max: expected OutOfBoundsError, got: {err}"
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_clenshaw_zeros_set_matches_dense_model() {
+        // Delta-only tables built via zeros + set_normalized must reproduce the
+        // full GravityModel path for the same coefficients.
+        let gm = 3.986004415e14;
+        let radius = 6.378136300e6;
+        let mut dc = [[0.0f64; 5]; 5];
+        let mut ds = [[0.0f64; 5]; 5];
+        dc[2][0] = 1.2e-8;
+        dc[2][1] = -3.4e-9;
+        ds[2][1] = 7.7e-9;
+        dc[3][2] = 1.1e-9;
+        ds[3][2] = -0.6e-9;
+        dc[4][4] = 2.5e-11;
+        ds[4][4] = -1.3e-11;
+
+        let mut tables = ClenshawCoefficients::zeros(4);
+        for n in 0..=4usize {
+            for m in 0..=n {
+                tables.set_normalized(n, m, dc[n][m], ds[n][m]);
+            }
+        }
+        let model = GravityModel::from_dense_normalized(&dc, &ds, 4, gm, radius);
+        for r in [
+            Vector3::new(7.0e6, 0.0, 0.0),
+            Vector3::new(3.0e6, 4.0e6, 5.0e6),
+            Vector3::new(-2.0e6, 1.0e6, 6.5e6),
+        ] {
+            let a_tables =
+                clenshaw_acceleration(&tables, r, 4, 4, gm, radius, ParallelMode::Never).unwrap();
+            let a_model = model
+                .compute_spherical_harmonics(r, 4, 4, ParallelMode::Never)
+                .unwrap();
+            let rel = (a_tables - a_model).norm() / a_model.norm().max(1e-30);
+            assert!(rel < 1e-12, "rel err {rel:e} at {r:?}");
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_build_clenshaw_tables_stride_extension() {
+        // Stride larger than the model's n_max: entries above the model are zero,
+        // and evaluation at the model's own bounds is identical.
+        let model = GravityModel::from_model_type(&GravityModelType::JGM3).unwrap();
+        let r = Vector3::new(6.9e6, 1.0e6, -2.5e6);
+        let tables = model.build_clenshaw_tables(20, 20, 30).unwrap();
+        let a_ext = clenshaw_acceleration(
+            &tables,
+            r,
+            20,
+            20,
+            model.gm,
+            model.radius,
+            ParallelMode::Never,
+        )
+        .unwrap();
+        let a_ref = model
+            .compute_spherical_harmonics(r, 20, 20, ParallelMode::Never)
+            .unwrap();
+        assert!((a_ext - a_ref).norm() / a_ref.norm() < 1e-13);
+        // Requesting beyond the model's coefficients errors.
+        assert!(model.build_clenshaw_tables(80, 80, 80).is_err());
+    }
+
+    #[test]
     fn test_parallel_mode_default_is_auto() {
         assert_eq!(ParallelMode::default(), ParallelMode::Auto);
     }
 
     #[test]
     fn test_parallel_matches_serial_spherical_harmonics() {
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
         // Off-axis and on-axis (x0=y0=0 zeroes the sectoral/tesseral seeds).
         let positions = [
@@ -4067,7 +4302,7 @@ mod tests {
         // multiply, but far tighter than any real algorithmic bug would survive.
         // Specifically characterizes the Cunningham (V/W recursion) serial path.
         let model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -4178,6 +4413,28 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::parallel]
+    fn test_clenshaw_coefficients_get_normalized_roundtrips_set() {
+        // get_normalized is the exact inverse of set_normalized at every
+        // (n, m); m = 0 reports s = 0.0 (the sine column is not stored).
+        let mut tables = ClenshawCoefficients::zeros(6);
+        for &(n, m, c, s) in &[
+            (2usize, 0usize, -4.84e-4, 9.9e9), // s ignored for m = 0
+            (2, 1, 1.5e-9, -2.7e-9),
+            (2, 2, 2.4e-6, -1.4e-6),
+            (5, 3, 3.1e-7, 7.2e-8),
+            (6, 6, -5.5e-8, 6.6e-8),
+        ] {
+            tables.set_normalized(n, m, c, s);
+            let (gc, gs) = tables.get_normalized(n, m);
+            assert_eq!(gc, c);
+            assert_eq!(gs, if m > 0 { s } else { 0.0 });
+        }
+        // Untouched entries read back as zero.
+        assert_eq!(tables.get_normalized(4, 2), (0.0, 0.0));
+    }
+
+    #[test]
     fn test_clenshaw_coefficients_unnormalized_model_normalizes() {
         // A tiny unnormalized model: C20 = -1.0826e-3 (unnormalized J2-like).
         // The Clenshaw table must store C20 / sqrt(5) (the n=2, m=0
@@ -4206,7 +4463,7 @@ mod tests {
         // Twin of the Cunningham variant above: guards the main (Clenshaw)
         // dispatch path with goldens captured from the Clenshaw kernel.
         setup_global_test_eop();
-        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let r_body = Vector3::new(R_EARTH, 0.0, 0.0);
 
         let a_grav = gravity_model
@@ -4307,7 +4564,7 @@ mod tests {
     #[test]
     fn test_gravity_model_coefficients_truncation_rebuilds_existing_sets() {
         let mut model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
+            &GravityModelType::EGM2008_120,
             GravityModelCoefficients::Both,
         )
         .unwrap();
@@ -4326,12 +4583,17 @@ mod tests {
     #[test]
     fn test_cunningham_high_degree_overflow_errors() {
         // Degree 160 at LEO altitude overflows the denormalized V/W recursion;
-        // the kernel must surface a descriptive error, not silent NaN.
+        // the kernel must surface a descriptive error, not silent NaN. The
+        // overflow comes from the V/W recursion itself (a function of
+        // geometry and degree only, not the coefficient values), so the
+        // bundled GGM05S model (max degree 180) is used here to exercise
+        // degree 160 directly.
         let model = GravityModel::from_model_type_with_coefficients(
-            &GravityModelType::EGM2008_360,
-            GravityModelCoefficients::Both,
+            &GravityModelType::GGM05S,
+            GravityModelCoefficients::Cunningham,
         )
         .unwrap();
+        assert!(model.n_max >= 160);
         let r = Vector3::new(6.5e6, 1.2e6, 3.1e6);
         let err = model
             .compute_spherical_harmonics_cunningham(r, 160, 160, ParallelMode::Never)

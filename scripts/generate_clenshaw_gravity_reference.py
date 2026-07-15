@@ -7,7 +7,7 @@
 Produces the mpmath (40-digit) reference values pinned in
 `test_clenshaw_high_precision_reference` in `src/orbit_dynamics/gravity.rs`.
 The evaluation is independent of the library's Clenshaw and Cunningham
-kernels: it sums the truncated EGM2008_360 geopotential directly using a
+kernels: it sums the truncated EGM2008_120 geopotential directly using a
 forward-column recurrence for the fully-normalized associated Legendre
 functions and the analytic theta-derivative identity, entirely in mpmath
 arbitrary-precision arithmetic.
@@ -29,7 +29,7 @@ from mpmath import mp, mpf, sqrt, cos, sin, atan2
 mp.dps = 40
 
 GFC_PATH = (
-    Path(__file__).resolve().parent.parent / "data/gravity_models/EGM2008_360.gfc"
+    Path(__file__).resolve().parent.parent / "data/gravity_models/EGM2008_120.gfc"
 )
 
 # (position [m], n_max, m_max) — must match the cases in
@@ -37,12 +37,12 @@ GFC_PATH = (
 MID_LAT_LEO = ("6.5e6", "1.2e6", "3.1e6")
 EQUATORIAL_LEO = ("6878136.3", "0.0", "0.0")  # R_EARTH + 500e3 with R_EARTH = 6378136.3
 CASES = [
-    (MID_LAT_LEO, 160, 160),
-    (MID_LAT_LEO, 200, 200),
+    (MID_LAT_LEO, 80, 80),
+    (MID_LAT_LEO, 120, 120),
+    (EQUATORIAL_LEO, 60, 60),
+    (EQUATORIAL_LEO, 90, 90),
+    (EQUATORIAL_LEO, 120, 60),
     (EQUATORIAL_LEO, 120, 120),
-    (EQUATORIAL_LEO, 160, 160),
-    (EQUATORIAL_LEO, 200, 100),
-    (EQUATORIAL_LEO, 200, 200),
 ]
 
 
@@ -156,7 +156,7 @@ def acceleration(pos, n_max, m_max, gm, radius, cnm, snm):
 def main():
     n_needed = max(n for _, n, _ in CASES)
     gm, radius, cnm, snm = parse_gfc(GFC_PATH, n_needed)
-    print(f"# EGM2008_360: GM = {gm}, R = {radius}, mp.dps = {mp.dps}")
+    print(f"# EGM2008_120: GM = {gm}, R = {radius}, mp.dps = {mp.dps}")
     for pos, n_max, m_max in CASES:
         ax, ay, az = acceleration(pos, n_max, m_max, gm, radius, cnm, snm)
         print(f"pos = {pos}, n_max = {n_max}, m_max = {m_max}")

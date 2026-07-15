@@ -30,6 +30,7 @@ This module provides:
 - ThirdBody: Third-body perturber enum
 - ThirdBodyConfiguration: Third-body perturbation configuration
 - SolidTideConfig: Solid Earth tide configuration
+- OceanTideConfig: FES2004 ocean tide configuration
 - PermanentTideConfig: Permanent (zero-frequency) tide handling
 - TidesConfiguration: Tidal correction configuration
 
@@ -66,6 +67,7 @@ from brahe._brahe import (
     ThirdBody,
     ThirdBodyConfiguration,
     SolidTideConfig,
+    OceanTideConfig,
     PermanentTideConfig,
     TidesConfiguration,
     TrajectoryMode,
@@ -98,6 +100,7 @@ __all__ = [
     "ThirdBody",
     "ThirdBodyConfiguration",
     "SolidTideConfig",
+    "OceanTideConfig",
     "PermanentTideConfig",
     "TidesConfiguration",
     "TrajectoryMode",

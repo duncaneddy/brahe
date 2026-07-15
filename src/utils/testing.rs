@@ -316,12 +316,12 @@ pub(crate) fn setup_global_test_eop_original_brahe() {
     set_global_eop_provider(eop);
 }
 
-/// Initialize global gravity model with EGM2008_360 for orbit dynamics tests.
+/// Initialize global gravity model with EGM2008_120 for orbit dynamics tests.
 ///
-/// Sets up EGM2008 (degree/order 360) as the global gravity model. Use at the start
+/// Sets up EGM2008 (degree/order 120) as the global gravity model. Use at the start
 /// of tests requiring high-fidelity gravity for orbit propagation or perturbation analysis.
 pub(crate) fn setup_global_test_gravity_model() {
-    let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+    let gravity_model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
     set_global_gravity_model(gravity_model);
 }
 
@@ -547,6 +547,46 @@ impl Drop for CacheRedirect {
             }
         }
     }
+}
+
+/// Guard returned by [`setup_test_fes2004_cache`]. Holds the tempdir alive and
+/// restores the previous `BRAHE_CACHE` value on drop, mirroring
+/// [`CacheRedirect`]'s restoration semantics.
+pub(crate) struct Fes2004CacheGuard {
+    _dir: tempfile::TempDir,
+    prev: Option<String>,
+}
+
+impl Drop for Fes2004CacheGuard {
+    fn drop(&mut self) {
+        // SAFETY: single-threaded within a #[serial] test.
+        unsafe {
+            match &self.prev {
+                Some(v) => env::set_var("BRAHE_CACHE", v),
+                None => env::remove_var("BRAHE_CACHE"),
+            }
+        }
+    }
+}
+
+/// Point `BRAHE_CACHE` at a fresh temp dir pre-seeded with the packaged
+/// FES2004 test fixture (degree/order <= 30), so ocean-tide code paths run
+/// offline. The returned guard must be held for the test's duration and
+/// restores the previous `BRAHE_CACHE` value on drop; callers mutate
+/// process-global env and must be `#[serial]`.
+pub(crate) fn setup_test_fes2004_cache() -> Fes2004CacheGuard {
+    let prev = env::var("BRAHE_CACHE").ok();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let tides = dir.path().join("tides");
+    fs::create_dir_all(&tides).expect("tides cache subdir");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("test_data/fes2004_Cnm-Snm_n30.dat");
+    fs::copy(&fixture, tides.join("fes2004_Cnm-Snm.dat")).expect("copy FES2004 fixture");
+    // SAFETY: single-threaded within a #[serial] test; no other thread reads
+    // the environment concurrently.
+    unsafe {
+        env::set_var("BRAHE_CACHE", dir.path());
+    }
+    Fes2004CacheGuard { _dir: dir, prev }
 }
 
 /// Initialize global space weather provider with test data for unit testing.
@@ -897,5 +937,35 @@ mod tests {
         let filepath = get_test_space_weather_filepath();
         assert!(filepath.exists());
         assert!(filepath.ends_with("sw19571001.txt"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_fes2004_cache_guard_restores_preexisting_value() {
+        // Save whatever BRAHE_CACHE held before this test so it can be put
+        // back afterwards with the same save/restore discipline.
+        let original = env::var("BRAHE_CACHE").ok();
+
+        // Install a sentinel so the guard's drop takes the Some(v) branch.
+        let sentinel = "/tmp/brahe-test-sentinel-cache";
+        // SAFETY: single-threaded within a #[serial] test.
+        unsafe {
+            env::set_var("BRAHE_CACHE", sentinel);
+        }
+
+        let guard = setup_test_fes2004_cache();
+        // While held, BRAHE_CACHE points at the guard's temp dir.
+        assert_ne!(env::var("BRAHE_CACHE").unwrap(), sentinel);
+        drop(guard);
+        // Drop restored the pre-existing sentinel value.
+        assert_eq!(env::var("BRAHE_CACHE").unwrap(), sentinel);
+
+        // SAFETY: single-threaded within a #[serial] test.
+        unsafe {
+            match original {
+                Some(v) => env::set_var("BRAHE_CACHE", v),
+                None => env::remove_var("BRAHE_CACHE"),
+            }
+        }
     }
 }

@@ -320,7 +320,7 @@ pub fn numerical_twobody(
 /// replaced with `E` for Fortran-style notation (e.g. `1.0d0` → `1.0E0`).
 ///
 /// `BRAHE_GRAVITY_FILE` env-var overrides the path
-/// (`data/gravity_models/EGM2008_360.gfc` relative to the working directory).
+/// (`data/gravity_models/EGM2008_120.gfc` relative to the working directory).
 ///
 /// Because `GravityFieldData` has no public constructor for pre-built matrices,
 /// the parsed coefficients are written to a temp SHADR-format text file and
@@ -328,7 +328,7 @@ pub fn numerical_twobody(
 /// identical to the source; only the serialization format differs.
 fn load_egm2008_icgem(degree: usize, order: usize) -> GravityFieldData {
     let path = std::env::var("BRAHE_GRAVITY_FILE")
-        .unwrap_or_else(|_| "data/gravity_models/EGM2008_360.gfc".to_string());
+        .unwrap_or_else(|_| "data/gravity_models/EGM2008_120.gfc".to_string());
 
     let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("Cannot read gravity file {path}: {e}"));

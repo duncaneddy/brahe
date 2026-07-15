@@ -996,6 +996,7 @@ pub fn _brahe(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyThirdBody>()?;
     module.add_class::<PyThirdBodyConfiguration>()?;
     module.add_class::<PySolidTideConfig>()?;
+    module.add_class::<PyOceanTideConfig>()?;
     module.add_class::<PyPermanentTideConfig>()?;
     module.add_class::<PyTidesConfiguration>()?;
     module.add_class::<PyForceModelConfig>()?;

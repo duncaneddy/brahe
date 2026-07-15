@@ -6,10 +6,13 @@ fn main() {
     // Permanent tide + the static (frequency-independent) solid Earth tide correction.
     // `frequency_dependent: false` keeps only the always-on static part.
     let tides = bh::TidesConfiguration {
+        ephemeris_source: bh::EphemerisSource::LowPrecision,
         permanent: bh::PermanentTideConfig::Auto,
         solid: Some(bh::SolidTideConfig {
             frequency_dependent: false,
+            pole_tide: false,
         }),
+        ocean: None,
     };
 
     let mut force_config = bh::ForceModelConfig::earth_gravity();

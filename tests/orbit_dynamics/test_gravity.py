@@ -159,7 +159,7 @@ class TestSphericalHarmonicGravity:
         """Test GravityModelType enum creation and comparison."""
         model1 = bh.GravityModelType.JGM3
         model2 = bh.GravityModelType.JGM3
-        model3 = bh.GravityModelType.EGM2008_360
+        model3 = bh.GravityModelType.EGM2008_120
 
         # Test equality
         assert model1 == model2
@@ -172,7 +172,7 @@ class TestSphericalHarmonicGravity:
     def test_gravity_model_type_from_file_valid_path(self):
         """Test GravityModelType.from_file with a valid path."""
         model_type = bh.GravityModelType.from_file(
-            "data/gravity_models/EGM2008_360.gfc"
+            "data/gravity_models/EGM2008_120.gfc"
         )
         assert "FromFile" in repr(model_type)
 
@@ -235,10 +235,10 @@ class TestSphericalHarmonicGravity:
 
     def test_gravity_model_from_model_type_egm2008(self):
         """Test loading EGM2008 gravity model."""
-        model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_120)
 
-        assert model.n_max == 360
-        assert model.m_max == 360
+        assert model.n_max == 120
+        assert model.m_max == 120
         assert "EGM2008" in model.model_name
 
     def test_gravity_model_get_coefficients(self):
@@ -371,7 +371,7 @@ class TestSphericalHarmonicGravity:
 
     def test_accel_gravity_spherical_harmonics_egm2008(self):
         """Test spherical harmonics with high-fidelity EGM2008 model."""
-        model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
+        model = bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_120)
 
         r_eci = np.array([6525.919e3, 1710.416e3, 2508.886e3])
         R = np.eye(3)
@@ -498,7 +498,7 @@ class TestSphericalHarmonicGravity:
     def test_clenshaw_matches_cunningham(self):
         """Clenshaw and Cunningham kernels agree to < 1e-10 relative."""
         model = bh.GravityModel.from_model_type_with_coefficients(
-            bh.GravityModelType.EGM2008_360, bh.GravityModelCoefficients.Both
+            bh.GravityModelType.EGM2008_120, bh.GravityModelCoefficients.Both
         )
         positions = [
             np.array([6.5e6, 1.2e6, 3.1e6]),
@@ -516,10 +516,17 @@ class TestSphericalHarmonicGravity:
                 assert rel < 1e-10, f"n={n} m={m} rel={rel:e}"
 
     def test_cunningham_overflow_raises(self):
-        """Cunningham kernel raises on V/W overflow at high degree, low altitude."""
+        """Cunningham kernel raises on V/W overflow at high degree, low altitude.
+
+        The overflow comes from the V/W recursion itself (a function of
+        geometry and degree only, not the coefficient values), so the bundled
+        GGM05S model (max degree 180) is used here to exercise degree 160
+        directly.
+        """
         model = bh.GravityModel.from_model_type_with_coefficients(
-            bh.GravityModelType.EGM2008_360, bh.GravityModelCoefficients.Both
+            bh.GravityModelType.GGM05S, bh.GravityModelCoefficients.Cunningham
         )
+        assert model.n_max >= 160
         r_body = np.array([bh.R_EARTH + 500e3, 0.0, 0.0])
         with pytest.raises(Exception, match="non-finite"):
             model.compute_spherical_harmonics_cunningham(r_body, 160, 160)
@@ -595,11 +602,11 @@ class TestSphericalHarmonicGravity:
         original = bh.get_global_gravity_model()
         try:
             bh.set_global_gravity_model(
-                bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_360)
+                bh.GravityModel.from_model_type(bh.GravityModelType.EGM2008_120)
             )
             fetched = bh.get_global_gravity_model()
             assert fetched.model_name == "EGM2008"
-            assert fetched.n_max == 360
+            assert fetched.n_max == 120
         finally:
             bh.set_global_gravity_model(original)
 
@@ -680,22 +687,22 @@ class TestGravityEnumReprStr:
         """Test string representation for all GravityModelType variants."""
         assert "JGM3" in str(bh.GravityModelType.JGM3)
         assert "GGM05S" in str(bh.GravityModelType.GGM05S)
-        assert "EGM2008" in str(bh.GravityModelType.EGM2008_360)
+        assert "EGM2008" in str(bh.GravityModelType.EGM2008_120)
 
     def test_gravity_model_type_all_variants_repr(self):
         """Test repr for all GravityModelType variants."""
         assert "GravityModelType" in repr(bh.GravityModelType.JGM3)
         assert "GravityModelType" in repr(bh.GravityModelType.GGM05S)
-        assert "GravityModelType" in repr(bh.GravityModelType.EGM2008_360)
+        assert "GravityModelType" in repr(bh.GravityModelType.EGM2008_120)
 
     def test_gravity_model_type_from_file_str_repr(self):
         """Test str/repr for FromFile variant."""
         model_type = bh.GravityModelType.from_file(
-            "data/gravity_models/EGM2008_360.gfc"
+            "data/gravity_models/EGM2008_120.gfc"
         )
         assert "FromFile" in str(model_type)
         assert "FromFile" in repr(model_type)
-        assert "EGM2008_360.gfc" in str(model_type)
+        assert "EGM2008_120.gfc" in str(model_type)
 
     def test_gravity_model_tide_system_all_variants(self):
         """Test all GravityModelTideSystem variants."""

@@ -141,7 +141,7 @@ where
 /// `force_model.rs` has no intra-module dependency.
 fn load_egm2008_icgem(degree: usize, order: usize) -> GravityFieldData {
     let path = std::env::var("BRAHE_GRAVITY_FILE")
-        .unwrap_or_else(|_| "data/gravity_models/EGM2008_360.gfc".to_string());
+        .unwrap_or_else(|_| "data/gravity_models/EGM2008_120.gfc".to_string());
 
     let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("Cannot read gravity file {path}: {e}"));

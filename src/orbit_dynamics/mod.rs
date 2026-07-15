@@ -5,6 +5,7 @@ Module implementing orbit dynamics models.
 pub use drag::*;
 pub use ephemerides::*;
 pub use gravity::*;
+pub use ocean_tides::{OceanTideModel, fes2004_coefficients_path};
 pub use relativity::*;
 pub use solar_radiation_pressure::*;
 pub use third_body::*;
@@ -21,12 +22,15 @@ pub mod atmospheric_density_models {
 pub mod drag;
 pub mod ephemerides;
 pub mod gravity;
+pub mod ocean_tides;
+mod ocean_tides_admittance;
 pub mod relativity;
 pub mod solar_radiation_pressure;
 pub mod third_body;
 pub mod tides;
 pub mod tides_step2_tables;
 pub use tides::{
-    PERM_C20_DIRECT, PERM_C20_INDIRECT, SolidTideConfig, TideCoefficients, accel_solid_earth_tides,
-    solid_earth_tide_coefficients, tide_system_c20_offset,
+    PERM_C20_DIRECT, PERM_C20_INDIRECT, SolidTideConfig, accel_solid_earth_tides,
+    ocean_pole_tide_deltas, secular_pole, solid_earth_pole_tide_deltas, solid_earth_tide_deltas,
+    tide_system_c20_offset, wobble_parameters,
 };

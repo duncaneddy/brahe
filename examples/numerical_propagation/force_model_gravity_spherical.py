@@ -12,9 +12,9 @@ import brahe as bh
 # Packaged Gravity Models
 # ==============================================================================
 
-# EGM2008 - High-fidelity NGA model (360x360 max)
+# EGM2008 - High-fidelity NGA model (120x120 max)
 gravity_egm2008 = bh.GravityConfiguration.spherical_harmonic(
-    degree=20, order=20, model_type=bh.GravityModelType.EGM2008_360
+    degree=20, order=20, model_type=bh.GravityModelType.EGM2008_120
 )
 
 # GGM05S - GRACE mission model (180x180 max)
@@ -33,7 +33,7 @@ gravity_jgm3 = bh.GravityConfiguration.spherical_harmonic(
 
 # Load custom gravity model from GFC format file
 # GravityModelType.from_file validates the path exists
-custom_model_type = bh.GravityModelType.from_file("data/gravity_models/EGM2008_360.gfc")
+custom_model_type = bh.GravityModelType.from_file("data/gravity_models/EGM2008_120.gfc")
 gravity_custom = bh.GravityConfiguration.spherical_harmonic(
     degree=20, order=20, model_type=custom_model_type
 )

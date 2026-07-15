@@ -525,6 +525,22 @@ def test_tides_config_roundtrip():
     assert cfg.tides.solid.frequency_dependent is True
 
 
+def test_tides_config_ephemeris_source_kwarg():
+    """The ephemeris_source kwarg defaults to LowPrecision and round-trips."""
+    # Default when omitted.
+    default_tides = brahe.TidesConfiguration(permanent=brahe.PermanentTideConfig.AUTO)
+    assert default_tides.ephemeris_source == brahe.EphemerisSource.LowPrecision
+
+    # Explicit high-precision source round-trips through the getter and setter.
+    tides = brahe.TidesConfiguration(
+        permanent=brahe.PermanentTideConfig.AUTO,
+        ephemeris_source=brahe.EphemerisSource.DE440s,
+    )
+    assert tides.ephemeris_source == brahe.EphemerisSource.DE440s
+    tides.ephemeris_source = brahe.EphemerisSource.DE440
+    assert tides.ephemeris_source == brahe.EphemerisSource.DE440
+
+
 def test_forcemodelconfig_tides_kwarg():
     """Test that ForceModelConfig constructor accepts a tides kwarg and round-trips it."""
     solid = brahe.SolidTideConfig(frequency_dependent=True)
@@ -571,6 +587,56 @@ def test_tides_config_consistent_combinations_do_not_warn():
             ),
             solid=None,
         )
+
+
+def test_ocean_tide_config():
+    ocean = brahe.OceanTideConfig(
+        degree=30, order=30, include_admittance=False, pole_tide=True
+    )
+    assert ocean.degree == 30
+    assert ocean.order == 30
+    assert not ocean.include_admittance
+    assert ocean.pole_tide
+
+
+def test_ocean_tide_config_defaults():
+    ocean = brahe.OceanTideConfig()
+    assert ocean.degree == 20
+    assert ocean.order == 20
+    assert ocean.include_admittance
+    assert not ocean.pole_tide
+
+
+def test_solid_tide_config_pole_tide():
+    solid = brahe.SolidTideConfig(frequency_dependent=True, pole_tide=True)
+    assert solid.pole_tide
+
+
+def test_tides_configuration_with_ocean():
+    tides = brahe.TidesConfiguration(
+        permanent=brahe.PermanentTideConfig.AUTO,
+        solid=brahe.SolidTideConfig(frequency_dependent=True, pole_tide=True),
+        ocean=brahe.OceanTideConfig(),
+    )
+    assert tides.ocean is not None
+    assert "OceanTideConfig" in repr(tides.ocean)
+
+
+def test_high_fidelity_enables_all_tides():
+    """Mirrors Rust test_high_fidelity_enables_all_tides."""
+    config = brahe.ForceModelConfig.high_fidelity()
+    tides = config.tides
+    assert tides is not None
+    solid = tides.solid
+    assert solid is not None
+    assert solid.frequency_dependent
+    assert solid.pole_tide
+    ocean = tides.ocean
+    assert ocean is not None
+    assert ocean.degree == 30
+    assert ocean.order == 30
+    assert ocean.include_admittance
+    assert ocean.pole_tide
 
 
 def test_third_body_barycenter_planet_split():

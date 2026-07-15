@@ -23,7 +23,7 @@ NYX_BINARY = IMPLEMENTATIONS_DIR / "nyx" / "target" / "release" / "bench_nyx"
 # Java jar path
 JAVA_PROJECT_DIR = IMPLEMENTATIONS_DIR / "java"
 
-# Brahe-bundled gravity model file (EGM2008 at degree 360, ICGEM format).
+# Brahe-bundled gravity model file (EGM2008 at degree 120, ICGEM format).
 # The Java/Orekit and any other backend that supports ICGEM read this file
 # so the spherical-harmonic gravity coefficients used during the
 # ``RK4 + N×N + drag + SRP`` propagation tasks are byte-identical to what
@@ -31,7 +31,7 @@ JAVA_PROJECT_DIR = IMPLEMENTATIONS_DIR / "java"
 # the test conflates implementation differences with coefficient-source
 # differences.
 REPO_ROOT = FRAMEWORK_DIR.parent.parent
-BRAHE_GRAVITY_FILE = REPO_ROOT / "data" / "gravity_models" / "EGM2008_360.gfc"
+BRAHE_GRAVITY_FILE = REPO_ROOT / "data" / "gravity_models" / "EGM2008_120.gfc"
 
 # Export to the process environment so any subprocess (Java, Rust, GMAT)
 # launched downstream inherits the same alignment. If a user has already

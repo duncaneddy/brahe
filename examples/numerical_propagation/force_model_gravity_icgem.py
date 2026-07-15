@@ -6,7 +6,7 @@
 Configure a NumericalOrbitPropagator with an ICGEM-sourced gravity model.
 
 GravityModelType.icgem(body, name) slots into the same model_type slot as
-the packaged JGM3/GGM05S/EGM2008_360 constants. The .gfc file is downloaded
+the packaged JGM3/GGM05S/EGM2008_120 constants. The .gfc file is downloaded
 into $BRAHE_CACHE/icgem/ on first use of the resulting GravityModel.
 """
 

@@ -102,7 +102,7 @@ def _accel_spherical_harmonics(
     m = params["order"]
 
     gravity_model = brahe.GravityModel.from_model_type(
-        brahe.GravityModelType.EGM2008_360
+        brahe.GravityModelType.EGM2008_120
     )
 
     def eval_case(epc: brahe.Epoch, state: np.ndarray) -> list[float]:

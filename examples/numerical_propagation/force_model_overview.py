@@ -14,7 +14,7 @@ force_config = bh.ForceModelConfig(
     gravity=bh.GravityConfiguration.spherical_harmonic(
         degree=20,
         order=20,
-        model_type=bh.GravityModelType.EGM2008_360,
+        model_type=bh.GravityModelType.EGM2008_120,
     ),
     # Atmospheric drag: Harris-Priester model with parameter indices
     drag=bh.DragConfiguration(

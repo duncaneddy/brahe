@@ -614,7 +614,7 @@ pub(crate) fn accel_third_body_field_for_body_with_model(
 ///     &CentralBody::EMB,
 ///     &ThirdBody::Earth,
 ///     &GravityConfiguration::SphericalHarmonic {
-///         source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+///         source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
 ///         degree: 8,
 ///         order: 8,
 ///         parallel: brahe::orbit_dynamics::ParallelMode::Never,
@@ -1764,13 +1764,13 @@ mod tests {
         )
         .unwrap();
 
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
 
         let a_sh = accel_third_body_field_for_body_with_model(
             &central,
             &ThirdBody::Earth,
             &GravityConfiguration::SphericalHarmonic {
-                source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+                source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
                 degree: 8,
                 order: 8,
                 parallel: crate::orbit_dynamics::ParallelMode::Never,
@@ -1963,7 +1963,7 @@ mod tests {
         let central = CentralBody::EMB;
         let r_object = Vector3::new(3.8e8, 0.0, 0.0);
         let gravity = GravityConfiguration::SphericalHarmonic {
-            source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+            source: GravityModelSource::ModelType(GravityModelType::EGM2008_120),
             degree: 8,
             order: 8,
             parallel: crate::orbit_dynamics::ParallelMode::Never,
@@ -1987,7 +1987,7 @@ mod tests {
             epc,
         )
         .unwrap();
-        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_360).unwrap();
+        let model = GravityModel::from_model_type(&GravityModelType::EGM2008_120).unwrap();
         let a_internal = accel_third_body_field_for_body_with_model(
             &central,
             &ThirdBody::Earth,
@@ -2072,7 +2072,7 @@ mod tests {
             &ThirdBody::Sun,
             &GravityConfiguration::SphericalHarmonic {
                 source: GravityModelSource::ModelType(
-                    crate::orbit_dynamics::gravity::GravityModelType::EGM2008_360,
+                    crate::orbit_dynamics::gravity::GravityModelType::EGM2008_120,
                 ),
                 degree: 4,
                 order: 4,

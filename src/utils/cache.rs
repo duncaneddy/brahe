@@ -179,6 +179,23 @@ pub fn get_icgem_cache_dir() -> Result<String, BraheError> {
     get_brahe_cache_dir_with_subdir(Some("icgem"))
 }
 
+/// Get the brahe tide-model cache directory (`$BRAHE_CACHE/tides`), creating
+/// it if needed. Holds the one-time FES2004 ocean tide coefficient download.
+///
+/// # Returns
+///
+/// * `Result<String, BraheError>` - The full path to the tides cache directory as a String
+///
+/// # Examples
+/// ```
+/// use brahe::utils::cache::get_tides_cache_dir;
+/// let tides_cache_dir = get_tides_cache_dir().unwrap();
+/// println!("Tides cache directory: {}", tides_cache_dir);
+/// ```
+pub fn get_tides_cache_dir() -> Result<String, BraheError> {
+    get_brahe_cache_dir_with_subdir(Some("tides"))
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {

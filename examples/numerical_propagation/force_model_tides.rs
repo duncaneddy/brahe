@@ -1,6 +1,13 @@
-//! Solid Earth tidal corrections to the geopotential.
+//! Tidal corrections to the geopotential: solid Earth tides, the solid Earth
+//! and ocean pole tides, and FES2004 ocean tides (30x30, admittance-complete).
 //! Propagates one LEO orbit with tides ON and OFF, and reports the peak
 //! position difference to show the tidal perturbation magnitude.
+//!
+//! FLAGS = ["NETWORK"]
+//!
+//! Enabling ocean tides downloads a one-time IERS coefficient file (~3.7 MB)
+//! into `$BRAHE_CACHE/tides/` the first time a propagator with ocean tides
+//! enabled is constructed.
 
 use bh::traits::DStatePropagator;
 use brahe as bh;
@@ -57,12 +64,22 @@ fn main() {
     let n_steps = 90; // check every ~minute
     let dt = period / n_steps as f64;
 
-    // Tides-ON configuration: IERS Step 1 + Step 2 (frequency-dependent), Auto
-    // permanent-tide handling (converts the model's C̄20 to conventional tide-free).
+    // Tides-ON configuration: IERS Step 1 + Step 2 (frequency-dependent) solid
+    // Earth tides plus the solid Earth pole tide, FES2004 ocean tides (30x30,
+    // admittance-completed) plus the ocean pole tide, and Auto permanent-tide
+    // handling (converts the model's C̄20 to conventional tide-free).
     let tides_on = bh::TidesConfiguration {
+        ephemeris_source: bh::EphemerisSource::LowPrecision,
         permanent: bh::PermanentTideConfig::Auto,
         solid: Some(bh::SolidTideConfig {
             frequency_dependent: true,
+            pole_tide: true,
+        }),
+        ocean: Some(bh::OceanTideConfig {
+            degree: 30,
+            order: 30,
+            include_admittance: true,
+            pole_tide: true,
         }),
     };
 
@@ -84,7 +101,7 @@ fn main() {
         }
     }
 
-    println!("Solid Earth tides example");
+    println!("Tidal corrections example");
     println!("  Orbital period:               {:.1} min", period / 60.0);
     println!(
         "  Max tidal position difference: {:.3} m  ({:.3} km)",

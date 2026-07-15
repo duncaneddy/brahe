@@ -3,7 +3,7 @@
 The [International Centre for Global Earth Models (ICGEM)](https://icgem.gfz.de), hosted at GFZ Potsdam, maintains the de facto catalog of published spherical harmonic gravity models for Earth and other solar system bodies. Brahe's `brahe.datasets.icgem` interface mirrors that catalog in code: list the available models for a body, download a specific `.gfc` file into a local cache, and refresh stale indexes on demand.
 
 !!! info "Why a download interface?"
-    Brahe ships three packaged Earth models (EGM2008 truncated to 360, GGM05S, JGM3). The ICGEM catalog publishes hundreds more — newer high-degree Earth fields, lunar models like GRGM1200B, planetary models for Mars/Venus/Ceres, and asteroid fields. The dataset interface gives access to any of them without bundling tens of megabytes of model data into the library.
+    Brahe ships three packaged Earth models (EGM2008 truncated to 120, GGM05S, JGM3). The ICGEM catalog publishes hundreds more — newer high-degree Earth fields, lunar models like GRGM1200B, planetary models for Mars/Venus/Ceres, and asteroid fields. The dataset interface gives access to any of them without bundling tens of megabytes of model data into the library.
 
 ## Supported Bodies
 

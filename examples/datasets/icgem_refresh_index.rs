@@ -4,7 +4,7 @@
 //! published a new model and you don't want to wait for the next normal cache
 //! miss to pick it up.
 //!
-//! FLAGS = ["IGNORE"]
+//! FLAGS = ["NETWORK"]
 
 use brahe as bh;
 use bh::datasets::icgem::{

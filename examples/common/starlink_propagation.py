@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["IGNORE"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 

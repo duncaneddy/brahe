@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 /// same across all time scales. This leaves the only difference between them being
 /// offsets between them.
 ///
-/// The currently supposed time systems are:
+/// The currently supported time systems are:
 /// - GPS: Global Positioning System. GPS is a time scale used defined by the GPS navigation system control segment.
 ///   GPS time was aligned with UTC at system inception (January 6, 1980 0h), but
 ///   does not include leap seconds since it is an atomic time scale.
@@ -28,10 +28,21 @@ use serde::{Deserialize, Serialize};
 /// - UTC: Universal Coordinated Time. UTC is an atomic time scale steered to remain within
 ///   +/- 0.9 seconds of solar time. Since the rotation of the Earth is continuously changing,
 ///   UTC periodically incorporates leap seconds to ensure that the difference between
-///   UTC and UT1 remains within the expeccted bounds.
+///   UTC and UT1 remains within the expected bounds.
 /// - UT1: Universal Time 1. UT1 is a solar time that is conceptually the mean time at 0 degrees
 ///   longitude. UT1 is the same everywhere on Earth simultaneously and represents the rotation of the
 ///   Earth with respect to the ICRF inertial reference frame.
+/// - TDB: Barycentric Dynamical Time. TDB is a time scale for solar system barycentric ephemerides,
+///   differing from TT by small periodic terms (< 1.7 ms) due to relativistic effects of Earth's
+///   orbital motion.
+/// - TCG: Geocentric Coordinate Time. TCG is a coordinate time for geocentric reference systems,
+///   differing from TT by a secular drift (~22 ms/year) due to Earth's gravitational time dilation.
+/// - TCB: Barycentric Coordinate Time. TCB is a coordinate time for the solar system barycenter,
+///   differing from TDB by a secular drift due to relativistic effects.
+/// - BDT: BeiDou Navigation Satellite System Time. BDT is an atomic time scale aligned with UTC
+///   at inception (January 1, 2006), with a fixed offset from TAI of 33 seconds (BDT = TAI - 33s).
+/// - GST: Galileo System Time. GST is an atomic time scale for the Galileo navigation system,
+///   steered to GPS time with a fixed offset from TAI of 19 seconds (GST = TAI - 19s).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TimeSystem {
     /// Global Positioning System time. Atomic time scale aligned with UTC at inception
@@ -54,7 +65,7 @@ pub enum TimeSystem {
     /// of Earth's orbital motion. Computed via Kaplan (2005:15) / Vallado Eq. 3-53.
     TDB,
     /// Geocentric Coordinate Time. Coordinate time for geocentric reference systems.
-    /// Differs from TT by a secular drift (~0.7 s/year) due to Earth's gravitational
+    /// Differs from TT by a secular drift (~22 ms/year) due to Earth's gravitational
     /// time dilation. Computed via Vallado Eq. 3-56.
     TCG,
     /// Barycentric Coordinate Time. Coordinate time for the solar system barycenter.

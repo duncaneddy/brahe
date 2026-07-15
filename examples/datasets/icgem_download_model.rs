@@ -1,6 +1,6 @@
 //! Download a spherical harmonic gravity model from ICGEM.
 //!
-//! FLAGS = ["IGNORE"]
+//! FLAGS = ["NETWORK"]
 //!
 //! Downloads are cached under $BRAHE_CACHE/icgem/models/<body>/ keyed on
 //! (name, degree, hash-prefix). To pin a specific degree variant — when

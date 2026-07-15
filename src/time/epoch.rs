@@ -89,9 +89,10 @@ fn align_epoch_data(days: u64, seconds: i64, nanoseconds: f64) -> (u64, u32, f64
 /// floating point arithmetic errors.
 #[derive(Copy, Clone)]
 pub struct Epoch {
-    /// Time system in which this epoch is expressed (UTC, TAI, GPS, TT, or UT1).
-    /// All internal calculations maintain time system consistency. Convert between
-    /// systems using `to_time_system()` method, which applies proper offsets/leap seconds.
+    /// Time system in which this epoch is expressed. See [`TimeSystem`] for the supported
+    /// scales. All internal calculations maintain time system consistency. Convert between
+    /// systems using [`Epoch::to_time_system`], which returns a new epoch at the same instant
+    /// and applies proper offsets/leap seconds when its values are read.
     pub time_system: TimeSystem,
     days: u64,
     seconds: u32,
@@ -1575,6 +1576,45 @@ impl Epoch {
         )
     }
 
+    /// Return a new `Epoch` representing the same instant, expressed in a different time system.
+    ///
+    /// The epoch stores an absolute instant internally, so this changes only the time system the
+    /// epoch reports in — not the instant it denotes. The returned epoch compares equal to the
+    /// original, and the appropriate offsets and leap seconds are applied when its values are read.
+    ///
+    /// # Arguments
+    ///
+    /// - `time_system`: Time system the returned epoch will be expressed in
+    ///
+    /// # Returns
+    ///
+    /// - `Epoch`: New epoch at the same instant, expressed in `time_system`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use brahe::eop::*;
+    /// use brahe::time::*;
+    ///
+    /// // Quick EOP initialization
+    /// let eop = FileEOPProvider::from_default_file(EOPType::StandardBulletinA, true, EOPExtrapolation::Zero).unwrap();
+    /// set_global_eop_provider(eop);
+    ///
+    /// let epc = Epoch::from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+    ///
+    /// // Same instant, expressed in GPS time
+    /// let epc_gps = epc.to_time_system(TimeSystem::GPS);
+    ///
+    /// assert_eq!(epc_gps.to_string(), "2020-01-01 00:00:18.000 GPS");
+    /// assert_eq!(epc, epc_gps); // Same instant
+    /// ```
+    pub fn to_time_system(&self, time_system: TimeSystem) -> Self {
+        Self {
+            time_system,
+            ..*self
+        }
+    }
+
     /// Computes the Greenwich Apparent Sidereal Time (GAST) as an angular value
     /// for the instantaneous time of the `Epoch`. The Greenwich Apparent Sidereal
     /// Time is the Greenwich Mean Sidereal Time (GMST) corrected for shift in
@@ -2747,6 +2787,56 @@ mod tests {
         assert_eq!(
             epc.to_string_as_time_system(TimeSystem::GPS),
             "2020-01-01 00:00:18.000 GPS"
+        );
+    }
+
+    #[test]
+    fn test_epoch_to_time_system() {
+        setup_global_test_eop();
+
+        let epc = Epoch::from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let epc_gps = epc.to_time_system(TimeSystem::GPS);
+
+        // The time system changes...
+        assert_eq!(epc_gps.time_system, TimeSystem::GPS);
+        assert_eq!(epc_gps.to_string(), "2020-01-01 00:00:18.000 GPS");
+
+        // ...but the instant does not.
+        assert_eq!(epc, epc_gps);
+
+        // The original is untouched.
+        assert_eq!(epc.time_system, TimeSystem::UTC);
+        assert_eq!(epc.to_string(), "2020-01-01 00:00:00.000 UTC");
+
+        // to_time_system agrees with the projection methods for every scale.
+        for ts in [
+            TimeSystem::GPS,
+            TimeSystem::TAI,
+            TimeSystem::TT,
+            TimeSystem::UTC,
+            TimeSystem::UT1,
+            TimeSystem::TDB,
+            TimeSystem::TCG,
+            TimeSystem::TCB,
+            TimeSystem::BDT,
+            TimeSystem::GST,
+        ] {
+            assert_eq!(
+                epc.to_time_system(ts).to_string(),
+                epc.to_string_as_time_system(ts)
+            );
+            assert_abs_diff_eq!(
+                epc.to_time_system(ts).mjd(),
+                epc.mjd_as_time_system(ts),
+                epsilon = 1.0e-9
+            );
+        }
+
+        // Round-tripping returns to the original.
+        assert_eq!(
+            epc.to_time_system(TimeSystem::TAI)
+                .to_time_system(TimeSystem::UTC),
+            epc
         );
     }
 

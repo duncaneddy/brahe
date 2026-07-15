@@ -184,7 +184,7 @@ jobs:
                     use_oidc: true
 
     # Run the live-network documentation examples (ICGEM / Celestrak / GCAT /
-    # NAIF). These are flagged IGNORE so they never run on the per-PR
+    # NAIF). These are flagged NETWORK so they never run on the per-PR
     # `test_examples` workflow — keeping PRs off the flaky third-party services
     # and avoiding hammering them on every push. Here, on the weekly schedule
     # (and at release time via workflow_call), they are exercised end-to-end
@@ -193,7 +193,7 @@ jobs:
     integration-examples:
         uses: ./.github/workflows/test_examples.yml
         with:
-            example_args: "--ignore"
+            example_args: "--network"
             use_retry: true
 
     # Weekly keep-warm for the plot/example network caches. Running on the

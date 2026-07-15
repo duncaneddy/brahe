@@ -150,7 +150,7 @@ def check_flags(
     file_path: Path,
     enable_ci_only: bool = False,
     enable_slow: bool = False,
-    enable_ignore: bool = False,
+    enable_network: bool = False,
 ) -> tuple[bool, str, int | None]:
     """Check if example/plot should be skipped based on FLAGS and return custom TIMEOUT if set.
 
@@ -162,28 +162,37 @@ def check_flags(
 
     try:
         content = file_path.read_text()
-        first_lines = "\n".join(content.split("\n")[:10])
+        comment_marker = "//" if file_path.suffix == ".rs" else "#"
+
+        header_lines = []
+        for line in content.split("\n"):
+            if line.strip() == "" or line.lstrip().startswith(comment_marker):
+                header_lines.append(line)
+            else:
+                break
+        header_block = "\n".join(header_lines)
 
         # Parse TIMEOUT if present
-        if "TIMEOUT = " in first_lines:
-            timeout_match = re.search(r"TIMEOUT = (\d+)", first_lines)
+        if "TIMEOUT = " in header_block:
+            timeout_match = re.search(r"TIMEOUT = (\d+)", header_block)
             if timeout_match:
                 timeout_seconds = int(timeout_match.group(1))
 
         # Parse FLAGS if present
-        if "FLAGS = [" in first_lines:
-            match = re.search(r"FLAGS = \[(.*?)\]", first_lines)
+        if "FLAGS = [" in header_block:
+            match = re.search(r"FLAGS = \[(.*?)\]", header_block)
             if match:
                 flags_str = match.group(1)
                 flags = [f.strip().strip('"').strip("'") for f in flags_str.split(",")]
 
                 # MANUAL examples are never run automatically — not even by
-                # --ignore. Used for scaffolding templates and examples that
-                # require credentials/services that are never wired into CI.
+                # --network. Used for scaffolding templates, examples that
+                # require credentials/services that are never wired into CI,
+                # and scripts that regenerate committed artifacts.
                 if "MANUAL" in flags:
                     return True, "manual", timeout_seconds
-                if "IGNORE" in flags and not enable_ignore:
-                    return True, "ignored", timeout_seconds
+                if "NETWORK" in flags and not enable_network:
+                    return True, "network", timeout_seconds
                 if "CI-ONLY" in flags and not enable_ci_only:
                     return True, "ci-only", timeout_seconds
                 if "SLOW" in flags and not enable_slow:
@@ -291,7 +300,7 @@ def run_files_parallel(
     cli_timeout: Optional[int],
     ci_only: bool,
     slow: bool,
-    ignore: bool,
+    network: bool,
     num_workers: int,
     progress: Progress,
     task_id,
@@ -303,7 +312,7 @@ def run_files_parallel(
     tasks = []
     for file_path in files:
         should_skip, reason, file_timeout = check_flags_fn(
-            file_path, ci_only, slow, ignore
+            file_path, ci_only, slow, network
         )
         results.total += 1
 

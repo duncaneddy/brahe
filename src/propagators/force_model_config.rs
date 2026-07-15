@@ -594,7 +594,7 @@ pub enum PermanentTideConfig {
 pub struct OceanTideConfig {
     /// Truncation degree of the ocean tide expansion (2..=100). Default 20.
     pub degree: usize,
-    /// Truncation order (<= degree). Default 20.
+    /// Truncation order (2..=degree). Default 20.
     pub order: usize,
     /// Complement the 18 FES2004 main waves with the ~63 secondary waves of
     /// TN36 Table 6.7 via linear admittance interpolation (Eq. 6.16).
@@ -831,7 +831,7 @@ impl ForceModelConfig {
     ///    requires `central_body.fixed_frame()` to be set (needed to rotate into the
     ///    body-fixed frame the harmonics are expressed in).
     /// 7. `OceanTideConfig::degree` must be in `2..=100` (the FES2004 file's truncation
-    ///    limit) and `OceanTideConfig::order` must not exceed `degree`.
+    ///    limit) and `OceanTideConfig::order` must be in `2..=degree`.
     ///
     /// This method is called automatically at propagator construction (e.g.
     /// `DNumericalOrbitPropagator::new`); it may also be called explicitly ahead
@@ -923,6 +923,12 @@ impl ForceModelConfig {
                 return Err(BraheError::Error(format!(
                     "OceanTideConfig order ({}) must not exceed degree ({})",
                     ocean.order, ocean.degree
+                )));
+            }
+            if ocean.order < 2 {
+                return Err(BraheError::Error(format!(
+                    "OceanTideConfig order must be at least 2 (FES2004 file limit), got {}",
+                    ocean.order
                 )));
             }
         }
@@ -1932,6 +1938,18 @@ mod tests {
             }),
         });
         assert!(config.validate().is_err(), "degree < 2 must be rejected");
+
+        config.tides = Some(TidesConfiguration {
+            permanent: PermanentTideConfig::Auto,
+            solid: None,
+            ocean: Some(OceanTideConfig {
+                degree: 20,
+                order: 1,
+                include_admittance: true,
+                pole_tide: false,
+            }),
+        });
+        assert!(config.validate().is_err(), "order < 2 must be rejected");
 
         config.tides = Some(TidesConfiguration {
             permanent: PermanentTideConfig::Auto,

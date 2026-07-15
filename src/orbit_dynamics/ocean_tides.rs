@@ -462,6 +462,31 @@ pub struct OceanTideModel {
 }
 
 impl OceanTideModel {
+    /// Enforce the documented truncation bounds (2 <= m_max <= n_max <= 100);
+    /// out-of-range values would otherwise silently truncate the model.
+    ///
+    /// Shared by [`OceanTideModel::from_file`] and [`OceanTideModel::from_cache`]
+    /// so that `from_cache` can reject bad bounds *before* touching the cache
+    /// file: this is a caller-input error, not evidence of a corrupt cache, and
+    /// must never trigger cache deletion.
+    ///
+    /// # Arguments
+    ///
+    /// * `n_max`, `m_max` - Truncation degree/order (2 <= m_max <= n_max <= 100).
+    ///
+    /// # Errors
+    ///
+    /// Returns `BraheError` if the bounds are out of range.
+    fn validate_truncation_bounds(n_max: usize, m_max: usize) -> Result<(), BraheError> {
+        if m_max < 2 || n_max > 100 || m_max > n_max {
+            return Err(BraheError::Error(format!(
+                "invalid FES2004 truncation: require 2 <= m_max <= n_max <= 100, \
+                 got n_max={n_max}, m_max={m_max}"
+            )));
+        }
+        Ok(())
+    }
+
     /// Build from an explicit FES2004 coefficient file path.
     ///
     /// # Arguments
@@ -502,14 +527,7 @@ impl OceanTideModel {
         m_max: usize,
         include_admittance: bool,
     ) -> Result<Self, BraheError> {
-        // Enforce the documented truncation bounds (2 <= m_max <= n_max <= 100);
-        // out-of-range values would otherwise silently truncate the model.
-        if m_max < 2 || n_max > 100 || m_max > n_max {
-            return Err(BraheError::Error(format!(
-                "invalid FES2004 truncation: require 2 <= m_max <= n_max <= 100, \
-                 got n_max={n_max}, m_max={m_max}"
-            )));
-        }
+        Self::validate_truncation_bounds(n_max, m_max)?;
         let mut constituents = parse_fes2004_file(path, n_max, m_max)?;
         if include_admittance {
             let secondary = expand_admittance(&constituents)?;
@@ -532,9 +550,13 @@ impl OceanTideModel {
     ///
     /// # Errors
     ///
-    /// Returns `BraheError` if the FES2004 coefficients cannot be located or
-    /// downloaded (see [`fes2004_coefficients_path`]), or if parsing fails
-    /// (see [`OceanTideModel::from_file`]).
+    /// Returns `BraheError` if `n_max`/`m_max` are out of the documented bounds
+    /// (a plain error; the cache is left untouched), if the FES2004
+    /// coefficients cannot be located or downloaded (see
+    /// [`fes2004_coefficients_path`], likewise left untouched), or if the
+    /// cached file itself fails to parse or is missing main constituents — in
+    /// which case it is treated as corrupt, removed, and the error notes that
+    /// it will be re-downloaded on the next call.
     ///
     /// # Example
     ///
@@ -550,6 +572,11 @@ impl OceanTideModel {
         m_max: usize,
         include_admittance: bool,
     ) -> Result<Self, BraheError> {
+        // Reject bad truncation bounds up front: this is a caller-input error,
+        // not evidence that the cache is corrupt, so it must propagate as a
+        // plain error without touching (and, in particular, without deleting)
+        // the cache file.
+        Self::validate_truncation_bounds(n_max, m_max)?;
         let path = fes2004_coefficients_path()?;
         // A truncated download is rejected before caching (see
         // `fes2004_coefficients_path`), but a pre-existing cache file may have
@@ -801,6 +828,36 @@ mod tests {
                 None => std::env::remove_var("BRAHE_CACHE"),
             }
         }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_from_cache_rejects_bad_bounds_without_deleting_cache() {
+        // Out-of-range truncation bounds are a caller-input error, not cache
+        // corruption: `from_cache` must reject them without ever touching a
+        // valid, already-cached file.
+        let _guard = crate::utils::testing::setup_test_fes2004_cache();
+        let cached = std::path::PathBuf::from(crate::utils::cache::get_tides_cache_dir().unwrap())
+            .join("fes2004_Cnm-Snm.dat");
+        assert!(cached.exists(), "test fixture must be seeded");
+
+        let result = OceanTideModel::from_cache(20, 1, true);
+        let msg = match result {
+            Err(e) => e.to_string(),
+            Ok(_) => panic!("m_max=1 must be rejected"),
+        };
+        assert!(
+            msg.contains("truncation"),
+            "error should name the bounds violation, got: {msg}"
+        );
+        assert!(
+            !msg.contains("corrupt"),
+            "bounds error must not be misreported as cache corruption, got: {msg}"
+        );
+        assert!(
+            cached.exists(),
+            "valid cache file must survive a bounds-validation error"
+        );
     }
 
     #[test]

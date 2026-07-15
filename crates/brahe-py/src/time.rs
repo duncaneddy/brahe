@@ -1434,6 +1434,32 @@ impl PyEpoch {
         self.obj.to_string_as_time_system(time_system.ts)
     }
 
+    /// Return a new Epoch representing the same instant in a different time system.
+    ///
+    /// The epoch stores an absolute instant, so this changes only the time system the epoch
+    /// reports in — not the instant it denotes. The returned epoch equals the original.
+    ///
+    /// Args:
+    ///     time_system (TimeSystem): Time system the returned epoch will be expressed in
+    ///
+    /// Returns:
+    ///     Epoch: New epoch at the same instant, expressed in time_system
+    ///
+    /// Example:
+    ///     ```python
+    ///     import brahe as bh
+    ///
+    ///     epc = bh.Epoch.from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    ///     epc_gps = epc.to_time_system(bh.TimeSystem.GPS)
+    ///     print(epc_gps)       # 2020-01-01 00:00:18.000 GPS
+    ///     print(epc == epc_gps)  # True - same instant
+    ///     ```
+    pub fn to_time_system(&self, time_system: PyRef<PyTimeSystem>) -> PyEpoch {
+        PyEpoch {
+            obj: self.obj.to_time_system(time_system.ts),
+        }
+    }
+
     /// Get the Greenwich Apparent Sidereal Time (GAST) for this epoch.
     ///
     /// Args:

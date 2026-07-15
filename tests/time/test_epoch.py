@@ -544,6 +544,43 @@ def test_to_string_as_time_system(eop):
     epc.to_string_as_time_system(bh.GPS) == "2020-01-01 00:00:18.000 GPS"
 
 
+def test_epoch_to_time_system(eop):
+    epc = bh.Epoch.from_datetime(2020, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+    epc_gps = epc.to_time_system(bh.TimeSystem.GPS)
+
+    # The time system changes...
+    assert str(epc_gps) == "2020-01-01 00:00:18.000 GPS"
+
+    # ...but the instant does not.
+    assert epc == epc_gps
+
+    # The original is untouched.
+    assert str(epc) == "2020-01-01 00:00:00.000 UTC"
+
+    # to_time_system agrees with the projection methods.
+    for ts in [
+        bh.TimeSystem.GPS,
+        bh.TimeSystem.TAI,
+        bh.TimeSystem.TT,
+        bh.TimeSystem.UTC,
+        bh.TimeSystem.UT1,
+        bh.TimeSystem.TDB,
+        bh.TimeSystem.TCG,
+        bh.TimeSystem.TCB,
+        bh.TimeSystem.BDT,
+        bh.TimeSystem.GST,
+    ]:
+        assert str(epc.to_time_system(ts)) == epc.to_string_as_time_system(ts)
+        assert epc.to_time_system(ts).mjd() == pytest.approx(
+            epc.mjd_as_time_system(ts), abs=1e-9
+        )
+
+    # Round-tripping returns to the original.
+    assert (
+        epc.to_time_system(bh.TimeSystem.TAI).to_time_system(bh.TimeSystem.UTC) == epc
+    )
+
+
 def test_gmst(eop):
     epc = bh.Epoch.from_date(2000, 1, 1, bh.UTC)
     assert epc.gmst(bh.AngleFormat.DEGREES) == pytest.approx(99.969, abs=1e-3)

@@ -31,7 +31,7 @@ expressed.
 - **UTC** (Coordinated Universal Time): Atomic time scale steered to remain within +/- 0.9 seconds of UT1 by incorporating leap seconds. The standard for civil timekeeping worldwide.
 - **UT1** (Universal Time 1): Solar time representing Earth's rotation relative to the ICRF inertial frame. Mean solar time at 0 degrees longitude; varies irregularly with Earth's rotation. Computed from UTC using Earth Orientation Parameters.
 - **TDB** (Barycentric Dynamical Time): Time scale for solar system barycentric ephemerides. Differs from TT by small periodic terms (< 1.7 ms) from the relativistic effects of Earth's orbital motion. TDB seconds past J2000 is SPICE ephemeris time (ET).
-- **TCG** (Geocentric Coordinate Time): Coordinate time for geocentric reference systems. Differs from TT by a secular drift (~0.7 s/year) from Earth's gravitational time dilation.
+- **TCG** (Geocentric Coordinate Time): Coordinate time for geocentric reference systems. Differs from TT by a secular drift (~22 ms/year) from Earth's gravitational time dilation.
 - **TCB** (Barycentric Coordinate Time): Coordinate time for the solar system barycenter. Differs from TDB by a secular drift from relativistic effects.
 - **BDT** (BeiDou Navigation Satellite System Time): Atomic time scale aligned with UTC at inception (January 1, 2006). Fixed offset from TAI of 33 seconds (BDT = TAI - 33s).
 - **GST** (Galileo System Time): Atomic time scale for the Galileo navigation system. Steered to GPS time, sharing the same fixed offset from TAI of 19 seconds (GST = TAI - 19s).

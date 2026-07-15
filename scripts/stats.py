@@ -14,7 +14,7 @@ def main():
     python_files = list(EXAMPLES_DIR.glob("**/*.py"))
     pairs = sum(1 for rs in rust_files if rs.with_suffix(".py").exists())
 
-    ignored = sum(1 for rs in rust_files if check_flags(rs)[1] == "ignored")
+    network = sum(1 for rs in rust_files if check_flags(rs)[1] == "network")
     ci_only = sum(1 for rs in rust_files if check_flags(rs)[1] == "ci-only")
     slow = sum(1 for rs in rust_files if check_flags(rs)[1] == "slow")
 
@@ -35,7 +35,7 @@ def main():
     table.add_row("Missing Python", str(len(rust_files) - pairs))
     table.add_row("Missing Rust", str(len(python_files) - pairs))
     table.add_row("", "")
-    table.add_row("IGNORE flagged", str(ignored))
+    table.add_row("NETWORK flagged", str(network))
     table.add_row("CI-ONLY flagged", str(ci_only))
     table.add_row("SLOW flagged", str(slow))
 

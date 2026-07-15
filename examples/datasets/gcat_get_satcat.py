@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["IGNORE"]
+# FLAGS = ["NETWORK"]
 # ///
 """
 Download and inspect the GCAT SATCAT catalog.

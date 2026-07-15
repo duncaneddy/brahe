@@ -25,7 +25,7 @@ def main(
     strict: bool = typer.Option(False, "--strict", help="Fail on parity issues"),
     ci_only: bool = typer.Option(False, "--ci-only", help="Include CI-ONLY examples"),
     slow: bool = typer.Option(False, "--slow", help="Include SLOW examples"),
-    ignore: bool = typer.Option(False, "--ignore", help="Include IGNORE examples"),
+    network: bool = typer.Option(False, "--network", help="Include NETWORK examples"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
     lang: Optional[str] = typer.Option(
         None, "--lang", help="Filter by language: python/py or rust/rs"
@@ -103,7 +103,7 @@ def main(
                 for rust_file in rust_files:
                     rel_path = rust_file.relative_to(REPO_ROOT)
                     should_skip, reason, file_timeout = check_flags(
-                        rust_file, ci_only, slow, ignore
+                        rust_file, ci_only, slow, network
                     )
 
                     rust_results.total += 1
@@ -146,7 +146,7 @@ def main(
                     timeout,
                     ci_only,
                     slow,
-                    ignore,
+                    network,
                     rust_workers,
                     progress,
                     task,
@@ -177,7 +177,7 @@ def main(
                 for py_file in python_files:
                     rel_path = py_file.relative_to(REPO_ROOT)
                     should_skip, reason, file_timeout = check_flags(
-                        py_file, ci_only, slow, ignore
+                        py_file, ci_only, slow, network
                     )
 
                     python_results.total += 1
@@ -220,7 +220,7 @@ def main(
                     timeout,
                     ci_only,
                     slow,
-                    ignore,
+                    network,
                     python_workers,
                     progress,
                     task,

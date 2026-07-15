@@ -3,7 +3,7 @@
 //! This example demonstrates downloading the SATCAT catalog and looking up
 //! individual records by SATCAT number and JCAT identifier.
 //!
-//! FLAGS = ["IGNORE"]
+//! FLAGS = ["NETWORK"]
 
 #[allow(unused_imports)]
 use brahe as bh;

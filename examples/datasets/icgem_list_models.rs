@@ -3,7 +3,7 @@
 //! The first call fetches the listing from ICGEM and caches it under
 //! $BRAHE_CACHE/icgem/. Subsequent calls within the 30-day TTL read from disk.
 //!
-//! FLAGS = ["IGNORE"]
+//! FLAGS = ["NETWORK"]
 
 use brahe as bh;
 use bh::datasets::icgem::{ICGEMBody, list_icgem_models};

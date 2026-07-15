@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe", "numpy"]
-# FLAGS = ["IGNORE"]
+# FLAGS = ["NETWORK"]
 # ///
 """
 Propagating a spacecraft orbit about the Moon with ForceModelConfig.lunar_default().

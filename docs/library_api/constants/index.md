@@ -25,18 +25,4 @@ All constants use SI base units unless otherwise noted:
 - **Angles**: radians (rad)
 - **Gravitational Parameter**: m³/s²
 
-Constants are accessible directly from the `brahe` module:
-
-```python
-import brahe as bh
-
-# Mathematical constants
-angle_rad = 45.0 * bh.DEG2RAD  # Convert degrees to radians
-
-# Physical constants
-mu_earth = bh.GM_EARTH  # Earth's gravitational parameter
-c = bh.C_LIGHT          # Speed of light
-
-# Time system
-epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-```
+Constants are accessible directly from the `brahe` module.

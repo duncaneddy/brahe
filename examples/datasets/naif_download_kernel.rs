@@ -3,7 +3,7 @@
 //! This example demonstrates how to download and cache DE (Development Ephemeris)
 //! kernels from NASA JPL's NAIF archive.
 //!
-//! FLAGS = ["IGNORE"]
+//! FLAGS = ["NETWORK"]
 
 #[allow(unused_imports)]
 use brahe as bh;

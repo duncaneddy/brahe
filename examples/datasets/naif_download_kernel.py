@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe"]
-# FLAGS = ["IGNORE"]
+# FLAGS = ["NETWORK"]
 # ///
 """
 Download a NAIF DE kernel for planetary ephemeris data.

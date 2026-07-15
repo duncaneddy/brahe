@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe", "numpy"]
-# FLAGS = ["IGNORE"]
+# FLAGS = ["NETWORK"]
 # ///
 """
 Propagating a spacecraft orbit about Mars with ForceModelConfig.mars_default().

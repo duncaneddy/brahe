@@ -355,6 +355,7 @@ nav:
       - Time:
           - library_api/time/index.md
           - Epoch: library_api/time/epoch.md
+          - TimeSystem: library_api/time/time_system.md
           - Conversions: library_api/time/conversions.md
           - TimeRange: library_api/time/time_range.md
       - Coordinate Transformations:

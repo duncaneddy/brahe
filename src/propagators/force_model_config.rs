@@ -302,6 +302,7 @@ impl ForceModelConfig {
     ///         model: AtmosphericModel::HarrisPriester,
     ///         area: ParameterSource::ParameterIndex(1),
     ///         cd: ParameterSource::ParameterIndex(2),
+    ///         body: None,
     ///     }),
     ///     srp: None,
     ///     third_bodies: None,
@@ -1137,11 +1138,12 @@ pub enum GravityConfiguration {
 /// ```rust
 /// use brahe::propagators::{DragConfiguration, AtmosphericModel, ParameterSource};
 ///
-/// // Fixed Cd, variable area
+/// // Fixed Cd, variable area, drag about the central body
 /// let drag = DragConfiguration {
 ///     model: AtmosphericModel::HarrisPriester,
 ///     area: ParameterSource::ParameterIndex(1),  // From params[1]
 ///     cd: ParameterSource::Value(2.2),            // Fixed
+///     body: None,
 /// };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

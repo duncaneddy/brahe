@@ -1801,15 +1801,49 @@ impl DNumericalOrbitPropagator {
             let drag_area = drag_config.area.get_value(params_opt);
             let cd = drag_config.cd.get_value(params_opt);
 
-            // Compute atmospheric density
+            // Body whose atmosphere produces the drag. When attributed to a
+            // body other than the central body, the object's state, the
+            // body-fixed rotation, and the co-rotation vector are all taken
+            // relative to that body; the resulting acceleration applies
+            // directly in the (ICRF-oriented) propagation frame — drag has
+            // no indirect term. When the attribution matches the central
+            // body this is line-for-line the legacy central-body path.
+            let attributed = drag_config.body.as_ref().unwrap_or(central);
+            let (x_drag, r_i2b_drag) = if attributed.naif_id() == central.naif_id() {
+                (x_eci, r_i2b)
+            } else {
+                let body_state = crate::spice::registry::ensure_bodies_loadable(&[
+                    attributed.naif_id(),
+                    central.naif_id(),
+                ])
+                .and_then(|_| {
+                    crate::spice::registry::spk_state(
+                        attributed.naif_id(),
+                        central.naif_id(),
+                        epoch,
+                    )
+                })
+                .expect("SPK drag-body state query failed");
+                (
+                    x_eci - body_state,
+                    Self::attributed_rotation(attributed_rotations, attributed.naif_id()),
+                )
+            };
+            let r_drag = Vector3::new(x_drag[0], x_drag[1], x_drag[2]);
+
+            // Compute atmospheric density at the attributed-body-relative
+            // position
             let density = match &drag_config.model {
                 AtmosphericModel::HarrisPriester => {
+                    // Earth-only (validated): r_drag is Earth-relative and
+                    // sun_position is geocentric, so the diurnal-bulge
+                    // geometry holds.
                     let r_sun = sun_position(epoch);
-                    density_harris_priester(r, r_sun)
+                    density_harris_priester(r_drag, r_sun)
                 }
                 AtmosphericModel::NRLMSISE00 => {
                     // NRLMSISE00 requires ECEF position
-                    let r_ecef = r_i2b * r;
+                    let r_ecef = r_i2b_drag * r_drag;
                     density_nrlmsise00(&epoch, r_ecef).unwrap_or(0.0)
                 }
                 AtmosphericModel::Exponential {
@@ -1817,23 +1851,23 @@ impl DNumericalOrbitPropagator {
                     rho0,
                     h0,
                 } => {
-                    let radius = central
+                    let radius = attributed
                         .radius()
-                        .expect("drag requires central-body radius (validated)");
-                    let altitude = r.norm() - radius;
+                        .expect("drag requires attributed-body radius (validated)");
+                    let altitude = r_drag.norm() - radius;
                     let h_diff = altitude - h0;
                     rho0 * (-h_diff / scale_height).exp()
                 }
             };
 
-            // Compute drag acceleration using the central body's atmospheric
-            // co-rotation rate. For Earth this is bit-identical to the legacy
-            // `accel_drag` (which delegates to `accel_drag_for_body` with the
-            // same Earth spin vector).
-            let omega = central
+            // Compute drag acceleration using the attributed body's
+            // atmospheric co-rotation rate. For Earth this is bit-identical
+            // to the legacy `accel_drag` (which delegates to
+            // `accel_drag_for_body` with the same Earth spin vector).
+            let omega = attributed
                 .omega_vector()
-                .expect("drag requires central-body spin rate (validated)");
-            a_total += accel_drag_for_body(x_eci, density, mass, drag_area, cd, r_i2b, omega);
+                .expect("drag requires attributed-body spin rate (validated)");
+            a_total += accel_drag_for_body(x_drag, density, mass, drag_area, cd, r_i2b_drag, omega);
         }
 
         // ===== SOLAR RADIATION PRESSURE =====
@@ -13764,6 +13798,102 @@ mod tests {
                 xf_earth[i],
                 epsilon = 1e-3
             );
+        }
+    }
+
+    /// The drag-induced trajectory change of Earth-attributed drag under an
+    /// EMB central body must match the drag-induced change of the legacy
+    /// Earth-centered drag path. Differencing drag-on vs drag-off runs on
+    /// each side cancels the (integrator- and constants-limited) baseline
+    /// difference between the two gravitational formulations, isolating the
+    /// attributed-drag evaluation itself.
+    #[test]
+    #[cfg_attr(not(feature = "integration"), ignore)]
+    #[serial_test::serial]
+    fn test_emb_attributed_earth_drag_matches_earth_centered() {
+        use crate::propagators::force_model_config::ThirdBodyConfiguration;
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_earth = state_koe_to_eci(
+            nalgebra::Vector6::new(R_EARTH + 400e3, 0.001, 51.6, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+
+        let drag_earth = DragConfiguration {
+            model: AtmosphericModel::NRLMSISE00,
+            area: ParameterSource::Value(10.0),
+            cd: ParameterSource::Value(2.2),
+            body: None,
+        };
+        let drag_attributed = DragConfiguration {
+            body: Some(CentralBody::Earth),
+            ..drag_earth.clone()
+        };
+
+        let base =
+            |central: CentralBody,
+             drag: Option<DragConfiguration>,
+             third_bodies: Vec<ThirdBodyConfiguration>| ForceModelConfig {
+                central_body: central,
+                gravity: GravityConfiguration::PointMass,
+                drag,
+                srp: None,
+                third_bodies: Some(third_bodies),
+                relativity: false,
+                mass: Some(ParameterSource::Value(1000.0)),
+                frame_transform: FrameTransformationModel::default(),
+                tides: None,
+            };
+
+        let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
+        let x_emb = x_earth + earth_wrt_emb;
+        let epoch_end = epoch + 5400.0; // ~one orbit
+
+        let run = |central: CentralBody, drag: Option<DragConfiguration>| -> DVector<f64> {
+            let (x0, third_bodies) = if matches!(central, CentralBody::Earth) {
+                (x_earth, vec![ThirdBody::Moon.into()])
+            } else {
+                (x_emb, vec![ThirdBody::Earth.into(), ThirdBody::Moon.into()])
+            };
+            let mut prop = DNumericalOrbitPropagator::new(
+                epoch,
+                DVector::from_vec(x0.as_slice().to_vec()),
+                NumericalPropagationConfig::default(),
+                base(central, drag, third_bodies),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            prop.propagate_to(epoch_end);
+            prop.current_state().clone()
+        };
+
+        let earth_drag = run(CentralBody::Earth, Some(drag_earth));
+        let earth_no_drag = run(CentralBody::Earth, None);
+        let emb_drag = run(CentralBody::EMB, Some(drag_attributed));
+        let emb_no_drag = run(CentralBody::EMB, None);
+
+        // Drag must produce a substantial, matching effect on both sides.
+        let delta_earth = earth_drag - earth_no_drag;
+        let delta_emb = emb_drag - emb_no_drag;
+        let dr_earth =
+            (delta_earth[0].powi(2) + delta_earth[1].powi(2) + delta_earth[2].powi(2)).sqrt();
+        assert!(
+            dr_earth > 1.0,
+            "drag at 400 km should shift the orbit by meters over one orbit, got {dr_earth} m"
+        );
+        for i in 0..3 {
+            assert_abs_diff_eq!(delta_emb[i], delta_earth[i], epsilon = 0.1);
+        }
+        for i in 3..6 {
+            assert_abs_diff_eq!(delta_emb[i], delta_earth[i], epsilon = 1e-4);
         }
     }
 }

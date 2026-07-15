@@ -2908,4 +2908,26 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_density_nrlmsise00_lunar_distance_is_negligible() {
+        // An Earth-attributed drag model on a cislunar trajectory evaluates
+        // density at very large Earth distances; the exosphere extrapolation
+        // must stay finite and effectively zero rather than erroring.
+        use nalgebra::Vector3;
+
+        use crate::time::{Epoch, TimeSystem};
+        crate::utils::testing::setup_global_test_eop();
+        crate::utils::testing::setup_global_test_space_weather();
+
+        let epoch = Epoch::from_datetime(2020, 6, 1, 12, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_ecef = Vector3::new(3.8e8, 0.0, 0.0); // ~lunar distance
+        let rho = density_nrlmsise00(&epoch, x_ecef).unwrap();
+        assert!(rho.is_finite());
+        assert!(
+            rho < 1e-15,
+            "density at lunar distance should be negligible, got {rho}"
+        );
+    }
 }

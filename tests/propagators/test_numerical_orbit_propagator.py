@@ -6009,3 +6009,60 @@ def test_emb_earth_spherical_harmonic_matches_earth_centered(naif_cache_setup):
 
     assert np.allclose(xf_emb_in_earth[:3], xf_earth[:3], atol=1.0)
     assert np.allclose(xf_emb_in_earth[3:], xf_earth[3:], atol=1e-3)
+
+
+@pytest.mark.integration
+def test_emb_attributed_earth_drag_matches_earth_centered(
+    naif_cache_setup, sw_test_filepath
+):
+    """The drag-induced trajectory change of Earth-attributed drag under an
+    EMB central body matches the legacy Earth-centered drag path (mirrors the
+    Rust test of the same name; drag-on minus drag-off differencing cancels
+    the formulation baseline)."""
+    import brahe as bh
+
+    sw = bh.FileSpaceWeatherProvider.from_file(sw_test_filepath, "Hold")
+    bh.set_global_space_weather_provider(sw)
+
+    epoch = create_test_epoch()
+    oe = np.array([bh.R_EARTH + 400e3, 0.001, 51.6, 15.0, 30.0, 45.0])
+    x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    x_emb = x_earth + spk_state(399, 3, epoch)
+    epoch_end = epoch + 5400.0
+
+    def run(central, drag):
+        if central == CentralBody.Earth:
+            x0, third_bodies = x_earth, [bh.ThirdBody.MOON]
+        else:
+            x0, third_bodies = x_emb, [bh.ThirdBody.EARTH, bh.ThirdBody.MOON]
+        config = ForceModelConfig.for_body(
+            central,
+            GravityConfiguration.point_mass(),
+            drag=drag,
+            third_bodies=third_bodies,
+            mass=bh.ParameterSource.value(1000.0),
+        )
+        prop = NumericalOrbitPropagator(
+            epoch, x0, NumericalPropagationConfig.default(), config, None
+        )
+        prop.propagate_to(epoch_end)
+        return prop.current_state()
+
+    drag_earth = bh.DragConfiguration(
+        model=bh.AtmosphericModel.NRLMSISE00,
+        area=bh.ParameterSource.value(10.0),
+        cd=bh.ParameterSource.value(2.2),
+    )
+    drag_attributed = bh.DragConfiguration(
+        model=bh.AtmosphericModel.NRLMSISE00,
+        area=bh.ParameterSource.value(10.0),
+        cd=bh.ParameterSource.value(2.2),
+        body=CentralBody.Earth,
+    )
+
+    delta_earth = run(CentralBody.Earth, drag_earth) - run(CentralBody.Earth, None)
+    delta_emb = run(CentralBody.EMB, drag_attributed) - run(CentralBody.EMB, None)
+
+    assert np.linalg.norm(delta_earth[:3]) > 1.0
+    assert np.allclose(delta_emb[:3], delta_earth[:3], atol=0.1)
+    assert np.allclose(delta_emb[3:], delta_earth[3:], atol=1e-4)

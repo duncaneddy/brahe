@@ -143,6 +143,51 @@ For GPS applications, you can create epochs from GPS week number and seconds int
         --8<-- "./docs/outputs/time/epoch_gps.rs.txt"
         ```
 
+## Time System
+
+Every `Epoch` carries a `TimeSystem`, set at construction. It records the time
+scale the epoch is expressed in. For what each scale means and when to use it,
+see [Time Systems and Representations](index.md).
+
+In Python the time system is optional and defaults to UTC when omitted; it can
+be given either as an enumeration member (`bh.TimeSystem.GPS`) or as the
+equivalent module-level constant (`bh.GPS`). Rust requires it explicitly at
+construction, using `bh::TimeSystem::GPS`.
+
+An `Epoch` stores an absolute instant, and the time system only determines the
+scale it reports in. `to_time_system` returns a new `Epoch` at the same instant
+expressed in a different scale — it changes how the epoch prints, not when it
+is. The original is left untouched, and the two compare equal because they
+denote the same instant.
+
+To read a single value out in another scale without creating a new `Epoch`, use
+the `*_as_time_system` family: `to_datetime_as_time_system`,
+`to_string_as_time_system`, `jd_as_time_system`, `mjd_as_time_system`,
+`day_of_year_as_time_system`, and `seconds_past_j2000_as_time_system`.
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/time/epoch_time_system.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/time/epoch_time_system.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/time/epoch_time_system.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/time/epoch_time_system.rs.txt"
+        ```
+
 ## Operations
 
 Once you have an epoch class instance you can add and subtract time as you would expect.
@@ -328,4 +373,5 @@ time argument used by SPK/PCK kernel queries (`spk_position`,
 ## See Also
 
 - [Epoch API Reference](../../library_api/time/epoch.md)
+- [TimeSystem API Reference](../../library_api/time/time_system.md)
 - [SPICE Kernels](../spice/index.md) - Using ET for kernel queries

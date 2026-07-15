@@ -54,7 +54,7 @@ pub enum TimeSystem {
     /// of Earth's orbital motion. Computed via Kaplan (2005:15) / Vallado Eq. 3-53.
     TDB,
     /// Geocentric Coordinate Time. Coordinate time for geocentric reference systems.
-    /// Differs from TT by a secular drift (~0.7 s/year) due to Earth's gravitational
+    /// Differs from TT by a secular drift (~22 ms/year) due to Earth's gravitational
     /// time dilation. Computed via Vallado Eq. 3-56.
     TCG,
     /// Barycentric Coordinate Time. Coordinate time for the solar system barycenter.

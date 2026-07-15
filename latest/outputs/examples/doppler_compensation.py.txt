@@ -1,37 +1,37 @@
 Downloading ISS TLE from CelesTrak...
 Downloaded ISS TLE in 0.00 seconds.
-Epoch: 2026-07-14 09:52:42.163 UTC
+Epoch: 2026-07-15 02:54:37.164 UTC
 Semi-major axis: 6797.8 km
 
 Loading NASA Near Earth Network ground stations...
 Loaded 18 NASA NEN ground stations in 0.00 seconds.
 
 Creating ground track visualization...
-Created ground track visualization in 2.22 seconds.
+Created ground track visualization in 2.16 seconds.
 
 Computing 72-hour access windows with Doppler compensation...
-Computed 13 access windows in 0.46 seconds.
+Computed 13 access windows in 0.39 seconds.
 
 ====================================================================================================
 Sample Access Windows with Doppler Time Series (first 5)
 ====================================================================================================
 Start Time                  Duration   Max Elev  # Samples   Peak S-band   Peak X-band
 ----------------------------------------------------------------------------------------------------
-2026-07-14 22:21:21            8.5 m     85.5°       5117      50.47 kHz     192.71 kHz
-2026-07-15 00:00:37            4.5 m      8.2°       2686      25.38 kHz      96.90 kHz
-2026-07-15 04:57:52            2.6 m      5.9°       1539      14.36 kHz      54.83 kHz
-2026-07-15 06:32:18            8.5 m     54.6°       5092      49.72 kHz     189.83 kHz
-2026-07-15 08:10:44            4.4 m      8.2°       2647      26.01 kHz      99.32 kHz
+2026-07-15 04:57:51            2.6 m      5.9°       1548      14.42 kHz      55.07 kHz
+2026-07-15 06:32:18            8.5 m     54.6°       5097      49.71 kHz     189.80 kHz
+2026-07-15 08:10:44            4.4 m      8.2°       2657      26.07 kHz      99.54 kHz
+2026-07-15 21:34:06            8.3 m     43.4°       4963      49.23 kHz     187.97 kHz
+2026-07-15 23:11:59            6.4 m     13.5°       3836      36.74 kHz     140.26 kHz
 ====================================================================================================
 
-Analyzing detailed Doppler profile for window starting at 2026-07-14 22:21:21.870 UTC
+Analyzing detailed Doppler profile for window starting at 2026-07-15 06:32:18.707 UTC
 Window duration: 8.5 minutes
 Extracting precomputed Doppler time series...
-Extracted 5117 samples (0.1s interval) in 0.00 seconds.
+Extracted 5097 samples (0.1s interval) in 0.00 seconds.
 ✓ Exported 11 samples to docs/figures/doppler_compensation_data.csv
 
 Creating Doppler compensation visualization...
-Created Doppler visualization in 0.11 seconds.
+Created Doppler visualization in 0.10 seconds.
 
 ✓ Generated docs/figures/doppler_compensation_groundtrack_light.html
 ✓ Generated docs/figures/doppler_compensation_groundtrack_dark.html
@@ -39,5 +39,5 @@ Created Doppler visualization in 0.11 seconds.
 ✓ Generated docs/figures/doppler_compensation_doppler_dark.html
 
 Doppler Compensation Analysis Complete!
-Peak S-band Doppler: 50.47 kHz
-Peak X-band Doppler: 192.71 kHz
+Peak S-band Doppler: 49.71 kHz
+Peak X-band Doppler: 189.80 kHz

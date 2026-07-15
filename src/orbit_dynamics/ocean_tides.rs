@@ -558,7 +558,6 @@ impl OceanTideModel {
     /// # Returns
     ///
     /// (none)
-    #[allow(dead_code)] // consumed by Task 9+: ocean tide acceleration model
     pub(crate) fn accumulate_deltas(&self, args: &[f64; 6], deltas: &mut TideDeltas) {
         for wave in &self.constituents {
             let theta = tide_argument(&wave.delaunay, args);

@@ -2480,7 +2480,7 @@ def test_numericalorbitpropagator_force_third_body_moon():
     assert prop.current_epoch() == epoch + 6 * 3600.0
 
 
-def test_numericalorbitpropagator_force_high_fidelity():
+def test_numericalorbitpropagator_force_high_fidelity(_fes2004_cache_setup):
     """Test high fidelity force model (mirrors Rust test)"""
     epoch = create_test_epoch()
     state = create_leo_state()

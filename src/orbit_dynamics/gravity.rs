@@ -719,6 +719,29 @@ impl ClenshawCoefficients {
             self.s[idx - (self.n_stride + 1)] = s;
         }
     }
+
+    /// Read the fully-normalized coefficient pair at `(n, m)` (companion to
+    /// [`ClenshawCoefficients::set_normalized`], same triangular index
+    /// arithmetic). `m = 0` returns `s = 0.0` (the sine column is not stored).
+    /// Panics (debug) if `n > n_stride` or `m > n` — callers bound-check at
+    /// construction.
+    ///
+    /// # Arguments
+    /// - `n`, `m`: degree and order of the coefficient to read.
+    ///
+    /// # Returns
+    /// Tuple `(C̄nm, S̄nm)`, fully-normalized; `S̄nm = 0.0` when `m = 0`.
+    pub(crate) fn get_normalized(&self, n: usize, m: usize) -> (f64, f64) {
+        debug_assert!(n <= self.n_stride && m <= n);
+        let idx = self.index(n, m);
+        let c = self.c[idx];
+        let s = if m > 0 {
+            self.s[idx - (self.n_stride + 1)]
+        } else {
+            0.0
+        };
+        (c, s)
+    }
 }
 
 /// Per-order partial sums produced by one inner Clenshaw sweep over degree.
@@ -4366,6 +4389,27 @@ mod tests {
         // sqrt table covers max(2*n_max + 5, 15) inclusive and holds sqrt(k).
         assert_eq!(tables.sqrt_table.len(), (2 * model.n_max + 5).max(15) + 1);
         assert_abs_diff_eq!(tables.sqrt_table[4], 2.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_clenshaw_coefficients_get_normalized_roundtrips_set() {
+        // get_normalized is the exact inverse of set_normalized at every
+        // (n, m); m = 0 reports s = 0.0 (the sine column is not stored).
+        let mut tables = ClenshawCoefficients::zeros(6);
+        for &(n, m, c, s) in &[
+            (2usize, 0usize, -4.84e-4, 9.9e9), // s ignored for m = 0
+            (2, 1, 1.5e-9, -2.7e-9),
+            (2, 2, 2.4e-6, -1.4e-6),
+            (5, 3, 3.1e-7, 7.2e-8),
+            (6, 6, -5.5e-8, 6.6e-8),
+        ] {
+            tables.set_normalized(n, m, c, s);
+            let (gc, gs) = tables.get_normalized(n, m);
+            assert_eq!(gc, c);
+            assert_eq!(gs, if m > 0 { s } else { 0.0 });
+        }
+        // Untouched entries read back as zero.
+        assert_eq!(tables.get_normalized(4, 2), (0.0, 0.0));
     }
 
     #[test]

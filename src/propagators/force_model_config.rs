@@ -178,6 +178,7 @@ impl Default for ForceModelConfig {
                 model: AtmosphericModel::NRLMSISE00,
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
+                body: None,
             }),
             srp: Some(SolarRadiationPressureConfiguration {
                 area: ParameterSource::ParameterIndex(3),
@@ -388,6 +389,7 @@ impl ForceModelConfig {
                 model: AtmosphericModel::NRLMSISE00,
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
+                body: None,
             }),
             srp: Some(SolarRadiationPressureConfiguration {
                 area: ParameterSource::ParameterIndex(3),
@@ -494,6 +496,7 @@ impl ForceModelConfig {
                 model: AtmosphericModel::NRLMSISE00,
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
+                body: None,
             }),
             srp: Some(SolarRadiationPressureConfiguration {
                 area: ParameterSource::ParameterIndex(3),
@@ -709,6 +712,7 @@ impl ForceModelConfig {
                 },
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
+                body: None,
             }),
             Some(SolarRadiationPressureConfiguration {
                 area: ParameterSource::ParameterIndex(3),
@@ -755,22 +759,27 @@ impl ForceModelConfig {
     /// Validate that this configuration's options are compatible with its central body
     ///
     /// Checks six classes of central-body-dependent constraints:
-    /// 1. Earth-specific options (`AtmosphericModel::HarrisPriester`/`NRLMSISE00`,
-    ///    `GravityConfiguration::EarthZonal`, `FrameTransformationModel::EarthRotationOnly`,
+    /// 1. Earth-specific central-body options (`GravityConfiguration::EarthZonal` as the
+    ///    central gravity field, `FrameTransformationModel::EarthRotationOnly`,
     ///    `EphemerisSource::LowPrecision`, `TidesConfiguration`) are rejected for any
     ///    non-Earth central body.
-    /// 2. `EphemerisSource::LowPrecision` only models the Sun and Moon; any other
-    ///    configured third body (e.g. a planet) is rejected regardless of central body,
-    ///    since the underlying acceleration routines panic rather than compute a result
-    ///    for low-precision planet queries.
-    /// 3. A configured third body whose NAIF ID matches the central body's NAIF ID is
-    ///    rejected — a body cannot perturb an orbit centered on itself.
-    /// 4. Barycenters (`CentralBody::is_barycenter`) have no mass or rotation of their
-    ///    own, so `GravityConfiguration::SphericalHarmonic` and any `drag` configuration
-    ///    are rejected.
-    /// 5. `drag` requires `central_body.radius()` and `central_body.omega_vector()` to
-    ///    both be known (needed for atmospheric co-rotation and altitude calculations).
-    /// 6. `GravityConfiguration::SphericalHarmonic` on a `CentralBody::Custom` body
+    /// 2. Per third-body entry: `EphemerisSource::LowPrecision` only models the Sun and
+    ///    Moon (and only about Earth); an entry whose NAIF ID matches the central body's
+    ///    is rejected (a body cannot perturb an orbit centered on itself);
+    ///    `GravityConfiguration::EarthZonal` requires `ThirdBody::Earth`; and
+    ///    `GravityConfiguration::SphericalHarmonic` requires the body to have a known
+    ///    body-fixed frame ([`ThirdBody::body_fixed_frame`]), which excludes the
+    ///    `*Barycenter` variants and `Custom` bodies.
+    /// 3. Barycenter central bodies (`CentralBody::is_barycenter`) have no mass or
+    ///    rotation of their own, so `GravityConfiguration::SphericalHarmonic` as the
+    ///    central gravity field is rejected.
+    /// 4. Drag rules key on the *attributed* body — `DragConfiguration::body`, or the
+    ///    central body when `None`: `AtmosphericModel::HarrisPriester`/`NRLMSISE00`
+    ///    model Earth's atmosphere and require the attributed body to be Earth; the
+    ///    attributed body must have a known radius and spin rate (needed for altitude
+    ///    and atmospheric co-rotation). Drag about a barycenter central body is
+    ///    therefore valid only with an explicit physical `DragConfiguration::body`.
+    /// 5. `GravityConfiguration::SphericalHarmonic` on a `CentralBody::Custom` body
     ///    requires `central_body.fixed_frame()` to be set (needed to rotate into the
     ///    body-fixed frame the harmonics are expressed in).
     ///
@@ -793,26 +802,6 @@ impl ForceModelConfig {
         let is_earth = matches!(self.central_body, CentralBody::Earth);
 
         if !is_earth {
-            if let Some(ref drag) = self.drag {
-                match drag.model {
-                    AtmosphericModel::HarrisPriester => {
-                        return Err(BraheError::Error(format!(
-                            "AtmosphericModel::HarrisPriester requires an Earth central body, \
-                             but central_body is {}",
-                            self.central_body
-                        )));
-                    }
-                    AtmosphericModel::NRLMSISE00 => {
-                        return Err(BraheError::Error(format!(
-                            "AtmosphericModel::NRLMSISE00 requires an Earth central body, but \
-                             central_body is {}",
-                            self.central_body
-                        )));
-                    }
-                    AtmosphericModel::Exponential { .. } => {}
-                }
-            }
-
             if matches!(self.gravity, GravityConfiguration::EarthZonal { .. }) {
                 return Err(BraheError::Error(format!(
                     "GravityConfiguration::EarthZonal requires an Earth central body, but \
@@ -882,39 +871,81 @@ impl ForceModelConfig {
                             .to_string(),
                     ));
                 }
+                match &tb.gravity {
+                    GravityConfiguration::PointMass => {}
+                    GravityConfiguration::EarthZonal { .. } => {
+                        if !matches!(tb.body, ThirdBody::Earth) {
+                            return Err(BraheError::Error(format!(
+                                "GravityConfiguration::EarthZonal on a third body requires \
+                                 ThirdBody::Earth (the J coefficients and reference radius are \
+                                 Earth's), but the body is {:?}",
+                                tb.body
+                            )));
+                        }
+                    }
+                    GravityConfiguration::SphericalHarmonic { .. } => {
+                        if tb.body.body_fixed_frame().is_none() {
+                            return Err(BraheError::Error(format!(
+                                "GravityConfiguration::SphericalHarmonic on third body {:?} \
+                                 requires a body-fixed frame to orient the field, but none is \
+                                 known (barycenters and Custom bodies are not supported)",
+                                tb.body
+                            )));
+                        }
+                    }
+                }
             }
         }
 
-        if self.central_body.is_barycenter() {
-            if matches!(self.gravity, GravityConfiguration::SphericalHarmonic { .. }) {
-                return Err(BraheError::Error(format!(
-                    "GravityConfiguration::SphericalHarmonic requires a physical central body, \
-                     but central_body is a barycenter ({})",
-                    self.central_body
-                )));
-            }
-            if self.drag.is_some() {
-                return Err(BraheError::Error(format!(
-                    "drag requires a physical central body, but central_body is a barycenter \
-                     ({})",
-                    self.central_body
-                )));
-            }
+        if self.central_body.is_barycenter()
+            && matches!(self.gravity, GravityConfiguration::SphericalHarmonic { .. })
+        {
+            return Err(BraheError::Error(format!(
+                "GravityConfiguration::SphericalHarmonic requires a physical central body, \
+                 but central_body is a barycenter ({})",
+                self.central_body
+            )));
         }
 
-        if self.drag.is_some() {
-            if self.central_body.radius().is_none() {
+        if let Some(ref drag) = self.drag {
+            // Rules key on the *attributed* body: the body whose atmosphere
+            // produces the drag (the central body unless overridden).
+            let attributed = drag.body.as_ref().unwrap_or(&self.central_body);
+            match drag.model {
+                AtmosphericModel::HarrisPriester => {
+                    if !matches!(attributed, CentralBody::Earth) {
+                        return Err(BraheError::Error(format!(
+                            "AtmosphericModel::HarrisPriester models Earth's atmosphere and \
+                             requires the drag body to be Earth, but the drag is attributed \
+                             to {}",
+                            attributed
+                        )));
+                    }
+                }
+                AtmosphericModel::NRLMSISE00 => {
+                    if !matches!(attributed, CentralBody::Earth) {
+                        return Err(BraheError::Error(format!(
+                            "AtmosphericModel::NRLMSISE00 models Earth's atmosphere and \
+                             requires the drag body to be Earth, but the drag is attributed \
+                             to {}",
+                            attributed
+                        )));
+                    }
+                }
+                AtmosphericModel::Exponential { .. } => {}
+            }
+            if attributed.radius().is_none() {
                 return Err(BraheError::Error(format!(
-                    "drag requires central_body.radius() to be known, but central_body {} has \
-                     no known radius",
-                    self.central_body
+                    "drag requires the attributed body's radius to be known, but {} has no \
+                     known radius",
+                    attributed
                 )));
             }
-            if self.central_body.omega_vector().is_none() {
+            if attributed.omega_vector().is_none() {
                 return Err(BraheError::Error(format!(
-                    "drag requires central_body.omega_vector() to be known, but central_body \
-                     {} has no known spin rate",
-                    self.central_body
+                    "drag requires the attributed body's spin rate to be known, but {} has no \
+                     known spin rate",
+                    attributed
                 )));
             }
         }
@@ -1123,6 +1154,13 @@ pub struct DragConfiguration {
 
     /// Drag coefficient (dimensionless, typically 2.0-2.5)
     pub cd: ParameterSource,
+
+    /// Body whose atmosphere produces the drag. `None` (default) means the
+    /// propagation's central body. Set to a different body to evaluate drag
+    /// at the object's state relative to that body — e.g. Earth drag on a
+    /// cislunar trajectory propagated about `CentralBody::EMB`.
+    #[serde(default)]
+    pub body: Option<CentralBody>,
 }
 
 /// Atmospheric density model
@@ -2121,6 +2159,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
+                body: None,
             }),
             gravity: GravityConfiguration::PointMass,
             srp: None,
@@ -2143,6 +2182,7 @@ mod tests {
                 model: AtmosphericModel::NRLMSISE00,
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
+                body: None,
             }),
             gravity: GravityConfiguration::PointMass,
             srp: None,
@@ -2337,6 +2377,7 @@ mod tests {
                 },
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
+                body: None,
             }),
             srp: None,
             third_bodies: None,
@@ -2371,6 +2412,7 @@ mod tests {
                 },
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
+                body: None,
             }),
             srp: None,
             third_bodies: None,
@@ -2498,6 +2540,129 @@ mod tests {
         };
         assert!(custom.as_central_body().is_none());
         assert!(custom.body_fixed_frame().is_none());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_third_body_gravity_rules() {
+        // EarthZonal on a non-Earth third body is rejected
+        let mut config = ForceModelConfig::cislunar_default();
+        config.third_bodies = Some(vec![ThirdBodyConfiguration {
+            gravity: GravityConfiguration::EarthZonal {
+                degree: ZonalHarmonicsDegree::J2,
+            },
+            ..ThirdBody::Moon.into()
+        }]);
+        assert!(config.validate().is_err());
+
+        // EarthZonal on ThirdBody::Earth is accepted
+        config.third_bodies = Some(vec![ThirdBodyConfiguration {
+            gravity: GravityConfiguration::EarthZonal {
+                degree: ZonalHarmonicsDegree::J2,
+            },
+            ..ThirdBody::Earth.into()
+        }]);
+        assert!(config.validate().is_ok());
+
+        // SphericalHarmonic on a barycenter variant is rejected (no fixed frame)
+        config.third_bodies = Some(vec![ThirdBodyConfiguration {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::default(),
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Never,
+            },
+            ..ThirdBody::JupiterBarycenter.into()
+        }]);
+        assert!(config.validate().is_err());
+
+        // SphericalHarmonic on Earth as a third body is accepted
+        config.third_bodies = Some(vec![ThirdBodyConfiguration {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::default(),
+                degree: 8,
+                order: 8,
+                parallel: ParallelMode::Never,
+            },
+            ..ThirdBody::Earth.into()
+        }]);
+        assert!(config.validate().is_ok());
+
+        // SphericalHarmonic on a Custom third body is rejected
+        config.third_bodies = Some(vec![ThirdBodyConfiguration {
+            gravity: GravityConfiguration::SphericalHarmonic {
+                source: GravityModelSource::default(),
+                degree: 4,
+                order: 4,
+                parallel: ParallelMode::Never,
+            },
+            ..ThirdBody::Custom {
+                name: "Ceres".to_string(),
+                naif_id: 2000001,
+                gm: 6.26325e10,
+            }
+            .into()
+        }]);
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_validate_attributed_drag_body() {
+        // EMB central + NRLMSISE-00 drag attributed to Earth: accepted
+        let mut config = ForceModelConfig::cislunar_default();
+        config.mass = Some(ParameterSource::Value(1000.0));
+        config.drag = Some(DragConfiguration {
+            model: AtmosphericModel::NRLMSISE00,
+            area: ParameterSource::Value(10.0),
+            cd: ParameterSource::Value(2.2),
+            body: Some(CentralBody::Earth),
+        });
+        assert!(config.validate().is_ok());
+
+        // EMB central + drag with no attributed body: rejected (barycenter)
+        config.drag.as_mut().unwrap().body = None;
+        assert!(config.validate().is_err());
+
+        // Harris-Priester attributed to the Moon: rejected (Earth-only model)
+        config.drag = Some(DragConfiguration {
+            model: AtmosphericModel::HarrisPriester,
+            area: ParameterSource::Value(10.0),
+            cd: ParameterSource::Value(2.2),
+            body: Some(CentralBody::Moon),
+        });
+        assert!(config.validate().is_err());
+
+        // Drag attributed to a barycenter: rejected (no radius/spin)
+        config.drag = Some(DragConfiguration {
+            model: AtmosphericModel::Exponential {
+                scale_height: 8500.0,
+                rho0: 1.225,
+                h0: 0.0,
+            },
+            area: ParameterSource::Value(10.0),
+            cd: ParameterSource::Value(2.2),
+            body: Some(CentralBody::EMB),
+        });
+        assert!(config.validate().is_err());
+
+        // Earth central with NRLMSISE-00, no attribution: still accepted
+        let config = ForceModelConfig::leo_default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_drag_configuration_body_serde_default() {
+        // Configurations serialized before the field existed load as
+        // body: None (drag about the central body).
+        let json = r#"{
+            "model": "HarrisPriester",
+            "area": {"Value": 10.0},
+            "cd": {"Value": 2.2}
+        }"#;
+        let drag: DragConfiguration = serde_json::from_str(json).unwrap();
+        assert!(drag.body.is_none());
     }
 
     #[test]

@@ -633,3 +633,102 @@ def test_third_body_body_fixed_frame():
     assert brahe.ThirdBody.MOON.body_fixed_frame() == brahe.ReferenceFrame.LFPA
     assert brahe.ThirdBody.MARS.body_fixed_frame() == brahe.ReferenceFrame.MCMF
     assert brahe.ThirdBody.MARS_BARYCENTER.body_fixed_frame() is None
+
+
+def test_validate_third_body_gravity_rules():
+    """Mirrors the Rust test of the same name."""
+    # EarthZonal on a non-Earth third body is rejected
+    config = ForceModelConfig.cislunar_default()
+    config.third_bodies = [
+        ThirdBodyConfiguration(
+            ThirdBody.MOON,
+            gravity=GravityConfiguration.earth_zonal(ZonalHarmonicsDegree.J2),
+        )
+    ]
+    with pytest.raises(RuntimeError, match="EarthZonal"):
+        config.validate()
+
+    # EarthZonal on ThirdBody.EARTH is accepted
+    config.third_bodies = [
+        ThirdBodyConfiguration(
+            ThirdBody.EARTH,
+            gravity=GravityConfiguration.earth_zonal(ZonalHarmonicsDegree.J2),
+        )
+    ]
+    config.validate()
+
+    # SphericalHarmonic on a barycenter variant is rejected (no fixed frame)
+    config.third_bodies = [
+        ThirdBodyConfiguration(
+            ThirdBody.JUPITER_BARYCENTER,
+            gravity=GravityConfiguration.spherical_harmonic(degree=8, order=8),
+        )
+    ]
+    with pytest.raises(RuntimeError, match="body-fixed frame"):
+        config.validate()
+
+    # SphericalHarmonic on Earth as a third body is accepted
+    config.third_bodies = [
+        ThirdBodyConfiguration(
+            ThirdBody.EARTH,
+            gravity=GravityConfiguration.spherical_harmonic(degree=8, order=8),
+        )
+    ]
+    config.validate()
+
+    # SphericalHarmonic on a Custom third body is rejected
+    config.third_bodies = [
+        ThirdBodyConfiguration(
+            ThirdBody.Custom(name="Ceres", naif_id=2000001, gm=6.26325e10),
+            gravity=GravityConfiguration.spherical_harmonic(degree=4, order=4),
+        )
+    ]
+    with pytest.raises(RuntimeError, match="body-fixed frame"):
+        config.validate()
+
+
+def test_validate_attributed_drag_body():
+    """Mirrors the Rust test of the same name."""
+    # EMB central + NRLMSISE-00 drag attributed to Earth: accepted
+    config = ForceModelConfig.cislunar_default()
+    config.mass = ParameterSource.value(1000.0)
+    config.drag = DragConfiguration(
+        model=AtmosphericModel.NRLMSISE00,
+        area=ParameterSource.value(10.0),
+        cd=ParameterSource.value(2.2),
+        body=CentralBody.Earth,
+    )
+    config.validate()
+
+    # EMB central + drag with no attributed body: rejected (barycenter)
+    config.drag = DragConfiguration(
+        model=AtmosphericModel.NRLMSISE00,
+        area=ParameterSource.value(10.0),
+        cd=ParameterSource.value(2.2),
+    )
+    assert config.drag.body is None
+    with pytest.raises(RuntimeError):
+        config.validate()
+
+    # Harris-Priester attributed to the Moon: rejected (Earth-only model)
+    config.drag = DragConfiguration(
+        model=AtmosphericModel.HARRIS_PRIESTER,
+        area=ParameterSource.value(10.0),
+        cd=ParameterSource.value(2.2),
+        body=CentralBody.Moon,
+    )
+    with pytest.raises(RuntimeError, match="HarrisPriester"):
+        config.validate()
+
+    # Drag attributed to a barycenter: rejected (no radius/spin)
+    config.drag = DragConfiguration(
+        model=AtmosphericModel.exponential(scale_height=8500.0, rho0=1.225, h0=0.0),
+        area=ParameterSource.value(10.0),
+        cd=ParameterSource.value(2.2),
+        body=CentralBody.EMB,
+    )
+    with pytest.raises(RuntimeError):
+        config.validate()
+
+    # Earth central with NRLMSISE-00, no attribution: still accepted
+    ForceModelConfig.leo_default().validate()

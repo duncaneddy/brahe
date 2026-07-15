@@ -20,6 +20,7 @@ fn main() {
             model: bh::AtmosphericModel::HarrisPriester,
             area: bh::ParameterSource::ParameterIndex(1), // Index into parameter vector
             cd: bh::ParameterSource::ParameterIndex(2),
+            body: None,
         }),
         // Solar radiation pressure: Conical eclipse model
         srp: Some(bh::SolarRadiationPressureConfiguration {

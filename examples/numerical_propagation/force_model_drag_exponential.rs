@@ -13,6 +13,7 @@ fn main() {
         },
         area: bh::ParameterSource::ParameterIndex(1),
         cd: bh::ParameterSource::ParameterIndex(2),
+        body: None,
     };
 
     // Create force model with exponential drag

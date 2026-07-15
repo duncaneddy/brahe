@@ -4416,17 +4416,24 @@ impl PyGravityConfiguration {
 
 /// Atmospheric drag configuration.
 ///
-/// Defines the atmospheric model and drag parameters.
+/// Defines the atmospheric model and drag parameters. The optional `body`
+/// attributes the drag to a body other than the propagation's central body:
+/// density and relative wind are then evaluated at the object's state
+/// relative to that body (e.g. Earth drag on an EMB-centered cislunar
+/// trajectory).
 ///
 /// Args:
 ///     model (AtmosphericModel): Atmospheric density model.
 ///     area (ParameterSource): Drag cross-sectional area source [m²].
 ///     cd (ParameterSource): Drag coefficient source (dimensionless).
+///     body (CentralBody, optional): Body whose atmosphere produces the
+///         drag. Defaults to None, meaning the propagation's central body.
 ///
 /// Attributes:
 ///     model (AtmosphericModel): Atmospheric density model
 ///     area (ParameterSource): Drag area source
 ///     cd (ParameterSource): Drag coefficient source
+///     body (CentralBody or None): Attributed drag body
 ///
 /// Example:
 ///     ```python
@@ -4436,6 +4443,14 @@ impl PyGravityConfiguration {
 ///         model=bh.AtmosphericModel.HARRIS_PRIESTER,
 ///         area=bh.ParameterSource.parameter_index(1),
 ///         cd=bh.ParameterSource.value(2.2)
+///     )
+///
+///     # Earth-attributed drag for an EMB-centered propagation
+///     cislunar_drag = bh.DragConfiguration(
+///         model=bh.AtmosphericModel.NRLMSISE00,
+///         area=bh.ParameterSource.value(10.0),
+///         cd=bh.ParameterSource.value(2.2),
+///         body=bh.CentralBody.Earth,
 ///     )
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
@@ -4453,16 +4468,36 @@ impl PyDragConfiguration {
     ///     model (AtmosphericModel): Atmospheric density model.
     ///     area (ParameterSource): Drag cross-sectional area source [m²].
     ///     cd (ParameterSource): Drag coefficient source (dimensionless).
+    ///     body (CentralBody, optional): Body whose atmosphere produces the
+    ///         drag. Defaults to None, meaning the propagation's central body.
     #[new]
-    #[pyo3(signature = (model, area, cd))]
-    fn new(model: &PyAtmosphericModel, area: &PyParameterSource, cd: &PyParameterSource) -> Self {
+    #[pyo3(signature = (model, area, cd, body=None))]
+    fn new(
+        model: &PyAtmosphericModel,
+        area: &PyParameterSource,
+        cd: &PyParameterSource,
+        body: Option<&PyCentralBody>,
+    ) -> Self {
         PyDragConfiguration {
             config: propagators::DragConfiguration {
                 model: model.model.clone(),
                 area: area.source.clone(),
                 cd: cd.source.clone(),
+                body: body.map(|b| b.body.clone()),
             },
         }
+    }
+
+    /// Get the attributed drag body (None = the propagation's central body).
+    #[getter]
+    fn body(&self) -> Option<PyCentralBody> {
+        self.config.body.as_ref().map(|b| PyCentralBody { body: b.clone() })
+    }
+
+    /// Set the attributed drag body (None = the propagation's central body).
+    #[setter]
+    fn set_body(&mut self, body: Option<&PyCentralBody>) {
+        self.config.body = body.map(|b| b.body.clone());
     }
 
     /// Get the atmospheric model.
@@ -4509,8 +4544,8 @@ impl PyDragConfiguration {
 
     fn __repr__(&self) -> String {
         format!(
-            "DragConfiguration(model={:?}, area={:?}, cd={:?})",
-            self.config.model, self.config.area, self.config.cd
+            "DragConfiguration(model={:?}, area={:?}, cd={:?}, body={:?})",
+            self.config.model, self.config.area, self.config.cd, self.config.body
         )
     }
 }

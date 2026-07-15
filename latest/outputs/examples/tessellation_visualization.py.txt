@@ -10,25 +10,25 @@ NISAR tessellation: 4 tiles
   Tile 3: width=242 km, length=480 km
 
 Computing collection opportunities...
-Found 647 collection windows in 0.07s
+Found 650 collection windows in 0.07s
 
 ======================================================================
 Collection Opportunity Summary (7-day period)
 ======================================================================
-  Total windows:     647
-  Min duration:      56.4 s (0.9 min)
-  Max duration:      3566.9 s (59.4 min)
-  Average duration:  1913.2 s (31.9 min)
-  Median duration:   1379.4 s (23.0 min)
+  Total windows:     650
+  Min duration:      29.9 s (0.5 min)
+  Max duration:      3562.9 s (59.4 min)
+  Average duration:  1902.5 s (31.7 min)
+  Median duration:   1378.2 s (23.0 min)
 ======================================================================
 
 Start                        End                          Duration (s)
 ----------------------------------------------------------------------
-  2026-07-15 03:31:15.380 UTC  2026-07-15 03:53:26.935 UTC      1331.6
-  2026-07-15 03:31:25.928 UTC  2026-07-15 03:53:32.087 UTC      1326.2
-  2026-07-15 03:31:36.150 UTC  2026-07-15 03:54:15.109 UTC      1359.0
-  2026-07-15 03:31:45.280 UTC  2026-07-15 03:54:16.710 UTC      1351.4
-  2026-07-15 04:01:53.727 UTC  2026-07-15 04:24:25.923 UTC      1352.2
+  2026-07-15 14:30:12.603 UTC  2026-07-15 14:39:11.485 UTC       538.9
+  2026-07-15 14:30:12.603 UTC  2026-07-15 14:39:26.435 UTC       553.8
+  2026-07-15 14:30:12.603 UTC  2026-07-15 14:39:39.825 UTC       567.2
+  2026-07-15 14:30:12.603 UTC  2026-07-15 14:38:59.881 UTC       527.3
+  2026-07-15 15:25:25.613 UTC  2026-07-15 16:21:36.399 UTC      3370.8
 Generated all light figures
 Generated all dark figures
 

@@ -23,6 +23,7 @@ pub mod drag;
 pub mod ephemerides;
 pub mod gravity;
 pub mod ocean_tides;
+mod ocean_tides_admittance;
 pub mod relativity;
 pub mod solar_radiation_pressure;
 pub mod third_body;

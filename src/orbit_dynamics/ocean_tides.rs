@@ -9,6 +9,7 @@ once into `$BRAHE_CACHE/tides/` from
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use crate::orbit_dynamics::ocean_tides_admittance::ADMITTANCE_TABLE;
 use crate::utils::BraheError;
 use crate::utils::cache::get_tides_cache_dir;
 use crate::utils::fs::atomic_write;
@@ -68,7 +69,6 @@ pub fn fes2004_coefficients_path() -> Result<PathBuf, BraheError> {
 /// retrograde (−) fully-normalized geopotential amplitudes C±/S± (IERS TN36
 /// Eq. 6.15 inputs), dimensionless (file units of 1e-11 already applied).
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)] // consumed by Task 6+: ocean tide acceleration model
 pub(crate) struct OceanTideLine {
     pub n: u16,
     pub m: u16,
@@ -81,10 +81,11 @@ pub(crate) struct OceanTideLine {
 /// One tidal constituent: Doodson multipliers, Darwin name, precomputed
 /// multipliers of `[γ, l, l′, F, D, Ω]` (Task 6), and coefficient lines.
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // consumed by Task 6+: ocean tide acceleration model
 pub(crate) struct OceanTideConstituent {
     pub doodson: [i8; 6],
+    #[allow(dead_code)] // consumed by Task 8+: ocean tide acceleration model
     pub name: String,
+    #[allow(dead_code)] // consumed by Task 8+: ocean tide acceleration model
     pub delaunay: [i32; 6],
     pub lines: Vec<OceanTideLine>,
 }
@@ -105,7 +106,6 @@ pub(crate) struct OceanTideConstituent {
 ///
 /// Returns `BraheError` if `s` is not of the form `DDD.DDD` (three digits, a
 /// literal `.`, then three digits).
-#[allow(dead_code)] // consumed by Task 6+: ocean tide acceleration model
 pub(crate) fn parse_doodson(s: &str) -> Result<[i8; 6], BraheError> {
     let t = s.trim();
     let (head, tail) = t
@@ -190,7 +190,6 @@ const DOODSON_RATES_DEG_PER_HOUR: [f64; 6] = [
 /// # Returns
 ///
 /// * `f64` - Argument rate θ̇f [deg/hour].
-#[allow(dead_code)] // consumed by Task 7+: ocean tide admittance interpolation
 pub(crate) fn theta_dot_deg_per_hour(k: [i8; 6]) -> f64 {
     k.iter()
         .zip(DOODSON_RATES_DEG_PER_HOUR.iter())
@@ -311,6 +310,96 @@ pub(crate) fn parse_fes2004_file(
         )));
     }
     Ok(waves)
+}
+
+/// Expand the FES2004 main waves with the secondary (admittance) waves of
+/// TN36 Table 6.7 by linear admittance interpolation between the two pivot
+/// main waves (Eq. 6.16):
+///
+/// ```text
+/// C±f = (θ̇f−θ̇1)/(θ̇2−θ̇1)·(Hf/H2)·C±2 + (θ̇2−θ̇f)/(θ̇2−θ̇1)·(Hf/H1)·C±1
+/// ```
+///
+/// The weights are time-independent, so the expansion happens once at model
+/// load. Rows without pivots are main waves already present in `main` (or
+/// S1, excluded per §6.3.2) and are skipped.
+///
+/// # Arguments
+///
+/// * `main` - FES2004 main-wave constituents, e.g. from [`parse_fes2004_file`].
+///
+/// # Returns
+///
+/// * `Vec<OceanTideConstituent>` - The 63 secondary constituents only; the
+///   caller appends these to `main`.
+///
+/// # Errors
+///
+/// Returns `BraheError` if a pivot wave named in Table 6.7 is missing from
+/// `main` (indicating the file was truncated or parsed incorrectly).
+#[allow(dead_code)] // consumed by Task 8+: ocean tide acceleration model
+pub(crate) fn expand_admittance(
+    main: &[OceanTideConstituent],
+) -> Result<Vec<OceanTideConstituent>, BraheError> {
+    let find = |doodson: [i8; 6]| main.iter().find(|w| w.doodson == doodson);
+    let hf_of = |doodson_str: &str| -> Result<f64, BraheError> {
+        ADMITTANCE_TABLE
+            .iter()
+            .find(|r| parse_doodson(r.doodson).ok() == parse_doodson(doodson_str).ok())
+            .map(|r| r.hf)
+            .ok_or_else(|| BraheError::Error(format!("pivot {doodson_str} missing from Table 6.7")))
+    };
+
+    let mut out = Vec::new();
+    for row in ADMITTANCE_TABLE.iter() {
+        let Some((p1, p2)) = row.pivots else { continue };
+        let kf = parse_doodson(row.doodson)?;
+        let k1 = parse_doodson(p1)?;
+        let k2 = parse_doodson(p2)?;
+        let (w1c, w2c) = {
+            let (tf, t1, t2) = (
+                theta_dot_deg_per_hour(kf),
+                theta_dot_deg_per_hour(k1),
+                theta_dot_deg_per_hour(k2),
+            );
+            let frac = (tf - t1) / (t2 - t1);
+            let (h1, h2) = (hf_of(p1)?, hf_of(p2)?);
+            ((1.0 - frac) * row.hf / h1, frac * row.hf / h2)
+        };
+        let c1 = find(k1).ok_or_else(|| {
+            BraheError::Error(format!("pivot {p1} of {} not in FES2004 file", row.doodson))
+        })?;
+        let c2 = find(k2).ok_or_else(|| {
+            BraheError::Error(format!("pivot {p2} of {} not in FES2004 file", row.doodson))
+        })?;
+
+        // Union of pivot (n, m) grids, weighted combination per line.
+        let mut lines: std::collections::BTreeMap<(u16, u16), OceanTideLine> =
+            std::collections::BTreeMap::new();
+        for (w, c) in [(w1c, c1), (w2c, c2)] {
+            for l in &c.lines {
+                let e = lines.entry((l.n, l.m)).or_insert(OceanTideLine {
+                    n: l.n,
+                    m: l.m,
+                    c_plus: 0.0,
+                    s_plus: 0.0,
+                    c_minus: 0.0,
+                    s_minus: 0.0,
+                });
+                e.c_plus += w * l.c_plus;
+                e.s_plus += w * l.s_plus;
+                e.c_minus += w * l.c_minus;
+                e.s_minus += w * l.s_minus;
+            }
+        }
+        out.push(OceanTideConstituent {
+            doodson: kf,
+            name: row.name.to_string(),
+            delaunay: doodson_to_delaunay(kf),
+            lines: lines.into_values().collect(),
+        });
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -451,5 +540,85 @@ mod tests {
         unsafe {
             std::env::remove_var("BRAHE_CACHE");
         }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_admittance_table_integrity() {
+        use crate::orbit_dynamics::ocean_tides_admittance::ADMITTANCE_TABLE;
+        // 18 main rows (in the FES2004 file), S1 excluded (no pivots, not in file),
+        // 63 secondary rows with pivots. M4 is main with no Hf dependence.
+        let with_pivots = ADMITTANCE_TABLE
+            .iter()
+            .filter(|r| r.pivots.is_some())
+            .count();
+        assert_eq!(with_pivots, 63);
+        // Every pivot must be a main wave present in the FES2004 file.
+        let file_waves: std::collections::HashSet<[i8; 6]> = [
+            "55.565", "55.575", "56.554", "57.555", "65.455", "75.555", "85.455", "93.555",
+            "135.655", "145.555", "163.555", "165.555", "235.755", "245.655", "255.555", "273.555",
+            "275.555", "455.555",
+        ]
+        .iter()
+        .map(|s| parse_doodson(s).unwrap())
+        .collect();
+        for row in ADMITTANCE_TABLE.iter() {
+            if let Some((p1, p2)) = row.pivots {
+                assert!(
+                    file_waves.contains(&parse_doodson(p1).unwrap()),
+                    "pivot {p1} of {} is not a FES2004 main wave",
+                    row.doodson
+                );
+                assert!(
+                    file_waves.contains(&parse_doodson(p2).unwrap()),
+                    "pivot {p2} of {} is not a FES2004 main wave",
+                    row.doodson
+                );
+            }
+        }
+        // Anchor amplitudes (Table 6.7): K1 .36878, O1 -.26221, M2 .63192.
+        let hf = |d: &str| ADMITTANCE_TABLE.iter().find(|r| r.doodson == d).unwrap().hf;
+        assert_eq!(hf("165.555"), 0.36878);
+        assert_eq!(hf("145.555"), -0.26221);
+        assert_eq!(hf("255.555"), 0.63192);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_expand_admittance_155555_weights() {
+        // 155.555 (Hf = -0.00399) pivots O1 (145.555, H1 = -0.26221) and
+        // K1 (165.555, H2 = 0.36878). Its frequency is exactly midway:
+        // (θ̇f-θ̇1)/(θ̇2-θ̇1) = ṡ/(2ṡ) = 0.5, so per Eq. (6.16)
+        //   C± = 0.5·(Hf/H2)·C±_K1 + 0.5·(Hf/H1)·C±_O1.
+        let _guard = crate::utils::testing::setup_test_fes2004_cache();
+        let path = fes2004_coefficients_path().unwrap();
+        let main = parse_fes2004_file(&path, 30, 30).unwrap();
+        let secondary = expand_admittance(&main).unwrap();
+        let w = secondary
+            .iter()
+            .find(|w| w.doodson == parse_doodson("155.555").unwrap())
+            .unwrap();
+        let k1 = main
+            .iter()
+            .find(|w| w.doodson == parse_doodson("165.555").unwrap())
+            .unwrap();
+        let o1 = main
+            .iter()
+            .find(|w| w.doodson == parse_doodson("145.555").unwrap())
+            .unwrap();
+        let (hf, h1, h2) = (-0.00399, -0.26221, 0.36878);
+        let pick = |c: &OceanTideConstituent, n, m| {
+            *c.lines.iter().find(|l| l.n == n && l.m == m).unwrap()
+        };
+        let (lf, l1, l2) = (pick(w, 2, 1), pick(o1, 2, 1), pick(k1, 2, 1));
+        let expected = 0.5 * (hf / h2) * l2.c_plus + 0.5 * (hf / h1) * l1.c_plus;
+        assert!(
+            (lf.c_plus - expected).abs() < 1e-18,
+            "got {} want {expected}",
+            lf.c_plus
+        );
+
+        // Expanded set covers all pivot rows: 63 secondary constituents.
+        assert_eq!(secondary.len(), 63);
     }
 }

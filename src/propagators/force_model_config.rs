@@ -634,21 +634,16 @@ pub struct TidesConfiguration {
     /// Ocean tides. `None` disables ocean tides.
     pub ocean: Option<OceanTideConfig>,
     /// Ephemeris source for the Sun and Moon positions the tidal corrections
-    /// are computed from. Defaults to [`EphemerisSource::LowPrecision`] (the
-    /// analytic geocentric Sun/Moon ephemerides), which is accurate enough for
-    /// the ~1e-7 m/s² tidal perturbation. Set to a SPICE source
+    /// are computed from. [`TidesConfiguration::default`] uses
+    /// [`EphemerisSource::LowPrecision`] (the analytic geocentric Sun/Moon
+    /// ephemerides), which is accurate enough for the ~1e-7 m/s² tidal
+    /// perturbation. Set to a SPICE source
     /// ([`EphemerisSource::DE440s`]/[`EphemerisSource::DE440`]/
     /// [`EphemerisSource::SPK`]) to share positions with a third-body
-    /// perturbation configured against the same source. Unlike the `Option`
-    /// fields, a missing key in a serialized config deserializes to
-    /// `LowPrecision` (via the serde default) so previously serialized configs
-    /// keep loading.
-    #[serde(default = "default_tides_ephemeris_source")]
+    /// perturbation configured against the same source. Serialized
+    /// configurations must carry this key (no serde default, matching the
+    /// struct's other fields).
     pub ephemeris_source: EphemerisSource,
-}
-
-fn default_tides_ephemeris_source() -> EphemerisSource {
-    EphemerisSource::LowPrecision
 }
 
 impl Default for TidesConfiguration {
@@ -2021,22 +2016,25 @@ mod tests {
         // serde_derive deserializes a missing Option field to None even without
         // #[serde(default)], so configurations serialized before the ocean field
         // existed load with ocean tides disabled rather than erroring.
-        let tides: TidesConfiguration =
-            serde_json::from_str(r#"{"permanent":"Auto","solid":null}"#).unwrap();
+        let tides: TidesConfiguration = serde_json::from_str(
+            r#"{"permanent":"Auto","solid":null,"ephemeris_source":"LowPrecision"}"#,
+        )
+        .unwrap();
         assert_eq!(tides.ocean, None);
         assert_eq!(tides.solid, None);
     }
 
     #[test]
     #[serial_test::parallel]
-    fn test_tides_configuration_missing_ephemeris_source_deserializes_low_precision() {
-        // A config serialized before `ephemeris_source` existed (missing key)
-        // must keep loading. Unlike the Option fields, a missing non-Option key
-        // errors without #[serde(default)], so the serde default pins it to
-        // LowPrecision.
-        let tides: TidesConfiguration =
-            serde_json::from_str(r#"{"permanent":"Auto","solid":null,"ocean":null}"#).unwrap();
-        assert_eq!(tides.ephemeris_source, EphemerisSource::LowPrecision);
+    fn test_tides_configuration_missing_ephemeris_source_errors() {
+        // `ephemeris_source` carries no serde default (none of this struct's
+        // fields do), so a config serialized before the field existed fails to
+        // deserialize — a deliberate breaking change; the missing key must be
+        // added explicitly.
+        let result: Result<TidesConfiguration, _> =
+            serde_json::from_str(r#"{"permanent":"Auto","solid":null,"ocean":null}"#);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("ephemeris_source"));
     }
 
     #[test]

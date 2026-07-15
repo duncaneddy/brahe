@@ -290,8 +290,9 @@ tidal and third-body force terms. `ForceModelConfig.high_fidelity()` sets
 `ephemeris_source=EphemerisSource.DE440s` for exactly this consistency with its
 third-body configuration.
 
-A configuration serialized before this field existed deserializes without
-error, defaulting to `EphemerisSource.LowPrecision`.
+A configuration serialized before this field existed fails to deserialize;
+add an explicit `ephemeris_source` key (e.g. `LowPrecision`) when loading
+older serialized configurations.
 
 ### Permanent Tide Only
 

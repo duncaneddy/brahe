@@ -1,5 +1,5 @@
 Downloading ICEYE constellation TLEs from CelesTrak...
-Loaded 51 ICEYE satellites in 0.45 seconds.
+Loaded 51 ICEYE satellites in 0.49 seconds.
 
 ICEYE Constellation:
   1. ICEYE-X2
@@ -20,8 +20,7 @@ ICEYE Constellation:
   ... and 46 more
 
 Propagating constellation for visualization...
-Downloading Natural Earth 50m shaded relief texture (attempt 1/3)...
-Created 3D visualization in 8.30 seconds.
+Created 3D visualization in 6.48 seconds.
 
 Resetting propagators for access computation...
 
@@ -35,7 +34,7 @@ Defining imaging constraints:
   - Off-nadir angle: 35-45 degrees
 
 Computing 7-day imaging opportunities...
-Computed 2905 imaging opportunities in 14.32 seconds.
+Computed 2905 imaging opportunities in 18.41 seconds.
 
 ==========================================================================================
 Sample Imaging Opportunities (first 10)

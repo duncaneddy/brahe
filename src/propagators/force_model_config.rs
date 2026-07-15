@@ -862,7 +862,11 @@ impl ForceModelConfig {
                 // Mars-centered propagation would divide by a near-zero
                 // perturber distance. The planet itself (NAIF 499 ==
                 // CentralBody::Mars.naif_id()) is caught by the NAIF-ID
-                // equality check above.
+                // equality check above. No other *Barycenter variant needs
+                // this guard: the outer-planet system barycenters sit well
+                // outside their planets' centers (e.g. the Jupiter system
+                // barycenter is ~1e2 km from Jupiter's center), and brahe
+                // has no built-in central body for those planets anyway.
                 if matches!(tb.body, ThirdBody::MarsBarycenter)
                     && matches!(self.central_body, CentralBody::Mars)
                 {

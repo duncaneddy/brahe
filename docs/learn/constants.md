@@ -70,4 +70,4 @@ be well known and do not change frequently.
 [^3]: P. Gérard and B. Luzum, *IERS Technical Note 36*, 2010
 [^4]: J. Ries, S. Bettadpur, R. Eanes, Z. Kang, U. Ko, C. McCullough, P. Nagel, N. Pie, S. Poole, T. Richter, H. Save, and B. Tapley, Development and Evaluation of the Global Gravity Model GGM05, 2016
 [^5]: Department of Defense World Geodetic System 1984, Its Definition and Relationships With Local Geodetic Systems
-[^6]: NAIF `gm_de440.tpc` (JPL DE440 "ASTRO-VALUES"); R.S. Park, W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL Planetary and Lunar Ephemerides DE440 and DE441*, The Astronomical Journal, 161:105, 2021
+[^6]: NAIF `gm_de440.tpc` (JPL/Horizons DE440 "ASTRO-VALUES" constant set; barycentric system GMs are the DE440 solution values, planet-only GMs are Horizons-curated satellite-solution values); R.S. Park, W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL Planetary and Lunar Ephemerides DE440 and DE441*, The Astronomical Journal, 161:105, 2021

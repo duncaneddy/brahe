@@ -174,10 +174,13 @@ pub const GM_VENUS: f64 = 324858.592000 * 1e9;
 ///
 /// # References:
 ///
-///  1. NAIF `gm_de440.tpc` (`BODY499_GM`), JPL DE440 "ASTRO-VALUES";
-///     R.S. Park, W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL
-///     Planetary and Lunar Ephemerides DE440 and DE441*, The Astronomical
-///     Journal, 161:105, 2021. doi:10.3847/1538-3881/abd414
+///  1. NAIF `gm_de440.tpc` (`BODY499_GM`), from the JPL/Horizons-curated
+///     DE440 "ASTRO-VALUES" constant set distributed alongside R.S. Park,
+///     W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL Planetary and
+///     Lunar Ephemerides DE440 and DE441*, The Astronomical Journal,
+///     161:105, 2021. doi:10.3847/1538-3881/abd414. The planet-only GMs are
+///     Horizons-curated satellite-solution values; the `GM_*_SYSTEM`
+///     barycentric values are the DE440 solution values.
 ///
 /// # Examples
 /// ```
@@ -207,10 +210,13 @@ pub const GM_MARS_SYSTEM: f64 = 42_828.375_815_756_1 * 1e9;
 ///
 /// # References:
 ///
-///  1. NAIF `gm_de440.tpc` (`BODY599_GM`), JPL DE440 "ASTRO-VALUES";
-///     R.S. Park, W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL
-///     Planetary and Lunar Ephemerides DE440 and DE441*, The Astronomical
-///     Journal, 161:105, 2021. doi:10.3847/1538-3881/abd414
+///  1. NAIF `gm_de440.tpc` (`BODY599_GM`), from the JPL/Horizons-curated
+///     DE440 "ASTRO-VALUES" constant set distributed alongside R.S. Park,
+///     W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL Planetary and
+///     Lunar Ephemerides DE440 and DE441*, The Astronomical Journal,
+///     161:105, 2021. doi:10.3847/1538-3881/abd414. The planet-only GMs are
+///     Horizons-curated satellite-solution values; the `GM_*_SYSTEM`
+///     barycentric values are the DE440 solution values.
 ///
 /// # Examples
 /// ```
@@ -240,10 +246,13 @@ pub const GM_JUPITER_SYSTEM: f64 = 126712764.1 * 1e9;
 ///
 /// # References:
 ///
-///  1. NAIF `gm_de440.tpc` (`BODY699_GM`), JPL DE440 "ASTRO-VALUES";
-///     R.S. Park, W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL
-///     Planetary and Lunar Ephemerides DE440 and DE441*, The Astronomical
-///     Journal, 161:105, 2021. doi:10.3847/1538-3881/abd414
+///  1. NAIF `gm_de440.tpc` (`BODY699_GM`), from the JPL/Horizons-curated
+///     DE440 "ASTRO-VALUES" constant set distributed alongside R.S. Park,
+///     W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL Planetary and
+///     Lunar Ephemerides DE440 and DE441*, The Astronomical Journal,
+///     161:105, 2021. doi:10.3847/1538-3881/abd414. The planet-only GMs are
+///     Horizons-curated satellite-solution values; the `GM_*_SYSTEM`
+///     barycentric values are the DE440 solution values.
 ///
 /// # Examples
 /// ```
@@ -273,10 +282,13 @@ pub const GM_SATURN_SYSTEM: f64 = 37940584.8418 * 1e9;
 ///
 /// # References:
 ///
-///  1. NAIF `gm_de440.tpc` (`BODY799_GM`), JPL DE440 "ASTRO-VALUES";
-///     R.S. Park, W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL
-///     Planetary and Lunar Ephemerides DE440 and DE441*, The Astronomical
-///     Journal, 161:105, 2021. doi:10.3847/1538-3881/abd414
+///  1. NAIF `gm_de440.tpc` (`BODY799_GM`), from the JPL/Horizons-curated
+///     DE440 "ASTRO-VALUES" constant set distributed alongside R.S. Park,
+///     W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL Planetary and
+///     Lunar Ephemerides DE440 and DE441*, The Astronomical Journal,
+///     161:105, 2021. doi:10.3847/1538-3881/abd414. The planet-only GMs are
+///     Horizons-curated satellite-solution values; the `GM_*_SYSTEM`
+///     barycentric values are the DE440 solution values.
 ///
 /// # Examples
 /// ```
@@ -306,10 +318,13 @@ pub const GM_URANUS_SYSTEM: f64 = 5794556.4 * 1e9;
 ///
 /// # References:
 ///
-///  1. NAIF `gm_de440.tpc` (`BODY899_GM`), JPL DE440 "ASTRO-VALUES";
-///     R.S. Park, W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL
-///     Planetary and Lunar Ephemerides DE440 and DE441*, The Astronomical
-///     Journal, 161:105, 2021. doi:10.3847/1538-3881/abd414
+///  1. NAIF `gm_de440.tpc` (`BODY899_GM`), from the JPL/Horizons-curated
+///     DE440 "ASTRO-VALUES" constant set distributed alongside R.S. Park,
+///     W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL Planetary and
+///     Lunar Ephemerides DE440 and DE441*, The Astronomical Journal,
+///     161:105, 2021. doi:10.3847/1538-3881/abd414. The planet-only GMs are
+///     Horizons-curated satellite-solution values; the `GM_*_SYSTEM`
+///     barycentric values are the DE440 solution values.
 ///
 /// # Examples
 /// ```

@@ -228,7 +228,7 @@ nav:
           - Tidal Corrections: learn/orbital_dynamics/tides.md
       - Earth Models:
           - Magnetic Field Models: learn/earth_models/magnetic_field.md
-      - Orbit Propagation:
+      - Propagators:
           - learn/orbit_propagation/index.md
           - Keplerian Propagation: learn/orbit_propagation/keplerian_propagation.md
           - SGP Propagation: learn/orbit_propagation/sgp_propagation.md
@@ -277,7 +277,7 @@ nav:
               - File Operations: learn/ephemeris/spacetrack/file_operations.md
               - Rate Limiting: learn/ephemeris/spacetrack/rate_limiting.md
           - CelesTrak: learn/ephemeris/celestrak.md
-      - Space Weather Data:
+      - Space Weather:
           - learn/space_weather/index.md
           - learn/space_weather/managing_space_weather_data.md
       - Datasets:
@@ -286,7 +286,7 @@ nav:
           - Groundstations: learn/datasets/groundstations.md
           - GCAT: learn/datasets/gcat.md
           - ICGEM: learn/datasets/icgem.md
-      - CCSDS Data Formats:
+      - CCSDS:
           - learn/ccsds/index.md
           - OEM - Orbit Ephemeris Message: learn/ccsds/oem.md
           - OMM - Orbit Mean-elements Message: learn/ccsds/omm.md
@@ -346,7 +346,7 @@ nav:
           - Mathematical: library_api/constants/math.md
           - Time: library_api/constants/time.md
           - Physical: library_api/constants/physical.md
-      - EOP:
+      - Earth Orientation Data:
           - library_api/eop/index.md
           - CachingEOPProvider: library_api/eop/caching_provider.md
           - FileEOPProvider: library_api/eop/file_provider.md
@@ -357,13 +357,13 @@ nav:
           - Epoch: library_api/time/epoch.md
           - Conversions: library_api/time/conversions.md
           - TimeRange: library_api/time/time_range.md
-      - Coordinates:
+      - Coordinate Transformations:
           - library_api/coordinates/index.md
           - Cartesian: library_api/coordinates/cartesian.md
           - Geodetic & Geocentric: library_api/coordinates/geodetic.md
           - Topocentric: library_api/coordinates/topocentric.md
           - Enumerations: library_api/coordinates/enums.md
-      - Frames:
+      - Reference Frame Transformations:
           - library_api/frames/index.md
           - ECI ↔ ECEF: library_api/frames/eci_ecef.md
           - GCRF ↔ ITRF: library_api/frames/gcrf_itrf.md
@@ -380,7 +380,7 @@ nav:
           - Walker Constellations: library_api/orbits/walker.md
           - Altitude Functions: library_api/orbits/altitude_functions.md
           - Enumerations: library_api/orbits/enums.md
-      - Attitude:
+      - Attitude Representation:
           - library_api/attitude/index.md
           - Quaternion: library_api/attitude/quaternion.md
           - Rotation Matrix: library_api/attitude/rotation_matrix.md
@@ -400,6 +400,12 @@ nav:
           - Solar Radiation Pressure: library_api/orbit_dynamics/solar_radiation_pressure.md
           - Relativistic Effects: library_api/orbit_dynamics/relativity.md
           - Ephemerides: library_api/orbit_dynamics/ephemerides.md
+      - Earth Models:
+          - library_api/earth_models/index.md
+          - Harris-Priester: library_api/earth_models/harris_priester.md
+          - NRLMSISE-00: library_api/earth_models/nrlmsise00.md
+          - IGRF-14: library_api/earth_models/igrf.md
+          - WMMHR-2025: library_api/earth_models/wmmhr.md
       - Propagators:
           - library_api/propagators/index.md
           - Keplerian Propagator: library_api/propagators/keplerian_propagator.md
@@ -409,13 +415,6 @@ nav:
           - Numerical Propagation Config: library_api/propagators/numerical_propagation_config.md
           - Force Model Config: library_api/propagators/force_model_config.md
           - Functions: library_api/propagators/functions.md
-      - Estimation:
-          - library_api/estimation/index.md
-          - Common Types: library_api/estimation/common_types.md
-          - Extended Kalman Filter: library_api/estimation/extended_kalman_filter.md
-          - Unscented Kalman Filter: library_api/estimation/unscented_kalman_filter.md
-          - Batch Least Squares: library_api/estimation/batch_least_squares.md
-          - Measurement Models: library_api/estimation/measurement_models.md
       - Event Detection:
           - library_api/events/index.md
           - Event Detectors: library_api/events/detectors.md
@@ -427,7 +426,7 @@ nav:
           - RTN Transformations: library_api/relative_motion/rtn_transformations.md
           - ROE Transformations: library_api/relative_motion/roe_transformations.md
           - ECI-ROE Transformations: library_api/relative_motion/eci_roe_transformations.md
-      - Access:
+      - Access Computation:
           - library_api/access/index.md
           - Locations: library_api/access/locations.md
           - Constraints: library_api/access/constraints.md
@@ -436,37 +435,13 @@ nav:
           - Windows: library_api/access/windows.md
           - Tessellation: library_api/access/tessellation.md
           - Enumerations: library_api/access/enums.md
-      - Mathematics:
-          - library_api/mathematics/index.md
-          - Covariance Utilities: library_api/mathematics/covariance.md
-          - Jacobian: library_api/mathematics/jacobian.md
-          - Sensitivity Matrices: library_api/mathematics/sensitivity.md
-      - Integrators:
-          - library_api/integrators/index.md
-          - Configuration: library_api/integrators/config.md
-          - RK4 Integrator: library_api/integrators/rk4.md
-          - RKF45 Integrator: library_api/integrators/rkf45.md
-          - RKF78 Integrator: library_api/integrators/rkf78.md
-          - DP54 Integrator: library_api/integrators/dp54.md
-          - RKN1210 Integrator: library_api/integrators/rkn1210.md
-      - Space Weather:
-          - library_api/space_weather/index.md
-          - Functions: library_api/space_weather/functions.md
-          - CachingSpaceWeatherProvider: library_api/space_weather/caching_provider.md
-          - FileSpaceWeatherProvider: library_api/space_weather/file_provider.md
-          - StaticSpaceWeatherProvider: library_api/space_weather/static_provider.md
-      - Earth Models:
-          - library_api/earth_models/index.md
-          - Harris-Priester: library_api/earth_models/harris_priester.md
-          - NRLMSISE-00: library_api/earth_models/nrlmsise00.md
-          - IGRF-14: library_api/earth_models/igrf.md
-          - WMMHR-2025: library_api/earth_models/wmmhr.md
-      - Datasets:
-          - library_api/datasets/index.md
-          - Groundstations: library_api/datasets/groundstations.md
-          - NAIF: library_api/datasets/naif.md
-          - GCAT: library_api/datasets/gcat.md
-          - ICGEM: library_api/datasets/icgem.md
+      - Estimation:
+          - library_api/estimation/index.md
+          - Common Types: library_api/estimation/common_types.md
+          - Extended Kalman Filter: library_api/estimation/extended_kalman_filter.md
+          - Unscented Kalman Filter: library_api/estimation/unscented_kalman_filter.md
+          - Batch Least Squares: library_api/estimation/batch_least_squares.md
+          - Measurement Models: library_api/estimation/measurement_models.md
       - SPICE Kernels: library_api/spice/index.md
       - Ephemeris Data Sources:
           - library_api/ephemeris/index.md
@@ -480,17 +455,24 @@ nav:
               - Enumerations: library_api/ephemeris/spacetrack/enums.md
               - Operators: library_api/ephemeris/spacetrack/operators.md
               - Rate Limiting: library_api/ephemeris/spacetrack/rate_limiting.md
+      - Space Weather:
+          - library_api/space_weather/index.md
+          - Functions: library_api/space_weather/functions.md
+          - CachingSpaceWeatherProvider: library_api/space_weather/caching_provider.md
+          - FileSpaceWeatherProvider: library_api/space_weather/file_provider.md
+          - StaticSpaceWeatherProvider: library_api/space_weather/static_provider.md
+      - Datasets:
+          - library_api/datasets/index.md
+          - Groundstations: library_api/datasets/groundstations.md
+          - NAIF: library_api/datasets/naif.md
+          - GCAT: library_api/datasets/gcat.md
+          - ICGEM: library_api/datasets/icgem.md
       - CCSDS:
           - library_api/ccsds/index.md
           - OEM: library_api/ccsds/oem.md
           - OMM: library_api/ccsds/omm.md
           - OPM: library_api/ccsds/opm.md
           - CDM: library_api/ccsds/cdm.md
-      - Utilities:
-          - library_api/utils/index.md
-          - Caching: library_api/utils/caching.md
-          - Multithreading: library_api/utils/threading.md
-          - String Formatting: library_api/utils/formatting.md
       - Plots:
           - library_api/plots/index.md
           - Ground Tracks: library_api/plots/ground_tracks.md
@@ -501,6 +483,24 @@ nav:
           - Estimation State Plots: library_api/plots/estimation_state.md
           - Measurement Residual Plots: library_api/plots/estimation_residuals.md
           - Marginal Distribution Plots: library_api/plots/estimation_marginal.md
+      - Numerical Integration:
+          - library_api/integrators/index.md
+          - Configuration: library_api/integrators/config.md
+          - RK4 Integrator: library_api/integrators/rk4.md
+          - RKF45 Integrator: library_api/integrators/rkf45.md
+          - RKF78 Integrator: library_api/integrators/rkf78.md
+          - DP54 Integrator: library_api/integrators/dp54.md
+          - RKN1210 Integrator: library_api/integrators/rkn1210.md
+      - Mathematics:
+          - library_api/mathematics/index.md
+          - Covariance Utilities: library_api/mathematics/covariance.md
+          - Jacobian: library_api/mathematics/jacobian.md
+          - Sensitivity Matrices: library_api/mathematics/sensitivity.md
+      - Utilities:
+          - library_api/utils/index.md
+          - Caching: library_api/utils/caching.md
+          - Multithreading: library_api/utils/threading.md
+          - String Formatting: library_api/utils/formatting.md
   - Rust API Reference: https://docs.rs/brahe
   - About Me: https://duncaneddy.com
 

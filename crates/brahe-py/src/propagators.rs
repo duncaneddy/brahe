@@ -5113,6 +5113,18 @@ impl PyThirdBody {
         self.body.gm()
     }
 
+    /// The body-fixed reference frame a gravity field attached to this body
+    /// is expressed in (e.g. ITRF for Earth, LFPA for the Moon, MCMF for
+    /// Mars).
+    ///
+    /// Returns:
+    ///     ReferenceFrame | None: Body-fixed frame, or None for the
+    ///         barycenter variants, Custom bodies, and bodies without a
+    ///         rotation model.
+    fn body_fixed_frame(&self) -> Option<PyReferenceFrame> {
+        self.body.body_fixed_frame().map(|f| PyReferenceFrame { frame: f })
+    }
+
     fn __repr__(&self) -> String {
         format!("ThirdBody.{:?}", self.body)
     }

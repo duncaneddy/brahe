@@ -626,3 +626,10 @@ def test_force_model_third_bodies_coercion():
     assert len(fc.third_bodies) == 1
     fc.third_bodies = None
     assert fc.third_bodies is None
+
+
+def test_third_body_body_fixed_frame():
+    assert brahe.ThirdBody.EARTH.body_fixed_frame() == brahe.ReferenceFrame.ITRF
+    assert brahe.ThirdBody.MOON.body_fixed_frame() == brahe.ReferenceFrame.LFPA
+    assert brahe.ThirdBody.MARS.body_fixed_frame() == brahe.ReferenceFrame.MCMF
+    assert brahe.ThirdBody.MARS_BARYCENTER.body_fixed_frame() is None

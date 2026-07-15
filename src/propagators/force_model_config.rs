@@ -1647,6 +1647,58 @@ impl ThirdBody {
             ThirdBody::Custom { gm, .. } => *gm,
         }
     }
+
+    /// The [`CentralBody`] equivalent of this perturber, if it is a physical
+    /// body brahe knows how to treat as a frame/parameter center.
+    ///
+    /// Returns `None` for the `*Barycenter` variants (no physical body) and
+    /// for [`ThirdBody::Custom`] (no registered frames or parameters).
+    ///
+    /// # Returns
+    /// - `Some(CentralBody)` for Sun, Moon, Earth, the planet-center
+    ///   variants, Phobos, and Deimos
+    /// - `None` for the `*Barycenter` variants and `Custom`
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::propagators::CentralBody;
+    /// use brahe::propagators::force_model_config::ThirdBody;
+    ///
+    /// assert_eq!(ThirdBody::Earth.as_central_body(), Some(CentralBody::Earth));
+    /// assert_eq!(ThirdBody::MarsBarycenter.as_central_body(), None);
+    /// ```
+    pub fn as_central_body(&self) -> Option<CentralBody> {
+        match self {
+            ThirdBody::MarsBarycenter
+            | ThirdBody::JupiterBarycenter
+            | ThirdBody::SaturnBarycenter
+            | ThirdBody::UranusBarycenter
+            | ThirdBody::NeptuneBarycenter
+            | ThirdBody::Custom { .. } => None,
+            _ => CentralBody::from_naif_id(self.naif_id()).ok(),
+        }
+    }
+
+    /// The body-fixed reference frame a gravity field attached to this
+    /// perturber is expressed in (e.g. ITRF for Earth, LFPA for the Moon,
+    /// MCMF for Mars, IAU frames for the other planet centers).
+    ///
+    /// # Returns
+    /// - `Some(ReferenceFrame)` when the body has a known body-fixed frame
+    /// - `None` for the `*Barycenter` variants, `Custom` bodies, and bodies
+    ///   without a rotation model
+    ///
+    /// # Examples
+    /// ```
+    /// use brahe::frames::ReferenceFrame;
+    /// use brahe::propagators::force_model_config::ThirdBody;
+    ///
+    /// assert_eq!(ThirdBody::Earth.body_fixed_frame(), Some(ReferenceFrame::ITRF));
+    /// assert_eq!(ThirdBody::NeptuneBarycenter.body_fixed_frame(), None);
+    /// ```
+    pub fn body_fixed_frame(&self) -> Option<crate::frames::ReferenceFrame> {
+        self.as_central_body().and_then(|cb| cb.fixed_frame())
+    }
 }
 
 // =============================================================================
@@ -2413,6 +2465,39 @@ mod tests {
         assert_eq!(ThirdBody::UranusBarycenter.gm(), GM_URANUS_SYSTEM);
         assert_eq!(ThirdBody::NeptuneBarycenter.naif_id(), 8);
         assert_eq!(ThirdBody::NeptuneBarycenter.gm(), GM_NEPTUNE_SYSTEM);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_third_body_as_central_body_and_fixed_frame() {
+        use crate::frames::ReferenceFrame;
+        assert_eq!(ThirdBody::Earth.as_central_body(), Some(CentralBody::Earth));
+        assert_eq!(ThirdBody::Moon.as_central_body(), Some(CentralBody::Moon));
+        assert_eq!(ThirdBody::Mars.as_central_body(), Some(CentralBody::Mars));
+        assert_eq!(
+            ThirdBody::Earth.body_fixed_frame(),
+            Some(ReferenceFrame::ITRF)
+        );
+        assert_eq!(
+            ThirdBody::Moon.body_fixed_frame(),
+            Some(ReferenceFrame::LFPA)
+        );
+        assert_eq!(
+            ThirdBody::Mars.body_fixed_frame(),
+            Some(ReferenceFrame::MCMF)
+        );
+        // Planet centers resolve through from_naif_id (IAU frames)
+        assert!(ThirdBody::Jupiter.body_fixed_frame().is_some());
+        // Barycenters and Custom bodies have no body-fixed frame
+        assert!(ThirdBody::MarsBarycenter.as_central_body().is_none());
+        assert!(ThirdBody::JupiterBarycenter.body_fixed_frame().is_none());
+        let custom = ThirdBody::Custom {
+            name: "Ceres".to_string(),
+            naif_id: 2000001,
+            gm: 6.26325e10,
+        };
+        assert!(custom.as_central_body().is_none());
+        assert!(custom.body_fixed_frame().is_none());
     }
 
     #[test]

@@ -12,7 +12,9 @@ Source: <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 use nalgebra::Vector3;
 
 use crate::constants::{AngleFormat, GM_MOON, GM_SUN};
-use crate::orbit_dynamics::gravity::GravityModelTideSystem;
+use crate::orbit_dynamics::gravity::{
+    ClenshawCoefficients, GravityModelTideSystem, ParallelMode, clenshaw_acceleration,
+};
 use crate::time::{Epoch, TimeSystem};
 
 /// Permanent-tide DIRECT term on the fully-normalized C̄20: the A0*H0 factor
@@ -50,17 +52,94 @@ pub fn tide_system_c20_offset(system: GravityModelTideSystem) -> f64 {
     }
 }
 
-/// Fully-normalized ΔC̄nm / ΔS̄nm corrections for n,m in 0..=4 (index `[n][m]`).
-#[derive(Debug, Clone, Copy, Default)]
-pub struct TideCoefficients {
-    /// Fully-normalized cosine coefficient corrections ΔC̄nm, indexed `[n][m]`.
-    pub dc: [[f64; 5]; 5],
-    /// Fully-normalized sine coefficient corrections ΔS̄nm, indexed `[n][m]`.
-    pub ds: [[f64; 5]; 5],
+/// Fully-normalized ΔC̄nm/ΔS̄nm accumulator for tidal geopotential corrections
+/// (IERS TN36 Ch. 6), sized at construction. Triangular column-major packing
+/// (same layout as the Clenshaw tables): index(n, m) = m(2·n_max − m + 1)/2 + n.
+#[derive(Debug, Clone)]
+pub struct TideDeltas {
+    n_max: usize,
+    m_max: usize,
+    dc: Vec<f64>,
+    ds: Vec<f64>,
 }
 
-#[allow(dead_code)] // used by future tidal tasks
-const TIDE_NMAX: usize = 4;
+impl TideDeltas {
+    /// New all-zero delta set for degrees 0..=n_max, orders 0..=m_max.
+    ///
+    /// # Arguments
+    /// - `n_max`: maximum degree of the delta set.
+    /// - `m_max`: maximum order of the delta set.
+    ///
+    /// # Returns
+    /// A zero-initialized `TideDeltas` sized for `(n_max, m_max)`.
+    pub fn new(n_max: usize, m_max: usize) -> Self {
+        let len = m_max * (2 * n_max - m_max + 1) / 2 + n_max + 1;
+        TideDeltas {
+            n_max,
+            m_max,
+            dc: vec![0.0; len],
+            ds: vec![0.0; len],
+        }
+    }
+
+    #[inline]
+    fn idx(&self, n: usize, m: usize) -> usize {
+        debug_assert!(n <= self.n_max && m <= self.m_max && m <= n);
+        m * (2 * self.n_max - m + 1) / 2 + n
+    }
+
+    /// Accumulate (add) a fully-normalized correction at `(n, m)`.
+    ///
+    /// # Arguments
+    /// - `n`, `m`: degree and order of the correction.
+    /// - `dc`: fully-normalized cosine correction ΔC̄nm to add.
+    /// - `ds`: fully-normalized sine correction ΔS̄nm to add.
+    ///
+    /// # Returns
+    /// (none)
+    pub fn add(&mut self, n: usize, m: usize, dc: f64, ds: f64) {
+        let i = self.idx(n, m);
+        self.dc[i] += dc;
+        self.ds[i] += ds;
+    }
+
+    /// Read the accumulated `(ΔC̄nm, ΔS̄nm)` at `(n, m)`.
+    ///
+    /// # Arguments
+    /// - `n`, `m`: degree and order to read.
+    ///
+    /// # Returns
+    /// Tuple `(ΔC̄nm, ΔS̄nm)`, fully-normalized.
+    pub fn get(&self, n: usize, m: usize) -> (f64, f64) {
+        let i = self.idx(n, m);
+        (self.dc[i], self.ds[i])
+    }
+
+    /// Reset all entries to zero (allocation reused).
+    ///
+    /// # Returns
+    /// (none)
+    pub fn clear(&mut self) {
+        self.dc.fill(0.0);
+        self.ds.fill(0.0);
+    }
+
+    /// Maximum degree of the delta set.
+    ///
+    /// # Returns
+    /// The `n_max` the delta set was constructed with.
+    pub fn n_max(&self) -> usize {
+        self.n_max
+    }
+
+    /// Maximum order of the delta set.
+    ///
+    /// # Returns
+    /// The `m_max` the delta set was constructed with.
+    pub fn m_max(&self) -> usize {
+        self.m_max
+    }
+}
 
 /// Denormalization factor sqrt((2-δ0m)(2n+1)(n-m)!/(n+m)!) — identical to
 /// `GravityModel::precompute_coefficients`. n,m <= 4, so factorials are exact.
@@ -72,94 +151,41 @@ fn denorm_factor(n: usize, m: usize) -> f64 {
     ((2.0 - delta0m) * (2.0 * n as f64 + 1.0) * fact(n - m) / fact(n + m)).sqrt()
 }
 
-/// Body-fixed acceleration from a low-degree (n<=4) set of fully-normalized
-/// coefficients. Mirrors the V/W recurrence and accumulation of
-/// `GravityModel::compute_spherical_harmonics_with_workspace` (gravity.rs),
-/// but on stack arrays sized for the fixed tidal degree — no heap allocation,
-/// no workspace plumbing. Proven equivalent by `test_low_degree_evaluator_matches_full_path`.
+/// Body-fixed acceleration of a delta-coefficient field evaluated through
+/// zero-baseline Clenshaw tables. One-shot convenience (allocates tables);
+/// the propagator's `TideField` reuses persistent tables instead.
 ///
-/// # References
-/// - Montenbruck & Gill, *Satellite Orbits*, §3.2 (Cunningham V/W recursion).
-#[allow(dead_code)] // called from future solid-Earth / ocean tidal force tasks
-pub(crate) fn accel_low_degree_harmonics(
+/// # Arguments
+/// - `r_ecef`: evaluation position, ECEF [m].
+/// - `deltas`: fully-normalized ΔC̄nm/ΔS̄nm corrections to evaluate.
+/// - `gm`: gravitational parameter [m³/s²].
+/// - `radius`: reference radius [m].
+///
+/// # Returns
+/// Acceleration in the body-fixed frame [m/s²].
+pub(crate) fn accel_tide_deltas(
     r_ecef: Vector3<f64>,
-    coeffs: &TideCoefficients,
+    deltas: &TideDeltas,
     gm: f64,
     radius: f64,
 ) -> Vector3<f64> {
-    const SZ: usize = TIDE_NMAX + 2; // rows 0..=n_max+1
-    // Denormalize coefficients (hoist factorials; small fixed table).
-    let mut c = [[0.0f64; SZ]; SZ];
-    let mut s = [[0.0f64; SZ]; SZ];
-    for n in 0..=TIDE_NMAX {
-        c[n][0] = denorm_factor(n, 0) * coeffs.dc[n][0];
-        for m in 1..=n {
-            let f = denorm_factor(n, m);
-            c[n][m] = f * coeffs.dc[n][m];
-            s[n][m] = f * coeffs.ds[n][m];
+    let mut tables = ClenshawCoefficients::zeros(deltas.n_max());
+    for m in 0..=deltas.m_max() {
+        for n in m.max(2)..=deltas.n_max() {
+            let (dc, ds) = deltas.get(n, m);
+            tables.set_normalized(n, m, dc, ds);
         }
     }
-
-    let r_sqr = r_ecef.dot(&r_ecef);
-    let rho = radius * radius / r_sqr;
-    let x0 = radius * r_ecef[0] / r_sqr;
-    let y0 = radius * r_ecef[1] / r_sqr;
-    let z0 = radius * r_ecef[2] / r_sqr;
-
-    let mut v = [[0.0f64; SZ]; SZ];
-    let mut w = [[0.0f64; SZ]; SZ];
-
-    // Zonal column m=0.
-    v[0][0] = radius / r_sqr.sqrt();
-    v[1][0] = z0 * v[0][0];
-    for n in 2..SZ {
-        let nf = n as f64;
-        v[n][0] = ((2.0 * nf - 1.0) * z0 * v[n - 1][0] - (nf - 1.0) * rho * v[n - 2][0]) / nf;
-    }
-    // Tesseral/sectoral columns.
-    for m in 1..SZ {
-        let mf = m as f64;
-        v[m][m] = (2.0 * mf - 1.0) * (x0 * v[m - 1][m - 1] - y0 * w[m - 1][m - 1]);
-        w[m][m] = (2.0 * mf - 1.0) * (x0 * w[m - 1][m - 1] + y0 * v[m - 1][m - 1]);
-        if m + 1 < SZ {
-            v[m + 1][m] = (2.0 * mf + 1.0) * z0 * v[m][m];
-            w[m + 1][m] = (2.0 * mf + 1.0) * z0 * w[m][m];
-        }
-        for n in (m + 2)..SZ {
-            let nf = n as f64;
-            let a = (2.0 * nf - 1.0) / (nf - mf);
-            let b = (nf + mf - 1.0) / (nf - mf);
-            v[n][m] = a * z0 * v[n - 1][m] - b * rho * v[n - 2][m];
-            w[n][m] = a * z0 * w[n - 1][m] - b * rho * w[n - 2][m];
-        }
-    }
-
-    let (mut ax, mut ay, mut az) = (0.0, 0.0, 0.0);
-    for m in 0..=TIDE_NMAX {
-        let mf = m as f64;
-        if m == 0 {
-            for n in 0..=TIDE_NMAX {
-                let cc = c[n][0];
-                ax -= cc * v[n + 1][1];
-                ay -= cc * w[n + 1][1];
-                az -= (n as f64 + 1.0) * cc * v[n + 1][0];
-            }
-        } else {
-            for n in m..=TIDE_NMAX {
-                let nf = n as f64;
-                let cc = c[n][m];
-                let ss = s[n][m];
-                let fac = 0.5 * (nf - mf + 1.0) * (nf - mf + 2.0);
-                let p = n + 1;
-                ax += 0.5 * (-cc * v[p][m + 1] - ss * w[p][m + 1])
-                    + fac * (cc * v[p][m - 1] + ss * w[p][m - 1]);
-                ay += 0.5 * (-cc * w[p][m + 1] + ss * v[p][m + 1])
-                    + fac * (-cc * w[p][m - 1] + ss * v[p][m - 1]);
-                az += (nf - mf + 1.0) * (-cc * v[p][m] - ss * w[p][m]);
-            }
-        }
-    }
-    (gm / (radius * radius)) * Vector3::new(ax, ay, az)
+    clenshaw_acceleration(
+        &tables,
+        r_ecef,
+        deltas.n_max(),
+        deltas.m_max(),
+        gm,
+        radius,
+        ParallelMode::Never,
+    )
+    .expect("delta tables sized from the delta set cannot be out of bounds")
 }
 
 /// Physics-side solid Earth tide settings.
@@ -226,20 +252,32 @@ fn norm_legendre_2_3(sphi: f64) -> [[f64; 4]; 4] {
 ///
 /// Eq. 6.7 reuses P̄2m and (R_⊕/r_j)^3 with kₘ⁺/5 into ΔC̄4m/ΔS̄4m (m=0,1,2).
 ///
+/// # Arguments
+/// - `r_sun_ecef`, `r_moon_ecef`: body positions, ECEF [m].
+/// - `epoch`: used for Step 2 Doodson arguments (ignored when Step 1 only).
+/// - `gm_earth`: Earth's gravitational parameter [m³/s²].
+/// - `radius`: reference radius [m].
+/// - `config`: solid-tide settings (Step 2 toggle).
+/// - `deltas`: accumulator the Step 1 (and, if enabled, Step 2) corrections
+///   are added into; sized `n_max >= 4`, `m_max >= 2` by the caller.
+///
+/// # Returns
+/// (none) — corrections are accumulated into `deltas`.
+///
 /// # References
 /// - IERS Conventions (2010), TN36 §6.2.1, Eq. (6.6)–(6.7), Table 6.3.
 ///   <https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf>
 /// - Montenbruck & Gill, *Satellite Orbits*, §3.7.2, Eq. (3.159) (unnormalized cross-check).
-pub fn solid_earth_tide_coefficients(
+pub fn solid_earth_tide_deltas(
     r_sun_ecef: Vector3<f64>,
     r_moon_ecef: Vector3<f64>,
     epoch: Epoch,
     gm_earth: f64,
     radius: f64,
     config: &SolidTideConfig,
-) -> TideCoefficients {
+    deltas: &mut TideDeltas,
+) {
     let _ = epoch; // used by Step 2 (frequency-dependent corrections in Task 7)
-    let mut out = TideCoefficients::default();
 
     for (r_body, gm_body) in [(r_moon_ecef, GM_MOON), (r_sun_ecef, GM_SUN)] {
         let r = r_body.norm();
@@ -259,8 +297,7 @@ pub fn solid_earth_tide_coefficients(
                 let kim = LOVE_IM[n][m];
                 let f = (1.0 / (2.0 * n as f64 + 1.0)) * gm_ratio * radial * p[n][m];
                 let (cm, sm) = ((m as f64 * lambda).cos(), (m as f64 * lambda).sin());
-                out.dc[n][m] += f * (kre * cm + kim * sm);
-                out.ds[n][m] += f * (kre * sm - kim * cm);
+                deltas.add(n, m, f * (kre * cm + kim * sm), f * (kre * sm - kim * cm));
             }
         }
 
@@ -270,20 +307,16 @@ pub fn solid_earth_tide_coefficients(
             let kp = LOVE_PLUS[m];
             let f = (kp / 5.0) * gm_ratio * radial3 * p[2][m];
             let (cm, sm) = ((m as f64 * lambda).cos(), (m as f64 * lambda).sin());
-            out.dc[4][m] += f * cm;
-            out.ds[4][m] += f * sm;
+            deltas.add(4, m, f * cm, f * sm);
         }
     }
 
     if config.frequency_dependent {
         let (dc20, step2_tesseral) = step2_corrections(epoch);
-        out.dc[2][0] += dc20;
-        out.dc[2][1] += step2_tesseral[0][0];
-        out.ds[2][1] += step2_tesseral[0][1];
-        out.dc[2][2] += step2_tesseral[1][0];
-        out.ds[2][2] += step2_tesseral[1][1];
+        deltas.add(2, 0, dc20, 0.0);
+        deltas.add(2, 1, step2_tesseral[0][0], step2_tesseral[0][1]);
+        deltas.add(2, 2, step2_tesseral[1][0], step2_tesseral[1][1]);
     }
-    out
 }
 
 /// Compute IERS Step 2 frequency-dependent corrections to degree-2 geopotential
@@ -381,9 +414,17 @@ pub fn accel_solid_earth_tides(
     radius: f64,
     config: &SolidTideConfig,
 ) -> Vector3<f64> {
-    let coeffs =
-        solid_earth_tide_coefficients(r_sun_ecef, r_moon_ecef, epoch, gm_earth, radius, config);
-    accel_low_degree_harmonics(r_ecef, &coeffs, gm_earth, radius)
+    let mut deltas = TideDeltas::new(4, 4);
+    solid_earth_tide_deltas(
+        r_sun_ecef,
+        r_moon_ecef,
+        epoch,
+        gm_earth,
+        radius,
+        config,
+        &mut deltas,
+    );
+    accel_tide_deltas(r_ecef, &deltas, gm_earth, radius)
 }
 
 /// Greenwich-mean-sidereal-time-plus-π and the five Delaunay fundamental
@@ -511,22 +552,6 @@ mod tests {
     use crate::time::{Epoch, TimeSystem};
     use nalgebra::Vector3;
 
-    /// Build a degree-4 GravityModel whose coefficients ARE the given tide deltas,
-    /// so the full SH path can serve as an independent reference for the fixed-size
-    /// evaluator. Reuses the public-within-crate test seam.
-    fn reference_accel(
-        coeffs: &TideCoefficients,
-        r: Vector3<f64>,
-        gm: f64,
-        radius: f64,
-    ) -> Vector3<f64> {
-        let model = GravityModel::from_dense_normalized(&coeffs.dc, &coeffs.ds, 4, gm, radius);
-        // Evaluate in body frame with identity rotation by passing r directly.
-        model
-            .compute_spherical_harmonics(r, 4, 4, ParallelMode::Never)
-            .unwrap()
-    }
-
     #[test]
     fn test_step1_c20_magnitude_and_lunar_dominance() {
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -536,24 +561,25 @@ mod tests {
         let cfg = SolidTideConfig {
             frequency_dependent: false,
         };
-        let coeffs = solid_earth_tide_coefficients(r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg);
+        let mut deltas = TideDeltas::new(4, 4);
+        solid_earth_tide_deltas(r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg, &mut deltas);
         // Step-1 ΔC̄20 is ~1e-8 in magnitude (dominant solid-tide term).
-        assert!(
-            coeffs.dc[2][0].abs() > 1e-9 && coeffs.dc[2][0].abs() < 1e-7,
-            "ΔC̄20 = {:e}",
-            coeffs.dc[2][0]
-        );
+        let (dc20, _) = deltas.get(2, 0);
+        assert!(dc20.abs() > 1e-9 && dc20.abs() < 1e-7, "ΔC̄20 = {:e}", dc20);
 
         // Lunar-only vs solar-only ΔC̄20: Moon ~2.2x Sun.
         let far = Vector3::new(1.0e30, 0.0, 0.0); // effectively zero contribution
-        let moon_only = solid_earth_tide_coefficients(far, r_moon, epoch, GM_EARTH, R_EARTH, &cfg);
-        let sun_only = solid_earth_tide_coefficients(r_sun, far, epoch, GM_EARTH, R_EARTH, &cfg);
-        let ratio = moon_only.dc[2][0] / sun_only.dc[2][0];
+        let mut moon_only = TideDeltas::new(4, 4);
+        solid_earth_tide_deltas(far, r_moon, epoch, GM_EARTH, R_EARTH, &cfg, &mut moon_only);
+        let mut sun_only = TideDeltas::new(4, 4);
+        solid_earth_tide_deltas(r_sun, far, epoch, GM_EARTH, R_EARTH, &cfg, &mut sun_only);
+        let ratio = moon_only.get(2, 0).0 / sun_only.get(2, 0).0;
         assert!((ratio - 2.2).abs() < 0.4, "lunar/solar ratio = {ratio}");
 
         // Degree-4 feedback (Eq. 6.7) is present and ~3 orders smaller than ΔC̄20.
-        assert!(coeffs.dc[4][0].abs() > 0.0);
-        assert!(coeffs.dc[4][0].abs() < coeffs.dc[2][0].abs());
+        let (dc40, _) = deltas.get(4, 0);
+        assert!(dc40.abs() > 0.0);
+        assert!(dc40.abs() < dc20.abs());
     }
 
     #[test]
@@ -691,16 +717,39 @@ mod tests {
             frequency_dependent: true,
         };
 
-        let c_off =
-            solid_earth_tide_coefficients(r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg_off);
-        let c_on = solid_earth_tide_coefficients(r_sun, r_moon, epoch, GM_EARTH, R_EARTH, &cfg_on);
+        let mut deltas_off = TideDeltas::new(4, 4);
+        solid_earth_tide_deltas(
+            r_sun,
+            r_moon,
+            epoch,
+            GM_EARTH,
+            R_EARTH,
+            &cfg_off,
+            &mut deltas_off,
+        );
+        let mut deltas_on = TideDeltas::new(4, 4);
+        solid_earth_tide_deltas(
+            r_sun,
+            r_moon,
+            epoch,
+            GM_EARTH,
+            R_EARTH,
+            &cfg_on,
+            &mut deltas_on,
+        );
 
         // Step 2 changes C̄20, C̄21, C̄22 at ~1e-11 scale.
-        let d20 = (c_on.dc[2][0] - c_off.dc[2][0]).abs();
-        let d21c = (c_on.dc[2][1] - c_off.dc[2][1]).abs();
-        let d21s = (c_on.ds[2][1] - c_off.ds[2][1]).abs();
-        let d22c = (c_on.dc[2][2] - c_off.dc[2][2]).abs();
-        let d22s = (c_on.ds[2][2] - c_off.ds[2][2]).abs();
+        let (dc20_off, _) = deltas_off.get(2, 0);
+        let (dc20_on, _) = deltas_on.get(2, 0);
+        let (dc21_off, ds21_off) = deltas_off.get(2, 1);
+        let (dc21_on, ds21_on) = deltas_on.get(2, 1);
+        let (dc22_off, ds22_off) = deltas_off.get(2, 2);
+        let (dc22_on, ds22_on) = deltas_on.get(2, 2);
+        let d20 = (dc20_on - dc20_off).abs();
+        let d21c = (dc21_on - dc21_off).abs();
+        let d21s = (ds21_on - ds21_off).abs();
+        let d22c = (dc22_on - dc22_off).abs();
+        let d22s = (ds22_on - ds22_off).abs();
 
         assert!(d20 > 1e-13, "ΔC̄20 should change, got {:e}", d20);
         assert!(d21c > 1e-13 || d21s > 1e-13, "C̄21/S̄21 should change");
@@ -712,45 +761,85 @@ mod tests {
         assert!(d22c < 1e-9, "ΔC̄22 too large: {:e}", d22c);
 
         // Degree-3 and degree-4 terms are unchanged (Step 2 is degree-2 only).
-        assert_eq!(c_on.dc[3][0], c_off.dc[3][0], "dc[3][0] should not change");
-        assert_eq!(c_on.dc[3][1], c_off.dc[3][1], "dc[3][1] should not change");
-        assert_eq!(c_on.dc[4][0], c_off.dc[4][0], "dc[4][0] should not change");
-        assert_eq!(c_on.dc[4][2], c_off.dc[4][2], "dc[4][2] should not change");
+        assert_eq!(
+            deltas_on.get(3, 0),
+            deltas_off.get(3, 0),
+            "(3, 0) should not change"
+        );
+        assert_eq!(
+            deltas_on.get(3, 1),
+            deltas_off.get(3, 1),
+            "(3, 1) should not change"
+        );
+        assert_eq!(
+            deltas_on.get(4, 0),
+            deltas_off.get(4, 0),
+            "(4, 0) should not change"
+        );
+        assert_eq!(
+            deltas_on.get(4, 2),
+            deltas_off.get(4, 2),
+            "(4, 2) should not change"
+        );
     }
 
     #[test]
-    fn test_low_degree_evaluator_matches_full_path() {
+    #[serial_test::parallel]
+    fn test_tide_deltas_packing_roundtrip() {
+        let mut d = TideDeltas::new(4, 4);
+        d.add(2, 0, 1.0e-9, 0.0);
+        d.add(2, 0, 0.5e-9, 0.0); // accumulates
+        d.add(3, 2, -2.0e-10, 4.0e-10);
+        // 1.0e-9 + 0.5e-9 is not bit-exact in f64; compare with a tight epsilon.
+        let (dc20, ds20) = d.get(2, 0);
+        assert!((dc20 - 1.5e-9).abs() < 1e-20 && ds20 == 0.0);
+        assert_eq!(d.get(3, 2), (-2.0e-10, 4.0e-10));
+        assert_eq!(d.get(4, 4), (0.0, 0.0));
+        d.clear();
+        assert_eq!(d.get(2, 0), (0.0, 0.0));
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_tide_deltas_clenshaw_matches_full_path() {
+        // Retarget of test_low_degree_evaluator_matches_full_path: the delta set
+        // evaluated through zero-baseline Clenshaw tables must match a dense
+        // GravityModel built from the same coefficients.
         let gm = 3.986004415e14;
         let radius = 6.378136300e6;
-        // A representative non-trivial coefficient set.
-        let mut coeffs = TideCoefficients {
-            dc: [[0.0; 5]; 5],
-            ds: [[0.0; 5]; 5],
-        };
-        coeffs.dc[2][0] = 1.2e-8;
-        coeffs.dc[2][1] = -3.4e-9;
-        coeffs.ds[2][1] = 7.7e-9;
-        coeffs.dc[2][2] = 5.1e-9;
-        coeffs.ds[2][2] = -2.2e-9;
-        coeffs.dc[3][1] = 1.1e-9;
-        coeffs.ds[3][1] = -0.6e-9;
-        coeffs.dc[4][0] = -4.0e-11;
-        coeffs.dc[4][1] = 2.5e-11;
-        coeffs.ds[4][1] = -1.3e-11;
-        coeffs.dc[4][2] = -3.0e-11;
-        coeffs.ds[4][2] = 1.8e-11;
+        let mut dc = [[0.0f64; 5]; 5];
+        let mut ds = [[0.0f64; 5]; 5];
+        dc[2][0] = 1.2e-8;
+        dc[2][1] = -3.4e-9;
+        ds[2][1] = 7.7e-9;
+        dc[2][2] = 5.1e-9;
+        ds[2][2] = -2.2e-9;
+        dc[3][1] = 1.1e-9;
+        ds[3][1] = -0.6e-9;
+        dc[4][0] = -4.0e-11;
+        dc[4][1] = 2.5e-11;
+        ds[4][1] = -1.3e-11;
+        dc[4][2] = -3.0e-11;
+        ds[4][2] = 1.8e-11;
+
+        let mut deltas = TideDeltas::new(4, 4);
+        for n in 0..=4usize {
+            for m in 0..=n {
+                deltas.add(n, m, dc[n][m], ds[n][m]);
+            }
+        }
+        let a_fast = |r| accel_tide_deltas(r, &deltas, gm, radius);
+        let model = GravityModel::from_dense_normalized(&dc, &ds, 4, gm, radius);
         for r in [
             Vector3::new(7.0e6, 0.0, 0.0),
             Vector3::new(3.0e6, 4.0e6, 5.0e6),
             Vector3::new(-2.0e6, 1.0e6, 6.5e6),
         ] {
-            let a_fast = accel_low_degree_harmonics(r, &coeffs, gm, radius);
-            let a_ref = reference_accel(&coeffs, r, gm, radius);
-            let rel = (a_fast - a_ref).norm() / a_ref.norm().max(1e-30);
-            assert!(
-                rel < 1e-12,
-                "rel err {rel:e} at {r:?}: fast={a_fast:?} ref={a_ref:?}"
-            );
+            let a_ref = model
+                .compute_spherical_harmonics(r, 4, 4, ParallelMode::Never)
+                .unwrap();
+            let rel = (a_fast(r) - a_ref).norm() / a_ref.norm().max(1e-30);
+            assert!(rel < 1e-12, "rel err {rel:e} at {r:?}");
         }
     }
 }

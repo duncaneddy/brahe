@@ -53,11 +53,16 @@ be well known and do not change frequently.
 | `GM_MOON`     | Gravitational constant of the Moon.                                                                           | $4.902800066 \times 10^{12}$         | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
 | `GM_MERCURY`  | Gravitational constant of the Mercury.                                                                        | $2.2031780 \times 10^{13}$           | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
 | `GM_VENUS`    | Gravitational constant of the Venus.                                                                          | $3.248585920 \times 10^{12}$         | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
-| `GM_MARS`     | Gravitational constant of the Mars.                                                                           | $4.282837521 \times 10^{13}$         | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
-| `GM_JUPITER`  | Gravitational constant of the Jupiter.                                                                        | $1.267127648 \times 10^{17}$         | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
-| `GM_SATURN`   | Gravitational constant of the Saturn.                                                                         | $3.79405852 \times 10^{16}$          | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
-| `GM_URANUS`   | Gravitational constant of the Uranus.                                                                         | $5.7945486 \times 10^{15}$           | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
-| `GM_NEPTUNE`  | Gravitational constant of the Neptune.                                                                        | $6.836527100580 \times 10^{15}$      | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
+| `GM_MARS`     | Gravitational constant of Mars (planet only, without Phobos and Deimos).                                      | $4.282837362069909 \times 10^{13}$   | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_MARS_SYSTEM` | Gravitational constant of the Mars system barycenter (NAIF ID 4).                                          | $4.28283758157561 \times 10^{13}$    | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_JUPITER`  | Gravitational constant of Jupiter (planet only, without its satellites).                                      | $1.266865319003704 \times 10^{17}$   | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_JUPITER_SYSTEM` | Gravitational constant of the Jupiter system barycenter (NAIF ID 5).                                    | $1.267127641 \times 10^{17}$         | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_SATURN`   | Gravitational constant of Saturn (planet only, without its satellites).                                       | $3.793120623436167 \times 10^{16}$   | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_SATURN_SYSTEM` | Gravitational constant of the Saturn system barycenter (NAIF ID 6).                                      | $3.79405848418 \times 10^{16}$       | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_URANUS`   | Gravitational constant of Uranus (planet only, without its satellites).                                       | $5.793951256527211 \times 10^{15}$   | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_URANUS_SYSTEM` | Gravitational constant of the Uranus system barycenter (NAIF ID 7).                                      | $5.7945564 \times 10^{15}$           | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_NEPTUNE`  | Gravitational constant of Neptune (planet only, without its satellites).                                      | $6.835103145462294 \times 10^{15}$   | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
+| `GM_NEPTUNE_SYSTEM` | Gravitational constant of the Neptune system barycenter (NAIF ID 8).                                    | $6.836527100580399 \times 10^{15}$   | $\frac{m^3}{s^2}$ | NAIF `gm_de440.tpc` [^6]   |
 | `GM_PLUTO`    | Gravitational constant of the Pluto.                                                                          | $9.770 \times 10^{11}$               | $\frac{m^3}{s^2}$ | Montenbruck and Gill [^1]  |
 
 [^1]: O. Montenbruck, and E. Gill, *Satellite Orbits: Models, Methods and Applications*, 2012
@@ -65,3 +70,4 @@ be well known and do not change frequently.
 [^3]: P. Gérard and B. Luzum, *IERS Technical Note 36*, 2010
 [^4]: J. Ries, S. Bettadpur, R. Eanes, Z. Kang, U. Ko, C. McCullough, P. Nagel, N. Pie, S. Poole, T. Richter, H. Save, and B. Tapley, Development and Evaluation of the Global Gravity Model GGM05, 2016
 [^5]: Department of Defense World Geodetic System 1984, Its Definition and Relationships With Local Geodetic Systems
+[^6]: NAIF `gm_de440.tpc` (JPL DE440 "ASTRO-VALUES"); R.S. Park, W.M. Folkner, J.G. Williams, and D.H. Boggs, *The JPL Planetary and Lunar Ephemerides DE440 and DE441*, The Astronomical Journal, 161:105, 2021

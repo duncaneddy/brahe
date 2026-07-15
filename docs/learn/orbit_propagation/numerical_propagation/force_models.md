@@ -41,23 +41,29 @@ here is a complete example creating a `ForceModelConfig` exercising all availabl
 ForceModelConfig
 ├── gravity: GravityConfiguration
 │   ├── PointMass
-│   └── SphericalHarmonic { source, degree, order }
+│   ├── SphericalHarmonic { source, degree, order }
+│   └── EarthZonal { degree }
 ├── drag: DragConfiguration
 │   ├── model: AtmosphericModel
 │   ├── area: ParameterSource
-│   └── cd: ParameterSource
+│   ├── cd: ParameterSource
+│   └── body: Option<CentralBody>
 ├── srp: SolarRadiationPressureConfiguration
 │   ├── area: ParameterSource
 │   ├── cr: ParameterSource
 │   └── eclipse_model: EclipseModel
-├── third_body: ThirdBodyConfiguration
-│   ├── ephemeris_source: EphemerisSource
-│   └── bodies: Vec<ThirdBody>
+├── third_bodies: Vec<ThirdBodyConfiguration>
+│   └── per entry:
+│       ├── body: ThirdBody
+│       ├── ephemeris_source: EphemerisSource
+│       └── gravity: GravityConfiguration
 ├── relativity: bool
 └── mass: ParameterSource
 ```
 
 Each sub-configuration is optional (`None` disables that force). The configuration is captured at propagator construction time and remains immutable during propagation.
+
+Each third-body entry carries its own ephemeris source and gravity model (point-mass by default), and drag can name a `body` other than the central body — see [Body Attribution](#body-attribution) below. In Python, `third_bodies` accepts a single `ThirdBody` or `ThirdBodyConfiguration`, or a list mixing both; bare bodies become point-mass entries with DE440s ephemerides. Serialized configurations deserialize the same shapes.
 
 ### Parameter Sources
 
@@ -335,19 +341,23 @@ Eclipse models determine shadow effects:
 
 ### Third-Body Perturbations
 
-Gravitational attraction from Sun, Moon, and planets causes long-period variations in orbital elements.
+Gravitational attraction from Sun, Moon, and planets causes long-period variations in orbital elements. Each perturbing body is configured with its own `ThirdBodyConfiguration` entry pairing the body with an ephemeris source and a gravity model.
+
+For the default point-mass model the acceleration is the classical tidal form:
 
 $$
 \mathbf{a}_{TB} = GM_{b} \left(\frac{\mathbf{r}_b - \mathbf{r}}{|\mathbf{r}_b - \mathbf{r}|^3} - \frac{\mathbf{r}_b}{|\mathbf{r}_b|^3}\right)
 $$
 
-where $GM_b$ is the gravitational parameter of the third body, $\mathbf{r}_b$ is its position, and $\mathbf{r}$ is the satellite position.
+where $GM_b$ is the gravitational parameter of the third body, $\mathbf{r}_b$ is its position, and $\mathbf{r}$ is the satellite position. For barycentric central bodies the indirect term ($-GM_b \mathbf{r}_b/|\mathbf{r}_b|^3$) is omitted for bodies whose motion already defines the barycenter (everything for SSB; Earth and the Moon for EMB).
 
-Ephemeris sources:
+Ephemeris sources (set per entry):
 
 - **LowPrecision**: Fast analytical, Sun/Moon only
 - **DE440s**: JPL high precision, all planets, 1550-2650 CE
 - **DE440**: JPL high precision, all planets, 13200 BCE-17191 CE
+
+Planet perturbers come in two flavors: the `*Barycenter` variants (`MarsBarycenter` .. `NeptuneBarycenter`, NAIF IDs 4-8) use the planetary-system barycenter position with the system GM — the classical formulation, resolvable from the DE kernel alone and used by the default Earth force models — while the unqualified variants (`Mars` .. `Neptune`, NAIF IDs 499-899) are planet centers with planet-only GMs, resolved through their satellite-system ephemeris kernels.
 
 === "Python"
 
@@ -370,6 +380,39 @@ Ephemeris sources:
     === "Rust"
         ```
         --8<-- "./docs/outputs/numerical_propagation/force_model_third_body.rs.txt"
+        ```
+
+### Body Attribution
+
+Force models can be attributed to a body other than the propagation's central body. This supports configurations such as an Earth-Moon-barycenter-centered cislunar trajectory that still needs Earth-fidelity forces when passing through low altitudes.
+
+**Extended third-body gravity.** A third-body entry's `gravity` can be `SphericalHarmonic` or `EarthZonal` instead of the default `PointMass`. The field is evaluated at the object's position relative to the perturbing body, oriented by that body's body-fixed frame (ITRF for Earth, LFPA for the Moon, MCMF for Mars, IAU frames for the other planet centers); the indirect term stays point-mass with the field's own GM, so the far-field limit reduces exactly to the tidal form above. `EarthZonal` requires `ThirdBody.EARTH`; `SphericalHarmonic` requires a body with a known body-fixed frame, which excludes the `*Barycenter` variants and `Custom` bodies.
+
+**Attributed drag.** `DragConfiguration.body` names the body whose atmosphere produces the drag (default: the central body). Density and relative wind are evaluated at the object's state relative to that body, and the acceleration applies directly in the propagation frame. The Earth-atmosphere models (`NRLMSISE00`, `HarrisPriester`) require the attributed body to be Earth; the attributed body must have a known radius and spin rate. Drag about a barycentric central body is therefore valid only with an explicit attributed body.
+
+The following example propagates an EMB-centered state through LEO altitudes with an Earth spherical-harmonic field and Earth-attributed NRLMSISE-00 drag:
+
+=== "Python"
+
+    ``` python
+    --8<-- "./examples/numerical_propagation/cislunar_earth_forces.py:8"
+    ```
+
+=== "Rust"
+
+    ``` rust
+    --8<-- "./examples/numerical_propagation/cislunar_earth_forces.rs:4"
+    ```
+
+??? example "Output"
+    === "Python"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/cislunar_earth_forces.py.txt"
+        ```
+
+    === "Rust"
+        ```
+        --8<-- "./docs/outputs/numerical_propagation/cislunar_earth_forces.rs.txt"
         ```
 
 ### Relativistic Effects

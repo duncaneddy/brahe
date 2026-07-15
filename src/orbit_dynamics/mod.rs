@@ -5,7 +5,7 @@ Module implementing orbit dynamics models.
 pub use drag::*;
 pub use ephemerides::*;
 pub use gravity::*;
-pub use ocean_tides::fes2004_coefficients_path;
+pub use ocean_tides::{OceanTideModel, fes2004_coefficients_path};
 pub use relativity::*;
 pub use solar_radiation_pressure::*;
 pub use third_body::*;

@@ -10,6 +10,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::orbit_dynamics::ocean_tides_admittance::ADMITTANCE_TABLE;
+use crate::orbit_dynamics::tides::TideDeltas;
 use crate::utils::BraheError;
 use crate::utils::cache::get_tides_cache_dir;
 use crate::utils::fs::atomic_write;
@@ -83,9 +84,9 @@ pub(crate) struct OceanTideLine {
 #[derive(Debug, Clone)]
 pub(crate) struct OceanTideConstituent {
     pub doodson: [i8; 6],
-    #[allow(dead_code)] // consumed by Task 8+: ocean tide acceleration model
+    #[allow(dead_code)] // consumed by Task 9+: ocean tide acceleration model
     pub name: String,
-    #[allow(dead_code)] // consumed by Task 8+: ocean tide acceleration model
+    #[allow(dead_code)] // consumed by Task 9+: ocean tide acceleration model
     pub delaunay: [i32; 6],
     pub lines: Vec<OceanTideLine>,
 }
@@ -211,7 +212,6 @@ pub(crate) fn theta_dot_deg_per_hour(k: [i8; 6]) -> f64 {
 /// # Returns
 ///
 /// * `f64` - Doodson argument θf [rad].
-#[allow(dead_code)] // consumed by Task 7+: ocean tide acceleration model
 pub(crate) fn tide_argument(delaunay: &[i32; 6], args: &[f64; 6]) -> f64 {
     delaunay
         .iter()
@@ -242,7 +242,6 @@ pub(crate) fn tide_argument(delaunay: &[i32; 6], args: &[f64; 6]) -> f64 {
 /// Returns `BraheError` if the file cannot be read, if a data row has a
 /// malformed degree, order, or coefficient field, or if no constituents were
 /// parsed (indicating a corrupt or truncated file).
-#[allow(dead_code)] // consumed by Task 6+: ocean tide acceleration model
 pub(crate) fn parse_fes2004_file(
     path: &Path,
     n_max: usize,
@@ -337,7 +336,6 @@ pub(crate) fn parse_fes2004_file(
 ///
 /// Returns `BraheError` if a pivot wave named in Table 6.7 is missing from
 /// `main` (indicating the file was truncated or parsed incorrectly).
-#[allow(dead_code)] // consumed by Task 8+: ocean tide acceleration model
 pub(crate) fn expand_admittance(
     main: &[OceanTideConstituent],
 ) -> Result<Vec<OceanTideConstituent>, BraheError> {
@@ -400,6 +398,178 @@ pub(crate) fn expand_admittance(
         });
     }
     Ok(out)
+}
+
+/// FES2004 ocean tide model (IERS TN36 §6.3): per-constituent prograde and
+/// retrograde geopotential amplitudes, truncated to a degree/order, optionally
+/// completed by the Table 6.7 admittance waves.
+///
+/// # References
+/// - IERS Conventions (2010), TN36 §6.3, Eq. (6.15)–(6.16); §6.3.2 (FES2004).
+/// - Lyard et al. (2006), FES2004.
+pub struct OceanTideModel {
+    n_max: usize,
+    m_max: usize,
+    constituents: Vec<OceanTideConstituent>,
+}
+
+impl OceanTideModel {
+    /// Build from an explicit FES2004 coefficient file path.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - FES2004 `fes2004_Cnm-Snm.dat`-format file.
+    /// * `n_max`, `m_max` - Truncation degree/order (2 <= m_max <= n_max <= 100).
+    /// * `include_admittance` - Expand secondary waves per Eq. (6.16).
+    ///
+    /// # Returns
+    ///
+    /// * `OceanTideModel` - Parsed and (optionally) admittance-expanded model.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BraheError` if the file cannot be parsed (see
+    /// [`parse_fes2004_file`]) or, when `include_admittance` is set, if a
+    /// Table 6.7 pivot wave is missing from the file (see
+    /// [`expand_admittance`]).
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use brahe::OceanTideModel;
+    /// use std::path::Path;
+    ///
+    /// let model = OceanTideModel::from_file(
+    ///     Path::new("fes2004_Cnm-Snm.dat"),
+    ///     20,
+    ///     20,
+    ///     true,
+    /// )
+    /// .unwrap();
+    /// assert_eq!(model.n_max(), 20);
+    /// ```
+    pub fn from_file(
+        path: &Path,
+        n_max: usize,
+        m_max: usize,
+        include_admittance: bool,
+    ) -> Result<Self, BraheError> {
+        let mut constituents = parse_fes2004_file(path, n_max, m_max)?;
+        if include_admittance {
+            let secondary = expand_admittance(&constituents)?;
+            constituents.extend(secondary);
+        }
+        Ok(Self::from_constituents(constituents, n_max, m_max))
+    }
+
+    /// Build from the cached (downloading once if needed) IERS FES2004 file.
+    /// See [`fes2004_coefficients_path`] for cache/download semantics.
+    ///
+    /// # Arguments
+    ///
+    /// * `n_max`, `m_max` - Truncation degree/order (2 <= m_max <= n_max <= 100).
+    /// * `include_admittance` - Expand secondary waves per Eq. (6.16).
+    ///
+    /// # Returns
+    ///
+    /// * `OceanTideModel` - Parsed and (optionally) admittance-expanded model.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BraheError` if the FES2004 coefficients cannot be located or
+    /// downloaded (see [`fes2004_coefficients_path`]), or if parsing fails
+    /// (see [`OceanTideModel::from_file`]).
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use brahe::OceanTideModel;
+    ///
+    /// // Downloads FES2004 coefficients into the cache on first use.
+    /// let model = OceanTideModel::from_cache(20, 20, true).unwrap();
+    /// assert_eq!(model.n_max(), 20);
+    /// ```
+    pub fn from_cache(
+        n_max: usize,
+        m_max: usize,
+        include_admittance: bool,
+    ) -> Result<Self, BraheError> {
+        let path = fes2004_coefficients_path()?;
+        Self::from_file(&path, n_max, m_max, include_admittance)
+    }
+
+    /// Assemble from already-built constituents (test seam and internal use).
+    pub(crate) fn from_constituents(
+        constituents: Vec<OceanTideConstituent>,
+        n_max: usize,
+        m_max: usize,
+    ) -> Self {
+        OceanTideModel {
+            n_max,
+            m_max,
+            constituents,
+        }
+    }
+
+    /// Truncation degree of the model.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - The `n_max` the model was constructed with.
+    pub fn n_max(&self) -> usize {
+        self.n_max
+    }
+
+    /// Truncation order of the model.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - The `m_max` the model was constructed with.
+    pub fn m_max(&self) -> usize {
+        self.m_max
+    }
+
+    /// Number of tidal constituents (main plus, if enabled, admittance) held
+    /// by the model.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - Constituent count.
+    #[allow(dead_code)] // consumed by Task 9+: ocean tide acceleration model
+    pub(crate) fn num_constituents(&self) -> usize {
+        self.constituents.len()
+    }
+
+    /// Accumulate ΔC̄nm/ΔS̄nm at the given fundamental arguments into `deltas`
+    /// per IERS TN36 Eq. (6.15), expanded to real arithmetic:
+    ///
+    ///   ΔC̄nm += (C⁺+C⁻)·cos θf + (S⁺+S⁻)·sin θf
+    ///   ΔS̄nm += (S⁺−S⁻)·cos θf − (C⁺−C⁻)·sin θf
+    ///
+    /// (identical to Orekit `OceanTidesWave.addContribution`, cross-checked).
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - `[γ = GMST+π, l, l′, F, D, Ω]` [rad] from
+    ///   [`crate::orbit_dynamics::tides::doodson_delaunay_args`].
+    /// * `deltas` - Accumulator; must satisfy `deltas.n_max() >= self.n_max`
+    ///   and `deltas.m_max() >= self.m_max`.
+    ///
+    /// # Returns
+    ///
+    /// (none)
+    #[allow(dead_code)] // consumed by Task 9+: ocean tide acceleration model
+    pub(crate) fn accumulate_deltas(&self, args: &[f64; 6], deltas: &mut TideDeltas) {
+        for wave in &self.constituents {
+            let theta = tide_argument(&wave.delaunay, args);
+            let (sin_t, cos_t) = theta.sin_cos();
+            for l in &wave.lines {
+                let dc = (l.c_plus + l.c_minus) * cos_t + (l.s_plus + l.s_minus) * sin_t;
+                let ds = (l.s_plus - l.s_minus) * cos_t - (l.c_plus - l.c_minus) * sin_t;
+                deltas.add(l.n as usize, l.m as usize, dc, ds);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -620,5 +790,73 @@ mod tests {
 
         // Expanded set covers all pivot rows: 63 secondary constituents.
         assert_eq!(secondary.len(), 63);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_ocean_accumulate_single_constituent() {
+        // Synthetic wave with known argument: multipliers all zero except γ, so
+        // θ = γ. Check the Eq. (6.15) real expansion at two argument values.
+        let wave = OceanTideConstituent {
+            doodson: [1, 0, 0, 0, 0, 0],
+            name: "TEST".to_string(),
+            delaunay: [1, 0, 0, 0, 0, 0],
+            lines: vec![OceanTideLine {
+                n: 2,
+                m: 1,
+                c_plus: 3.0e-11,
+                s_plus: 5.0e-11,
+                c_minus: 7.0e-11,
+                s_minus: 11.0e-11,
+            }],
+        };
+        let model = OceanTideModel::from_constituents(vec![wave], 2, 1);
+
+        // θ = 0: ΔC = C+ + C- = 10e-11; ΔS = S+ - S- = -6e-11.
+        let mut d = TideDeltas::new(2, 1);
+        model.accumulate_deltas(&[0.0; 6], &mut d);
+        let (dc, ds) = d.get(2, 1);
+        assert!((dc - 10.0e-11).abs() < 1e-24);
+        assert!((ds - (-6.0e-11)).abs() < 1e-24);
+
+        // θ = π/2: ΔC = S+ + S- = 16e-11; ΔS = -(C+ - C-) = 4e-11.
+        let mut d = TideDeltas::new(2, 1);
+        model.accumulate_deltas(
+            &[std::f64::consts::FRAC_PI_2, 0.0, 0.0, 0.0, 0.0, 0.0],
+            &mut d,
+        );
+        let (dc, ds) = d.get(2, 1);
+        assert!((dc - 16.0e-11).abs() < 1e-24);
+        assert!((ds - 4.0e-11).abs() < 1e-24);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_ocean_model_from_cache_magnitude() {
+        crate::utils::testing::setup_global_test_eop();
+        let _guard = crate::utils::testing::setup_test_fes2004_cache();
+        let model = OceanTideModel::from_cache(20, 20, true).unwrap();
+        assert_eq!(model.n_max(), 20);
+        assert_eq!(model.num_constituents(), 81); // 18 main + 63 admittance
+
+        let epoch = Epoch::from_datetime(2020, 3, 1, 6, 0, 0.0, 0.0, TimeSystem::UTC);
+        let args = crate::orbit_dynamics::tides::doodson_delaunay_args(epoch);
+        let mut d = TideDeltas::new(20, 20);
+        model.accumulate_deltas(&args, &mut d);
+        // Dominant ocean tide corrections are ~1e-10..1e-8 on low-degree terms
+        // (M2 alone carries ~1.5e-10 on C22/S22 scale amplitudes).
+        let (dc22, ds22) = d.get(2, 2);
+        let mag = (dc22 * dc22 + ds22 * ds22).sqrt();
+        assert!(mag > 1e-11 && mag < 1e-8, "|ΔC̄22,ΔS̄22| = {mag:e}");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_ocean_model_admittance_toggle() {
+        let _guard = crate::utils::testing::setup_test_fes2004_cache();
+        let with = OceanTideModel::from_cache(20, 20, true).unwrap();
+        let without = OceanTideModel::from_cache(20, 20, false).unwrap();
+        assert_eq!(with.num_constituents(), 81);
+        assert_eq!(without.num_constituents(), 18);
     }
 }

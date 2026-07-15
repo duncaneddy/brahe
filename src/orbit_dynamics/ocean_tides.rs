@@ -66,7 +66,37 @@ pub fn fes2004_coefficients_path() -> Result<PathBuf, BraheError> {
         return Ok(path);
     }
 
-    let buf = download_bytes(FES2004_URL).map_err(|e| {
+    fetch_and_cache_fes2004(&path, || download_bytes(FES2004_URL))?;
+    Ok(path)
+}
+
+/// Fetch FES2004 coefficient bytes via `fetch` and, if complete, atomically
+/// promote them into the cache at `path`. Test seam for
+/// [`fes2004_coefficients_path`]: the mutex-guarded existence recheck stays in
+/// the public function, and this takes the fetched-bytes producer so unit
+/// tests can inject synthetic payloads without a network call. Production
+/// calls this with a closure wrapping [`download_bytes`].
+///
+/// # Arguments
+///
+/// * `path` - Destination cache path for the coefficient file.
+/// * `fetch` - Producer of the raw file bytes (network download in
+///   production, a synthetic payload in tests).
+///
+/// # Returns
+///
+/// * `()` - The file was fetched, validated, and written to `path`.
+///
+/// # Errors
+///
+/// Returns `BraheError` if `fetch` fails, the response is empty, the fetched
+/// file is truncated (fewer than [`FES2004_MIN_LINES`] lines), or the file
+/// cannot be written to `path`. In every error case `path` is left untouched.
+pub(crate) fn fetch_and_cache_fes2004(
+    path: &Path,
+    fetch: impl FnOnce() -> Result<Vec<u8>, BraheError>,
+) -> Result<(), BraheError> {
+    let buf = fetch().map_err(|e| {
         BraheError::Error(format!(
             "FES2004 ocean tide coefficients are not cached and the download from {FES2004_URL} \
              failed: {e}. Download the file manually to {} to proceed offline.",
@@ -90,14 +120,14 @@ pub fn fes2004_coefficients_path() -> Result<PathBuf, BraheError> {
             path.display()
         )));
     }
-    atomic_write(&path, &buf).map_err(|e| {
+    atomic_write(path, &buf).map_err(|e| {
         BraheError::Error(format!(
             "Failed to write FES2004 cache {}: {}",
             path.display(),
             e
         ))
     })?;
-    Ok(path)
+    Ok(())
 }
 
 /// One `(n, m)` coefficient row of a tidal constituent: prograde (+) and
@@ -1103,5 +1133,180 @@ mod tests {
         let without = OceanTideModel::new(20, 20, false).unwrap();
         assert_eq!(with.num_constituents(), 81);
         assert_eq!(without.num_constituents(), 18);
+    }
+
+    /// Synthetic FES2004 payload: the fixture's real 4-line header plus its
+    /// data lines repeated enough times to clear the `FES2004_MIN_LINES`
+    /// completeness floor, so the promote path can be exercised offline.
+    fn synthetic_fes2004_payload() -> Vec<u8> {
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+        let content = std::fs::read_to_string(&fixture).unwrap();
+        let mut lines = content.lines();
+        let header: Vec<&str> = lines.by_ref().take(4).collect();
+        let data: Vec<&str> = lines.collect();
+        let repeats = FES2004_MIN_LINES / data.len() + 1;
+        let mut payload = header.join("\n");
+        payload.push('\n');
+        for _ in 0..repeats {
+            payload.push_str(&data.join("\n"));
+            payload.push('\n');
+        }
+        assert!(payload.bytes().filter(|&b| b == b'\n').count() >= FES2004_MIN_LINES);
+        payload.into_bytes()
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_fetch_and_cache_fes2004_promotes_valid_download() {
+        // A complete fake download is validated and atomically promoted into
+        // the cache path, and the promoted file parses.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tides").join("fes2004_Cnm-Snm.dat");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+
+        fetch_and_cache_fes2004(&path, || Ok(synthetic_fes2004_payload())).unwrap();
+        assert!(path.exists(), "validated download must be promoted");
+        let waves = parse_fes2004_file(&path, 30, 30).unwrap();
+        // The payload repeats the fixture's 18 constituents once per block.
+        assert!(
+            !waves.is_empty() && waves.len().is_multiple_of(18),
+            "{}",
+            waves.len()
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_fetch_and_cache_fes2004_rejects_short_download() {
+        // A payload under the line-count floor is rejected and never cached.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fes2004_Cnm-Snm.dat");
+        let short = b"line one\nline two\nline three\n".to_vec();
+        let err = fetch_and_cache_fes2004(&path, || Ok(short)).unwrap_err();
+        assert!(err.to_string().contains("truncated"), "{err}");
+        assert!(!path.exists(), "truncated download must not be cached");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_fetch_and_cache_fes2004_rejects_empty_download() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fes2004_Cnm-Snm.dat");
+        let err = fetch_and_cache_fes2004(&path, || Ok(Vec::new())).unwrap_err();
+        assert!(err.to_string().contains("Empty response"), "{err}");
+        assert!(!path.exists(), "empty download must not be cached");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_fetch_and_cache_fes2004_propagates_fetch_error() {
+        // A failing fetch propagates with the manual-download hint and leaves
+        // nothing behind at the cache path.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fes2004_Cnm-Snm.dat");
+        let err = fetch_and_cache_fes2004(&path, || {
+            Err(BraheError::Error("connection refused".to_string()))
+        })
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("connection refused"), "{msg}");
+        assert!(msg.contains("manually"), "{msg}");
+        assert!(
+            !path.exists(),
+            "failed fetch must not create the cache file"
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_doodson_error_branches() {
+        // Every malformed-input arm of parse_doodson.
+        let cases = [
+            ("255555", "missing '.'"),     // no '.' separator
+            ("255.55", "tail too short"),  // tail length != 3
+            ("255.5555", "tail too long"), // tail length != 3
+            (".555", "empty head"),        // head empty
+            ("2555.555", "head too long"), // head length > 3
+            ("2a5.555", "non-digit head"), // non-digit in head
+            ("255.5a5", "non-digit tail"), // non-digit in tail
+        ];
+        for (input, label) in cases {
+            let result = parse_doodson(input);
+            assert!(result.is_err(), "{label}: '{input}' must be rejected");
+            let msg = result.unwrap_err().to_string();
+            assert!(
+                msg.contains(input),
+                "{label}: error must name the input, got: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_parse_fes2004_error_branches() {
+        let dir = tempfile::tempdir().unwrap();
+        let write = |name: &str, content: &str| {
+            let p = dir.path().join(name);
+            std::fs::write(&p, content).unwrap();
+            p
+        };
+
+        // Unreadable path.
+        let missing = dir.path().join("does-not-exist.dat");
+        let err = parse_fes2004_file(&missing, 30, 30).unwrap_err();
+        assert!(err.to_string().contains("cannot read"), "{err}");
+
+        // Malformed degree field.
+        let p = write("bad_degree.dat", "255.555 M2 xx 0 1.0 2.0 3.0 4.0\n");
+        let err = parse_fes2004_file(&p, 30, 30).unwrap_err();
+        assert!(err.to_string().contains("bad degree"), "{err}");
+
+        // Malformed order field.
+        let p = write("bad_order.dat", "255.555 M2 2 yy 1.0 2.0 3.0 4.0\n");
+        let err = parse_fes2004_file(&p, 30, 30).unwrap_err();
+        assert!(err.to_string().contains("bad order"), "{err}");
+
+        // Malformed coefficient field.
+        let p = write("bad_coeff.dat", "255.555 M2 2 0 abc 2.0 3.0 4.0\n");
+        let err = parse_fes2004_file(&p, 30, 30).unwrap_err();
+        assert!(err.to_string().contains("bad coefficient"), "{err}");
+
+        // Zero constituents parsed: empty file and header-only garbage.
+        let p = write("empty.dat", "");
+        let err = parse_fes2004_file(&p, 30, 30).unwrap_err();
+        assert!(err.to_string().contains("no FES2004 constituents"), "{err}");
+        let p = write("garbage.dat", "this is not\na coefficient file\nat all\n");
+        let err = parse_fes2004_file(&p, 30, 30).unwrap_err();
+        assert!(err.to_string().contains("no FES2004 constituents"), "{err}");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_expand_admittance_missing_pivot_errors() {
+        // Drop the K1 (165.555) main wave from the parsed list: the first
+        // Table 6.7 row that pivots on K1 must error, naming the pivot.
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+        let main = parse_fes2004_file(&path, 30, 30).unwrap();
+        let k1 = parse_doodson("165.555").unwrap();
+        let pruned: Vec<OceanTideConstituent> =
+            main.into_iter().filter(|w| w.doodson != k1).collect();
+        assert_eq!(pruned.len(), 17, "exactly K1 must be removed");
+        let err = expand_admittance(&pruned).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("165.555"), "error must name the pivot: {msg}");
+        assert!(msg.contains("not in FES2004 file"), "{msg}");
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_ocean_model_truncation_accessors() {
+        // n_max()/m_max() report the construction truncation.
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("test_data/fes2004_Cnm-Snm_n30.dat");
+        let model = OceanTideModel::from_file(&path, 10, 5, false).unwrap();
+        assert_eq!(model.n_max(), 10);
+        assert_eq!(model.m_max(), 5);
     }
 }

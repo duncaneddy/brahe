@@ -938,4 +938,34 @@ mod tests {
         assert!(filepath.exists());
         assert!(filepath.ends_with("sw19571001.txt"));
     }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_fes2004_cache_guard_restores_preexisting_value() {
+        // Save whatever BRAHE_CACHE held before this test so it can be put
+        // back afterwards with the same save/restore discipline.
+        let original = env::var("BRAHE_CACHE").ok();
+
+        // Install a sentinel so the guard's drop takes the Some(v) branch.
+        let sentinel = "/tmp/brahe-test-sentinel-cache";
+        // SAFETY: single-threaded within a #[serial] test.
+        unsafe {
+            env::set_var("BRAHE_CACHE", sentinel);
+        }
+
+        let guard = setup_test_fes2004_cache();
+        // While held, BRAHE_CACHE points at the guard's temp dir.
+        assert_ne!(env::var("BRAHE_CACHE").unwrap(), sentinel);
+        drop(guard);
+        // Drop restored the pre-existing sentinel value.
+        assert_eq!(env::var("BRAHE_CACHE").unwrap(), sentinel);
+
+        // SAFETY: single-threaded within a #[serial] test.
+        unsafe {
+            match original {
+                Some(v) => env::set_var("BRAHE_CACHE", v),
+                None => env::remove_var("BRAHE_CACHE"),
+            }
+        }
+    }
 }

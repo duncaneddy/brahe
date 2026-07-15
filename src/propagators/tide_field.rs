@@ -454,6 +454,119 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
+    fn test_tide_field_build_gravity_bounds_error() {
+        // Requested gravity degree/order above the loaded model's bounds must
+        // be rejected as OutOfBounds at fold-in construction; and a ModelType
+        // source without the loaded model is an error.
+        use crate::propagators::force_model_config::{PermanentTideConfig, TidesConfiguration};
+        use crate::propagators::{GravityConfiguration, GravityModelSource};
+        use crate::utils::BraheError;
+
+        let mut config = ForceModelConfig::earth_gravity();
+        config.gravity = GravityConfiguration::SphericalHarmonic {
+            source: GravityModelSource::ModelType(GravityModelType::JGM3),
+            degree: 80, // JGM3 is 70x70
+            order: 80,
+            parallel: ParallelMode::Never,
+        };
+        config.tides = Some(TidesConfiguration {
+            ephemeris_source: EphemerisSource::LowPrecision,
+            permanent: PermanentTideConfig::Off,
+            solid: Some(SolidTideConfig {
+                frequency_dependent: false,
+                pole_tide: false,
+            }),
+            ocean: None,
+        });
+        let model = GravityModel::shared(&GravityModelType::JGM3).unwrap();
+        let Err(err) = TideField::build(&config, Some(&model)) else {
+            panic!("degree above the model bounds must be rejected");
+        };
+        assert!(
+            matches!(err, BraheError::OutOfBoundsError(_)),
+            "expected OutOfBoundsError, got: {err}"
+        );
+        assert!(err.to_string().contains("exceeds model"), "{err}");
+
+        // Same config with no loaded model for a ModelType source.
+        let Err(err) = TideField::build(&config, None) else {
+            panic!("ModelType source without a loaded model must be rejected");
+        };
+        assert!(
+            err.to_string()
+                .contains("requires the loaded gravity model"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_tide_field_build_ocean_load_failure() {
+        // A corrupt FES2004 cache file makes the ocean-model load (and thus
+        // TideField::build) fail.
+        use crate::propagators::force_model_config::{
+            OceanTideConfig, PermanentTideConfig, TidesConfiguration,
+        };
+
+        let _guard = crate::utils::testing::setup_test_fes2004_cache();
+        let cached = std::path::PathBuf::from(crate::utils::cache::get_tides_cache_dir().unwrap())
+            .join("fes2004_Cnm-Snm.dat");
+        std::fs::write(&cached, "garbage: not a coefficient file\n").unwrap();
+
+        let mut config = ForceModelConfig::two_body_gravity();
+        config.tides = Some(TidesConfiguration {
+            ephemeris_source: EphemerisSource::LowPrecision,
+            permanent: PermanentTideConfig::Off,
+            solid: None,
+            ocean: Some(OceanTideConfig {
+                degree: 20,
+                order: 20,
+                include_admittance: true,
+                pole_tide: false,
+            }),
+        });
+        let Err(err) = TideField::build(&config, None) else {
+            panic!("corrupt FES2004 cache must fail the build");
+        };
+        assert!(err.to_string().contains("FES2004"), "{err}");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_tide_field_build_pole_tide_without_eop_errors() {
+        // Installing an uninitialized provider de-initializes global EOP
+        // in-process (the eop module's own tests use the same reset), so the
+        // construction-time pole-tide guard must error.
+        use crate::eop::{
+            StaticEOPProvider, get_global_eop_initialization, set_global_eop_provider,
+        };
+        use crate::propagators::force_model_config::{PermanentTideConfig, TidesConfiguration};
+
+        set_global_eop_provider(StaticEOPProvider::new());
+        assert!(!get_global_eop_initialization());
+
+        let mut config = ForceModelConfig::two_body_gravity();
+        config.tides = Some(TidesConfiguration {
+            ephemeris_source: EphemerisSource::LowPrecision,
+            permanent: PermanentTideConfig::Off,
+            solid: Some(SolidTideConfig {
+                frequency_dependent: false,
+                pole_tide: true,
+            }),
+            ocean: None,
+        });
+        let Err(err) = TideField::build(&config, None) else {
+            panic!("pole tides without initialized EOP must be rejected");
+        };
+        assert!(err.to_string().contains("EOP"), "{err}");
+
+        // Restore an initialized provider for subsequent tests.
+        crate::utils::testing::setup_global_test_eop();
+        assert!(get_global_eop_initialization());
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn test_propagator_pole_tide_requires_eop() {
         // The pole-tide EOP check is at construction; with test EOP initialized
         // construction succeeds.

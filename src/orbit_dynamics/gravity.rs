@@ -4174,6 +4174,27 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
+    fn test_clenshaw_acceleration_out_of_bounds() {
+        // Both bounds violations return OutOfBoundsError: n_max above the
+        // storage stride, and m_max above n_max.
+        let tables = ClenshawCoefficients::zeros(4);
+        let r = Vector3::new(7.0e6, 0.0, 0.0);
+        let err = clenshaw_acceleration(&tables, r, 5, 0, GM_EARTH, R_EARTH, ParallelMode::Never)
+            .unwrap_err();
+        assert!(
+            matches!(err, BraheError::OutOfBoundsError(_)),
+            "n_max > n_stride: expected OutOfBoundsError, got: {err}"
+        );
+        let err = clenshaw_acceleration(&tables, r, 3, 4, GM_EARTH, R_EARTH, ParallelMode::Never)
+            .unwrap_err();
+        assert!(
+            matches!(err, BraheError::OutOfBoundsError(_)),
+            "m_max > n_max: expected OutOfBoundsError, got: {err}"
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_clenshaw_zeros_set_matches_dense_model() {
         // Delta-only tables built via zeros + set_normalized must reproduce the
         // full GravityModel path for the same coefficients.

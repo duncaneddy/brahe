@@ -10,7 +10,7 @@
 //! First run downloads the GRGM660PRIM gravity model and the moon_pa_de440
 //! binary PCK, caching them under $BRAHE_CACHE (~/.cache/brahe by default).
 //!
-//! FLAGS = ["IGNORE"]
+//! FLAGS = ["NETWORK"]
 
 use brahe as bh;
 use bh::traits::{DOrbitStateProvider, DStatePropagator};

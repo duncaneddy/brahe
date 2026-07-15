@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly"]
-# FLAGS = ["IGNORE"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """

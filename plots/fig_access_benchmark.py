@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe", "plotly", "numpy", "skyfield>=1.49"]
-# FLAGS = ["IGNORE"]
+# FLAGS = ["MANUAL"]
 # ///
 """
 Access computation benchmark comparing Brahe vs Skyfield performance.
@@ -12,9 +12,11 @@ Generates light and dark themed benchmark comparison charts showing:
 4. Brahe Rust native (serial)
 5. Brahe Rust native (parallel)
 
-This script is marked IGNORE because it takes several minutes to run the full
-benchmark with 100 locations. Run manually with:
-    just make-plots --ignore
+This script is marked MANUAL because it runs the full 100-location benchmark
+directly: it takes several minutes, shells out to a compiled Rust benchmark
+binary, and downloads JPL ephemeris data via skyfield. Run it directly when
+regenerating the committed figures:
+    uv run plots/fig_access_benchmark.py
 """
 
 import json

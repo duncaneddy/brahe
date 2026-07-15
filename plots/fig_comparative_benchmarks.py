@@ -1,6 +1,6 @@
 # /// script
 # dependencies = ["brahe", "plotly"]
-# FLAGS = ["IGNORE"]
+# FLAGS = ["MANUAL"]
 # ///
 # ruff: noqa: E501
 """
@@ -10,8 +10,8 @@ Reads the latest JSON results from benchmarks/comparative/results/ and generates
 themed Plotly figures comparing Java (OreKit), Python (Brahe), and Rust (Brahe)
 performance across multiple task categories.
 
-Run manually with:
-    just make-plots --ignore
+Regenerated as part of the comparative benchmark run, which produces the
+results this script reads. Not run by `just make-plots`.
 """
 
 import csv

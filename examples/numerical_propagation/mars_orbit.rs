@@ -10,7 +10,7 @@
 //! First run downloads the ggm2bc80 gravity model, caching it under
 //! $BRAHE_CACHE (~/.cache/brahe by default).
 //!
-//! FLAGS = ["IGNORE"]
+//! FLAGS = ["NETWORK"]
 
 use brahe as bh;
 use bh::traits::{DOrbitStateProvider, DStatePropagator};

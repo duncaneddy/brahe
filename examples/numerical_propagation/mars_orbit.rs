@@ -1,5 +1,7 @@
 //! Propagating a spacecraft orbit about Mars with ForceModelConfig::mars_default().
 //!
+//! FLAGS = ["NETWORK"]
+//!
 //! mars_default() configures a CentralBody::Mars force model: 50x50 GGM2B
 //! Mars gravity, exponential atmospheric drag, solar radiation pressure
 //! (occulted by Mars), and Sun third-body perturbations from the DE440s
@@ -9,8 +11,6 @@
 //!
 //! First run downloads the ggm2bc80 gravity model, caching it under
 //! $BRAHE_CACHE (~/.cache/brahe by default).
-//!
-//! FLAGS = ["NETWORK"]
 
 use brahe as bh;
 use bh::traits::{DOrbitStateProvider, DStatePropagator};

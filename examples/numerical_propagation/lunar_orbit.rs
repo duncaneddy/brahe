@@ -1,5 +1,7 @@
 //! Propagating a spacecraft orbit about the Moon with ForceModelConfig::lunar_default().
 //!
+//! FLAGS = ["NETWORK"]
+//!
 //! lunar_default() configures a CentralBody::Moon force model: 50x50
 //! GRGM660PRIM lunar gravity, solar radiation pressure (occulted by the Moon
 //! and Earth), and Earth/Sun third-body perturbations from the DE440s
@@ -9,8 +11,6 @@
 //!
 //! First run downloads the GRGM660PRIM gravity model and the moon_pa_de440
 //! binary PCK, caching them under $BRAHE_CACHE (~/.cache/brahe by default).
-//!
-//! FLAGS = ["NETWORK"]
 
 use brahe as bh;
 use bh::traits::{DOrbitStateProvider, DStatePropagator};

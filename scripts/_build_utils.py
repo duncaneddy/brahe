@@ -162,7 +162,15 @@ def check_flags(
 
     try:
         content = file_path.read_text()
-        first_lines = "\n".join(content.split("\n")[:10])
+        comment_marker = "//" if file_path.suffix == ".rs" else "#"
+
+        header_lines = []
+        for line in content.split("\n"):
+            if line.strip() == "" or line.lstrip().startswith(comment_marker):
+                header_lines.append(line)
+            else:
+                break
+        first_lines = "\n".join(header_lines)
 
         # Parse TIMEOUT if present
         if "TIMEOUT = " in first_lines:

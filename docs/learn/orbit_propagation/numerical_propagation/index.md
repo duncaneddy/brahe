@@ -22,7 +22,7 @@ The [`ForceModelConfig`](../../../library_api/propagators/force_model_config.md)
 - **Solar Radiation Pressure**: Cannonball model with conical or cylindrical eclipse
 - **Third-Body**: Sun and Moon gravitational perturbations with analytic or DE440 ephemerides 
 - **Relativistic Effects**: Special and general relativistic corrections
-- **Solid Earth Tides**: IERS solid Earth tide corrections to the gravity field, with optional frequency-dependent terms
+- **Tides**: IERS solid Earth tide corrections to the gravity field (optional frequency-dependent terms and solid pole tide), and FES2004 ocean tide corrections (optional admittance and ocean pole tide)
 
 ### Integrator Configuration
 

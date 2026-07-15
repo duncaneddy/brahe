@@ -5,6 +5,12 @@
 Solid Earth tidal corrections to the geopotential.
 Propagates one LEO orbit with tides ON and OFF, and reports the peak
 position difference to show the tidal perturbation magnitude.
+
+Brahe also supports FES2004 ocean tides (`OceanTideConfig`) and both the
+solid Earth and ocean pole tides. They are omitted from this comparison
+because enabling ocean tides downloads a one-time IERS coefficient file
+(~3.7 MB) into `$BRAHE_CACHE/tides/`, which this offline example avoids; see
+the "Ocean Tides" section of the tidal corrections guide.
 """
 
 import math

@@ -438,7 +438,6 @@ pub fn accel_solid_earth_tides(
 /// Julian centuries since J2000. GMST from [`Epoch::gmst`] (IAU 2006).
 ///
 /// Returns `[θg+π, l, l', F, D, Ω]` (radians).
-#[allow(dead_code)] // consumed by Task 9 Step-2 frequency-dependent corrections
 pub(crate) fn doodson_delaunay_args(epoch: Epoch) -> [f64; 6] {
     use std::f64::consts::PI;
 

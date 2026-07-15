@@ -132,6 +132,95 @@ pub(crate) fn parse_doodson(s: &str) -> Result<[i8; 6], BraheError> {
     ])
 }
 
+/// Convert Doodson multipliers `[kτ, ks, kh, kp, kN′, kps]` to additive
+/// multipliers of `[γ = GMST+π, l, l′, F, D, Ω]`, the argument vector
+/// returned by [`crate::orbit_dynamics::tides::doodson_delaunay_args`].
+///
+/// The identities are s = F + Ω, h = s − D, p = s − l, N′ = −Ω,
+/// ps = s − D − l′, τ = γ − s (IERS TN36 §6.2.1 explanatory text below
+/// Eq. 6.8e). Matches the conversion in Orekit's `OceanTidesWave`
+/// constructor (independently cross-checked).
+///
+/// # Arguments
+///
+/// * `k` - Doodson multipliers `[kτ, ks, kh, kp, kN′, kps]` (dimensionless).
+///
+/// # Returns
+///
+/// * `[i32; 6]` - Multipliers of `[γ, l, l′, F, D, Ω]` (dimensionless).
+pub(crate) fn doodson_to_delaunay(k: [i8; 6]) -> [i32; 6] {
+    let (kt, ks, kh, kp, kn, kps) = (
+        k[0] as i32,
+        k[1] as i32,
+        k[2] as i32,
+        k[3] as i32,
+        k[4] as i32,
+        k[5] as i32,
+    );
+    [
+        kt,                            // γ
+        -kp,                           // l
+        -kps,                          // l′
+        -kt + ks + kh + kp + kps,      // F
+        -kh - kps,                     // D
+        -kt + ks + kh + kp - kn + kps, // Ω
+    ]
+}
+
+/// Mean rates of the Doodson fundamental variables (τ, s, h, p, N′, ps) in
+/// degrees per hour, used only for the time-independent admittance
+/// interpolation weights of Eq. (6.16). Values reproduce the "deg/hr" column
+/// of TN36 Table 6.5c (e.g. M2 = 2τ̇ = 28.98410).
+#[allow(dead_code)] // consumed by Task 7+: ocean tide admittance interpolation
+const DOODSON_RATES_DEG_PER_HOUR: [f64; 6] = [
+    14.49205211,
+    0.54901653,
+    0.04106864,
+    0.00464183,
+    0.00220641,
+    0.00000196,
+];
+
+/// Rate θ̇f of a constituent's Doodson argument.
+///
+/// # Arguments
+///
+/// * `k` - Doodson multipliers `[kτ, ks, kh, kp, kN′, kps]` (dimensionless).
+///
+/// # Returns
+///
+/// * `f64` - Argument rate θ̇f [deg/hour].
+#[allow(dead_code)] // consumed by Task 7+: ocean tide admittance interpolation
+pub(crate) fn theta_dot_deg_per_hour(k: [i8; 6]) -> f64 {
+    k.iter()
+        .zip(DOODSON_RATES_DEG_PER_HOUR.iter())
+        .map(|(ki, ri)| *ki as f64 * ri)
+        .sum()
+}
+
+/// Doodson argument θf from precomputed `[γ, l, l′, F, D, Ω]` multipliers and
+/// the argument vector of
+/// [`crate::orbit_dynamics::tides::doodson_delaunay_args`].
+///
+/// # Arguments
+///
+/// * `delaunay` - Multipliers of `[γ, l, l′, F, D, Ω]` (dimensionless), from
+///   [`doodson_to_delaunay`].
+/// * `args` - `[γ, l, l′, F, D, Ω]` (radians), from
+///   [`crate::orbit_dynamics::tides::doodson_delaunay_args`].
+///
+/// # Returns
+///
+/// * `f64` - Doodson argument θf [rad].
+#[allow(dead_code)] // consumed by Task 7+: ocean tide acceleration model
+pub(crate) fn tide_argument(delaunay: &[i32; 6], args: &[f64; 6]) -> f64 {
+    delaunay
+        .iter()
+        .zip(args.iter())
+        .map(|(ki, ai)| *ki as f64 * ai)
+        .sum()
+}
+
 /// Parse the FES2004 coefficient file (IERS TN36 §6.3.2), truncated to
 /// `n_max`/`m_max`, grouped by constituent in file order. Degree 0 and 1 rows
 /// are skipped: degree-1 terms represent geocenter motion, not geopotential
@@ -210,7 +299,7 @@ pub(crate) fn parse_fes2004_file(
             _ => waves.push(OceanTideConstituent {
                 doodson,
                 name: fields[1].to_string(),
-                delaunay: [0; 6],
+                delaunay: doodson_to_delaunay(doodson),
                 lines: vec![entry],
             }),
         }
@@ -228,6 +317,63 @@ pub(crate) fn parse_fes2004_file(
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
+    use crate::time::{Epoch, TimeSystem};
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_doodson_to_delaunay_matches_iers_tables() {
+        // M2 (255.555): Table 6.5c row τ s h p N' ps = 2 0 0 0 0 0,
+        // Delaunay l l' F D Ω = 0 0 2 0 2 (subtracted) => additive multipliers:
+        assert_eq!(
+            doodson_to_delaunay(parse_doodson("255.555").unwrap()),
+            [2, 0, 0, -2, 0, -2]
+        );
+        // N2 (245.655): Table 6.5c row 2 -1 0 1 0 0 / Delaunay 1 0 2 0 2:
+        assert_eq!(
+            doodson_to_delaunay(parse_doodson("245.655").unwrap()),
+            [2, -1, 0, -2, 0, -2]
+        );
+        // K1 (165.555): pure γ.
+        assert_eq!(
+            doodson_to_delaunay(parse_doodson("165.555").unwrap()),
+            [1, 0, 0, 0, 0, 0]
+        );
+        // O1 (145.555): γ - 2s => F, Ω pick up the s expansion.
+        assert_eq!(
+            doodson_to_delaunay(parse_doodson("145.555").unwrap()),
+            [1, 0, 0, -2, 0, -2]
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_theta_dot_matches_table_65c() {
+        // Table 6.5c "deg/hr" column: M2 = 28.98410, N2 = 28.43973.
+        let m2 = theta_dot_deg_per_hour(parse_doodson("255.555").unwrap());
+        assert!((m2 - 28.98410).abs() < 1e-4, "M2 rate {m2}");
+        let n2 = theta_dot_deg_per_hour(parse_doodson("245.655").unwrap());
+        assert!((n2 - 28.43973).abs() < 1e-4, "N2 rate {n2}");
+        // K1 = τ̇ + ṡ = rate of GMST+π ≈ 15.041069 deg/hr.
+        let k1 = theta_dot_deg_per_hour(parse_doodson("165.555").unwrap());
+        assert!((k1 - 15.04107).abs() < 1e-4, "K1 rate {k1}");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_tide_argument_m2_period() {
+        // Finite-difference the M2 argument over one hour: expect ~28.984 deg/hr.
+        crate::utils::testing::setup_global_test_eop();
+        let epoch = Epoch::from_datetime(2020, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let delaunay = doodson_to_delaunay(parse_doodson("255.555").unwrap());
+        let a0 = crate::orbit_dynamics::tides::doodson_delaunay_args(epoch);
+        let a1 = crate::orbit_dynamics::tides::doodson_delaunay_args(epoch + 3600.0);
+        let rate_deg_hr =
+            (tide_argument(&delaunay, &a1) - tide_argument(&delaunay, &a0)).to_degrees();
+        assert!(
+            (rate_deg_hr - 28.98410).abs() < 1e-3,
+            "M2 rate {rate_deg_hr}"
+        );
+    }
 
     #[test]
     #[serial_test::parallel]

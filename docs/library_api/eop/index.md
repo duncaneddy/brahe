@@ -34,29 +34,6 @@ EOP data is managed globally to avoid passing providers through every function c
 - Querying global EOP data
 - Downloading latest EOP files
 
-## Quick Start
-
-```python
-import brahe as bh
-
-# Option 1: Use file-based EOP (recommended for production)
-bh.set_global_eop_provider(
-    bh.FileEOPProvider.from_default_standard()
-)
-
-# Option 2: Use static EOP (for testing/offline use)
-bh.set_global_eop_provider(
-    bh.StaticEOPProvider.from_zero()
-)
-
-# Now frame transformations will use the global EOP data
-epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
-pos_eci = [7000000.0, 0.0, 0.0]  # meters
-pos_ecef = bh.position_eci_to_ecef(epoch, pos_eci)
-```
-
----
-
 ## See Also
 
 - [Frames](../frames/index.md) - Coordinate frame transformations that use EOP

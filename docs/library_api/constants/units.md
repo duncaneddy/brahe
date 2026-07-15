@@ -15,24 +15,3 @@ The `AngleFormat` enumeration specifies whether angles are in radians or degrees
         - DEGREES
       show_bases: false
       heading_level: 3
-
-### Usage Example
-
-```python
-import brahe as bh
-import numpy as np
-
-# Create rotation with angle in degrees
-q = bh.Quaternion.from_euler_axis(
-    axis=np.array([0.0, 0.0, 1.0]),
-    angle=90.0,
-    angle_format=bh.AngleFormat.DEGREES
-)
-
-# Create rotation with angle in radians
-q2 = bh.Quaternion.from_euler_axis(
-    axis=np.array([0.0, 0.0, 1.0]),
-    angle=np.pi/2,
-    angle_format=bh.AngleFormat.RADIANS
-)
-```

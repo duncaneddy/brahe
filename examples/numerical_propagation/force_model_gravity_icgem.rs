@@ -30,7 +30,7 @@ fn main() {
         },
         drag: None,
         srp: None,
-        third_body: None,
+        third_bodies: None,
         relativity: false,
         mass: None,
         frame_transform: bh::FrameTransformationModel::default(),

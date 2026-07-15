@@ -16,10 +16,7 @@ fn make_propagator(
     let mut force_config = bh::ForceModelConfig::earth_gravity();
     // Add Sun+Moon third-body perturbations. Note: tidal accelerations use their
     // own internal low-precision ephemeris and do NOT depend on this setting.
-    force_config.third_body = Some(bh::ThirdBodyConfiguration {
-        ephemeris_source: bh::EphemerisSource::DE440s,
-        bodies: vec![bh::ThirdBody::Sun, bh::ThirdBody::Moon],
-    });
+    force_config.third_bodies = Some(vec![bh::ThirdBody::Sun.into(), bh::ThirdBody::Moon.into()]);
     force_config.tides = tides;
 
     bh::DNumericalOrbitPropagator::new(

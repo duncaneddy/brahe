@@ -5118,25 +5118,37 @@ impl PyThirdBody {
     }
 }
 
-/// Third-body perturbations configuration.
+/// Configuration for a single third-body perturber.
 ///
-/// Defines which celestial bodies to include and ephemeris source.
+/// Pairs a perturbing body with its ephemeris source and the gravity model
+/// used for its perturbation (point-mass by default; a spherical-harmonic or
+/// Earth-zonal field evaluates at the object's position relative to the
+/// body).
 ///
 /// Args:
-///     ephemeris_source (EphemerisSource): Source for celestial body ephemerides.
-///     bodies (list[ThirdBody]): List of bodies to include as perturbers.
+///     body (ThirdBody): The perturbing body.
+///     ephemeris_source (EphemerisSource, optional): Source for the body's
+///         position. Defaults to ``EphemerisSource.DE440s``.
+///     gravity (GravityConfiguration, optional): Gravity model for this
+///         perturber. Defaults to point-mass.
 ///
 /// Attributes:
+///     body (ThirdBody): The perturbing body
 ///     ephemeris_source (EphemerisSource): Ephemeris source
-///     bodies (list[ThirdBody]): List of perturbing bodies
+///     gravity (GravityConfiguration): Gravity model for this perturber
 ///
 /// Example:
 ///     ```python
 ///     import brahe as bh
 ///
-///     third_body = bh.ThirdBodyConfiguration(
-///         ephemeris_source=bh.EphemerisSource.DE440s,
-///         bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON]
+///     # Point-mass Moon from DE440s
+///     moon = bh.ThirdBodyConfiguration(bh.ThirdBody.MOON)
+///
+///     # Earth as an 8x8 spherical-harmonic perturber (for an EMB-centered
+///     # propagation)
+///     earth = bh.ThirdBodyConfiguration(
+///         bh.ThirdBody.EARTH,
+///         gravity=bh.GravityConfiguration.spherical_harmonic(degree=8, order=8),
 ///     )
 ///     ```
 #[pyclass(module = "brahe._brahe", from_py_object)]
@@ -5148,20 +5160,44 @@ pub struct PyThirdBodyConfiguration {
 
 #[pymethods]
 impl PyThirdBodyConfiguration {
-    /// Create a new third-body configuration.
+    /// Create a configuration for a single third-body perturber.
     ///
     /// Args:
-    ///     ephemeris_source (EphemerisSource): Source for celestial body ephemerides.
-    ///     bodies (list[ThirdBody]): List of bodies to include as perturbers.
+    ///     body (ThirdBody): The perturbing body.
+    ///     ephemeris_source (EphemerisSource, optional): Source for the body's
+    ///         position. Defaults to ``EphemerisSource.DE440s``.
+    ///     gravity (GravityConfiguration, optional): Gravity model for this
+    ///         perturber. Defaults to point-mass.
     #[new]
-    #[pyo3(signature = (ephemeris_source, bodies))]
-    fn new(ephemeris_source: PyEphemerisSource, bodies: Vec<PyThirdBody>) -> Self {
+    #[pyo3(signature = (body, ephemeris_source=None, gravity=None))]
+    fn new(
+        body: PyThirdBody,
+        ephemeris_source: Option<PyEphemerisSource>,
+        gravity: Option<PyGravityConfiguration>,
+    ) -> Self {
         PyThirdBodyConfiguration {
             config: propagators::ThirdBodyConfiguration {
-                ephemeris_source: ephemeris_source.into(),
-                bodies: bodies.into_iter().map(|b| b.body).collect(),
+                body: body.body,
+                ephemeris_source: ephemeris_source
+                    .map(|s| s.into())
+                    .unwrap_or(propagators::EphemerisSource::DE440s),
+                gravity: gravity
+                    .map(|g| g.config.clone())
+                    .unwrap_or(propagators::GravityConfiguration::PointMass),
             },
         }
+    }
+
+    /// Get the perturbing body.
+    #[getter]
+    fn body(&self) -> PyThirdBody {
+        PyThirdBody { body: self.config.body.clone() }
+    }
+
+    /// Set the perturbing body.
+    #[setter]
+    fn set_body(&mut self, body: PyThirdBody) {
+        self.config.body = body.body;
     }
 
     /// Get the ephemeris source.
@@ -5187,27 +5223,58 @@ impl PyThirdBodyConfiguration {
         self.config.ephemeris_source = source.into();
     }
 
-    /// Get the list of third bodies.
+    /// Get the gravity model for this perturber.
     #[getter]
-    fn bodies(&self) -> Vec<PyThirdBody> {
-        self.config
-            .bodies
-            .iter()
-            .map(|b| PyThirdBody { body: b.clone() })
-            .collect()
+    fn gravity(&self) -> PyGravityConfiguration {
+        PyGravityConfiguration { config: self.config.gravity.clone() }
     }
 
-    /// Set the list of third bodies.
+    /// Set the gravity model for this perturber.
     #[setter]
-    fn set_bodies(&mut self, bodies: Vec<PyThirdBody>) {
-        self.config.bodies = bodies.into_iter().map(|b| b.body).collect();
+    fn set_gravity(&mut self, gravity: PyGravityConfiguration) {
+        self.config.gravity = gravity.config.clone();
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "ThirdBodyConfiguration(ephemeris_source={:?}, bodies={:?})",
-            self.config.ephemeris_source, self.config.bodies
+            "ThirdBodyConfiguration(body={:?}, ephemeris_source={:?}, gravity={:?})",
+            self.config.body, self.config.ephemeris_source, self.config.gravity
         )
+    }
+}
+
+/// A single third-body entry: either a full configuration or a bare body
+/// (which takes DE440s ephemerides and point-mass gravity).
+#[derive(FromPyObject)]
+pub enum PyThirdBodyLike {
+    Config(PyThirdBodyConfiguration),
+    Body(PyThirdBody),
+}
+
+impl PyThirdBodyLike {
+    fn into_config(self) -> propagators::ThirdBodyConfiguration {
+        match self {
+            PyThirdBodyLike::Config(c) => c.config,
+            PyThirdBodyLike::Body(b) => b.body.into(),
+        }
+    }
+}
+
+/// Accepts a single entry or a list of entries.
+#[derive(FromPyObject)]
+pub enum PyThirdBodiesInput {
+    One(PyThirdBodyLike),
+    Many(Vec<PyThirdBodyLike>),
+}
+
+impl PyThirdBodiesInput {
+    fn into_configs(self) -> Vec<propagators::ThirdBodyConfiguration> {
+        match self {
+            PyThirdBodiesInput::One(item) => vec![item.into_config()],
+            PyThirdBodiesInput::Many(items) => {
+                items.into_iter().map(|i| i.into_config()).collect()
+            }
+        }
     }
 }
 
@@ -5516,8 +5583,9 @@ impl PyNumericalPropagationConfig {
 ///         Default is None (disabled).
 ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
 ///         Default is None (disabled).
-///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
-///         Default is None (disabled).
+///     third_bodies (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
+///         perturbation entries; a single entry or a list mixing ThirdBody and
+///         ThirdBodyConfiguration values. Default is None (disabled).
 ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
 ///     mass (ParameterSource, optional): Spacecraft mass source. Default is None.
 ///     frame_transform (FrameTransformationModel, optional): ECI-to-body-fixed rotation
@@ -5527,7 +5595,7 @@ impl PyNumericalPropagationConfig {
 ///     gravity (GravityConfiguration): Gravity model configuration
 ///     drag (DragConfiguration or None): Atmospheric drag configuration
 ///     srp (SolarRadiationPressureConfiguration or None): Solar radiation pressure configuration
-///     third_body (ThirdBodyConfiguration or None): Third-body perturbations configuration
+///     third_bodies (list[ThirdBodyConfiguration] or None): Third-body perturbation entries
 ///     relativity (bool): Enable relativistic corrections
 ///     mass (ParameterSource or None): Spacecraft mass source
 ///     frame_transform (FrameTransformationModel): ECI-to-body-fixed rotation model
@@ -5562,7 +5630,9 @@ impl PyForceModelConfig {
     ///         Default is point mass gravity.
     ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
     ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
-    ///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
+    ///     third_bodies (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
+    ///         perturbation entries; a single entry or a list mixing ThirdBody and
+    ///         ThirdBodyConfiguration values.
     ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
     ///     mass (ParameterSource, optional): Spacecraft mass source.
     ///     tides (TidesConfiguration, optional): Solid Earth tides configuration.
@@ -5580,13 +5650,13 @@ impl PyForceModelConfig {
     ///     )
     ///     ```
     #[new]
-    #[pyo3(signature = (gravity=None, drag=None, srp=None, third_body=None, relativity=false, mass=None, frame_transform=None, tides=None))]
+    #[pyo3(signature = (gravity=None, drag=None, srp=None, third_bodies=None, relativity=false, mass=None, frame_transform=None, tides=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         gravity: Option<&PyGravityConfiguration>,
         drag: Option<&PyDragConfiguration>,
         srp: Option<&PySolarRadiationPressureConfiguration>,
-        third_body: Option<&PyThirdBodyConfiguration>,
+        third_bodies: Option<PyThirdBodiesInput>,
         relativity: bool,
         mass: Option<&PyParameterSource>,
         frame_transform: Option<&PyFrameTransformationModel>,
@@ -5600,7 +5670,7 @@ impl PyForceModelConfig {
                     .unwrap_or(propagators::GravityConfiguration::PointMass),
                 drag: drag.map(|d| d.config.clone()),
                 srp: srp.map(|s| s.config.clone()),
-                third_body: third_body.map(|t| t.config.clone()),
+                third_bodies: third_bodies.map(|t| t.into_configs()),
                 relativity,
                 mass: mass.map(|m| m.source.clone()),
                 frame_transform: frame_transform.map(|f| f.model.clone()).unwrap_or_default(),
@@ -5708,14 +5778,16 @@ impl PyForceModelConfig {
     ///     gravity (GravityConfiguration): Gravity model configuration.
     ///     drag (DragConfiguration, optional): Atmospheric drag configuration.
     ///     srp (SolarRadiationPressureConfiguration, optional): Solar radiation pressure configuration.
-    ///     third_body (ThirdBodyConfiguration, optional): Third-body perturbations configuration.
+    ///     third_bodies (ThirdBodyConfiguration | ThirdBody | list, optional): Third-body
+    ///         perturbation entries; a single entry or a list mixing ThirdBody and
+    ///         ThirdBodyConfiguration values.
     ///     relativity (bool, optional): Enable relativistic corrections. Default is False.
     ///     mass (ParameterSource, optional): Spacecraft mass source.
     ///
     /// Returns:
     ///     ForceModelConfig: A force model configuration for `central_body`.
     #[classmethod]
-    #[pyo3(signature = (central_body, gravity, drag=None, srp=None, third_body=None, relativity=false, mass=None))]
+    #[pyo3(signature = (central_body, gravity, drag=None, srp=None, third_bodies=None, relativity=false, mass=None))]
     #[allow(clippy::too_many_arguments)]
     fn for_body(
         _cls: &Bound<'_, PyType>,
@@ -5723,7 +5795,7 @@ impl PyForceModelConfig {
         gravity: &PyGravityConfiguration,
         drag: Option<&PyDragConfiguration>,
         srp: Option<&PySolarRadiationPressureConfiguration>,
-        third_body: Option<&PyThirdBodyConfiguration>,
+        third_bodies: Option<PyThirdBodiesInput>,
         relativity: bool,
         mass: Option<&PyParameterSource>,
     ) -> Self {
@@ -5733,7 +5805,7 @@ impl PyForceModelConfig {
                 gravity.config.clone(),
                 drag.map(|d| d.config.clone()),
                 srp.map(|s| s.config.clone()),
-                third_body.map(|t| t.config.clone()),
+                third_bodies.map(|t| t.into_configs()),
                 relativity,
                 mass.map(|m| m.source.clone()),
             ),
@@ -5861,19 +5933,21 @@ impl PyForceModelConfig {
         self.config.srp = srp.map(|s| s.config.clone());
     }
 
-    /// Get the third-body configuration (None if disabled).
+    /// Get the third-body perturbation entries (None if disabled).
     #[getter]
-    fn third_body(&self) -> Option<PyThirdBodyConfiguration> {
-        self.config
-            .third_body
-            .as_ref()
-            .map(|t| PyThirdBodyConfiguration { config: t.clone() })
+    fn third_bodies(&self) -> Option<Vec<PyThirdBodyConfiguration>> {
+        self.config.third_bodies.as_ref().map(|v| {
+            v.iter()
+                .map(|t| PyThirdBodyConfiguration { config: t.clone() })
+                .collect()
+        })
     }
 
-    /// Set the third-body configuration (None to disable).
+    /// Set the third-body perturbation entries (None to disable). Accepts a
+    /// single ThirdBody or ThirdBodyConfiguration, or a list mixing both.
     #[setter]
-    fn set_third_body(&mut self, third_body: Option<&PyThirdBodyConfiguration>) {
-        self.config.third_body = third_body.map(|t| t.config.clone());
+    fn set_third_bodies(&mut self, third_bodies: Option<PyThirdBodiesInput>) {
+        self.config.third_bodies = third_bodies.map(|t| t.into_configs());
     }
 
     /// Get whether relativistic corrections are enabled.

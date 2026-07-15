@@ -1819,8 +1819,9 @@ impl DNumericalOrbitPropagator {
         }
 
         // ===== THIRD BODY =====
-        if let Some(tb_config) = &force_config.third_body {
-            for body in &tb_config.bodies {
+        if let Some(tb_entries) = &force_config.third_bodies {
+            for entry in tb_entries {
+                let body = &entry.body;
                 // Keep the legacy geocentric call for Earth so Earth
                 // propagation stays bit-identical; other central bodies use
                 // the central-body-aware differential form. `accel_third_body`
@@ -1843,12 +1844,8 @@ impl DNumericalOrbitPropagator {
                         | ThirdBody::SaturnBarycenter
                         | ThirdBody::UranusBarycenter
                         | ThirdBody::NeptuneBarycenter => {
-                            a_total += accel_third_body(
-                                body.clone(),
-                                tb_config.ephemeris_source,
-                                epoch,
-                                r,
-                            );
+                            a_total +=
+                                accel_third_body(body.clone(), entry.ephemeris_source, epoch, r);
                         }
                         ThirdBody::Mars
                         | ThirdBody::Jupiter
@@ -1862,7 +1859,7 @@ impl DNumericalOrbitPropagator {
                             a_total += accel_third_body_for_body(
                                 &CentralBody::Earth,
                                 body,
-                                tb_config.ephemeris_source,
+                                entry.ephemeris_source,
                                 epoch,
                                 r,
                             )
@@ -1872,14 +1869,9 @@ impl DNumericalOrbitPropagator {
                         }
                     }
                 } else {
-                    a_total += accel_third_body_for_body(
-                        central,
-                        body,
-                        tb_config.ephemeris_source,
-                        epoch,
-                        r,
-                    )
-                    .expect("third-body query failed");
+                    a_total +=
+                        accel_third_body_for_body(central, body, entry.ephemeris_source, epoch, r)
+                            .expect("third-body query failed");
                 }
             }
         }
@@ -3336,7 +3328,7 @@ mod tests {
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::force_model_config::{
         AtmosphericModel, DragConfiguration, EphemerisSource, GravityConfiguration, OccultingBody,
-        ParameterSource, ThirdBody, ThirdBodyConfiguration,
+        ParameterSource, ThirdBody,
     };
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
@@ -3375,7 +3367,7 @@ mod tests {
                 cd: ParameterSource::ParameterIndex(2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
@@ -3439,7 +3431,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -8449,7 +8441,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -8671,7 +8663,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -8732,7 +8724,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -8789,7 +8781,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -8860,7 +8852,7 @@ mod tests {
                 },
                 drag: None,
                 srp: None,
-                third_body: None,
+                third_bodies: None,
                 relativity: false,
             };
 
@@ -8922,7 +8914,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -8952,7 +8944,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9024,7 +9016,7 @@ mod tests {
                 cd: ParameterSource::Value(2.2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9081,7 +9073,7 @@ mod tests {
                 cd: ParameterSource::Value(2.2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9131,7 +9123,7 @@ mod tests {
                 cd: ParameterSource::Value(2.2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9196,7 +9188,7 @@ mod tests {
                 cd: ParameterSource::Value(2.2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9261,7 +9253,7 @@ mod tests {
                 cd: ParameterSource::Value(2.2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9336,7 +9328,7 @@ mod tests {
                 eclipse_model: EclipseModel::None,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9384,7 +9376,7 @@ mod tests {
                 eclipse_model: EclipseModel::Cylindrical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9429,7 +9421,7 @@ mod tests {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9475,7 +9467,7 @@ mod tests {
                 eclipse_model: EclipseModel::Conical, // Use conical for penumbra transitions
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -9531,10 +9523,11 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
+            third_bodies: Some(vec![ThirdBodyConfiguration {
+                body: ThirdBody::Sun,
                 ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Sun],
-            }),
+                gravity: GravityConfiguration::PointMass,
+            }]),
             relativity: false,
         };
 
@@ -9572,10 +9565,11 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
+            third_bodies: Some(vec![ThirdBodyConfiguration {
+                body: ThirdBody::Moon,
                 ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Moon],
-            }),
+                gravity: GravityConfiguration::PointMass,
+            }]),
             relativity: false,
         };
 
@@ -9598,8 +9592,6 @@ mod tests {
     #[test]
     #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_planets_spice() {
-        use crate::propagators::force_model_config::ThirdBodyConfiguration;
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -9613,14 +9605,11 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![
-                    ThirdBody::Sun,
-                    ThirdBody::Moon,
-                    ThirdBody::JupiterBarycenter,
-                ],
-            }),
+            third_bodies: Some(vec![
+                ThirdBody::Sun.into(),
+                ThirdBody::Moon.into(),
+                ThirdBody::JupiterBarycenter.into(),
+            ]),
             relativity: false,
         };
 
@@ -9643,8 +9632,6 @@ mod tests {
     #[test]
     #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_jupiter() {
-        use crate::propagators::force_model_config::ThirdBodyConfiguration;
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -9658,10 +9645,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::JupiterBarycenter],
-            }),
+            third_bodies: Some(vec![ThirdBody::JupiterBarycenter.into()]),
             relativity: false,
         };
 
@@ -9696,8 +9680,6 @@ mod tests {
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_dnumericalorbitpropagator_force_third_body_phobos_about_earth_does_not_panic() {
-        use crate::propagators::force_model_config::ThirdBodyConfiguration;
-
         setup_global_test_eop();
         crate::utils::testing::setup_global_test_spice();
         crate::spice::load_spice_kernel("mar099s").unwrap();
@@ -9713,10 +9695,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Phobos],
-            }),
+            third_bodies: Some(vec![ThirdBody::Phobos.into()]),
             relativity: false,
         };
         force_config.validate().unwrap();
@@ -9747,8 +9726,6 @@ mod tests {
     #[test]
     #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_mars() {
-        use crate::propagators::force_model_config::ThirdBodyConfiguration;
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -9762,10 +9739,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::MarsBarycenter],
-            }),
+            third_bodies: Some(vec![ThirdBody::MarsBarycenter.into()]),
             relativity: false,
         };
 
@@ -9805,7 +9779,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: true, // Enable relativity
         };
 
@@ -9919,10 +9893,18 @@ mod tests {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
-            }),
+            third_bodies: Some(vec![
+                ThirdBodyConfiguration {
+                    body: ThirdBody::Sun,
+                    ephemeris_source: EphemerisSource::LowPrecision,
+                    gravity: GravityConfiguration::PointMass,
+                },
+                ThirdBodyConfiguration {
+                    body: ThirdBody::Moon,
+                    ephemeris_source: EphemerisSource::LowPrecision,
+                    gravity: GravityConfiguration::PointMass,
+                },
+            ]),
             relativity: true, // Enable relativity
         };
 
@@ -9989,7 +9971,7 @@ mod tests {
                 cd: ParameterSource::ParameterIndex(2), // From params[2]
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -10953,7 +10935,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
         };
 
@@ -11127,7 +11109,7 @@ mod tests {
                 cd: ParameterSource::Value(2.2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             ..Default::default()
         };
 
@@ -11224,7 +11206,7 @@ mod tests {
                 cd: ParameterSource::Value(2.2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             ..Default::default()
         };
 
@@ -11286,7 +11268,7 @@ mod tests {
                 cd: ParameterSource::ParameterIndex(1), // Use params[1] for Cd
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             ..Default::default()
         };
 
@@ -11355,10 +11337,11 @@ mod tests {
                 eclipse_model: EclipseModel::None,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: Some(ThirdBodyConfiguration {
+            third_bodies: Some(vec![ThirdBodyConfiguration {
+                body: ThirdBody::Sun,
                 ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Sun],
-            }),
+                gravity: GravityConfiguration::PointMass,
+            }]),
             ..Default::default()
         };
 
@@ -11459,7 +11442,7 @@ mod tests {
                 cd: ParameterSource::ParameterIndex(1),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             ..Default::default()
         };
 
@@ -11517,7 +11500,7 @@ mod tests {
                 cd: ParameterSource::Value(2.2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             ..Default::default()
         };
 
@@ -12811,10 +12794,7 @@ mod tests {
 
         let mut cfg = ForceModelConfig::cislunar_default();
         cfg.srp = None;
-        cfg.third_body = Some(ThirdBodyConfiguration {
-            ephemeris_source: EphemerisSource::DE440s,
-            bodies: vec![ThirdBody::Earth, ThirdBody::Sun],
-        });
+        cfg.third_bodies = Some(vec![ThirdBody::Earth.into(), ThirdBody::Sun.into()]);
 
         let state = DVector::from_vec(x0.as_slice().to_vec());
 
@@ -13380,7 +13360,7 @@ mod tests {
             tides: None,
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform:
@@ -13399,7 +13379,7 @@ mod tests {
             }),
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform:

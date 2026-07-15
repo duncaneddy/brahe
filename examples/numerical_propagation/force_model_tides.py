@@ -27,10 +27,7 @@ def make_propagator(tides_config):
     force_config = bh.ForceModelConfig.earth_gravity()
     # Add Sun+Moon third-body perturbations. Note: tidal accelerations use their
     # own internal low-precision ephemeris and do NOT depend on this setting.
-    force_config.third_body = bh.ThirdBodyConfiguration(
-        ephemeris_source=bh.EphemerisSource.DE440s,
-        bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-    )
+    force_config.third_bodies = [bh.ThirdBody.SUN, bh.ThirdBody.MOON]
     force_config.tides = tides_config
     return bh.NumericalOrbitPropagator(
         epoch,

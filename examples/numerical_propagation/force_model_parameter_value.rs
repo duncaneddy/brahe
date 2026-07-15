@@ -35,10 +35,16 @@ fn main() {
         },
         drag: Some(drag_config),
         srp: Some(srp_config),
-        third_body: Some(bh::ThirdBodyConfiguration {
-            ephemeris_source: bh::EphemerisSource::LowPrecision,
-            bodies: vec![bh::ThirdBody::Sun, bh::ThirdBody::Moon],
-        }),
+        third_bodies: Some(vec![
+            bh::ThirdBodyConfiguration {
+                ephemeris_source: bh::EphemerisSource::LowPrecision,
+                ..bh::ThirdBody::Sun.into()
+            },
+            bh::ThirdBodyConfiguration {
+                ephemeris_source: bh::EphemerisSource::LowPrecision,
+                ..bh::ThirdBody::Moon.into()
+            },
+        ]),
         relativity: false,
         mass: Some(bh::ParameterSource::Value(500.0)), // Fixed 500 kg mass
         frame_transform: bh::FrameTransformationModel::default(),

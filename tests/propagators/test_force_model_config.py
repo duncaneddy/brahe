@@ -251,14 +251,15 @@ def test_thirdbody_naif_ids_and_gm():
 
 
 def test_thirdbodyconfiguration_with_mars_system_bodies():
-    """ThirdBodyConfiguration accepts the new Earth/Phobos/Deimos variants"""
-    config = ThirdBodyConfiguration(
-        ephemeris_source=EphemerisSource.DE440s,
-        bodies=[ThirdBody.PHOBOS, ThirdBody.DEIMOS],
-    )
-    bodies = config.bodies
-    assert bodies[0].naif_id() == 401
-    assert bodies[1].naif_id() == 402
+    """ThirdBodyConfiguration accepts the Earth/Phobos/Deimos variants"""
+    entries = [
+        ThirdBodyConfiguration(ThirdBody.PHOBOS),
+        ThirdBodyConfiguration(
+            ThirdBody.DEIMOS, ephemeris_source=EphemerisSource.DE440s
+        ),
+    ]
+    assert entries[0].body.naif_id() == 401
+    assert entries[1].body.naif_id() == 402
 
 
 # =============================================================================
@@ -292,7 +293,7 @@ def test_forcemodelconfig_for_body_constructs_expected_fields():
     assert config.central_body == CentralBody.Mars
     assert config.drag is None
     assert config.srp is None
-    assert config.third_body is None
+    assert config.third_bodies is None
     assert config.relativity
     # FrameTransformationModel has no __eq__; compare via repr (matches the
     # existing test convention for equality-less config enums in this module).
@@ -368,9 +369,8 @@ def test_forcemodelconfig_validate_rejects_earth_rotation_only_non_earth():
 def test_forcemodelconfig_validate_rejects_low_precision_ephemeris_non_earth():
     """Mirrors test_validate_rejects_low_precision_ephemeris_non_earth"""
     config = ForceModelConfig(
-        third_body=ThirdBodyConfiguration(
-            ephemeris_source=EphemerisSource.LowPrecision,
-            bodies=[ThirdBody.SUN],
+        third_bodies=ThirdBodyConfiguration(
+            ThirdBody.SUN, ephemeris_source=EphemerisSource.LowPrecision
         ),
     )
     config.central_body = CentralBody.Moon
@@ -385,10 +385,14 @@ def test_forcemodelconfig_validate_rejects_low_precision_ephemeris_non_earth():
 def test_forcemodelconfig_validate_allows_low_precision_earth_sun_moon():
     """Mirrors test_validate_allows_low_precision_earth_sun_moon"""
     config = ForceModelConfig(
-        third_body=ThirdBodyConfiguration(
-            ephemeris_source=EphemerisSource.LowPrecision,
-            bodies=[ThirdBody.SUN, ThirdBody.MOON],
-        ),
+        third_bodies=[
+            ThirdBodyConfiguration(
+                ThirdBody.SUN, ephemeris_source=EphemerisSource.LowPrecision
+            ),
+            ThirdBodyConfiguration(
+                ThirdBody.MOON, ephemeris_source=EphemerisSource.LowPrecision
+            ),
+        ],
     )
     config.central_body = CentralBody.Earth
 
@@ -398,9 +402,8 @@ def test_forcemodelconfig_validate_allows_low_precision_earth_sun_moon():
 def test_forcemodelconfig_validate_rejects_low_precision_earth_planet():
     """Mirrors test_validate_rejects_low_precision_earth_planet"""
     config = ForceModelConfig(
-        third_body=ThirdBodyConfiguration(
-            ephemeris_source=EphemerisSource.LowPrecision,
-            bodies=[ThirdBody.MARS],
+        third_bodies=ThirdBodyConfiguration(
+            ThirdBody.MARS, ephemeris_source=EphemerisSource.LowPrecision
         ),
     )
     config.central_body = CentralBody.Earth
@@ -415,10 +418,7 @@ def test_forcemodelconfig_validate_rejects_low_precision_earth_planet():
 def test_forcemodelconfig_validate_rejects_third_body_same_naif_id_as_central_body():
     """Mirrors test_validate_rejects_third_body_same_naif_id_as_central_body"""
     config = ForceModelConfig(
-        third_body=ThirdBodyConfiguration(
-            ephemeris_source=EphemerisSource.DE440s,
-            bodies=[ThirdBody.EARTH],
-        ),
+        third_bodies=[ThirdBody.EARTH],
     )
     config.central_body = CentralBody.Earth
 
@@ -594,3 +594,35 @@ def test_third_body_barycenter_planet_split():
     assert brahe.ThirdBody.NEPTUNE.gm() == brahe.GM_NEPTUNE
     assert brahe.ThirdBody.NEPTUNE_BARYCENTER.naif_id() == 8
     assert brahe.ThirdBody.NEPTUNE_BARYCENTER.gm() == brahe.GM_NEPTUNE_SYSTEM
+
+
+def test_third_body_configuration_defaults():
+    cfg = brahe.ThirdBodyConfiguration(brahe.ThirdBody.SUN)
+    assert cfg.body == brahe.ThirdBody.SUN
+    assert cfg.ephemeris_source == brahe.EphemerisSource.DE440s
+
+
+def test_force_model_third_bodies_coercion():
+    # Single bare body
+    fc = brahe.ForceModelConfig(third_bodies=brahe.ThirdBody.SUN)
+    assert len(fc.third_bodies) == 1
+    assert fc.third_bodies[0].body == brahe.ThirdBody.SUN
+
+    # Mixed list of bodies and configurations
+    fc = brahe.ForceModelConfig(
+        third_bodies=[
+            brahe.ThirdBody.SUN,
+            brahe.ThirdBodyConfiguration(brahe.ThirdBody.MOON),
+        ]
+    )
+    assert len(fc.third_bodies) == 2
+    assert fc.third_bodies[1].body == brahe.ThirdBody.MOON
+
+    # Default is None
+    assert brahe.ForceModelConfig().third_bodies is None
+
+    # Setter accepts the same coercions
+    fc.third_bodies = brahe.ThirdBody.MOON
+    assert len(fc.third_bodies) == 1
+    fc.third_bodies = None
+    assert fc.third_bodies is None

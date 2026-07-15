@@ -101,7 +101,7 @@ pub fn numerical_twobody_j2(input: &BenchmarkInput) -> Result<BenchmarkOutput, S
         },
         drag: None,
         srp: None,
-        third_body: None,
+        third_bodies: None,
         relativity: false,
         mass: None,
         frame_transform: FrameTransformationModel::EarthRotationOnly,

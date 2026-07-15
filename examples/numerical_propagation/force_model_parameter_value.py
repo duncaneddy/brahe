@@ -32,8 +32,12 @@ force_config = bh.ForceModelConfig.two_body()
 force_config.gravity = bh.GravityConfiguration.spherical_harmonic(20, 20)
 force_config.drag = drag_config
 force_config.srp = srp_config
-force_config.third_body = bh.ThirdBodyConfiguration(
-    ephemeris_source=bh.EphemerisSource.LowPrecision,
-    bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-)
+force_config.third_bodies = [
+    bh.ThirdBodyConfiguration(
+        bh.ThirdBody.SUN, ephemeris_source=bh.EphemerisSource.LowPrecision
+    ),
+    bh.ThirdBodyConfiguration(
+        bh.ThirdBody.MOON, ephemeris_source=bh.EphemerisSource.LowPrecision
+    ),
+]
 force_config.mass = bh.ParameterSource.value(500.0)  # Fixed 500 kg mass

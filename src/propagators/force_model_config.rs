@@ -133,8 +133,13 @@ pub struct ForceModelConfig {
     /// Solar radiation pressure configuration (None = disabled)
     pub srp: Option<SolarRadiationPressureConfiguration>,
 
-    /// Third-body perturbations configuration (None = disabled)
-    pub third_body: Option<ThirdBodyConfiguration>,
+    /// Third-body perturbations, one entry per perturbing body (None = disabled).
+    ///
+    /// Deserializes from a single entry, a list of entries, or bare
+    /// [`ThirdBody`] values (which take DE440s ephemerides and point-mass
+    /// gravity).
+    #[serde(default, deserialize_with = "deserialize_third_bodies")]
+    pub third_bodies: Option<Vec<ThirdBodyConfiguration>>,
 
     /// Enable general relativistic corrections
     pub relativity: bool,
@@ -180,10 +185,7 @@ impl Default for ForceModelConfig {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
-            }),
+            third_bodies: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
@@ -301,7 +303,7 @@ impl ForceModelConfig {
     ///         cd: ParameterSource::ParameterIndex(2),
     ///     }),
     ///     srp: None,
-    ///     third_body: None,
+    ///     third_bodies: None,
     ///     relativity: false,
     ///     mass: Some(ParameterSource::ParameterIndex(0)),
     ///     frame_transform: Default::default(),
@@ -393,20 +395,17 @@ impl ForceModelConfig {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![
-                    ThirdBody::Sun,
-                    ThirdBody::Moon,
-                    ThirdBody::Venus,
-                    ThirdBody::MarsBarycenter,
-                    ThirdBody::JupiterBarycenter,
-                    ThirdBody::SaturnBarycenter,
-                    ThirdBody::UranusBarycenter,
-                    ThirdBody::NeptuneBarycenter,
-                    ThirdBody::Mercury,
-                ],
-            }),
+            third_bodies: Some(vec![
+                ThirdBody::Sun.into(),
+                ThirdBody::Moon.into(),
+                ThirdBody::Venus.into(),
+                ThirdBody::MarsBarycenter.into(),
+                ThirdBody::JupiterBarycenter.into(),
+                ThirdBody::SaturnBarycenter.into(),
+                ThirdBody::UranusBarycenter.into(),
+                ThirdBody::NeptuneBarycenter.into(),
+                ThirdBody::Mercury.into(),
+            ]),
             relativity: true,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
@@ -431,7 +430,7 @@ impl ForceModelConfig {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -450,7 +449,7 @@ impl ForceModelConfig {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -470,10 +469,7 @@ impl ForceModelConfig {
             },
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
-            }),
+            third_bodies: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
             relativity: true,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -505,10 +501,7 @@ impl ForceModelConfig {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
-            }),
+            third_bodies: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
@@ -536,10 +529,7 @@ impl ForceModelConfig {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
-            }),
+            third_bodies: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
             relativity: false,
             mass: Some(ParameterSource::ParameterIndex(0)),
             frame_transform: FrameTransformationModel::default(),
@@ -609,7 +599,7 @@ impl ForceModelConfig {
     /// * `gravity` - Gravity model configuration
     /// * `drag` - Atmospheric drag configuration (`None` to disable)
     /// * `srp` - Solar radiation pressure configuration (`None` to disable)
-    /// * `third_body` - Third-body perturbations configuration (`None` to disable)
+    /// * `third_bodies` - Third-body perturbation entries, one per body (`None` to disable)
     /// * `relativity` - Enable general relativistic corrections
     /// * `mass` - Spacecraft mass source (`None` if not needed)
     ///
@@ -638,7 +628,7 @@ impl ForceModelConfig {
         gravity: GravityConfiguration,
         drag: Option<DragConfiguration>,
         srp: Option<SolarRadiationPressureConfiguration>,
-        third_body: Option<ThirdBodyConfiguration>,
+        third_bodies: Option<Vec<ThirdBodyConfiguration>>,
         relativity: bool,
         mass: Option<ParameterSource>,
     ) -> Self {
@@ -647,7 +637,7 @@ impl ForceModelConfig {
             gravity,
             drag,
             srp,
-            third_body,
+            third_bodies,
             relativity,
             mass,
             frame_transform: FrameTransformationModel::default(),
@@ -682,10 +672,7 @@ impl ForceModelConfig {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Moon, OccultingBody::Earth],
             }),
-            Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Earth, ThirdBody::Sun],
-            }),
+            Some(vec![ThirdBody::Earth.into(), ThirdBody::Sun.into()]),
             false,
             Some(ParameterSource::ParameterIndex(0)),
         )
@@ -729,10 +716,7 @@ impl ForceModelConfig {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Mars],
             }),
-            Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Sun],
-            }),
+            Some(vec![ThirdBody::Sun.into()]),
             false,
             Some(ParameterSource::ParameterIndex(0)),
         )
@@ -758,10 +742,11 @@ impl ForceModelConfig {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth, OccultingBody::Moon],
             }),
-            Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Earth, ThirdBody::Moon, ThirdBody::Sun],
-            }),
+            Some(vec![
+                ThirdBody::Earth.into(),
+                ThirdBody::Moon.into(),
+                ThirdBody::Sun.into(),
+            ]),
             false,
             Some(ParameterSource::ParameterIndex(0)),
         )
@@ -854,39 +839,31 @@ impl ForceModelConfig {
                     self.central_body
                 )));
             }
-
-            if let Some(ref third_body) = self.third_body
-                && matches!(third_body.ephemeris_source, EphemerisSource::LowPrecision)
-            {
-                return Err(BraheError::Error(format!(
-                    "EphemerisSource::LowPrecision requires an Earth central body, but \
-                     central_body is {}",
-                    self.central_body
-                )));
-            }
         }
 
-        if let Some(ref third_body) = self.third_body
-            && matches!(third_body.ephemeris_source, EphemerisSource::LowPrecision)
-        {
-            for body in &third_body.bodies {
-                if !matches!(body, ThirdBody::Sun | ThirdBody::Moon) {
-                    return Err(BraheError::Error(format!(
-                        "EphemerisSource::LowPrecision only supports Sun and Moon third bodies, \
-                         but {:?} was requested",
-                        body
-                    )));
+        if let Some(ref third_bodies) = self.third_bodies {
+            for tb in third_bodies {
+                if matches!(tb.ephemeris_source, EphemerisSource::LowPrecision) {
+                    if !is_earth {
+                        return Err(BraheError::Error(format!(
+                            "EphemerisSource::LowPrecision requires an Earth central body, but \
+                             central_body is {}",
+                            self.central_body
+                        )));
+                    }
+                    if !matches!(tb.body, ThirdBody::Sun | ThirdBody::Moon) {
+                        return Err(BraheError::Error(format!(
+                            "EphemerisSource::LowPrecision only supports Sun and Moon third \
+                             bodies, but {:?} was requested",
+                            tb.body
+                        )));
+                    }
                 }
-            }
-        }
-
-        if let Some(ref third_body) = self.third_body {
-            for body in &third_body.bodies {
-                if body.naif_id() == self.central_body.naif_id() {
+                if tb.body.naif_id() == self.central_body.naif_id() {
                     return Err(BraheError::Error(format!(
                         "third body {:?} has the same NAIF ID ({}) as central body {}",
-                        body,
-                        body.naif_id(),
+                        tb.body,
+                        tb.body.naif_id(),
                         self.central_body
                     )));
                 }
@@ -896,7 +873,7 @@ impl ForceModelConfig {
                 // perturber distance. The planet itself (NAIF 499 ==
                 // CentralBody::Mars.naif_id()) is caught by the NAIF-ID
                 // equality check above.
-                if matches!(body, ThirdBody::MarsBarycenter)
+                if matches!(tb.body, ThirdBody::MarsBarycenter)
                     && matches!(self.central_body, CentralBody::Mars)
                 {
                     return Err(BraheError::Error(
@@ -1351,17 +1328,138 @@ pub enum EclipseModel {
 // Third Body Configuration
 // =============================================================================
 
-/// Third-body perturbations configuration
+/// A single third-body perturber and how its force is modeled.
 ///
-/// Defines which celestial bodies to include as third-body perturbers
-/// and which ephemeris source to use for their positions.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Each perturber carries its own ephemeris source and gravity model, so a
+/// force configuration can, for example, model the Moon as a point mass from
+/// DE440s while modeling Earth with a spherical-harmonic field (see
+/// [`GravityConfiguration`]). The default gravity model is
+/// [`GravityConfiguration::PointMass`], the classical third-body formulation.
+///
+/// Deserializes from either a bare [`ThirdBody`] (which takes the DE440s
+/// default ephemeris source and point-mass gravity) or the full structure
+/// with `ephemeris_source` and `gravity` individually optional.
+///
+/// # Examples
+/// ```rust
+/// use brahe::propagators::force_model_config::{
+///     GravityConfiguration, ThirdBody, ThirdBodyConfiguration, ZonalHarmonicsDegree,
+/// };
+///
+/// // Point-mass Sun with default (DE440s) ephemerides
+/// let sun: ThirdBodyConfiguration = ThirdBody::Sun.into();
+///
+/// // Earth as a J2 zonal perturber (for a non-Earth-centered propagation)
+/// let earth = ThirdBodyConfiguration {
+///     gravity: GravityConfiguration::EarthZonal {
+///         degree: ZonalHarmonicsDegree::J2,
+///     },
+///     ..ThirdBody::Earth.into()
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct ThirdBodyConfiguration {
-    /// Source for celestial body ephemerides
+    /// The perturbing body.
+    pub body: ThirdBody,
+
+    /// Source for the body's ephemeris. Default: [`EphemerisSource::DE440s`].
     pub ephemeris_source: EphemerisSource,
 
-    /// List of bodies to include as perturbers
-    pub bodies: Vec<ThirdBody>,
+    /// Gravity model for this perturber. Default:
+    /// [`GravityConfiguration::PointMass`]. `SphericalHarmonic` and
+    /// `EarthZonal` evaluate the field at the object's position relative to
+    /// the body — see [`ForceModelConfig::validate`] for the applicable
+    /// rules.
+    pub gravity: GravityConfiguration,
+}
+
+fn default_ephemeris_source() -> EphemerisSource {
+    EphemerisSource::DE440s
+}
+
+fn default_third_body_gravity() -> GravityConfiguration {
+    GravityConfiguration::PointMass
+}
+
+impl From<ThirdBody> for ThirdBodyConfiguration {
+    fn from(body: ThirdBody) -> Self {
+        Self {
+            body,
+            ephemeris_source: default_ephemeris_source(),
+            gravity: default_third_body_gravity(),
+        }
+    }
+}
+
+impl ThirdBodyConfiguration {
+    /// Create a point-mass, DE440s-sourced configuration for `body`.
+    ///
+    /// # Arguments
+    /// * `body` - The perturbing body
+    ///
+    /// # Returns
+    /// A `ThirdBodyConfiguration` with [`EphemerisSource::DE440s`] and
+    /// [`GravityConfiguration::PointMass`].
+    ///
+    /// # Examples
+    /// ```rust
+    /// use brahe::propagators::force_model_config::{ThirdBody, ThirdBodyConfiguration};
+    ///
+    /// let sun = ThirdBodyConfiguration::new(ThirdBody::Sun);
+    /// assert_eq!(sun.body, ThirdBody::Sun);
+    /// ```
+    pub fn new(body: ThirdBody) -> Self {
+        body.into()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ThirdBodyConfiguration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Full {
+            body: ThirdBody,
+            #[serde(default = "default_ephemeris_source")]
+            ephemeris_source: EphemerisSource,
+            #[serde(default = "default_third_body_gravity")]
+            gravity: GravityConfiguration,
+        }
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Repr {
+            Bare(ThirdBody),
+            Full(Full),
+        }
+        Ok(match Repr::deserialize(deserializer)? {
+            Repr::Bare(body) => body.into(),
+            Repr::Full(f) => ThirdBodyConfiguration {
+                body: f.body,
+                ephemeris_source: f.ephemeris_source,
+                gravity: f.gravity,
+            },
+        })
+    }
+}
+
+fn deserialize_third_bodies<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<ThirdBodyConfiguration>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum OneOrMany {
+        One(ThirdBodyConfiguration),
+        Many(Vec<ThirdBodyConfiguration>),
+    }
+    Ok(match Option::<OneOrMany>::deserialize(deserializer)? {
+        None => None,
+        Some(OneOrMany::One(c)) => Some(vec![c]),
+        Some(OneOrMany::Many(v)) => Some(v),
+    })
 }
 
 /// Source for celestial body ephemerides
@@ -1640,7 +1738,7 @@ mod tests {
         assert!(config.srp.is_some());
 
         // Check third body is enabled
-        assert!(config.third_body.is_some());
+        assert!(config.third_bodies.is_some());
 
         // Check relativity is disabled
         assert!(!config.relativity);
@@ -1664,8 +1762,11 @@ mod tests {
         assert!(matches!(drag.model, AtmosphericModel::NRLMSISE00));
 
         // Check DE440s
-        let tb = config.third_body.unwrap();
-        assert!(matches!(tb.ephemeris_source, EphemerisSource::DE440s));
+        let tb = config.third_bodies.unwrap();
+        assert!(
+            tb.iter()
+                .all(|e| matches!(e.ephemeris_source, EphemerisSource::DE440s))
+        );
 
         // Check relativity enabled
         assert!(config.relativity);
@@ -1709,7 +1810,7 @@ mod tests {
         ));
         assert!(config.drag.is_none());
         assert!(config.srp.is_none());
-        assert!(config.third_body.is_none());
+        assert!(config.third_bodies.is_none());
         assert!(!config.relativity);
         assert!(config.mass.is_none());
     }
@@ -1725,7 +1826,7 @@ mod tests {
         assert!(config.srp.is_some());
 
         // LEO has Sun/Moon third-body
-        assert!(config.third_body.is_some());
+        assert!(config.third_bodies.is_some());
 
         // Check mass is configured to use params[0]
         assert!(matches!(
@@ -1745,7 +1846,7 @@ mod tests {
         assert!(config.srp.is_some());
 
         // GEO should have third-body (dominant perturbation)
-        assert!(config.third_body.is_some());
+        assert!(config.third_bodies.is_some());
     }
 
     #[test]
@@ -1843,7 +1944,7 @@ mod tests {
     #[test]
     fn test_force_config_missing_tides_field_deserializes() {
         // Back-compat: configs serialized before this field still load.
-        let json = r#"{"gravity":"PointMass","drag":null,"srp":null,"third_body":null,
+        let json = r#"{"gravity":"PointMass","drag":null,"srp":null,"third_bodies":null,
             "relativity":false,"mass":null,"frame_transform":"FullEarthRotation"}"#;
         let cfg: ForceModelConfig = serde_json::from_str(json).unwrap();
         assert!(cfg.tides.is_none());
@@ -1950,7 +2051,7 @@ mod tests {
         assert_eq!(cfg.gravity, GravityConfiguration::PointMass);
         assert!(cfg.drag.is_none());
         assert!(cfg.srp.is_none());
-        assert!(cfg.third_body.is_none());
+        assert!(cfg.third_bodies.is_none());
         assert!(cfg.relativity);
         assert_eq!(cfg.mass, Some(ParameterSource::Value(500.0)));
         assert_eq!(
@@ -1971,7 +2072,7 @@ mod tests {
             }),
             gravity: GravityConfiguration::PointMass,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -1993,7 +2094,7 @@ mod tests {
             }),
             gravity: GravityConfiguration::PointMass,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2013,7 +2114,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2031,7 +2132,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::EarthRotationOnly,
@@ -2049,7 +2150,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2067,10 +2168,11 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
+            third_bodies: Some(vec![ThirdBodyConfiguration {
+                body: ThirdBody::Sun,
                 ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Sun],
-            }),
+                gravity: GravityConfiguration::PointMass,
+            }]),
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2088,10 +2190,18 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
-            }),
+            third_bodies: Some(vec![
+                ThirdBodyConfiguration {
+                    body: ThirdBody::Sun,
+                    ephemeris_source: EphemerisSource::LowPrecision,
+                    gravity: GravityConfiguration::PointMass,
+                },
+                ThirdBodyConfiguration {
+                    body: ThirdBody::Moon,
+                    ephemeris_source: EphemerisSource::LowPrecision,
+                    gravity: GravityConfiguration::PointMass,
+                },
+            ]),
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2107,10 +2217,11 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
+            third_bodies: Some(vec![ThirdBodyConfiguration {
+                body: ThirdBody::Mars,
                 ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Mars],
-            }),
+                gravity: GravityConfiguration::PointMass,
+            }]),
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2128,10 +2239,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Earth],
-            }),
+            third_bodies: Some(vec![ThirdBody::Earth.into()]),
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2153,7 +2261,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2179,7 +2287,7 @@ mod tests {
                 cd: ParameterSource::ParameterIndex(2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2213,7 +2321,7 @@ mod tests {
                 cd: ParameterSource::ParameterIndex(2),
             }),
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2244,7 +2352,7 @@ mod tests {
             },
             drag: None,
             srp: None,
-            third_body: None,
+            third_bodies: None,
             relativity: false,
             mass: None,
             frame_transform: FrameTransformationModel::default(),
@@ -2309,15 +2417,88 @@ mod tests {
 
     #[test]
     #[serial_test::parallel]
+    fn test_third_body_configuration_from_body() {
+        let cfg = ThirdBodyConfiguration::from(ThirdBody::Sun);
+        assert_eq!(cfg.body, ThirdBody::Sun);
+        assert_eq!(cfg.ephemeris_source, EphemerisSource::DE440s);
+        assert_eq!(cfg.gravity, GravityConfiguration::PointMass);
+        assert_eq!(
+            ThirdBodyConfiguration::new(ThirdBody::Moon).body,
+            ThirdBody::Moon
+        );
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_third_bodies_serde_round_trip() {
+        let config = ForceModelConfig {
+            third_bodies: Some(vec![
+                ThirdBody::Sun.into(),
+                ThirdBodyConfiguration {
+                    body: ThirdBody::Earth,
+                    ephemeris_source: EphemerisSource::DE440,
+                    gravity: GravityConfiguration::EarthZonal {
+                        degree: ZonalHarmonicsDegree::J2,
+                    },
+                },
+            ]),
+            ..ForceModelConfig::two_body_gravity()
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let back: ForceModelConfig = serde_json::from_str(&json).unwrap();
+        let tbs = back.third_bodies.unwrap();
+        assert_eq!(tbs.len(), 2);
+        assert_eq!(tbs[0].body, ThirdBody::Sun);
+        assert_eq!(tbs[0].gravity, GravityConfiguration::PointMass);
+        assert_eq!(tbs[1].ephemeris_source, EphemerisSource::DE440);
+    }
+
+    #[test]
+    #[serial_test::parallel]
+    fn test_third_bodies_deserialize_one_or_many_and_bare_bodies() {
+        // Single object coerces to a one-element vec
+        let json = r#"{
+            "gravity": "PointMass", "drag": null, "srp": null,
+            "relativity": false, "mass": null,
+            "third_bodies": {"body": "Sun"}
+        }"#;
+        let config: ForceModelConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.third_bodies.unwrap().len(), 1);
+
+        // Bare bodies inside an array coerce to default configurations
+        let json = r#"{
+            "gravity": "PointMass", "drag": null, "srp": null,
+            "relativity": false, "mass": null,
+            "third_bodies": ["Sun", {"body": "Moon"}]
+        }"#;
+        let config: ForceModelConfig = serde_json::from_str(json).unwrap();
+        let tbs = config.third_bodies.unwrap();
+        assert_eq!(tbs[0].body, ThirdBody::Sun);
+        assert_eq!(tbs[0].ephemeris_source, EphemerisSource::DE440s);
+        assert_eq!(tbs[0].gravity, GravityConfiguration::PointMass);
+        assert_eq!(tbs[1].body, ThirdBody::Moon);
+
+        // Omitted field means None
+        let json = r#"{
+            "gravity": "PointMass", "drag": null, "srp": null,
+            "relativity": false, "mass": null
+        }"#;
+        let config: ForceModelConfig = serde_json::from_str(json).unwrap();
+        assert!(config.third_bodies.is_none());
+    }
+
+    #[test]
+    #[serial_test::parallel]
     fn test_high_fidelity_uses_barycenter_variants() {
         let config = ForceModelConfig::high_fidelity();
-        let tb = config.third_body.unwrap();
-        assert!(tb.bodies.contains(&ThirdBody::MarsBarycenter));
-        assert!(tb.bodies.contains(&ThirdBody::JupiterBarycenter));
-        assert!(tb.bodies.contains(&ThirdBody::SaturnBarycenter));
-        assert!(tb.bodies.contains(&ThirdBody::UranusBarycenter));
-        assert!(tb.bodies.contains(&ThirdBody::NeptuneBarycenter));
-        assert!(!tb.bodies.contains(&ThirdBody::Mars));
+        let tb = config.third_bodies.unwrap();
+        let bodies: Vec<ThirdBody> = tb.iter().map(|e| e.body.clone()).collect();
+        assert!(bodies.contains(&ThirdBody::MarsBarycenter));
+        assert!(bodies.contains(&ThirdBody::JupiterBarycenter));
+        assert!(bodies.contains(&ThirdBody::SaturnBarycenter));
+        assert!(bodies.contains(&ThirdBody::UranusBarycenter));
+        assert!(bodies.contains(&ThirdBody::NeptuneBarycenter));
+        assert!(!bodies.contains(&ThirdBody::Mars));
     }
 
     #[test]
@@ -2329,10 +2510,7 @@ mod tests {
         for body in [ThirdBody::Mars, ThirdBody::MarsBarycenter] {
             let config = ForceModelConfig {
                 central_body: CentralBody::Mars,
-                third_body: Some(ThirdBodyConfiguration {
-                    ephemeris_source: EphemerisSource::DE440s,
-                    bodies: vec![body],
-                }),
+                third_bodies: Some(vec![body.into()]),
                 ..ForceModelConfig::two_body_gravity()
             };
             assert!(config.validate().is_err());

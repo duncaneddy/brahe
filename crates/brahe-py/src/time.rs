@@ -86,7 +86,7 @@ impl PyTimeSystem {
     /// `TCG` (Geocentric Coordinate Time) time system.
     ///
     /// Coordinate time for geocentric reference systems. Differs from `TT`
-    /// by a secular drift (~0.7 s/year) due to gravitational time dilation.
+    /// by a secular drift (~22 ms/year) due to gravitational time dilation.
     #[classattr]
     #[allow(non_snake_case)]
     fn TCG() -> Self {

@@ -18,6 +18,7 @@ fn main() {
         model: bh::AtmosphericModel::NRLMSISE00,
         area: bh::ParameterSource::ParameterIndex(1), // drag_area from params[1]
         cd: bh::ParameterSource::ParameterIndex(2),   // Cd from params[2]
+        body: None, // Drag about the central body
     };
 }
 

@@ -49,10 +49,7 @@ fn main() {
             cr: ParameterSource::ParameterIndex(4),
             eclipse_model: EclipseModel::Conical,
         }),
-        third_body: Some(ThirdBodyConfiguration {
-            ephemeris_source: EphemerisSource::DE440s,
-            bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
-        }),
+        third_body: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
         relativity: false,
         mass: Some(ParameterSource::ParameterIndex(0)),
         frame_transform: Default::default(),

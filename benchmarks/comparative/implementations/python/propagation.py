@@ -277,10 +277,7 @@ def _force_model_from_params(params: dict) -> "brahe.ForceModelConfig":
     if params.get("third_body_moon"):
         bodies.append(brahe.ThirdBody.MOON)
     if bodies:
-        third_body = brahe.ThirdBodyConfiguration(
-            ephemeris_source=brahe.EphemerisSource.DE440s,
-            bodies=bodies,
-        )
+        third_body = bodies
 
     drag = None
     if params.get("drag"):

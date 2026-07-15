@@ -32,10 +32,7 @@ fn main() {
         },
         drag: None,
         srp: None,
-        third_body: Some(ThirdBodyConfiguration {
-            ephemeris_source: EphemerisSource::DE440s,
-            bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
-        }),
+        third_body: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
         relativity: false,
         mass: None,
         frame_transform: Default::default(),

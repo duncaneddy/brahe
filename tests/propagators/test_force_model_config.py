@@ -251,14 +251,15 @@ def test_thirdbody_naif_ids_and_gm():
 
 
 def test_thirdbodyconfiguration_with_mars_system_bodies():
-    """ThirdBodyConfiguration accepts the new Earth/Phobos/Deimos variants"""
-    config = ThirdBodyConfiguration(
-        ephemeris_source=EphemerisSource.DE440s,
-        bodies=[ThirdBody.PHOBOS, ThirdBody.DEIMOS],
-    )
-    bodies = config.bodies
-    assert bodies[0].naif_id() == 401
-    assert bodies[1].naif_id() == 402
+    """ThirdBodyConfiguration accepts the Earth/Phobos/Deimos variants"""
+    entries = [
+        ThirdBodyConfiguration(ThirdBody.PHOBOS),
+        ThirdBodyConfiguration(
+            ThirdBody.DEIMOS, ephemeris_source=EphemerisSource.DE440s
+        ),
+    ]
+    assert entries[0].body.naif_id() == 401
+    assert entries[1].body.naif_id() == 402
 
 
 # =============================================================================
@@ -369,8 +370,7 @@ def test_forcemodelconfig_validate_rejects_low_precision_ephemeris_non_earth():
     """Mirrors test_validate_rejects_low_precision_ephemeris_non_earth"""
     config = ForceModelConfig(
         third_body=ThirdBodyConfiguration(
-            ephemeris_source=EphemerisSource.LowPrecision,
-            bodies=[ThirdBody.SUN],
+            ThirdBody.SUN, ephemeris_source=EphemerisSource.LowPrecision
         ),
     )
     config.central_body = CentralBody.Moon
@@ -385,10 +385,14 @@ def test_forcemodelconfig_validate_rejects_low_precision_ephemeris_non_earth():
 def test_forcemodelconfig_validate_allows_low_precision_earth_sun_moon():
     """Mirrors test_validate_allows_low_precision_earth_sun_moon"""
     config = ForceModelConfig(
-        third_body=ThirdBodyConfiguration(
-            ephemeris_source=EphemerisSource.LowPrecision,
-            bodies=[ThirdBody.SUN, ThirdBody.MOON],
-        ),
+        third_body=[
+            ThirdBodyConfiguration(
+                ThirdBody.SUN, ephemeris_source=EphemerisSource.LowPrecision
+            ),
+            ThirdBodyConfiguration(
+                ThirdBody.MOON, ephemeris_source=EphemerisSource.LowPrecision
+            ),
+        ],
     )
     config.central_body = CentralBody.Earth
 
@@ -399,8 +403,7 @@ def test_forcemodelconfig_validate_rejects_low_precision_earth_planet():
     """Mirrors test_validate_rejects_low_precision_earth_planet"""
     config = ForceModelConfig(
         third_body=ThirdBodyConfiguration(
-            ephemeris_source=EphemerisSource.LowPrecision,
-            bodies=[ThirdBody.MARS],
+            ThirdBody.MARS, ephemeris_source=EphemerisSource.LowPrecision
         ),
     )
     config.central_body = CentralBody.Earth
@@ -415,10 +418,7 @@ def test_forcemodelconfig_validate_rejects_low_precision_earth_planet():
 def test_forcemodelconfig_validate_rejects_third_body_same_naif_id_as_central_body():
     """Mirrors test_validate_rejects_third_body_same_naif_id_as_central_body"""
     config = ForceModelConfig(
-        third_body=ThirdBodyConfiguration(
-            ephemeris_source=EphemerisSource.DE440s,
-            bodies=[ThirdBody.EARTH],
-        ),
+        third_body=[ThirdBody.EARTH],
     )
     config.central_body = CentralBody.Earth
 
@@ -637,3 +637,210 @@ def test_high_fidelity_enables_all_tides():
     assert ocean.order == 30
     assert ocean.include_admittance
     assert ocean.pole_tide
+
+
+def test_third_body_barycenter_planet_split():
+    assert brahe.ThirdBody.MARS.naif_id() == 499
+    assert brahe.ThirdBody.MARS.gm() == brahe.GM_MARS
+    assert brahe.ThirdBody.MARS_BARYCENTER.naif_id() == 4
+    assert brahe.ThirdBody.MARS_BARYCENTER.gm() == brahe.GM_MARS_SYSTEM
+    assert brahe.ThirdBody.JUPITER.naif_id() == 599
+    assert brahe.ThirdBody.JUPITER.gm() == brahe.GM_JUPITER
+    assert brahe.ThirdBody.JUPITER_BARYCENTER.naif_id() == 5
+    assert brahe.ThirdBody.JUPITER_BARYCENTER.gm() == brahe.GM_JUPITER_SYSTEM
+    assert brahe.ThirdBody.SATURN.naif_id() == 699
+    assert brahe.ThirdBody.SATURN.gm() == brahe.GM_SATURN
+    assert brahe.ThirdBody.SATURN_BARYCENTER.naif_id() == 6
+    assert brahe.ThirdBody.SATURN_BARYCENTER.gm() == brahe.GM_SATURN_SYSTEM
+    assert brahe.ThirdBody.URANUS.naif_id() == 799
+    assert brahe.ThirdBody.URANUS.gm() == brahe.GM_URANUS
+    assert brahe.ThirdBody.URANUS_BARYCENTER.naif_id() == 7
+    assert brahe.ThirdBody.URANUS_BARYCENTER.gm() == brahe.GM_URANUS_SYSTEM
+    assert brahe.ThirdBody.NEPTUNE.naif_id() == 899
+    assert brahe.ThirdBody.NEPTUNE.gm() == brahe.GM_NEPTUNE
+    assert brahe.ThirdBody.NEPTUNE_BARYCENTER.naif_id() == 8
+    assert brahe.ThirdBody.NEPTUNE_BARYCENTER.gm() == brahe.GM_NEPTUNE_SYSTEM
+
+
+def test_third_body_configuration_defaults():
+    cfg = brahe.ThirdBodyConfiguration(brahe.ThirdBody.SUN)
+    assert cfg.body == brahe.ThirdBody.SUN
+    assert cfg.ephemeris_source == brahe.EphemerisSource.DE440s
+
+
+def test_force_model_third_bodies_coercion():
+    # Single bare body
+    fc = brahe.ForceModelConfig(third_body=brahe.ThirdBody.SUN)
+    assert len(fc.third_body) == 1
+    assert fc.third_body[0].body == brahe.ThirdBody.SUN
+
+    # Mixed list of bodies and configurations
+    fc = brahe.ForceModelConfig(
+        third_body=[
+            brahe.ThirdBody.SUN,
+            brahe.ThirdBodyConfiguration(brahe.ThirdBody.MOON),
+        ]
+    )
+    assert len(fc.third_body) == 2
+    assert fc.third_body[1].body == brahe.ThirdBody.MOON
+
+    # Default is None
+    assert brahe.ForceModelConfig().third_body is None
+
+    # Setter accepts the same coercions
+    fc.third_body = brahe.ThirdBody.MOON
+    assert len(fc.third_body) == 1
+    fc.third_body = None
+    assert fc.third_body is None
+
+
+def test_third_body_body_fixed_frame():
+    assert brahe.ThirdBody.EARTH.body_fixed_frame() == brahe.ReferenceFrame.ITRF
+    assert brahe.ThirdBody.MOON.body_fixed_frame() == brahe.ReferenceFrame.LFPA
+    assert brahe.ThirdBody.MARS.body_fixed_frame() == brahe.ReferenceFrame.MCMF
+    assert brahe.ThirdBody.MARS_BARYCENTER.body_fixed_frame() is None
+
+
+def test_validate_third_body_gravity_rules():
+    """Mirrors the Rust test of the same name."""
+    # EarthZonal on a non-Earth third body is rejected
+    config = ForceModelConfig.cislunar_default()
+    config.third_body = [
+        ThirdBodyConfiguration(
+            ThirdBody.MOON,
+            gravity=GravityConfiguration.earth_zonal(ZonalHarmonicsDegree.J2),
+        )
+    ]
+    with pytest.raises(RuntimeError, match="EarthZonal"):
+        config.validate()
+
+    # EarthZonal on ThirdBody.EARTH is accepted
+    config.third_body = [
+        ThirdBodyConfiguration(
+            ThirdBody.EARTH,
+            gravity=GravityConfiguration.earth_zonal(ZonalHarmonicsDegree.J2),
+        )
+    ]
+    config.validate()
+
+    # SphericalHarmonic on a barycenter variant is rejected (no fixed frame)
+    config.third_body = [
+        ThirdBodyConfiguration(
+            ThirdBody.JUPITER_BARYCENTER,
+            gravity=GravityConfiguration.spherical_harmonic(degree=8, order=8),
+        )
+    ]
+    with pytest.raises(RuntimeError, match="body-fixed frame"):
+        config.validate()
+
+    # SphericalHarmonic on Earth as a third body is accepted
+    config.third_body = [
+        ThirdBodyConfiguration(
+            ThirdBody.EARTH,
+            gravity=GravityConfiguration.spherical_harmonic(degree=8, order=8),
+        )
+    ]
+    config.validate()
+
+    # SphericalHarmonic on a Custom third body is rejected
+    config.third_body = [
+        ThirdBodyConfiguration(
+            ThirdBody.Custom(name="Ceres", naif_id=2000001, gm=6.26325e10),
+            gravity=GravityConfiguration.spherical_harmonic(degree=4, order=4),
+        )
+    ]
+    with pytest.raises(RuntimeError, match="body-fixed frame"):
+        config.validate()
+
+
+def test_validate_attributed_drag_body():
+    """Mirrors the Rust test of the same name."""
+    # EMB central + NRLMSISE-00 drag attributed to Earth: accepted
+    config = ForceModelConfig.cislunar_default()
+    config.mass = ParameterSource.value(1000.0)
+    config.drag = DragConfiguration(
+        model=AtmosphericModel.NRLMSISE00,
+        area=ParameterSource.value(10.0),
+        cd=ParameterSource.value(2.2),
+        body=CentralBody.Earth,
+    )
+    config.validate()
+
+    # EMB central + drag with no attributed body: rejected (barycenter)
+    config.drag = DragConfiguration(
+        model=AtmosphericModel.NRLMSISE00,
+        area=ParameterSource.value(10.0),
+        cd=ParameterSource.value(2.2),
+    )
+    assert config.drag.body is None
+    with pytest.raises(RuntimeError):
+        config.validate()
+
+    # Harris-Priester attributed to the Moon: rejected (Earth-only model)
+    config.drag = DragConfiguration(
+        model=AtmosphericModel.HARRIS_PRIESTER,
+        area=ParameterSource.value(10.0),
+        cd=ParameterSource.value(2.2),
+        body=CentralBody.Moon,
+    )
+    with pytest.raises(RuntimeError, match="HarrisPriester"):
+        config.validate()
+
+    # Drag attributed to a barycenter: rejected (no radius/spin)
+    config.drag = DragConfiguration(
+        model=AtmosphericModel.exponential(scale_height=8500.0, rho0=1.225, h0=0.0),
+        area=ParameterSource.value(10.0),
+        cd=ParameterSource.value(2.2),
+        body=CentralBody.EMB,
+    )
+    with pytest.raises(RuntimeError):
+        config.validate()
+
+    # Earth central with NRLMSISE-00, no attribution: still accepted
+    ForceModelConfig.leo_default().validate()
+
+
+def test_high_fidelity_uses_barycenter_variants():
+    """Mirrors the Rust test of the same name."""
+    config = ForceModelConfig.high_fidelity()
+    bodies = [entry.body for entry in config.third_body]
+    assert brahe.ThirdBody.MARS_BARYCENTER in bodies
+    assert brahe.ThirdBody.JUPITER_BARYCENTER in bodies
+    assert brahe.ThirdBody.SATURN_BARYCENTER in bodies
+    assert brahe.ThirdBody.URANUS_BARYCENTER in bodies
+    assert brahe.ThirdBody.NEPTUNE_BARYCENTER in bodies
+    assert brahe.ThirdBody.MARS not in bodies
+
+
+def test_validate_rejects_mars_bodies_for_mars_central():
+    """Mirrors the Rust test of the same name."""
+    for body in [ThirdBody.MARS, ThirdBody.MARS_BARYCENTER]:
+        config = ForceModelConfig.for_body(
+            CentralBody.Mars,
+            GravityConfiguration.point_mass(),
+            third_body=[body],
+        )
+        with pytest.raises(RuntimeError):
+            config.validate()
+
+
+def test_third_body_as_central_body():
+    assert brahe.ThirdBody.EARTH.as_central_body() == CentralBody.Earth
+    assert brahe.ThirdBody.MOON.as_central_body() == CentralBody.Moon
+    assert brahe.ThirdBody.MARS.as_central_body() == CentralBody.Mars
+    assert brahe.ThirdBody.MARS_BARYCENTER.as_central_body() is None
+    custom = ThirdBody.Custom(name="Ceres", naif_id=2000001, gm=6.26325e10)
+    assert custom.as_central_body() is None
+
+
+def test_gravity_configuration_zero():
+    """Mirrors the Rust test of the same name."""
+    config = ForceModelConfig.cislunar_default()
+    assert repr(config.gravity) == repr(GravityConfiguration.zero())
+    config.validate()
+
+    config.third_body = [
+        ThirdBodyConfiguration(ThirdBody.SUN, gravity=GravityConfiguration.zero())
+    ]
+    with pytest.raises(RuntimeError, match="Zero"):
+        config.validate()

@@ -5960,3 +5960,216 @@ class TestNumericalOrbitPropagatorCentralBodyStateAccessors:
         x_lci = prop.state_in_frame(ReferenceFrame.LCI, epoch)
         x_central = prop.state_bci(epoch)
         assert np.array_equal(x_lci, x_central)
+
+
+def test_emb_earth_spherical_harmonic_matches_earth_centered(naif_cache_setup):
+    """EMB-centered propagation with Earth as a spherical-harmonic third body
+    reproduces the Earth-centered propagation with the same field (mirrors the
+    Rust test of the same name)."""
+    import brahe as bh
+
+    epoch = create_test_epoch()
+    oe = np.array([bh.R_EARTH + 700e3, 0.001, 51.6, 15.0, 30.0, 45.0])
+    x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+    sh = bh.GravityConfiguration.spherical_harmonic(degree=8, order=8)
+
+    config_earth = ForceModelConfig(
+        gravity=sh,
+        third_body=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
+    )
+
+    config_emb = ForceModelConfig.for_body(
+        CentralBody.EMB,
+        GravityConfiguration.point_mass(),
+        third_body=[
+            bh.ThirdBodyConfiguration(bh.ThirdBody.EARTH, gravity=sh),
+            bh.ThirdBody.MOON,
+            bh.ThirdBody.SUN,
+        ],
+    )
+
+    x_emb = bh.state_eci_to_emb(epoch, x_earth)
+
+    prop_earth = NumericalOrbitPropagator(
+        epoch, x_earth, NumericalPropagationConfig.default(), config_earth, None
+    )
+    prop_emb = NumericalOrbitPropagator(
+        epoch, x_emb, NumericalPropagationConfig.default(), config_emb, None
+    )
+
+    epoch_end = epoch + 86400.0
+    prop_earth.propagate_to(epoch_end)
+    prop_emb.propagate_to(epoch_end)
+
+    xf_earth = prop_earth.current_state()
+    xf_emb_in_earth = bh.state_emb_to_eci(epoch_end, prop_emb.current_state())
+
+    assert np.allclose(xf_emb_in_earth[:3], xf_earth[:3], atol=1.0)
+    assert np.allclose(xf_emb_in_earth[3:], xf_earth[3:], atol=1e-3)
+
+
+def test_emb_attributed_earth_drag_matches_earth_centered(
+    naif_cache_setup, sw_test_filepath
+):
+    """The drag-induced trajectory change of Earth-attributed drag under an
+    EMB central body matches the legacy Earth-centered drag path (mirrors the
+    Rust test of the same name; drag-on minus drag-off differencing cancels
+    the formulation baseline)."""
+    import brahe as bh
+
+    sw = bh.FileSpaceWeatherProvider.from_file(sw_test_filepath, "Hold")
+    bh.set_global_space_weather_provider(sw)
+
+    epoch = create_test_epoch()
+    oe = np.array([bh.R_EARTH + 400e3, 0.001, 51.6, 15.0, 30.0, 45.0])
+    x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    x_emb = bh.state_eci_to_emb(epoch, x_earth)
+    epoch_end = epoch + 5400.0
+
+    def run(central, drag):
+        if central == CentralBody.Earth:
+            x0, third_body = x_earth, [bh.ThirdBody.MOON]
+        else:
+            x0, third_body = x_emb, [bh.ThirdBody.EARTH, bh.ThirdBody.MOON]
+        config = ForceModelConfig.for_body(
+            central,
+            GravityConfiguration.point_mass(),
+            drag=drag,
+            third_body=third_body,
+            mass=bh.ParameterSource.value(1000.0),
+        )
+        prop = NumericalOrbitPropagator(
+            epoch, x0, NumericalPropagationConfig.default(), config, None
+        )
+        prop.propagate_to(epoch_end)
+        return prop.current_state()
+
+    drag_earth = bh.DragConfiguration(
+        model=bh.AtmosphericModel.NRLMSISE00,
+        area=bh.ParameterSource.value(10.0),
+        cd=bh.ParameterSource.value(2.2),
+    )
+    drag_attributed = bh.DragConfiguration(
+        model=bh.AtmosphericModel.NRLMSISE00,
+        area=bh.ParameterSource.value(10.0),
+        cd=bh.ParameterSource.value(2.2),
+        body=CentralBody.Earth,
+    )
+
+    delta_earth = run(CentralBody.Earth, drag_earth) - run(CentralBody.Earth, None)
+    delta_emb = run(CentralBody.EMB, drag_attributed) - run(CentralBody.EMB, None)
+
+    assert np.linalg.norm(delta_earth[:3]) > 1.0
+    assert np.allclose(delta_emb[:3], delta_earth[:3], atol=0.1)
+    assert np.allclose(delta_emb[3:], delta_earth[3:], atol=1e-4)
+
+
+def test_emb_earth_zonal_matches_earth_centered(naif_cache_setup):
+    """EMB-centered propagation with Earth as a J2 zonal third body reproduces
+    the Earth-centered EarthZonal propagation (mirrors the Rust test of the
+    same name)."""
+    import brahe as bh
+
+    epoch = create_test_epoch()
+    oe = np.array([bh.R_EARTH + 700e3, 0.001, 51.6, 15.0, 30.0, 45.0])
+    x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+    zonal = bh.GravityConfiguration.earth_zonal(bh.ZonalHarmonicsDegree.J2)
+
+    config_earth = ForceModelConfig(
+        gravity=zonal,
+        third_body=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
+    )
+    config_emb = ForceModelConfig.for_body(
+        CentralBody.EMB,
+        GravityConfiguration.point_mass(),
+        third_body=[
+            bh.ThirdBodyConfiguration(bh.ThirdBody.EARTH, gravity=zonal),
+            bh.ThirdBody.MOON,
+            bh.ThirdBody.SUN,
+        ],
+    )
+
+    x_emb = bh.state_eci_to_emb(epoch, x_earth)
+
+    prop_earth = NumericalOrbitPropagator(
+        epoch, x_earth, NumericalPropagationConfig.default(), config_earth, None
+    )
+    prop_emb = NumericalOrbitPropagator(
+        epoch, x_emb, NumericalPropagationConfig.default(), config_emb, None
+    )
+
+    epoch_end = epoch + 86400.0
+    prop_earth.propagate_to(epoch_end)
+    prop_emb.propagate_to(epoch_end)
+
+    xf_earth = prop_earth.current_state()
+    xf_emb_in_earth = bh.state_emb_to_eci(epoch_end, prop_emb.current_state())
+
+    assert np.allclose(xf_emb_in_earth[:3], xf_earth[:3], atol=1.0)
+    assert np.allclose(xf_emb_in_earth[3:], xf_earth[3:], atol=1e-3)
+
+
+def test_emb_combined_earth_field_and_drag_matches_earth_centered(
+    naif_cache_setup, sw_test_filepath
+):
+    """The full cislunar example configuration — Earth spherical-harmonic
+    third body plus Earth-attributed drag about the EMB — reproduces the
+    equivalent Earth-centered configuration within the gravitational
+    formulation baseline (mirrors the Rust test of the same name)."""
+    import brahe as bh
+
+    sw = bh.FileSpaceWeatherProvider.from_file(sw_test_filepath, "Hold")
+    bh.set_global_space_weather_provider(sw)
+
+    epoch = create_test_epoch()
+    oe = np.array([bh.R_EARTH + 500e3, 0.001, 51.6, 15.0, 30.0, 45.0])
+    x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+    x_emb = bh.state_eci_to_emb(epoch, x_earth)
+
+    sh = bh.GravityConfiguration.spherical_harmonic(degree=8, order=8)
+
+    config_earth = ForceModelConfig(
+        gravity=sh,
+        drag=bh.DragConfiguration(
+            model=bh.AtmosphericModel.NRLMSISE00,
+            area=bh.ParameterSource.value(10.0),
+            cd=bh.ParameterSource.value(2.2),
+        ),
+        third_body=[bh.ThirdBody.MOON, bh.ThirdBody.SUN],
+        mass=bh.ParameterSource.value(1000.0),
+    )
+    config_emb = ForceModelConfig.for_body(
+        CentralBody.EMB,
+        GravityConfiguration.zero(),
+        drag=bh.DragConfiguration(
+            model=bh.AtmosphericModel.NRLMSISE00,
+            area=bh.ParameterSource.value(10.0),
+            cd=bh.ParameterSource.value(2.2),
+            body=CentralBody.Earth,
+        ),
+        third_body=[
+            bh.ThirdBodyConfiguration(bh.ThirdBody.EARTH, gravity=sh),
+            bh.ThirdBody.MOON,
+            bh.ThirdBody.SUN,
+        ],
+        mass=bh.ParameterSource.value(1000.0),
+    )
+
+    prop_earth = NumericalOrbitPropagator(
+        epoch, x_earth, NumericalPropagationConfig.default(), config_earth, None
+    )
+    prop_emb = NumericalOrbitPropagator(
+        epoch, x_emb, NumericalPropagationConfig.default(), config_emb, None
+    )
+
+    epoch_end = epoch + 5400.0
+    prop_earth.propagate_to(epoch_end)
+    prop_emb.propagate_to(epoch_end)
+
+    xf_earth = prop_earth.current_state()
+    xf_emb_in_eci = bh.state_emb_to_eci(epoch_end, prop_emb.current_state())
+
+    assert np.allclose(xf_emb_in_eci[:3], xf_earth[:3], atol=10.0)
+    assert np.allclose(xf_emb_in_eci[3:], xf_earth[3:], atol=1e-2)

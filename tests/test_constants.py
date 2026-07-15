@@ -170,27 +170,51 @@ def test_GM_VENUS():
 
 
 def test_GM_MARS():
-    assert brahe.GM_MARS == 42828.37521 * 1e9
+    assert brahe.GM_MARS == 42828.37362069909 * 1e9
+
+
+def test_GM_MARS_SYSTEM():
+    assert brahe.GM_MARS_SYSTEM == 42828.375815756102 * 1e9
 
 
 def test_GM_JUPITER():
-    assert brahe.GM_JUPITER == 126712764.8 * 1e9
+    assert brahe.GM_JUPITER == 126686531.9003704 * 1e9
+
+
+def test_GM_JUPITER_SYSTEM():
+    assert brahe.GM_JUPITER_SYSTEM == 126712764.09999998 * 1e9
 
 
 def test_GM_SATURN():
-    assert brahe.GM_SATURN == 37940585.2 * 1e9
+    assert brahe.GM_SATURN == 37931206.23436167 * 1e9
+
+
+def test_GM_SATURN_SYSTEM():
+    assert brahe.GM_SATURN_SYSTEM == 37940584.841799997 * 1e9
 
 
 def test_GM_URANUS():
-    assert brahe.GM_URANUS == 5794548.6 * 1e9
+    assert brahe.GM_URANUS == 5793951.256527211 * 1e9
+
+
+def test_GM_URANUS_SYSTEM():
+    assert brahe.GM_URANUS_SYSTEM == 5794556.3999999985 * 1e9
 
 
 def test_GM_NEPTUNE():
-    assert brahe.GM_NEPTUNE == 6836527.100580 * 1e9
+    assert brahe.GM_NEPTUNE == 6835103.145462294 * 1e9
+
+
+def test_GM_NEPTUNE_SYSTEM():
+    assert brahe.GM_NEPTUNE_SYSTEM == 6836527.1005803989 * 1e9
 
 
 def test_GM_PLUTO():
-    assert brahe.GM_PLUTO == 977.000000 * 1e9
+    assert brahe.GM_PLUTO == 869.6138177608748 * 1e9
+
+
+def test_GM_PLUTO_SYSTEM():
+    assert brahe.GM_PLUTO_SYSTEM == 975.5 * 1e9
 
 
 def test_R_MARS():
@@ -217,3 +241,12 @@ def test_GM_PHOBOS():
 
 def test_GM_DEIMOS():
     assert brahe.GM_DEIMOS == pytest.approx(9.615569648120313e4, abs=1e-3)
+
+
+def test_mars_system_gm_is_not_the_component_sum():
+    """gm_de440.tpc combines the DE440 planetary-solution barycenter GM with
+    the older Horizons satellite-solution body GMs; their sum deliberately
+    does not reproduce the system value (mirrors the Rust guard test)."""
+    component_sum = brahe.GM_MARS + brahe.GM_PHOBOS + brahe.GM_DEIMOS
+    diff = brahe.GM_MARS_SYSTEM - component_sum
+    assert 1.0e6 < abs(diff) < 2.0e6

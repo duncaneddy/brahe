@@ -14,6 +14,7 @@ fn main() {
         model: bh::AtmosphericModel::HarrisPriester,
         area: bh::ParameterSource::Value(10.0), // Fixed 10 m^2 drag area
         cd: bh::ParameterSource::Value(2.2),    // Fixed Cd of 2.2
+        body: None, // Drag about the central body
     };
 
     // Example: Fixed SRP configuration
@@ -35,10 +36,16 @@ fn main() {
         },
         drag: Some(drag_config),
         srp: Some(srp_config),
-        third_body: Some(bh::ThirdBodyConfiguration {
-            ephemeris_source: bh::EphemerisSource::LowPrecision,
-            bodies: vec![bh::ThirdBody::Sun, bh::ThirdBody::Moon],
-        }),
+        third_body: Some(vec![
+            bh::ThirdBodyConfiguration {
+                ephemeris_source: bh::EphemerisSource::LowPrecision,
+                ..bh::ThirdBody::Sun.into()
+            },
+            bh::ThirdBodyConfiguration {
+                ephemeris_source: bh::EphemerisSource::LowPrecision,
+                ..bh::ThirdBody::Moon.into()
+            },
+        ]),
         relativity: false,
         mass: Some(bh::ParameterSource::Value(500.0)), // Fixed 500 kg mass
         frame_transform: bh::FrameTransformationModel::default(),

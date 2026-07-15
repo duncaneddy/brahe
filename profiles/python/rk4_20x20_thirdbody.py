@@ -24,10 +24,7 @@ def main() -> None:
 
     force = bh.ForceModelConfig(
         gravity=bh.GravityConfiguration(degree=20, order=20),
-        third_body=bh.ThirdBodyConfiguration(
-            ephemeris_source=bh.EphemerisSource.DE440s,
-            bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-        ),
+        third_body=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
     )
     prop_cfg = bh.NumericalPropagationConfig.default()
 

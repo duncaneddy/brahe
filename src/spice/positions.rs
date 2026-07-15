@@ -879,6 +879,16 @@ mod tests {
             );
             cache.seed("nep097.bsp", &synthetic_spk_kernel_bytes(&[(899, 8, 0.8)]));
 
+            // Drop any satellite-system kernels loaded by earlier tests
+            // (e.g. the real mar099s from the planet-center third-body
+            // tests): the by-name idempotent short-circuit in
+            // `load_spice_kernel` would otherwise resolve the body-center
+            // legs from the real kernels instead of the synthetic ones
+            // seeded above. Re-anchor de440s from the redirected (real)
+            // bytes seeded by `seed_real_de440s`.
+            clear_spice_kernels();
+            load_spice_kernel("de440s").unwrap();
+
             // (position fn, velocity fn, state fn, expected x sum in meters)
             type PosFn = fn(Epoch, SPICEKernel) -> Result<Vector3<f64>, BraheError>;
             type StateFn = fn(Epoch, SPICEKernel) -> Result<Vector6<f64>, BraheError>;

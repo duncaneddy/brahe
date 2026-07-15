@@ -148,9 +148,10 @@ $$
 $$
 
 The resulting $\Delta\bar{C}_{nm}/\Delta\bar{S}_{nm}$ corrections (up to
-degree 4) are evaluated as a spherical-harmonic acceleration using the
-Cunningham V/W recursion, then added directly to the static-gravity
-acceleration.
+degree 4) are folded into the static gravity field's packed coefficient
+table and evaluated together with it in a single Clenshaw pass per dynamics
+call (see the fold-in evaluation described below), rather than as a separate
+acceleration term.
 
 ### Time-Varying Correction (Optional)
 
@@ -410,7 +411,7 @@ into.
 Solid-tide computation requires Sun and Moon positions in the ECEF frame. The
 propagator computes these internally using its own low-precision analytical
 ephemeris (`sun_position` / `moon_position`) — it does **not** read positions
-from the `third_body` force model. Enabling or disabling `third_body` bodies has
+from the `third_body` force model entries. Enabling or disabling `third_body` entries has
 no effect on the tidal correction; you can use solid tides with or without a
 third-body configuration.
 

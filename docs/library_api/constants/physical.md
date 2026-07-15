@@ -244,7 +244,17 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `4.305e13` m³/s²
+
+---
+
+#### GM_MARS_SYSTEM
+
+::: brahe.GM_MARS_SYSTEM
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 5
+
 
 ---
 
@@ -258,7 +268,17 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `1.268e17` m³/s²
+
+---
+
+#### GM_JUPITER_SYSTEM
+
+::: brahe.GM_JUPITER_SYSTEM
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 5
+
 
 ---
 
@@ -270,7 +290,17 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `3.794e16` m³/s²
+
+---
+
+#### GM_SATURN_SYSTEM
+
+::: brahe.GM_SATURN_SYSTEM
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 5
+
 
 ---
 
@@ -282,7 +312,17 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `5.794e15` m³/s²
+
+---
+
+#### GM_URANUS_SYSTEM
+
+::: brahe.GM_URANUS_SYSTEM
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 5
+
 
 ---
 
@@ -294,7 +334,17 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `6.837e15` m³/s²
+
+---
+
+#### GM_NEPTUNE_SYSTEM
+
+::: brahe.GM_NEPTUNE_SYSTEM
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 5
+
 
 ---
 
@@ -308,6 +358,15 @@ Lunar radius.
       show_root_full_path: false
       heading_level: 5
 
-**Value**: `9.77e11` m³/s²
+
+---
+
+#### GM_PLUTO_SYSTEM
+
+::: brahe.GM_PLUTO_SYSTEM
+    options:
+      show_root_heading: true
+      show_root_full_path: false
+      heading_level: 5
 
 ---

@@ -20,6 +20,7 @@ fn main() {
             model: bh::AtmosphericModel::HarrisPriester,
             area: bh::ParameterSource::ParameterIndex(1), // Index into parameter vector
             cd: bh::ParameterSource::ParameterIndex(2),
+            body: None,
         }),
         // Solar radiation pressure: Conical eclipse model
         srp: Some(bh::SolarRadiationPressureConfiguration {
@@ -28,11 +29,9 @@ fn main() {
             eclipse_model: bh::EclipseModel::Conical,
             occulting_bodies: vec![bh::OccultingBody::Earth],
         }),
-        // Third-body: Sun and Moon with DE440s ephemeris
-        third_body: Some(bh::ThirdBodyConfiguration {
-            ephemeris_source: bh::EphemerisSource::DE440s,
-            bodies: vec![bh::ThirdBody::Sun, bh::ThirdBody::Moon],
-        }),
+        // Third-body: Sun and Moon with DE440s ephemeris (the default source
+        // for bare bodies converted via .into())
+        third_body: Some(vec![bh::ThirdBody::Sun.into(), bh::ThirdBody::Moon.into()]),
         // General relativistic corrections
         relativity: true,
         // Spacecraft mass (can also use ParameterIndex for estimation)

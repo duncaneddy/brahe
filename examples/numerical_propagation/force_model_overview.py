@@ -28,11 +28,9 @@ force_config = bh.ForceModelConfig(
         cr=bh.ParameterSource.parameter_index(4),
         eclipse_model=bh.EclipseModel.CONICAL,
     ),
-    # Third-body: Sun and Moon with DE440s ephemeris
-    third_body=bh.ThirdBodyConfiguration(
-        ephemeris_source=bh.EphemerisSource.DE440s,
-        bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-    ),
+    # Third-body: Sun and Moon with DE440s ephemeris (bare bodies coerce to
+    # point-mass entries with the default source)
+    third_body=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
     # General relativistic corrections
     relativity=True,
     # Spacecraft mass (can also use parameter_index for estimation)

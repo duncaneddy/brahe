@@ -5,49 +5,60 @@ use bh::GravityModelType;
 use brahe as bh;
 
 fn main() {
-    // Third-body perturbations configuration
-    // Gravitational attraction from other celestial bodies
+    // Third-body perturbations configuration: one entry per perturbing body,
+    // each carrying its own ephemeris source and gravity model (point-mass
+    // by default).
 
     // Option 1: Low-precision analytical ephemerides
     // Fast but less accurate (~km level errors for Sun/Moon)
     // Only Sun and Moon are available
-    let _third_body_low = bh::ThirdBodyConfiguration {
-        ephemeris_source: bh::EphemerisSource::LowPrecision,
-        bodies: vec![bh::ThirdBody::Sun, bh::ThirdBody::Moon],
-    };
+    let _third_bodies_low = vec![
+        bh::ThirdBodyConfiguration {
+            ephemeris_source: bh::EphemerisSource::LowPrecision,
+            ..bh::ThirdBody::Sun.into()
+        },
+        bh::ThirdBodyConfiguration {
+            ephemeris_source: bh::EphemerisSource::LowPrecision,
+            ..bh::ThirdBody::Moon.into()
+        },
+    ];
 
     // Option 2: DE440s high-precision ephemerides (recommended)
     // Uses JPL Development Ephemeris 440 (small bodies version)
     // ~m level accuracy, valid 1550-2650 CE
-    // All planets available, ~17 MB file
-    let third_body_de440s = bh::ThirdBodyConfiguration {
-        ephemeris_source: bh::EphemerisSource::DE440s,
-        bodies: vec![bh::ThirdBody::Sun, bh::ThirdBody::Moon],
-    };
+    // All planets available, ~17 MB file. DE440s is the default source, so
+    // bare bodies convert directly into point-mass entries.
+    let third_bodies_de440s: Vec<bh::ThirdBodyConfiguration> =
+        vec![bh::ThirdBody::Sun.into(), bh::ThirdBody::Moon.into()];
 
     // Option 3: DE440 full-precision ephemerides
     // Highest accuracy (~mm level), valid 13200 BCE-17191 CE
     // All planets available, ~114 MB file
-    let _third_body_de440 = bh::ThirdBodyConfiguration {
-        ephemeris_source: bh::EphemerisSource::DE440,
-        bodies: vec![bh::ThirdBody::Sun, bh::ThirdBody::Moon],
-    };
+    let _third_bodies_de440 = vec![
+        bh::ThirdBodyConfiguration {
+            ephemeris_source: bh::EphemerisSource::DE440,
+            ..bh::ThirdBody::Sun.into()
+        },
+        bh::ThirdBodyConfiguration {
+            ephemeris_source: bh::EphemerisSource::DE440,
+            ..bh::ThirdBody::Moon.into()
+        },
+    ];
 
-    // Option 4: Include all major planets (high-fidelity)
-    let _third_body_all_planets = bh::ThirdBodyConfiguration {
-        ephemeris_source: bh::EphemerisSource::DE440s,
-        bodies: vec![
-            bh::ThirdBody::Sun,
-            bh::ThirdBody::Moon,
-            bh::ThirdBody::Mercury,
-            bh::ThirdBody::Venus,
-            bh::ThirdBody::Mars,
-            bh::ThirdBody::Jupiter,
-            bh::ThirdBody::Saturn,
-            bh::ThirdBody::Uranus,
-            bh::ThirdBody::Neptune,
-        ],
-    };
+    // Option 4: Include all major planets (high-fidelity). The *Barycenter
+    // variants use the planetary-system barycenters with system GMs — the
+    // classical third-body formulation, resolvable from the DE kernel alone.
+    let _third_bodies_all_planets: Vec<bh::ThirdBodyConfiguration> = vec![
+        bh::ThirdBody::Sun.into(),
+        bh::ThirdBody::Moon.into(),
+        bh::ThirdBody::Mercury.into(),
+        bh::ThirdBody::Venus.into(),
+        bh::ThirdBody::MarsBarycenter.into(),
+        bh::ThirdBody::JupiterBarycenter.into(),
+        bh::ThirdBody::SaturnBarycenter.into(),
+        bh::ThirdBody::UranusBarycenter.into(),
+        bh::ThirdBody::NeptuneBarycenter.into(),
+    ];
 
     // Create force model with Sun/Moon perturbations (common case)
     let _force_config = bh::ForceModelConfig {
@@ -60,7 +71,7 @@ fn main() {
         },
         drag: None,
         srp: None,
-        third_body: Some(third_body_de440s),
+        third_body: Some(third_bodies_de440s),
         relativity: false,
         mass: None,
         frame_transform: bh::FrameTransformationModel::default(),

@@ -18,6 +18,7 @@ fn main() {
         model: bh::AtmosphericModel::HarrisPriester,
         area: bh::ParameterSource::ParameterIndex(1), // params[1] = drag_area
         cd: bh::ParameterSource::ParameterIndex(2),   // params[2] = Cd
+        body: None, // Drag about the central body
     };
 
     let _srp_config = bh::SolarRadiationPressureConfiguration {
@@ -34,6 +35,7 @@ fn main() {
         model: bh::AtmosphericModel::HarrisPriester,
         area: bh::ParameterSource::ParameterIndex(5),  // Custom index
         cd: bh::ParameterSource::ParameterIndex(10),   // Custom index
+        body: None, // Drag about the central body
     };
 }
 

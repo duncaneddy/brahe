@@ -72,6 +72,7 @@ Third-Body Perturbations:
 - accel_third_body_uranus_spice: Uranus perturbation using DE ephemerides
 - accel_third_body_neptune_spice: Neptune perturbation using DE ephemerides
 - accel_third_body_for_body: Central-body-aware third-body acceleration (Moon, Mars, EMB, SSB, Custom)
+- accel_third_body_field_for_body: Third-body acceleration with a configured gravity model (point-mass, spherical-harmonic, Earth-zonal)
 
 Gravity:
 - accel_point_mass_gravity: Point-mass gravity acceleration
@@ -175,6 +176,7 @@ from brahe._brahe import (
     accel_third_body_uranus_spice,
     accel_third_body_neptune_spice,
     accel_third_body_for_body,
+    accel_third_body_field_for_body,
     # Gravity
     accel_point_mass_gravity,
     accel_earth_zonal_gravity,
@@ -281,6 +283,7 @@ __all__ = [
     "accel_third_body_uranus_spice",
     "accel_third_body_neptune_spice",
     "accel_third_body_for_body",
+    "accel_third_body_field_for_body",
     # Gravity
     "accel_point_mass_gravity",
     "accel_earth_zonal_gravity",

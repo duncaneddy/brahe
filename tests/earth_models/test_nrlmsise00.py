@@ -162,3 +162,17 @@ class TestNrlmsise00:
         # Both should be in reasonable LEO range
         assert 1e-14 < density_iss < 1e-10
         assert 1e-15 < density_starlink < 1e-11
+
+    def test_nrlmsise00_lunar_distance_is_negligible(self, eop, sw_test_filepath):
+        """Density at cislunar distances stays finite and effectively zero
+        (mirrors the Rust test of the same name)."""
+        sw = bh.FileSpaceWeatherProvider.from_file(sw_test_filepath, "Hold")
+        bh.set_global_space_weather_provider(sw)
+
+        epc = bh.Epoch.from_date(2020, 6, 1, bh.TimeSystem.UTC)
+        x_ecef = np.array([3.8e8, 0.0, 0.0])  # ~lunar distance
+
+        density = bh.density_nrlmsise00(epc, x_ecef)
+
+        assert np.isfinite(density)
+        assert density < 1e-15

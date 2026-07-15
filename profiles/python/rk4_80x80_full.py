@@ -41,10 +41,7 @@ def main() -> None:
             cr=bh.ParameterSource.parameter_index(4),
             eclipse_model=bh.EclipseModel.CONICAL,
         ),
-        third_body=bh.ThirdBodyConfiguration(
-            ephemeris_source=bh.EphemerisSource.DE440s,
-            bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-        ),
+        third_body=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
         mass=bh.ParameterSource.parameter_index(0),
     )
     prop_cfg = bh.NumericalPropagationConfig.default()

@@ -374,18 +374,15 @@ fn force_config_from_params(p: &Rk4ForceParams) -> ForceModelConfig {
         parallel: brahe::orbit_dynamics::ParallelMode::Auto,
     };
 
-    let mut bodies = Vec::new();
+    let mut bodies: Vec<ThirdBodyConfiguration> = Vec::new();
     if p.third_body_sun {
-        bodies.push(ThirdBody::Sun);
+        bodies.push(ThirdBody::Sun.into());
     }
     if p.third_body_moon {
-        bodies.push(ThirdBody::Moon);
+        bodies.push(ThirdBody::Moon.into());
     }
     let third_body = if !bodies.is_empty() {
-        Some(ThirdBodyConfiguration {
-            ephemeris_source: EphemerisSource::DE440s,
-            bodies,
-        })
+        Some(bodies)
     } else {
         None
     };

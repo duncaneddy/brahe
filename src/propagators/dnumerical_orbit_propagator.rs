@@ -29,6 +29,8 @@ use crate::math::interpolation::{
 use crate::math::jacobian::DNumericalJacobian;
 use crate::math::jacobian::DifferenceMethod;
 use crate::math::sensitivity::DNumericalSensitivity;
+use crate::orbit_dynamics::gravity::GravityModelType;
+use crate::orbit_dynamics::third_body::accel_third_body_field_for_body_with_model;
 use crate::orbit_dynamics::{
     GravityModel, GravityModelTideSystem, SolidTideConfig, accel_drag_for_body,
     accel_gravity_spherical_harmonics, accel_point_mass_gravity, accel_relativity_for_body,
@@ -696,13 +698,7 @@ impl DNumericalOrbitPropagator {
                 degree,
                 order,
                 ..
-            } => {
-                let mut arc = GravityModel::shared(model_type)?;
-                if *degree < arc.n_max || *order < arc.m_max {
-                    Arc::make_mut(&mut arc).set_max_degree_order(*degree, *order)?;
-                }
-                Some(arc)
-            }
+            } => Some(Self::resolve_gravity_model(model_type, *degree, *order)?),
             _ => None,
         };
 
@@ -772,6 +768,49 @@ impl DNumericalOrbitPropagator {
             }
         }
 
+        // Resolve per-third-body gravity models (ModelType sources only;
+        // Global reads the process-wide model at evaluation time). Uses the
+        // same shared-cache + copy-on-write truncation path as the central
+        // body's model above. Index-aligned with
+        // `force_config.third_body` entries.
+        let third_body_gravity_models: Vec<Option<Arc<GravityModel>>> =
+            match &force_config.third_body {
+                Some(entries) => entries
+                    .iter()
+                    .map(|entry| match &entry.gravity {
+                        GravityConfiguration::SphericalHarmonic {
+                            source: GravityModelSource::ModelType(model_type),
+                            degree,
+                            order,
+                            ..
+                        } => Self::resolve_gravity_model(model_type, *degree, *order).map(Some),
+                        _ => Ok(None),
+                    })
+                    .collect::<Result<Vec<_>, BraheError>>()?,
+                None => Vec::new(),
+            };
+
+        // Verify the attributed drag body's ephemeris is resolvable up front:
+        // load its kernels and probe the state query once at the initial
+        // epoch, so an unresolvable attribution fails at construction with an
+        // error instead of panicking inside the integrator. This also warms
+        // the kernel registry so the per-stage drag query skips loadability
+        // checks.
+        if let Some(drag) = &force_config.drag
+            && let Some(body) = &drag.body
+            && body.naif_id() != force_config.central_body.naif_id()
+        {
+            crate::spice::registry::ensure_bodies_loadable(&[
+                body.naif_id(),
+                force_config.central_body.naif_id(),
+            ])?;
+            crate::spice::registry::spk_state(
+                body.naif_id(),
+                force_config.central_body.naif_id(),
+                epoch,
+            )?;
+        }
+
         // Extract solid-tide config before force_config is moved into the closure.
         let solid_tide = force_config.tides.as_ref().and_then(|t| t.solid);
 
@@ -782,6 +821,7 @@ impl DNumericalOrbitPropagator {
             params.clone(),
             additional_dynamics,
             gravity_model.clone(),
+            third_body_gravity_models,
             solid_tide,
         );
 
@@ -1438,6 +1478,7 @@ impl DNumericalOrbitPropagator {
         params: DVector<f64>,
         additional_dynamics: Option<DStateDynamics>,
         gravity_model: Option<Arc<GravityModel>>,
+        third_body_gravity_models: Vec<Option<Arc<GravityModel>>>,
         solid_tide: Option<SolidTideConfig>,
     ) -> SharedDynamics {
         // Per-propagator rotation cache. Mutex (not RefCell) because
@@ -1449,6 +1490,43 @@ impl DNumericalOrbitPropagator {
             force_config.central_body.clone(),
             force_config.frame_transform.clone(),
         )));
+
+        // Rotation caches for bodies that carry a body-fixed force model but
+        // are not the central body: third-body entries with extended gravity,
+        // and an attributed drag body. Keyed by NAIF ID; empty for
+        // configurations without body attribution, in which case the
+        // per-stage rotation collection below is a no-op.
+        let mut attributed_caches: Vec<(i32, Arc<Mutex<RotationCache>>)> = Vec::new();
+        {
+            let central_id = force_config.central_body.naif_id();
+            let mut add_body = |cb: CentralBody| {
+                let id = cb.naif_id();
+                if id != central_id && !attributed_caches.iter().any(|(i, _)| *i == id) {
+                    attributed_caches.push((
+                        id,
+                        Arc::new(Mutex::new(RotationCache::new(
+                            cb,
+                            force_config.frame_transform.clone(),
+                        ))),
+                    ));
+                }
+            };
+            if let Some(entries) = &force_config.third_body {
+                for entry in entries {
+                    if !matches!(entry.gravity, GravityConfiguration::PointMass)
+                        && let Some(cb) = entry.body.as_central_body()
+                    {
+                        add_body(cb);
+                    }
+                }
+            }
+            if let Some(drag) = &force_config.drag
+                && let Some(body) = &drag.body
+            {
+                add_body(body.clone());
+            }
+        }
+
         Arc::new(
             move |t: f64,
                   state: &DVector<f64>,
@@ -1468,8 +1546,10 @@ impl DNumericalOrbitPropagator {
                     &force_config,
                     params_opt.or(Some(&params)),
                     gravity_model.as_ref(),
+                    &third_body_gravity_models,
                     solid_tide,
                     r_i2b,
+                    &attributed_caches,
                 );
 
                 // Widen the orbital derivative to the full state dimension.
@@ -1580,6 +1660,43 @@ impl DNumericalOrbitPropagator {
         }
     }
 
+    /// Resolve a gravity model from the process-wide cache, truncating a
+    /// copy-on-write clone to the requested degree/order when the cached
+    /// full-resolution model is larger. Shared by the central-body and
+    /// per-third-body model resolution at construction so cache/truncation
+    /// semantics cannot diverge between the two.
+    fn resolve_gravity_model(
+        model_type: &GravityModelType,
+        degree: usize,
+        order: usize,
+    ) -> Result<Arc<GravityModel>, BraheError> {
+        let mut arc = GravityModel::shared(model_type)?;
+        if degree < arc.n_max || order < arc.m_max {
+            Arc::make_mut(&mut arc).set_max_degree_order(degree, order)?;
+        }
+        Ok(arc)
+    }
+
+    /// Look up (or lazily compute and cache) the inertial→body-fixed rotation
+    /// for an attributed body at the given stage time. Panics if the body was
+    /// never registered — `build_shared_dynamics` registers a cache for every
+    /// attributed body a validated configuration can reference, so a miss is
+    /// a programming error, not a user error.
+    fn attributed_rotation(
+        caches: &[(i32, Arc<Mutex<RotationCache>>)],
+        naif_id: i32,
+        t: f64,
+        epoch: Epoch,
+    ) -> SMatrix3 {
+        caches
+            .iter()
+            .find(|(id, _)| *id == naif_id)
+            .map(|(_, cache)| cache.lock().unwrap().get_or_compute(t, epoch))
+            .unwrap_or_else(|| {
+                panic!("no attributed rotation cache registered for NAIF ID {naif_id}")
+            })
+    }
+
     /// Core dynamics computation function
     ///
     /// Computes the state derivative for given time, state, and parameters.
@@ -1592,8 +1709,10 @@ impl DNumericalOrbitPropagator {
         force_config: &ForceModelConfig,
         params_opt: Option<&DVector<f64>>,
         gravity_model: Option<&Arc<GravityModel>>,
+        third_body_gravity_models: &[Option<Arc<GravityModel>>],
         solid_tide: Option<SolidTideConfig>,
         r_i2b: SMatrix3,
+        attributed_caches: &[(i32, Arc<Mutex<RotationCache>>)],
     ) -> Vector6<f64> {
         // Convert relative time to absolute Epoch
         let epoch = epoch_initial + t;
@@ -1623,6 +1742,9 @@ impl DNumericalOrbitPropagator {
 
         // ===== GRAVITY =====
         match &force_config.gravity {
+            // No central gravity term: barycentric propagation centers take
+            // all gravitational forces from the third-body entries.
+            GravityConfiguration::Zero => {}
             GravityConfiguration::PointMass => {
                 // Barycenters (`gm() == 0`) contribute no point-mass term of
                 // their own; their gravity comes entirely from the third-body
@@ -1712,15 +1834,46 @@ impl DNumericalOrbitPropagator {
             let drag_area = drag_config.area.get_value(params_opt);
             let cd = drag_config.cd.get_value(params_opt);
 
-            // Compute atmospheric density
+            // Body whose atmosphere produces the drag. When attributed to a
+            // body other than the central body, the object's state, the
+            // body-fixed rotation, and the co-rotation vector are all taken
+            // relative to that body; the resulting acceleration applies
+            // directly in the (ICRF-oriented) propagation frame — drag has
+            // no indirect term. When the attribution matches the central
+            // body this is line-for-line the legacy central-body path.
+            let attributed = drag_config.body.as_ref().unwrap_or(central);
+            let (x_drag, r_i2b_drag) = if attributed.naif_id() == central.naif_id() {
+                (x_eci, r_i2b)
+            } else {
+                // Kernels for the attributed body are loaded and the query
+                // verified once at propagator construction; this per-stage
+                // query only re-evaluates the (time-varying) state.
+                let body_state = crate::spice::registry::spk_state(
+                    attributed.naif_id(),
+                    central.naif_id(),
+                    epoch,
+                )
+                .expect("SPK drag-body state query failed");
+                (
+                    x_eci - body_state,
+                    Self::attributed_rotation(attributed_caches, attributed.naif_id(), t, epoch),
+                )
+            };
+            let r_drag = Vector3::new(x_drag[0], x_drag[1], x_drag[2]);
+
+            // Compute atmospheric density at the attributed-body-relative
+            // position
             let density = match &drag_config.model {
                 AtmosphericModel::HarrisPriester => {
+                    // Earth-only (validated): r_drag is Earth-relative and
+                    // sun_position is geocentric, so the diurnal-bulge
+                    // geometry holds.
                     let r_sun = sun_position(epoch);
-                    density_harris_priester(r, r_sun)
+                    density_harris_priester(r_drag, r_sun)
                 }
                 AtmosphericModel::NRLMSISE00 => {
                     // NRLMSISE00 requires ECEF position
-                    let r_ecef = r_i2b * r;
+                    let r_ecef = r_i2b_drag * r_drag;
                     density_nrlmsise00(&epoch, r_ecef).unwrap_or(0.0)
                 }
                 AtmosphericModel::Exponential {
@@ -1728,23 +1881,23 @@ impl DNumericalOrbitPropagator {
                     rho0,
                     h0,
                 } => {
-                    let radius = central
+                    let radius = attributed
                         .radius()
-                        .expect("drag requires central-body radius (validated)");
-                    let altitude = r.norm() - radius;
+                        .expect("drag requires attributed-body radius (validated)");
+                    let altitude = r_drag.norm() - radius;
                     let h_diff = altitude - h0;
                     rho0 * (-h_diff / scale_height).exp()
                 }
             };
 
-            // Compute drag acceleration using the central body's atmospheric
-            // co-rotation rate. For Earth this is bit-identical to the legacy
-            // `accel_drag` (which delegates to `accel_drag_for_body` with the
-            // same Earth spin vector).
-            let omega = central
+            // Compute drag acceleration using the attributed body's
+            // atmospheric co-rotation rate. For Earth this is bit-identical
+            // to the legacy `accel_drag` (which delegates to
+            // `accel_drag_for_body` with the same Earth spin vector).
+            let omega = attributed
                 .omega_vector()
-                .expect("drag requires central-body spin rate (validated)");
-            a_total += accel_drag_for_body(x_eci, density, mass, drag_area, cd, r_i2b, omega);
+                .expect("drag requires attributed-body spin rate (validated)");
+            a_total += accel_drag_for_body(x_drag, density, mass, drag_area, cd, r_i2b_drag, omega);
         }
 
         // ===== SOLAR RADIATION PRESSURE =====
@@ -1819,12 +1972,43 @@ impl DNumericalOrbitPropagator {
         }
 
         // ===== THIRD BODY =====
-        if let Some(tb_config) = &force_config.third_body {
-            for body in &tb_config.bodies {
+        if let Some(tb_entries) = &force_config.third_body {
+            for (idx, entry) in tb_entries.iter().enumerate() {
+                let body = &entry.body;
+
+                // Entries with an extended (spherical-harmonic or zonal)
+                // gravity model evaluate the field at the object's position
+                // relative to the body, oriented by the body's own
+                // inertial→body-fixed rotation; the indirect term stays
+                // point-mass (see `accel_third_body_field_for_body_with_model`).
+                if !matches!(entry.gravity, GravityConfiguration::PointMass) {
+                    let r_i2b_body =
+                        Self::attributed_rotation(attributed_caches, body.naif_id(), t, epoch);
+                    a_total += accel_third_body_field_for_body_with_model(
+                        central,
+                        body,
+                        &entry.gravity,
+                        third_body_gravity_models
+                            .get(idx)
+                            .and_then(|m| m.as_deref()),
+                        r_i2b_body,
+                        entry.ephemeris_source,
+                        epoch,
+                        r,
+                    )
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "extended third-body evaluation failed for {:?}: {}",
+                            body, e
+                        )
+                    });
+                    continue;
+                }
                 // Keep the legacy geocentric call for Earth so Earth
                 // propagation stays bit-identical; other central bodies use
                 // the central-body-aware differential form. `accel_third_body`
-                // only supports the 9 classical planet bodies and panics for
+                // supports the Sun, the Moon, Mercury, Venus, and the planet
+                // and barycenter variants; it panics for
                 // Phobos/Deimos/Custom/Earth-as-perturber, so those route
                 // through `accel_third_body_for_body` instead (which returns
                 // an `Err`, not a panic, if body and central body coincide —
@@ -1836,16 +2020,17 @@ impl DNumericalOrbitPropagator {
                         | ThirdBody::Mercury
                         | ThirdBody::Venus
                         | ThirdBody::Mars
+                        | ThirdBody::MarsBarycenter
                         | ThirdBody::Jupiter
+                        | ThirdBody::JupiterBarycenter
                         | ThirdBody::Saturn
+                        | ThirdBody::SaturnBarycenter
                         | ThirdBody::Uranus
-                        | ThirdBody::Neptune => {
-                            a_total += accel_third_body(
-                                body.clone(),
-                                tb_config.ephemeris_source,
-                                epoch,
-                                r,
-                            );
+                        | ThirdBody::UranusBarycenter
+                        | ThirdBody::Neptune
+                        | ThirdBody::NeptuneBarycenter => {
+                            a_total +=
+                                accel_third_body(body.clone(), entry.ephemeris_source, epoch, r);
                         }
                         ThirdBody::Phobos
                         | ThirdBody::Deimos
@@ -1854,7 +2039,7 @@ impl DNumericalOrbitPropagator {
                             a_total += accel_third_body_for_body(
                                 &CentralBody::Earth,
                                 body,
-                                tb_config.ephemeris_source,
+                                entry.ephemeris_source,
                                 epoch,
                                 r,
                             )
@@ -1864,14 +2049,9 @@ impl DNumericalOrbitPropagator {
                         }
                     }
                 } else {
-                    a_total += accel_third_body_for_body(
-                        central,
-                        body,
-                        tb_config.ephemeris_source,
-                        epoch,
-                        r,
-                    )
-                    .expect("third-body query failed");
+                    a_total +=
+                        accel_third_body_for_body(central, body, entry.ephemeris_source, epoch, r)
+                            .expect("third-body query failed");
                 }
             }
         }
@@ -3312,6 +3492,7 @@ impl Identifiable for DNumericalOrbitPropagator {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 mod tests {
     use super::*;
     use crate::constants::units::AngleFormat;
@@ -3328,7 +3509,7 @@ mod tests {
     use crate::propagators::NumericalPropagationConfig;
     use crate::propagators::force_model_config::{
         AtmosphericModel, DragConfiguration, EphemerisSource, GravityConfiguration, OccultingBody,
-        ParameterSource, ThirdBody, ThirdBodyConfiguration,
+        ParameterSource, ThirdBody,
     };
     use crate::propagators::traits::DStatePropagator;
     use crate::time::TimeSystem;
@@ -3365,6 +3546,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::ParameterIndex(1),
                 cd: ParameterSource::ParameterIndex(2),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -9014,6 +9196,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -9071,6 +9254,7 @@ mod tests {
                 },
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -9121,6 +9305,7 @@ mod tests {
                 model: AtmosphericModel::NRLMSISE00,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -9186,6 +9371,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -9251,6 +9437,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -9523,10 +9710,11 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
+            third_body: Some(vec![ThirdBodyConfiguration {
+                body: ThirdBody::Sun,
                 ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Sun],
-            }),
+                gravity: GravityConfiguration::PointMass,
+            }]),
             relativity: false,
         };
 
@@ -9564,10 +9752,11 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
+            third_body: Some(vec![ThirdBodyConfiguration {
+                body: ThirdBody::Moon,
                 ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Moon],
-            }),
+                gravity: GravityConfiguration::PointMass,
+            }]),
             relativity: false,
         };
 
@@ -9590,8 +9779,6 @@ mod tests {
     #[test]
     #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_planets_spice() {
-        use crate::propagators::force_model_config::ThirdBodyConfiguration;
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -9605,10 +9792,11 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Sun, ThirdBody::Moon, ThirdBody::Jupiter],
-            }),
+            third_body: Some(vec![
+                ThirdBody::Sun.into(),
+                ThirdBody::Moon.into(),
+                ThirdBody::JupiterBarycenter.into(),
+            ]),
             relativity: false,
         };
 
@@ -9631,8 +9819,6 @@ mod tests {
     #[test]
     #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_jupiter() {
-        use crate::propagators::force_model_config::ThirdBodyConfiguration;
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -9646,10 +9832,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Jupiter],
-            }),
+            third_body: Some(vec![ThirdBody::JupiterBarycenter.into()]),
             relativity: false,
         };
 
@@ -9684,8 +9867,6 @@ mod tests {
     #[cfg_attr(not(feature = "integration"), ignore)]
     #[serial_test::serial]
     fn test_dnumericalorbitpropagator_force_third_body_phobos_about_earth_does_not_panic() {
-        use crate::propagators::force_model_config::ThirdBodyConfiguration;
-
         setup_global_test_eop();
         crate::utils::testing::setup_global_test_spice();
         crate::spice::load_spice_kernel("mar099s").unwrap();
@@ -9701,10 +9882,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Phobos],
-            }),
+            third_body: Some(vec![ThirdBody::Phobos.into()]),
             relativity: false,
         };
         force_config.validate().unwrap();
@@ -9735,8 +9913,6 @@ mod tests {
     #[test]
     #[serial_test::parallel]
     fn test_dnumericalorbitpropagator_force_third_body_mars() {
-        use crate::propagators::force_model_config::ThirdBodyConfiguration;
-
         setup_global_test_eop();
 
         let epoch = Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -9750,10 +9926,7 @@ mod tests {
             gravity: GravityConfiguration::PointMass,
             drag: None,
             srp: None,
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::DE440s,
-                bodies: vec![ThirdBody::Mars],
-            }),
+            third_body: Some(vec![ThirdBody::MarsBarycenter.into()]),
             relativity: false,
         };
 
@@ -9900,6 +10073,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(5.0),
                 cd: ParameterSource::Value(2.2),
+                body: None,
             }),
             srp: Some(SolarRadiationPressureConfiguration {
                 area: ParameterSource::Value(5.0),
@@ -9907,10 +10081,18 @@ mod tests {
                 eclipse_model: EclipseModel::Conical,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: Some(ThirdBodyConfiguration {
-                ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Sun, ThirdBody::Moon],
-            }),
+            third_body: Some(vec![
+                ThirdBodyConfiguration {
+                    body: ThirdBody::Sun,
+                    ephemeris_source: EphemerisSource::LowPrecision,
+                    gravity: GravityConfiguration::PointMass,
+                },
+                ThirdBodyConfiguration {
+                    body: ThirdBody::Moon,
+                    ephemeris_source: EphemerisSource::LowPrecision,
+                    gravity: GravityConfiguration::PointMass,
+                },
+            ]),
             relativity: true, // Enable relativity
         };
 
@@ -9975,6 +10157,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::ParameterIndex(2), // From params[2]
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -11113,6 +11296,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -11210,6 +11394,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -11272,6 +11457,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::ParameterIndex(1), // Use params[1] for Cd
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -11343,10 +11529,11 @@ mod tests {
                 eclipse_model: EclipseModel::None,
                 occulting_bodies: vec![OccultingBody::Earth],
             }),
-            third_body: Some(ThirdBodyConfiguration {
+            third_body: Some(vec![ThirdBodyConfiguration {
+                body: ThirdBody::Sun,
                 ephemeris_source: EphemerisSource::LowPrecision,
-                bodies: vec![ThirdBody::Sun],
-            }),
+                gravity: GravityConfiguration::PointMass,
+            }]),
             ..Default::default()
         };
 
@@ -11445,6 +11632,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::ParameterIndex(1),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -11503,6 +11691,7 @@ mod tests {
                 model: AtmosphericModel::HarrisPriester,
                 area: ParameterSource::Value(10.0),
                 cd: ParameterSource::Value(2.2),
+                body: None,
             }),
             srp: None,
             third_body: None,
@@ -12670,6 +12859,7 @@ mod tests {
             model: AtmosphericModel::NRLMSISE00,
             area: ParameterSource::Value(1.0),
             cd: ParameterSource::Value(2.2),
+            body: None,
         });
 
         let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
@@ -12799,10 +12989,7 @@ mod tests {
 
         let mut cfg = ForceModelConfig::cislunar_default();
         cfg.srp = None;
-        cfg.third_body = Some(ThirdBodyConfiguration {
-            ephemeris_source: EphemerisSource::DE440s,
-            bodies: vec![ThirdBody::Earth, ThirdBody::Sun],
-        });
+        cfg.third_body = Some(vec![ThirdBody::Earth.into(), ThirdBody::Sun.into()]);
 
         let state = DVector::from_vec(x0.as_slice().to_vec());
 
@@ -13433,5 +13620,455 @@ mod tests {
             diff > 1e-4 && diff < 1e3,
             "tide-induced position diff over one orbit = {diff:.6} m (expected mm–m range)"
         );
+    }
+
+    /// EMB-centered propagation with Earth as a spherical-harmonic third
+    /// body must reproduce the Earth-centered propagation with the same
+    /// field, after re-expressing the trajectory about Earth. The two are
+    /// different formulations of the same physics; agreement is limited by
+    /// the EMB direct-only approximation and integrator tolerance.
+    #[test]
+    #[serial_test::serial]
+    fn test_emb_earth_spherical_harmonic_matches_earth_centered() {
+        use crate::propagators::force_model_config::ThirdBodyConfiguration;
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let oe = DVector::from_vec(vec![R_EARTH + 700e3, 0.001, 51.6, 15.0, 30.0, 45.0]);
+        let x_earth = state_koe_to_eci(
+            nalgebra::Vector6::new(oe[0], oe[1], oe[2], oe[3], oe[4], oe[5]),
+            AngleFormat::Degrees,
+        );
+
+        let sh = |source_type: GravityModelSource| GravityConfiguration::SphericalHarmonic {
+            source: source_type,
+            degree: 8,
+            order: 8,
+            parallel: crate::orbit_dynamics::ParallelMode::Never,
+        };
+
+        let config_earth = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: sh(GravityModelSource::ModelType(GravityModelType::EGM2008_360)),
+            drag: None,
+            srp: None,
+            third_body: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let config_emb = ForceModelConfig {
+            central_body: CentralBody::EMB,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(vec![
+                ThirdBodyConfiguration {
+                    gravity: sh(GravityModelSource::ModelType(GravityModelType::EGM2008_360)),
+                    ..ThirdBody::Earth.into()
+                },
+                ThirdBody::Moon.into(),
+                ThirdBody::Sun.into(),
+            ]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
+        let x_emb = x_earth + earth_wrt_emb;
+
+        let mut prop_earth = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_earth.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_earth,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let mut prop_emb = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_emb.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_emb,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let epoch_end = epoch + 86400.0;
+        prop_earth.propagate_to(epoch_end);
+        prop_emb.propagate_to(epoch_end);
+
+        let xf_earth = prop_earth.current_state();
+        let xf_emb = prop_emb.current_state();
+        let earth_wrt_emb_end = crate::spice::spk_state(399, 3, epoch_end).unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(xf_emb[i] - earth_wrt_emb_end[i], xf_earth[i], epsilon = 1.0);
+        }
+        for i in 3..6 {
+            assert_abs_diff_eq!(
+                xf_emb[i] - earth_wrt_emb_end[i],
+                xf_earth[i],
+                epsilon = 1e-3
+            );
+        }
+    }
+
+    /// Same equivalence as the spherical-harmonic test, with the Earth J2
+    /// zonal field: central-body EarthZonal about Earth vs Earth-attributed
+    /// EarthZonal third body about the EMB.
+    #[test]
+    #[serial_test::serial]
+    fn test_emb_earth_zonal_matches_earth_centered() {
+        use crate::propagators::force_model_config::{
+            ThirdBodyConfiguration, ZonalHarmonicsDegree,
+        };
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_earth = state_koe_to_eci(
+            nalgebra::Vector6::new(R_EARTH + 700e3, 0.001, 51.6, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+
+        let config_earth = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: GravityConfiguration::EarthZonal {
+                degree: ZonalHarmonicsDegree::J2,
+            },
+            drag: None,
+            srp: None,
+            third_body: Some(vec![ThirdBody::Sun.into(), ThirdBody::Moon.into()]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let config_emb = ForceModelConfig {
+            central_body: CentralBody::EMB,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(vec![
+                ThirdBodyConfiguration {
+                    gravity: GravityConfiguration::EarthZonal {
+                        degree: ZonalHarmonicsDegree::J2,
+                    },
+                    ..ThirdBody::Earth.into()
+                },
+                ThirdBody::Moon.into(),
+                ThirdBody::Sun.into(),
+            ]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
+        let x_emb = x_earth + earth_wrt_emb;
+
+        let mut prop_earth = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_earth.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_earth,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let mut prop_emb = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_emb.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_emb,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let epoch_end = epoch + 86400.0;
+        prop_earth.propagate_to(epoch_end);
+        prop_emb.propagate_to(epoch_end);
+
+        let xf_earth = prop_earth.current_state();
+        let xf_emb = prop_emb.current_state();
+        let earth_wrt_emb_end = crate::spice::spk_state(399, 3, epoch_end).unwrap();
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(xf_emb[i] - earth_wrt_emb_end[i], xf_earth[i], epsilon = 1.0);
+        }
+        for i in 3..6 {
+            assert_abs_diff_eq!(
+                xf_emb[i] - earth_wrt_emb_end[i],
+                xf_earth[i],
+                epsilon = 1e-3
+            );
+        }
+    }
+
+    /// The drag-induced trajectory change of Earth-attributed drag under an
+    /// EMB central body must match the drag-induced change of the legacy
+    /// Earth-centered drag path. Differencing drag-on vs drag-off runs on
+    /// each side cancels the (integrator- and constants-limited) baseline
+    /// difference between the two gravitational formulations, isolating the
+    /// attributed-drag evaluation itself.
+    #[test]
+    #[serial_test::serial]
+    fn test_emb_attributed_earth_drag_matches_earth_centered() {
+        use crate::propagators::force_model_config::ThirdBodyConfiguration;
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_earth = state_koe_to_eci(
+            nalgebra::Vector6::new(R_EARTH + 400e3, 0.001, 51.6, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+
+        let drag_earth = DragConfiguration {
+            model: AtmosphericModel::NRLMSISE00,
+            area: ParameterSource::Value(10.0),
+            cd: ParameterSource::Value(2.2),
+            body: None,
+        };
+        let drag_attributed = DragConfiguration {
+            body: Some(CentralBody::Earth),
+            ..drag_earth.clone()
+        };
+
+        let base = |central: CentralBody,
+                    drag: Option<DragConfiguration>,
+                    third_body: Vec<ThirdBodyConfiguration>| ForceModelConfig {
+            central_body: central,
+            gravity: GravityConfiguration::PointMass,
+            drag,
+            srp: None,
+            third_body: Some(third_body),
+            relativity: false,
+            mass: Some(ParameterSource::Value(1000.0)),
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let earth_wrt_emb = crate::spice::spk_state(399, 3, epoch).unwrap();
+        let x_emb = x_earth + earth_wrt_emb;
+        let epoch_end = epoch + 5400.0; // ~one orbit
+
+        let run = |central: CentralBody, drag: Option<DragConfiguration>| -> DVector<f64> {
+            let (x0, third_body) = if matches!(central, CentralBody::Earth) {
+                (x_earth, vec![ThirdBody::Moon.into()])
+            } else {
+                (x_emb, vec![ThirdBody::Earth.into(), ThirdBody::Moon.into()])
+            };
+            let mut prop = DNumericalOrbitPropagator::new(
+                epoch,
+                DVector::from_vec(x0.as_slice().to_vec()),
+                NumericalPropagationConfig::default(),
+                base(central, drag, third_body),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            prop.propagate_to(epoch_end);
+            prop.current_state().clone()
+        };
+
+        let earth_drag = run(CentralBody::Earth, Some(drag_earth));
+        let earth_no_drag = run(CentralBody::Earth, None);
+        let emb_drag = run(CentralBody::EMB, Some(drag_attributed));
+        let emb_no_drag = run(CentralBody::EMB, None);
+
+        // Drag must produce a substantial, matching effect on both sides.
+        let delta_earth = earth_drag - earth_no_drag;
+        let delta_emb = emb_drag - emb_no_drag;
+        let dr_earth =
+            (delta_earth[0].powi(2) + delta_earth[1].powi(2) + delta_earth[2].powi(2)).sqrt();
+        assert!(
+            dr_earth > 1.0,
+            "drag at 400 km should shift the orbit by meters over one orbit, got {dr_earth} m"
+        );
+        for i in 0..3 {
+            assert_abs_diff_eq!(delta_emb[i], delta_earth[i], epsilon = 0.1);
+        }
+        for i in 3..6 {
+            assert_abs_diff_eq!(delta_emb[i], delta_earth[i], epsilon = 1e-4);
+        }
+    }
+
+    /// The full cislunar example configuration — Earth spherical-harmonic
+    /// third body plus Earth-attributed drag about the EMB — must reproduce
+    /// the equivalent Earth-centered configuration within the gravitational
+    /// formulation baseline (~5 m per LEO orbit; see the drag-delta test for
+    /// how that baseline is measured).
+    #[test]
+    #[serial_test::serial]
+    fn test_emb_combined_earth_field_and_drag_matches_earth_centered() {
+        use crate::propagators::force_model_config::ThirdBodyConfiguration;
+        use approx::assert_abs_diff_eq;
+
+        setup_global_test_eop();
+        setup_global_test_space_weather();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let x_earth = state_koe_to_eci(
+            nalgebra::Vector6::new(R_EARTH + 500e3, 0.001, 51.6, 15.0, 30.0, 45.0),
+            AngleFormat::Degrees,
+        );
+
+        let sh = || GravityConfiguration::SphericalHarmonic {
+            source: GravityModelSource::ModelType(GravityModelType::EGM2008_360),
+            degree: 8,
+            order: 8,
+            parallel: crate::orbit_dynamics::ParallelMode::Never,
+        };
+        let drag = |body: Option<CentralBody>| {
+            Some(DragConfiguration {
+                model: AtmosphericModel::NRLMSISE00,
+                area: ParameterSource::Value(10.0),
+                cd: ParameterSource::Value(2.2),
+                body,
+            })
+        };
+
+        let config_earth = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: sh(),
+            drag: drag(None),
+            srp: None,
+            third_body: Some(vec![ThirdBody::Moon.into(), ThirdBody::Sun.into()]),
+            relativity: false,
+            mass: Some(ParameterSource::Value(1000.0)),
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+        let config_emb = ForceModelConfig {
+            central_body: CentralBody::EMB,
+            gravity: GravityConfiguration::Zero,
+            drag: drag(Some(CentralBody::Earth)),
+            srp: None,
+            third_body: Some(vec![
+                ThirdBodyConfiguration {
+                    gravity: sh(),
+                    ..ThirdBody::Earth.into()
+                },
+                ThirdBody::Moon.into(),
+                ThirdBody::Sun.into(),
+            ]),
+            relativity: false,
+            mass: Some(ParameterSource::Value(1000.0)),
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let x_emb = crate::frames::state_eci_to_emb(epoch, x_earth);
+
+        let mut prop_earth = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_earth.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_earth,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let mut prop_emb = DNumericalOrbitPropagator::new(
+            epoch,
+            DVector::from_vec(x_emb.as_slice().to_vec()),
+            NumericalPropagationConfig::default(),
+            config_emb,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let epoch_end = epoch + 5400.0; // ~one orbit
+        prop_earth.propagate_to(epoch_end);
+        prop_emb.propagate_to(epoch_end);
+
+        let xf_earth = prop_earth.current_state();
+        let xf_emb_in_eci = crate::frames::state_emb_to_eci(
+            epoch_end,
+            nalgebra::Vector6::from_iterator(prop_emb.current_state().iter().cloned()),
+        );
+
+        for i in 0..3 {
+            assert_abs_diff_eq!(xf_emb_in_eci[i], xf_earth[i], epsilon = 10.0);
+        }
+        for i in 3..6 {
+            assert_abs_diff_eq!(xf_emb_in_eci[i], xf_earth[i], epsilon = 1e-2);
+        }
+    }
+
+    /// Earth-centered propagation with satellite-system perturbers exercises
+    /// the `accel_third_body_for_body` routing arm of the Earth-central
+    /// third-body dispatch (Phobos/Deimos/Custom/Earth-as-perturber bodies).
+    #[test]
+    #[serial_test::serial]
+    fn test_earth_central_satellite_body_third_body_routing() {
+        setup_global_test_eop();
+        crate::utils::testing::setup_global_test_spice();
+
+        let epoch = Epoch::from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, TimeSystem::UTC);
+        let state = DVector::from_vec(vec![R_EARTH + 35786e3, 0.0, 0.0, 0.0, 3075.0, 0.0]);
+
+        let force_config = ForceModelConfig {
+            central_body: CentralBody::Earth,
+            gravity: GravityConfiguration::PointMass,
+            drag: None,
+            srp: None,
+            third_body: Some(vec![ThirdBody::Phobos.into(), ThirdBody::Deimos.into()]),
+            relativity: false,
+            mass: None,
+            frame_transform: FrameTransformationModel::default(),
+            tides: None,
+        };
+
+        let mut prop = DNumericalOrbitPropagator::new(
+            epoch,
+            state,
+            NumericalPropagationConfig::default(),
+            force_config,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        prop.propagate_to(epoch + 600.0);
+        let s = prop.current_state();
+        assert!(s.iter().all(|v| v.is_finite()));
     }
 }
